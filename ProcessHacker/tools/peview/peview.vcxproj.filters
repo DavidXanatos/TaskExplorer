@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Pages">
+      <UniqueIdentifier>{227fbc2c-1da0-44f4-95c8-47aca5abb52a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Pages\Windows">
+      <UniqueIdentifier>{d170a140-b947-49a4-87e8-e1d35b1024c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Pages\Linux">
+      <UniqueIdentifier>{3213da7e-9e01-48a4-8895-c4dd1499b2fa}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="misc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="prpsh.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="settings.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pdb.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="colmgr.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="searchbox.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cfgprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="clrprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="expprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="impprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="ldprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="pdbprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="peprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="resprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="libprp.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="exlfprp.c">
+      <Filter>Source Files\Pages\Linux</Filter>
+    </ClCompile>
+    <ClCompile Include="exlfimports.c">
+      <Filter>Source Files\Pages\Linux</Filter>
+    </ClCompile>
+    <ClCompile Include="exlfexports.c">
+      <Filter>Source Files\Pages\Linux</Filter>
+    </ClCompile>
+    <ClCompile Include="propstore.c">
+      <Filter>Source Files\Pages</Filter>
+    </ClCompile>
+    <ClCompile Include="streams.c">
+      <Filter>Source Files\Pages</Filter>
+    </ClCompile>
+    <ClCompile Include="attributes.c">
+      <Filter>Source Files\Pages</Filter>
+    </ClCompile>
+    <ClCompile Include="links.c">
+      <Filter>Source Files\Pages\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="processes.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="exlfdynamic.c">
+      <Filter>Source Files\Pages\Linux</Filter>
+    </ClCompile>
+    <ClCompile Include="tlsprp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\peview.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\prpsh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pdb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="colmgr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="peview.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="peview.manifest">
+      <Filter>Resource Files</Filter>
+    </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\ProcessHacker.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\inactive_search.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\active_search.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\active_search.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\inactive_search.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\application.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

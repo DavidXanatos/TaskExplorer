@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/Icons">
+        <file>exe16.png</file>
+        <file>exe32.png</file>
+        <file>exe48.png</file>
+        <file>exe64.png</file>
+    </qresource>
+</RCC>

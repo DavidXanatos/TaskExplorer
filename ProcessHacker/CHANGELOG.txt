@@ -1,0 +1,668 @@
+Process Hacker
+
+3.0
+ * HIGHLIGHTS:
+   * New Process Hacker setup.
+   * New process properties handle search.
+   * Added F11 hotkey for fullscreen System Information window.
+ * OTHER CHANGES:
+* Updated Updater plugin:
+     * New design and layout.
+* Updated WindowExplorer plugin:
+     * Added Windows process properties page.
+ * NOTE:
+   * Support for Windows XP and Vista has been dropped. For those platforms, use Process Hacker 2.38.
+   * This release has significant internal code changes. Please make sure all plugins are up-to-date.
+
+2.39
+ * HIGHLIGHTS:
+   * Improved compatibility with security and anti-cheat software
+   * Added ability to edit process environment variables
+   * Fixed .NET process detection
+ * OTHER CHANGES:
+   * Improved tooltip information for dllhost.exe
+   * Removed Terminator
+   * Updated DotNetTools plugin:
+     * Fixed .NET assembly tab performance issues
+     * Added extra .NET memory counters to the .NET performance tab
+     * Added "Show sizes in bytes" checkbox to the .NET performance tab
+     * Added right-click menu to the .NET assembly tab
+   * Updated ExtendedTools plugin:
+     * Fixed "No process" disk event bug
+   * Updated HardwareDevices plugin:
+     * Fixed incorrect drive letters
+     * Fixed drive letter and panel clipping issue
+
+2.38
+ * HIGHLIGHTS:
+   * Added labels to indicate the maximum data point in each I/O graph
+   * Graph grids now scale correctly when resized
+   * Improved high DPI scaling
+   * Added exploit mitigation policy information to process properties (Windows 8 and above)
+   * Added File modified time and File size columns for processes and modules
+   * Added Key modified time column for services
+   * Clicking a tray icon now shows the pop-up UI (useful for touch-enabled devices)
+   * The NetAdapters plugin has been renamed to HardwareDevices
+     * This plugin shows network adapter and disk drive graphs
+     * If you are manually upgrading, please delete NetAdapters.dll from the plugins folder
+   * Updated UserNotes plugin:
+     * Added "Collapse by default" option for processes
+ * OTHER CHANGES:
+   * Added "Start when I log on" option
+   * Added "Not responding" text to tray icon rich pop-up for programs that are hung
+   * Added right-click menu and double-click action for environment variables
+   * Added dialog box to show long command line strings
+   * Added Time stamp column for processes
+   * Added -sysinfo command line parameter for opening System Information at startup
+   * Added 32x32 icons for high DPI displays
+   * Digital signature verification is now performed with very low I/O priority
+   * Improved performance when handling a large number of threads, modules or handles
+   * The pop-up UI no longer displays when double-clicking the tray icon
+   * Fixed ASLR state being shown as N/A in process properties
+   * Fixed multi monitor window placement bug
+   * Fixed handle enumeration bug affecting processes with PID >= 65536
+   * Fixed Interrupts being missing from the max CPU usage history
+   * Updated ToolStatus plugin:
+     * Added 32x32 icons for high DPI displays
+     * Fixed status bar crash
+ * NOTE:
+   * This release has significant internal code changes. Please make sure all plugins are up-to-date.
+
+2.37
+ * HIGHLIGHTS:
+   * Updated for Windows 10
+   * The "Include CPU (and other) usage of children in collapsed processes" option now aggregates memory and I/O statistics
+   * Added regex search to "Find Handles or DLLs"
+   * Added process exit codes to log
+   * Fixed crash that occurred under some conditions when processes terminated
+ * OTHER CHANGES:
+   * Added warning when trying to search for handles when the system has too many handles open
+   * Upgraded to PCRE2
+   * Updated DotNetTools plugin:
+     * Rewrite of .NET Performance statistics and AppDomain enumeration
+   * Updated OnlineChecks plugin:
+     * Fixed virusscan.jotti.org uploader
+   * Updated NetAdapters plugin:
+     * Added adapter details window
+   * Updated ToolStatus plugin:
+     * Added CPU, Memory and I/O graphs to the toolbar (not enabled by default)
+     * Added toolbar and status bar customization, as well as a new theme
+     * Added option to auto-hide the main menu
+   * Updated UserNotes plugin:
+     * Added individual process highlighting support
+
+2.36
+ * HIGHLIGHTS:
+   * New rich pop-up UI when hovering the cursor over a tray icon, showing the most active processes
+   * Completely new Memory tab for processes, with heap, stack and working set usage
+   * Process Hacker now takes 32-bit dumps of 32-bit processes on 64-bit Windows
+     * NOTE: When using the portable (.zip) release, the entire archive must be extracted
+   * Updated DotNetTools plugin:
+     * Process Hacker now displays managed stack traces for 32-bit .NET processes on 64-bit Windows
+     * Fixed inaccurate stack traces when clicking Refresh
+     * Added AppDomain column for threads in .NET programs
+ * OTHER CHANGES:
+   * Added customizable bytes per row setting for memory editor
+   * Dramatically faster handle listing and search when running without administrative privileges
+   * Improved accuracy and speed of symbol resolution, especially when new modules are loaded
+   * Added trigger and delayed start information to service list
+   * Added file information to service list tooltips
+   * Balloon tips for process/service notifications are now clickable
+   * Added handle names for unnamed File objects
+   * Added I/O Priority to tray icon process menu
+   * Added warning for users who attempt to start the 32-bit version on 64-bit Windows
+   * Updated ExtendedServices plugin:
+     * Added service protection and SID information
+     * Added auto-elevation when saving recovery information, triggers and other service settings
+   * Updated ExtendedTools plugin:
+     * Added tray icon mini info window support
+     * Improved automatic GPU node selection
+   * Updated UserNotes plugin:
+     * Added tray icon mini info window support
+   * Fixed a bug in phsvc that caused hangs when automatically elevating actions
+   * Fixed hang when viewing handle security for certain File objects
+   * Fixed lack of information on startup when using slower refresh intervals
+   * Fixed Read/Write Address crash
+   * Fixed service non-polling mode on Windows 8 and above
+   * Fixed file dialog crash in Windows PE environments
+   * Fixed string scanning false positive case
+   * Fixed process window detection for Modern UI apps
+   * Fixed handle list selection bug when disabling "Hide unnamed handles"
+ * NOTE:
+   * This release has significant internal code changes. Please make sure all plugins are up-to-date.
+
+2.35
+ * NEW/IMPROVED:
+   * Added Load Time and Load Reason columns for modules (Windows 8 and above)
+   * Added handle names for Job and Section objects
+   * Added Read/Write Memory for Section objects (in process Handles tab)
+   * Added CF Guard (Control Flow Guard) column for processes and modules
+   * Added highlighting for AppContainer DLLs
+   * Added AppContainer and CF Guard image characteristics to peview
+   * Added Open Key and Open File Location menu items for services
+   * Set priority and I/O priority for multiple processes at once
+   * Support for up to 64 processors when setting process/thread affinity
+   * Updated ExtendedTools plugin:
+     * Added Disk and Network graphs for all processes
+   * Updated UserNotes plugin:
+     * Added ability to save I/O priority
+ * FIXED:
+   * Fixed memory editor copy bug
+
+2.34
+ * NEW/IMPROVED:
+   * Proper Unicode support
+   * CPU and GPU graphs are displayed in a grid now (thanks pavel_kv!)
+   * Start Task Manager now elevates when necessary
+   * Better names for memory regions in Memory tab (for PEBs, TEBs, thread stacks)
+   * Added tooltip information for user-mode driver framework (UMDF) host processes
+   * Added option to reduce row height (set ThinRows to 1 in settings.xml)
+   * Added NetAdapters plugin: adds graphs for selected network adapters to the System Information window
+   * Updated ExtendedTools plugin:
+     * Added GPU graphs for all processes
+     * Can now use the search box in the Disk tab
+     * Improved kernel logger handling
+ * FIXED:
+   * Fixed touch scrolling
+   * Fixed EtwRegistration object names for 64-bit Windows 8.1
+   * Fixed tray icons being clipped in high DPI environments
+   * Fixed crash in memory editor
+   * Fixed multi monitor window placement bug
+
+2.33
+ * NEW/IMPROVED:
+   * View digital signature information from process properties and peview
+   * Signatures for Windows 8 apps are now detected
+   * Improved file, key, process and thread handle properties
+   * Added DPI Awareness column
+   * Added new Windows 8.1 process protection information
+   * KProcessHacker is no longer needed for highlighting of GUI threads
+   * Added suspend count for threads on Windows 8.1
+   * Updated DotNetTools plugin:
+     * Improved .NET assembly enumeration timeout handling
+ * FIXED:
+   * Service start type and error control are never updated if modified outside of Process Hacker
+
+2.32
+ * NOTE:
+   * All executable files are now signed.
+ * NEW/IMPROVED:
+   * Updated for Windows 8.1
+   * Added progress display for thread stacks
+   * Updated ExtendedServices plugin:
+     * Added new trigger data types
+   * Updated NetworkTools plugin:
+     * Updated UI
+   * Updated OnlineChecks plugin:
+     * Added file analyzed prompt
+ * FIXED:
+   * Fixed handling of long symbol names
+   * Fixed Run As preventing Windows 8 apps from starting
+   * Fixed console host information for Windows 8.1
+   * Fixed reflected processes not terminating on Windows 8.1
+   * Fixed CPU frequency on Windows 8.1
+
+2.31
+ * NEW/IMPROVED:
+   * Updated ExtendedServices plugin:
+     * Fixed some bugs relating to Windows 8
+   * Updated OnlineChecks plugin:
+     * Added upload progress
+   * Updated UserNotes plugin:
+     * Fixed bug where process priorities were not actually saved
+ * FIXED:
+   * Fixed module list not updating properly
+   * DLL enumeration crash
+
+2.30
+ * NEW/IMPROVED:
+   * Added "Icon click toggles visibility" option
+   * Re-enabled powerful process termination on 32-bit Windows 8
+   * Updated UserNotes plugin:
+     * Added ability to save process priority
+     * Added "Only for processes with the same command line" option for process comments
+ * FIXED:
+   * Fixed crash on CPUs without SSE2
+
+2.29
+ * NEW/IMPROVED:
+   * Added App ID column for processes
+   * Added new ASLR information for Windows 8
+   * Added Restart to Boot Options and Hybrid Shutdown menu items for Windows 8
+   * Added ability to specify processes by their names and inject and unload DLLs in command line
+   * Removed 512 character limit when copying text
+   * Moved Terminator to Miscellaneous menu
+   * Updated default dbghelp.dll path for Windows SDK v8
+   * Updated ExtendedServices plugin:
+     * Added new triggers for Windows 8
+     * Fixed bug when restarting services
+   * Updated ExtendedTools plugin:
+     * Improved support for multiple GPUs (again)
+     * GPU column now respects "Include CPU usage of children" option
+   * Updated ToolStatus plugin:
+     * Fixed search box fonts
+     * Fixed controls not being properly hidden/removed from the window when disabled
+   * Updated WindowExplorer plugin:
+     * Fixed window list not displaying Modern UI windows
+ * FIXED:
+   * Fixed Load Count column sorting bug
+   * Fixed signature verification on Windows 8
+   * Fixed task scheduler information on Windows 8
+   * Fixed drag bug in tree list
+   * Fixed KProcessHacker bug affecting TmTx objects
+   * Fixed Run As feature on Windows 8
+   * Fixed bug where -settings parameter is not propagated
+   * Fixed tab key behavior on main window
+   * Fixed recognition of Modern UI windows
+
+2.28
+ * NEW/IMPROVED:
+   * peview now resolves .lnk targets
+   * Fixed Ctrl+A for processes, services and network connections and added Ctrl+A for other windows
+   * Changed confirmation prompts to select the destructive action by default
+   * Updated DotNetTools plugin:
+     * Fixed inaccurate stack traces for certain .NET programs
+   * Updated ExtendedTools plugin:
+     * Fixed network graph scaling
+   * Updated ToolStatus plugin:
+     * Added search box
+   * Updated Updater plugin
+ * FIXED:
+   * Fixed Verification Status column sorting bug in module list
+   * Fixed rare System Information crash
+   * Fixed bug in opening process handles
+   * Fixed freezing when viewing stack traces of certain system threads
+
+2.27
+ * NEW/IMPROVED:
+   * Updated OnlineChecks plugin:
+     * 2012-01-16: Updated VirusTotal uploader and added hash checking
+ * FIXED:
+   * Fixed Description column sorting bug
+   * Fixed notification icon bug
+
+2.26
+ * NEW/IMPROVED:
+   * Added option to show Commit Charge in system information summary view
+   * Added -priority and -selectpid command line options
+   * Updated ExtendedTools plugin:
+     * Improved support for multiple GPUs
+ * FIXED:
+   * Fixed 100% CPU when starting on some machines
+
+2.25
+ * NEW/IMPROVED:
+   * Improved CPU frequency calculation
+   * Updated ExtendedTools plugin:
+     * Added GPU node selection
+     * Fixed incorrect GPU usage calculation
+ * FIXED:
+   * Graph tooltip position with large cursors
+   * Fixed .NET process detection
+   * Fixed incorrect values in Bits column
+
+2.24
+ * NOTE:
+   * This release has significant internal code changes. Please make sure all plugins are up-to-date.
+ * NEW/IMPROVED:
+   * Completely new system information window
+   * Added option to scroll to new processes
+   * Added option to hide driver services
+   * Added menu item to copy individual cells
+   * Improved module scanning
+   * Added Start Task Manager menu item
+   * Added Image base to peview
+   * Updated ExtendedTools plugin:
+     * Added support for new system information window
+     * Added Disk, Network and GPU tray icons
+     * Added support for custom fonts in the Disk tab
+   * Updated Updater plugin:
+     * Added download speed
+     * Added remaining time
+ * FIXED:
+   * Fixed retrieval of version information for certain files
+   * Fixed driver file names on Windows XP
+   * Fixed Run As Administrator when used with complex commands
+
+2.23
+ * NEW/IMPROVED:
+   * Added display of token capabilities, user/device claims and security attributes
+   * Added ability to change token integrity levels
+   * Added Description column to service list
+   * Added option to reset all settings
+   * Made grid color darker
+   * Enabled multi-selection in the hidden processes window
+   * Added UserNotes plugin
+   * Updated ExtendedNotifications plugin:
+     * Added Growl support
+   * Updated ExtendedTools plugin:
+     * Added GPU monitoring
+     * Added rate columns for disk and network I/O
+ * FIXED:
+   * Fixed copying lists when plugin columns are enabled
+   * Freezing when viewing the tooltip for a process with a very long command line
+   * Disabled Hidden Processes feature on 64-bit systems
+
+2.22
+ * NEW/IMPROVED:
+   * Added highlighting for metro style apps
+   * Added Package Name column
+   * Added package name to process tooltip
+   * Improved .NET process detection
+   * Updated OS Context column for Windows 8
+   * Updated ExtendedTools plugin:
+     * Updated disk monitoring for Windows 8
+     * Updated memory list information for Windows 8
+   * Updated WindowExplorer plugin:
+     * Fixed hook support for low integrity processes
+ * FIXED:
+   * Fixed memory leaks
+   * Fixed bug preventing Interrupts/DPCs from being shown as the max. CPU process on 64-bit systems
+   * Fixed DEP Status column on 64-bit systems
+
+2.21
+ * NEW/IMPROVED:
+   * Added Private Bytes Delta, ASLR and Subsystem columns
+   * Added ASLR and Time Stamp columns to modules list
+   * Added check for debugger in Terminator
+ * FIXED:
+   * Fixed Show CPU Below 0.01 not respecting locale
+   * Fixed copying from network list
+
+2.20
+ * NEW/IMPROVED:
+   * Added support for managed thread stacks on x64
+   * Added column selection for handle list
+   * Added CPU column to threads list
+   * Improved module detection
+   * Added Ideal Processor to Threads tab
+   * Added pool usage and minimum/maximum working set columns
+   * Implemented Properties button for Thread handles
+   * Set descending sort as the default for most numeric columns
+   * Extended header context menu
+   * Removed tooltip text truncation
+   * Improved cycle-based CPU usage calculation
+   * Set default KProcessHacker security level to only allow connections when Process Hacker is running as administrator.
+     See README.txt for instructions on how to restore the old behavior.
+   * Added Updater plugin
+   * Updated DotNetTools plugin:
+     * Added managed symbol resolution for thread stacks
+   * Updated ExtendedTools plugin:
+     * Added Disk tab
+     * Added Hard Faults, Hard Faults Delta and Peak Threads columns to process tree list
+     * Added Firewall Status column
+ * FIXED:
+   * Fixed file name resolution bug
+   * Save settings on shutdown/logoff
+   * Fixed state highlighting bug
+   * Fixed command line propagation for -elevate
+   * Fixed tree list mouse wheel handling
+   * Fixed saving network list
+
+2.19
+ * NEW/IMPROVED:
+   * Added cycle-based CPU usage for Windows 7
+   * Added Show CPU Below 0.01
+   * Added OS Context column
+   * Rewrote graph drawing code for improved performance
+   * Optimized retrieval of cycle time and private working set information for Windows 7
+   * Added Open File Location to process context menu and reorganized some items
+   * Added checkboxes to Terminator
+ * FIXED:
+   * Crash when sorting by Time Stamp
+   * GDI handle leak in drag selection
+
+2.18
+ * NEW/IMPROVED:
+   * Completely rewritten tree list control:
+     * Process Name column is now fixed to the left
+     * Tooltips for column headers
+     * Improved performance
+     * Bug fixes
+   * Added more process tree list columns
+   * Added Time stamp column to network list
+   * Date/time display is now swapped (so time is shown before date)
+   * Added W3 terminator test
+   * Added DotNetTools plugin
+   * Updated ExtendedServices plugin:
+     * Disabled editing of required privileges for drivers
+   * Updated ExtendedTools plugin:
+     * Added ETW columns for processes and network connections
+   * Updated OnlineChecks plugin:
+     * Added Comodo Instant Malware Analysis
+   * Updated WindowExplorer plugin:
+     * Fixed hook bugs
+ * FIXED:
+   * Fixed Run As This User
+   * Verification Status sorting
+
+2.17
+ * NEW/IMPROVED:
+   * Added support for setting page priority
+   * Added elevation support for setting priority
+   * Added support for automatically using a settings file in the program directory (e.g. ProcessHacker.exe.settings.xml)
+   * Improved Run As mechanism
+   * Updated ExtendedServices plugin:
+     * Added support for editing triggers
+     * Added support for editing preshutdown time-out
+     * Added support for editing required privileges
+     * Added elevation support for restarting services
+   * Updated WindowExplorer plugin:
+     * Added more window properties
+ * FIXED:
+   * Handle leak
+
+2.16
+ * NEW/IMPROVED:
+   * Updated WindowExplorer plugin
+   * PE viewer: Added version string to CLR tab
+   * PE viewer: Added display of delay imports
+   * PE viewer: Added Load Config tab
+   * Improved wait analysis
+   * Added arrows to the service list to indicate whether a service is running
+ * FIXED:
+   * Fixed the IPv6-related workaround causing crashes
+   * Incorrect handling of window positions
+
+2.15
+ * NEW/IMPROVED:
+   * Updated ExtendedServices plugin
+   * Updated ToolStatus plugin
+   * Added DEP Status column
+   * Improved User Name column
+ * FIXED:
+   * Image file versions
+   * Workaround for an IPv6-related bug in Windows XP
+   * DPCs and Interrupts in System Information tooltips
+   * File dialog crash on Windows XP
+   * ExtendedTools plugin: WS Watch refresh bug
+
+2.14
+ * NEW/IMPROVED:
+   * ExtendedServices plugin: Option to add a Services menu for processes
+   * Command line support for setting process priority and I/O priority
+   * Improved termination of explorer.exe
+ * FIXED:
+   * Icon should restore the main window if it is minimized
+   * System Information window crashes
+   * Hide Processes From Other Users and Hide Signed Processes settings are now saved
+   * Font selection on Windows XP
+   * ToolStatus plugin: Always on Top status being reset by Find Window
+   * Service-related crashes
+   * WindowExplorer plugin: sorting in tree list
+   * Process minidump creation with old versions of dbghelp.dll
+
+2.13
+ * NEW/IMPROVED:
+   * Added copy support to PE viewer
+   * Added Connect Time, Disconnect Time and Last Input Time to session properties
+   * Added more working set counters to the Statistics tab
+ * FIXED:
+   * Column sort arrows
+   * CPU usage calculations
+
+2.12
+ * NEW/IMPROVED:
+   * Updated KProcessHacker for Windows 7 SP1
+   * Added elevation support for more actions
+   * Added ability to disable plugins
+   * Updated ToolStatus plugin
+   * Added Remote Control for sessions
+   * More command line options
+ * FIXED:
+   * Memory leaks
+   * Run As issues with different sessions
+
+2.11
+ * NEW/IMPROVED:
+   * Added WS Watch and other features to ExtendedTools plugin
+   * Added WindowExplorer plugin
+   * Properties for hidden processes
+   * Improved menus
+   * Debug console can now be closed without affecting the entire program
+ * FIXED:
+   * Always on Top issues
+   * Hang when setting DEP status of a terminating process
+   * Encoding bug in NetworkTools plugin
+   * LSA interfacing issues
+   * Creating dumps of self
+
+2.10
+ * NEW/IMPROVED:
+   * KProcessHacker is now signed, so it works on 64-bit systems. Thank you to the ReactOS Foundation.
+   * Added Run As Limited User
+   * Added CPU, private bytes and I/O history columns
+   * Added font selection
+   * Slightly improved highlighting configuration
+ * FIXED:
+   * High DPI support
+   * Multi-monitor support in graph tooltips
+   * DEP status retrieval
+   * ExtendedTools plugin crash
+   * Notification icon menu crash
+   * Memory leaks
+   * Other small bug fixes
+
+2.9
+ * NEW/IMPROVED:
+   * Added column selection for modules list
+   * Added wait analysis for 64-bit systems
+   * Added signature verification for modules
+   * Added ExtendedTools plugin (Vista and above only) with Disk and Network information
+   * Updated ExtendedNotifications plugin: added ability to log events to a file
+   * Updated ExtendedServices plugin: new tab on Vista and above
+   * Updated ToolStatus plugin: resolves ghost windows to hung windows
+   * Environment variables and current directory are now correctly shown for WOW64 processes
+   * I/O priority names are now used instead of numbers
+ * FIXED:
+   * Network list bug
+   * Memory leaks
+
+2.8
+ * NEW/IMPROVED:
+   * Better service list (including column selection)
+   * Added Peak Handles
+   * Process tree sorting is now preserved
+   * Save works for services and network connections
+   * Pausing now works correctly with the Network tab
+   * Added option to display inclusive CPU usages for collapsed processes
+   * Added CLR tab to peview
+   * Added ability to destroy heaps
+   * Improved process tree list appearance
+   * Certain command line parameters are now propagated
+ * FIXED:
+   * Icon handling bugs
+   * Memory leaks
+   * Extended tooltips for WOW64 processes
+
+2.7
+ * NEW/IMPROVED:
+   * Vastly improved startup time and lower memory usage
+   * Added Cycles and Cycles Delta columns
+   * Added option to disable address resolution for network connections
+   * Added Logon Time to session properties
+   * Added time stamp display to peview
+ * FIXED:
+   * ToolStatus layout problems
+   * .NET highlighting crashes
+   * Run As on Windows XP
+
+2.6
+ * NEW/IMPROVED:
+   * Sorting for most lists is now much faster
+   * Hide Signed Processes option
+   * Added plugin for uploading files to online virus scanners
+   * Added Network tools plugin
+   * Updated ExtendedServices plugin
+   * PE viewer now verifies checksums
+   * Performance improvements
+ * FIXED:
+   * Fixed service handle leak
+
+2.5
+ * NEW/IMPROVED:
+   * Unmap section views in Memory tab
+   * Plugin for extended service information (including recovery information, dependencies and dependents)
+ * FIXED:
+   * Critical bug for file dialogs on Windows XP
+   * Esc couldn't close Service Properties on open
+   * Small bug fixes
+
+2.4
+ * NEW/IMPROVED:
+   * Better Run As behaviour
+   * Show Processes From All Users option
+   * Can now unmap section views
+   * Control over thread affinity
+   * Window Title and Window Status columns
+   * Plugin for filtering notifications
+   * Plugin for toolbar and status bar
+   * Performance improvements
+ * FIXED:
+   * Memory leak
+   * SbieSupport plugin on 64-bit
+   * Crash when running under certain conditions
+   * Memory case-insensitive filter
+   * Process parent association bug
+ * REMOVED:
+   * Process database
+
+2.3
+ * NEW/IMPROVED:
+   * Can add processes to jobs
+   * Double-clicking in the system information graphs now opens information for the relevant process
+   * Setting I/O priority doesn't need KProcessHacker anymore
+   * Elevation for certain actions
+ * FIXED:
+   * HKCU key name resolution
+   * Network connection host resolution
+   * Information window resizing
+   * Log clearing
+
+2.2
+ * NEW/IMPROVED:
+   * Plugins support
+   * Can now unload 32-bit modules on 64-bit systems
+   * Tasks are shown in tooltips for taskeng.exe/taskhost.exe processes
+   * Run As can now start processes elevated
+   * Handle count by type
+   * Process priorities in notification icon menu
+   * CSV export
+   * Relative start times
+ * FIXED:
+   * Run and Run As shortcuts
+   * Command line handling
+   * Process tree selection
+
+2.1
+ * NEW/IMPROVED:
+   * Add Pause key shortcut to pause/resume updates
+   * Added Ctrl+Tab and Ctrl+Shift+Tab shortcuts
+   * Grid is a bit darker
+   * Checks for digital signatures and packing is now off by default and optional
+ * FIXED:
+   * MD5 calculation code for files was wrong
+   * Process record bugs
+
+2.0
+ * First release in the Process Hacker 2.x branch.

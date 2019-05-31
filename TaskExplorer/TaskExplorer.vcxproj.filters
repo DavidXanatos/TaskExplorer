@@ -1,0 +1,290 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>moc;h;cpp</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="TaskInfo">
+      <UniqueIdentifier>{04372b0f-1fa5-4294-a9a5-6a947ea3c5a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SystemInfo">
+      <UniqueIdentifier>{ba7af562-4fa1-4d9a-9e1f-aa9ccfb0be34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TaskExplorer">
+      <UniqueIdentifier>{9281d09d-2ea9-4fd9-9f5b-3641b4950edb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API">
+      <UniqueIdentifier>{cb9977b3-aced-4563-8332-f3745213d3bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows">
+      <UniqueIdentifier>{2db0add2-87fa-494d-a6b9-eedf94b80984}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{21b99ddb-37fd-49c1-9470-f459c5dff027}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Models">
+      <UniqueIdentifier>{4a0bd8cb-5aae-4453-8d1d-af5ccee27686}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="API\SystemAPI.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\GraphBar.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\ProcessTree.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskExplorer.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\DriversView.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\ServicesView.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\SystemInfoView.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\SystemOverview.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\SystemPerfMon.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\EnvironmentView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\HandlesView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\MemoryView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\ModulesView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\SocketsView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\TaskInfoView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\TaskOverview.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\TaskPerfMon.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\ThreadsView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\TokensView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\WindowsView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Process.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WindowsAPI.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DebugHelpers.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Common.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinProcess.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\SocketInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinSocket.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\ProcessModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\SocketModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\AllFilesView.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\SystemInfo\DriversView.h">
+      <Filter>SystemInfo</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\SystemInfo\ServicesView.h">
+      <Filter>SystemInfo</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker.h">
+      <Filter>API\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DebugHelpers.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Common.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\Models\SortFilterProxyModel.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="API\SystemAPI.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\GraphBar.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\ProcessTree.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskExplorer.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\SystemInfoView.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\SystemOverview.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\SystemPerfMon.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\EnvironmentView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\HandlesView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\MemoryView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\ModulesView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\SocketsView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\TaskInfoView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\TaskOverview.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\TaskPerfMon.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\ThreadsView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\TokensView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\WindowsView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WindowsAPI.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\TreeWidgetEx.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\TreeViewEx.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinProcess.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Process.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\SocketInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinSocket.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\ProcessModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\SocketModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\AllFilesView.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\exe16.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\exe32.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\exe48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\exe64.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\TaskExplorer.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="Resources\TaskExplorer.qrc">
+      <Filter>Resource Files</Filter>
+    </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resources\TaskExplorer.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

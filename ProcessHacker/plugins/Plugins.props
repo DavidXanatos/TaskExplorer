@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+    <!-- General -->
+    <PropertyGroup Label="Globals">
+        <OutDir>$(SolutionDir)..\bin\$(Configuration)$(PlatformArchitecture)\plugins\</OutDir>
+        <IntDir>$(ProjectDir)obj\$(Configuration)$(PlatformArchitecture)\</IntDir>
+        <CodeAnalysisRuleSet>NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+        <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+        <UseDebugLibraries Condition="'$(Configuration)'=='Release'">false</UseDebugLibraries>
+        <WholeProgramOptimization Condition="'$(Configuration)'=='Debug'">false</WholeProgramOptimization>
+        <WholeProgramOptimization Condition="'$(Configuration)'=='Release'">true</WholeProgramOptimization>
+        <!-- Debugging -->
+        <LocalDebuggerCommand>$(SolutionDir)..\bin\$(Configuration)$(PlatformArchitecture)\ProcessHacker.exe</LocalDebuggerCommand>
+        <LocalDebuggerWorkingDirectory>$(SolutionDir)..\bin\$(Configuration)$(PlatformArchitecture)\</LocalDebuggerWorkingDirectory>
+        <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    </PropertyGroup>
+
+    <!-- Global -->
+    <ItemDefinitionGroup>
+        <ClCompile>
+            <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+            <TreatWarningAsError>true</TreatWarningAsError>
+            <WarningLevel>Level3</WarningLevel>
+            <SDLCheck>true</SDLCheck>
+            <CallingConvention>StdCall</CallingConvention>
+            <ControlFlowGuard>Guard</ControlFlowGuard>
+            <MinimalRebuild>false</MinimalRebuild>
+            <MultiProcessorCompilation>true</MultiProcessorCompilation>
+            <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+            <StringPooling>true</StringPooling>
+        </ClCompile>
+        <Link>
+            <AdditionalDependencies>ProcessHacker.lib;ntdll.lib;noenv.obj;noarg.obj;%(AdditionalDependencies)</AdditionalDependencies>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+            <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
+            <SubSystem>Windows</SubSystem>
+        </Link>
+        <BuildLog>
+            <Path>$(IntDir)$(MSBuildProjectName).log</Path>
+        </BuildLog>
+    </ItemDefinitionGroup>
+
+    <!-- Debug Builds -->
+    <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+        <ClCompile>
+            <Optimization>Disabled</Optimization>
+            <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+            <FunctionLevelLinking>false</FunctionLevelLinking>
+            <IntrinsicFunctions>false</IntrinsicFunctions>
+            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+        </ClCompile>
+    </ItemDefinitionGroup>
+
+    <!-- Release Builds -->
+    <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+        <ClCompile>
+            <Optimization>Full</Optimization>
+            <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+            <FunctionLevelLinking>true</FunctionLevelLinking>
+            <IntrinsicFunctions>true</IntrinsicFunctions>
+            <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+            <WholeProgramOptimization>true</WholeProgramOptimization>
+        </ClCompile>
+        <Link>
+            <OptimizeReferences>true</OptimizeReferences>
+            <EnableCOMDATFolding>true</EnableCOMDATFolding>
+            <SetChecksum>true</SetChecksum>
+            <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+        </Link>
+    </ItemDefinitionGroup>
+
+    <!-- Win32 Builds -->
+    <ItemDefinitionGroup Condition="'$(Platform)'=='Win32'">
+        <ClCompile>
+            <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+        </ClCompile>
+        <Link>
+            <AdditionalLibraryDirectories>$(SolutionDir)..\sdk\lib\i386;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+            <TargetMachine>MachineX86</TargetMachine>
+        </Link>
+    </ItemDefinitionGroup>
+
+    <!-- x64 Builds -->
+    <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+        <Link>
+            <AdditionalLibraryDirectories>$(SolutionDir)..\sdk\lib\amd64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+            <TargetMachine>MachineX64</TargetMachine>
+        </Link>
+    </ItemDefinitionGroup>
+
+    <!-- Debug|Win32 Builds -->
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+        <ClCompile>
+            <PreprocessorDefinitions>WIN32;DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions);$(ExternalCompilerOptions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
+
+    <!-- Debug|x64 Builds -->
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+        <ClCompile>
+            <PreprocessorDefinitions>WIN64;DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions);$(ExternalCompilerOptions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
+
+    <!-- Release|Win32 Builds -->
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+        <ClCompile>
+            <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions);$(ExternalCompilerOptions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
+
+    <!-- Release|x64 Builds -->
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+        <ClCompile>
+            <PreprocessorDefinitions>WIN64;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions);$(ExternalCompilerOptions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
+
+</Project>

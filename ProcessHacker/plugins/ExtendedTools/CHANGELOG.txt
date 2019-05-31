@@ -1,0 +1,68 @@
+1.17
+ * Removed legacy code
+
+1.16
+ * Fixed "No process" disk event bug
+
+1.15
+ * Added tray icon mini info window support
+ * Improved automatic GPU node selection
+
+1.14
+ * Added Disk and Network graphs for all processes
+
+1.13
+ * Added GPU graphs for all processes
+ * Can now use the search box in the Disk tab
+ * Improved kernel logger handling on Windows 8
+
+1.12
+ * Improved support for multiple GPUs (again)
+ * GPU column now respects "Include CPU usage of children" option
+
+1.11
+ * Fixed network graph scaling
+
+1.10
+ * Improved support for multiple GPUs
+
+1.9
+ * Added GPU node selection
+ * Fixed incorrect GPU usage calculation
+
+1.8
+ * Added support for new system information window
+ * Added Disk, Network and GPU tray icons
+ * Added support for custom fonts in the Disk tab
+
+1.7
+ * Added GPU monitoring
+ * Added rate columns for disk and network I/O
+
+1.6
+ * Updated disk monitoring for Windows 8
+ * Updated memory list information for Windows 8
+
+1.5
+ * Added Disk tab
+ * Added Hard Faults, Hard Faults Delta and Peak Threads columns
+   to process tree list
+ * Added Firewall Status column to network list
+
+1.4
+ * Added ETW columns for processes and network connections
+
+1.3
+ * Fixed WS Watch refresh bug
+
+1.2
+ * Added WS Watch
+ * Added display of standby repurposed pages
+ * Added Empty commands for memory lists
+ * Fixed Disk and Network page crash
+
+1.1
+ * Fixed ETW crash
+
+1.0
+ * Initial release

@@ -1,0 +1,10 @@
+#pragma once
+#include <qwidget.h>
+class CMemoryView : public QWidget
+{
+	Q_OBJECT
+public:
+	CMemoryView();
+	virtual ~CMemoryView();
+};
+

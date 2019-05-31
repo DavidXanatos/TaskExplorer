@@ -1,0 +1,216 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (Australia) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENA)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_AUS
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,6,0,0
+ PRODUCTVERSION 1,6,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "0c0904b0"
+        BEGIN
+            VALUE "CompanyName", "wj32"
+            VALUE "FileDescription", "Window Explorer plugin for Process Hacker"
+            VALUE "FileVersion", "1.6"
+            VALUE "InternalName", "ProcessHacker.WindowExplorer"
+            VALUE "LegalCopyright", "Licensed under the GNU GPL, v3."
+            VALUE "OriginalFilename", "WindowExplorer.dll"
+            VALUE "ProductName", "Window Explorer plugin for Process Hacker"
+            VALUE "ProductVersion", "1.6"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0xc09, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_WNDLIST DIALOGEX 0, 0, 447, 309
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Windows"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "Refresh",IDC_REFRESH,2,3,50,14
+    CONTROL         "Windows",IDC_LIST,"PhTreeNew",WS_CLIPSIBLINGS | WS_CLIPCHILDREN | 0x2,2,19,443,288,WS_EX_CLIENTEDGE
+    EDITTEXT        IDC_SEARCHEDIT,302,3,143,14,ES_AUTOHSCROLL
+END
+
+IDD_WNDPROPSTORAGE DIALOGEX 0, 0, 271, 224
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Property Storage"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_TABSTOP,0,0,271,224
+END
+
+IDD_WNDGENERAL DIALOGEX 0, 0, 271, 224
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "General"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_WINDOWINFO,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_TABSTOP,0,0,271,224
+END
+
+IDD_WNDPROPLIST DIALOGEX 0, 0, 271, 224
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Properties"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_TABSTOP,0,0,271,224
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_WNDLIST, DIALOG
+    BEGIN
+        LEFTMARGIN, 2
+        RIGHTMARGIN, 445
+        TOPMARGIN, 3
+        BOTTOMMARGIN, 307
+    END
+
+    IDD_WNDPROPSTORAGE, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 218
+    END
+
+    IDD_WNDGENERAL, DIALOG
+    BEGIN
+        RIGHTMARGIN, 233
+        BOTTOMMARGIN, 147
+    END
+
+    IDD_WNDPROPLIST, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 218
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_WINDOW MENU
+BEGIN
+    POPUP "Window"
+    BEGIN
+        MENUITEM "Bring to front",              ID_WINDOW_BRINGTOFRONT
+        MENUITEM "Restore",                     ID_WINDOW_RESTORE
+        MENUITEM "Minimize",                    ID_WINDOW_MINIMIZE
+        MENUITEM "Maximize",                    ID_WINDOW_MAXIMIZE
+        MENUITEM "Close",                       ID_WINDOW_CLOSE
+        MENUITEM SEPARATOR
+        MENUITEM "Visible",                     ID_WINDOW_VISIBLE
+        MENUITEM "Enabled",                     ID_WINDOW_ENABLED
+        MENUITEM "Always on top",               ID_WINDOW_ALWAYSONTOP
+        POPUP "Opacity"
+        BEGIN
+            MENUITEM "10%",                         ID_OPACITY_10
+            MENUITEM "20%",                         ID_OPACITY_20
+            MENUITEM "30%",                         ID_OPACITY_30
+            MENUITEM "40%",                         ID_OPACITY_40
+            MENUITEM "50%",                         ID_OPACITY_50
+            MENUITEM "60%",                         ID_OPACITY_60
+            MENUITEM "70%",                         ID_OPACITY_70
+            MENUITEM "80%",                         ID_OPACITY_80
+            MENUITEM "90%",                         ID_OPACITY_90
+            MENUITEM "Opaque",                      ID_OPACITY_OPAQUE
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "Highlight",                   ID_WINDOW_HIGHLIGHT
+        MENUITEM "Go to thread",                ID_WINDOW_GOTOTHREAD
+        MENUITEM "Properties",                  ID_WINDOW_PROPERTIES
+        MENUITEM SEPARATOR
+        MENUITEM "Copy\aCtrl+C",                ID_WINDOW_COPY
+    END
+END
+
+
+#endif    // English (Australia) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

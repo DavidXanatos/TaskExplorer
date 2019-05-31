@@ -1,0 +1,29 @@
+1.8
+ * Added VirusTotal process column
+ * Removed Comodo CAMAS uploader
+
+1.7
+ * Fixed virusscan.jotti.org uploader
+
+1.6
+ * Updated VirusTotal executable limit to 128 MB
+
+1.5
+ * Added CIMA hash checking
+ * Added file analyzed prompt
+
+1.4
+ * Added upload progress
+ * Updated UI
+
+1.3
+ * Updated VirusTotal uploader and added hash checking
+
+1.2
+ * Added Comodo Instant Malware Analysis
+
+1.1
+ * Updated VirusTotal uploader
+
+1.0
+ * Initial release

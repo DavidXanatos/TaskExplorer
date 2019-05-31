@@ -1,0 +1,64 @@
+2.4
+ * Added 32x32 icons for high DPI displays
+ * Fixed status bar crash
+
+2.3
+ * Added Auto-hide main menu
+ * Added CPU, Memory and IO graphs to main window
+ * Added Right-click menu on the Toolbar
+ * Added Toolbar customize dialog
+ * Added Statusbar customize dialog
+
+2.2
+ * Added Modern Toolbar theme
+ * Added portable Toolbar customization
+ * Added Toolbar power menu (ported from PH1.x)
+ * Fixed Toolbar DPI scaling issues
+
+2.1
+ * Fixed Auto-hide Searchbox (Ctrl+K to show)
+
+2.0
+ * Added Toolbar customization
+ * Added Rebar Chevron support
+ * Added Auto-hide Searchbox
+ * Fixed searching multiple processes
+
+1.9
+ * Added PNG images
+ * Fixed search box fonts
+ * Fixed plugin settings state (disable/enable)
+ * Updated Searchbox UI
+ * Updated Searchbox commands
+ * Updated plugin settings
+
+1.8
+ * Added search box
+
+1.7
+ * Added option to configure Toolbar display style.
+
+1.6
+ * Fixed Always on Top being reset when using Find Window
+ * Fixed Esc key when using Find Window
+
+1.5
+ * Added Find Window and Kill
+
+1.4
+ * Added option to resolve ghost windows to the hung windows
+   they represent
+
+1.3
+ * Fixed layout problems
+
+1.2
+ * Added options
+ * Status bar panel widths are more stable
+
+1.1
+ * Fixed hanging when using Find Window on hung programs
+ * Fixed status bar with no selected parts
+
+1.0
+ * Initial release

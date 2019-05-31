@@ -1,0 +1,26 @@
+1.6
+ * Fixed .NET assembly tab performance issues
+ * Added extra .NET memory counters to the .NET performance tab
+ * Added "Show sizes in bytes" checkbox to the .NET performance tab
+ * Added right-click menu to the .NET assembly tab
+ * Removed all Win32 functions for querying .NET process performance
+
+1.5
+ * Rewrite of .NET Performance statistics and AppDomain enumeration
+
+1.4
+ * Process Hacker now displays managed stack traces for 32-bit .NET processes on 64-bit Windows
+ * Fixed inaccurate stack traces when clicking Refresh
+ * Added AppDomain column for threads in .NET programs
+
+1.3
+ * Improved .NET assembly enumeration timeout handling
+
+1.2
+ * Fixed inaccurate stack traces for certain .NET programs
+
+1.1
+ * Added managed symbol resolution for thread stacks
+
+1.0
+ * Initial release
