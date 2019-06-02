@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2017-2019 dmex
- * Copyright (C) 2019-2020 David Xanatos
+ * Copyright (C) 2019 David Xanatos
  *
  * This file is part of Task Explorer and contains Process Hacker code.
  *
@@ -23,12 +23,12 @@
  */
 
 #include "stdafx.h"
-#include <QFutureWatcher>
-#include <QtConcurrent>
 #include "ProcessHacker.h"
 #include <lsasup.h>
 
 #include "WinProcess.h"
+#include "WinThread.h"
+#include "WinHandle.h"
 
 #include <QtWin>
 
@@ -197,7 +197,7 @@ QString GetSidFullNameCached(const QByteArray& Sid, bool bQuick = false)
 
 // CWinProcess Class members
 
-CWinProcess::CWinProcess(QObject *parent) : CProcess(parent)
+CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 {
 	// Basic
 	m_SessionId = -1;
@@ -885,7 +885,65 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process)
         m_UserHandles = 0;
     }
 
+	Locker.unlock();
+
 	return modified;
+}
+
+bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process)
+{
+    // System Idle Process has one thread per CPU. They all have a TID of 0. We can't have duplicate
+    // TIDs, so we'll assign unique TIDs.
+    if (Process->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID)
+    {
+        for (int i = 0; i < Process->NumberOfThreads; i++)
+            Process->Threads[i].ClientId.UniqueThread = UlongToHandle(i);
+    }
+
+	QMap<quint64, CThreadPtr> OldThreads = GetThreadList();
+
+	// handle threads
+	for (int i = 0; i < Process->NumberOfThreads; i++)
+	{
+		_SYSTEM_THREAD_INFORMATION* Thread = &Process->Threads[i];
+
+		quint64 ThreadID = (quint64)Thread->ClientId.UniqueThread;
+
+		QSharedPointer<CWinThread> pWinThread = OldThreads.take(ThreadID).objectCast<CWinThread>();
+		if (pWinThread.isNull())
+		{
+			pWinThread = QSharedPointer<CWinThread>(new CWinThread());
+			pWinThread->InitStaticData(Thread);
+			QWriteLocker Locker(&m_ThreadMutex);
+			ASSERT(!m_ThreadList.contains(ThreadID));
+			m_ThreadList.insert(ThreadID, pWinThread);
+		}
+
+		pWinThread->UpdateDynamicData(Thread);
+	}
+
+	QWriteLocker Locker(&m_HandleMutex);
+	// purle all handles left as thay are not longer valid
+	foreach(quint64 ThreadID, OldThreads.keys())
+	{
+		QSharedPointer<CWinThread> pWinThread = m_ThreadList.take(ThreadID).objectCast<CWinThread>();
+		pWinThread->UnInit();
+		//Removed.insert(HandleID); // todo???
+	}
+	Locker.unlock();
+
+	return true;
+}
+
+bool CWinProcess::UpdateThreads()
+{
+	QMap<quint64, CThreadPtr> Threads = GetThreadList();
+	foreach(const CThreadPtr& pThread, Threads)
+	{
+		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
+		pWinThread->UpdateExtendedData();
+	}
+	return true;
 }
 
 void CWinProcess::UnInit()
@@ -1046,6 +1104,123 @@ void CWinProcess::OnInitAsyncData(int Index)
 	m->AsyncFinished = true;
 }
 
+NTSTATUS PhEnumHandlesGeneric(_In_ HANDLE ProcessId, _In_ HANDLE ProcessHandle, _Out_ PSYSTEM_HANDLE_INFORMATION_EX *Handles, _Out_ PBOOLEAN FilterNeeded);
+
+bool CWinProcess::UpdateHandles()
+{
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
+
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static ULONG fileObjectTypeIndex = ULONG_MAX;
+
+	HANDLE ProcessHandle;
+    PSYSTEM_HANDLE_INFORMATION_EX handleInfo;
+    BOOLEAN filterNeeded;
+
+	if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_DUP_HANDLE, m->UniqueProcessId)))
+		return false;
+
+	if (!NT_SUCCESS(PhEnumHandlesGeneric(m->UniqueProcessId, ProcessHandle, &handleInfo, &filterNeeded))) {
+		NtClose(ProcessHandle);
+		return false;
+	}
+
+	// Copy the handle Map
+	QMap<quint64, CHandlePtr> OldHandles = GetHandleList();
+
+	BOOLEAN useWorkQueue = FALSE;
+	if (!KphIsConnected())
+    {
+        useWorkQueue = TRUE;
+        //PhInitializeWorkQueue(&workQueue, 1, 20, 1000);
+
+        if (PhBeginInitOnce(&initOnce))
+        {
+            UNICODE_STRING fileTypeName = RTL_CONSTANT_STRING(L"File");
+
+            fileObjectTypeIndex = PhGetObjectTypeNumber(&fileTypeName);
+
+            PhEndInitOnce(&initOnce);
+        }
+    }
+
+	QList<QFutureWatcher<bool>*> Watchers;
+
+	for (int i = 0; i < handleInfo->NumberOfHandles; i++)
+	{
+		PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX handle = &handleInfo->Handles[i];
+
+		// Skip irrelevant handles.
+		if (filterNeeded && handle->UniqueProcessId != (ULONG_PTR)m->UniqueProcessId)
+			continue;
+
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(handle->HandleValue).objectCast<CWinHandle>();
+
+		bool WasReused = false;
+		// Also compare the object pointers to make sure a
+        // different object wasn't re-opened with the same
+        // handle value. This isn't 100% accurate as pool
+        // addresses may be re-used, but it works well.
+		if (handle->Object && !pWinHandle.isNull() && (quint64)handle->Object != pWinHandle->GetObject())
+			WasReused = true;
+
+		bool bAdd = false;
+		if (pWinHandle.isNull())
+		{
+			pWinHandle = QSharedPointer<CWinHandle>(new CWinHandle());
+			bAdd = true;
+			QWriteLocker Locker(&m_HandleMutex);
+			ASSERT(!m_HandleList.contains(handle->HandleValue));
+			m_HandleList.insert(handle->HandleValue, pWinHandle);
+		}
+		
+		if (WasReused)
+			Removed.insert(handle->HandleValue);
+
+		if (bAdd || WasReused)
+		{
+			pWinHandle->InitStaticData(handle);
+			Added.insert(handle->HandleValue);
+
+			// When we don't have KPH, query handle information in parallel to take full advantage of the
+            // PhCallWithTimeout functionality.
+            if (useWorkQueue && handle->ObjectTypeIndex == fileObjectTypeIndex)
+				Watchers.append(pWinHandle->InitExtDataAsync(handle,(quint64)ProcessHandle));
+			else
+				pWinHandle->InitExtData(handle,(quint64)ProcessHandle);	
+		}
+		// ToDo: do we want to start it right away and dont wait?
+		else if (pWinHandle->UpdateDynamicData(handle,(quint64)ProcessHandle))
+			Changed.insert(handle->HandleValue);
+	}
+
+	// wait for all watchers to finish
+	while (!Watchers.isEmpty())
+	{
+		QFutureWatcher<bool>* pWatcher = Watchers.takeFirst();
+		pWatcher->waitForFinished();
+		pWatcher->deleteLater();
+	}
+
+	QWriteLocker Locker(&m_HandleMutex);
+	// purle all handles left as thay are not longer valid
+	foreach(quint64 HandleID, OldHandles.keys())
+	{
+		m_HandleList.remove(HandleID);
+		Removed.insert(HandleID);
+	}
+	Locker.unlock();
+	
+	NtClose(ProcessHandle);
+    
+	emit HandlesUpdated(Added, Changed, Removed);
+
+	return true;
+}
+
+
 // Flags
 bool CWinProcess::IsSubsystemProcess() const
 {
@@ -1095,3 +1270,4 @@ QString CWinProcess::GetOsContextString() const
 	default: return "";
     }
 }
+

@@ -31,11 +31,11 @@
 #include <verify.h>
 #include <ref.h>
 #include <subprocesstag.h>
+#include <secedit.h>
+#include <symprv.h>
 
 #include <combaseapi.h>
 
-QString CastPhString(PPH_STRING phString, bool bDeRef = true);
-PPH_STRING CastQString(const QString& qString);
 
 
 // begin_phapppub
@@ -56,6 +56,11 @@ PPH_STRING CastQString(const QString& qString);
 #define PH_INTEGRITY_STR_LEN 10
 #define PH_INTEGRITY_STR_LEN_1 (PH_INTEGRITY_STR_LEN + 1)
 
+
+#ifndef ONLY_C
+
+QString CastPhString(PPH_STRING phString, bool bDeRef = true);
+PPH_STRING CastQString(const QString& qString);
 
 // Missing phlib definitions
 extern "C" {
@@ -131,3 +136,6 @@ BOOLEAN PhGetNetworkConnections(_Out_ PPH_NETWORK_CONNECTION *Connections, _Out_
 
 //supsvc.h
 PPH_STRING PhGetServiceNameFromTag(_In_ HANDLE ProcessId, _In_ PVOID ServiceTag);
+
+
+#endif // ONLY_C

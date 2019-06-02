@@ -1,8 +1,8 @@
 #include "stdafx.h"
-#include "Process.h"
+#include "ProcessInfo.h"
 
 
-CProcess::CProcess(QObject *parent) : QObject(parent)
+CProcessInfo::CProcessInfo(QObject *parent) : QObject(parent)
 {
 	// Basic
 	m_ProcessId = -1;
@@ -19,11 +19,16 @@ CProcess::CProcess(QObject *parent) : QObject(parent)
 	m_HardFaultCount = 0;
 }
 
-CProcess::~CProcess()
+CProcessInfo::~CProcessInfo()
 {
 }
 
-QString CProcess::GetPriorityString() const
+void CProcessInfo::CleanUp()
+{
+	// TODO: clean up ald detailed infos like thread details, handles, etc.. if outdated
+}
+
+QString CProcessInfo::GetPriorityString() const
 {
 	switch (m_PriorityClass)
     {

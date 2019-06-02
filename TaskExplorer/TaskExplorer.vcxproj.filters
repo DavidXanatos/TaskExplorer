@@ -49,6 +49,9 @@
     <Filter Include="Models">
       <UniqueIdentifier>{4a0bd8cb-5aae-4453-8d1d-af5ccee27686}</UniqueIdentifier>
     </Filter>
+    <Filter Include="API\Windows\ProcessHacker">
+      <UniqueIdentifier>{682b726a-795d-48fb-9df6-947490a4059d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -117,9 +120,6 @@
     <ClCompile Include="GUI\TaskInfo\WindowsView.cpp">
       <Filter>TaskInfo</Filter>
     </ClCompile>
-    <ClCompile Include="API\Process.cpp">
-      <Filter>API</Filter>
-    </ClCompile>
     <ClCompile Include="API\Windows\WindowsAPI.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
@@ -150,6 +150,39 @@
     <ClCompile Include="GUI\SystemInfo\AllFilesView.cpp">
       <Filter>SystemInfo</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\EventMonitor.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\ProcessInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\HandleModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\HandleInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHandle.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\ThreadIinfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinThread.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\ThreadModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\SymbolProvider.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Functions.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="API\StackTrace.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -172,6 +205,12 @@
     </ClInclude>
     <ClInclude Include="GUI\Models\SortFilterProxyModel.h">
       <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Functions.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="API\StackTrace.h">
+      <Filter>API</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -241,9 +280,6 @@
     <QtMoc Include="API\Windows\WinProcess.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
-    <QtMoc Include="API\Process.h">
-      <Filter>API</Filter>
-    </QtMoc>
     <QtMoc Include="API\SocketInfo.h">
       <Filter>API</Filter>
     </QtMoc>
@@ -258,6 +294,33 @@
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\AllFilesView.h">
       <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\EventMonitor.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\ProcessInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\HandleModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\HandleInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinHandle.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinThread.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\ThreadInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\ThreadModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\SymbolProvider.h">
+      <Filter>API\Windows</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

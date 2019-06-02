@@ -54,8 +54,9 @@ using namespace std;
 #include <QBitArray>
 #include <QPointer>
 #include <QSharedPointer>
-#include <QTreeWidget>
-
+#include <QFutureWatcher>
+#include <QtConcurrent>
+#include <QHostInfo>
 
 #include <QMainWindow>
 #include <QWidget>
@@ -76,6 +77,8 @@ using namespace std;
 #include <QScrollBar>
 #include <QStyleFactory>
 #include <QSortFilterProxyModel>
+#include <QStackedLayout>
+#include <QTreeWidget>
 
 // other includes
 

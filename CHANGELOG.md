@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.0.4] - 2019-06-02
+### Added
+- Thread list / Stack trace
+
+## [0.0.3] - 2019-06-01
+### Added
+- File / Handle list
+- Disk/Network stat event listener
+
 
 ## [0.0.2] - 2019-05-31
 ### Added

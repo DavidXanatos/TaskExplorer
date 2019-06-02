@@ -74,6 +74,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	statusBar()->showMessage(tr("TaskExplorer is ready..."));
 
+#ifdef _DEBUG // TEST
+	this->resize(this->width() *3, this->height()*3);
+#endif
+
 	//m_uTimerCounter = 0;
 	m_uTimerID = startTimer(500);
 }
@@ -93,6 +97,8 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 
 	QTimer::singleShot(0, theAPI, SLOT(UpdateProcessList()));
 	QTimer::singleShot(0, theAPI, SLOT(UpdateSocketList()));
+
+	m_pTaskInfo->Refresh();
 }
 
 void CTaskExplorer::closeEvent(QCloseEvent *e)

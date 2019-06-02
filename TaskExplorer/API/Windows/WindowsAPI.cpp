@@ -2,15 +2,28 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 
+int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
 
 CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 {
 	InitPH();
-}
 
+	m_pEventMonitor = new CEventMonitor();
+
+	connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)));
+	connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, const QString&)));
+	connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)));
+
+	m_pEventMonitor->Init();
+
+	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
+	m_pSymbolProvider->Init();
+}
 
 CWindowsAPI::~CWindowsAPI()
 {
+	delete m_pEventMonitor;
+
 	ClearPH();
 }
 
@@ -24,7 +37,7 @@ bool CWindowsAPI::UpdateProcessList()
 	if (!NT_SUCCESS(PhEnumProcesses(&processes)))
 		return false;
 
-	// Copy the process map Map
+	// Copy the process Map
 	QMap<quint64, CProcessPtr>	OldProcesses = GetProcessList();
 
 	for (PSYSTEM_PROCESS_INFORMATION process = PH_FIRST_PROCESS(processes); process != NULL; process = PH_NEXT_PROCESS(process))
@@ -33,7 +46,6 @@ bool CWindowsAPI::UpdateProcessList()
 
 		// take all running processes out of the copyed map
 		QSharedPointer<CWinProcess> pProcess = OldProcesses.take(ProcessID).objectCast<CWinProcess>();
-		// ToDo: check creation time?
 		bool bAdd = false;
 		if (pProcess.isNull())
 		{
@@ -48,14 +60,17 @@ bool CWindowsAPI::UpdateProcessList()
 		bool bChanged = false;
 		bChanged = pProcess->UpdateDynamicData(process);
 
+		pProcess->UpdateThreadData(process);
+
 		if (bAdd)
 			Added.insert(ProcessID);
 		else if (bChanged)
 			Changed.insert(ProcessID);
 	}
 
-	QWriteLocker Locker(&m_ProcessMutex);
 	// purle all processes left as thay are not longer running
+
+	QWriteLocker Locker(&m_ProcessMutex);
 	foreach(quint64 ProcessID, OldProcesses.keys())
 	{
 		QSharedPointer<CWinProcess> pProcess = m_ProcessList.take(ProcessID).objectCast<CWinProcess>();
@@ -153,4 +168,49 @@ bool CWindowsAPI::UpdateSocketList()
 
 	emit SocketListUpdated(Added, Changed, Removed);
 	return true;
+}
+
+void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
+								const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
+{
+}
+
+void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, const QString& FileName)
+{
+	m_FileNames.insert(FileId, FileName);
+
+	/*switch (Type)
+    {
+    case CEventMonitor::EtEtwFileNameType: // Name
+		qDebug() << "File Named: " << FileName;
+        break;
+    case CEventMonitor::EtEtwFileCreateType: // FileCreate
+        qDebug() << "File Created: " << FileName;
+        break;
+    case CEventMonitor::EtEtwFileDeleteType: // FileDelete
+        qDebug() << "File Deleted: " << FileName;
+        break;
+	case CEventMonitor::EtEtwFileRundownType:
+		qDebug() << "File Named (Rundown): " << FileName;
+		break;
+    default:
+        break;
+    }*/
+}
+
+void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime)
+{
+	QString FileName = m_FileNames.value(FileId, "Unknown");
+
+	/*switch (Type)
+    {
+    case CEventMonitor::EtEtwDiskReadType:
+		qDebug() << "File Read: " << FileName << " (" << TransferSize << " bytes)";
+        break;
+    case CEventMonitor::EtEtwDiskWriteType:
+		qDebug() << "File Writen: " << FileName << " (" << TransferSize << " bytes)";
+        break;
+    default:
+        break;
+    }*/
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include <qobject.h>
-#include "Process.h"
+#include "ProcessInfo.h"
 
 #ifndef PH_NO_NETWORK_PROTOCOL
 #define PH_IPV4_NETWORK_TYPE 0x1
@@ -28,7 +28,7 @@ public:
 
 	virtual quint64			GetHashID()			{ QReadLocker Locker(&m_Mutex); return m_HashID; }
 
-	virtual int				GetProtocolType()	{ QReadLocker Locker(&m_Mutex); return m_ProtocolType; }
+	virtual ulong			GetProtocolType()	{ QReadLocker Locker(&m_Mutex); return m_ProtocolType; }
 	virtual QString			GetProtocolString();
 	virtual QHostAddress	GetLocalAddress()	{ QReadLocker Locker(&m_Mutex); return m_LocalAddress; }
 	virtual quint16			GetLocalPort()		{ QReadLocker Locker(&m_Mutex); return m_LocalPort; }
@@ -45,7 +45,7 @@ public:
 protected:
 	quint64			m_HashID;
 
-	int				m_ProtocolType;
+	ulong			m_ProtocolType;
 	QHostAddress	m_LocalAddress;
 	quint16			m_LocalPort;
 	QHostAddress	m_RemoteAddress;

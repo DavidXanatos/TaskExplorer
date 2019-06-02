@@ -1,6 +1,6 @@
 #pragma once
 #include <qobject.h>
-#include "Process.h"
+#include "ProcessInfo.h"
 #include "SocketInfo.h"
 
 class CSystemAPI : public QObject

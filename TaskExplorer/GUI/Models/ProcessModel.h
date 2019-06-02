@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\API\Process.h"
+#include "..\..\API\ProcessInfo.h"
 
 
 class CProcessModel : public QAbstractItemModel

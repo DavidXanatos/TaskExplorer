@@ -77,16 +77,16 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 			switch(section)
 			{
 				case eProcess:			Value = pSocket->GetProcessName(); break;
+				case eProtocol:			Value = pSocket->GetProtocolString(); break; 
+				case eState:			Value = pSocket->GetStateString(); break; 
 				case eLocalAddress:		Value = pSocket->GetLocalAddress().toString(); break;
 				case eLocalPort:		Value = pSocket->GetLocalPort(); break; 
 				case eRemoteAddress:	Value = pSocket->GetRemoteAddress().toString(); break; 
 				case eRemotePort:		Value = pSocket->GetRemotePort(); break; 
-				case eProtocol:			Value = pSocket->GetProtocolString(); break; 
-				case eState:			Value = pSocket->GetStateString(); break; 
 #ifdef WIN32
 				case eOwner:			Value = pWinSock->GetOwnerServiceName(); break; 
 #endif
-				case eTimeStamp:		Value = pWinSock->GetCreateTime(); break;
+				case eTimeStamp:		Value = pSocket->GetCreateTime(); break;
 				//case eLocalHostname:	Value = ; break; 
 				//case eRemoteHostname:	Value = ; break; 
 				//case eReceives:			Value = ; break; 
@@ -99,7 +99,9 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				//case eReceiveBytesDelta:Value = ; break; 
 				//case eSendBytesDelta:	Value = ; break; 
 				//case eTotalBytesDelta:	Value = ; break; 
-				//case eFirewallStatus:	Value = ; break; 
+#ifdef WIN32
+				case eFirewallStatus:	Value = pWinSock->GetFirewallStatus(); break; 
+#endif
 				//case eReceiveRate:		Value = ; break; 
 				//case eSendRate:			Value = ; break; 
 				//case eTotalRate:		Value = ; break; 
@@ -115,7 +117,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 				switch (section)
 				{
-					case eTimeStamp:	ColValue.Formated = pWinSock->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eTimeStamp:	ColValue.Formated = pSocket->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
 				}
 			}
 
@@ -311,12 +313,12 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 		switch(section)
 		{
 			case eProcess:			return tr("Process");
+			case eProtocol:			return tr("Protocol");
+			case eState:			return tr("State");
 			case eLocalAddress:		return tr("Local address");
 			case eLocalPort:		return tr("Local port");
 			case eRemoteAddress:	return tr("Remote address");
 			case eRemotePort:		return tr("Remote port");
-			case eProtocol:			return tr("Protocol");
-			case eState:			return tr("State");
 #ifdef WIN32
 			case eOwner:			return tr("Owner");
 #endif
@@ -333,7 +335,9 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 			case eReceiveBytesDelta:return tr("Receive bytes delta");
 			case eSendBytesDelta:	return tr("Send bytes delta");
 			case eTotalBytesDelta:	return tr("Total bytes delta");
+#ifdef WIN32
 			case eFirewallStatus:	return tr("Firewall status");
+#endif
 			case eReceiveRate:		return tr("Receive rate");
 			case eSendRate:			return tr("Send rate");
 			case eTotalRate:		return tr("Total rate");

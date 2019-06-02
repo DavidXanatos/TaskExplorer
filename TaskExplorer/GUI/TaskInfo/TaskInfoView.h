@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\API\Process.h"
+#include "..\..\API\ProcessInfo.h"
 
 #include "TaskOverview.h"
 #include "TaskPerfMon.h"
@@ -22,7 +22,12 @@ public:
 	virtual ~CTaskInfoView();
 
 public slots:
+	void				OnTab(int tabIndex);
 	void				ShowProcess(const CProcessPtr& pProcess);
+	void				Refresh();
+
+protected:
+	CProcessPtr			m_pCurProcess;
 
 private:
 	QVBoxLayout*		m_pMainLayout;

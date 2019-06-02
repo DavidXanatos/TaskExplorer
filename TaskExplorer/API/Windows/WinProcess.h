@@ -1,10 +1,10 @@
 #pragma once
-#include "../Process.h"
+#include "../ProcessInfo.h"
 
 
 class CWinProcessPrivate;
 
-class CWinProcess : public CProcess
+class CWinProcess : public CProcessInfo
 {
 	Q_OBJECT
 
@@ -37,11 +37,16 @@ public:
 	virtual ulong GetOsContextVersion() const;
 	virtual QString GetOsContextString() const;
 
+public slots:
+	virtual bool	UpdateThreads();
+	virtual bool	UpdateHandles();
+
 protected:
 	friend class CWindowsAPI;
 
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process);
 	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process);
+	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process);
 	void UnInit();
 	void InitAsyncData();
 
@@ -55,6 +60,9 @@ protected:
 	// GDI, USER handles
     ulong m_GdiHandles;
     ulong m_UserHandles;
+
+	// Threads
+	//QMap<quint64, >
 
 protected slots:
 	void OnInitAsyncData(int Index);

@@ -314,7 +314,7 @@ VOID PhInitializeKph(
         // return;
     }
 
-    parameters.SecurityLevel = KphSecuritySignatureAndPrivilegeCheck;
+    parameters.SecurityLevel = KphSecurityPrivilegeCheck;
     parameters.CreateDynamicConfiguration = TRUE;
 
     if (NT_SUCCESS(status = KphConnect2Ex(

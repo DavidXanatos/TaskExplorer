@@ -2,7 +2,7 @@
 #include <qwidget.h>
 #include "../Common/TreeWidgetEx.h"
 #include "../Common/TreeViewEx.h"
-#include "..\API\Process.h"
+#include "..\API\ProcessInfo.h"
 
 class CProcessModel;
 class QSortFilterProxyModel;

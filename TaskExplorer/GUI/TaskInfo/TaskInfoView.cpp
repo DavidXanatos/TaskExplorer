@@ -41,6 +41,13 @@ CTaskInfoView::CTaskInfoView()
 
 	m_pEnvironmentView = new CEnvironmentView();
 	m_pTabs->addTab(m_pEnvironmentView, tr("Environment"));
+
+#ifdef _DEBUG // TEST
+	//m_pTabs->setCurrentWidget(m_pHandlesView);
+	m_pTabs->setCurrentWidget(m_pThreadsView);
+#endif
+
+	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 
@@ -50,5 +57,25 @@ CTaskInfoView::~CTaskInfoView()
 
 void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)
 {
-	m_pSocketsView->ShowSockets(pProcess);
+	m_pCurProcess = pProcess;
+
+	Refresh();
+}
+
+void CTaskInfoView::OnTab(int tabIndex)
+{
+	Refresh();
+}
+
+void CTaskInfoView::Refresh()
+{
+	if (m_pCurProcess.isNull())
+		return;
+
+	if(m_pTabs->currentWidget() == m_pSocketsView)
+		m_pSocketsView->ShowSockets(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pHandlesView)
+		m_pHandlesView->ShowHandles(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pThreadsView)
+		m_pThreadsView->ShowThreads(m_pCurProcess);
 }

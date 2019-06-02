@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
-#include "..\..\API\Process.h"
+#include "..\..\API\ProcessInfo.h"
 #include "..\..\API\SocketInfo.h"
 
 class CSocketModel;

@@ -13,17 +13,20 @@ public:
 	virtual QString			GetOwnerServiceName()	{ QReadLocker Locker(&m_Mutex); return m_OwnerService; }
 	virtual bool			IsSubsystemProcess()	{ QReadLocker Locker(&m_Mutex); return m_SubsystemProcess; }
 
+	virtual QString			GetFirewallStatus();
+
 	bool Match(struct _PH_NETWORK_CONNECTION* connection);
 
 protected:
 	friend class CWindowsAPI;
 
-	QString			m_OwnerService;
-	bool			m_SubsystemProcess;
-
 	bool InitStaticData(struct _PH_NETWORK_CONNECTION* connection);
 
 	bool UpdateDynamicData(struct _PH_NETWORK_CONNECTION* connection);
+
+	QString			m_OwnerService;
+	bool			m_SubsystemProcess;
+
 
 private:
 	struct SWinSocket* m;

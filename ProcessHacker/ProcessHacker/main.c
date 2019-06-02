@@ -941,9 +941,9 @@ VOID PhInitializeKph(
 
     if (!RtlDoesFileExists_U(kprocesshackerFileName->Buffer))
     {
-        if (PhGetIntegerSetting(L"EnableKphWarnings") && !PhStartupParameters.PhSvc)
+        /*if (PhGetIntegerSetting(L"EnableKphWarnings") && !PhStartupParameters.PhSvc)
             PhpShowKphError(L"The Process Hacker kernel driver 'kprocesshacker.sys' was not found in the application directory.", STATUS_NO_SUCH_FILE);
-        return;
+        return;*/
     }
 
     parameters.SecurityLevel = KphSecuritySignatureAndPrivilegeCheck;

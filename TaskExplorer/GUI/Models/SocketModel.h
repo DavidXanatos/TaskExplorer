@@ -32,12 +32,12 @@ public:
 	enum EColumns
 	{
 		eProcess = 0,
+		eProtocol,
+		eState,
 		eLocalAddress,
 		eLocalPort,
 		eRemoteAddress,
 		eRemotePort,
-		eProtocol,
-		eState,
 #ifdef WIN32
 		eOwner,
 #endif
@@ -54,7 +54,9 @@ public:
 		eReceiveBytesDelta,
 		eSendBytesDelta,
 		eTotalBytesDelta,
+#ifdef WIN32
 		eFirewallStatus,
+#endif
 		eReceiveRate,
 		eSendRate,
 		eTotalRate,

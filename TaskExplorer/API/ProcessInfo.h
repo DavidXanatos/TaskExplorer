@@ -1,6 +1,8 @@
 #pragma once
 #include <qobject.h>
 
+#include "ThreadInfo.h"
+#include "HandleInfo.h"
 
 #ifndef PROCESS_PRIORITY_CLASS_UNKNOWN
 #define PROCESS_PRIORITY_CLASS_UNKNOWN 0
@@ -12,13 +14,13 @@
 #define PROCESS_PRIORITY_CLASS_ABOVE_NORMAL 6
 #endif
 
-class CProcess: public QObject
+class CProcessInfo: public QObject
 {
 	Q_OBJECT
 
 public:
-	CProcess(QObject *parent = nullptr);
-	virtual ~CProcess();
+	CProcessInfo(QObject *parent = nullptr);
+	virtual ~CProcessInfo();
 
 	// Basic
 	virtual quint64 GetID() const					{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
@@ -47,6 +49,22 @@ public:
 
 	// File
 	virtual QPixmap GetFileIcon(bool bLarge = false) const	{ QReadLocker Locker(&m_Mutex); return bLarge ? m_LargeIcon : m_SmallIcon; }
+
+	// Threads
+	virtual QMap<quint64, CThreadPtr> GetThreadList()	{ QReadLocker Locker(&m_ThreadMutex); return m_ThreadList; }
+
+	// Handles
+	virtual QMap<quint64, CHandlePtr> GetHandleList()	{ QReadLocker Locker(&m_HandleMutex); return m_HandleList; }
+	
+signals:
+	void			ThreadsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+	void			HandlesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+
+public slots:
+	virtual bool	UpdateThreads() = 0;
+	virtual bool	UpdateHandles() = 0;
+
+	virtual void	CleanUp();
 
 protected:
 
@@ -78,8 +96,19 @@ protected:
 	ulong			m_PeakNumberOfThreads;
 	ulong			m_HardFaultCount;
 
-	mutable QReadWriteLock		m_Mutex;
+	// Threads
+	QMap<quint64, CThreadPtr>		m_ThreadList;
+
+	// Handles
+	QMap<quint64, CHandlePtr>		m_HandleList;
+
+
+
+	mutable QReadWriteLock			m_Mutex;
+
+	mutable QReadWriteLock			m_ThreadMutex;
+	mutable QReadWriteLock			m_HandleMutex;
 };
 
-typedef QSharedPointer<CProcess> CProcessPtr;
-typedef QWeakPointer<CProcess> CProcessRef;
+typedef QSharedPointer<CProcessInfo> CProcessPtr;
+typedef QWeakPointer<CProcessInfo> CProcessRef;
