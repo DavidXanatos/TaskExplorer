@@ -28,6 +28,7 @@
 #include <lsasup.h>
 
 #include "WinSocket.h"
+#include "EventMonitor.h"
 
 #include <QtWin>
 
@@ -50,7 +51,6 @@ struct SWinSocket
 {
 	SWinSocket() : FwStatus (FirewallUnknownStatus) {}
 
-	ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
     ulong LocalScopeId; // Ipv6
     ulong RemoteScopeId; // Ipv6
 
@@ -73,45 +73,41 @@ CWinSocket::~CWinSocket()
 QHostAddress CWinSocket::PH2QAddress(struct _PH_IP_ADDRESS* addr)
 {
 	QHostAddress address;
-	if (addr->Type == PH_IPV4_NETWORK_TYPE /*&& addr->Ipv4 != 0*/)
+	if (addr->Type == PH_IPV4_NETWORK_TYPE)
 	{
-		address = QHostAddress(ntohl(addr->InAddr.S_un.S_addr));
+		if (addr->Ipv4 != 0)
+			address = QHostAddress(ntohl(addr->InAddr.S_un.S_addr));
+		else
+			address = QHostAddress::Any;
 	}
-	else if (addr->Type == PH_IPV6_NETWORK_TYPE /*&& !PhIsNullIpAddress(addr)*/)
+	else if (addr->Type == PH_IPV6_NETWORK_TYPE)
 	{
-		address = QHostAddress((quint8*)addr->Ipv6);
+		if(!PhIsNullIpAddress(addr))
+			address = QHostAddress((quint8*)addr->Ipv6);
+		else
+			address = QHostAddress::Any;
 	}
 
 	return address;
 }
 
-bool CWinSocket::InitStaticData(struct _PH_NETWORK_CONNECTION* connection)
+bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
+	const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_ProtocolType = connection->ProtocolType;
-	m_LocalAddress = PH2QAddress(&connection->LocalEndpoint.Address);
-	m_LocalPort = ntohs(connection->LocalEndpoint.Port);
-	m_RemoteAddress = PH2QAddress(&connection->RemoteEndpoint.Address); 
-	m_RemotePort = ntohs(connection->RemoteEndpoint.Port);
-	m_State = connection->State;
-	m_ProcessId = (quint64)connection->ProcessId;
-	m_CreateTime = QDateTime::fromTime_t((int64_t)connection->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);
+	m_ProtocolType = ProtocolType;
+	m_LocalAddress = LocalAddress;
+	m_LocalPort = LocalPort;
+	if ((m_ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0)
+	{
+		m_RemoteAddress = RemoteAddress;
+		m_RemotePort = RemotePort;
+	}
+	m_ProcessId = ProcessId;
 
 	// generate a somewhat unique id to optimize map search
-	m_HashID = ((quint64)connection->LocalEndpoint.Port << 0) | ((quint64)connection->RemoteEndpoint.Port << 16) | (quint64)(((quint32*)&m_ProcessId)[0] ^ ((quint32*)&m_ProcessId)[1]) << 32;
-
-	memcpy(m->OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);
-    PVOID serviceTag = UlongToPtr(*(PULONG)m->OwnerInfo);
-    PPH_STRING serviceName = PhGetServiceNameFromTag(connection->ProcessId, serviceTag);
-	m_OwnerService = CastPhString(serviceName);
-
-	m->LocalScopeId = connection->LocalScopeId;
-	m->RemoteScopeId = connection->RemoteScopeId;
-
-	//
-	// ToDo: Resolve host names
-	//
+	m_HashID = CSocketInfo::MkHash(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
 
 	if (m_ProcessId == 0)
 	{
@@ -119,11 +115,15 @@ bool CWinSocket::InitStaticData(struct _PH_NETWORK_CONNECTION* connection)
 	}
 	else
 	{
-		m_pProcess = theAPI->GetProcessByID(m_ProcessId);
-		if (CWinProcess* pWinProc = qobject_cast<CWinProcess*>(m_pProcess.data()))
+		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId);
+		m_pProcess = pProcess; // relember m_pProcess is a week pointer
+
+		if (CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data()))
 		{
 			m_ProcessName = pWinProc->GetName();
 			m_SubsystemProcess = pWinProc->IsSubsystemProcess();
+
+			// PhpUpdateNetworkItemOwner(networkItem, processItem);
 		}
 		else
 		{
@@ -136,7 +136,7 @@ bool CWinSocket::InitStaticData(struct _PH_NETWORK_CONNECTION* connection)
 			// The socket handle remains valid and in-use by the child process BUT the socket continues returning the PID of the exited process???
 			// Fixing this causes a major performance problem; If we have 100,000 sockets then on previous versions of Windows we would only need 2 system calls maximum
 			// (for the process list) to identify the owner of every socket but now we need to make 4 system calls for every_last_socket totaling 400,000 system calls... great. (dmex)
-			if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, connection->ProcessId)))
+			if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)ProcessId)))
 			{
 				if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
 				{
@@ -153,23 +153,42 @@ bool CWinSocket::InitStaticData(struct _PH_NETWORK_CONNECTION* connection)
 		}
 	}
 
-	bool bIPv6 = false;
-	WCHAR RemoteAddressString[INET6_ADDRSTRLEN] = { 0 };
-	if (connection->LocalEndpoint.Address.Type == PH_IPV4_NETWORK_TYPE /*&& connection->LocalEndpoint.Address.Ipv4 != 0*/)
-	{
-		RtlIpv4AddressToString(&connection->LocalEndpoint.Address.InAddr, RemoteAddressString);
-	}
-	else if (connection->LocalEndpoint.Address.Type == PH_IPV6_NETWORK_TYPE /*&& !PhIsNullIpAddress(&connection->LocalEndpoint.Address)*/)
-	{
-		bIPv6 = true;
-		RtlIpv6AddressToString(&connection->LocalEndpoint.Address.In6Addr, RemoteAddressString);
-	}
+	//
+	// ToDo: Resolve host names
+	//
 
+	// EtpUpdateFirewallStatus
+	WCHAR RemoteAddressString[INET6_ADDRSTRLEN + 1] = { 0 };
+	QString LocalAddressStr = LocalAddress.toString();
+	if (LocalAddressStr.length() < INET6_ADDRSTRLEN);
+		LocalAddressStr.toWCharArray(RemoteAddressString);
 	if (RemoteAddressString[0] != 0)
 	{
-		m->FwStatus = EtQueryFirewallStatus(m_ProcessName.toStdWString(), RemoteAddressString, connection->LocalEndpoint.Port, 
-			bIPv6, (connection->ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0, (connection->ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0);
+		m->FwStatus = EtQueryFirewallStatus(m_ProcessName.toStdWString(), RemoteAddressString, htons(LocalPort), 
+			LocalAddress.protocol() == QAbstractSocket::IPv6Protocol, (ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0, (ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0);
 	}
+	//
+
+	return true;
+}
+
+bool CWinSocket::InitStaticDataEx(struct _PH_NETWORK_CONNECTION* connection)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	m_CreateTime = QDateTime::fromTime_t((int64_t)connection->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);
+
+	ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
+	memcpy(OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);
+
+	// PhpUpdateNetworkItemOwner
+    PVOID serviceTag = UlongToPtr(*(PULONG)OwnerInfo);
+    PPH_STRING serviceName = PhGetServiceNameFromTag(connection->ProcessId, serviceTag);
+	m_OwnerService = CastPhString(serviceName);
+	//
+
+	m->LocalScopeId = connection->LocalScopeId;
+	m->RemoteScopeId = connection->RemoteScopeId;
 
 	return true;
 }
@@ -178,17 +197,44 @@ bool CWinSocket::UpdateDynamicData(struct _PH_NETWORK_CONNECTION* connection)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	return true;
-}
+    BOOLEAN modified = FALSE;
 
-bool CWinSocket::Match(struct _PH_NETWORK_CONNECTION* connection)
-{
-	return (m_ProtocolType == connection->ProtocolType &&
-			m_LocalAddress == PH2QAddress(&connection->LocalEndpoint.Address) &&
-			m_LocalPort == ntohs(connection->LocalEndpoint.Port) &&
-			m_RemoteAddress == PH2QAddress(&connection->RemoteEndpoint.Address) &&
-			m_RemotePort == ntohs(connection->RemoteEndpoint.Port) &&
-			m_ProcessId == (quint64)connection->ProcessId);
+    //if (InterlockedExchange(&networkItem->JustResolved, 0) != 0)
+    //    modified = TRUE;
+
+    if (m_State != connection->State)
+    {
+        m_State = connection->State;
+        modified = TRUE;
+    }
+
+	if (m_pProcess.isNull())
+	{
+		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId);
+		m_pProcess = pProcess; // relember m_pProcess is a week pointer
+
+		if (!pProcess.isNull())
+		{
+			if (m_ProcessName.isEmpty())
+			{
+				m_ProcessName = pProcess->GetName();
+				//m_SubsystemProcess = pWinProc->IsSubsystemProcess();
+				//PhpUpdateNetworkItemOwner(networkItem, networkItem->ProcessItem);
+				modified = TRUE;
+			}
+
+			/*if (!networkItem->ProcessIconValid && PhTestEvent(&networkItem->ProcessItem->Stage1Event))
+			{
+				networkItem->ProcessIcon = networkItem->ProcessItem->SmallIcon;
+				networkItem->ProcessIconValid = TRUE;
+				modified = TRUE;
+			}*/
+		}
+	}
+
+	UpdateStats();
+
+	return modified;
 }
 
 QString CWinSocket::GetFirewallStatus()
@@ -216,7 +262,7 @@ ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, 
 {
     static INetFwMgr* manager = NULL;
     ET_FIREWALL_STATUS result;
-    BSTR imageFileNameBStr;
+    BSTR ModuleFileNameBStr;
     BSTR localAddressBStr;
     VARIANT allowed;
     VARIANT restricted;
@@ -232,7 +278,7 @@ ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, 
 
     result = FirewallUnknownStatus;
 
-    if (imageFileNameBStr = SysAllocStringLen(FileName.c_str(), FileName.size()))
+    if (ModuleFileNameBStr = SysAllocStringLen(FileName.c_str(), FileName.size()))
     {
         localAddressBStr = SysAllocString(LocalAddress);
 
@@ -241,7 +287,7 @@ ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, 
 
         if (SUCCEEDED(INetFwMgr_IsPortAllowed(
             manager,
-            imageFileNameBStr,
+            ModuleFileNameBStr,
             bIPv6 ? NET_FW_IP_VERSION_V6 : NET_FW_IP_VERSION_V4,
             LocalPort,
             localAddressBStr,
@@ -269,8 +315,19 @@ ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, 
         if (localAddressBStr)
             SysFreeString(localAddressBStr);
 
-        SysFreeString(imageFileNameBStr);
+        SysFreeString(ModuleFileNameBStr);
     }
 
     return result;
+}
+
+void CWinSocket::AddNetworkIO(int Type, ulong TransferSize)
+{
+	QWriteLocker Locker(&m_StatsMutex);
+
+	switch (Type)
+	{
+	case EtEtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
+	case EtEtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
+	}
 }

@@ -37,6 +37,7 @@ CThreadsView::CThreadsView()
 	m_pThreadList->setSortingEnabled(true);
 
 	m_pSplitter->addWidget(m_pThreadList);
+	m_pSplitter->setCollapsible(0, false);
 
 	connect(m_pThreadList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
 	// 
@@ -44,12 +45,13 @@ CThreadsView::CThreadsView()
 	// Stack List
 	m_pStackList = new QTreeWidgetEx();
 	m_pStackList->setItemDelegate(new QStyledItemDelegateMaxH(m_pStackList->fontMetrics().height() + 3, this));
-	m_pStackList->setHeaderLabels(tr("#|Name|Stack address|Frame address|Control address|Return address|Stack parameters").split("|"));
+	m_pStackList->setHeaderLabels(tr("#|Name|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
 
 	m_pStackList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pStackList->setSortingEnabled(false);
 
 	m_pSplitter->addWidget(m_pStackList);
+	m_pSplitter->setCollapsible(1, false);
 	// 
 }
 
@@ -76,8 +78,11 @@ void CThreadsView::OnClicked(const QModelIndex& Index)
 {
 	m_pCurThread = m_pThreadModel->GetThread(m_pSortProxy->mapToSource(Index));
 
-	if (!m_pCurThread.isNull()) {
+	if (!m_pCurThread.isNull()) 
+	{
 		disconnect(this, SLOT(OnStackTraced(const CStackTracePtr&)));
+
+		m_pStackList->clear();
 
 		connect(m_pCurThread.data(), SIGNAL(StackTraced(const CStackTracePtr&)), this, SLOT(OnStackTraced(const CStackTracePtr&)));
 
@@ -109,6 +114,7 @@ void CThreadsView::OnStackTraced(const CStackTracePtr& StackTrace)
 		pItem->setText(eControlAddress, "0x" + QString::number(StackFrame.PcAddress, 16));
 		pItem->setText(eReturnAddress, "0x" + QString::number(StackFrame.ReturnAddress, 16));
 		pItem->setText(eStackParameter, tr("0x%1 0x%2 0x%3 0x%4").arg(StackFrame.Params[0], 0, 16).arg(StackFrame.Params[1], 0, 16).arg(StackFrame.Params[2], 0, 16).arg(StackFrame.Params[3], 0, 16));
+		pItem->setText(eFileInfo, StackFrame.FileInfo);
 	}
 
 	for (; i < m_pStackList->topLevelItemCount(); )

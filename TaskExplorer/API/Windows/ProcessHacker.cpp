@@ -126,8 +126,8 @@ BOOLEAN PhInitializeMitigationPolicy(
      PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON | \
      PROCESS_CREATION_MITIGATION_POLICY_PROHIBIT_DYNAMIC_CODE_ALWAYS_ON | \
      PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_REMOTE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_LOW_LABEL_ALWAYS_ON)
+     PROCESS_CREATION_MITIGATION_POLICY_Module_LOAD_NO_REMOTE_ALWAYS_ON | \
+     PROCESS_CREATION_MITIGATION_POLICY_Module_LOAD_NO_LOW_LABEL_ALWAYS_ON)
 
 	static PH_STRINGREF nompCommandlinePart = PH_STRINGREF_INIT(L" -nomp");
 	static PH_STRINGREF rasCommandlinePart = PH_STRINGREF_INIT(L" -ras");
@@ -927,36 +927,11 @@ BOOLEAN PhGetNetworkConnections(
     return TRUE;
 }
 
-
-//scvsup.c
-PPH_STRING PhGetServiceNameFromTag(
-    _In_ HANDLE ProcessId,
-    _In_ PVOID ServiceTag
-    )
+VOID PhpWorkaroundWindows10ServiceTypeBug(_Inout_ LPENUM_SERVICE_STATUS_PROCESS ServieEntry)
 {
-    static PQUERY_TAG_INFORMATION I_QueryTagInformation = NULL;
-    PPH_STRING serviceName = NULL;
-    TAG_INFO_NAME_FROM_TAG nameFromTag;
-
-    if (!I_QueryTagInformation)
-    {
-        I_QueryTagInformation = (PQUERY_TAG_INFORMATION)PhGetDllProcedureAddress(L"advapi32.dll", "I_QueryTagInformation", 0);
-
-        if (!I_QueryTagInformation)
-            return NULL;
-    }
-
-    memset(&nameFromTag, 0, sizeof(TAG_INFO_NAME_FROM_TAG));
-    nameFromTag.InParams.dwPid = HandleToUlong(ProcessId);
-    nameFromTag.InParams.dwTag = PtrToUlong(ServiceTag);
-
-    I_QueryTagInformation(NULL, eTagInfoLevelNameFromTag, &nameFromTag);
-
-    if (nameFromTag.OutParams.pszName)
-    {
-        serviceName = PhCreateString(nameFromTag.OutParams.pszName);
-        LocalFree(nameFromTag.OutParams.pszName);
-    }
-
-    return serviceName;
+    // https://github.com/processhacker2/processhacker/issues/120 (dmex)
+    if (ServieEntry->ServiceStatusProcess.dwServiceType == SERVICE_WIN32)
+        ServieEntry->ServiceStatusProcess.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
+    if (ServieEntry->ServiceStatusProcess.dwServiceType == (SERVICE_WIN32 | SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE))
+        ServieEntry->ServiceStatusProcess.dwServiceType = SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE;
 }

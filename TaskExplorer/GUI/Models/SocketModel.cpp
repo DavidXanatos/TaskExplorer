@@ -7,21 +7,19 @@
 #endif
 
 CSocketModel::CSocketModel(QObject *parent)
-:QAbstractItemModel(parent)
+:CListItemModel(parent)
 {
 	m_ProcessFilter = false;
 }
 
 CSocketModel::~CSocketModel()
 {
-	foreach(SSocketNode* pNode, m_List)
-		delete pNode;
 }
 
 void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 {
-	QList<SSocketNode*> New;
-	QMap<quint64, SSocketNode*> Old = m_Map;
+	QList<SListNode*> New;
+	QMap<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CSocketPtr& pSocket, SocketList)
 	{
@@ -31,21 +29,20 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				continue;
 		}
 
-		quint64 UID = (quint64)pSocket.data();
+		QVariant ID = (quint64)pSocket.data();
 
 		int Row = -1;
-		SSocketNode* pNode = Old[UID];
+		SSocketNode* pNode = static_cast<SSocketNode*>(Old[ID]);
 		if(!pNode)
 		{
-			pNode = new SSocketNode();
+			pNode = static_cast<SSocketNode*>(MkNode(ID));
 			pNode->Values.resize(columnCount());
-			pNode->UID = UID;
 			pNode->pSocket = pSocket;
 			New.append(pNode);
 		}
 		else
 		{
-			Old[UID] = NULL;
+			Old[ID] = NULL;
 			Row = m_List.indexOf(pNode);
 		}
 
@@ -59,7 +56,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 			CProcessPtr pProcess = pNode->pSocket->GetProcess();
 			if (!pProcess.isNull())
 			{
-				QPixmap Icon = pProcess->GetFileIcon();
+				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
 				if (!Icon.isNull()) {
 					Changed = true; // set change for first column
 					pNode->Icon = Icon;
@@ -70,6 +67,8 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 #ifdef WIN32
 		CWinSocket* pWinSock = qobject_cast<CWinSocket*>(pSocket.data());
 #endif
+
+		SSockStats Stats = pSocket->GetStats();
 
 		for(int section = eProcess; section < columnCount(); section++)
 		{
@@ -89,21 +88,21 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				case eTimeStamp:		Value = pSocket->GetCreateTime(); break;
 				//case eLocalHostname:	Value = ; break; 
 				//case eRemoteHostname:	Value = ; break; 
-				//case eReceives:			Value = ; break; 
-				//case eSends:			Value = ; break; 
-				//case eReceiveBytes:		Value = ; break; 
-				//case eSendBytes:		Value = ; break; 
+				case eReceives:			Value = Stats.Net.ReceiveCount; break; 
+				case eSends:			Value = Stats.Net.SendCount; break; 
+				case eReceiveBytes:		Value = Stats.Net.ReceiveRaw; break; 
+				case eSendBytes:		Value = Stats.Net.SendRaw; break; 
 				//case eTotalBytes:		Value = ; break; 
-				//case eReceivesDetla:	Value = ; break; 
-				//case eSendsDelta:		Value = ; break; 
-				//case eReceiveBytesDelta:Value = ; break; 
-				//case eSendBytesDelta:	Value = ; break; 
+				case eReceivesDetla:	Value = Stats.Net.ReceiveDelta.Delta; break; 
+				case eSendsDelta:		Value = Stats.Net.SendDelta.Delta; break; 
+				case eReceiveBytesDelta:Value = Stats.Net.ReceiveRawDelta.Delta; break; 
+				case eSendBytesDelta:	Value = Stats.Net.SendRawDelta.Delta; break; 
 				//case eTotalBytesDelta:	Value = ; break; 
 #ifdef WIN32
 				case eFirewallStatus:	Value = pWinSock->GetFirewallStatus(); break; 
 #endif
-				//case eReceiveRate:		Value = ; break; 
-				//case eSendRate:			Value = ; break; 
+				case eReceiveRate:		Value = Stats.Net.ReceiveRate.Get(); break; 
+				case eSendRate:			Value = Stats.Net.SendRate.Get(); break; 
 				//case eTotalRate:		Value = ; break; 
 			}
 
@@ -117,7 +116,17 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 				switch (section)
 				{
-					case eTimeStamp:	ColValue.Formated = pSocket->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eTimeStamp:			ColValue.Formated = pSocket->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+
+					case eReceiveBytes:
+					case eSendBytes:
+					case eReceiveBytesDelta:
+					case eSendBytesDelta:
+												ColValue.Formated = FormatSize(Value.toULongLong()); break; 
+
+					case eReceiveRate:
+					case eSendRate:
+												ColValue.Formated = FormatSize(Value.toULongLong()) + "/s"; break; 
 				}
 			}
 
@@ -135,77 +144,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 	}
 
-	Sync(New, Old);
-}
-
-void CSocketModel::Sync(QList<SSocketNode*>& New, QMap<quint64, SSocketNode*>& Old)
-{
-	int Begin = -1;
-	int End = -1;
-	for(int i = m_List.count()-1; i >= -1; i--) 
-	{
-		quint64 ID = i >= 0 ? m_List[i]->UID : -1;
-		if(ID != -1 && (Old.value(ID) != NULL)) // remove it
-		{
-			m_Map.remove(ID);
-			if(End == -1)
-				End = i;
-		}
-		else if(End != -1) // keep it and remove whatis to be removed at once
-		{
-			Begin = i + 1;
-
-			beginRemoveRows(QModelIndex(), Begin, End);
-			for(int j = End; j >= Begin; j--)
-				delete m_List.takeAt(j);
-			endRemoveRows();
-
-			End = -1;
-			Begin = -1;
-		}
-    }
-
-	Begin = m_List.count();
-	for(QList<SSocketNode*>::iterator I = New.begin(); I != New.end(); I++)
-	{
-		SSocketNode* pNode = *I;
-		m_Map.insert(pNode->UID, pNode);
-		m_List.append(pNode);
-	}
-	End = m_List.count();
-	if(Begin < End)
-	{
-		beginInsertRows(QModelIndex(), Begin, End-1);
-		endInsertRows();
-	}
-}
-
-QModelIndex CSocketModel::FindIndex(quint64 SubID)
-{
-	if(SSocketNode* pNode = m_Map.value(SubID))
-	{
-		int row = m_List.indexOf(pNode);
-		ASSERT(row != -1);
-		return createIndex(row, eProcess, pNode);
-	}
-	return QModelIndex();
-}
-
-void CSocketModel::Clear()
-{
-	//beginResetModel();
-	beginRemoveRows(QModelIndex(), 0, rowCount());
-	foreach(SSocketNode* pNode, m_List)
-		delete pNode;
-	m_List.clear();
-	m_Map.clear();
-	endRemoveRows();
-	//endResetModel();
-}
-
-QVariant CSocketModel::data(const QModelIndex &index, int role) const
-{
-    return Data(index, role, index.column());
+	CListItemModel::Sync(New, Old);
 }
 
 CSocketPtr CSocketModel::GetSocket(const QModelIndex &index) const
@@ -215,90 +154,6 @@ CSocketPtr CSocketModel::GetSocket(const QModelIndex &index) const
 
 	SSocketNode* pNode = static_cast<SSocketNode*>(index.internalPointer());
 	return pNode->pSocket;
-}
-
-QVariant CSocketModel::Data(const QModelIndex &index, int role, int section) const
-{
-	if (!index.isValid())
-        return QVariant();
-
-    //if(role == Qt::SizeHintRole )
-    //    return QSize(64,16); // for fixing height
-
-	SSocketNode* pNode = static_cast<SSocketNode*>(index.internalPointer());
-
-	switch(role)
-	{
-		case Qt::DisplayRole:
-		{
-			SSocketNode::SValue& Value = pNode->Values[section];
-			return Value.Formated.isValid() ? Value.Formated : Value.Raw;
-		}
-		case Qt::EditRole: // sort role
-		{
-			return pNode->Values[section].Raw;
-		}
-		case Qt::DecorationRole:
-		{
-			if (section == eProcess)
-				return pNode->Icon.isValid() ? pNode->Icon : g_ExeIcon;
-			break;
-		}
-		case Qt::BackgroundRole:
-		{
-			//return QBrush(QColor(255,128,128));
-			break;
-		}
-		case Qt::ForegroundRole:
-		{
-			/* QColor Color = Qt::black;
-			return QBrush(Color); */
-			break;
-		}
-		case Qt::UserRole:
-		{
-			switch(section)
-			{
-				case eProcess:			return pNode->UID;
-			}
-			break;
-		}
-	}
-	return QVariant();
-}
-
-Qt::ItemFlags CSocketModel::flags(const QModelIndex &index) const
-{
-    if (!index.isValid())
-        return 0;
-    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
-}
-
-QModelIndex CSocketModel::index(int row, int column, const QModelIndex &parent) const
-{
-    if (!hasIndex(row, column, parent))
-        return QModelIndex();
-
-    if (parent.isValid()) 
-        return QModelIndex();
-	if(m_List.count() > row)
-		return createIndex(row, column, m_List[row]);
-	return QModelIndex();
-}
-
-QModelIndex CSocketModel::parent(const QModelIndex &index) const
-{
-	return QModelIndex();
-}
-
-int CSocketModel::rowCount(const QModelIndex &parent) const
-{
-    if (parent.column() > 0)
-        return 0;
-
-    if (parent.isValid())
-        return 0;
-	return m_List.count();
 }
 
 int CSocketModel::columnCount(const QModelIndex &parent) const
@@ -329,19 +184,25 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 			case eSends:			return tr("Sends");
 			case eReceiveBytes:		return tr("Receive bytes");
 			case eSendBytes:		return tr("Send bytes");
-			case eTotalBytes:		return tr("Total bytes");
+			//case eTotalBytes:		return tr("Total bytes");
 			case eReceivesDetla:	return tr("Receives detla");
 			case eSendsDelta:		return tr("Sends delta");
 			case eReceiveBytesDelta:return tr("Receive bytes delta");
 			case eSendBytesDelta:	return tr("Send bytes delta");
-			case eTotalBytesDelta:	return tr("Total bytes delta");
+			//case eTotalBytesDelta:	return tr("Total bytes delta");
 #ifdef WIN32
 			case eFirewallStatus:	return tr("Firewall status");
 #endif
 			case eReceiveRate:		return tr("Receive rate");
 			case eSendRate:			return tr("Send rate");
-			case eTotalRate:		return tr("Total rate");
+			//case eTotalRate:		return tr("Total rate");
 		}
 	}
     return QVariant();
+}
+
+
+QVariant CSocketModel::GetDefaultIcon() const 
+{ 
+	return g_ExeIcon;
 }

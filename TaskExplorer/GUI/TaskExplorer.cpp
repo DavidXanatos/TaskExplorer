@@ -4,6 +4,7 @@
 CSystemAPI*	theAPI = NULL;
 
 QIcon g_ExeIcon;
+QIcon g_DllIcon;
 
 CTaskExplorer::CTaskExplorer(QWidget *parent)
 	: QMainWindow(parent)
@@ -11,6 +12,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	//ui.setupUi(this);
 
 	g_ExeIcon = QIcon(":/Icons/exe16.png");
+	g_DllIcon = QIcon(":/Icons/dll16.png");
 
 	theAPI = CSystemAPI::New(this);
 
@@ -20,8 +22,6 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	this->setCentralWidget(m_pMainWidget);
 	
 	m_pGraphBar = new CGraphBar();
-	m_pGraphBar->setMinimumHeight(60);
-	m_pGraphBar->setMaximumHeight(120);
 	m_pMainLayout->addWidget(m_pGraphBar);
 
 	m_pMainSplitter = new QSplitter();
@@ -29,7 +29,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMainLayout->addWidget(m_pMainSplitter);
 
 	m_pProcessTree = new CProcessTree();
-	m_pProcessTree->setMinimumSize(200, 200);
+	//m_pProcessTree->setMinimumSize(200, 200);
 	m_pMainSplitter->addWidget(m_pProcessTree);
 	m_pMainSplitter->setCollapsible(0, false);
 
@@ -38,11 +38,11 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMainSplitter->addWidget(m_pSubSplitter);
 
 	m_pSystemInfo = new CSystemInfoView();
-	m_pSystemInfo->setMinimumSize(200, 200);
+	//m_pSystemInfo->setMinimumSize(200, 200);
 	m_pSubSplitter->addWidget(m_pSystemInfo);
 
 	m_pTaskInfo = new CTaskInfoView();
-	m_pTaskInfo->setMinimumSize(200, 200);
+	//m_pTaskInfo->setMinimumSize(200, 200);
 	m_pSubSplitter->addWidget(m_pTaskInfo);
 	m_pSubSplitter->setCollapsible(1, false);
 
@@ -75,11 +75,17 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	statusBar()->showMessage(tr("TaskExplorer is ready..."));
 
 #ifdef _DEBUG // TEST
-	this->resize(this->width() *3, this->height()*3);
+	this->resize(this->width() *2, this->height()*2);
 #endif
 
 	//m_uTimerCounter = 0;
-	m_uTimerID = startTimer(500);
+#ifdef _DEBUG
+	m_uTimerID = startTimer(1000); // todo add setting
+#else
+	m_uTimerID = startTimer(500); // todo add setting
+#endif
+
+	UpdateAll();
 }
 
 CTaskExplorer::~CTaskExplorer()
@@ -95,10 +101,7 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	if (pEvent->timerId() != m_uTimerID)
 		return;
 
-	QTimer::singleShot(0, theAPI, SLOT(UpdateProcessList()));
-	QTimer::singleShot(0, theAPI, SLOT(UpdateSocketList()));
-
-	m_pTaskInfo->Refresh();
+	UpdateAll();
 }
 
 void CTaskExplorer::closeEvent(QCloseEvent *e)
@@ -108,4 +111,17 @@ void CTaskExplorer::closeEvent(QCloseEvent *e)
 		e->ignore();
 		hide();
 	}*/
+}
+
+void CTaskExplorer::UpdateAll()
+{
+	QTimer::singleShot(0, theAPI, SLOT(UpdateProcessList()));
+	QTimer::singleShot(0, theAPI, SLOT(UpdateSocketList()));
+
+	QTimer::singleShot(0, theAPI, SLOT(UpdateServiceList()));
+	QTimer::singleShot(0, theAPI, SLOT(UpdateDriverList()));
+
+	m_pGraphBar->UpdateGraphs();
+	m_pTaskInfo->Refresh();
+	m_pSystemInfo->Refresh();
 }

@@ -20,6 +20,10 @@ public:
 
 	virtual QVariantMap GetDetailedInfos() const	{ return QVariantMap(); };
 
+
+	virtual QString			GetProcessName()		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
+	virtual QSharedPointer<QObject>	GetProcess()	{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
+
 protected:
 	quint64				m_HandleId;
 	quint64				m_ProcessId;
@@ -27,6 +31,9 @@ protected:
 	QString				m_FileName;
 	quint64				m_Position;
 	quint64				m_Size;
+
+	QString				m_ProcessName;
+	QSharedPointer<QObject>	m_pProcess;
 
 	mutable QReadWriteLock		m_Mutex;
 };

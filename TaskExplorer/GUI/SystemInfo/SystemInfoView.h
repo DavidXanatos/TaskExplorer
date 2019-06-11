@@ -4,7 +4,7 @@
 #include "SystemOverview.h"
 #include "SystemPerfMon.h"
 #include "DriversView.h"
-#include "AllFilesView.h"
+#include "../TaskInfo/HandlesView.h"
 #include "../TaskInfo/SocketsView.h"
 #include "ServicesView.h"
 
@@ -15,6 +15,10 @@ public:
 	CSystemInfoView();
 	virtual ~CSystemInfoView();
 
+public slots:
+	void				OnTab(int tabIndex);
+	void				Refresh();
+
 private:
 	QVBoxLayout*		m_pMainLayout;
 
@@ -23,7 +27,7 @@ private:
 	CSystemOverview*	m_pSystemOverview;
 	CSystemPerfMon*		m_pSystemPerfMon;
 	CDriversView*		m_pDriversView;
-	CAllFilesView*		m_pAllFilesView;
+	CHandlesView*		m_pAllFilesView;
 	CSocketsView*		m_pAllSocketsView;
 	CServicesView*		m_pServicesView;
 };

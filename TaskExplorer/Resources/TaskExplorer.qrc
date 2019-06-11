@@ -4,5 +4,9 @@
         <file>exe32.png</file>
         <file>exe48.png</file>
         <file>exe64.png</file>
+        <file>dll16.png</file>
+        <file>dll32.png</file>
+        <file>dll48.png</file>
+        <file>dll64.png</file>
     </qresource>
 </RCC>

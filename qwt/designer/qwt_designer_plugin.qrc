@@ -1,0 +1,15 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource>
+        <file>pixmaps/qwtplot.png</file>
+        <file>pixmaps/qwtanalogclock.png</file>
+        <file>pixmaps/qwtcounter.png</file>
+        <file>pixmaps/qwtcompass.png</file>
+        <file>pixmaps/qwtdial.png</file>
+        <file>pixmaps/qwtknob.png</file>
+        <file>pixmaps/qwtscale.png</file>
+        <file>pixmaps/qwtslider.png</file>
+        <file>pixmaps/qwtthermo.png</file>
+        <file>pixmaps/qwtwheel.png</file>
+        <file>pixmaps/qwtwidget.png</file>
+    </qresource>
+</RCC>

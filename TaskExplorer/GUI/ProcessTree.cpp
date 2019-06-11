@@ -5,17 +5,13 @@
 #include "Models\ProcessModel.h"
 #include "Models\SortFilterProxyModel.h"
 
-
 CProcessTree::CProcessTree()
 {
+	m_ExpandAll = false;
+
 	m_pMainLayout = new QHBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
-
-
-	m_pProcessSplitter = new QSplitter();
-	m_pProcessSplitter->setOrientation(Qt::Horizontal);
-	m_pMainLayout->addWidget(m_pProcessSplitter);
 
 	m_pProcessModel = new CProcessModel();
 	//connect(m_pProcessModel, SIGNAL(CheckChanged(quint64, bool)), this, SLOT(OnCheckChanged(quint64, bool)));
@@ -27,73 +23,41 @@ CProcessTree::CProcessTree()
 	m_pSortProxy->setDynamicSortFilter(true);
 
 
-
-	// Process Tree
-	m_pProcessTree = new QTreeView();
-	m_pProcessTree->setItemDelegate(new QStyledItemDelegateMaxH(m_pProcessTree->fontMetrics().height() + 3, this));
-
-	/*m_pProxyModel = new CFilterProxyModel(this);
-	m_pProxyModel->setSourceModel(m_pSortProxy);
-	m_pProcessTree->setModel(m_pProxyModel);*/
-	m_pProcessTree->setModel(m_pSortProxy);
-
-	m_pProcessTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
-#ifdef WIN32
-	QStyle* pStyle = QStyleFactory::create("windows");
-	m_pProcessTree->setStyle(pStyle);
-#endif
-	m_pProcessTree->setSortingEnabled(true);
+	m_pProcessList = new CSplitTreeView(m_pSortProxy);
 	
+	connect(m_pProcessList, SIGNAL(TreeResized(int)), this, SLOT(OnTreeResized(int)));
 
-	m_pProcessSplitter->addWidget(m_pProcessTree);
-	//m_pProcessSplitter->setCollapsible(0, false);
-	m_pProcessSplitter->setStretchFactor(0, 0);
-	//
+	m_pProcessList->header()->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pProcessList->header(), SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnShowHeaderMenu(const QPoint &)));
 
-	// Process List
-	m_pProcessList = new QTreeViewEx();
-	m_pProcessList->setItemDelegate(new QStyledItemDelegateMaxH(m_pProcessList->fontMetrics().height() + 3, this));
+	m_pMenu = new QMenu(this);
 
-	m_pProcessList->setModel(m_pSortProxy);
-
-	m_pProcessList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pProcessList->setSortingEnabled(true);
-
-	m_pProcessSplitter->addWidget(m_pProcessList);
-	m_pProcessSplitter->setCollapsible(1, false);
-	m_pProcessSplitter->setStretchFactor(1, 1);
+	m_pMainLayout->addWidget(m_pProcessList);
 	// 
 
-	connect(m_pProcessSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved(int,int)));
+//#ifdef _DEBUG
+	/*for (int i = 1; i < m_pProcessList->colorCount(); i++)
+		m_pProcessList->setColumnHidden(i, true);*/
 
-
-	// Link selections
-	m_pProcessTree->setSelectionModel(m_pProcessList->selectionModel());
-
-	// Modify columns
-	for (int i = 1; i < m_pProcessTree->colorCount(); i++)
-		m_pProcessTree->setColumnHidden(i, true);
-
-	m_bTreeHidden = false; // todo
-	m_pProcessModel->SetTree(!m_bTreeHidden);
-	m_pProcessList->setColumnFixed(0, true);
-	m_pProcessList->setColumnHidden(0, !m_bTreeHidden);
-
-	// link expansion
-	connect(m_pProcessTree, SIGNAL(expanded(const QModelIndex)), m_pProcessList, SLOT(expand(const QModelIndex)));
-	connect(m_pProcessTree, SIGNAL(collapsed(const QModelIndex)), m_pProcessList, SLOT(collapse(const QModelIndex)));
-	connect(m_pProcessList, SIGNAL(expanded(const QModelIndex)), m_pProcessTree, SLOT(expand(const QModelIndex)));
-	connect(m_pProcessList, SIGNAL(collapsed(const QModelIndex)), m_pProcessTree, SLOT(collapse(const QModelIndex)));
-
-	// link kscrollbars
-	m_pProcessTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-	m_pProcessTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-	m_pProcessList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-	connect(m_pProcessList->verticalScrollBar(), SIGNAL(valueChanged(int)), m_pProcessTree->verticalScrollBar(), SLOT(setValue(int)));
-	connect(m_pProcessTree->verticalScrollBar(), SIGNAL(valueChanged(int)), m_pProcessList->verticalScrollBar(), SLOT(setValue(int)));
+	m_pProcessModel->setColumn(CProcessModel::ePID, true);
+	m_pProcessModel->setColumn(CProcessModel::eCPU, true);
+	m_pProcessModel->setColumn(CProcessModel::eIO_TotalRate, true);
+	m_pProcessModel->setColumn(CProcessModel::ePrivateBytes, true);
+	//m_pProcessModel->setColumn(CProcessModel::ePriorityClass, true);
+	//m_pProcessModel->setColumn(CProcessModel::eGDI_Handles, true);
+	//m_pProcessModel->setColumn(CProcessModel::eUSER_Handles, true);
+	m_pProcessModel->setColumn(CProcessModel::eStartTime, true);
+	//m_pProcessModel->setColumn(CProcessModel::eIO_ReadRate, true);
+	//m_pProcessModel->setColumn(CProcessModel::eIO_WriteRate, true);
+	//m_pProcessModel->setColumn(CProcessModel::eIO_OtherRate, true);
+	//m_pProcessModel->setColumn(CProcessModel::eReceiveRate, true);
+	//m_pProcessModel->setColumn(CProcessModel::eSendRate, true);
+	//m_pProcessModel->setColumn(CProcessModel::eReadRate, true);
+	//m_pProcessModel->setColumn(CProcessModel::eWriteRate, true);
+//#endif
 
 	connect(m_pProcessList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
-	connect(m_pProcessTree, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
+
 
 	/*m_pProcessTree->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pProcessTree, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenuRequested(const QPoint &)));
@@ -111,15 +75,44 @@ CProcessTree::~CProcessTree()
 
 }
 
-void CProcessTree::OnSplitterMoved(int pos, int index)
+void CProcessTree::OnTreeResized(int Width)
 {
-	if ((pos == 0) == m_bTreeHidden)
-		return;
-	m_bTreeHidden = (pos == 0);
+	if (m_pProcessModel->IsTree() != (Width > 0))
+	{
+		m_pProcessModel->SetTree(Width > 0);
 
-	m_pProcessModel->SetTree(!m_bTreeHidden);
-	m_pProcessList->setColumnHidden(0, !m_bTreeHidden);
+		if (Width > 0)
+			m_ExpandAll = true;
+	}
 }
+
+void CProcessTree::OnShowHeaderMenu(const QPoint &point)
+{
+	if(m_Columns.isEmpty())
+	{
+		for(int i=0; i < m_pProcessModel->maxColumn(); i++)
+		{
+			QAction* pAction = new QAction(m_pProcessModel->getColumn(i), m_pMenu);
+			pAction->setCheckable(true);
+			connect(pAction, SIGNAL(triggered()), this, SLOT(OnHeaderMenu()));
+			m_pMenu->addAction(pAction);
+			m_Columns[pAction] = i;
+		}
+	}
+
+	for(QMap<QAction*, int>::iterator I = m_Columns.begin(); I != m_Columns.end(); I++)
+		I.key()->setChecked(m_pProcessModel->testColumn(I.value()));
+
+	m_pMenu->popup(QCursor::pos());	
+}
+
+void CProcessTree::OnHeaderMenu()
+{
+	QAction* pAction = (QAction*)sender();
+	int Column = m_Columns.value(pAction, -1);
+	m_pProcessModel->setColumn(Column, pAction->isChecked());
+}
+
 
 void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
@@ -127,13 +120,24 @@ void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Chang
 
 	m_pProcessModel->Sync(ProcessList);
 
-
-	QTimer::singleShot(100, this, [this, Added]() {
-		foreach(quint64 PID, Added)
-			m_pProcessTree->expand(m_pSortProxy->mapFromSource(m_pProcessModel->FindIndex(PID)));
-	});
+	// If we are dsplaying a tree than always auto expand new items
+	if (m_pProcessModel->IsTree())
+	{
+		QTimer::singleShot(100, this, [this, Added]() {
+			if (m_ExpandAll)
+			{
+				m_ExpandAll = false;
+				m_pProcessList->expandAll();
+			}
+			else
+			{
+				foreach(quint64 PID, Added) {
+					m_pProcessList->expand(m_pSortProxy->mapFromSource(m_pProcessModel->FindIndex(PID)));
+				}
+			}
+		});
+	}
 }
-
 
 void CProcessTree::OnClicked(const QModelIndex& Index)
 {

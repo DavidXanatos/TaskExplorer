@@ -7,38 +7,35 @@
 #endif
 
 CHandleModel::CHandleModel(QObject *parent)
-:QAbstractItemModel(parent)
+:CListItemModel(parent)
 {
 }
 
 CHandleModel::~CHandleModel()
 {
-	foreach(SHandleNode* pNode, m_List)
-		delete pNode;
 }
 
 void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 {
-	QList<SHandleNode*> New;
-	QMap<quint64, SHandleNode*> Old = m_Map;
+	QList<SListNode*> New;
+	QMap<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CHandlePtr& pHandle, HandleList)
 	{
-		quint64 UID = (quint64)pHandle.data();
+		QVariant ID = (quint64)pHandle.data();
 
 		int Row = -1;
-		SHandleNode* pNode = Old[UID];
+		SHandleNode* pNode = static_cast<SHandleNode*>(Old[ID]);
 		if(!pNode)
 		{
-			pNode = new SHandleNode();
+			pNode = static_cast<SHandleNode*>(MkNode(ID));
 			pNode->Values.resize(columnCount());
-			pNode->UID = UID;
 			pNode->pHandle = pHandle;
 			New.append(pNode);
 		}
 		else
 		{
-			Old[UID] = NULL;
+			Old[ID] = NULL;
 			Row = m_List.indexOf(pNode);
 		}
 
@@ -46,15 +43,31 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		bool State = false;
 		bool Changed = false;
 
+		// Note: icons are loaded asynchroniusly
+		if (!pNode->Icon.isValid())
+		{
+			CProcessPtr pProcess = pNode->pHandle->GetProcess().objectCast<CProcessInfo>();
+
+			if (!pProcess.isNull())
+			{
+				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
+				if (!Icon.isNull()) {
+					Changed = true; // set change for first column
+					pNode->Icon = Icon;
+				}
+			}
+		}
+
 #ifdef WIN32
 		CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
 #endif
 
-		for(int section = eHandle; section < columnCount(); section++)
+		for(int section = eProcess; section < columnCount(); section++)
 		{
 			QVariant Value;
 			switch(section)
 			{
+				case eProcess:			Value = pHandle->GetProcessName(); break;	
 				case eHandle:			Value = pHandle->GetHandleId(); break;
 				case eType:				Value = pHandle->GetTypeString(); break;
 				case eName:				Value = pHandle->GetFileName(); break;
@@ -64,7 +77,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 #ifdef WIN32
 				case eFileShareAccess:	Value = pWinHandle->GetFileShareAccessString(); break;	
 				case eAttributes:		Value = pWinHandle->GetAttributesString(); break;	
-				case eObjectAddress:	Value = pWinHandle->GetObject(); break;	
+				case eObjectAddress:	Value = pWinHandle->GetObjectAddress(); break;	
 				case eOriginalName:		Value = pWinHandle->GetOriginalName(); break;	
 #endif
 			}
@@ -79,9 +92,9 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 				switch (section)
 				{
-					case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
+					//case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
 #ifdef WIN32
-					case eObjectAddress:	ColValue.Formated = "0x" + QString::number(pWinHandle->GetObject(), 16); break;	
+					case eObjectAddress:	ColValue.Formated = "0x" + QString::number(pWinHandle->GetObjectAddress(), 16); break;	
 #endif
 				}
 			}
@@ -100,77 +113,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 	}
 
-	Sync(New, Old);
-}
-
-void CHandleModel::Sync(QList<SHandleNode*>& New, QMap<quint64, SHandleNode*>& Old)
-{
-	int Begin = -1;
-	int End = -1;
-	for(int i = m_List.count()-1; i >= -1; i--) 
-	{
-		quint64 ID = i >= 0 ? m_List[i]->UID : -1;
-		if(ID != -1 && (Old.value(ID) != NULL)) // remove it
-		{
-			m_Map.remove(ID);
-			if(End == -1)
-				End = i;
-		}
-		else if(End != -1) // keep it and remove whatis to be removed at once
-		{
-			Begin = i + 1;
-
-			beginRemoveRows(QModelIndex(), Begin, End);
-			for(int j = End; j >= Begin; j--)
-				delete m_List.takeAt(j);
-			endRemoveRows();
-
-			End = -1;
-			Begin = -1;
-		}
-    }
-
-	Begin = m_List.count();
-	for(QList<SHandleNode*>::iterator I = New.begin(); I != New.end(); I++)
-	{
-		SHandleNode* pNode = *I;
-		m_Map.insert(pNode->UID, pNode);
-		m_List.append(pNode);
-	}
-	End = m_List.count();
-	if(Begin < End)
-	{
-		beginInsertRows(QModelIndex(), Begin, End-1);
-		endInsertRows();
-	}
-}
-
-QModelIndex CHandleModel::FindIndex(quint64 SubID)
-{
-	if(SHandleNode* pNode = m_Map.value(SubID))
-	{
-		int row = m_List.indexOf(pNode);
-		ASSERT(row != -1);
-		return createIndex(row, eHandle, pNode);
-	}
-	return QModelIndex();
-}
-
-void CHandleModel::Clear()
-{
-	//beginResetModel();
-	beginRemoveRows(QModelIndex(), 0, rowCount());
-	foreach(SHandleNode* pNode, m_List)
-		delete pNode;
-	m_List.clear();
-	m_Map.clear();
-	endRemoveRows();
-	//endResetModel();
-}
-
-QVariant CHandleModel::data(const QModelIndex &index, int role) const
-{
-    return Data(index, role, index.column());
+	CListItemModel::Sync(New, Old);
 }
 
 CHandlePtr CHandleModel::GetHandle(const QModelIndex &index) const
@@ -180,84 +123,6 @@ CHandlePtr CHandleModel::GetHandle(const QModelIndex &index) const
 
 	SHandleNode* pNode = static_cast<SHandleNode*>(index.internalPointer());
 	return pNode->pHandle;
-}
-
-QVariant CHandleModel::Data(const QModelIndex &index, int role, int section) const
-{
-	if (!index.isValid())
-        return QVariant();
-
-    //if(role == Qt::SizeHintRole )
-    //    return QSize(64,16); // for fixing height
-
-	SHandleNode* pNode = static_cast<SHandleNode*>(index.internalPointer());
-
-	switch(role)
-	{
-		case Qt::DisplayRole:
-		{
-			SHandleNode::SValue& Value = pNode->Values[section];
-			return Value.Formated.isValid() ? Value.Formated : Value.Raw;
-		}
-		case Qt::EditRole: // sort role
-		{
-			return pNode->Values[section].Raw;
-		}
-		case Qt::BackgroundRole:
-		{
-			//return QBrush(QColor(255,128,128));
-			break;
-		}
-		case Qt::ForegroundRole:
-		{
-			/* QColor Color = Qt::black;
-			return QBrush(Color); */
-			break;
-		}
-		case Qt::UserRole:
-		{
-			switch(section)
-			{
-				case eHandle:			return pNode->UID;
-			}
-			break;
-		}
-	}
-	return QVariant();
-}
-
-Qt::ItemFlags CHandleModel::flags(const QModelIndex &index) const
-{
-    if (!index.isValid())
-        return 0;
-    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
-}
-
-QModelIndex CHandleModel::index(int row, int column, const QModelIndex &parent) const
-{
-    if (!hasIndex(row, column, parent))
-        return QModelIndex();
-
-    if (parent.isValid()) 
-        return QModelIndex();
-	if(m_List.count() > row)
-		return createIndex(row, column, m_List[row]);
-	return QModelIndex();
-}
-
-QModelIndex CHandleModel::parent(const QModelIndex &index) const
-{
-	return QModelIndex();
-}
-
-int CHandleModel::rowCount(const QModelIndex &parent) const
-{
-    if (parent.column() > 0)
-        return 0;
-
-    if (parent.isValid())
-        return 0;
-	return m_List.count();
 }
 
 int CHandleModel::columnCount(const QModelIndex &parent) const
@@ -271,6 +136,7 @@ QVariant CHandleModel::headerData(int section, Qt::Orientation orientation, int 
 	{
 		switch(section)
 		{
+			case eProcess:				return tr("Process");
 			case eHandle:				return tr("Handle");
 			case eType:					return tr("Type");
 			case eName:					return tr("File Name");
@@ -286,4 +152,9 @@ QVariant CHandleModel::headerData(int section, Qt::Orientation orientation, int 
 		}
 	}
     return QVariant();
+}
+
+QVariant CHandleModel::GetDefaultIcon() const 
+{ 
+	return g_ExeIcon;
 }

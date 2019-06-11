@@ -26,6 +26,9 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 
+
+#include "../TaskExplorer/GUI/TaskExplorer.h"
+
 #include <evntcons.h>
 
 typedef struct
@@ -136,7 +139,7 @@ bool CEventMonitor::Init()
 		m_pMonitorRundown = new CEventMonitor(this);
 		m_pMonitorRundown->m_bRundownMode = true;
 
-		connect(m_pMonitorRundown, SIGNAL(FileEvent(int, quint64, const QString&)), this, SIGNAL(FileEvent(int, quint64, const QString&)));
+		connect(m_pMonitorRundown, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)));
 
 		m_pMonitorRundown->Init();
 	}
@@ -284,29 +287,29 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // DiskIo
 
-        CEventMonitor::ET_ETW_EVENT_TYPE Type = CEventMonitor::EtEtwUnknow;
+        ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case EVENT_TRACE_TYPE_IO_READ:
-            Type = CEventMonitor::EtEtwDiskReadType;
+            Type = EtEtwDiskReadType;
             break;
         case EVENT_TRACE_TYPE_IO_WRITE:
-            Type = CEventMonitor::EtEtwDiskWriteType;
+            Type = EtEtwDiskWriteType;
             break;
         default:
             break;
         }
 
-        if (Type != CEventMonitor::EtEtwUnknow)
+        if (Type != EtEtwUnknow)
         {
             DiskIo_TypeGroup1 *data = (DiskIo_TypeGroup1*)EventRecord->UserData;
-
-			// Note: this could be made many lines shorter (DX)
 
 			quint64 ProcessId = -1;
 			quint64 ThreadId = -1;
 
+			// Since Windows 8, we no longer get the correct process/thread IDs in the
+			// event headers for disk events. 
             if (WindowsVersion >= WINDOWS_8)
             {
                 ThreadId = data->IssuingThreadId;
@@ -330,24 +333,24 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // FileIo
 
-        CEventMonitor::ET_ETW_EVENT_TYPE Type = CEventMonitor::EtEtwUnknow;
+        ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case 0: // Name
-            Type = CEventMonitor::EtEtwFileNameType;
+            Type = EtEtwFileNameType;
             break;
         case 32: // FileCreate
-            Type = CEventMonitor::EtEtwFileCreateType;
+            Type = EtEtwFileCreateType;
             break;
         case 35: // FileDelete
-            Type = CEventMonitor::EtEtwFileDeleteType;
+            Type = EtEtwFileDeleteType;
             break;
         default:
             break;
         }
 
-        if (Type != CEventMonitor::EtEtwUnknow)
+        if (Type != EtEtwUnknow)
         {
 			quint64 FileId;
 			QString FileName;
@@ -367,8 +370,27 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 				FileName = QString::fromWCharArray(data->FileName);
             }
 
+			quint64 ProcessId = -1;
+			quint64 ThreadId = -1;
+
+			// Since Windows 8, we no longer get the correct process/thread IDs in the
+			// event headers for file events. 
+            if (WindowsVersion >= WINDOWS_8)
+            {
+                ThreadId = -1;
+				ProcessId = -1;
+            }
+            else
+            {
+                if (EventRecord->EventHeader.ProcessId != ULONG_MAX)
+                {
+                    ProcessId = EventRecord->EventHeader.ProcessId;
+                    ThreadId = EventRecord->EventHeader.ThreadId;
+                }
+            }
+
             //EtDiskProcessFileEvent(&fileEvent);
-			emit This->FileEvent(Type, FileId, FileName);
+			emit This->FileEvent(Type, FileId, ThreadId, ThreadId, FileName);
         }
     }
     else if (
@@ -378,25 +400,25 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // TcpIp/UdpIp
 
-		CEventMonitor::ET_ETW_EVENT_TYPE Type = CEventMonitor::EtEtwUnknow;
+		ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
 		ulong ProtocolType = 0;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case EVENT_TRACE_TYPE_SEND: // send
-            Type = CEventMonitor::EtEtwNetworkSendType;
+            Type = EtEtwNetworkSendType;
             ProtocolType = PH_IPV4_NETWORK_TYPE;
             break;
         case EVENT_TRACE_TYPE_RECEIVE: // receive
-            Type = CEventMonitor::EtEtwNetworkReceiveType;
+            Type = EtEtwNetworkReceiveType;
             ProtocolType = PH_IPV4_NETWORK_TYPE;
             break;
         case EVENT_TRACE_TYPE_SEND + 16: // send ipv6
-            Type = CEventMonitor::EtEtwNetworkSendType;
+            Type = EtEtwNetworkSendType;
             ProtocolType = PH_IPV6_NETWORK_TYPE;
             break;
         case EVENT_TRACE_TYPE_RECEIVE + 16: // receive ipv6
-            Type = CEventMonitor::EtEtwNetworkReceiveType;
+            Type = EtEtwNetworkReceiveType;
             ProtocolType = PH_IPV6_NETWORK_TYPE;
             break;
         }
@@ -406,7 +428,7 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
         else
             ProtocolType |= PH_UDP_PROTOCOL_TYPE;
 
-        if (Type != CEventMonitor::EtEtwUnknow)
+        if (Type != EtEtwUnknow)
         {
 			quint64 ProcessId = -1;
 			ulong TransferSize = 0;
@@ -426,11 +448,8 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 				LocalAddress = QHostAddress(ntohl(data->saddr));
                 LocalPort = ntohs(data->sport);
 
-				if (ProtocolType & PH_TCP_PROTOCOL_TYPE)
-				{
-					RemoteAddress = QHostAddress(ntohl(data->daddr));
-					RemotePort = ntohs(data->dport);
-				}
+				RemoteAddress = QHostAddress(ntohl(data->daddr));
+				RemotePort = ntohs(data->dport);
             }
             else if (ProtocolType & PH_IPV6_NETWORK_TYPE)
             {
@@ -442,13 +461,23 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 				LocalAddress = QHostAddress(data->saddr.u.Byte);
                 LocalPort = ntohs(data->sport);
 
-				if (ProtocolType & PH_TCP_PROTOCOL_TYPE)
-				{
-					RemoteAddress = QHostAddress(data->daddr.u.Byte);
-					RemotePort = ntohs(data->dport);
-				}
+				RemoteAddress = QHostAddress(data->daddr.u.Byte);
+				RemotePort = ntohs(data->dport);
             }
 
+			// Note: Incomming UDP packets have the endpoints swaped :/
+			if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0 && Type == EtEtwNetworkReceiveType)
+			{
+				QHostAddress TempAddresss = LocalAddress;
+				quint16 TempPort = LocalPort;
+				LocalAddress = RemoteAddress;
+				LocalPort = RemotePort;
+				RemoteAddress = TempAddresss;
+				RemotePort = TempPort;
+			}
+
+			//if(ProcessId == )
+			//	qDebug() << ProcessId  << Type << LocalAddress.toString() << LocalPort << RemoteAddress.toString() << RemotePort;
 
 			//EtProcessNetworkEvent(&networkEvent);
 			emit This->NetworkEvent(Type, ProcessId, -1, ProtocolType, TransferSize, LocalAddress, LocalPort, RemoteAddress, RemotePort);
@@ -469,18 +498,18 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // FileIo
 
-        CEventMonitor::ET_ETW_EVENT_TYPE Type = CEventMonitor::EtEtwUnknow;
+        ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case 36: // FileRundown
-            Type = CEventMonitor::EtEtwFileRundownType;
+            Type = EtEtwFileRundownType;
             break;
         default:
             break;
         }
 
-        if (Type != CEventMonitor::EtEtwUnknow)
+        if (Type != EtEtwUnknow)
         {
 			quint64 FileId;
 			QString FileName;
@@ -500,8 +529,27 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 				FileName = QString::fromWCharArray(data->FileName);
             }
 
+			quint64 ProcessId = -1;
+			quint64 ThreadId = -1;
+
+			// Since Windows 8, we no longer get the correct process/thread IDs in the
+			// event headers for file events. 
+            if (WindowsVersion >= WINDOWS_8)
+            {
+				ThreadId = -1;
+				ProcessId = -1;
+            }
+            else
+            {
+                if (EventRecord->EventHeader.ProcessId != ULONG_MAX)
+                {
+                    ProcessId = EventRecord->EventHeader.ProcessId;
+                    ThreadId = EventRecord->EventHeader.ThreadId;
+                }
+            }
+
             //EtDiskProcessFileEvent(&fileEvent);
-			emit This->FileEvent(Type, FileId, FileName);
+			emit This->FileEvent(Type, FileId, ProcessId, ThreadId, FileName);
         }
     }
 }

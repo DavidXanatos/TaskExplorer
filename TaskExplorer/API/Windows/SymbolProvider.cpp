@@ -26,9 +26,9 @@
 #include "SymbolProvider.h"
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
-#include "../../Common/Functions.h"
+#include "../../Common/Common.h"
 
-#include <evntcons.h>
+#include <dbghelp.h>
 
 struct SSymbolProvider
 {
@@ -36,6 +36,8 @@ struct SSymbolProvider
 	{
 		ProcessId = (HANDLE)PID;
 		SymbolProvider = PhCreateSymbolProvider(ProcessId);
+		IsWow64 = FALSE;
+		ConnectedToPhSvc = FALSE;
 	}
 
 	~SSymbolProvider() {
@@ -48,6 +50,10 @@ struct SSymbolProvider
 
 	HANDLE ProcessId;
 	PPH_SYMBOL_PROVIDER SymbolProvider;
+
+	//.NET
+	BOOLEAN IsWow64;
+	BOOLEAN ConnectedToPhSvc;
 
 	time_t LastTimeUsed;
 };
@@ -233,6 +239,22 @@ VOID PhLoadSymbolsThreadProvider(SSymbolProvider* m)
     }
 }
 
+VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
+{
+	bool DbgHelpUndecorate = true; // todo add setting
+	QString DbgHelpSearchPath = "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
+
+	PhSetOptionsSymbolProvider(SYMOPT_UNDNAME, DbgHelpUndecorate ? SYMOPT_UNDNAME : 0);
+
+	PPH_STRING searchPath = CastQString(DbgHelpSearchPath);
+
+	if (searchPath->Length != 0)
+		PhSetSearchPathSymbolProvider(SymbolProvider, searchPath->Buffer);
+
+	PhDereferenceObject(searchPath);
+}
+
+
 void CSymbolProvider::run()
 {
 	//exec();
@@ -270,6 +292,8 @@ void CSymbolProvider::run()
 		if (m == NULL)
 		{
 			m = new SSymbolProvider(pJob->m_ProcessId);
+
+			PhLoadSymbolProviderOptions(m->SymbolProvider);
 
 			PhLoadSymbolsThreadProvider(m);
 		}
@@ -311,13 +335,16 @@ BOOLEAN NTAPI PhpWalkThreadStackCallback(_In_ PPH_THREAD_STACK_FRAME StackFrame,
     return TRUE;
 }
 
+typedef struct _CLR_PROCESS_SUPPORT
+{
+    struct IXCLRDataProcess *DataProcess;
+} CLR_PROCESS_SUPPORT, *PCLR_PROCESS_SUPPORT;
+
 void CStackProviderJob::Run(struct SSymbolProvider* m)
 {
 	this->m = m;
 
 	m_StackTrace = CStackTracePtr(new CStackTrace(m_ProcessId, m_ThreadId));
-
-	PhLoadSymbolsThreadProvider(m);
 
 	NTSTATUS status;
     HANDLE threadHandle;
@@ -326,6 +353,18 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
     clientId.UniqueProcess = (HANDLE)m_ProcessId;
     clientId.UniqueThread = (HANDLE)m_ThreadId;
 
+/*#if _WIN64
+    HANDLE processHandle;
+
+    if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, clientId.UniqueProcess)))
+    {
+        PhGetProcessIsWow64(processHandle, &m->IsWow64);
+        NtClose(processHandle);
+    }
+#endif*/
+
+	PhLoadSymbolsThreadProvider(m);
+
 	if (!NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, (HANDLE)m_ThreadId)))
     {
         if (KphIsConnected())
@@ -333,6 +372,18 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
             status = PhOpenThread(&threadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)m_ThreadId);
         }
     }
+
+	// todo: add -net support
+	/*BOOLEAN isDotNet;
+	if (!NT_SUCCESS(PhGetProcessIsDotNet(clientId.UniqueProcess, &isDotNet)) || !isDotNet)
+		return;
+
+	PCLR_PROCESS_SUPPORT Support = (PCLR_PROCESS_SUPPORT)CreateClrProcessSupport(clientId.UniqueProcess);
+
+#ifdef _WIN64
+	if (m->IsWow64)
+		m->ConnectedToPhSvc = PhUiConnectToPhSvcEx(NULL, Wow64PhSvcMode, FALSE);
+#endif*/
 
 	if (NT_SUCCESS(status))
 	{
@@ -361,6 +412,16 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 
 	quint64 Params[4] = { (quint64)StackFrame->Params[0], (quint64)StackFrame->Params[1], (quint64)StackFrame->Params[2], (quint64)StackFrame->Params[3] };
 	
+	QString FileInfo;
+
+    PPH_STRING fileName;
+    PH_SYMBOL_LINE_INFORMATION lineInfo;
+	if(PhGetLineFromAddress(m->SymbolProvider, (ULONG64)StackFrame->PcAddress, &fileName, NULL, &lineInfo))
+	{
+		FileInfo = tr("File: %1: line %2").arg(CastPhString(fileName)).arg(lineInfo.LineNumber);
+	}
+
+
 	m_StackTrace->AddFrame(Symbol, (quint64)StackFrame->PcAddress, (quint64)StackFrame->ReturnAddress, (quint64)StackFrame->FrameAddress, 
-									(quint64)StackFrame->StackAddress, (quint64)StackFrame->BStoreAddress, Params, (quint64)StackFrame->Flags);
+									(quint64)StackFrame->StackAddress, (quint64)StackFrame->BStoreAddress, Params, (quint64)StackFrame->Flags, FileInfo);
 }

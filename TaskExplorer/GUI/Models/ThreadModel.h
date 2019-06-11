@@ -1,8 +1,9 @@
 #pragma once
 #include <qwidget.h>
+#include "Common/ListItemModel.h"
 #include "..\..\API\ThreadInfo.h"
 
-class CThreadModel : public QAbstractItemModel
+class CThreadModel : public CListItemModel
 {
     Q_OBJECT
 
@@ -11,19 +12,9 @@ public:
 	~CThreadModel();
 
 	void			Sync(QMap<quint64, CThreadPtr> ThreadList);
-	QModelIndex		FindIndex(quint64 SubID);
-	void			Clear();
 
 	CThreadPtr		GetThread(const QModelIndex &index) const;
 
-	QVariant		Data(const QModelIndex &index, int role, int section) const;
-
-	// derived functions
-    QVariant		data(const QModelIndex &index, int role) const;
-    Qt::ItemFlags	flags(const QModelIndex &index) const;
-    QModelIndex		index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
-    QModelIndex		parent(const QModelIndex &index) const;
-    int				rowCount(const QModelIndex &parent = QModelIndex()) const;
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
@@ -36,6 +27,7 @@ public:
 		ePriority,
 		eService,
 		eName,
+		eType,
 		eCreated,
 		eStartModule,
 		eContextSwitches,
@@ -52,22 +44,12 @@ public:
 	};
 
 protected:
-	struct SThreadNode
+	struct SThreadNode: SListNode
 	{
-		quint64				UID;
-		
-		CThreadPtr			pThread;
+		SThreadNode(const QVariant& Id) : SListNode(Id) {}
 
-		struct SValue
-		{
-			QVariant Raw;
-			QVariant Formated;
-		};
-		QVector<SValue>		Values;
+		CThreadPtr			pThread;
 	};
 
-	void Sync(QList<SThreadNode*>& New, QMap<quint64, SThreadNode*>& Old);
-
-	QList<SThreadNode*>			m_List;
-	QMap<quint64, SThreadNode*>	m_Map;
+	virtual SListNode* MkNode(const QVariant& Id) { return new SThreadNode(Id); }
 };

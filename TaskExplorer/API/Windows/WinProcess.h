@@ -12,8 +12,11 @@ public:
 	CWinProcess(QObject *parent = nullptr);
 	virtual ~CWinProcess();
 
+	virtual bool ValidateParent(const CProcessPtr& pParent) const;
+
 	// Basic
-	virtual quint64 GetSessionID() const			{ QReadLocker Locker(&m_Mutex); return m_SessionId; }
+	virtual quint64 GetSessionID() const;
+	virtual quint64 GetRawCreateTime() const;
 
 	// Flags
 	virtual bool IsSubsystemProcess() const;
@@ -23,11 +26,7 @@ public:
 	virtual QString GetIntegrityString() const;
 
 	// Dynamic
-	virtual ulong GetNumberOfHandles() const		{ QReadLocker Locker(&m_Mutex); return m_NumberOfHandles; }
 	virtual int GetBasePriority() const				{ QReadLocker Locker(&m_Mutex); return m_BasePriority; }
-
-	// File
-	virtual QString GetDescription() const;
 
 	// GDI, USER handles
 	virtual ulong GetGdiHandles() const				{ QReadLocker Locker(&m_Mutex); return m_GdiHandles; }
@@ -37,25 +36,29 @@ public:
 	virtual ulong GetOsContextVersion() const;
 	virtual QString GetOsContextString() const;
 
+	// Other Fields
+	virtual quint64 GetProcessSequenceNumber() const;
+
 public slots:
 	virtual bool	UpdateThreads();
 	virtual bool	UpdateHandles();
+	virtual bool	UpdateModules();
+
+	void			OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
 
 protected:
 	friend class CWindowsAPI;
 
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process);
-	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process);
-	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process);
+	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
-	void InitAsyncData();
 
-	// Basic
-	quint64 m_SessionId;
+	void AddNetworkIO(int Type, ulong TransferSize);
+	void AddDiskIO(int Type, ulong TransferSize);
 
 	// Dynamic
 	int m_BasePriority;
-	ulong m_NumberOfHandles;
 
 	// GDI, USER handles
     ulong m_GdiHandles;
@@ -64,11 +67,7 @@ protected:
 	// Threads
 	//QMap<quint64, >
 
-protected slots:
-	void OnInitAsyncData(int Index);
-
 private:
-	static QVariantMap InitAsyncData(QVariantMap Params);
 
 	struct SWinProcess* m;
 };

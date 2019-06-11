@@ -33,6 +33,8 @@
 #include <subprocesstag.h>
 #include <secedit.h>
 #include <symprv.h>
+#include <svcsup.h>
+#include <mapimg.h>
 
 #include <combaseapi.h>
 
@@ -134,8 +136,7 @@ typedef struct _PH_NETWORK_CONNECTION
 //netprv.c
 BOOLEAN PhGetNetworkConnections(_Out_ PPH_NETWORK_CONNECTION *Connections, _Out_ PULONG NumberOfConnections);
 
-//supsvc.h
-PPH_STRING PhGetServiceNameFromTag(_In_ HANDLE ProcessId, _In_ PVOID ServiceTag);
 
+VOID PhpWorkaroundWindows10ServiceTypeBug(_Inout_ LPENUM_SERVICE_STATUS_PROCESS ServieEntry);
 
 #endif // ONLY_C

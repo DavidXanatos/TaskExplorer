@@ -147,9 +147,6 @@
     <ClCompile Include="GUI\Models\SocketModel.cpp">
       <Filter>Models</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\SystemInfo\AllFilesView.cpp">
-      <Filter>SystemInfo</Filter>
-    </ClCompile>
     <ClCompile Include="API\Windows\EventMonitor.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
@@ -165,9 +162,6 @@
     <ClCompile Include="API\Windows\WinHandle.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
-    <ClCompile Include="API\ThreadIinfo.cpp">
-      <Filter>API</Filter>
-    </ClCompile>
     <ClCompile Include="API\Windows\WinThread.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
@@ -177,22 +171,55 @@
     <ClCompile Include="API\Windows\SymbolProvider.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
-    <ClCompile Include="Common\Functions.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="API\StackTrace.cpp">
       <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinService.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\ServiceInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\ServiceModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\ThreadInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\ModuleModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\ModuleInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinModule.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\WndInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinWnd.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\IOStats.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\SplitTreeView.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TreeItemModel.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ListItemModel.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\IncrementalPlot.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GUI\SystemInfo\DriversView.h">
-      <Filter>SystemInfo</Filter>
-    </ClInclude>
-    <ClInclude Include="GUI\SystemInfo\ServicesView.h">
-      <Filter>SystemInfo</Filter>
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker.h">
       <Filter>API\Windows</Filter>
@@ -206,10 +233,10 @@
     <ClInclude Include="GUI\Models\SortFilterProxyModel.h">
       <Filter>Models</Filter>
     </ClInclude>
-    <ClInclude Include="Common\Functions.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="API\StackTrace.h">
+      <Filter>API</Filter>
+    </ClInclude>
+    <ClInclude Include="API\IOStats.h">
       <Filter>API</Filter>
     </ClInclude>
   </ItemGroup>
@@ -292,9 +319,6 @@
     <QtMoc Include="GUI\Models\SocketModel.h">
       <Filter>Models</Filter>
     </QtMoc>
-    <QtMoc Include="GUI\SystemInfo\AllFilesView.h">
-      <Filter>SystemInfo</Filter>
-    </QtMoc>
     <QtMoc Include="API\Windows\EventMonitor.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
@@ -321,6 +345,48 @@
     </QtMoc>
     <QtMoc Include="API\Windows\SymbolProvider.h">
       <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinService.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\ServiceInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\ServiceModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\DriversView.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\ServicesView.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\ModuleModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\ModuleInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinModule.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\WndInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinWnd.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\TreeItemModel.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\ListItemModel.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\IncrementalPlot.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\SplitTreeView.h">
+      <Filter>Common</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
@@ -349,5 +415,8 @@
     <ResourceCompile Include="Resources\TaskExplorer.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\CHANGELOG.md" />
   </ItemGroup>
 </Project>

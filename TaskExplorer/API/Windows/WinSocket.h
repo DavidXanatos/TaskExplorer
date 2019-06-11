@@ -15,14 +15,17 @@ public:
 
 	virtual QString			GetFirewallStatus();
 
-	bool Match(struct _PH_NETWORK_CONNECTION* connection);
-
 protected:
 	friend class CWindowsAPI;
 
-	bool InitStaticData(struct _PH_NETWORK_CONNECTION* connection);
+	bool InitStaticData(quint64 ProcessId, ulong ProtocolType,
+		const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
+
+	bool InitStaticDataEx(struct _PH_NETWORK_CONNECTION* connection);
 
 	bool UpdateDynamicData(struct _PH_NETWORK_CONNECTION* connection);
+
+	void AddNetworkIO(int Type, ulong TransferSize);
 
 	QString			m_OwnerService;
 	bool			m_SubsystemProcess;

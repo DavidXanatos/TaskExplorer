@@ -43,8 +43,10 @@ CTaskInfoView::CTaskInfoView()
 	m_pTabs->addTab(m_pEnvironmentView, tr("Environment"));
 
 #ifdef _DEBUG // TEST
-	//m_pTabs->setCurrentWidget(m_pHandlesView);
-	m_pTabs->setCurrentWidget(m_pThreadsView);
+	//m_pTabs->setCurrentWidget(m_pSocketsView);
+	m_pTabs->setCurrentWidget(m_pHandlesView);
+	//m_pTabs->setCurrentWidget(m_pThreadsView);
+	//m_pTabs->setCurrentWidget(m_pModulesView);
 #endif
 
 	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
@@ -78,4 +80,6 @@ void CTaskInfoView::Refresh()
 		m_pHandlesView->ShowHandles(m_pCurProcess);
 	else if(m_pTabs->currentWidget() == m_pThreadsView)
 		m_pThreadsView->ShowThreads(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pModulesView)
+		m_pModulesView->ShowModules(m_pCurProcess);
 }

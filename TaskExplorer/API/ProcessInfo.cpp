@@ -13,20 +13,21 @@ CProcessInfo::CProcessInfo(QObject *parent) : QObject(parent)
 	m_KernelTime = 0;
 	m_UserTime = 0;
 	m_NumberOfThreads = 0;
+	m_NumberOfHandles = 0;
 
 	m_WorkingSetPrivateSize = 0;
 	m_PeakNumberOfThreads = 0;
 	m_HardFaultCount = 0;
+
+	m_CpuUsage = 0.0f; 
+	m_CpuKernelUsage = 0.0f;
+	m_CpuUserUsage = 0.0f;
 }
 
 CProcessInfo::~CProcessInfo()
 {
 }
 
-void CProcessInfo::CleanUp()
-{
-	// TODO: clean up ald detailed infos like thread details, handles, etc.. if outdated
-}
 
 QString CProcessInfo::GetPriorityString() const
 {

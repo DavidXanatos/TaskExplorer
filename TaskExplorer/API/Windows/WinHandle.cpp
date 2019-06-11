@@ -143,6 +143,7 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
 
             BOOLEAN isFileOrDirectory = FALSE;
             BOOLEAN isConsoleHandle = FALSE;
+			BOOLEAN isPipeHandle = FALSE;
             FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
             FILE_STANDARD_INFORMATION fileStandardInfo;
             FILE_POSITION_INFORMATION filePositionInfo;
@@ -153,6 +154,7 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
                 switch (fileDeviceInfo.DeviceType)
                 {
                 case FILE_DEVICE_NAMED_PIPE:
+					isPipeHandle = TRUE;
 					SubTypeName = tr("Pipe");
                     break;
                 case FILE_DEVICE_CD_ROM:
@@ -176,7 +178,10 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
                 }
             }
 
-            if (!isConsoleHandle)
+			// NOTE: NtQueryInformationFile for '\Device\ConDrv\CurrentIn' causes a deadlock but
+            // we can query other '\Device\ConDrv' console handles. NtQueryInformationFile also
+            // causes a deadlock for some types of named pipes and only on Win10 (dmex)
+            if (!isPipeHandle && !isConsoleHandle)
             {
                 if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
                 {
@@ -392,6 +397,8 @@ QVariantMap CWinHandle::GetDetailedInfos() const
 {
 	QVariantMap Details;
 
+	Details["Type"] = m_TypeName;
+
     HANDLE processHandle;
 	if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_DUP_HANDLE, (HANDLE)m_ProcessId)))
 		return Details;
@@ -401,14 +408,14 @@ QVariantMap CWinHandle::GetDetailedInfos() const
 	if (NT_SUCCESS(PhGetHandleInformation(processHandle, (HANDLE)m_HandleId, ULONG_MAX, &basicInfo, NULL, NULL, NULL)))
 	{
 		QVariantMap Refs;
-		Refs[tr("References")] = (quint64)basicInfo.PointerCount;
-		Refs[tr("Handles")] = (quint64)basicInfo.HandleCount;
-		Details[tr("References")] = Refs;
+		Refs["References"] = (quint64)basicInfo.PointerCount;
+		Refs["Handles"] = (quint64)basicInfo.HandleCount;
+		Details["References"] = Refs;
 
 		QVariantMap Quota;
-		Quota[tr("Paged")] = (quint64)basicInfo.PagedPoolCharge;
-		Quota[tr("Virtual size")] = (quint64)basicInfo.NonPagedPoolCharge;
-		Details[tr("Quota charges")] = Quota;
+		Quota["Paged"] = (quint64)basicInfo.PagedPoolCharge;
+		Quota["VirtualSize"] = (quint64)basicInfo.NonPagedPoolCharge;
+		Details["Quota"] = Quota;
 
 	}
 
@@ -426,14 +433,14 @@ QVariantMap CWinHandle::GetDetailedInfos() const
             ALPC_BASIC_INFORMATION alpcInfo;
             if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcBasicInformation, &alpcInfo, sizeof(ALPC_BASIC_INFORMATION), NULL)))
             {
-				Port[tr("Sequence Number")] = (quint64)alpcInfo.SequenceNo;
-				Port[tr("Port Context")] = (quint64)alpcInfo.PortContext; // L"0x%Ix"
+				Port["SeqNumber"] = (quint64)alpcInfo.SequenceNo;
+				Port["Context"] = (quint64)alpcInfo.PortContext; // L"0x%Ix"
             }
 
             NtClose(alpcPortHandle);
         }
 
-		Details[tr("ALPC Port")] = Port;
+		Details["ALPC_Port"] = Port;
     }
     else if (m_TypeName == "File")
     {
@@ -522,7 +529,7 @@ QVariantMap CWinHandle::GetDetailedInfos() const
             NtClose(fileHandle);
         }
 
-		Details[tr("File information")] = File;
+		Details["FileInfo"] = File;
     }
     else if (m_TypeName == "Section")
     {
@@ -536,21 +543,21 @@ QVariantMap CWinHandle::GetDetailedInfos() const
         if (NT_SUCCESS(status))
         {
             SECTION_BASIC_INFORMATION sectionInfo;
-            Section[tr("Type")] = tr("Unknown");
+            Section["Type"] = tr("Unknown");
             
 			quint64 SectionSize = 0;
             if (NT_SUCCESS(PhGetSectionBasicInformation(sectionHandle, &sectionInfo)))
             {
                 if (sectionInfo.AllocationAttributes & SEC_COMMIT)
-                    Section[tr("Type")] = tr("Commit");
+                    Section["Type"] = tr("Commit");
                 else if (sectionInfo.AllocationAttributes & SEC_FILE)
-                    Section[tr("Type")] = tr("File");
+                    Section["Type"] = tr("File");
                 else if (sectionInfo.AllocationAttributes & SEC_IMAGE)
-                    Section[tr("Type")] = tr("Image");
+                    Section["Type"] = tr("Module");
                 else if (sectionInfo.AllocationAttributes & SEC_RESERVE)
-                    Section[tr("Type")] = tr("Reserve");
+                    Section["Type"] = tr("Reserve");
 
-                Section[tr("Size")] = sectionInfo.MaximumSize.QuadPart;
+                Section["Size"] = sectionInfo.MaximumSize.QuadPart;
             }
 
 			/*PPH_STRING fileName = NULL;
@@ -564,12 +571,12 @@ QVariantMap CWinHandle::GetDetailedInfos() const
                     fileName = PH_AUTO(newFileName);
             }*/
 
-			//Section[tr("File")] = ;
+			//Section["File"] = ;
 
             NtClose(sectionHandle);
         }
 
-		Details[tr("Section information")] = Section;
+		Details["SectionInfo"] = Section;
     }
     else if (m_TypeName == "Mutant")
     {
@@ -583,8 +590,8 @@ QVariantMap CWinHandle::GetDetailedInfos() const
 
             if (NT_SUCCESS(PhGetMutantBasicInformation(mutantHandle, &mutantInfo)))
             {
-				Mutant[tr("Count")] = mutantInfo.CurrentCount;
-				Mutant[tr("Abandoned")] = mutantInfo.AbandonedState ? tr("True") : tr("False");
+				Mutant["Count"] = mutantInfo.CurrentCount;
+				Mutant["Abandoned"] = mutantInfo.AbandonedState ? tr("True") : tr("False");
             }
 
             if (NT_SUCCESS(PhGetMutantOwnerInformation(mutantHandle, &ownerInfo)))
@@ -593,14 +600,14 @@ QVariantMap CWinHandle::GetDetailedInfos() const
                 if (ownerInfo.ClientId.UniqueProcess)
                 {
                     name = PhStdGetClientIdName(&ownerInfo.ClientId);
-					Mutant[tr("Owner")] = CastPhString(name);
+					Mutant["Owner"] = CastPhString(name);
                 }
             }
 
             NtClose(mutantHandle);
         }
 
-		Details[tr("Mutant information")] = Mutant;
+		Details["MutantInfo"] = Mutant;
     }
     else if (m_TypeName == "Process")
     {
@@ -621,7 +628,7 @@ QVariantMap CWinHandle::GetDetailedInfos() const
             {
                 exitStatus = procInfo.ExitStatus;
 
-				Process["Exit status"] = exitStatus;
+				Process["ExitStatus"] = exitStatus;
             }
 
 			KERNEL_USER_TIMES times;
@@ -635,7 +642,7 @@ QVariantMap CWinHandle::GetDetailedInfos() const
             NtClose(dupHandle);
         }
 
-		Details[tr("Process information")] = Process;
+		Details["ProcessInfo"] = Process;
     }
     else if (m_TypeName == "Thread")
     {
@@ -662,7 +669,7 @@ QVariantMap CWinHandle::GetDetailedInfos() const
                 //    threadInfo.ClientId.UniqueProcess
                 //    )))
                 //{
-                //    if (NT_SUCCESS(PhGetProcessImageFileName(processHandle, &fileName)))
+                //    if (NT_SUCCESS(PhGetProcessModuleFileName(processHandle, &fileName)))
                 //    {
                 //        PhMoveReference(&fileName, PhGetFileName(fileName));
                 //        PhSetListViewSubItem(Context->ListViewHandle, Context->ListViewRowCache[PH_HANDLE_GENERAL_INDEX_PROCESSTHREADNAME], 1, PhGetStringOrEmpty(fileName));
@@ -686,7 +693,7 @@ QVariantMap CWinHandle::GetDetailedInfos() const
             NtClose(dupHandle);
         }
 
-		Details[tr("Thread information")] = Thread;
+		Details["ThreadInfo"] = Thread;
     }
 
 	NtClose(processHandle);

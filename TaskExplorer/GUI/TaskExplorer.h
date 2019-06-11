@@ -19,6 +19,8 @@ protected:
 	void				timerEvent(QTimerEvent* pEvent);
 	void				closeEvent(QCloseEvent *e);
 
+	void				UpdateAll();
+
 	//quint16				m_uTimerCounter;
 	int					m_uTimerID;
 
@@ -44,3 +46,4 @@ private:
 extern CSystemAPI*	theAPI;
 
 extern QIcon g_ExeIcon;
+extern QIcon g_DllIcon;

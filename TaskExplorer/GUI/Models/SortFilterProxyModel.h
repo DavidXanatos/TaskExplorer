@@ -11,7 +11,7 @@ public:
 		if(!filterRegExp().isEmpty())
 		{
 			// get source-model index for current row
-			QModelIndex source_index = sourceModel()->index(source_row, this->filterKeyColumn(), source_parent) ;
+			QModelIndex source_index = sourceModel()->index(source_row, this->filterKeyColumn(), source_parent);
 			if(source_index.isValid())
 			{
 				// if any of children matches the filter, then current index matches the filter as well
@@ -27,7 +27,7 @@ public:
 			}
 		}
 		// parent call for initial behaviour
-		return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent) ;
+		return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
 	}
 
 	QVariant data(const QModelIndex &index, int role) const

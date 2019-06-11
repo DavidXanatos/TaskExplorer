@@ -14,7 +14,7 @@ public:
 	CWinHandle(QObject *parent = nullptr);
 	virtual ~CWinHandle();
 
-	virtual quint64 GetObject()	const				{ QReadLocker Locker(&m_Mutex); return m_Object; }
+	virtual quint64 GetObjectAddress()	const		{ QReadLocker Locker(&m_Mutex); return m_Object; }
 	virtual ulong GetAttributes() const				{ QReadLocker Locker(&m_Mutex); return m_Attributes; }
 	virtual ulong GetGrantedAccess() const			{ QReadLocker Locker(&m_Mutex); return m_GrantedAccess; }
 	virtual ulong GetTypeIndex() const				{ QReadLocker Locker(&m_Mutex); return m_TypeIndex; }
@@ -55,4 +55,17 @@ private:
 	bool InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle, bool bFull);
 	static bool InitExtDataAsync(CWinHandle* This, struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle);
 
+};
+
+class CWinHandleEx : public CWinHandle
+{
+public:
+	CWinHandleEx(QObject *parent = nullptr) : CWinHandle(parent) {}
+
+	virtual QString GetProcessName() const { return m_ProcessName; }
+
+protected:
+	friend class CWindowsAPI;
+
+	QString			m_ProcessName;
 };

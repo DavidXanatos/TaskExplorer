@@ -1,5 +1,18 @@
 #pragma once
 
+enum ET_ETW_EVENT_TYPE
+{
+	EtEtwDiskReadType = 1,
+	EtEtwDiskWriteType,
+	EtEtwFileNameType,
+	EtEtwFileCreateType,
+	EtEtwFileDeleteType,
+	EtEtwFileRundownType,
+	EtEtwNetworkReceiveType,
+	EtEtwNetworkSendType,
+	EtEtwUnknow = ULONG_MAX
+};
+
 class CEventMonitor : public QThread
 {
     Q_OBJECT
@@ -12,23 +25,10 @@ public:
 
 	bool		IsRunning() { return m_bRunning; }
 
-	enum ET_ETW_EVENT_TYPE
-	{
-		EtEtwDiskReadType = 1,
-		EtEtwDiskWriteType,
-		EtEtwFileNameType,
-		EtEtwFileCreateType,
-		EtEtwFileDeleteType,
-		EtEtwFileRundownType,
-		EtEtwNetworkReceiveType,
-		EtEtwNetworkSendType,
-		EtEtwUnknow = ULONG_MAX
-	};
-
 signals:
 	void		NetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
 								const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
-	void		FileEvent(int Type, quint64 FileId, const QString& FileName);
+	void		FileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		DiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime);
 
 protected:

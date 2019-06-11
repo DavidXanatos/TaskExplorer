@@ -32,13 +32,15 @@ struct SWinThread
 {
 	SWinThread() :
 		ThreadHandle(NULL),
-		StartAddressResolveLevel(PhsrlAddress),
-		IsGuiThread(FALSE)
-	{}
+		StartAddressResolveLevel(PhsrlAddress)
+	{
+		CreateTime.QuadPart = 0;
+	}
 
 	HANDLE ThreadHandle;
 	PH_SYMBOL_RESOLVE_LEVEL StartAddressResolveLevel;
-	BOOLEAN IsGuiThread;
+
+	LARGE_INTEGER CreateTime;
 };
 
 CWinThread::CWinThread(QObject *parent) 
@@ -47,6 +49,8 @@ CWinThread::CWinThread(QObject *parent)
 	m_StartAddress = 0;
 
 	m_BasePriorityIncrement = 0;
+
+	m_IsGuiThread = false;
 
 	m = new SWinThread();
 }
@@ -58,14 +62,17 @@ CWinThread::~CWinThread()
 	delete m;
 }
 
-bool CWinThread::InitStaticData(struct _SYSTEM_THREAD_INFORMATION* thread)
+bool CWinThread::InitStaticData(void* pProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread)
 {
 	QWriteLocker Locker(&m_Mutex);
+
+	HANDLE ProcessHandle = *(HANDLE*)pProcessHandle;
 
 	m_ThreadId = (quint64)thread->ClientId.UniqueThread;
 	m_ProcessId = (quint64)thread->ClientId.UniqueProcess;
 
-	m_CreateTime = QDateTime::fromTime_t((int64_t)thread->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);;
+	m->CreateTime = thread->CreateTime;
+	m_CreateTime = QDateTime::fromTime_t((int64_t)m->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);;
 
     // Try to open a handle to the thread.
     if (!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION, thread->ClientId.UniqueThread)))
@@ -77,6 +84,14 @@ bool CWinThread::InitStaticData(struct _SYSTEM_THREAD_INFORMATION* thread)
     if (m->ThreadHandle)
     {
         PhGetThreadStartAddress(m->ThreadHandle, &startAddress);
+
+		PVOID serviceTag;
+		if (NT_SUCCESS(PhGetThreadServiceTag(m->ThreadHandle, ProcessHandle, &serviceTag)))
+		{
+			PPH_STRING serviceName = PhGetServiceNameFromTag(thread->ClientId.UniqueProcess, serviceTag);
+
+			m_ServiceName = CastPhString(serviceName);
+		}
     }
 
     if (!startAddress)
@@ -84,10 +99,19 @@ bool CWinThread::InitStaticData(struct _SYSTEM_THREAD_INFORMATION* thread)
 
     m_StartAddress = (ULONG64)startAddress;
 
+	if (WindowsVersion >= WINDOWS_10_RS1)
+    {
+        PPH_STRING threadName;
+        if (NT_SUCCESS(PhGetThreadName(m->ThreadHandle, &threadName)))
+        {
+            m_ThreadName = CastPhString(threadName);
+        }
+    }
+
 	return true;
 }
 
-bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread)
+bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime, quint64 sysTotalCycleTime)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -113,57 +137,96 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread)
 
 
     // Update the context switch count.
-    /*{
+    {
         ULONG oldDelta;
 
-        oldDelta = threadItem->ContextSwitchesDelta.Delta;
-        PhUpdateDelta(&threadItem->ContextSwitchesDelta, thread->ContextSwitches);
+        oldDelta = m_ContextSwitchesDelta.Delta;
+        m_ContextSwitchesDelta.Update(thread->ContextSwitches);
 
-        if (threadItem->ContextSwitchesDelta.Delta != oldDelta)
+        if (m_ContextSwitchesDelta.Delta != oldDelta)
         {
             modified = TRUE;
         }
-    }*/
+    }
 
     // Update the cycle count.
-    /*{
-        ULONG64 cycles;
+	{
+        ULONG64 cycles = 0;
         ULONG64 oldDelta;
 
-        oldDelta = threadItem->CyclesDelta.Delta;
+        oldDelta = m_CyclesDelta.Delta;
 
-        if (NT_SUCCESS(PhpGetThreadCycleTime(
-            threadProvider,
-            threadItem,
-            &cycles
-            )))
-        {
-            PhUpdateDelta(&threadItem->CyclesDelta, cycles);
 
-            if (threadItem->CyclesDelta.Delta != oldDelta)
-            {
-                modified = TRUE;
-            }
-        }
-    }*/
+		if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
+		{
+			PhGetThreadCycleTime(m->ThreadHandle, &cycles);
+		}
+		else
+		{
+			cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
+		}
 
-	/*
+		m_CyclesDelta.Update(cycles);
+
+        if (m_CyclesDelta.Delta != oldDelta)
+            modified = TRUE;
+    }
+
+	
     // Update the CPU time deltas.
-    PhUpdateDelta(&threadItem->CpuKernelDelta, threadItem->KernelTime.QuadPart);
-    PhUpdateDelta(&threadItem->CpuUserDelta, threadItem->UserTime.QuadPart);
+    m_CpuKernelDelta.Update(m_KernelTime);
+    m_CpuUserDelta.Update(m_UserTime);
+
+	// same as for process - todo merge
+	float newCpuUsage = 0.0f;
+	float kernelCpuUsage = 0.0f;
+	float userCpuUsage = 0.0f;
 
     // Update the CPU usage.
     // If the cycle time isn't available, we'll fall back to using the CPU time.
-    if (PhEnableCycleCpuUsage && (threadProvider->ProcessId == SYSTEM_IDLE_PROCESS_ID || threadItem->ThreadHandle))
+    if (sysTotalCycleTime != 0 && (m_ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || m->ThreadHandle))
     {
-        threadItem->CpuUsage = (FLOAT)threadItem->CyclesDelta.Delta / PhCpuTotalCycleDelta;
+        float totalDelta;
+
+        m_CpuUsage = (float)m_CyclesDelta.Delta / sysTotalCycleTime;
+
+        // Calculate the kernel/user CPU usage based on the kernel/user time. If the kernel
+        // and user deltas are both zero, we'll just have to use an estimate. Currently, we
+        // split the CPU usage evenly across the kernel and user components, except when the
+        // total user time is zero, in which case we assign it all to the kernel component.
+
+        totalDelta = (float)(m_CpuKernelDelta.Delta + m_CpuUserDelta.Delta);
+
+        if (totalDelta != 0)
+        {
+            kernelCpuUsage = newCpuUsage * ((float)m_CpuKernelDelta.Delta / totalDelta);
+            userCpuUsage = newCpuUsage * ((float)m_CpuUserDelta.Delta / totalDelta);
+        }
+        else
+        {
+            if (m_UserTime != 0)
+            {
+                kernelCpuUsage = newCpuUsage / 2;
+                userCpuUsage = newCpuUsage / 2;
+            }
+            else
+            {
+                kernelCpuUsage = newCpuUsage;
+                userCpuUsage = 0;
+            }
+        }
     }
-    else
+    else if(sysTotalTime != 0)
     {
-        threadItem->CpuUsage = (FLOAT)(threadItem->CpuKernelDelta.Delta + threadItem->CpuUserDelta.Delta) /
-            (PhCpuKernelDelta.Delta + PhCpuUserDelta.Delta + PhCpuIdleDelta.Delta);
+		kernelCpuUsage = (float)m_CpuKernelDelta.Delta / sysTotalTime;
+		userCpuUsage = (float)m_CpuUserDelta.Delta / sysTotalTime;
+        newCpuUsage = (float)(m_CpuKernelDelta.Delta + m_CpuUserDelta.Delta) / sysTotalTime;
     }
-	*/
+	
+    m_CpuUsage = newCpuUsage;
+    m_CpuKernelUsage = kernelCpuUsage;
+    m_CpuUserUsage = userCpuUsage;
+	//
 
     // Update the base priority increment.
     {
@@ -188,11 +251,11 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread)
     // Update the GUI thread status.
     {
         GUITHREADINFO info = { sizeof(GUITHREADINFO) };
-        BOOLEAN oldIsGuiThread = m->IsGuiThread;
+        BOOLEAN oldIsGuiThread = m_IsGuiThread;
 
-        m->IsGuiThread = !!GetGUIThreadInfo(m_ThreadId, &info);
+        m_IsGuiThread = !!GetGUIThreadInfo(m_ThreadId, &info);
 
-        if (m->IsGuiThread != oldIsGuiThread)
+        if (m_IsGuiThread != oldIsGuiThread)
             modified = TRUE;
     }
 
@@ -271,6 +334,12 @@ QString CWinThread::GetStateString() const
 	return State;
 }
 
+quint64 CWinThread::GetRawCreateTime() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->CreateTime.QuadPart; 
+}
+
 QString CWinThread::GetStartAddressString() const
 {
 	QReadLocker Locker(&m_Mutex);
@@ -308,4 +377,12 @@ QString CWinThread::GetPriorityString() const
     default:
 		return QString::number(m_BasePriorityIncrement);
     }
+}
+
+QString CWinThread::GetTypeString() const
+{
+	QReadLocker Locker(&m_Mutex);
+	if (m_IsMainThread)
+		return tr("Main");
+	return m_IsGuiThread ? tr("GUI") : tr("Normal");
 }

@@ -57,6 +57,7 @@ using namespace std;
 #include <QFutureWatcher>
 #include <QtConcurrent>
 #include <QHostInfo>
+#include <QApplication>
 
 #include <QMainWindow>
 #include <QWidget>
@@ -79,6 +80,7 @@ using namespace std;
 #include <QSortFilterProxyModel>
 #include <QStackedLayout>
 #include <QTreeWidget>
+#include <QFormLayout>
 
 // other includes
 

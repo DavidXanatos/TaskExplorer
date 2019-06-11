@@ -1,7 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../Common/TreeWidgetEx.h"
-#include "../Common/TreeViewEx.h"
+#include "../Common/SplitTreeView.h"
 #include "..\API\ProcessInfo.h"
 
 class CProcessModel;
@@ -15,24 +14,28 @@ public:
 	virtual ~CProcessTree();
 
 signals:
-	void				ProcessClicked(const CProcessPtr& pProcess);
+	void					ProcessClicked(const CProcessPtr& pProcess);
 
 private slots:
 
-	void				OnSplitterMoved(int pos, int index);
+	void					OnTreeResized(int Width);
 
-	void				OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+	void					OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
-	void				OnClicked(const QModelIndex& Index);
+	void					OnClicked(const QModelIndex& Index);
+	
+	void					OnShowHeaderMenu(const QPoint& Point);
+	void					OnHeaderMenu();
 
 private:
 
 	QHBoxLayout*			m_pMainLayout;
 
-	bool					m_bTreeHidden;
-	QSplitter*				m_pProcessSplitter;
-	QTreeView*				m_pProcessTree;
-	QTreeViewEx*			m_pProcessList;
 	CProcessModel*			m_pProcessModel;
 	QSortFilterProxyModel*	m_pSortProxy;
+	CSplitTreeView*			m_pProcessList;
+
+	QMenu*					m_pMenu;
+	QMap<QAction*,int>		m_Columns;
+	bool					m_ExpandAll;
 };

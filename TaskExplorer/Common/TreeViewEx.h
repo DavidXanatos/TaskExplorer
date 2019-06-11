@@ -138,3 +138,12 @@ public:
 
 	int m_MaxHeight;
 };
+
+class COneColumnModel : public QIdentityProxyModel
+{
+	Q_OBJECT
+public:
+	COneColumnModel( QObject* parrent = 0) : QIdentityProxyModel(parrent) {}
+
+	int	columnCount(const QModelIndex &parent = QModelIndex()) const { return 1; }
+};

@@ -37,6 +37,7 @@ private:
 		eControlAddress,
 		eReturnAddress,
 		eStackParameter,
+		eFileInfo,
 		eCount
 	};
 

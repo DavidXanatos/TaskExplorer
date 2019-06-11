@@ -1,6 +1,7 @@
 #pragma once
 #include <qobject.h>
 #include "StackTrace.h"
+#include "..\Common\Common.h"
 
 class CThreadInfo: public QObject
 {
@@ -22,6 +23,13 @@ public:
 	virtual int GetState()	const					{ QReadLocker Locker(&m_Mutex); return m_State; }
 	virtual int GetWaitReason()	const				{ QReadLocker Locker(&m_Mutex); return m_WaitReason; }
 
+	virtual void SetMainThread(bool bSet = true)		{ QWriteLocker Locker(&m_Mutex); m_IsMainThread = bSet; }
+	virtual bool IsMainThread() const					{ QReadLocker Locker(&m_Mutex); return m_IsMainThread; }
+
+	virtual float GetCpuUsage() const					{ QReadLocker Locker(&m_Mutex); return m_CpuUsage; }
+	virtual float GetCpuKernelUsage() const				{ QReadLocker Locker(&m_Mutex); return m_CpuKernelUsage; }
+	virtual float GetCpuUserUsage() const				{ QReadLocker Locker(&m_Mutex); return m_CpuUserUsage; }
+
 	virtual QString GetStateString() const = 0;
 	virtual QString GetPriorityString() const = 0;
 
@@ -35,6 +43,8 @@ protected:
 	quint64			m_ThreadId;
 	quint64			m_ProcessId;
 
+	bool			m_IsMainThread;
+
 	QDateTime		m_CreateTime;
 	quint64			m_KernelTime;
 	quint64			m_UserTime;
@@ -43,6 +53,15 @@ protected:
     long			m_BasePriority;
 	int				m_State;
 	int				m_WaitReason;
+
+	SDelta64		m_CpuKernelDelta;
+    SDelta64		m_CpuUserDelta;
+	SDelta32		m_ContextSwitchesDelta;
+	SDelta64		m_CyclesDelta;
+
+	float			m_CpuUsage; 
+	float			m_CpuKernelUsage;
+	float			m_CpuUserUsage;
 
 	mutable QReadWriteLock		m_Mutex;
 };

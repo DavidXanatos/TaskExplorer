@@ -1,46 +1,55 @@
 #include "stdafx.h"
+#include "../TaskExplorer.h"
 #include "DriversView.h"
-
-#include "../API/Windows/ProcessHacker.h"
+#include "../../Common/Common.h"
+#ifdef WIN32
+#include "../../API/Windows/WinService.h"		
+#endif
+#include "..\Models\ServiceModel.h"
+#include "..\Models\SortFilterProxyModel.h"
 
 CDriversView::CDriversView()
 {
-	NTSTATUS status;
+	m_pMainLayout = new QHBoxLayout();
+	m_pMainLayout->setMargin(0);
+	this->setLayout(m_pMainLayout);
 
-    PRTL_PROCESS_MODULES ModuleInfo;
- 
-    ModuleInfo=(PRTL_PROCESS_MODULES)VirtualAlloc(NULL,1024*1024,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE); // Allocate memory for the module list
- 
-    if(!ModuleInfo)
-    {
-		qDebug() << "\nUnable to allocate memory for module list " << GetLastError();
-        return;
-    }
- 
-    if(!NT_SUCCESS(status=NtQuerySystemInformation(SystemModuleInformation, ModuleInfo,1024*1024,NULL))) 
-    {
-        qDebug() << "Error: Unable to query module list " << status;
- 
-        VirtualFree(ModuleInfo,0,MEM_RELEASE);
-        return;
-    }
- 
-    for(ULONG i=0;i<ModuleInfo->NumberOfModules;i++)
-    {
-		qDebug() << QString::fromLatin1((char*)ModuleInfo->Modules[i].FullPathName);
-        /*printf("\n*****************************************************\n");
-        printf("\nImage base: %#x\n",ModuleInfo->Modules[i].ImageBase);
-        printf("\nImage name: %s\n",ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
-        printf("\nImage full path: %s\n",ModuleInfo->Modules[i].FullPathName);
-        printf("\nImage size: %d\n",ModuleInfo->Modules[i].ImageSize);
-        printf("\n*****************************************************\n");*/
-    }
- 
-    VirtualFree(ModuleInfo,0,MEM_RELEASE);
+	m_pDriverModel = new CServiceModel();
+	
+	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy->setSortRole(Qt::EditRole);
+    m_pSortProxy->setSourceModel(m_pDriverModel);
+	m_pSortProxy->setDynamicSortFilter(true);
+
+
+	// Driver List
+	m_pDriverList = new QTreeViewEx();
+	m_pDriverList->setItemDelegate(new QStyledItemDelegateMaxH(m_pDriverList->fontMetrics().height() + 3, this));
+
+	m_pDriverList->setModel(m_pSortProxy);
+
+	m_pDriverList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_pDriverList->setSortingEnabled(true);
+
+	m_pDriverList->setColumnHidden(CServiceModel::ePID, true);
+	m_pDriverList->setColumnFixed(CServiceModel::ePID, true);
+
+	m_pMainLayout->addWidget(m_pDriverList);
+	// 
+
+	connect(theAPI, SIGNAL(DriverListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)), this, SLOT(OnDriverListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)));
 }
 
 
 CDriversView::~CDriversView()
 {
 
+}
+
+
+void CDriversView::OnDriverListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
+{
+	QMap<QString, CServicePtr> DriverList = theAPI->GetDriverList();
+
+	m_pDriverModel->Sync(DriverList);
 }

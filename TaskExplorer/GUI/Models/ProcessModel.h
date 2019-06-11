@@ -1,9 +1,9 @@
 #pragma once
 #include <qwidget.h>
 #include "..\..\API\ProcessInfo.h"
+#include "..\..\Common\TreeItemModel.h"
 
-
-class CProcessModel : public QAbstractItemModel
+class CProcessModel : public CTreeItemModel
 {
     Q_OBJECT
 
@@ -11,102 +11,190 @@ public:
     CProcessModel(QObject *parent = 0);
 	~CProcessModel();
 
-	void			SetTree(bool bTree)			{ m_bTree = bTree; }
 	void			SetUseDescr(bool bDescr)	{ m_bUseDescr = bDescr; }
 
 	void			Sync(QMap<quint64, CProcessPtr> ProcessList);
-	void			CountItems();
-	QModelIndex		FindIndex(quint64 ID);
-	void			Clear();
 
 	CProcessPtr		GetProcess(const QModelIndex &index) const;
 
-	QVariant		Data(const QModelIndex &index, int role, int section) const;
-
-	// derived functions
-    QVariant		data(const QModelIndex &index, int role) const;
-	bool			setData(const QModelIndex &index, const QVariant &value, int role);
-    Qt::ItemFlags	flags(const QModelIndex &index) const;
-    QModelIndex		index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
-    QModelIndex		parent(const QModelIndex &index) const;
-    int				rowCount(const QModelIndex &parent = QModelIndex()) const;
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+
+	bool			testColumn(int column);
+	void			setColumn(int column, bool set);
+	QString			getColumn(int column) const;
+	int				maxColumn() const;
 
 	enum EColumns
 	{
 		eProcess = 0,
 		ePID,
 		eCPU,
-		eIO_Rate,
+		eIO_TotalRate,
 		ePrivateBytes,
+		eUserName,
 #ifdef WIN32
 		eDescription,
+
+		eCompanyName,
+		eVersion,
 #endif
-		eStartTime,
+		eFileName,
+		eCommandLine,
+		ePeakPrivateBytes,
+		eWorkingSet,
+		ePeakWS,
+		ePrivateWS,
+		eSharedWS,
+		eShareableWS,
+		eVirtualSize,
+		ePeakVirtualSize,
+		ePageFaults,
+		eSessionID,
+		ePriorityClass,
+		eBasePriority,
+
 		eThreads,
-		ePriority,
-#ifdef WIN32
-		eIntegrity,
 		eHandles,
-		eOS_Ver,
-		eGDI,
-		eUSER,
-		eSession,
+#ifdef WIN32
+		eGDI_Handles,
+		eUSER_Handles,
+		eIntegrity,
 #endif
-		eUserName,
+		eIO_Priority,
+		ePagePriority,
+		eStartTime,
+		eTotalCPU_Time,
+		eKernelCPU_Time,
+		eUserCPU_Time,
+#ifdef WIN32
+		eVerificationStatus,
+		eVerifiedSigner,
+#endif
+		eASLR,
+		eRelativeStartTime,
+		eBits,
+		eElevation,
+#ifdef WIN32
+		eWindowTitle,
+		eWindowStatus,
+#endif
+		eCycles,
+		eCyclesDelta,
+		eCPU_History,
+		ePrivateBytesHistory,
+		eIO_History,
+		eDEP,
+		eVirtualized,
+		eContextSwitches,
+		eContextSwitchesDelta,
+		ePageFaultsDelta,
+
+		// IO
 		eIO_Reads,
 		eIO_Writes,
 		eIO_Other,
-		eFileName,
+		eIO_ReadBytes,
+		eIO_WriteBytes,
+		eIO_OtherBytes,
+		//eIO_TotalBytes,
+		eIO_ReadsDelta,
+		eIO_WritesDelta,
+		eIO_OtherDelta,
+		//eIO_TotalDelta,
+		eIO_ReadBytesDelta,
+		eIO_WriteBytesDelta,
+		eIO_OtherBytesDelta,
+		//eIO_TotalBytesDelta,
+		eIO_ReadRate,
+		eIO_WriteRate,
+		eIO_OtherRate,
+		//eIO_TotalRate,
+
+#ifdef WIN32
+		eOS_Context,
+#endif
+		ePagedPool,
+		ePeakPagedPool,
+		eNonPagedPool,
+		ePeakNonPagedPool,
+		eMinimumWS,
+		eMaximumWS,
+		ePrivateBytesDelta,
+		eSubsystem, // WSL or Wine
+#ifdef WIN32
+		ePackageName,
+		eAppID,
+		eDPI_Awareness,
+#endif
+		eCF_Guard,
+		eTimeStamp,
+		eFileModifiedTime,
+		eFileSize,
+		eSubprocesses,
+#ifdef WIN32
+		eJobObjectID,
+		eProtection,
+		eDesktop,
+		eCritical,
+#endif
+
+
+		// Network IO
+		eReceives,
+		eSends,
+		eReceiveBytes,
+		eSendBytes,
+		//case eTotalBytes,
+		eReceivesDetla,
+		eSendsDelta,
+		eReceiveBytesDelta,
+		eSendBytesDelta,
+		//case eTotalBytesDelta,
+		eReceiveRate,
+		eSendRate,
+		//case eTotalRate,
+
+		// Disk IO
+		eReads,
+		eWrites,
+		eReadBytes,
+		eWriteBytes,
+		//case eTotalBytes,
+		eReadsDelta,
+		eWritesDelta,
+		eReadBytesDelta,
+		eWriteBytesDelta,
+		//case eTotalBytesDelta,
+		eReadRate,
+		eWriteRate,
+		//case eTotalRate,
+
+		eHardFaults,
+		eHardFaultsDelta,
+		ePeakThreads,
+		eGPU,
+		eGPU_DedicatedBytes,
+		eGPU_SharedBytes,
 		eCount
 	};
 
-signals:
-	void			CheckChanged(quint64 ID, bool State);
-	void			Updated();
-
 protected:
-	struct SProcessNode
+	struct SProcessNode: STreeNode
 	{
-		SProcessNode(quint64 Id){
-			ID = Id;
-			Parent = NULL;
-			//AllChildren = 0;
-		}
-		~SProcessNode(){
-			foreach(SProcessNode* pNode, Children)
-				delete pNode;
-		}
+		SProcessNode(const QVariant& Id) : STreeNode(Id) {}
 
 		CProcessPtr			pProcess;
-
-		quint64				ID;
-		SProcessNode*		Parent;
-		QList<quint64>		Path;
-		QList<SProcessNode*>Children;
-		//int				AllChildren;
-		QMap<quint64, int>	Aux;
-
-		QVariant			Icon;
-		struct SValue
-		{
-			QVariant Raw;
-			QVariant Formated;
-		};
-		QVector<SValue>		Values;
-
 	};
 
-	QList<quint64>  MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
-	void			Sync(QMap<QList<quint64>, QList<SProcessNode*> >& New, QMap<quint64, SProcessNode*>& Old);
-	void			Purge(SProcessNode* pParent, const QModelIndex &parent, QMap<quint64, SProcessNode*> &Old);
-	void			Fill(SProcessNode* pParent, const QModelIndex &parent, const QList<quint64>& Paths, int PathsIndex, const QList<SProcessNode*>& New, const QList<quint64>& Path);
-	QModelIndex		Find(SProcessNode* pParent, SProcessNode* pNode);
-	int				CountItems(SProcessNode* pRoot);
+	virtual STreeNode* MkNode(const QVariant& Id) { return new SProcessNode(Id); }
 
-	SProcessNode*						m_Root;
-	QMultiMap<quint64, SProcessNode*>	m_Map;
-	bool								m_bTree;
+	QList<QVariant>  MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
+	
 	bool								m_bUseDescr;
+
+	QVector<int>						m_Columns;
+	bool								m_WasReset;
+
+	virtual QVariant GetDefaultIcon() const;
 };

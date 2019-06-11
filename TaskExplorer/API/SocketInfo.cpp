@@ -11,10 +11,67 @@ CSocketInfo::CSocketInfo(QObject *parent) : QObject(parent)
 	m_RemotePort = 0;
 	m_State = 0;
 	m_ProcessId = -1;
+
+	m_RemoveTimeStamp = 0;
 }
 
 CSocketInfo::~CSocketInfo()
 {
+}
+
+bool CSocketInfo::Match(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
+{
+	QReadLocker Locker(&m_Mutex); 
+
+	if (m_ProcessId != ProcessId)
+		return false;
+
+	if (m_ProtocolType != ProtocolType)
+		return false;
+
+	if ((m_ProtocolType & (PH_TCP_PROTOCOL_TYPE | PH_UDP_PROTOCOL_TYPE)) != 0)
+	{
+		if (m_LocalPort != LocalPort)
+			return false;
+	}
+
+	// a socket may be bount to all adapters than it has a local null address
+	if (bStrict || m_LocalAddress != QHostAddress::Any)
+	{
+		if(m_LocalAddress != LocalAddress)
+			return false;
+	}
+
+	// don't test the remote endpoint if this is a udp socket
+	if (bStrict || (m_ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0)
+	{
+		if ((m_ProtocolType & (PH_TCP_PROTOCOL_TYPE | PH_UDP_PROTOCOL_TYPE)) != 0)
+		{
+			if (m_RemotePort != RemotePort)
+				return false;
+		}
+
+		if (m_RemoteAddress != RemoteAddress)
+			return false;
+	}
+
+	return true;
+}
+
+quint64 CSocketInfo::MkHash(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
+{
+	if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0)
+		RemotePort = 0;
+
+	quint64 HashID = ((quint64)LocalPort << 0) | ((quint64)RemotePort << 16) | (quint64)(((quint32*)&ProcessId)[0] ^ ((quint32*)&ProcessId)[1]) << 32;
+
+	return HashID;
+}
+
+void CSocketInfo::UpdateStats()
+{
+	QWriteLocker Locker(&m_StatsMutex);
+	m_Stats.UpdateStats();
 }
 
 QString CSocketInfo::GetProtocolString()
@@ -54,6 +111,11 @@ typedef enum {
 QString CSocketInfo::GetStateString()
 {
 	QReadLocker Locker(&m_Mutex);
+
+	if ((m_ProtocolType & PH_TCP_PROTOCOL_TYPE) == 0)
+		return tr("Open");
+
+	// all these are TCP states
     switch (m_State)
     {
     case MIB_TCP_STATE_CLOSED:		return tr("Closed");

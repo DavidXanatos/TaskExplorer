@@ -1,8 +1,9 @@
 #pragma once
 #include <qwidget.h>
+#include "Common/ListItemModel.h"
 #include "..\..\API\SocketInfo.h"
 
-class CSocketModel : public QAbstractItemModel
+class CSocketModel : public CListItemModel
 {
     Q_OBJECT
 
@@ -13,19 +14,9 @@ public:
 	void			SetProcessFilter(const CProcessPtr& pProcess) { m_ProcessFilter = true; m_CurProcess = pProcess; }
 
 	void			Sync(QMultiMap<quint64, CSocketPtr> SocketList);
-	QModelIndex		FindIndex(quint64 SubID);
-	void			Clear();
-
+	
 	CSocketPtr		GetSocket(const QModelIndex &index) const;
 
-	QVariant		Data(const QModelIndex &index, int role, int section) const;
-
-	// derived functions
-    QVariant		data(const QModelIndex &index, int role) const;
-    Qt::ItemFlags	flags(const QModelIndex &index) const;
-    QModelIndex		index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
-    QModelIndex		parent(const QModelIndex &index) const;
-    int				rowCount(const QModelIndex &parent = QModelIndex()) const;
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
@@ -48,18 +39,18 @@ public:
 		eSends,
 		eReceiveBytes,
 		eSendBytes,
-		eTotalBytes,
+		//eTotalBytes,
 		eReceivesDetla,
 		eSendsDelta,
 		eReceiveBytesDelta,
 		eSendBytesDelta,
-		eTotalBytesDelta,
+		//eTotalBytesDelta,
 #ifdef WIN32
 		eFirewallStatus,
 #endif
 		eReceiveRate,
 		eSendRate,
-		eTotalRate,
+		//eTotalRate,
 		eCount
 	};
 
@@ -67,23 +58,15 @@ protected:
 	bool					m_ProcessFilter;
 	CProcessPtr				m_CurProcess;
 
-	struct SSocketNode
+	struct SSocketNode: SListNode
 	{
-		quint64				UID;
-		
-		CSocketPtr			pSocket;
+		SSocketNode(const QVariant& Id) : SListNode(Id) {}
 
-		QVariant			Icon;
-		struct SValue
-		{
-			QVariant Raw;
-			QVariant Formated;
-		};
-		QVector<SValue>		Values;
+		CSocketPtr			pSocket;
 	};
 
-	void Sync(QList<SSocketNode*>& New, QMap<quint64, SSocketNode*>& Old);
+	virtual SListNode* MkNode(const QVariant& Id) { return new SSocketNode(Id); }
+	
 
-	QList<SSocketNode*>			m_List;
-	QMap<quint64, SSocketNode*>	m_Map;
+	virtual QVariant GetDefaultIcon() const;
 };
