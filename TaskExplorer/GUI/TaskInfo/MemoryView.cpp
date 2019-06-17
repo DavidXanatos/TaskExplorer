@@ -2,7 +2,8 @@
 #include "MemoryView.h"
 
 
-CMemoryView::CMemoryView()
+CMemoryView::CMemoryView(QWidget *parent)
+	:QWidget(parent)
 {
 }
 

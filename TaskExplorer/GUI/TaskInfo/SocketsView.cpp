@@ -5,11 +5,10 @@
 #ifdef WIN32
 #include "../../API/Windows/WinSocket.h"		
 #endif
-#include "..\Models\SocketModel.h"
-#include "..\Models\SortFilterProxyModel.h"
 
 
-CSocketsView::CSocketsView(bool bAll)
+CSocketsView::CSocketsView(bool bAll, QWidget *parent)
+	:CPanelView(parent)
 {
 	m_pMainLayout = new QHBoxLayout();
 	m_pMainLayout->setMargin(0);
@@ -45,16 +44,26 @@ CSocketsView::CSocketsView(bool bAll)
 #endif
 	}
 
+	m_pSocketList->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pSocketList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+
 	m_pMainLayout->addWidget(m_pSocketList);
 	// 
 
 	connect(theAPI, SIGNAL(SocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnSocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+
+	//m_pMenu = new QMenu();
+	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnClose()));
+	AddPanelItemsToMenu();
+
+	setObjectName(parent->objectName());
+	m_pSocketList->header()->restoreState(theConf->GetValue(objectName() + "/SocketsView_Columns").toByteArray());
 }
 
 
 CSocketsView::~CSocketsView()
 {
-
+	theConf->SetValue(objectName() + "/SocketsView_Columns", m_pSocketList->header()->saveState());
 }
 
 void CSocketsView::OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
@@ -69,4 +78,34 @@ void CSocketsView::ShowSockets(const CProcessPtr& pProcess)
 	m_pSocketModel->SetProcessFilter(pProcess);
 
 	OnSocketListUpdated(QSet<quint64>(),QSet<quint64>(),QSet<quint64>());
+}
+
+void CSocketsView::OnMenu(const QPoint &point)
+{
+	QModelIndex Index = m_pSocketList->currentIndex();
+	
+	m_pClose->setEnabled(Index.isValid());
+	
+	CPanelView::OnMenu(point);
+}
+
+void CSocketsView::OnClose()
+{
+	if(QMessageBox("TaskExplorer", tr("Do you want to close the selected socket(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+		return;
+
+	int ErrorCount = 0;
+	foreach(const QModelIndex& Index, m_pSocketList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CSocketPtr pSocket = m_pSocketModel->GetSocket(ModelIndex);
+		if (!pSocket.isNull())
+		{
+			if (!pSocket->Close())
+				ErrorCount++;
+		}
+	}
+
+	if (ErrorCount > 0)
+		QMessageBox::warning(this, "TaskExplorer", tr("Failed to close %1 Sockets").arg(ErrorCount));
 }

@@ -1,44 +1,49 @@
 #include "stdafx.h"
 #include "SystemInfoView.h"
+#include "../TaskExplorer.h"
 
 
-CSystemInfoView::CSystemInfoView()
+CSystemInfoView::CSystemInfoView(QWidget* patent) 
+	: CTabPanel(patent)
 {
-	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
-	this->setLayout(m_pMainLayout);
+	setObjectName("SystemPanel");
 
-	m_pTabs = new QTabWidget();
-	m_pMainLayout->addWidget(m_pTabs);
+	InitializeTabs();
 
-	m_pSystemOverview = new CSystemOverview();
-	m_pTabs->addTab(m_pSystemOverview, tr("System"));
-
-	m_pSystemPerfMon = new CSystemPerfMon();
-	m_pTabs->addTab(m_pSystemPerfMon, tr("Perf Mon"));
-
-	m_pDriversView = new CDriversView();
-	m_pTabs->addTab(m_pDriversView, tr("Drivers"));
-
-	m_pAllFilesView = new CHandlesView(true);
-	m_pTabs->addTab(m_pAllFilesView, tr("All Files"));
-
-	m_pAllSocketsView = new CSocketsView(true);
-	m_pTabs->addTab(m_pAllSocketsView, tr("All Sockets"));
-
-	m_pServicesView = new CServicesView();
-	m_pTabs->addTab(m_pServicesView, tr("Services"));
-
-#ifdef _DEBUG // TEST
-	//m_pTabs->setCurrentWidget(m_pAllFilesView);
-#endif
-	
-	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
+	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
+	QStringList VisibleTabs = theConf->GetValue(objectName() + "/Tabs_Visible").toStringList();
+	RebuildTabs(ActiveTab, VisibleTabs);
 }
 
 
 CSystemInfoView::~CSystemInfoView()
 {
+	int ActiveTab = 0;
+	QStringList VisibleTabs;
+	SaveTabs(ActiveTab, VisibleTabs);
+	theConf->SetValue(objectName() + "/Tabs_Active", ActiveTab);
+	theConf->SetValue(objectName() + "/Tabs_Visible", VisibleTabs);
+}
+
+void CSystemInfoView::InitializeTabs()
+{
+	// todo
+	m_pSystemView = new CSystemView(this);
+	AddTab(m_pSystemView, tr("System"));
+
+	m_pDriversView = new CDriversView(this);
+	AddTab(m_pDriversView, tr("Drivers"));
+
+	m_pAllFilesView = new CHandlesView(true, this);
+	AddTab(m_pAllFilesView, tr("All Files"));
+
+	m_pAllSocketsView = new CSocketsView(true, this);
+	AddTab(m_pAllSocketsView, tr("All Sockets"));
+
+	m_pServicesView = new CServicesView(this);
+	AddTab(m_pServicesView, tr("Services"));
+
+	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 void CSystemInfoView::OnTab(int tabIndex)

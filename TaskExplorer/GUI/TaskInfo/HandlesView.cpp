@@ -2,22 +2,22 @@
 #include "../TaskExplorer.h"
 #include "HandlesView.h"
 #include "../../Common/Common.h"
-#include "..\Models\HandleModel.h"
-#include "..\Models\SortFilterProxyModel.h"
 #ifdef WIN32
 #include "../../API/Windows/WinHandle.h"
 #endif
 
 
-CHandlesView::CHandlesView(bool bAll)
+CHandlesView::CHandlesView(bool bAll, QWidget *parent)
+	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
-	m_pFilterWidget = new QWidget();
+	// todo: files only etc
+	/*m_pFilterWidget = new QWidget();
 	m_pFilterWidget->setMinimumHeight(32);
-	m_pMainLayout->addWidget(m_pFilterWidget);
+	m_pMainLayout->addWidget(m_pFilterWidget);*/
 
 	// Handle List
 	m_pHandleModel = new CHandleModel();
@@ -60,20 +60,70 @@ CHandlesView::CHandlesView(bool bAll)
 #endif
 	}
 
-	connect(m_pHandleList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
+	m_pHandleList->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pHandleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
 	m_pSplitter->addWidget(m_pHandleList);
 	m_pSplitter->setCollapsible(0, false);
 	// 
 
+
+	//m_pMenu = new QMenu();
+	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnClose()));
+#ifdef WIN32
+	m_pProtect = m_pMenu->addAction(tr("Protect"), this, SLOT(OnHandleAction()));
+	m_pProtect->setCheckable(true);
+	m_pInherit = m_pMenu->addAction(tr("Inherit"), this, SLOT(OnHandleAction()));
+	m_pInherit->setCheckable(true);
+#endif
+	//m_pMenu->addSeparator();
+#ifdef WIN32
+	// todo: Token:  detail window
+	m_pTokenInfo = m_pMenu->addAction(tr("Token Info"), this, SLOT(OnTokenInfo()));
+
+	m_pSemaphore = m_pMenu->addMenu(tr("Semaphore"));
+	m_pSemaphoreAcquire = m_pSemaphore->addAction(tr("Acquire"), this, SLOT(OnHandleAction()));
+	m_pSemaphoreRelease = m_pSemaphore->addAction(tr("Release"), this, SLOT(OnHandleAction()));
+
+	m_pEvent = m_pMenu->addMenu(tr("Event"));
+	m_pEventSet = m_pEvent->addAction(tr("Set"), this, SLOT(OnHandleAction()));
+	m_pEventReset = m_pEvent->addAction(tr("Reset"), this, SLOT(OnHandleAction()));
+	m_pEventPulse = m_pEvent->addAction(tr("Pulse"), this, SLOT(OnHandleAction()));
+
+	// todo: Thread / Process: goto
+	m_pTask = m_pMenu->addMenu(tr("Task"));
+
+	m_pMenu->addSeparator();
+	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
+#endif
+
+	AddPanelItemsToMenu();
+
+	setObjectName(parent->objectName());
+	m_pHandleList->header()->restoreState(theConf->GetValue(objectName() + "/HandlesView_Columns").toByteArray());
+	m_pSplitter->restoreState(theConf->GetValue(objectName() + "/HandlesView_Splitter").toByteArray());
+
 	// No details for all files view
 	if (bAll)
 		return;
 
+	//connect(m_pHandleList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
+	connect(m_pHandleList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
+
+	m_pDetailsArea = new QScrollArea();
+	m_pSplitter->addWidget(m_pDetailsArea);
+	QList<int> sizes = m_pSplitter->sizes();
+	sizes[0] += sizes[1];
+	sizes[1] = 0;
+	m_pSplitter->setSizes(sizes);
+
 	m_pDetailsWidget = new QWidget();
-	m_pDetailsLayout = new QHBoxLayout();
+	m_pDetailsLayout = new QVBoxLayout();
 	m_pDetailsLayout->setMargin(0);
 	m_pDetailsWidget->setLayout(m_pDetailsLayout);
+	//m_pSplitter->addWidget(m_pDetailsWidget);
+	m_pDetailsArea->setWidgetResizable(true);
+	m_pDetailsArea->setWidget(m_pDetailsWidget);
 	
 	// Generic
 	m_pGenericWidget = new QWidget();
@@ -109,7 +159,13 @@ CHandlesView::CHandlesView(bool bAll)
 	m_pCustomLayout = new QStackedLayout();
 	m_pCustomWidget->setLayout(m_pCustomLayout);
 	m_pDetailsLayout->addWidget(m_pCustomWidget);
-	m_pSplitter->addWidget(m_pDetailsWidget);
+
+
+	// other
+	m_pOtherWidget = new QWidget();
+	m_pOtherLayout = new QFormLayout();
+	m_pOtherWidget->setLayout(m_pOtherLayout);
+	m_pCustomLayout->addWidget(m_pOtherWidget);
 
 
 	// Port
@@ -178,25 +234,13 @@ CHandlesView::CHandlesView(bool bAll)
 	m_pTaskStatus = new QLabel();
 	m_pTaskLayout->addRow(tr("Exit Status"), m_pTaskStatus);
 	//
-
-	/*
-
-all: close, protect, inherit
-
-Thread / Process: goto sub menu
-		
-Semaphore: Acquire/Release sub menu
-		
-Event: Set/Reset/Pulse sub menu
-				
-Token:  detail window
-
-	*/
 }
 
 
 CHandlesView::~CHandlesView()
 {
+	theConf->SetValue(objectName() + "/HandlesView_Columns", m_pHandleList->header()->saveState());
+	theConf->SetValue(objectName() + "/HandlesView_Splitter",m_pSplitter->saveState());
 }
 
 void CHandlesView::ShowHandles(const CProcessPtr& pProcess)
@@ -219,12 +263,15 @@ void CHandlesView::ShowAllFiles()
 	m_pHandleModel->Sync(Handles);
 }
 
-void CHandlesView::OnClicked(const QModelIndex& Index)
+void CHandlesView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-	CHandlePtr pHandle = m_pHandleModel->GetHandle(m_pSortProxy->mapToSource(Index));
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
 
+	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+
+#ifdef WIN32
 	CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
-	
+
 	m_pName->setText(pWinHandle->GetFileName());
 	m_pType->setText(pWinHandle->GetTypeString());
 
@@ -283,4 +330,131 @@ void CHandlesView::OnClicked(const QModelIndex& Index)
 		m_pTaskExited->setText(Task["Exited"].toString());
 		m_pTaskStatus->setText(Task["ExitStatus"].toString());
     }
+	else
+	{
+		m_pCustomLayout->setCurrentWidget(m_pOtherWidget);
+	}
+#endif
+}
+
+
+void CHandlesView::OnMenu(const QPoint &point)
+{
+	QModelIndex Index = m_pHandleList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+
+	m_pClose->setEnabled(!pHandle.isNull());
+
+#ifdef WIN32
+	QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
+
+	m_pProtect->setEnabled(!pHandle.isNull() && theAPI->RootAvaiable());
+	m_pProtect->setChecked(pWinHandle && pWinHandle->IsProtected());
+	m_pInherit->setEnabled(!pHandle.isNull() && theAPI->RootAvaiable());
+	m_pInherit->setChecked(pWinHandle && pWinHandle->IsInherited());
+
+	QString Type = pWinHandle ? pWinHandle->GetTypeString() : "";
+
+	m_pTokenInfo->setVisible(Type == "Token");
+	m_pSemaphore->menuAction()->setVisible(Type == "Semaphore");
+	m_pEvent->menuAction()->setVisible(Type == "Event");
+	m_pTask->menuAction()->setVisible(Type == "Process" || Type == "Thread");
+
+	m_pPermissions->setEnabled(m_pHandleList->selectedRows().count() == 1);
+#endif
+	
+	CPanelView::OnMenu(point);
+}
+
+void CHandlesView::OnClose()
+{
+	if(QMessageBox("TaskExplorer", tr("Do you want to close the selected handle(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+		return;
+
+	int ErrorCount = 0;
+	int Force = -1;
+	foreach(const QModelIndex& Index, m_pHandleList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+		if (!pHandle.isNull())
+		{
+		retry:
+			STATUS Status = pHandle->Close(Force == 1);
+			if (Status.IsError())
+			{
+				if (Force == -1 && Status.GetStatus() == ERROR_CONFIRM)
+				{
+					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					{
+						case QMessageBox::Yes:
+							Force = 1;
+							goto retry;
+							break;
+						case QMessageBox::No:
+							Force = 0;
+							break;
+						case QMessageBox::Cancel:
+							return;
+					}
+				}
+
+				ErrorCount++;
+			}
+		}
+	}
+
+	if (ErrorCount > 0)
+		QMessageBox::warning(this, "TaskExplorer", tr("Failed to close %1 Handles").arg(ErrorCount));
+}
+
+
+void CHandlesView::OnHandleAction()
+{
+#ifdef WIN32
+	int ErrorCount = 0;
+	foreach(const QModelIndex& Index, m_pHandleList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		QSharedPointer<CWinHandle> pWinHandle = m_pHandleModel->GetHandle(ModelIndex).objectCast<CWinHandle>();
+		if (!pWinHandle.isNull())
+		{
+			if (sender() == m_pProtect && pWinHandle->SetProtected(m_pProtect->isChecked()))
+				continue;
+			if (sender() == m_pInherit && pWinHandle->SetInherited(m_pInherit->isChecked()))
+				continue;
+
+			if (sender() == m_pSemaphoreAcquire && pWinHandle->DoHandleAction(CWinHandle::eSemaphoreAcquire))
+				continue;
+			if (sender() == m_pSemaphoreRelease && pWinHandle->DoHandleAction(CWinHandle::eSemaphoreRelease))
+				continue;
+
+			if (sender() == m_pEventSet && pWinHandle->DoHandleAction(CWinHandle::eEventSet))
+				continue;
+			if (sender() == m_pEventReset && pWinHandle->DoHandleAction(CWinHandle::eEventReset))
+				continue;
+			if (sender() == m_pEventPulse && pWinHandle->DoHandleAction(CWinHandle::eEventPulse))
+				continue;
+			
+			ErrorCount++;
+		}
+	}
+
+	if (ErrorCount > 0)
+		QMessageBox::warning(this, "TaskExplorer", tr("Failed issue action on %1 handles").arg(ErrorCount));
+#endif
+}
+
+
+void CHandlesView::OnPermissions()
+{
+#ifdef WIN32
+	QModelIndex Index = m_pHandleList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+
+	QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
+	pWinHandle->OpenPermissions();
+#endif
 }

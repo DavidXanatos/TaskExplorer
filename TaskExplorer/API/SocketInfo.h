@@ -53,6 +53,8 @@ public:
 
 	static quint64				MkHash(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 
+	virtual STATUS				Close() = 0;
+
 protected:
 	virtual void				UpdateStats();
 

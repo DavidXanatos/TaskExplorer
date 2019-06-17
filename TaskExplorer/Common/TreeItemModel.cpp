@@ -8,7 +8,7 @@
 CTreeItemModel::CTreeItemModel(QObject *parent)
 :QAbstractItemModel(parent)
 {
-	m_bTree = false;
+	m_bTree = true;
 	m_bUseIcons = false;
 	m_Root = MkNode(QVariant());
 }
@@ -76,7 +76,6 @@ void CTreeItemModel::Sync(const QMap<QVariant, QVariantMap>& List)
 
 			STreeNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;
@@ -237,9 +236,9 @@ void CTreeItemModel::Fill(STreeNode* pParent, const QModelIndex &parent, const Q
 	}
 }
 
-QModelIndex CTreeItemModel::FindIndex(quint64 BaseAddress)
+QModelIndex CTreeItemModel::FindIndex(const QVariant& ID)
 {
-	if(STreeNode* pNode = m_Map.value(BaseAddress))
+	if(STreeNode* pNode = m_Map.value(ID))
 		return Find(m_Root, pNode);
 	return QModelIndex();
 }
@@ -332,8 +331,11 @@ QVariant CTreeItemModel::Data(const QModelIndex &index, int role, int section) c
 		}
 		case Qt::ForegroundRole:
 		{
-			/* QColor Color = Qt::black;
-			return QBrush(Color); */
+			if (pNode->IsGray)
+			{
+				QColor Color = Qt::gray;
+				return QBrush(Color);
+			}
 			break;
 		}
 		case Qt::CheckStateRole:

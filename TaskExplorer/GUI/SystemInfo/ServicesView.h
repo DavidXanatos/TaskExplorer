@@ -7,13 +7,12 @@
 class CServiceModel;
 class QSortFilterProxyModel;
 
-class CServicesView :
-	public QWidget
+class CServicesView : public QWidget
 {
 	Q_OBJECT
 
 public:
-	CServicesView();
+	CServicesView(QWidget *parent = 0);
 	virtual ~CServicesView();
 
 private slots:

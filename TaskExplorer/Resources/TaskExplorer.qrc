@@ -9,4 +9,8 @@
         <file>dll48.png</file>
         <file>dll64.png</file>
     </qresource>
+    <qresource prefix="/">
+        <file>TaskExplorer.png</file>
+        <file>ProcessHacker.png</file>
+    </qresource>
 </RCC>

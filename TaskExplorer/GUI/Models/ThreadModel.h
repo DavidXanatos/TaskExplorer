@@ -23,13 +23,19 @@ public:
 		eThread = 0,
 		eCPU,
 		eCyclesDelta,
+#ifdef WIN32
 		eStartAddress,
+#endif
 		ePriority,
+#ifdef WIN32
 		eService,
 		eName,
 		eType,
+#endif
 		eCreated,
+#ifdef WIN32
 		eStartModule,
+#endif
 		eContextSwitches,
 		eBasePriority,
 		ePagePriority,
@@ -38,8 +44,10 @@ public:
 		eState,
 		eKernelTime,
 		eUserTime,
+#ifdef WIN32
 		eIdealProcessor,
 		eCritical,
+#endif
 		eCount
 	};
 

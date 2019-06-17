@@ -4,68 +4,84 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## ToDo
 ### Major
-- more columns for process tree
-- save window configuration, open tabs sorting etc
-- perf mon
-- general tab, system and task
-- task infos: memory, tokens , windows, environment
-- graphs
+- graphs in process tree
 - gpu usage
 - tools
 - .net stack tracking
-- disk IO tab
-- add window enumeration and listing
 
-- add sub menus to all lists
+- add service/drivers info window
+- add wait analyze feature
 
--- module view
---- add unload
+- add security/permissions windows 
+--	PhCreateSecurityPage (job)
+--	PhEditSecurity (Service Control Manager, Service, Token, )
 
--- thread view
---- terminate
---- suspend/resume
---- calcen I/O ?
---- analyze
---- affinity
---- []critical
---- (permissions)
---- windows
---- priority
---- io priority
---- page priority
 
--- handleview
---- close 
---- []inherit
---- []protect
---- event
----- set
----- reset
----- pulse
---- Semaphore
----- Acquire
----- Release
-
+### missing/empty tabs
+- memory
+- tokens
+- Job
+- Gdi objects
+- .NET assemblies and performance
+- general system tab
+- add process and system statistics tab
 
 ### Minor
 
 - windows service pid change etc
-- handle tab details and filter
-- threads tab is missing stuff
+- process persistence
+- add file only filter to handles
+- disable detail view if more than one item is selected or allow to see combined details
+- disable a lot of sub menuitems when more than 1 item is selected
+- add processor affinity dialog
+
+- add window properties window / details area
+- added context menu to services/drivers view
+- add option to create a process dump
 
 
+
+## [0.0.8] - 2019-06-17
+### Added
+- window graph 
+- window column in process tree
+- adde dtreee to window tab
+- environment vartiable view
+- context menu to environment vartiable 
+- all thread model columns
+- all process model columns
+- context menu to sockets view
+- context menu to handles view
+- context menu to modules view
+- CAbstractTask Class to abstract threads and processes
+- linked split tree selection
+- context menu to threads view
+- context menu to process tree
+- double click on a process opens the Info panel in a new window
+- context menu to windows view
+- permissions dialog to threads processes and handles
+- saving window position spliter positions column selection and more
+- added sys tray icon
+- general task tab 
+
+
+### Changed
+
+### Fixed
+- failed to remove old modules
+- fixed windows tree not opening
 
 ## [0.0.7] - 2019-06-10
 ### Added
-- added network stats
-- added disk stats
-- added CPU Usage graph
-- added Memory Usage graph
-- added FileIO and DIskIO graph
-- added Network graph
-- added Samba graph
-- added GUI/USER Object graph
-- added Handles graph
+- network stats
+- disk stats
+- CPU Usage graph
+- Memory Usage graph
+- FileIO and DIskIO graph
+- Network graph
+- Samba graph
+- GUI/USER Object graph
+- Handles graph
 
 ### Changed
 - reworked the process tree handling for better performance

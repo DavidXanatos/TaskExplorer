@@ -7,11 +7,19 @@
 
 int main(int argc, char *argv[])
 {
-	QApplication a(argc, argv);
+	QApplication App(argc, argv);
 
 	QThreadPool::globalInstance()->setMaxThreadCount(4);
 
-	CTaskExplorer w;
-	w.show();
-	return a.exec();
+	theConf = new CSettings(QApplication::applicationDirPath() + "/TaskExplorer.ini");
+
+	CTaskExplorer* pWnd = new CTaskExplorer();
+	pWnd->show();
+	int ret = App.exec();
+	delete pWnd;
+
+	delete theConf;
+	theConf = NULL;
+
+	return ret;
 }

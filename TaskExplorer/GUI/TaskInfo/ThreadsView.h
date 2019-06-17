@@ -2,45 +2,45 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/TreeWidgetEx.h"
+#include "../../Common/PanelView.h"
 #include "..\..\API\ProcessInfo.h"
+#include "..\Models\ThreadModel.h"
+#include "..\Models\SortFilterProxyModel.h"
+#include "StackView.h"
+#include "../TaskView.h"
 
-class CThreadModel;
-class QSortFilterProxyModel;
-
-
-class CThreadsView : public QWidget
+class CThreadsView : public CTaskView
 {
 	Q_OBJECT
 public:
-	CThreadsView();
+	CThreadsView(QWidget *parent = 0);
 	virtual ~CThreadsView();
 
 public slots:
 	void					ShowThreads(const CProcessPtr& pProcess);
 
 private slots:
-	void					OnClicked(const QModelIndex& Index);
+	//void					OnClicked(const QModelIndex& Index);
+	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
-	void					OnStackTraced(const CStackTracePtr& StackTrace);
+	//void					OnMenu(const QPoint &point);
+
+	void					OnCancelIO();
+	void					OnCritical();
 
 protected:
+	virtual QList<CTaskPtr>		GetSellectedTasks();
+
+	virtual void				OnMenu(const QPoint& Point);
+	virtual QTreeView*			GetView() 				{ return m_pThreadList; }
+	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
+	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
+	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
+
 	CProcessPtr				m_pCurProcess;
 	CThreadPtr				m_pCurThread;
 
 private:
-	enum EStackColumns
-	{
-		eStack = 0,
-		eName,
-		eStackAddress,
-		eFrameAddress,
-		eControlAddress,
-		eReturnAddress,
-		eStackParameter,
-		eFileInfo,
-		eCount
-	};
-
 	QVBoxLayout*			m_pMainLayout;
 
 	QWidget*				m_pFilterWidget;
@@ -51,6 +51,18 @@ private:
 	CThreadModel*			m_pThreadModel;
 	QSortFilterProxyModel*	m_pSortProxy;
 
-	QTreeWidgetEx*			m_pStackList;
-};
+	CStackView*				m_pStackView;
 
+	//QMenu*					m_pMenu;
+
+#ifdef WIN32
+	QAction*				m_pCancelIO;
+	//QAction*				m_pAnalyze;
+	QAction*				m_pCritical;
+	//QAction*				m_pPermissions;
+	//QAction*				m_pToken;
+#endif
+	//QAction*				m_pWindows;
+
+
+};

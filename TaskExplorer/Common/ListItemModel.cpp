@@ -50,7 +50,6 @@ void CListItemModel::Sync(QList<QVariantMap> List)
 
 			SListNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;
@@ -82,7 +81,7 @@ void CListItemModel::Sync(QList<SListNode*>& New, QMap<QVariant, SListNode*>& Ol
 	for(int i = m_List.count()-1; i >= -1; i--) 
 	{
 		QVariant ID = i >= 0 ? m_List[i]->ID : QVariant();
-		if(ID.isNull() && (Old.value(ID) != NULL)) // remove it
+		if(!ID.isNull() && (Old.value(ID) != NULL)) // remove it
 		{
 			m_Map.remove(ID);
 			if(End == -1)
@@ -117,9 +116,9 @@ void CListItemModel::Sync(QList<SListNode*>& New, QMap<QVariant, SListNode*>& Ol
 	}
 }
 
-QModelIndex CListItemModel::FindIndex(const QString& SubID)
+QModelIndex CListItemModel::FindIndex(const QVariant& ID)
 {
-	if(SListNode* pNode = m_Map.value(SubID))
+	if(SListNode* pNode = m_Map.value(ID))
 	{
 		int row = m_List.indexOf(pNode);
 		ASSERT(row != -1);

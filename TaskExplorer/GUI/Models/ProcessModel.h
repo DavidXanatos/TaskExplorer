@@ -20,10 +20,11 @@ public:
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-	bool			testColumn(int column);
-	void			setColumn(int column, bool set);
-	QString			getColumn(int column) const;
-	int				maxColumn() const;
+	bool			IsColumnEnabled(int column);
+	void			SetColumnEnabled(int column, bool set);
+	QString			GetColumn(int column) const;
+	int				MaxColumns() const;
+	QVector<int>	GetColumns() const { return m_Columns; }
 
 	enum EColumns
 	{
@@ -31,6 +32,7 @@ public:
 		ePID,
 		eCPU,
 		eIO_TotalRate,
+		eStaus,
 		ePrivateBytes,
 		eUserName,
 #ifdef WIN32
@@ -57,6 +59,7 @@ public:
 		eThreads,
 		eHandles,
 #ifdef WIN32
+		eWND_Handles,
 		eGDI_Handles,
 		eUSER_Handles,
 		eIntegrity,
@@ -70,10 +73,10 @@ public:
 #ifdef WIN32
 		eVerificationStatus,
 		eVerifiedSigner,
-#endif
 		eASLR,
-		eRelativeStartTime,
-		eBits,
+#endif
+		eUpTime,
+		eArch,
 		eElevation,
 #ifdef WIN32
 		eWindowTitle,
@@ -84,8 +87,10 @@ public:
 		eCPU_History,
 		ePrivateBytesHistory,
 		eIO_History,
+#ifdef WIN32
 		eDEP,
 		eVirtualized,
+#endif
 		eContextSwitches,
 		eContextSwitchesDelta,
 		ePageFaultsDelta,
@@ -126,12 +131,11 @@ public:
 		ePackageName,
 		eAppID,
 		eDPI_Awareness,
-#endif
 		eCF_Guard,
+#endif
 		eTimeStamp,
 		eFileModifiedTime,
 		eFileSize,
-		eSubprocesses,
 #ifdef WIN32
 		eJobObjectID,
 		eProtection,
@@ -194,7 +198,6 @@ protected:
 	bool								m_bUseDescr;
 
 	QVector<int>						m_Columns;
-	bool								m_WasReset;
 
 	virtual QVariant GetDefaultIcon() const;
 };

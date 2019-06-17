@@ -1,27 +1,40 @@
 #pragma once
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
+#include "../../Common/PanelView.h"
 #include "..\..\API\ProcessInfo.h"
+#include "..\Models\HandleModel.h"
+#include "..\Models\SortFilterProxyModel.h"
 
-class CHandleModel;
-class QSortFilterProxyModel;
-
-class CHandlesView : public QWidget
+class CHandlesView : public CPanelView
 {
 	Q_OBJECT
 public:
-	CHandlesView(bool bAll = false);
+	CHandlesView(bool bAll = false, QWidget *parent = 0);
 	virtual ~CHandlesView();
 
 public slots:
 	void					ShowHandles(const CProcessPtr& pProcess);
 	void					ShowAllFiles();
 
-protected:
-	CProcessPtr				m_pCurProcess;
-
 private slots:
-	void					OnClicked(const QModelIndex& Index);
+	//void					OnClicked(const QModelIndex& Index);
+	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
+
+	//void					OnMenu(const QPoint &point);
+
+	void					OnClose();
+	void					OnHandleAction();
+	void					OnPermissions();
+
+protected:
+	virtual void				OnMenu(const QPoint& Point);
+	virtual QTreeView*			GetView() 				{ return m_pHandleList; }
+	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
+	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
+	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
+
+	CProcessPtr				m_pCurProcess;
 
 private:
 	QVBoxLayout*			m_pMainLayout;
@@ -34,8 +47,10 @@ private:
 
 	QSplitter*				m_pSplitter;
 
+	QScrollArea*			m_pDetailsArea;
+
 	QWidget*				m_pDetailsWidget;
-	QHBoxLayout*			m_pDetailsLayout;
+	QVBoxLayout*			m_pDetailsLayout;
 
 	QWidget*				m_pGenericWidget;
 	QFormLayout*			m_pGenericLayout;
@@ -49,6 +64,9 @@ private:
 
 	QWidget*				m_pCustomWidget;
 	QStackedLayout*			m_pCustomLayout;
+
+	QWidget*				m_pOtherWidget;
+	QFormLayout*			m_pOtherLayout;
 
 	QWidget*				m_pPortWidget;
 	QFormLayout*			m_pPortLayout;
@@ -74,5 +92,23 @@ private:
 	QLabel*					m_pTaskCreated;
 	QLabel*					m_pTaskExited;
 	QLabel*					m_pTaskStatus;
+
+
+
+	//QMenu*					m_pMenu;
+	QAction*				m_pClose;
+	QAction*				m_pProtect;
+	QAction*				m_pInherit;
+
+	QAction*				m_pTokenInfo;
+	QMenu*					m_pSemaphore;
+	QAction*				m_pSemaphoreAcquire;
+	QAction*				m_pSemaphoreRelease;
+	QMenu*					m_pEvent;
+	QAction*				m_pEventSet;
+	QAction*				m_pEventReset;
+	QAction*				m_pEventPulse;
+	QMenu*					m_pTask;
+	QAction*				m_pPermissions;
 };
 

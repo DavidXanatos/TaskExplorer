@@ -12,6 +12,8 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <memory>
+
 
 using namespace std;
 
@@ -58,6 +60,7 @@ using namespace std;
 #include <QtConcurrent>
 #include <QHostInfo>
 #include <QApplication>
+#include <QClipboard>
 
 #include <QMainWindow>
 #include <QWidget>
@@ -81,6 +84,20 @@ using namespace std;
 #include <QStackedLayout>
 #include <QTreeWidget>
 #include <QFormLayout>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QWidgetAction>
+#include <QCheckBox>
+#include <QScrollArea>
+#include <QDialogButtonBox>
+#include <QStandardItemModel>
+#include <QPainter>
+#include <QGroupBox>
+#include <QSpinBox>
+#include <QComboBox>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QSystemTrayIcon>
 
 // other includes
 
@@ -97,6 +114,10 @@ using namespace std;
 
 #ifndef Min
 #define Min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
+
+#ifdef _DEBUG
+#define SAFE_MODE
 #endif
 
 #include "Common/DebugHelpers.h"

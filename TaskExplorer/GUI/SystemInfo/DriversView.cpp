@@ -8,7 +8,8 @@
 #include "..\Models\ServiceModel.h"
 #include "..\Models\SortFilterProxyModel.h"
 
-CDriversView::CDriversView()
+CDriversView::CDriversView(QWidget *parent)
+	:QWidget(parent)
 {
 	m_pMainLayout = new QHBoxLayout();
 	m_pMainLayout->setMargin(0);

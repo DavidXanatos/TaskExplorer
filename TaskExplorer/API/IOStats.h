@@ -13,7 +13,7 @@ struct SRateCounter
 		TotalTime = 0;
 	}
 
-	void Update(quint64 Interval, quint64 AddDelta)
+	virtual void Update(quint64 Interval, quint64 AddDelta)
 	{
 		// ToDo; instead of pushing and popping use a sircualr buffer approche.
 
@@ -28,15 +28,16 @@ struct SRateCounter
 		TotalTime += RateStat.back().Interval;
 		TotalBytes += RateStat.back().Bytes;
 
-		if(TotalTime < AVG_INTERVAL/2)
-			TotalTime = AVG_INTERVAL;
-		ByteRate = double(TotalBytes)*1000.0/TotalTime;
+		quint64 totalTime = TotalTime ? TotalTime : Interval;
+		if(totalTime < AVG_INTERVAL/2)
+			totalTime = AVG_INTERVAL;
+		ByteRate = TotalBytes*1000/totalTime;
 		ASSERT(ByteRate >= 0);
 	}
 
-	__inline int		Get() const			{return ByteRate;}
+	__inline quint64	Get() const			{return ByteRate;}
 
-private:
+protected:
 	quint64				ByteRate;
 
 	struct SStat
@@ -48,6 +49,32 @@ private:
 	list<SStat>			RateStat;
 	quint64				TotalBytes;
 	quint64				TotalTime;
+};
+
+struct SRateCounter2 : SRateCounter
+{
+	SRateCounter2()
+	{
+		TotalRate = 0;
+	}
+
+	virtual void Update(quint64 Interval, quint64 AddDelta)
+	{
+		SRateCounter::Update(Interval, AddDelta);
+
+		while(Smooth.size() > 4)
+		{
+			TotalRate -= Smooth.front();
+			Smooth.pop_front();
+		}
+		Smooth.push_back(ByteRate);
+		TotalRate += ByteRate;
+
+		ByteRate = TotalRate / Smooth.size();
+	}
+
+	list<quint64>		Smooth;
+	quint64				TotalRate;
 };
 
 struct SNetStats
@@ -90,8 +117,8 @@ struct SNetStats
     SDelta64		SendDelta;
     SDelta64		SendRawDelta;
 
-	SRateCounter	ReceiveRate;
-	SRateCounter	SendRate;
+	SRateCounter2	ReceiveRate;
+	SRateCounter2	SendRate;
 };
 
 struct SDiskStats
@@ -161,8 +188,8 @@ struct SIOStats
 	}
 
 	void SetOther(quint64 size, quint64 count) {
-		WriteCount = count;
-		WriteRaw = size;
+		OtherCount = count;
+		OtherRaw = size;
 	}
 
 

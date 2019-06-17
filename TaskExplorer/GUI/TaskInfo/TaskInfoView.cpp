@@ -1,60 +1,66 @@
 #include "stdafx.h"
 #include "TaskInfoView.h"
+#include "../TaskExplorer.h"
 
 
-CTaskInfoView::CTaskInfoView()
+CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
+: CTabPanel(patent)
 {
-	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
-	this->setLayout(m_pMainLayout);
+	setObjectName(bAsWindow ? "TaskWindow" : "TaskPanel");
 
-	m_pTabs = new QTabWidget();
-	m_pMainLayout->addWidget(m_pTabs);
+	InitializeTabs();
 
-	
-	m_pTaskOverview = new CTaskOverview();
-	m_pTabs->addTab(m_pTaskOverview, tr("General"));
-
-	m_pTaskPerfMon = new CTaskPerfMon();
-	m_pTabs->addTab(m_pTaskPerfMon, tr("Perf Mon"));
-
-	m_pHandlesView = new CHandlesView();
-	m_pTabs->addTab(m_pHandlesView, tr("Handles"));
-
-	m_pSocketsView = new CSocketsView();
-	m_pTabs->addTab(m_pSocketsView, tr("Sockets"));
-
-	m_pThreadsView = new CThreadsView();
-	m_pTabs->addTab(m_pThreadsView, tr("Threads"));
-
-	m_pModulesView = new CModulesView();
-	m_pTabs->addTab(m_pModulesView, tr("Modules"));
-
-	m_pMemoryView = new CMemoryView();
-	m_pTabs->addTab(m_pMemoryView, tr("Memory"));
-
-	m_pTokensView = new CTokensView();
-	m_pTabs->addTab(m_pTokensView, tr("Tokens"));
-
-	m_pWindowsView = new CWindowsView();
-	m_pTabs->addTab(m_pWindowsView, tr("Windows"));
-
-	m_pEnvironmentView = new CEnvironmentView();
-	m_pTabs->addTab(m_pEnvironmentView, tr("Environment"));
-
-#ifdef _DEBUG // TEST
-	//m_pTabs->setCurrentWidget(m_pSocketsView);
-	m_pTabs->setCurrentWidget(m_pHandlesView);
-	//m_pTabs->setCurrentWidget(m_pThreadsView);
-	//m_pTabs->setCurrentWidget(m_pModulesView);
-#endif
-
-	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
+	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
+	QStringList VisibleTabs = theConf->GetValue(objectName() + "/Tabs_Visible").toStringList();
+	RebuildTabs(ActiveTab, VisibleTabs);
 }
 
 
 CTaskInfoView::~CTaskInfoView()
 {
+	int ActiveTab = 0;
+	QStringList VisibleTabs;
+	SaveTabs(ActiveTab, VisibleTabs);
+	theConf->SetValue(objectName() + "/Tabs_Active", ActiveTab);
+	theConf->SetValue(objectName() + "/Tabs_Visible", VisibleTabs);
+}
+
+void CTaskInfoView::InitializeTabs()
+{
+	m_pProcessView = new CProcessView(this);
+	AddTab(m_pProcessView, tr("General"));
+
+	m_pHandlesView = new CHandlesView(false, this);
+	AddTab(m_pHandlesView, tr("Handles"));
+
+	m_pSocketsView = new CSocketsView(false, this);
+	AddTab(m_pSocketsView, tr("Sockets"));
+
+	m_pThreadsView = new CThreadsView(this);
+	AddTab(m_pThreadsView, tr("Threads"));
+
+	m_pModulesView = new CModulesView(this);
+	AddTab(m_pModulesView, tr("Modules"));
+
+	m_pWindowsView = new CWindowsView(this);
+	AddTab(m_pWindowsView, tr("Windows"));
+
+	// todo
+	//m_pMemoryView = new CMemoryView(this);
+	//AddTab(m_pMemoryView, tr("Memory"));
+
+	// todo
+	//m_pTokensView = new CTokensView(this);
+	//AddTab(m_pTokensView, tr("Tokens"));
+
+	// todo
+	//m_pJobView = new CJobView(this);
+	//AddTab(m_pJobView, tr("Job"));
+
+	m_pEnvironmentView = new CEnvironmentView(this);
+	AddTab(m_pEnvironmentView, tr("Environment"));
+
+	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)
@@ -74,7 +80,9 @@ void CTaskInfoView::Refresh()
 	if (m_pCurProcess.isNull())
 		return;
 
-	if(m_pTabs->currentWidget() == m_pSocketsView)
+	if(m_pTabs->currentWidget() == m_pProcessView)
+		m_pProcessView->ShowProcess(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pSocketsView)
 		m_pSocketsView->ShowSockets(m_pCurProcess);
 	else if(m_pTabs->currentWidget() == m_pHandlesView)
 		m_pHandlesView->ShowHandles(m_pCurProcess);
@@ -82,4 +90,11 @@ void CTaskInfoView::Refresh()
 		m_pThreadsView->ShowThreads(m_pCurProcess);
 	else if(m_pTabs->currentWidget() == m_pModulesView)
 		m_pModulesView->ShowModules(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pWindowsView)
+		m_pWindowsView->ShowWindows(m_pCurProcess);
+	//
+	//
+	//
+	else if(m_pTabs->currentWidget() == m_pEnvironmentView)
+		m_pEnvironmentView->ShowEnvVariables(m_pCurProcess);
 }

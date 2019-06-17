@@ -113,7 +113,8 @@ void CSymbolProvider::GetSymbolFromAddress(quint64 ProcessId, quint64 Address, Q
 	QByteArray methodName(member+1, bracketPosition - 1 - member); // extract method name
 	QMetaObject::invokeMethod(const_cast<QObject *>(receiver), methodName.constData(), Qt::AutoConnection, Q_ARG(const QString&, "test"));*/
 
-	CSymbolProviderJob* pJob = new CSymbolProviderJob(ProcessId, Address, this); 
+	CSymbolProviderJob* pJob = new CSymbolProviderJob(ProcessId, Address); 
+	pJob->moveToThread(this);
 	QObject::connect(pJob, SIGNAL(SymbolFromAddress(quint64, quint64, int, const QString&, const QString&, const QString&)), receiver, member, Qt::QueuedConnection);
 
 	QMutexLocker Locker(&m_JobMutex);
@@ -127,7 +128,8 @@ void CSymbolProvider::GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject
         return;
     }
 
-	CStackProviderJob* pJob = new CStackProviderJob(ProcessId, ThreadId, this); 
+	CStackProviderJob* pJob = new CStackProviderJob(ProcessId, ThreadId); 
+	pJob->moveToThread(this);
 	QObject::connect(pJob, SIGNAL(StackTraced(const CStackTracePtr&)), receiver, member, Qt::QueuedConnection);
 
 	QMutexLocker Locker(&m_JobMutex);
@@ -304,9 +306,15 @@ void CSymbolProvider::run()
 		pJob->deleteLater();
 	}
 
+	// cleanup provider cache
 	foreach(SSymbolProvider* m, mm)
 		delete m;
 	mm.clear();
+
+	// cleanup unfinished tasks
+	QMutexLocker Locker(&m_JobMutex);
+	while (!m_JobQueue.isEmpty())
+		m_JobQueue.takeFirst()->deleteLater();
 }
 
 void CSymbolProviderJob::Run(struct SSymbolProvider* m)

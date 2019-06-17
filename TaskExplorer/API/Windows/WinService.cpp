@@ -77,6 +77,8 @@ CWinService::~CWinService()
 
 bool CWinService::InitStaticData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service)
 {
+	QWriteLocker Locker(&m_Mutex);
+
 	m_SvcName = QString::fromStdWString(service->lpServiceName);
 	m_DisplayName = QString::fromStdWString(service->lpDisplayName);
     m_Flags = service->ServiceStatusProcess.dwServiceFlags;

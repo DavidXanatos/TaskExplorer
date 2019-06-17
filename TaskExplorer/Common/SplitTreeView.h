@@ -10,17 +10,24 @@ public:
 	CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent = 0);
 	virtual ~CSplitTreeView();
 
-	QHeaderView *header() const { return m_pList->header(); }
-	void setHeader(QHeaderView *header) { m_pList->setHeader(header); }
+	QTreeView*			GetView() { return m_pList; }
 
 	void				SetTreeWidth(int Width);
 	int					GetTreeWidth() const;
 
+	QModelIndex			currentIndex() const { return m_pList->currentIndex(); }
+	QModelIndexList		selectedRows() const;
+
+	QSplitter*			GetSplitter() { return m_pSplitter; }
+
 signals:
 	void				TreeResized(int Width);
 
+	void				MenuRequested(const QPoint &);
 
 	void				clicked(const QModelIndex& Index);
+	void				doubleClicked(const QModelIndex& Index);
+	void				currentChanged(const QModelIndex &current, const QModelIndex &previous);
 	// todo add more relevant signals
 
 public slots:
@@ -38,9 +45,16 @@ private slots:
 	void				OnSplitterMoved(int pos, int index);
 
 	void				OnClickedTree(const QModelIndex& Index);
+	void				OnDoubleClickedTree(const QModelIndex& Index);
 
 	void				OnExpandTree(const QModelIndex& index);
 	void				OnCollapseTree(const QModelIndex& index);
+
+	void				OnTreeSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected);
+	void				OnListSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected);
+
+	void				OnTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
+	void				OnListCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
 private:
 
@@ -52,4 +66,6 @@ private:
 	QTreeView*				m_pList;
 	QAbstractItemModel*		m_pModel;
 	COneColumnModel*		m_pOneModel;
+
+	bool					m_LockSellection;
 };

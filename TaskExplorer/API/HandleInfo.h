@@ -1,5 +1,6 @@
 #pragma once
 #include <qobject.h>
+#include "..\Common\FlexError.h"
 
 class CHandleInfo: public QObject
 {
@@ -23,6 +24,8 @@ public:
 
 	virtual QString			GetProcessName()		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
 	virtual QSharedPointer<QObject>	GetProcess()	{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
+
+	virtual STATUS		Close(bool bForce = false) = 0;
 
 protected:
 	quint64				m_HandleId;

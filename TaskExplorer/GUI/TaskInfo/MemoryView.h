@@ -4,7 +4,7 @@ class CMemoryView : public QWidget
 {
 	Q_OBJECT
 public:
-	CMemoryView();
+	CMemoryView(QWidget *parent = 0);
 	virtual ~CMemoryView();
 };
 

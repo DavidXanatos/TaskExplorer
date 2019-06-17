@@ -1,31 +1,29 @@
 #pragma once
 #include <qwidget.h>
+#include "..\..\Common\TabPanel.h"
 
-#include "SystemOverview.h"
-#include "SystemPerfMon.h"
+#include "SystemView.h"
 #include "DriversView.h"
 #include "../TaskInfo/HandlesView.h"
 #include "../TaskInfo/SocketsView.h"
 #include "ServicesView.h"
 
-class CSystemInfoView : public QWidget
+class CSystemInfoView : public CTabPanel
 {
 	Q_OBJECT
 public:
-	CSystemInfoView();
+	CSystemInfoView(QWidget* patent = 0);
 	virtual ~CSystemInfoView();
 
 public slots:
 	void				OnTab(int tabIndex);
 	void				Refresh();
 
+protected:
+	virtual void		InitializeTabs();
+
 private:
-	QVBoxLayout*		m_pMainLayout;
-
-	QTabWidget*			m_pTabs;
-
-	CSystemOverview*	m_pSystemOverview;
-	CSystemPerfMon*		m_pSystemPerfMon;
+	CSystemView*		m_pSystemView;
 	CDriversView*		m_pDriversView;
 	CHandlesView*		m_pAllFilesView;
 	CSocketsView*		m_pAllSocketsView;

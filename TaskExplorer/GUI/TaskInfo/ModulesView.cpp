@@ -2,10 +2,9 @@
 #include "../TaskExplorer.h"
 #include "ModulesView.h"
 #include "../../Common/Common.h"
-#include "..\Models\ModuleModel.h"
-#include "..\Models\SortFilterProxyModel.h"
 
-CModulesView::CModulesView()
+CModulesView::CModulesView(QWidget *parent)
+	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
@@ -14,7 +13,6 @@ CModulesView::CModulesView()
 
 	// Module List
 	m_pModuleModel = new CModuleModel();
-	m_pModuleModel->SetTree(true);
 
 	m_pSortProxy = new CSortFilterProxyModel(false, this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
@@ -33,14 +31,24 @@ CModulesView::CModulesView()
 #endif
 	m_pModuleList->setSortingEnabled(true);
 
+	m_pModuleList->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pModuleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
 	m_pMainLayout->addWidget(m_pModuleList);
 	// 
-}
 
+	//m_pMenu = new QMenu();
+	m_pUnload = m_pMenu->addAction(tr("Unload"), this, SLOT(OnUnload()));
+	m_pMenu->addSeparator();
+	AddPanelItemsToMenu();
+
+	setObjectName(parent->objectName());
+	m_pModuleList->header()->restoreState(theConf->GetValue(objectName() + "/ModulesView_Columns").toByteArray());
+}
 
 CModulesView::~CModulesView()
 {
+	theConf->SetValue(objectName() + "/ModulesView_Columns", m_pModuleList->header()->saveState());
 }
 
 void CModulesView::ShowModules(const CProcessPtr& pProcess)
@@ -66,4 +74,55 @@ void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, 
 		foreach(quint64 ID, Added)
 			m_pModuleList->expand(m_pSortProxy->mapFromSource(m_pModuleModel->FindIndex(ID)));
 	});
+}
+
+void CModulesView::OnMenu(const QPoint &point)
+{
+	QModelIndex Index = m_pModuleList->currentIndex();
+	
+	m_pUnload->setEnabled(Index.isValid());
+	
+	CPanelView::OnMenu(point);
+}
+
+void CModulesView::OnUnload()
+{
+	if(QMessageBox("TaskExplorer", tr("Do you want to unload the selected Module(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+		return;
+
+	int ErrorCount = 0;
+	int Force = -1;
+	foreach(const QModelIndex& Index, m_pModuleList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CModulePtr pModule = m_pModuleModel->GetModule(ModelIndex);
+		if (!pModule.isNull())
+		{
+		retry:
+			STATUS Status = pModule->Unload(Force == 1);
+			if (Status.IsError())
+			{
+				if (Force == -1 && Status.GetStatus() == ERROR_CONFIRM)
+				{
+					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					{
+						case QMessageBox::Yes:
+							Force = 1;
+							goto retry;
+							break;
+						case QMessageBox::No:
+							Force = 0;
+							break;
+						case QMessageBox::Cancel:
+							return;
+					}
+				}
+
+				ErrorCount++;
+			}
+		}
+	}
+
+	if (ErrorCount > 0)
+		QMessageBox::warning(this, "TaskExplorer", tr("Failed to unload %1 Modules").arg(ErrorCount));
 }

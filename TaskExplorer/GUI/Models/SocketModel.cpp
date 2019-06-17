@@ -108,7 +108,6 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 			SSocketNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;

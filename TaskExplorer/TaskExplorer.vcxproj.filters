@@ -81,12 +81,6 @@
     <ClCompile Include="GUI\SystemInfo\SystemInfoView.cpp">
       <Filter>SystemInfo</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\SystemInfo\SystemOverview.cpp">
-      <Filter>SystemInfo</Filter>
-    </ClCompile>
-    <ClCompile Include="GUI\SystemInfo\SystemPerfMon.cpp">
-      <Filter>SystemInfo</Filter>
-    </ClCompile>
     <ClCompile Include="GUI\TaskInfo\EnvironmentView.cpp">
       <Filter>TaskInfo</Filter>
     </ClCompile>
@@ -103,12 +97,6 @@
       <Filter>TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\TaskInfoView.cpp">
-      <Filter>TaskInfo</Filter>
-    </ClCompile>
-    <ClCompile Include="GUI\TaskInfo\TaskOverview.cpp">
-      <Filter>TaskInfo</Filter>
-    </ClCompile>
-    <ClCompile Include="GUI\TaskInfo\TaskPerfMon.cpp">
       <Filter>TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\ThreadsView.cpp">
@@ -216,6 +204,45 @@
     <ClCompile Include="Common\IncrementalPlot.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="GUI\Models\WindowModel.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\CheckableMessageBox.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\KeyValueInputDialog.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\PanelView.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\StackView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskView.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\TaskInfoWindow.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\JobView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\SettingsWidgets.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\ProcessView.cpp">
+      <Filter>TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\SystemView.cpp">
+      <Filter>SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TabPanel.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Settings.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -239,6 +266,12 @@
     <ClInclude Include="API\IOStats.h">
       <Filter>API</Filter>
     </ClInclude>
+    <ClInclude Include="Common\FlexError.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ExitDialog.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="API\SystemAPI.h">
@@ -254,12 +287,6 @@
       <Filter>TaskExplorer</Filter>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\SystemInfoView.h">
-      <Filter>SystemInfo</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\SystemInfo\SystemOverview.h">
-      <Filter>SystemInfo</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\SystemInfo\SystemPerfMon.h">
       <Filter>SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\EnvironmentView.h">
@@ -278,12 +305,6 @@
       <Filter>TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\TaskInfoView.h">
-      <Filter>TaskInfo</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\TaskInfo\TaskOverview.h">
-      <Filter>TaskInfo</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\TaskInfo\TaskPerfMon.h">
       <Filter>TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\ThreadsView.h">
@@ -386,6 +407,48 @@
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="Common\SplitTreeView.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\WindowModel.h">
+      <Filter>Models</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\CheckableMessageBox.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\KeyValueInputDialog.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\StackView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\AbstractTask.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskView.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\TaskInfoWindow.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\JobView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\SettingsWidgets.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\ProcessView.h">
+      <Filter>TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\SystemView.h">
+      <Filter>SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\TabPanel.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\Settings.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\PanelView.h">
       <Filter>Common</Filter>
     </QtMoc>
   </ItemGroup>

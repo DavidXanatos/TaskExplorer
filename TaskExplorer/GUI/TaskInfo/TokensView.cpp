@@ -2,7 +2,8 @@
 #include "TokensView.h"
 
 
-CTokensView::CTokensView()
+CTokensView::CTokensView(QWidget *parent)
+	:QWidget(parent)
 {
 }
 

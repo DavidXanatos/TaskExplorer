@@ -18,6 +18,7 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	QStyle* pStyle = QStyleFactory::create("windows");
 #endif
 
+	m_LockSellection = false;
 
 	// Tree
 	m_pTree = new QTreeView();
@@ -34,6 +35,8 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 #endif
 	m_pTree->setSortingEnabled(true);
 	
+	m_pTree->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pTree, SIGNAL(customContextMenuRequested( const QPoint& )), this, SIGNAL(MenuRequested(const QPoint &)));
 
 	m_pSplitter->addWidget(m_pTree);
 	//m_pSplitter->setCollapsible(0, false);
@@ -58,6 +61,9 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 #endif
 	m_pList->setSortingEnabled(true);
 
+	m_pList->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SIGNAL(MenuRequested(const QPoint &)));
+
 	m_pSplitter->addWidget(m_pList);
 	m_pSplitter->setCollapsible(1, false);
 	m_pSplitter->setStretchFactor(1, 1);
@@ -66,7 +72,13 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	connect(m_pSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved(int,int)));
 
 	// Link selections
-	//m_pTree->setSelectionModel(m_pList->selectionModel()); // todo link selection
+	//m_pTree->setSelectionModel(m_pList->selectionModel()); // this works only when booth views share the same data model
+
+	connect(m_pTree->selectionModel(), SIGNAL(selectionChanged(QItemSelection,QItemSelection)), this, SLOT(OnTreeSelectionChanged(QItemSelection,QItemSelection)));
+	connect(m_pList->selectionModel(), SIGNAL(selectionChanged(QItemSelection,QItemSelection)), this, SLOT(OnListSelectionChanged(QItemSelection,QItemSelection)));
+
+	connect(m_pTree->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnTreeCurrentChanged(QModelIndex,QModelIndex)));
+	connect(m_pList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnListCurrentChanged(QModelIndex,QModelIndex)));
 
 	m_bTreeHidden = false;
 	m_pList->setColumnHidden(0, true);
@@ -86,6 +98,9 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 
 	connect(m_pTree, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClickedTree(const QModelIndex&)));
 	connect(m_pList, SIGNAL(clicked(const QModelIndex&)), this, SIGNAL(clicked(const QModelIndex&)));
+
+	connect(m_pTree, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClickedTree(const QModelIndex&)));
+	connect(m_pList, SIGNAL(doubleClicked(const QModelIndex&)), this, SIGNAL(doubleClicked(const QModelIndex&)));
 
 	QTimer::singleShot(0, this, [this]() {
 		emit TreeResized(GetTreeWidth());
@@ -137,6 +152,11 @@ void CSplitTreeView::OnClickedTree(const QModelIndex& Index)
 	emit clicked(m_pOneModel->mapToSource(Index));
 }
 
+void CSplitTreeView::OnDoubleClickedTree(const QModelIndex& Index)
+{
+	emit doubleClicked(m_pOneModel->mapToSource(Index));
+}
+
 void CSplitTreeView::expand(const QModelIndex &index) 
 { 
 	m_pTree->expand(m_pOneModel->mapFromSource(index)); 
@@ -145,4 +165,117 @@ void CSplitTreeView::expand(const QModelIndex &index)
 void CSplitTreeView::collapse(const QModelIndex &index) 
 { 
 	m_pTree->collapse(m_pOneModel->mapFromSource(index)); 
+}
+
+void CSplitTreeView::OnTreeSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected)
+{
+	if (m_LockSellection)
+		return;
+	m_LockSellection = true;
+	QItemSelection SelectedItems;
+	foreach(const QModelIndex& Index, m_pTree->selectionModel()->selectedIndexes())
+	{
+		QModelIndex ModelIndex = m_pOneModel->mapToSource(Index);
+		
+		QModelIndex ModelL = m_pModel->index(ModelIndex.row(), 0, ModelIndex.parent());
+		QModelIndex ModelR = m_pModel->index(ModelIndex.row(), m_pModel->columnCount()-1, ModelIndex.parent());
+		
+		SelectedItems.append(QItemSelectionRange(ModelL, ModelR));
+	}
+	m_pList->selectionModel()->select(SelectedItems, QItemSelectionModel::ClearAndSelect);
+	/*
+	foreach(const QModelIndex& Index, Selected.indexes())
+	{
+		QModelIndex ModelIndex = m_pOneModel->mapToSource(Index);
+		
+		QModelIndex ModelL = m_pModel->index(ModelIndex.row(), 0, ModelIndex.parent());
+		QModelIndex ModelR = m_pModel->index(ModelIndex.row(), m_pModel->columnCount()-1, ModelIndex.parent());
+		
+		m_pList->selectionModel()->select(QItemSelection(ModelL, ModelR), QItemSelectionModel::Select);
+	}
+	foreach(const QModelIndex& Index, Deselected.indexes())
+	{
+		QModelIndex ModelIndex = m_pOneModel->mapToSource(Index);
+		
+		QModelIndex ModelL = m_pModel->index(ModelIndex.row(), 0, ModelIndex.parent());
+		QModelIndex ModelR = m_pModel->index(ModelIndex.row(), m_pModel->columnCount()-1, ModelIndex.parent());
+		
+		m_pList->selectionModel()->select(QItemSelection(ModelL, ModelR), QItemSelectionModel::Deselect);
+	}*/
+	m_LockSellection = false;
+}
+
+void CSplitTreeView::OnListSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected)
+{
+	if (m_LockSellection)
+		return;
+	m_LockSellection = true;
+	QItemSelection SelectedItems;
+	foreach(const QModelIndex& Index, m_pList->selectionModel()->selectedIndexes())
+	{
+		QModelIndex ModelIndex = m_pOneModel->mapFromSource(Index);
+		if (ModelIndex.column() != 0)
+			continue;
+		
+		QModelIndex Model = m_pOneModel->index(ModelIndex.row(), 0, ModelIndex.parent());
+
+		SelectedItems.append(QItemSelectionRange(Model));
+	}
+	m_pTree->selectionModel()->select(SelectedItems, QItemSelectionModel::ClearAndSelect);
+	/*foreach(const QModelIndex& Index, Selected.indexes())
+	{
+		QModelIndex ModelIndex = m_pOneModel->mapFromSource(Index);
+		if (ModelIndex.column() != 0)
+			continue;
+		m_pTree->selectionModel()->select(ModelIndex, QItemSelectionModel::Select);
+	}
+	foreach(const QModelIndex& Index, Deselected.indexes())
+	{
+		QModelIndex ModelIndex = m_pOneModel->mapFromSource(Index);
+		if (ModelIndex.column() != 0)
+			continue;
+		m_pTree->selectionModel()->select(ModelIndex, QItemSelectionModel::Deselect);
+	}*/
+	m_LockSellection = false;
+}
+
+void CSplitTreeView::OnTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+	if (m_LockSellection)
+		return;
+	m_LockSellection = true;
+	m_pList->selectionModel()->setCurrentIndex(m_pOneModel->mapToSource(current), QItemSelectionModel::SelectCurrent);
+	m_LockSellection = false;
+	emit currentChanged(m_pOneModel->mapToSource(current), m_pOneModel->mapToSource(previous));
+}
+
+void CSplitTreeView::OnListCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+	if (m_LockSellection)
+		return;
+	m_LockSellection = true;
+	m_pTree->selectionModel()->setCurrentIndex(m_pOneModel->mapFromSource(current), QItemSelectionModel::SelectCurrent);
+	m_LockSellection = false;
+	emit currentChanged(current, previous);
+}
+
+QModelIndexList CSplitTreeView::selectedRows() const
+{
+	int Column = 0;
+	for (int i = 0; i < m_pModel->columnCount(); i++)
+	{
+		if (!m_pList->isColumnHidden(i))
+		{
+			Column = i;
+			break;
+		}
+	}
+
+	QModelIndexList IndexList;
+	foreach(const QModelIndex& Index, m_pList->selectionModel()->selectedIndexes())
+	{
+		if (Index.column() == Column)
+			IndexList.append(Index);
+	}
+	return IndexList;
 }

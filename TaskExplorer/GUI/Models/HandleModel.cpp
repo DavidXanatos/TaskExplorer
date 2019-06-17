@@ -84,7 +84,6 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 			SHandleNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;

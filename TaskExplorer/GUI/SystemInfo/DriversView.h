@@ -7,13 +7,12 @@
 class CServiceModel;
 class QSortFilterProxyModel;
 
-class CDriversView :
-	public QWidget
+class CDriversView : public QWidget
 {
 	Q_OBJECT
 
 public:
-	CDriversView();
+	CDriversView(QWidget *parent = 0);
 	virtual ~CDriversView();
 
 private slots:

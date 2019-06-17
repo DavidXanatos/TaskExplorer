@@ -5,6 +5,9 @@
 
 int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
 
+int _QSet_quint64_type = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
+int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
+
 ulong g_fileObjectTypeIndex = ULONG_MAX;
 
 struct SWindowsAPI
@@ -71,7 +74,20 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 {
 	m_TotalGuiObjects = 0;
 	m_TotalUserObjects = 0;
+	m_TotalWndObjects = 0;
 
+	m_InstalledMemory = 0;
+	m_AvailableMemory = 0;
+	m_ReservedMemory = 0;
+
+	m_pEventMonitor = NULL;
+	m_pSymbolProvider = NULL;
+
+	m = new SWindowsAPI();
+}
+
+bool CWindowsAPI::Init()
+{
 	InitPH();
 
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
@@ -84,10 +100,8 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
         PhEndInitOnce(&initOnce);
     }
 
-
 	m_CpusStats.resize(PhSystemBasicInformation.NumberOfProcessors);
 
-	m = new SWindowsAPI();
 
 	m_InstalledMemory = ::GetInstalledMemory();
 	m_AvailableMemory = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages, PAGE_SIZE);
@@ -103,6 +117,8 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
 	m_pSymbolProvider->Init();
+
+	return true;
 }
 
 CWindowsAPI::~CWindowsAPI()
@@ -112,6 +128,11 @@ CWindowsAPI::~CWindowsAPI()
 	ClearPH();
 
 	delete m;
+}
+
+bool CWindowsAPI::RootAvaiable()
+{
+	return KphIsConnected();
 }
 
 void CWindowsAPI::UpdatePerfStats()
@@ -280,6 +301,7 @@ bool CWindowsAPI::UpdateProcessList()
 
 	quint32 newTotalGuiObjects = 0;
 	quint32 newTotalUserObjects = 0;
+	quint32 newTotalWndObjects = EnumWindows();
 
 	// Copy the process Map
 	QMap<quint64, CProcessPtr>	OldProcesses = GetProcessList();
@@ -305,6 +327,8 @@ bool CWindowsAPI::UpdateProcessList()
 
 		pProcess->UpdateThreadData(process, sysTotalTime, sysTotalCycleTime);
 
+		pProcess->SetWndHandles(GetWindowByPID((quint64)process->UniqueProcessId).count());
+
 		if (bAdd)
 			Added.insert(ProcessID);
 		else if (bChanged)
@@ -321,12 +345,12 @@ bool CWindowsAPI::UpdateProcessList()
         // are on the list.
         if (process == &m->InterruptsProcessInformation)
         {
-			CpuStatsDPCUsage += pProcess->GetCpuUsage();
+			CpuStatsDPCUsage += pProcess->GetCpuStats().CpuUsage;
             process = NULL;
         }
         else if (process == &m->DpcsProcessInformation)
         {
-			CpuStatsDPCUsage += pProcess->GetCpuUsage();
+			CpuStatsDPCUsage += pProcess->GetCpuStats().CpuUsage;
             process = &m->InterruptsProcessInformation;
         }
         else
@@ -369,12 +393,68 @@ bool CWindowsAPI::UpdateProcessList()
 
 	m_TotalGuiObjects = newTotalGuiObjects;
 	m_TotalUserObjects = newTotalUserObjects;
+	m_TotalWndObjects = newTotalWndObjects;
 
 	m_CpuStatsDPCUsage = CpuStatsDPCUsage;
 
 	return true;
 }
 
+void EnumChildWindows(HWND hwnd, QMap<quint64, QMultiMap<quint64, CWindowsAPI::SWndInfo> >& WindowMap, quint32& WndCount)
+{
+    HWND childWindow = NULL;
+    ULONG i = 0;
+
+    // We use FindWindowEx because EnumWindows doesn't return Metro app windows.
+    // Set a reasonable limit to prevent infinite loops.
+    while (i < 0x800 && (childWindow = FindWindowEx(hwnd, childWindow, NULL, NULL)))
+    {
+		WndCount++;
+
+        ULONG processId;
+        ULONG threadId;
+
+        threadId = GetWindowThreadProcessId(childWindow, &processId);
+
+		CWindowsAPI::SWndInfo WndInfo;
+		WndInfo.hwnd = (quint64)childWindow;
+		WndInfo.parent = (quint64)hwnd;
+		WndInfo.processId = processId;
+		WndInfo.threadId = threadId;
+
+		WindowMap[processId].insertMulti(threadId, WndInfo);
+
+		EnumChildWindows(childWindow, WindowMap, WndCount);
+
+        i++;
+    }
+}
+
+quint32 CWindowsAPI::EnumWindows()
+{
+	quint32 WndCount = 0;
+	QMap<quint64, QMultiMap<quint64, SWndInfo> > WindowMap; // QMap<ProcessId, QMultiMap<ThreadId, HWND> > 
+
+	// When enumerating windows in windows we have only very little ability to filter the results
+	// so to avoind going throuhgh the full list over and over agian we just cache ist in a double multi map
+	// this way we can asily look up all windows of a process or all all windows belinging to a given thread
+
+	EnumChildWindows(GetDesktopWindow(), WindowMap, WndCount);
+
+	QWriteLocker Locker(&m_WindowMutex);
+	m_WindowMap = WindowMap;
+
+	return WndCount;
+}
+
+quint64	CWindowsAPI::GetCpuIdleCycleTime(int index)
+{
+	QReadLocker Locker(&m_StatsMutex);
+
+	if (index < PhSystemBasicInformation.NumberOfProcessors)
+		return m->CpuIdleCycleTime[index].QuadPart;
+	return 0;
+}
 
 static BOOLEAN NetworkImportDone = FALSE;
 
@@ -568,26 +648,21 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	if (!FileHandle.isNull())
 		qDebug() << FileHandle->GetFileName() << FileName;*/
 
-	/*switch (Type)
-    {
-    case CEventMonitor::EtEtwFileNameType: // Name
-		qDebug() << "File Named: " << FileName;
-        break;
-    case CEventMonitor::EtEtwFileCreateType: // FileCreate
-        qDebug() << "File Created: " << FileName;
-        break;
-    case CEventMonitor::EtEtwFileDeleteType: // FileDelete
-        qDebug() << "File Deleted: " << FileName;
-        break;
-	case CEventMonitor::EtEtwFileRundownType:
-		qDebug() << "File Named (Rundown): " << FileName;
-		break;
-    default:
-        break;
-    }*/
-
 	QWriteLocker Locker(&m_FileNameMutex);
-	m_FileNames.insert(FileId, FileName);
+
+	switch (Type)
+    {
+    case EtEtwFileNameType: // Name
+        break;
+    case EtEtwFileCreateType: // FileCreate
+	case EtEtwFileRundownType:
+		m_FileNames.insert(FileId, FileName);
+        break;
+    case EtEtwFileDeleteType: // FileDelete
+		m_FileNames.remove(FileId);
+        break;
+
+    }
 }
 
 QString CWindowsAPI::GetFileNameByID(quint64 FileId) const
@@ -832,13 +907,4 @@ bool CWindowsAPI::UpdateServiceList()
 bool CWindowsAPI::UpdateDriverList() 
 {
 	return true; 
-}
-
-quint64	CWindowsAPI::GetCpuIdleCycleTime(int index)
-{
-	QReadLocker Locker(&m_StatsMutex);
-
-	if (index < PhSystemBasicInformation.NumberOfProcessors)
-		return m->CpuIdleCycleTime[index].QuadPart;
-	return 0;
 }

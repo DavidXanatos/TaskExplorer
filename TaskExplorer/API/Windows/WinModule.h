@@ -5,13 +5,14 @@ class CWinModule : public CModuleInfo
 {
 	Q_OBJECT
 public:
-	CWinModule(bool IsSubsystemProcess = false, QObject *parent = nullptr);
+	CWinModule(quint64 ProcessId = -1, bool IsSubsystemProcess = false, QObject *parent = nullptr);
 	virtual ~CWinModule();
 
 	void SetSubsystemProcess(bool IsSubsystemProcess)		{ QReadLocker Locker(&m_Mutex); m_IsSubsystemProcess = IsSubsystemProcess; }
 
 	virtual quint64 GetEntryPoint() const 					{ QReadLocker Locker(&m_Mutex); return m_EntryPoint; }
 
+	virtual quint64 GetType() const 						{ QReadLocker Locker(&m_Mutex); return m_Type; }
 	virtual QString GetTypeString() const;
 	
 	virtual quint16 GetLoadCount() const 					{ QReadLocker Locker(&m_Mutex); return m_LoadCount; }
@@ -43,6 +44,7 @@ public:
 
 	void InitAsyncData(const QString& FileName, const QString& PackageFullName = "");
 
+	virtual STATUS				Unload(bool bForce = false);
 
 signals:
 	void	AsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
@@ -56,6 +58,7 @@ protected:
 	bool UpdateDynamicData(struct _PH_MODULE_INFO* module);
 
 
+	quint64						m_ProcessId;
 	bool						m_IsSubsystemProcess;
     quint64						m_EntryPoint;
     ulong						m_Flags;

@@ -25,6 +25,7 @@
 #include "stdafx.h"
 #include "ProcessHacker.h"
 #include <lsasup.h>
+#include <userenv.h>
 
 #include "../TaskExplorer/GUI/TaskExplorer.h"
 
@@ -33,6 +34,7 @@
 #include "WinThread.h"
 #include "WinHandle.h"
 #include "WinModule.h"
+#include "WinWnd.h"
 #include "../Common/Common.h"
 #include "EventMonitor.h"
 
@@ -40,24 +42,53 @@
 
 struct SWinProcess
 {
-	SWinProcess() : 
-		SessionId(-1),
-		UniqueProcessId(NULL),
-		QueryHandle(NULL),
-		Flags(NULL),
-		AsyncFinished(false),
-		OsContextVersion(0)
+	SWinProcess()
 	{
+		UniqueProcessId = NULL;
+		QueryHandle = NULL;
+
+		SessionId = -1;
 		CreateTime.QuadPart = 0;
+
+		ImageTimeDateStamp = 0;
+		ImageCharacteristics = 0;
+		ImageReserved = 0;
+		ImageSubsystem = 0;
+		ImageDllCharacteristics = 0;
+		PebBaseAddress = 0;
+		PebBaseAddress32 = 0;
+
+		Flags = NULL;
+		AsyncFinished = false;
+		OsContextVersion = 0;
+		DepStatus = 0;
+		DpiAwareness = 0;
+		VirtualizationAllowed = FALSE;
+		VirtualizationEnabled = FALSE;
+
+		memset(&VmCounters, 0, sizeof(VM_COUNTERS_EX));
+		memset(&IoCounters, 0, sizeof(IO_COUNTERS));
+		memset(&WsCounters, 0, sizeof(PH_PROCESS_WS_COUNTERS));
+		memset(&QuotaLimits, 0, sizeof(QUOTA_LIMITS));
 	}
+
+	
+	// Handles
+	HANDLE UniqueProcessId;
+	HANDLE QueryHandle;
 
 	// Basic
 	quint64 SessionId;
 	LARGE_INTEGER CreateTime;
 
-	// Handles
-	HANDLE UniqueProcessId;
-	HANDLE QueryHandle;
+	// Image
+    ULONG ImageTimeDateStamp;
+    USHORT ImageCharacteristics;
+    USHORT ImageReserved;
+    USHORT ImageSubsystem;
+    USHORT ImageDllCharacteristics;
+	quint64 PebBaseAddress;
+	quint64 PebBaseAddress32;
 
 	// Flags
 	union
@@ -100,7 +131,8 @@ struct SWinProcess
 	// Dynamic
 	VM_COUNTERS_EX VmCounters;
 	IO_COUNTERS IoCounters;
-
+    PH_PROCESS_WS_COUNTERS WsCounters;
+	QUOTA_LIMITS QuotaLimits;
 
 	// Other Fields
 	PH_KNOWN_PROCESS_TYPE KnownProcessType;
@@ -108,6 +140,8 @@ struct SWinProcess
 	quint64 ProcessSequenceNumber;
 	ulong JobObjectId;
 	QString PackageFullName;
+	QString AppID;
+	ULONG DpiAwareness;
 
 	// Signature, Packed
 	ulong ImportFunctions;
@@ -116,6 +150,13 @@ struct SWinProcess
 	// OS Context
     GUID OsContextGuid;
     ulong OsContextVersion;
+
+	// Misc.
+	ULONG DepStatus;
+	BOOLEAN VirtualizationAllowed;
+    BOOLEAN VirtualizationEnabled;
+
+	QString DesktopInfo;
 
 	/*PH_HASH_ENTRY HashEntry;
 ULONG State;
@@ -177,16 +218,41 @@ QString GetSidFullNameCached(const QByteArray& Sid, bool bQuick = false)
 	return FullName;
 }
 
+ULONG GetProcessDpiAwareness(HANDLE QueryHandle)
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static BOOL (WINAPI *getProcessDpiAwarenessInternal)(_In_ HANDLE hprocess,_Out_ ULONG *value);
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        getProcessDpiAwarenessInternal = (BOOL (WINAPI *)(_In_ HANDLE hprocess,_Out_ ULONG *value))PhGetDllProcedureAddress(L"user32.dll", "GetProcessDpiAwarenessInternal", 0);
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (!getProcessDpiAwarenessInternal)
+        return 0;
+
+    if (QueryHandle)
+    {
+        ULONG dpiAwareness;
+        if (getProcessDpiAwarenessInternal(QueryHandle, &dpiAwareness))
+            return dpiAwareness + 1;
+    }
+	return 0;
+}
+
 // CWinProcess Class members
 
 CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 {
 	// Dynamic
-	m_BasePriority = 0;
 
 	// GDI, USER handles
 	m_GdiHandles = 0;
     m_UserHandles = 0;
+	m_WndHandles = 0;
+
+	m_IsCritical = false;
 
 	m_pModuleInfo = CModulePtr(new CWinModule());
 	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, ulong, ulong)), this, SLOT(OnAsyncDataDone(bool, ulong, ulong)));
@@ -483,6 +549,83 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
         m->PackageFullName = CastPhString(PhGetProcessPackageFullName(m->QueryHandle));
     }
 
+	//
+    PPH_STRING applicationUserModelId;
+    if (m->IsSubsystemProcess)
+    {
+        NOTHING;
+    }
+    else if (PhAppResolverGetAppIdForProcess(m->UniqueProcessId, &applicationUserModelId))
+    {
+        m->AppID = CastPhString(applicationUserModelId);
+    }
+    else
+    {
+		ULONG windowFlags;	
+        if (m->QueryHandle)
+        {
+            if (NT_SUCCESS(PhGetProcessWindowTitle(m->QueryHandle, &windowFlags, &applicationUserModelId)))
+            {
+                if (windowFlags & STARTF_TITLEISAPPID)
+                    m->AppID = CastPhString(applicationUserModelId);
+                else
+                    PhDereferenceObject(applicationUserModelId);
+            }
+
+            //if (WindowsVersion >= WINDOWS_8 && ProcessNode->ProcessItem->IsImmersive)
+            //{
+            //    HANDLE tokenHandle;
+            //    PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
+            //
+            //    if (NT_SUCCESS(PhOpenProcessToken(
+            //        ProcessNode->ProcessItem->QueryHandle,
+            //        TOKEN_QUERY,
+            //        &tokenHandle
+            //        )))
+            //    {
+            //        // rev from GetApplicationUserModelId
+            //        if (NT_SUCCESS(PhQueryTokenVariableSize(tokenHandle, TokenSecurityAttributes, &info)))
+            //        {
+            //            for (ULONG i = 0; i < info->AttributeCount; i++)
+            //            {
+            //                static UNICODE_STRING attributeNameUs = RTL_CONSTANT_STRING(L"WIN://SYSAPPID");
+            //                PTOKEN_SECURITY_ATTRIBUTE_V1 attribute = &info->Attribute.pAttributeV1[i];
+            //
+            //                if (RtlEqualUnicodeString(&attribute->Name, &attributeNameUs, FALSE))
+            //                {
+            //                    if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
+            //                    {
+            //                        PPH_STRING attributeValue1;
+            //                        PPH_STRING attributeValue2;
+            //
+            //                        attributeValue1 = PH_AUTO(PhCreateStringFromUnicodeString(&attribute->Values.pString[1]));
+            //                        attributeValue2 = PH_AUTO(PhCreateStringFromUnicodeString(&attribute->Values.pString[2]));
+            //
+            //                        ProcessNode->AppIdText = PhConcatStrings(
+            //                            3, 
+            //                            attributeValue2->Buffer,
+            //                            L"!",
+            //                            attributeValue1->Buffer
+            //                            );
+            //
+            //                        break;
+            //                    }
+            //                }
+            //            }
+            //
+            //            PhFree(info);
+            //        }
+            //
+            //        NtClose(tokenHandle);
+            //    }
+            //}
+        }
+    }
+
+	m->DpiAwareness = GetProcessDpiAwareness(m->QueryHandle);
+
+
+
     if (m->QueryHandle && m->IsHandleValid)
     {
         OBJECT_BASIC_INFORMATION basicInfo;
@@ -518,6 +661,85 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
 				m->OsContextVersion = WINDOWS_XP;
 		}
 	}
+
+	if (m->QueryHandle)
+	{
+		HANDLE tokenHandle;
+		PhGetProcessDepStatus(m->QueryHandle, &m->DepStatus);
+
+		if (NT_SUCCESS(PhOpenProcessToken(m->QueryHandle, TOKEN_QUERY, &tokenHandle)))
+        {
+            if (NT_SUCCESS(PhGetTokenIsVirtualizationAllowed(tokenHandle, &m->VirtualizationAllowed)) && m->VirtualizationAllowed)
+            {
+                if (!NT_SUCCESS(PhGetTokenIsVirtualizationEnabled(tokenHandle, &m->VirtualizationEnabled)))
+                {
+                    m->VirtualizationAllowed = FALSE; // display N/A on error
+                }
+            }
+
+            NtClose(tokenHandle);
+        }
+	}
+
+	// subsystem
+	if (m->IsSubsystemProcess)
+    {
+        m->ImageSubsystem = IMAGE_SUBSYSTEM_POSIX_CUI;
+    }
+    else if(m->QueryHandle)
+    {
+        PROCESS_BASIC_INFORMATION basicInfo;
+        if (NT_SUCCESS(PhGetProcessBasicInformation(m->QueryHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
+        {
+			m->PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
+			if (m->IsWow64)
+			{
+				PVOID peb32;
+				PhGetProcessPeb32(m->QueryHandle, &peb32);
+				m->PebBaseAddress32 = (quint64)peb32;
+			}
+
+			if (m->IsHandleValid)
+			{
+				PVOID imageBaseAddress;
+				PH_REMOTE_MAPPED_IMAGE mappedImage;
+                if (NT_SUCCESS(NtReadVirtualMemory(m->QueryHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL )))
+                {
+                    if (NT_SUCCESS(PhLoadRemoteMappedImage(m->QueryHandle, imageBaseAddress, &mappedImage)))
+                    {
+                        m->ImageTimeDateStamp = mappedImage.NtHeaders->FileHeader.TimeDateStamp;
+                        m->ImageCharacteristics = mappedImage.NtHeaders->FileHeader.Characteristics;
+
+                        if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+                        {
+                            m->ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
+                            m->ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
+                        }
+                        else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+                        {
+                            m->ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
+                            m->ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
+                        }
+
+                        PhUnloadRemoteMappedImage(&mappedImage);
+                    }
+                }
+            }
+        }
+    }
+
+	// desktop
+	if (m->IsHandleValid)
+	{
+		PPH_STRING desktopinfo;
+		if (NT_SUCCESS(PhGetProcessDesktopInfo(m->QueryHandle, &desktopinfo)))
+		{
+			m->DesktopInfo = CastPhString(desktopinfo);
+		}
+	}
+
+	if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == DPCS_PROCESS_ID || m->UniqueProcessId == INTERRUPTS_PROCESS_ID)
+		return true;
 
 	qobject_cast<CWinModule*>(m_pModuleInfo)->SetSubsystemProcess(m->IsSubsystemProcess);
 	qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName, m->PackageFullName);
@@ -570,22 +792,61 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	}
 	// PhpGetProcessThreadInformation End
 
+	if (m->IsHandleValid)
+	{
+
+		int pebOffset = PhpoCurrentDirectory;
+#ifdef _WIN64
+        // Tell the function to get the WOW64 current directory, because that's the one that
+        // actually gets updated.
+        if (m->IsWow64)
+            pebOffset |= PhpoWow64;
+#endif
+
+		PPH_STRING curDir = NULL;
+        PhGetProcessPebString(m->QueryHandle, (PH_PEB_OFFSET)pebOffset, &curDir);
+		m_WorkingDirectory = CastPhString(curDir);
+	}
+
 	// PhpUpdateDynamicInfoProcessItem Begin
 	m_BasePriority = Process->BasePriority;
 
 	if (m->QueryHandle)
 	{
-		PROCESS_PRIORITY_CLASS priorityClass;
+		PROCESS_PRIORITY_CLASS PriorityClass;
+		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &PriorityClass)))
+			m_Priority = PriorityClass.PriorityClass;
 
-		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &priorityClass)))
-		{
-			m_PriorityClass = priorityClass.PriorityClass;
-		}
+		IO_PRIORITY_HINT IoPriority;
+		if (NT_SUCCESS(PhGetProcessIoPriority(m->QueryHandle, &IoPriority)))
+			m_IOPriority = IoPriority;
+                
+		ULONG PagePriority;
+		if (NT_SUCCESS(PhGetProcessPagePriority(m->QueryHandle, &PagePriority)))
+			m_PagePriority = PagePriority;
+
+		// todo modifyed
 	}
 	else
 	{
-		m_PriorityClass = 0;
+		m_Priority = 0;
+		m_IOPriority = 0;
+		m_PagePriority = 0;
 	}
+
+	// update critical flag
+	{
+		BOOLEAN breakOnTermination;
+		if (NT_SUCCESS(PhGetProcessBreakOnTermination(m->QueryHandle, &breakOnTermination)))
+		{
+			if ((bool)breakOnTermination != m_IsCritical)
+			{
+				m_IsCritical = breakOnTermination;
+				modified = TRUE;
+			}
+		}
+	}
+
 
 	m_KernelTime = Process->KernelTime.QuadPart;
 	m_UserTime = Process->UserTime.QuadPart;
@@ -595,15 +856,37 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	m_PeakNumberOfThreads = Process->NumberOfThreadsHighWatermark;
 	m_HardFaultCount = Process->HardFaultCount;
 
+	// todo modifyed
+
+	// todo modifyed
+
+	// todo modifyed
+
 	// Update VM and I/O counters.
 	m->VmCounters = *(PVM_COUNTERS_EX)&Process->PeakVirtualSize;
 	m->IoCounters = *(PIO_COUNTERS)&Process->ReadOperationCount;
 	// PhpUpdateDynamicInfoProcessItem End
 
+	/* // todo to slow for always pooling
+	if (m->QueryHandle)
+	{
+		if (NT_SUCCESS(PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters)))
+		{
+			// todo modifyed
+		}
+
+		if (NT_SUCCESS(PhGetProcessQuotaLimits(m->QueryHandle, &m->QuotaLimits)))
+		{
+			// todo modifyed
+		}
+	}
+	*/
+
+
 
 	// PhpFillProcessItemExtension
 	PSYSTEM_PROCESS_INFORMATION_EXTENSION processExtension;
-	if (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64())
+	if (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64() && PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
 	{
 		processExtension = PH_PROCESS_EXTENSION(Process);
 
@@ -724,7 +1007,6 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
     if (m->QueryHandle && !m->IsSubsystemProcess && !m->IsProtectedHandle)
     {
         BOOLEAN isBeingDebugged = FALSE;
-
         PhGetProcessIsBeingDebugged(m->QueryHandle, &isBeingDebugged);
 
         if (m->IsBeingDebugged != isBeingDebugged)
@@ -779,69 +1061,24 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
     }
 
 
+
+	QWriteLocker StatsLocker(&m_StatsMutex);
+
 	// Update the deltas.
-	m_CpuKernelDelta.Update(Process->KernelTime.QuadPart);
-	m_CpuUserDelta.Update(Process->UserTime.QuadPart);
-	m_CycleTimeDelta.Update(Process->CycleTime);
+	m_CpuStats.CpuKernelDelta.Update(Process->KernelTime.QuadPart);
+	m_CpuStats.CpuUserDelta.Update(Process->UserTime.QuadPart);
+	m_CpuStats.CycleDelta.Update(Process->CycleTime);
 
-	m_ContextSwitchesDelta.Update(contextSwitches);
-	m_PageFaultsDelta.Update(Process->PageFaultCount);
-	m_PrivateBytesDelta.Update(Process->PagefileUsage);
+	m_CpuStats.ContextSwitchesDelta.Update(contextSwitches);
+	m_CpuStats.PageFaultsDelta.Update(Process->PageFaultCount);
+	m_CpuStats.PrivateBytesDelta.Update(Process->PagefileUsage);
 
-	// same as for thread - todo merge
-	float newCpuUsage = 0.0f; // Below Windows 7, sum of kernel and user CPU usage; above Windows 7, cycle-based CPU usage.
-	float kernelCpuUsage = 0.0f;
-	float userCpuUsage = 0.0f;
-
-    if (sysTotalCycleTime != 0)
-    {
-        float totalDelta;
-
-        newCpuUsage = (float)m_CycleTimeDelta.Delta / sysTotalCycleTime;
-
-        // Calculate the kernel/user CPU usage based on the kernel/user time. If the kernel
-        // and user deltas are both zero, we'll just have to use an estimate. Currently, we
-        // split the CPU usage evenly across the kernel and user components, except when the
-        // total user time is zero, in which case we assign it all to the kernel component.
-
-        totalDelta = (float)(m_CpuKernelDelta.Delta + m_CpuUserDelta.Delta);
-
-        if (totalDelta != 0)
-        {
-            kernelCpuUsage = newCpuUsage * ((float)m_CpuKernelDelta.Delta / totalDelta);
-            userCpuUsage = newCpuUsage * ((float)m_CpuUserDelta.Delta / totalDelta);
-        }
-        else
-        {
-            if (m_UserTime != 0)
-            {
-                kernelCpuUsage = newCpuUsage / 2;
-                userCpuUsage = newCpuUsage / 2;
-            }
-            else
-            {
-                kernelCpuUsage = newCpuUsage;
-                userCpuUsage = 0;
-            }
-        }
-    }
-    else if(sysTotalTime != 0)
-    {
-        kernelCpuUsage = (float)m_CpuKernelDelta.Delta / sysTotalTime;
-        userCpuUsage = (float)m_CpuUserDelta.Delta / sysTotalTime;
-        newCpuUsage = kernelCpuUsage + userCpuUsage;
-    }
-
-    m_CpuUsage = newCpuUsage;
-    m_CpuKernelUsage = kernelCpuUsage;
-    m_CpuUserUsage = userCpuUsage;
-	//
+	m_CpuStats.UpdateStats(sysTotalTime, sysTotalCycleTime);
 
     /*PhAddItemCircularBuffer_FLOAT(&processItem->CpuKernelHistory, kernelCpuUsage);
     PhAddItemCircularBuffer_FLOAT(&processItem->CpuUserHistory, userCpuUsage);
 	*/
 
-	QWriteLocker StatsLocker(&m_StatsMutex);
 
 	m_Stats.Io.SetRead(Process->ReadTransferCount.QuadPart, Process->ReadOperationCount.QuadPart);
 	m_Stats.Io.SetWrite(Process->WriteTransferCount.QuadPart, Process->WriteOperationCount.QuadPart);
@@ -1097,8 +1334,10 @@ bool CWinProcess::UpdateModules()
 		QMap<quint64, CModulePtr>::iterator I = OldModules.find(BaseAddress);
 		if (I == OldModules.end())
 		{
-			pModule = QSharedPointer<CWinModule>(new CWinModule(m->IsSubsystemProcess));
+			pModule = QSharedPointer<CWinModule>(new CWinModule(m_ProcessId, m->IsSubsystemProcess));
 			bAdd = pModule->InitStaticData(module, (quint64)m->QueryHandle);
+			if (pModule->GetType() != PH_MODULE_TYPE_ELF_MAPPED_IMAGE)
+				pModule->InitAsyncData(pModule->GetFileName());
 
 			// remove CF Guard flag if CFG mitigation is not enabled for the process
 			if (!m->IsControlFlowGuardEnabled)
@@ -1152,7 +1391,65 @@ bool CWinProcess::UpdateModules()
 
     PhDereferenceObject(modules);
 
+	QWriteLocker Locker(&m_ModuleMutex);
+	// purle all modules left as thay are not longer valid
+	foreach(quint64 BaseAddress, OldModules.keys())
+	{
+		m_ModuleList.remove(BaseAddress);
+		Removed.insert(BaseAddress);
+	}
+	Locker.unlock();
+
 	emit ModulesUpdated(Added, Changed, Removed);
+
+	return true;
+}
+
+bool CWinProcess::UpdateWindows()
+{
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
+
+	QMap<quint64, CWndPtr> OldWindows = GetWindowList();
+
+	QMultiMap<quint64, CWindowsAPI::SWndInfo> Windows = ((CWindowsAPI*)theAPI)->GetWindowByPID(m_ProcessId);
+
+	for (QMultiMap<quint64, CWindowsAPI::SWndInfo>::iterator I = Windows.begin(); I != Windows.end(); I++)
+	{
+		quint64 ThreadID = I.key();
+		CWindowsAPI::SWndInfo WndInfo = I.value();
+		QSharedPointer<CWinWnd> pWinWnd = OldWindows.take(WndInfo.hwnd).objectCast<CWinWnd>();
+
+		bool bAdd = false;
+		if (pWinWnd.isNull())
+		{
+			pWinWnd = QSharedPointer<CWinWnd>(new CWinWnd());
+			pWinWnd->InitStaticData(WndInfo, m->QueryHandle);
+			bAdd = true;
+			QWriteLocker Locker(&m_WindowMutex);
+			ASSERT(!m_WindowList.contains(WndInfo.hwnd));
+			m_WindowList.insert(WndInfo.hwnd, pWinWnd);
+		}
+
+		bool bChanged = false;
+		bChanged = pWinWnd->UpdateDynamicData();
+			
+		if (bAdd)
+			Added.insert(WndInfo.hwnd);
+		else if (bChanged)
+			Changed.insert(WndInfo.hwnd);
+	}
+
+	QWriteLocker Locker(&m_WindowMutex);
+	foreach(quint64 hwnd, OldWindows.keys())
+	{
+		m_WindowList.remove(hwnd);
+		Removed.insert(hwnd);
+	}
+	Locker.unlock();
+
+	emit WindowsUpdated(Added, Changed, Removed);
 
 	return true;
 }
@@ -1179,10 +1476,51 @@ void CWinProcess::AddDiskIO(int Type, ulong TransferSize)
 	}
 }
 
+QString CWinProcess::GetArchString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	if (m->IsWow64Valid && !m->IsWow64)
+		return tr("x86_64");
+	return tr("x86");
+}
+
 quint64 CWinProcess::GetSessionID() const
 { 
 	QReadLocker Locker(&m_Mutex); 
 	return m->SessionId; 
+}
+
+QString CWinProcess::GetElevationString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	switch (m->ElevationType)
+    {
+    case TokenElevationTypeDefault:		return tr("N/A");
+    case TokenElevationTypeLimited:		return tr("Limited");
+    case TokenElevationTypeFull:		return tr("Full");
+    default:							return tr("N/A");
+    }
+}
+
+ulong CWinProcess::GetSubsystem() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->ImageSubsystem;
+}
+
+QString CWinProcess::GetSubsystemString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+    switch (m->ImageSubsystem)
+    {
+	case 0:								return "";
+    case IMAGE_SUBSYSTEM_NATIVE:		return tr("Native");
+    case IMAGE_SUBSYSTEM_WINDOWS_GUI:	return tr("Windows");
+    case IMAGE_SUBSYSTEM_WINDOWS_CUI:	return tr("Windows console");
+    case IMAGE_SUBSYSTEM_OS2_CUI:		return tr("OS/2");
+    case IMAGE_SUBSYSTEM_POSIX_CUI:		return tr("POSIX");
+    default:							return tr("Unknown");
+    }
 }
 
 quint64 CWinProcess::GetProcessSequenceNumber() const
@@ -1197,25 +1535,25 @@ quint64 CWinProcess::GetRawCreateTime() const
 	return m->CreateTime.QuadPart; 
 }
 
-bool CWinProcess::ValidateParent(const CProcessPtr& pParent) const
+bool CWinProcess::ValidateParent(CProcessInfo* pParent) const
 { 
 	QReadLocker Locker(&m_Mutex); 
 
-	if (pParent->GetID() == GetID()) // for cases where the parent PID = PID (e.g. System Idle Process)
+	if (!pParent || pParent->GetID() == GetID()) // for cases where the parent PID = PID (e.g. System Idle Process)
         return NULL;
 
 	if (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64())
 	{
 		// We make sure that the process item we found is actually the parent process - its sequence number
 		// must not be higher than the supplied sequence.
-		if (pParent.objectCast<CWinProcess>()->GetProcessSequenceNumber() <= m->ProcessSequenceNumber)
+		if (qobject_cast<CWinProcess*>(pParent)->GetProcessSequenceNumber() <= m->ProcessSequenceNumber)
 			return true;
 	}
 	else
 	{
 		// We make sure that the process item we found is actually the parent process - its start time
 		// must not be larger than the supplied time.
-		if (pParent.objectCast<CWinProcess>()->GetRawCreateTime() <= m->CreateTime.QuadPart)
+		if (qobject_cast<CWinProcess*>(pParent)->GetRawCreateTime() <= m->CreateTime.QuadPart)
 			return true;
 	}
 	return false;
@@ -1264,3 +1602,881 @@ QString CWinProcess::GetOsContextString() const
     }
 }
 
+QString CWinProcess::GetDEPStatusString() const
+{
+	QReadLocker Locker(&m_Mutex);
+    if (m->DepStatus & PH_PROCESS_DEP_ENABLED)
+    {
+        if (m->DepStatus & PH_PROCESS_DEP_PERMANENT)
+            return tr("DEP (permanent)");
+        else
+            return tr("DEP");
+    }
+	return "";
+}
+
+bool CWinProcess::IsVirtualizationAllowed() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->VirtualizationAllowed;
+}
+
+bool CWinProcess::IsVirtualizationEnabled() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->VirtualizationEnabled;
+}
+
+STATUS CWinProcess::SetVirtualizationEnabled(bool bSet)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+    NTSTATUS status;
+    HANDLE processHandle;
+    HANDLE tokenHandle;
+
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId)))
+    {
+        if (NT_SUCCESS(status = PhOpenProcessToken(processHandle, TOKEN_WRITE, &tokenHandle)))
+        {
+            status = PhSetTokenIsVirtualizationEnabled(tokenHandle, bSet);
+            NtClose(tokenHandle);
+        }
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		return ERR(tr("Failed to set process virtualization"), status);
+    }
+
+    return OK;
+}
+
+QString CWinProcess::GetVirtualizedString() const 
+{
+	QReadLocker Locker(&m_Mutex);
+	if (m->VirtualizationEnabled)
+		return tr("Allowed");
+	if (m->VirtualizationAllowed)
+		return tr("Virtualized");
+	return "";
+}
+
+QString CWinProcess::GetCFGuardString() const
+{
+	QReadLocker Locker(&m_Mutex);
+	if (m->IsControlFlowGuardEnabled)
+		return tr("CF Guard");
+	return "";
+}
+
+QDateTime CWinProcess::GetTimeStamp() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return QDateTime::fromTime_t(m->ImageTimeDateStamp);
+}
+
+QMap<QString, CWinProcess::SEnvVar>	CWinProcess::GetEnvVariables() const
+{
+	QMap<QString, SEnvVar> EnvVars;
+
+    PVOID SystemDefaultEnvironment = NULL;
+    PVOID UserDefaultEnvironment = NULL;
+
+	HANDLE processHandle;
+	PVOID environment;
+    ULONG environmentLength;
+	ULONG enumerationKey;
+    PH_ENVIRONMENT_VARIABLE variable;
+
+	if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
+	{
+
+		HANDLE tokenHandle;
+		ULONG flags = 0;
+
+		if (CreateEnvironmentBlock != NULL)
+		{
+			CreateEnvironmentBlock(&SystemDefaultEnvironment, NULL, FALSE);
+
+			if (NT_SUCCESS(PhOpenProcessToken(processHandle, TOKEN_QUERY | TOKEN_DUPLICATE, &tokenHandle)))
+			{
+				CreateEnvironmentBlock(&UserDefaultEnvironment, tokenHandle, FALSE);
+				NtClose(tokenHandle);
+			}
+		}
+
+#ifdef _WIN64
+		if (m->IsWow64)
+			flags |= PH_GET_PROCESS_ENVIRONMENT_WOW64;
+#endif
+
+		if (NT_SUCCESS(PhGetProcessEnvironment(processHandle, flags, &environment, &environmentLength)))
+		{
+			enumerationKey = 0;
+			while (PhEnumProcessEnvironmentVariables(environment, environmentLength, &enumerationKey, &variable))
+			{
+				// Remove the most confusing item. Some say it's just a weird per-drive current directory 
+				// with a colon used as a drive letter for some reason. It should not be here. (diversenok)
+				//if (PhEqualStringRef2(&variable.Name, L"=::", FALSE) && PhEqualStringRef2(&variable.Value, L"::\\", FALSE))
+				//    continue;
+
+				SEnvVar EnvVar;
+				EnvVar.Name = QString::fromWCharArray(variable.Name.Buffer, variable.Name.Length / sizeof(wchar_t));
+				EnvVar.Value = QString::fromWCharArray(variable.Value.Buffer, variable.Value.Length / sizeof(wchar_t));
+				
+				
+				PPH_STRING variableValue;				
+				if (SystemDefaultEnvironment && PhQueryEnvironmentVariable(SystemDefaultEnvironment, &variable.Name, NULL) == STATUS_BUFFER_TOO_SMALL)
+				{
+					EnvVar.Type = SEnvVar::eSystem;
+
+					if (NT_SUCCESS(PhQueryEnvironmentVariable(SystemDefaultEnvironment, &variable.Name, &variableValue )))
+					{
+						if (EnvVar.Value != CastPhString(variableValue))
+						{
+							EnvVar.Type = SEnvVar::eProcess;
+						}
+					}
+				}
+				else if (UserDefaultEnvironment && PhQueryEnvironmentVariable(UserDefaultEnvironment,&variable.Name, NULL) == STATUS_BUFFER_TOO_SMALL)
+				{
+					EnvVar.Type = SEnvVar::eUser;
+
+					if (NT_SUCCESS(PhQueryEnvironmentVariable(UserDefaultEnvironment, &variable.Name,&variableValue)))
+					{
+						if (EnvVar.Value != CastPhString(variableValue))
+						{
+							EnvVar.Type = SEnvVar::eProcess;
+						}
+					}
+				}
+				
+				EnvVars.insert(EnvVar.GetTypeName(), EnvVar);
+			}
+
+			PhFreePage(environment);
+		}
+
+		NtClose(processHandle);
+	}
+
+    if (DestroyEnvironmentBlock != NULL)
+    {
+        if (SystemDefaultEnvironment)
+        {
+            DestroyEnvironmentBlock(SystemDefaultEnvironment);
+            SystemDefaultEnvironment = NULL;
+        }
+
+        if (UserDefaultEnvironment)
+        {
+            DestroyEnvironmentBlock(UserDefaultEnvironment);
+            UserDefaultEnvironment = NULL;
+        }
+    }
+
+	return EnvVars;
+}
+
+STATUS CWinProcess::EditEnvVariable(const QString& Name, const QString& Value)
+{
+	if (m->IsSuspended) 
+	{
+		return ERR(tr("Editing environment variable(s) of suspended processes is not supported."), ERROR_CONFIRM);
+	}
+
+	NTSTATUS status;
+	HANDLE processHandle;
+	LARGE_INTEGER timeout;
+
+	if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, m->UniqueProcessId)))
+	{
+		timeout.QuadPart = -(LONGLONG)UInt32x32To64(10, PH_TIMEOUT_SEC);
+
+		wstring NameStr = Name.toStdWString();
+		PH_STRINGREF NameRef;
+		NameRef.Buffer = (PWCH)NameStr.c_str();
+		NameRef.Length = NameStr.length() * sizeof(wchar_t);
+
+		wstring ValueStr = Value.toStdWString();
+		PH_STRINGREF ValueRef;
+		ValueRef.Buffer = (PWCH)ValueStr.c_str();
+		ValueRef.Length = ValueStr.length() * sizeof(wchar_t);
+		
+		status = PhSetEnvironmentVariableRemote(processHandle, &NameRef, ValueRef.Length == 0 ? NULL : &ValueRef, &timeout);
+
+		NtClose(processHandle);
+	}
+
+	if (!NT_SUCCESS(status))
+	{
+		return ERR(tr("Unable to set the environment variable."), status);
+	}
+	if (status == STATUS_TIMEOUT)
+	{
+		return ERR(tr("Unable to delete the environment variable."), WAIT_TIMEOUT);
+	}
+	return OK;
+}
+
+QString CWinProcess::GetStatusString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	QStringList Status;
+    if (m->IsBeingDebugged)
+        Status.append(tr("Debugged"));
+    if (m->IsSuspended)
+        Status.append(tr("Suspended"));
+    if (m->IsProtectedHandle)
+        Status.append(tr("HandleFiltered"));
+    if (m->IsElevated)
+        Status.append(tr("Elevated"));
+    if (m->IsSubsystemProcess)
+        Status.append(tr("Pico"));
+    if (m->IsImmersive)
+        Status.append(tr("Immersive"));
+    if (m->IsDotNet)
+        Status.append(tr("DotNet"));
+    if (m->IsPacked)
+        Status.append(tr("Packed"));
+    if (m->IsWow64)
+        Status.append(tr("Wow64"));
+    if (m->IsInSignificantJob)
+        Status.append(tr("Job"));
+	/*lse if (
+                PhCsUseColorServiceProcesses &&
+                ((processItem->ServiceList && processItem->ServiceList->Count != 0) ||
+                 (processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeServiceSid)) ||
+                 (processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeLocalServiceSid)) ||
+                 (processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeNetworkServiceSid))
+                ))
+                getNodeColor->BackColor = PhCsColorServiceProcesses;
+            else if (
+                PhCsUseColorSystemProcesses &&
+                ((processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeLocalSystemSid)) ||
+                PH_IS_FAKE_PROCESS_ID(processItem->ProcessId)))
+                getNodeColor->BackColor = PhCsColorSystemProcesses;
+            else if (
+                PhCsUseColorOwnProcesses &&
+                processItem->Sid && 
+                RtlEqualSid(processItem->Sid, PhGetOwnTokenAttributes().TokenSid)
+                )
+                getNodeColor->BackColor = PhCsColorOwnProcesses;*/
+	return Status.join(tr(", "));
+}
+
+bool CWinProcess::HasDebugger() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsBeingDebugged;
+}
+
+STATUS CWinProcess::AttachDebugger()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+    static PH_STRINGREF aeDebugKeyName = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug");
+#ifdef _WIN64
+    static PH_STRINGREF aeDebugWow64KeyName = PH_STRINGREF_INIT(L"Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug");
+#endif
+    NTSTATUS status;
+    PH_STRING_BUILDER commandLineBuilder;
+    HANDLE keyHandle;
+    PPH_STRING debugger;
+    PH_STRINGREF commandPart;
+    PH_STRINGREF dummy;
+	/*static*/ PPH_STRING DebuggerCommand = NULL;
+
+    status = PhOpenKey(&keyHandle, KEY_READ, PH_KEY_LOCAL_MACHINE,
+#ifdef _WIN64
+        m->IsWow64 ? &aeDebugWow64KeyName : &aeDebugKeyName,
+#else
+        &aeDebugKeyName,
+#endif
+        0);
+
+    if (NT_SUCCESS(status))
+    {
+        if (debugger = (PPH_STRING)PH_AUTO(PhQueryRegistryString(keyHandle, L"Debugger")))
+        {
+            if (PhSplitStringRefAtChar(&debugger->sr, '"', &dummy, &commandPart) &&
+                PhSplitStringRefAtChar(&commandPart, '"', &commandPart, &dummy))
+            {
+                DebuggerCommand = PhCreateString2(&commandPart);
+            }
+        }
+
+        NtClose(keyHandle);
+    }
+
+    if (PhIsNullOrEmptyString(DebuggerCommand))
+    {
+		return ERR(tr("Unable to locate the debugger."));
+    }
+
+    PhInitializeStringBuilder(&commandLineBuilder, DebuggerCommand->Length + 30);
+
+    PhAppendCharStringBuilder(&commandLineBuilder, '"');
+    PhAppendStringBuilder(&commandLineBuilder, &DebuggerCommand->sr);
+    PhAppendCharStringBuilder(&commandLineBuilder, '"');
+    PhAppendFormatStringBuilder(&commandLineBuilder, L" -p %lu", HandleToUlong(m->UniqueProcessId));
+
+    status = PhCreateProcessWin32(NULL, commandLineBuilder.String->Buffer, NULL, NULL, 0, NULL, NULL, NULL );
+
+    PhDeleteStringBuilder(&commandLineBuilder);
+
+    if (!NT_SUCCESS(status))
+    {
+        return ERR(tr("Failed to create debugger process"), status);
+    }
+
+    return OK;
+}
+
+STATUS CWinProcess::DetachDebugger()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	NTSTATUS status;
+    HANDLE processHandle;
+    HANDLE debugObjectHandle;
+
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_SUSPEND_RESUME, m->UniqueProcessId)))
+    {
+        if (NT_SUCCESS(status = PhGetProcessDebugObject(processHandle,&debugObjectHandle)))
+        {
+            // Disable kill-on-close.
+            if (NT_SUCCESS(status = PhSetDebugKillProcessOnExit(debugObjectHandle, FALSE)))
+            {
+                status = NtRemoveProcessDebug(processHandle, debugObjectHandle);
+            }
+
+            NtClose(debugObjectHandle);
+        }
+
+        NtClose(processHandle);
+    }
+
+    if (status == STATUS_PORT_NOT_SET)
+    {
+        return ERR(tr("The process is not being debugged."));
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		return ERR(tr("Failed to detach debugger"), status);
+    }
+
+    return OK;
+}
+
+STATUS CWinProcess::CreateDump(const QString& DumpPath)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	// ToDo
+	return ERR(0);
+}
+
+QString CWinProcess::GetPackageName() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->PackageFullName;
+}
+
+QString CWinProcess::GetAppID() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->AppID;	
+}
+
+ulong CWinProcess::GetDPIAwareness() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->DpiAwareness;
+}
+
+QString CWinProcess::GetDPIAwarenessString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+    switch (m->DpiAwareness)
+    {
+	case 0:	return "";
+    case 1: return tr("Unaware");
+    case 2: return tr("System aware");
+    case 3: return tr("Per-monitor aware");
+    }
+	return "";
+}
+
+ulong CWinProcess::GetProtection() const 
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->Protection.Level;
+}
+
+QString CWinProcess::GetProtectionString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+    if (m->Protection.Level != UCHAR_MAX)
+    {
+        if (WindowsVersion >= WINDOWS_8_1)
+        {
+			static PWSTR ProtectedSignerStrings[] = { L"", L"(Authenticode)", L"(CodeGen)", L"(Antimalware)", L"(Lsa)", L"(Windows)", L"(WinTcb)", L"(WinSystem)", L"(StoreApp)" };
+
+			QString Signer;
+			if (m->Protection.Signer < sizeof(ProtectedSignerStrings) / sizeof(PWSTR))
+				Signer = QString::fromWCharArray(ProtectedSignerStrings[m->Protection.Signer]);
+
+            switch (m->Protection.Type)
+            {
+			case PsProtectedTypeNone:				return tr("None %1").arg(Signer);
+            case PsProtectedTypeProtectedLight:		return tr("Light %1").arg(Signer);
+            case PsProtectedTypeProtected:			return tr("Full %1").arg(Signer);
+            default:								return tr("Unknown %1").arg(Signer);
+            }
+        }
+        else
+        {
+            return m->IsProtectedProcess ? tr("Yes") : tr("None");
+        }
+    }
+    return tr("N/A");
+}
+
+
+QString CWinProcess::GetMitigationString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	if (!m->QueryHandle)
+		return tr("N/A");
+
+	QString MitigationString;
+	
+	NTSTATUS status;
+	PH_PROCESS_MITIGATION_POLICY_ALL_INFORMATION information;
+	if (NT_SUCCESS(status = PhGetProcessMitigationPolicy(m->QueryHandle, &information)))
+	{
+		PH_STRING_BUILDER sb;
+        int policy;
+        PPH_STRING shortDescription;
+
+        PhInitializeStringBuilder(&sb, 100);
+
+        for (policy = 0; policy < MaxProcessMitigationPolicy; policy++)
+        {
+            if (information.Pointers[policy] && PhDescribeProcessMitigationPolicy(
+                (PROCESS_MITIGATION_POLICY)policy,
+                information.Pointers[policy],
+                &shortDescription,
+                NULL
+                ))
+            {
+                PhAppendStringBuilder(&sb, &shortDescription->sr);
+                PhAppendStringBuilder2(&sb, L"; ");
+                PhDereferenceObject(shortDescription);
+            }
+        }
+
+        if (sb.String->Length != 0)
+        {
+            PhRemoveEndStringBuilder(&sb, 2);
+			MitigationString = QString::fromWCharArray(sb.String->Buffer, sb.String->Length / sizeof(wchar_t));
+        }
+        else
+        {
+            MitigationString = tr("None");
+        }
+
+        PhDeleteStringBuilder(&sb);
+	}
+
+	return MitigationString;
+}
+
+quint64 CWinProcess::GetJobObjectID() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->JobObjectId;
+}
+
+quint64 CWinProcess::GetPeakPrivateBytes() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.PeakPagefileUsage;
+}
+
+quint64 CWinProcess::GetWorkingSetSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.WorkingSetSize;
+}
+
+quint64 CWinProcess::GetPeakWorkingSetSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.PeakWorkingSetSize;
+}
+
+quint64 CWinProcess::GetPrivateWorkingSetSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m_WorkingSetPrivateSize;
+}
+
+quint64 CWinProcess::GetSharedWorkingSetSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->WsCounters.NumberOfSharedPages * PAGE_SIZE;
+}
+
+quint64 CWinProcess::GetShareableWorkingSetSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->WsCounters.NumberOfShareablePages * PAGE_SIZE;
+}
+
+quint64 CWinProcess::GetVirtualSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.VirtualSize;
+}
+
+quint64 CWinProcess::GetPeakVirtualSize() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.PeakVirtualSize;
+}
+
+quint32 CWinProcess::GetPageFaultCount() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.PageFaultCount;
+}
+
+
+quint64 CWinProcess::GetPagedPool() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.QuotaPagedPoolUsage;
+}
+
+quint64 CWinProcess::GetPeakPagedPool() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.QuotaPeakPagedPoolUsage;
+}
+
+quint64 CWinProcess::GetNonPagedPool() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.QuotaNonPagedPoolUsage;
+}
+
+quint64 CWinProcess::GetPeakNonPagedPool() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->VmCounters.QuotaPeakNonPagedPoolUsage;
+}
+
+quint64 CWinProcess::GetMinimumWS() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->QuotaLimits.MinimumWorkingSetSize;
+}
+
+quint64 CWinProcess::GetMaximumWS() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->QuotaLimits.MaximumWorkingSetSize;
+}
+
+QString CWinProcess::GetDesktopInfo() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->DesktopInfo;
+}
+
+QString CWinProcess::GetPriorityString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+
+	switch (m_Priority)
+    {
+	case PROCESS_PRIORITY_CLASS_REALTIME:		return tr("Real time");
+    case PROCESS_PRIORITY_CLASS_HIGH:			return tr("High");
+    case PROCESS_PRIORITY_CLASS_ABOVE_NORMAL:	return tr("Above normal");
+    case PROCESS_PRIORITY_CLASS_NORMAL:			return tr("Normal");
+	case PROCESS_PRIORITY_CLASS_BELOW_NORMAL:	return tr("Below normal");
+    case PROCESS_PRIORITY_CLASS_IDLE:			return tr("Idle");
+	default:									return tr("Unknown");
+    }
+}
+
+STATUS CWinProcess::SetPriority(long Value)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
+    {
+        if (m->UniqueProcessId != SYSTEM_PROCESS_ID)
+        {
+            PROCESS_PRIORITY_CLASS priorityClass;
+
+            priorityClass.Foreground = FALSE;
+            priorityClass.PriorityClass = (UCHAR)Value;
+
+            status = PhSetProcessPriority(processHandle, priorityClass);
+        }
+        else
+        {
+            // Changing the priority of System can lead to a BSOD on some versions of Windows,
+            // so disallow this.
+            status = STATUS_UNSUCCESSFUL;
+        }
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to set Process priority"), status);
+    }
+	return OK;
+}
+
+STATUS CWinProcess::SetPagePriority(long Value)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
+    {
+        if (m->UniqueProcessId != SYSTEM_PROCESS_ID)
+        {
+            status = PhSetProcessPagePriority(processHandle, Value);
+        }
+        else
+        {
+            // See comment in PhUiSetPriorityProcesses.
+            status = STATUS_UNSUCCESSFUL;
+        }
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		return ERR(tr("Failed to set Page priority"), status);
+    }
+	return OK;
+}
+
+STATUS CWinProcess::SetIOPriority(long Value)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
+    {
+        if (m->UniqueProcessId != SYSTEM_PROCESS_ID)
+        {
+            status = PhSetProcessIoPriority(processHandle, (IO_PRIORITY_HINT)Value);
+        }
+        else
+        {
+            // See comment in PhUiSetPriorityProcesses.
+            status = STATUS_UNSUCCESSFUL;
+        }
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to set I/O priority"), status);
+    }
+	return OK;
+}
+
+STATUS CWinProcess::Terminate()
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+    NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_TERMINATE, m->UniqueProcessId)))
+    {
+        // An exit status of 1 is used here for compatibility reasons:
+        // 1. Both Task Manager and Process Explorer use 1.
+        // 2. winlogon tries to restart explorer.exe if the exit status is not 1.
+
+        status = PhTerminateProcess(processHandle, 1);
+        NtClose(processHandle);
+    }
+
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to terminate process"), status);
+    }
+	return OK;
+}
+
+bool CWinProcess::IsSuspended() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsSuspended;
+}
+
+STATUS CWinProcess::Suspend()
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+    NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SUSPEND_RESUME, m->UniqueProcessId)))
+    {
+        status = NtSuspendProcess(processHandle);
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to suspend process"), status);
+    }
+	return OK;
+}
+
+STATUS CWinProcess::Resume()
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+    NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SUSPEND_RESUME, m->UniqueProcessId)))
+    {
+        status = NtResumeProcess(processHandle);
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to resume process"), status);
+    }
+	return OK;
+}
+
+STATUS CWinProcess::SetCriticalProcess(bool bSet, bool bForce)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+    NTSTATUS status;
+    HANDLE processHandle;
+    BOOLEAN breakOnTermination;
+
+    status = PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_SET_INFORMATION, m->UniqueProcessId);
+    if (NT_SUCCESS(status))
+    {
+        status = PhGetProcessBreakOnTermination(processHandle, &breakOnTermination);
+
+        if (NT_SUCCESS(status))
+        {
+			if (bSet == false && breakOnTermination)
+            {
+				status = PhSetProcessBreakOnTermination(processHandle, FALSE);
+            }
+			else if (bSet == true && !breakOnTermination)
+			{
+#ifndef SAFE_MODE // in safe mode always check and fail
+				if (!bForce)
+#endif
+				{
+					NtClose(processHandle);
+
+					return ERR(tr("If the process ends, the operating system will shut down immediately."), ERROR_CONFIRM);
+				}
+
+				status = PhSetProcessBreakOnTermination(processHandle, TRUE);
+			} 
+        }
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+        return ERR(tr("Unable to change the process critical status."), status);
+    }
+
+	m_IsCritical = bSet;
+	return OK;
+}
+
+STATUS CWinProcess::ReduceWS()
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+    NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_QUOTA, m->UniqueProcessId)))
+    {
+        QUOTA_LIMITS quotaLimits;
+
+        memset(&quotaLimits, 0, sizeof(QUOTA_LIMITS));
+        quotaLimits.MinimumWorkingSetSize = -1;
+        quotaLimits.MaximumWorkingSetSize = -1;
+
+        status = PhSetProcessQuotaLimits(processHandle, quotaLimits);
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		return ERR(tr("Unable to reduce the working set of a process"), status);
+    }
+
+	return OK;
+}
+
+NTSTATUS PhpProcessGeneralOpenProcess(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+{
+    return PhOpenProcess(Handle, DesiredAccess, (HANDLE)Context);
+}
+
+void CWinProcess::OpenPermissions()
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+    PhEditSecurity(NULL, (wchar_t*)m_ProcessName.toStdWString().c_str(), L"Process", PhpProcessGeneralOpenProcess, NULL, (HANDLE)m->UniqueProcessId);
+}
+
+bool CWinProcess::IsWow64() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsWow64;
+}
+
+quint64 CWinProcess::GetPebBaseAddress(bool bWow64) const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return bWow64 ? m->PebBaseAddress32 : m->PebBaseAddress;
+}

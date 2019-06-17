@@ -2,6 +2,7 @@
 #include "SystemAPI.h"
 #include "Windows\WindowsAPI.h"
 
+#define CORE_THREAD
 
 CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 {
@@ -19,17 +20,28 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 	m_TotalProcesses = 0;
 	m_TotalThreads = 0;
 	m_TotalHandles = 0;
+
+#ifdef CORE_THREAD
+	QThread *pThread = new QThread();
+	this->moveToThread(pThread);
+	pThread->start();
+#endif
+
+	QTimer::singleShot(0, this, SLOT(Init()));
 }
 
 
 CSystemAPI::~CSystemAPI()
 {
+#ifdef CORE_THREAD
+	this->thread()->quit();
+#endif
 }
 
-CSystemAPI* CSystemAPI::New(QObject *parent)
+CSystemAPI* CSystemAPI::New()
 {
 #ifdef WIN32
-	return new CWindowsAPI(parent);
+	return new CWindowsAPI();
 #else
 	// todo: implement other systems liek Linux
 #endif
@@ -59,20 +71,20 @@ QMultiMap<quint64, CSocketPtr> CSystemAPI::GetSocketList()
 	return m_SocketList;
 }
 
-QMultiMap<quint64, CHandlePtr> CSystemAPI::GetOpenFilesList()
+QMap<quint64, CHandlePtr> CSystemAPI::GetOpenFilesList()
 {
 	QReadLocker Locker(&m_OpenFilesMutex);
 	return m_OpenFilesList;
 }
 
-QMultiMap<QString, CServicePtr> CSystemAPI::GetServiceList()
+QMap<QString, CServicePtr> CSystemAPI::GetServiceList()
 {
 	QReadLocker Locker(&m_ServiceMutex);
 	return m_ServiceList;
 }
 
 
-QMultiMap<QString, CServicePtr> CSystemAPI::GetDriverList()
+QMap<QString, CServicePtr> CSystemAPI::GetDriverList()
 {
 	QReadLocker Locker(&m_DriverMutex);
 	return m_DriverList;

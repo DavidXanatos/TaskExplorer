@@ -9,7 +9,8 @@
 #include "..\Models\SortFilterProxyModel.h"
 
 
-CServicesView::CServicesView()
+CServicesView::CServicesView(QWidget *parent)
+	:QWidget(parent)
 {
 	m_pMainLayout = new QHBoxLayout();
 	m_pMainLayout->setMargin(0);

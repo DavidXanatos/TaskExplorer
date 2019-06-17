@@ -5,6 +5,7 @@
 #include "SocketInfo.h"
 #include "HandleInfo.h"
 #include "ServiceInfo.h"
+#include "WndInfo.h"
 #include "../Common/Common.h"
 
 struct SCpuStats
@@ -31,7 +32,9 @@ public:
 	CSystemAPI(QObject *parent = nullptr);
 	virtual ~CSystemAPI();
 
-	static CSystemAPI* New(QObject *parent = nullptr);
+	static CSystemAPI* New();
+
+	virtual bool RootAvaiable() = 0;
 
 	virtual QMap<quint64, CProcessPtr> GetProcessList();
 	virtual CProcessPtr GetProcessByID(quint64 ProcessId);
@@ -40,11 +43,11 @@ public:
 
 	virtual QMultiMap<quint64, CSocketPtr> GetSocketList();
 
-	virtual QMultiMap<quint64, CHandlePtr> GetOpenFilesList();
+	virtual QMap<quint64, CHandlePtr> GetOpenFilesList();
 
-	virtual QMultiMap<QString, CServicePtr> GetServiceList();
+	virtual QMap<QString, CServicePtr> GetServiceList();
 
-	virtual QMultiMap<QString, CServicePtr> GetDriverList();
+	virtual QMap<QString, CServicePtr> GetDriverList();
 
 	virtual SProcStats			GetStats()			{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 	virtual SSambaStats			GetSambaStats()		{ QReadLocker Locker(&m_StatsMutex); return m_SambaStats; }
@@ -78,6 +81,9 @@ public slots:
 	virtual bool UpdateServiceList() = 0;
 	virtual bool UpdateDriverList() = 0;
 
+private slots:
+	virtual bool Init() = 0;
+
 signals:
 	void ProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void SocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
@@ -95,13 +101,13 @@ protected:
 	QMultiMap<quint64, CSocketPtr>	m_SocketList;
 
 	mutable QReadWriteLock		m_OpenFilesMutex;
-	QMultiMap<quint64, CHandlePtr>	m_OpenFilesList;
+	QMap<quint64, CHandlePtr>	m_OpenFilesList;
 
 	mutable QReadWriteLock		m_ServiceMutex;
-	QMultiMap<QString, CServicePtr>	m_ServiceList;
+	QMap<QString, CServicePtr>	m_ServiceList;
 
 	mutable QReadWriteLock		m_DriverMutex;
-	QMultiMap<QString, CServicePtr>	m_DriverList;
+	QMap<QString, CServicePtr>	m_DriverList;
 
 	// Guard it with m_ProcessMutex
 	QMap<quint64, CThreadRef>	m_ThreadMap;

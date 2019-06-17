@@ -16,7 +16,7 @@ public:
 
 	void			Sync(const QMap<QVariant, QVariantMap>& List);
 	void			CountItems();
-	QModelIndex		FindIndex(quint64 BaseAddress);
+	QModelIndex		FindIndex(const QVariant& ID);
 	void			Clear();
 
 	QVariant		Data(const QModelIndex &index, int role, int section) const;
@@ -44,6 +44,7 @@ protected:
 			//AllChildren = 0;
 
 			IsBold = false;
+			IsGray = false;
 		}
 		virtual ~STreeNode(){
 			foreach(STreeNode* pNode, Children)
@@ -60,6 +61,7 @@ protected:
 
 		QVariant			Icon;
 		bool				IsBold;
+		bool				IsGray;
 		struct SValue
 		{
 			QVariant Raw;

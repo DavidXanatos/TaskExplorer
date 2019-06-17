@@ -7,9 +7,10 @@
 
 #include <QtWin>
 
-CWinModule::CWinModule(bool IsSubsystemProcess, QObject *parent) 
+CWinModule::CWinModule(quint64 ProcessId, bool IsSubsystemProcess, QObject *parent) 
 	: CModuleInfo(parent) 
 {
+	m_ProcessId = ProcessId;
 	m_IsSubsystemProcess = IsSubsystemProcess;
 	m_EntryPoint = NULL;
     m_Flags = 0;
@@ -28,7 +29,7 @@ CWinModule::~CWinModule()
 
 bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessHandle)
 {
-	QReadLocker Locker(&m_Mutex);
+	QWriteLocker Locker(&m_Mutex);
 
 	m_FileName = CastPhString(module->FileName, false);
 	m_ModuleName = CastPhString(module->Name, false);
@@ -122,11 +123,6 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
     {
 		m_ModificationTime = QDateTime::fromTime_t((int64_t)networkOpenInfo.LastWriteTime.QuadPart / 10000000ULL - 11644473600ULL);
         m_FileSize = networkOpenInfo.EndOfFile.QuadPart;
-    }
-
-    if (m_Type != PH_MODULE_TYPE_ELF_MAPPED_IMAGE)
-    {
-		this->InitAsyncData(m_FileName);
     }
 
 	return true;
@@ -395,4 +391,83 @@ QString CWinModule::GetLoadReasonString() const
         }
     }
 	return QString();
+}
+
+STATUS CWinModule::Unload(bool bForce)
+{
+	HANDLE ProcessId = (HANDLE)m_ProcessId;
+
+	NTSTATUS status;
+    HANDLE processHandle;
+
+    switch (m_Type)
+    {
+    case PH_MODULE_TYPE_MODULE:
+    case PH_MODULE_TYPE_WOW64_MODULE:
+		//if(!bForce)
+		//	return ERR(tr("Unloading a module may cause the process to crash."), ERROR_CONFIRM);
+
+        if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, ProcessId)))
+        {
+            LARGE_INTEGER timeout;
+
+            timeout.QuadPart = -(LONGLONG)UInt32x32To64(5, PH_TIMEOUT_SEC);
+            status = PhUnloadDllProcess(processHandle, (PVOID)m_BaseAddress, &timeout);
+
+            NtClose(processHandle);
+        }
+
+        if (status == STATUS_DLL_NOT_FOUND)
+        {
+            return ERR(tr("Unable to find the module to unload."));
+        }
+
+        if (!NT_SUCCESS(status))
+        {
+            return ERR(tr("Unable to unload the module."));
+        }
+
+        break;
+
+    case PH_MODULE_TYPE_KERNEL_MODULE:
+		if(!bForce)
+			return ERR(tr("Unloading a driver may cause system instability."), ERROR_CONFIRM);
+
+		{
+			wstring Name = m_ModuleName.toStdWString();
+			status = PhUnloadDriver((PVOID)m_BaseAddress, (wchar_t*)Name.c_str());
+		}
+
+        if (!NT_SUCCESS(status))
+        {
+			// todo run itself as service and retry
+
+			return ERR(tr("Unable to unload driver."), status);
+        }
+
+        break;
+
+    case PH_MODULE_TYPE_MAPPED_FILE:
+    case PH_MODULE_TYPE_MAPPED_IMAGE:
+		//if(!bForce)
+		//	return ERR(tr("Unmapping a section view may cause the process to crash."), ERROR_CONFIRM);
+
+        if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_VM_OPERATION, ProcessId)))
+        {
+            status = NtUnmapViewOfSection(processHandle, (PVOID)m_BaseAddress);
+            NtClose(processHandle);
+        }
+
+        if (!NT_SUCCESS(status))
+        {
+			return ERR(tr("Unable to unmap the section view at 0x").arg(QString::number(m_BaseAddress, 16)));
+        }
+
+        break;
+
+    default:
+        return ERR(tr("Unknown module type!"));
+    }
+
+    return OK;
 }

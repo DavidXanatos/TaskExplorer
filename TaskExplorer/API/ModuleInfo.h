@@ -1,5 +1,6 @@
 #pragma once
 #include <qobject.h>
+#include "../Common/FlexError.h"
 
 
 class CModuleInfo: public QObject
@@ -30,6 +31,8 @@ public:
 
 	virtual void SetFileIcon(const QPixmap& SmallIcon, const QPixmap& LargeIcon = QPixmap()) { QWriteLocker Locker(&m_Mutex); m_SmallIcon = SmallIcon;  m_LargeIcon = LargeIcon; }
 	virtual QPixmap GetFileIcon(bool bLarge = false) const	{ QReadLocker Locker(&m_Mutex); return (bLarge && !m_LargeIcon.isNull()) ? m_LargeIcon : m_SmallIcon; }
+
+	virtual STATUS				Unload(bool bForce = false) = 0;
 
 protected:
 	QString						m_FileName;

@@ -120,7 +120,6 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 
 			SModuleNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;

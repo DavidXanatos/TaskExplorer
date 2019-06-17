@@ -10,7 +10,7 @@ public:
 	virtual ~CListItemModel();
 
 	void			Sync(QList<QVariantMap> List);
-	QModelIndex		FindIndex(const QString& SubID);
+	QModelIndex		FindIndex(const QVariant& ID);
 	void			Clear();
 
 	QVariant		Data(const QModelIndex &index, int role, int section) const;

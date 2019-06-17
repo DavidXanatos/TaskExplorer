@@ -48,7 +48,7 @@ CGraphBar::CGraphBar()
 
 	m_pWindowsPlot = new CIncrementalPlot();
 	m_pWindowsPlot->SetLimit(limit);
-	// TODO
+	m_pWindowsPlot->AddPlot("Wnd", Qt::green, Qt::SolidLine);
 	m_pWindowsPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
 	m_pMainLayout->addWidget(m_pWindowsPlot, row, column++);
 
@@ -137,6 +137,13 @@ void CGraphBar::UpdateGraphs()
 	m_pObjectPlot->SetTexts(ObjectInfo);
 	m_pObjectPlot->AddPlotPoint("Gdi", ((CWindowsAPI*)theAPI)->GetTotalGuiObjects());
 	m_pObjectPlot->AddPlotPoint("User", ((CWindowsAPI*)theAPI)->GetTotalUserObjects());
+
+
+	m_pWindowsPlot->SetText(tr("Windows<%1").arg(FormatUnit(m_pWindowsPlot->GetRangeMax())));
+	QStringList WindowInfo;
+	WindowInfo.append(FormatUnit(((CWindowsAPI*)theAPI)->GetTotalWndObjects(), 1));
+	m_pWindowsPlot->SetTexts(WindowInfo);
+	m_pWindowsPlot->AddPlotPoint("Wnd", ((CWindowsAPI*)theAPI)->GetTotalWndObjects());
 #endif
 
 	m_pHandledPlot->SetText(tr("Handles<%1").arg(FormatUnit(m_pHandledPlot->GetRangeMax())));
@@ -184,12 +191,12 @@ void CGraphBar::UpdateGraphs()
 	m_pNetworkPlot->AddPlotPoint("Recv", Stats.Net.ReceiveRate.Get());
 	m_pNetworkPlot->AddPlotPoint("Send", Stats.Net.SendRate.Get());
 
-	m_pCpuPlot->SetText(tr("Cpu=%1%").arg((int)100*theAPI->GetCpuUsage()));
+	m_pCpuPlot->SetText(tr("Cpu=%1%").arg(int(100*theAPI->GetCpuUsage())));
 	QStringList CpuInfo;
-	CpuInfo.append(tr("%1%").arg((int)100*theAPI->GetCpuUserUsage(), 0));
-	CpuInfo.append(tr("%1%").arg((int)100*theAPI->GetCpuKernelUsage(), 0));
-	CpuInfo.append(tr("%1%").arg((int)100*theAPI->GetCpuDPCUsage(), 0));
-	m_pCpuPlot->SetTexts(FileIoInfo);
+	CpuInfo.append(tr("%1%").arg(int(100*theAPI->GetCpuUserUsage())));
+	CpuInfo.append(tr("%1%").arg(int(100*theAPI->GetCpuKernelUsage())));
+	CpuInfo.append(tr("%1%").arg(int(100*theAPI->GetCpuDPCUsage())));
+	m_pCpuPlot->SetTexts(CpuInfo);
 	m_pCpuPlot->AddPlotPoint("User", theAPI->GetCpuUsage()*100);
 	m_pCpuPlot->AddPlotPoint("Kernel", theAPI->GetCpuKernelUsage()*100 + theAPI->GetCpuDPCUsage()*100);
 	m_pCpuPlot->AddPlotPoint("DPC", theAPI->GetCpuDPCUsage()*100);

@@ -4,7 +4,7 @@ class CTokensView : public QWidget
 {
 	Q_OBJECT
 public:
-	CTokensView();
+	CTokensView(QWidget *parent = 0);
 	virtual ~CTokensView();
 };
 

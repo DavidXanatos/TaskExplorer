@@ -68,7 +68,8 @@ bool CWinHandle::InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, 
     PPH_STRING ObjectName; // Original Name
     PPH_STRING BestObjectName; // File Name
 
-    PhGetHandleInformationEx((HANDLE)ProcessHandle, (HANDLE)handle->HandleValue, handle->ObjectTypeIndex, 0, NULL, NULL, &TypeName, &ObjectName, &BestObjectName, NULL );
+	if (!NT_SUCCESS(PhGetHandleInformationEx((HANDLE)ProcessHandle, (HANDLE)handle->HandleValue, handle->ObjectTypeIndex, 0, NULL, NULL, &TypeName, &ObjectName, &BestObjectName, NULL)))
+		return false;
 
 	if (bFull)
 	{
@@ -339,6 +340,61 @@ QString CWinHandle::GetAttributesString() const
 	return "";
 }
 
+STATUS CWinHandle::SetAttribute(ulong Attribute, bool bSet)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+    if (!KphIsConnected())
+		return ERR(tr("KProcessHacker is not available"));
+
+	if(bSet)
+		m_Attributes |= Attribute;
+	else
+		m_Attributes ^= Attribute;
+
+	NTSTATUS status;
+    HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)m_ProcessId)))
+    {
+        OBJECT_HANDLE_FLAG_INFORMATION handleFlagInfo;
+
+        handleFlagInfo.Inherit = !!(m_Attributes & OBJ_INHERIT);
+        handleFlagInfo.ProtectFromClose = !!(m_Attributes & OBJ_PROTECT_CLOSE);
+
+        status = KphSetInformationObject(processHandle, (HANDLE)m_HandleId, KphObjectHandleFlagInformation, &handleFlagInfo, sizeof(OBJECT_HANDLE_FLAG_INFORMATION));
+
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		return ERR(tr("Failed to set handle attribute"));
+    }
+
+    return OK;
+}
+
+bool CWinHandle::IsProtected() const
+{
+	return (GetAttributes() & OBJ_PROTECT_CLOSE) != 0;
+}
+
+STATUS CWinHandle::SetProtected(bool bSet) 
+{
+	return SetAttribute(OBJ_PROTECT_CLOSE, bSet);
+}
+
+bool CWinHandle::IsInherited() const
+{
+	return (GetAttributes() & OBJ_INHERIT) != 0;
+}
+
+STATUS CWinHandle::SetInherited(bool bSet)
+{
+	return SetAttribute(OBJ_INHERIT, bSet);
+}
+
+
 QString CWinHandle::GetFileShareAccessString() const
 {
 	QReadLocker Locker(&m_Mutex);
@@ -395,6 +451,8 @@ PH_ACCESS_ENTRY FileModeAccessEntries[6] =
 
 QVariantMap CWinHandle::GetDetailedInfos() const
 {
+	QReadLocker Locker(&m_Mutex); 
+
 	QVariantMap Details;
 
 	Details["Type"] = m_TypeName;
@@ -699,4 +757,160 @@ QVariantMap CWinHandle::GetDetailedInfos() const
 	NtClose(processHandle);
 
 	return Details;
+}
+
+STATUS CWinHandle::Close(bool bForce)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	NTSTATUS status;
+    HANDLE processHandle;
+	if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_DUP_HANDLE, (HANDLE)m_ProcessId)))
+    {
+#ifndef SAFE_MODE // in safe mode always check and fail
+		if (!bForce)
+#endif
+		{
+			BOOLEAN critical = FALSE;
+			BOOLEAN strict = FALSE;
+
+			if (WindowsVersion >= WINDOWS_10)
+			{
+				BOOLEAN breakOnTermination;
+				PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
+
+				if (NT_SUCCESS(PhGetProcessBreakOnTermination(processHandle, &breakOnTermination)))
+				{
+					if (breakOnTermination)
+					{
+						critical = TRUE;
+					}
+				}
+
+				policyInfo.Policy = ProcessStrictHandleCheckPolicy;
+				policyInfo.StrictHandleCheckPolicy.Flags = 0;
+
+				if (NT_SUCCESS(NtQueryInformationProcess(processHandle, ProcessMitigationPolicy, &policyInfo, sizeof(PROCESS_MITIGATION_POLICY_INFORMATION), NULL)))
+				{
+					if (policyInfo.StrictHandleCheckPolicy.Flags != 0)
+					{
+						strict = TRUE;
+					}
+				}
+			}
+
+			if (critical && strict)
+			{
+				return ERR(tr("You are about to close one or more handles for a critical process with strict handle checks enabled. This will shut down the operating system immediately!"), ERROR_CONFIRM);
+			}
+		}
+
+        status = NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NULL, NULL, 0, 0, DUPLICATE_CLOSE_SOURCE);
+
+		NtClose(processHandle);
+
+        if (!NT_SUCCESS(status))
+        {
+			return ERR(tr("Failed To close Handle"), status);
+        }
+    }
+    else
+    {
+        return ERR(tr("Unable to open the process"), status);
+    }
+
+	return OK;
+}
+
+static NTSTATUS PhpDuplicateHandleFromProcess(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, HANDLE ProcessId, HANDLE HandleId)
+{
+    NTSTATUS status;
+    HANDLE processHandle;
+
+    if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_DUP_HANDLE, ProcessId )))
+        return status;
+
+    status = NtDuplicateObject(processHandle, HandleId, NtCurrentProcess(), Handle, DesiredAccess, 0, 0 );
+
+    NtClose(processHandle);
+
+    return status;
+}
+
+STATUS CWinHandle::DoHandleAction(EHandleAction Action)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	ACCESS_MASK DesiredAccess;
+	switch (Action)
+	{
+		case eSemaphoreAcquire:	DesiredAccess = SYNCHRONIZE; break;
+		case eSemaphoreRelease: DesiredAccess = SEMAPHORE_MODIFY_STATE; break;
+		default: /*eEvent...*/  DesiredAccess = EVENT_MODIFY_STATE; break;
+	}
+
+    NTSTATUS status;
+
+	HANDLE processHandle;
+	if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_DUP_HANDLE, (HANDLE)m_ProcessId )))
+        return ERR(tr("Unable to open process handle"), status);
+
+	HANDLE dupDandle;
+	status = NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &dupDandle, DesiredAccess, 0, 0 );
+
+    NtClose(processHandle);
+
+	if (!NT_SUCCESS(status))
+		return ERR(tr("Unable to open duplicate handle"), status);
+
+
+    switch (Action)
+    {
+    case eSemaphoreAcquire:
+        {
+            LARGE_INTEGER timeout;
+
+            timeout.QuadPart = 0;
+            NtWaitForSingleObject(dupDandle, FALSE, &timeout);
+        }
+        break;
+    case eSemaphoreRelease:
+        NtReleaseSemaphore(dupDandle, 1, NULL);
+        break;
+
+    case eEventSet:
+        NtSetEvent(dupDandle, NULL);
+        break;
+    case eEventReset:
+        NtResetEvent(dupDandle, NULL);
+        break;
+    case eEventPulse:
+        NtPulseEvent(dupDandle, NULL);
+        break;
+    }
+
+    NtClose(dupDandle);
+
+	return OK;
+}
+
+static NTSTATUS PhpDuplicateHandleFromProcess(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess,_In_opt_ PVOID Context)
+{
+	QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
+	return PhpDuplicateHandleFromProcess(Handle, DesiredAccess, pPair->first, pPair->second);
+}
+
+static NTSTATUS PhpCleanupHandleFromProcess(_In_opt_ PVOID Context)
+{
+	QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
+	delete pPair;
+	return 1;
+}
+
+void CWinHandle::OpenPermissions()
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	QPair<HANDLE, HANDLE>* pPair = new QPair<HANDLE, HANDLE>((HANDLE)m_ProcessId, (HANDLE)m_HandleId);
+    PhEditSecurity(NULL, (wchar_t*)m_FileName.toStdWString().c_str(), L"Handle", PhpDuplicateHandleFromProcess, PhpCleanupHandleFromProcess, pPair);
 }

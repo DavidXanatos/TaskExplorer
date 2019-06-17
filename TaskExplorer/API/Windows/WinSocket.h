@@ -15,6 +15,8 @@ public:
 
 	virtual QString			GetFirewallStatus();
 
+	virtual STATUS			Close();
+
 protected:
 	friend class CWindowsAPI;
 

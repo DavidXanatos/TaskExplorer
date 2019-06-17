@@ -331,3 +331,45 @@ void CWinSocket::AddNetworkIO(int Type, ulong TransferSize)
 	case EtEtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
 	}
 }
+
+STATUS CWinSocket::Close()
+{
+	if (m_ProtocolType != PH_TCP4_NETWORK_PROTOCOL || m_State != MIB_TCP_STATE_ESTAB)
+		return ERR(tr("Not supported type or state"));
+
+	MIB_TCPROW tcpRow;
+	tcpRow.dwState = MIB_TCP_STATE_DELETE_TCB;
+	tcpRow.dwLocalAddr = htonl(m_LocalAddress.toIPv4Address());
+	tcpRow.dwLocalPort = htons(m_LocalPort);
+	tcpRow.dwRemoteAddr = htonl(m_RemoteAddress.toIPv4Address());
+	tcpRow.dwRemotePort = htons(m_RemotePort);
+
+	// ToDo: make it work with IPv6
+	// Note: there is (as of 2019) no SetTcp6Entry that would accept MIB_TCP6ROW :/
+	// may be do int the way close handle in Process Explorer works ???
+	/*
+	MIB_TCP6ROW tcp6Row;
+	tcp6Row.State = MIB_TCP_STATE_DELETE_TCB;
+	Q_IPV6ADDR LocalAddr = m_LocalAddress.toIPv6Address();
+	memcpy(&tcp6Row.LocalAddr, &LocalAddr, 16);
+	tcp6Row.dwLocalPort = htons(m_LocalPort);
+	Q_IPV6ADDR RemoteAddr = m_RemoteAddress.toIPv6Address();
+	memcpy(&tcp6Row.RemoteAddr, &RemoteAddr, 16);
+	tcp6Row.dwRemotePort = htons(m_RemotePort);
+	tcp6Row.dwLocalScopeId = m->LocalScopeId;
+	tcp6Row.dwRemoteScopeId = m->RemoteScopeId;
+	*/
+
+	ULONG result = SetTcpEntry(&tcpRow);
+	if (result == NO_ERROR)
+		return OK;
+
+	
+	// SetTcpEntry returns ERROR_MR_MID_NOT_FOUND for access denied errors for some reason.
+    if (result == ERROR_MR_MID_NOT_FOUND)
+		result = ERROR_ACCESS_DENIED;
+	
+	// todo run itself as service and retry
+
+	return ERR(result);
+}

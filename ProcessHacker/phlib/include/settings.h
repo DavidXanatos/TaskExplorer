@@ -128,7 +128,7 @@ PhGetExpandStringSetting(
     PPH_STRING setting;
 
     setting = PhGetStringSetting(Name);
-    PhMoveReference(&setting, PhExpandEnvironmentStrings(&setting->sr));
+    PhMoveReference((PVOID*)&setting, PhExpandEnvironmentStrings(&setting->sr));
 
     return setting;
 }

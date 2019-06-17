@@ -2,11 +2,12 @@
 #include "../TaskExplorer.h"
 #include "ThreadsView.h"
 #include "../../Common/Common.h"
-#include "..\Models\ThreadModel.h"
-#include "..\Models\SortFilterProxyModel.h"
+#ifdef WIN32
+#include "../../API/Windows/WinThread.h"
+#endif
 
-
-CThreadsView::CThreadsView()
+CThreadsView::CThreadsView(QWidget *parent)
+	: CTaskView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
@@ -39,25 +40,43 @@ CThreadsView::CThreadsView()
 	m_pSplitter->addWidget(m_pThreadList);
 	m_pSplitter->setCollapsible(0, false);
 
-	connect(m_pThreadList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
+	m_pThreadList->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_pThreadList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+
+	//connect(m_pThreadList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
+	connect(m_pThreadList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
 	// 
 
 	// Stack List
-	m_pStackList = new QTreeWidgetEx();
-	m_pStackList->setItemDelegate(new QStyledItemDelegateMaxH(m_pStackList->fontMetrics().height() + 3, this));
-	m_pStackList->setHeaderLabels(tr("#|Name|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
-
-	m_pStackList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pStackList->setSortingEnabled(false);
-
-	m_pSplitter->addWidget(m_pStackList);
+	m_pStackView = new CStackView(this);
+	
+	m_pSplitter->addWidget(m_pStackView);
 	m_pSplitter->setCollapsible(1, false);
 	// 
+
+	//m_pMenu = new QMenu();
+	AddTaskItemsToMenu();
+	m_pMenu->addSeparator();
+#ifdef WIN32
+	m_pCancelIO = m_pMenu->addAction(tr("Cancel I/O"), this, SLOT(OnCancelIO()));
+	//m_pAnalyze;
+	m_pCritical = m_pMenu->addAction(tr("Critical"), this, SLOT(OnCritical()));
+	m_pCritical->setCheckable(true);
+	//m_pPermissions;
+	//m_pToken;
+#endif
+	//m_pWindows;
+	AddPriorityItemsToMenu(eThread);
+	AddPanelItemsToMenu();
+
+	setObjectName(parent->objectName());
+	m_pThreadList->header()->restoreState(theConf->GetValue(objectName() + "/ThreadView_Columns").toByteArray());
 }
 
 
 CThreadsView::~CThreadsView()
 {
+	theConf->SetValue(objectName() + "/ThreadView_Columns", m_pThreadList->header()->saveState());
 }
 
 void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
@@ -74,49 +93,117 @@ void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
 		m_pCurThread->TraceStack();
 }
 
-void CThreadsView::OnClicked(const QModelIndex& Index) 
+void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-	m_pCurThread = m_pThreadModel->GetThread(m_pSortProxy->mapToSource(Index));
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
+
+	m_pCurThread = m_pThreadModel->GetThread(ModelIndex);
 
 	if (!m_pCurThread.isNull()) 
 	{
-		disconnect(this, SLOT(OnStackTraced(const CStackTracePtr&)));
+		disconnect(m_pStackView, SLOT(ShowStack(const CStackTracePtr&)));
 
-		m_pStackList->clear();
+		m_pStackView->Clear();
 
-		connect(m_pCurThread.data(), SIGNAL(StackTraced(const CStackTracePtr&)), this, SLOT(OnStackTraced(const CStackTracePtr&)));
+		connect(m_pCurThread.data(), SIGNAL(StackTraced(const CStackTracePtr&)), m_pStackView, SLOT(ShowStack(const CStackTracePtr&)));
 
 		m_pCurThread->TraceStack();
 	}
 }
 
-void CThreadsView::OnStackTraced(const CStackTracePtr& StackTrace)
+QList<CTaskPtr> CThreadsView::GetSellectedTasks()
 {
-	int i = 0;
-	for (; i < StackTrace->GetCount(); i++)
+	QList<CTaskPtr> List;
+	foreach(const QModelIndex& Index, m_pThreadList->selectedRows())
 	{
-		auto& StackFrame = StackTrace->GetFrame(i);
-		
-		QTreeWidgetItem* pItem;
-		if (i >= m_pStackList->topLevelItemCount())
-		{
-			pItem = new QTreeWidgetItem();
-			pItem->setData(eStack, Qt::UserRole, i);
-			pItem->setText(eStack, QString::number(i));
-			m_pStackList->addTopLevelItem(pItem);
-		}
-		else
-			pItem = m_pStackList->topLevelItem(i);
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
+		if(!pThread.isNull())
+			List.append(pThread);
+	}
+	return List;
+}
 
-		pItem->setText(eName, StackFrame.Symbol);
-		pItem->setText(eStackAddress, "0x" + QString::number(StackFrame.StackAddress, 16));
-		pItem->setText(eFrameAddress, "0x" + QString::number(StackFrame.FrameAddress, 16));
-		pItem->setText(eControlAddress, "0x" + QString::number(StackFrame.PcAddress, 16));
-		pItem->setText(eReturnAddress, "0x" + QString::number(StackFrame.ReturnAddress, 16));
-		pItem->setText(eStackParameter, tr("0x%1 0x%2 0x%3 0x%4").arg(StackFrame.Params[0], 0, 16).arg(StackFrame.Params[1], 0, 16).arg(StackFrame.Params[2], 0, 16).arg(StackFrame.Params[3], 0, 16));
-		pItem->setText(eFileInfo, StackFrame.FileInfo);
+void CThreadsView::OnMenu(const QPoint &point)
+{
+	QModelIndex Index = m_pThreadList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
+
+#ifdef WIN32
+	QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
+
+	m_pCancelIO->setEnabled(!pThread.isNull());
+
+	m_pCritical->setEnabled(!pWinThread.isNull());
+	m_pCritical->setChecked(pWinThread && pWinThread->IsCriticalThread());
+#endif
+
+	CPanelView::OnMenu(point);
+}
+
+void CThreadsView::OnCancelIO()
+{
+#ifdef WIN32
+	if(QMessageBox("TaskExplorer", tr("Do you want to cancel I/O for the selected thread(s)?"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+		return;
+
+	int ErrorCount = 0;
+	foreach(const QModelIndex& Index, m_pThreadList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
+		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
+		if (!pWinThread.isNull())
+		{
+			if (!pWinThread->CancelIO())
+				ErrorCount++;
+		}
 	}
 
-	for (; i < m_pStackList->topLevelItemCount(); )
-		delete m_pStackList->topLevelItem(i);
+	if (ErrorCount > 0)
+		QMessageBox::warning(this, "TaskExplorer", tr("Failed to cancel IO for %1 threads.").arg(ErrorCount));
+#endif
+}
+
+void CThreadsView::OnCritical()
+{
+#ifdef WIN32
+	int ErrorCount = 0;
+	int Force = -1;
+	foreach(const QModelIndex& Index, m_pThreadList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
+		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
+		if (!pWinThread.isNull())
+		{
+		retry:
+			STATUS Status = pWinThread->SetCriticalThread(m_pCritical->isChecked(), Force == 1);
+			if (Status.IsError())
+			{
+				if (Force == -1 && Status.GetStatus() == ERROR_CONFIRM)
+				{
+					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					{
+						case QMessageBox::Yes:
+							Force = 1;
+							goto retry;
+							break;
+						case QMessageBox::No:
+							Force = 0;
+							break;
+						case QMessageBox::Cancel:
+							return;
+					}
+				}
+
+				ErrorCount++;
+			}
+		}
+	}
+
+	if (ErrorCount > 0)
+		QMessageBox::warning(this, "TaskExplorer", tr("Failed to set %1 thread critical").arg(ErrorCount));
+#endif
 }

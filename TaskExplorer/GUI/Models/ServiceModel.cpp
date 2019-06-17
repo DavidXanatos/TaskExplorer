@@ -72,7 +72,6 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 			SServiceNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;

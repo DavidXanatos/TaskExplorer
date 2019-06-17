@@ -12,23 +12,41 @@ public:
 
 	virtual quint64 GetStartAddress() const				{ QReadLocker Locker(&m_Mutex); return m_StartAddress; }
 	virtual QString GetStartAddressString() const;
+	virtual QString GetStartAddressFileName() const		{ QReadLocker Locker(&m_Mutex); return m_StartAddressFileName; }
 
 	virtual quint64 GetBasePriorityIncrement() const	{ QReadLocker Locker(&m_Mutex); return m_BasePriorityIncrement; }
 
 	virtual QString GetStateString() const;
 	virtual QString GetPriorityString() const;
+	virtual STATUS SetPriority(long Value);
+	virtual STATUS SetBasePriority(long Value) { return ERR(); }
+	virtual STATUS SetPagePriority(long Value);
+	virtual STATUS SetIOPriority(long Value);
+
+	virtual STATUS Terminate();
+
+	virtual bool IsSuspended() const;
+	virtual STATUS Suspend();
+	virtual STATUS Resume();
 
 	virtual QString GetServiceName() const				{ QReadLocker Locker(&m_Mutex); return m_ServiceName; }
 	virtual QString GetThreadName() const				{ QReadLocker Locker(&m_Mutex); return m_ThreadName; }
 
 	virtual bool IsGuiThread() const					{ QReadLocker Locker(&m_Mutex); return m_IsGuiThread; }
+	virtual bool IsCriticalThread() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
+	virtual STATUS SetCriticalThread(bool bSet, bool bForce = false);
+	virtual STATUS CancelIO();
+
+	virtual QString GetIdealProcessor() const			{ QReadLocker Locker(&m_Mutex); return m_IdealProcessor; }
 
 	virtual QString GetTypeString() const;
 
 	virtual void TraceStack();
 
+	virtual void OpenPermissions();
+
 private slots:
-	void	OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString/*, const QString& FileName, const QString& SymbolName*/);
+	void	OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName);
 
 protected:
 	friend class CWinProcess;
@@ -43,10 +61,13 @@ protected:
 
 	quint64		m_StartAddress;
 	QString		m_StartAddressString;
+	QString		m_StartAddressFileName;
 
 	long		m_BasePriorityIncrement;
 
 	bool		m_IsGuiThread;
+	bool		m_IsCritical;
+	QString		m_IdealProcessor;
 
 	struct SWinThread*	m;
 };

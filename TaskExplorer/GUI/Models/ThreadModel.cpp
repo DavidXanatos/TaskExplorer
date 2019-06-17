@@ -48,14 +48,16 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		CWinThread* pWinThread = qobject_cast<CWinThread*>(pThread.data());
 #endif
 
+		STaskStats CpuStats = pThread->GetCpuStats();
+
 		for(int section = eThread; section < columnCount(); section++)
 		{
 			QVariant Value;
 			switch(section)
 			{
 				case eThread:				Value = pThread->GetThreadId(); break;
-				case eCPU:					Value = pThread->GetCpuUsage(); break;
-				//case eCyclesDelta:			return tr("Cycles delta");*/
+				case eCPU:					Value = CpuStats.CpuUsage; break;
+				case eCyclesDelta:			Value = CpuStats.CycleDelta.Delta; break;
 #ifdef WIN32
 				case eStartAddress:			Value = pWinThread->GetStartAddressString(); break;
 #endif
@@ -66,22 +68,25 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eType:					Value = pWinThread->GetTypeString(); break;
 #endif
 				case eCreated:				Value = pThread->GetCreateTime(); break;
-				/*case eStartModule:			return tr("Start module");
-				case eContextSwitches:		return tr("Context switches");*/
+#ifdef WIN32
+				case eStartModule:			Value = pWinThread->GetStartAddressFileName(); break;
+#endif
+				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
 				case eBasePriority:			Value = pThread->GetBasePriority(); break;
-				/*case ePagePriority:			return tr("Page priority");
-				case eIOPriority:			return tr("I/O priority");
-				case eCycles:				return tr("Cycles");*/
+				case ePagePriority:			Value = pThread->GetPagePriority(); break;
+				case eIOPriority:			Value = pThread->GetIOPriority(); break;
+				case eCycles:				Value = CpuStats.CycleDelta.Value; break;
 				case eState:				Value = pThread->GetStateString(); break;
-				/*case eKernelTime:			return tr("Kernel time");
-				case eUserTime:				return tr("User time");
-				case eIdealProcessor:		return tr("Ideal processor");
-				case eCritical:				return tr("Critical");*/
+				case eKernelTime:			Value = CpuStats.CpuKernelDelta.Value;
+				case eUserTime:				Value = CpuStats.CpuUserDelta.Value;
+#ifdef WIN32
+				case eIdealProcessor:		Value = pWinThread->GetIdealProcessor(); break;
+				case eCritical:				Value = pWinThread->IsCriticalThread() ? tr("Critical") : ""; break;
+#endif
 			}
 
 			SThreadNode::SValue& ColValue = pNode->Values[section];
 
-			bool Changed = false;
 			if (ColValue.Raw != Value)
 			{
 				Changed = true;
@@ -90,7 +95,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				switch (section)
 				{
 					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId(), 16); break;
-					case eCPU:					ColValue.Formated = QString::number(pThread->GetCpuUsage()*100, 10,2); break;
+					case eCPU:					ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10,2); break;
 					case ePriority:				ColValue.Formated = pThread->GetPriorityString(); break;
 					case eCreated:				ColValue.Formated = pThread->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
 				}
@@ -136,13 +141,19 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 			case eThread:				return tr("Thread");
 			case eCPU:					return tr("CPU");
 			case eCyclesDelta:			return tr("Cycles delta");
+#ifdef WIN32
 			case eStartAddress:			return tr("Start address");
+#endif
 			case ePriority:				return tr("Priority");
+#ifdef WIN32
 			case eService:				return tr("Service");
 			case eName:					return tr("Name");
 			case eType:					return tr("Type");
+#endif
 			case eCreated:				return tr("Created");
+#ifdef WIN32
 			case eStartModule:			return tr("Start module");
+#endif
 			case eContextSwitches:		return tr("Context switches");
 			case eBasePriority:			return tr("Base priority");
 			case ePagePriority:			return tr("Page priority");
@@ -151,8 +162,10 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 			case eState:				return tr("State");
 			case eKernelTime:			return tr("Kernel time");
 			case eUserTime:				return tr("User time");
+#ifdef WIN32
 			case eIdealProcessor:		return tr("Ideal processor");
 			case eCritical:				return tr("Critical");
+#endif
 		}
 	}
     return QVariant();
