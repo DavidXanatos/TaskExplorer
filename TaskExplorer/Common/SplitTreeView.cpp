@@ -22,7 +22,7 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 
 	// Tree
 	m_pTree = new QTreeView();
-	m_pTree->setItemDelegate(new QStyledItemDelegateMaxH(m_pTree->fontMetrics().height() + 3, this));
+	m_pTree->setItemDelegate(new CStyledGridItemDelegate(m_pTree->fontMetrics().height() + 3, true, this));
 
 	m_pOneModel = new COneColumnModel();
 	m_pOneModel->setSourceModel(m_pModel);
@@ -33,8 +33,12 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 #ifdef WIN32
 	m_pTree->setStyle(pStyle);
 #endif
-	m_pTree->setSortingEnabled(true);
-	
+	//m_pTree->setSortingEnabled(true);
+	m_pTree->setSortingEnabled(false);
+	m_pTree->header()->setSortIndicatorShown(true);
+	m_pTree->header()->setSectionsClickable(true);
+	connect(m_pTree->header(), SIGNAL(sectionClicked(int)), this, SLOT(OnTreeCustomSortByColumn(int)));
+
 	m_pTree->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pTree, SIGNAL(customContextMenuRequested( const QPoint& )), this, SIGNAL(MenuRequested(const QPoint &)));
 
@@ -51,7 +55,7 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	//		 Plus there are to many columns to cram them into one simple context menu :-)
 	//m_pList = new QTreeViewEx();
 	m_pList = new QTreeView();
-	m_pList->setItemDelegate(new QStyledItemDelegateMaxH(m_pList->fontMetrics().height() + 3, this));
+	m_pList->setItemDelegate(new CStyledGridItemDelegate(m_pList->fontMetrics().height() + 3, true, this));
 
 	m_pList->setModel(m_pModel);
 
@@ -60,6 +64,7 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	m_pList->setStyle(pStyle);
 #endif
 	m_pList->setSortingEnabled(true);
+	connect(m_pList->header(), SIGNAL(sectionClicked(int)), this, SLOT(OnListCustomSortByColumn(int)));
 
 	m_pList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SIGNAL(MenuRequested(const QPoint &)));
@@ -80,7 +85,7 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	connect(m_pTree->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnTreeCurrentChanged(QModelIndex,QModelIndex)));
 	connect(m_pList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnListCurrentChanged(QModelIndex,QModelIndex)));
 
-	m_bTreeHidden = false;
+	m_bTreeEnabled = true;
 	m_pList->setColumnHidden(0, true);
 
 	// link expansion
@@ -102,9 +107,9 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	connect(m_pTree, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClickedTree(const QModelIndex&)));
 	connect(m_pList, SIGNAL(doubleClicked(const QModelIndex&)), this, SIGNAL(doubleClicked(const QModelIndex&)));
 
-	QTimer::singleShot(0, this, [this]() {
-		emit TreeResized(GetTreeWidth());
-	});
+	//QTimer::singleShot(0, this, [this]() {
+	//	emit TreeEnabled(m_bTreeEnabled);
+	//});
 }
 
 CSplitTreeView::~CSplitTreeView()
@@ -128,13 +133,13 @@ void CSplitTreeView::SetTreeWidth(int Width)
 
 void CSplitTreeView::OnSplitterMoved(int pos, int index)
 {
-	if ((pos == 0) == m_bTreeHidden)
-		return;
-	m_bTreeHidden = (pos == 0);
+	//if ((pos > 0) == m_bTreeEnabled)
+	//	return;
+	//m_bTreeEnabled = (pos > 0);
 
-	m_pList->setColumnHidden(0, !m_bTreeHidden);
+	m_pList->setColumnHidden(0, pos > 0);
 
-	emit TreeResized(pos);
+	//emit TreeEnabled(m_bTreeEnabled);
 }
 
 void CSplitTreeView::OnExpandTree(const QModelIndex& index)
@@ -278,4 +283,71 @@ QModelIndexList CSplitTreeView::selectedRows() const
 			IndexList.append(Index);
 	}
 	return IndexList;
+}
+
+void CSplitTreeView::OnTreeCustomSortByColumn(int column)
+{
+	Qt::SortOrder order = m_pTree->header()->sortIndicatorOrder();
+	if (order == Qt::AscendingOrder)
+	{
+		m_bTreeEnabled = !m_bTreeEnabled;
+		emit TreeEnabled(m_bTreeEnabled);
+	}
+	m_pList->sortByColumn(column, order);
+	m_pTree->header()->setSortIndicatorShown(true);
+}
+
+void CSplitTreeView::OnListCustomSortByColumn(int column)
+{
+	//Qt::SortOrder order = m_pTree->header()->sortIndicatorOrder();
+	//m_pTree->sortByColumn(column, order);
+	m_bTreeEnabled = false;
+	emit TreeEnabled(m_bTreeEnabled);
+	m_pTree->header()->setSortIndicatorShown(false);
+}
+
+static const qint32 CSplitTreeViewMagic = 'STVs';
+
+QByteArray CSplitTreeView::saveState() const
+{
+    int version = 1;
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+
+    stream << qint32(CSplitTreeViewMagic);
+    stream << qint32(version);
+	stream << m_pList->header()->saveState();
+	stream << m_pSplitter->saveState();
+	stream << m_bTreeEnabled;
+    
+    return data;
+}
+
+bool CSplitTreeView::restoreState(const QByteArray &state)
+{
+    int version = 1;
+    QByteArray sd = state;
+    QDataStream stream(&sd, QIODevice::ReadOnly);
+
+    qint32 marker;
+    stream >> marker;
+	qint32 v;
+    stream >> v;
+    if (marker != CSplitTreeViewMagic || v > version)
+        return false;
+
+	QByteArray header;
+    stream >> header;
+	m_pList->header()->restoreState(header);
+
+	QByteArray splitter;
+    stream >> splitter;
+	m_pSplitter->restoreState(splitter);
+
+    stream >> m_bTreeEnabled;
+	emit TreeEnabled(m_bTreeEnabled);
+
+	m_pTree->header()->setSortIndicatorShown(m_pList->header()->sortIndicatorSection() == 0);
+
+    return true;
 }

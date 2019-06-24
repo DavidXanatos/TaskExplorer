@@ -13,7 +13,7 @@ CStackView::CStackView(QWidget *parent)
 
 	// Stack List
 	m_pStackList = new QTreeWidgetEx();
-	m_pStackList->setItemDelegate(new QStyledItemDelegateMaxH(m_pStackList->fontMetrics().height() + 3, this));
+	m_pStackList->setItemDelegate(new CStyledGridItemDelegate(m_pStackList->fontMetrics().height() + 3, this));
 	m_pStackList->setHeaderLabels(tr("#|Name|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
 
 	m_pStackList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -29,12 +29,12 @@ CStackView::CStackView(QWidget *parent)
 	AddPanelItemsToMenu(false);
 
 	setObjectName(parent->parent()->objectName());
-	m_pStackList->header()->restoreState(theConf->GetValue(objectName() + "/StackView_Columns").toByteArray());
+	m_pStackList->header()->restoreState(theConf->GetBlob(objectName() + "/StackView_Columns"));
 }
 
 CStackView::~CStackView()
 {
-	theConf->SetValue(objectName() + "/StackView_Columns", m_pStackList->header()->saveState());
+	theConf->SetBlob(objectName() + "/StackView_Columns", m_pStackList->header()->saveState());
 }
 
 void CStackView::ShowStack(const CStackTracePtr& StackTrace)

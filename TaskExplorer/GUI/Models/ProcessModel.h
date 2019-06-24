@@ -21,6 +21,7 @@ public:
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
 	bool			IsColumnEnabled(int column);
+	int				GetColumnIndex(int index);
 	void			SetColumnEnabled(int column, bool set);
 	QString			GetColumn(int column) const;
 	int				MaxColumns() const;
@@ -30,20 +31,40 @@ public:
 	{
 		eProcess = 0,
 		ePID,
-		eCPU,
-		eIO_TotalRate,
+		eCPU_History,
+		eMEM_History,
+		eIO_History,
+		eNET_History,
 		eStaus,
-		ePrivateBytes,
 		eUserName,
 #ifdef WIN32
-		eDescription,
-
-		eCompanyName,
-		eVersion,
+		eServices,
 #endif
-		eFileName,
+		eUpTime,
+		eStartTime,
+/*#ifdef WIN32
+		eWindowTitle,
+		eWindowStatus,
+#endif*/
+		eElevation,
 		eCommandLine,
+
+		// CPU
+		eCPU,
+		ePriorityClass,
+		eBasePriority,
+		eTotalCPU_Time,
+		eKernelCPU_Time,
+		eUserCPU_Time,
+		eContextSwitches,
+		eContextSwitchesDelta,
+		eCycles,
+		eCyclesDelta,
+
+		// Memory
+		ePrivateBytes,
 		ePeakPrivateBytes,
+		ePagePriority,
 		eWorkingSet,
 		ePeakWS,
 		ePrivateWS,
@@ -52,50 +73,40 @@ public:
 		eVirtualSize,
 		ePeakVirtualSize,
 		ePageFaults,
-		eSessionID,
-		ePriorityClass,
-		eBasePriority,
+		ePageFaultsDelta,
+		ePagedPool,
+		ePeakPagedPool,
+		eNonPagedPool,
+		ePeakNonPagedPool,
+		eMinimumWS,
+		eMaximumWS,
+		ePrivateBytesDelta,
 
-		eThreads,
+		// objects
 		eHandles,
 #ifdef WIN32
 		eWND_Handles,
 		eGDI_Handles,
 		eUSER_Handles,
-		eIntegrity,
 #endif
-		eIO_Priority,
-		ePagePriority,
-		eStartTime,
-		eTotalCPU_Time,
-		eKernelCPU_Time,
-		eUserCPU_Time,
+		eThreads,
+
+		//Protection
 #ifdef WIN32
+		eIntegrity,
 		eVerificationStatus,
 		eVerifiedSigner,
 		eASLR,
-#endif
-		eUpTime,
-		eArch,
-		eElevation,
-#ifdef WIN32
-		eWindowTitle,
-		eWindowStatus,
-#endif
-		eCycles,
-		eCyclesDelta,
-		eCPU_History,
-		ePrivateBytesHistory,
-		eIO_History,
-#ifdef WIN32
 		eDEP,
 		eVirtualized,
+		eCF_Guard,
+		eProtection,
+		eCritical,
 #endif
-		eContextSwitches,
-		eContextSwitchesDelta,
-		ePageFaultsDelta,
 
 		// IO
+		eIO_TotalRate,
+		eIO_Priority,
 		eIO_Reads,
 		eIO_Writes,
 		eIO_Other,
@@ -116,35 +127,37 @@ public:
 		eIO_OtherRate,
 		//eIO_TotalRate,
 
+
+		// file Info
+		eFileName,
 #ifdef WIN32
-		eOS_Context,
-#endif
-		ePagedPool,
-		ePeakPagedPool,
-		eNonPagedPool,
-		ePeakNonPagedPool,
-		eMinimumWS,
-		eMaximumWS,
-		ePrivateBytesDelta,
-		eSubsystem, // WSL or Wine
-#ifdef WIN32
-		ePackageName,
-		eAppID,
-		eDPI_Awareness,
-		eCF_Guard,
+		eDescription,
+		eCompanyName,
+		eVersion,
 #endif
 		eTimeStamp,
 		eFileModifiedTime,
 		eFileSize,
+
+
+		// Other
+		eSubsystem, // WSL or Wine
+		eArch,
 #ifdef WIN32
+		eOS_Context,
+
+		ePackageName,
+		eAppID,
+		eDPI_Awareness,
+
 		eJobObjectID,
-		eProtection,
 		eDesktop,
-		eCritical,
 #endif
+		eSessionID,
 
 
 		// Network IO
+		eNet_TotalRate,
 		eReceives,
 		eSends,
 		eReceiveBytes,
@@ -157,9 +170,9 @@ public:
 		//case eTotalBytesDelta,
 		eReceiveRate,
 		eSendRate,
-		//case eTotalRate,
 
 		// Disk IO
+		eDisk_TotalRate,
 		eReads,
 		eWrites,
 		eReadBytes,
@@ -172,32 +185,33 @@ public:
 		//case eTotalBytesDelta,
 		eReadRate,
 		eWriteRate,
-		//case eTotalRate,
 
-		eHardFaults,
+		/*eHardFaults,
 		eHardFaultsDelta,
 		ePeakThreads,
 		eGPU,
 		eGPU_DedicatedBytes,
-		eGPU_SharedBytes,
+		eGPU_SharedBytes,*/
 		eCount
 	};
 
 protected:
 	struct SProcessNode: STreeNode
 	{
-		SProcessNode(const QVariant& Id) : STreeNode(Id) {}
+		SProcessNode(const QVariant& Id) : STreeNode(Id), iColor(0) { }
 
 		CProcessPtr			pProcess;
+
+		int					iColor;
 	};
 
 	virtual STreeNode* MkNode(const QVariant& Id) { return new SProcessNode(Id); }
 
 	QList<QVariant>  MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
 	
-	bool								m_bUseDescr;
+	bool					m_bUseDescr;
 
-	QVector<int>						m_Columns;
+	QVector<int>			m_Columns;
 
 	virtual QVariant GetDefaultIcon() const;
 };

@@ -21,7 +21,7 @@ CModulesView::CModulesView(QWidget *parent)
 
 
 	m_pModuleList = new QTreeViewEx();
-	m_pModuleList->setItemDelegate(new QStyledItemDelegateMaxH(m_pModuleList->fontMetrics().height() + 3, this));
+	m_pModuleList->setItemDelegate(new CStyledGridItemDelegate(m_pModuleList->fontMetrics().height() + 3, this));
 	m_pModuleList->setModel(m_pSortProxy);
 
 	m_pModuleList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -43,12 +43,12 @@ CModulesView::CModulesView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pModuleList->header()->restoreState(theConf->GetValue(objectName() + "/ModulesView_Columns").toByteArray());
+	m_pModuleList->header()->restoreState(theConf->GetBlob(objectName() + "/ModulesView_Columns"));
 }
 
 CModulesView::~CModulesView()
 {
-	theConf->SetValue(objectName() + "/ModulesView_Columns", m_pModuleList->header()->saveState());
+	theConf->SetBlob(objectName() + "/ModulesView_Columns", m_pModuleList->header()->saveState());
 }
 
 void CModulesView::ShowModules(const CProcessPtr& pProcess)
@@ -90,7 +90,7 @@ void CModulesView::OnUnload()
 	if(QMessageBox("TaskExplorer", tr("Do you want to unload the selected Module(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
-	int ErrorCount = 0;
+	QList<STATUS> Errors;
 	int Force = -1;
 	foreach(const QModelIndex& Index, m_pModuleList->selectedRows())
 	{
@@ -102,10 +102,12 @@ void CModulesView::OnUnload()
 			STATUS Status = pModule->Unload(Force == 1);
 			if (Status.IsError())
 			{
-				if (Force == -1 && Status.GetStatus() == ERROR_CONFIRM)
+				if (Status.GetStatus() == ERROR_CONFIRM)
 				{
-					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					if (Force == -1)
 					{
+						switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+						{
 						case QMessageBox::Yes:
 							Force = 1;
 							goto retry;
@@ -115,14 +117,14 @@ void CModulesView::OnUnload()
 							break;
 						case QMessageBox::Cancel:
 							return;
+						}
 					}
 				}
-
-				ErrorCount++;
+				else 
+					Errors.append(Status);
 			}
 		}
 	}
 
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to unload %1 Modules").arg(ErrorCount));
+	CTaskExplorer::CheckErrors(Errors);
 }

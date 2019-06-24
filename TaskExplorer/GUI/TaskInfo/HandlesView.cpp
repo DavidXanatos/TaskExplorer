@@ -32,7 +32,7 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 	m_pMainLayout->addWidget(m_pSplitter);
 
 	m_pHandleList = new QTreeViewEx();
-	m_pHandleList->setItemDelegate(new QStyledItemDelegateMaxH(m_pHandleList->fontMetrics().height() + 3, this));
+	m_pHandleList->setItemDelegate(new CStyledGridItemDelegate(m_pHandleList->fontMetrics().height() + 3, this));
 
 	m_pHandleList->setModel(m_pSortProxy);
 
@@ -69,7 +69,7 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 
 
 	//m_pMenu = new QMenu();
-	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnClose()));
+	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnHandleAction()));
 #ifdef WIN32
 	m_pProtect = m_pMenu->addAction(tr("Protect"), this, SLOT(OnHandleAction()));
 	m_pProtect->setCheckable(true);
@@ -100,8 +100,8 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pHandleList->header()->restoreState(theConf->GetValue(objectName() + "/HandlesView_Columns").toByteArray());
-	m_pSplitter->restoreState(theConf->GetValue(objectName() + "/HandlesView_Splitter").toByteArray());
+	m_pHandleList->header()->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Columns"));
+	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Splitter"));
 
 	// No details for all files view
 	if (bAll)
@@ -239,8 +239,8 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 
 CHandlesView::~CHandlesView()
 {
-	theConf->SetValue(objectName() + "/HandlesView_Columns", m_pHandleList->header()->saveState());
-	theConf->SetValue(objectName() + "/HandlesView_Splitter",m_pSplitter->saveState());
+	theConf->SetBlob(objectName() + "/HandlesView_Columns", m_pHandleList->header()->saveState());
+	theConf->SetBlob(objectName() + "/HandlesView_Splitter",m_pSplitter->saveState());
 }
 
 void CHandlesView::ShowHandles(const CProcessPtr& pProcess)
@@ -256,7 +256,7 @@ void CHandlesView::ShowHandles(const CProcessPtr& pProcess)
 
 void CHandlesView::ShowAllFiles()
 {
-	theAPI->UpdateOpenFileList();
+	theAPI->UpdateOpenFileListAsync();
 
 	QMap<quint64, CHandlePtr> Handles = theAPI->GetOpenFilesList();
 
@@ -268,6 +268,8 @@ void CHandlesView::OnCurrentChanged(const QModelIndex &current, const QModelInde
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
 
 	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+	if (pHandle.isNull())
+		return;
 
 #ifdef WIN32
 	CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
@@ -367,27 +369,57 @@ void CHandlesView::OnMenu(const QPoint &point)
 	CPanelView::OnMenu(point);
 }
 
-void CHandlesView::OnClose()
+void CHandlesView::OnHandleAction()
 {
-	if(QMessageBox("TaskExplorer", tr("Do you want to close the selected handle(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
-		return;
+	if (sender() == m_pClose)
+	{
+		if (QMessageBox("TaskExplorer", tr("Do you want to close the selected handle(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+			return;
+	}
 
-	int ErrorCount = 0;
+	QList<STATUS> Errors;
 	int Force = -1;
 	foreach(const QModelIndex& Index, m_pHandleList->selectedRows())
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+#ifdef WIN32
+		QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
+#endif
 		if (!pHandle.isNull())
 		{
-		retry:
-			STATUS Status = pHandle->Close(Force == 1);
+			STATUS Status = OK;
+retry:
+			if (sender() == m_pClose)
+				Status = pHandle->Close(Force == 1);
+#ifdef WIN32
+			else if (sender() == m_pProtect)
+				Status = pWinHandle->SetProtected(m_pProtect->isChecked());
+			else if (sender() == m_pInherit)
+				Status = pWinHandle->SetInherited(m_pInherit->isChecked());
+			else 
+
+			if (sender() == m_pSemaphoreAcquire)
+				Status = pWinHandle->DoHandleAction(CWinHandle::eSemaphoreAcquire);
+			else if (sender() == m_pSemaphoreRelease)
+				Status = pWinHandle->DoHandleAction(CWinHandle::eSemaphoreRelease);
+			else 
+
+			if (sender() == m_pEventSet)
+				Status = pWinHandle->DoHandleAction(CWinHandle::eEventSet);
+			else if (sender() == m_pEventReset)
+				Status = pWinHandle->DoHandleAction(CWinHandle::eEventReset);
+			else if (sender() == m_pEventPulse)
+				Status = pWinHandle->DoHandleAction(CWinHandle::eEventPulse);
+#endif
 			if (Status.IsError())
 			{
-				if (Force == -1 && Status.GetStatus() == ERROR_CONFIRM)
+				if (Status.GetStatus() == ERROR_CONFIRM)
 				{
-					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					if (Force == -1)
 					{
+						switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+						{
 						case QMessageBox::Yes:
 							Force = 1;
 							goto retry;
@@ -397,53 +429,16 @@ void CHandlesView::OnClose()
 							break;
 						case QMessageBox::Cancel:
 							return;
+						}
 					}
 				}
-
-				ErrorCount++;
+				else
+					Errors.append(Status);
 			}
 		}
 	}
-
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to close %1 Handles").arg(ErrorCount));
-}
-
-
-void CHandlesView::OnHandleAction()
-{
-#ifdef WIN32
-	int ErrorCount = 0;
-	foreach(const QModelIndex& Index, m_pHandleList->selectedRows())
-	{
-		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		QSharedPointer<CWinHandle> pWinHandle = m_pHandleModel->GetHandle(ModelIndex).objectCast<CWinHandle>();
-		if (!pWinHandle.isNull())
-		{
-			if (sender() == m_pProtect && pWinHandle->SetProtected(m_pProtect->isChecked()))
-				continue;
-			if (sender() == m_pInherit && pWinHandle->SetInherited(m_pInherit->isChecked()))
-				continue;
-
-			if (sender() == m_pSemaphoreAcquire && pWinHandle->DoHandleAction(CWinHandle::eSemaphoreAcquire))
-				continue;
-			if (sender() == m_pSemaphoreRelease && pWinHandle->DoHandleAction(CWinHandle::eSemaphoreRelease))
-				continue;
-
-			if (sender() == m_pEventSet && pWinHandle->DoHandleAction(CWinHandle::eEventSet))
-				continue;
-			if (sender() == m_pEventReset && pWinHandle->DoHandleAction(CWinHandle::eEventReset))
-				continue;
-			if (sender() == m_pEventPulse && pWinHandle->DoHandleAction(CWinHandle::eEventPulse))
-				continue;
-			
-			ErrorCount++;
-		}
-	}
-
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed issue action on %1 handles").arg(ErrorCount));
-#endif
+	
+	CTaskExplorer::CheckErrors(Errors);
 }
 
 

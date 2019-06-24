@@ -3,7 +3,7 @@
 #include "HandleInfo.h"
 
 
-CHandleInfo::CHandleInfo(QObject *parent) : QObject(parent)
+CHandleInfo::CHandleInfo(QObject *parent) : CAbstractInfoEx(parent)
 {
 	m_HandleId = -1;
 	m_ProcessId = -1;

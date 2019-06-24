@@ -33,8 +33,8 @@ public:
 		eOwner,
 #endif
 		eTimeStamp,
-		eLocalHostname,
-		eRemoteHostname,
+		//eLocalHostname,
+		//eRemoteHostname,
 		eReceives,
 		eSends,
 		eReceiveBytes,
@@ -60,9 +60,11 @@ protected:
 
 	struct SSocketNode: SListNode
 	{
-		SSocketNode(const QVariant& Id) : SListNode(Id) {}
+		SSocketNode(const QVariant& Id) : SListNode(Id), iColor(0) {}
 
 		CSocketPtr			pSocket;
+
+		int					iColor;
 	};
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SSocketNode(Id); }

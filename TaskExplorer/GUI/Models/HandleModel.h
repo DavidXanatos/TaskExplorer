@@ -39,9 +39,11 @@ public:
 protected:
 	struct SHandleNode: SListNode
 	{
-		SHandleNode(const QVariant& Id) : SListNode(Id) {}
+		SHandleNode(const QVariant& Id) : SListNode(Id), iColor(0) {}
 
 		CHandlePtr			pHandle;
+
+		int					iColor;
 	};
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SHandleNode(Id); }

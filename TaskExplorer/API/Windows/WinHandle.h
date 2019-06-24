@@ -56,7 +56,7 @@ protected:
 	friend class CWindowsAPI;
 	friend class CWinProcess;
 
-	bool InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle);
+	bool InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 TimeStamp);
 
 	bool InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle) { return InitExtData(handle, ProcessHandle, true); }
 	QFutureWatcher<bool>* InitExtDataAsync(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle);

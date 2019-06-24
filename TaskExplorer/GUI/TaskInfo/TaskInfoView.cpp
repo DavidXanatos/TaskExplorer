@@ -1,6 +1,16 @@
 #include "stdafx.h"
 #include "TaskInfoView.h"
 #include "../TaskExplorer.h"
+#include "ProcessView.h"
+#include "HandlesView.h"
+#include "SocketsView.h"
+#include "ThreadsView.h"
+#include "ModulesView.h"
+#include "MemoryView.h"
+#include "JobView.h"
+#include "TokensView.h"
+#include "WindowsView.h"
+#include "EnvironmentView.h"
 
 
 CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
@@ -11,7 +21,7 @@ CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
 	InitializeTabs();
 
 	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
-	QStringList VisibleTabs = theConf->GetValue(objectName() + "/Tabs_Visible").toStringList();
+	QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
 	RebuildTabs(ActiveTab, VisibleTabs);
 }
 
@@ -53,9 +63,10 @@ void CTaskInfoView::InitializeTabs()
 	//m_pTokensView = new CTokensView(this);
 	//AddTab(m_pTokensView, tr("Tokens"));
 
-	// todo
-	//m_pJobView = new CJobView(this);
-	//AddTab(m_pJobView, tr("Job"));
+#ifdef WIN32
+	m_pJobView = new CJobView(this);
+	AddTab(m_pJobView, tr("Job"));
+#endif
 
 	m_pEnvironmentView = new CEnvironmentView(this);
 	AddTab(m_pEnvironmentView, tr("Environment"));
@@ -94,7 +105,8 @@ void CTaskInfoView::Refresh()
 		m_pWindowsView->ShowWindows(m_pCurProcess);
 	//
 	//
-	//
+	else if(m_pTabs->currentWidget() == m_pJobView)
+		m_pJobView->ShowJob(m_pCurProcess);
 	else if(m_pTabs->currentWidget() == m_pEnvironmentView)
 		m_pEnvironmentView->ShowEnvVariables(m_pCurProcess);
 }

@@ -69,7 +69,7 @@ extern "C" {
 }
 
 // initialization call
-int InitPH();
+int InitPH(bool bSvc = false);
 
 void ClearPH();
 
@@ -169,11 +169,9 @@ BOOLEAN PhDescribeProcessMitigationPolicy(_In_ PROCESS_MITIGATION_POLICY Policy,
 
 void PhShowAbout(QWidget* parent);
 
-#define RUNAS_MODE_ADMIN 1
-#define RUNAS_MODE_LIMITED 2
 
-extern ULONG SelectedRunAsMode;
-extern PHAPPAPI HWND PhMainWndHandle;
+//syssccpu.c
+VOID PhSipGetCpuBrandString(_Out_writes_(49) PWSTR BrandString);
+BOOLEAN PhSipGetCpuFrequencyFromDistribution(_Out_ DOUBLE *Fraction);
 
-BOOLEAN PhMwpOnNotify(_In_ NMHDR *Header, _Out_ LRESULT *Result);
-
+NTSTATUS PhpOpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context);

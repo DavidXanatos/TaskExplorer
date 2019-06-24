@@ -69,10 +69,7 @@ quint64 GetRand64()
 	//CryptoPP::AutoSeededRandomPool rng;
 	//rng.GenerateBlock((byte*)&Rand64, sizeof(quint64));
 
-	((quint16*)&Rand64)[0] = qrand();
-	((quint16*)&Rand64)[1] = qrand();
-	((quint16*)&Rand64)[2] = qrand();
-	((quint16*)&Rand64)[3] = qrand();
+	Rand64 = QRandomGenerator::system()->generate64();
 #endif
 	return Rand64;
 }
@@ -84,6 +81,12 @@ QString GetRand64Str(bool forUrl)
 	if(forUrl)
 		sRand64.replace("+","-").replace("/","_");
 	return sRand64.replace("=","");
+}
+
+
+int	GetRandomInt(int iMin, int iMax)
+{
+	return QRandomGenerator::system()->bounded(iMin, iMax);
 }
 
 StrPair Split2(const QString& String, QString Separator, bool Back)
@@ -157,6 +160,16 @@ QString FormatTime(quint64 Time)
 		return QString().sprintf("%02d:%02d:%02d", hours, minutes, seconds);
 	return QString().sprintf("%dd%02d:%02d:%02d", days, hours, minutes, seconds);
 }
+
+bool ReadFromDevice(QIODevice* dev, char* data, int len, int timeout)
+{
+	while (dev->bytesAvailable() < len) {
+		if (!dev->waitForReadyRead(timeout))
+			return false;
+	}
+	return dev->read(data, len) == len;
+}
+
 
 void GrayScale (QImage& Image)
 {

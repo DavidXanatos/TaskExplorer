@@ -5,6 +5,24 @@
 #include "EventMonitor.h"
 #include "SymbolProvider.h"
 #include "WinService.h"
+#include "WinDriver.h"
+
+struct SWinRasCon
+{
+	SWinRasCon()
+	{
+		SentCount = 0;
+		RecvCount = 0;
+	}
+
+	QString EntryName;
+	QString DeviceName;
+
+	SUnOverflow BytesSent;
+	quint32 SentCount;
+	SUnOverflow BytesRecv;
+	quint32 RecvCount;
+};
 
 class CWindowsAPI : public CSystemAPI
 {
@@ -17,6 +35,8 @@ public:
 	virtual bool Init();
 
 	virtual bool RootAvaiable();
+
+	virtual bool UpdateSysStats();
 
 	virtual bool UpdateProcessList();
 
@@ -31,7 +51,7 @@ public:
 	virtual bool UpdateDriverList();
 
 
-	virtual CSymbolProviderPtr GetSymbolProvider() { return m_pSymbolProvider; }
+	virtual CSymbolProviderPtr GetSymbolProvider()		{ return m_pSymbolProvider; }
 
 	virtual quint64	GetCpuIdleCycleTime(int index);
 
@@ -48,6 +68,10 @@ public:
 	};
 
 	virtual QMultiMap<quint64, SWndInfo> GetWindowByPID(quint64 ProcessId) const { QReadLocker Locker(&m_WindowMutex); return m_WindowMap[ProcessId]; }
+
+	virtual QList<QString> GetServicesByPID(quint64 ProcessId) const			 { QReadLocker Locker(&m_ServiceMutex); return m_ServiceByPID.values(ProcessId); }
+
+	virtual QMap<QString, SWinRasCon> GetRasCons() const						 { QReadLocker Locker(&m_StatsMutex);  return m_RasCons; }
 
 public slots:
 	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
@@ -67,8 +91,14 @@ protected:
 	mutable QReadWriteLock	m_FileNameMutex;
 	QMap<quint64, QString>	m_FileNames;
 
+	// Guard it with m_StatsLocker
+	QMap<QString, SWinRasCon> m_RasCons;
+
 	// Guard it with		m_OpenFilesMutex
 	//QMultiMap<quint64, CHandleRef> m_HandleByObject;
+
+	// Guard it with m_ServiceMutex
+	QMultiMap<quint64, QString>	m_ServiceByPID;
 
 	CSymbolProviderPtr		m_pSymbolProvider;
 
@@ -82,8 +112,10 @@ protected:
 
 private:
 	void UpdatePerfStats();
+	void UpdateNetStats();
 	quint64 UpdateCpuStats(bool SetCpuUsage);
 	quint64 UpdateCpuCycleStats();
+	bool InitCpuCount();
 
 	QString GetFileNameByID(quint64 FileId) const;
 
@@ -91,3 +123,6 @@ private:
 };
 
 extern ulong g_fileObjectTypeIndex;
+
+quint64 FILETIME2ms(quint64 fileTime);
+time_t FILETIME2time(quint64 fileTime);

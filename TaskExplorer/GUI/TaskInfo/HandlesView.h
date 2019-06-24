@@ -4,7 +4,7 @@
 #include "../../Common/PanelView.h"
 #include "..\..\API\ProcessInfo.h"
 #include "..\Models\HandleModel.h"
-#include "..\Models\SortFilterProxyModel.h"
+#include "..\..\Common\SortFilterProxyModel.h"
 
 class CHandlesView : public CPanelView
 {
@@ -23,7 +23,6 @@ private slots:
 
 	//void					OnMenu(const QPoint &point);
 
-	void					OnClose();
 	void					OnHandleAction();
 	void					OnPermissions();
 

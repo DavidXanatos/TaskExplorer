@@ -1,8 +1,9 @@
 #include "stdafx.h"
 #include "SocketInfo.h"
+#include "../../GUI/TaskExplorer.h"
 
 
-CSocketInfo::CSocketInfo(QObject *parent) : QObject(parent)
+CSocketInfo::CSocketInfo(QObject *parent) : CAbstractInfoEx(parent)
 {
 	m_HashID = -1;
 
@@ -12,7 +13,6 @@ CSocketInfo::CSocketInfo(QObject *parent) : QObject(parent)
 	m_State = 0;
 	m_ProcessId = -1;
 
-	m_RemoveTimeStamp = 0;
 }
 
 CSocketInfo::~CSocketInfo()

@@ -6,13 +6,20 @@
 
 CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 {
+	m_NumaCount = 0;
+	m_CoreCount = 0;
+	m_CpuCount = 0;
+
 	m_CpuStatsDPCUsage = 0;
 
 	m_InstalledMemory = 0;
 	m_AvailableMemory = 0;
 	m_CommitedMemory = 0;
+	m_CommitedMemoryPeak = 0;
 	m_MemoryLimit = 0;
 	m_PagedMemory = 0;
+	m_PersistentPagedMemory = 0;
+	m_NonPagedMemory = 0;
 	m_PhysicalUsed = 0;
 	m_CacheMemory = 0;
 	m_ReservedMemory = 0;
@@ -20,6 +27,8 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 	m_TotalProcesses = 0;
 	m_TotalThreads = 0;
 	m_TotalHandles = 0;
+
+	m_FileListUpdateWatcher = NULL;
 
 #ifdef CORE_THREAD
 	QThread *pThread = new QThread();
@@ -47,11 +56,11 @@ CSystemAPI* CSystemAPI::New()
 #endif
 }
 
-void CSystemAPI::UpdateStats()
+/*void CSystemAPI::UpdateStats()
 {
 	QWriteLocker Locker(&m_StatsMutex);
 	m_Stats.UpdateStats();
-}
+}*/
 
 QMap<quint64, CProcessPtr> CSystemAPI::GetProcessList()
 {
@@ -84,7 +93,7 @@ QMap<QString, CServicePtr> CSystemAPI::GetServiceList()
 }
 
 
-QMap<QString, CServicePtr> CSystemAPI::GetDriverList()
+QMap<QString, CDriverPtr> CSystemAPI::GetDriverList()
 {
 	QReadLocker Locker(&m_DriverMutex);
 	return m_DriverList;
@@ -114,4 +123,26 @@ CProcessPtr CSystemAPI::GetProcessByThreadID(quint64 ThreadId)
 	if (pThread.isNull())
 		return CProcessPtr();
 	return GetProcessByID(pThread->GetProcessId());
+}
+
+bool CSystemAPI::UpdateOpenFileListAsync(CSystemAPI* This)
+{
+	return This->UpdateOpenFileList();
+}
+
+bool CSystemAPI::UpdateOpenFileListAsync()
+{
+	if (m_FileListUpdateWatcher)
+		return false;
+
+	m_FileListUpdateWatcher = new QFutureWatcher<bool>();
+	connect(m_FileListUpdateWatcher, SIGNAL(finished()), this, SLOT(OnOpenFilesUpdated()));
+	m_FileListUpdateWatcher->setFuture(QtConcurrent::run(CSystemAPI::UpdateOpenFileListAsync, this));
+	return true;
+}
+
+void CSystemAPI::OnOpenFilesUpdated()
+{
+	m_FileListUpdateWatcher->deleteLater();
+	m_FileListUpdateWatcher = NULL;
 }

@@ -98,6 +98,8 @@ using namespace std;
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSystemTrayIcon>
+#include <QDesktopServices>
+#include <QFileDialog>
 
 // other includes
 

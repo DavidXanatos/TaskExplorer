@@ -46,9 +46,13 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 			Row = m_List.indexOf(pNode);
 		}
 
+#ifdef WIN32
+		CWinSocket* pWinSock = qobject_cast<CWinSocket*>(pSocket.data());
+#endif
+
 		int Col = 0;
 		bool State = false;
-		bool Changed = false;
+		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
 		if (!pNode->Icon.isValid())
@@ -58,15 +62,22 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 			{
 				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
 				if (!Icon.isNull()) {
-					Changed = true; // set change for first column
+					Changed = 1; // set change for first column
 					pNode->Icon = Icon;
 				}
 			}
 		}
 
-#ifdef WIN32
-		CWinSocket* pWinSock = qobject_cast<CWinSocket*>(pSocket.data());
-#endif
+		int RowColor = CTaskExplorer::eNone;
+		if (pSocket->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pSocket->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+		
+		if (pNode->iColor != RowColor) {
+			pNode->iColor = RowColor;
+			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			Changed = 2;
+		}
+
 
 		SSockStats Stats = pSocket->GetStats();
 
@@ -85,7 +96,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 #ifdef WIN32
 				case eOwner:			Value = pWinSock->GetOwnerServiceName(); break; 
 #endif
-				case eTimeStamp:		Value = pSocket->GetCreateTime(); break;
+				case eTimeStamp:		Value = pSocket->GetCreateTimeStamp(); break;
 				//case eLocalHostname:	Value = ; break; 
 				//case eRemoteHostname:	Value = ; break; 
 				case eReceives:			Value = Stats.Net.ReceiveCount; break; 
@@ -110,12 +121,13 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 			if (ColValue.Raw != Value)
 			{
-				Changed = true;
+				if(Changed == 0)
+					Changed = 1;
 				ColValue.Raw = Value;
 
 				switch (section)
 				{
-					case eTimeStamp:			ColValue.Formated = pSocket->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eTimeStamp:			ColValue.Formated = QDateTime::fromTime_t(pSocket->GetCreateTimeStamp()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 
 					case eReceiveBytes:
 					case eSendBytes:
@@ -129,14 +141,15 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				}
 			}
 
-			if(State != Changed)
+			if(State != (Changed != 0))
 			{
 				if(State && Row != -1)
 					emit dataChanged(createIndex(Row, Col), createIndex(Row, section-1));
-				State = Changed;
+				State = (Changed != 0);
 				Col = section;
 			}
-			Changed = false;
+			if(Changed == 1)
+				Changed = 0;
 		}
 		if(State && Row != -1)
 			emit dataChanged(createIndex(Row, Col, pNode), createIndex(Row, columnCount()-1, pNode));
@@ -177,8 +190,8 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 			case eOwner:			return tr("Owner");
 #endif
 			case eTimeStamp:		return tr("Time stamp");
-			case eLocalHostname:	return tr("Local hostname");
-			case eRemoteHostname:	return tr("Remote hostname");
+			//case eLocalHostname:	return tr("Local hostname");
+			//case eRemoteHostname:	return tr("Remote hostname");
 			case eReceives:			return tr("Receives");
 			case eSends:			return tr("Sends");
 			case eReceiveBytes:		return tr("Receive bytes");

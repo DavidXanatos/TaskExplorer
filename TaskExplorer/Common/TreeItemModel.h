@@ -62,6 +62,7 @@ protected:
 		QVariant			Icon;
 		bool				IsBold;
 		bool				IsGray;
+		QColor				Color;
 		struct SValue
 		{
 			QVariant Raw;

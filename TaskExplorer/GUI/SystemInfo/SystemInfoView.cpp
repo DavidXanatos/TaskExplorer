@@ -11,7 +11,7 @@ CSystemInfoView::CSystemInfoView(QWidget* patent)
 	InitializeTabs();
 
 	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
-	QStringList VisibleTabs = theConf->GetValue(objectName() + "/Tabs_Visible").toStringList();
+	QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
 	RebuildTabs(ActiveTab, VisibleTabs);
 }
 
@@ -27,12 +27,8 @@ CSystemInfoView::~CSystemInfoView()
 
 void CSystemInfoView::InitializeTabs()
 {
-	// todo
 	m_pSystemView = new CSystemView(this);
 	AddTab(m_pSystemView, tr("System"));
-
-	m_pDriversView = new CDriversView(this);
-	AddTab(m_pDriversView, tr("Drivers"));
 
 	m_pAllFilesView = new CHandlesView(true, this);
 	AddTab(m_pAllFilesView, tr("All Files"));
@@ -42,6 +38,9 @@ void CSystemInfoView::InitializeTabs()
 
 	m_pServicesView = new CServicesView(this);
 	AddTab(m_pServicesView, tr("Services"));
+
+	m_pDriversView = new CDriversView(this);
+	AddTab(m_pDriversView, tr("Drivers"));
 
 	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
@@ -53,6 +52,15 @@ void CSystemInfoView::OnTab(int tabIndex)
 
 void CSystemInfoView::Refresh()
 {
-	if (m_pTabs->currentWidget() == m_pAllFilesView)
+	if (m_pTabs->currentWidget() == m_pSystemView)
+		m_pSystemView->ShowSystem();
+	else if (m_pTabs->currentWidget() == m_pAllFilesView)
 		m_pAllFilesView->ShowAllFiles();
 }
+
+#ifdef WIN32
+void CSystemInfoView::SetShowKernelServices(bool bShow)
+{
+	m_pServicesView->SetShowKernelServices(bShow);
+}
+#endif

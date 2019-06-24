@@ -24,7 +24,7 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 
 	// Socket List
 	m_pSocketList = new QTreeViewEx();
-	m_pSocketList->setItemDelegate(new QStyledItemDelegateMaxH(m_pSocketList->fontMetrics().height() + 3, this));
+	m_pSocketList->setItemDelegate(new CStyledGridItemDelegate(m_pSocketList->fontMetrics().height() + 3, this));
 
 	m_pSocketList->setModel(m_pSortProxy);
 
@@ -57,13 +57,13 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pSocketList->header()->restoreState(theConf->GetValue(objectName() + "/SocketsView_Columns").toByteArray());
+	m_pSocketList->header()->restoreState(theConf->GetBlob(objectName() + "/SocketsView_Columns"));
 }
 
 
 CSocketsView::~CSocketsView()
 {
-	theConf->SetValue(objectName() + "/SocketsView_Columns", m_pSocketList->header()->saveState());
+	theConf->SetBlob(objectName() + "/SocketsView_Columns", m_pSocketList->header()->saveState());
 }
 
 void CSocketsView::OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
@@ -94,18 +94,19 @@ void CSocketsView::OnClose()
 	if(QMessageBox("TaskExplorer", tr("Do you want to close the selected socket(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
-	int ErrorCount = 0;
+	QList<STATUS> Errors;
 	foreach(const QModelIndex& Index, m_pSocketList->selectedRows())
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CSocketPtr pSocket = m_pSocketModel->GetSocket(ModelIndex);
 		if (!pSocket.isNull())
 		{
-			if (!pSocket->Close())
-				ErrorCount++;
+			STATUS Status = pSocket->Close();
+				
+			if(Status.IsError())
+				Errors.append(Status);
 		}
 	}
 
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to close %1 Sockets").arg(ErrorCount));
+	CTaskExplorer::CheckErrors(Errors);
 }

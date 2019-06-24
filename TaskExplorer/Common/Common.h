@@ -12,7 +12,7 @@ quint64 GetCurTick();
 quint64 GetRand64();
 QString GetRand64Str(bool forUrl = true);
 
-inline int		GetRandomInt(int iMin, int iMax)			{return qrand() % ((iMax + 1) - iMin) + iMin;}
+int	GetRandomInt(int iMin, int iMax);
 
 typedef QPair<QString,QString> StrPair;
 StrPair Split2(const QString& String, QString Separator = "=", bool Back = false);
@@ -40,8 +40,10 @@ struct SDelta
 	}
 
 	void Update(T New) {
-		if (Initialized)
+		if (Initialized) {
+			//ASSERT(New >= Value); // todo
 			Delta = New - Value;
+		}
 		else
 			Initialized = true;
 		Value = New;
@@ -56,6 +58,30 @@ private:
 
 typedef SDelta<quint64>	SDelta32;
 typedef SDelta<quint64>	SDelta64;
+
+
+template <class T>
+class CScoped
+{
+public:
+	CScoped(T* Val = NULL)			{m_Val = Val;}
+	~CScoped()						{delete m_Val;}
+
+	CScoped<T>& operator=(const CScoped<T>& Scoped)	{ASSERT(0); return *this;} // copying is explicitly forbidden
+	CScoped<T>& operator=(T* Val)	{ASSERT(!m_Val); m_Val = Val; return *this;}
+
+	inline T* Val() const			{return m_Val;}
+	inline T* &Val()				{return m_Val;}
+	inline T* Detache()				{T* Val = m_Val; m_Val = NULL; return Val;}
+    inline T* operator->() const	{return m_Val;}
+    inline T& operator*() const     {return *m_Val;}
+    inline operator T*() const		{return m_Val;}
+
+private:
+	T*	m_Val;
+};
+
+bool ReadFromDevice(QIODevice* dev, char* data, int len, int timeout = 5000);
 
 
 void GrayScale (QImage& Image);

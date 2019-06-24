@@ -7,7 +7,8 @@
 
 CGraphBar::CGraphBar()
 {
-	this->setFixedHeight(80); /// todo add more sized
+	this->setMinimumHeight(50);
+	this->setMaximumHeight(200);
 
 	m_pMainLayout = new QGridLayout();
 	this->setLayout(m_pMainLayout);
@@ -58,6 +59,12 @@ CGraphBar::CGraphBar()
 	m_pHandledPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
 	m_pMainLayout->addWidget(m_pHandledPlot, row, column++);
 
+	m_pGpuPlot = new CIncrementalPlot();
+	m_pGpuPlot->SetLimit(limit);
+	// todo
+	m_pGpuPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
+	m_pMainLayout->addWidget(m_pGpuPlot, row, column++);
+
 	m_pMMapIoPlot = new CIncrementalPlot();
 	m_pMMapIoPlot->SetLimit(limit);
 	m_pMMapIoPlot->AddPlot("Read", Qt::green, Qt::SolidLine);
@@ -72,9 +79,16 @@ CGraphBar::CGraphBar()
 	m_pFileIoPlot->SetLimit(limit);
 	m_pFileIoPlot->AddPlot("Read", Qt::green, Qt::SolidLine);
 	m_pFileIoPlot->AddPlot("Write", Qt::red, Qt::SolidLine);
-	m_pFileIoPlot->AddPlot("Other", Qt::yellow, Qt::SolidLine);
+	m_pFileIoPlot->AddPlot("Other", Qt::blue, Qt::SolidLine);
 	m_pFileIoPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
 	m_pMainLayout->addWidget(m_pFileIoPlot, row, column++);
+
+	m_pDiskIoPlot = new CIncrementalPlot();
+	m_pDiskIoPlot->SetLimit(limit);
+	m_pDiskIoPlot->AddPlot("Read", Qt::green, Qt::SolidLine);
+	m_pDiskIoPlot->AddPlot("Write", Qt::red, Qt::SolidLine);
+	m_pDiskIoPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
+	m_pMainLayout->addWidget(m_pDiskIoPlot, row, column++);
 
 	m_pSambaPlot = new CIncrementalPlot();
 	m_pSambaPlot->SetLimit(limit);
@@ -94,11 +108,12 @@ CGraphBar::CGraphBar()
 	m_pNetworkPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
 	m_pMainLayout->addWidget(m_pNetworkPlot, row, column++);
 
-	m_pGpuPlot = new CIncrementalPlot();
-	m_pGpuPlot->SetLimit(limit);
-	// TODO
-	m_pGpuPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
-	m_pMainLayout->addWidget(m_pGpuPlot, row, column++);
+	m_pRasPlot = new CIncrementalPlot();
+	m_pRasPlot->SetLimit(limit);
+	m_pRasPlot->AddPlot("Recv", Qt::green, Qt::SolidLine);
+	m_pRasPlot->AddPlot("Send", Qt::red, Qt::SolidLine);
+	m_pRasPlot->AddPlot("end", Qt::transparent, Qt::NoPen);
+	m_pMainLayout->addWidget(m_pRasPlot, row, column++);
 
 	m_pCpuPlot = new CIncrementalPlot();
 	m_pCpuPlot->SetLimit(limit);
@@ -119,7 +134,7 @@ CGraphBar::~CGraphBar()
 
 void CGraphBar::UpdateGraphs()
 {
-	SProcStats Stats = theAPI->GetStats();
+	SSysStats Stats = theAPI->GetStats();
 
 	m_pMemoryPlot->SetText(tr("Memory=%1%").arg((int)100*theAPI->GetPhysicalUsed()/theAPI->GetInstalledMemory()));
 	m_pMemoryPlot->SetRagne(theAPI->GetMemoryLimit());
@@ -149,13 +164,16 @@ void CGraphBar::UpdateGraphs()
 	m_pHandledPlot->SetText(tr("Handles<%1").arg(FormatUnit(m_pHandledPlot->GetRangeMax())));
 	m_pHandledPlot->AddPlotPoint("Handles", theAPI->GetTotalHandles());
 
+	m_pGpuPlot->SetText(tr("Gpu=??%")); //.arg());
+	//m_pGpuPlot // todo:
+
 	m_pMMapIoPlot->SetText(tr("MMapIO<%1").arg(FormatSize(m_pMMapIoPlot->GetRangeMax(), 0)));
 	QStringList MMapIoInfo;
-	MMapIoInfo.append(FormatUnit(Stats.Disk.ReadRate.Get(), 0));
-	MMapIoInfo.append(FormatUnit(Stats.Disk.WriteRate.Get(), 0));
+	MMapIoInfo.append(FormatUnit(Stats.MMapIo.ReadRate.Get(), 0));
+	MMapIoInfo.append(FormatUnit(Stats.MMapIo.WriteRate.Get(), 0));
 	m_pMMapIoPlot->SetTexts(MMapIoInfo);
-	m_pMMapIoPlot->AddPlotPoint("Read", Stats.Disk.ReadRate.Get());
-	m_pMMapIoPlot->AddPlotPoint("Write", Stats.Disk.WriteRate.Get());
+	m_pMMapIoPlot->AddPlotPoint("Read", Stats.MMapIo.ReadRate.Get());
+	m_pMMapIoPlot->AddPlotPoint("Write", Stats.MMapIo.WriteRate.Get());
 
 	m_pFileIoPlot->SetText(tr("FileIO<%1").arg(FormatSize(m_pFileIoPlot->GetRangeMax(), 0)));
 	QStringList FileIoInfo;
@@ -167,29 +185,41 @@ void CGraphBar::UpdateGraphs()
 	m_pFileIoPlot->AddPlotPoint("Write", Stats.Io.WriteRate.Get());
 	m_pFileIoPlot->AddPlotPoint("Other", Stats.Io.OtherRate.Get());
 
-
-	SSambaStats SambaStats = theAPI->GetSambaStats();
+	m_pDiskIoPlot->SetText(tr("DiskIO<%1").arg(FormatSize(m_pDiskIoPlot->GetRangeMax(), 0)));
+	QStringList DiskIoInfo;
+	DiskIoInfo.append(FormatUnit(Stats.Disk.ReadRate.Get(), 0));
+	DiskIoInfo.append(FormatUnit(Stats.Disk.WriteRate.Get(), 0));
+	m_pDiskIoPlot->SetTexts(DiskIoInfo);
+	m_pDiskIoPlot->AddPlotPoint("Read", Stats.Disk.ReadRate.Get());
+	m_pDiskIoPlot->AddPlotPoint("Write", Stats.Disk.WriteRate.Get());
 
 	m_pSambaPlot->SetText(tr("Samba<%1").arg(FormatSize(m_pSambaPlot->GetRangeMax(), 0)));
 	QStringList SambaInfo;
-	SambaInfo.append(FormatUnit(SambaStats.Client.ReceiveRate.Get() + SambaStats.Server.ReceiveRate.Get(), 0));
-	SambaInfo.append(FormatUnit(SambaStats.Client.SendRate.Get() + SambaStats.Server.SendRate.Get(), 0));
+	SambaInfo.append(FormatUnit(Stats.SambaClient.ReceiveRate.Get() + Stats.SambaServer.ReceiveRate.Get(), 0));
+	SambaInfo.append(FormatUnit(Stats.SambaClient.SendRate.Get() + Stats.SambaServer.SendRate.Get(), 0));
 	m_pSambaPlot->SetTexts(SambaInfo);
-	m_pSambaPlot->AddPlotPoint("RecvTotal", SambaStats.Client.ReceiveRate.Get() + SambaStats.Server.ReceiveRate.Get());
-	m_pSambaPlot->AddPlotPoint("SentTotal", SambaStats.Client.SendRate.Get() + SambaStats.Server.SendRate.Get());
-	m_pSambaPlot->AddPlotPoint("RecvServer", SambaStats.Server.ReceiveRate.Get());
-	m_pSambaPlot->AddPlotPoint("SentServer", SambaStats.Server.SendRate.Get());
-	m_pSambaPlot->AddPlotPoint("RecvClient", SambaStats.Client.ReceiveRate.Get());
-	m_pSambaPlot->AddPlotPoint("SentClient", SambaStats.Client.SendRate.Get() );
-
+	m_pSambaPlot->AddPlotPoint("RecvTotal", Stats.SambaClient.ReceiveRate.Get() + Stats.SambaServer.ReceiveRate.Get());
+	m_pSambaPlot->AddPlotPoint("SentTotal", Stats.SambaClient.SendRate.Get() + Stats.SambaServer.SendRate.Get());
+	m_pSambaPlot->AddPlotPoint("RecvServer", Stats.SambaServer.ReceiveRate.Get());
+	m_pSambaPlot->AddPlotPoint("SentServer", Stats.SambaServer.SendRate.Get());
+	m_pSambaPlot->AddPlotPoint("RecvClient", Stats.SambaClient.ReceiveRate.Get());
+	m_pSambaPlot->AddPlotPoint("SentClient", Stats.SambaClient.SendRate.Get() );
 
 	m_pNetworkPlot->SetText(tr("TCP/IP<%1").arg(FormatSize(m_pNetworkPlot->GetRangeMax(), 0)));
 	QStringList NetInfo;
-	NetInfo.append(FormatUnit(Stats.Net.ReceiveRate.Get(), 0));
-	NetInfo.append(FormatUnit(Stats.Net.SendRate.Get(), 0));
+	NetInfo.append(FormatUnit(Stats.NetIf.ReceiveRate.Get(), 0));
+	NetInfo.append(FormatUnit(Stats.NetIf.SendRate.Get(), 0));
 	m_pNetworkPlot->SetTexts(NetInfo);
-	m_pNetworkPlot->AddPlotPoint("Recv", Stats.Net.ReceiveRate.Get());
-	m_pNetworkPlot->AddPlotPoint("Send", Stats.Net.SendRate.Get());
+	m_pNetworkPlot->AddPlotPoint("Recv", Stats.NetIf.ReceiveRate.Get());
+	m_pNetworkPlot->AddPlotPoint("Send", Stats.NetIf.SendRate.Get());
+
+	m_pRasPlot->SetText(tr("RAS/VPN<%1").arg(FormatSize(m_pRasPlot->GetRangeMax(), 0)));
+	QStringList RasInfo;
+	RasInfo.append(FormatUnit(Stats.NetRas.ReceiveRate.Get(), 0));
+	RasInfo.append(FormatUnit(Stats.NetRas.SendRate.Get(), 0));
+	m_pRasPlot->SetTexts(RasInfo);
+	m_pRasPlot->AddPlotPoint("Recv", Stats.NetRas.ReceiveRate.Get());
+	m_pRasPlot->AddPlotPoint("Send", Stats.NetRas.SendRate.Get());
 
 	m_pCpuPlot->SetText(tr("Cpu=%1%").arg(int(100*theAPI->GetCpuUsage())));
 	QStringList CpuInfo;

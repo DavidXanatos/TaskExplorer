@@ -8,6 +8,7 @@
         <file>dll32.png</file>
         <file>dll48.png</file>
         <file>dll64.png</file>
+        <file>Shield.png</file>
     </qresource>
     <qresource prefix="/">
         <file>TaskExplorer.png</file>

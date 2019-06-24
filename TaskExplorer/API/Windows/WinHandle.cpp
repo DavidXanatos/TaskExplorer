@@ -26,6 +26,7 @@
 #include "../../GUI/TaskExplorer.h"
 #include "WinHandle.h"
 #include "ProcessHacker.h"
+#include "WindowsAPI.h"
 
 #define PH_FILEMODE_ASYNC 0x01000000
 #define PhFileModeUpdAsyncFlag(mode) \
@@ -45,7 +46,7 @@ CWinHandle::~CWinHandle()
 {
 }
 
-bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle)
+bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 TimeStamp)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -56,6 +57,8 @@ bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handl
 	m_Attributes = handle->HandleAttributes;
 	m_GrantedAccess = handle->GrantedAccess;
 	m_TypeIndex = handle->ObjectTypeIndex;
+
+	m_CreateTimeStamp = TimeStamp;
 
 	return true;
 }
@@ -692,9 +695,9 @@ QVariantMap CWinHandle::GetDetailedInfos() const
 			KERNEL_USER_TIMES times;
             if (NT_SUCCESS(PhGetProcessTimes(dupHandle, &times)))
             {
-				Process["Created"] = QDateTime::fromTime_t((int64_t)times.CreateTime.QuadPart / 10000000ULL - 11644473600ULL);
+				Process["Created"] = QDateTime::fromTime_t(FILETIME2time(times.CreateTime.QuadPart));
 				if (exitStatus != STATUS_PENDING)
-					Process["Exited"] = QDateTime::fromTime_t((int64_t)times.ExitTime.QuadPart / 10000000ULL - 11644473600ULL);
+					Process["Exited"] = QDateTime::fromTime_t(FILETIME2time(times.ExitTime.QuadPart));
             }
 
             NtClose(dupHandle);
@@ -743,9 +746,9 @@ QVariantMap CWinHandle::GetDetailedInfos() const
 			            KERNEL_USER_TIMES times;
             if (NT_SUCCESS(PhGetThreadTimes(dupHandle, &times)))
             {
-				Thread["Created"] = QDateTime::fromTime_t((int64_t)times.CreateTime.QuadPart / 10000000ULL - 11644473600ULL);
+				Thread["Created"] = QDateTime::fromTime_t(FILETIME2time(times.CreateTime.QuadPart));
 				if (exitStatus != STATUS_PENDING)
-					Thread["Exited"] = QDateTime::fromTime_t((int64_t)times.ExitTime.QuadPart / 10000000ULL - 11644473600ULL);
+					Thread["Exited"] = QDateTime::fromTime_t(FILETIME2time(times.ExitTime.QuadPart));
             }
 
             NtClose(dupHandle);

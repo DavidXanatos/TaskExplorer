@@ -12,6 +12,10 @@ void Assert(bool test);
  #define VERIFY(f)          ASSERT(f)
  #define DEBUG_ONLY(f)      (f)
 
+bool IsDebuggerAttached();
+
+void WaitForDebugger();
+
 extern bool g_assert_active;
 
 class CTracer

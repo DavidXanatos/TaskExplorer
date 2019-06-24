@@ -40,13 +40,32 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 			Row = m_List.indexOf(pNode);
 		}
 
-		int Col = 0;
-		bool State = false;
-		bool Changed = false;
-
 #ifdef WIN32
 		CWinThread* pWinThread = qobject_cast<CWinThread*>(pThread.data());
 #endif
+
+		int Col = 0;
+		bool State = false;
+		int Changed = 0;
+
+		int RowColor = CTaskExplorer::eNone;
+		if (pThread->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pThread->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+#ifdef WIN32
+		else if (pWinThread->IsGuiThread())		RowColor = CTaskExplorer::eGuiThread;
+#endif
+		
+		if (pNode->iColor != RowColor) {
+			pNode->iColor = RowColor;
+			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			Changed = 2;
+		}
+
+		if (pNode->IsGray != pThread->IsSuspended())
+		{
+			pNode->IsGray = pThread->IsSuspended();
+			Changed = 2;
+		}
 
 		STaskStats CpuStats = pThread->GetCpuStats();
 
@@ -56,6 +75,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 			switch(section)
 			{
 				case eThread:				Value = pThread->GetThreadId(); break;
+				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; break;
 				case eCyclesDelta:			Value = CpuStats.CycleDelta.Delta; break;
 #ifdef WIN32
@@ -67,7 +87,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eName:					Value = pWinThread->GetThreadName(); break;
 				case eType:					Value = pWinThread->GetTypeString(); break;
 #endif
-				case eCreated:				Value = pThread->GetCreateTime(); break;
+				case eCreated:				Value = pThread->GetCreateTimeStamp(); break;
 #ifdef WIN32
 				case eStartModule:			Value = pWinThread->GetStartAddressFileName(); break;
 #endif
@@ -89,26 +109,28 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 
 			if (ColValue.Raw != Value)
 			{
-				Changed = true;
+				if(Changed == 0)
+					Changed = 1;
 				ColValue.Raw = Value;
 
 				switch (section)
 				{
 					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId(), 16); break;
-					case eCPU:					ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10,2); break;
+					case eCPU:					ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10,2) + "%"; break;
 					case ePriority:				ColValue.Formated = pThread->GetPriorityString(); break;
-					case eCreated:				ColValue.Formated = pThread->GetCreateTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eCreated:				ColValue.Formated = QDateTime::fromTime_t(pThread->GetCreateTimeStamp()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 				}
 			}
 
-			if(State != Changed)
+			if(State != (Changed != 0))
 			{
 				if(State && Row != -1)
 					emit dataChanged(createIndex(Row, Col), createIndex(Row, section-1));
-				State = Changed;
+				State = (Changed != 0);
 				Col = section;
 			}
-			Changed = false;
+			if (Changed == 1)
+				Changed = 0;
 		}
 		if(State && Row != -1)
 			emit dataChanged(createIndex(Row, Col, pNode), createIndex(Row, columnCount()-1, pNode));
@@ -139,6 +161,7 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 		switch(section)
 		{
 			case eThread:				return tr("Thread");
+			case eCPU_History:			return tr("CPU graph");
 			case eCPU:					return tr("CPU");
 			case eCyclesDelta:			return tr("Cycles delta");
 #ifdef WIN32

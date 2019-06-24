@@ -8,6 +8,22 @@
 
 #if defined(_DEBUG) || defined(_TRACE)
 
+bool IsDebuggerAttached()
+{
+	bool isDebuggerPresent = false; // Note: on linux change edit the value in debgger to indicate precense
+#ifdef WIN32
+	if (IsDebuggerPresent())
+		return true;
+#endif
+	return isDebuggerPresent;
+}
+
+void WaitForDebugger()
+{
+	while (!IsDebuggerAttached())
+		QThread::msleep(500);
+}
+
 #ifdef WIN32
 bool g_assert_active = IsDebuggerPresent();
 #else

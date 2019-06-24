@@ -326,7 +326,7 @@ QVariant CTreeItemModel::Data(const QModelIndex &index, int role, int section) c
 		}
 		case Qt::BackgroundRole:
 		{
-			//return QBrush(QColor(255,128,128));
+			return pNode->Color.isValid() ? pNode->Color : QVariant();
 			break;
 		}
 		case Qt::ForegroundRole:

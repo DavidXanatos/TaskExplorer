@@ -2,6 +2,7 @@
 #include <qobject.h>
 #include "ProcessInfo.h"
 #include "../Common/Common.h"
+#include "AbstractInfo.h"
 
 #ifndef PH_NO_NETWORK_PROTOCOL
 #define PH_IPV4_NETWORK_TYPE 0x1
@@ -19,7 +20,7 @@
 #define PH_UDP6_NETWORK_PROTOCOL (PH_IPV6_NETWORK_TYPE | PH_UDP_PROTOCOL_TYPE)
 #endif
 
-class CSocketInfo: public QObject
+class CSocketInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
 
@@ -27,27 +28,23 @@ public:
 	CSocketInfo(QObject *parent = nullptr);
 	virtual ~CSocketInfo();
 
-	virtual quint64			GetHashID()			{ QReadLocker Locker(&m_Mutex); return m_HashID; }
+	virtual quint64				GetHashID() const			{ QReadLocker Locker(&m_Mutex); return m_HashID; }
 
-	virtual ulong				GetProtocolType()	{ QReadLocker Locker(&m_Mutex); return m_ProtocolType; }
+	virtual ulong				GetProtocolType() const		{ QReadLocker Locker(&m_Mutex); return m_ProtocolType; }
 	virtual QString				GetProtocolString();
-	virtual QHostAddress		GetLocalAddress()	{ QReadLocker Locker(&m_Mutex); return m_LocalAddress; }
-	virtual quint16				GetLocalPort()		{ QReadLocker Locker(&m_Mutex); return m_LocalPort; }
-	virtual QHostAddress		GetRemoteAddress()	{ QReadLocker Locker(&m_Mutex); return m_RemoteAddress; }
-	virtual quint16				GetRemotePort()		{ QReadLocker Locker(&m_Mutex); return m_RemotePort; }
-	virtual ulong				GetState()			{ QReadLocker Locker(&m_Mutex); return m_State; }
+	virtual QHostAddress		GetLocalAddress() const		{ QReadLocker Locker(&m_Mutex); return m_LocalAddress; }
+	virtual quint16				GetLocalPort() const		{ QReadLocker Locker(&m_Mutex); return m_LocalPort; }
+	virtual QHostAddress		GetRemoteAddress() const	{ QReadLocker Locker(&m_Mutex); return m_RemoteAddress; }
+	virtual quint16				GetRemotePort() const		{ QReadLocker Locker(&m_Mutex); return m_RemotePort; }
+	virtual ulong				GetState() const			{ QReadLocker Locker(&m_Mutex); return m_State; }
 	virtual QString				GetStateString();
-	virtual quint64				GetProcessId()		{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
-    virtual QDateTime			GetCreateTime()		{ QReadLocker Locker(&m_Mutex); return m_CreateTime; }
+	virtual quint64				GetProcessId() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
-	virtual QString				GetProcessName()	{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
-	virtual CProcessPtr			GetProcess()		{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	virtual QString				GetProcessName() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
+	virtual CProcessPtr			GetProcess() const			{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	
+	virtual SSockStats			GetStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
-	virtual SSockStats			GetStats()			{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
-
-	virtual void				MarkForRemoval()			{ QWriteLocker Locker(&m_StatsMutex); m_RemoveTimeStamp = GetCurTick(); }
-	virtual bool				IsMarkedForRemoval() const	{ QReadLocker Locker(&m_StatsMutex); return m_RemoveTimeStamp != 0; }
-	virtual bool				CanBeRemoved() const		{ QReadLocker Locker(&m_StatsMutex); return m_RemoveTimeStamp != 0 ? GetCurTick() - m_RemoveTimeStamp > 3000 : false; } // todo customize
 
 	virtual bool				Match(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
 
@@ -67,19 +64,14 @@ protected:
 	quint16						m_RemotePort;
 	ulong						m_State;
 	quint64						m_ProcessId;
-    QDateTime					m_CreateTime;
 
 	QString						m_ProcessName;
 	CProcessRef					m_pProcess;
-
-	quint64						m_RemoveTimeStamp;
 
 
 	// I/O stats
 	mutable QReadWriteLock		m_StatsMutex;
 	SSockStats					m_Stats;
-
-	mutable QReadWriteLock		m_Mutex;
 };
 
 typedef QSharedPointer<CSocketInfo> CSocketPtr;

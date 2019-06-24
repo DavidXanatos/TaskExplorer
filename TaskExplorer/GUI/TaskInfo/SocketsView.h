@@ -5,7 +5,7 @@
 #include "..\..\API\ProcessInfo.h"
 #include "..\..\API\SocketInfo.h"
 #include "..\Models\SocketModel.h"
-#include "..\Models\SortFilterProxyModel.h"
+#include "..\..\Common\SortFilterProxyModel.h"
 
 class CSocketsView : public CPanelView
 {

@@ -121,50 +121,6 @@ struct SNetStats
 	SRateCounter2	SendRate;
 };
 
-struct SDiskStats
-{
-	SDiskStats()
-	{
-		ReadCount = 0;
-		ReadRaw = 0;
-		WriteCount = 0;	
-		WriteRaw = 0;
-	}
-
-	void AddRead(quint64 size) {
-		ReadCount++;
-		ReadRaw += size;
-	}
-
-	void AddWrite(quint64 size) {
-		WriteCount++;
-		WriteRaw += size;
-	}
-
-	void UpdateStats(quint64 Interval)
-	{
-		ReadDelta.Update(ReadCount);
-		ReadRawDelta.Update(ReadRaw);
-		ReadRate.Update(Interval, ReadRawDelta.Delta);
-		WriteDelta.Update(WriteCount);
-		WriteRawDelta.Update(WriteRaw);
-		WriteRate.Update(Interval, WriteRawDelta.Delta);
-	}
-
-	quint64			ReadCount;
-	quint64			ReadRaw;
-	quint64			WriteCount;
-	quint64			WriteRaw;
-
-	SDelta64		ReadDelta;
-    SDelta64		ReadRawDelta;
-    SDelta64		WriteDelta;
-    SDelta64		WriteRawDelta;
-
-	SRateCounter	ReadRate;
-	SRateCounter	WriteRate;
-};
-
 struct SIOStats
 {
 	SIOStats()
@@ -173,8 +129,6 @@ struct SIOStats
 		ReadRaw = 0;
 		WriteCount = 0;	
 		WriteRaw = 0;
-		OtherCount = 0;	
-		OtherRaw = 0;
 	}
 
 	void SetRead(quint64 size, quint64 count) {
@@ -187,12 +141,6 @@ struct SIOStats
 		WriteRaw = size;
 	}
 
-	void SetOther(quint64 size, quint64 count) {
-		OtherCount = count;
-		OtherRaw = size;
-	}
-
-
 	void UpdateStats(quint64 Interval)
 	{
 		ReadDelta.Update(ReadCount);
@@ -201,38 +149,73 @@ struct SIOStats
 		WriteDelta.Update(WriteCount);
 		WriteRawDelta.Update(WriteRaw);
 		WriteRate.Update(Interval, WriteRawDelta.Delta);
-		OtherDelta.Update(OtherCount);
-		OtherRawDelta.Update(OtherRaw);
-		OtherRate.Update(Interval, OtherRawDelta.Delta);
 	}
 
 	quint64			ReadCount;
 	quint64			ReadRaw;
 	quint64			WriteCount;
 	quint64			WriteRaw;
-	quint64			OtherCount;
-	quint64			OtherRaw;
 
 	SDelta64		ReadDelta;
     SDelta64		ReadRawDelta;
     SDelta64		WriteDelta;
     SDelta64		WriteRawDelta;
-    SDelta64		OtherDelta;
-    SDelta64		OtherRawDelta;
 
 	SRateCounter	ReadRate;
 	SRateCounter	WriteRate;
+};
+
+struct SDiskStats: SIOStats
+{
+	SDiskStats()
+	{
+	}
+
+	void AddRead(quint64 size) {
+		ReadCount++;
+		ReadRaw += size;
+	}
+
+	void AddWrite(quint64 size) {
+		WriteCount++;
+		WriteRaw += size;
+	}
+};
+
+struct SIOStatsEx: SDiskStats
+{
+	SIOStatsEx()
+	{
+		OtherCount = 0;	
+		OtherRaw = 0;
+	}
+
+	void SetOther(quint64 size, quint64 count) {
+		OtherCount = count;
+		OtherRaw = size;
+	}
+
+
+	void UpdateStats(quint64 Interval)
+	{
+		SDiskStats::UpdateStats(Interval);
+		OtherDelta.Update(OtherCount);
+		OtherRawDelta.Update(OtherRaw);
+		OtherRate.Update(Interval, OtherRawDelta.Delta);
+	}
+
+	quint64			OtherCount;
+	quint64			OtherRaw;
+
+    SDelta64		OtherDelta;
+    SDelta64		OtherRawDelta;
+
 	SRateCounter	OtherRate;
 };
 
 struct SSockStats
 {
-	SSockStats()
-	{
-		LastStatUpdate = 0;
-	}
-
-	bool UpdateStats()
+	quint64 UpdateStats()
 	{
 		quint64 curTick = GetCurTick();
 		quint64 time_ms = curTick - LastStatUpdate;
@@ -240,14 +223,13 @@ struct SSockStats
 
 		Net.UpdateStats(time_ms);
 
-		return true;
+		return time_ms;
 	}
 
 	quint64		LastStatUpdate;
 
 	SNetStats	Net;
 };
-
 
 struct SProcStats
 {
@@ -256,7 +238,7 @@ struct SProcStats
 		LastStatUpdate = 0;
 	}
 
-	bool UpdateStats()
+	quint64 UpdateStats()
 	{
 		quint64 curTick = GetCurTick();
 		quint64 time_ms = curTick - LastStatUpdate;
@@ -266,37 +248,71 @@ struct SProcStats
 		Disk.UpdateStats(time_ms);
 		Io.UpdateStats(time_ms);
 
-		return true;
+		return time_ms;
 	}
 
 	quint64		LastStatUpdate;
 
 	SNetStats	Net;
 	SDiskStats	Disk;
-	SIOStats	Io;
+	SIOStatsEx	Io;
 };
 
-struct SSambaStats
+struct SSysStats: SProcStats
 {
-	SSambaStats()
+	quint64 UpdateStats()
 	{
-		LastStatUpdate = 0;
+		quint64 time_ms = SProcStats::UpdateStats();
+
+		MMapIo.UpdateStats(time_ms);
+
+		NetIf.UpdateStats(time_ms);
+		//NetVpn.UpdateStats(time_ms);
+		NetRas.UpdateStats(time_ms);
+
+#ifdef WIN32
+		SambaServer.UpdateStats(time_ms);
+		SambaClient.UpdateStats(time_ms);
+#endif
+
+		return time_ms;
 	}
 
-	bool UpdateStats()
+	SIOStatsEx	MMapIo;
+
+	SNetStats	NetIf;
+	//SNetStats	NetVpn;
+	SNetStats	NetRas;
+
+#ifdef WIN32
+	SNetStats	SambaServer;
+	SNetStats	SambaClient;
+#endif
+};
+
+
+struct SUnOverflow
+{
+	SUnOverflow()
 	{
-		quint64 curTick = GetCurTick();
-		quint64 time_ms = curTick - LastStatUpdate;
-		LastStatUpdate = curTick;
-
-		Server.UpdateStats(time_ms);
-		Client.UpdateStats(time_ms);
-
-		return true;
+		OverflowCount = 0;
+		Value = 0;
 	}
 
-	quint64		LastStatUpdate;
+	quint64	FixValue(quint32 curValue)
+	{
+		if (curValue < Value)
+			OverflowCount++;
+		Value = curValue;
+		return GetValue();
+	}
 
-	SNetStats	Server;
-	SNetStats	Client;
+	__inline quint64 GetValue()
+	{
+		return ((quint64)OverflowCount * 0xFFFFFFFFui64) + (quint64)Value;
+	}
+
+
+	quint32	OverflowCount;
+	quint32 Value;
 };

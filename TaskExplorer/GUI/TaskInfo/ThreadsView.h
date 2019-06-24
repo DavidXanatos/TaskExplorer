@@ -5,9 +5,10 @@
 #include "../../Common/PanelView.h"
 #include "..\..\API\ProcessInfo.h"
 #include "..\Models\ThreadModel.h"
-#include "..\Models\SortFilterProxyModel.h"
+#include "..\..\Common\SortFilterProxyModel.h"
 #include "StackView.h"
 #include "../TaskView.h"
+#include "../Common/HistoryGraph.h"
 
 class CThreadsView : public CTaskView
 {
@@ -20,13 +21,14 @@ public slots:
 	void					ShowThreads(const CProcessPtr& pProcess);
 
 private slots:
+	void					OnUpdateHistory();
+
 	//void					OnClicked(const QModelIndex& Index);
 	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
 	//void					OnMenu(const QPoint &point);
 
-	void					OnCancelIO();
-	void					OnCritical();
+	void					OnThreadAction();
 
 protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
@@ -50,6 +52,7 @@ private:
 	QTreeViewEx*			m_pThreadList;
 	CThreadModel*			m_pThreadModel;
 	QSortFilterProxyModel*	m_pSortProxy;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_CPU_History;
 
 	CStackView*				m_pStackView;
 

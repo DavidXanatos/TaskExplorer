@@ -27,6 +27,7 @@
 #include "../../GUI/TaskExplorer.h"
 #include "WinService.h"
 #include "WinModule.h"
+#include "WindowsAPI.h"
 
 #include "ProcessHacker.h"
 
@@ -59,7 +60,6 @@ CWinService::CWinService(QObject *parent)
 	m_State = 0;
 	m_ControlsAccepted = 0;
 	m_Flags = 0;
-	m_ProcessId = 0;
 
 	m_StartType = 0;
 	m_ErrorControl = 0;
@@ -75,32 +75,44 @@ CWinService::~CWinService()
 	delete m;
 }
 
-bool CWinService::InitStaticData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service)
+bool CWinService::InitStaticData(struct _ENUM_SERVICE_STATUS_PROCESSW* service)
 {
 	QWriteLocker Locker(&m_Mutex);
 
 	m_SvcName = QString::fromStdWString(service->lpServiceName);
 	m_DisplayName = QString::fromStdWString(service->lpDisplayName);
-    m_Flags = service->ServiceStatusProcess.dwServiceFlags;
-    m_ProcessId = service->ServiceStatusProcess.dwProcessId;
-	m_Type = service->ServiceStatusProcess.dwServiceType;
-	m_State = service->ServiceStatusProcess.dwCurrentState;
-	m_ControlsAccepted = service->ServiceStatusProcess.dwControlsAccepted;
 
-	//SC_HANDLE ScManagerHandle = *(SC_HANDLE*)pscManagerHandle;
+	m_CreateTimeStamp = GetTime() * 1000;
 
 	m->NeedsConfigUpdate = TRUE;
 
 	return true;
 }
 
+bool CWinService::UpdatePID(struct _ENUM_SERVICE_STATUS_PROCESSW* service)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	//bool IsActive = service->ServiceStatusProcess.dwCurrentState == SERVICE_RUNNING || service->ServiceStatusProcess.dwCurrentState == SERVICE_PAUSED;
+
+	if (m_ProcessId == service->ServiceStatusProcess.dwProcessId)
+		return true;
+	
+	m_ProcessId = service->ServiceStatusProcess.dwProcessId;
+
+	return true;
+}
+
 bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service)
 {
+	QWriteLocker Locker(&m_Mutex);
+
 	bool modified = FALSE;
 
 	if (m_Type != service->ServiceStatusProcess.dwServiceType ||
 		m_State != service->ServiceStatusProcess.dwCurrentState ||
 		m_ControlsAccepted != service->ServiceStatusProcess.dwControlsAccepted ||
+		m_Flags != service->ServiceStatusProcess.dwServiceFlags ||
 		m->NeedsConfigUpdate)
 	{
 		m->NeedsConfigUpdate = FALSE;
@@ -108,6 +120,9 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 		m_Type = service->ServiceStatusProcess.dwServiceType;
 		m_State = service->ServiceStatusProcess.dwCurrentState;
 		m_ControlsAccepted = service->ServiceStatusProcess.dwControlsAccepted;
+		m_Flags = service->ServiceStatusProcess.dwServiceFlags;
+
+
 
 		SC_HANDLE ScManagerHandle = *(SC_HANDLE*)pscManagerHandle;
 
@@ -173,7 +188,7 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 				PKEY_BASIC_INFORMATION basicInfo;
 				if (NT_SUCCESS(PhQueryKey(keyHandle, KeyBasicInformation, (PVOID*)&basicInfo)))
 				{
-					m_KeyLastWriteTime = QDateTime::fromTime_t((int64_t)basicInfo->LastWriteTime.QuadPart / 10000000ULL - 11644473600ULL);
+					m_KeyLastWriteTime = QDateTime::fromTime_t(FILETIME2time(basicInfo->LastWriteTime.QuadPart));
 					PhFree(basicInfo);
 				}
 
@@ -186,6 +201,7 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 			PhDereferenceObject(Name);
 
 			// get file info
+			// todo dont re do it
 			if (!m_FileName.isEmpty())
 				qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName);
 
@@ -210,26 +226,6 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 
 		modified = true;
 	}
-
-	if (m_ProcessId != service->ServiceStatusProcess.dwProcessId)
-	{
-		m_ProcessId = service->ServiceStatusProcess.dwProcessId;
-
-		// todo:
-
-		modified = true;
-	}
-
-
-	/*                // Add the service to its process, if appropriate.
-                if (
-                    (
-                    serviceItem->State == SERVICE_RUNNING ||
-                    serviceItem->State == SERVICE_PAUSED
-                    ) &&
-                    serviceItem->ProcessId
-                    )
-                {*/
 
 	return modified;
 }
@@ -272,6 +268,24 @@ QString CWinService::GetTypeString() const
 												return tr("User share process (instance)");
 		default: return tr("Unknown");
 	}
+}
+
+bool CWinService::IsStopped() const
+{
+	QReadLocker Locker(&m_Mutex); // is it stoped (periode)?
+	return m_State == SERVICE_STOPPED;
+}
+
+bool CWinService::IsRunning() const
+{
+	QReadLocker Locker(&m_Mutex); // is it [still] running or about to start?
+	return m_State == SERVICE_RUNNING || m_State == SERVICE_STOP_PENDING || m_State == SERVICE_START_PENDING;
+}
+
+bool CWinService::IsPaused() const
+{
+	QReadLocker Locker(&m_Mutex); // is it paused or about to be paused
+	return m_State == SERVICE_PAUSE_PENDING || m_State == SERVICE_PAUSED || m_State == SERVICE_CONTINUE_PENDING;
 }
 
 QString CWinService::GetStateString() const
@@ -318,4 +332,152 @@ QString CWinService::GetErrorControlString() const
 		case SERVICE_ERROR_CRITICAL:		return tr("Critical");
 		default: return tr("Unknown");
 	}
+}
+
+STATUS CWinService::Start()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	wstring SvcName = m_SvcName.toStdWString();
+    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_START);
+
+	BOOLEAN success = FALSE;
+    if (serviceHandle)
+    {
+        if (StartService(serviceHandle, 0, NULL))
+            success = TRUE;
+
+        CloseServiceHandle(serviceHandle);
+    }
+
+    if (!success)
+    {
+        NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
+
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to start service"), status);
+    }
+	return OK;
+}
+
+STATUS CWinService::Pause()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	wstring SvcName = m_SvcName.toStdWString();
+    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
+
+	BOOLEAN success = FALSE;
+    if (serviceHandle)
+    {
+		SERVICE_STATUS serviceStatus;
+
+        if (ControlService(serviceHandle, SERVICE_CONTROL_PAUSE, &serviceStatus))
+            success = TRUE;
+
+        CloseServiceHandle(serviceHandle);
+    }
+
+    if (!success)
+    {
+        NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
+
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to pause service"), status);
+    }
+	return OK;
+}
+
+STATUS CWinService::Continue()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	wstring SvcName = m_SvcName.toStdWString();
+    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
+
+	BOOLEAN success = FALSE;
+    if (serviceHandle)
+    {
+		SERVICE_STATUS serviceStatus;
+
+        if (ControlService(serviceHandle, SERVICE_CONTROL_CONTINUE, &serviceStatus))
+            success = TRUE;
+
+        CloseServiceHandle(serviceHandle);
+    }
+
+    if (!success)
+    {
+        NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
+
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to continue service"), status);
+    }
+	return OK;
+}
+
+STATUS CWinService::Stop()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	wstring SvcName = m_SvcName.toStdWString();
+    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_STOP);
+
+	BOOLEAN success = FALSE;
+    if (serviceHandle)
+    {
+		SERVICE_STATUS serviceStatus;
+
+        if (ControlService(serviceHandle, SERVICE_CONTROL_STOP, &serviceStatus))
+            success = TRUE;
+
+        CloseServiceHandle(serviceHandle);
+    }
+
+    if (!success)
+    {
+        NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
+
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to start service"), status);
+    }
+	return OK;
+}
+
+STATUS CWinService::Delete(bool bForce)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	if(bForce)
+		return ERR(tr("Deleting a service can prevent the system from starting or functioning properly."), ERROR_CONFIRM);
+
+#ifdef SAFE_MODE
+	return OK;
+#endif
+
+	wstring SvcName = m_SvcName.toStdWString();
+	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), DELETE);
+
+	BOOLEAN success = FALSE;
+    if (serviceHandle)
+    {
+        if (DeleteService(serviceHandle))
+            success = TRUE;
+
+        CloseServiceHandle(serviceHandle);
+    }
+
+    if (!success)
+    {
+        NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
+
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to delete service"), status);
+    }
+	return OK;
 }

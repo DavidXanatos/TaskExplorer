@@ -18,6 +18,10 @@ public:
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
+#ifdef WIN32
+	void			SetShowKernelServices(bool bShow) { m_ShowDriver = bShow; }
+#endif
+
 	enum EColumns
 	{
 		eService = 0,
@@ -26,11 +30,18 @@ public:
 		eType,
 #endif
 		eStatus,
+#ifdef WIN32
 		eStartType,
+#endif
 		ePID,
 		eFileName,
+#ifdef WIN32
 		eErrorControl,
 		eGroupe,
+		eDescription,
+		eCompanyName,
+		eVersion,
+#endif
 		eBinaryPath,
 		eCount
 	};
@@ -40,8 +51,15 @@ protected:
 	{
 		SServiceNode(const QVariant& Id) : SListNode(Id) {}
 
+		int					iColor;
 		CServicePtr			pService;
 	};
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SServiceNode(Id); }
+
+	virtual QVariant GetDefaultIcon() const;
+
+#ifdef WIN32
+	bool				m_ShowDriver;
+#endif
 };

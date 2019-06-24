@@ -52,7 +52,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 
 	m_pProcessBox = new QGroupBox(tr("Process"));
-	m_pProcessBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	//m_pProcessBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_pInfoLayout->addWidget(m_pProcessBox);
 
 	m_pProcessLayout = new QGridLayout();
@@ -106,7 +106,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	/*m_pStatsList = new QTreeWidgetEx();
 
-	m_pStatsList->setItemDelegate(new QStyledItemDelegateMaxH(m_pStatsList->fontMetrics().height() + 3, this));
+	m_pStatsList->setItemDelegate(new CStyledGridItemDelegate(m_pStatsList->fontMetrics().height() + 3, this));
 	m_pStatsList->setHeaderLabels(tr("Name|Value").split("|"));
 	m_pStatsList->header()->hide();
 
@@ -125,9 +125,14 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pInfoLayout->addWidget(m_pStatsList);*/
 
-	QWidget* pSpacer = new QWidget();
+	m_pStatsView = new CStatsView(CStatsView::eProcess, this);
+	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
+	m_pInfoLayout->addWidget(m_pStatsView);
+
+	/*QWidget* pSpacer = new QWidget();
 	pSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	m_pProcessLayout->addWidget(pSpacer, row, 1);
+	m_pProcessLayout->addWidget(pSpacer, row, 1);*/
+	//m_pInfoLayout->addWidget(pSpacer);
 }
 
 
@@ -138,6 +143,8 @@ CProcessView::~CProcessView()
 
 void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 {
+	m_pStatsView->ShowProcess(pProcess);
+
 	if (m_pCurProcess == pProcess)
 		return;
 

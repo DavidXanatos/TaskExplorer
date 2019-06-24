@@ -11,11 +11,14 @@ public:
 	virtual ulong GetType() const					{ QReadLocker Locker(&m_Mutex); return m_Type; }
 	virtual QString GetTypeString() const;
 	virtual ulong GetState() const					{ QReadLocker Locker(&m_Mutex); return m_State; }
+	virtual ulong GetControlsAccepted() const		{ QReadLocker Locker(&m_Mutex); return m_ControlsAccepted; }
+
+	virtual bool IsStopped() const;
+	virtual bool IsRunning() const;
+	virtual bool IsPaused() const;
 	virtual QString GetStateString() const;
 
 	virtual bool IsDriver() const;
-
-	virtual ulong GetPID() const					{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
 	virtual ulong GetStartType() const				{ QReadLocker Locker(&m_Mutex); return m_StartType; }
 	virtual QString GetStartTypeString() const;
@@ -24,7 +27,12 @@ public:
 
 	virtual QString GetDisplayName() const			{ QReadLocker Locker(&m_Mutex); return m_DisplayName; }
 	virtual QString GetGroupeName() const			{ QReadLocker Locker(&m_Mutex); return m_GroupeName; }
-	virtual QString GetBinaryPath() const			{ QReadLocker Locker(&m_Mutex); return m_BinaryPath; }
+
+	virtual STATUS Start();
+	virtual STATUS Pause();
+	virtual STATUS Continue();
+	virtual STATUS Stop();
+	virtual STATUS Delete(bool bForce = false);
 
 public slots:
 	void			OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
@@ -32,17 +40,15 @@ public slots:
 protected:
 	friend class CWindowsAPI;
 
-	bool InitStaticData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service);
+	bool InitStaticData(struct _ENUM_SERVICE_STATUS_PROCESSW* service);
+	bool UpdatePID(struct _ENUM_SERVICE_STATUS_PROCESSW* service);
 	bool UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service);
 	void UnInit();
-
-	QString							m_BinaryPath;
 
 	ulong							m_Type;
 	ulong							m_State;
 	ulong							m_ControlsAccepted;
 	ulong							m_Flags;
-	ulong							m_ProcessId;
 
 	ulong							m_StartType;
 	ulong							m_ErrorControl;

@@ -2,7 +2,7 @@
 #include "WndInfo.h"
 
 
-CWndInfo::CWndInfo(QObject *parent) : QObject(parent)
+CWndInfo::CWndInfo(QObject *parent) : CAbstractInfo(parent)
 {
 	m_hWnd = 0;
 	m_ParentWnd = 0;

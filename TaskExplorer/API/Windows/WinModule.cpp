@@ -3,6 +3,7 @@
 #include "WinModule.h"
 
 #include "ProcessHacker.h"
+#include "WindowsAPI.h"
 
 
 #include <QtWin>
@@ -41,7 +42,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
     m_Type = module->Type;
     m_LoadReason = module->LoadReason;
     m_LoadCount = module->LoadCount;
-    m_LoadTime = QDateTime::fromTime_t((int64_t)module->LoadTime.QuadPart / 10000000ULL - 11644473600ULL);
+    m_LoadTime = QDateTime::fromTime_t(FILETIME2time(module->LoadTime.QuadPart));
     m_ParentBaseAddress = (quint64)module->ParentBaseAddress;
 
 	if (m_IsSubsystemProcess)
@@ -121,7 +122,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	FILE_NETWORK_OPEN_INFORMATION networkOpenInfo;
     if (NT_SUCCESS(PhQueryFullAttributesFileWin32((PWSTR)m_FileName.toStdWString().c_str(), &networkOpenInfo)))
     {
-		m_ModificationTime = QDateTime::fromTime_t((int64_t)networkOpenInfo.LastWriteTime.QuadPart / 10000000ULL - 11644473600ULL);
+		m_ModificationTime = QDateTime::fromTime_t(FILETIME2time(networkOpenInfo.LastWriteTime.QuadPart));
         m_FileSize = networkOpenInfo.EndOfFile.QuadPart;
     }
 

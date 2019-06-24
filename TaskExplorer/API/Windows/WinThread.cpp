@@ -73,7 +73,7 @@ bool CWinThread::InitStaticData(void* pProcessHandle, struct _SYSTEM_THREAD_INFO
 	m_ProcessId = (quint64)thread->ClientId.UniqueProcess;
 
 	m->CreateTime = thread->CreateTime;
-	m_CreateTime = QDateTime::fromTime_t((int64_t)m->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);;
+	m_CreateTimeStamp = FILETIME2ms(m->CreateTime.QuadPart);
 
     // Try to open a handle to the thread.
     if (!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION, thread->ClientId.UniqueThread)))
@@ -144,15 +144,18 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
     // Update the base priority increment.
     {
 		LONG basePriorityIncrement = THREAD_PRIORITY_ERROR_RETURN;
+		quint64 threadAffinityMask = 0;
 		THREAD_BASIC_INFORMATION basicInfo;
         if (m->ThreadHandle && NT_SUCCESS(PhGetThreadBasicInformation(m->ThreadHandle,&basicInfo)))
         {
             basePriorityIncrement = basicInfo.BasePriority;
+			threadAffinityMask = basicInfo.AffinityMask;
         }
 
-        if (m_BasePriorityIncrement != basePriorityIncrement)
+        if (m_BasePriorityIncrement != basePriorityIncrement || m_AffinityMask != threadAffinityMask)
         {
 			m_BasePriorityIncrement = basePriorityIncrement;
+			m_AffinityMask = threadAffinityMask;
 
             modified = TRUE;
         }
@@ -454,6 +457,25 @@ STATUS CWinThread::SetIOPriority(long Value)
 		// todo run itself as service and retry
 
 		return ERR(tr("Failed to set I/O priority"), status);
+    }
+	return OK;
+}
+
+STATUS CWinThread::SetAffinityMask(quint64 Value)
+{
+	NTSTATUS status;
+	HANDLE threadHandle;
+    if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_SET_LIMITED_INFORMATION, (HANDLE)m_ThreadId)))
+    {
+        status = PhSetThreadAffinityMask(threadHandle, Value);
+        NtClose(threadHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to set CPU affinity"), status);
     }
 	return OK;
 }

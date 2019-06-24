@@ -10,6 +10,8 @@ public:
 
 	virtual quint64 GetRawCreateTime() const;
 
+	virtual QString GetName() const						{ return GetStartAddressString(); }
+
 	virtual quint64 GetStartAddress() const				{ QReadLocker Locker(&m_Mutex); return m_StartAddress; }
 	virtual QString GetStartAddressString() const;
 	virtual QString GetStartAddressFileName() const		{ QReadLocker Locker(&m_Mutex); return m_StartAddressFileName; }
@@ -22,6 +24,8 @@ public:
 	virtual STATUS SetBasePriority(long Value) { return ERR(); }
 	virtual STATUS SetPagePriority(long Value);
 	virtual STATUS SetIOPriority(long Value);
+
+	virtual STATUS SetAffinityMask(quint64 Value);
 
 	virtual STATUS Terminate();
 

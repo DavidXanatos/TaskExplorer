@@ -1,8 +1,9 @@
 #pragma once
 #include <qobject.h>
 #include "../Common/FlexError.h"
+#include "AbstractInfo.h"
 
-class CWndInfo: public QObject
+class CWndInfo: public CAbstractInfo
 {
 	Q_OBJECT
 
@@ -48,8 +49,6 @@ protected:
 
 	/*QWeakPointer<CWndInfo>						m_ParentWindow;
 	QMap<quint64, QSharedPointer<CWndInfo> >	m_ChildWindows;*/
-
-	mutable QReadWriteLock			m_Mutex;
 };
 
 typedef QSharedPointer<CWndInfo> CWndPtr;

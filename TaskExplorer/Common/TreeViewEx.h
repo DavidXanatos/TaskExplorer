@@ -139,11 +139,24 @@ public:
 	int m_MaxHeight;
 };
 
-class COneColumnModel : public QIdentityProxyModel
+class CStyledGridItemDelegate : public QStyledItemDelegateMaxH
 {
-	Q_OBJECT
 public:
-	COneColumnModel( QObject* parrent = 0) : QIdentityProxyModel(parrent) {}
+	explicit CStyledGridItemDelegate(int MaxHeight, QObject * parent = 0) : CStyledGridItemDelegate(MaxHeight, false, parent) { }
+	explicit CStyledGridItemDelegate(int MaxHeight, bool Tree, QObject * parent = 0) : QStyledItemDelegateMaxH(MaxHeight, parent) { m_Tree = Tree; }
+ 
+	void paint(QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const
+    {
+		QStyledItemDelegate::paint(painter, option, index);
 
-	int	columnCount(const QModelIndex &parent = QModelIndex()) const { return 1; }
+        painter->save();
+        painter->setPen(QColor(Qt::darkGray));
+        //painter->drawRect(option.rect);
+		//painter->drawLine(option.rect.left(), option.rect.top(), option.rect.right(), option.rect.top());
+		painter->drawLine(option.rect.right(), option.rect.top(), option.rect.right(), option.rect.bottom());
+		painter->drawLine(option.rect.left() + (m_Tree && index.column() == 0 ? 24 : 0), option.rect.bottom(), option.rect.right(), option.rect.bottom());
+        painter->restore();
+    }
+
+	bool m_Tree;
 };

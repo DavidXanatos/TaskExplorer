@@ -32,6 +32,7 @@ protected:
 			ID = Id;
 
 			IsBold = false;
+			IsGray = false;
 		}
 		virtual ~SListNode() 
 		{
@@ -41,6 +42,8 @@ protected:
 
 		QVariant			Icon;
 		bool				IsBold;
+		bool				IsGray;
+		QColor				Color;
 		struct SValue
 		{
 			QVariant Raw;

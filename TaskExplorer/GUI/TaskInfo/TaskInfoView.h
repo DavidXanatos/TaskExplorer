@@ -3,16 +3,16 @@
 #include "..\..\Common\TabPanel.h"
 #include "..\..\API\ProcessInfo.h"
 
-#include "ProcessView.h"
-#include "HandlesView.h"
-#include "SocketsView.h"
-#include "ThreadsView.h"
-#include "ModulesView.h"
-#include "MemoryView.h"
-#include "JobView.h"
-#include "TokensView.h"
-#include "WindowsView.h"
-#include "EnvironmentView.h"
+class CProcessView;
+class CHandlesView;
+class CSocketsView;
+class CThreadsView;
+class CModulesView;
+class CWindowsView;
+//class CMemoryView;
+//class CTokensView;
+class CJobView;
+class CEnvironmentView;
 
 
 class CTaskInfoView : public CTabPanel
@@ -41,7 +41,9 @@ private:
 	CWindowsView*		m_pWindowsView;
 	//CMemoryView*		m_pMemoryView;
 	//CTokensView*		m_pTokensView;
-	//CJobView*			m_pJobView;
+#ifdef WIN32
+	CJobView*			m_pJobView;
+#endif
 	CEnvironmentView*	m_pEnvironmentView;
 };
 

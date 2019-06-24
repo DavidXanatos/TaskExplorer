@@ -1,6 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "../Common/SplitTreeView.h"
+#include "../Common/HistoryGraph.h"
 #include "..\API\ProcessInfo.h"
 #include "TaskView.h"
 
@@ -18,9 +19,11 @@ signals:
 	void					ProcessClicked(const CProcessPtr& pProcess);
 
 private slots:
-	void					OnTreeResized(int Width);
+	void					OnTreeEnabled(bool bEnabled);
 
 	void					OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+
+	void					OnUpdateHistory();
 
 	//void					OnClicked(const QModelIndex& Index);
 	void					OnDoubleClicked(const QModelIndex& Index);
@@ -32,9 +35,7 @@ private slots:
 	//void					OnMenu(const QPoint& Point);
 
 	void					OnCrashDump();
-	void					OnVirtualization();
-	void					OnCritical();
-	void					OnReduceWS();
+	void					OnProcessAction();
 
 protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
@@ -46,12 +47,17 @@ protected:
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
 private:
+	void					AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, int from, int to);
 
 	QHBoxLayout*			m_pMainLayout;
 
 	CProcessModel*			m_pProcessModel;
 	QSortFilterProxyModel*	m_pSortProxy;
 	CSplitTreeView*			m_pProcessList;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_CPU_History;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_MEM_History;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_IO_History;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_NET_History;
 
 	QMenu*					m_pHeaderMenu;
 	QMap<QCheckBox*,int>	m_Columns;

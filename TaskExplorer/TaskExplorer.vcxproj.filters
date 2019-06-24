@@ -28,12 +28,6 @@
       <Extensions>moc;h;cpp</Extensions>
       <SourceControlFiles>False</SourceControlFiles>
     </Filter>
-    <Filter Include="TaskInfo">
-      <UniqueIdentifier>{04372b0f-1fa5-4294-a9a5-6a947ea3c5a6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="SystemInfo">
-      <UniqueIdentifier>{ba7af562-4fa1-4d9a-9e1f-aa9ccfb0be34}</UniqueIdentifier>
-    </Filter>
     <Filter Include="TaskExplorer">
       <UniqueIdentifier>{9281d09d-2ea9-4fd9-9f5b-3641b4950edb}</UniqueIdentifier>
     </Filter>
@@ -46,17 +40,23 @@
     <Filter Include="Common">
       <UniqueIdentifier>{21b99ddb-37fd-49c1-9470-f459c5dff027}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Models">
-      <UniqueIdentifier>{4a0bd8cb-5aae-4453-8d1d-af5ccee27686}</UniqueIdentifier>
-    </Filter>
     <Filter Include="API\Windows\ProcessHacker">
       <UniqueIdentifier>{682b726a-795d-48fb-9df6-947490a4059d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TaskExplorer\TaskInfo">
+      <UniqueIdentifier>{04372b0f-1fa5-4294-a9a5-6a947ea3c5a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TaskExplorer\SystemInfo">
+      <UniqueIdentifier>{ba7af562-4fa1-4d9a-9e1f-aa9ccfb0be34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TaskExplorer\Models">
+      <UniqueIdentifier>{4a0bd8cb-5aae-4453-8d1d-af5ccee27686}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SVC">
+      <UniqueIdentifier>{7b001913-6098-46fb-9e4e-e5f4c3d2f1d7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -66,47 +66,44 @@
     <ClCompile Include="GUI\GraphBar.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\ProcessTree.cpp">
-      <Filter>TaskExplorer</Filter>
-    </ClCompile>
     <ClCompile Include="GUI\TaskExplorer.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\DriversView.cpp">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\ServicesView.cpp">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\SystemInfoView.cpp">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\EnvironmentView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\HandlesView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\MemoryView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\ModulesView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\SocketsView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\TaskInfoView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\ThreadsView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\TokensView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\WindowsView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="API\Windows\WindowsAPI.cpp">
       <Filter>API\Windows</Filter>
@@ -130,10 +127,10 @@
       <Filter>API\Windows</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\ProcessModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\SocketModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="API\Windows\EventMonitor.cpp">
       <Filter>API\Windows</Filter>
@@ -142,7 +139,7 @@
       <Filter>API</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\HandleModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="API\HandleInfo.cpp">
       <Filter>API</Filter>
@@ -154,7 +151,7 @@
       <Filter>API\Windows</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\ThreadModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="API\Windows\SymbolProvider.cpp">
       <Filter>API\Windows</Filter>
@@ -169,13 +166,13 @@
       <Filter>API</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\ServiceModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="API\ThreadInfo.cpp">
       <Filter>API</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\ModuleModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="API\ModuleInfo.cpp">
       <Filter>API</Filter>
@@ -205,7 +202,7 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\WindowModel.cpp">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
     <ClCompile Include="Common\CheckableMessageBox.cpp">
       <Filter>Common</Filter>
@@ -217,31 +214,85 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\StackView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskView.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\TaskInfoWindow.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\JobView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="Common\SettingsWidgets.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\ProcessView.cpp">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\SystemView.cpp">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
     <ClCompile Include="Common\TabPanel.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\Settings.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\qzlib.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\StatsView.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinJob.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\ProcessPicker.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="API\AbstractTask.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\AbstractInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\DriverInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinDriver.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\DriverModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\NewService.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\WinSvcWindow.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\AffinityDialog.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\ProcessTree.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SVC\TaskService.cpp">
+      <Filter>SVC</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\RunAs.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\RunAsTI.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\RunAsDialog.cpp">
+      <Filter>TaskExplorer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -257,9 +308,6 @@
     <ClInclude Include="Common\Common.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="GUI\Models\SortFilterProxyModel.h">
-      <Filter>Models</Filter>
-    </ClInclude>
     <ClInclude Include="API\StackTrace.h">
       <Filter>API</Filter>
     </ClInclude>
@@ -271,6 +319,21 @@
     </ClInclude>
     <ClInclude Include="Common\ExitDialog.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\qzlib.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\ProcessPicker.h">
+      <Filter>TaskExplorer</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\SortFilterProxyModel.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\HistoryGraph.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\RunAs.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -287,34 +350,34 @@
       <Filter>TaskExplorer</Filter>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\SystemInfoView.h">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\EnvironmentView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\HandlesView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\MemoryView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\ModulesView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\SocketsView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\TaskInfoView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\ThreadsView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\TokensView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\WindowsView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\WindowsAPI.h">
       <Filter>API\Windows</Filter>
@@ -335,10 +398,10 @@
       <Filter>API\Windows</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\ProcessModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\SocketModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\EventMonitor.h">
       <Filter>API\Windows</Filter>
@@ -347,7 +410,7 @@
       <Filter>API</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\HandleModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="API\HandleInfo.h">
       <Filter>API</Filter>
@@ -362,7 +425,7 @@
       <Filter>API</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\ThreadModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\SymbolProvider.h">
       <Filter>API\Windows</Filter>
@@ -374,16 +437,16 @@
       <Filter>API</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\ServiceModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\DriversView.h">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\ServicesView.h">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\ModuleModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="API\ModuleInfo.h">
       <Filter>API</Filter>
@@ -410,7 +473,7 @@
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\WindowModel.h">
-      <Filter>Models</Filter>
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="Common\CheckableMessageBox.h">
       <Filter>Common</Filter>
@@ -419,7 +482,7 @@
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\StackView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="API\AbstractTask.h">
       <Filter>API</Filter>
@@ -428,19 +491,19 @@
       <Filter>TaskExplorer</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\TaskInfoWindow.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\JobView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="Common\SettingsWidgets.h">
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\ProcessView.h">
-      <Filter>TaskInfo</Filter>
+      <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\SystemView.h">
-      <Filter>SystemInfo</Filter>
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="Common\TabPanel.h">
       <Filter>Common</Filter>
@@ -450,6 +513,39 @@
     </QtMoc>
     <QtMoc Include="Common\PanelView.h">
       <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\StatsView.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinJob.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\AbstractInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\DriverInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinDriver.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\DriverModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\NewService.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\AffinityDialog.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="SVC\TaskService.h">
+      <Filter>SVC</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\RunAsDialog.h">
+      <Filter>TaskExplorer</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
@@ -481,5 +577,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CHANGELOG.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtUic Include="Resources\NewService.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
+    <QtUic Include="Resources\WinSvcWindow.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
+    <QtUic Include="Resources\RunAsDialog.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
   </ItemGroup>
 </Project>

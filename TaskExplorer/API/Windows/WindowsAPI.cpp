@@ -2,10 +2,16 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 #include "WinHandle.h"
+#include <lm.h>
+#include <ras.h>
+#include <raserror.h>
+
+
+#include "../TaskExplorer/GUI/TaskExplorer.h"
 
 int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
 
-int _QSet_quint64_type = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
+int _QSet_qquint64ype = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
 int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
 
 ulong g_fileObjectTypeIndex = ULONG_MAX;
@@ -14,6 +20,9 @@ struct SWindowsAPI
 {
 	SWindowsAPI()
 	{
+		//PowerInformation = new PROCESSOR_POWER_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
+		//memset(&PowerInformation, 0, sizeof(PROCESSOR_POWER_INFORMATION));
+
 		CpuIdleCycleTime = new LARGE_INTEGER[PhSystemBasicInformation.NumberOfProcessors];
 		memset(CpuIdleCycleTime, 0, sizeof(LARGE_INTEGER)*PhSystemBasicInformation.NumberOfProcessors);
 	
@@ -37,6 +46,7 @@ struct SWindowsAPI
 		delete[] CpuSystemCycleTime;
 	}
 
+	//PPROCESSOR_POWER_INFORMATION PowerInformation;
 
 	SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION CpuTotals;
 
@@ -48,6 +58,15 @@ struct SWindowsAPI
 
 	SYSTEM_PROCESS_INFORMATION DpcsProcessInformation;
 	SYSTEM_PROCESS_INFORMATION InterruptsProcessInformation;
+
+	// ensure we handle overflows of this coutners properly
+	SUnOverflow PageReadCount;
+	SUnOverflow CacheReadCount;
+
+	SUnOverflow MappedPagesWriteCount;
+	SUnOverflow DirtyPagesWriteCount;
+	SUnOverflow CcLazyWritePages;
+
 };
 
 quint64 GetInstalledMemory()
@@ -88,8 +107,6 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 bool CWindowsAPI::Init()
 {
-	InitPH();
-
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
 	if (PhBeginInitOnce(&initOnce))
     {
@@ -102,12 +119,25 @@ bool CWindowsAPI::Init()
 
 	m_CpusStats.resize(PhSystemBasicInformation.NumberOfProcessors);
 
+	if (!InitCpuCount())
+	{
+		m_NumaCount = 1;
+		m_CoreCount = m_CpuCount = PhSystemBasicInformation.NumberOfProcessors;
+	}
 
 	m_InstalledMemory = ::GetInstalledMemory();
 	m_AvailableMemory = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages, PAGE_SIZE);
 	m_ReservedMemory = m_InstalledMemory - UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages, PAGE_SIZE);
 
+	WCHAR brandString[49];
+	PhSipGetCpuBrandString(brandString);
+
+	m_CPU_String = QString::fromWCharArray(brandString);
+
 	m_pEventMonitor = new CEventMonitor();
+
+	//NtPowerInformation(ProcessorInformation, NULL, 0, m->PowerInformation, sizeof(PROCESSOR_POWER_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors));
+    
 
 	connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)));
 	connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
@@ -125,8 +155,6 @@ CWindowsAPI::~CWindowsAPI()
 {
 	delete m_pEventMonitor;
 
-	ClearPH();
-
 	delete m;
 }
 
@@ -135,37 +163,17 @@ bool CWindowsAPI::RootAvaiable()
 	return KphIsConnected();
 }
 
-void CWindowsAPI::UpdatePerfStats()
-{
-	SYSTEM_PERFORMANCE_INFORMATION PerfInformation;
-	NtQuerySystemInformation(SystemPerformanceInformation, &PerfInformation, sizeof(SYSTEM_PERFORMANCE_INFORMATION), NULL);
-
-	QWriteLocker Locker(&m_StatsMutex);
-	m_Stats.Io.SetRead(PerfInformation.IoReadTransferCount.QuadPart, PerfInformation.IoReadOperationCount);
-	m_Stats.Io.SetWrite(PerfInformation.IoWriteTransferCount.QuadPart, PerfInformation.IoWriteOperationCount);
-	m_Stats.Io.SetOther(PerfInformation.IoOtherTransferCount.QuadPart, PerfInformation.IoOtherOperationCount);
-
-	m_CommitedMemory = UInt32x32To64(PerfInformation.CommittedPages, PAGE_SIZE);
-	m_MemoryLimit = UInt32x32To64(PerfInformation.CommitLimit, PAGE_SIZE);
-	m_PagedMemory = UInt32x32To64(PerfInformation.PagedPoolPages, PAGE_SIZE);
-	m_PhysicalUsed = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages - PerfInformation.AvailablePages, PAGE_SIZE);
-	m_CacheMemory = UInt32x32To64(PerfInformation.ResidentSystemCachePage, PAGE_SIZE);
-}
-
-
 quint64 CWindowsAPI::UpdateCpuStats(bool SetCpuUsage)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
-
 	PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION CpuInformation = new SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
     NtQuerySystemInformation(SystemProcessorPerformanceInformation, CpuInformation, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION) * (ULONG)PhSystemBasicInformation.NumberOfProcessors, NULL);
-
 
 	memset(&m->CpuTotals, 0, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION));
 	
 
-	ULONG64 totalTime;
+	quint64 totalTime;
     for (ulong i = 0; i < (ulong)PhSystemBasicInformation.NumberOfProcessors; i++)
     {
         PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION cpuInfo = &CpuInformation[i];
@@ -246,15 +254,238 @@ quint64 CWindowsAPI::UpdateCpuCycleStats()
 	return m->CpuIdleCycleDelta.Delta;
 }
 
+void CWindowsAPI::UpdatePerfStats()
+{
+	SYSTEM_PERFORMANCE_INFORMATION PerfInformation;
+	NtQuerySystemInformation(SystemPerformanceInformation, &PerfInformation, sizeof(SYSTEM_PERFORMANCE_INFORMATION), NULL);
+
+	QWriteLocker Locker(&m_StatsMutex);
+	m_Stats.Io.SetRead(PerfInformation.IoReadTransferCount.QuadPart, PerfInformation.IoReadOperationCount);
+	m_Stats.Io.SetWrite(PerfInformation.IoWriteTransferCount.QuadPart, PerfInformation.IoWriteOperationCount);
+	m_Stats.Io.SetOther(PerfInformation.IoOtherTransferCount.QuadPart, PerfInformation.IoOtherOperationCount);
+
+	//SYSTEM_INFO SystemInfo;
+	//GetSystemInfo(&SystemInfo);
+	//SystemInfo.dwPageSize // todo: use this instead of PAGE_SIZE
+
+	//m_Stats.MMapIo.ReadRaw = m->PageReadCount.FixValue(PerfInformation.PageReadCount) * SystemInfo.dwPageSize;
+	m_Stats.MMapIo.ReadRaw = (m->PageReadCount.FixValue(PerfInformation.PageReadCount) + m->CacheReadCount.FixValue(PerfInformation.CacheReadCount)) * PAGE_SIZE;
+	m_Stats.MMapIo.ReadCount = (quint64)PerfInformation.PageReadIoCount + (quint64)PerfInformation.CacheIoCount;
+	
+	//m_Stats.MMapIo.WriteRaw = ((quint64)PerfInformation.MappedPagesWriteCount + (quint64)PerfInformation.DirtyPagesWriteCount + (quint64)PerfInformation.CcLazyWritePages) * SystemInfo.dwPageSize;
+	m_Stats.MMapIo.WriteRaw = (m->MappedPagesWriteCount.FixValue(PerfInformation.MappedPagesWriteCount) + m->DirtyPagesWriteCount.FixValue(PerfInformation.DirtyPagesWriteCount) + m->CcLazyWritePages.FixValue(PerfInformation.CcLazyWritePages)) * PAGE_SIZE;
+	m_Stats.MMapIo.WriteCount = (quint64)PerfInformation.MappedWriteIoCount + (quint64)PerfInformation.DirtyWriteIoCount + (quint64)PerfInformation.CcLazyWriteIos;
+
+	m_CpuStats.PageFaultsDelta.Update(PerfInformation.PageFaultCount);
+
+	m_CommitedMemory = UInt32x32To64(PerfInformation.CommittedPages, PAGE_SIZE);
+	m_CommitedMemoryPeak = UInt32x32To64(PerfInformation.PeakCommitment, PAGE_SIZE);
+	m_MemoryLimit = UInt32x32To64(PerfInformation.CommitLimit, PAGE_SIZE);
+	m_PagedMemory = UInt32x32To64(PerfInformation.PagedPoolPages, PAGE_SIZE);
+	m_PersistentPagedMemory = UInt32x32To64(PerfInformation.ResidentPagedPoolPage, PAGE_SIZE);
+	m_NonPagedMemory = UInt32x32To64(PerfInformation.NonPagedPoolPages, PAGE_SIZE);
+	m_PhysicalUsed = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages - PerfInformation.AvailablePages, PAGE_SIZE);
+	m_CacheMemory = UInt32x32To64(PerfInformation.ResidentSystemCachePage, PAGE_SIZE);
+}
+
+void CWindowsAPI::UpdateNetStats()
+{
+	MIB_IF_TABLE2* pIfTable = NULL;
+	if (GetIfTable2(&pIfTable) == NO_ERROR)
+	{
+		quint64 uRecvTotal = 0;
+		quint64 uRecvCount = 0;
+		quint64 uSentTotal = 0;
+		quint64 uSentCount = 0;
+		for (int i = 0; i < pIfTable->NumEntries; i++)
+		{
+			MIB_IF_ROW2* pIfRow = (MIB_IF_ROW2*)& pIfTable->Table[i];
+
+			if (pIfRow->InterfaceAndOperStatusFlags.FilterInterface)
+				continue;
+			//qDebug() << QString::fromWCharArray(pIfRow->Description);
+
+			uRecvTotal += pIfRow->InOctets;
+			uRecvCount += pIfRow->InUcastPkts + pIfRow->InNUcastPkts;
+
+			uSentTotal += pIfRow->OutOctets;
+			uSentCount += pIfRow->OutUcastPkts + pIfRow->OutNUcastPkts;
+		}
+
+		FreeMibTable(pIfTable);
+
+		QWriteLocker Locker(&m_StatsMutex);
+
+		m_Stats.NetIf.ReceiveRaw = uRecvTotal;
+		m_Stats.NetIf.ReceiveCount = uSentCount;
+
+		m_Stats.NetIf.SendRaw = uSentTotal;
+		m_Stats.NetIf.SendCount = uRecvCount;
+	}
+
+
+	/////////////////////////////////////////////////////////////////////
+	// ras connections
+
+	LPRASCONN lpRasConn = new RASCONN[1];
+	DWORD cb = sizeof(RASCONN);
+	lpRasConn->dwSize = sizeof(RASCONN);
+	DWORD dwConnections = 0;
+	DWORD dwRet = RasEnumConnections(lpRasConn, &cb, &dwConnections);
+	if (dwRet == ERROR_BUFFER_TOO_SMALL)
+	{
+		delete[] lpRasConn;
+		lpRasConn = new RASCONN[dwConnections];
+		lpRasConn->dwSize = sizeof(RASCONN);
+		dwRet = RasEnumConnections(lpRasConn, &cb, &dwConnections);
+	}
+
+	if (dwRet == ERROR_SUCCESS)
+	{
+		QWriteLocker Locker(&m_StatsMutex);
+
+		// given that nowadays ras is almost exclusivly used for VPN's there is no point in differentiating here by type
+
+		//quint64 uVpnRecvTotal = 0;
+		//quint64 uVpnRecvCount = 0;
+		//quint64 uVpnSentTotal = 0;
+		//quint64 uVpnSentCount = 0;
+
+		quint64 uRasRecvTotal = 0;
+		quint64 uRasRecvCount = 0;
+		quint64 uRasSentTotal = 0;
+		quint64 uRasSentCount = 0;
+
+		QSet<QString> OldRasCons = m_RasCons.keys().toSet();
+
+		for (DWORD i = 0; i < dwConnections; i++)
+		{
+			LPRASCONN pRasConn = &lpRasConn[i];
+
+			QString EntryName = QString::fromWCharArray(pRasConn->szEntryName);
+
+			SWinRasCon* pRasCon = NULL;
+			QMap<QString, SWinRasCon>::iterator I = m_RasCons.find(EntryName);
+			if (I == m_RasCons.end())
+			{
+				pRasCon = &m_RasCons.insert(EntryName, SWinRasCon()).value();
+				pRasCon->EntryName = EntryName;
+				pRasCon->DeviceName = QString::fromWCharArray(pRasConn->szDeviceName);
+			}
+			else
+			{
+				pRasCon = &I.value();
+				OldRasCons.remove(EntryName);
+			}
+
+			RAS_STATS Statistics;
+			Statistics.dwSize = sizeof(RAS_STATS);
+			if (RasGetConnectionStatistics(pRasConn->hrasconn, &Statistics) != ERROR_SUCCESS)
+				continue;
+
+			//if (_wcsicmp(pRasConn->szDeviceType, RASDT_Vpn) == 0)
+			//{
+			//	uVpnRecvTotal += pRasCon->BytesRecv.FixValue(Statistics.dwBytesRcved);
+			//	uVpnRecvCount += pRasCon->RecvCount = Statistics.dwFramesRcved;
+			//
+			//	uVpnSentTotal += pRasCon->BytesSent.FixValue(Statistics.dwBytesXmited);
+			//	uVpnSentCount += pRasCon->SentCount = Statistics.dwFramesXmited;
+			//}
+			//else
+			{
+				uRasRecvTotal += pRasCon->BytesRecv.FixValue(Statistics.dwBytesRcved);
+				uRasRecvCount += pRasCon->RecvCount = Statistics.dwFramesRcved;
+
+				uRasSentTotal += pRasCon->BytesSent.FixValue(Statistics.dwBytesXmited);
+				uRasSentCount += pRasCon->SentCount = Statistics.dwFramesXmited;
+			}
+		}
+
+		foreach(const QString& EntryName, OldRasCons)
+			m_RasCons.remove(EntryName);
+
+
+		//m_Stats.NetVpn.ReceiveRaw = uVpnRecvTotal;
+		//m_Stats.NetVpn.ReceiveCount = uVpnSentCount;
+		//
+		//m_Stats.NetVpn.SendRaw = uVpnSentTotal;
+		//m_Stats.NetVpn.SendCount = uVpnRecvCount;
+
+		m_Stats.NetRas.ReceiveRaw = uRasRecvTotal;
+		m_Stats.NetRas.ReceiveCount = uRasSentCount;
+
+		m_Stats.NetRas.SendRaw = uRasSentTotal;
+		m_Stats.NetRas.SendCount = uRasRecvCount;
+	}
+
+	delete[] lpRasConn;
+
+
+	/////////////////////////////////////////////////////////////////////
+	// samba traffic
+
+	LARGE_INTEGER ClientBytesReceived;
+	LARGE_INTEGER ClientSendRaw;
+	STAT_WORKSTATION_0* wrkStat = NULL;
+	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanWorkstation", 0, 0, (LPBYTE*)&wrkStat)))
+	{
+		ClientBytesReceived = wrkStat->BytesReceived;
+		//ClientReceiveCount = wrkStat->SmbsReceived;
+		
+		ClientSendRaw = wrkStat->BytesTransmitted;
+		//ClientSendCount = wrkStat->SmbsTransmitted;
+
+		NetApiBufferFree(wrkStat);
+	}
+
+	LARGE_INTEGER ServerBytesReceived;
+	LARGE_INTEGER ServerSendRaw;
+	_STAT_SERVER_0* srvStat = NULL;
+	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)))
+	{
+		ServerBytesReceived.HighPart = srvStat->sts0_bytesrcvd_high;
+		ServerBytesReceived.LowPart = srvStat->sts0_bytesrcvd_low;
+	
+		ServerSendRaw.HighPart = srvStat->sts0_bytessent_high;
+		ServerSendRaw.LowPart = srvStat->sts0_bytessent_low;
+	
+		NetApiBufferFree(srvStat);
+	}
+
+	QWriteLocker Locker(&m_StatsMutex);
+
+	m_Stats.SambaClient.ReceiveRaw = ClientBytesReceived.QuadPart;
+	//m_Stats.SambaClient.ReceiveCount = ClientReceiveCount.QuadPart;
+		
+	m_Stats.SambaClient.SendRaw = ClientSendRaw.QuadPart;
+	//m_Stats.SambaClient.SendCount = ClientSendCount.QuadPart;
+
+	m_Stats.SambaServer.ReceiveRaw = ServerBytesReceived.QuadPart;
+	//m_Stats.SambaServer.ReceiveCount = 
+
+	m_Stats.SambaServer.SendRaw =ServerSendRaw.QuadPart;
+	//m_Stats.SambaServer.SendCount = 
+}
+
+bool CWindowsAPI::UpdateSysStats()
+{
+	UpdatePerfStats();
+
+	UpdateNetStats();
+
+	QWriteLocker StatsLocker(&m_StatsMutex);
+	m_Stats.UpdateStats();
+
+	return true;
+}
+
 bool CWindowsAPI::UpdateProcessList()
 {
-	ULONG64 sysTotalTime; // total time for this update period
-    ULONG64 sysTotalCycleTime = 0; // total cycle time for this update period
-    ULONG64 sysIdleCycleTime = 0; // total idle cycle time for this update period
+	quint64 sysTotalTime; // total time for this update period
+    quint64 sysTotalCycleTime = 0; // total cycle time for this update period
+    quint64 sysIdleCycleTime = 0; // total idle cycle time for this update period
 
 	bool PhEnableCycleCpuUsage = false; // todo add settings
-
-	UpdatePerfStats();
 
     if (PhEnableCycleCpuUsage)
     {
@@ -267,6 +498,10 @@ bool CWindowsAPI::UpdateProcessList()
     {
         sysTotalTime = UpdateCpuStats(true);
     }
+
+	int iLinuxStyleCPU = theConf->GetInt("Options/LinuxStyleCPU", 2);
+
+	quint64 sysTotalTimePerCPU = sysTotalTime / m_CpuCount;
 
 
 	QSet<quint64> Added;
@@ -323,9 +558,9 @@ bool CWindowsAPI::UpdateProcessList()
 		}
 
 		bool bChanged = false;
-		bChanged = pProcess->UpdateDynamicData(process, sysTotalTime, sysTotalCycleTime);
+		bChanged = pProcess->UpdateDynamicData(process, iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime);
 
-		pProcess->UpdateThreadData(process, sysTotalTime, sysTotalCycleTime);
+		pProcess->UpdateThreadData(process, iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime); // a thread can ever only use one CPU to use linux style ylways
 
 		pProcess->SetWndHandles(GetWindowByPID((quint64)process->UniqueProcessId).count());
 
@@ -372,9 +607,18 @@ bool CWindowsAPI::UpdateProcessList()
 	QWriteLocker Locker(&m_ProcessMutex);
 	foreach(quint64 ProcessID, OldProcesses.keys())
 	{
-		QSharedPointer<CWinProcess> pProcess = m_ProcessList.take(ProcessID).objectCast<CWinProcess>();
-		pProcess->UnInit();
-		Removed.insert(ProcessID);
+		QSharedPointer<CWinProcess> pProcess = m_ProcessList.value(ProcessID).objectCast<CWinProcess>();
+		if (pProcess->CanBeRemoved())
+		{
+			m_ProcessList.remove(ProcessID);
+			Removed.insert(ProcessID);
+		}
+		else if (!pProcess->IsMarkedForRemoval())
+		{
+			pProcess->MarkForRemoval();
+			pProcess->UnInit();
+			Changed.insert(ProcessID);
+		}
 	}
 	Locker.unlock();
 
@@ -382,10 +626,7 @@ bool CWindowsAPI::UpdateProcessList()
 
 	emit ProcessListUpdated(Added, Changed, Removed);
 
-
 	QWriteLocker StatsLocker(&m_StatsMutex);
-	m_Stats.UpdateStats();
-	m_SambaStats.UpdateStats();
 
 	m_TotalProcesses = newTotalProcesses;
     m_TotalThreads = newTotalThreads;
@@ -523,7 +764,7 @@ bool CWindowsAPI::UpdateSocketList()
 		}
 
 		bool bChanged = false;
-		if (bAdd || pSocket->GetCreateTime().isNull()) { // on network events we may add new, yet un enumerated, sockets 
+		if (bAdd || pSocket->GetCreateTimeStamp() == 0) { // on network events we may add new, yet un enumerated, sockets 
 			pSocket->InitStaticDataEx(&(connections[i]));
 			bChanged = true;
 		}
@@ -598,27 +839,28 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 	AddNetworkIO(Type, TransferSize);
 
 	// Hack to get samba stats - check for system using Samba port 445 + (NetBIOS 137, 138, and 139)
-	if (ProcessId == (quint64)SYSTEM_PROCESS_ID)
+	// the propper way has been found
+	/*if (ProcessId == (quint64)SYSTEM_PROCESS_ID)
 	{
-		if (RemotePort == 445 || RemotePort == 137 || RemotePort == 138 || RemotePort == 139) // Samba client
+		if (RemotePort == 445)// || RemotePort == 137 || RemotePort == 138 || RemotePort == 139) // Samba client
 		{
 			QWriteLocker Locker(&m_StatsMutex);
 			switch (Type)
 			{
-			case EtEtwNetworkReceiveType:	m_SambaStats.Client.AddReceive(TransferSize); break;
-			case EtEtwNetworkSendType:		m_SambaStats.Client.AddSend(TransferSize); break;
+			case EtEtwNetworkReceiveType:	m_Stats.SambaClient.AddReceive(TransferSize); break;
+			case EtEtwNetworkSendType:		m_Stats.SambaClient.AddSend(TransferSize); break;
 			}
 		}
-		else if (LocalPort == 445 || LocalPort == 137 || LocalPort == 138 || LocalPort == 139) // Samba server
+		else if (LocalPort == 445)// || LocalPort == 137 || LocalPort == 138 || LocalPort == 139) // Samba server
 		{
 			QWriteLocker Locker(&m_StatsMutex);
 			switch (Type)
 			{
-			case EtEtwNetworkReceiveType:	m_SambaStats.Server.AddReceive(TransferSize); break;
-			case EtEtwNetworkSendType:		m_SambaStats.Server.AddSend(TransferSize); break;
+			case EtEtwNetworkReceiveType:	m_Stats.SambaServer.AddReceive(TransferSize); break;
+			case EtEtwNetworkSendType:		m_Stats.SambaServer.AddSend(TransferSize); break;
 			}
 		}
-	}
+	}*/
 
 	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, false).objectCast<CWinSocket>();
 	bool bAdd = false;
@@ -703,12 +945,17 @@ bool CWindowsAPI::UpdateOpenFileList()
     if (!NT_SUCCESS(PhEnumHandlesEx(&handleInfo)))
         return false;
 
+	quint64 TimeStamp = GetTime() * 1000;
+
 	// Copy the handle Map
 	QMap<quint64, CHandlePtr> OldHandles = GetOpenFilesList();
 
 	// Note: we coudl do without the driver but we dont want to
-	if (!KphIsConnected())
-		return false;
+	//if (!KphIsConnected())
+	//{
+	//	PhFree(handleInfo);
+	//	return false;
+	//}
 
 	QMap<quint64, HANDLE> ProcessHandles;
 
@@ -752,7 +999,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 					continue;
 			}
 
-			pWinHandle->InitStaticData(handle);
+			pWinHandle->InitStaticData(handle, TimeStamp);
             pWinHandle->InitExtData(handle,(quint64)ProcessHandle);	
 
 			// ignore results without a valid file Name
@@ -795,9 +1042,18 @@ bool CWindowsAPI::UpdateOpenFileList()
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 HandleID, OldHandles.keys())
 	{
-		QSharedPointer<CWinHandle> pWinHandle = m_OpenFilesList.take(HandleID).objectCast<CWinHandle>();
-		//m_HandleByObject.remove(pWinHandle->GetObject(), pWinHandle);
-		Removed.insert(HandleID);
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).objectCast<CWinHandle>();
+		if (pWinHandle->CanBeRemoved())
+		{
+			//m_HandleByObject.remove(pWinHandle->GetObject(), pWinHandle);
+			m_OpenFilesList.remove(HandleID);
+			Removed.insert(HandleID);
+		}
+		else if (!pWinHandle->IsMarkedForRemoval())
+		{
+			pWinHandle->MarkForRemoval();
+			Changed.insert(HandleID); 
+		}
 	}
 	Locker.unlock();
     
@@ -806,17 +1062,11 @@ bool CWindowsAPI::UpdateOpenFileList()
 	return true;
 }
 
-// Note: On windows drivers and services are handles with the same API
-//			while on linux daemons and kernel modules are two completly different things
-//			hence we want to keep it on windows as separated as can be
-//		 In the linux build daemons and kernel modules are laoded individually
-//
-
 bool CWindowsAPI::UpdateServiceList()
 {
-	QSet<QString> AddedDrv,AddedSvc;
-	QSet<QString> ChangedDrv,ChangedSvc;
-	QSet<QString> RemovedDrv,RemovedSvc;
+	QSet<QString> Added;
+	QSet<QString> Changed;
+	QSet<QString> Removed;
 
     SC_HANDLE scManagerHandle = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
 
@@ -831,7 +1081,6 @@ bool CWindowsAPI::UpdateServiceList()
 		return false;
 	}
 
-	QMap<QString, CServicePtr> OldDriver = GetDriverList();
 	QMap<QString, CServicePtr> OldService = GetServiceList();
 
 	for (ULONG i = 0; i < numberOfServices; i++)
@@ -844,67 +1093,247 @@ bool CWindowsAPI::UpdateServiceList()
 		QString Name = QString::fromWCharArray(service->lpServiceName);
 
 		QSharedPointer<CWinService> pService = OldService.take(Name).objectCast<CWinService>();
-		if(pService.isNull())
-			pService = OldDriver.take(Name).objectCast<CWinService>();
 
 		bool bAdd = false;
 		if (pService.isNull())
 		{
 			pService = QSharedPointer<CWinService>(new CWinService());
-			bAdd = pService->InitStaticData(&scManagerHandle, service);
-			if (pService->IsDriver())
-			{
-				QWriteLocker LockerDrv(&m_DriverMutex);
-				ASSERT(!m_DriverList.contains(Name));
-				m_DriverList.insert(Name, pService);
-			}
-			else
-			{
-				QWriteLocker LockerSvc(&m_ServiceMutex);
-				ASSERT(!m_ServiceList.contains(Name));
-				m_ServiceList.insert(Name, pService);
-			}
+			bAdd = pService->InitStaticData(service);
+			QWriteLocker Locker(&m_ServiceMutex);
+			ASSERT(!m_ServiceList.contains(Name));
+			m_ServiceList.insert(Name, pService);
 		}
 
 		bool bChanged = false;
+
+		if (pService->UpdatePID(service))
+		{
+			quint64 uServicePID = pService->GetPID();
+			QWriteLocker Locker(&m_ServiceMutex);
+			if(uServicePID != 0)
+				m_ServiceByPID.insertMulti(uServicePID, Name);
+			else
+				m_ServiceByPID.remove(uServicePID, Name);
+			Locker.unlock();
+			// if the pid just changed we couldn't have set it on the process, so do it now
+			if (uServicePID)
+			{
+				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uServicePID).objectCast<CWinProcess>();
+				if(pProcess)
+					pProcess->AddService(Name);
+			}
+		}
+
 		bChanged = pService->UpdateDynamicData(&scManagerHandle, service);
 
 		if (bAdd)
-			(pService->IsDriver() ? AddedDrv : AddedSvc).insert(Name);
+			Added.insert(Name);
 		else if (bChanged)
-			(pService->IsDriver() ? ChangedDrv : ChangedSvc).insert(Name);
+			Changed.insert(Name);
 	}
 
-	QWriteLocker LockerDrv(&m_DriverMutex);
-	foreach(const QString& Name, OldDriver.keys())
-	{
-		QSharedPointer<CWinService> pService = m_ServiceList.take(Name).objectCast<CWinService>();
-		pService->UnInit();
-		RemovedDrv.insert(Name);
-	}
-	LockerDrv.unlock();
-
-	QWriteLocker LockerSvc(&m_ServiceMutex);
+	QWriteLocker Locker(&m_ServiceMutex);
 	foreach(const QString& Name, OldService.keys())
 	{
-		QSharedPointer<CWinService> pService = m_ServiceList.take(Name).objectCast<CWinService>();
+		QSharedPointer<CWinService> pService = m_ServiceList.value(Name).objectCast<CWinService>();
 		pService->UnInit();
-		RemovedSvc.insert(Name);
+		if (pService->CanBeRemoved())
+		{
+			m_ServiceList.remove(Name);
+			Removed.insert(Name);
+		}
+		else if (!pService->IsMarkedForRemoval())
+			pService->MarkForRemoval();
 	}
-	LockerSvc.unlock();
+	Locker.unlock();
 
 	PhFree(services);
 
 	CloseServiceHandle(scManagerHandle);
     
-	emit ServiceListUpdated(AddedSvc, ChangedSvc, RemovedSvc);
-
-	emit DriverListUpdated(AddedDrv, ChangedDrv, RemovedDrv);
+	emit ServiceListUpdated(Added, Changed, Removed);
 
 	return true;
 }
 
 bool CWindowsAPI::UpdateDriverList() 
 {
+	QSet<QString> Added;
+	QSet<QString> Changed;
+	QSet<QString> Removed;
+
+	PRTL_PROCESS_MODULES ModuleInfo = NULL;
+	ULONG len = 0;
+	NTSTATUS status = NtQuerySystemInformation(SystemModuleInformation, NULL, 0, &len);
+	if (status == STATUS_INFO_LENGTH_MISMATCH)
+		ModuleInfo = (PRTL_PROCESS_MODULES)malloc(len);
+	
+	status = NtQuerySystemInformation(SystemModuleInformation, ModuleInfo, len, NULL);
+    if(!NT_SUCCESS(status))
+    {
+		free(ModuleInfo);
+        return false;
+    }
+ 
+	QMap<QString, CDriverPtr> OldDrivers = GetDriverList();
+
+    for(int i=0;i<ModuleInfo->NumberOfModules;i++)
+    {
+		PRTL_PROCESS_MODULE_INFORMATION Module = &ModuleInfo->Modules[i];
+		QString BinaryPath = (char*)Module->FullPathName;
+
+		QSharedPointer<CWinDriver> pWinDriver = OldDrivers.take(BinaryPath).objectCast<CWinDriver>();
+
+		bool bAdd = false;
+		if (pWinDriver.isNull())
+		{
+			pWinDriver = QSharedPointer<CWinDriver>(new CWinDriver());
+			bAdd = pWinDriver->InitStaticData(Module);
+			QWriteLocker Locker(&m_DriverMutex);
+			ASSERT(!m_DriverList.contains(BinaryPath));
+			m_DriverList.insert(BinaryPath, pWinDriver);
+		}
+
+		bool bChanged = false;
+		//bChanged = pWinDriver->UpdateDynamicData();
+			
+		if (bAdd)
+			Added.insert(BinaryPath);
+		else if (bChanged)
+			Changed.insert(BinaryPath);
+    }
+
+	QWriteLocker Locker(&m_DriverMutex);
+	foreach(const QString& Name, OldDrivers.keys())
+	{
+		QSharedPointer<CWinDriver> pDriver = m_DriverList.value(Name).objectCast<CWinDriver>();
+		if (pDriver->CanBeRemoved())
+		{
+			m_DriverList.remove(Name);
+			Removed.insert(Name);
+		}
+		else if (!pDriver->IsMarkedForRemoval())
+			pDriver->MarkForRemoval();
+	}
+	Locker.unlock();
+ 
+    free(ModuleInfo);
+
+	emit DriverListUpdated(Added, Changed, Removed);
+
 	return true; 
+}
+
+// MSDN: FILETIME Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
+
+quint64 FILETIME2ms(quint64 fileTime)
+{
+	if (fileTime < 116444736000000000ULL)
+		return 0;
+	return (fileTime - 116444736000000000ULL) / 10000ULL;
+}
+
+time_t FILETIME2time(quint64 fileTime)
+{
+	return FILETIME2ms(fileTime) / 1000ULL;
+}
+
+//////////////////////////////////////////////////
+//
+
+typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
+
+// Helper function to count set bits in the processor mask.
+DWORD CountSetBits(ULONG_PTR bitMask)
+{
+    DWORD LSHIFT = sizeof(ULONG_PTR)*8 - 1;
+    DWORD bitSetCount = 0;
+    ULONG_PTR bitTest = (ULONG_PTR)1 << LSHIFT;    
+    DWORD i;
+    
+    for (i = 0; i <= LSHIFT; ++i)
+    {
+        bitSetCount += ((bitMask & bitTest)?1:0);
+        bitTest/=2;
+    }
+
+    return bitSetCount;
+}
+
+bool CWindowsAPI::InitCpuCount()
+{
+	LPFN_GLPI getLogicalProcessorInformation = (LPFN_GLPI)GetProcAddress(GetModuleHandle(L"kernel32"), "GetLogicalProcessorInformation");
+	if (NULL == getLogicalProcessorInformation)
+	{
+		qDebug() << "GetLogicalProcessorInformation is not supported.";
+		return false;
+	}
+
+	DWORD logicalProcessorCount = 0;
+	DWORD numaNodeCount = 0;
+	DWORD processorCoreCount = 0;
+	DWORD processorL1CacheCount = 0;
+	DWORD processorL2CacheCount = 0;
+	DWORD processorL3CacheCount = 0;
+	DWORD processorPackageCount = 0;
+
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
+	DWORD returnLength = 0;
+	DWORD rc = getLogicalProcessorInformation(buffer, &returnLength);
+	buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(returnLength);
+	rc = getLogicalProcessorInformation(buffer, &returnLength);
+
+	if (!NT_SUCCESS(rc))
+	{
+		qDebug() << "GetLogicalProcessorInformation Error:" << GetLastError();
+		free(buffer);
+		return false;
+	}
+
+	DWORD byteOffset = 0;
+	for (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength; ptr++, byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION))
+	{
+		switch (ptr->Relationship)
+		{
+		case RelationNumaNode:
+			// Non-NUMA systems report a single record of this type.
+			numaNodeCount++;
+			break;
+
+		case RelationProcessorCore:
+			processorCoreCount++;
+			// A hyperthreaded core supplies more than one logical processor.
+			logicalProcessorCount += CountSetBits(ptr->ProcessorMask);
+			break;
+
+		case RelationCache:
+		{
+			// Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
+			PCACHE_DESCRIPTOR Cache = &ptr->Cache;
+			if (Cache->Level == 1)
+				processorL1CacheCount++;
+			else if (Cache->Level == 2)
+				processorL2CacheCount++;
+			else if (Cache->Level == 3)
+				processorL3CacheCount++;
+			break;
+		}
+
+		case RelationProcessorPackage:
+			// Logical processors share a physical package.
+			processorPackageCount++;
+			break;
+
+		default:
+			qDebug() << "Error: Unsupported LOGICAL_PROCESSOR_RELATIONSHIP value.\n";
+		}
+	}
+
+	free(buffer);
+
+	m_CoreCount = processorCoreCount;
+	m_CpuCount = logicalProcessorCount;
+	m_NumaCount = numaNodeCount;
+
+	return m_CoreCount > 0 && m_CpuCount > 0;
 }

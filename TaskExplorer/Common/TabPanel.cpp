@@ -35,6 +35,7 @@ void CTabPanel::AddTab(QWidget* pWidget, const QString& Name)
 {
 	STab Tab{Name, pWidget, true};
 	m_AllTabs.append(Tab);
+	m_pTabs->addTab(Tab.pWidget, Tab.Name);
 }
 
 void CTabPanel::SaveTabs(int& ActiveTab, QStringList& VisibleTabs)

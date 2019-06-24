@@ -6,7 +6,7 @@
 #include "../../API/Windows/WinWnd.h"
 #endif
 #include "..\Models\WindowModel.h"
-#include "..\Models\SortFilterProxyModel.h"
+#include "..\..\Common\SortFilterProxyModel.h"
 
 
 CWindowsView::CWindowsView(QWidget *parent)
@@ -28,7 +28,7 @@ CWindowsView::CWindowsView(QWidget *parent)
 
 	// Window List
 	m_pWindowList = new QTreeViewEx();
-	m_pWindowList->setItemDelegate(new QStyledItemDelegateMaxH(m_pWindowList->fontMetrics().height() + 3, this));
+	m_pWindowList->setItemDelegate(new CStyledGridItemDelegate(m_pWindowList->fontMetrics().height() + 3, this));
 
 	m_pWindowList->setModel(m_pSortProxy);
 
@@ -73,15 +73,15 @@ CWindowsView::CWindowsView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pWindowList->header()->restoreState(theConf->GetValue(objectName() + "/WindowsView_Columns").toByteArray());
-	//m_pSplitter->restoreState(theConf->GetValue(objectName() + "/WindowsView_Splitter").toByteArray());
+	m_pWindowList->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Columns"));
+	//m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Splitter"));
 }
 
 
 CWindowsView::~CWindowsView()
 {
-	theConf->SetValue(objectName() + "/WindowsView_Columns", m_pWindowList->header()->saveState());
-	//theConf->SetValue(objectName() + "/WindowsView_Splitter",m_pSplitter->saveState());
+	theConf->SetBlob(objectName() + "/WindowsView_Columns", m_pWindowList->header()->saveState());
+	//theConf->SetBlob(objectName() + "/WindowsView_Splitter",m_pSplitter->saveState());
 }
 
 void CWindowsView::ShowWindows(const CProcessPtr& pProcess)
@@ -164,38 +164,42 @@ void CWindowsView::OnWindowAction()
 	if (m_LockValue)
 		return;
 
-	// int ErrorCount = 0;
+	// QList<STATUS> Errors;
 	foreach(const QModelIndex& Index, m_pWindowList->selectedRows())
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CWndPtr pWindow = m_pWindowModel->GetWindow(ModelIndex);
 		if (!pWindow.isNull())
 		{
-			if (sender() == m_pBringToFront && pWindow->BringToFront())
-				continue;
-			if (sender() == m_pHighlight && pWindow->Highlight())
-				continue;
+			STATUS Status = OK;
+			if (sender() == m_pBringToFront)
+				Status = pWindow->BringToFront();
+			else if (sender() == m_pHighlight)
+				Status = pWindow->Highlight();
 
-			if (sender() == m_pRestore && pWindow->Restore())
-				continue;
-			if (sender() == m_pMinimize && pWindow->Minimize())
-				continue;
-			if (sender() == m_pMaximize && pWindow->Maximize())
-				continue;
-			if (sender() == m_pClose && pWindow->Close())
-				continue;
+			else if (sender() == m_pRestore)
+				Status = pWindow->Restore();
+			else if (sender() == m_pMinimize)
+				Status = pWindow->Minimize();
+			else if (sender() == m_pMaximize)
+				Status = pWindow->Maximize();
+			else if (sender() == m_pClose)
+				Status = pWindow->Close();
 
 
-			if (sender() == m_pVisible && pWindow->SetVisible(m_pVisible->isChecked()))
-				continue;
-			if (sender() == m_pEnabled && pWindow->SetEnabled(m_pEnabled->isChecked()))
-				continue;
-			if (sender() == m_pOpacity && pWindow->SetWindowAlpha(m_pOpacity->value()*255/100))
-				continue;
-			if (sender() == m_pOnTop && pWindow->SetAlwaysOnTop(m_pOnTop->isChecked()))
-				continue;
+			else if (sender() == m_pVisible)
+				Status = pWindow->SetVisible(m_pVisible->isChecked());
+			else if (sender() == m_pEnabled)
+				Status = pWindow->SetEnabled(m_pEnabled->isChecked());
+			else if (sender() == m_pOpacity)
+				Status = pWindow->SetWindowAlpha(m_pOpacity->value() * 255 / 100);
+			else if (sender() == m_pOnTop)
+				Status = pWindow->SetAlwaysOnTop(m_pOnTop->isChecked());
 
-			// ErrorCount++
+			//if(Status.IsError())
+			//	Errors.append(Status);
 		}
 	}
+
+	//CTaskExplorer::CheckErrors(Errors);
 }

@@ -60,8 +60,11 @@ private:
 	{
 		Detach();
 
-		p->aRefCnt.fetch_add(1);
-		m = p;
+		if (p != NULL)
+		{
+			p->aRefCnt.fetch_add(1);
+			m = p;
+		}
 	}
 
 	void Detach()

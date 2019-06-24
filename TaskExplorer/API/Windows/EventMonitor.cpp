@@ -3,7 +3,7 @@
  *   qt port of etwmon.c
  *
  * Copyright (C) 2010-2015 wj32
- * Copyright (C) 2019-2020 David Xanatos
+ * Copyright (C) 2019 David Xanatos
  *
  * This file is part of Task Explorer and contains Process Hacker code.
  *

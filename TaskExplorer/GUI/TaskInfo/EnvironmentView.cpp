@@ -13,7 +13,7 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 
 	// Variables List
 	m_pVariablesList = new QTreeWidgetEx();
-	m_pVariablesList->setItemDelegate(new QStyledItemDelegateMaxH(m_pVariablesList->fontMetrics().height() + 3, this));
+	m_pVariablesList->setItemDelegate(new CStyledGridItemDelegate(m_pVariablesList->fontMetrics().height() + 3, this));
 	m_pVariablesList->setHeaderLabels(tr("Name|Type|Value").split("|"));
 
 	m_pVariablesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -34,12 +34,12 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pVariablesList->header()->restoreState(theConf->GetValue(objectName() + "/EnvironmentView_Columns").toByteArray());
+	m_pVariablesList->header()->restoreState(theConf->GetBlob(objectName() + "/EnvironmentView_Columns"));
 }
 
 CEnvironmentView::~CEnvironmentView()
 {
-	theConf->SetValue(objectName() + "/EnvironmentView_Columns", m_pVariablesList->header()->saveState());
+	theConf->SetBlob(objectName() + "/EnvironmentView_Columns", m_pVariablesList->header()->saveState());
 }
 
 void CEnvironmentView::ShowEnvVariables(const CProcessPtr& pProcess)

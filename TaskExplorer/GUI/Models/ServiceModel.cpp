@@ -9,6 +9,9 @@
 CServiceModel::CServiceModel(QObject *parent)
 :CListItemModel(parent)
 {
+#ifdef WIN32
+	m_ShowDriver = true;
+#endif
 }
 
 CServiceModel::~CServiceModel()
@@ -22,6 +25,13 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 	foreach (const CServicePtr& pService, ServiceList)
 	{
+#ifdef WIN32
+		CWinService* pWinService = qobject_cast<CWinService*>(pService.data());
+
+		if (!m_ShowDriver && pWinService->IsDriver())
+			continue;
+#endif
+
 		QVariant ID = pService->GetName();
 
 		int Row = -1;
@@ -41,11 +51,39 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 		int Col = 0;
 		bool State = false;
-		bool Changed = false;
+		int Changed = 0;
 
+		// Note: icons are loaded asynchroniusly
 #ifdef WIN32
-		CWinService* pWinService = qobject_cast<CWinService*>(pService.data());
+		if (!pNode->Icon.isValid())
+		{
+			QPixmap Icon = pWinService->IsDriver() ? g_DllIcon.pixmap(16,16) : pService->GetModuleInfo()->GetFileIcon();
+			if (!Icon.isNull()) {
+				Changed = 1; // set change for first column
+				pNode->Icon = Icon;
+			}
+		}
 #endif
+
+		int RowColor = CTaskExplorer::eNone;
+		if (pService->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pService->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+#ifdef WIN32
+		else if (pWinService->IsDriver())			RowColor = CTaskExplorer::eElevated;
+#endif
+
+		if (pNode->iColor != RowColor) {
+			pNode->iColor = RowColor;
+			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			Changed = 2;
+		}
+
+		if (pNode->IsGray != pService->IsStopped())
+		{
+			pNode->IsGray = pService->IsStopped();
+			Changed = 2;
+		}
+
 
 		for(int section = eService; section < columnCount(); section++)
 		{
@@ -60,21 +98,25 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 				case eStatus:				Value = pService->GetStateString(); break;
 #ifdef WIN32
 				case eStartType:			Value = pWinService->GetStartTypeString(); break;
-				case ePID:					Value = (int)pWinService->GetPID(); break;
 #endif
+				case ePID:					Value = (int)pService->GetPID(); break;
 				case eFileName:				Value = pService->GetFileName(); break;
 #ifdef WIN32
+				case eDescription:			Value = pService->GetModuleInfo()->GetFileInfo("Description"); break;
+				case eCompanyName:			Value = pService->GetModuleInfo()->GetFileInfo("CompanyName"); break;
+				case eVersion:				Value = pService->GetModuleInfo()->GetFileInfo("FileVersion"); break;
 				case eErrorControl:			Value = pWinService->GetErrorControlString(); break;
 				case eGroupe:				Value = pWinService->GetGroupeName(); break;
-				case eBinaryPath:			Value = pWinService->GetBinaryPath(); break;
 #endif
+				case eBinaryPath:			Value = pService->GetBinaryPath(); break;
 			}
 
 			SServiceNode::SValue& ColValue = pNode->Values[section];
 
 			if (ColValue.Raw != Value)
 			{
-				Changed = true;
+				if(Changed == 0)
+					Changed = 1;
 				ColValue.Raw = Value;
 
 				/*switch (section)
@@ -83,14 +125,15 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 				}*/
 			}
 
-			if(State != Changed)
+			if(State != (Changed != 0))
 			{
 				if(State && Row != -1)
 					emit dataChanged(createIndex(Row, Col), createIndex(Row, section-1));
-				State = Changed;
+				State = (Changed != 0);
 				Col = section;
 			}
-			Changed = false;
+			if(Changed == 1)
+				Changed = 0;
 		}
 		if(State && Row != -1)
 			emit dataChanged(createIndex(Row, Col, pNode), createIndex(Row, columnCount()-1, pNode));
@@ -126,13 +169,25 @@ QVariant CServiceModel::headerData(int section, Qt::Orientation orientation, int
 			case eType:					return tr("Type");
 #endif
 			case eStatus:				return tr("Status");
+#ifdef WIN32
 			case eStartType:			return tr("Start type");
+#endif
 			case ePID:					return tr("PID");
 			case eFileName:				return tr("File name");
+#ifdef WIN32
 			case eErrorControl:			return tr("Error control");
 			case eGroupe:				return tr("Groupe");
+			case eDescription:			return tr("Description");
+			case eCompanyName:			return tr("Company name");
+			case eVersion:				return tr("Version");
+#endif
 			case eBinaryPath:			return tr("Binary path");
 		}
 	}
     return QVariant();
+}
+
+QVariant CServiceModel::GetDefaultIcon() const 
+{ 
+	return g_ExeIcon;
 }

@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2017-2019 dmex
- * Copyright (C) 2019-2020 David Xanatos
+ * Copyright (C) 2019 David Xanatos
  *
  * This file is part of Task Explorer and contains Process Hacker code.
  *
@@ -363,7 +363,7 @@ VOID PhInitializeKph(
     PhDereferenceObject(processhackerSigFileName);
 }
 
-int InitPH()
+int InitPH(bool bSvc)
 {
 	HINSTANCE Instance = NULL; // todo?
 	LONG result;
@@ -387,6 +387,22 @@ int InitPH()
 	//PhpProcessStartupParameters();
 	PhpEnablePrivileges();
 
+	if (bSvc)
+	{
+		// Enable some required privileges.
+		HANDLE tokenHandle;
+		if (NT_SUCCESS(PhOpenProcessToken(NtCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &tokenHandle)))
+		{
+			PhSetTokenPrivilege2(tokenHandle, SE_ASSIGNPRIMARYTOKEN_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+			PhSetTokenPrivilege2(tokenHandle, SE_INCREASE_QUOTA_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+			PhSetTokenPrivilege2(tokenHandle, SE_BACKUP_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+			PhSetTokenPrivilege2(tokenHandle, SE_RESTORE_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+			PhSetTokenPrivilege2(tokenHandle, SE_IMPERSONATE_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+			NtClose(tokenHandle);
+		}
+
+		return 0;
+	}
 	/*if (PhStartupParameters.RunAsServiceMode)
     {
         RtlExitUserProcess(PhRunAsServiceStart(PhStartupParameters.RunAsServiceMode));
@@ -1531,206 +1547,145 @@ void PhShowAbout(QWidget* parent)
 		msgBox->exec();
 }
 
-#include <shellapi.h>
 
-ULONG SelectedRunAsMode = ULONG_MAX;
-
-PHAPPAPI HWND PhMainWndHandle = NULL;
-
-BOOLEAN PhMwpOnNotify(
-    _In_ NMHDR *Header,
-    _Out_ LRESULT *Result
+//syssccpu.c
+VOID PhSipGetCpuBrandString(
+    _Out_writes_(49) PWSTR BrandString
     )
 {
-    if (Header->code == RFN_VALIDATE)
-    {
-        LPNMRUNFILEDLG runFileDlg = (LPNMRUNFILEDLG)Header;
+    // dmex: The __cpuid instruction generates quite a few FPs by security software (malware uses this as an anti-VM trick)...
+    // TODO: This comment block should be removed if the SystemProcessorBrandString class is more reliable.
+    //ULONG brandString[4 * 3];
+    //__cpuid(&brandString[0], 0x80000002);
+    //__cpuid(&brandString[4], 0x80000003);
+    //__cpuid(&brandString[8], 0x80000004);
 
-        if (SelectedRunAsMode == RUNAS_MODE_ADMIN)
-        {
-            PH_STRINGREF string;
-            PH_STRINGREF fileName;
-            PH_STRINGREF arguments;
-            PPH_STRING fullFileName;
-            PPH_STRING argumentsString;
+    CHAR brandString[49];
 
-            PhInitializeStringRefLongHint(&string, runFileDlg->lpszFile);
-            PhParseCommandLineFuzzy(&string, &fileName, &arguments, &fullFileName);
+    NtQuerySystemInformation(
+        SystemProcessorBrandString,
+        brandString,
+        sizeof(brandString),
+        NULL
+        );
 
-            if (!fullFileName)
-                fullFileName = PhCreateString2(&fileName);
-
-            argumentsString = PhCreateString2(&arguments);
-
-            if (PhShellExecuteEx(
-                PhMainWndHandle,
-                fullFileName->Buffer,
-                argumentsString->Buffer,
-                runFileDlg->ShowCmd,
-                PH_SHELL_EXECUTE_ADMIN,
-                0,
-                NULL
-                ))
-            {
-                *Result = RF_CANCEL;
-            }
-            else
-            {
-                *Result = RF_RETRY;
-            }
-
-            PhDereferenceObject(fullFileName);
-            PhDereferenceObject(argumentsString);
-
-            return TRUE;
-        }
-        else if (SelectedRunAsMode == RUNAS_MODE_LIMITED)
-        {
-            NTSTATUS status;
-            HANDLE tokenHandle;
-            HANDLE newTokenHandle;
-
-            if (NT_SUCCESS(status = PhOpenProcessToken(
-                NtCurrentProcess(),
-                TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY | TOKEN_ADJUST_GROUPS |
-                TOKEN_ADJUST_DEFAULT | READ_CONTROL | WRITE_DAC,
-                &tokenHandle
-                )))
-            {
-                if (NT_SUCCESS(status = PhFilterTokenForLimitedUser(
-                    tokenHandle,
-                    &newTokenHandle
-                    )))
-                {
-                    status = PhCreateProcessWin32(
-                        NULL,
-                        runFileDlg->lpszFile,
-                        NULL,
-                        NULL,
-                        0,
-                        newTokenHandle,
-                        NULL,
-                        NULL
-                        );
-
-                    NtClose(newTokenHandle);
-                }
-
-                NtClose(tokenHandle);
-            }
-
-            if (NT_SUCCESS(status))
-            {
-                *Result = RF_CANCEL;
-            }
-            else
-            {
-                PhShowStatus(PhMainWndHandle, L"Unable to execute the program.", status, 0);
-                *Result = RF_RETRY;
-            }
-
-            return TRUE;
-        }
-    }
-    else if (Header->code == RFN_LIMITEDRUNAS)
-    {
-        LPNMRUNFILEDLG runFileDlg = (LPNMRUNFILEDLG)Header;
-        PVOID WdcLibraryHandle;
-        ULONG (WINAPI* WdcRunTaskAsInteractiveUser_I)(
-            _In_ PCWSTR CommandLine,
-            _In_ PCWSTR CurrentDirectory,
-            _In_ ULONG Reserved
-            );
-
-
-        // dmex: Task Manager uses RFF_OPTRUNAS and RFN_LIMITEDRUNAS to show the 'Create this task with administrative privileges' checkbox
-        // on the RunFileDlg when the current process is elevated. Task Manager also uses the WdcRunTaskAsInteractiveUser function to launch processes
-        // as the interactive user from an elevated token. The WdcRunTaskAsInteractiveUser function
-        // invokes the "\Microsoft\Windows\Task Manager\Interactive" Task Scheduler task for launching the process but 
-        // doesn't return error information and we need to perform some sanity checks before invoking the task. 
-        // Ideally, we should use our own task but for now just re-use the existing task and do what Task Manager does...
-
-        if (WdcLibraryHandle = LoadLibrary(L"wdc.dll"))
-        {
-            if (WdcRunTaskAsInteractiveUser_I = (ULONG (WINAPI* )(_In_ PCWSTR CommandLine, _In_ PCWSTR CurrentDirectory, _In_ ULONG Reserved)) PhGetDllBaseProcedureAddress(WdcLibraryHandle, "WdcRunTaskAsInteractiveUser", 0))
-            {
-                PH_STRINGREF string;
-                PPH_STRING commandlineString;
-                PPH_STRING executeString = NULL;
-                INT cmdlineArgCount;
-                PWSTR* cmdlineArgList;
-
-                PhInitializeStringRefLongHint(&string, (PWSTR)runFileDlg->lpszFile);
-                commandlineString = PhCreateString2(&string);
-
-                // Extract the filename.
-                if (cmdlineArgList = CommandLineToArgvW(commandlineString->Buffer, &cmdlineArgCount))
-                {
-                    PPH_STRING fileName = PhCreateString(cmdlineArgList[0]);
-
-                    if (fileName && !RtlDoesFileExists_U(fileName->Buffer))
-                    {
-                        PPH_STRING filePathString;
-
-                        // The user typed a name without a path so attempt to locate the executable.
-                        if (filePathString = PhSearchFilePath(fileName->Buffer, L".exe"))
-                            PhMoveReference((PVOID*)&fileName, filePathString);
-                        else
-                            PhClearReference((PVOID*)&fileName);
-                    }
-
-                    if (fileName)
-                    {
-                        // Escape the filename.
-                        PhMoveReference((PVOID*)&fileName, PhConcatStrings(3, L"\"", fileName->Buffer, L"\""));
-
-                        if (cmdlineArgCount == 2)
-                        {
-                            PPH_STRING fileArgs = PhCreateString(cmdlineArgList[1]);
-
-                            // Escape the parameters.
-                            PhMoveReference((PVOID*)&fileArgs, PhConcatStrings(3, L"\"", fileArgs->Buffer, L"\""));
-
-                            // Create the escaped execute string.
-                            PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, fileName->Buffer, L" ", fileArgs->Buffer));
-
-                            // Cleanup.
-                            PhDereferenceObject(fileArgs);
-                        }
-                        else
-                        {
-                            // Create the escaped execute string.
-                            executeString = (PPH_STRING)PhReferenceObject(fileName);
-                        }
-
-                        PhDereferenceObject(fileName);
-                    }
-
-                    LocalFree(cmdlineArgList);
-                }
-
-                if (!PhIsNullOrEmptyString(executeString))
-                {
-                    if (WdcRunTaskAsInteractiveUser_I(executeString->Buffer, NULL, 0) == 0)
-                        *Result = RF_CANCEL;
-                    else
-                        *Result = RF_RETRY;
-                }
-                else
-                {
-                    *Result = RF_RETRY;
-                }
-
-                if (executeString)
-                    PhDereferenceObject(executeString);
-                PhDereferenceObject(commandlineString);
-            }
-
-            FreeLibrary((HMODULE)WdcLibraryHandle);
-        }
-        return TRUE;
-    }
-
-    return FALSE;
+    PhZeroExtendToUtf16Buffer(brandString, 48, BrandString);
+    BrandString[48] = UNICODE_NULL;
 }
+
+/*BOOLEAN PhSipGetCpuFrequencyFromDistribution(
+    _Out_ DOUBLE *Fraction
+    )
+{
+    ULONG stateSize;
+    PVOID differences;
+    PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION stateDistribution;
+    PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION stateDifference;
+    PSYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8 hitcountOld;
+    ULONG i;
+    ULONG j;
+    DOUBLE count;
+    DOUBLE total;
+
+    // Calculate the differences from the last performance distribution.
+
+    if (CurrentPerformanceDistribution->ProcessorCount != NumberOfProcessors || PreviousPerformanceDistribution->ProcessorCount != NumberOfProcessors)
+        return FALSE;
+
+    stateSize = FIELD_OFFSET(SYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION, States) + sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT) * 2;
+    differences = PhAllocate(stateSize * NumberOfProcessors);
+
+    for (i = 0; i < NumberOfProcessors; i++)
+    {
+        stateDistribution = PTR_ADD_OFFSET(CurrentPerformanceDistribution, CurrentPerformanceDistribution->Offsets[i]);
+        stateDifference = PTR_ADD_OFFSET(differences, stateSize * i);
+
+        if (stateDistribution->StateCount != 2)
+        {
+            PhFree(differences);
+            return FALSE;
+        }
+
+        for (j = 0; j < stateDistribution->StateCount; j++)
+        {
+            if (WindowsVersion >= WINDOWS_8_1)
+            {
+                stateDifference->States[j] = stateDistribution->States[j];
+            }
+            else
+            {
+                hitcountOld = PTR_ADD_OFFSET(stateDistribution->States, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8) * j);
+                stateDifference->States[j].Hits = hitcountOld->Hits;
+                stateDifference->States[j].PercentFrequency = hitcountOld->PercentFrequency;
+            }
+        }
+    }
+
+    for (i = 0; i < NumberOfProcessors; i++)
+    {
+        stateDistribution = PTR_ADD_OFFSET(PreviousPerformanceDistribution, PreviousPerformanceDistribution->Offsets[i]);
+        stateDifference = PTR_ADD_OFFSET(differences, stateSize * i);
+
+        if (stateDistribution->StateCount != 2)
+        {
+            PhFree(differences);
+            return FALSE;
+        }
+
+        for (j = 0; j < stateDistribution->StateCount; j++)
+        {
+            if (WindowsVersion >= WINDOWS_8_1)
+            {
+                stateDifference->States[j].Hits -= stateDistribution->States[j].Hits;
+            }
+            else
+            {
+                hitcountOld = PTR_ADD_OFFSET(stateDistribution->States, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8) * j);
+                stateDifference->States[j].Hits -= hitcountOld->Hits;
+            }
+        }
+    }
+
+    // Calculate the frequency.
+
+    count = 0;
+    total = 0;
+
+    for (i = 0; i < NumberOfProcessors; i++)
+    {
+        stateDifference = PTR_ADD_OFFSET(differences, stateSize * i);
+
+        for (j = 0; j < 2; j++)
+        {
+            count += stateDifference->States[j].Hits;
+            total += stateDifference->States[j].Hits * stateDifference->States[j].PercentFrequency;
+        }
+    }
+
+    PhFree(differences);
+
+    if (count == 0)
+        return FALSE;
+
+    total /= count;
+    total /= 100;
+    *Fraction = total;
+
+    return TRUE;
+}*/
+
+
+NTSTATUS PhpOpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+{
+    SC_HANDLE serviceHandle;
+    
+    if (serviceHandle = OpenSCManager(NULL, NULL, DesiredAccess))
+    {
+        *Handle = serviceHandle;
+        return STATUS_SUCCESS;
+    }
+
+    return PhGetLastWin32ErrorAsNtStatus();
+}
+
 

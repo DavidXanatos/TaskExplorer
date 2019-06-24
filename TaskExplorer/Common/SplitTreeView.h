@@ -3,6 +3,15 @@
 
 #include "TreeViewEx.h"
 
+class COneColumnModel : public QIdentityProxyModel
+{
+	Q_OBJECT
+public:
+	COneColumnModel( QObject* parrent = 0) : QIdentityProxyModel(parrent) {}
+
+	int	columnCount(const QModelIndex &parent = QModelIndex()) const { return 1; }
+};
+
 class CSplitTreeView : public QWidget
 {
 	Q_OBJECT
@@ -18,10 +27,37 @@ public:
 	QModelIndex			currentIndex() const { return m_pList->currentIndex(); }
 	QModelIndexList		selectedRows() const;
 
-	QSplitter*			GetSplitter() { return m_pSplitter; }
+	QByteArray			saveState() const;
+	bool				restoreState(const QByteArray &state);
+
+	template<class T>
+	void StartUpdatingWidgets(T& OldMap, T& Map)
+	{
+		for(typename T::iterator I = Map.begin(); I != Map.end();)
+		{
+			if(I.value().first == NULL)
+				I = Map.erase(I);
+			else
+			{
+				OldMap.insert(I.key(), I.value());
+				I++;
+			}
+		}
+	}
+
+	template<class T>
+	void EndUpdatingWidgets(T& OldMap, T& Map)
+	{
+		for(typename T::iterator I = OldMap.begin(); I != OldMap.end(); I++)
+		{
+			Map.remove(I.key());
+			if(I.value().second.isValid())
+				m_pList->setIndexWidget(I.value().second, NULL);
+		}
+	}
 
 signals:
-	void				TreeResized(int Width);
+	void				TreeEnabled(bool bEnabled);
 
 	void				MenuRequested(const QPoint &);
 
@@ -56,11 +92,14 @@ private slots:
 	void				OnTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 	void				OnListCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
+	void				OnTreeCustomSortByColumn(int column);
+	void				OnListCustomSortByColumn(int column);
+
 private:
 
 	QHBoxLayout*			m_pMainLayout;
 
-	bool					m_bTreeHidden;
+	bool					m_bTreeEnabled;
 	QSplitter*				m_pSplitter;
 	QTreeView*				m_pTree;
 	QTreeView*				m_pList;

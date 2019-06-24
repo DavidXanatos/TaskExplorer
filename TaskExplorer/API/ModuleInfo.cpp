@@ -2,7 +2,7 @@
 #include "ModuleInfo.h"
 
 
-CModuleInfo::CModuleInfo(QObject *parent) : QObject(parent)
+CModuleInfo::CModuleInfo(QObject *parent) : CAbstractInfo(parent)
 {
 	m_BaseAddress = NULL;
 	m_Size = 0;

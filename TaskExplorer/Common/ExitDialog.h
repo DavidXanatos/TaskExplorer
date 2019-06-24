@@ -1,10 +1,12 @@
+#pragma once
+
 class CExitDialog : public QDialog
 {
 public:
 	CExitDialog(const QString& Prompt, QWidget* parent = 0)
 	 : QDialog(parent)
 	{
-		QGridLayout* m_pMainLayout = new QGridLayout(this);
+		m_pMainLayout = new QGridLayout(this);
  
 		QLabel* pLabel = new QLabel(Prompt);
 		m_pMainLayout->addWidget(pLabel, 0, 0, 1, 1);

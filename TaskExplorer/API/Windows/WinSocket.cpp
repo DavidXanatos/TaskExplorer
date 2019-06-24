@@ -28,6 +28,7 @@
 #include <lsasup.h>
 
 #include "WinSocket.h"
+#include "WindowsAPI.h"
 #include "EventMonitor.h"
 
 #include <QtWin>
@@ -176,7 +177,7 @@ bool CWinSocket::InitStaticDataEx(struct _PH_NETWORK_CONNECTION* connection)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_CreateTime = QDateTime::fromTime_t((int64_t)connection->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);
+	m_CreateTimeStamp = FILETIME2ms(connection->CreateTime.QuadPart);
 
 	ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
 	memcpy(OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);

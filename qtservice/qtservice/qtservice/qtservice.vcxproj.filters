@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Dateien">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;cxx;c;def</Extensions>
+    </Filter>
+    <Filter Include="Header Dateien">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h</Extensions>
+    </Filter>
+    <Filter Include="Form Dateien">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+    </Filter>
+    <Filter Include="Resource Dateien">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>moc;h;cpp</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien\Debug_Win32">
+      <UniqueIdentifier>{b7b6b5c8-8375-44b9-b32d-624683f536d2}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien\Release_Win32">
+      <UniqueIdentifier>{d59bce11-eb44-4b4c-ab05-d025a4b39878}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien\Template_Win32">
+      <UniqueIdentifier>{9813c7a0-6cb5-42bc-bc5c-e6a964b04b19}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien\Debug_x64">
+      <UniqueIdentifier>{4ade4e24-4e67-4f81-97c7-845f606bb483}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien\Release_x64">
+      <UniqueIdentifier>{ab61f830-9f96-47b7-905b-8e4b5c1f8afb}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generierte Dateien\Template_x64">
+      <UniqueIdentifier>{cd456f7d-1867-44b7-8f04-78c8edbab130}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\qtservice.cpp">
+      <Filter>Source Dateien</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\qtservice_win.cpp">
+      <Filter>Source Dateien</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src2\adminauthorization.cpp">
+      <Filter>Source Dateien</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src2\adminauthorization_win.cpp">
+      <Filter>Source Dateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_adminauthorization.cpp">
+      <Filter>Generierte Dateien\Debug_Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="x64\GeneratedFiles\Debug\moc_adminauthorization.cpp">
+      <Filter>Generierte Dateien\Debug_x64</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\GeneratedFiles\Release\moc_adminauthorization.cpp">
+      <Filter>Generierte Dateien\Release_Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="x64\GeneratedFiles\Release\moc_adminauthorization.cpp">
+      <Filter>Generierte Dateien\Release_x64</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\GeneratedFiles\Template\moc_adminauthorization.cpp">
+      <Filter>Generierte Dateien\Template_Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="x64\GeneratedFiles\Template\moc_adminauthorization.cpp">
+      <Filter>Generierte Dateien\Template_x64</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\..\src\qtservice.h">
+      <Filter>Header Dateien</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\..\src\qtservice_p.h">
+      <Filter>Header Dateien</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Win32\GeneratedFiles\Debug\qtservice_win.moc">
+      <Filter>Generierte Dateien\Debug_Win32</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Win32\GeneratedFiles\Release\qtservice_win.moc">
+      <Filter>Generierte Dateien\Release_Win32</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Win32\GeneratedFiles\Template\qtservice_win.moc">
+      <Filter>Generierte Dateien\Template_Win32</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64\GeneratedFiles\Debug\qtservice_win.moc">
+      <Filter>Generierte Dateien\Debug_x64</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64\GeneratedFiles\Release\qtservice_win.moc">
+      <Filter>Generierte Dateien\Release_x64</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64\GeneratedFiles\Template\qtservice_win.moc">
+      <Filter>Generierte Dateien\Template_x64</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Win32\GeneratedFiles\Debug\qtservice.moc">
+      <Filter>Generierte Dateien\Debug_Win32</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Win32\GeneratedFiles\Release\qtservice.moc">
+      <Filter>Generierte Dateien\Release_Win32</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Win32\GeneratedFiles\Template\qtservice.moc">
+      <Filter>Generierte Dateien\Template_Win32</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64\GeneratedFiles\Debug\qtservice.moc">
+      <Filter>Generierte Dateien\Debug_x64</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64\GeneratedFiles\Release\qtservice.moc">
+      <Filter>Generierte Dateien\Release_x64</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64\GeneratedFiles\Template\qtservice.moc">
+      <Filter>Generierte Dateien\Template_x64</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\..\src2\adminauthorization.h">
+      <Filter>Header Dateien</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

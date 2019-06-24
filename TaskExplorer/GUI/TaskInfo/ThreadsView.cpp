@@ -30,7 +30,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pSortProxy->setDynamicSortFilter(true);
 
 	m_pThreadList = new QTreeViewEx();
-	m_pThreadList->setItemDelegate(new QStyledItemDelegateMaxH(m_pThreadList->fontMetrics().height() + 3, this));
+	m_pThreadList->setItemDelegate(new CStyledGridItemDelegate(m_pThreadList->fontMetrics().height() + 3, this));
 
 	m_pThreadList->setModel(m_pSortProxy);
 
@@ -58,9 +58,9 @@ CThreadsView::CThreadsView(QWidget *parent)
 	AddTaskItemsToMenu();
 	m_pMenu->addSeparator();
 #ifdef WIN32
-	m_pCancelIO = m_pMenu->addAction(tr("Cancel I/O"), this, SLOT(OnCancelIO()));
+	m_pCancelIO = m_pMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
 	//m_pAnalyze;
-	m_pCritical = m_pMenu->addAction(tr("Critical"), this, SLOT(OnCritical()));
+	m_pCritical = m_pMenu->addAction(tr("Critical"), this, SLOT(OnThreadAction()));
 	m_pCritical->setCheckable(true);
 	//m_pPermissions;
 	//m_pToken;
@@ -70,13 +70,13 @@ CThreadsView::CThreadsView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pThreadList->header()->restoreState(theConf->GetValue(objectName() + "/ThreadView_Columns").toByteArray());
+	m_pThreadList->header()->restoreState(theConf->GetBlob(objectName() + "/ThreadView_Columns"));
 }
 
 
 CThreadsView::~CThreadsView()
 {
-	theConf->SetValue(objectName() + "/ThreadView_Columns", m_pThreadList->header()->saveState());
+	theConf->SetBlob(objectName() + "/ThreadView_Columns", m_pThreadList->header()->saveState());
 }
 
 void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
@@ -91,6 +91,8 @@ void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
 
 	if(!m_pCurThread.isNull())
 		m_pCurThread->TraceStack();
+
+	OnUpdateHistory();
 }
 
 void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
@@ -142,34 +144,16 @@ void CThreadsView::OnMenu(const QPoint &point)
 	CPanelView::OnMenu(point);
 }
 
-void CThreadsView::OnCancelIO()
+void CThreadsView::OnThreadAction()
 {
 #ifdef WIN32
-	if(QMessageBox("TaskExplorer", tr("Do you want to cancel I/O for the selected thread(s)?"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
-		return;
-
-	int ErrorCount = 0;
-	foreach(const QModelIndex& Index, m_pThreadList->selectedRows())
+	if (sender() == m_pCancelIO)
 	{
-		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
-		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
-		if (!pWinThread.isNull())
-		{
-			if (!pWinThread->CancelIO())
-				ErrorCount++;
-		}
+		if (QMessageBox("TaskExplorer", tr("Do you want to cancel I/O for the selected thread(s)?"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+			return;
 	}
 
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to cancel IO for %1 threads.").arg(ErrorCount));
-#endif
-}
-
-void CThreadsView::OnCritical()
-{
-#ifdef WIN32
-	int ErrorCount = 0;
+	QList<STATUS> Errors;
 	int Force = -1;
 	foreach(const QModelIndex& Index, m_pThreadList->selectedRows())
 	{
@@ -179,13 +163,20 @@ void CThreadsView::OnCritical()
 		if (!pWinThread.isNull())
 		{
 		retry:
-			STATUS Status = pWinThread->SetCriticalThread(m_pCritical->isChecked(), Force == 1);
+			STATUS Status = OK;
+			if (sender() == m_pCancelIO)
+				Status = pWinThread->CancelIO();
+			else if(sender() == m_pCritical)
+				Status = pWinThread->SetCriticalThread(m_pCritical->isChecked(), Force == 1);
+
 			if (Status.IsError())
 			{
-				if (Force == -1 && Status.GetStatus() == ERROR_CONFIRM)
+				if (Status.GetStatus() == ERROR_CONFIRM)
 				{
-					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					if (Force == -1)
 					{
+						switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+						{
 						case QMessageBox::Yes:
 							Force = 1;
 							goto retry;
@@ -195,15 +186,58 @@ void CThreadsView::OnCritical()
 							break;
 						case QMessageBox::Cancel:
 							return;
+						}
 					}
 				}
-
-				ErrorCount++;
+				else 
+					Errors.append(Status);
 			}
 		}
 	}
 
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to set %1 thread critical").arg(ErrorCount));
+	CTaskExplorer::CheckErrors(Errors);
 #endif
+}
+
+void CThreadsView::OnUpdateHistory()
+{
+	if (!m_pThreadList->isColumnHidden(CThreadModel::eCPU_History))
+	{
+		int HistoryColumn = CThreadModel::eCPU_History;
+		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
+		m_pThreadList->StartUpdatingWidgets(OldMap, m_CPU_History);
+
+		int CellHeight = m_pThreadList->fontMetrics().height();
+		int CellWidth = m_pThreadList->columnWidth(HistoryColumn);
+
+		//for(QModelIndex Index = m_pThreadList->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
+		//{
+		//	Index = Index.sibling(Index.row(), HistoryColumn);
+		//	if(!m_pThreadList->viewport()->rect().intersects(m_pThreadList->visualRect(Index)))
+		//		break; // out of view
+		for (QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
+		{
+			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+			quint64 PID = m_pThreadModel->Data(ModelIndex, Qt::UserRole, CThreadModel::eThread).toULongLong();
+
+			CHistoryGraph* pGraph = OldMap.take(PID).first;
+			if (!pGraph)
+			{
+				pGraph = new CHistoryGraph(true);
+				pGraph->setFixedHeight(CellHeight);
+				pGraph->AddValue(0, Qt::green);
+				pGraph->AddValue(1, Qt::red);
+				m_CPU_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
+				m_pThreadList->setIndexWidget(Index, pGraph);
+			}
+
+			CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
+			STaskStats Stats = pThread->GetCpuStats();
+
+			pGraph->SetValue(0, Stats.CpuUsage);
+			pGraph->SetValue(1, Stats.CpuKernelUsage);
+			pGraph->Update(CellHeight, CellWidth);
+		}
+		m_pThreadList->EndUpdatingWidgets(OldMap, m_CPU_History);
+	}
 }

@@ -27,8 +27,6 @@ public:
 	virtual quint64 GetParentID() const					{ QReadLocker Locker(&m_Mutex); return m_ParentProcessId; }
 	virtual QString GetName() const						{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
 
-	virtual QDateTime GetCreateTime() const				{ QReadLocker Locker(&m_Mutex); return m_CreateTime; }
-
 	virtual bool ValidateParent(CProcessInfo* pParent) const = 0;
 
 	virtual QString GetArchString() const = 0;
@@ -50,7 +48,7 @@ public:
 	virtual ulong GetNumberOfThreads() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfThreads; }
 	virtual ulong GetNumberOfHandles() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfHandles; }
 
-	virtual size_t GetWorkingSetPrivateSize() const		{ QReadLocker Locker(&m_Mutex); return m_WorkingSetPrivateSize; }
+	virtual quint64 GetWorkingSetPrivateSize() const	{ QReadLocker Locker(&m_Mutex); return m_WorkingSetPrivateSize; }
 	virtual ulong GetPeakNumberOfThreads() const		{ QReadLocker Locker(&m_Mutex); return m_PeakNumberOfThreads; }
 	virtual ulong GetHardFaultCount() const				{ QReadLocker Locker(&m_Mutex); return m_HardFaultCount; }
 
@@ -79,7 +77,12 @@ public:
 	virtual STATUS DetachDebugger() = 0;
 	virtual STATUS CreateDump(const QString& DumpPath) = 0;
 
-	virtual SProcStats	GetStats()						{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
+	virtual bool IsSystemProcess() const = 0;
+	virtual bool IsServiceProcess() const = 0;
+	virtual bool IsUserProcess() const = 0;
+	virtual bool IsElevated() const = 0;
+
+	virtual SProcStats	GetStats() const				{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
 	virtual CModulePtr GetModuleInfo()					{ QReadLocker Locker(&m_Mutex); return m_pModuleInfo; }
 
@@ -142,8 +145,6 @@ protected:
 	quint64							m_ParentProcessId;
 	QString							m_ProcessName;
 
-	QDateTime						m_CreateTime;
-
 	// Parameters
 	QString							m_FileName;
 	QString							m_CommandLine;
@@ -156,7 +157,7 @@ protected:
 	ulong							m_NumberOfThreads;
 	ulong							m_NumberOfHandles;
 
-	size_t							m_WorkingSetPrivateSize;
+	quint64							m_WorkingSetPrivateSize;
 	ulong							m_PeakNumberOfThreads;
 	ulong							m_HardFaultCount;
 
@@ -168,8 +169,6 @@ protected:
 
 	// module info
 	CModulePtr						m_pModuleInfo;
-
-	mutable QReadWriteLock			m_Mutex;
 
 	// Threads
 	mutable QReadWriteLock			m_ThreadMutex;

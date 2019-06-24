@@ -134,6 +134,9 @@ struct SWinProcess
     PH_PROCESS_WS_COUNTERS WsCounters;
 	QUOTA_LIMITS QuotaLimits;
 
+	//PROCESS_HANDLE_INFORMATION handleInfo;
+	//PROCESS_UPTIME_INFORMATION uptimeInfo;
+
 	// Other Fields
 	PH_KNOWN_PROCESS_TYPE KnownProcessType;
 	PS_PROTECTION Protection;
@@ -164,12 +167,6 @@ PPH_PROCESS_RECORD Record;
 
 
 // Misc.
-
-ULONG JustProcessed;
-PH_EVENT Stage1Event;
-
-PPH_POINTER_LIST ServiceList;
-PH_QUEUED_LOCK ServiceListLock;
 
 // Dynamic
 
@@ -257,6 +254,10 @@ CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 	m_pModuleInfo = CModulePtr(new CWinModule());
 	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, ulong, ulong)), this, SLOT(OnAsyncDataDone(bool, ulong, ulong)));
 
+	m_LastUpdateHandles = 0;
+
+	m_lastExtUpdate = 0;
+
 	// ph special
 	m = new SWinProcess();
 }
@@ -276,20 +277,19 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
 
 	// PhCreateProcessItem
 	m->UniqueProcessId = Process->UniqueProcessId;
-	m_ProcessId = (uint64_t)m->UniqueProcessId;
+	m_ProcessId = (quint64)m->UniqueProcessId;
 
 	// PhpFillProcessItem Begin
-	m_ParentProcessId = (uint64_t)Process->InheritedFromUniqueProcessId;
-	m->SessionId = (uint64_t)Process->SessionId;
+	m_ParentProcessId = (quint64)Process->InheritedFromUniqueProcessId;
+	m->SessionId = (quint64)Process->SessionId;
 
-	if (m_ProcessId != (uint64_t)SYSTEM_IDLE_PROCESS_ID)
+	if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
 		m_ProcessName = QString::fromWCharArray(Process->ImageName.Buffer, Process->ImageName.Length / sizeof(wchar_t));
 	else
 		m_ProcessName = QString::fromWCharArray(SYSTEM_IDLE_PROCESS_NAME);
 
 	m->CreateTime = Process->CreateTime;
-	// MSDN: FILETIME Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
-	m_CreateTime = QDateTime::fromTime_t((int64_t)m->CreateTime.QuadPart / 10000000ULL - 11644473600ULL);
+	m_CreateTimeStamp = FILETIME2ms(m->CreateTime.QuadPart);
 
 	// Open a handle to the Process for later usage.
 	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
@@ -465,11 +465,11 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
                 PhpFillProcessItemStage1(&data);
                 PhSetEvent(&processItem->Stage1Event);
             }
-            
+            */
 
-            // Add pending service items to the process item.
-            PhUpdateProcessItemServices(processItem);*/
-
+    // Add pending service items to the process item.
+    
+	m_ServiceList = ((CWindowsAPI*)theAPI)->GetServicesByPID(m_ProcessId);
 
 	// Note: on the first listing ProcessHacker does this asynchroniusly, on subsequent listings synchroniusly
 
@@ -540,7 +540,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
     // Immersive
     if (m->QueryHandle && WINDOWS_HAS_IMMERSIVE && !m->IsSubsystemProcess)
     {
-        m->IsImmersive = !!IsImmersiveProcess(m->QueryHandle);
+        m->IsImmersive = !!::IsImmersiveProcess(m->QueryHandle);
     }
 
     // Package full name
@@ -825,6 +825,10 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		if (NT_SUCCESS(PhGetProcessPagePriority(m->QueryHandle, &PagePriority)))
 			m_PagePriority = PagePriority;
 
+        PROCESS_BASIC_INFORMATION basicInfo;
+		if (NT_SUCCESS(PhGetProcessBasicInformation(m->QueryHandle, &basicInfo)))
+			m_AffinityMask = basicInfo.AffinityMask;
+
 		// todo modifyed
 	}
 	else
@@ -852,7 +856,7 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	m_UserTime = Process->UserTime.QuadPart;
 	m_NumberOfHandles = Process->HandleCount;
 	m_NumberOfThreads = Process->NumberOfThreads;
-	m_WorkingSetPrivateSize = (size_t)Process->WorkingSetPrivateSize.QuadPart;
+	m_WorkingSetPrivateSize = Process->WorkingSetPrivateSize.QuadPart;
 	m_PeakNumberOfThreads = Process->NumberOfThreadsHighWatermark;
 	m_HardFaultCount = Process->HardFaultCount;
 
@@ -866,22 +870,6 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	m->VmCounters = *(PVM_COUNTERS_EX)&Process->PeakVirtualSize;
 	m->IoCounters = *(PIO_COUNTERS)&Process->ReadOperationCount;
 	// PhpUpdateDynamicInfoProcessItem End
-
-	/* // todo to slow for always pooling
-	if (m->QueryHandle)
-	{
-		if (NT_SUCCESS(PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters)))
-		{
-			// todo modifyed
-		}
-
-		if (NT_SUCCESS(PhGetProcessQuotaLimits(m->QueryHandle, &m->QuotaLimits)))
-		{
-			// todo modifyed
-		}
-	}
-	*/
-
 
 
 	// PhpFillProcessItemExtension
@@ -1089,6 +1077,43 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	return modified;
 }
 
+bool CWinProcess::UpdateDynamicDataExt()
+{
+	m_lastExtUpdate = GetCurTick();
+
+	// Note: this is to slow to be pooled always, query only if needed
+
+	if (!m->QueryHandle)
+		return false;
+	
+	PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters);
+
+	PhGetProcessQuotaLimits(m->QueryHandle, &m->QuotaLimits);
+
+	
+	/*PhGetProcessHandleCount(m->QueryHandle, &m->handleInfo);
+
+	// todo is that slow do we need this?
+    if (WindowsVersion >= WINDOWS_10_RS3 && NT_SUCCESS(PhGetProcessUptime(m->QueryHandle, &m->uptimeInfo)))
+    {
+        runningTime = uptimeInfo.Uptime;
+        suspendedTime = uptimeInfo.SuspendedTime;
+        hangCount = uptimeInfo.HangCount;
+        ghostCount = uptimeInfo.GhostCount;
+        gotUptime = TRUE;
+    }
+	*/
+
+	return true;
+}
+
+void CWinProcess::UpdateExtDataIfNeeded() const 
+{
+	if (GetCurTick() - m_lastExtUpdate < 1000)
+		return;
+	((CWinProcess*)this)->UpdateDynamicDataExt();
+}
+
 bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, quint64 sysTotalTime, quint64 sysTotalCycleTime)
 {
     // System Idle Process has one thread per CPU. They all have a TID of 0. We can't have duplicate
@@ -1098,6 +1123,8 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
         for (int i = 0; i < Process->NumberOfThreads; i++)
             Process->Threads[i].ClientId.UniqueThread = UlongToHandle(i);
     }
+
+	// todo changed removed etc events?
 
 	QMap<quint64, CThreadPtr> OldThreads = GetThreadList();
 
@@ -1140,11 +1167,19 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 ThreadID, OldThreads.keys())
 	{
-		QSharedPointer<CWinThread> pWinThread = m_ThreadList.take(ThreadID).objectCast<CWinThread>();
-		pWinThread->UnInit();
-		//Removed.insert(HandleID); // todo???
+		QSharedPointer<CWinThread> pWinThread = m_ThreadList.value(ThreadID).objectCast<CWinThread>();
+		if (pWinThread->CanBeRemoved())
+		{
+			m_ThreadList.remove(ThreadID);
+			//Removed.insert(ThreadID); 
+		}
+		else if (!pWinThread->IsMarkedForRemoval())
+		{
+			pWinThread->MarkForRemoval();
+			pWinThread->UnInit();
+			//Changed.insert(ThreadID); 
+		}
 	}
-	Locker.unlock();
 
 	return true;
 }
@@ -1190,11 +1225,14 @@ bool CWinProcess::UpdateHandles()
 		return false;
 	}
 
+	// Note: since we are not continusly monitoring all handles for all processes 
+	//			when updating them on demand we waht to prevent all aprearing as new once a proces got selected
+	quint64 TimeStamp = (GetCurTick() - m_LastUpdateHandles < 5000) ? GetTime() * 1000 : m_CreateTimeStamp;
+
 	// Copy the handle Map
 	QMap<quint64, CHandlePtr> OldHandles = GetHandleList();
 
 	BOOLEAN useWorkQueue = !KphIsConnected();
-
 	QList<QFutureWatcher<bool>*> Watchers;
 
 	for (int i = 0; i < handleInfo->NumberOfHandles; i++)
@@ -1230,7 +1268,7 @@ bool CWinProcess::UpdateHandles()
 
 		if (bAdd || WasReused)
 		{
-			pWinHandle->InitStaticData(handle);
+			pWinHandle->InitStaticData(handle, TimeStamp);
 			Added.insert(handle->HandleValue);
 
 			// When we don't have KPH, query handle information in parallel to take full advantage of the
@@ -1257,13 +1295,24 @@ bool CWinProcess::UpdateHandles()
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 HandleID, OldHandles.keys())
 	{
-		m_HandleList.remove(HandleID);
-		Removed.insert(HandleID);
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).objectCast<CWinHandle>();
+		if (pWinHandle->CanBeRemoved())
+		{
+			m_HandleList.remove(HandleID);
+			Removed.insert(HandleID);
+		}
+		else if (!pWinHandle->IsMarkedForRemoval())
+		{
+			pWinHandle->MarkForRemoval();
+			Changed.insert(HandleID); 
+		}
 	}
 	Locker.unlock();
 	
 	NtClose(ProcessHandle);
     
+	m_LastUpdateHandles = GetCurTick();
+
 	emit HandlesUpdated(Added, Changed, Removed);
 
 	return true;
@@ -1476,6 +1525,12 @@ void CWinProcess::AddDiskIO(int Type, ulong TransferSize)
 	}
 }
 
+bool CWinProcess::IsWoW64() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsWow64Valid && m->IsWow64;
+}
+
 QString CWinProcess::GetArchString() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -1539,8 +1594,11 @@ bool CWinProcess::ValidateParent(CProcessInfo* pParent) const
 { 
 	QReadLocker Locker(&m_Mutex); 
 
-	if (!pParent || pParent->GetID() == GetID()) // for cases where the parent PID = PID (e.g. System Idle Process)
-        return NULL;
+	if (!pParent || pParent->GetID() == m_ProcessId) // for cases where the parent PID = PID (e.g. System Idle Process)
+        return false;
+
+	if (m_ProcessId == (quint64)SYSTEM_PROCESS_ID && pParent->GetID() == (quint64)SYSTEM_IDLE_PROCESS_ID)
+		return true;
 
 	if (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64())
 	{
@@ -1824,8 +1882,10 @@ STATUS CWinProcess::EditEnvVariable(const QString& Name, const QString& Value)
 
 QString CWinProcess::GetStatusString() const
 {
-	QReadLocker Locker(&m_Mutex); 
 	QStringList Status;
+
+	QReadLocker Locker(&m_Mutex); 
+
     if (m->IsBeingDebugged)
         Status.append(tr("Debugged"));
     if (m->IsSuspended)
@@ -1844,27 +1904,18 @@ QString CWinProcess::GetStatusString() const
         Status.append(tr("Packed"));
     if (m->IsWow64)
         Status.append(tr("Wow64"));
-    if (m->IsInSignificantJob)
+
+	Locker.unlock();
+
+    if (IsJobProcess())
         Status.append(tr("Job"));
-	/*lse if (
-                PhCsUseColorServiceProcesses &&
-                ((processItem->ServiceList && processItem->ServiceList->Count != 0) ||
-                 (processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeServiceSid)) ||
-                 (processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeLocalServiceSid)) ||
-                 (processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeNetworkServiceSid))
-                ))
-                getNodeColor->BackColor = PhCsColorServiceProcesses;
-            else if (
-                PhCsUseColorSystemProcesses &&
-                ((processItem->Sid && RtlEqualSid(processItem->Sid, &PhSeLocalSystemSid)) ||
-                PH_IS_FAKE_PROCESS_ID(processItem->ProcessId)))
-                getNodeColor->BackColor = PhCsColorSystemProcesses;
-            else if (
-                PhCsUseColorOwnProcesses &&
-                processItem->Sid && 
-                RtlEqualSid(processItem->Sid, PhGetOwnTokenAttributes().TokenSid)
-                )
-                getNodeColor->BackColor = PhCsColorOwnProcesses;*/
+	if (IsServiceProcess())
+        Status.append(tr("Service"));
+	if (IsSystemProcess())
+        Status.append(tr("System"));
+	if (IsUserProcess())
+        Status.append(tr("Owned"));
+
 	return Status.join(tr(", "));
 }
 
@@ -1973,12 +2024,59 @@ STATUS CWinProcess::DetachDebugger()
     return OK;
 }
 
-STATUS CWinProcess::CreateDump(const QString& DumpPath)
+bool RtlEqualSid(_In_ PSID Sid1, const QByteArray& sid)
 {
-	QWriteLocker Locker(&m_Mutex);
+	if (sid.isEmpty() || RtlLengthSid(Sid1) != sid.size())
+		return false;
+	return memcmp((char*)Sid1, sid.data(), sid.size()) == 0;
+}
 
-	// ToDo
-	return ERR(0);
+bool CWinProcess::IsSystemProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return (RtlEqualSid(&PhSeLocalSystemSid, m->Sid)) || PH_IS_FAKE_PROCESS_ID(m->UniqueProcessId);
+}
+
+bool CWinProcess::IsServiceProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return !m_ServiceList.isEmpty() || (RtlEqualSid(&PhSeServiceSid, m->Sid) || RtlEqualSid(&PhSeLocalServiceSid, m->Sid) || RtlEqualSid(&PhSeNetworkServiceSid, m->Sid));
+}
+
+bool CWinProcess::IsUserProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return RtlEqualSid(PhGetOwnTokenAttributes().TokenSid, m->Sid);
+}
+
+bool CWinProcess::IsElevated() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsElevated;
+}
+
+bool CWinProcess::IsJobProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsInSignificantJob;
+}
+
+bool CWinProcess::IsPicoProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsSubsystemProcess;
+}
+
+bool CWinProcess::IsImmersiveProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsImmersive;
+}
+
+bool CWinProcess::IsNetProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsDotNet;
 }
 
 QString CWinProcess::GetPackageName() const
@@ -2129,12 +2227,14 @@ quint64 CWinProcess::GetPrivateWorkingSetSize() const
 
 quint64 CWinProcess::GetSharedWorkingSetSize() const
 {
+	UpdateExtDataIfNeeded();
 	QReadLocker Locker(&m_Mutex); 
 	return m->WsCounters.NumberOfSharedPages * PAGE_SIZE;
 }
 
 quint64 CWinProcess::GetShareableWorkingSetSize() const
 {
+	UpdateExtDataIfNeeded();
 	QReadLocker Locker(&m_Mutex); 
 	return m->WsCounters.NumberOfShareablePages * PAGE_SIZE;
 }
@@ -2184,12 +2284,14 @@ quint64 CWinProcess::GetPeakNonPagedPool() const
 
 quint64 CWinProcess::GetMinimumWS() const
 {
+	UpdateExtDataIfNeeded();
 	QReadLocker Locker(&m_Mutex); 
 	return m->QuotaLimits.MinimumWorkingSetSize;
 }
 
 quint64 CWinProcess::GetMaximumWS() const
 {
+	UpdateExtDataIfNeeded();
 	QReadLocker Locker(&m_Mutex); 
 	return m->QuotaLimits.MaximumWorkingSetSize;
 }
@@ -2306,6 +2408,25 @@ STATUS CWinProcess::SetIOPriority(long Value)
 		// todo run itself as service and retry
 
 		return ERR(tr("Failed to set I/O priority"), status);
+    }
+	return OK;
+}
+
+STATUS CWinProcess::SetAffinityMask(quint64 Value)
+{
+	NTSTATUS status;
+	HANDLE processHandle;
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
+    {
+        status = PhSetProcessAffinityMask(processHandle, Value);
+        NtClose(processHandle);
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+		// todo run itself as service and retry
+
+		return ERR(tr("Failed to set CPU affinity"), status);
     }
 	return OK;
 }
@@ -2479,4 +2600,28 @@ quint64 CWinProcess::GetPebBaseAddress(bool bWow64) const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return bWow64 ? m->PebBaseAddress32 : m->PebBaseAddress;
+}
+
+CWinJobPtr CWinProcess::GetJob() const
+{
+	QReadLocker Locker(&m_Mutex); 
+
+	if (!m->QueryHandle)
+		return CWinJobPtr();
+
+	CWinJobPtr pJob = CWinJobPtr(new CWinJob());
+	if (!pJob->InitStaticData((quint64)m->QueryHandle))
+		return CWinJobPtr();
+	return pJob;
+}
+
+#include <dbghelp.h>
+
+STATUS CWinProcess::CreateDump(const QString& DumpPath)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+
+	// ToDo
+	return ERR(0);
 }

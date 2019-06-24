@@ -39,9 +39,13 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 			Row = m_List.indexOf(pNode);
 		}
 
+#ifdef WIN32
+		CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
+#endif
+
 		int Col = 0;
 		bool State = false;
-		bool Changed = false;
+		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
 		if (!pNode->Icon.isValid())
@@ -52,15 +56,25 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 			{
 				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
 				if (!Icon.isNull()) {
-					Changed = true; // set change for first column
+					Changed = 1; // set change for first column
 					pNode->Icon = Icon;
 				}
 			}
 		}
 
+		int RowColor = CTaskExplorer::eNone;
+		if (pHandle->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pHandle->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
+		else if (pWinHandle->IsInherited())		RowColor = CTaskExplorer::eIsInherited;
+		else if (pWinHandle->IsProtected())		RowColor = CTaskExplorer::eIsProtected;
 #endif
+
+		if (pNode->iColor != RowColor) {
+			pNode->iColor = RowColor;
+			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			Changed = 2;
+		}
 
 		for(int section = eProcess; section < columnCount(); section++)
 		{
@@ -86,7 +100,8 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 			if (ColValue.Raw != Value)
 			{
-				Changed = true;
+				if(Changed == 0)
+					Changed = 1;
 				ColValue.Raw = Value;
 
 				switch (section)
@@ -98,14 +113,15 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 				}
 			}
 
-			if(State != Changed)
+			if(State != (Changed != 0))
 			{
 				if(State && Row != -1)
 					emit dataChanged(createIndex(Row, Col), createIndex(Row, section-1));
 				State = Changed;
-				Col = section;
+				Col = (Changed != 0);
 			}
-			Changed = false;
+			if(Changed == 1)
+				Changed = 0;
 		}
 		if(State && Row != -1)
 			emit dataChanged(createIndex(Row, Col, pNode), createIndex(Row, columnCount()-1, pNode));

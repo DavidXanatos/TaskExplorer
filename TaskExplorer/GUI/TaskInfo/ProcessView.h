@@ -3,6 +3,7 @@
 #include "..\..\API\ProcessInfo.h"
 #include "..\..\Common\PanelView.h"
 #include "..\..\Common\TreeWidgetEx.h"
+#include "..\StatsView.h"
 
 class CProcessView : public QWidget //CPanelView
 {
@@ -63,5 +64,6 @@ private:
 #endif
 
 	//QTreeWidgetEx*			m_pStatsList;
+	CStatsView*				m_pStatsView;
 };
 

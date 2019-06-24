@@ -4,7 +4,7 @@
 #include "../../Common/PanelView.h"
 #include "..\..\API\ProcessInfo.h"
 #include "..\Models\ModuleModel.h"
-#include "..\Models\SortFilterProxyModel.h"
+#include "..\..\Common\SortFilterProxyModel.h"
 
 class CModulesView : public CPanelView
 {

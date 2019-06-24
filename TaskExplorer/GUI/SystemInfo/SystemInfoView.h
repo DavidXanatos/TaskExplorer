@@ -15,6 +15,10 @@ public:
 	CSystemInfoView(QWidget* patent = 0);
 	virtual ~CSystemInfoView();
 
+#ifdef WIN32
+	void					SetShowKernelServices(bool bShow);
+#endif
+
 public slots:
 	void				OnTab(int tabIndex);
 	void				Refresh();

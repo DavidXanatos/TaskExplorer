@@ -1,9 +1,10 @@
 #pragma once
 #include <qobject.h>
+#include "AbstractInfo.h"
 #include "../Common/FlexError.h"
 
 
-class CModuleInfo: public QObject
+class CModuleInfo: public CAbstractInfo
 {
 	Q_OBJECT
 
@@ -49,9 +50,6 @@ protected:
 
 	QPixmap						m_SmallIcon;
 	QPixmap						m_LargeIcon;
-
-
-	mutable QReadWriteLock		m_Mutex;
 };
 
 typedef QSharedPointer<CModuleInfo> CModulePtr;

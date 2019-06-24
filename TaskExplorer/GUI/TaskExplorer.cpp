@@ -1,9 +1,12 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
 #ifdef WIN32
-#include "../API/Windows/ProcessHacker.h"
+#include "../API/Windows/ProcessHacker/RunAs.h"
 #endif
 #include "../Common/ExitDialog.h"
+#include "NewService.h"
+#include "RunAsDialog.h"
+#include "../SVC/TaskService.h"
 
 CSystemAPI*	theAPI = NULL;
 
@@ -63,31 +66,42 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
 	m_pMainLayout->setMargin(0);
 	this->setCentralWidget(m_pMainWidget);
+
+	m_pGraphSplitter = new QSplitter();
+	m_pGraphSplitter->setOrientation(Qt::Vertical);
+	m_pMainLayout->addWidget(m_pGraphSplitter);
+
+	
 	
 	m_pGraphBar = new CGraphBar();
-	m_pMainLayout->addWidget(m_pGraphBar);
+	//m_pMainLayout->addWidget(m_pGraphBar);
+	m_pGraphSplitter->addWidget(m_pGraphBar);
+	m_pGraphSplitter->setStretchFactor(0, 0);
+	m_pGraphSplitter->setSizes(QList<int>() << 80); // default size of 80
 
 	m_pMainSplitter = new QSplitter();
 	m_pMainSplitter->setOrientation(Qt::Horizontal);
-	m_pMainLayout->addWidget(m_pMainSplitter);
+	//m_pMainLayout->addWidget(m_pMainSplitter);
+	m_pGraphSplitter->addWidget(m_pMainSplitter);
+	m_pGraphSplitter->setStretchFactor(1, 1);
 
 	m_pProcessTree = new CProcessTree(this);
 	//m_pProcessTree->setMinimumSize(200, 200);
 	m_pMainSplitter->addWidget(m_pProcessTree);
 	m_pMainSplitter->setCollapsible(0, false);
 
-	m_pSubSplitter = new QSplitter();
-	m_pSubSplitter->setOrientation(Qt::Vertical);
-	m_pMainSplitter->addWidget(m_pSubSplitter);
+	m_pPanelSplitter = new QSplitter();
+	m_pPanelSplitter->setOrientation(Qt::Vertical);
+	m_pMainSplitter->addWidget(m_pPanelSplitter);
 
 	m_pSystemInfo = new CSystemInfoView();
 	//m_pSystemInfo->setMinimumSize(200, 200);
-	m_pSubSplitter->addWidget(m_pSystemInfo);
+	m_pPanelSplitter->addWidget(m_pSystemInfo);
 
 	m_pTaskInfo = new CTaskInfoView();
 	//m_pTaskInfo->setMinimumSize(200, 200);
-	m_pSubSplitter->addWidget(m_pTaskInfo);
-	m_pSubSplitter->setCollapsible(1, false);
+	m_pPanelSplitter->addWidget(m_pTaskInfo);
+	m_pPanelSplitter->setCollapsible(1, false);
 
 	connect(m_pProcessTree, SIGNAL(ProcessClicked(const CProcessPtr)), m_pTaskInfo, SLOT(ShowProcess(const CProcessPtr)));
 
@@ -95,22 +109,22 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMenuProcess = menuBar()->addMenu(tr("&Process"));
 		m_pMenuProcess->addAction(tr("Run..."), this, SLOT(OnRun()));
 		m_pMenuProcess->addAction(tr("Run as Administrator..."), this, SLOT(OnRunAdmin()));
-		m_pMenuProcess->addAction(tr("Run as limited User..."), this, SLOT(OnRunUser()));
+		m_pMenuProcess->addAction(tr("Run as Limited User..."), this, SLOT(OnRunUser()));
 		QAction* m_pMenuRunAs = m_pMenuProcess->addAction(tr("Run as..."), this, SLOT(OnRunAs()));
-		m_pMenuRunAs->setEnabled(false); // todo
+#ifdef WIN32
 		QAction* m_pMenuRunSys = m_pMenuProcess->addAction(tr("Run as TrustedInstaller..."), this, SLOT(OnRunSys()));
-		m_pMenuRunSys->setEnabled(false); // todo
+#endif
 		QAction* m_pElevate = m_pMenuProcess->addAction(tr("Restart Elevated"), this, SLOT(OnElevate()));
-		m_pElevate->setEnabled(false); // todo
+		m_pElevate->setIcon(QIcon(":/Icons/Shield.png"));
 		m_pMenuProcess->addSeparator();
 		m_pMenuProcess->addAction(tr("Exit"), this, SLOT(OnExit()));
 
 #ifdef WIN32
-	m_pElevate->setVisible(!PhGetOwnTokenAttributes().Elevated);
+		m_pElevate->setVisible(!PhGetOwnTokenAttributes().Elevated);
 #endif
 
-	QMenu* m_pMenuView = menuBar()->addMenu(tr("&View"));
-		QMenu* m_pMenuSysTabs = m_pMenuView->addMenu(tr("System Tabs"));
+	m_pMenuView = menuBar()->addMenu(tr("&View"));
+		m_pMenuSysTabs = m_pMenuView->addMenu(tr("System Tabs"));
 		for (int i = 0; i < m_pSystemInfo->GetTabCount(); i++)
 		{
 			QAction* pAction = m_pMenuSysTabs->addAction(m_pSystemInfo->GetTabLabel(i), this, SLOT(OnSysTab()));
@@ -118,22 +132,36 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			pAction->setChecked(m_pSystemInfo->IsTabVisible(i));
 			m_Act2Tab[pAction] = i;
 		}
-		QMenu* m_pMenuTaskTabs = m_pMenuView->addMenu(tr("Task Tabs"));
+
+#ifdef WIN32
+		m_pMenuSysTabs->addSeparator();
+		m_pMenuKernelServices = m_pMenuSysTabs->addAction(tr("Show Kernel Services"), this, SLOT(OnKernelServices()));
+		m_pMenuKernelServices->setCheckable(true);
+		m_pMenuKernelServices->setChecked(theConf->GetBool("MainWindow/ShowDrivers", true));
+		OnKernelServices();
+#endif
+
+		m_pMenuTaskTabs = m_pMenuView->addMenu(tr("Task Tabs"));
 		for (int i = 0; i < m_pTaskInfo->GetTabCount(); i++)
 		{
-			QAction* pAction = m_pMenuTaskTabs->addAction(m_pSystemInfo->GetTabLabel(i), this, SLOT(OnTaskTab()));
+			QAction* pAction = m_pMenuTaskTabs->addAction(m_pTaskInfo->GetTabLabel(i), this, SLOT(OnTaskTab()));
 			pAction->setCheckable(true);
-			pAction->setChecked(m_pSystemInfo->IsTabVisible(i));
+			pAction->setChecked(m_pTaskInfo->IsTabVisible(i));
 			m_Act2Tab[pAction] = i;
 		}
 
 
 
-	QMenu* m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
-		QAction* m_pMenuConf = m_pMenuOptions->addAction(tr("Preferences"), this, SLOT(OnPrefs()));
-		m_pMenuConf->setEnabled(false); // todo
+	m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
+		m_pMenuConf = m_pMenuOptions->addAction(tr("Preferences"), this, SLOT(OnPreferences()));
 
-	//QMenu* m_pMenuTools = menuBar()->addMenu(tr("&Tools")); // todo
+	m_pMenuTools = menuBar()->addMenu(tr("&Tools"));
+		m_pMenuServices = m_pMenuTools->addMenu(tr("&Services"));
+			m_pMenuCreateService = m_pMenuServices->addAction(tr("Create new Service"), this, SLOT(OnCreateService()));
+			m_pMenuCreateService->setEnabled(PhGetOwnTokenAttributes().Elevated);
+#ifdef WIN32
+			m_pMenuSCMPermissions = m_pMenuServices->addAction(tr("Service Control Manager Permissions"), this, SLOT(OnSCMPermissions()));
+#endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
 	m_pMenuAbout = m_pMenuHelp->addAction(tr("About TaskExplorer"), this, SLOT(OnAbout()));
@@ -152,7 +180,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	connect(m_pTrayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(OnSysTray(QSystemTrayIcon::ActivationReason)));
 	//m_pTrayIcon->setContextMenu(m_pNeoMenu);
 
-	if(theConf->GetValue("SysTray/Show", true).toBool())
+	if(theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->show();
 
 	m_pTrayMenu = new QMenu();
@@ -161,12 +189,13 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	//QLabel* m_pInfo = new QLabel(tr("test"));
 	//statusBar()->addPermanentWidget(m_pInfo);
 
-	restoreGeometry(theConf->GetValue("MainWindow/Window_Geometry").toByteArray());
-	m_pMainSplitter->restoreState(theConf->GetValue("MainWindow/Window_Splitter").toByteArray());
-	m_pSubSplitter->restoreState(theConf->GetValue("MainWindow/Panel_Splitter").toByteArray());
+	restoreGeometry(theConf->GetBlob("MainWindow/Window_Geometry"));
+	m_pMainSplitter->restoreState(theConf->GetBlob("MainWindow/Window_Splitter"));
+	m_pPanelSplitter->restoreState(theConf->GetBlob("MainWindow/Panel_Splitter"));
+	m_pGraphSplitter->restoreState(theConf->GetBlob("MainWindow/Graph_Splitter"));
 
 	//m_uTimerCounter = 0;
-	m_uTimerID = startTimer(1000); // todo add setting
+	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
 	statusBar()->showMessage(tr("TaskExplorer is ready..."));
 
@@ -179,9 +208,10 @@ CTaskExplorer::~CTaskExplorer()
 
 	m_pTrayIcon->hide();
 
-	theConf->SetValue("MainWindow/Window_Geometry",saveGeometry());
-	theConf->SetValue("MainWindow/Window_Splitter",m_pMainSplitter->saveState());
-	theConf->SetValue("MainWindow/Panel_Splitter",m_pSubSplitter->saveState());
+	theConf->SetBlob("MainWindow/Window_Geometry",saveGeometry());
+	theConf->SetBlob("MainWindow/Window_Splitter",m_pMainSplitter->saveState());
+	theConf->SetBlob("MainWindow/Panel_Splitter",m_pPanelSplitter->saveState());
+	theConf->SetBlob("MainWindow/Graph_Splitter",m_pGraphSplitter->saveState());
 
 	delete theAPI;
 }
@@ -199,7 +229,7 @@ void CTaskExplorer::closeEvent(QCloseEvent *e)
 	if (m_bExit)
 		return;
 
-	if(m_pTrayIcon->isVisible() && theConf->GetValue("SysTray/CloseToTray", false).toBool())
+	if(m_pTrayIcon->isVisible() && theConf->GetBool("SysTray/CloseToTray", false))
 	{
 		hide();
 		e->ignore();
@@ -219,12 +249,25 @@ void CTaskExplorer::UpdateAll()
 	QTimer::singleShot(0, theAPI, SLOT(UpdateProcessList()));
 	QTimer::singleShot(0, theAPI, SLOT(UpdateSocketList()));
 
+	QTimer::singleShot(0, theAPI, SLOT(UpdateSysStats()));
+
 	QTimer::singleShot(0, theAPI, SLOT(UpdateServiceList()));
 	QTimer::singleShot(0, theAPI, SLOT(UpdateDriverList()));
+
 
 	m_pGraphBar->UpdateGraphs();
 	m_pTaskInfo->Refresh();
 	m_pSystemInfo->Refresh();
+}
+
+void CTaskExplorer::CheckErrors(QList<STATUS> Errors)
+{
+	if (Errors.isEmpty())
+		return;
+
+	// todo : show window with error list
+
+	QMessageBox::warning(NULL, "TaskExplorer", tr("Operation failed for %1 item(s).").arg(Errors.size()));
 }
 
 void CTaskExplorer::OnRun()
@@ -253,17 +296,27 @@ void CTaskExplorer::OnRunUser()
 
 void CTaskExplorer::OnRunAs()
 {
-	// todo: run as ...
+	CRunAsDialog* pWnd = new CRunAsDialog();
+	pWnd->show();
 }
 
 void CTaskExplorer::OnRunSys()
 {
-	// todo: run as trusted installer
+#ifdef WIN32
+    SelectedRunAsMode = RUNAS_MODE_SYS;
+    PhShowRunFileDialog(PhMainWndHandle, NULL, NULL, NULL, L"Type the name of a program that will be opened as system with the TrustedInstaller's token.", 0);
+	/*STATUS status = RunAsTrustedInstaller(L"");
+	if(!NT_SUCCESS(status))
+		QMessageBox::warning(NULL, "TaskExplorer", tr("Run As TristedInstaller failed, Error:").arg(status));*/
+#endif
 }
 
 void CTaskExplorer::OnElevate()
 {
-	// todo restart elevated
+#ifdef WIN32
+	if (PhShellProcessHackerEx(NULL, NULL, L"", SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, 0, NULL))
+		OnExit();
+#endif
 }
 
 void CTaskExplorer::OnExit()
@@ -292,11 +345,60 @@ void CTaskExplorer::OnSysTab()
 	m_pSystemInfo->ShowTab(Index, pAction->isChecked());
 }
 
+void CTaskExplorer::OnKernelServices()
+{
+	theConf->SetValue("MainWindow/ShowDrivers", m_pMenuKernelServices->isChecked());
+	m_pSystemInfo->SetShowKernelServices(m_pMenuKernelServices->isChecked());
+}
+
 void CTaskExplorer::OnTaskTab()
 {
 	QAction* pAction = (QAction*)sender();
 	int Index = m_Act2Tab.value(pAction);
 	m_pTaskInfo->ShowTab(Index, pAction->isChecked());
+}
+
+void CTaskExplorer::OnPreferences()
+{
+	// todo
+}
+
+void CTaskExplorer::OnCreateService()
+{
+	CNewService* pWnd = new CNewService();
+	pWnd->show();
+}
+
+void CTaskExplorer::OnSCMPermissions()
+{
+#ifdef WIN32
+	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", PhpOpenServiceControlManager, NULL, NULL);
+#endif
+}
+
+QColor CTaskExplorer::GetColor(int Color)
+{
+	switch (Color)
+	{
+	case eToBeRemoved:	return QColor(theConf->GetString("Colors/ToBeRemoved", "#F08080"));
+	case eAdded:		return QColor(theConf->GetString("Colors/NewlyCreated", "#00FF7F"));
+	
+	case eSystem:		return QColor(theConf->GetString("Colors/SystemProcess", "#AACCFF"));
+	case eUser:			return QColor(theConf->GetString("Colors/UserProcess", "#FFFF80"));
+	case eService:		return QColor(theConf->GetString("Colors/ServiceProcess", "#80FFFF"));
+#ifdef WIN32
+	case eJob:			return QColor(theConf->GetString("Colors/JobProcess", "#D49C5C"));
+	case ePico:			return QColor(theConf->GetString("Colors/PicoProcess", "#42A0FF"));
+	case eImmersive:	return QColor(theConf->GetString("Colors/ImmersiveProcess", "#FFE6FF"));
+	case eDotNet:		return QColor(theConf->GetString("Colors/NetProcess", "#DCFF00"));
+#endif
+	case eElevated:		return QColor(theConf->GetString("Colors/ElevatedProcess", "#FFBB30"));
+
+	case eGuiThread:	return QColor(theConf->GetString("Colors/GuiThread", "#AACCFF"));
+	case eIsInherited:	return QColor(theConf->GetString("Colors/IsInherited", "#77FFFF"));
+	case eIsProtected:	return QColor(theConf->GetString("Colors/IsProtected", "#FF77FF"));
+	}
+	return QColor(theConf->GetString("Colors/Background", "#FFFFFF"));
 }
 
 void CTaskExplorer::OnAbout()

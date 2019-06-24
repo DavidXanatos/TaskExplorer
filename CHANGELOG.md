@@ -4,41 +4,80 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## ToDo
 ### Major
-- graphs in process tree
+- settings dialog !!!
 - gpu usage
-- tools
 - .net stack tracking
-
-- add service/drivers info window
 - add wait analyze feature
 
-- add security/permissions windows 
---	PhCreateSecurityPage (job)
---	PhEditSecurity (Service Control Manager, Service, Token, )
-
+- add window properties window / details area
+- add more generic system infos
 
 ### missing/empty tabs
 - memory
 - tokens
-- Job
+- services tab
 - Gdi objects
 - .NET assemblies and performance
-- general system tab
-- add process and system statistics tab
+- ras tab
 
 ### Minor
-
-- windows service pid change etc
-- process persistence
 - add file only filter to handles
 - disable detail view if more than one item is selected or allow to see combined details
 - disable a lot of sub menuitems when more than 1 item is selected
-- add processor affinity dialog
+- pause refresh + refresh now
+- select reasonable default columns
+- add run as this user menu option
 
-- add window properties window / details area
-- added context menu to services/drivers view
+- tools
+-- shutdown cpmputer 
+-- logg of user
+-- find open file
+
+## missing dialogs & co
 - add option to create a process dump
+- add service info window
 
+## known issues:
+- run as (TI) feature
+
+
+
+
+## [0.0.9] - 2019-06-24
+### Added
+- general system tab
+- process and system stats
+- job tab
+- add process pid picker dialog
+- add ras/vpn graph
+- process and threads are listed for 5 sec after termination
+- grid to all lists
+- service column to process tree
+- list colloring
+- context menu to services view
+- tools menu
+- scm permissions
+- processor affinity dialog
+- organized columns menu for the process tree in sub menus
+- added option to restart elevated
+- added graphs to process tree, CPU, Memory, IO/DiskIO, Network
+- linux style cpu usage i.e. 1 core = 100% so > 1 core -> > 100%
+- create service dialog
+- taskexplorer can now be started as service and listen for commands
+- option to start programs as TrustedInstaller without using a service
+- run as dialog
+
+### Changed 
+- graphs can now be resized with a splitter
+- improved process tree sorting behavioure to be more like in process hacker
+- samba stats now using NetStatisticsGet instead of speculating on ETW events
+- improved global network traffic logging now using GetIfTable2 instead of ETW events
+- improved MMapIO display now it works as expected and disk IO got its own graph
+- all files list now works for non enevated users
+- driver tab now uses NtQuerySystemInformation(SystemModuleInformation to enumerate drivers
+
+### Fixed
+- memory leak when running without unelevated and vieving all files list
 
 
 ## [0.0.8] - 2019-06-17

@@ -1,6 +1,6 @@
 #pragma once
 #include "../ProcessInfo.h"
-
+#include "WinJob.h"
 
 class CWinProcessPrivate;
 
@@ -15,6 +15,7 @@ public:
 	virtual bool ValidateParent(CProcessInfo* pParent) const;
 
 	// Basic
+	virtual bool IsWoW64() const;
 	virtual QString GetArchString() const;
 	virtual quint64 GetSessionID() const;
 	virtual QString GetElevationString() const;
@@ -48,6 +49,8 @@ public:
 	virtual STATUS SetPagePriority(long Value);
 	virtual STATUS SetIOPriority(long Value);
 
+	virtual STATUS SetAffinityMask(quint64 Value);
+
 	virtual STATUS Terminate();
 
 	virtual bool IsSuspended() const;
@@ -57,6 +60,9 @@ public:
 	// Security
 	virtual int IntegrityLevel() const;
 	virtual QString GetIntegrityString() const;
+
+	virtual void AddService(const QString& Name)	{ QWriteLocker Locker(&m_Mutex); if(!m_ServiceList.contains(Name)) m_ServiceList.append(Name); }
+	virtual QStringList GetServiceList() const		{ QReadLocker Locker(&m_Mutex); return m_ServiceList; }
 
 	// GDI, USER handles
 	virtual ulong GetGdiHandles() const				{ QReadLocker Locker(&m_Mutex); return m_GdiHandles; }
@@ -94,6 +100,15 @@ public:
 	virtual STATUS DetachDebugger();
 	virtual STATUS CreateDump(const QString& DumpPath);
 
+	virtual bool IsSystemProcess() const;
+	virtual bool IsServiceProcess() const;
+	virtual bool IsUserProcess() const;
+	virtual bool IsElevated() const;
+	virtual bool IsJobProcess() const;
+	virtual bool IsPicoProcess() const;
+	virtual bool IsImmersiveProcess() const;
+	virtual bool IsNetProcess() const;
+
 	virtual QString GetPackageName() const; 
 	virtual QString GetAppID() const; 
 	virtual ulong GetDPIAwareness() const;
@@ -116,6 +131,8 @@ public:
 	virtual bool	IsWow64() const;
 	virtual quint64 GetPebBaseAddress(bool bWow64 = false) const;
 
+	virtual CWinJobPtr	GetJob() const;
+
 public slots:
 	virtual bool	UpdateThreads();
 	virtual bool	UpdateHandles();
@@ -129,11 +146,15 @@ protected:
 
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process);
 	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool UpdateDynamicDataExt();
 	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 
 	void AddNetworkIO(int Type, ulong TransferSize);
 	void AddDiskIO(int Type, ulong TransferSize);
+
+	// Other fields
+	QList<QString>					m_ServiceList;
 
 	// Dynamic
 
@@ -148,6 +169,10 @@ protected:
 	//QMap<quint64, >
 
 private:
+	quint64	m_lastExtUpdate;
+	void	UpdateExtDataIfNeeded() const;
+
+	quint64 m_LastUpdateHandles;
 
 	struct SWinProcess* m;
 };

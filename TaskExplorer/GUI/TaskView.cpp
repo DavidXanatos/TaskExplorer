@@ -4,6 +4,8 @@
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WinThread.h"
 #endif
+#include "TaskExplorer.h"
+#include "AffinityDialog.h"
 
 CTaskView::CTaskView(QWidget *parent) : CPanelView(parent)
 {
@@ -154,7 +156,6 @@ void CTaskView::OnMenu(const QPoint& Point)
 	m_pAffinity->setEnabled(Tasks.count() > 0);
 
 
-	// todo select right priorities
 	m_pPriority->setEnabled(Tasks.count() > 0);
 	foreach(QAction* pAction, m_pPriority->actions())
 		pAction->setChecked(m_pPriorityLevels[pAction].Value == Priority);
@@ -180,25 +181,75 @@ void CTaskView::OnTaskAction()
 
 	QList<CTaskPtr>	Tasks = GetSellectedTasks();
 
-	int ErrorCount = 0;
+	QList<STATUS> Errors;
 	foreach(const CTaskPtr& pTask, Tasks)
 	{
-		if (sender() == m_pTerminate && pTask->Terminate())
-			continue;
-		if (sender() == m_pSuspend && pTask->Suspend())
-			continue;
-		if (sender() == m_pResume && pTask->Resume())
-			continue;
-		ErrorCount++;
+		STATUS Status = OK;
+		if (sender() == m_pTerminate)
+			Status = pTask->Terminate();
+		else if (sender() == m_pSuspend)
+			Status = pTask->Suspend();
+		else if (sender() == m_pResume)
+			Status = pTask->Resume();
+
+		if(Status.IsError())
+			Errors.append(Status);
 	}
 
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to %1 %2 tasks.").arg(((QAction*)sender())->text().toLower()).arg(ErrorCount));
+	CTaskExplorer::CheckErrors(Errors);
 }
 
 void CTaskView::OnAffinity()
 {
-	// todo
+	QList<CTaskPtr>	Tasks = GetSellectedTasks();
+	if (Tasks.isEmpty())
+		return;
+
+	QVector<int> Affinity(64, 0);
+
+	for (int i = 0; i < Tasks.size(); i++)
+	{
+		const CTaskPtr& pTask = Tasks.at(i);
+		quint64 AffinityMask = pTask->GetAffinityMask();
+
+		for (int j = 0; j < Affinity.size(); j++)
+		{
+			int curBit = (AffinityMask >> j) & 1ui64;
+			if (i == 0)
+				Affinity[j] = curBit;
+			else if (curBit != Affinity[j]) // && Affinity[j] != 2
+				Affinity[j] = 2;
+		}
+	}
+	
+	CAffinityDialog AffinityDialog(theAPI->GetCpuCount());
+	AffinityDialog.SetName(Tasks.first()->GetName());
+	AffinityDialog.SetAffinity(Affinity);
+	if (!AffinityDialog.exec())
+		return;
+	
+	Affinity = AffinityDialog.GetAffinity();
+	
+	QList<STATUS> Errors;
+	for (int i = 0; i < Tasks.size(); i++)
+	{
+		const CTaskPtr& pTask = Tasks.at(i);
+		quint64 AffinityMask = pTask->GetAffinityMask();
+
+		for (int j = 0; j < Affinity.size(); j++)
+		{
+			if (Affinity[j] == 1)
+				AffinityMask |= (1ui64 << j);
+			else if(Affinity[j] == 0)
+				AffinityMask &= ~(1ui64 << j);
+		}
+
+		STATUS Status = pTask->SetAffinityMask(AffinityMask);
+		if (Status.IsError())
+			Errors.append(Status);
+	}
+
+	CTaskExplorer::CheckErrors(Errors);
 }
 
 void CTaskView::OnPriority()
@@ -207,31 +258,23 @@ void CTaskView::OnPriority()
 
 	QList<CTaskPtr>	Tasks = GetSellectedTasks();
 
-	int ErrorCount = 0;
+	QList<STATUS> Errors;
 	foreach(const CTaskPtr& pTask, Tasks)
 	{
+		STATUS Status = OK;
 		switch (Priority.Type)
 		{
 		case eProcess:
-		case eThread:
-			if (pTask->SetPriority(Priority.Value))
-				continue;
-			break;
-		case eIO:
-			if (pTask->SetIOPriority(Priority.Value))
-				continue;
-			break;
-		case ePage:
-			if (pTask->SetPagePriority(Priority.Value))
-				continue;
-			break;
+		case eThread:	Status = pTask->SetPriority(Priority.Value); break;
+		case eIO:		Status = pTask->SetIOPriority(Priority.Value); break;
+		case ePage:		Status = pTask->SetPagePriority(Priority.Value); break;
 		}
 
-		ErrorCount++;
+		if(Errors.isEmpty())
+			Errors.append(Status);
 	}
 
-	if (ErrorCount > 0)
-		QMessageBox::warning(this, "TaskExplorer", tr("Failed to set priority of %1 tasks.").arg(ErrorCount));
+	CTaskExplorer::CheckErrors(Errors);
 }
 
 void CTaskView::OnPermissions()

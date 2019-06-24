@@ -1,8 +1,9 @@
 #pragma once
 #include <qobject.h>
+#include "AbstractInfo.h"
 #include "..\Common\FlexError.h"
 
-class CHandleInfo: public QObject
+class CHandleInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
 
@@ -37,8 +38,6 @@ protected:
 
 	QString				m_ProcessName;
 	QSharedPointer<QObject>	m_pProcess;
-
-	mutable QReadWriteLock		m_Mutex;
 };
 
 typedef QSharedPointer<CHandleInfo> CHandlePtr;

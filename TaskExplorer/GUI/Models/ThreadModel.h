@@ -22,6 +22,7 @@ public:
 	{
 		eThread = 0,
 		eCPU,
+		eCPU_History,
 		eCyclesDelta,
 #ifdef WIN32
 		eStartAddress,
@@ -54,9 +55,11 @@ public:
 protected:
 	struct SThreadNode: SListNode
 	{
-		SThreadNode(const QVariant& Id) : SListNode(Id) {}
+		SThreadNode(const QVariant& Id) : SListNode(Id), iColor(0) {}
 
 		CThreadPtr			pThread;
+
+		int					iColor;
 	};
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SThreadNode(Id); }
