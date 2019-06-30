@@ -23,11 +23,7 @@
 
 #include "stdafx.h"
 #include "EventMonitor.h"
-#include "WindowsAPI.h"
-#include "ProcessHacker.h"
-
-
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "../ProcessHacker.h"
 
 #include <evntcons.h>
 

@@ -1,12 +1,16 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
 #ifdef WIN32
+#include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker/RunAs.h"
+#include "../API/Windows/WinAdmin.h"
 #endif
 #include "../Common/ExitDialog.h"
+#include "../Common/HistoryGraph.h"
 #include "NewService.h"
 #include "RunAsDialog.h"
 #include "../SVC/TaskService.h"
+
 
 CSystemAPI*	theAPI = NULL;
 
@@ -53,6 +57,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	g_DllIcon.addFile(":/Icons/dll64.png");
 
 	theAPI = CSystemAPI::New();
+
+	connect(theAPI, SIGNAL(InitDone()), this, SLOT(OnInitDone()));
 
 #if defined(Q_OS_WIN)
 	PhMainWndHandle = (HWND)QWidget::winId();
@@ -154,6 +160,16 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
 		m_pMenuConf = m_pMenuOptions->addAction(tr("Preferences"), this, SLOT(OnPreferences()));
+		m_pMenuOptions->addSeparator();
+		m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
+		m_pMenuAutoRun->setCheckable(true);
+		m_pMenuAutoRun->setChecked(IsAutorunEnabled());
+#ifdef WIN32
+		m_pMenuUAC = m_pMenuOptions->addAction(tr("Skip UAC"), this, SLOT(OnSkipUAC()));
+		m_pMenuUAC->setCheckable(true);
+		m_pMenuUAC->setEnabled(PhGetOwnTokenAttributes().Elevated);
+		m_pMenuUAC->setChecked(SkipUacRun(true));
+#endif
 
 	m_pMenuTools = menuBar()->addMenu(tr("&Tools"));
 		m_pMenuServices = m_pMenuTools->addMenu(tr("&Services"));
@@ -162,40 +178,52 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #ifdef WIN32
 			m_pMenuSCMPermissions = m_pMenuServices->addAction(tr("Service Control Manager Permissions"), this, SLOT(OnSCMPermissions()));
 #endif
+		m_pMenuTools->addSeparator();
+#ifdef WIN32
+		m_pMenuETW = m_pMenuTools->addAction(tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
+		m_pMenuETW->setCheckable(true);
+#endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
-	m_pMenuAbout = m_pMenuHelp->addAction(tr("About TaskExplorer"), this, SLOT(OnAbout()));
-	m_pMenuHelp->addSeparator();
+		m_pMenuAbout = m_pMenuHelp->addAction(tr("About TaskExplorer"), this, SLOT(OnAbout()));
+		m_pMenuHelp->addSeparator();
 #ifdef WIN32
-	m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About PHlib"), this, SLOT(OnAbout()));
+		m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About PHlib"), this, SLOT(OnAbout()));
 #endif
-	m_pMenuAboutQt = m_pMenuHelp->addAction(tr("About Qt"), this, SLOT(OnAbout()));
+		m_pMenuAboutQt = m_pMenuHelp->addAction(tr("About Qt"), this, SLOT(OnAbout()));
 
-		
-
-	QIcon Icon;
-	Icon.addFile(":/TaskExplorer.png");
-	m_pTrayIcon = new QSystemTrayIcon(Icon, this);
-	m_pTrayIcon->setToolTip(tr("TaskExplorer"));
-	connect(m_pTrayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(OnSysTray(QSystemTrayIcon::ActivationReason)));
-	//m_pTrayIcon->setContextMenu(m_pNeoMenu);
-
-	if(theConf->GetBool("SysTray/Show", true))
-		m_pTrayIcon->show();
-
-	m_pTrayMenu = new QMenu();
-	m_pTrayMenu->addAction(tr("Exit"), this, SLOT(OnExit()));
-
-	//QLabel* m_pInfo = new QLabel(tr("test"));
-	//statusBar()->addPermanentWidget(m_pInfo);
 
 	restoreGeometry(theConf->GetBlob("MainWindow/Window_Geometry"));
 	m_pMainSplitter->restoreState(theConf->GetBlob("MainWindow/Window_Splitter"));
 	m_pPanelSplitter->restoreState(theConf->GetBlob("MainWindow/Panel_Splitter"));
 	m_pGraphSplitter->restoreState(theConf->GetBlob("MainWindow/Graph_Splitter"));
 
+
+
+	bool bAutoRun = QApplication::arguments().contains("-autorun");
+
+	QIcon Icon;
+	Icon.addFile(":/TaskExplorer.png");
+	m_pTrayIcon = new QSystemTrayIcon(Icon, this);
+	m_pTrayIcon->setToolTip("TaskExplorer");
+	connect(m_pTrayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(OnSysTray(QSystemTrayIcon::ActivationReason)));
+	//m_pTrayIcon->setContextMenu(m_pNeoMenu);
+
+	m_pTrayMenu = new QMenu();
+	m_pTrayMenu->addAction(tr("Exit"), this, SLOT(OnExit()));
+
+	m_pTrayIcon->show(); // Note: qt bug; without a first show hide does not work :/
+	if(!bAutoRun && !theConf->GetBool("SysTray/Show", true))
+		m_pTrayIcon->hide();
+
+	//QLabel* m_pInfo = new QLabel(tr("test"));
+	//statusBar()->addPermanentWidget(m_pInfo);
+
 	//m_uTimerCounter = 0;
 	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
+
+	if (!bAutoRun)
+		show();
 
 	statusBar()->showMessage(tr("TaskExplorer is ready..."));
 
@@ -214,6 +242,11 @@ CTaskExplorer::~CTaskExplorer()
 	theConf->SetBlob("MainWindow/Graph_Splitter",m_pGraphSplitter->saveState());
 
 	delete theAPI;
+}
+
+void CTaskExplorer::OnInitDone()
+{
+	m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
 }
 
 void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
@@ -258,6 +291,122 @@ void CTaskExplorer::UpdateAll()
 	m_pGraphBar->UpdateGraphs();
 	m_pTaskInfo->Refresh();
 	m_pSystemInfo->Refresh();
+
+	UpdateTray();
+}
+
+void CTaskExplorer::UpdateTray()
+{
+	if (!m_pTrayIcon->isVisible())
+		return;
+
+	quint64 RamUsage = theAPI->GetPhysicalUsed();
+	quint64 SwapedMemory = theAPI->GetSwapedOutMemory();
+	quint64 CommitedMemory = theAPI->GetCommitedMemory();
+
+	quint64 InstalledMemory = theAPI->GetInstalledMemory();
+	quint64 TotalSwap = theAPI->GetTotalSwapMemory();
+
+	quint64 TotalMemory = Max(theAPI->GetInstalledMemory(), theAPI->GetCommitedMemory()); // theAPI->GetMemoryLimit();
+
+	QString TrayInfo = tr("Task Explorer\r\nCPU: %1%\r\nRam: %2%").arg(int(100 * theAPI->GetCpuUsage()))
+		.arg(InstalledMemory > 0 ? (int)100 * RamUsage / InstalledMemory : 0);
+	if (TotalSwap > 0)
+		TrayInfo.append(tr("\r\nSwap: %1%").arg((int)100 * SwapedMemory / TotalSwap));
+
+	m_pTrayIcon->setToolTip(TrayInfo);
+
+	QString TrayGraphMode = theConf->GetString("Options/TrayGraphMode", "CpuMem");
+
+	int MemMode = 0;
+	if (TrayGraphMode.compare("Cpu", Qt::CaseInsensitive) == 0)
+		;
+	else if (TrayGraphMode.compare("CpuMem", Qt::CaseInsensitive) == 0)
+		MemMode = 3; // All in one bar
+	else if (TrayGraphMode.compare("CpuMem1", Qt::CaseInsensitive) == 0)
+		MemMode = 1; // ram only
+	else if (TrayGraphMode.compare("CpuMem2", Qt::CaseInsensitive) == 0)
+		MemMode = 2; // ram and swap in two columns
+	else
+	{
+		if (!m_TrayGraph.isNull()) 
+		{
+			m_TrayGraph = QImage();
+
+			QIcon Icon;
+			Icon.addFile(":/TaskExplorer.png");
+			m_pTrayIcon->setIcon(Icon);
+		}
+		return;
+	}
+
+	QImage TrayIcon = QImage(16, 16, QImage::Format_RGB32);
+	{
+		QPainter qp(&TrayIcon);
+
+		int offset = 0;
+
+		float hVal = TrayIcon.height();
+
+		if (MemMode == 2 && InstalledMemory > 0 && TotalSwap > 0) // if mode == 2 but TotalSwap == 0 default to mode == 1
+		{
+			offset = 6;
+			qp.fillRect(0, 0, offset, TrayIcon.height(), Qt::black);
+
+			float used_x = hVal * theAPI->GetPhysicalUsed() / InstalledMemory;
+
+			qp.setPen(QPen(Qt::cyan, 2));
+			qp.drawLine(3, (hVal+1), 3, (hVal+1) - used_x);
+
+			float swaped_x = hVal * SwapedMemory / TotalSwap;
+
+			qp.setPen(QPen(Qt::yellow, 2));
+			qp.drawLine(1, (hVal+1), 1, (hVal+1) - swaped_x);
+		}
+		else if (MemMode != 3 && InstalledMemory > 0)
+		{
+			offset = 3;
+			qp.fillRect(0, 0, offset, TrayIcon.height(), Qt::black);
+
+			float used_x = hVal * theAPI->GetPhysicalUsed() / InstalledMemory;
+
+			qp.setPen(QPen(Qt::cyan, 2));
+			qp.drawLine(1, (hVal+1), 1, (hVal+1) - used_x);
+		}
+		else if(TotalMemory > 0) // TaskExplorer Mode
+		{
+			offset = 3;
+			qp.fillRect(0, 0, offset, TrayIcon.height(), Qt::black);
+
+			float used_x = hVal * RamUsage / TotalMemory;
+			float virtual_x = hVal * (RamUsage + SwapedMemory) / TotalMemory;
+			float commited_x = hVal * CommitedMemory / TotalMemory;
+
+			qp.setPen(QPen(Qt::yellow, 2));
+			qp.drawLine(1, (hVal+1), 1, (hVal+1) - commited_x);
+
+			qp.setPen(QPen(Qt::red, 2));
+			qp.drawLine(1, (hVal+1), 1, (hVal+1) - virtual_x);
+
+			qp.setPen(QPen(Qt::cyan, 2));
+			qp.drawLine(1, (hVal+1), 1, (hVal+1) - used_x);
+		}
+
+		ASSERT(TrayIcon.width() > offset);
+
+		QMap<int, CHistoryGraph::SValue> TrayValues;
+		TrayValues[0] = { theAPI->GetCpuUsage(), Qt::green };
+		TrayValues[1] = { theAPI->GetCpuKernelUsage(), Qt::red };
+		TrayValues[2] = { theAPI->GetCpuDPCUsage(), Qt::blue };
+		// Note: we may add an cuttof show 0 below 10%
+		CHistoryGraph::Update(m_TrayGraph, QColor(0, 128, 0), TrayValues, TrayIcon.height(), TrayIcon.width() - offset);
+
+		qp.translate(TrayIcon.width() - m_TrayGraph.height(), TrayIcon.height());
+		qp.rotate(270);
+		qp.drawImage(0, 0, m_TrayGraph);
+	}
+
+	m_pTrayIcon->setIcon(QIcon(QPixmap::fromImage(TrayIcon)));
 }
 
 void CTaskExplorer::CheckErrors(QList<STATUS> Errors)
@@ -360,7 +509,19 @@ void CTaskExplorer::OnTaskTab()
 
 void CTaskExplorer::OnPreferences()
 {
-	// todo
+	// todo: xxx
+}
+
+void CTaskExplorer::OnAutoRun()
+{
+	AutorunEnable(m_pMenuAutoRun->isChecked());
+}
+
+void CTaskExplorer::OnSkipUAC()
+{
+#ifdef WIN32
+	SkipUacEnable(m_pMenuUAC->isChecked());
+#endif
 }
 
 void CTaskExplorer::OnCreateService()
@@ -369,10 +530,31 @@ void CTaskExplorer::OnCreateService()
 	pWnd->show();
 }
 
+#ifdef WIN32
+NTSTATUS PhpOpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+{
+    SC_HANDLE serviceHandle;
+    if (serviceHandle = OpenSCManager(NULL, NULL, DesiredAccess))
+    {
+        *Handle = serviceHandle;
+        return STATUS_SUCCESS;
+    }
+    return PhGetLastWin32ErrorAsNtStatus();
+}
+#endif
+
 void CTaskExplorer::OnSCMPermissions()
 {
 #ifdef WIN32
-	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", PhpOpenServiceControlManager, NULL, NULL);
+	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", (PPH_OPEN_OBJECT)PhpOpenServiceControlManager, NULL, NULL);
+#endif
+}
+
+void CTaskExplorer::OnMonitorETW()
+{
+#ifdef WIN32
+	theConf->SetValue("Options/MonitorETW", m_pMenuETW->isChecked());
+	((CWindowsAPI*)theAPI)->MonitorETW(m_pMenuETW->isChecked());
 #endif
 }
 

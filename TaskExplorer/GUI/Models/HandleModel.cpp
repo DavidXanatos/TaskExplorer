@@ -83,7 +83,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 			{
 				case eProcess:			Value = pHandle->GetProcessName(); break;	
 				case eHandle:			Value = pHandle->GetHandleId(); break;
-				case eType:				Value = pHandle->GetTypeString(); break;
+				case eType:				Value = pHandle->GetTypeName(); break;
 				case eName:				Value = pHandle->GetFileName(); break;
 				case ePosition:			Value = pHandle->GetPosition(); break;	
 				case eSize:				Value = pHandle->GetSize(); break;	
@@ -107,6 +107,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 				switch (section)
 				{
 					//case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
+					case eType:				ColValue.Formated = pHandle->GetTypeString(); break;
 #ifdef WIN32
 					case eObjectAddress:	ColValue.Formated = "0x" + QString::number(pWinHandle->GetObjectAddress(), 16); break;	
 #endif

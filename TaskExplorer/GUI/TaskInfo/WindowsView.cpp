@@ -4,6 +4,7 @@
 #include "../../Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinWnd.h"
+#include "../../API/Windows/ProcessHacker.h"
 #endif
 #include "..\Models\WindowModel.h"
 #include "..\..\Common\SortFilterProxyModel.h"
@@ -18,6 +19,10 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 	
+	m_pSplitter = new QSplitter();
+	m_pSplitter->setOrientation(Qt::Vertical);
+	m_pMainLayout->addWidget(m_pSplitter);
+
 	m_pWindowModel = new CWindowModel();
 	
 	m_pSortProxy = new CSortFilterProxyModel(false, this);
@@ -42,8 +47,32 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pWindowList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pWindowList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	m_pMainLayout->addWidget(m_pWindowList);
+	//m_pMainLayout->addWidget(m_pWindowList);
+	m_pSplitter->addWidget(m_pWindowList);
+	m_pSplitter->setCollapsible(0, false);
 	// 
+
+	connect(m_pWindowList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnItemSelected(const QModelIndex&)));
+	connect(m_pWindowList->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), this, SLOT(OnItemSelected(QModelIndex)));
+
+	// Handle Details
+	m_pWindowDetails = new CPanelWidget<QTreeWidgetEx>();
+
+	m_pWindowDetails->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pWindowDetails->fontMetrics().height() + 3, this));
+	((QTreeWidgetEx*)m_pWindowDetails->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
+
+	m_pWindowDetails->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_pWindowDetails->GetView()->setSortingEnabled(false);
+
+	m_pSplitter->addWidget(m_pWindowDetails);
+	//m_pSplitter->setCollapsible(1, false);
+	//
+
+	setObjectName(parent->objectName());
+	m_pWindowList->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Columns"));
+	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Splitter"));
+	m_pWindowDetails->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsDetail_Columns"));
+
 
 	//m_pMenu = new QMenu();
 	m_pBringToFront = m_pMenu->addAction(tr("Bring to front"), this, SLOT(OnWindowAction()));
@@ -71,29 +100,25 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pOnTop = m_pMenu->addAction(tr("Always on top"), this, SLOT(OnWindowAction()));
 
 	AddPanelItemsToMenu();
-
-	setObjectName(parent->objectName());
-	m_pWindowList->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Columns"));
-	//m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Splitter"));
 }
 
 
 CWindowsView::~CWindowsView()
 {
 	theConf->SetBlob(objectName() + "/WindowsView_Columns", m_pWindowList->header()->saveState());
-	//theConf->SetBlob(objectName() + "/WindowsView_Splitter",m_pSplitter->saveState());
+	theConf->SetBlob(objectName() + "/WindowsView_Splitter",m_pSplitter->saveState());
+	theConf->SetBlob(objectName() + "/WindowsDetail_Columns", m_pWindowDetails->GetView()->header()->saveState());
 }
 
 void CWindowsView::ShowWindows(const CProcessPtr& pProcess)
 {
-	if(!m_pCurProcess.isNull())
-		disconnect(m_pCurProcess.data(), SIGNAL(WindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	disconnect(this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	
 	m_pCurProcess = pProcess;
 
 	connect(m_pCurProcess.data(), SIGNAL(WindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-	m_pCurProcess->UpdateWindows();
+	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateWindows()));
 }
 
 void CWindowsView::OnWindowsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
@@ -101,7 +126,6 @@ void CWindowsView::OnWindowsUpdated(QSet<quint64> Added, QSet<quint64> Changed, 
 	QMap<quint64, CWndPtr> Windows = m_pCurProcess->GetWindowList();
 
 	m_pWindowModel->Sync(Windows);
-
 
 	QTimer::singleShot(100, this, [this, Added]() {
 		foreach(quint64 ID, Added)
@@ -158,7 +182,6 @@ void CWindowsView::OnMenu(const QPoint &point)
 	CPanelView::OnMenu(point);
 }
 
-
 void CWindowsView::OnWindowAction()
 {
 	if (m_LockValue)
@@ -202,4 +225,72 @@ void CWindowsView::OnWindowAction()
 	}
 
 	//CTaskExplorer::CheckErrors(Errors);
+}
+
+QString QRect2Str(const QRect& rect)
+{
+	return QString("(%1, %2) - (%3, %4) [%5x%6]").arg(rect.left()).arg(rect.top()).arg(rect.right()).arg(rect.bottom()).arg(rect.width()).arg(rect.height());
+}
+
+void CWindowsView::OnItemSelected(const QModelIndex &current)
+{
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
+
+	CWndPtr pWindow = m_pWindowModel->GetWindow(ModelIndex);
+	if (pWindow.isNull())
+		return;
+
+	QTreeWidget* pDetails = (QTreeWidget*)m_pWindowDetails->GetView();
+	// Note: we don't auto refresh this infos
+	pDetails->clear();
+
+#ifdef WIN32
+	CWinWnd::SWndInfo WndInfo = pWindow.objectCast<CWinWnd>()->GetWndInfo();
+
+	QTreeWidgetItem* pGeneral = new QTreeWidgetItem(QStringList(tr("General")));
+	pDetails->addTopLevelItem(pGeneral);
+
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("AppID"), WndInfo.AppID);
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Text"), WndInfo.Text);
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Thread"), WndInfo.Thread);
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Rectangle"), QRect2Str(WndInfo.Rect));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Normal rectangle"), QRect2Str(WndInfo.NormalRect));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Client rectangle"), QRect2Str(WndInfo.ClientRect));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Instance handle"), WndInfo.InstanceString);
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Menu handle"), QString::number(WndInfo.MenuHandle));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("User data"), QString::number(WndInfo.UserdataHandle));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Unicode"), WndInfo.IsUnicode ? tr("Yes") : tr("No"));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Dialog control ID"), QString::number(WndInfo.WindowId));
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Font"), WndInfo.Font);
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Styles"), WndInfo.Styles);
+	QTreeWidgetEx::AddSubItem(pGeneral, tr("Extended styles"), WndInfo.StylesEx);
+
+
+	QTreeWidgetItem* pClass = new QTreeWidgetItem(QStringList(tr("Class")));
+	pDetails->addTopLevelItem(pClass);
+
+	QTreeWidgetEx::AddSubItem(pClass, tr("Class name"), WndInfo.ClassName);
+	QTreeWidgetEx::AddSubItem(pClass, tr("Atom"), QString::number(WndInfo.Atom));
+	QTreeWidgetEx::AddSubItem(pClass, tr("Styles"), WndInfo.StylesClass);
+	QTreeWidgetEx::AddSubItem(pClass, tr("Instance handle"), WndInfo.InstanceString2);
+	QTreeWidgetEx::AddSubItem(pClass, tr("Large icon handle"), QString::number(WndInfo.hIcon));
+	QTreeWidgetEx::AddSubItem(pClass, tr("Small icon handle"), QString::number(WndInfo.hIconSm));
+	QTreeWidgetEx::AddSubItem(pClass, tr("Cursor handle"), QString::number(WndInfo.hCursor));
+	QTreeWidgetEx::AddSubItem(pClass, tr("Background brush"), QString::number(WndInfo.hbrBackground));
+	QTreeWidgetEx::AddSubItem(pClass, tr("Menu name"), QString::number(WndInfo.lpszMenuName));
+	
+
+	QTreeWidgetItem* pProps = new QTreeWidgetItem(QStringList(tr("Properties")));
+	pDetails->addTopLevelItem(pProps);
+
+	for(QMap<QString, QString>::iterator I = WndInfo.Properties.begin(); I != WndInfo.Properties.end(); ++I)
+		QTreeWidgetEx::AddSubItem(pProps, I.key(), I.value());
+
+	//QTreeWidgetItem* pPropStor = new QTreeWidgetItem(QStringList(tr("Property Storage")));
+	//pDetails->addTopLevelItem(pPropStor);
+
+	// ToDo:
+
+	pDetails->expandAll();
+#endif
 }

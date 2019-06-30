@@ -24,6 +24,42 @@ public:
 	virtual STATUS Maximize();
 	virtual STATUS Close();
 
+	struct SWndInfo
+	{
+		QString AppID;
+		QString Text;
+		QString Thread;
+		QRect	Rect;
+		QRect	NormalRect;
+		QRect	ClientRect;
+		quint64 MenuHandle;
+		quint64 InstanceHandle;
+		QString InstanceString;
+		quint64 UserdataHandle;
+		bool	IsUnicode;
+		ulong	WindowId;
+		QString Font;
+		QString Styles;
+		QString StylesEx;
+
+		QString ClassName;
+		quint64 Atom;
+		quint64 hIcon;
+		quint64 hIconSm;
+		quint64 lpszMenuName;
+		quint64 hCursor;
+		quint64 hbrBackground;
+		QString StylesClass;
+		quint64 InstanceHandle2;
+		QString InstanceString2;
+
+		QMap<QString, QString> Properties;
+
+		//QMap<QString, QString> PropertyStorage; // todo:
+	};
+
+	virtual SWndInfo GetWndInfo() const;
+
 protected:
 	friend class CWindowsAPI;
 	friend class CWinProcess;

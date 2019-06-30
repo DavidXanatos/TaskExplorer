@@ -21,6 +21,8 @@ public slots:
 	void					ShowThreads(const CProcessPtr& pProcess);
 
 private slots:
+	void					ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+
 	void					OnUpdateHistory();
 
 	//void					OnClicked(const QModelIndex& Index);
@@ -45,7 +47,7 @@ protected:
 private:
 	QVBoxLayout*			m_pMainLayout;
 
-	QWidget*				m_pFilterWidget;
+	//QWidget*				m_pFilterWidget;
 
 	QSplitter*				m_pSplitter;
 

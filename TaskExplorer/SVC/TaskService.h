@@ -16,8 +16,12 @@ public:
 #else
 	static QVariant SendCommand(const QString& socketName, const QVariant &Command, int timeout = 5000);
 #endif
+
 	static QString RunService();
-	static bool RunService(const QString& ServiceName);
+#ifdef WIN64
+	static QString RunService32();
+#endif
+	static bool RunService(const QString& ServiceName, QString BinaryPath = "");
 
 public slots:
 	void		receiveConnection();
@@ -56,8 +60,3 @@ private:
 	static QMutex m_TempMutex;
 	static QString m_TempName;
 };
-
-#ifdef WIN32
-bool IsElevated();
-int RestartElevated(int &argc, char **argv);
-#endif

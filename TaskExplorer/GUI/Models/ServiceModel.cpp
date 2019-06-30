@@ -90,7 +90,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 			QVariant Value;
 			switch(section)
 			{
-				case eService:				Value = pService->GetName(); break;
+				case eService:				Value = pService->GetName().toLower(); break;
 #ifdef WIN32
 				case eDisplayName:			Value = pWinService->GetDisplayName(); break;
 				case eType:					Value = pWinService->GetTypeString(); break;
@@ -119,10 +119,10 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 					Changed = 1;
 				ColValue.Raw = Value;
 
-				/*switch (section)
+				switch (section)
 				{
-					case ePID:					ColValue.Formated = 
-				}*/
+					case eService:				ColValue.Formated = pService->GetName(); break;
+				}
 			}
 
 			if(State != (Changed != 0))

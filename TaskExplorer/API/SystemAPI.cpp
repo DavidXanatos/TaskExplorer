@@ -17,6 +17,8 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 	m_CommitedMemory = 0;
 	m_CommitedMemoryPeak = 0;
 	m_MemoryLimit = 0;
+	m_SwapedOutMemory = 0;
+	m_TotalSwapMemory = 0;
 	m_PagedMemory = 0;
 	m_PersistentPagedMemory = 0;
 	m_NonPagedMemory = 0;
@@ -31,6 +33,7 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 	m_FileListUpdateWatcher = NULL;
 
 #ifdef CORE_THREAD
+	ASSERT(parent == NULL); // When running this in a separate thread, parent must be NULL!!!
 	QThread *pThread = new QThread();
 	this->moveToThread(pThread);
 	pThread->start();

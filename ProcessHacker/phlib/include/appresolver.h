@@ -27,17 +27,23 @@
 extern "C" {
 #endif
 
-BOOLEAN PhAppResolverGetAppIdForProcess(
+BOOLEAN 
+NTAPI
+PhAppResolverGetAppIdForProcess(
     _In_ HANDLE ProcessId,
     _Out_ PPH_STRING *ApplicationUserModelId
     );
 
-BOOLEAN PhAppResolverGetAppIdForWindow(
+BOOLEAN 
+NTAPI
+PhAppResolverGetAppIdForWindow(
     _In_ HWND WindowHandle,
     _Out_ PPH_STRING *ApplicationUserModelId
     );
 
-HRESULT PhAppResolverActivateAppId(
+HRESULT 
+NTAPI
+PhAppResolverActivateAppId(
     _In_ PPH_STRING AppUserModelId,
     _In_opt_ PWSTR CommandLine,
     _Out_opt_ HANDLE *ProcessId
@@ -49,36 +55,52 @@ typedef struct _PH_PACKAGE_TASK_ENTRY
     GUID TaskGuid;
 } PH_PACKAGE_TASK_ENTRY, *PPH_PACKAGE_TASK_ENTRY;
 
-PPH_LIST PhAppResolverEnumeratePackageBackgroundTasks(
+PPH_LIST 
+NTAPI
+PhAppResolverEnumeratePackageBackgroundTasks(
     _In_ PPH_STRING PackageFullName
     );
 
-PPH_STRING PhGetAppContainerName(
+PPH_STRING 
+NTAPI
+PhGetAppContainerName(
     _In_ PSID AppContainerSid
     );
 
-PPH_STRING PhGetAppContainerSidFromName(
+PPH_STRING 
+NTAPI
+PhGetAppContainerSidFromName(
     _In_ PWSTR AppContainerName
     );
 
-PPH_STRING PhGetAppContainerPackageName(
+PPH_STRING 
+NTAPI
+PhGetAppContainerPackageName(
     _In_ PSID Sid
     );
 
-PPH_STRING PhGetProcessPackageFullName(
+PPH_STRING 
+NTAPI
+PhGetProcessPackageFullName(
     _In_ HANDLE ProcessHandle
     );
 
-BOOLEAN PhIsPackageCapabilitySid(
+BOOLEAN 
+NTAPI
+PhIsPackageCapabilitySid(
     _In_ PSID AppContainerSid,
     _In_ PSID Sid
     );
 
-PPH_STRING PhGetPackagePath(
+PPH_STRING 
+NTAPI
+PhGetPackagePath(
     _In_ PPH_STRING PackageFullName
     );
 
-PPH_LIST PhGetPackageAssetsFromResourceFile(
+PPH_LIST 
+NTAPI
+PhGetPackageAssetsFromResourceFile(
     _In_ PWSTR FilePath
     );
 

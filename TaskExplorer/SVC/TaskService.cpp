@@ -3,73 +3,8 @@
 #include "..\Common\Common.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
-
-#include <shellapi.h>
-#include <codecvt>
-
-// Note: we want to restart early before initlaizzing PHlib so we need some custom basic functions 
-
-bool IsElevated()
-{
-    bool fRet = false;
-    HANDLE hToken = NULL;
-    if( OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&hToken))
-	{
-        TOKEN_ELEVATION Elevation;
-        DWORD cbSize = sizeof(TOKEN_ELEVATION);
-        if(GetTokenInformation(hToken, TokenElevation, &Elevation, sizeof( Elevation ), &cbSize)) 
-            fRet = Elevation.TokenIsElevated;
-    }
-    if(hToken) 
-        CloseHandle(hToken);
-    return fRet;
-}
-
-int RunElevated(const wstring& Params, bool bGetCode = false)
-{
-	wchar_t szPath[MAX_PATH];
-	if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
-		return -3;
-	// Launch itself as admin
-	SHELLEXECUTEINFO sei = { sizeof(sei) };
-	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-	sei.lpVerb = L"runas";
-	sei.lpFile = szPath;
-	sei.lpParameters = Params.c_str();
-	sei.hwnd = NULL;
-	sei.nShow = SW_NORMAL;
-	if (!ShellExecuteEx(&sei))
-	{
-		DWORD dwError = GetLastError();
-		if (dwError == ERROR_CANCELLED)
-			return -2; // The user refused to allow privileges elevation.
-	}
-	else
-	{
-		if (bGetCode)
-		{
-			WaitForSingleObject(sei.hProcess, 10000);
-			DWORD ExitCode = -4;
-			BOOL success = GetExitCodeProcess(sei.hProcess, &ExitCode);
-			NtClose(sei.hProcess);
-			return success ? ExitCode : -4;
-		}
-		return 0;
-	}
-	return -1;
-}
-
-int RestartElevated(int &argc, char **argv)
-{
-	wstring Params;
-	for (int i = 1; i < argc; i++)
-	{
-		if (i > 1)
-			Params.append(L" ");
-		Params.append(L"\"" + wstring_convert<codecvt_utf8<wchar_t>>().from_bytes(argv[i]) + L"\"");
-	}
-	return RunElevated(Params);
-}
+#include "../API/Windows/WinDumper.h"
+#include "../API/Windows/WinAdmin.h"
 
 // we need to adjust the pipe permissions in order to allow a user process to communicate with a service
 #include <aclapi.h>
@@ -113,6 +48,9 @@ CTaskService::~CTaskService()
 
 void CTaskService::start()
 {
+#ifdef WIN32
+	InitPH(true);
+#endif
 	m_pServer = new QLocalServer(this);
 	QObject::connect(m_pServer, SIGNAL(newConnection()), SLOT(receiveConnection()));
 	m_pServer->listen(serviceName());
@@ -184,24 +122,53 @@ void CTaskService::receiveConnection()
 	if (!Request.isValid())
 		return;
 	
-	QVariant Response = false;
-
 	m_LastActivity = GetCurTick();
-	if(Request.type() == QVariant::Map)
+
+	QString Command;
+	QVariantMap Parameters;
+	if (Request.type() == QVariant::Map)
 	{
 		QVariantMap Data = Request.toMap();
-		QString Command = Data["Command"].toString();
-		QVariantMap Parameters = Data["Parameters"].toMap();
-#ifdef WIN32
-		if (Command == "SvcInvokeRunAsService")
-			Response = PhSvcApiInvokeRunAsService(Parameters);
-		else
-			Response = "Unknown Command";
-#endif
+		Command = Data["Command"].toString();
+		Parameters = Data["Parameters"].toMap();
 	}
-	else if (Request.toString() == "refresh")
-		Response = true;
+	else
+		Command = Request.toString();
 	
+
+	QVariant Response = false;	
+#ifdef WIN32
+	if (Command == "SvcInvokeRunAsService")
+	{
+		Response = PhSvcApiInvokeRunAsService(Parameters);
+	}
+	else if (Command == "SvcGetProcessId")
+	{
+		Response = (quint64)NtCurrentProcessId();
+	}
+	else if (Command == "SvcWriteMiniDumpProcess")
+	{
+		Response = PhSvcApiWriteMiniDumpProcess(Parameters);
+	}
+	else if (Command == "SvcCallSendMessage")
+	{
+		HWND hWnd = (HWND)Parameters["hWnd"].toULongLong();
+		UINT Msg = Parameters["Msg"].toULongLong();
+		WPARAM wParam = Parameters["wParam"].toULongLong();
+		LPARAM lParam = Parameters["lParam"].toULongLong();
+
+		if (Parameters["Post"].toBool())
+			Response = PostMessage(hWnd, Msg, wParam, lParam);
+		else
+			Response = SendMessage(hWnd, Msg, wParam, lParam);
+	}
+	else
+#endif
+	if (Request.toString() == "refresh")
+		Response = true;
+	else
+		Response = "Unknown Command";
+
 	SendVariant(pSocket, Response, 2000);
     pSocket->waitForDisconnected(1000);
 }
@@ -214,7 +181,7 @@ QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Co
     for(int i = 0; i < 2; i++) 
 	{
         Socket.connectToServer(socketName);
-        Ok = Socket.waitForConnected(timeout/2);
+        Ok = Socket.waitForConnected(timeout == -1 ? 30000 : timeout/2);
         if (Ok)
             break;
 		QThread::msleep(255);
@@ -275,12 +242,60 @@ QString CTaskService::RunService()
 	return QString();
 }
 
-bool CTaskService::RunService(const QString& ServiceName)
+#ifdef WIN64
+QString CTaskService::RunService32()
+{
+	QString BinaryPath = "";
+
+    static char* relativeFileNames[] =
+    {
+        "\\x86\\TaskExplorer.exe",
+        "\\..\\x86\\TaskExplorer.exe",
+#ifdef DEBUG
+        "\\..\\..\\Win32\\Debug\\TaskExplorer.exe"
+#else
+		"\\..\\..\\Win32\\Release\\TaskExplorer.exe"
+#endif
+    };
+
+	QString AppDir = QApplication::applicationDirPath();
+
+    for (int i = 0; i < RTL_NUMBER_OF(relativeFileNames); i++)
+    {
+		QString TestPath = QDir::cleanPath(AppDir + relativeFileNames[i]);
+		if (QFile::exists(TestPath))
+		{
+			BinaryPath = TestPath.replace("/","\\");
+			break;
+		}
+    }
+
+	if(BinaryPath.isEmpty())
+		return QString();
+
+	QString ServiceName = (TASK_SERVICE_NAME "_") + GetRand64Str();
+	if (RunService(ServiceName, BinaryPath))
+		return ServiceName;
+	return QString();
+}
+#endif
+
+bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 {
 #ifdef WIN32
+	// Note: this function may be invoked without prior calling InitPH() !!!
+
+	if (BinaryPath.isEmpty())
+	{
+		wchar_t szPath[MAX_PATH];
+		if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
+			return false;
+		BinaryPath = QString::fromWCharArray(szPath);
+	}
+
 	if (!IsElevated())
 	{
-		int Ret = RunElevated(L"-runsvc " + ServiceName.toStdWString(), true);
+		int Ret = RunElevated(BinaryPath.toStdWString(), L"-runsvc " + ServiceName.toStdWString(), true);
 		if (Ret == EXIT_SUCCESS);
 			return true;
 		return false;
@@ -289,7 +304,7 @@ bool CTaskService::RunService(const QString& ServiceName)
 	BOOLEAN success = FALSE;
 
 	// Try to start the service if its installed
-	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_QUERY_STATUS | SERVICE_START);
+	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_QUERY_STATUS | SERVICE_START); // this is safe to call without InitPH
 	if (serviceHandle)
 	{
 		SERVICE_STATUS serviceStatus;
@@ -309,29 +324,18 @@ bool CTaskService::RunService(const QString& ServiceName)
 		if (!(scManagerHandle = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE)))
 			return false; //PhGetLastWin32ErrorAsNtStatus();
 
-		PPH_STRING applicationFileName;    
-		if (!(applicationFileName = PhGetApplicationFileName()))
-			return false;
-
-		PPH_STRING commandLine;
+		wstring CommandLine = L"\"" + BinaryPath.toStdWString() + L"\" -svc \"" + ServiceName.toStdWString() + L"\" -timeout 5000";
 #ifdef _DEBUG
-		bool bDebug = false;
-		if(bDebug)
-			commandLine = PhFormatString(L"\"%s\" -svc \"%s\"%s", applicationFileName->Buffer, ServiceName.toStdWString().c_str(), L" -timeout 10000 -dbg_wait");
-		else
+		//CommandLine.append(L"-dbg_wait");
 #endif
-			commandLine = PhFormatString(L"\"%s\" -svc \"%s\"%s", applicationFileName->Buffer, ServiceName.toStdWString().c_str(), L" -timeout 5000");
 
 		SC_HANDLE serviceHandle = CreateService(scManagerHandle, ServiceName.toStdWString().c_str(), ServiceName.toStdWString().c_str(), SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS, SERVICE_DEMAND_START,
-			SERVICE_ERROR_IGNORE, commandLine->Buffer, NULL, NULL, NULL, L"LocalSystem", L"");
+			SERVICE_ERROR_IGNORE, CommandLine.c_str(), NULL, NULL, NULL, L"LocalSystem", L"");
 		//ULONG  win32Result = GetLastError();
-
-		PhDereferenceObject(commandLine);
-		PhDereferenceObject(applicationFileName);
 
 		if (serviceHandle)
 		{
-			//PhSetDesktopWinStaAccess();
+			//PhSetDesktopWinStaAccess(); // can this work without InitPH?
 
 			if (StartService(serviceHandle, 0, NULL))
 				success = TRUE;

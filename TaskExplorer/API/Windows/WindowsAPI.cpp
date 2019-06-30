@@ -8,6 +8,7 @@
 
 
 #include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "../SVC/TaskService.h"
 
 int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
 
@@ -107,6 +108,8 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 bool CWindowsAPI::Init()
 {
+	InitPH();
+
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
 	if (PhBeginInitOnce(&initOnce))
     {
@@ -134,21 +137,38 @@ bool CWindowsAPI::Init()
 
 	m_CPU_String = QString::fromWCharArray(brandString);
 
-	m_pEventMonitor = new CEventMonitor();
-
 	//NtPowerInformation(ProcessorInformation, NULL, 0, m->PowerInformation, sizeof(PROCESSOR_POWER_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors));
-    
+
+	if (theConf->GetBool("Options/MonitorETW", true))
+		MonitorETW(true);
+
+	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
+	m_pSymbolProvider->Init();
+
+	emit InitDone();
+
+	return true;
+}
+
+void CWindowsAPI::MonitorETW(bool bEnable)
+{
+	if (bEnable == (m_pEventMonitor != NULL))
+		return;
+
+	if (!bEnable)
+	{
+		delete m_pEventMonitor;
+		m_pEventMonitor = NULL;
+		return;
+	}
+
+	m_pEventMonitor = new CEventMonitor();
 
 	connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)));
 	connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
 	connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)));
 
 	m_pEventMonitor->Init();
-
-	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
-	m_pSymbolProvider->Init();
-
-	return true;
 }
 
 CWindowsAPI::~CWindowsAPI()
@@ -286,6 +306,30 @@ void CWindowsAPI::UpdatePerfStats()
 	m_NonPagedMemory = UInt32x32To64(PerfInformation.NonPagedPoolPages, PAGE_SIZE);
 	m_PhysicalUsed = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages - PerfInformation.AvailablePages, PAGE_SIZE);
 	m_CacheMemory = UInt32x32To64(PerfInformation.ResidentSystemCachePage, PAGE_SIZE);
+
+	quint64 TotalSwapMemory = 0;
+	quint64 SwapedOutMemory = 0;
+
+	//PSYSTEM_PAGEFILE_INFORMATION PageFiles = NULL;
+	PVOID PageFiles = NULL;
+	ULONG len = 0;
+	NTSTATUS status = NtQuerySystemInformation(SystemPageFileInformation, NULL, 0, &len);
+	if (status == STATUS_INFO_LENGTH_MISMATCH)
+		PageFiles = (PSYSTEM_PAGEFILE_INFORMATION)malloc(len);
+	
+	status = NtQuerySystemInformation(SystemPageFileInformation, PageFiles, len, NULL);
+    if(NT_SUCCESS(status))
+    {
+		for (PSYSTEM_PAGEFILE_INFORMATION pagefile = PH_FIRST_PAGEFILE(PageFiles); pagefile; pagefile = PH_NEXT_PAGEFILE(pagefile))
+		{
+			TotalSwapMemory += UInt32x32To64(pagefile->TotalSize, PAGE_SIZE);
+			SwapedOutMemory += UInt32x32To64(pagefile->TotalInUse, PAGE_SIZE);
+		}
+    }
+	free(PageFiles);
+
+	m_TotalSwapMemory = TotalSwapMemory;
+	m_SwapedOutMemory = SwapedOutMemory;
 }
 
 void CWindowsAPI::UpdateNetStats()
@@ -427,7 +471,7 @@ void CWindowsAPI::UpdateNetStats()
 	LARGE_INTEGER ClientBytesReceived;
 	LARGE_INTEGER ClientSendRaw;
 	STAT_WORKSTATION_0* wrkStat = NULL;
-	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanWorkstation", 0, 0, (LPBYTE*)&wrkStat)))
+	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanWorkstation", 0, 0, (LPBYTE*)&wrkStat)) && wrkStat != NULL)
 	{
 		ClientBytesReceived = wrkStat->BytesReceived;
 		//ClientReceiveCount = wrkStat->SmbsReceived;
@@ -441,7 +485,7 @@ void CWindowsAPI::UpdateNetStats()
 	LARGE_INTEGER ServerBytesReceived;
 	LARGE_INTEGER ServerSendRaw;
 	_STAT_SERVER_0* srvStat = NULL;
-	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)))
+	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)) && srvStat != NULL) // fix-me: why can this be null?
 	{
 		ServerBytesReceived.HighPart = srvStat->sts0_bytesrcvd_high;
 		ServerBytesReceived.LowPart = srvStat->sts0_bytesrcvd_low;
@@ -636,7 +680,7 @@ bool CWindowsAPI::UpdateProcessList()
 	m_TotalUserObjects = newTotalUserObjects;
 	m_TotalWndObjects = newTotalWndObjects;
 
-	m_CpuStatsDPCUsage = CpuStatsDPCUsage;
+	m_CpuStatsDPCUsage = CpuStatsDPCUsage; // & interrupts
 
 	return true;
 }
@@ -1090,7 +1134,7 @@ bool CWindowsAPI::UpdateServiceList()
         if (WindowsVersion >= WINDOWS_10_RS2)
             PhpWorkaroundWindows10ServiceTypeBug(service);
 
-		QString Name = QString::fromWCharArray(service->lpServiceName);
+		QString Name = QString::fromWCharArray(service->lpServiceName).toLower(); // its not case sensitive
 
 		QSharedPointer<CWinService> pService = OldService.take(Name).objectCast<CWinService>();
 

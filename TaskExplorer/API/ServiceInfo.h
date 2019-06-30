@@ -15,6 +15,7 @@ public:
 	virtual QString GetName() const					{ QReadLocker Locker(&m_Mutex); return m_SvcName; }
 	virtual QString GetFileName() const				{ QReadLocker Locker(&m_Mutex); return m_FileName; }
 	virtual QString GetBinaryPath() const			{ QReadLocker Locker(&m_Mutex); return m_BinaryPath; }
+	virtual QString GetDisplayName() const			{ QReadLocker Locker(&m_Mutex); return m_DisplayName; }
 
 	virtual quint64 GetPID() const					{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
@@ -37,6 +38,7 @@ protected:
 	QString							m_SvcName;
 	QString							m_FileName;
 	QString							m_BinaryPath;
+	QString							m_DisplayName;
 
 	quint64							m_ProcessId;
 

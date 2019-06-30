@@ -64,6 +64,8 @@ public:
 	virtual quint64 GetCommitedMemory() const		{ QReadLocker Locker(&m_StatsMutex); return m_CommitedMemory; }
 	virtual quint64 GetCommitedMemoryPeak() const	{ QReadLocker Locker(&m_StatsMutex); return m_CommitedMemoryPeak; }
 	virtual quint64 GetMemoryLimit() const			{ QReadLocker Locker(&m_StatsMutex); return m_MemoryLimit; }
+	virtual quint64 GetSwapedOutMemory() const		{ QReadLocker Locker(&m_StatsMutex); return m_SwapedOutMemory; }
+	virtual quint64 GetTotalSwapMemory() const		{ QReadLocker Locker(&m_StatsMutex); return m_TotalSwapMemory; }
 	virtual quint64 GetPagedMemory() const			{ QReadLocker Locker(&m_StatsMutex); return m_PagedMemory; }
 	virtual quint64 GetPersistentPagedMemory() const{ QReadLocker Locker(&m_StatsMutex); return m_PersistentPagedMemory; }
 	virtual quint64 GetNonPagedMemory() const		{ QReadLocker Locker(&m_StatsMutex); return m_NonPagedMemory; }
@@ -81,7 +83,7 @@ public:
 
 	virtual SCpuStats GetCpuStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats; }
 
-	virtual QString GetCpuModel()const				{QReadLocker Locker(&m_StatsMutex); return m_CPU_String; }
+	virtual QString GetCpuModel()const				{ QReadLocker Locker(&m_StatsMutex); return m_CPU_String; }
 
 	void AddThread(CThreadPtr pThread);
 	void ClearThread(quint64 ThreadId);
@@ -101,6 +103,7 @@ private slots:
 	virtual void OnOpenFilesUpdated();
 
 signals:
+	void InitDone();
 	void ProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void SocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void OpenFileListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
@@ -147,6 +150,8 @@ protected:
 	quint64						m_CommitedMemory;
 	quint64						m_CommitedMemoryPeak;
 	quint64						m_MemoryLimit;
+	quint64						m_SwapedOutMemory;
+	quint64						m_TotalSwapMemory;
 	quint64						m_PagedMemory;
 	quint64						m_PersistentPagedMemory;
 	quint64						m_NonPagedMemory;

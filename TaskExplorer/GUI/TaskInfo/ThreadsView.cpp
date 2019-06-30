@@ -13,9 +13,9 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
-	m_pFilterWidget = new QWidget();
-	m_pFilterWidget->setMinimumHeight(32);
-	m_pMainLayout->addWidget(m_pFilterWidget);
+	//m_pFilterWidget = new QWidget();
+	//m_pFilterWidget->setMinimumHeight(32);
+	//m_pMainLayout->addWidget(m_pFilterWidget);
 
 	m_pSplitter = new QSplitter();
 	m_pSplitter->setOrientation(Qt::Vertical);
@@ -81,10 +81,25 @@ CThreadsView::~CThreadsView()
 
 void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
 {
-	m_pCurProcess = pProcess;
+	if (m_pCurProcess != pProcess)
+	{
+		disconnect(this, SLOT(ShowThreads(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-	m_pCurProcess->UpdateThreads();
+		m_pCurProcess = pProcess;
 
+		connect(m_pCurProcess.data(), SIGNAL(ThreadsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowThreads(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	}
+
+	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateThreads()));
+
+#ifdef WIN32
+	// Note: See coment in CWinProcess::UpdateThreads(), ... so windows we just call ShowThreads right away.
+	ShowThreads(QSet<quint64>(), QSet<quint64>(), QSet<quint64>());
+#endif
+}
+
+void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
+{
 	QMap<quint64, CThreadPtr> Threads = m_pCurProcess->GetThreadList();
 
 	m_pThreadModel->Sync(Threads);

@@ -173,6 +173,7 @@ void CRunAsDialog::accept()
 	else if (status != STATUS_TIMEOUT)
 	{
 		PhpAddRunMRUListEntry(program);
+		this->close();
 	}
 
 cleanup:

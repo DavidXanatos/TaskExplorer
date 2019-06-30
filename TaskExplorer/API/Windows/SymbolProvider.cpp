@@ -199,20 +199,20 @@ VOID PhLoadSymbolsThreadProvider(SSymbolProvider* m)
         if (m->SymbolProvider->IsRealHandle || m->ProcessId == SYSTEM_PROCESS_ID)
         {
             loadContext.ProcessId = m->ProcessId;
-            PhEnumGenericModules(m->ProcessId, m->SymbolProvider->ProcessHandle, 0, LoadSymbolsEnumGenericModulesCallback, &loadContext);
+            PhEnumGenericModules(m->ProcessId, m->SymbolProvider->ProcessHandle, 0, (PPH_ENUM_GENERIC_MODULES_CALLBACK)LoadSymbolsEnumGenericModulesCallback, &loadContext);
         }
         else
         {
             // We can't enumerate the process modules. Load symbols for ntdll.dll and kernel32.dll.
             loadContext.ProcessId = NtCurrentProcessId();
-            PhEnumGenericModules(NtCurrentProcessId(), NtCurrentProcess(), 0, LoadBasicSymbolsEnumGenericModulesCallback, &loadContext );
+            PhEnumGenericModules(NtCurrentProcessId(), NtCurrentProcess(), 0, (PPH_ENUM_GENERIC_MODULES_CALLBACK)LoadBasicSymbolsEnumGenericModulesCallback, &loadContext );
         }
 
         // Load kernel module symbols as well.
         if (m->ProcessId != SYSTEM_PROCESS_ID)
         {
             loadContext.ProcessId = SYSTEM_PROCESS_ID;
-            PhEnumGenericModules(SYSTEM_PROCESS_ID, NULL, 0, LoadSymbolsEnumGenericModulesCallback, &loadContext);
+            PhEnumGenericModules(SYSTEM_PROCESS_ID, NULL, 0, (PPH_ENUM_GENERIC_MODULES_CALLBACK)LoadSymbolsEnumGenericModulesCallback, &loadContext);
         }
     }
     else

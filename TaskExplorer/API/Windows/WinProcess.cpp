@@ -24,6 +24,7 @@
 
 #include "stdafx.h"
 #include "ProcessHacker.h"
+#include "ProcessHacker/ProcMtgn.h"
 #include <lsasup.h>
 #include <userenv.h>
 
@@ -36,7 +37,6 @@
 #include "WinModule.h"
 #include "WinWnd.h"
 #include "../Common/Common.h"
-#include "EventMonitor.h"
 
  // CWinProcess private members
 
@@ -62,7 +62,7 @@ struct SWinProcess
 		AsyncFinished = false;
 		OsContextVersion = 0;
 		DepStatus = 0;
-		DpiAwareness = 0;
+		DpiAwareness = -1;
 		VirtualizationAllowed = FALSE;
 		VirtualizationEnabled = FALSE;
 
@@ -548,83 +548,6 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
     {
         m->PackageFullName = CastPhString(PhGetProcessPackageFullName(m->QueryHandle));
     }
-
-	//
-    PPH_STRING applicationUserModelId;
-    if (m->IsSubsystemProcess)
-    {
-        NOTHING;
-    }
-    else if (PhAppResolverGetAppIdForProcess(m->UniqueProcessId, &applicationUserModelId))
-    {
-        m->AppID = CastPhString(applicationUserModelId);
-    }
-    else
-    {
-		ULONG windowFlags;	
-        if (m->QueryHandle)
-        {
-            if (NT_SUCCESS(PhGetProcessWindowTitle(m->QueryHandle, &windowFlags, &applicationUserModelId)))
-            {
-                if (windowFlags & STARTF_TITLEISAPPID)
-                    m->AppID = CastPhString(applicationUserModelId);
-                else
-                    PhDereferenceObject(applicationUserModelId);
-            }
-
-            //if (WindowsVersion >= WINDOWS_8 && ProcessNode->ProcessItem->IsImmersive)
-            //{
-            //    HANDLE tokenHandle;
-            //    PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
-            //
-            //    if (NT_SUCCESS(PhOpenProcessToken(
-            //        ProcessNode->ProcessItem->QueryHandle,
-            //        TOKEN_QUERY,
-            //        &tokenHandle
-            //        )))
-            //    {
-            //        // rev from GetApplicationUserModelId
-            //        if (NT_SUCCESS(PhQueryTokenVariableSize(tokenHandle, TokenSecurityAttributes, &info)))
-            //        {
-            //            for (ULONG i = 0; i < info->AttributeCount; i++)
-            //            {
-            //                static UNICODE_STRING attributeNameUs = RTL_CONSTANT_STRING(L"WIN://SYSAPPID");
-            //                PTOKEN_SECURITY_ATTRIBUTE_V1 attribute = &info->Attribute.pAttributeV1[i];
-            //
-            //                if (RtlEqualUnicodeString(&attribute->Name, &attributeNameUs, FALSE))
-            //                {
-            //                    if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
-            //                    {
-            //                        PPH_STRING attributeValue1;
-            //                        PPH_STRING attributeValue2;
-            //
-            //                        attributeValue1 = PH_AUTO(PhCreateStringFromUnicodeString(&attribute->Values.pString[1]));
-            //                        attributeValue2 = PH_AUTO(PhCreateStringFromUnicodeString(&attribute->Values.pString[2]));
-            //
-            //                        ProcessNode->AppIdText = PhConcatStrings(
-            //                            3, 
-            //                            attributeValue2->Buffer,
-            //                            L"!",
-            //                            attributeValue1->Buffer
-            //                            );
-            //
-            //                        break;
-            //                    }
-            //                }
-            //            }
-            //
-            //            PhFree(info);
-            //        }
-            //
-            //        NtClose(tokenHandle);
-            //    }
-            //}
-        }
-    }
-
-	m->DpiAwareness = GetProcessDpiAwareness(m->QueryHandle);
-
-
 
     if (m->QueryHandle && m->IsHandleValid)
     {
@@ -1186,12 +1109,21 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 
 bool CWinProcess::UpdateThreads()
 {
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
+
+	// Note: On windows UpdateThreads updates only minor extended informations, all major task informations are updated during UpdateDynamicData.
+
 	QMap<quint64, CThreadPtr> Threads = GetThreadList();
 	foreach(const CThreadPtr& pThread, Threads)
 	{
 		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
 		pWinThread->UpdateExtendedData();
 	}
+
+	emit ThreadsUpdated(Added, Changed, Removed);
+
 	return true;
 }
 
@@ -2087,20 +2019,110 @@ QString CWinProcess::GetPackageName() const
 
 QString CWinProcess::GetAppID() const
 {
-	QReadLocker Locker(&m_Mutex); 
+	QReadLocker Locker(&m_Mutex);
+	if (m->AppID.isNull())
+	{
+		Locker.unlock();
+
+		QWriteLocker Locker2(&m_Mutex); 
+		m->AppID = ""; // isNull -> false
+
+		PPH_STRING applicationUserModelId;
+		if (m->IsSubsystemProcess)
+		{
+			NOTHING
+		}
+		else if (PhAppResolverGetAppIdForProcess(m->UniqueProcessId, &applicationUserModelId))
+		{
+			m->AppID = CastPhString(applicationUserModelId);
+		}
+		else
+		{
+			ULONG windowFlags;	
+			if (m->QueryHandle)
+			{
+				if (NT_SUCCESS(PhGetProcessWindowTitle(m->QueryHandle, &windowFlags, &applicationUserModelId)))
+				{
+					if (windowFlags & STARTF_TITLEISAPPID)
+						m->AppID = CastPhString(applicationUserModelId);
+					else
+						PhDereferenceObject(applicationUserModelId);
+				}
+
+				//if (WindowsVersion >= WINDOWS_8 && ProcessNode->ProcessItem->IsImmersive)
+				//{
+				//    HANDLE tokenHandle;
+				//    PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
+				//
+				//    if (NT_SUCCESS(PhOpenProcessToken(
+				//        ProcessNode->ProcessItem->QueryHandle,
+				//        TOKEN_QUERY,
+				//        &tokenHandle
+				//        )))
+				//    {
+				//        // rev from GetApplicationUserModelId
+				//        if (NT_SUCCESS(PhQueryTokenVariableSize(tokenHandle, TokenSecurityAttributes, &info)))
+				//        {
+				//            for (ULONG i = 0; i < info->AttributeCount; i++)
+				//            {
+				//                static UNICODE_STRING attributeNameUs = RTL_CONSTANT_STRING(L"WIN://SYSAPPID");
+				//                PTOKEN_SECURITY_ATTRIBUTE_V1 attribute = &info->Attribute.pAttributeV1[i];
+				//
+				//                if (RtlEqualUnicodeString(&attribute->Name, &attributeNameUs, FALSE))
+				//                {
+				//                    if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
+				//                    {
+				//                        PPH_STRING attributeValue1;
+				//                        PPH_STRING attributeValue2;
+				//
+				//                        attributeValue1 = PH_AUTO(PhCreateStringFromUnicodeString(&attribute->Values.pString[1]));
+				//                        attributeValue2 = PH_AUTO(PhCreateStringFromUnicodeString(&attribute->Values.pString[2]));
+				//
+				//                        ProcessNode->AppIdText = PhConcatStrings(
+				//                            3, 
+				//                            attributeValue2->Buffer,
+				//                            L"!",
+				//                            attributeValue1->Buffer
+				//                            );
+				//
+				//                        break;
+				//                    }
+				//                }
+				//            }
+				//
+				//            PhFree(info);
+				//        }
+				//
+				//        NtClose(tokenHandle);
+				//    }
+				//}
+			}
+		}
+		Locker2.unlock();
+
+		Locker.relock();
+	}
 	return m->AppID;	
 }
 
 ulong CWinProcess::GetDPIAwareness() const
 {
 	QReadLocker Locker(&m_Mutex); 
+	if (m->DpiAwareness == -1) {
+		Locker.unlock();
+
+		QWriteLocker Locker2(&m_Mutex); 
+		m->DpiAwareness = GetProcessDpiAwareness(m->QueryHandle);
+		Locker2.unlock();
+
+		Locker.relock();
+	}
 	return m->DpiAwareness;
 }
 
 QString CWinProcess::GetDPIAwarenessString() const
 {
-	QReadLocker Locker(&m_Mutex); 
-    switch (m->DpiAwareness)
+    switch (GetDPIAwareness())
     {
 	case 0:	return "";
     case 1: return tr("Unaware");
@@ -2587,7 +2609,7 @@ void CWinProcess::OpenPermissions()
 {
 	QWriteLocker Locker(&m_Mutex); 
 
-    PhEditSecurity(NULL, (wchar_t*)m_ProcessName.toStdWString().c_str(), L"Process", PhpProcessGeneralOpenProcess, NULL, (HANDLE)m->UniqueProcessId);
+    PhEditSecurity(NULL, (wchar_t*)m_ProcessName.toStdWString().c_str(), L"Process", (PPH_OPEN_OBJECT)PhpProcessGeneralOpenProcess, NULL, (HANDLE)m->UniqueProcessId);
 }
 
 bool CWinProcess::IsWow64() const
@@ -2613,15 +2635,4 @@ CWinJobPtr CWinProcess::GetJob() const
 	if (!pJob->InitStaticData((quint64)m->QueryHandle))
 		return CWinJobPtr();
 	return pJob;
-}
-
-#include <dbghelp.h>
-
-STATUS CWinProcess::CreateDump(const QString& DumpPath)
-{
-	QWriteLocker Locker(&m_Mutex);
-
-
-	// ToDo
-	return ERR(0);
 }

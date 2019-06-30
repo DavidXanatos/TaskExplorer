@@ -75,7 +75,6 @@ public:
 	virtual bool HasDebugger() const = 0;
 	virtual STATUS AttachDebugger() = 0;
 	virtual STATUS DetachDebugger() = 0;
-	virtual STATUS CreateDump(const QString& DumpPath) = 0;
 
 	virtual bool IsSystemProcess() const = 0;
 	virtual bool IsServiceProcess() const = 0;

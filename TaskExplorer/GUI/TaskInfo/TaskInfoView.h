@@ -12,6 +12,7 @@ class CWindowsView;
 //class CMemoryView;
 //class CTokensView;
 class CJobView;
+class CServicesView;
 class CEnvironmentView;
 
 
@@ -43,6 +44,7 @@ private:
 	//CTokensView*		m_pTokensView;
 #ifdef WIN32
 	CJobView*			m_pJobView;
+	CServicesView*		m_pServiceView;
 #endif
 	CEnvironmentView*	m_pEnvironmentView;
 };

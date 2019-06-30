@@ -10,7 +10,7 @@
 #include "..\..\Common\SortFilterProxyModel.h"
 
 
-CServicesView::CServicesView(QWidget *parent)
+CServicesView::CServicesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QHBoxLayout();
@@ -52,14 +52,13 @@ CServicesView::CServicesView(QWidget *parent)
 	m_pMenu->addSeparator();
 	m_pMenuDelete = m_pMenu->addAction(tr("Delete"), this, SLOT(OnServiceAction()));
 #ifdef WIN32
-#ifdef _DEBUG
 	m_pMenuOpenKey = m_pMenu->addAction(tr("Open key"), this, SLOT(OnServiceAction()));
-#endif
 #endif
 
 	AddPanelItemsToMenu();
 
-	connect(theAPI, SIGNAL(ServiceListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)), this, SLOT(OnServiceListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)));
+	if(bAll)
+		connect(theAPI, SIGNAL(ServiceListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)), this, SLOT(OnServiceListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)));
 }
 
 CServicesView::~CServicesView()
@@ -78,6 +77,23 @@ void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Chan
 	QMap<QString, CServicePtr> ServiceList = theAPI->GetServiceList();
 
 	m_pServiceModel->Sync(ServiceList);
+}
+
+void CServicesView::ShowServices(const CProcessPtr& pProcess)
+{
+#ifdef WIN32
+	QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
+	QMap<QString, CServicePtr> Services;
+	foreach(const QString& ServiceName, pProcess.objectCast<CWinProcess>()->GetServiceList())
+	{
+		CServicePtr pService = AllServices[ServiceName.toLower()];
+		if (!pService)
+			pService = CServicePtr(new CWinService(ServiceName));
+		Services.insert(ServiceName.toLower(), pService);
+	}
+
+	m_pServiceModel->Sync(Services);
+#endif
 }
 
 void CServicesView::OnMenu(const QPoint &point)
@@ -127,9 +143,7 @@ void CServicesView::OnMenu(const QPoint &point)
 
 	m_pMenuDelete->setEnabled(m_pServiceList->selectedRows().count() >= 1);
 #ifdef WIN32
-#ifdef _DEBUG
 	m_pMenuOpenKey->setEnabled(m_pServiceList->selectedRows().count() == 1);
-#endif
 #endif
 
 	CPanelView::OnMenu(point);
@@ -160,9 +174,9 @@ retry:
 #ifdef WIN32
 			else if (sender() == m_pMenuOpenKey)
 			{
-				QString RegKey = "HKLM\\System\\CurrentControlSet\\Services\\" + pService->GetName();
-				
-				// todo:
+				PPH_STRING phRegKey = CastQString("HKLM\\System\\CurrentControlSet\\Services\\" + pService->GetName());
+				PhShellOpenKey2(NULL, phRegKey);
+				PhDereferenceObject(phRegKey);
 			}
 #endif
 
@@ -198,6 +212,11 @@ retry:
 
 void CServicesView::OnDoubleClicked(const QModelIndex& Index)
 {
-	CWinSvcWindow* pWnd = new CWinSvcWindow();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+#ifdef WIN32
+	QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).objectCast<CWinService>();
+
+	CWinSvcWindow* pWnd = new CWinSvcWindow(pService);
 	pWnd->show();
+#endif
 }

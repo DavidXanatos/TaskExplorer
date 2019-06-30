@@ -36,7 +36,7 @@ void CSystemInfoView::InitializeTabs()
 	m_pAllSocketsView = new CSocketsView(true, this);
 	AddTab(m_pAllSocketsView, tr("All Sockets"));
 
-	m_pServicesView = new CServicesView(this);
+	m_pServicesView = new CServicesView(true, this);
 	AddTab(m_pServicesView, tr("Services"));
 
 	m_pDriversView = new CDriversView(this);

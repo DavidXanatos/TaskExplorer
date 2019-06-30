@@ -1,10 +1,66 @@
 #pragma once
 #include <qwidget.h>
+#include "../../Common/TreeWidgetEx.h"
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
 #include "..\..\API\ProcessInfo.h"
 #include "..\Models\HandleModel.h"
 #include "..\..\Common\SortFilterProxyModel.h"
+
+class CHandleFilterModel: public CSortFilterProxyModel
+{
+public:
+	CHandleFilterModel(bool bAlternate, QObject* parrent = 0) : CSortFilterProxyModel(bAlternate, parrent) 
+	{
+		m_bHideUnnmed = false;
+		m_bHideEtwReg = false;
+	}
+
+	void SetFilter(const QString& Type, bool bHideUnnmed, bool bHideEtwReg)
+	{
+		m_ShowType = Type;
+		m_bHideUnnmed = bHideUnnmed;
+		m_bHideEtwReg = bHideEtwReg;
+		invalidateFilter();
+	}
+
+	bool filterAcceptsRow(int source_row, const QModelIndex & source_parent) const
+	{
+		if (m_bHideUnnmed)
+		{
+			QModelIndex source_index = sourceModel()->index(source_row, CHandleModel::eName, source_parent);
+			if (source_index.isValid())
+			{
+				QString Name = sourceModel()->data(source_index, filterRole()).toString();
+				if (Name.isEmpty())
+					return false;
+			}
+		}
+
+		if (!m_ShowType.isEmpty() || m_bHideEtwReg)
+		{
+			QModelIndex source_index = sourceModel()->index(source_row, CHandleModel::eType, source_parent);
+			if (source_index.isValid())
+			{
+				QString Type = sourceModel()->data(source_index, filterRole()).toString();
+
+				if (m_bHideEtwReg && Type == "EtwRegistration")
+					return false;
+
+				if (!m_ShowType.isEmpty() && Type != m_ShowType)
+					return false;
+			}
+		}
+
+		// call parent if this filter passed
+		return CSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
+	}
+
+protected:
+	QString m_ShowType;
+	bool m_bHideUnnmed;
+	bool m_bHideEtwReg;
+};
 
 class CHandlesView : public CPanelView
 {
@@ -15,11 +71,14 @@ public:
 
 public slots:
 	void					ShowHandles(const CProcessPtr& pProcess);
+	void					UpdateFilter();
+	void					UpdateFilter(const QString & filter);
+	//void					OnShowDetails();
 	void					ShowAllFiles();
 
 private slots:
-	//void					OnClicked(const QModelIndex& Index);
-	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
+	void					ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+	void					OnItemSelected(const QModelIndex &current);
 
 	//void					OnMenu(const QPoint &point);
 
@@ -39,60 +98,19 @@ private:
 	QVBoxLayout*			m_pMainLayout;
 
 	QWidget*				m_pFilterWidget;
+	QHBoxLayout*			m_pFilterLayout;
+	QComboBox*				m_pShowType;
+	QCheckBox*				m_pHideUnnamed;
+	QCheckBox*				m_pHideETW;
+	//QPushButton*			m_pShowDetails;
 
 	QTreeViewEx*			m_pHandleList;
 	CHandleModel*			m_pHandleModel;
-	QSortFilterProxyModel*	m_pSortProxy;
+	CHandleFilterModel*		m_pSortProxy;
 
 	QSplitter*				m_pSplitter;
 
-	QScrollArea*			m_pDetailsArea;
-
-	QWidget*				m_pDetailsWidget;
-	QVBoxLayout*			m_pDetailsLayout;
-
-	QWidget*				m_pGenericWidget;
-	QFormLayout*			m_pGenericLayout;
-	QLabel*					m_pName;
-	QLabel*					m_pType;
-	QLabel*					m_pReferences;
-	QLabel*					m_pHandles;
-	QLabel*					m_pQuotaPaged;
-	QLabel*					m_pQuotaSize;
-	QLabel*					m_pGrantedAccess;
-
-	QWidget*				m_pCustomWidget;
-	QStackedLayout*			m_pCustomLayout;
-
-	QWidget*				m_pOtherWidget;
-	QFormLayout*			m_pOtherLayout;
-
-	QWidget*				m_pPortWidget;
-	QFormLayout*			m_pPortLayout;
-	QLabel*					m_pPortNumber;
-	QLabel*					m_pPortContext;
-
-	QWidget*				m_pFileWidget;
-	QFormLayout*			m_pFileLayout;
-	QLabel*					m_pFileMode;
-
-	QWidget*				m_pSectionWidget;
-	QFormLayout*			m_pSectionLayout;
-	QLabel*					m_pSectionType;
-
-	QWidget*				m_pMutantWidget;
-	QFormLayout*			m_pMutantLayout;
-	QLabel*					m_pMutantCount;
-	QLabel*					m_pMutantAbandoned;
-	QLabel*					m_pMutantOwner;
-
-	QWidget*				m_pTaskWidget;
-	QFormLayout*			m_pTaskLayout;
-	QLabel*					m_pTaskCreated;
-	QLabel*					m_pTaskExited;
-	QLabel*					m_pTaskStatus;
-
-
+	CPanelWidget<QTreeWidgetEx>* m_pHandleDetails;
 
 	//QMenu*					m_pMenu;
 	QAction*				m_pClose;
@@ -100,6 +118,7 @@ private:
 	QAction*				m_pInherit;
 
 	QAction*				m_pTokenInfo;
+	QAction*				m_pJobInfo;
 	QMenu*					m_pSemaphore;
 	QAction*				m_pSemaphoreAcquire;
 	QAction*				m_pSemaphoreRelease;
@@ -107,7 +126,15 @@ private:
 	QAction*				m_pEventSet;
 	QAction*				m_pEventReset;
 	QAction*				m_pEventPulse;
+	QMenu*					m_pEventPair;
+	QAction*				m_pEventSetLow;
+	QAction*				m_pEventSetHigh;
+	QMenu*					m_pTimer;
+	QAction*				m_pTimerCancel;
 	QMenu*					m_pTask;
+	QAction*				m_pTerminate;
+	QAction*				m_pSuspend;
+	QAction*				m_pResume;
 	QAction*				m_pPermissions;
 };
 

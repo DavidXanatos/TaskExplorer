@@ -5,6 +5,7 @@ class CHistoryGraph: public QWidget
 public:
 	CHistoryGraph(bool bSimpleMode = false, QWidget* parent = 0) : QWidget(parent) {
 		m_SimpleMode = bSimpleMode;
+		m_BkG = Qt::white;
 	}
 	~CHistoryGraph() {}
 
@@ -20,12 +21,23 @@ public:
 
 	void Update(int CellHeight, int CellWidth)
 	{
+		Update(m_Graph, m_BkG, m_Values, CellHeight, CellWidth, m_SimpleMode);
+	}
+
+	struct SValue
+	{
+		float Value;
+		QColor Color;
+	};
+
+	static void Update(QImage& m_Graph, const QColor& m_BkG, const QMap<int, SValue>& m_Values, int CellHeight, int CellWidth, bool m_SimpleMode = true)
+	{
 		// init / resize
 		if(m_Graph.height() != CellWidth /*|| m_Graph.width() != curHeight*/)
 		{
 			QImage Graph = QImage(CellHeight, CellWidth, QImage::Format_RGB32);
 			QPainter qp(&Graph);
-			qp.fillRect(-1, -1, CellHeight+1, CellWidth+1, Qt::white);
+			qp.fillRect(-1, -1, CellHeight+1, CellWidth+1, m_BkG);
 			if (!m_Graph.isNull())
 				qp.drawImage(0, Graph.height() - m_Graph.height(), m_Graph);
 			m_Graph = Graph;
@@ -95,9 +107,23 @@ public:
 			}
 		}
 
-		top *= 4;
+		// fill whats left of the line
+		/*top *= 4;
 		if (top < m_Graph.bytesPerLine()) // fill rest white
-			memset(dest + top, 0xFF, m_Graph.bytesPerLine() - top);
+			memset(dest + top, 0xFF, m_Graph.bytesPerLine() - top);*/
+		{
+			int r, g, b;
+			m_BkG.getRgb(&r, &g, &b);
+
+			top *= 4;
+			max *= 4;
+			for (int i = top; i < max; i += 4)
+			{
+				dest[i] = b;
+				dest[i + 1] = g;
+				dest[i + 2] = r;
+			}
+		}
 #endif
 	}
 
@@ -110,13 +136,8 @@ protected:
 		qp.drawImage(0, 0, m_Graph);
 	}
 
-	QImage	m_Graph;
-
-	struct SValue
-	{
-		float Value;
-		QColor Color;
-	};
+	QImage				m_Graph;
+	QColor				m_BkG;
 	QMap<int, SValue>	m_Values;
 	bool				m_SimpleMode;
 };

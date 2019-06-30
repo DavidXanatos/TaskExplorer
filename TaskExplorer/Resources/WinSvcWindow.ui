@@ -50,9 +50,9 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>5</number>
+       <number>0</number>
       </property>
-      <widget class="QWidget" name="tab">
+      <widget class="QWidget" name="generalTab">
        <attribute name="title">
         <string>General</string>
        </attribute>
@@ -74,7 +74,11 @@
           </widget>
          </item>
          <item row="0" column="0" colspan="6">
-          <widget class="QPlainTextEdit" name="description"/>
+          <widget class="QPlainTextEdit" name="description">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
          </item>
          <item row="1" column="0">
           <widget class="QLabel" name="label">
@@ -97,21 +101,45 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="label_4">
+         <item row="2" column="3">
+          <widget class="QLabel" name="label_7">
            <property name="text">
-            <string>Binary path:</string>
+            <string>Group:</string>
            </property>
           </widget>
          </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="label_5">
-           <property name="text">
-            <string>User account</string>
+         <item row="5" column="1" colspan="4">
+          <widget class="QLineEdit" name="userPW">
+           <property name="echoMode">
+            <enum>QLineEdit::Password</enum>
            </property>
           </widget>
          </item>
-         <item row="7" column="0">
+         <item row="8" column="5">
+          <widget class="QPushButton" name="permissionsBtn">
+           <property name="text">
+            <string>Permissions</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="5">
+          <widget class="QPushButton" name="browseBtn">
+           <property name="text">
+            <string>Browse</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1" colspan="4">
+          <widget class="QLineEdit" name="userName"/>
+         </item>
+         <item row="8" column="0">
+          <widget class="QCheckBox" name="delayedStart">
+           <property name="text">
+            <string>Delayed start</string>
+           </property>
+          </widget>
+         </item>
+         <item row="9" column="0">
           <spacer name="verticalSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -124,52 +152,13 @@
            </property>
           </spacer>
          </item>
-         <item row="6" column="0">
-          <widget class="QCheckBox" name="delayedStart">
-           <property name="text">
-            <string>Delayed start</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="4" colspan="2">
-          <widget class="QComboBox" name="startType"/>
-         </item>
-         <item row="1" column="1" colspan="2">
-          <widget class="QComboBox" name="svcType"/>
-         </item>
-         <item row="2" column="1" colspan="2">
-          <widget class="QComboBox" name="errorControl"/>
-         </item>
-         <item row="2" column="3">
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>Group:</string>
-           </property>
-          </widget>
-         </item>
          <item row="2" column="4" colspan="2">
           <widget class="QLineEdit" name="svcGroup"/>
          </item>
-         <item row="3" column="1" colspan="4">
-          <widget class="QLineEdit" name="binaryPath"/>
-         </item>
-         <item row="3" column="5">
-          <widget class="QPushButton" name="browseBtn">
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_5">
            <property name="text">
-            <string>Browse</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="1" colspan="4">
-          <widget class="QLineEdit" name="userName"/>
-         </item>
-         <item row="5" column="1" colspan="4">
-          <widget class="QLineEdit" name="userPW"/>
-         </item>
-         <item row="6" column="5">
-          <widget class="QPushButton" name="permissionsBtn">
-           <property name="text">
-            <string>Permissions</string>
+            <string>User account</string>
            </property>
           </widget>
          </item>
@@ -180,10 +169,43 @@
            </property>
           </widget>
          </item>
+         <item row="2" column="1" colspan="2">
+          <widget class="QComboBox" name="errorControl"/>
+         </item>
+         <item row="1" column="4" colspan="2">
+          <widget class="QComboBox" name="startType"/>
+         </item>
+         <item row="3" column="1" colspan="4">
+          <widget class="QLineEdit" name="binaryPath"/>
+         </item>
+         <item row="1" column="1" colspan="2">
+          <widget class="QComboBox" name="svcType"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>Binary path:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_19">
+           <property name="text">
+            <string>Service DLL</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1" colspan="4">
+          <widget class="QLineEdit" name="dllPath">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </widget>
-      <widget class="QWidget" name="tab_2">
+      <widget class="QWidget" name="recoveryTab">
        <attribute name="title">
         <string>Recovery</string>
        </attribute>
@@ -197,8 +219,52 @@
          </rect>
         </property>
         <layout class="QGridLayout" name="gridLayout_2">
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>Subsequent faulures:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0" colspan="2">
+          <widget class="QPushButton" name="restartOptionsBtn">
+           <property name="text">
+            <string>Restart computer options ...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_11">
+           <property name="text">
+            <string>Reset fail counter after:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0" colspan="2">
+          <widget class="QCheckBox" name="actionsForError">
+           <property name="text">
+            <string>Enable actions for stop with errors</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1" colspan="2">
+          <widget class="QComboBox" name="subsequentFailures"/>
+         </item>
+         <item row="0" column="1" colspan="2">
+          <widget class="QComboBox" name="firstFailure"/>
+         </item>
+         <item row="4" column="2">
+          <widget class="QLabel" name="label_13">
+           <property name="text">
+            <string>minutes</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1" colspan="2">
+          <widget class="QComboBox" name="secondFailure"/>
+         </item>
          <item row="7" column="0" colspan="4">
-          <widget class="QGroupBox" name="groupBox">
+          <widget class="QGroupBox" name="runGroup">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -212,9 +278,9 @@
             <property name="geometry">
              <rect>
               <x>10</x>
-              <y>10</y>
+              <y>20</y>
               <width>441</width>
-              <height>51</height>
+              <height>41</height>
              </rect>
             </property>
             <layout class="QGridLayout" name="gridLayout_7">
@@ -259,10 +325,10 @@
            </widget>
           </widget>
          </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="label_10">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_8">
            <property name="text">
-            <string>Subsequent faulures:</string>
+            <string>First failure:</string>
            </property>
           </widget>
          </item>
@@ -273,17 +339,23 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_8">
-           <property name="text">
-            <string>First failure:</string>
+         <item row="0" column="3">
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
            </property>
-          </widget>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
          </item>
-         <item row="4" column="2">
-          <widget class="QLabel" name="label_13">
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_12">
            <property name="text">
-            <string>minutes</string>
+            <string>Restart service after</string>
            </property>
           </widget>
          </item>
@@ -293,47 +365,10 @@
          <item row="3" column="1">
           <widget class="QLineEdit" name="resetFailCtr"/>
          </item>
-         <item row="1" column="1" colspan="2">
-          <widget class="QComboBox" name="secondFailure"/>
-         </item>
-         <item row="2" column="1" colspan="2">
-          <widget class="QComboBox" name="subsequentFailures"/>
-         </item>
-         <item row="0" column="1" colspan="2">
-          <widget class="QComboBox" name="firstFailure"/>
-         </item>
          <item row="1" column="0">
           <widget class="QLabel" name="label_9">
            <property name="text">
             <string>Second failure:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="label_12">
-           <property name="text">
-            <string>Restart service after</string>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="0" colspan="2">
-          <widget class="QCheckBox" name="actionsForError">
-           <property name="text">
-            <string>Enable actions for stop with errors</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="label_11">
-           <property name="text">
-            <string>Reset fail counter after:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="6" column="0" colspan="2">
-          <widget class="QPushButton" name="restartOptionsBtn">
-           <property name="text">
-            <string>Restart computer options ...</string>
            </property>
           </widget>
          </item>
@@ -350,177 +385,20 @@
            </property>
           </spacer>
          </item>
-         <item row="0" column="3">
-          <spacer name="horizontalSpacer_2">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
         </layout>
        </widget>
       </widget>
-      <widget class="QWidget" name="tab_3">
+      <widget class="QWidget" name="dependenciesTab">
        <attribute name="title">
         <string>Dependencies</string>
        </attribute>
-       <widget class="QWidget" name="gridLayoutWidget_3">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>10</y>
-          <width>461</width>
-          <height>311</height>
-         </rect>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_3">
-         <item row="1" column="0">
-          <widget class="QTreeWidget" name="dependenciesTree">
-           <column>
-            <property name="text">
-             <string notr="true">1</string>
-            </property>
-           </column>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <layout class="QHBoxLayout" name="horizontalLayout_2">
-           <item>
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QPushButton" name="startBtn">
-             <property name="text">
-              <string>Start</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pauseBtn">
-             <property name="text">
-              <string>Pause</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item row="2" column="0">
-          <spacer name="verticalSpacer_4">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_17">
-           <property name="text">
-            <string>This service depends on the folowing services:</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
       </widget>
-      <widget class="QWidget" name="tab_4">
+      <widget class="QWidget" name="dependantsTab">
        <attribute name="title">
         <string>Dependants</string>
        </attribute>
-       <widget class="QWidget" name="gridLayoutWidget_4">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>10</y>
-          <width>461</width>
-          <height>311</height>
-         </rect>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_4">
-         <item row="1" column="0">
-          <widget class="QTreeWidget" name="dependantsTree">
-           <column>
-            <property name="text">
-             <string notr="true">1</string>
-            </property>
-           </column>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <layout class="QHBoxLayout" name="horizontalLayout_3">
-           <item>
-            <spacer name="horizontalSpacer_3">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QPushButton" name="startBtn2">
-             <property name="text">
-              <string>Start</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pauseBtn2">
-             <property name="text">
-              <string>Pause</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item row="2" column="0">
-          <spacer name="verticalSpacer_5">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_18">
-           <property name="text">
-            <string>The following services depand on this service:</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
       </widget>
-      <widget class="QWidget" name="tab_5">
+      <widget class="QWidget" name="triggersTab">
        <attribute name="title">
         <string>Triggers</string>
        </attribute>
@@ -550,21 +428,21 @@
             </spacer>
            </item>
            <item>
-            <widget class="QPushButton" name="btnNew">
+            <widget class="QPushButton" name="newBtn">
              <property name="text">
               <string>New ...</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="btnEdit">
+            <widget class="QPushButton" name="editBtn">
              <property name="text">
               <string>Edit ...</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="btnDelete">
+            <widget class="QPushButton" name="deleteBtn">
              <property name="text">
               <string>Delete</string>
              </property>
@@ -573,7 +451,7 @@
           </layout>
          </item>
          <item row="1" column="0">
-          <widget class="QTreeWidget" name="triggersTree">
+          <widget class="QTreeWidget" name="triggers">
            <column>
             <property name="text">
              <string notr="true">1</string>
@@ -591,7 +469,7 @@
         </layout>
        </widget>
       </widget>
-      <widget class="QWidget" name="tab_6">
+      <widget class="QWidget" name="otherTab">
        <attribute name="title">
         <string>Other</string>
        </attribute>
@@ -683,10 +561,14 @@
           </spacer>
          </item>
          <item row="1" column="1" colspan="2">
-          <widget class="QLineEdit" name="serviceSID"/>
+          <widget class="QLineEdit" name="serviceSID">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
          </item>
          <item row="5" column="0" colspan="3">
-          <widget class="QTreeWidget" name="privilegsTree">
+          <widget class="QTreeWidget" name="privilegs">
            <column>
             <property name="text">
              <string notr="true">1</string>

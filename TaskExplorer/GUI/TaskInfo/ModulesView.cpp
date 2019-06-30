@@ -53,8 +53,7 @@ CModulesView::~CModulesView()
 
 void CModulesView::ShowModules(const CProcessPtr& pProcess)
 {
-	if(!m_pCurProcess.isNull())
-		disconnect(m_pCurProcess.data(), SIGNAL(ModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	disconnect(this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	
 	m_pCurProcess = pProcess;
 

@@ -132,9 +132,6 @@
     <ClCompile Include="GUI\Models\SocketModel.cpp">
       <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\EventMonitor.cpp">
-      <Filter>API\Windows</Filter>
-    </ClCompile>
     <ClCompile Include="API\ProcessInfo.cpp">
       <Filter>API</Filter>
     </ClCompile>
@@ -294,6 +291,39 @@
     <ClCompile Include="GUI\RunAsDialog.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\WinSvcTrigger.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ComboInputDialog.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\MultiLineInputDialog.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\WinSvcShutdown.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\ServiceListWidget.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\ProcMtgn.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\EventMonitor.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinAdmin.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\MemDumper.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinDumper.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -334,6 +364,15 @@
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\RunAs.h">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\ProcMtgn.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinAdmin.h">
+      <Filter>API\Windows</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -402,9 +441,6 @@
     </QtMoc>
     <QtMoc Include="GUI\Models\SocketModel.h">
       <Filter>TaskExplorer\Models</Filter>
-    </QtMoc>
-    <QtMoc Include="API\Windows\EventMonitor.h">
-      <Filter>API\Windows</Filter>
     </QtMoc>
     <QtMoc Include="API\ProcessInfo.h">
       <Filter>API</Filter>
@@ -547,6 +583,33 @@
     <QtMoc Include="GUI\RunAsDialog.h">
       <Filter>TaskExplorer</Filter>
     </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\WinSvcTrigger.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\ComboInputDialog.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\MultiLineInputDialog.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\WinSvcShutdown.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\ServiceListWidget.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\ProcessHacker\EventMonitor.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </QtMoc>
+    <QtMoc Include="API\MemDumper.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinDumper.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\ProgressDialog.h">
+      <Filter>Common</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -586,6 +649,12 @@
       <Filter>Resource Files</Filter>
     </QtUic>
     <QtUic Include="Resources\RunAsDialog.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
+    <QtUic Include="Resources\WinSvcTrigger.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
+    <QtUic Include="Resources\WinSvcShutdown.ui">
       <Filter>Resource Files</Filter>
     </QtUic>
   </ItemGroup>

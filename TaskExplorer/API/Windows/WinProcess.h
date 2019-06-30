@@ -98,7 +98,6 @@ public:
 	virtual bool HasDebugger() const;
 	virtual STATUS AttachDebugger();
 	virtual STATUS DetachDebugger();
-	virtual STATUS CreateDump(const QString& DumpPath);
 
 	virtual bool IsSystemProcess() const;
 	virtual bool IsServiceProcess() const;

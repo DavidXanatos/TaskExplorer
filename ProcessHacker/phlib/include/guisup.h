@@ -255,7 +255,9 @@ PPH_STRING PhGetWindowText(
 #define PH_GET_WINDOW_TEXT_LENGTH_ONLY 0x2
 
 PHLIBAPI
-ULONG PhGetWindowTextEx(
+ULONG
+NTAPI
+PhGetWindowTextEx(
     _In_ HWND hwnd,
     _In_ ULONG Flags,
     _Out_opt_ PPH_STRING *Text

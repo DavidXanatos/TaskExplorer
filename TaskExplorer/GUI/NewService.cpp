@@ -1,52 +1,20 @@
 #include "stdafx.h"
 #include "NewService.h"
 #ifdef WIN32
-#include "../API/Windows/ProcessHacker.h"
+#include "../API/Windows/ProcessHacker/PhSvc.h"
 #endif
 
-#define SIP(String, Integer) { (String), (PVOID)(Integer) }
-
-PH_KEY_VALUE_PAIR PhpServiceTypePairs[] =
-{
-    SIP("Driver", SERVICE_KERNEL_DRIVER),
-    SIP("FS driver", SERVICE_FILE_SYSTEM_DRIVER),
-    SIP("Own process", SERVICE_WIN32_OWN_PROCESS),
-    SIP("Share process", SERVICE_WIN32_SHARE_PROCESS),
-    SIP("Own interactive process", SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS),
-    SIP("Share interactive process", SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS),
-    SIP("User own process", SERVICE_USER_OWN_PROCESS),
-    SIP("User own process (instance)", SERVICE_USER_OWN_PROCESS | SERVICE_USERSERVICE_INSTANCE),
-    SIP("User share process", SERVICE_USER_SHARE_PROCESS),
-    SIP("User share process (instance)", SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE)
-};
-
-PH_KEY_VALUE_PAIR PhpServiceStartTypePairs[] =
-{
-    SIP("Disabled", SERVICE_DISABLED),
-    SIP("Boot start", SERVICE_BOOT_START),
-    SIP("System start", SERVICE_SYSTEM_START),
-    SIP("Auto start", SERVICE_AUTO_START),
-    SIP("Demand start", SERVICE_DEMAND_START)
-};
-
-PH_KEY_VALUE_PAIR PhpServiceErrorControlPairs[] =
-{
-    SIP("Ignore", SERVICE_ERROR_IGNORE),
-    SIP("Normal", SERVICE_ERROR_NORMAL),
-    SIP("Severe", SERVICE_ERROR_SEVERE),
-    SIP("Critical", SERVICE_ERROR_CRITICAL)
-};
 
 CNewService::CNewService(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
 
-	for (int i = 0; i < sizeof(PhpServiceTypePairs) / sizeof(PH_KEY_VALUE_PAIR); i++)
+	for (int i = 0; i < 10; i++)
 		ui.svcType->addItem((char*)PhpServiceTypePairs[i].Key, (quint64)PhpServiceTypePairs[i].Value);
-	for (int i = 0; i < sizeof(PhpServiceStartTypePairs) / sizeof(PH_KEY_VALUE_PAIR); i++)
+	for (int i = 0; i < 5; i++)
 		ui.startType->addItem((char*)PhpServiceStartTypePairs[i].Key, (quint64)PhpServiceStartTypePairs[i].Value);
-	for (int i = 0; i < sizeof(PhpServiceErrorControlPairs) / sizeof(PH_KEY_VALUE_PAIR); i++)
+	for (int i = 0; i < 4; i++)
 		ui.errorControl->addItem((char*)PhpServiceErrorControlPairs[i].Key, (quint64)PhpServiceErrorControlPairs[i].Value);
 	
 	ui.svcType->setCurrentIndex(2); // "Own Process"

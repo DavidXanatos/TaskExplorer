@@ -2,7 +2,7 @@
 #include "../SystemAPI.h"
 #include "WinProcess.h"
 #include "WinSocket.h"
-#include "EventMonitor.h"
+#include "ProcessHacker/EventMonitor.h"
 #include "SymbolProvider.h"
 #include "WinService.h"
 #include "WinDriver.h"
@@ -73,7 +73,10 @@ public:
 
 	virtual QMap<QString, SWinRasCon> GetRasCons() const						 { QReadLocker Locker(&m_StatsMutex);  return m_RasCons; }
 
+	bool		IsMonitoringETW() const					{ return m_pEventMonitor != NULL; }
+
 public slots:
+	void		MonitorETW(bool bEnable);
 	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
 								const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);

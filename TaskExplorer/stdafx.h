@@ -100,6 +100,7 @@ using namespace std;
 #include <QSystemTrayIcon>
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QProgressBar>
 
 // other includes
 

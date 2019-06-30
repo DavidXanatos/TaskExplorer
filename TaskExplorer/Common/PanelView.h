@@ -11,11 +11,11 @@ public:
 protected slots:
 	virtual void				OnMenu(const QPoint& Point);
 
-	void						OnCopyCell();
-	void						OnCopyRow();
-	void						OnCopyPanel();
+	virtual void				OnCopyCell();
+	virtual void				OnCopyRow();
+	virtual void				OnCopyPanel();
 
-protected:
+
 	virtual QTreeView*			GetView() = 0;
 	virtual QAbstractItemModel* GetModel() = 0;
 	virtual QModelIndex			MapToSource(const QModelIndex& Model) { return Model; }
@@ -29,8 +29,9 @@ protected:
 
 	virtual void				ForceColumn(int column, bool bSet = true) { if (bSet) m_ForcedColumns.insert(column); else m_ForcedColumns.remove(column); }
 
-	void RecursiveCopyPanel(const QModelIndex& ModelIndex, QStringList& Rows, int Level = 0);
+	virtual void				RecursiveCopyPanel(const QModelIndex& ModelIndex, QStringList& Rows, int Level = 0);
 
+protected:
 	QMenu*						m_pMenu;
 
 	QAction*					m_pCopyCell;
@@ -39,4 +40,31 @@ protected:
 
 	bool						m_CopyAll;
 	QSet<int>					m_ForcedColumns;
+};
+
+template <class T>
+class CPanelWidget : public CPanelView
+{
+public:
+	CPanelWidget(QWidget *parent = 0) : CPanelView(parent)
+	{
+		m_pMainLayout = new QVBoxLayout();
+		m_pMainLayout->setMargin(0);
+		this->setLayout(m_pMainLayout);
+
+		m_pTreeList = new T();
+		m_pTreeList->setContextMenuPolicy(Qt::CustomContextMenu);
+		connect(m_pTreeList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+		m_pMainLayout->addWidget(m_pTreeList);
+		
+		AddPanelItemsToMenu(false);
+	}
+
+	virtual QTreeView*			GetView()	{ return m_pTreeList; }
+	virtual QAbstractItemModel* GetModel()	{ return m_pTreeList->model(); }
+
+protected:
+	QVBoxLayout*			m_pMainLayout;
+
+	T*						m_pTreeList;
 };

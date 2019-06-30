@@ -11,6 +11,7 @@
 #include "TokensView.h"
 #include "WindowsView.h"
 #include "EnvironmentView.h"
+#include "../SystemInfo/ServicesView.h"
 
 
 CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
@@ -66,6 +67,9 @@ void CTaskInfoView::InitializeTabs()
 #ifdef WIN32
 	m_pJobView = new CJobView(this);
 	AddTab(m_pJobView, tr("Job"));
+
+	m_pServiceView = new CServicesView(false, this);
+	AddTab(m_pServiceView, tr("Service"));
 #endif
 
 	m_pEnvironmentView = new CEnvironmentView(this);
@@ -105,8 +109,12 @@ void CTaskInfoView::Refresh()
 		m_pWindowsView->ShowWindows(m_pCurProcess);
 	//
 	//
+#ifdef WIN32
 	else if(m_pTabs->currentWidget() == m_pJobView)
 		m_pJobView->ShowJob(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pServiceView)
+		m_pServiceView->ShowServices(m_pCurProcess);
+#endif
 	else if(m_pTabs->currentWidget() == m_pEnvironmentView)
 		m_pEnvironmentView->ShowEnvVariables(m_pCurProcess);
 }

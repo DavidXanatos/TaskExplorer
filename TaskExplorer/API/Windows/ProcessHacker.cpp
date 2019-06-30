@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and helper functions
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2017-2019 dmex
@@ -26,6 +26,7 @@
 #include "ProcessHacker.h"
 #include <settings.h>
 
+#include "../../SVC/TaskService.h"
 
 QString CastPhString(PPH_STRING phString, bool bDeRef)
 {
@@ -47,11 +48,142 @@ PPH_STRING CastQString(const QString& qString)
 	return PhCreateStringFromUnicodeString(&ustr);
 }
 
-/*BOOLEAN PhInitializeExceptionPolicy(
+#ifndef _DEBUG
+#include <symprv.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <minidumpapiset.h>
+//} // Note: minidumpapiset is missing extern "C" as of version \10.0.17763.0\um\minidumpapiset.h
+
+ULONG CALLBACK PhpUnhandledExceptionCallback(
+    _In_ PEXCEPTION_POINTERS ExceptionInfo
+    )
+{
+    PPH_STRING errorMessage;
+    INT result;
+    PPH_STRING message;
+    TASKDIALOGCONFIG config = { sizeof(TASKDIALOGCONFIG) };
+    TASKDIALOG_BUTTON buttons[2];
+
+    if (NT_NTWIN32(ExceptionInfo->ExceptionRecord->ExceptionCode))
+        errorMessage = PhGetStatusMessage(0, WIN32_FROM_NTSTATUS(ExceptionInfo->ExceptionRecord->ExceptionCode));
+    else
+        errorMessage = PhGetStatusMessage(ExceptionInfo->ExceptionRecord->ExceptionCode, 0);
+
+    message = PhFormatString(
+        L"Error code: 0x%08X (%s)",
+        ExceptionInfo->ExceptionRecord->ExceptionCode,
+        PhGetStringOrEmpty(errorMessage)
+        );
+
+    config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION;
+    config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
+    config.pszWindowTitle = PhApplicationName;
+    config.pszMainIcon = TD_ERROR_ICON;
+    config.pszMainInstruction = L"Task Explorer has crashed :(";
+    config.pszContent = message->Buffer;
+
+    buttons[0].nButtonID = IDYES;
+    buttons[0].pszButtonText = L"Minidump";
+    /*buttons[1].nButtonID = IDRETRY;
+    buttons[1].pszButtonText = L"Restart";*/
+
+    config.cButtons = RTL_NUMBER_OF(buttons);
+    config.pButtons = buttons;
+    config.nDefaultButton = IDCLOSE;
+
+    if (TaskDialogIndirect(
+        &config,
+        &result,
+        NULL,
+        NULL
+        ) == S_OK)
+    {
+        switch (result)
+        {
+        /*case IDRETRY:
+            {
+                PhShellProcessHacker(
+                    NULL,
+                    NULL,
+                    SW_SHOW,
+                    0,
+                    PH_SHELL_APP_PROPAGATE_PARAMETERS | PH_SHELL_APP_PROPAGATE_PARAMETERS_IGNORE_VISIBILITY,
+                    0,
+                    NULL
+                    );
+            }
+            break;*/
+        case IDYES:
+            {
+                static PH_STRINGREF dumpFilePath = PH_STRINGREF_INIT(L"%USERPROFILE%\\Desktop\\");
+                HANDLE fileHandle;
+                PPH_STRING dumpDirectory;
+                PPH_STRING dumpFileName;
+                WCHAR alphastring[16] = L"";
+
+                dumpDirectory = PhExpandEnvironmentStrings(&dumpFilePath);
+                PhGenerateRandomAlphaString(alphastring, RTL_NUMBER_OF(alphastring));
+
+                dumpFileName = PhConcatStrings(
+                    4,
+                    PhGetString(dumpDirectory),
+                    L"\\TaskExplorer_",
+                    alphastring,
+                    L"_DumpFile.dmp"
+                    );
+
+                if (NT_SUCCESS(PhCreateFileWin32(
+                    &fileHandle,
+                    dumpFileName->Buffer,
+                    FILE_GENERIC_WRITE,
+                    FILE_ATTRIBUTE_NORMAL,
+                    FILE_SHARE_READ | FILE_SHARE_DELETE,
+                    FILE_OVERWRITE_IF,
+                    FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+                    )))
+                {
+                    MINIDUMP_EXCEPTION_INFORMATION exceptionInfo;
+
+                    exceptionInfo.ThreadId = HandleToUlong(NtCurrentThreadId());
+                    exceptionInfo.ExceptionPointers = ExceptionInfo;
+                    exceptionInfo.ClientPointers = FALSE;
+
+                    PhWriteMiniDumpProcess(
+                        NtCurrentProcess(),
+                        NtCurrentProcessId(),
+                        fileHandle,
+                        MiniDumpNormal,
+                        &exceptionInfo,
+                        NULL,
+                        NULL
+                        );
+
+                    NtClose(fileHandle);
+                }
+
+                PhDereferenceObject(dumpFileName);
+                PhDereferenceObject(dumpDirectory);
+            }
+            break;
+        }
+    }
+
+    RtlExitUserProcess(ExceptionInfo->ExceptionRecord->ExceptionCode);
+
+    PhDereferenceObject(message);
+    PhDereferenceObject(errorMessage);
+
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
+BOOLEAN PhInitializeExceptionPolicy(
 	VOID
 )
 {
-#ifndef DEBUG
+#ifndef _DEBUG
 	ULONG errorMode;
 
 	if (NT_SUCCESS(PhGetProcessErrorMode(NtCurrentProcess(), &errorMode)))
@@ -67,7 +199,6 @@ PPH_STRING CastQString(const QString& qString)
 
 	return TRUE;
 }
-*/
 
 BOOLEAN PhInitializeNamespacePolicy(
 	VOID
@@ -128,8 +259,8 @@ BOOLEAN PhInitializeMitigationPolicy(
      PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON | \
      PROCESS_CREATION_MITIGATION_POLICY_PROHIBIT_DYNAMIC_CODE_ALWAYS_ON | \
      PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_Module_LOAD_NO_REMOTE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_Module_LOAD_NO_LOW_LABEL_ALWAYS_ON)
+     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_REMOTE_ALWAYS_ON | \
+     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_LOW_LABEL_ALWAYS_ON)
 
 	static PH_STRINGREF nompCommandlinePart = PH_STRINGREF_INIT(L" -nomp");
 	static PH_STRINGREF rasCommandlinePart = PH_STRINGREF_INIT(L" -ras");
@@ -139,6 +270,7 @@ BOOLEAN PhInitializeMitigationPolicy(
 	PS_SYSTEM_DLL_INIT_BLOCK(*LdrSystemDllInitBlock_I) = NULL;
 	STARTUPINFOEX startupInfo = { sizeof(STARTUPINFOEX) };
 	SIZE_T attributeListLength;
+	ULONG64 flags;
 
 	if (WindowsVersion < WINDOWS_10_RS3)
 		return TRUE;
@@ -153,7 +285,7 @@ BOOLEAN PhInitializeMitigationPolicy(
 	if (PhEndsWithStringRef(&commandlineSr, &nompCommandlinePart, FALSE))
 		return TRUE;
 
-	if (!(LdrSystemDllInitBlock_I = PhGetDllProcedureAddress(L"ntdll.dll", "LdrSystemDllInitBlock", 0)))
+	if (!(LdrSystemDllInitBlock_I = (PS_SYSTEM_DLL_INIT_BLOCK(*)) PhGetDllProcedureAddress(L"ntdll.dll", "LdrSystemDllInitBlock", 0)))
 		goto CleanupExit;
 
 	if (!RTL_CONTAINS_FIELD(LdrSystemDllInitBlock_I, LdrSystemDllInitBlock_I->Size, MitigationOptionsMap))
@@ -165,12 +297,13 @@ BOOLEAN PhInitializeMitigationPolicy(
 	if (!InitializeProcThreadAttributeList(NULL, 1, 0, &attributeListLength) && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
 		goto CleanupExit;
 
-	startupInfo.lpAttributeList = PhAllocate(attributeListLength);
+	startupInfo.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)PhAllocate(attributeListLength);
 
 	if (!InitializeProcThreadAttributeList(startupInfo.lpAttributeList, 1, 0, &attributeListLength))
 		goto CleanupExit;
 
-	if (!UpdateProcThreadAttribute(startupInfo.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &(ULONG64){ DEFAULT_MITIGATION_POLICY_FLAGS }, sizeof(ULONG64), NULL, NULL))
+	flags = DEFAULT_MITIGATION_POLICY_FLAGS;
+	if (!UpdateProcThreadAttribute(startupInfo.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &flags, sizeof(ULONG64), NULL, NULL))
 		goto CleanupExit;
 
 	commandline = PhConcatStringRef2(&commandlineSr, &nompCommandlinePart);
@@ -206,7 +339,8 @@ CleanupExit:
 #else
 	return TRUE;
 #endif
-}*/
+}
+*/
 
 VOID PhpEnablePrivileges(
 	VOID
@@ -375,8 +509,8 @@ int InitPH(bool bSvc)
 
 	if (!NT_SUCCESS(PhInitializePhLibEx(L"Task Explorer", ULONG_MAX, Instance, 0, 0)))
 		return 1;
-	//if (!PhInitializeExceptionPolicy())
-	//	return 1;
+	if (!PhInitializeExceptionPolicy())
+		return 1;
 	if (!PhInitializeNamespacePolicy())
 		return 1;
 	//if (!PhInitializeMitigationPolicy())
@@ -403,37 +537,14 @@ int InitPH(bool bSvc)
 
 		return 0;
 	}
-	/*if (PhStartupParameters.RunAsServiceMode)
-    {
-        RtlExitUserProcess(PhRunAsServiceStart(PhStartupParameters.RunAsServiceMode));
-    }*/
-
-    /*if (PhStartupParameters.CommandMode &&
-        PhStartupParameters.CommandType &&
-        PhStartupParameters.CommandAction)
-    {
-        RtlExitUserProcess(PhCommandModeStart());
-    }*/
 
 	PhSettingsInitialization();
     //PhpInitializeSettings();
 	// note: this is needed to open the permissions panel
 	PhpAddIntegerSetting(L"EnableSecurityAdvancedDialog", L"1");
 
-    /*if (PhGetIntegerSetting(L"AllowOnlyOneInstance") &&
-        !PhStartupParameters.NewInstance &&
-        !PhStartupParameters.ShowOptions &&
-        !PhStartupParameters.CommandMode &&
-        !PhStartupParameters.PhSvc)
-    {
-        PhActivatePreviousInstance();
-    }*/
 
-    if (/*PhGetIntegerSetting(L"EnableKph") &&
-        !PhStartupParameters.NoKph &&
-        !PhStartupParameters.CommandMode &&*/
-        !PhIsExecutingInWow64()
-        )
+    if (!PhIsExecutingInWow64())
     {
         PhInitializeKph();
     }
@@ -441,303 +552,58 @@ int InitPH(bool bSvc)
 	return 0;
 }
 
-void ClearPH()
+void PhShowAbout(QWidget* parent)
 {
-	
+		QString AboutCaption = QString(
+			"<h3>Process Hacker</h3>"
+			"<p>Licensed under the GNU GPL, v3.</p>"
+			"<p>Copyright (c) 2008-2019</p>"
+		).arg("3.0.2450");
+		QString AboutText = QString(
+                "<p>Thanks to:<br>"
+                "    <a href=\"https://github.com/wj32\">wj32</a> - Wen Jia Liu<br>"
+                "    <a href=\"https://github.com/dmex\">dmex</a> - Steven G<br>"
+                "    <a href=\"https://github.com/xhmikosr\">XhmikosR</a><br>"
+                "    <a href=\"https://github.com/processhacker/processhacker/graphs/contributors\">Contributors</a> - thank you for your additions!<br>"
+                "    Donors - thank you for your support!</p>"
+                "<p>Process Hacker uses the following components:<br>"
+                "    <a href=\"https://github.com/michaelrsweet/mxml\">Mini-XML</a> by Michael Sweet<br>"
+                "    <a href=\"https://www.pcre.org\">PCRE</a><br>"
+                "    <a href=\"https://github.com/json-c/json-c\">json-c</a><br>"
+                "    MD5 code by Jouni Malinen<br>"
+                "    SHA1 code by Filip Navara, based on code by Steve Reid<br>"
+                "    <a href=\"http://www.famfamfam.com/lab/icons/silk\">Silk icons</a><br>"
+                "    <a href=\"https://www.fatcow.com/free-icons\">Farm-fresh web icons</a><br></p>"
+			"<p></p>"
+			"<p>Visit <a href=\"https://github.com/processhacker/processhacker\">Process Hacker on github</a> for more information.</p>"
+		);
+		QMessageBox *msgBox = new QMessageBox(parent);
+		msgBox->setAttribute(Qt::WA_DeleteOnClose);
+		msgBox->setWindowTitle(QString("About ProcessHacker Library"));
+		msgBox->setText(AboutCaption);
+		msgBox->setInformativeText(AboutText);
+
+		QIcon ico(QLatin1String(":/ProcessHacker.png"));
+		msgBox->setIconPixmap(ico.pixmap(64, 64));
+#if defined(Q_WS_WINCE)
+		msgBox->setDefaultButton(msgBox->addButton(QMessageBox::Ok));
+#endif
+		
+		msgBox->exec();
 }
 
 extern "C" {
-	VOID PhAddDefaultSettings()
+	VOID NTAPI PhAddDefaultSettings()
 	{
 	}
 
-	VOID PhUpdateCachedSettings()
+	VOID NTAPI PhUpdateCachedSettings()
 	{
 	}
 }
 
-// procpriv.c
-
-
-// appsup.c
-PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(
-	_In_ HANDLE ProcessId,
-	_In_ PPH_STRING FileName
-)
-{
-	int knownProcessType;
-	PH_STRINGREF systemRootPrefix;
-	PPH_STRING fileName;
-	PH_STRINGREF name;
-#ifdef _WIN64
-	BOOLEAN isWow64 = FALSE;
-#endif
-
-	if (ProcessId == SYSTEM_PROCESS_ID || ProcessId == SYSTEM_IDLE_PROCESS_ID)
-		return SystemProcessType;
-
-	if (PhIsNullOrEmptyString(FileName))
-		return UnknownProcessType;
-
-	PhGetSystemRoot(&systemRootPrefix);
-
-	fileName = (PPH_STRING)PhReferenceObject(FileName);
-	name = fileName->sr;
-
-	knownProcessType = UnknownProcessType;
-
-	if (PhStartsWithStringRef(&name, &systemRootPrefix, TRUE))
-	{
-		// Skip the system root, and we now have three cases:
-		// 1. \\xyz.exe - Windows executable.
-		// 2. \\System32\\xyz.exe - system32 executable.
-		// 3. \\SysWow64\\xyz.exe - system32 executable + WOW64.
-		PhSkipStringRef(&name, systemRootPrefix.Length);
-
-		if (PhEqualStringRef2(&name, L"\\explorer.exe", TRUE))
-		{
-			knownProcessType = ExplorerProcessType;
-		}
-		else if (
-			PhStartsWithStringRef2(&name, L"\\System32", TRUE)
-#ifdef _WIN64
-			|| (PhStartsWithStringRef2(&name, L"\\SysWow64", TRUE) && (isWow64 = TRUE, TRUE)) // ugly but necessary
-#endif
-			)
-		{
-			// SysTem32 and SysWow64 are both 8 characters long.
-			PhSkipStringRef(&name, 9 * sizeof(WCHAR));
-
-			if (FALSE)
-				; // Dummy
-			else if (PhEqualStringRef2(&name, L"\\smss.exe", TRUE))
-				knownProcessType = SessionManagerProcessType;
-			else if (PhEqualStringRef2(&name, L"\\csrss.exe", TRUE))
-				knownProcessType = WindowsSubsystemProcessType;
-			else if (PhEqualStringRef2(&name, L"\\wininit.exe", TRUE))
-				knownProcessType = WindowsStartupProcessType;
-			else if (PhEqualStringRef2(&name, L"\\services.exe", TRUE))
-				knownProcessType = ServiceControlManagerProcessType;
-			else if (PhEqualStringRef2(&name, L"\\lsass.exe", TRUE))
-				knownProcessType = LocalSecurityAuthorityProcessType;
-			else if (PhEqualStringRef2(&name, L"\\lsm.exe", TRUE))
-				knownProcessType = LocalSessionManagerProcessType;
-			else if (PhEqualStringRef2(&name, L"\\winlogon.exe", TRUE))
-				knownProcessType = WindowsLogonProcessType;
-			else if (PhEqualStringRef2(&name, L"\\svchost.exe", TRUE))
-				knownProcessType = ServiceHostProcessType;
-			else if (PhEqualStringRef2(&name, L"\\rundll32.exe", TRUE))
-				knownProcessType = RunDllAsAppProcessType;
-			else if (PhEqualStringRef2(&name, L"\\dllhost.exe", TRUE))
-				knownProcessType = ComSurrogateProcessType;
-			else if (PhEqualStringRef2(&name, L"\\taskeng.exe", TRUE))
-				knownProcessType = TaskHostProcessType;
-			else if (PhEqualStringRef2(&name, L"\\taskhost.exe", TRUE))
-				knownProcessType = TaskHostProcessType;
-			else if (PhEqualStringRef2(&name, L"\\taskhostex.exe", TRUE))
-				knownProcessType = TaskHostProcessType;
-			else if (PhEqualStringRef2(&name, L"\\taskhostw.exe", TRUE))
-				knownProcessType = TaskHostProcessType;
-			else if (PhEqualStringRef2(&name, L"\\wudfhost.exe", TRUE))
-				knownProcessType = UmdfHostProcessType;
-			else if (PhEqualStringRef2(&name, L"\\wbem\\WmiPrvSE.exe", TRUE))
-				knownProcessType = WmiProviderHostType;
-			else if (PhEqualStringRef2(&name, L"\\MicrosoftEdgeCP.exe", TRUE)) // RS5
-				knownProcessType = EdgeProcessType;
-			else if (PhEqualStringRef2(&name, L"\\MicrosoftEdgeSH.exe", TRUE)) // RS5
-				knownProcessType = EdgeProcessType;
-		}
-		else
-		{
-			if (PhEndsWithStringRef2(&name, L"\\MicrosoftEdgeCP.exe", TRUE)) // RS4
-				knownProcessType = EdgeProcessType;
-			else if (PhEndsWithStringRef2(&name, L"\\MicrosoftEdge.exe", TRUE))
-				knownProcessType = EdgeProcessType;
-			else if (PhEndsWithStringRef2(&name, L"\\ServiceWorkerHost.exe", TRUE))
-				knownProcessType = EdgeProcessType;
-			else if (PhEndsWithStringRef2(&name, L"\\Windows.WARP.JITService.exe", TRUE))
-				knownProcessType = EdgeProcessType;
-		}
-	}
-
-	PhDereferenceObject(fileName);
-
-#ifdef _WIN64
-	if (isWow64)
-		knownProcessType |= KnownProcessWow64;
-#endif
-
-	return (PH_KNOWN_PROCESS_TYPE)knownProcessType;
-}
-
-// appsup.c
-GUID XP_CONTEXT_GUID = { 0xbeb1b341, 0x6837, 0x4c83, { 0x83, 0x66, 0x2b, 0x45, 0x1e, 0x7c, 0xe6, 0x9b } };
-GUID VISTA_CONTEXT_GUID = { 0xe2011457, 0x1546, 0x43c5, { 0xa5, 0xfe, 0x00, 0x8d, 0xee, 0xe3, 0xd3, 0xf0 } };
-GUID WIN7_CONTEXT_GUID = { 0x35138b9a, 0x5d96, 0x4fbd, { 0x8e, 0x2d, 0xa2, 0x44, 0x02, 0x25, 0xf9, 0x3a } };
-GUID WIN8_CONTEXT_GUID = { 0x4a2f28e3, 0x53b9, 0x4441, { 0xba, 0x9c, 0xd6, 0x9d, 0x4a, 0x4a, 0x6e, 0x38 } };
-GUID WINBLUE_CONTEXT_GUID = { 0x1f676c76, 0x80e1, 0x4239, { 0x95, 0xbb, 0x83, 0xd0, 0xf6, 0xd0, 0xda, 0x78 } };
-GUID WIN10_CONTEXT_GUID = { 0x8e0f7a12, 0xbfb3, 0x4fe8, { 0xb9, 0xa5, 0x48, 0xfd, 0x50, 0xa1, 0x5a, 0x9a } };
-
-/**
- * Determines the OS compatibility context of a process.
- *
- * \param ProcessHandle A handle to a process.
- * \param Guid A variable which receives a GUID identifying an
- * operating system version.
- */
-NTSTATUS PhGetProcessSwitchContext(
-    _In_ HANDLE ProcessHandle,
-    _Out_ PGUID Guid
-    )
-{
-    NTSTATUS status;
-    PROCESS_BASIC_INFORMATION basicInfo;
-#ifdef _WIN64
-    PVOID peb32;
-    ULONG data32;
-#endif
-    PVOID data;
-
-    // Reverse-engineered from WdcGetProcessSwitchContext (wdc.dll).
-    // On Windows 8, the function is now SdbGetAppCompatData (apphelp.dll).
-    // On Windows 10, the function is again WdcGetProcessSwitchContext.
-
-#ifdef _WIN64
-    if (NT_SUCCESS(PhGetProcessPeb32(ProcessHandle, &peb32)) && peb32)
-    {
-        if (WindowsVersion >= WINDOWS_8)
-        {
-            if (!NT_SUCCESS(status = NtReadVirtualMemory(
-                ProcessHandle,
-                PTR_ADD_OFFSET(peb32, FIELD_OFFSET(PEB32, pShimData)),
-                &data32,
-                sizeof(ULONG),
-                NULL
-                )))
-                return status;
-        }
-        else
-        {
-            if (!NT_SUCCESS(status = NtReadVirtualMemory(
-                ProcessHandle,
-                PTR_ADD_OFFSET(peb32, FIELD_OFFSET(PEB32, pContextData)),
-                &data32,
-                sizeof(ULONG),
-                NULL
-                )))
-                return status;
-        }
-
-        data = UlongToPtr(data32);
-    }
-    else
-    {
-#endif
-        if (!NT_SUCCESS(status = PhGetProcessBasicInformation(ProcessHandle, &basicInfo)))
-            return status;
-
-        if (WindowsVersion >= WINDOWS_8)
-        {
-            if (!NT_SUCCESS(status = NtReadVirtualMemory(
-                ProcessHandle,
-                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pShimData)),
-                &data,
-                sizeof(PVOID),
-                NULL
-                )))
-                return status;
-        }
-        else
-        {
-            if (!NT_SUCCESS(status = NtReadVirtualMemory(
-                ProcessHandle,
-                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pUnused)),
-                &data,
-                sizeof(PVOID),
-                NULL
-                )))
-                return status;
-        }
-#ifdef _WIN64
-    }
-#endif
-
-    if (!data)
-        return STATUS_UNSUCCESSFUL; // no compatibility context data
-
-    if (WindowsVersion >= WINDOWS_10_RS5)
-    {
-        if (!NT_SUCCESS(status = NtReadVirtualMemory(
-            ProcessHandle,
-            PTR_ADD_OFFSET(data, 2040 + 24), // Magic value from SbReadProcContextByHandle
-            Guid,
-            sizeof(GUID),
-            NULL
-            )))
-            return status;
-    }
-    else if (WindowsVersion >= WINDOWS_10_RS2)
-    {
-        if (!NT_SUCCESS(status = NtReadVirtualMemory(
-            ProcessHandle,
-            PTR_ADD_OFFSET(data, 1544),
-            Guid,
-            sizeof(GUID),
-            NULL
-            )))
-            return status;
-    }
-    else if (WindowsVersion >= WINDOWS_10)
-    {
-        if (!NT_SUCCESS(status = NtReadVirtualMemory(
-            ProcessHandle,
-            PTR_ADD_OFFSET(data, 2040 + 24), // Magic value from SbReadProcContextByHandle
-            Guid,
-            sizeof(GUID),
-            NULL
-            )))
-            return status;
-    }
-    else if (WindowsVersion >= WINDOWS_8_1)
-    {
-        if (!NT_SUCCESS(status = NtReadVirtualMemory(
-            ProcessHandle,
-            PTR_ADD_OFFSET(data, 2040 + 16), // Magic value from SbReadProcContextByHandle
-            Guid,
-            sizeof(GUID),
-            NULL
-            )))
-            return status;
-    }
-    else if (WindowsVersion >= WINDOWS_8)
-    {
-        if (!NT_SUCCESS(status = NtReadVirtualMemory(
-            ProcessHandle,
-            PTR_ADD_OFFSET(data, 2040), // Magic value from SbReadProcContextByHandle
-            Guid,
-            sizeof(GUID),
-            NULL
-            )))
-            return status;
-    }
-    else
-    {
-        if (!NT_SUCCESS(status = NtReadVirtualMemory(
-            ProcessHandle,
-            PTR_ADD_OFFSET(data, 32), // Magic value from WdcGetProcessSwitchContext
-            Guid,
-            sizeof(GUID),
-            NULL
-            )))
-            return status;
-    }
-
-    return STATUS_SUCCESS;
-}
-
-
-
-//netprv.c
+////////////////////////////////////////////////////////////////////////////////////
+// netprv.c
 BOOLEAN PhGetNetworkConnections(
     _Out_ PPH_NETWORK_CONNECTION *Connections,
     _Out_ PULONG NumberOfConnections
@@ -947,6 +813,283 @@ BOOLEAN PhGetNetworkConnections(
     return TRUE;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+// appsup.c
+
+PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(
+	_In_ HANDLE ProcessId,
+	_In_ PPH_STRING FileName
+)
+{
+	int knownProcessType;
+	PH_STRINGREF systemRootPrefix;
+	PPH_STRING fileName;
+	PH_STRINGREF name;
+#ifdef _WIN64
+	BOOLEAN isWow64 = FALSE;
+#endif
+
+	if (ProcessId == SYSTEM_PROCESS_ID || ProcessId == SYSTEM_IDLE_PROCESS_ID)
+		return SystemProcessType;
+
+	if (PhIsNullOrEmptyString(FileName))
+		return UnknownProcessType;
+
+	PhGetSystemRoot(&systemRootPrefix);
+
+	fileName = (PPH_STRING)PhReferenceObject(FileName);
+	name = fileName->sr;
+
+	knownProcessType = UnknownProcessType;
+
+	if (PhStartsWithStringRef(&name, &systemRootPrefix, TRUE))
+	{
+		// Skip the system root, and we now have three cases:
+		// 1. \\xyz.exe - Windows executable.
+		// 2. \\System32\\xyz.exe - system32 executable.
+		// 3. \\SysWow64\\xyz.exe - system32 executable + WOW64.
+		PhSkipStringRef(&name, systemRootPrefix.Length);
+
+		if (PhEqualStringRef2(&name, L"\\explorer.exe", TRUE))
+		{
+			knownProcessType = ExplorerProcessType;
+		}
+		else if (
+			PhStartsWithStringRef2(&name, L"\\System32", TRUE)
+#ifdef _WIN64
+			|| (PhStartsWithStringRef2(&name, L"\\SysWow64", TRUE) && (isWow64 = TRUE, TRUE)) // ugly but necessary
+#endif
+			)
+		{
+			// SysTem32 and SysWow64 are both 8 characters long.
+			PhSkipStringRef(&name, 9 * sizeof(WCHAR));
+
+			if (FALSE)
+				; // Dummy
+			else if (PhEqualStringRef2(&name, L"\\smss.exe", TRUE))
+				knownProcessType = SessionManagerProcessType;
+			else if (PhEqualStringRef2(&name, L"\\csrss.exe", TRUE))
+				knownProcessType = WindowsSubsystemProcessType;
+			else if (PhEqualStringRef2(&name, L"\\wininit.exe", TRUE))
+				knownProcessType = WindowsStartupProcessType;
+			else if (PhEqualStringRef2(&name, L"\\services.exe", TRUE))
+				knownProcessType = ServiceControlManagerProcessType;
+			else if (PhEqualStringRef2(&name, L"\\lsass.exe", TRUE))
+				knownProcessType = LocalSecurityAuthorityProcessType;
+			else if (PhEqualStringRef2(&name, L"\\lsm.exe", TRUE))
+				knownProcessType = LocalSessionManagerProcessType;
+			else if (PhEqualStringRef2(&name, L"\\winlogon.exe", TRUE))
+				knownProcessType = WindowsLogonProcessType;
+			else if (PhEqualStringRef2(&name, L"\\svchost.exe", TRUE))
+				knownProcessType = ServiceHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\rundll32.exe", TRUE))
+				knownProcessType = RunDllAsAppProcessType;
+			else if (PhEqualStringRef2(&name, L"\\dllhost.exe", TRUE))
+				knownProcessType = ComSurrogateProcessType;
+			else if (PhEqualStringRef2(&name, L"\\taskeng.exe", TRUE))
+				knownProcessType = TaskHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\taskhost.exe", TRUE))
+				knownProcessType = TaskHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\taskhostex.exe", TRUE))
+				knownProcessType = TaskHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\taskhostw.exe", TRUE))
+				knownProcessType = TaskHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\wudfhost.exe", TRUE))
+				knownProcessType = UmdfHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\wbem\\WmiPrvSE.exe", TRUE))
+				knownProcessType = WmiProviderHostType;
+			else if (PhEqualStringRef2(&name, L"\\MicrosoftEdgeCP.exe", TRUE)) // RS5
+				knownProcessType = EdgeProcessType;
+			else if (PhEqualStringRef2(&name, L"\\MicrosoftEdgeSH.exe", TRUE)) // RS5
+				knownProcessType = EdgeProcessType;
+		}
+		else
+		{
+			if (PhEndsWithStringRef2(&name, L"\\MicrosoftEdgeCP.exe", TRUE)) // RS4
+				knownProcessType = EdgeProcessType;
+			else if (PhEndsWithStringRef2(&name, L"\\MicrosoftEdge.exe", TRUE))
+				knownProcessType = EdgeProcessType;
+			else if (PhEndsWithStringRef2(&name, L"\\ServiceWorkerHost.exe", TRUE))
+				knownProcessType = EdgeProcessType;
+			else if (PhEndsWithStringRef2(&name, L"\\Windows.WARP.JITService.exe", TRUE))
+				knownProcessType = EdgeProcessType;
+		}
+	}
+
+	PhDereferenceObject(fileName);
+
+#ifdef _WIN64
+	if (isWow64)
+		knownProcessType |= KnownProcessWow64;
+#endif
+
+	return (PH_KNOWN_PROCESS_TYPE)knownProcessType;
+}
+
+GUID XP_CONTEXT_GUID = { 0xbeb1b341, 0x6837, 0x4c83, { 0x83, 0x66, 0x2b, 0x45, 0x1e, 0x7c, 0xe6, 0x9b } };
+GUID VISTA_CONTEXT_GUID = { 0xe2011457, 0x1546, 0x43c5, { 0xa5, 0xfe, 0x00, 0x8d, 0xee, 0xe3, 0xd3, 0xf0 } };
+GUID WIN7_CONTEXT_GUID = { 0x35138b9a, 0x5d96, 0x4fbd, { 0x8e, 0x2d, 0xa2, 0x44, 0x02, 0x25, 0xf9, 0x3a } };
+GUID WIN8_CONTEXT_GUID = { 0x4a2f28e3, 0x53b9, 0x4441, { 0xba, 0x9c, 0xd6, 0x9d, 0x4a, 0x4a, 0x6e, 0x38 } };
+GUID WINBLUE_CONTEXT_GUID = { 0x1f676c76, 0x80e1, 0x4239, { 0x95, 0xbb, 0x83, 0xd0, 0xf6, 0xd0, 0xda, 0x78 } };
+GUID WIN10_CONTEXT_GUID = { 0x8e0f7a12, 0xbfb3, 0x4fe8, { 0xb9, 0xa5, 0x48, 0xfd, 0x50, 0xa1, 0x5a, 0x9a } };
+
+/**
+ * Determines the OS compatibility context of a process.
+ *
+ * \param ProcessHandle A handle to a process.
+ * \param Guid A variable which receives a GUID identifying an
+ * operating system version.
+ */
+NTSTATUS PhGetProcessSwitchContext(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PGUID Guid
+    )
+{
+    NTSTATUS status;
+    PROCESS_BASIC_INFORMATION basicInfo;
+#ifdef _WIN64
+    PVOID peb32;
+    ULONG data32;
+#endif
+    PVOID data;
+
+    // Reverse-engineered from WdcGetProcessSwitchContext (wdc.dll).
+    // On Windows 8, the function is now SdbGetAppCompatData (apphelp.dll).
+    // On Windows 10, the function is again WdcGetProcessSwitchContext.
+
+#ifdef _WIN64
+    if (NT_SUCCESS(PhGetProcessPeb32(ProcessHandle, &peb32)) && peb32)
+    {
+        if (WindowsVersion >= WINDOWS_8)
+        {
+            if (!NT_SUCCESS(status = NtReadVirtualMemory(
+                ProcessHandle,
+                PTR_ADD_OFFSET(peb32, FIELD_OFFSET(PEB32, pShimData)),
+                &data32,
+                sizeof(ULONG),
+                NULL
+                )))
+                return status;
+        }
+        else
+        {
+            if (!NT_SUCCESS(status = NtReadVirtualMemory(
+                ProcessHandle,
+                PTR_ADD_OFFSET(peb32, FIELD_OFFSET(PEB32, pContextData)),
+                &data32,
+                sizeof(ULONG),
+                NULL
+                )))
+                return status;
+        }
+
+        data = UlongToPtr(data32);
+    }
+    else
+    {
+#endif
+        if (!NT_SUCCESS(status = PhGetProcessBasicInformation(ProcessHandle, &basicInfo)))
+            return status;
+
+        if (WindowsVersion >= WINDOWS_8)
+        {
+            if (!NT_SUCCESS(status = NtReadVirtualMemory(
+                ProcessHandle,
+                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pShimData)),
+                &data,
+                sizeof(PVOID),
+                NULL
+                )))
+                return status;
+        }
+        else
+        {
+            if (!NT_SUCCESS(status = NtReadVirtualMemory(
+                ProcessHandle,
+                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pUnused)),
+                &data,
+                sizeof(PVOID),
+                NULL
+                )))
+                return status;
+        }
+#ifdef _WIN64
+    }
+#endif
+
+    if (!data)
+        return STATUS_UNSUCCESSFUL; // no compatibility context data
+
+    if (WindowsVersion >= WINDOWS_10_RS5)
+    {
+        if (!NT_SUCCESS(status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(data, 2040 + 24), // Magic value from SbReadProcContextByHandle
+            Guid,
+            sizeof(GUID),
+            NULL
+            )))
+            return status;
+    }
+    else if (WindowsVersion >= WINDOWS_10_RS2)
+    {
+        if (!NT_SUCCESS(status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(data, 1544),
+            Guid,
+            sizeof(GUID),
+            NULL
+            )))
+            return status;
+    }
+    else if (WindowsVersion >= WINDOWS_10)
+    {
+        if (!NT_SUCCESS(status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(data, 2040 + 24), // Magic value from SbReadProcContextByHandle
+            Guid,
+            sizeof(GUID),
+            NULL
+            )))
+            return status;
+    }
+    else if (WindowsVersion >= WINDOWS_8_1)
+    {
+        if (!NT_SUCCESS(status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(data, 2040 + 16), // Magic value from SbReadProcContextByHandle
+            Guid,
+            sizeof(GUID),
+            NULL
+            )))
+            return status;
+    }
+    else if (WindowsVersion >= WINDOWS_8)
+    {
+        if (!NT_SUCCESS(status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(data, 2040), // Magic value from SbReadProcContextByHandle
+            Guid,
+            sizeof(GUID),
+            NULL
+            )))
+            return status;
+    }
+    else
+    {
+        if (!NT_SUCCESS(status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(data, 32), // Magic value from WdcGetProcessSwitchContext
+            Guid,
+            sizeof(GUID),
+            NULL
+            )))
+            return status;
+    }
+
+    return STATUS_SUCCESS;
+}
+
 VOID PhpWorkaroundWindows10ServiceTypeBug(_Inout_ LPENUM_SERVICE_STATUS_PROCESS ServieEntry)
 {
     // https://github.com/processhacker2/processhacker/issues/120 (dmex)
@@ -992,563 +1135,203 @@ VOID WeInvertWindowBorder(_In_ HWND hWnd)
         ReleaseDC(hWnd, hdc);
     }
 }
-// procmtgn.c
-NTSTATUS PhpCopyProcessMitigationPolicy(
-    _Inout_ PNTSTATUS Status,
-    _In_ HANDLE ProcessHandle,
-    _In_ PROCESS_MITIGATION_POLICY Policy,
-    _In_ SIZE_T Offset,
-    _In_ SIZE_T Size,
-    _Out_writes_bytes_(Size) PVOID Destination
+
+
+BOOLEAN PhpSelectFavoriteInRegedit(
+    _In_ HWND RegeditWindow,
+    _In_ PPH_STRINGREF FavoriteName,
+    _In_ BOOLEAN UsePhSvc
     )
 {
-    NTSTATUS status;
-    PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
+    HMENU menu;
+    HMENU favoritesMenu;
+    ULONG count;
+    ULONG i;
+    ULONG id = ULONG_MAX;
 
-    policyInfo.Policy = Policy;
-    status = NtQueryInformationProcess(
-        ProcessHandle,
-        ProcessMitigationPolicy,
-        &policyInfo,
-        sizeof(PROCESS_MITIGATION_POLICY_INFORMATION),
-        NULL
-        );
+    if (!(menu = GetMenu(RegeditWindow)))
+        return FALSE;
 
-    if (!NT_SUCCESS(status))
+    // Cause the Registry Editor to refresh the Favorites menu.
+    if (UsePhSvc)
+        PhSvcCallSendMessage(RegeditWindow, WM_MENUSELECT, MAKEWPARAM(3, MF_POPUP), (LPARAM)menu);
+    else
+        SendMessage(RegeditWindow, WM_MENUSELECT, MAKEWPARAM(3, MF_POPUP), (LPARAM)menu);
+
+    if (!(favoritesMenu = GetSubMenu(menu, 3)))
+        return FALSE;
+
+    // Find our entry.
+
+    count = GetMenuItemCount(favoritesMenu);
+
+    if (count == -1)
+        return FALSE;
+    if (count > 1000)
+        count = 1000;
+
+    for (i = 3; i < count; i++)
     {
-        if (*Status == STATUS_NONE_MAPPED)
-            *Status = status;
-        return status;
+        MENUITEMINFO info = { sizeof(MENUITEMINFO) };
+        WCHAR buffer[MAX_PATH];
+
+        info.fMask = MIIM_ID | MIIM_STRING;
+        info.dwTypeData = buffer;
+        info.cch = RTL_NUMBER_OF(buffer);
+        GetMenuItemInfo(favoritesMenu, i, TRUE, &info);
+
+        if (info.cch == FavoriteName->Length / sizeof(WCHAR))
+        {
+            PH_STRINGREF text;
+
+            text.Buffer = buffer;
+            text.Length = info.cch * sizeof(WCHAR);
+
+            if (PhEqualStringRef(&text, FavoriteName, TRUE))
+            {
+                id = info.wID;
+                break;
+            }
+        }
     }
 
-    memcpy(Destination, PTR_ADD_OFFSET(&policyInfo, Offset), Size);
-    *Status = STATUS_SUCCESS;
+    if (id == ULONG_MAX)
+        return FALSE;
 
-    return status;
-}
+    // Activate our entry.
+    if (UsePhSvc)
+        PhSvcCallSendMessage(RegeditWindow, WM_COMMAND, MAKEWPARAM(id, 0), 0);
+    else
+        SendMessage(RegeditWindow, WM_COMMAND, MAKEWPARAM(id, 0), 0);
 
-// procmtgn.c
-NTSTATUS PhGetProcessMitigationPolicy(
-    _In_ HANDLE ProcessHandle,
-    _Out_ PPH_PROCESS_MITIGATION_POLICY_ALL_INFORMATION Information
-    )
-{
-    NTSTATUS status = STATUS_NONE_MAPPED;
-    NTSTATUS subStatus;
-#ifdef _WIN64
-    BOOLEAN isWow64;
-#endif
-    ULONG depStatus;
+    // "Close" the Favorites menu and restore normal status bar text.
+    if (UsePhSvc)
+        PhSvcCallPostMessage(RegeditWindow, WM_MENUSELECT, MAKEWPARAM(0, 0xffff), 0);
+    else
+        PostMessage(RegeditWindow, WM_MENUSELECT, MAKEWPARAM(0, 0xffff), 0);
 
-    memset(Information, 0, sizeof(PH_PROCESS_MITIGATION_POLICY_ALL_INFORMATION));
-
-#ifdef _WIN64
-    if (NT_SUCCESS(subStatus = PhGetProcessIsWow64(ProcessHandle, &isWow64)) && !isWow64)
+    // Bring regedit to the top.
+    if (IsMinimized(RegeditWindow))
     {
-        depStatus = PH_PROCESS_DEP_ENABLED | PH_PROCESS_DEP_PERMANENT;
+        ShowWindow(RegeditWindow, SW_RESTORE);
+        SetForegroundWindow(RegeditWindow);
     }
     else
     {
-#endif
-        subStatus = PhGetProcessDepStatus(ProcessHandle, &depStatus);
-#ifdef _WIN64
-    }
-#endif
-
-    if (NT_SUCCESS(subStatus))
-    {
-        status = STATUS_SUCCESS;
-        Information->DEPPolicy.Enable = !!(depStatus & PH_PROCESS_DEP_ENABLED);
-        Information->DEPPolicy.DisableAtlThunkEmulation = !!(depStatus & PH_PROCESS_DEP_ATL_THUNK_EMULATION_DISABLED);
-        Information->DEPPolicy.Permanent = !!(depStatus & PH_PROCESS_DEP_PERMANENT);
-        Information->Pointers[ProcessDEPPolicy] = &Information->DEPPolicy;
-    }
-    else if (status == STATUS_NONE_MAPPED)
-    {
-        status = subStatus;
+        SetForegroundWindow(RegeditWindow);
     }
 
-#define COPY_PROCESS_MITIGATION_POLICY(PolicyName, StructName) \
-    if (NT_SUCCESS(PhpCopyProcessMitigationPolicy(&status, ProcessHandle, Process##PolicyName##Policy, \
-        UFIELD_OFFSET(PROCESS_MITIGATION_POLICY_INFORMATION, PolicyName##Policy), \
-        sizeof(StructName), \
-        &Information->PolicyName##Policy))) \
-    { \
-        Information->Pointers[Process##PolicyName##Policy] = &Information->PolicyName##Policy; \
-    }
-
-    COPY_PROCESS_MITIGATION_POLICY(ASLR, PROCESS_MITIGATION_ASLR_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(DynamicCode, PROCESS_MITIGATION_DYNAMIC_CODE_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(StrictHandleCheck, PROCESS_MITIGATION_STRICT_HANDLE_CHECK_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(SystemCallDisable, PROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(ExtensionPointDisable, PROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(ControlFlowGuard, PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(Signature, PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(FontDisable, PROCESS_MITIGATION_FONT_DISABLE_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(ImageLoad, PROCESS_MITIGATION_IMAGE_LOAD_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(SystemCallFilter, PROCESS_MITIGATION_SYSTEM_CALL_FILTER_POLICY); // REDSTONE3
-    COPY_PROCESS_MITIGATION_POLICY(PayloadRestriction, PROCESS_MITIGATION_PAYLOAD_RESTRICTION_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(ChildProcess, PROCESS_MITIGATION_CHILD_PROCESS_POLICY);
-    COPY_PROCESS_MITIGATION_POLICY(SideChannelIsolation, PROCESS_MITIGATION_SIDE_CHANNEL_ISOLATION_POLICY);
-
-    return status;
+    return TRUE;
 }
 
-// procmtgn.c
-BOOLEAN PhDescribeProcessMitigationPolicy(
-    _In_ PROCESS_MITIGATION_POLICY Policy,
-    _In_ PVOID Data,
-    _Out_opt_ PPH_STRING *ShortDescription,
-    _Out_opt_ PPH_STRING *LongDescription
+/**
+ * Opens a key in the Registry Editor. If the Registry Editor is already open,
+ * the specified key is selected in the Registry Editor.
+ *
+ * \param hWnd A handle to the parent window.
+ * \param KeyName The key name to open.
+ */
+BOOLEAN PhShellOpenKey2(
+    _In_ HWND hWnd,
+    _In_ PPH_STRING KeyName
     )
 {
+    static PH_STRINGREF favoritesKeyName = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit\\Favorites");
+
     BOOLEAN result = FALSE;
-    PH_STRING_BUILDER sb;
+    HWND regeditWindow;
+    HANDLE favoritesKeyHandle;
+    WCHAR favoriteName[32];
+    UNICODE_STRING valueName;
+    PH_STRINGREF valueNameSr;
+    PPH_STRING expandedKeyName;
 
-    switch (Policy)
+    regeditWindow = FindWindow(L"RegEdit_RegEdit", NULL);
+
+    if (!regeditWindow)
     {
-    case ProcessDEPPolicy:
-        {
-            PPROCESS_MITIGATION_DEP_POLICY data = (PPROCESS_MITIGATION_DEP_POLICY)Data;
-
-            if (data->Enable)
-            {
-                if (ShortDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 20);
-                    PhAppendStringBuilder2(&sb, L"DEP");
-                    if (data->Permanent) PhAppendStringBuilder2(&sb, L" (permanent)");
-                    *ShortDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 50);
-                    PhAppendFormatStringBuilder(&sb, L"Data Execution Prevention (DEP) is%s enabled for this process.\r\n", data->Permanent ? L" permanently" : L"");
-                    if (data->DisableAtlThunkEmulation) PhAppendStringBuilder2(&sb, L"ATL thunk emulation is disabled.\r\n");
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessASLRPolicy:
-        {
-            PPROCESS_MITIGATION_ASLR_POLICY data = (PPROCESS_MITIGATION_ASLR_POLICY)Data;
-
-            if (data->EnableBottomUpRandomization || data->EnableForceRelocateImages || data->EnableHighEntropy)
-            {
-                if (ShortDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 20);
-                    PhAppendStringBuilder2(&sb, L"ASLR");
-
-                    if (data->EnableHighEntropy || data->EnableForceRelocateImages)
-                    {
-                        PhAppendStringBuilder2(&sb, L" (");
-                        if (data->EnableHighEntropy) PhAppendStringBuilder2(&sb, L"high entropy, ");
-                        if (data->EnableForceRelocateImages) PhAppendStringBuilder2(&sb, L"force relocate, ");
-                        if (data->DisallowStrippedImages) PhAppendStringBuilder2(&sb, L"disallow stripped, ");
-                        if (PhEndsWithStringRef2(&sb.String->sr, L", ", FALSE)) PhRemoveEndStringBuilder(&sb, 2);
-                        PhAppendCharStringBuilder(&sb, ')');
-                    }
-
-                    *ShortDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 100);
-                    PhAppendStringBuilder2(&sb, L"Address Space Layout Randomization is enabled for this process.\r\n");
-                    if (data->EnableHighEntropy) PhAppendStringBuilder2(&sb, L"High entropy randomization is enabled.\r\n");
-                    if (data->EnableForceRelocateImages) PhAppendStringBuilder2(&sb, L"All images are being forcibly relocated (regardless of whether they support ASLR).\r\n");
-                    if (data->DisallowStrippedImages) PhAppendStringBuilder2(&sb, L"Images with stripped relocation data are disallowed.\r\n");
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessDynamicCodePolicy:
-        {
-            PPROCESS_MITIGATION_DYNAMIC_CODE_POLICY data = (PPROCESS_MITIGATION_DYNAMIC_CODE_POLICY)Data;
-
-            if (data->ProhibitDynamicCode)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Dynamic code prohibited");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Dynamically loaded code is not allowed to execute.\r\n");
-
-                result = TRUE;
-            }
-
-            if (data->AllowThreadOptOut)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Dynamic code prohibited (per-thread)");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Allows individual threads to opt out of the restrictions on dynamic code generation.\r\n");
-
-                result = TRUE;
-            }
-
-            if (data->AllowRemoteDowngrade)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Dynamic code downgradable");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Allow non-AppContainer processes to modify all of the dynamic code settings for the calling process, including relaxing dynamic code restrictions after they have been set.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessStrictHandleCheckPolicy:
-        {
-            PPROCESS_MITIGATION_STRICT_HANDLE_CHECK_POLICY data = (PPROCESS_MITIGATION_STRICT_HANDLE_CHECK_POLICY)Data;
-
-            if (data->RaiseExceptionOnInvalidHandleReference)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Strict handle checks");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"An exception is raised when an invalid handle is used by the process.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessSystemCallDisablePolicy:
-        {
-            PPROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY data = (PPROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY)Data;
-
-            if (data->DisallowWin32kSystemCalls)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Win32k system calls disabled");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Win32k (GDI/USER) system calls are not allowed.\r\n");
-
-                result = TRUE;
-            }
-
-            if (data->AuditDisallowWin32kSystemCalls)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Win32k system calls (Audit)");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Win32k (GDI/USER) system calls will trigger an ETW event.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessExtensionPointDisablePolicy:
-        {
-            PPROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY data = (PPROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY)Data;
-
-            if (data->DisableExtensionPoints)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Extension points disabled");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Legacy extension point DLLs cannot be loaded into the process.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessControlFlowGuardPolicy:
-        {
-            PPROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY data = (PPROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY)Data;
-
-            if (data->EnableControlFlowGuard)
-            {
-                if (ShortDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 50);
-                    if (data->StrictMode) PhAppendStringBuilder2(&sb, L"Strict ");
-                    PhAppendStringBuilder2(&sb, L"CF Guard");
-                    *ShortDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 100);
-                    PhAppendStringBuilder2(&sb, L"Control Flow Guard (CFG) is enabled for the process.\r\n");
-                    if (data->StrictMode) PhAppendStringBuilder2(&sb, L"Strict CFG : only CFG modules can be loaded.\r\n");
-                    if (data->EnableExportSuppression) PhAppendStringBuilder2(&sb, L"Dll Exports can be marked as CFG invalid targets.\r\n");
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessSignaturePolicy:
-        {
-            PPROCESS_MITIGATION_BINARY_SIGNATURE_POLICY data = (PPROCESS_MITIGATION_BINARY_SIGNATURE_POLICY)Data;
-
-            if (data->MicrosoftSignedOnly || data->StoreSignedOnly)
-            {
-                if (ShortDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 50);
-                    PhAppendStringBuilder2(&sb, L"Signatures restricted (");
-                    if (data->MicrosoftSignedOnly) PhAppendStringBuilder2(&sb, L"Microsoft only, ");
-                    if (data->StoreSignedOnly) PhAppendStringBuilder2(&sb, L"Store only, ");
-                    if (PhEndsWithStringRef2(&sb.String->sr, L", ", FALSE)) PhRemoveEndStringBuilder(&sb, 2);
-                    PhAppendCharStringBuilder(&sb, ')');
-
-                    *ShortDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 100);
-                    PhAppendStringBuilder2(&sb, L"Image signature restrictions are enabled for this process.\r\n");
-                    if (data->MicrosoftSignedOnly) PhAppendStringBuilder2(&sb, L"Only Microsoft signatures are allowed.\r\n");
-                    if (data->StoreSignedOnly) PhAppendStringBuilder2(&sb, L"Only Windows Store signatures are allowed.\r\n");
-                    if (data->MitigationOptIn) PhAppendStringBuilder2(&sb, L"This is an opt-in restriction.\r\n");
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessFontDisablePolicy:
-        {
-            PPROCESS_MITIGATION_FONT_DISABLE_POLICY data = (PPROCESS_MITIGATION_FONT_DISABLE_POLICY)Data;
-
-            if (data->DisableNonSystemFonts)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Non-system fonts disabled");
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 100);
-                    PhAppendStringBuilder2(&sb, L"Non-system fonts cannot be used in this process.\r\n");
-                    if (data->AuditNonSystemFontLoading) PhAppendStringBuilder2(&sb, L"Loading a non-system font in this process will trigger an ETW event.\r\n");
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessImageLoadPolicy:
-        {
-            PPROCESS_MITIGATION_IMAGE_LOAD_POLICY data = (PPROCESS_MITIGATION_IMAGE_LOAD_POLICY)Data;
-
-            if (data->NoRemoteImages || data->NoLowMandatoryLabelImages)
-            {
-                if (ShortDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 50);
-                    PhAppendStringBuilder2(&sb, L"Images restricted (");
-                    if (data->NoRemoteImages) PhAppendStringBuilder2(&sb, L"remote images, ");
-                    if (data->NoLowMandatoryLabelImages) PhAppendStringBuilder2(&sb, L"low mandatory label images, ");
-                    if (PhEndsWithStringRef2(&sb.String->sr, L", ", FALSE)) PhRemoveEndStringBuilder(&sb, 2);
-                    PhAppendCharStringBuilder(&sb, ')');
-
-                    *ShortDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 50);
-                    if (data->NoRemoteImages) PhAppendStringBuilder2(&sb, L"Remotely located images cannot be loaded into the process.\r\n");
-                    if (data->NoLowMandatoryLabelImages) PhAppendStringBuilder2(&sb, L"Images with a Low mandatory label cannot be loaded into the process.\r\n");
-
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-
-            if (data->PreferSystem32Images)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Prefer system32 images");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Forces images to load from the System32 folder in which Windows is installed first, then from the application directory before the standard DLL search order.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessSystemCallFilterPolicy:
-        {
-            PPROCESS_MITIGATION_SYSTEM_CALL_FILTER_POLICY data = (PPROCESS_MITIGATION_SYSTEM_CALL_FILTER_POLICY)Data;
-            
-            if (data->FilterId)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"System call filtering");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"System call filtering is active.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessPayloadRestrictionPolicy:
-        {
-            PPROCESS_MITIGATION_PAYLOAD_RESTRICTION_POLICY data = (PPROCESS_MITIGATION_PAYLOAD_RESTRICTION_POLICY)Data;
-
-            if (data->EnableExportAddressFilter || data->EnableExportAddressFilterPlus ||
-                data->EnableImportAddressFilter || data->EnableRopStackPivot ||
-                data->EnableRopCallerCheck || data->EnableRopSimExec)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Payload restrictions");
-
-                if (LongDescription)
-                {
-                    PhInitializeStringBuilder(&sb, 100);
-                    PhAppendStringBuilder2(&sb, L"Payload restrictions are enabled for this process.\r\n");
-                    if (data->EnableExportAddressFilter) PhAppendStringBuilder2(&sb, L"Export Address Filtering is enabled.\r\n");
-                    if (data->EnableExportAddressFilterPlus) PhAppendStringBuilder2(&sb, L"Export Address Filtering (Plus) is enabled.\r\n");
-                    if (data->EnableImportAddressFilter) PhAppendStringBuilder2(&sb, L"Import Address Filtering is enabled.\r\n");
-                    if (data->EnableRopStackPivot) PhAppendStringBuilder2(&sb, L"StackPivot is enabled.\r\n");
-                    if (data->EnableRopCallerCheck) PhAppendStringBuilder2(&sb, L"CallerCheck is enabled.\r\n");
-                    if (data->EnableRopSimExec) PhAppendStringBuilder2(&sb, L"SimExec is enabled.\r\n");
-                    *LongDescription = PhFinalStringBuilderString(&sb);
-                }
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessChildProcessPolicy:
-        {
-            PPROCESS_MITIGATION_CHILD_PROCESS_POLICY data = (PPROCESS_MITIGATION_CHILD_PROCESS_POLICY)Data;
-
-            if (data->NoChildProcessCreation)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Child process creation disabled");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Child processes cannot be created by this process.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    case ProcessSideChannelIsolationPolicy:
-        {
-            PPROCESS_MITIGATION_SIDE_CHANNEL_ISOLATION_POLICY data = (PPROCESS_MITIGATION_SIDE_CHANNEL_ISOLATION_POLICY)Data;
-
-            if (data->SmtBranchTargetIsolation)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"SMT-thread branch target isolation");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Branch target pollution cross-SMT-thread in user mode is enabled.\r\n");
-
-                result = TRUE;
-            }
-
-            if (data->IsolateSecurityDomain)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Distinct security domain");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Isolated security domain is enabled.\r\n");
-
-                result = TRUE;
-            }
-
-            if (data->DisablePageCombine)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Restricted page combining");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Disables all page combining for this process.\r\n");
-
-                result = TRUE;
-            }
-
-            if (data->SpeculativeStoreBypassDisable)
-            {
-                if (ShortDescription)
-                    *ShortDescription = PhCreateString(L"Restricted page combining");
-
-                if (LongDescription)
-                    *LongDescription = PhCreateString(L"Memory Disambiguation is enabled for this process.\r\n");
-
-                result = TRUE;
-            }
-        }
-        break;
-    default:
-        result = FALSE;
+        PhShellOpenKey(hWnd, KeyName);
+        return TRUE;
     }
+
+	BOOLEAN UsePhSvc = !PhGetOwnTokenAttributes().Elevated;
+
+    //if (UsePhSvc)
+    //{
+    //    if (!PhUiConnectToPhSvc(hWnd, FALSE))
+    //        return FALSE;
+    //}
+
+    // Create our entry in Favorites.
+
+    if (!NT_SUCCESS(PhCreateKey(
+        &favoritesKeyHandle,
+        KEY_WRITE,
+        PH_KEY_CURRENT_USER,
+        &favoritesKeyName,
+        0,
+        0,
+        NULL
+        )))
+        goto CleanupExit;
+
+    memcpy(favoriteName, L"A_ProcessHacker", 15 * sizeof(WCHAR));
+    PhGenerateRandomAlphaString(&favoriteName[15], 16);
+    RtlInitUnicodeString(&valueName, favoriteName);
+    PhUnicodeStringToStringRef(&valueName, &valueNameSr);
+
+    expandedKeyName = PhExpandKeyName(KeyName, FALSE);
+    NtSetValueKey(favoritesKeyHandle, &valueName, 0, REG_SZ, expandedKeyName->Buffer, (ULONG)expandedKeyName->Length + sizeof(UNICODE_NULL));
+    PhDereferenceObject(expandedKeyName);
+
+    // Select our entry in regedit.
+    result = PhpSelectFavoriteInRegedit(regeditWindow, &valueNameSr, UsePhSvc);
+
+    NtDeleteValueKey(favoritesKeyHandle, &valueName);
+    NtClose(favoritesKeyHandle);
+
+CleanupExit:
+    //if (UsePhSvc)
+    //    PhUiDisconnectFromPhSvc();
 
     return result;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+// other
 
-void PhShowAbout(QWidget* parent)
+NTSTATUS PhSvcCallSendMessage(
+	_In_opt_ HWND hWnd,
+	_In_ UINT Msg,
+	_In_ WPARAM wParam,
+	_In_ LPARAM lParam,
+	_In_ BOOLEAN Post
+)
 {
-		QString AboutCaption = QString(
-			"<h3>Process Hacker</h3>"
-			"<p>Licensed under the GNU GPL, v3.</p>"
-			"<p>Copyright (c) 2008-2019</p>"
-		).arg("3.0.2450");
-		QString AboutText = QString(
-                "<p>Thanks to:<br>"
-                "    <a href=\"https://github.com/wj32\">wj32</a> - Wen Jia Liu<br>"
-                "    <a href=\"https://github.com/dmex\">dmex</a> - Steven G<br>"
-                "    <a href=\"https://github.com/xhmikosr\">XhmikosR</a><br>"
-                "    <a href=\"https://github.com/processhacker/processhacker/graphs/contributors\">Contributors</a> - thank you for your additions!<br>"
-                "    Donors - thank you for your support!</p>"
-                "<p>Process Hacker uses the following components:<br>"
-                "    <a href=\"https://github.com/michaelrsweet/mxml\">Mini-XML</a> by Michael Sweet<br>"
-                "    <a href=\"https://www.pcre.org\">PCRE</a><br>"
-                "    <a href=\"https://github.com/json-c/json-c\">json-c</a><br>"
-                "    MD5 code by Jouni Malinen<br>"
-                "    SHA1 code by Filip Navara, based on code by Steve Reid<br>"
-                "    <a href=\"http://www.famfamfam.com/lab/icons/silk\">Silk icons</a><br>"
-                "    <a href=\"https://www.fatcow.com/free-icons\">Farm-fresh web icons</a><br></p>"
-			"<p></p>"
-			"<p>Visit <a href=\"https://github.com/processhacker/processhacker\">Process Hacker on github</a> for more information.</p>"
-		);
-		QMessageBox *msgBox = new QMessageBox(parent);
-		msgBox->setAttribute(Qt::WA_DeleteOnClose);
-		msgBox->setWindowTitle(QString("About ProcessHacker Library"));
-		msgBox->setText(AboutCaption);
-		msgBox->setInformativeText(AboutText);
+	QString ServiceName = CTaskService::RunService();
+	if (ServiceName.isEmpty())
+		return STATUS_ACCESS_DENIED;
 
-		QIcon ico(QLatin1String(":/ProcessHacker.png"));
-		msgBox->setIconPixmap(ico.pixmap(64, 64));
-#if defined(Q_WS_WINCE)
-		msgBox->setDefaultButton(msgBox->addButton(QMessageBox::Ok));
-#endif
-		
-		msgBox->exec();
+	QVariantMap Parameters;
+	Parameters["hWnd"] = (quint64)hWnd;
+	Parameters["Msg"] = (quint64)Msg;
+	Parameters["wParam"] = (quint64)wParam;
+	Parameters["lParam"] = (quint64)lParam;
+	Parameters["Post"] = (bool)Post;
+
+	QVariantMap Request;
+	Request["Command"] = "SvcCallSendMessage";
+	Request["Parameters"] = Parameters;
+
+	CTaskService::SendCommand(ServiceName, Request);
+
+	return STATUS_SUCCESS;
 }
 
 
-//syssccpu.c
+////////////////////////////////////////////////////////////////////////////////////
+// syssccpu.c
+
 VOID PhSipGetCpuBrandString(
     _Out_writes_(49) PWSTR BrandString
     )
@@ -1673,19 +1456,3 @@ VOID PhSipGetCpuBrandString(
 
     return TRUE;
 }*/
-
-
-NTSTATUS PhpOpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
-{
-    SC_HANDLE serviceHandle;
-    
-    if (serviceHandle = OpenSCManager(NULL, NULL, DesiredAccess))
-    {
-        *Handle = serviceHandle;
-        return STATUS_SUCCESS;
-    }
-
-    return PhGetLastWin32ErrorAsNtStatus();
-}
-
-

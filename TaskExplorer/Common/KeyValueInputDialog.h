@@ -15,7 +15,7 @@ class CKeyValueInputDialog : public QDialog
     Q_PROPERTY(QDialogButtonBox::StandardButton defaultButton READ defaultButton WRITE setDefaultButton)
 
 public:
-    explicit CKeyValueInputDialog(QWidget *parent);
+    explicit CKeyValueInputDialog(QWidget *parent = NULL);
     virtual ~CKeyValueInputDialog();
 
     QString text() const;
@@ -62,4 +62,4 @@ private:
 
 
 
-#endif // HECKABLEMESSAGEBOX_H
+#endif // HCOMBODIALOG_H

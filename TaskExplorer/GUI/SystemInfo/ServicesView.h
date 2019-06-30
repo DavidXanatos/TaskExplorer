@@ -14,7 +14,7 @@ class CServicesView : public CPanelView
 	Q_OBJECT
 
 public:
-	CServicesView(QWidget *parent = 0);
+	CServicesView(bool bAll, QWidget *parent = 0);
 	virtual ~CServicesView();
 
 	//void					OnMenu(const QPoint &point);
@@ -22,6 +22,9 @@ public:
 #ifdef WIN32
 	void					SetShowKernelServices(bool bShow);
 #endif
+
+public slots:
+	void					ShowServices(const CProcessPtr& pProcess);
 
 protected:
 	virtual void				OnMenu(const QPoint& Point);

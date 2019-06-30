@@ -36,6 +36,7 @@ private slots:
 
 	void					OnCrashDump();
 	void					OnProcessAction();
+	void					OnRunAsThis();
 
 protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
@@ -77,4 +78,5 @@ private:
 	//QAction*				m_pUnloadModules;
 	//QAction*				m_pWatchWS;
 #endif
+	QAction*				m_pRunAsThis;
 };

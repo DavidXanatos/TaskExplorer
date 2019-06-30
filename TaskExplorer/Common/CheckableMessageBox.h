@@ -17,7 +17,7 @@ class CCheckableMessageBox : public QDialog
     Q_PROPERTY(QDialogButtonBox::StandardButton defaultButton READ defaultButton WRITE setDefaultButton)
 
 public:
-    explicit CCheckableMessageBox(QWidget *parent);
+    explicit CCheckableMessageBox(QWidget *parent = NULL);
     virtual ~CCheckableMessageBox();
 
     static QDialogButtonBox::StandardButton

@@ -12,6 +12,13 @@ public:
 		m_pMenu = new QMenu(this);
 	}
 
+	static void AddSubItem(QTreeWidgetItem* pRoot, const QString& Key, const QString& Value)
+	{
+		QTreeWidgetItem* pItem = new QTreeWidgetItem(QStringList(Key));
+		pItem->setText(1, Value);
+		pRoot->addChild(pItem);
+	}
+
 private slots:
 	void				OnMenuRequested(const QPoint &point)
 	{

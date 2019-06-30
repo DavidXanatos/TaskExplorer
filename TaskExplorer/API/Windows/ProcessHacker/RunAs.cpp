@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and runas.c functions
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2018
@@ -149,22 +149,6 @@ NTSTATUS PhExecuteRunAsCommand3(
 	return STATUS_PORT_DISCONNECTED;
 }
 
-typedef struct _PH_RUNAS_SERVICE_PARAMETERS
-{
-    ULONG ProcessId;
-    PWSTR UserName;
-    PWSTR Password;
-    ULONG LogonType;
-    ULONG SessionId;
-    PWSTR CurrentDirectory;
-    PWSTR CommandLine;
-    PWSTR FileName;
-    PWSTR DesktopName;
-    BOOLEAN UseLinkedToken;
-    PWSTR ServiceName;
-    BOOLEAN CreateSuspendedProcess;
-} PH_RUNAS_SERVICE_PARAMETERS, *PPH_RUNAS_SERVICE_PARAMETERS;
-
 NTSTATUS PhSvcpValidateRunAsServiceParameters(_In_ PPH_RUNAS_SERVICE_PARAMETERS Parameters)
 {
     if ((!Parameters->UserName || !Parameters->Password) && !Parameters->ProcessId)
@@ -275,7 +259,7 @@ quint32 PhSvcApiInvokeRunAsService(const QVariantMap& Parameters)
 	wstring password = Parameters["Password"].toString().toStdWString();
     parameters.Password = userName.size() != 0 ? (wchar_t*)password.c_str() : NULL; // if we have a username we also must have a password, even if its empty
 	parameters.LogonType = Parameters["LogonType"].toUInt();
-    parameters.SessionId = Parameters["LogonType"].toUInt();
+    parameters.SessionId = Parameters["SessionId"].toUInt();
 	wstring currentDirectory = Parameters["CurrentDirectory"].toString().toStdWString();
     parameters.CurrentDirectory = currentDirectory.size() != 0 ? (wchar_t*)currentDirectory.c_str() : NULL;
 	wstring commandLine = Parameters["CommandLine"].toString().toStdWString();
@@ -534,7 +518,7 @@ CleanupExit:
 
 
 ULONG SelectedRunAsMode = ULONG_MAX;
-PHAPPAPI HWND PhMainWndHandle = NULL;
+HWND PhMainWndHandle = NULL;
 
 BOOLEAN PhMwpOnNotify(
     _In_ NMHDR *Header,

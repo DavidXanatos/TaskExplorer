@@ -26,7 +26,31 @@ NTSTATUS PhExecuteRunAsCommand3(
 	_In_ BOOLEAN CreateSuspendedProcess
 );
 
+typedef struct _PH_RUNAS_SERVICE_PARAMETERS
+{
+    ULONG ProcessId;
+    PWSTR UserName;
+    PWSTR Password;
+    ULONG LogonType;
+    ULONG SessionId;
+    PWSTR CurrentDirectory;
+    PWSTR CommandLine;
+    PWSTR FileName;
+    PWSTR DesktopName;
+    BOOLEAN UseLinkedToken;
+    PWSTR ServiceName;
+    BOOLEAN CreateSuspendedProcess;
+} PH_RUNAS_SERVICE_PARAMETERS, *PPH_RUNAS_SERVICE_PARAMETERS;
+
 VOID PhpSplitUserName(_In_ PWSTR UserName, _Out_opt_ PPH_STRING *DomainPart, _Out_opt_ PPH_STRING *UserPart);
+
+NTSTATUS PhInvokeRunAsService(
+	_In_ PPH_RUNAS_SERVICE_PARAMETERS Parameters
+);
+
+BOOLEAN PhInitializeNamespacePolicy(
+	VOID
+);
 
 VOID PhSetDesktopWinStaAccess(VOID);
 

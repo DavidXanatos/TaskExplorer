@@ -46,18 +46,23 @@ typedef struct _PH_SETTING
 } PH_SETTING, *PPH_SETTING;
 
 PHLIBAPI
-VOID 
+VOID
+NTAPI
 PhSettingsInitialization(
     VOID
     );
 
 // Note: Program specific function.
-VOID PhAddDefaultSettings(
+VOID 
+NTAPI
+PhAddDefaultSettings(
     VOID
     );
 
 // Note: Program specific function.
-VOID PhUpdateCachedSettings(
+VOID 
+NTAPI
+PhUpdateCachedSettings(
     VOID
     );
 
@@ -213,7 +218,9 @@ VOID PhResetSettings(
 // begin_phapppub
 // High-level settings creation
 
-VOID PhAddSetting(
+VOID
+NTAPI
+PhAddSetting(
     _In_ PH_SETTING_TYPE Type,
     _In_ PPH_STRINGREF Name,
     _In_ PPH_STRINGREF DefaultValue
