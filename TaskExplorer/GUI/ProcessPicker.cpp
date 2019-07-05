@@ -85,5 +85,5 @@ void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIn
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
 
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-	m_ProcessId = pProcess->GetID();
+	m_ProcessId = pProcess->GetProcessId();
 }

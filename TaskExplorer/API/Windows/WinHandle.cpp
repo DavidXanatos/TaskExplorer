@@ -31,7 +31,6 @@
 CWinHandle::CWinHandle(QObject *parent) 
 	: CHandleInfo(parent) 
 {
-	m_Type = eOther;
 	m_Object = -1;
 	m_Attributes = 0;
 	m_GrantedAccess = 0;
@@ -135,8 +134,6 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
 
 	if (m_TypeName == "File")
     {
-		m_Type = eFile;
-
         HANDLE fileHandle;
         if (NT_SUCCESS(NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0)))
         {
@@ -219,38 +216,7 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
             NtClose(fileHandle);
         }
     }
-	else if (m_TypeName == "Event")
-		m_Type = eEvent;
-	else if (m_TypeName == "EventPair")
-		m_Type = eEventPair;
-	else if (m_TypeName == "Job")
-		m_Type = eJob;
-	else if (m_TypeName == "Semaphore")
-		m_Type = eSemaphore;
-	else if (m_TypeName == "Timer")
-		m_Type = eTimer;
-	else if (m_TypeName == "Token")
-		m_Type = eToken;
-	else if (m_TypeName == "ALPC Port")
-		m_Type = eALPC_Port;
-	else if (m_TypeName == "Section")
-		m_Type = eSection;
-	else if (m_TypeName == "Mutant")
-		m_Type = eMutant;
-	else if (m_TypeName == "Process")
-		m_Type = eProcess;
-	else if (m_TypeName == "Thread")
-		m_Type = eThread;
-	else if (m_TypeName == "TpWorkerFactory")
-		m_Type = eTpWorkerFactory;
-	else if (m_TypeName == "Desktop")
-		m_Type = eDesktop;
-	else if (m_TypeName == "Key")
-		m_Type = eKey;
-	else if (m_TypeName == "EtwRegistration")
-		m_Type = eEtwRegistration;
-	else
-		m_Type = eOther;
+
 
 	return modified;
 }
@@ -513,7 +479,6 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 	QReadLocker Locker(&m_Mutex); 
 
 	SHandleInfo HandleInfo;
-	HandleInfo.Type = m_Type;
 
     HANDLE processHandle;
 	if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_DUP_HANDLE, (HANDLE)m_ProcessId)))
@@ -529,300 +494,290 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 		HandleInfo.VirtualSize = (quint64)basicInfo.NonPagedPoolCharge;
 	}
 
-	switch (m_Type)
+
+	if(m_TypeName == "ALPC Port")
 	{
-		case eALPC_Port:
+		HANDLE alpcPortHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &alpcPortHandle, READ_CONTROL, 0, 0 )))
 		{
-			HANDLE alpcPortHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &alpcPortHandle, READ_CONTROL, 0, 0 )))
+			ALPC_BASIC_INFORMATION alpcInfo;
+			if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcBasicInformation, &alpcInfo, sizeof(ALPC_BASIC_INFORMATION), NULL)))
 			{
-				ALPC_BASIC_INFORMATION alpcInfo;
-				if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcBasicInformation, &alpcInfo, sizeof(ALPC_BASIC_INFORMATION), NULL)))
-				{
-					HandleInfo.Port.SeqNumber = (quint64)alpcInfo.SequenceNo;
-					HandleInfo.Port.Context = (quint64)alpcInfo.PortContext; // L"0x%Ix"
-				}
-
-				NtClose(alpcPortHandle);
+				HandleInfo.Port.SeqNumber = (quint64)alpcInfo.SequenceNo;
+				HandleInfo.Port.Context = (quint64)alpcInfo.PortContext; // L"0x%Ix"
 			}
-			break;
+
+			NtClose(alpcPortHandle);
 		}
-		case eFile:
+	}
+	else if(m_TypeName == "File")
+	{
+		HANDLE fileHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0)))
 		{
-			HANDLE fileHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0)))
+			BOOLEAN isFileOrDirectory = FALSE;
+			BOOLEAN isConsoleHandle = FALSE;
+			BOOLEAN isPipeHandle = FALSE;
+			FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
+			FILE_MODE_INFORMATION fileModeInfo;
+			FILE_STANDARD_INFORMATION fileStandardInfo;
+			FILE_POSITION_INFORMATION filePositionInfo;
+			IO_STATUS_BLOCK isb;
+
+			if (NT_SUCCESS(NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation)))
 			{
-				BOOLEAN isFileOrDirectory = FALSE;
-				BOOLEAN isConsoleHandle = FALSE;
-				BOOLEAN isPipeHandle = FALSE;
-				FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
-				FILE_MODE_INFORMATION fileModeInfo;
-				FILE_STANDARD_INFORMATION fileStandardInfo;
-				FILE_POSITION_INFORMATION filePositionInfo;
-				IO_STATUS_BLOCK isb;
-
-				if (NT_SUCCESS(NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation)))
+				switch (fileDeviceInfo.DeviceType)
 				{
-					switch (fileDeviceInfo.DeviceType)
-					{
-					case FILE_DEVICE_NAMED_PIPE:
-						isPipeHandle = TRUE;
-						//"Pipe";
-						break;
-					case FILE_DEVICE_CD_ROM:
-					case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-					case FILE_DEVICE_CONTROLLER:
-					case FILE_DEVICE_DATALINK:
-					case FILE_DEVICE_DFS:
-					case FILE_DEVICE_DISK:
-					case FILE_DEVICE_DISK_FILE_SYSTEM:
-					case FILE_DEVICE_VIRTUAL_DISK:
-						isFileOrDirectory = TRUE;
-						//"File or directory";
-						break;
-					case FILE_DEVICE_CONSOLE:
-						isConsoleHandle = TRUE;
-						//"Other";
-						break;
-					default:
-						break;
-					}
+				case FILE_DEVICE_NAMED_PIPE:
+					isPipeHandle = TRUE;
+					//"Pipe";
+					break;
+				case FILE_DEVICE_CD_ROM:
+				case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
+				case FILE_DEVICE_CONTROLLER:
+				case FILE_DEVICE_DATALINK:
+				case FILE_DEVICE_DFS:
+				case FILE_DEVICE_DISK:
+				case FILE_DEVICE_DISK_FILE_SYSTEM:
+				case FILE_DEVICE_VIRTUAL_DISK:
+					isFileOrDirectory = TRUE;
+					//"File or directory";
+					break;
+				case FILE_DEVICE_CONSOLE:
+					isConsoleHandle = TRUE;
+					//"Other";
+					break;
+				default:
+					break;
 				}
-
-				NTSTATUS status;
-				if (isPipeHandle || isConsoleHandle)
-				{
-					// NOTE: NtQueryInformationFile for '\Device\ConDrv\CurrentIn' causes a deadlock but
-					// we can query other '\Device\ConDrv' console handles. NtQueryInformationFile also
-					// causes a deadlock for some types of named pipes and only on Win10 (dmex)
-					status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION));
-				}
-				else
-				{
-					status = NtQueryInformationFile(fileHandle, &isb, &fileModeInfo, sizeof(FILE_MODE_INFORMATION), FileModeInformation);
-				}
-
-				if (NT_SUCCESS(status))
-				{
-					HandleInfo.File.Mode = fileModeInfo.Mode;
-				}
-
-				if (!isConsoleHandle)
-				{
-					if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
-					{
-						HandleInfo.File.IsDir = fileStandardInfo.Directory;
-						HandleInfo.File.Size = fileStandardInfo.EndOfFile.QuadPart;
-					}
-
-					if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
-					{
-						HandleInfo.File.Position = filePositionInfo.CurrentByteOffset.QuadPart;
-					}
-				}
-
-				NtClose(fileHandle);
 			}
-			break;
-		}
-		case eSection:
-		{
-			HANDLE sectionHandle;
-			NTSTATUS status = NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY | SECTION_MAP_READ, 0, 0 );
-			if (!NT_SUCCESS(status))
-				status = NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY, 0, 0);
+
+			NTSTATUS status;
+			if (isPipeHandle || isConsoleHandle)
+			{
+				// NOTE: NtQueryInformationFile for '\Device\ConDrv\CurrentIn' causes a deadlock but
+				// we can query other '\Device\ConDrv' console handles. NtQueryInformationFile also
+				// causes a deadlock for some types of named pipes and only on Win10 (dmex)
+				status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION));
+			}
+			else
+			{
+				status = NtQueryInformationFile(fileHandle, &isb, &fileModeInfo, sizeof(FILE_MODE_INFORMATION), FileModeInformation);
+			}
 
 			if (NT_SUCCESS(status))
 			{
-				SECTION_BASIC_INFORMATION sectionInfo;
+				HandleInfo.File.Mode = fileModeInfo.Mode;
+			}
+
+			if (!isConsoleHandle)
+			{
+				if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
+				{
+					HandleInfo.File.IsDir = fileStandardInfo.Directory;
+					HandleInfo.File.Size = fileStandardInfo.EndOfFile.QuadPart;
+				}
+
+				if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
+				{
+					HandleInfo.File.Position = filePositionInfo.CurrentByteOffset.QuadPart;
+				}
+			}
+
+			NtClose(fileHandle);
+		}
+	}
+	else if(m_TypeName == "Section")
+	{
+		HANDLE sectionHandle;
+		NTSTATUS status = NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY | SECTION_MAP_READ, 0, 0 );
+		if (!NT_SUCCESS(status))
+			status = NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY, 0, 0);
+
+		if (NT_SUCCESS(status))
+		{
+			SECTION_BASIC_INFORMATION sectionInfo;
             
-				quint64 SectionSize = 0;
-				if (NT_SUCCESS(PhGetSectionBasicInformation(sectionHandle, &sectionInfo)))
-				{
-					HandleInfo.Section.Attribs = sectionInfo.AllocationAttributes;
-
-					HandleInfo.Section.Size = sectionInfo.MaximumSize.QuadPart;
-				}
-
-				/*PPH_STRING fileName = NULL;
-				if (NT_SUCCESS(PhGetSectionFileName(sectionHandle, &fileName)))
-				{
-					PPH_STRING newFileName;
-
-					PH_AUTO(fileName);
-
-					if (newFileName = PhResolveDevicePrefix(fileName))
-						fileName = PH_AUTO(newFileName);
-				}*/
-
-				//Section["File"] = ;
-
-				NtClose(sectionHandle);
-			}
-			break;
-		}
-		case eMutant:
-		{
-			HANDLE mutantHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &mutantHandle, SEMAPHORE_QUERY_STATE, 0, 0)))
+			quint64 SectionSize = 0;
+			if (NT_SUCCESS(PhGetSectionBasicInformation(sectionHandle, &sectionInfo)))
 			{
-				MUTANT_BASIC_INFORMATION mutantInfo;
-				MUTANT_OWNER_INFORMATION ownerInfo;
+				HandleInfo.Section.Attribs = sectionInfo.AllocationAttributes;
 
-				if (NT_SUCCESS(PhGetMutantBasicInformation(mutantHandle, &mutantInfo)))
-				{
-					HandleInfo.Mutant.Count = mutantInfo.CurrentCount;
-					HandleInfo.Mutant.Abandoned = mutantInfo.AbandonedState;
-				}
-
-				if (NT_SUCCESS(PhGetMutantOwnerInformation(mutantHandle, &ownerInfo)))
-				{
-					HandleInfo.Mutant.OwnerPID = (quint64)ownerInfo.ClientId.UniqueProcess;
-					HandleInfo.Mutant.OwnerTID = (quint64)ownerInfo.ClientId.UniqueThread;
-				}
-
-				NtClose(mutantHandle);
+				HandleInfo.Section.Size = sectionInfo.MaximumSize.QuadPart;
 			}
-			break;
-		}
-		case eProcess:
-		{
-			HANDLE dupHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &dupHandle, PROCESS_QUERY_LIMITED_INFORMATION, 0, 0)))
+
+			/*PPH_STRING fileName = NULL;
+			if (NT_SUCCESS(PhGetSectionFileName(sectionHandle, &fileName)))
 			{
-				/*PPH_STRING fileName;
-				if (NT_SUCCESS(PhGetProcessImageFileName(dupHandle, &fileName)))
-				{
-					 = CastPhString(fileName);
-				}*/
+				PPH_STRING newFileName;
 
-				NTSTATUS exitStatus = STATUS_PENDING;
-				PROCESS_BASIC_INFORMATION procInfo;
-				if (NT_SUCCESS(PhGetProcessBasicInformation(dupHandle, &procInfo)))
-				{
-					HandleInfo.Task.PID = (quint64)procInfo.UniqueProcessId;
+				PH_AUTO(fileName);
 
-					HandleInfo.Task.ExitStatus = procInfo.ExitStatus;
-				}
+				if (newFileName = PhResolveDevicePrefix(fileName))
+					fileName = PH_AUTO(newFileName);
+			}*/
 
-				KERNEL_USER_TIMES times;
-				if (NT_SUCCESS(PhGetProcessTimes(dupHandle, &times)))
-				{
-					HandleInfo.Task.Created = FILETIME2time(times.CreateTime.QuadPart);
-					if (exitStatus != STATUS_PENDING)
-						HandleInfo.Task.Exited = FILETIME2time(times.ExitTime.QuadPart);
-				}
+			//Section["File"] = ;
 
-				NtClose(dupHandle);
+			NtClose(sectionHandle);
+		}
+	}
+	else if(m_TypeName == "Mutant")
+	{
+		HANDLE mutantHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &mutantHandle, SEMAPHORE_QUERY_STATE, 0, 0)))
+		{
+			MUTANT_BASIC_INFORMATION mutantInfo;
+			MUTANT_OWNER_INFORMATION ownerInfo;
+
+			if (NT_SUCCESS(PhGetMutantBasicInformation(mutantHandle, &mutantInfo)))
+			{
+				HandleInfo.Mutant.Count = mutantInfo.CurrentCount;
+				HandleInfo.Mutant.Abandoned = mutantInfo.AbandonedState;
 			}
-			break;
-		}
-		case eThread:
-		{
-			HANDLE dupHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &dupHandle, THREAD_QUERY_LIMITED_INFORMATION, 0, 0)))
+
+			if (NT_SUCCESS(PhGetMutantOwnerInformation(mutantHandle, &ownerInfo)))
 			{
-				/*PPH_STRING name;
-				if (NT_SUCCESS(PhGetThreadName(dupHandle, &name)))
-				{
-					= CastPhString(name);
-				}*/
-
-				NTSTATUS exitStatus = STATUS_PENDING;
-				THREAD_BASIC_INFORMATION threadInfo;
-				if (NT_SUCCESS(PhGetThreadBasicInformation(dupHandle, &threadInfo)))
-				{
-					HandleInfo.Task.PID = (quint64)threadInfo.ClientId.UniqueProcess;
-					HandleInfo.Task.TID = (quint64)threadInfo.ClientId.UniqueThread;
-
-					HandleInfo.Task.ExitStatus = threadInfo.ExitStatus;
-
-					//if (NT_SUCCESS(PhOpenProcess(
-					//    &processHandle,
-					//    PROCESS_QUERY_LIMITED_INFORMATION,
-					//    threadInfo.ClientId.UniqueProcess
-					//    )))
-					//{
-					//    if (NT_SUCCESS(PhGetProcessModuleFileName(processHandle, &fileName)))
-					//    {
-					//        PhMoveReference(&fileName, PhGetFileName(fileName));
-					//        PhSetListViewSubItem(Context->ListViewHandle, Context->ListViewRowCache[PH_HANDLE_GENERAL_INDEX_PROCESSTHREADNAME], 1, PhGetStringOrEmpty(fileName));
-					//        PhDereferenceObject(fileName);
-					//    }
-					//
-					//    NtClose(processHandle);
-					//}
-				}
-
-				KERNEL_USER_TIMES times;
-				if (NT_SUCCESS(PhGetThreadTimes(dupHandle, &times)))
-				{
-					HandleInfo.Task.Created = FILETIME2time(times.CreateTime.QuadPart);
-					if (exitStatus != STATUS_PENDING)
-						HandleInfo.Task.Exited = FILETIME2time(times.ExitTime.QuadPart);
-				}
-
-				NtClose(dupHandle);
+				HandleInfo.Mutant.OwnerPID = (quint64)ownerInfo.ClientId.UniqueProcess;
+				HandleInfo.Mutant.OwnerTID = (quint64)ownerInfo.ClientId.UniqueThread;
 			}
-			break;
-		}
-		case eTimer:
-		{
-			HANDLE timerHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &timerHandle, TIMER_QUERY_STATE, 0, 0)))
-			{
-				TIMER_BASIC_INFORMATION basicInfo;
-				if (NT_SUCCESS(PhGetTimerBasicInformation(timerHandle, &basicInfo)))
-				{
-					HandleInfo.Timer.Remaining = basicInfo.RemainingTime.QuadPart;
-					HandleInfo.Timer.Signaled = basicInfo.TimerState;
-				}
 
-				NtClose(timerHandle);
-			}
-			break;
+			NtClose(mutantHandle);
 		}
-		/*case eTpWorkerFactory: // ToDo
+	}
+	else if(m_TypeName == "Process")
+	{
+		HANDLE dupHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &dupHandle, PROCESS_QUERY_LIMITED_INFORMATION, 0, 0)))
 		{
-			HANDLE workerFactoryHandle;
-			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &workerFactoryHandle, WORKER_FACTORY_QUERY_INFORMATION, 0, 0)))
+			/*PPH_STRING fileName;
+			if (NT_SUCCESS(PhGetProcessImageFileName(dupHandle, &fileName)))
 			{
-				WORKER_FACTORY_BASIC_INFORMATION basicInfo;
-                if (NT_SUCCESS(NtQueryInformationWorkerFactory(workerFactoryHandle, WorkerFactoryBasicInformation, &basicInfo, sizeof(WORKER_FACTORY_BASIC_INFORMATION), NULL)))
+					= CastPhString(fileName);
+			}*/
+
+			NTSTATUS exitStatus = STATUS_PENDING;
+			PROCESS_BASIC_INFORMATION procInfo;
+			if (NT_SUCCESS(PhGetProcessBasicInformation(dupHandle, &procInfo)))
+			{
+				HandleInfo.Task.PID = (quint64)procInfo.UniqueProcessId;
+
+				HandleInfo.Task.ExitStatus = procInfo.ExitStatus;
+			}
+
+			KERNEL_USER_TIMES times;
+			if (NT_SUCCESS(PhGetProcessTimes(dupHandle, &times)))
+			{
+				HandleInfo.Task.Created = FILETIME2time(times.CreateTime.QuadPart);
+				if (exitStatus != STATUS_PENDING)
+					HandleInfo.Task.Exited = FILETIME2time(times.ExitTime.QuadPart);
+			}
+
+			NtClose(dupHandle);
+		}
+	}
+	else if(m_TypeName == "Thread")
+	{
+		HANDLE dupHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &dupHandle, THREAD_QUERY_LIMITED_INFORMATION, 0, 0)))
+		{
+			/*PPH_STRING name;
+			if (NT_SUCCESS(PhGetThreadName(dupHandle, &name)))
+			{
+				= CastPhString(name);
+			}*/
+
+			NTSTATUS exitStatus = STATUS_PENDING;
+			THREAD_BASIC_INFORMATION threadInfo;
+			if (NT_SUCCESS(PhGetThreadBasicInformation(dupHandle, &threadInfo)))
+			{
+				HandleInfo.Task.PID = (quint64)threadInfo.ClientId.UniqueProcess;
+				HandleInfo.Task.TID = (quint64)threadInfo.ClientId.UniqueThread;
+
+				HandleInfo.Task.ExitStatus = threadInfo.ExitStatus;
+
+				//if (NT_SUCCESS(PhOpenProcess(
+				//    &processHandle,
+				//    PROCESS_QUERY_LIMITED_INFORMATION,
+				//    threadInfo.ClientId.UniqueProcess
+				//    )))
+				//{
+				//    if (NT_SUCCESS(PhGetProcessModuleFileName(processHandle, &fileName)))
+				//    {
+				//        PhMoveReference(&fileName, PhGetFileName(fileName));
+				//        PhSetListViewSubItem(Context->ListViewHandle, Context->ListViewRowCache[PH_HANDLE_GENERAL_INDEX_PROCESSTHREADNAME], 1, PhGetStringOrEmpty(fileName));
+				//        PhDereferenceObject(fileName);
+				//    }
+				//
+				//    NtClose(processHandle);
+				//}
+			}
+
+			KERNEL_USER_TIMES times;
+			if (NT_SUCCESS(PhGetThreadTimes(dupHandle, &times)))
+			{
+				HandleInfo.Task.Created = FILETIME2time(times.CreateTime.QuadPart);
+				if (exitStatus != STATUS_PENDING)
+					HandleInfo.Task.Exited = FILETIME2time(times.ExitTime.QuadPart);
+			}
+
+			NtClose(dupHandle);
+		}
+	}
+	else if(m_TypeName == "Timer")
+	{
+		HANDLE timerHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &timerHandle, TIMER_QUERY_STATE, 0, 0)))
+		{
+			TIMER_BASIC_INFORMATION basicInfo;
+			if (NT_SUCCESS(PhGetTimerBasicInformation(timerHandle, &basicInfo)))
+			{
+				HandleInfo.Timer.Remaining = basicInfo.RemainingTime.QuadPart;
+				HandleInfo.Timer.Signaled = basicInfo.TimerState;
+			}
+
+			NtClose(timerHandle);
+		}
+	}
+	/*else if(m_TypeName == "TpWorkerFactory") // ToDo
+	{
+		HANDLE workerFactoryHandle;
+		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &workerFactoryHandle, WORKER_FACTORY_QUERY_INFORMATION, 0, 0)))
+		{
+			WORKER_FACTORY_BASIC_INFORMATION basicInfo;
+            if (NT_SUCCESS(NtQueryInformationWorkerFactory(workerFactoryHandle, WorkerFactoryBasicInformation, &basicInfo, sizeof(WORKER_FACTORY_BASIC_INFORMATION), NULL)))
+            {
+                PPH_SYMBOL_PROVIDER symbolProvider;
+                PPH_STRING symbol = NULL;
+
+                symbolProvider = PhCreateSymbolProvider(basicInfo.ProcessId);
+                PhLoadSymbolProviderOptions(symbolProvider);
+
+                if (symbolProvider->IsRealHandle)
                 {
-                    PPH_SYMBOL_PROVIDER symbolProvider;
-                    PPH_STRING symbol = NULL;
+                    PhEnumGenericModules(basicInfo.ProcessId, symbolProvider->ProcessHandle, 0, EnumGenericModulesCallback, symbolProvider);
 
-                    symbolProvider = PhCreateSymbolProvider(basicInfo.ProcessId);
-                    PhLoadSymbolProviderOptions(symbolProvider);
-
-                    if (symbolProvider->IsRealHandle)
-                    {
-                        PhEnumGenericModules(basicInfo.ProcessId, symbolProvider->ProcessHandle, 0, EnumGenericModulesCallback, symbolProvider);
-
-                        symbol = PhGetSymbolFromAddress(symbolProvider, (ULONG64)basicInfo.StartRoutine,
-                            NULL, NULL, NULL, NULL);
-                    }
-
-                    PhDereferenceObject(symbolProvider);
-
-                    if (symbol)
-                    {
-                        //PhaFormatString(L"Worker Thread Start: %s", symbol->Buffer)->Buffer
-                        PhDereferenceObject(symbol);
-                    }
-                    else
-                    {
-                        //PhaFormatString(L"Worker Thread Start: 0x%Ix", basicInfo.StartRoutine)->Buffer;
-                    }
-                    //PhaFormatString(L"Worker Thread Context: 0x%Ix", basicInfo.StartParameter)->Buffer);
+                    symbol = PhGetSymbolFromAddress(symbolProvider, (ULONG64)basicInfo.StartRoutine,
+                        NULL, NULL, NULL, NULL);
                 }
 
-				NtClose(workerFactoryHandle);
-			}
-			break;
-		}*/
-	}
+                PhDereferenceObject(symbolProvider);
+
+                if (symbol)
+                {
+                    //PhaFormatString(L"Worker Thread Start: %s", symbol->Buffer)->Buffer
+                    PhDereferenceObject(symbol);
+                }
+                else
+                {
+                    //PhaFormatString(L"Worker Thread Start: 0x%Ix", basicInfo.StartRoutine)->Buffer;
+                }
+                //PhaFormatString(L"Worker Thread Context: 0x%Ix", basicInfo.StartParameter)->Buffer);
+            }
+
+			NtClose(workerFactoryHandle);
+		}
+	}*/
 
 	NtClose(processHandle);
 

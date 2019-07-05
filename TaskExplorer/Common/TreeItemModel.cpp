@@ -266,6 +266,20 @@ void CTreeItemModel::Clear()
 	ASSERT(m_Map.isEmpty());
 }
 
+void CTreeItemModel::RemoveIndex(const QModelIndex &index)
+{
+	if (!index.isValid())
+        return;
+
+	STreeNode* pNode = static_cast<STreeNode*>(index.internalPointer());
+	ASSERT(pNode);
+
+	QMap<QVariant, STreeNode*> Old;
+	Old[pNode->ID] = pNode;
+
+	Purge(m_Root, QModelIndex(), Old);
+}
+
 QVariant CTreeItemModel::data(const QModelIndex &index, int role) const
 {
     return Data(index, role, index.column());

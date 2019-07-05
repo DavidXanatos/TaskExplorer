@@ -18,6 +18,7 @@ public:
 	void			CountItems();
 	QModelIndex		FindIndex(const QVariant& ID);
 	void			Clear();
+	void			RemoveIndex(const QModelIndex &index);
 
 	QVariant		Data(const QModelIndex &index, int role, int section) const;
 

@@ -7,6 +7,7 @@
 #include "WndInfo.h"
 #include "AbstractTask.h"
 #include "IOStats.h"
+#include "MemoryInfo.h"
 
 struct STaskStatsEx : STaskStats
 {
@@ -23,8 +24,8 @@ public:
 	virtual ~CProcessInfo();
 
 	// Basic
-	virtual quint64 GetID() const						{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
-	virtual quint64 GetParentID() const					{ QReadLocker Locker(&m_Mutex); return m_ParentProcessId; }
+	virtual quint64 GetProcessId() const				{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
+	virtual quint64 GetParentId() const					{ QReadLocker Locker(&m_Mutex); return m_ParentProcessId; }
 	virtual QString GetName() const						{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
 
 	virtual bool ValidateParent(CProcessInfo* pParent) const = 0;
@@ -125,6 +126,8 @@ public:
 	virtual QMap<QString, SEnvVar>	GetEnvVariables() const = 0;
 	virtual STATUS					DeleteEnvVariable(const QString& Name) = 0;
 	virtual STATUS					EditEnvVariable(const QString& Name, const QString& Value) = 0;
+
+	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const = 0;
 
 signals:
 	void			ThreadsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);

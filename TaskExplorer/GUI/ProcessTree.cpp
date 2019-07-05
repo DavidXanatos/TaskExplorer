@@ -374,7 +374,7 @@ void CProcessTree::OnRunAsThis()
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 
-	CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetID());
+	CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetProcessId());
 	pWnd->show();
 }
 

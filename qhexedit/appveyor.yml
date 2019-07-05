@@ -1,0 +1,47 @@
+version: build{build}
+
+environment:
+  matrix:
+    - QT: C:\Qt\5.11\msvc2015
+      GENERATOR: Visual Studio 14 2015
+      PLATFORM: X86
+    - QT: C:\Qt\5.11\msvc2015_64
+      GENERATOR: Visual Studio 14 2015 Win64
+      PLATFORM: X64
+
+clone_folder: c:\dev\qhexedit
+clone_depth: 5
+
+install:
+    - set PATH=%QT%\bin\;C:\Qt\Tools\QtCreator\bin\;%PATH%
+
+before_build:
+    - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %PLATFORM%
+    - qmake --version
+    - echo %PLATFORM%
+    - cd c:\dev\qhexedit
+    - md build
+    - cd build
+    - if "%PLATFORM%" EQU "X64" (qmake -r -spec win32-msvc CONFIG+=x86_64 CONFIG-=debug CONFIG+=release ..\example\qhexedit.pro)
+    - if "%PLATFORM%" EQU "X86" (qmake -r -spec win32-msvc CONFIG+=Win32 CONFIG-=debug CONFIG+=release ..\example\qhexedit.pro)
+
+build_script:
+    - nmake
+    - windeployqt.exe release\qhexedit.exe
+    - makensis ..\deploy.nsi
+    - copy QHexEdit.exe ..\QHexEdit_%PLATFORM%.exe
+
+artifacts:
+    - path: QHexEdit_%PLATFORM%.exe
+
+deploy:
+    description: 'Latest QHexEdit Release'
+    provider: GitHub
+    auth_token:
+        secure: WEV9mRJC/pC2HFqJMXbLzEfBXAHu8aGDFIR8ARSip9n6jDJyCz3KstjSPM4VsgKc
+    draft: false
+    prerelease: false
+    force_update: true
+    on:
+        branch: master                 # release from master branch only
+        appveyor_repo_tag: true        # deploy on tag push only

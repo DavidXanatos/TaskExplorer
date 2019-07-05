@@ -36,6 +36,7 @@
 #include "WinHandle.h"
 #include "WinModule.h"
 #include "WinWnd.h"
+#include "ProcessHacker/memprv.h"
 #include "../Common/Common.h"
 
  // CWinProcess private members
@@ -1526,10 +1527,10 @@ bool CWinProcess::ValidateParent(CProcessInfo* pParent) const
 { 
 	QReadLocker Locker(&m_Mutex); 
 
-	if (!pParent || pParent->GetID() == m_ProcessId) // for cases where the parent PID = PID (e.g. System Idle Process)
+	if (!pParent || pParent->GetProcessId() == m_ProcessId) // for cases where the parent PID = PID (e.g. System Idle Process)
         return false;
 
-	if (m_ProcessId == (quint64)SYSTEM_PROCESS_ID && pParent->GetID() == (quint64)SYSTEM_IDLE_PROCESS_ID)
+	if (m_ProcessId == (quint64)SYSTEM_PROCESS_ID && pParent->GetProcessId() == (quint64)SYSTEM_IDLE_PROCESS_ID)
 		return true;
 
 	if (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64())
@@ -2635,4 +2636,12 @@ CWinJobPtr CWinProcess::GetJob() const
 	if (!pJob->InitStaticData((quint64)m->QueryHandle))
 		return CWinJobPtr();
 	return pJob;
+}
+
+QMap<quint64, CMemoryPtr> CWinProcess::GetMemoryMap() const
+{
+	ULONG Flags = PH_QUERY_MEMORY_REGION_TYPE | PH_QUERY_MEMORY_WS_COUNTERS;
+	QMap<quint64, CMemoryPtr> MemoryMap;
+	PhQueryMemoryItemList((HANDLE)GetProcessId(), Flags, MemoryMap);
+	return MemoryMap;
 }

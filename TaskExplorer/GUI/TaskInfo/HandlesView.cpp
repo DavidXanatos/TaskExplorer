@@ -276,6 +276,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 #ifdef WIN32
 	CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
 
+	QString TypeName = pWinHandle->GetTypeName();
 	CWinHandle::SHandleInfo HandleInfo = pWinHandle->GetHandleInfo();
 	
 	QTreeWidgetItem* pBasicInfo = new QTreeWidgetItem(QStringList(tr("Basic informations")));
@@ -304,72 +305,55 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 	QTreeWidgetItem* pExtendedInfo = new QTreeWidgetItem(QStringList(tr("Extended informations")));
 	pDetails->addTopLevelItem(pExtendedInfo);
 
-	switch (HandleInfo.Type)
+	if(TypeName == "ALPC Port")
 	{
-		case CWinHandle::eALPC_Port:
-		{
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Sequence number"), QString::number(HandleInfo.Port.SeqNumber));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Port context"), QString::number(HandleInfo.Port.Context));
-
-			break;
-		}
-		case CWinHandle::eFile:
-		{
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Is directory"), HandleInfo.File.IsDir ? tr("True") : tr("False"));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("File mode"), CWinHandle::GetFileAccessMode(HandleInfo.File.Mode));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("File size"), FormatSize(HandleInfo.File.Size));
-
-			break;
-		}
-		case CWinHandle::eSection:
-		{
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Section type"), CWinHandle::GetSectionType(HandleInfo.Section.Attribs));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Size"), FormatSize(HandleInfo.Section.Size));
-
-			break;
-		}
-		case CWinHandle::eMutant:
-		{
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Count"), CWinHandle::GetFileAccessMode(HandleInfo.Mutant.Count));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Abandoned"), HandleInfo.Mutant.Abandoned ? tr("True") : tr("False"));
-			CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo.Task.TID);
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID));
-
-			break;
-		}
-		case CWinHandle::eProcess:
-		case CWinHandle::eThread:
-		{
-			QString Name;
-			if (HandleInfo.Type == CWinHandle::eProcess)
-			{
-				CProcessPtr pProcess = theAPI->GetProcessByID(HandleInfo.Task.PID);
-				Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID);
-			}
-			else
-			{
-				CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo.Task.TID);
-				Name = tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID);
-			}
-
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Name"), Name);
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Created"), QDateTime::fromTime_t(HandleInfo.Task.Created).toString("dd.MM.yyyy hh:mm:ss"));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Exited"), QDateTime::fromTime_t(HandleInfo.Task.Exited).toString("dd.MM.yyyy hh:mm:ss"));
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("ExitStatus"), QString::number(HandleInfo.Task.ExitStatus));
-
-			break;
-		}
-		case CWinHandle::eTimer:
-		{
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Remaining"), QString::number(HandleInfo.Timer.Remaining)); // todo
-			QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Signaled"), HandleInfo.Timer.Signaled ? tr("True") : tr("False"));
-
-			break;
-		}
-		//case CWinHandle::eTpWorkerFactory: // todo
-		default:
-			delete pExtendedInfo;
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Sequence number"), QString::number(HandleInfo.Port.SeqNumber));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Port context"), QString::number(HandleInfo.Port.Context));
 	}
+	else if(TypeName == "File")
+	{
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Is directory"), HandleInfo.File.IsDir ? tr("True") : tr("False"));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("File mode"), CWinHandle::GetFileAccessMode(HandleInfo.File.Mode));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("File size"), FormatSize(HandleInfo.File.Size));
+	}
+	else if(TypeName == "Section")
+	{
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Section type"), CWinHandle::GetSectionType(HandleInfo.Section.Attribs));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Size"), FormatSize(HandleInfo.Section.Size));
+	}
+	else if(TypeName == "Mutant")
+	{
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Count"), CWinHandle::GetFileAccessMode(HandleInfo.Mutant.Count));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Abandoned"), HandleInfo.Mutant.Abandoned ? tr("True") : tr("False"));
+		CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo.Task.TID);
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID));
+	}
+	else if(TypeName == "Process" || TypeName == "Thread")
+	{
+		QString Name;
+		if (TypeName == "Process")
+		{
+			CProcessPtr pProcess = theAPI->GetProcessByID(HandleInfo.Task.PID);
+			Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID);
+		}
+		else
+		{
+			CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo.Task.TID);
+			Name = tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID);
+		}
+
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Name"), Name);
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Created"), QDateTime::fromTime_t(HandleInfo.Task.Created).toString("dd.MM.yyyy hh:mm:ss"));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Exited"), QDateTime::fromTime_t(HandleInfo.Task.Exited).toString("dd.MM.yyyy hh:mm:ss"));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("ExitStatus"), QString::number(HandleInfo.Task.ExitStatus));
+	}
+	else if(TypeName == "Timer")
+	{
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Remaining"), QString::number(HandleInfo.Timer.Remaining)); // todo
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Signaled"), HandleInfo.Timer.Signaled ? tr("True") : tr("False"));
+	}
+	else
+		delete pExtendedInfo;
 
 	pDetails->expandAll();
 #endif
@@ -469,12 +453,13 @@ retry:
 
 			if (sender() == m_pTerminate || sender() == m_pSuspend || sender() == m_pResume)
 			{
+				QString TypeName = pWinHandle->GetTypeName();
 				CWinHandle::SHandleInfo HandleInfo = pWinHandle->GetHandleInfo();
 
 				QSharedPointer<CAbstractTask> pTask;
-				if (HandleInfo.Type == CWinHandle::eThread)
+				if (TypeName == "Thread")
 					pTask = theAPI->GetThreadByID(HandleInfo.Task.TID);
-				else if (HandleInfo.Type == CWinHandle::eProcess)
+				else if (TypeName == "Process")
 					pTask = theAPI->GetProcessByID(HandleInfo.Task.PID);
 
 				if (!pTask)

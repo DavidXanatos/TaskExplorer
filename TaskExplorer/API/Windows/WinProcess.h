@@ -132,6 +132,8 @@ public:
 
 	virtual CWinJobPtr	GetJob() const;
 
+	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
+
 public slots:
 	virtual bool	UpdateThreads();
 	virtual bool	UpdateHandles();

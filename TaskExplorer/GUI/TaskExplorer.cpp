@@ -576,9 +576,13 @@ QColor CTaskExplorer::GetColor(int Color)
 #endif
 	case eElevated:		return QColor(theConf->GetString("Colors/ElevatedProcess", "#FFBB30"));
 
+#ifdef WIN32
 	case eGuiThread:	return QColor(theConf->GetString("Colors/GuiThread", "#AACCFF"));
 	case eIsInherited:	return QColor(theConf->GetString("Colors/IsInherited", "#77FFFF"));
 	case eIsProtected:	return QColor(theConf->GetString("Colors/IsProtected", "#FF77FF"));
+#endif
+
+	case eExecutable:	return QColor(theConf->GetString("Colors/Executable", "#FF90E0"));
 	}
 	return QColor(theConf->GetString("Colors/Background", "#FFFFFF"));
 }

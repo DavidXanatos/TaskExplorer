@@ -12,13 +12,13 @@ class CStatsView : public CPanelView
 {
 	Q_OBJECT
 public:
-	enum EViews {
+	enum EView {
 		eSystem = 0,
 		eProcess = 1,
 		eJob = 2
 	};
 
-	CStatsView(EViews eView, QWidget *parent = 0);
+	CStatsView(EView eView, QWidget *parent = 0);
 	virtual ~CStatsView();
 
 public slots:
@@ -39,6 +39,11 @@ protected:
 	void					ShowIoStats(const SProcStats& Stats);
 
 private:
+	bool					m_MonitorsETW;
+	EView					m_eView;
+
+	void					SetupTree();
+
 	enum EStackColumns
 	{
 		eName = 0,

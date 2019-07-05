@@ -8,7 +8,7 @@
 #include "ModulesView.h"
 #include "MemoryView.h"
 #include "JobView.h"
-#include "TokensView.h"
+#include "TokenView.h"
 #include "WindowsView.h"
 #include "EnvironmentView.h"
 #include "../SystemInfo/ServicesView.h"
@@ -56,13 +56,11 @@ void CTaskInfoView::InitializeTabs()
 	m_pWindowsView = new CWindowsView(this);
 	AddTab(m_pWindowsView, tr("Windows"));
 
-	// todo
-	//m_pMemoryView = new CMemoryView(this);
-	//AddTab(m_pMemoryView, tr("Memory"));
+	m_pMemoryView = new CMemoryView(this);
+	AddTab(m_pMemoryView, tr("Memory"));
 
-	// todo
-	//m_pTokensView = new CTokensView(this);
-	//AddTab(m_pTokensView, tr("Tokens"));
+	m_pTokenView = new CTokenView(this);
+	AddTab(m_pTokenView, tr("Token"));
 
 #ifdef WIN32
 	m_pJobView = new CJobView(this);
@@ -107,8 +105,10 @@ void CTaskInfoView::Refresh()
 		m_pModulesView->ShowModules(m_pCurProcess);
 	else if(m_pTabs->currentWidget() == m_pWindowsView)
 		m_pWindowsView->ShowWindows(m_pCurProcess);
-	//
-	//
+	else if(m_pTabs->currentWidget() == m_pMemoryView)
+		m_pMemoryView->ShowMemory(m_pCurProcess);
+	else if(m_pTabs->currentWidget() == m_pTokenView)
+		m_pTokenView->ShowToken(m_pCurProcess);
 #ifdef WIN32
 	else if(m_pTabs->currentWidget() == m_pJobView)
 		m_pJobView->ShowJob(m_pCurProcess);

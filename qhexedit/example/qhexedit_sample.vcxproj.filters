@@ -1,0 +1,214 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Translation Files">
+      <UniqueIdentifier>{639EADAA-A684-42e4-A9AD-28FC9BCB8F7C}</UniqueIdentifier>
+      <Extensions>ts;xlf</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Translation Files">
+      <UniqueIdentifier>{639EADAA-A684-42e4-A9AD-28FC9BCB8F7C}</UniqueIdentifier>
+      <Extensions>ts;xlf</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\chunks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\commands.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mainwindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\qhexedit.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\editor\HexEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\editor\HexEditorOptions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\editor\HexEditorSearch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="..\src\chunks.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\src\commands.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="mainwindow.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\src\qhexedit.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\editor\HexEditor.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\editor\HexEditorOptions.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\editor\HexEditorSearch.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="debug\moc_predefs.h.cbt">
+      <Filter>Generated Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="release\moc_predefs.h.cbt">
+      <Filter>Generated Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="translations\qhexedit_cs.ts">
+      <Filter>Translation Files</Filter>
+    </None>
+    <None Include="translations\qhexedit_de.ts">
+      <Filter>Translation Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <QtUic Include="..\editor\Resource\HexEditorOptions.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
+    <QtUic Include="..\editor\Resource\HexEditorSearch.ui">
+      <Filter>Resource Files</Filter>
+    </QtUic>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\editor\Resource\images\accessories-calculator.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\accessories-text-editor.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\copy.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\create.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\cut.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\exit.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\find.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\font.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\info.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\new.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\ok.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\open.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\paste.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\pencil.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\print.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\qhexedit.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\redo.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\rotateleft.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\rotateright.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\save.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\save_as.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\undo.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\zoomin.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\zoomout.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\editor\Resource\images\copy_hex.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="..\editor\Resource\qhexedit.qrc">
+      <Filter>Resource Files</Filter>
+    </QtRcc>
+  </ItemGroup>
+</Project>

@@ -166,11 +166,11 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 
 	m_pCmdLine->setText(m_pCurProcess->GetCommandLine());
 	m_pCurDir->setText(m_pCurProcess->GetWorkingDirectory());
-	m_pProcessId->setText(tr("%1/%2").arg(m_pCurProcess->GetID()).arg(m_pCurProcess->GetParentID()));
+	m_pProcessId->setText(tr("%1/%2").arg(m_pCurProcess->GetProcessId()).arg(m_pCurProcess->GetParentId()));
 	m_pUserName->setText(m_pCurProcess->GetUserName());
 
 
-	CProcessPtr pParent = theAPI->GetProcessByID(m_pCurProcess->GetParentID());
+	CProcessPtr pParent = theAPI->GetProcessByID(m_pCurProcess->GetParentId());
 	if (!pProcess->ValidateParent(pParent.data()))
 		pParent.clear();
 	m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName()); 

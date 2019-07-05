@@ -1,0 +1,29 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/accessories-calculator.png</file>
+        <file>images/accessories-text-editor.png</file>
+        <file>images/copy.png</file>
+        <file>images/create.png</file>
+        <file>images/cut.png</file>
+        <file>images/exit.png</file>
+        <file>images/find.png</file>
+        <file>images/font.png</file>
+        <file>images/info.png</file>
+        <file>images/new.png</file>
+        <file>images/ok.png</file>
+        <file>images/open.png</file>
+        <file>images/paste.png</file>
+        <file>images/pencil.png</file>
+        <file>images/print.png</file>
+        <file>images/qhexedit.ico</file>
+        <file>images/redo.png</file>
+        <file>images/rotateleft.png</file>
+        <file>images/rotateright.png</file>
+        <file>images/save.png</file>
+        <file>images/save_as.png</file>
+        <file>images/undo.png</file>
+        <file>images/zoomin.png</file>
+        <file>images/zoomout.png</file>
+        <file>images/copy_hex.png</file>
+    </qresource>
+</RCC>

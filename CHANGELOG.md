@@ -2,61 +2,23 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## ToDo
-
-### Tab Improvements
-- add more generic System infos
-- add swap file stats to System stats
-- add mitigation policy dialog to general tab
-- show job info window from token window
-- show token info window from token window
-
-### Add Tabs
-
-- memory tab
--- change access
--- free
--- commit
--- edit read/write
-
-- Gdi objects
-
-- tokens
--- advanced info
-
-- ras tab
--- showing open ras connections 
--- ability to close connections
-
-### .NET features
-- .NET assemblies Tab
-- .NET performance Tab
-- add .net stack tracking support
-
-### Tool Menu
-- shutdown cpmputer 
-- logg of user
-- find open file
-
-### Major
-- settings dialog !!!
-- gpu usage
-- add wait analyze feature
 
 
-### Minor
-- disable detail view if more than one item is selected or allow to see combined details
-- disable a lot of sub menuitems when more than 1 item is selected
-- pause refresh + refresh now
-- select reasonable default columns
-- add option to fully refresh all services
+## [0.2] - 2019-07-05
+### Added
+- memory tab, with options to dump the memory, free it or change access permissions
+- advanced memory editor window
+-- forked qhexedit2 https://github.com/DavidXanatos/qhexedit to ad missing functionality, edit, lock mode, etc...
+-- added a QHexEditor class to qhexedit implementing a generic hex editor dialog with options and search capability
+
+### Changed
+- I/O stats does not longer show ETW values when the is not monitoring ETW events
+
+### Fixed
+- fixed Uptime column not being refreshed
 
 
-
-
-
-
-## [0.1.0] - 2019-06-30
+## [0.1] - 2019-06-30
 ### Added
 - service property window, including all pages form the extended services plugin
 - cpu and memory usage in tray icon

@@ -5,6 +5,8 @@
 CTaskInfoWindow::CTaskInfoWindow(QWidget *parent) 
 	: QMainWindow(parent)
 {
+	this->setWindowTitle(tr("Task Infos"));
+
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainWidget->setLayout(m_pMainLayout);
@@ -15,8 +17,8 @@ CTaskInfoWindow::CTaskInfoWindow(QWidget *parent)
 	m_pMainLayout->addWidget(m_pTaskInfo);
 
 	m_pButtonBox = new QDialogButtonBox(QDialogButtonBox::Ok /*| QDialogButtonBox::Cancel*/, Qt::Horizontal, this);
-	QObject::connect(m_pButtonBox, SIGNAL(accepted()), this, SLOT(Accept()));
-	QObject::connect(m_pButtonBox, SIGNAL(rejected()), this, SLOT(Reject()));
+	QObject::connect(m_pButtonBox, SIGNAL(accepted()), this, SLOT(close()));
+	//QObject::connect(m_pButtonBox, SIGNAL(rejected()), this, SLOT(close()));
 	m_pMainLayout->addWidget(m_pButtonBox);
 
 	m_uTimerID = startTimer(500);
@@ -41,5 +43,7 @@ void CTaskInfoWindow::timerEvent(QTimerEvent* pEvent)
 
 void CTaskInfoWindow::ShowProcess(const CProcessPtr& pProcess)
 {
+	this->setWindowTitle(tr("Task Infos of %1 (%2)").arg(pProcess->GetName()).arg(pProcess->GetParentId()));
+
 	m_pTaskInfo->ShowProcess(pProcess);
 }

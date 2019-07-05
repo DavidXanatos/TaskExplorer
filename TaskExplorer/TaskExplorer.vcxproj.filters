@@ -99,9 +99,6 @@
     <ClCompile Include="GUI\TaskInfo\ThreadsView.cpp">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\TaskInfo\TokensView.cpp">
-      <Filter>TaskExplorer\TaskInfo</Filter>
-    </ClCompile>
     <ClCompile Include="GUI\TaskInfo\WindowsView.cpp">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
@@ -324,6 +321,27 @@
     <ClCompile Include="API\Windows\WinDumper.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="GUI\Models\MemoryModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\MemoryInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinMemory.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinMemIO.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\MemoryEditor.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\TokenView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -374,6 +392,9 @@
     <ClInclude Include="API\Windows\WinAdmin.h">
       <Filter>API\Windows</Filter>
     </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\memprv.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="API\SystemAPI.h">
@@ -410,9 +431,6 @@
       <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\ThreadsView.h">
-      <Filter>TaskExplorer\TaskInfo</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\TaskInfo\TokensView.h">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\WindowsView.h">
@@ -610,6 +628,24 @@
     <QtMoc Include="Common\ProgressDialog.h">
       <Filter>Common</Filter>
     </QtMoc>
+    <QtMoc Include="GUI\Models\MemoryModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\MemoryInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinMemory.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinMemIO.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\MemoryEditor.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\TokenView.h">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -657,5 +693,8 @@
     <QtUic Include="Resources\WinSvcShutdown.ui">
       <Filter>Resource Files</Filter>
     </QtUic>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\TODO.md" />
   </ItemGroup>
 </Project>

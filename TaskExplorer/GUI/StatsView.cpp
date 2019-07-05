@@ -8,9 +8,11 @@
 #endif
 
 
-CStatsView::CStatsView(EViews eView, QWidget *parent)
+CStatsView::CStatsView(EView eView, QWidget *parent)
 	:CPanelView(parent)
 {
+	m_eView = eView;
+
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
@@ -29,133 +31,9 @@ CStatsView::CStatsView(EViews eView, QWidget *parent)
 	m_pMainLayout->addWidget(m_pStatsList);
 	// 
 
+	m_MonitorsETW = false;
 
-	//data
-	m_pCPU = new QTreeWidgetItem(tr("CPU").split("|"));
-	m_pStatsList->addTopLevelItem(m_pCPU);
-	if (eView == eProcess)
-	{
-		m_pCycles = new QTreeWidgetItem(tr("Cycles").split("|"));
-		m_pCPU->addChild(m_pCycles);
-	}
-	if (eView == eProcess
-#ifdef WIN32
-		|| eView == eJob
-#endif
-	 ) {
-		m_pKernelTime = new QTreeWidgetItem(tr("Kernel time").split("|"));
-		m_pCPU->addChild(m_pKernelTime);
-		m_pUserTime = new QTreeWidgetItem(tr("User time").split("|"));
-		m_pCPU->addChild(m_pUserTime);
-	}
-	if (eView == eProcess) 
-	{
-		m_pTotalTime = new QTreeWidgetItem(tr("Total time").split("|"));
-		m_pCPU->addChild(m_pTotalTime);
-		m_pContextSwitches = new QTreeWidgetItem(tr("Context switches").split("|"));
-		m_pCPU->addChild(m_pContextSwitches);
-	}
-
-	m_pMemory = new QTreeWidgetItem(tr("Memory").split("|"));
-	m_pStatsList->addTopLevelItem(m_pMemory);
-	if (eView == eSystem)
-	{
-		m_pCommitCharge = new QTreeWidgetItem(tr("Commit Charge").split("|"));
-		m_pMemory->addChild(m_pCommitCharge);
-		m_pVirtualSize = new QTreeWidgetItem(tr("Paged virtusl size").split("|"));
-		m_pMemory->addChild(m_pVirtualSize);
-		m_pWorkingSet = new QTreeWidgetItem(tr("Paged working set").split("|"));
-		m_pMemory->addChild(m_pWorkingSet);
-	}
-	if (eView == eProcess) 
-	{
-		m_pPrivateBytes = new QTreeWidgetItem(tr("Private bytes").split("|"));
-		m_pMemory->addChild(m_pPrivateBytes);
-		m_pVirtualSize = new QTreeWidgetItem(tr("Virtusl size").split("|"));
-		m_pMemory->addChild(m_pVirtualSize);
-		m_pWorkingSet = new QTreeWidgetItem(tr("Working set").split("|"));
-		m_pMemory->addChild(m_pWorkingSet);
-	}
-	m_pPageFaults = new QTreeWidgetItem(tr("Page faults").split("|"));
-	m_pMemory->addChild(m_pPageFaults);
-	if (eView == eProcess) 
-	{
-		m_pPrivateWS = new QTreeWidgetItem(tr("Private working set").split("|"));
-		m_pMemory->addChild(m_pPrivateWS);
-		m_pSharedWS = new QTreeWidgetItem(tr("Shared working set").split("|"));
-		m_pMemory->addChild(m_pSharedWS);
-		m_pPagedPool = new QTreeWidgetItem(tr("Paged pool").split("|"));
-		m_pMemory->addChild(m_pPagedPool);
-	}
-#ifdef WIN32
-	else if(eView == eJob)
-	{
-		m_pPrivateWS = new QTreeWidgetItem(tr("Peak process usage").split("|"));
-		m_pMemory->addChild(m_pPrivateWS);
-		m_pSharedWS = new QTreeWidgetItem(tr("Peak job usage").split("|"));
-		m_pMemory->addChild(m_pSharedWS);
-	}
-#endif
-	if (eView == eProcess || eView == eSystem)
-	{
-		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool").split("|"));
-		m_pMemory->addChild(m_pNonPagedPool);
-	}
-
-	m_pIO = new QTreeWidgetItem(tr("I/O").split("|"));
-	m_pStatsList->addTopLevelItem(m_pIO);
-	m_pIOReads = new QTreeWidgetItem(tr("I/O reads").split("|"));
-	m_pIO->addChild(m_pIOReads);
-	m_pIOWrites = new QTreeWidgetItem(tr("I/O writes").split("|"));
-	m_pIO->addChild(m_pIOWrites);
-	m_pIOOther = new QTreeWidgetItem(tr("Other I/O").split("|"));
-	m_pIO->addChild(m_pIOOther);
-	if (eView == eSystem)
-	{
-		m_pMMapIOReads = new QTreeWidgetItem(tr("Mem. I/O reads").split("|"));
-		m_pIO->addChild(m_pMMapIOReads);
-		m_pMMapIOWrites = new QTreeWidgetItem(tr("Mem. I/O writes").split("|"));
-		m_pIO->addChild(m_pMMapIOWrites);
-	}
-	if (eView == eProcess || eView == eSystem)
-	{
-		m_pDiskReads = new QTreeWidgetItem(tr("Disk reads").split("|"));
-		m_pIO->addChild(m_pDiskReads);
-		m_pDiskWrites = new QTreeWidgetItem(tr("Disk writes").split("|"));
-		m_pIO->addChild(m_pDiskWrites);
-		m_pNetSends = new QTreeWidgetItem(tr("Network Sends").split("|"));
-		m_pIO->addChild(m_pNetSends);
-		m_pNetReceives = new QTreeWidgetItem(tr("Network Receive").split("|"));
-		m_pIO->addChild(m_pNetReceives);
-	}
-
-	m_pOther = new QTreeWidgetItem(tr("Other").split("|"));
-	m_pStatsList->addTopLevelItem(m_pOther);
-	if (eView == eSystem
-#ifdef WIN32
-		|| eView == eJob
-#endif
-	 ) {
-		m_pProcesses = new QTreeWidgetItem(tr("Processes").split("|"));
-		m_pOther->addChild(m_pProcesses);
-	}
-	if (eView == eProcess || eView == eSystem)
-	{
-		m_pThreads = new QTreeWidgetItem(tr("Threads").split("|"));
-		m_pOther->addChild(m_pThreads);
-		m_pHandles = new QTreeWidgetItem(tr("Handles").split("|"));
-		m_pOther->addChild(m_pHandles);
-		m_pGdiObjects = new QTreeWidgetItem(tr("Gdi objects").split("|"));
-		m_pOther->addChild(m_pGdiObjects);
-		m_pUserObjects = new QTreeWidgetItem(tr("User objects").split("|"));
-		m_pOther->addChild(m_pUserObjects);
-		m_pWndObjects = new QTreeWidgetItem(tr("Windows").split("|"));
-		m_pOther->addChild(m_pWndObjects);
-	}
-
-
-	m_pStatsList->expandAll();
-	//
+	SetupTree();
 
 	if (eView == eProcess || eView == eSystem)
 		m_pStatsList->setMinimumHeight(450);
@@ -172,10 +50,152 @@ CStatsView::~CStatsView()
 	theConf->SetBlob(objectName() + "/StatsView_Columns", m_pStatsList->header()->saveState());
 }
 
+void CStatsView::SetupTree()
+{
+	m_pStatsList->clear();
+
+	//data
+	m_pCPU = new QTreeWidgetItem(tr("CPU").split("|"));
+	m_pStatsList->addTopLevelItem(m_pCPU);
+	if (m_eView == eProcess)
+	{
+		m_pCycles = new QTreeWidgetItem(tr("Cycles").split("|"));
+		m_pCPU->addChild(m_pCycles);
+	}
+	if (m_eView == eProcess
+#ifdef WIN32
+		|| m_eView == eJob
+#endif
+	 ) {
+		m_pKernelTime = new QTreeWidgetItem(tr("Kernel time").split("|"));
+		m_pCPU->addChild(m_pKernelTime);
+		m_pUserTime = new QTreeWidgetItem(tr("User time").split("|"));
+		m_pCPU->addChild(m_pUserTime);
+	}
+	if (m_eView == eProcess) 
+	{
+		m_pTotalTime = new QTreeWidgetItem(tr("Total time").split("|"));
+		m_pCPU->addChild(m_pTotalTime);
+		m_pContextSwitches = new QTreeWidgetItem(tr("Context switches").split("|"));
+		m_pCPU->addChild(m_pContextSwitches);
+	}
+
+	m_pMemory = new QTreeWidgetItem(tr("Memory").split("|"));
+	m_pStatsList->addTopLevelItem(m_pMemory);
+	if (m_eView == eSystem)
+	{
+		m_pCommitCharge = new QTreeWidgetItem(tr("Commit Charge").split("|"));
+		m_pMemory->addChild(m_pCommitCharge);
+		m_pVirtualSize = new QTreeWidgetItem(tr("Paged virtusl size").split("|"));
+		m_pMemory->addChild(m_pVirtualSize);
+		m_pWorkingSet = new QTreeWidgetItem(tr("Paged working set").split("|"));
+		m_pMemory->addChild(m_pWorkingSet);
+	}
+	if (m_eView == eProcess) 
+	{
+		m_pPrivateBytes = new QTreeWidgetItem(tr("Private bytes").split("|"));
+		m_pMemory->addChild(m_pPrivateBytes);
+		m_pVirtualSize = new QTreeWidgetItem(tr("Virtusl size").split("|"));
+		m_pMemory->addChild(m_pVirtualSize);
+		m_pWorkingSet = new QTreeWidgetItem(tr("Working set").split("|"));
+		m_pMemory->addChild(m_pWorkingSet);
+	}
+	m_pPageFaults = new QTreeWidgetItem(tr("Page faults").split("|"));
+	m_pMemory->addChild(m_pPageFaults);
+	if (m_eView == eProcess) 
+	{
+		m_pPrivateWS = new QTreeWidgetItem(tr("Private working set").split("|"));
+		m_pMemory->addChild(m_pPrivateWS);
+		m_pSharedWS = new QTreeWidgetItem(tr("Shared working set").split("|"));
+		m_pMemory->addChild(m_pSharedWS);
+		m_pPagedPool = new QTreeWidgetItem(tr("Paged pool").split("|"));
+		m_pMemory->addChild(m_pPagedPool);
+	}
+#ifdef WIN32
+	else if(m_eView == eJob)
+	{
+		m_pPrivateWS = new QTreeWidgetItem(tr("Peak process usage").split("|"));
+		m_pMemory->addChild(m_pPrivateWS);
+		m_pSharedWS = new QTreeWidgetItem(tr("Peak job usage").split("|"));
+		m_pMemory->addChild(m_pSharedWS);
+	}
+#endif
+	if (m_eView == eProcess || m_eView == eSystem)
+	{
+		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool").split("|"));
+		m_pMemory->addChild(m_pNonPagedPool);
+	}
+
+	m_pIO = new QTreeWidgetItem(tr("I/O").split("|"));
+	m_pStatsList->addTopLevelItem(m_pIO);
+	m_pIOReads = new QTreeWidgetItem(tr("I/O reads").split("|"));
+	m_pIO->addChild(m_pIOReads);
+	m_pIOWrites = new QTreeWidgetItem(tr("I/O writes").split("|"));
+	m_pIO->addChild(m_pIOWrites);
+	m_pIOOther = new QTreeWidgetItem(tr("Other I/O").split("|"));
+	m_pIO->addChild(m_pIOOther);
+	if (m_eView == eSystem)
+	{
+		m_pMMapIOReads = new QTreeWidgetItem(tr("Mem. I/O reads").split("|"));
+		m_pIO->addChild(m_pMMapIOReads);
+		m_pMMapIOWrites = new QTreeWidgetItem(tr("Mem. I/O writes").split("|"));
+		m_pIO->addChild(m_pMMapIOWrites);
+	}
+	if (m_eView == eProcess || m_eView == eSystem)
+	{
+		if (m_MonitorsETW)
+		{
+			m_pDiskReads = new QTreeWidgetItem(tr("Disk reads").split("|"));
+			m_pIO->addChild(m_pDiskReads);
+			m_pDiskWrites = new QTreeWidgetItem(tr("Disk writes").split("|"));
+			m_pIO->addChild(m_pDiskWrites);
+			m_pNetSends = new QTreeWidgetItem(tr("Network Sends").split("|"));
+			m_pIO->addChild(m_pNetSends);
+			m_pNetReceives = new QTreeWidgetItem(tr("Network Receive").split("|"));
+			m_pIO->addChild(m_pNetReceives);
+		}
+	}
+
+	m_pOther = new QTreeWidgetItem(tr("Other").split("|"));
+	m_pStatsList->addTopLevelItem(m_pOther);
+	if (m_eView == eSystem
+#ifdef WIN32
+		|| m_eView == eJob
+#endif
+	 ) {
+		m_pProcesses = new QTreeWidgetItem(tr("Processes").split("|"));
+		m_pOther->addChild(m_pProcesses);
+	}
+	if (m_eView == eProcess || m_eView == eSystem)
+	{
+		m_pThreads = new QTreeWidgetItem(tr("Threads").split("|"));
+		m_pOther->addChild(m_pThreads);
+		m_pHandles = new QTreeWidgetItem(tr("Handles").split("|"));
+		m_pOther->addChild(m_pHandles);
+		m_pGdiObjects = new QTreeWidgetItem(tr("Gdi objects").split("|"));
+		m_pOther->addChild(m_pGdiObjects);
+		m_pUserObjects = new QTreeWidgetItem(tr("User objects").split("|"));
+		m_pOther->addChild(m_pUserObjects);
+		m_pWndObjects = new QTreeWidgetItem(tr("Windows").split("|"));
+		m_pOther->addChild(m_pWndObjects);
+	}
+
+
+	m_pStatsList->expandAll();
+	//
+}
+
 #define CPU_TIME_DIVIDER (10 * 1000 * 1000) // the clock resolution is 100ns we need 1sec
 
 void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 {
+	if (m_MonitorsETW != ((CWindowsAPI*)theAPI)->IsMonitoringETW())
+	{
+		m_MonitorsETW = ((CWindowsAPI*)theAPI)->IsMonitoringETW();
+
+		SetupTree();
+	}
+
 	STaskStatsEx CpuStats = pProcess->GetCpuStats();
 
 	// CPU
@@ -255,25 +275,28 @@ void CStatsView::ShowIoStats(const SProcStats& Stats)
 	m_pIOOther->setText(eRate, FormatSize(Stats.Io.OtherRate.Get()) + "/s");
 	m_pIOOther->setText(eDelta, QString::number(Stats.Io.OtherDelta.Delta));
 
-	m_pDiskReads->setText(eCount, QString::number(Stats.Disk.ReadDelta.Value));
-	m_pDiskReads->setText(eSize, FormatSize(Stats.Disk.ReadRawDelta.Value));
-	m_pDiskReads->setText(eRate, FormatSize(Stats.Disk.ReadRate.Get()) + "/s");
-	m_pDiskReads->setText(eDelta, QString::number(Stats.Disk.ReadDelta.Delta));
+	if (m_MonitorsETW)
+	{
+		m_pDiskReads->setText(eCount, QString::number(Stats.Disk.ReadDelta.Value));
+		m_pDiskReads->setText(eSize, FormatSize(Stats.Disk.ReadRawDelta.Value));
+		m_pDiskReads->setText(eRate, FormatSize(Stats.Disk.ReadRate.Get()) + "/s");
+		m_pDiskReads->setText(eDelta, QString::number(Stats.Disk.ReadDelta.Delta));
 
-	m_pDiskWrites->setText(eCount, QString::number(Stats.Disk.WriteDelta.Value));
-	m_pDiskWrites->setText(eSize, FormatSize(Stats.Disk.WriteRawDelta.Value));
-	m_pDiskWrites->setText(eRate, FormatSize(Stats.Disk.WriteRate.Get()) + "/s");
-	m_pDiskWrites->setText(eDelta, QString::number(Stats.Disk.WriteDelta.Delta));
-	
-	m_pNetSends->setText(eCount, QString::number(Stats.Net.SendDelta.Value));
-	m_pNetSends->setText(eSize, FormatSize(Stats.Net.SendRawDelta.Value));
-	m_pNetSends->setText(eRate, FormatSize(Stats.Net.SendRate.Get()) + "/s");
-	m_pNetSends->setText(eDelta, QString::number(Stats.Net.SendDelta.Delta));
+		m_pDiskWrites->setText(eCount, QString::number(Stats.Disk.WriteDelta.Value));
+		m_pDiskWrites->setText(eSize, FormatSize(Stats.Disk.WriteRawDelta.Value));
+		m_pDiskWrites->setText(eRate, FormatSize(Stats.Disk.WriteRate.Get()) + "/s");
+		m_pDiskWrites->setText(eDelta, QString::number(Stats.Disk.WriteDelta.Delta));
 
-	m_pNetReceives->setText(eCount, QString::number(Stats.Net.ReceiveDelta.Value));
-	m_pNetReceives->setText(eSize, FormatSize(Stats.Net.ReceiveRawDelta.Value));
-	m_pNetReceives->setText(eRate, FormatSize(Stats.Net.ReceiveRate.Get()) + "/s");
-	m_pNetReceives->setText(eDelta, QString::number(Stats.Net.ReceiveDelta.Delta));
+		m_pNetSends->setText(eCount, QString::number(Stats.Net.SendDelta.Value));
+		m_pNetSends->setText(eSize, FormatSize(Stats.Net.SendRawDelta.Value));
+		m_pNetSends->setText(eRate, FormatSize(Stats.Net.SendRate.Get()) + "/s");
+		m_pNetSends->setText(eDelta, QString::number(Stats.Net.SendDelta.Delta));
+
+		m_pNetReceives->setText(eCount, QString::number(Stats.Net.ReceiveDelta.Value));
+		m_pNetReceives->setText(eSize, FormatSize(Stats.Net.ReceiveRawDelta.Value));
+		m_pNetReceives->setText(eRate, FormatSize(Stats.Net.ReceiveRate.Get()) + "/s");
+		m_pNetReceives->setText(eDelta, QString::number(Stats.Net.ReceiveDelta.Delta));
+	}
 }
 
 void CStatsView::ShowSystem()

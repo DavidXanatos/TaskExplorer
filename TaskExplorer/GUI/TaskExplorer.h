@@ -10,7 +10,7 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	1
+#define VERSION_MIN 	2
 #define VERSION_REV 	0
 #define VERSION_UPD 	0
 
@@ -41,6 +41,7 @@ public:
 		eIsInherited,
 		eIsProtected,
 #endif
+		eExecutable,
 		eColorCount
 	};
 	static QColor	GetColor(int Color);

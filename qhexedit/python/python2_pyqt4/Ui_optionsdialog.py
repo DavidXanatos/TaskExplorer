@@ -1,0 +1,150 @@
+# -*- coding: utf-8 -*-
+
+# Form implementation generated from reading ui file 'optionsdialog.ui'
+#
+# Created: Thu May 28 21:45:32 2015
+#      by: PyQt4 UI code generator 4.10.4
+#
+# WARNING! All changes made in this file will be lost!
+
+from PyQt4 import QtCore, QtGui
+
+try:
+    _fromUtf8 = QtCore.QString.fromUtf8
+except AttributeError:
+    def _fromUtf8(s):
+        return s
+
+try:
+    _encoding = QtGui.QApplication.UnicodeUTF8
+    def _translate(context, text, disambig):
+        return QtGui.QApplication.translate(context, text, disambig, _encoding)
+except AttributeError:
+    def _translate(context, text, disambig):
+        return QtGui.QApplication.translate(context, text, disambig)
+
+class Ui_OptionsDialog(object):
+    def setupUi(self, OptionsDialog):
+        OptionsDialog.setObjectName(_fromUtf8("OptionsDialog"))
+        OptionsDialog.resize(395, 351)
+        self.verticalLayout = QtGui.QVBoxLayout(OptionsDialog)
+        self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
+        self.gbFlags = QtGui.QGroupBox(OptionsDialog)
+        self.gbFlags.setObjectName(_fromUtf8("gbFlags"))
+        self.gridLayout_2 = QtGui.QGridLayout(self.gbFlags)
+        self.gridLayout_2.setObjectName(_fromUtf8("gridLayout_2"))
+        self.cbReadOnly = QtGui.QCheckBox(self.gbFlags)
+        self.cbReadOnly.setObjectName(_fromUtf8("cbReadOnly"))
+        self.gridLayout_2.addWidget(self.cbReadOnly, 3, 0, 1, 1)
+        self.cbHighlighting = QtGui.QCheckBox(self.gbFlags)
+        self.cbHighlighting.setObjectName(_fromUtf8("cbHighlighting"))
+        self.gridLayout_2.addWidget(self.cbHighlighting, 2, 0, 1, 1)
+        self.cbOverwriteMode = QtGui.QCheckBox(self.gbFlags)
+        self.cbOverwriteMode.setObjectName(_fromUtf8("cbOverwriteMode"))
+        self.gridLayout_2.addWidget(self.cbOverwriteMode, 1, 0, 1, 1)
+        self.cbAddressArea = QtGui.QCheckBox(self.gbFlags)
+        self.cbAddressArea.setObjectName(_fromUtf8("cbAddressArea"))
+        self.gridLayout_2.addWidget(self.cbAddressArea, 1, 1, 1, 1)
+        self.cbAsciiArea = QtGui.QCheckBox(self.gbFlags)
+        self.cbAsciiArea.setObjectName(_fromUtf8("cbAsciiArea"))
+        self.gridLayout_2.addWidget(self.cbAsciiArea, 2, 1, 1, 1)
+        self.verticalLayout.addWidget(self.gbFlags)
+        self.gbColors = QtGui.QGroupBox(OptionsDialog)
+        self.gbColors.setObjectName(_fromUtf8("gbColors"))
+        self.gridLayout = QtGui.QGridLayout(self.gbColors)
+        self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
+        self.pbHighlightingColor = QtGui.QPushButton(self.gbColors)
+        self.pbHighlightingColor.setObjectName(_fromUtf8("pbHighlightingColor"))
+        self.gridLayout.addWidget(self.pbHighlightingColor, 0, 0, 1, 1)
+        self.lbHighlightingColor = QtGui.QLabel(self.gbColors)
+        self.lbHighlightingColor.setMinimumSize(QtCore.QSize(100, 0))
+        self.lbHighlightingColor.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self.lbHighlightingColor.setFrameShape(QtGui.QFrame.Panel)
+        self.lbHighlightingColor.setFrameShadow(QtGui.QFrame.Sunken)
+        self.lbHighlightingColor.setText(_fromUtf8(""))
+        self.lbHighlightingColor.setObjectName(_fromUtf8("lbHighlightingColor"))
+        self.gridLayout.addWidget(self.lbHighlightingColor, 0, 1, 1, 1)
+        self.pbAddressAreaColor = QtGui.QPushButton(self.gbColors)
+        self.pbAddressAreaColor.setObjectName(_fromUtf8("pbAddressAreaColor"))
+        self.gridLayout.addWidget(self.pbAddressAreaColor, 1, 0, 2, 1)
+        self.lbAddressAreaColor = QtGui.QLabel(self.gbColors)
+        self.lbAddressAreaColor.setMinimumSize(QtCore.QSize(100, 0))
+        self.lbAddressAreaColor.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self.lbAddressAreaColor.setFrameShape(QtGui.QFrame.Panel)
+        self.lbAddressAreaColor.setFrameShadow(QtGui.QFrame.Sunken)
+        self.lbAddressAreaColor.setText(_fromUtf8(""))
+        self.lbAddressAreaColor.setObjectName(_fromUtf8("lbAddressAreaColor"))
+        self.gridLayout.addWidget(self.lbAddressAreaColor, 1, 1, 2, 1)
+        self.lbSelectionColor = QtGui.QLabel(self.gbColors)
+        self.lbSelectionColor.setMinimumSize(QtCore.QSize(100, 0))
+        self.lbSelectionColor.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self.lbSelectionColor.setFrameShape(QtGui.QFrame.Panel)
+        self.lbSelectionColor.setFrameShadow(QtGui.QFrame.Sunken)
+        self.lbSelectionColor.setText(_fromUtf8(""))
+        self.lbSelectionColor.setObjectName(_fromUtf8("lbSelectionColor"))
+        self.gridLayout.addWidget(self.lbSelectionColor, 3, 1, 1, 1)
+        self.pbSelectionColor = QtGui.QPushButton(self.gbColors)
+        self.pbSelectionColor.setObjectName(_fromUtf8("pbSelectionColor"))
+        self.gridLayout.addWidget(self.pbSelectionColor, 3, 0, 1, 1)
+        self.pbWidgetFont = QtGui.QPushButton(self.gbColors)
+        self.pbWidgetFont.setObjectName(_fromUtf8("pbWidgetFont"))
+        self.gridLayout.addWidget(self.pbWidgetFont, 4, 0, 1, 1)
+        self.leWidgetFont = QtGui.QLineEdit(self.gbColors)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.leWidgetFont.sizePolicy().hasHeightForWidth())
+        self.leWidgetFont.setSizePolicy(sizePolicy)
+        font = QtGui.QFont()
+        font.setFamily(_fromUtf8("Courier New"))
+        font.setPointSize(10)
+        self.leWidgetFont.setFont(font)
+        self.leWidgetFont.setObjectName(_fromUtf8("leWidgetFont"))
+        self.gridLayout.addWidget(self.leWidgetFont, 4, 1, 1, 1)
+        self.verticalLayout.addWidget(self.gbColors)
+        self.gbAddressAreaWidth = QtGui.QGroupBox(OptionsDialog)
+        self.gbAddressAreaWidth.setObjectName(_fromUtf8("gbAddressAreaWidth"))
+        self.gridLayout_3 = QtGui.QGridLayout(self.gbAddressAreaWidth)
+        self.gridLayout_3.setObjectName(_fromUtf8("gridLayout_3"))
+        self.lbAddressAreaWidth = QtGui.QLabel(self.gbAddressAreaWidth)
+        self.lbAddressAreaWidth.setObjectName(_fromUtf8("lbAddressAreaWidth"))
+        self.gridLayout_3.addWidget(self.lbAddressAreaWidth, 0, 0, 1, 1)
+        self.sbAddressAreaWidth = QtGui.QSpinBox(self.gbAddressAreaWidth)
+        self.sbAddressAreaWidth.setMinimum(1)
+        self.sbAddressAreaWidth.setMaximum(6)
+        self.sbAddressAreaWidth.setProperty("value", 4)
+        self.sbAddressAreaWidth.setObjectName(_fromUtf8("sbAddressAreaWidth"))
+        self.gridLayout_3.addWidget(self.sbAddressAreaWidth, 0, 1, 1, 1)
+        self.verticalLayout.addWidget(self.gbAddressAreaWidth)
+        spacerItem = QtGui.QSpacerItem(20, 28, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem)
+        self.buttonBox = QtGui.QDialogButtonBox(OptionsDialog)
+        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)
+        self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
+        self.verticalLayout.addWidget(self.buttonBox)
+
+        self.retranslateUi(OptionsDialog)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("accepted()")), OptionsDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("rejected()")), OptionsDialog.reject)
+        QtCore.QMetaObject.connectSlotsByName(OptionsDialog)
+        OptionsDialog.setTabOrder(self.pbHighlightingColor, self.pbAddressAreaColor)
+        OptionsDialog.setTabOrder(self.pbAddressAreaColor, self.buttonBox)
+
+    def retranslateUi(self, OptionsDialog):
+        OptionsDialog.setWindowTitle(_translate("OptionsDialog", "Dialog", None))
+        self.gbFlags.setTitle(_translate("OptionsDialog", "Flags", None))
+        self.cbReadOnly.setText(_translate("OptionsDialog", "ReadOnly", None))
+        self.cbHighlighting.setText(_translate("OptionsDialog", "Higlighting", None))
+        self.cbOverwriteMode.setText(_translate("OptionsDialog", "Overwrite Mode", None))
+        self.cbAddressArea.setText(_translate("OptionsDialog", "Address Area", None))
+        self.cbAsciiArea.setText(_translate("OptionsDialog", "Ascii Area", None))
+        self.gbColors.setTitle(_translate("OptionsDialog", "Colors and Fonts", None))
+        self.pbHighlightingColor.setText(_translate("OptionsDialog", "Highlighting Color", None))
+        self.pbAddressAreaColor.setText(_translate("OptionsDialog", "Address Area Color", None))
+        self.pbSelectionColor.setText(_translate("OptionsDialog", "Selection Color", None))
+        self.pbWidgetFont.setText(_translate("OptionsDialog", "Widget Font", None))
+        self.leWidgetFont.setText(_translate("OptionsDialog", "01 23 45 67 89 ab cd ef", None))
+        self.gbAddressAreaWidth.setTitle(_translate("OptionsDialog", "Address Area", None))
+        self.lbAddressAreaWidth.setText(_translate("OptionsDialog", "Address Area Width", None))
+

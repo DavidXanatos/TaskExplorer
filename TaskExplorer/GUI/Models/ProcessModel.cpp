@@ -26,7 +26,7 @@ QList<QVariant> CProcessModel::MakeProcPath(const CProcessPtr& pProcess, const Q
 {
 	QList<QVariant> list;
 
-	quint64 ParentPID = pProcess->GetParentID();
+	quint64 ParentPID = pProcess->GetParentId();
 	CProcessPtr pParent = ProcessList.value(ParentPID);
 
 	if (!pParent.isNull())
@@ -47,10 +47,11 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 	QMap<QVariant, STreeNode*> Old = m_Map;
 
 	bool bShow32 = theConf->GetBool("Options/Show32", true);
+	time_t curTime = GetTime();
 
 	foreach (const CProcessPtr& pProcess, ProcessList)
 	{
-		QVariant ID = pProcess->GetID();
+		QVariant ID = pProcess->GetProcessId();
 
 		QModelIndex Index;
 		QList<QVariant> Path;
@@ -157,7 +158,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					}
 #endif
 											Value = pProcess->GetName(); break;
-				case ePID:					Value = (qint64)pProcess->GetID(); break;
+				case ePID:					Value = (qint64)pProcess->GetProcessId(); break;
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; break;
 				case eIO_History:			Value = qMax(Stats.Disk.ReadRate.Get(), Stats.Io.ReadRate.Get()) + qMax(Stats.Disk.WriteRate.Get(), Stats.Io.WriteRate.Get()) + Stats.Io.OtherRate.Get(); break;
@@ -206,7 +207,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eVerifiedSigner:		Value = pProcess->GetModuleInfo().objectCast<CWinModule>()->GetVerifySignerName(); break;
 				case eASLR:					Value = pProcess->GetModuleInfo().objectCast<CWinModule>()->GetASLRString(); break;
 #endif
-				case eUpTime:				Value = pProcess->GetCreateTimeStamp(); break;
+				case eUpTime:				Value = pProcess->GetCreateTimeStamp() != 0 ? (curTime - pProcess->GetCreateTimeStamp() / 1000) : 0; break; // we must update the value to refresh the display
 				case eArch:					Value = pProcess->GetArchString(); break;
 				case eElevation:			Value = pProcess->GetElevationString(); break;
 /*#ifdef WIN32
@@ -349,8 +350,8 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eTimeStamp:
 #endif
 					case eFileModifiedTime:
-											if(Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
-					case eUpTime:			if (Value.toULongLong() != 0) ColValue.Formated = FormatTime(GetTime() - Value.toULongLong() / 1000); break;
+											if (Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eUpTime:			if (Value.toULongLong() != 0) ColValue.Formated = FormatTime(Value.toULongLong()); break;
 					case eTotalCPU_Time:
 					case eKernelCPU_Time:
 					case eUserCPU_Time:

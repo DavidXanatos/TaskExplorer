@@ -28,30 +28,6 @@ public:
 	virtual ulong GetTypeIndex() const				{ QReadLocker Locker(&m_Mutex); return m_TypeIndex; }
 	virtual ulong GetFileFlags() const				{ QReadLocker Locker(&m_Mutex); return m_FileFlags; }
 
-	enum EHandleType
-	{
-		eOther = 0,
-
-		eEvent,
-		eEventPair,
-		eJob,
-		eSemaphore,
-		eTimer,
-		eToken,
-		eALPC_Port,
-		eFile,
-		eSection,
-		eMutant,
-		eProcess,
-		eThread,
-		eTpWorkerFactory,
-		eDesktop,
-		eKey,
-		eEtwRegistration
-	};
-
-	virtual EHandleType GetType() const				{ QReadLocker Locker(&m_Mutex); return m_Type; }
-
 	virtual QString GetTypeName() const				{ QReadLocker Locker(&m_Mutex); return m_TypeName; }
 	virtual QString GetOriginalName() const			{ QReadLocker Locker(&m_Mutex); return m_OriginalName; }
 
@@ -65,8 +41,6 @@ public:
 		{
 			memset(this, 0, sizeof(SHandleInfo));
 		}
-
-		EHandleType Type;
 
 		ulong References;
 		ulong Handles;
@@ -163,7 +137,6 @@ protected:
 	ulong				m_TypeIndex;
 	ulong				m_FileFlags;
 
-	EHandleType			m_Type;
 	QString				m_TypeName;
     QString				m_OriginalName;
 

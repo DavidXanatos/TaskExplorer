@@ -48,7 +48,7 @@ CWinDumper::~CWinDumper()
 
 STATUS CWinDumper::PrepareDump(const CProcessPtr& pProcess, const QString& DumpPath)
 {
-	m->ProcessId = (HANDLE)pProcess->GetID();
+	m->ProcessId = (HANDLE)pProcess->GetProcessId();
 	m->FileName = QString(DumpPath).replace("/", "\\").toStdWString();
     m->DumpType = (MINIDUMP_TYPE)(MiniDumpWithFullMemory | MiniDumpWithHandleData | MiniDumpWithUnloadedModules | MiniDumpWithFullMemoryInfo | MiniDumpWithThreadInfo);
 

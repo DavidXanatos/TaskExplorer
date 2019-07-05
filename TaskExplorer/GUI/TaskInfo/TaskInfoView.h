@@ -9,8 +9,8 @@ class CSocketsView;
 class CThreadsView;
 class CModulesView;
 class CWindowsView;
-//class CMemoryView;
-//class CTokensView;
+class CMemoryView;
+class CTokenView;
 class CJobView;
 class CServicesView;
 class CEnvironmentView;
@@ -40,8 +40,8 @@ private:
 	CThreadsView*		m_pThreadsView;
 	CModulesView*		m_pModulesView;
 	CWindowsView*		m_pWindowsView;
-	//CMemoryView*		m_pMemoryView;
-	//CTokensView*		m_pTokensView;
+	CMemoryView*		m_pMemoryView;
+	CTokenView*			m_pTokenView;
 #ifdef WIN32
 	CJobView*			m_pJobView;
 	CServicesView*		m_pServiceView;
