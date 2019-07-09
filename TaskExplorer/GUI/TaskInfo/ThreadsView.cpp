@@ -79,7 +79,7 @@ CThreadsView::~CThreadsView()
 	theConf->SetBlob(objectName() + "/ThreadView_Columns", m_pThreadList->header()->saveState());
 }
 
-void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
+void CThreadsView::ShowProcess(const CProcessPtr& pProcess)
 {
 	if (m_pCurProcess != pProcess)
 	{
@@ -89,6 +89,28 @@ void CThreadsView::ShowThreads(const CProcessPtr& pProcess)
 
 		connect(m_pCurProcess.data(), SIGNAL(ThreadsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowThreads(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
+
+	Refresh();
+}
+
+void CThreadsView::SellectThread(quint64 ThreadId)
+{
+	QModelIndex Index = m_pThreadModel->FindIndex(ThreadId);
+	QModelIndex ModelIndex = m_pSortProxy->mapFromSource(Index);
+		
+	QModelIndex ModelL = m_pSortProxy->index(ModelIndex.row(), 0, ModelIndex.parent());
+	QModelIndex ModelR = m_pSortProxy->index(ModelIndex.row(), m_pSortProxy->columnCount()-1, ModelIndex.parent());
+	
+	QItemSelection SelectedItems;
+	SelectedItems.append(QItemSelectionRange(ModelL, ModelR));
+
+	m_pThreadList->selectionModel()->select(SelectedItems, QItemSelectionModel::ClearAndSelect);
+}
+
+void CThreadsView::Refresh()
+{
+	if (!m_pCurProcess)
+		return;
 
 	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateThreads()));
 

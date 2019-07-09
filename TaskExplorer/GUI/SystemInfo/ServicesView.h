@@ -24,6 +24,8 @@ public:
 #endif
 
 public slots:
+	void					Refresh() {}
+
 	void					ShowServices(const CProcessPtr& pProcess);
 
 protected:

@@ -8,11 +8,13 @@ struct SWinJob
 {
 	SWinJob()
 	{
-		jobHandle = NULL;
 		QueryHandle = NULL;
+		Handle = NULL;
+		Type = CWinJob::eProcess;
 	}
-	HANDLE jobHandle;
 	HANDLE QueryHandle;
+	HANDLE Handle;
+	CWinJob::EQueryType Type;
 };
 
 CWinJob::CWinJob(QObject *parent)
@@ -30,54 +32,75 @@ CWinJob::CWinJob(QObject *parent)
 
 CWinJob::~CWinJob()
 {
-	if(m->jobHandle)
-		NtClose(m->jobHandle);
-
+	if (m->Type != eProcess)
+		NtClose(m->QueryHandle);
 	delete m;
 }
 
 NTSTATUS NTAPI PhpOpenProcessJobForPage(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
-	NTSTATUS status;
-	HANDLE processHandle;
-	HANDLE jobHandle = NULL;
+	NTSTATUS status = STATUS_INVALID_PARAMETER;
+	SWinJob* m = (SWinJob*)Context;
+	if (m->Type == CWinJob::eHandle)
+	{
+		status = NtDuplicateObject(m->QueryHandle, m->Handle, NtCurrentProcess(), Handle, DesiredAccess, 0, 0);
+	}
+	else
+	{
+		HANDLE processHandle;
+		HANDLE jobHandle = NULL;
 
-	// Note: we are using the query handle of the process instance instead of pid and re opening it
-	processHandle = (HANDLE)Context;
-	//if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)Context)))
-    //   return status;
+		// Note: we are using the query handle of the process instance instead of pid and re opening it
+		processHandle = m->QueryHandle;
+		//if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)Context)))
+		//   return status;
 
-    status = KphOpenProcessJob(processHandle, DesiredAccess, &jobHandle);
+		status = KphOpenProcessJob(processHandle, DesiredAccess, &jobHandle);
 
-	//NtClose(processHandle);
+		//NtClose(processHandle);
 
-    if (NT_SUCCESS(status) && status != STATUS_PROCESS_NOT_IN_JOB && jobHandle)
-    {
-        *Handle = jobHandle;
-    }
-    else if (NT_SUCCESS(status))
-    {
-        status = STATUS_UNSUCCESSFUL;
-    }
+		if (NT_SUCCESS(status) && status != STATUS_PROCESS_NOT_IN_JOB && jobHandle)
+		{
+			*Handle = jobHandle;
+		}
+		else if (NT_SUCCESS(status))
+		{
+			status = STATUS_UNSUCCESSFUL;
+		}
+	}
     return status;
 }
 
-bool CWinJob::InitStaticData(quint64 QueryHandle)
+CWinJob* CWinJob::JobFromHandle(quint64 ProcessId, quint64 HandleId)
+{
+	HANDLE processHandle;
+    if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_DUP_HANDLE, (HANDLE)ProcessId)))
+        return NULL;
+
+	CWinJob* pJob = new CWinJob();
+	pJob->m->Handle = (HANDLE)HandleId;
+	pJob->InitStaticData(processHandle, eHandle);
+	return pJob;
+}
+
+bool CWinJob::InitStaticData(void* QueryHandle, EQueryType Type)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
-	m->QueryHandle = (HANDLE)QueryHandle;
+	m->QueryHandle = QueryHandle;
+	m->Type = Type;
 
-	if (!NT_SUCCESS(PhpOpenProcessJobForPage(&m->jobHandle, JOB_OBJECT_QUERY, m->QueryHandle)))
+	HANDLE jobHandle = NULL;
+	if (!NT_SUCCESS(PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_QUERY, m)))
 		return false;
 
 	PPH_STRING jobObjectName = NULL;
-	PhGetHandleInformation(NtCurrentProcess(), m->jobHandle, ULONG_MAX, NULL, NULL, NULL, &jobObjectName);
+	PhGetHandleInformation(NtCurrentProcess(), jobHandle, ULONG_MAX, NULL, NULL, NULL, &jobObjectName);
 	m_JobName = CastPhString(jobObjectName);
 	if (m_JobName.isEmpty())
 		m_JobName = tr("Unnamed job");
 
-
+	// todo: xxx
 	/*JOBOBJECT_EXTENDED_LIMIT_INFORMATION extendedLimits;
 	if (NT_SUCCESS(PhGetJobExtendedLimits(m->jobHandle, &extendedLimits)))
     {
@@ -193,6 +216,8 @@ bool CWinJob::InitStaticData(quint64 QueryHandle)
             PhpAddLimit(limitsLv, L"Write clipboard", L"Limited");
     }*/
 
+	NtClose(jobHandle);
+
 	return true;
 }
 
@@ -200,10 +225,13 @@ bool CWinJob::UpdateDynamicData()
 {
 	QWriteLocker Locker(&m_Mutex); 
 
+	HANDLE jobHandle = NULL;
+	if (!NT_SUCCESS(PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_QUERY, m)))
+		return false;
 
 	m_Processes.clear();
 	PJOBOBJECT_BASIC_PROCESS_ID_LIST processIdList;
-    if (NT_SUCCESS(PhGetJobProcessIdList(m->jobHandle, &processIdList)))
+    if (NT_SUCCESS(PhGetJobProcessIdList(jobHandle, &processIdList)))
     {
         for (ULONG i = 0; i < processIdList->NumberOfProcessIdsInList; i++)
         {
@@ -215,7 +243,7 @@ bool CWinJob::UpdateDynamicData()
     }
 
     JOBOBJECT_BASIC_AND_IO_ACCOUNTING_INFORMATION basicAndIo;
-	if (NT_SUCCESS(PhGetJobBasicAndIoAccounting(m->jobHandle, &basicAndIo)))
+	if (NT_SUCCESS(PhGetJobBasicAndIoAccounting(jobHandle, &basicAndIo)))
 	{
 		m_ActiveProcesses = basicAndIo.BasicInfo.ActiveProcesses;
 		m_TotalProcesses = basicAndIo.BasicInfo.TotalProcesses;
@@ -234,11 +262,13 @@ bool CWinJob::UpdateDynamicData()
 	}
 
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION extendedLimitInfo;
-	if (NT_SUCCESS(PhGetJobExtendedLimits(m->jobHandle, &extendedLimitInfo)))
+	if (NT_SUCCESS(PhGetJobExtendedLimits(jobHandle, &extendedLimitInfo)))
 	{
 		m_PeakProcessMemoryUsed = extendedLimitInfo.PeakProcessMemoryUsed;
 		m_PeakJobMemoryUsed = extendedLimitInfo.PeakJobMemoryUsed;
 	}
+
+	NtClose(jobHandle);
 
 	m_Stats.UpdateStats();
 
@@ -248,11 +278,12 @@ bool CWinJob::UpdateDynamicData()
 STATUS CWinJob::Terminate()
 {   
     HANDLE jobHandle;
-	NTSTATUS status = PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_TERMINATE, m->QueryHandle);
+	NTSTATUS status = PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_TERMINATE, m);
 	if (!NT_SUCCESS(status))
 		return ERR(tr("Failed to open job"), status);
 
     status = NtTerminateJobObject(jobHandle, STATUS_SUCCESS);
+
     NtClose(jobHandle);
 
     if (!NT_SUCCESS(status))
@@ -270,7 +301,7 @@ STATUS CWinJob::AddProcess(quint64 ProcessId)
 
     if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_TERMINATE | PROCESS_SET_QUOTA, processId)))
     {
-        if (NT_SUCCESS(status = PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_ASSIGN_PROCESS | JOB_OBJECT_QUERY, m->QueryHandle)))
+        if (NT_SUCCESS(status = PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_ASSIGN_PROCESS | JOB_OBJECT_QUERY, m)))
         {
             status = NtAssignProcessToJobObject(jobHandle, processHandle);
             NtClose(jobHandle);
@@ -287,5 +318,5 @@ void CWinJob::OpenPermissions()
 {
 	QWriteLocker Locker(&m_Mutex); 
 
-    PhEditSecurity(NULL, L"Job", L"Job", PhpOpenProcessJobForPage, NULL, m->QueryHandle);
+    PhEditSecurity(NULL, L"Job", L"Job", PhpOpenProcessJobForPage, NULL, m); // todo: fixme m may get deleted!!!
 }

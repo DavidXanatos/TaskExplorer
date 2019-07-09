@@ -18,7 +18,9 @@ public:
 	virtual ~CThreadsView();
 
 public slots:
-	void					ShowThreads(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					SellectThread(quint64 ThreadId);
+	void					Refresh();
 
 private slots:
 	void					ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);

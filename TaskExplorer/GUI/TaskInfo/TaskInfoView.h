@@ -26,6 +26,7 @@ public:
 public slots:
 	void				OnTab(int tabIndex);
 	void				ShowProcess(const CProcessPtr& pProcess);
+	void				SellectThread(quint64 ThreadId);
 	void				Refresh();
 
 protected:
@@ -41,8 +42,8 @@ private:
 	CModulesView*		m_pModulesView;
 	CWindowsView*		m_pWindowsView;
 	CMemoryView*		m_pMemoryView;
-	CTokenView*			m_pTokenView;
 #ifdef WIN32
+	CTokenView*			m_pTokenView;
 	CJobView*			m_pJobView;
 	CServicesView*		m_pServiceView;
 #endif

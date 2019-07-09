@@ -10,7 +10,7 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	2
+#define VERSION_MIN 	3
 #define VERSION_REV 	0
 #define VERSION_UPD 	0
 
@@ -135,6 +135,7 @@ private:
 
 	QMenu*				m_pMenuHelp;
 	QAction*			m_pMenuAbout;
+	QAction*			m_pMenuSupport;
 #ifdef WIN32
 	QAction*			m_pMenuAboutPH;
 #endif

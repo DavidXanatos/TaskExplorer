@@ -6,8 +6,6 @@
 #include <windows.h>
 #endif
 
-#if defined(_DEBUG) || defined(_TRACE)
-
 bool IsDebuggerAttached()
 {
 	bool isDebuggerPresent = false; // Note: on linux change edit the value in debgger to indicate precense
@@ -23,6 +21,9 @@ void WaitForDebugger()
 	while (!IsDebuggerAttached())
 		QThread::msleep(500);
 }
+
+
+#if defined(_DEBUG) || defined(_TRACE)
 
 #ifdef WIN32
 bool g_assert_active = IsDebuggerPresent();

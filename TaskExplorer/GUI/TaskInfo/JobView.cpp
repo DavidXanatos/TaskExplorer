@@ -109,7 +109,7 @@ CJobView::CJobView(QWidget *parent)
 	
 	AddPanelItemsToMenu();
 
-	setObjectName(parent->objectName());
+	setObjectName(parent ? parent->objectName() : "InfoWindow");
 	m_pProcessList->header()->restoreState(theConf->GetBlob(objectName() + "/m_pJobList"));
 }
 
@@ -119,20 +119,40 @@ CJobView::~CJobView()
 	theConf->SetBlob(objectName() + "/JobView_Columns", m_pProcessList->header()->saveState());
 }
 
-void CJobView::ShowJob(const CProcessPtr& pProcess)
+void CJobView::ShowProcess(const CProcessPtr& pProcess)
 {
 	if (m_pCurProcess != pProcess)
 	{
+		m_pCurProcess = pProcess;
+		
 		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
-		m_pCurJob = pWinProc->GetJob();
+		ShowJob(pWinProc->GetJob());
+		return;
+	}
+
+	Refresh();
+}
+
+void CJobView::ShowJob(const CWinJobPtr& pJob)
+{
+	if (m_pCurJob != pJob)
+	{
+		m_pCurJob = pJob;
 
 		this->setEnabled(!m_pCurJob.isNull());
 		if (m_pCurJob.isNull())
 			return;
 
 		m_pJobName->setText(m_pCurJob->GetJobName());
-		m_pCurProcess = pProcess;
 	}
+
+	Refresh();
+}
+
+void CJobView::Refresh()
+{
+	if (!m_pCurJob)
+		return;
 
 	m_pCurJob->UpdateDynamicData();
 

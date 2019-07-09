@@ -14,7 +14,7 @@ public slots:
 	void					UpdateGraphs();
 
 private:
-	CIncrementalPlot*		NewIncrementalPlot();
+	void					FixPlotScale(CIncrementalPlot* pPlot);
 
 	QGridLayout*			m_pMainLayout;
 

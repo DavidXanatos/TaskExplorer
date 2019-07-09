@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and support functions based on thrdprv.c
  *
  * Copyright (C) 2010-2016 wj32
  * Copyright (C) 2019 David Xanatos

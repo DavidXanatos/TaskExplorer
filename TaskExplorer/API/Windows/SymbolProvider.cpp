@@ -87,7 +87,7 @@ CSymbolProvider::~CSymbolProvider()
 
 void CSymbolProvider::UnInit()
 {
-	m_bRunning = true;
+	m_bRunning = false;
 
 	//quit();
 

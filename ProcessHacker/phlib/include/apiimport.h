@@ -91,7 +91,7 @@ typedef BOOL (WINAPI* _ConvertSecurityDescriptorToStringSecurityDescriptorW)(
     _Out_opt_ PULONG StringSecurityDescriptorLen
     );
 
-#define PH_DECLARE_IMPORT(Name) _##Name Name##_Import(VOID)
+#define PH_DECLARE_IMPORT(Name) _##Name NTAPI Name##_Import(VOID)
 
 PH_DECLARE_IMPORT(NtQueryInformationEnlistment);
 PH_DECLARE_IMPORT(NtQueryInformationResourceManager);

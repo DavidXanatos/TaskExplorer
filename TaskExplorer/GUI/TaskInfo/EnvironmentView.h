@@ -13,7 +13,8 @@ public:
 	virtual ~CEnvironmentView();
 
 public slots:
-	void					ShowEnvVariables(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					Refresh();
 
 private slots:
 	//void					OnMenu(const QPoint &point);

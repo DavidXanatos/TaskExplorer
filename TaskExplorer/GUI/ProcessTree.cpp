@@ -227,8 +227,7 @@ void CProcessTree::OnDoubleClicked(const QModelIndex& Index)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-	CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow();
-	pTaskInfoWindow->ShowProcess(pProcess);
+	CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pProcess);
 	pTaskInfoWindow->show();
 }
 
@@ -265,9 +264,10 @@ void CProcessTree::OnMenu(const QPoint &point)
 
 #ifdef WIN32
 	QSharedPointer<CWinProcess> pWinProcess = pProcess.objectCast<CWinProcess>();
+	CWinTokenPtr pToken = pWinProcess ? pWinProcess->GetToken() : NULL;
 
-	m_pVirtualization->setEnabled(!pWinProcess.isNull() && pWinProcess->IsVirtualizationAllowed());
-	m_pVirtualization->setChecked(pWinProcess && pWinProcess->IsVirtualizationEnabled());
+	m_pVirtualization->setEnabled(pToken && pToken->IsVirtualizationAllowed());
+	m_pVirtualization->setChecked(pToken && pToken->IsVirtualizationEnabled());
 
 	m_pCritical->setEnabled(!pWinProcess.isNull());
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
@@ -324,7 +324,13 @@ void CProcessTree::OnProcessAction()
 		retry:
 			STATUS Status = OK;
 			if (sender() == m_pVirtualization)
-				Status = pWinProcess->SetVirtualizationEnabled(m_pVirtualization->isChecked());
+			{
+				CWinTokenPtr pToken = pWinProcess->GetToken();
+				if (pToken)
+					Status = pToken->SetVirtualizationEnabled(m_pVirtualization->isChecked());
+				else
+					Status = ERR(tr("This process does not have a token."), -1);
+			}
 			else if (sender() == m_pCritical)
 				Status = pWinProcess->SetCriticalProcess(m_pCritical->isChecked(), Force == 1);
 			else if (sender() == m_pReduceWS)

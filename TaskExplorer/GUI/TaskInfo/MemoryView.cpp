@@ -32,7 +32,7 @@ CMemoryView::CMemoryView(QWidget *parent)
 	m_pHideFree->setChecked(theConf->GetBool("MemoryView/HideFree", true));
 
 	connect(m_pHideFree, SIGNAL(stateChanged(int)), this, SLOT(UpdateFilter()));
-	connect(m_pRefresh, SIGNAL(toggled(bool)), this, SLOT(OnRefresh()));
+	connect(m_pRefresh, SIGNAL(toggled(bool)), this, SLOT(Refresh()));
 
 
 	m_pMemoryModel = new CMemoryModel();
@@ -83,14 +83,23 @@ CMemoryView::~CMemoryView()
 	theConf->SetBlob(objectName() + "/MemorysView_Columns", m_pMemoryList->header()->saveState());
 }
 
-void CMemoryView::ShowMemory(const CProcessPtr& pProcess)
+void CMemoryView::ShowProcess(const CProcessPtr& pProcess)
 {
-	if (m_pCurProcess == pProcess)
-		return;
-
 	m_pCurProcess = pProcess;
 
-	OnRefresh();
+	Refresh();
+
+	m_pMemoryList->expandAll();
+}
+
+void CMemoryView::Refresh()
+{
+	if (!m_pCurProcess)
+		return;
+
+	QMultiMap<quint64, CMemoryPtr> MemoryList = m_pCurProcess->GetMemoryMap();
+
+	m_pMemoryModel->Sync(MemoryList);
 }
 
 void CMemoryView::OnMenu(const QPoint &point)
@@ -255,13 +264,4 @@ void CMemoryView::OnProtectMemory()
 void CMemoryView::UpdateFilter()
 {
 	m_pSortProxy->SetFilter(m_pHideFree->isChecked());
-}
-
-void CMemoryView::OnRefresh()
-{
-	QMultiMap<quint64, CMemoryPtr> MemoryList = m_pCurProcess->GetMemoryMap();
-
-	m_pMemoryModel->Sync(MemoryList);
-
-	m_pMemoryList->expandAll();
 }

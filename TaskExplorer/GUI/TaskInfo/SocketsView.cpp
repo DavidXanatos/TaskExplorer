@@ -66,18 +66,23 @@ CSocketsView::~CSocketsView()
 	theConf->SetBlob(objectName() + "/SocketsView_Columns", m_pSocketList->header()->saveState());
 }
 
+void CSocketsView::ShowProcess(const CProcessPtr& pProcess)
+{
+	m_pSocketModel->SetProcessFilter(pProcess);
+
+	OnSocketListUpdated(QSet<quint64>(),QSet<quint64>(),QSet<quint64>());
+}
+
+void CSocketsView::Refresh()
+{
+	// noting
+}
+
 void CSocketsView::OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
 	QMultiMap<quint64, CSocketPtr> SocketList = theAPI->GetSocketList();
 
 	m_pSocketModel->Sync(SocketList);
-}
-
-void CSocketsView::ShowSockets(const CProcessPtr& pProcess)
-{
-	m_pSocketModel->SetProcessFilter(pProcess);
-
-	OnSocketListUpdated(QSet<quint64>(),QSet<quint64>(),QSet<quint64>());
 }
 
 void CSocketsView::OnMenu(const QPoint &point)

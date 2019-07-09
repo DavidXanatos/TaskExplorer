@@ -51,17 +51,27 @@ CModulesView::~CModulesView()
 	theConf->SetBlob(objectName() + "/ModulesView_Columns", m_pModuleList->header()->saveState());
 }
 
-void CModulesView::ShowModules(const CProcessPtr& pProcess)
+void CModulesView::ShowProcess(const CProcessPtr& pProcess)
 {
-	disconnect(this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
-	
-	m_pCurProcess = pProcess;
+	if (m_pCurProcess != pProcess)
+	{
+		disconnect(this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-	connect(m_pCurProcess.data(), SIGNAL(ModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+		m_pCurProcess = pProcess;
 
-	m_pCurProcess->UpdateModules();
+		connect(m_pCurProcess.data(), SIGNAL(ModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	}
+
+	Refresh();
 }
 
+void CModulesView::Refresh()
+{
+	if (!m_pCurProcess)
+		return;
+
+	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateModules()));
+}
 
 void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {

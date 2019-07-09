@@ -13,7 +13,7 @@ public:
 	virtual ~CSystemView();
 
 public slots:
-	void					ShowSystem();
+	void					Refresh();
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);

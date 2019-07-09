@@ -70,15 +70,17 @@ public:
 	virtual ~CHandlesView();
 
 public slots:
-	void					ShowHandles(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					Refresh();
+
 	void					UpdateFilter();
 	void					UpdateFilter(const QString & filter);
 	//void					OnShowDetails();
-	void					ShowAllFiles();
 
 private slots:
 	void					ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnItemSelected(const QModelIndex &current);
+	void					OnDoubleClicked();
 
 	//void					OnMenu(const QPoint &point);
 
@@ -92,6 +94,7 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
+	bool					m_ShowAllFiles;
 	CProcessPtr				m_pCurProcess;
 
 private:
@@ -117,8 +120,7 @@ private:
 	QAction*				m_pProtect;
 	QAction*				m_pInherit;
 
-	QAction*				m_pTokenInfo;
-	QAction*				m_pJobInfo;
+	QAction*				m_pOpen;
 	QMenu*					m_pSemaphore;
 	QAction*				m_pSemaphoreAcquire;
 	QAction*				m_pSemaphoreRelease;

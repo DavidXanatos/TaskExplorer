@@ -30,13 +30,11 @@ int main(int argc, char *argv[])
 		}
 		else if (strcmp(argv[i], "-timeout") == 0)
 			timeOut = ++i < argc ? atoi(argv[i]) : 10000;
-#ifdef _DEBUG
 		else if (strcmp(argv[i], "-dbg_wait") == 0)
 		{
 			// add timeout?
 			WaitForDebugger();
 		}
-#endif
 		else if (strcmp(argv[i], "-runsvc") == 0)
 		{
 			run_svc = ++i < argc ? argv[i] : TASK_SERVICE_NAME;

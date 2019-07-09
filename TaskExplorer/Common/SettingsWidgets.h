@@ -1,6 +1,5 @@
 #pragma once
 
-
 class CMultiLineEdit: public QPlainTextEdit
 {
 	Q_OBJECT

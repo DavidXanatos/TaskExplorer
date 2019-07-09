@@ -8,11 +8,9 @@ class CTaskInfoWindow : public QMainWindow
 {
 	Q_OBJECT
 public:
-	CTaskInfoWindow(QWidget *parent = Q_NULLPTR);
+	CTaskInfoWindow(const CProcessPtr& pProcess, quint64 ThreaId = 0, QWidget *parent = Q_NULLPTR);
+	CTaskInfoWindow(QWidget* pSingleTab, const QString& TabName, QWidget *parent = Q_NULLPTR);
 	virtual ~CTaskInfoWindow();
-
-public slots:
-	void				ShowProcess(const CProcessPtr& pProcess);
 
 protected:
 	virtual void		closeEvent(QCloseEvent *e);
@@ -24,7 +22,7 @@ private:
 	QWidget*			m_pMainWidget;
 	QVBoxLayout*		m_pMainLayout;
 
-	CTaskInfoView*		m_pTaskInfo;
+	QWidget*			m_pTaskInfo;
 
 	QDialogButtonBox*	m_pButtonBox;
 };

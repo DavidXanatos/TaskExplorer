@@ -42,9 +42,17 @@ CEnvironmentView::~CEnvironmentView()
 	theConf->SetBlob(objectName() + "/EnvironmentView_Columns", m_pVariablesList->header()->saveState());
 }
 
-void CEnvironmentView::ShowEnvVariables(const CProcessPtr& pProcess)
+void CEnvironmentView::ShowProcess(const CProcessPtr& pProcess)
 {
 	m_pCurProcess = pProcess;
+
+	Refresh();
+}
+
+void CEnvironmentView::Refresh()
+{
+	if (!m_pCurProcess)
+		return;
 
 	QMap<QString, CProcessInfo::SEnvVar> EnvVars = m_pCurProcess->GetEnvVariables();
 

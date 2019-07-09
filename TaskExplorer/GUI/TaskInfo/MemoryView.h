@@ -50,13 +50,13 @@ public:
 	virtual ~CMemoryView();
 
 public slots:
-	void					ShowMemory(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					Refresh();
 
 private slots:
 	void					OnDoubleClicked(const QModelIndex& Index);
 
 	void					UpdateFilter();
-	void					OnRefresh();
 
 	//void					OnMenu(const QPoint &point);
 	void					OnSaveMemory();

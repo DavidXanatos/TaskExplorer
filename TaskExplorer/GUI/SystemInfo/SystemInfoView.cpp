@@ -52,10 +52,7 @@ void CSystemInfoView::OnTab(int tabIndex)
 
 void CSystemInfoView::Refresh()
 {
-	if (m_pTabs->currentWidget() == m_pSystemView)
-		m_pSystemView->ShowSystem();
-	else if (m_pTabs->currentWidget() == m_pAllFilesView)
-		m_pAllFilesView->ShowAllFiles();
+	QTimer::singleShot(0, m_pTabs->currentWidget(), SLOT(Refresh()));
 }
 
 #ifdef WIN32

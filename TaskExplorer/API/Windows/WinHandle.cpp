@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and support functions based on hndlprv.c
  *
  * Copyright (C) 2010-2015 wj32
  * Copyright (C) 2017 dmex
@@ -216,12 +216,37 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
             NtClose(fileHandle);
         }
     }
+	if(m_TypeName == "Section")
+	{
+		HANDLE sectionHandle;
+		NTSTATUS status = NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY | SECTION_MAP_READ, 0, 0 );
+		if (!NT_SUCCESS(status))
+			status = NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY, 0, 0);
+
+		if (NT_SUCCESS(status))
+		{
+			quint64 SectionSize = 0;
+
+			SECTION_BASIC_INFORMATION sectionInfo;
+			if (NT_SUCCESS(PhGetSectionBasicInformation(sectionHandle, &sectionInfo)))
+			{
+				SectionSize = sectionInfo.MaximumSize.QuadPart;
+			}
+
+			if (m_Size != SectionSize)
+			{
+				m_Size = SectionSize;
+				modified = TRUE;
+			}
+
+			NtClose(sectionHandle);
+		}
+	}
 
 
 	return modified;
 }
 
-// hndlprv.c
 /**
  * Enumerates all handles in a process.
  *
@@ -598,7 +623,6 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 		{
 			SECTION_BASIC_INFORMATION sectionInfo;
             
-			quint64 SectionSize = 0;
 			if (NT_SUCCESS(PhGetSectionBasicInformation(sectionHandle, &sectionInfo)))
 			{
 				HandleInfo.Section.Attribs = sectionInfo.AllocationAttributes;

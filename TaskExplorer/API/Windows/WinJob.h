@@ -39,6 +39,8 @@ public:
 	CWinJob(QObject *parent = nullptr);
 	virtual ~CWinJob();
 
+	static CWinJob*	JobFromHandle(quint64 ProcessId, quint64 HandleId);
+
 	virtual QString			GetJobName() const { QReadLocker Locker(&m_Mutex); return m_JobName; }
 
 	virtual QMap<quint64, CProcessPtr>	GetProcesses() const { QReadLocker Locker(&m_Mutex); return m_Processes; }
@@ -57,11 +59,17 @@ public:
 
 	virtual void OpenPermissions();
 
+	enum EQueryType
+	{
+		eProcess = 0,
+		eHandle
+	};
+
 protected:
 	friend class CWinProcess;
 	friend class CJobView;
 
-	bool InitStaticData(quint64 QueryHandle);
+	bool InitStaticData(void* QueryHandle, EQueryType Type = eProcess);
 	bool UpdateDynamicData();
 
 	QString				m_JobName;

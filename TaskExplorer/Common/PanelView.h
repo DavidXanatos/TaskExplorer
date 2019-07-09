@@ -60,6 +60,7 @@ public:
 		AddPanelItemsToMenu(false);
 	}
 
+	virtual T*					GetTree()	{ return m_pTreeList; }
 	virtual QTreeView*			GetView()	{ return m_pTreeList; }
 	virtual QAbstractItemModel* GetModel()	{ return m_pTreeList->model(); }
 

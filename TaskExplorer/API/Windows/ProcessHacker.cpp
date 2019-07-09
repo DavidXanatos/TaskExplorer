@@ -542,7 +542,7 @@ int InitPH(bool bSvc)
     //PhpInitializeSettings();
 	// note: this is needed to open the permissions panel
 	PhpAddIntegerSetting(L"EnableSecurityAdvancedDialog", L"1");
-
+	PhpAddStringSetting(L"FileBrowseExecutable", L"%SystemRoot%\\explorer.exe /select,\"%s\"");
 
     if (!PhIsExecutingInWow64())
     {
@@ -1090,6 +1090,29 @@ NTSTATUS PhGetProcessSwitchContext(
     return STATUS_SUCCESS;
 }
 
+ULONG GetProcessDpiAwareness(HANDLE QueryHandle)
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static BOOL (WINAPI *getProcessDpiAwarenessInternal)(_In_ HANDLE hprocess,_Out_ ULONG *value);
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        getProcessDpiAwarenessInternal = (BOOL (WINAPI *)(_In_ HANDLE hprocess,_Out_ ULONG *value))PhGetDllProcedureAddress(L"user32.dll", "GetProcessDpiAwarenessInternal", 0);
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (!getProcessDpiAwarenessInternal)
+        return 0;
+
+    if (QueryHandle)
+    {
+        ULONG dpiAwareness;
+        if (getProcessDpiAwarenessInternal(QueryHandle, &dpiAwareness))
+            return dpiAwareness + 1;
+    }
+	return 0;
+}
+
 VOID PhpWorkaroundWindows10ServiceTypeBug(_Inout_ LPENUM_SERVICE_STATUS_PROCESS ServieEntry)
 {
     // https://github.com/processhacker2/processhacker/issues/120 (dmex)
@@ -1295,6 +1318,127 @@ CleanupExit:
     //    PhUiDisconnectFromPhSvc();
 
     return result;
+}
+
+#include <shellapi.h>
+
+VOID PhShellExecuteUserString(
+    _In_ HWND hWnd,
+    _In_ PWSTR Setting,
+    _In_ PWSTR String,
+    _In_ BOOLEAN UseShellExecute,
+    _In_opt_ PWSTR ErrorMessage
+    )
+{
+    static PH_STRINGREF replacementToken = PH_STRINGREF_INIT(L"%s");
+    PPH_STRING applicationDirectory;
+    PPH_STRING executeString;
+    PH_STRINGREF stringBefore;
+    PH_STRINGREF stringAfter;
+    PPH_STRING ntMessage;
+
+    if (!(applicationDirectory = PhGetApplicationDirectory()))
+    {
+        PhShowStatus(hWnd, L"Unable to locate the application directory.", STATUS_NOT_FOUND, 0);
+        return;
+    }
+
+    // Get the execute command.
+    executeString = PhGetStringSetting(Setting);
+
+    // Expand environment strings.
+    PhMoveReference((PVOID*)&executeString, PhExpandEnvironmentStrings(&executeString->sr));
+
+    // Make sure the user executable string is absolute. We can't use RtlDetermineDosPathNameType_U
+    // here because the string may be a URL.
+    if (PhFindCharInString(executeString, 0, ':') == -1)
+    {
+        INT stringArgCount;
+        PWSTR* stringArgList;
+
+        // (dmex) HACK: Escape the individual executeString components.
+        if ((stringArgList = CommandLineToArgvW(executeString->Buffer, &stringArgCount)) && stringArgCount == 2)
+        {
+            PPH_STRING fileName = PhCreateString(stringArgList[0]);
+            PPH_STRING fileArgs = PhCreateString(stringArgList[1]);
+
+            // Make sure the string is absolute and escape the filename.
+            if (RtlDetermineDosPathNameType_U(fileName->Buffer) == RtlPathTypeRelative)
+                PhMoveReference((PVOID*)&fileName, PhConcatStrings(4, L"\"", applicationDirectory->Buffer, fileName->Buffer, L"\""));
+            else
+                PhMoveReference((PVOID*)&fileName, PhConcatStrings(3, L"\"", fileName->Buffer, L"\""));
+
+            // Escape the parameters.
+            PhMoveReference((PVOID*)&fileArgs, PhConcatStrings(3, L"\"", fileArgs->Buffer, L"\""));
+
+            // Create the escaped execute string.
+            PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, fileName->Buffer, L" ", fileArgs->Buffer));
+
+            PhDereferenceObject(fileArgs);
+            PhDereferenceObject(fileName);
+            LocalFree(stringArgList);
+        }
+        else
+        {
+            if (RtlDetermineDosPathNameType_U(executeString->Buffer) == RtlPathTypeRelative)
+                PhMoveReference((PVOID*)&executeString, PhConcatStrings(4, L"\"", applicationDirectory->Buffer, executeString->Buffer, L"\""));
+            else
+                PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, L"\"", executeString->Buffer, L"\""));
+        }
+    }
+
+    // Replace the token with the string, or use the original string if the token is not present.
+    if (PhSplitStringRefAtString(&executeString->sr, &replacementToken, FALSE, &stringBefore, &stringAfter))
+    {
+        PPH_STRING stringTemp;
+        PPH_STRING stringMiddle;
+
+        // Note: This code is needed to solve issues with faulty RamDisk software that doesn't use the Mount Manager API
+        // and instead returns \device\ FileName strings. We also can't change the way the process provider stores 
+        // the FileName string since it'll break various features and use-cases required by developers 
+        // who need the raw untranslated FileName string.
+        stringTemp = PhCreateString(String);
+        stringMiddle = PhGetFileName(stringTemp);
+
+        PhMoveReference((PVOID*)&executeString, PhConcatStringRef3(&stringBefore, &stringMiddle->sr, &stringAfter));
+
+        PhDereferenceObject(stringMiddle);
+        PhDereferenceObject(stringTemp);
+    }
+
+    if (UseShellExecute)
+    {
+        PhShellExecute(hWnd, executeString->Buffer, NULL);
+    }
+    else
+    {
+        NTSTATUS status;
+
+        status = PhCreateProcessWin32(NULL, executeString->Buffer, NULL, NULL, 0, NULL, NULL, NULL);
+
+        if (!NT_SUCCESS(status))
+        {
+            if (ErrorMessage)
+            {
+                ntMessage = PhGetNtMessage(status);
+                PhShowError2(
+                    hWnd,
+                    L"Unable to execute the command.",
+                    L"%s\n%s",
+                    PhGetStringOrDefault(ntMessage, L"An unknown error occurred."),
+                    ErrorMessage
+                    );
+                PhDereferenceObject(ntMessage);
+            }
+            else
+            {
+                PhShowStatus(hWnd, L"Unable to execute the command.", status, 0);
+            }
+        }
+    }
+
+    PhDereferenceObject(executeString);
+    PhDereferenceObject(applicationDirectory);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

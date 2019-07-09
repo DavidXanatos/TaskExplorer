@@ -130,7 +130,17 @@ extern GUID WIN10_CONTEXT_GUID;
 
 NTSTATUS PhGetProcessSwitchContext(_In_ HANDLE ProcessHandle, _Out_ PGUID Guid);
 
+ULONG GetProcessDpiAwareness(HANDLE QueryHandle);
+
 BOOLEAN PhShellOpenKey2(_In_ HWND hWnd, _In_ PPH_STRING KeyName);
+
+VOID PhShellExecuteUserString(
+    _In_ HWND hWnd,
+    _In_ PWSTR Setting,
+    _In_ PWSTR String,
+    _In_ BOOLEAN UseShellExecute,
+    _In_opt_ PWSTR ErrorMessage
+);
 
 ////////////////////////////////////////////////////////////////////////////////////
 // other

@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and support functions based on netprv.c
  *
  * Copyright (C) 2011 wj32
  * Copyright (C) 2019 David Xanatos

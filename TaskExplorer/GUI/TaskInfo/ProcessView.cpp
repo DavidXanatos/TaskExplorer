@@ -140,52 +140,59 @@ CProcessView::~CProcessView()
 {
 }
 
-
 void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 {
-	m_pStatsView->ShowProcess(pProcess);
+	if (m_pCurProcess != pProcess)
+	{
+		m_pCurProcess = pProcess;
 
-	if (m_pCurProcess == pProcess)
-		return;
+		CModulePtr pModule = m_pCurProcess->GetModuleInfo();
 
-	m_pCurProcess = pProcess;
+		QPixmap Icon = pModule->GetFileIcon(true);
+		m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
+		QString Description = pModule->GetFileInfo("Description");
+		if (!Description.isEmpty())
+			m_pProcessName->setText(Description + " (" + m_pCurProcess->GetName() + ")");
+		else
+			m_pProcessName->setText(m_pCurProcess->GetName());
 
-	CModulePtr pModule = m_pCurProcess->GetModuleInfo();
-	
-	QPixmap Icon = pModule->GetFileIcon(true);
-	m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
-	QString Description = pModule->GetFileInfo("Description");
-	if (!Description.isEmpty())
-		m_pProcessName->setText(Description + " (" + m_pCurProcess->GetName() + ")");
-	else
-		m_pProcessName->setText(m_pCurProcess->GetName());
-	
-	m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
-	m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
-	m_pFilePath->setText(m_pCurProcess->GetFileName());
+		m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
+		m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
+		m_pFilePath->setText(m_pCurProcess->GetFileName());
 
-	m_pCmdLine->setText(m_pCurProcess->GetCommandLine());
-	m_pCurDir->setText(m_pCurProcess->GetWorkingDirectory());
-	m_pProcessId->setText(tr("%1/%2").arg(m_pCurProcess->GetProcessId()).arg(m_pCurProcess->GetParentId()));
-	m_pUserName->setText(m_pCurProcess->GetUserName());
+		m_pCmdLine->setText(m_pCurProcess->GetCommandLine());
+		m_pCurDir->setText(m_pCurProcess->GetWorkingDirectory());
+		m_pProcessId->setText(tr("%1/%2").arg(m_pCurProcess->GetProcessId()).arg(m_pCurProcess->GetParentId()));
+		m_pUserName->setText(m_pCurProcess->GetUserName());
 
 
-	CProcessPtr pParent = theAPI->GetProcessByID(m_pCurProcess->GetParentId());
-	if (!pProcess->ValidateParent(pParent.data()))
-		pParent.clear();
-	m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName()); 
+		CProcessPtr pParent = theAPI->GetProcessByID(m_pCurProcess->GetParentId());
+		if (!pProcess->ValidateParent(pParent.data()))
+			pParent.clear();
+		m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName());
 
 
 #ifdef WIN32
-	CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
-	if (pWinProc->IsWow64())
-		m_pPEBAddress->setText(tr("0x%1 (32-bit: 0x%2)").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')).arg(pWinProc->GetPebBaseAddress(true), 8, 16, QChar('0')));
-	else
-		m_pPEBAddress->setText(tr("0x%1").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')));
-	m_ImageType->setText(tr("Image type: %1").arg(m_pCurProcess->GetArchString()));
-	
-	m_pMitigation->setText(pWinProc->GetMitigationString());
-	m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
+		if (pWinProc->IsWow64())
+			m_pPEBAddress->setText(tr("0x%1 (32-bit: 0x%2)").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')).arg(pWinProc->GetPebBaseAddress(true), 8, 16, QChar('0')));
+		else
+			m_pPEBAddress->setText(tr("0x%1").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')));
+		m_ImageType->setText(tr("Image type: %1").arg(m_pCurProcess->GetArchString()));
+
+		m_pMitigation->setText(pWinProc->GetMitigationString());
+		m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
 #endif
+	}
+
+	Refresh();
+}
+
+void CProcessView::Refresh()
+{
+	if (!m_pCurProcess)
+		return;
+
+	m_pStatsView->ShowProcess(m_pCurProcess);
 }

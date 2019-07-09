@@ -3,6 +3,28 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [0.3] - 2019-07-09
+### Added
+- tokens tab with advanced infos
+- improved handle window
+-- show job info window 
+-- show token info window 
+-- show task info window
+-- open file lokation
+-- open registry key
+-- read/write section memory
+-- type filter now enumerates all types
+- added size info to section type handle
+
+### Changed
+- rewoked sid to username resolution now using a worker thread to improve performance
+- CWinProcess does nto longer handle sid_user/token informations all is doem by CWinToken instead
+
+### Fixed
+- fixed issue with the first graph text not being displayed
+- fixed an issue causing the client to wait for 10 sec on shutdown
+
+
 
 ## [0.2] - 2019-07-05
 ### Added
@@ -16,6 +38,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 - fixed Uptime column not being refreshed
+
 
 
 ## [0.1] - 2019-06-30

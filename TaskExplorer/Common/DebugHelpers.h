@@ -2,6 +2,10 @@
 
 //#define _TRACE
 
+bool IsDebuggerAttached();
+
+void WaitForDebugger();
+
 #if defined(_DEBUG) || defined(_TRACE)
 
 
@@ -11,10 +15,6 @@ void Assert(bool test);
  #define ASSERT(x)			Assert(x)
  #define VERIFY(f)          ASSERT(f)
  #define DEBUG_ONLY(f)      (f)
-
-bool IsDebuggerAttached();
-
-void WaitForDebugger();
 
 extern bool g_assert_active;
 

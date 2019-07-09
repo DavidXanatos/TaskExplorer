@@ -342,6 +342,9 @@
     <ClCompile Include="GUI\TaskInfo\TokenView.cpp">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\WinToken.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -645,6 +648,9 @@
     </QtMoc>
     <QtMoc Include="GUI\TaskInfo\TokenView.h">
       <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinToken.h">
+      <Filter>API\Windows</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

@@ -19,7 +19,8 @@ public:
 	virtual ~CWindowsView();
 
 public slots:
-	void					ShowWindows(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					Refresh();
 
 private slots:
 	void					OnWindowsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);

@@ -4,11 +4,19 @@
 #include "../../Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinHandle.h"
+#include "TaskInfoWindow.h"
+#include "TokenView.h"
+#include "JobView.h"
+#include "../../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/WinMemIO.h"
 #endif
+#include "../MemoryEditor.h"
 
 CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
 {
+	m_ShowAllFiles = bAll;
+
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
@@ -28,6 +36,7 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 		m_pFilterLayout->addWidget(m_pShowType);
 
 		m_pShowType->addItem(tr("All"), "");
+		/*
 		m_pShowType->addItem(tr("File"), "File");
 		m_pShowType->addItem(tr("Keys"), "Key");
 		m_pShowType->addItem(tr("ALPC Ports"), "ALPC Port");
@@ -43,7 +52,25 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 		m_pShowType->addItem(tr("Semaphores"), "Semaphore");
 		m_pShowType->addItem(tr("Timers"), "Timer");
 		m_pShowType->addItem(tr("Worker Factories"), "TpWorkerFactory");
+		*/
+
+		POBJECT_TYPES_INFORMATION objectTypes;
+		if (NT_SUCCESS(PhEnumObjectTypes(&objectTypes)))
+		{
+			POBJECT_TYPE_INFORMATION objectType = (POBJECT_TYPE_INFORMATION)PH_FIRST_OBJECT_TYPE(objectTypes);
+			for (ULONG i = 0; i < objectTypes->NumberOfTypes; i++)
+			{
+				QString Type = QString::fromWCharArray(objectType->TypeName.Buffer, objectType->TypeName.Length / sizeof(wchar_t));
+
+				m_pShowType->addItem(Type, Type);
+
+				objectType = (POBJECT_TYPE_INFORMATION)PH_NEXT_OBJECT_TYPE(objectType);
+			}
+			PhFree(objectTypes);
+		}
+
 		m_pShowType->setEditable(true); // just in case we forgot a type
+
 
 		m_pHideUnnamed = new QCheckBox(tr("Hide Unnamed"));
 		m_pFilterLayout->addWidget(m_pHideUnnamed);
@@ -122,6 +149,7 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 
 	m_pHandleList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pHandleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+	connect(m_pHandleList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
 	m_pSplitter->addWidget(m_pHandleList);
 	m_pSplitter->setCollapsible(0, false);
@@ -149,7 +177,11 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 		m_pHandleDetails->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/HandlesDetail_Columns"));
 	}
 	else
+	{
 		m_pHandleDetails = NULL;
+
+		connect(theAPI, SIGNAL(OpenFileListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	}
 
 	setObjectName(parent->objectName());
 	m_pHandleList->header()->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Columns"));
@@ -158,22 +190,22 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 
 
 	//m_pMenu = new QMenu();
+	m_pOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
+	
+	m_pMenu->addSeparator();
+
 	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnHandleAction()));
 #ifdef WIN32
 	m_pProtect = m_pMenu->addAction(tr("Protect"), this, SLOT(OnHandleAction()));
 	m_pProtect->setCheckable(true);
 	m_pInherit = m_pMenu->addAction(tr("Inherit"), this, SLOT(OnHandleAction()));
 	m_pInherit->setCheckable(true);
-#endif
-	//m_pMenu->addSeparator();
-#ifdef WIN32
-	
-#ifdef _DEBUG
-	// todo: Token:  detail window // todo: xxx
-	m_pTokenInfo = m_pMenu->addAction(tr("Token Info"), this, SLOT(OnTokenInfo()));
-	m_pJobInfo = m_pMenu->addAction(tr("Job Info"), this, SLOT(OnJobInfo()));
-#endif
 
+#endif
+	
+	m_pMenu->addSeparator();
+
+#ifdef WIN32
 	m_pSemaphore = m_pMenu->addMenu(tr("Semaphore"));
 		m_pSemaphoreAcquire = m_pSemaphore->addAction(tr("Acquire"), this, SLOT(OnHandleAction()));
 		m_pSemaphoreRelease = m_pSemaphore->addAction(tr("Release"), this, SLOT(OnHandleAction()));
@@ -212,8 +244,13 @@ CHandlesView::~CHandlesView()
 		theConf->SetBlob(objectName() + "/HandlesDetail_Columns", m_pHandleDetails->GetView()->header()->saveState());
 }
 
-void CHandlesView::ShowHandles(const CProcessPtr& pProcess)
+void CHandlesView::ShowProcess(const CProcessPtr& pProcess)
 {
+	if (m_ShowAllFiles) {
+		ASSERT(0);
+		return;
+	}
+
 	if (m_pCurProcess != pProcess)
 	{
 		disconnect(this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
@@ -223,21 +260,28 @@ void CHandlesView::ShowHandles(const CProcessPtr& pProcess)
 		connect(m_pCurProcess.data(), SIGNAL(HandlesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
 
-	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateHandles()));
+	Refresh();
+}
+
+void CHandlesView::Refresh()
+{
+	if (m_ShowAllFiles)
+	{
+		theAPI->UpdateOpenFileListAsync();
+	}
+	else if(m_pCurProcess)
+	{
+		QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateHandles()));
+	}
 }
 
 void CHandlesView::ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CHandlePtr> Handles = m_pCurProcess->GetHandleList();
-
-	m_pHandleModel->Sync(Handles);
-}
-
-void CHandlesView::ShowAllFiles()
-{
-	theAPI->UpdateOpenFileListAsync();
-
-	QMap<quint64, CHandlePtr> Handles = theAPI->GetOpenFilesList();
+	QMap<quint64, CHandlePtr> Handles;
+	if (m_ShowAllFiles)
+		Handles = theAPI->GetOpenFilesList();
+	else
+		Handles = m_pCurProcess->GetHandleList();
 
 	m_pHandleModel->Sync(Handles);
 }
@@ -378,11 +422,7 @@ void CHandlesView::OnMenu(const QPoint &point)
 
 	QString Type = pWinHandle ? pWinHandle->GetTypeName() : "";
 
-#ifdef _DEBUG
-	// todo:
-	m_pTokenInfo->setVisible(Type == "Token");
-	m_pJobInfo->setVisible(Type == "Job");
-#endif
+	m_pOpen->setVisible(Type == "Token" || Type == "File" || Type == "Mapped file" || Type == "DLL" || Type == "Mapped image" || Type == "Job" || Type == "Process" || Type == "Thread" || Type == "Section");
 
 	m_pSemaphore->menuAction()->setVisible(Type == "Semaphore");
 	m_pEvent->menuAction()->setVisible(Type == "Event");
@@ -510,8 +550,101 @@ void CHandlesView::OnPermissions()
 	QModelIndex Index = m_pHandleList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+	if (!pHandle)
+		return;
 
 	QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
 	pWinHandle->OpenPermissions();
 #endif
+}
+
+void CHandlesView::OnDoubleClicked()
+{
+	QModelIndex Index = m_pHandleList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+	if (!pHandle)
+		return;
+
+	QString Type;
+#ifdef WIN32
+	CWinHandle* pWinHandle = qobject_cast<CWinHandle*>(pHandle.data());
+	Type = pWinHandle->GetTypeName();
+#else
+	// unix
+#endif
+
+#ifdef WIN32
+	if (Type == "Token")
+	{
+		CWinToken* pToken = CWinToken::TokenFromHandle(pHandle->GetProcessId(), pHandle->GetHandleId());
+		if (pToken)
+		{
+			CTokenView* pTokenView = new CTokenView();
+			CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pTokenView, tr("Token"));
+			pTokenView->ShowToken(CWinTokenPtr(pToken));
+			pTaskInfoWindow->show();
+		}
+	}
+	else if (Type == "Job")
+	{
+		CWinJob* pJob = CWinJob::JobFromHandle(pHandle->GetProcessId(), pHandle->GetHandleId());
+		if (pJob)
+		{
+			CJobView* pJobView = new CJobView();
+			CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pJobView, tr("Job"));
+			pJobView->ShowJob(CWinJobPtr(pJob));
+			pTaskInfoWindow->show();
+		}
+	}
+	else if (Type == "Section")
+	{
+		// Read/Write &memory
+
+		CWinMemIO* pDevice = CWinMemIO::FromHandle(pHandle->GetProcessId(), pHandle->GetHandleId());
+		if (!pDevice) {
+			QMessageBox("TaskExplorer", tr("This memory region can not be edited"), QMessageBox::Warning, QMessageBox::Ok, QMessageBox::NoButton, QMessageBox::NoButton).exec();
+			return;
+		}
+
+		CMemoryEditor* pEditor = new CMemoryEditor();
+		pEditor->setWindowTitle(tr("Memory Editor: %1 (%2)").arg(m_pCurProcess->GetName()).arg(m_pCurProcess->GetParentId()));
+		pEditor->setDevice(pDevice);
+		pEditor->show();
+	}
+	else if (Type == "File" || Type == "Mapped file" || Type == "DLL" || Type == "Mapped image")
+	{
+		//if(Type == "File") // file properties
+		// PhShellProperties(hWnd, Info->BestObjectName->Buffer);
+           
+		PPH_STRING phFileName = CastQString(pHandle->GetFileName());
+		PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+		PhDereferenceObject(phFileName);
+	}
+	else if (Type == "Key")
+	{
+		PPH_STRING phRegKey = CastQString(pHandle->GetFileName());
+		PhShellOpenKey2(NULL, phRegKey);
+		PhDereferenceObject(phRegKey);
+	}
+	else
+#endif
+	if (Type == "Process" || Type == "Thread")
+	{
+		CProcessPtr pProcess = theAPI->GetProcessByID(pHandle->GetProcessId());
+
+		quint64 ThreadId = 0;
+#ifdef WIN32
+		if (Type == "Thread")
+		{
+			CWinHandle::SHandleInfo HandleInfo = pWinHandle->GetHandleInfo();
+			ThreadId = HandleInfo.Task.TID;
+		}
+#else
+		// unix
+#endif
+
+		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pProcess, ThreadId);
+		pTaskInfoWindow->show();
+	}
 }

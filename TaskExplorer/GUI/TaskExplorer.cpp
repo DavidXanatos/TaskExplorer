@@ -186,6 +186,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
 		m_pMenuAbout = m_pMenuHelp->addAction(tr("About TaskExplorer"), this, SLOT(OnAbout()));
+		m_pMenuSupport = m_pMenuHelp->addAction(tr("Support TaskExplorer on Patreon"), this, SLOT(OnAbout()));
 		m_pMenuHelp->addSeparator();
 #ifdef WIN32
 		m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About PHlib"), this, SLOT(OnAbout()));
@@ -648,6 +649,10 @@ void CTaskExplorer::OnAbout()
 #else
 		msgBox->exec();
 #endif
+	}
+	else if (sender() == m_pMenuSupport)
+	{
+		QDesktopServices::openUrl(QUrl("https://www.patreon.com/DavidXanatos"));
 	}
 #ifdef WIN32
 	else if (sender() == m_pMenuAboutPH)

@@ -19,7 +19,9 @@ public:
 	virtual ~CJobView();
 
 public slots:
-	void					ShowJob(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowJob(const CWinJobPtr& pJob);
+	void					Refresh();
 
 private slots:
 	//void					OnMenu(const QPoint &point);

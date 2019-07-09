@@ -7,7 +7,13 @@ class CWinMemIO : public QIODevice
 	Q_OBJECT
 public:
 	CWinMemIO(CWinMemory* pMemory, QObject* parent = NULL);
+	CWinMemIO(quint64 BaseAddress, quint64 RegionSize, quint64 ProcessId, bool bUnMap = false, QObject* parent = NULL);
 	virtual ~CWinMemIO();
+
+	static CWinMemIO* FromHandle(quint64 ProcessId, quint64 HandleId);
+
+	virtual quint64 GetBaseAddress();
+	virtual quint64 GetRegionSize();
 
 	virtual bool open(OpenMode flags);
 	virtual void close();

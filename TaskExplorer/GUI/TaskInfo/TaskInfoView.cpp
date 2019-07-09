@@ -59,10 +59,10 @@ void CTaskInfoView::InitializeTabs()
 	m_pMemoryView = new CMemoryView(this);
 	AddTab(m_pMemoryView, tr("Memory"));
 
+#ifdef WIN32
 	m_pTokenView = new CTokenView(this);
 	AddTab(m_pTokenView, tr("Token"));
 
-#ifdef WIN32
 	m_pJobView = new CJobView(this);
 	AddTab(m_pJobView, tr("Job"));
 
@@ -80,41 +80,22 @@ void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)
 {
 	m_pCurProcess = pProcess;
 
-	Refresh();
+	OnTab(m_pTabs->currentIndex());
+}
+
+void CTaskInfoView::SellectThread(quint64 ThreadId)
+{
+	m_pTabs->setCurrentWidget(m_pThreadsView);
+	m_pThreadsView->SellectThread(ThreadId);
 }
 
 void CTaskInfoView::OnTab(int tabIndex)
 {
-	Refresh();
+	if (!m_pCurProcess.isNull())
+		QMetaObject::invokeMethod(m_pTabs->currentWidget(), "ShowProcess", Qt::AutoConnection, Q_ARG(const CProcessPtr&, m_pCurProcess));
 }
 
 void CTaskInfoView::Refresh()
 {
-	if (m_pCurProcess.isNull())
-		return;
-
-	if(m_pTabs->currentWidget() == m_pProcessView)
-		m_pProcessView->ShowProcess(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pSocketsView)
-		m_pSocketsView->ShowSockets(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pHandlesView)
-		m_pHandlesView->ShowHandles(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pThreadsView)
-		m_pThreadsView->ShowThreads(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pModulesView)
-		m_pModulesView->ShowModules(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pWindowsView)
-		m_pWindowsView->ShowWindows(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pMemoryView)
-		m_pMemoryView->ShowMemory(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pTokenView)
-		m_pTokenView->ShowToken(m_pCurProcess);
-#ifdef WIN32
-	else if(m_pTabs->currentWidget() == m_pJobView)
-		m_pJobView->ShowJob(m_pCurProcess);
-	else if(m_pTabs->currentWidget() == m_pServiceView)
-		m_pServiceView->ShowServices(m_pCurProcess);
-#endif
-	else if(m_pTabs->currentWidget() == m_pEnvironmentView)
-		m_pEnvironmentView->ShowEnvVariables(m_pCurProcess);
+	QMetaObject::invokeMethod(m_pTabs->currentWidget(), "Refresh", Qt::AutoConnection);
 }

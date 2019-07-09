@@ -22,7 +22,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 
 	foreach (const CThreadPtr& pThread, ThreadList)
 	{
-		QVariant ID = (quint64)pThread.data();
+		QVariant ID = pThread->GetThreadId();
 
 		int Row = -1;
 		SThreadNode* pNode = static_cast<SThreadNode*>(Old[ID]);

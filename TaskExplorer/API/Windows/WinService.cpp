@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and support functions based on svcsup.c
  *
  * Copyright (C) 2009-2015 wj32
  * Copyright (C) 2017 dmex

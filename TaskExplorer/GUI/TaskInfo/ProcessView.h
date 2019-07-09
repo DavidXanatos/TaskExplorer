@@ -14,6 +14,7 @@ public:
 
 public slots:
 	void					ShowProcess(const CProcessPtr& pProcess);
+	void					Refresh();
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);

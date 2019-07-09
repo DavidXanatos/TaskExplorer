@@ -143,14 +143,16 @@ class CStyledGridItemDelegate : public QStyledItemDelegateMaxH
 {
 public:
 	explicit CStyledGridItemDelegate(int MaxHeight, QObject * parent = 0) : CStyledGridItemDelegate(MaxHeight, false, parent) { }
-	explicit CStyledGridItemDelegate(int MaxHeight, bool Tree, QObject * parent = 0) : QStyledItemDelegateMaxH(MaxHeight, parent) { m_Tree = Tree; }
+	explicit CStyledGridItemDelegate(int MaxHeight, QColor Color, QObject * parent = 0) : CStyledGridItemDelegate(MaxHeight, Color, false, parent) { }
+	explicit CStyledGridItemDelegate(int MaxHeight, bool Tree, QObject * parent = 0) : CStyledGridItemDelegate(MaxHeight, QColor(Qt::darkGray), false, parent) { }
+	explicit CStyledGridItemDelegate(int MaxHeight, QColor Color, bool Tree, QObject * parent = 0) : QStyledItemDelegateMaxH(MaxHeight, parent) { m_Color = Color;  m_Tree = Tree; }
  
 	void paint(QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const
     {
 		QStyledItemDelegate::paint(painter, option, index);
 
         painter->save();
-        painter->setPen(QColor(Qt::darkGray));
+        painter->setPen(m_Color);
         //painter->drawRect(option.rect);
 		//painter->drawLine(option.rect.left(), option.rect.top(), option.rect.right(), option.rect.top());
 		painter->drawLine(option.rect.right(), option.rect.top(), option.rect.right(), option.rect.bottom());
@@ -159,4 +161,5 @@ public:
     }
 
 	bool m_Tree;
+	QColor m_Color;
 };

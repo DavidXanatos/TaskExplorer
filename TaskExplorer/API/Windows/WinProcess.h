@@ -1,6 +1,7 @@
 #pragma once
 #include "../ProcessInfo.h"
 #include "WinJob.h"
+#include "WinToken.h"
 
 class CWinProcessPrivate;
 
@@ -18,7 +19,7 @@ public:
 	virtual bool IsWoW64() const;
 	virtual QString GetArchString() const;
 	virtual quint64 GetSessionID() const;
-	virtual QString GetElevationString() const;
+	virtual CWinTokenPtr GetToken() const			{ QReadLocker Locker(&m_Mutex); return m_pToken; }
 	virtual ulong GetSubsystem() const;
 	virtual QString GetSubsystemString() const;
 	virtual quint64 GetRawCreateTime() const;
@@ -45,7 +46,7 @@ public:
 
 	virtual QString GetPriorityString() const;
 	virtual STATUS SetPriority(long Value);
-	virtual STATUS SetBasePriority(long Value) { return ERR(); }
+	virtual STATUS SetBasePriority(long Value)		{ return ERR(); }
 	virtual STATUS SetPagePriority(long Value);
 	virtual STATUS SetIOPriority(long Value);
 
@@ -56,10 +57,6 @@ public:
 	virtual bool IsSuspended() const;
 	virtual STATUS Suspend();
 	virtual STATUS Resume();
-
-	// Security
-	virtual int IntegrityLevel() const;
-	virtual QString GetIntegrityString() const;
 
 	virtual void AddService(const QString& Name)	{ QWriteLocker Locker(&m_Mutex); if(!m_ServiceList.contains(Name)) m_ServiceList.append(Name); }
 	virtual QStringList GetServiceList() const		{ QReadLocker Locker(&m_Mutex); return m_ServiceList; }
@@ -76,11 +73,6 @@ public:
 	virtual QString GetOsContextString() const;
 
 	virtual QString GetDEPStatusString() const;
-
-	virtual bool IsVirtualizationAllowed() const;
-	virtual bool IsVirtualizationEnabled() const;
-	virtual STATUS SetVirtualizationEnabled(bool bSet);
-	virtual QString GetVirtualizedString() const;
 
 	virtual QString GetCFGuardString() const;
 
@@ -130,7 +122,7 @@ public:
 	virtual bool	IsWow64() const;
 	virtual quint64 GetPebBaseAddress(bool bWow64 = false) const;
 
-	virtual CWinJobPtr	GetJob() const;
+	virtual CWinJobPtr		GetJob() const;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
 
@@ -169,6 +161,9 @@ protected:
 	// Threads
 	//QMap<quint64, >
 
+	// Token
+	CWinTokenPtr					m_pToken;
+
 private:
 	quint64	m_lastExtUpdate;
 	void	UpdateExtDataIfNeeded() const;
@@ -178,6 +173,3 @@ private:
 	struct SWinProcess* m;
 };
 
-// CWinProcess Helper Functions
-
-QString GetSidFullNameCached(const vector<char>& Sid);

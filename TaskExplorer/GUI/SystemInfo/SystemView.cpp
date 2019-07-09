@@ -81,7 +81,7 @@ CSystemView::~CSystemView()
 }
 
 
-void CSystemView::ShowSystem()
+void CSystemView::Refresh()
 {
 	m_pCpuModel->setText(theAPI->GetCpuModel());
 	m_pSystemMemory->setText(FormatSize(theAPI->GetInstalledMemory()));

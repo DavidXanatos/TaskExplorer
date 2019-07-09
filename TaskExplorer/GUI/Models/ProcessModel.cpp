@@ -4,6 +4,7 @@
 #include "../../Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
+#include "../../API/Windows/WinToken.h"
 #include "../../API/Windows/WinModule.h"
 #endif
 
@@ -81,7 +82,8 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		
 		
 #ifdef WIN32
-		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+		QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
+		CWinTokenPtr pToken = pWinProc->GetToken();
 #endif
 
 
@@ -194,7 +196,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eWND_Handles:			Value = (quint32)pWinProc->GetWndHandles(); break;
 				case eGDI_Handles:			Value = (quint32)pWinProc->GetGdiHandles(); break;
 				case eUSER_Handles:			Value = (quint32)pWinProc->GetUserHandles(); break;
-				case eIntegrity:			Value = pWinProc->IntegrityLevel(); break;
+				case eIntegrity:			Value = pToken ? pToken->GetIntegrityLevel() : 0; break;
 #endif
 				case eIO_Priority:			Value = (quint32)pProcess->GetIOPriority(); break;
 				case ePagePriority:			Value = (quint32)pProcess->GetPagePriority(); break;
@@ -209,7 +211,11 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #endif
 				case eUpTime:				Value = pProcess->GetCreateTimeStamp() != 0 ? (curTime - pProcess->GetCreateTimeStamp() / 1000) : 0; break; // we must update the value to refresh the display
 				case eArch:					Value = pProcess->GetArchString(); break;
-				case eElevation:			Value = pProcess->GetElevationString(); break;
+#ifdef WIN32
+				case eElevation:			Value = pToken ? pToken->GetElevationString() : ""; break;
+#else
+				case eElevation:			break; // linux....
+#endif
 /*#ifdef WIN32
 				case eWindowTitle:			Value = break;
 				case eWindowStatus:			Value = break;
@@ -218,7 +224,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eCyclesDelta:			Value = CpuStats.CycleDelta.Delta; break;
 #ifdef WIN32
 				case eDEP:					Value = pWinProc->GetDEPStatusString();
-				case eVirtualized:			Value = pWinProc->GetVirtualizedString();
+				case eVirtualized:			Value = pToken ? pToken->GetVirtualizationString() : "";
 #endif
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
 				case eContextSwitchesDelta:	Value = CpuStats.ContextSwitchesDelta.Delta; break;
@@ -358,7 +364,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 											ColValue.Formated = FormatTime(ColValue.Raw.toULongLong()/10000);
 					case ePriorityClass:	ColValue.Formated = pProcess->GetPriorityString(); break;
 #ifdef WIN32
-					case eIntegrity:		ColValue.Formated = pWinProc->GetIntegrityString(); break;
+					case eIntegrity:		ColValue.Formated = pToken ? pToken->GetIntegrityString() : "";  break;
 #endif
 					case eSubsystem:		ColValue.Formated = pProcess->GetSubsystemString(); break;
 #ifdef WIN32

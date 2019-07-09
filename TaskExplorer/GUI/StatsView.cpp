@@ -41,7 +41,7 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu(false);
 
-	setObjectName(parent->parent()->objectName());
+	setObjectName(parent->parent() ? parent->parent()->objectName() : "InfoWindow");
 	m_pStatsList->header()->restoreState(theConf->GetBlob(objectName() + "/StatsView_Columns"));
 }
 

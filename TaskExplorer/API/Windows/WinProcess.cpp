@@ -1,6 +1,6 @@
 /*
  * Process Hacker -
- *   qt wrapper and support functions
+ *   qt wrapper and support functions based on procprv.c
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2017-2019 dmex
@@ -64,8 +64,6 @@ struct SWinProcess
 		OsContextVersion = 0;
 		DepStatus = 0;
 		DpiAwareness = -1;
-		VirtualizationAllowed = FALSE;
-		VirtualizationEnabled = FALSE;
 
 		memset(&VmCounters, 0, sizeof(VM_COUNTERS_EX));
 		memset(&IoCounters, 0, sizeof(IO_COUNTERS));
@@ -120,12 +118,6 @@ struct SWinProcess
 	};
 	bool AsyncFinished;
 
-	// Security
-	QByteArray Sid;
-	TOKEN_ELEVATION_TYPE ElevationType;
-	MANDATORY_LEVEL IntegrityLevel;
-	QString IntegrityString;
-
 	// Other
 	HANDLE ConsoleHostProcessId;
 
@@ -157,87 +149,10 @@ struct SWinProcess
 
 	// Misc.
 	ULONG DepStatus;
-	BOOLEAN VirtualizationAllowed;
-    BOOLEAN VirtualizationEnabled;
 
 	QString DesktopInfo;
-
-	/*PH_HASH_ENTRY HashEntry;
-ULONG State;
-PPH_PROCESS_RECORD Record;
-
-
-// Misc.
-
-// Dynamic
-
-
-
-
-
-ULONG TimeSequenceNumber;
-PH_CIRCULAR_BUFFER_FLOAT CpuKernelHistory;
-PH_CIRCULAR_BUFFER_FLOAT CpuUserHistory;
-PH_CIRCULAR_BUFFER_ULONG64 IoReadHistory;
-PH_CIRCULAR_BUFFER_ULONG64 IoWriteHistory;
-PH_CIRCULAR_BUFFER_ULONG64 IoOtherHistory;
-PH_CIRCULAR_BUFFER_SIZE_T PrivateBytesHistory;
-//PH_CIRCULAR_BUFFER_SIZE_T WorkingSetHistory;
-
-// New fields
-*/
 };
 
-// CWinProcess Helper Functions
-
-QReadWriteLock g_Sid2NameMutex;
-QMap<QByteArray, QString> g_Sid2NameCache;
-
-QString GetSidFullNameCached(const QByteArray& Sid, bool bQuick = false)
-{
-	QReadLocker ReadLocker(&g_Sid2NameMutex);
-	QMap<QByteArray, QString>::iterator I = g_Sid2NameCache.find(Sid);
-	if (I != g_Sid2NameCache.end())
-		return I.value();
-	ReadLocker.unlock();
-	
-	// From PhpProcessQueryStage1 
-	// Note: We delay resolving the SID name because the local LSA cache might still be
-	// initializing for users on domain networks with slow links (e.g. VPNs). This can block
-	// for a very long time depending on server/network conditions. (dmex)
-
-	if (bQuick) // so if we want a quick result we skip this step
-		return "";
-
-	QWriteLocker WriteLocker(&g_Sid2NameMutex);
-	PPH_STRING fullName = PhGetSidFullName((PSID)Sid.data(), TRUE, NULL);
-	QString FullName = CastPhString(fullName);
-	g_Sid2NameCache.insert(Sid, FullName);
-	return FullName;
-}
-
-ULONG GetProcessDpiAwareness(HANDLE QueryHandle)
-{
-    static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static BOOL (WINAPI *getProcessDpiAwarenessInternal)(_In_ HANDLE hprocess,_Out_ ULONG *value);
-
-    if (PhBeginInitOnce(&initOnce))
-    {
-        getProcessDpiAwarenessInternal = (BOOL (WINAPI *)(_In_ HANDLE hprocess,_Out_ ULONG *value))PhGetDllProcedureAddress(L"user32.dll", "GetProcessDpiAwarenessInternal", 0);
-        PhEndInitOnce(&initOnce);
-    }
-
-    if (!getProcessDpiAwarenessInternal)
-        return 0;
-
-    if (QueryHandle)
-    {
-        ULONG dpiAwareness;
-        if (getProcessDpiAwarenessInternal(QueryHandle, &dpiAwareness))
-            return dpiAwareness + 1;
-    }
-	return 0;
-}
 
 // CWinProcess Class members
 
@@ -364,17 +279,14 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
 	}
 
 	// Token information
-	if (m->QueryHandle && m->UniqueProcessId != SYSTEM_PROCESS_ID) // System token can't be opened (dmex)
+	if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == SYSTEM_PROCESS_ID) 
 	{
-		// Note: this is done in UpdateDynamicData which is to be called right after InitStaticData
+		m_pToken = CWinTokenPtr(CWinToken::NewSystemToken()); // System token can't be opened (dmex)
 	}
-	else
+	else if (m->QueryHandle) 
 	{
-		if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == SYSTEM_PROCESS_ID) // System token can't be opened on XP (wj32)
-		{
-			m->Sid = QByteArray((char*)&PhSeLocalSystemSid, RtlLengthSid(&PhSeLocalSystemSid));
-			m_UserName = GetSidFullNameCached(m->Sid/*, true*/);
-		}
+		m_pToken = CWinTokenPtr(new CWinToken());
+		m_pToken->InitStaticData(m->QueryHandle);
 	}
 
 	// Known Process Type
@@ -586,25 +498,6 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process)
 		}
 	}
 
-	if (m->QueryHandle)
-	{
-		HANDLE tokenHandle;
-		PhGetProcessDepStatus(m->QueryHandle, &m->DepStatus);
-
-		if (NT_SUCCESS(PhOpenProcessToken(m->QueryHandle, TOKEN_QUERY, &tokenHandle)))
-        {
-            if (NT_SUCCESS(PhGetTokenIsVirtualizationAllowed(tokenHandle, &m->VirtualizationAllowed)) && m->VirtualizationAllowed)
-            {
-                if (!NT_SUCCESS(PhGetTokenIsVirtualizationEnabled(tokenHandle, &m->VirtualizationEnabled)))
-                {
-                    m->VirtualizationAllowed = FALSE; // display N/A on error
-                }
-            }
-
-            NtClose(tokenHandle);
-        }
-	}
-
 	// subsystem
 	if (m->IsSubsystemProcess)
     {
@@ -812,56 +705,10 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		m->AsyncFinished = false;
 	}
 
-    // Token information
 	if (m->QueryHandle && m->UniqueProcessId != SYSTEM_PROCESS_ID) // System token can't be opened (dmex)
 	{
-		// Note: this is done in UpdateDynamicData for non system processes
-		HANDLE tokenHandle;
-
-		if (NT_SUCCESS(PhOpenProcessToken(m->QueryHandle, TOKEN_QUERY, &tokenHandle)))
-		{
-			PTOKEN_USER tokenUser;
-			TOKEN_ELEVATION_TYPE elevationType;
-			MANDATORY_LEVEL integrityLevel;
-			PWSTR integrityString;  // this will point to static stings so dont free it
-
-			// User
-			if (NT_SUCCESS(PhGetTokenUser(tokenHandle, &tokenUser)))
-			{
-				size_t sid_len = RtlLengthSid(tokenUser->User.Sid);
-				if (m->Sid.size() != sid_len || !RtlEqualSid(m->Sid.data(), tokenUser->User.Sid))
-				{
-					m->Sid = QByteArray((char*)tokenUser->User.Sid, sid_len);
-					m_UserName = GetSidFullNameCached(m->Sid/*, true*/);
-					modified = TRUE;
-				}
-				PhFree(tokenUser);
-			}
-
-			// Elevation
-			if (NT_SUCCESS(PhGetTokenElevationType(tokenHandle, &elevationType)))
-			{
-				if (m->ElevationType != elevationType)
-				{
-					m->ElevationType = elevationType;
-					m->IsElevated = elevationType == TokenElevationTypeFull;
-					modified = TRUE;
-				}
-			}
-
-			// Integrity
-			if (NT_SUCCESS(PhGetTokenIntegrityLevel(tokenHandle, &integrityLevel, &integrityString)))
-			{
-				if (m->IntegrityLevel != integrityLevel)
-				{
-					m->IntegrityLevel = integrityLevel;
-					m->IntegrityString = QString::fromWCharArray(integrityString);
-					modified = TRUE;
-				}
-			}
-
-			NtClose(tokenHandle);
-		}
+		if (m_pToken && m_pToken->UpdateDynamicData())
+			modified = TRUE;
 	}
 
     // Job
@@ -1264,7 +1111,7 @@ static BOOLEAN NTAPI EnumModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
     return TRUE;
 }
 
-/*QMultiMap<QString, CModulePtr>::iterator FindoduleEntry(QMultiMap<QString, CModulePtr> &Modules, const QString& FileName, quint64 BaseAddress)
+/*QMultiMap<QString, CModulePtr>::iterator FindModuleEntry(QMultiMap<QString, CModulePtr> &Modules, const QString& FileName, quint64 BaseAddress)
 {
 	for (QMultiMap<QString, CModulePtr>::iterator I = Modules.find(FileName); I != Modules.end() && I.key() == FileName; I++)
 	{
@@ -1478,18 +1325,6 @@ quint64 CWinProcess::GetSessionID() const
 	return m->SessionId; 
 }
 
-QString CWinProcess::GetElevationString() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	switch (m->ElevationType)
-    {
-    case TokenElevationTypeDefault:		return tr("N/A");
-    case TokenElevationTypeLimited:		return tr("Limited");
-    case TokenElevationTypeFull:		return tr("Full");
-    default:							return tr("N/A");
-    }
-}
-
 ulong CWinProcess::GetSubsystem() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -1557,20 +1392,6 @@ bool CWinProcess::IsSubsystemProcess() const
 	return (int)m->IsSecureProcess;
 }
 
-// GDI, USER handles
-int CWinProcess::IntegrityLevel() const
-{
-	QReadLocker Locker(&m_Mutex);
-	return (int)m->IntegrityLevel;
-}
-
-QString CWinProcess::GetIntegrityString() const
-{
-	QReadLocker Locker(&m_Mutex);
-	return m->IntegrityString;
-}
-
-
 // OS context
 ulong CWinProcess::GetOsContextVersion() const
 {
@@ -1603,55 +1424,6 @@ QString CWinProcess::GetDEPStatusString() const
         else
             return tr("DEP");
     }
-	return "";
-}
-
-bool CWinProcess::IsVirtualizationAllowed() const
-{
-	QReadLocker Locker(&m_Mutex);
-	return m->VirtualizationAllowed;
-}
-
-bool CWinProcess::IsVirtualizationEnabled() const
-{
-	QReadLocker Locker(&m_Mutex);
-	return m->VirtualizationEnabled;
-}
-
-STATUS CWinProcess::SetVirtualizationEnabled(bool bSet)
-{
-	QWriteLocker Locker(&m_Mutex);
-
-    NTSTATUS status;
-    HANDLE processHandle;
-    HANDLE tokenHandle;
-
-    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId)))
-    {
-        if (NT_SUCCESS(status = PhOpenProcessToken(processHandle, TOKEN_WRITE, &tokenHandle)))
-        {
-            status = PhSetTokenIsVirtualizationEnabled(tokenHandle, bSet);
-            NtClose(tokenHandle);
-        }
-
-        NtClose(processHandle);
-    }
-
-    if (!NT_SUCCESS(status))
-    {
-		return ERR(tr("Failed to set process virtualization"), status);
-    }
-
-    return OK;
-}
-
-QString CWinProcess::GetVirtualizedString() const 
-{
-	QReadLocker Locker(&m_Mutex);
-	if (m->VirtualizationEnabled)
-		return tr("Allowed");
-	if (m->VirtualizationAllowed)
-		return tr("Virtualized");
 	return "";
 }
 
@@ -1957,8 +1729,11 @@ STATUS CWinProcess::DetachDebugger()
     return OK;
 }
 
-bool RtlEqualSid(_In_ PSID Sid1, const QByteArray& sid)
+bool RtlEqualSid(_In_ PSID Sid1, const CWinTokenPtr& token)
 {
+	if (!token)
+		return false;
+	QByteArray sid = token->GetUserSid();
 	if (sid.isEmpty() || RtlLengthSid(Sid1) != sid.size())
 		return false;
 	return memcmp((char*)Sid1, sid.data(), sid.size()) == 0;
@@ -1967,19 +1742,19 @@ bool RtlEqualSid(_In_ PSID Sid1, const QByteArray& sid)
 bool CWinProcess::IsSystemProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return (RtlEqualSid(&PhSeLocalSystemSid, m->Sid)) || PH_IS_FAKE_PROCESS_ID(m->UniqueProcessId);
+	return (RtlEqualSid(&PhSeLocalSystemSid, m_pToken)) || PH_IS_FAKE_PROCESS_ID(m->UniqueProcessId);
 }
 
 bool CWinProcess::IsServiceProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return !m_ServiceList.isEmpty() || (RtlEqualSid(&PhSeServiceSid, m->Sid) || RtlEqualSid(&PhSeLocalServiceSid, m->Sid) || RtlEqualSid(&PhSeNetworkServiceSid, m->Sid));
+	return !m_ServiceList.isEmpty() || (RtlEqualSid(&PhSeServiceSid, m_pToken) || RtlEqualSid(&PhSeLocalServiceSid, m_pToken) || RtlEqualSid(&PhSeNetworkServiceSid, m_pToken));
 }
 
 bool CWinProcess::IsUserProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return RtlEqualSid(PhGetOwnTokenAttributes().TokenSid, m->Sid);
+	return RtlEqualSid(PhGetOwnTokenAttributes().TokenSid, m_pToken);
 }
 
 bool CWinProcess::IsElevated() const
@@ -2633,7 +2408,7 @@ CWinJobPtr CWinProcess::GetJob() const
 		return CWinJobPtr();
 
 	CWinJobPtr pJob = CWinJobPtr(new CWinJob());
-	if (!pJob->InitStaticData((quint64)m->QueryHandle))
+	if (!pJob->InitStaticData(m->QueryHandle))
 		return CWinJobPtr();
 	return pJob;
 }
@@ -2645,3 +2420,4 @@ QMap<quint64, CMemoryPtr> CWinProcess::GetMemoryMap() const
 	PhQueryMemoryItemList((HANDLE)GetProcessId(), Flags, MemoryMap);
 	return MemoryMap;
 }
+

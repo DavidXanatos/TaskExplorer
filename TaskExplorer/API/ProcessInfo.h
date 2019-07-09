@@ -32,7 +32,6 @@ public:
 
 	virtual QString GetArchString() const = 0;
 	virtual quint64 GetSessionID() const = 0;
-	virtual QString GetElevationString() const = 0;
 
 	virtual ulong GetSubsystem() const = 0;
 	virtual QString GetSubsystemString() const = 0; // on windows wls, etc... on linux wine or not

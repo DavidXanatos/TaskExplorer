@@ -110,13 +110,24 @@ CWindowsView::~CWindowsView()
 	theConf->SetBlob(objectName() + "/WindowsDetail_Columns", m_pWindowDetails->GetView()->header()->saveState());
 }
 
-void CWindowsView::ShowWindows(const CProcessPtr& pProcess)
+void CWindowsView::ShowProcess(const CProcessPtr& pProcess)
 {
-	disconnect(this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
-	
-	m_pCurProcess = pProcess;
+	if (m_pCurProcess != pProcess)
+	{
+		disconnect(this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-	connect(m_pCurProcess.data(), SIGNAL(WindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+		m_pCurProcess = pProcess;
+
+		connect(m_pCurProcess.data(), SIGNAL(WindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	}
+
+	Refresh();
+}
+
+void CWindowsView::Refresh()
+{
+	if (!m_pCurProcess)
+		return;
 
 	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateWindows()));
 }

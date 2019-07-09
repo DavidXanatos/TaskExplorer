@@ -169,10 +169,7 @@ void CWinModule::InitAsyncData(const QString& FileName, const QString& PackageFu
 	Params["PackageFullName"] = PackageFullName;
 	Params["IsSubsystemProcess"] = m_IsSubsystemProcess;
 
-	/*if (m_UserName.isEmpty())
-		Params["Sid"] = m->Sid;*/
-
-	// Note: this instance of CWinProcess may be deleted before the async proces finishes,
+	// Note: this instance of CWinModule may be deleted before the async proces finishes,
 	// so to make things simple and avoid emmory leaks we pass all params and results as a QVariantMap
 	// its not the most eficient way but its simple and reliable.
 
@@ -224,9 +221,6 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
 		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, FALSE);
 	}
-
-	/*if (Params.contains("Sid"))
-		Result["UserName"] = GetSidFullNameCached(Params["Sid"].toByteArray());*/
 	// PhpProcessQueryStage1 End
 
 	// PhpProcessQueryStage2 Begin
@@ -289,9 +283,6 @@ void CWinModule::OnInitAsyncData(int Index)
 	QVariantMap Result = pWatcher->resultAt(Index);
 
 	QWriteLocker Locker(&m_Mutex);
-
-	/*if (Result.contains("UserName"))
-		m_UserName = Result["UserName"].toString();*/
 
 	m_SmallIcon = Result["SmallIcon"].value<QPixmap>();
 	m_LargeIcon = Result["LargeIcon"].value<QPixmap>();

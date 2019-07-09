@@ -15,7 +15,8 @@ public:
 	virtual ~CSocketsView();
 
 public slots:
-	void					ShowSockets(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
+	void					Refresh();
 
 private slots:
 	void					OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);

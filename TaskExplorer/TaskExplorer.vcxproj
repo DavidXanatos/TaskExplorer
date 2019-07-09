@@ -114,7 +114,7 @@
       <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
-      <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <QtMoc>
       <OutputFile>.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</OutputFile>
@@ -294,6 +294,7 @@
     <ClCompile Include="API\Windows\WinService.cpp" />
     <ClCompile Include="API\Windows\WinSocket.cpp" />
     <ClCompile Include="API\Windows\WinThread.cpp" />
+    <ClCompile Include="API\Windows\WinToken.cpp" />
     <ClCompile Include="API\Windows\WinWnd.cpp" />
     <ClCompile Include="API\WndInfo.cpp" />
     <ClCompile Include="Common\CheckableMessageBox.cpp" />
@@ -580,6 +581,7 @@
     <QtMoc Include="API\Windows\WinDumper.h" />
     <QtMoc Include="API\Windows\WinMemory.h" />
     <QtMoc Include="API\Windows\WinMemIO.h" />
+    <QtMoc Include="API\Windows\WinToken.h" />
     <ClInclude Include="Common\Common.h" />
     <ClInclude Include="Common\DebugHelpers.h" />
     <QtMoc Include="Common\TreeViewEx.h">
