@@ -15,7 +15,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - settings dialog with options and the ability to customize list colors
 
 ### Changed
-- now distributing as an installer usinf https://github.com/DavidXanatos/uSetup, with the option to extract for portable mode.
 - made most dialogs resizable
 - select reasonable default columns
 
