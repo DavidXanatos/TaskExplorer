@@ -2,6 +2,28 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4] - 2019-07-15
+### Added
+- gpu usage statistics
+- option to reset graph
+- pause refresh + refresh now
+- add option to fully refresh all services
+- added option to inject a dll into any running process
+- use profile directory to save settings
+- option to customize graph bars from the graph bar context menu
+- graph now have tool tips with detailed informations
+- settings dialog with options and the ability to customize list colors
+
+### Changed
+- now distributing as an installer usinf https://github.com/DavidXanatos/uSetup, with the option to extract for portable mode.
+- made most dialogs resizable
+- select reasonable default columns
+
+### Fixed
+- a 32 bit version can not longer be started on a 64-bit system as it would not work correctly, however it tries to start a 64 bit version if avilable.
+- fixed process service tab not working
+
+
 
 ## [0.3] - 2019-07-09
 ### Added

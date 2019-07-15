@@ -4,6 +4,28 @@
 #include "../Common/FlexError.h"
 #include "AbstractInfo.h"
 
+struct STimeUsage
+{
+	STimeUsage()
+	{
+		Usage = 0;
+	}
+
+	void			Calculate(quint64 totalTime)
+	{
+		if (!totalTime)
+			return;
+
+		Usage = (float)Delta.Delta / totalTime;
+
+		if (Usage > 1)
+			Usage = 1;
+	}
+
+	SDelta64 		Delta;
+	float			Usage; 
+};
+
 struct STaskStats
 {
 	STaskStats()

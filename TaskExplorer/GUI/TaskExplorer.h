@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QtWidgets/QMainWindow>
-#include "GraphBar.h"
 #include "ProcessTree.h"
 #include "SystemInfo\SystemInfoView.h"
 #include "TaskInfo\TaskInfoView.h"
@@ -10,9 +9,12 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	3
+#define VERSION_MIN 	4
 #define VERSION_REV 	0
 #define VERSION_UPD 	0
+
+class CGraphBar;
+class CCustomItemDelegate;
 
 class CTaskExplorer : public QMainWindow
 {
@@ -21,6 +23,9 @@ class CTaskExplorer : public QMainWindow
 public:
 	CTaskExplorer(QWidget *parent = Q_NULLPTR);
 	virtual ~CTaskExplorer();
+
+	QStyledItemDelegate*	GetItemDelegate();
+	int					GetCellHeight();
 
 	enum EColor {
 		eNone = 0,
@@ -44,19 +49,25 @@ public:
 		eExecutable,
 		eColorCount
 	};
-	static QColor	GetColor(int Color);
+	static QColor		GetColor(int Color);
 
-	static void		CheckErrors(QList<STATUS> Errors);
+	static void			CheckErrors(QList<STATUS> Errors);
+
+	static QString		GetVersion();
+
+signals:
+	void				ReloadAll();
 
 public slots:
+	void				UpdateAll();
+
 	void				UpdateTray();
 
+	void				UpdateOptions();
 
 protected:
 	void				timerEvent(QTimerEvent* pEvent);
 	void				closeEvent(QCloseEvent *e);
-
-	void				UpdateAll();
 
 	//quint16				m_uTimerCounter;
 	int					m_uTimerID;
@@ -77,11 +88,12 @@ private slots:
 	void				OnKernelServices();
 	void				OnTaskTab();
 
-	void				OnPreferences();
+	void				OnSettings();
 	void				OnAutoRun();
 	void				OnSkipUAC();
 
 	void				OnCreateService();
+	void				OnReloadService();
 	void				OnSCMPermissions();
 	void				OnMonitorETW();
 
@@ -89,8 +101,9 @@ private slots:
 
 	void				OnAbout();
 
-private:
+	void				OnGraphsResized(int Size);
 
+private:
 	QWidget*			m_pMainWidget;
 	QVBoxLayout*		m_pMainLayout;
 	QSplitter*			m_pGraphSplitter;
@@ -118,8 +131,11 @@ private:
 
 	QMap<QAction*, int> m_Act2Tab;
 
+	QAction*			m_pMenuPauseRefresh;
+	QAction*			m_pMenuRefreshNow;
+
 	QMenu*				m_pMenuOptions;
-	QAction*			m_pMenuConf;
+	QAction*			m_pMenuSettings;
 	QAction*			m_pMenuAutoRun;
 #ifdef WIN32
 	QAction*			m_pMenuUAC;
@@ -128,6 +144,7 @@ private:
 	QMenu*				m_pMenuTools;
 	QMenu*				m_pMenuServices;
 	QAction*			m_pMenuCreateService;
+	QAction*			m_pMenuUpdateServices;
 #ifdef WIN32
 	QAction*			m_pMenuSCMPermissions;
 	QAction*			m_pMenuETW;
@@ -147,10 +164,13 @@ private:
 	bool				m_bExit;
 
 	QImage				m_TrayGraph;
+
+	CCustomItemDelegate* m_pCustomItemDelegate;
 };
 
-extern CSettings*	theConf;
-extern CSystemAPI*	theAPI;
+extern CSettings*		theConf;
+extern CSystemAPI*		theAPI;
+extern CTaskExplorer*	theGUI;
 
 extern QIcon g_ExeIcon;
 extern QIcon g_DllIcon;

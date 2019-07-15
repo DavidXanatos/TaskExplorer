@@ -17,7 +17,6 @@ public:
 	void			Sync(const QMap<QVariant, QVariantMap>& List);
 	void			CountItems();
 	QModelIndex		FindIndex(const QVariant& ID);
-	void			Clear();
 	void			RemoveIndex(const QModelIndex &index);
 
 	QVariant		Data(const QModelIndex &index, int role, int section) const;
@@ -31,6 +30,9 @@ public:
     virtual int				rowCount(const QModelIndex &parent = QModelIndex()) const;
 	virtual int				columnCount(const QModelIndex &parent = QModelIndex()) const;
 	virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const ;
+
+public slots:
+	void			Clear();
 
 signals:
 	void			CheckChanged(const QVariant& ID, bool State);

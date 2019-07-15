@@ -345,6 +345,15 @@
     <ClCompile Include="API\Windows\WinToken.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\GpuMonitor.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SettingsWindow.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ItemChooser.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -397,6 +406,12 @@
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\d3dkmt.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\CustomItemDelegate.h">
+      <Filter>TaskExplorer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -652,6 +667,15 @@
     <QtMoc Include="API\Windows\WinToken.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
+    <QtMoc Include="API\Windows\ProcessHacker\GpuMonitor.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SettingsWindow.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\ItemChooser.h">
+      <Filter>Common</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -684,23 +708,26 @@
     <None Include="..\CHANGELOG.md" />
   </ItemGroup>
   <ItemGroup>
-    <QtUic Include="Resources\NewService.ui">
-      <Filter>Resource Files</Filter>
-    </QtUic>
-    <QtUic Include="Resources\WinSvcWindow.ui">
-      <Filter>Resource Files</Filter>
-    </QtUic>
-    <QtUic Include="Resources\RunAsDialog.ui">
-      <Filter>Resource Files</Filter>
-    </QtUic>
-    <QtUic Include="Resources\WinSvcTrigger.ui">
-      <Filter>Resource Files</Filter>
-    </QtUic>
-    <QtUic Include="Resources\WinSvcShutdown.ui">
-      <Filter>Resource Files</Filter>
-    </QtUic>
+    <Text Include="..\TODO.md" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\TODO.md" />
+    <QtUic Include="Form Files\NewService.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="Form Files\RunAsDialog.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="Form Files\SettingsWindow.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="Form Files\WinSvcShutdown.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="Form Files\WinSvcTrigger.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="Form Files\WinSvcWindow.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
   </ItemGroup>
 </Project>

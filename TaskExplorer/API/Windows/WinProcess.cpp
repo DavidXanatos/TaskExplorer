@@ -1305,6 +1305,12 @@ void CWinProcess::AddDiskIO(int Type, ulong TransferSize)
 	}
 }
 
+void* CWinProcess::GetQueryHandle() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->QueryHandle;
+}
+
 bool CWinProcess::IsWoW64() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -2374,6 +2380,109 @@ STATUS CWinProcess::ReduceWS()
     }
 
 	return OK;
+}
+
+STATUS CWinProcess::LoadModule(const QString& Path)
+{
+	QWriteLocker Locker(&m_Mutex); 
+
+	NTSTATUS status;
+	
+	LARGE_INTEGER Timeout;
+		Timeout.QuadPart = -(LONGLONG)UInt32x32To64(5, PH_TIMEOUT_SEC);
+	wstring FileName = Path.toStdWString();
+
+    HANDLE ProcessHandle;
+	if (NT_SUCCESS(status = PhOpenProcess(&ProcessHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, m->UniqueProcessId)))
+	{
+#ifdef _WIN64
+		static PVOID loadLibraryW32 = NULL;
+#endif
+		NTSTATUS status;
+#ifdef _WIN64
+		BOOLEAN isWow64 = FALSE;
+		BOOLEAN isModule32 = FALSE;
+		PH_MAPPED_IMAGE mappedImage;
+#endif
+		PVOID threadStart;
+		PH_STRINGREF fileName;
+		PVOID baseAddress = NULL;
+		SIZE_T allocSize;
+		HANDLE threadHandle;
+
+#ifdef _WIN64
+		PhGetProcessIsWow64(ProcessHandle, &isWow64);
+
+		if (isWow64)
+		{
+			if (!NT_SUCCESS(status = PhLoadMappedImage((wchar_t*)FileName.c_str(), NULL, TRUE, &mappedImage)))
+				goto FreeExit;
+
+			isModule32 = mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC;
+			PhUnloadMappedImage(&mappedImage);
+		}
+
+		if (!isModule32)
+		{
+#endif
+			threadStart = PhGetDllProcedureAddress(L"kernel32.dll", "LoadLibraryW", 0);
+#ifdef _WIN64
+		}
+		else
+		{
+			threadStart = loadLibraryW32;
+
+			if (!threadStart)
+			{
+				PH_STRINGREF systemRoot;
+				PPH_STRING kernel32FileName;
+
+				PhGetSystemRoot(&systemRoot);
+				kernel32FileName = PhConcatStringRefZ(&systemRoot, L"\\SysWow64\\kernel32.dll");
+
+				status = PhGetProcedureAddressRemote(ProcessHandle, kernel32FileName->Buffer, "LoadLibraryW", 0, &loadLibraryW32, NULL);
+				PhDereferenceObject(kernel32FileName);
+
+				if (!NT_SUCCESS(status))
+					goto FreeExit;
+
+				threadStart = loadLibraryW32;
+			}
+		}
+#endif
+
+		PhInitializeStringRefLongHint(&fileName, (wchar_t*)FileName.c_str());
+		allocSize = fileName.Length + sizeof(UNICODE_NULL);
+
+		if (!NT_SUCCESS(status = NtAllocateVirtualMemory(ProcessHandle, &baseAddress, 0, &allocSize, MEM_COMMIT, PAGE_READWRITE)))
+			goto FreeExit;
+
+		if (!NT_SUCCESS(status = NtWriteVirtualMemory(ProcessHandle, baseAddress, fileName.Buffer, fileName.Length + sizeof(UNICODE_NULL), NULL)))
+			goto FreeExit;
+
+		if (!NT_SUCCESS(status = RtlCreateUserThread(ProcessHandle, NULL, FALSE, 0, 0, 0, (PUSER_THREAD_START_ROUTINE)threadStart, baseAddress, &threadHandle, NULL)))
+			goto FreeExit;
+
+		// Wait for the thread to finish.	
+		status = NtWaitForSingleObject(threadHandle, FALSE, &Timeout);
+		NtClose(threadHandle);
+
+	FreeExit:
+		// Size needs to be zero if we're freeing.	
+		if (baseAddress)
+		{
+			allocSize = 0;
+			NtFreeVirtualMemory(ProcessHandle, &baseAddress, &allocSize, MEM_RELEASE);
+		}
+
+		NtClose(ProcessHandle);
+	}
+
+	if (!NT_SUCCESS(status))
+	{
+		return ERR(tr("load the DLL into"), status);
+	}
+    return OK;
 }
 
 NTSTATUS PhpProcessGeneralOpenProcess(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)

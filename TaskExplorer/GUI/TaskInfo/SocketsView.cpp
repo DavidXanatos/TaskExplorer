@@ -24,7 +24,7 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 
 	// Socket List
 	m_pSocketList = new QTreeViewEx();
-	m_pSocketList->setItemDelegate(new CStyledGridItemDelegate(m_pSocketList->fontMetrics().height() + 3, this));
+	m_pSocketList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pSocketList->setModel(m_pSortProxy);
 
@@ -38,14 +38,12 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 		//Hide unneded columns
 		m_pSocketList->setColumnFixed(CSocketModel::eProcess, true);
 		m_pSocketList->setColumnHidden(CSocketModel::eProcess, true);
-#ifdef WIN32
-		m_pSocketList->setColumnFixed(CSocketModel::eOwner, true);
-		m_pSocketList->setColumnHidden(CSocketModel::eOwner, true);
-#endif
 	}
 
 	m_pSocketList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pSocketList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+
+	connect(theGUI, SIGNAL(ReloadAll()), m_pSocketModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pSocketList);
 	// 
@@ -57,7 +55,28 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pSocketList->header()->restoreState(theConf->GetBlob(objectName() + "/SocketsView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/SocketsView_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pSocketModel->columnCount(); i++)
+			m_pSocketList->setColumnHidden(i, true);
+
+		if (bAll)
+		{
+			m_pSocketList->setColumnHidden(CSocketModel::eProcess, false);
+			m_pSocketList->setColumnHidden(CSocketModel::eOwner, false);
+		}
+		m_pSocketList->setColumnHidden(CSocketModel::eProtocol, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eState, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eLocalAddress, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eLocalPort, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eRemoteAddress, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eRemotePort, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eSendRate, false);
+		m_pSocketList->setColumnHidden(CSocketModel::eReceiveRate, false);
+	}
+	else
+		m_pSocketList->header()->restoreState(Columns);
 }
 
 

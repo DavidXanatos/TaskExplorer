@@ -10,7 +10,9 @@
 #include "NewService.h"
 #include "RunAsDialog.h"
 #include "../SVC/TaskService.h"
-
+#include "GraphBar.h"
+#include "SettingsWindow.h"
+#include "CustomItemDelegate.h"
 
 CSystemAPI*	theAPI = NULL;
 
@@ -18,6 +20,7 @@ QIcon g_ExeIcon;
 QIcon g_DllIcon;
 
 CSettings* theConf = NULL;
+CTaskExplorer* theGUI = NULL;
 
 
 #if defined(Q_OS_WIN)
@@ -47,14 +50,9 @@ public:
 CTaskExplorer::CTaskExplorer(QWidget *parent)
 	: QMainWindow(parent)
 {
-	g_ExeIcon = QIcon(":/Icons/exe16.png");
-	g_ExeIcon.addFile(":/Icons/exe32.png");
-	g_ExeIcon.addFile(":/Icons/exe48.png");
-	g_ExeIcon.addFile(":/Icons/exe64.png");
-	g_DllIcon = QIcon(":/Icons/dll16.png");
-	g_DllIcon.addFile(":/Icons/dll32.png");
-	g_DllIcon.addFile(":/Icons/dll48.png");
-	g_DllIcon.addFile(":/Icons/dll64.png");
+	theGUI = this;
+
+	this->setWindowTitle(tr("TaskExplorer v%1").arg(GetVersion()));
 
 	theAPI = CSystemAPI::New();
 
@@ -66,7 +64,26 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
     QApplication::instance()->installNativeEventFilter(new CNativeEventFilter);
 #endif
 
+	if (g_ExeIcon.isNull())
+	{
+		g_ExeIcon = QIcon(":/Icons/exe16.png");
+		g_ExeIcon.addFile(":/Icons/exe32.png");
+		g_ExeIcon.addFile(":/Icons/exe48.png");
+		g_ExeIcon.addFile(":/Icons/exe64.png");
+	}
+
+	if (g_ExeIcon.isNull())
+	{
+		g_DllIcon = QIcon(":/Icons/dll16.png");
+		g_DllIcon.addFile(":/Icons/dll32.png");
+		g_DllIcon.addFile(":/Icons/dll48.png");
+		g_DllIcon.addFile(":/Icons/dll64.png");
+	}
+
 	m_bExit = false;
+
+	// a shared item deleagate for all lists
+	m_pCustomItemDelegate = new CCustomItemDelegate(GetCellHeight() + 1, this);
 
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
@@ -84,6 +101,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pGraphSplitter->addWidget(m_pGraphBar);
 	m_pGraphSplitter->setStretchFactor(0, 0);
 	m_pGraphSplitter->setSizes(QList<int>() << 80); // default size of 80
+	connect(m_pGraphBar, SIGNAL(Resized(int)), this, SLOT(OnGraphsResized(int)));
 
 	m_pMainSplitter = new QSplitter();
 	m_pMainSplitter->setOrientation(Qt::Horizontal);
@@ -156,10 +174,13 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			m_Act2Tab[pAction] = i;
 		}
 
-
+		m_pMenuView->addSeparator();
+		m_pMenuPauseRefresh = m_pMenuView->addAction(tr("Pause Refresh"));
+		m_pMenuPauseRefresh->setCheckable(true);
+		m_pMenuRefreshNow = m_pMenuView->addAction(tr("Refresh Now"), this, SLOT(UpdateAll()));
 
 	m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
-		m_pMenuConf = m_pMenuOptions->addAction(tr("Preferences"), this, SLOT(OnPreferences()));
+		m_pMenuSettings = m_pMenuOptions->addAction(tr("Settings"), this, SLOT(OnSettings()));
 		m_pMenuOptions->addSeparator();
 		m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
 		m_pMenuAutoRun->setCheckable(true);
@@ -175,6 +196,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuServices = m_pMenuTools->addMenu(tr("&Services"));
 			m_pMenuCreateService = m_pMenuServices->addAction(tr("Create new Service"), this, SLOT(OnCreateService()));
 			m_pMenuCreateService->setEnabled(PhGetOwnTokenAttributes().Elevated);
+			m_pMenuUpdateServices = m_pMenuServices->addAction(tr("ReLoad all Service"), this, SLOT(OnReloadService()));
 #ifdef WIN32
 			m_pMenuSCMPermissions = m_pMenuServices->addAction(tr("Service Control Manager Permissions"), this, SLOT(OnSCMPermissions()));
 #endif
@@ -185,13 +207,14 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
-		m_pMenuAbout = m_pMenuHelp->addAction(tr("About TaskExplorer"), this, SLOT(OnAbout()));
 		m_pMenuSupport = m_pMenuHelp->addAction(tr("Support TaskExplorer on Patreon"), this, SLOT(OnAbout()));
 		m_pMenuHelp->addSeparator();
 #ifdef WIN32
-		m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About PHlib"), this, SLOT(OnAbout()));
+		m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About ProcessHacker Library"), this, SLOT(OnAbout()));
 #endif
-		m_pMenuAboutQt = m_pMenuHelp->addAction(tr("About Qt"), this, SLOT(OnAbout()));
+		m_pMenuAboutQt = m_pMenuHelp->addAction(tr("About the Qt Framework"), this, SLOT(OnAbout()));
+		m_pMenuHelp->addSeparator();
+		m_pMenuAbout = m_pMenuHelp->addAction(QIcon(":/TaskExplorer.png"), tr("About TaskExplorer"), this, SLOT(OnAbout()));
 
 
 	restoreGeometry(theConf->GetBlob("MainWindow/Window_Geometry"));
@@ -220,6 +243,11 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	//QLabel* m_pInfo = new QLabel(tr("test"));
 	//statusBar()->addPermanentWidget(m_pInfo);
 
+	m_pCustomItemDelegate->m_Grid = theConf->GetBool("Options/ShowGrid", true);
+	m_pCustomItemDelegate->m_Color = QColor(theConf->GetString("Colors/GridColor", "#808080"));
+
+	m_pGraphBar->UpdateLengths();
+
 	//m_uTimerCounter = 0;
 	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
@@ -243,6 +271,8 @@ CTaskExplorer::~CTaskExplorer()
 	theConf->SetBlob("MainWindow/Graph_Splitter",m_pGraphSplitter->saveState());
 
 	delete theAPI;
+
+	theGUI = NULL;
 }
 
 void CTaskExplorer::OnInitDone()
@@ -250,12 +280,21 @@ void CTaskExplorer::OnInitDone()
 	m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
 }
 
+void CTaskExplorer::OnGraphsResized(int Size)
+{
+	QList<int> Sizes = m_pGraphSplitter->sizes();
+	Sizes[1] += Sizes[0] - Size;
+	Sizes[0] = Size;
+	m_pGraphSplitter->setSizes(Sizes);
+}
+
 void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 {
 	if (pEvent->timerId() != m_uTimerID)
 		return;
 
-	UpdateAll();
+	if(!m_pMenuPauseRefresh->isChecked())
+		UpdateAll();
 }
 
 void CTaskExplorer::closeEvent(QCloseEvent *e)
@@ -263,7 +302,7 @@ void CTaskExplorer::closeEvent(QCloseEvent *e)
 	if (m_bExit)
 		return;
 
-	if(m_pTrayIcon->isVisible() && theConf->GetBool("SysTray/CloseToTray", false))
+	if(m_pTrayIcon->isVisible() && theConf->GetBool("SysTray/CloseToTray", true))
 	{
 		hide();
 		e->ignore();
@@ -317,7 +356,7 @@ void CTaskExplorer::UpdateTray()
 
 	m_pTrayIcon->setToolTip(TrayInfo);
 
-	QString TrayGraphMode = theConf->GetString("Options/TrayGraphMode", "CpuMem");
+	QString TrayGraphMode = theConf->GetString("SysTray/GraphMode", "CpuMem");
 
 	int MemMode = 0;
 	if (TrayGraphMode.compare("Cpu", Qt::CaseInsensitive) == 0)
@@ -508,9 +547,26 @@ void CTaskExplorer::OnTaskTab()
 	m_pTaskInfo->ShowTab(Index, pAction->isChecked());
 }
 
-void CTaskExplorer::OnPreferences()
+void CTaskExplorer::OnSettings()
 {
-	// todo: xxx
+	CSettingsWindow* pSettingsWindow = new CSettingsWindow();
+	connect(pSettingsWindow, SIGNAL(OptionsChanged()), this, SLOT(UpdateOptions()));
+	pSettingsWindow->show();
+}
+
+void CTaskExplorer::UpdateOptions()
+{
+	m_pCustomItemDelegate->m_Grid = theConf->GetBool("Options/ShowGrid", true);
+	m_pCustomItemDelegate->m_Color = QColor(theConf->GetString("Colors/GridColor", "#808080"));
+
+	m_pGraphBar->UpdateLengths();
+
+	killTimer(m_uTimerID);
+	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
+
+	emit ReloadAll();
+
+	QTimer::singleShot(0, this, SLOT(UpdateAll()));
 }
 
 void CTaskExplorer::OnAutoRun()
@@ -529,6 +585,11 @@ void CTaskExplorer::OnCreateService()
 {
 	CNewService* pWnd = new CNewService();
 	pWnd->show();
+}
+
+void CTaskExplorer::OnReloadService()
+{
+	QMetaObject::invokeMethod(theAPI, "UpdateServiceList", Qt::QueuedConnection, Q_ARG(bool, true));
 }
 
 #ifdef WIN32
@@ -559,33 +620,62 @@ void CTaskExplorer::OnMonitorETW()
 #endif
 }
 
+QStyledItemDelegate* CTaskExplorer::GetItemDelegate() 
+{
+	return m_pCustomItemDelegate; 
+}
+
+int CTaskExplorer::GetCellHeight()
+{
+	return 16;
+}
+
 QColor CTaskExplorer::GetColor(int Color)
 {
+	QString ColorStr;
 	switch (Color)
 	{
-	case eToBeRemoved:	return QColor(theConf->GetString("Colors/ToBeRemoved", "#F08080"));
-	case eAdded:		return QColor(theConf->GetString("Colors/NewlyCreated", "#00FF7F"));
+	case eToBeRemoved:	ColorStr = theConf->GetString("Colors/ToBeRemoved", "#F08080"); break;
+	case eAdded:		ColorStr = theConf->GetString("Colors/NewlyCreated", "#00FF7F"); break;
 	
-	case eSystem:		return QColor(theConf->GetString("Colors/SystemProcess", "#AACCFF"));
-	case eUser:			return QColor(theConf->GetString("Colors/UserProcess", "#FFFF80"));
-	case eService:		return QColor(theConf->GetString("Colors/ServiceProcess", "#80FFFF"));
+	case eSystem:		ColorStr = theConf->GetString("Colors/SystemProcess", "#AACCFF"); break;
+	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFF80"); break;
+	case eService:		ColorStr = theConf->GetString("Colors/ServiceProcess", "#80FFFF"); break;
 #ifdef WIN32
-	case eJob:			return QColor(theConf->GetString("Colors/JobProcess", "#D49C5C"));
-	case ePico:			return QColor(theConf->GetString("Colors/PicoProcess", "#42A0FF"));
-	case eImmersive:	return QColor(theConf->GetString("Colors/ImmersiveProcess", "#FFE6FF"));
-	case eDotNet:		return QColor(theConf->GetString("Colors/NetProcess", "#DCFF00"));
+	case eJob:			ColorStr = theConf->GetString("Colors/JobProcess", "#D49C5C"); break;
+	case ePico:			ColorStr = theConf->GetString("Colors/PicoProcess", "#42A0FF"); break;
+	case eImmersive:	ColorStr = theConf->GetString("Colors/ImmersiveProcess", "#FFE6FF"); break;
+	case eDotNet:		ColorStr = theConf->GetString("Colors/NetProcess", "#DCFF00"); break;
 #endif
-	case eElevated:		return QColor(theConf->GetString("Colors/ElevatedProcess", "#FFBB30"));
+	case eElevated:		ColorStr = theConf->GetString("Colors/ElevatedProcess", "#FFBB30"); break;
 
 #ifdef WIN32
-	case eGuiThread:	return QColor(theConf->GetString("Colors/GuiThread", "#AACCFF"));
-	case eIsInherited:	return QColor(theConf->GetString("Colors/IsInherited", "#77FFFF"));
-	case eIsProtected:	return QColor(theConf->GetString("Colors/IsProtected", "#FF77FF"));
+	case eGuiThread:	ColorStr = theConf->GetString("Colors/GuiThread", "#AACCFF"); break;
+	case eIsInherited:	ColorStr = theConf->GetString("Colors/IsInherited", "#77FFFF"); break;
+	case eIsProtected:	ColorStr = theConf->GetString("Colors/IsProtected", "#FF77FF"); break;
 #endif
 
-	case eExecutable:	return QColor(theConf->GetString("Colors/Executable", "#FF90E0"));
+	case eExecutable:	ColorStr = theConf->GetString("Colors/Executable", "#FF90E0"); break;
 	}
+
+	StrPair ColorUse = Split2(ColorStr, ";");
+	if (ColorUse.second.isEmpty() || ColorUse.second.compare("true", Qt::CaseInsensitive) == 0 || ColorUse.second.toInt() != 0)
+		return QColor(ColorUse.first);
+
 	return QColor(theConf->GetString("Colors/Background", "#FFFFFF"));
+}
+
+QString CTaskExplorer::GetVersion()
+{
+	QString Version = QString::number(VERSION_MJR) + "." + QString::number(VERSION_MIN) //.rightJustified(2, '0')
+#if VERSION_REV > 0
+		+ "." + QString::number(VERSION_REV)
+#endif
+#if VERSION_UPD > 0
+		+ QString('a' + VERSION_UPD - 1)
+#endif
+		;
+	return Version;
 }
 
 void CTaskExplorer::OnAbout()
@@ -603,21 +693,14 @@ void CTaskExplorer::OnAbout()
 		}
 #endif
 
-		QString Version = QString::number(VERSION_MJR) + "." + QString::number(VERSION_MIN) //.rightJustified(2, '0')
-#if VERSION_REV > 0
-			+ "." + QString::number(VERSION_REV)
-#endif
-#if VERSION_UPD > 0
-			+ QString::number('a' + VERSION_UPD - 1)
-#endif
-			;
+
 
 		QString AboutCaption = tr(
 			"<h3>About TaskExplorer</h3>"
 			"<p>Version %1</p>"
 			"<p>by DavidXanatos</p>"
 			"<p>Copyright (c) 2019</p>"
-		).arg(Version);
+		).arg(GetVersion());
 		QString AboutText = tr(
 			"<p>TaskExplorer is a powerfull multi-purpose Task Manager that helps you monitor system resources, debug software and detect malware.</p>"
 			"<p></p>"

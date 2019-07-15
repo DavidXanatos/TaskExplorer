@@ -19,7 +19,7 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 
 	// Stack List
 	m_pStatsList = new QTreeWidgetEx();
-	m_pStatsList->setItemDelegate(new CStyledGridItemDelegate(m_pStatsList->fontMetrics().height() + 3, this));
+	m_pStatsList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pStatsList->setHeaderLabels(tr("Name|Count|Size|Rate|Delta|Peak|Limit").split("|"));
 
 	m_pStatsList->setSelectionMode(QAbstractItemView::ExtendedSelection);

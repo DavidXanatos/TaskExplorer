@@ -70,6 +70,17 @@ public:
 
 	virtual STaskStatsEx GetCpuStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats; }
 
+	virtual void SetGpuMemoryUsage(quint64 DedicatedUsage, quint64 SharedUsage) { QWriteLocker Locker(&m_StatsMutex); m_GpuDedicatedUsage = DedicatedUsage; m_GpuSharedUsage = SharedUsage; }
+	virtual quint64 GetGpuDedicatedUsage() const		{ QReadLocker Locker(&m_StatsMutex); return m_GpuDedicatedUsage; }
+	virtual quint64 GetGpuSharedUsage() const			{ QReadLocker Locker(&m_StatsMutex); return m_GpuSharedUsage; }
+
+	virtual void UpdateGpuTimeDelta(quint64 totalRunningTime) { QWriteLocker Locker(&m_StatsMutex); return m_GpuTimeUsage.Delta.Update(totalRunningTime); }
+	virtual void UpdateGpuTimeUsage(quint64 totalTime)	{ QWriteLocker Locker(&m_StatsMutex); return m_GpuTimeUsage.Calculate(totalTime); }
+	virtual float GetGpuUsage() const					{ QReadLocker Locker(&m_StatsMutex); return m_GpuTimeUsage.Usage; }
+	
+	virtual void SetGpuAdapter(const QString& GpuAdapter) { QWriteLocker Locker(&m_StatsMutex); m_GpuAdapter = GpuAdapter; }
+	virtual QString GetGpuAdapter() const				{ QReadLocker Locker(&m_StatsMutex); return m_GpuAdapter; }
+
 	virtual QString GetStatusString() const = 0;
 
 	virtual bool HasDebugger() const = 0;
@@ -128,6 +139,8 @@ public:
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const = 0;
 
+	virtual STATUS LoadModule(const QString& Path) = 0;
+
 signals:
 	void			ThreadsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void			HandlesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
@@ -167,6 +180,11 @@ protected:
 	mutable QReadWriteLock			m_StatsMutex;
 	SProcStats						m_Stats;
 	STaskStatsEx					m_CpuStats;
+	
+	STimeUsage						m_GpuTimeUsage;
+	quint64							m_GpuDedicatedUsage;
+	quint64							m_GpuSharedUsage;
+	QString							m_GpuAdapter;
 
 	// module info
 	CModulePtr						m_pModuleInfo;

@@ -46,7 +46,7 @@ CProcessPicker::CProcessPicker(QWidget* parent)
 	//m_pProcessModel->SetColumnEnabled(CProcessModel::eIO_OtherBytes, true);
 
 	m_pProcessList = new QTreeViewEx();
-	m_pProcessList->setItemDelegate(new CStyledGridItemDelegate(m_pProcessList->fontMetrics().height() + 3, this));
+	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pProcessList->setModel(m_pSortProxy);
 
@@ -57,6 +57,8 @@ CProcessPicker::CProcessPicker(QWidget* parent)
 
 	m_pProcessList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pProcessList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+
+	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
 
 	//connect(m_pProcessList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
 	connect(m_pProcessList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));

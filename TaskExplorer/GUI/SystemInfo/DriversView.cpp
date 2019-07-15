@@ -24,7 +24,7 @@ CDriversView::CDriversView(QWidget *parent)
 
 	// Driver List
 	m_pDriverList = new QTreeViewEx();
-	m_pDriverList->setItemDelegate(new CStyledGridItemDelegate(m_pDriverList->fontMetrics().height() + 3, this));
+	m_pDriverList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pDriverList->setModel(m_pSortProxy);
 
@@ -34,8 +34,24 @@ CDriversView::CDriversView(QWidget *parent)
 	m_pDriverList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pDriverList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
+	connect(theGUI, SIGNAL(ReloadAll()), m_pDriverModel, SLOT(Clear()));
+
 	m_pMainLayout->addWidget(m_pDriverList);
 	// 
+
+	QByteArray Columns = theConf->GetBlob(objectName() + "/DriversView_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pDriverModel->columnCount(); i++)
+			m_pDriverList->setColumnHidden(i, true);
+
+		m_pDriverList->setColumnHidden(CDriverModel::eDriver, false);
+		m_pDriverList->setColumnHidden(CDriverModel::eDescription, false);
+		m_pDriverList->setColumnHidden(CDriverModel::eBinaryPath, false);
+
+	}
+	else
+		m_pDriverList->header()->restoreState(Columns);
 
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu();
@@ -46,7 +62,7 @@ CDriversView::CDriversView(QWidget *parent)
 
 CDriversView::~CDriversView()
 {
-
+	theConf->SetBlob(objectName() + "/DriversView_Columns", m_pDriverList->header()->saveState());
 }
 
 

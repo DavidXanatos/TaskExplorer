@@ -7,7 +7,7 @@
 
 class CSettings;
 
-class CSettings: protected QSettings
+class CSettings: public QObject
 {
 	Q_OBJECT
 
@@ -97,13 +97,7 @@ public:
 		virtual bool IsBlob() const {return true;}
 	};
 
-	/*static void			InitSettingsEnvironment(const QString& Orga, const QString& Name, const QString& Domain);
-
-	static QString		GetAppDir()									{return m_sAppDir;}
-	static QString		GetValuesDir()							{return m_sConfigDir;} 
-	static bool			IsPortable()								{return m_bPortable;}*/
-
-	CSettings(const QString& FileName, QMap<QString, SSetting> DefaultValues = QMap<QString, SSetting>(), QObject* qObject = NULL);
+	CSettings(const QString& AppName, QMap<QString, SSetting> DefaultValues = QMap<QString, SSetting>(), QObject* qObject = NULL);
 	virtual ~CSettings();
 
 	bool				SetValue(const QString& key, const QVariant& value);
@@ -136,9 +130,12 @@ public:
 	const QString		GetString(const QString& key, const QVariant& default = QVariant())		{return GetValue(key, default).toString();}
 	const QStringList	GetStringList(const QString& key, const QVariant& default = QVariant())	{return GetValue(key, default).toStringList();}
 
-	const QStringList 	ListSettings()												{QMutexLocker Locker(&m_Mutex); return QSettings::allKeys();}
-	const QStringList 	ListGroupes()												{QMutexLocker Locker(&m_Mutex); return QSettings::childGroups();}
+	const QStringList 	ListSettings()												{QMutexLocker Locker(&m_Mutex); return m_pConf->allKeys();}
+	const QStringList 	ListGroupes()												{QMutexLocker Locker(&m_Mutex); return m_pConf->childGroups();}
 	const QStringList 	ListKeys(const QString& Root);
+
+	const QString		GetConfigDir()												{QMutexLocker Locker(&m_Mutex); return m_ConfigDir;}
+	const bool			IsPortable()												{QMutexLocker Locker(&m_Mutex); return m_bPortable;}
 
 protected:
 	QMutex				m_Mutex;
@@ -146,9 +143,8 @@ protected:
 
 	QMap<SStrRef, SCacheVal>m_ValueCache;
 
-	/*static void			InitInstalled();
+	QString				m_ConfigDir;
+	bool				m_bPortable;
 
-	static QString		m_sAppDir;
-	static QString		m_sConfigDir;
-	static bool			m_bPortable;*/
+	QSettings*			m_pConf;
 };

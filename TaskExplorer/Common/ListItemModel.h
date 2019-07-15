@@ -11,7 +11,6 @@ public:
 
 	void			Sync(QList<QVariantMap> List);
 	QModelIndex		FindIndex(const QVariant& ID);
-	void			Clear();
 
 	QVariant		Data(const QModelIndex &index, int role, int section) const;
 
@@ -23,6 +22,9 @@ public:
     virtual int				rowCount(const QModelIndex &parent = QModelIndex()) const;
     virtual int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+
+public slots:
+	void			Clear();
 
 protected:
 	struct SListNode

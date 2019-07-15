@@ -68,12 +68,14 @@ CJobView::CJobView(QWidget *parent)
 	//m_pProcessModel->SetColumnEnabled(CProcessModel::eIO_OtherBytes, true);
 
 	m_pProcessList = new QTreeViewEx();
-	m_pProcessList->setItemDelegate(new CStyledGridItemDelegate(m_pProcessList->fontMetrics().height() + 3, this));
+	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pProcessList->setModel(m_pSortProxy);
 
 	m_pProcessList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pProcessList->setSortingEnabled(true);
+
+	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
 
 	//m_pMainLayout->addWidget(m_pProcessList, row++, 0, 1, 3);
 	m_pSplitter->addWidget(m_pProcessList);

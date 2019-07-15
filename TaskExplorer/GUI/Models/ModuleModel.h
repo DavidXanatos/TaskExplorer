@@ -26,7 +26,6 @@ public:
 		eSize,
 #ifdef WIN32
 		eDescription,
-
 		eCompanyName,
 		eVersion,
 #endif

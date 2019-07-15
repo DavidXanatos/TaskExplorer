@@ -33,7 +33,7 @@ CWindowsView::CWindowsView(QWidget *parent)
 
 	// Window List
 	m_pWindowList = new QTreeViewEx();
-	m_pWindowList->setItemDelegate(new CStyledGridItemDelegate(m_pWindowList->fontMetrics().height() + 3, this));
+	m_pWindowList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pWindowList->setModel(m_pSortProxy);
 
@@ -47,6 +47,8 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pWindowList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pWindowList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
+	connect(theGUI, SIGNAL(ReloadAll()), m_pWindowModel, SLOT(Clear()));
+
 	//m_pMainLayout->addWidget(m_pWindowList);
 	m_pSplitter->addWidget(m_pWindowList);
 	m_pSplitter->setCollapsible(0, false);
@@ -58,7 +60,7 @@ CWindowsView::CWindowsView(QWidget *parent)
 	// Handle Details
 	m_pWindowDetails = new CPanelWidget<QTreeWidgetEx>();
 
-	m_pWindowDetails->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pWindowDetails->fontMetrics().height() + 3, this));
+	m_pWindowDetails->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pWindowDetails->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
 
 	m_pWindowDetails->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -69,7 +71,14 @@ CWindowsView::CWindowsView(QWidget *parent)
 	//
 
 	setObjectName(parent->objectName());
-	m_pWindowList->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Columns"));
+
+	QByteArray Columns = theConf->GetBlob(objectName() + "/WindowsView_Columns");
+	if (Columns.isEmpty())
+	{
+		//
+	}
+	else
+		m_pWindowList->header()->restoreState(Columns);
 	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Splitter"));
 	m_pWindowDetails->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsDetail_Columns"));
 

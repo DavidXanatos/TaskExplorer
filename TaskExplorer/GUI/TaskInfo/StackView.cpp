@@ -13,7 +13,7 @@ CStackView::CStackView(QWidget *parent)
 
 	// Stack List
 	m_pStackList = new QTreeWidgetEx();
-	m_pStackList->setItemDelegate(new CStyledGridItemDelegate(m_pStackList->fontMetrics().height() + 3, this));
+	m_pStackList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pStackList->setHeaderLabels(tr("#|Name|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
 
 	m_pStackList->setSelectionMode(QAbstractItemView::ExtendedSelection);

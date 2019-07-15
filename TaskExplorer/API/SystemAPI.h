@@ -95,7 +95,7 @@ public slots:
 	virtual bool UpdateProcessList() = 0;
 	virtual bool UpdateSocketList() = 0;
 	virtual bool UpdateOpenFileList() = 0;
-	virtual bool UpdateServiceList() = 0;
+	virtual bool UpdateServiceList(bool bRefresh = false) = 0;
 	virtual bool UpdateDriverList() = 0;
 
 private slots:

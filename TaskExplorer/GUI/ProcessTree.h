@@ -59,6 +59,8 @@ private:
 	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_MEM_History;
 	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_IO_History;
 	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_NET_History;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_GPU_History;
+	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_VMEM_History;
 
 	QMenu*					m_pHeaderMenu;
 	QMap<QCheckBox*,int>	m_Columns;

@@ -16,7 +16,11 @@ CProcessModel::CProcessModel(QObject *parent)
 	m_bUseIcons = true;
 	m_bUseDescr = true;
 
+#ifdef LIMIT_COLUMNS
 	m_Columns.append(eProcess);
+#else
+	m_Columns.insert(eProcess);
+#endif
 }
 
 CProcessModel::~CProcessModel()
@@ -44,6 +48,8 @@ QList<QVariant> CProcessModel::MakeProcPath(const CProcessPtr& pProcess, const Q
 
 void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 {
+	//QList<QModelIndex> AllIndexes;
+
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QMap<QVariant, STreeNode*> Old = m_Map;
 
@@ -72,14 +78,17 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		{
 			Old[ID] = NULL;
 			Index = Find(m_Root, pNode);
+			//if(Index.isValid())
+			//	AllIndexes.append(Index);
 		}
 
 		//if(Index.isValid()) // this is to slow, be more precise
 		//	emit dataChanged(createIndex(Index.row(), 0, pNode), createIndex(Index.row(), columnCount()-1, pNode));
 
+#ifdef LIMIT_COLUMNS
 		if (pNode->Values.size() != m_Columns.size()) 
 			pNode->Values.resize(m_Columns.size());
-		
+#endif		
 		
 #ifdef WIN32
 		QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
@@ -136,8 +145,14 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		for(int section = eProcess; section < columnCount(); section++)
 		{
 			QVariant Value;
-			//switch(section)
+#ifdef LIMIT_COLUMNS
 			switch(m_Columns[section])
+#else
+			if (!m_Columns.contains(section))
+				continue;
+
+			switch(section)
+#endif
 			{
 				case eProcess:		
 					if (m_bUseDescr)
@@ -174,6 +189,15 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eCompanyName:			Value = pWinProc->GetModuleInfo()->GetFileInfo("CompanyName"); break;
 				case eVersion:				Value = pWinProc->GetModuleInfo()->GetFileInfo("FileVersion"); break;
 #endif
+
+				case eGPU_History:			Value = pProcess->GetGpuUsage(); break;
+				case eVMEM_History:			Value = qMax(pProcess->GetGpuDedicatedUsage(),pProcess->GetGpuSharedUsage()); break;
+
+				case eGPU_Usage:			Value = pProcess->GetGpuUsage(); break;
+				case eGPU_Shared:			Value = pProcess->GetGpuSharedUsage(); break;
+				case eGPU_Dedicated:		Value = pProcess->GetGpuDedicatedUsage(); break;
+				case eGPU_Adapter:			Value = pProcess->GetGpuAdapter(); break;
+
 				case eFileName:				Value = pProcess->GetFileName(); break;
 				case eCommandLine:			Value = pProcess->GetCommandLine(); break;
 				case ePeakPrivateBytes:		Value = pProcess->GetPeakPrivateBytes(); break;
@@ -325,12 +349,17 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					Changed = 1;
 				ColValue.Raw = Value;
 
-				//switch(section)
+#ifdef LIMIT_COLUMNS
 				switch(m_Columns[section])
+#else
+				switch(section)
+#endif
 				{
 					case ePID:				if (Value.toLongLong() < 0) ColValue.Formated = ""; break;
 
-					case eCPU:				ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10, 2) + "%"; break;
+					case eCPU:
+					case eGPU_Usage:
+											ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10, 2) + "%"; break;
 
 					case ePrivateBytes:		
 					case ePeakPrivateBytes:
@@ -348,6 +377,9 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eMinimumWS:
 					case eMaximumWS:
 					case ePrivateBytesDelta:
+
+					case eGPU_Dedicated:
+					case eGPU_Shared:
 
 					case eFileSize:
 											ColValue.Formated = FormatSize(Value.toULongLong()); break;
@@ -423,6 +455,18 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 	}
 
 	CTreeItemModel::Sync(New, Old);
+
+	/*for (QMap<QList<QVariant>, QList<STreeNode*> >::const_iterator I = New.begin(); I != New.end(); I++)
+	{
+		foreach(STreeNode* pNode, I.value())
+		{
+			QModelIndex Index = Find(m_Root, pNode);
+			if(Index.isValid())
+				AllIndexes.append(Index);
+		}
+	}*/
+	
+	//m_AllIndexes = AllIndexes;
 }
 
 CProcessPtr CProcessModel::GetProcess(const QModelIndex &index) const
@@ -438,16 +482,23 @@ CProcessPtr CProcessModel::GetProcess(const QModelIndex &index) const
 
 int CProcessModel::columnCount(const QModelIndex &parent) const
 {
-	//return eCount;
+#ifdef LIMIT_COLUMNS
 	return m_Columns.size();
+#else
+	return eCount;
+#endif
 }
 
 QVariant CProcessModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
 	{
+#ifdef LIMIT_COLUMNS
 		if(m_Columns.size() > section)
 			return GetColumn(m_Columns[section]);
+#else
+		return GetColumn(section);
+#endif
 	}
     return QVariant();
 }
@@ -459,8 +510,11 @@ bool CProcessModel::IsColumnEnabled(int column)
 
 int CProcessModel::GetColumnIndex(int index)
 {
-	int column = m_Columns.indexOf(index);
-	return column;
+#ifdef LIMIT_COLUMNS
+	return m_Columns.indexOf(index);
+#else
+	return index;
+#endif
 }
 
 void CProcessModel::SetColumnEnabled(int column, bool set)
@@ -469,6 +523,7 @@ void CProcessModel::SetColumnEnabled(int column, bool set)
 	beginResetModel();
 	if (!set)
 	{
+#ifdef LIMIT_COLUMNS
 		int index = m_Columns.indexOf(column);
 		if (index != -1)
 		{
@@ -476,9 +531,13 @@ void CProcessModel::SetColumnEnabled(int column, bool set)
 			m_Columns.removeAt(index);
 			//endRemoveColumns();
 		}
+#else
+		m_Columns.remove(column);
+#endif
 	}
 	else if (!m_Columns.contains(column)) 
 	{
+#ifdef LIMIT_COLUMNS
 		if (column < MaxColumns())
 		{
 			//beginInsertColumns(QModelIndex(),m_Columns.size(),m_Columns.size());
@@ -486,6 +545,9 @@ void CProcessModel::SetColumnEnabled(int column, bool set)
 			//qSort(m_Columns.begin(), m_Columns.end(), [](const int& a, const int& b) { return a < b; });
 			//endInsertColumns();
 		}
+#else
+		m_Columns.insert(column);
+#endif
 	}
 	endResetModel();
 	//emit layoutChanged();
@@ -528,6 +590,11 @@ QString CProcessModel::GetColumn(int section) const
 		case ePriorityClass:		return tr("Priority class");
 		case eBasePriority:			return tr("Base priority");
 
+		case eGPU_Usage:			return tr("GPU");
+		case eGPU_Shared:			return tr("Shared");
+		case eGPU_Dedicated:		return tr("Dedicated");
+		case eGPU_Adapter:			return tr("GPU Adapter");
+
 		case eThreads:				return tr("Threads");
 		case eHandles:				return tr("Handles");
 #ifdef WIN32
@@ -560,6 +627,9 @@ QString CProcessModel::GetColumn(int section) const
 		case eMEM_History:			return tr("Mem. graph");
 		case eIO_History:			return tr("I/O graph");
 		case eNET_History:			return tr("Net. graph");
+		case eGPU_History:			return tr("GPU graph");
+		case eVMEM_History:			return tr("V. Mem. graph");
+
 #ifdef WIN32
 		case eDEP:					return tr("DEP");
 		case eVirtualized:			return tr("Virtualized");

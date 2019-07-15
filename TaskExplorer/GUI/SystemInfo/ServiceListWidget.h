@@ -35,7 +35,6 @@ private:
 		eCount
 	};
 
-	QWidget*			m_pMainWidget;
 	QGridLayout*		m_pMainLayout;
 	QLabel*				m_pInfoLabel;
 	QLabel*				m_pDescription;

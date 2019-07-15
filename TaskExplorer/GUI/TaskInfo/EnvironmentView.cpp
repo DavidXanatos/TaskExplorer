@@ -13,7 +13,7 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 
 	// Variables List
 	m_pVariablesList = new QTreeWidgetEx();
-	m_pVariablesList->setItemDelegate(new CStyledGridItemDelegate(m_pVariablesList->fontMetrics().height() + 3, this));
+	m_pVariablesList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pVariablesList->setHeaderLabels(tr("Name|Type|Value").split("|"));
 
 	m_pVariablesList->setSelectionMode(QAbstractItemView::ExtendedSelection);

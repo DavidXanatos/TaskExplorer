@@ -245,7 +245,7 @@ VOID PhLoadSymbolsThreadProvider(SSymbolProvider* m)
 VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
 {
 	bool DbgHelpUndecorate = theConf->GetBool("Options/DbgHelpUndecorate", true);
-	QString DbgHelpSearchPath = "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
+	QString DbgHelpSearchPath = theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
 
 	PhSetOptionsSymbolProvider(SYMOPT_UNDNAME, DbgHelpUndecorate ? SYMOPT_UNDNAME : 0);
 

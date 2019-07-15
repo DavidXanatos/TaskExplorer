@@ -27,7 +27,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 	// Service List
 	m_pServiceList = new QTreeViewEx();
-	m_pServiceList->setItemDelegate(new CStyledGridItemDelegate(m_pServiceList->fontMetrics().height() + 3, this));
+	m_pServiceList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pServiceList->setModel(m_pSortProxy);
 
@@ -37,11 +37,56 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_pServiceList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pServiceList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
+	connect(theGUI, SIGNAL(ReloadAll()), m_pServiceModel, SLOT(Clear()));
+
 	m_pMainLayout->addWidget(m_pServiceList);
 	// 
 
+	if (!bAll)
+	{
+		m_pServiceList->setColumnFixed(CServiceModel::ePID, true);
+		m_pServiceList->setColumnHidden(CServiceModel::ePID, true);
+
+		m_pServiceList->setColumnFixed(CServiceModel::eGroupe, true);
+		m_pServiceList->setColumnHidden(CServiceModel::eGroupe, true);
+
+		m_pServiceList->setColumnFixed(CServiceModel::eFileName, true);
+		m_pServiceList->setColumnHidden(CServiceModel::eFileName, true);
+
+		m_pServiceList->setColumnFixed(CServiceModel::eDescription, true);
+		m_pServiceList->setColumnHidden(CServiceModel::eDescription, true);
+
+		m_pServiceList->setColumnFixed(CServiceModel::eCompanyName, true);
+		m_pServiceList->setColumnHidden(CServiceModel::eCompanyName, true);
+
+		m_pServiceList->setColumnFixed(CServiceModel::eVersion, true);
+		m_pServiceList->setColumnHidden(CServiceModel::eVersion, true);
+
+		m_pServiceList->setColumnFixed(CServiceModel::eBinaryPath, true);
+		m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, true);
+	}
+
 	//connect(m_pServiceList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
 	connect(m_pServiceList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked(const QModelIndex&)));
+
+	QByteArray Columns = theConf->GetBlob(objectName() + "/ServicesView_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pServiceModel->columnCount(); i++)
+			m_pServiceList->setColumnHidden(i, true);
+
+		m_pServiceList->setColumnHidden(CServiceModel::eService, false);
+		m_pServiceList->setColumnHidden(CServiceModel::eDisplayName, false);
+		m_pServiceList->setColumnHidden(CServiceModel::eType, false);
+		m_pServiceList->setColumnHidden(CServiceModel::eStatus, false);
+		m_pServiceList->setColumnHidden(CServiceModel::eStartType, false);
+		if (bAll) {
+			m_pServiceList->setColumnHidden(CServiceModel::ePID, false);
+			m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, false);
+		}
+	}
+	else
+		m_pServiceList->header()->restoreState(Columns);
 
 	//m_pMenu = new QMenu();
 	m_pMenuStart = m_pMenu->addAction(tr("Start"), this, SLOT(OnServiceAction()));
@@ -63,6 +108,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 CServicesView::~CServicesView()
 {
+	theConf->SetBlob(objectName() + "/ServicesView_Columns", m_pServiceList->header()->saveState());
 }
 
 #ifdef WIN32
@@ -79,7 +125,7 @@ void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Chan
 	m_pServiceModel->Sync(ServiceList);
 }
 
-void CServicesView::ShowServices(const CProcessPtr& pProcess)
+void CServicesView::ShowProcess(const CProcessPtr& pProcess)
 {
 #ifdef WIN32
 	QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();

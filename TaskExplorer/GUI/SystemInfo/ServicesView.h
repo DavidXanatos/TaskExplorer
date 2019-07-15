@@ -26,7 +26,7 @@ public:
 public slots:
 	void					Refresh() {}
 
-	void					ShowServices(const CProcessPtr& pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
 
 protected:
 	virtual void				OnMenu(const QPoint& Point);

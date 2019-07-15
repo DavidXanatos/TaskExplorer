@@ -10,6 +10,19 @@ CModulesView::CModulesView(QWidget *parent)
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
+	m_pFilterWidget = new QWidget();
+	m_pMainLayout->addWidget(m_pFilterWidget);
+
+	m_pFilterLayout = new QHBoxLayout();
+	m_pFilterLayout->setMargin(3);
+	m_pFilterWidget->setLayout(m_pFilterLayout);
+
+	m_pLoadModule = new QPushButton(tr("Inject DLL"));
+	m_pFilterLayout->addWidget(m_pLoadModule);
+
+	m_pFilterLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
+
+	connect(m_pLoadModule, SIGNAL(pressed(bool)), this, SLOT(OnLoad()));
 
 	// Module List
 	m_pModuleModel = new CModuleModel();
@@ -21,7 +34,7 @@ CModulesView::CModulesView(QWidget *parent)
 
 
 	m_pModuleList = new QTreeViewEx();
-	m_pModuleList->setItemDelegate(new CStyledGridItemDelegate(m_pModuleList->fontMetrics().height() + 3, this));
+	m_pModuleList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pModuleList->setModel(m_pSortProxy);
 
 	m_pModuleList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -34,6 +47,8 @@ CModulesView::CModulesView(QWidget *parent)
 	m_pModuleList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pModuleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
+	connect(theGUI, SIGNAL(ReloadAll()), m_pModuleModel, SLOT(Clear()));
+
 	m_pMainLayout->addWidget(m_pModuleList);
 	// 
 
@@ -43,7 +58,20 @@ CModulesView::CModulesView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pModuleList->header()->restoreState(theConf->GetBlob(objectName() + "/ModulesView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/ModulesView_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pModuleModel->columnCount(); i++)
+			m_pModuleList->setColumnHidden(i, true);
+
+		m_pModuleList->setColumnHidden(CModuleModel::eModule, false);
+		m_pModuleList->setColumnHidden(CModuleModel::eBaseAddress, false);
+		m_pModuleList->setColumnHidden(CModuleModel::eSize, false);
+		m_pModuleList->setColumnHidden(CModuleModel::eDescription, false);
+		m_pModuleList->setColumnHidden(CModuleModel::eFileName, false);
+	}
+	else
+		m_pModuleList->header()->restoreState(Columns);
 }
 
 CModulesView::~CModulesView()
@@ -134,6 +162,24 @@ void CModulesView::OnUnload()
 			}
 		}
 	}
+	CTaskExplorer::CheckErrors(Errors);
+}
 
+void CModulesView::OnLoad()
+{
+	if (!m_pCurProcess)
+		return;
+
+	QStringList FilePaths = QFileDialog::getOpenFileNames(0, tr("Select DLL's"), "", tr("DLL files (*.dll)"));
+	if (FilePaths.isEmpty())
+		return;
+
+	QList<STATUS> Errors;
+	foreach(const QString& FileName, FilePaths)
+	{
+		STATUS Status = m_pCurProcess->LoadModule(FileName);
+		if (Status.IsError())
+			Errors.append(Status);
+	}
 	CTaskExplorer::CheckErrors(Errors);
 }

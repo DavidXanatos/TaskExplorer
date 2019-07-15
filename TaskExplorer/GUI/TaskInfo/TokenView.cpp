@@ -72,7 +72,7 @@ CTokenView::CTokenView(QWidget *parent)
 
 	// Variables List
 	m_pTokenList = new QTreeWidgetEx();
-	m_pTokenList->setItemDelegate(new CStyledGridItemDelegate(m_pTokenList->fontMetrics().height() + 10, QColor(Qt::white), this));
+	m_pTokenList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pTokenList->setHeaderLabels(tr("Name|Status|Description").split("|"));
 
 	m_pTokenList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -99,7 +99,7 @@ CTokenView::CTokenView(QWidget *parent)
 	//
 	m_pAdvanced = new CPanelWidget<QTreeWidgetEx>();
 
-	m_pAdvanced->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pAdvanced->fontMetrics().height() + 3, this));
+	m_pAdvanced->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pAdvanced->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
 
 	m_pAdvanced->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -166,7 +166,7 @@ CTokenView::CTokenView(QWidget *parent)
 	//
 	m_pContainer = new CPanelWidget<QTreeWidgetEx>();
 
-	m_pContainer->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pContainer->fontMetrics().height() + 3, this));
+	m_pContainer->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pContainer->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
 
 	m_pContainer->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -215,7 +215,7 @@ CTokenView::CTokenView(QWidget *parent)
 	//
 	m_pCapabilities = new CPanelWidget<QTreeWidgetEx>();
 
-	m_pCapabilities->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pCapabilities->fontMetrics().height() + 3, this));
+	m_pCapabilities->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pCapabilities->GetView())->setHeaderLabels(tr("Capabilities").split("|"));
 
 	m_pCapabilities->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -228,7 +228,7 @@ CTokenView::CTokenView(QWidget *parent)
 	//
 	m_pClaims = new CPanelWidget<QTreeWidgetEx>();
 
-	m_pClaims->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pClaims->fontMetrics().height() + 3, this));
+	m_pClaims->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pClaims->GetView())->setHeaderLabels(tr("Claims").split("|"));
 
 	m_pClaims->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -243,7 +243,7 @@ CTokenView::CTokenView(QWidget *parent)
 	//
 	m_pAttributes = new CPanelWidget<QTreeWidgetEx>();
 
-	m_pAttributes->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pAttributes->fontMetrics().height() + 3, this));
+	m_pAttributes->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pAttributes->GetView())->setHeaderLabels(tr("Attributes").split("|"));
 
 	m_pAttributes->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);

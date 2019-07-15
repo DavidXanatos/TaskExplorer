@@ -46,7 +46,7 @@ protected:
 
 	bool InitStaticData(struct _ENUM_SERVICE_STATUS_PROCESSW* service);
 	bool UpdatePID(struct _ENUM_SERVICE_STATUS_PROCESSW* service);
-	bool UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service);
+	bool UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service, bool bRefresh);
 	void UnInit();
 
 	ulong							m_Type;

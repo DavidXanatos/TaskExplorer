@@ -101,6 +101,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_ReservedMemory = 0;
 
 	m_pEventMonitor = NULL;
+	m_pGpuMonitor = NULL;
 	m_pSymbolProvider = NULL;
 
 	m = new SWindowsAPI();
@@ -142,6 +143,9 @@ bool CWindowsAPI::Init()
 	if (theConf->GetBool("Options/MonitorETW", true))
 		MonitorETW(true);
 
+	m_pGpuMonitor = new CGpuMonitor();
+	m_pGpuMonitor->Init();
+
 	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
 	m_pSymbolProvider->Init();
 
@@ -174,6 +178,8 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 CWindowsAPI::~CWindowsAPI()
 {
 	delete m_pEventMonitor;
+
+	delete m_pGpuMonitor;
 
 	delete m;
 }
@@ -513,6 +519,8 @@ void CWindowsAPI::UpdateNetStats()
 
 bool CWindowsAPI::UpdateSysStats()
 {
+	m_pGpuMonitor->UpdateGpuStats();
+
 	UpdatePerfStats();
 
 	UpdateNetStats();
@@ -1106,7 +1114,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 	return true;
 }
 
-bool CWindowsAPI::UpdateServiceList()
+bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 {
 	QSet<QString> Added;
 	QSet<QString> Changed;
@@ -1168,7 +1176,7 @@ bool CWindowsAPI::UpdateServiceList()
 			}
 		}
 
-		bChanged = pService->UpdateDynamicData(&scManagerHandle, service);
+		bChanged = pService->UpdateDynamicData(&scManagerHandle, service, bRefresh);
 
 		if (bAdd)
 			Added.insert(Name);
@@ -1266,20 +1274,6 @@ bool CWindowsAPI::UpdateDriverList()
 	emit DriverListUpdated(Added, Changed, Removed);
 
 	return true; 
-}
-
-// MSDN: FILETIME Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
-
-quint64 FILETIME2ms(quint64 fileTime)
-{
-	if (fileTime < 116444736000000000ULL)
-		return 0;
-	return (fileTime - 116444736000000000ULL) / 10000ULL;
-}
-
-time_t FILETIME2time(quint64 fileTime)
-{
-	return FILETIME2ms(fileTime) / 1000ULL;
 }
 
 //////////////////////////////////////////////////

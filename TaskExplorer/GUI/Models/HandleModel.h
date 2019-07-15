@@ -26,6 +26,7 @@ public:
 		eName,
 		ePosition,
 		eSize,
+		//eRefs,
 		eGrantedAccess,
 #ifdef WIN32
 		eFileShareAccess,

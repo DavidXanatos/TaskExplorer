@@ -3,6 +3,9 @@
 #include "..\..\API\ProcessInfo.h"
 #include "..\..\Common\TreeItemModel.h"
 
+
+#define LIMIT_COLUMNS
+
 class CProcessModel : public CTreeItemModel
 {
     Q_OBJECT
@@ -25,16 +28,16 @@ public:
 	void			SetColumnEnabled(int column, bool set);
 	QString			GetColumn(int column) const;
 	int				MaxColumns() const;
+#ifdef LIMIT_COLUMNS
 	QVector<int>	GetColumns() const { return m_Columns; }
+#endif
+
+	//QList<QModelIndex> GetAllIndexes() const { return m_AllIndexes; }
 
 	enum EColumns
 	{
 		eProcess = 0,
 		ePID,
-		eCPU_History,
-		eMEM_History,
-		eIO_History,
-		eNET_History,
 		eStaus,
 		eUserName,
 #ifdef WIN32
@@ -48,6 +51,14 @@ public:
 #endif*/
 		eElevation,
 		eCommandLine,
+
+		// Graphs
+		eCPU_History,
+		eMEM_History,
+		eIO_History,
+		eNET_History,
+		eGPU_History,
+		eVMEM_History,
 
 		// CPU
 		eCPU,
@@ -81,6 +92,12 @@ public:
 		eMinimumWS,
 		eMaximumWS,
 		ePrivateBytesDelta,
+
+		// GPI
+		eGPU_Usage,
+		eGPU_Shared,
+		eGPU_Dedicated,
+		eGPU_Adapter,
 
 		// objects
 		eHandles,
@@ -211,7 +228,13 @@ protected:
 	
 	bool					m_bUseDescr;
 
+#ifdef LIMIT_COLUMNS
 	QVector<int>			m_Columns;
+#else
+	QSet<int>				m_Columns;
+#endif
 
 	virtual QVariant GetDefaultIcon() const;
+
+	//QList<QModelIndex> m_AllIndexes;
 };

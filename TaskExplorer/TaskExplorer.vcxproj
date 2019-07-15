@@ -111,10 +111,10 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
-      <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;cfgmgr32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <QtMoc>
       <OutputFile>.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</OutputFile>
@@ -154,7 +154,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Debug\qwt.lib;..\zlib\Win32\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Debug\qwt.lib;..\zlib\Win32\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;..\Win32\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
@@ -195,7 +195,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>qtmain.lib;..\ProcessHacker\phlib\bin\Release64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Release\qwt.lib;..\zlib\x64\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Release\qtservice.lib;Qt5Concurrent.lib;Qt5Core.lib;Qt5Gui.lib;Qt5Network.lib;Qt5Widgets.lib;Qt5WinExtras.lib;taskschd.lib;Shlwapi.lib;..\x64\Release\qhexedit.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qtmain.lib;..\ProcessHacker\phlib\bin\Release64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Release\qwt.lib;..\zlib\x64\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Release\qtservice.lib;Qt5Concurrent.lib;Qt5Core.lib;Qt5Gui.lib;Qt5Network.lib;Qt5Widgets.lib;Qt5WinExtras.lib;taskschd.lib;Shlwapi.lib;..\x64\Release\qhexedit.lib;cfgmgr32.lib;Gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <QtMoc>
@@ -232,7 +232,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>qtmain.lib;..\ProcessHacker\phlib\bin\Release32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Release\qwt.lib;..\zlib\Win32\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Release\qtservice.lib;Qt5Concurrent.lib;Qt5Core.lib;Qt5Gui.lib;Qt5Network.lib;Qt5Widgets.lib;Qt5WinExtras.lib;taskschd.lib;Shlwapi.lib;..\Win32\Release\qhexedit.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qtmain.lib;..\ProcessHacker\phlib\bin\Release32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Release\qwt.lib;..\zlib\Win32\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Release\qtservice.lib;Qt5Concurrent.lib;Qt5Core.lib;Qt5Gui.lib;Qt5Network.lib;Qt5Widgets.lib;Qt5WinExtras.lib;taskschd.lib;Shlwapi.lib;..\Win32\Release\qhexedit.lib;cfgmgr32.lib;Gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <TargetMachine>MachineX86</TargetMachine>
       <AdditionalOptions> /SUBSYSTEM:WINDOWS</AdditionalOptions>
@@ -270,6 +270,7 @@
     <ClCompile Include="API\ThreadInfo.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\EventMonitor.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\GpuMonitor.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ProcMtgn.cpp" />
@@ -302,6 +303,7 @@
     <ClCompile Include="Common\Common.cpp" />
     <ClCompile Include="Common\DebugHelpers.cpp" />
     <ClCompile Include="Common\IncrementalPlot.cpp" />
+    <ClCompile Include="Common\ItemChooser.cpp" />
     <ClCompile Include="Common\KeyValueInputDialog.cpp" />
     <ClCompile Include="Common\ListItemModel.cpp" />
     <ClCompile Include="Common\MultiLineInputDialog.cpp" />
@@ -325,6 +327,7 @@
     <ClCompile Include="GUI\Models\ThreadModel.cpp" />
     <ClCompile Include="GUI\Models\WindowModel.cpp" />
     <ClCompile Include="GUI\NewService.cpp" />
+    <ClCompile Include="GUI\SettingsWindow.cpp" />
     <ClCompile Include="GUI\ProcessPicker.cpp" />
     <ClCompile Include="GUI\ProcessTree.cpp">
       <OutputFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
@@ -567,6 +570,8 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../API/Windows/ProcessHacker/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../API/Windows/ProcessHacker/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
+    <ClInclude Include="API\Windows\ProcessHacker\d3dkmt.h" />
+    <QtMoc Include="API\Windows\ProcessHacker\GpuMonitor.h" />
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h" />
     <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h" />
     <ClInclude Include="API\Windows\ProcessHacker\ProcMtgn.h" />
@@ -684,6 +689,7 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
     <QtMoc Include="Common\ProgressDialog.h" />
+    <QtMoc Include="Common\ItemChooser.h" />
     <ClInclude Include="Common\qzlib.h" />
     <ClInclude Include="Common\SortFilterProxyModel.h" />
     <QtMoc Include="GUI\Models\ThreadModel.h">
@@ -832,6 +838,8 @@
     </QtMoc>
     <QtMoc Include="GUI\Models\MemoryModel.h" />
     <QtMoc Include="GUI\MemoryEditor.h" />
+    <QtMoc Include="GUI\SettingsWindow.h" />
+    <ClInclude Include="GUI\CustomItemDelegate.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -902,14 +910,15 @@
     <None Include="..\CHANGELOG.md" />
   </ItemGroup>
   <ItemGroup>
-    <QtUic Include="Resources\NewService.ui" />
-    <QtUic Include="Resources\RunAsDialog.ui" />
-    <QtUic Include="Resources\WinSvcShutdown.ui" />
-    <QtUic Include="Resources\WinSvcTrigger.ui" />
-    <QtUic Include="Resources\WinSvcWindow.ui" />
+    <Text Include="..\TODO.md" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\TODO.md" />
+    <QtUic Include="Form Files\NewService.ui" />
+    <QtUic Include="Form Files\RunAsDialog.ui" />
+    <QtUic Include="Form Files\SettingsWindow.ui" />
+    <QtUic Include="Form Files\WinSvcShutdown.ui" />
+    <QtUic Include="Form Files\WinSvcTrigger.ui" />
+    <QtUic Include="Form Files\WinSvcWindow.ui" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

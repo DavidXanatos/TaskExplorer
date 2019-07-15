@@ -30,7 +30,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pSortProxy->setDynamicSortFilter(true);
 
 	m_pThreadList = new QTreeViewEx();
-	m_pThreadList->setItemDelegate(new CStyledGridItemDelegate(m_pThreadList->fontMetrics().height() + 3, this));
+	m_pThreadList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pThreadList->setModel(m_pSortProxy);
 
@@ -42,6 +42,8 @@ CThreadsView::CThreadsView(QWidget *parent)
 
 	m_pThreadList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pThreadList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+
+	connect(theGUI, SIGNAL(ReloadAll()), m_pThreadModel, SLOT(Clear()));
 
 	//connect(m_pThreadList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
 	connect(m_pThreadList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
@@ -70,7 +72,28 @@ CThreadsView::CThreadsView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pThreadList->header()->restoreState(theConf->GetBlob(objectName() + "/ThreadView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/ThreadView_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pThreadModel->columnCount(); i++)
+			m_pThreadList->setColumnHidden(i, true);
+
+		m_pThreadList->setColumnHidden(CThreadModel::eThread, false);
+		m_pThreadList->setColumnHidden(CThreadModel::eCPU, false);
+		m_pThreadList->setColumnHidden(CThreadModel::eCPU_History, false);
+#ifdef WIN32
+		m_pThreadList->setColumnHidden(CThreadModel::eStartAddress, false);
+#endif
+		m_pThreadList->setColumnHidden(CThreadModel::ePriority, false);
+#ifdef WIN32
+		m_pThreadList->setColumnHidden(CThreadModel::eService, false);
+#endif
+		m_pThreadList->setColumnHidden(CThreadModel::eState, false);
+		m_pThreadList->setColumnHidden(CThreadModel::eType, false);
+		m_pThreadList->setColumnHidden(CThreadModel::eCreated, false);
+	}
+	else
+		m_pThreadList->header()->restoreState(Columns);
 }
 
 
@@ -244,7 +267,7 @@ void CThreadsView::OnUpdateHistory()
 		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
 		m_pThreadList->StartUpdatingWidgets(OldMap, m_CPU_History);
 
-		int CellHeight = m_pThreadList->fontMetrics().height();
+		int CellHeight = theGUI->GetCellHeight();
 		int CellWidth = m_pThreadList->columnWidth(HistoryColumn);
 
 		//for(QModelIndex Index = m_pThreadList->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
@@ -255,11 +278,16 @@ void CThreadsView::OnUpdateHistory()
 		for (QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
 		{
 			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		//for(int i=0; i < m_pThreadModel->rowCount(); i++)
+		//{
+		//	QModelIndex ModelIndex = m_pSortProxy->index(i, HistoryColumn);
 			quint64 PID = m_pThreadModel->Data(ModelIndex, Qt::UserRole, CThreadModel::eThread).toULongLong();
 
 			CHistoryGraph* pGraph = OldMap.take(PID).first;
 			if (!pGraph)
 			{
+				//QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
+
 				pGraph = new CHistoryGraph(true);
 				pGraph->setFixedHeight(CellHeight);
 				pGraph->AddValue(0, Qt::green);

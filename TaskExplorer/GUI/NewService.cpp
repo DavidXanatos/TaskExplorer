@@ -8,7 +8,9 @@
 CNewService::CNewService(QWidget *parent)
 	: QMainWindow(parent)
 {
-	ui.setupUi(this);
+	QWidget* centralWidget = new QWidget();
+	this->setCentralWidget(centralWidget);
+	ui.setupUi(centralWidget);
 
 	for (int i = 0; i < 10; i++)
 		ui.svcType->addItem((char*)PhpServiceTypePairs[i].Key, (quint64)PhpServiceTypePairs[i].Value);

@@ -116,36 +116,17 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 	m_pMainLayout->addWidget(m_pSplitter);
 
 	m_pHandleList = new QTreeViewEx();
-	m_pHandleList->setItemDelegate(new CStyledGridItemDelegate(m_pHandleList->fontMetrics().height() + 3, this));
+	m_pHandleList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pHandleList->setModel(m_pSortProxy);
 
 	m_pHandleList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pHandleList->setSortingEnabled(true);
 
+	connect(theGUI, SIGNAL(ReloadAll()), m_pHandleModel, SLOT(Clear()));
 
 	if (!bAll)
-	{
 		UpdateFilter();
-
-		m_pHandleList->setColumnFixed(CHandleModel::eProcess, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eProcess, true);
-	}
-	else
-	{
-		m_pHandleList->setColumnFixed(CHandleModel::eType, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eType, true);
-		m_pHandleList->setColumnFixed(CHandleModel::ePosition, true);
-		m_pHandleList->setColumnHidden(CHandleModel::ePosition, true);
-		m_pHandleList->setColumnFixed(CHandleModel::eSize, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eSize, true);
-#ifdef WIN32
-		m_pHandleList->setColumnFixed(CHandleModel::eAttributes, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eAttributes, true);
-		m_pHandleList->setColumnFixed(CHandleModel::eOriginalName, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eOriginalName, true);
-#endif
-	}
 
 	m_pHandleList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pHandleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
@@ -163,7 +144,7 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 		// Handle Details
 		m_pHandleDetails = new CPanelWidget<QTreeWidgetEx>();
 
-		m_pHandleDetails->GetView()->setItemDelegate(new CStyledGridItemDelegate(m_pHandleDetails->fontMetrics().height() + 3, this));
+		m_pHandleDetails->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 		((QTreeWidgetEx*)m_pHandleDetails->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
 
 		m_pHandleDetails->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -183,8 +164,42 @@ CHandlesView::CHandlesView(bool bAll, QWidget *parent)
 		connect(theAPI, SIGNAL(OpenFileListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
 
+
+	if (!bAll)
+	{
+		m_pHandleList->setColumnFixed(CHandleModel::eProcess, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eProcess, true);
+	}
+	else
+	{
+		m_pHandleList->setColumnFixed(CHandleModel::eType, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eType, true);
+		m_pHandleList->setColumnFixed(CHandleModel::ePosition, true);
+		m_pHandleList->setColumnHidden(CHandleModel::ePosition, true);
+		m_pHandleList->setColumnFixed(CHandleModel::eSize, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eSize, true);
+#ifdef WIN32
+		m_pHandleList->setColumnFixed(CHandleModel::eAttributes, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eAttributes, true);
+		m_pHandleList->setColumnFixed(CHandleModel::eObjectAddress, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eObjectAddress, true);
+		m_pHandleList->setColumnFixed(CHandleModel::eOriginalName, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eOriginalName, true);
+#endif
+	}
+
 	setObjectName(parent->objectName());
-	m_pHandleList->header()->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/HandlesView_Columns");
+	if (Columns.isEmpty())
+	{
+		//m_pHandleList->setColumnHidden(CHandleModel::eGrantedAccess, true);
+		//m_pHandleList->setColumnHidden(CHandleModel::eFileShareAccess, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eAttributes, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eObjectAddress, true);
+		m_pHandleList->setColumnHidden(CHandleModel::eOriginalName, true);
+	}
+	else
+		m_pHandleList->header()->restoreState(Columns);
 	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Splitter"));
 
 

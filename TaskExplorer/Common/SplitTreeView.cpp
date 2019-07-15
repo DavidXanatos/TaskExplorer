@@ -22,7 +22,6 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 
 	// Tree
 	m_pTree = new QTreeView();
-	m_pTree->setItemDelegate(new CStyledGridItemDelegate(m_pTree->fontMetrics().height() + 3, true, this));
 
 	m_pOneModel = new COneColumnModel();
 	m_pOneModel->setSourceModel(m_pModel);
@@ -55,7 +54,6 @@ CSplitTreeView::CSplitTreeView(QAbstractItemModel* pModel, QWidget *parent) : QW
 	//		 Plus there are to many columns to cram them into one simple context menu :-)
 	//m_pList = new QTreeViewEx();
 	m_pList = new QTreeView();
-	m_pList->setItemDelegate(new CStyledGridItemDelegate(m_pList->fontMetrics().height() + 3, true, this));
 
 	m_pList->setModel(m_pModel);
 
@@ -133,6 +131,9 @@ void CSplitTreeView::SetTreeWidth(int Width)
 
 void CSplitTreeView::OnSplitterMoved(int pos, int index)
 {
+	if (index != 0)
+		return;
+
 	//if ((pos > 0) == m_bTreeEnabled)
 	//	return;
 	//m_bTreeEnabled = (pos > 0);
@@ -348,6 +349,10 @@ bool CSplitTreeView::restoreState(const QByteArray &state)
 	emit TreeEnabled(m_bTreeEnabled);
 
 	m_pTree->header()->setSortIndicatorShown(m_pList->header()->sortIndicatorSection() == 0);
+
+	QList<int> sizes = m_pSplitter->sizes();
+	for(int i=0; i < sizes.count(); i++)
+		OnSplitterMoved(sizes[i], i);
 
     return true;
 }

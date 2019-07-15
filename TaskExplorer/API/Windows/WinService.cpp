@@ -109,13 +109,14 @@ bool CWinService::UpdatePID(struct _ENUM_SERVICE_STATUS_PROCESSW* service)
 	return true;
 }
 
-bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service)
+bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service, bool bRefresh)
 {
 	QWriteLocker Locker(&m_Mutex);
 
 	bool modified = FALSE;
 
-	if (m_Type != service->ServiceStatusProcess.dwServiceType ||
+	if (bRefresh || // we want to force a refresh to reload data whcih we normaly not re chack after the first load
+		m_Type != service->ServiceStatusProcess.dwServiceType ||
 		m_State != service->ServiceStatusProcess.dwCurrentState ||
 		m_ControlsAccepted != service->ServiceStatusProcess.dwControlsAccepted ||
 		m_Flags != service->ServiceStatusProcess.dwServiceFlags ||

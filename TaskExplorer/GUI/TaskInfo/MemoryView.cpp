@@ -45,7 +45,7 @@ CMemoryView::CMemoryView(QWidget *parent)
 
 	// Memory List
 	m_pMemoryList = new QTreeViewEx();
-	m_pMemoryList->setItemDelegate(new CStyledGridItemDelegate(m_pMemoryList->fontMetrics().height() + 3, this));
+	m_pMemoryList->setItemDelegate(theGUI->GetItemDelegate());
 
 	m_pMemoryList->setModel(m_pSortProxy);
 
@@ -56,6 +56,8 @@ CMemoryView::CMemoryView(QWidget *parent)
 	connect(m_pMemoryList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
 	connect(m_pMemoryList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked(const QModelIndex&)));
+
+	connect(theGUI, SIGNAL(ReloadAll()), m_pMemoryModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pMemoryList);
 	// 
@@ -74,7 +76,20 @@ CMemoryView::CMemoryView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pMemoryList->header()->restoreState(theConf->GetBlob(objectName() + "/MemorysView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/MemorysView_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pMemoryModel->columnCount(); i++)
+			m_pMemoryList->setColumnHidden(i, true);
+
+		m_pMemoryList->setColumnHidden(CMemoryModel::eBaseAddress, false);
+		m_pMemoryList->setColumnHidden(CMemoryModel::eType, false);
+		m_pMemoryList->setColumnHidden(CMemoryModel::eSize, false);
+		m_pMemoryList->setColumnHidden(CMemoryModel::eProtection, false);
+		m_pMemoryList->setColumnHidden(CMemoryModel::eUse, false);
+	}
+	else
+		m_pMemoryList->header()->restoreState(Columns);
 }
 
 

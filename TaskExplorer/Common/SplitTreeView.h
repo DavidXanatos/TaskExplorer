@@ -20,6 +20,7 @@ public:
 	virtual ~CSplitTreeView();
 
 	QTreeView*			GetView() { return m_pList; }
+	QTreeView*			GetTree() { return m_pTree; }
 
 	void				SetTreeWidth(int Width);
 	int					GetTreeWidth() const;

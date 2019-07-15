@@ -9,20 +9,19 @@
 CServiceListWidget::CServiceListWidget(QWidget *parent)
 	:QWidget(parent)
 {
-    m_pMainWidget = new QWidget(this);
-    m_pMainWidget->setGeometry(QRect(10, 10, 461, 311));
-    m_pMainLayout = new QGridLayout(m_pMainWidget);
+    m_pMainLayout = new QGridLayout();
+	this->setLayout(m_pMainLayout);
     m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 
-	m_pInfoLabel = new QLabel(m_pMainWidget);
+	m_pInfoLabel = new QLabel();
     m_pMainLayout->addWidget(m_pInfoLabel, 0, 0, 1, 1);
 
-	m_pServiceList = new QTreeWidget(m_pMainWidget);
+	m_pServiceList = new QTreeWidget();
 	m_pServiceList->setHeaderLabels(tr("Name|Display name|File name").split("|"));
     m_pMainLayout->addWidget(m_pServiceList, 1, 0, 1, 1);
 	connect(m_pServiceList, SIGNAL(currentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)), this, SLOT(OnItemSellected(QTreeWidgetItem*)));
 
-    m_pDescription = new QLabel(m_pMainWidget);
+    m_pDescription = new QLabel();
     QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     sizePolicy.setHorizontalStretch(0);
     sizePolicy.setVerticalStretch(0);
@@ -35,12 +34,12 @@ CServiceListWidget::CServiceListWidget(QWidget *parent)
     QHBoxLayout* horizontalLayout = new QHBoxLayout();
     horizontalLayout->addItem(new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
-    m_pStartBtn = new QPushButton(m_pMainWidget);
+    m_pStartBtn = new QPushButton();
 	m_pStartBtn->setText(tr("Start"));
     horizontalLayout->addWidget(m_pStartBtn);
 	connect(m_pStartBtn, SIGNAL(pressed()), this, SLOT(OnStart()));
 
-    m_pPauseBtn = new QPushButton(m_pMainWidget);
+    m_pPauseBtn = new QPushButton();
 	m_pPauseBtn->setText(tr("Pause"));
     horizontalLayout->addWidget(m_pPauseBtn);
 	connect(m_pPauseBtn, SIGNAL(pressed()), this, SLOT(OnPause()));

@@ -23,7 +23,7 @@ private slots:
 	void					OnMenu(const QPoint &point);
 
 	void					OnUnload();
-
+	void					OnLoad();
 
 protected:
 	virtual QTreeView*			GetView() 				{ return m_pModuleList; }
@@ -35,6 +35,10 @@ protected:
 
 private:
 	QVBoxLayout*			m_pMainLayout;
+
+	QWidget*				m_pFilterWidget;
+	QHBoxLayout*			m_pFilterLayout;
+	QPushButton*			m_pLoadModule;
 
 	QTreeViewEx*			m_pModuleList;
 	CModuleModel*			m_pModuleModel;

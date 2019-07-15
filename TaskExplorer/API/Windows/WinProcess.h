@@ -16,6 +16,7 @@ public:
 	virtual bool ValidateParent(CProcessInfo* pParent) const;
 
 	// Basic
+	virtual void* GetQueryHandle() const;
 	virtual bool IsWoW64() const;
 	virtual QString GetArchString() const;
 	virtual quint64 GetSessionID() const;
@@ -116,6 +117,8 @@ public:
 	virtual bool IsCriticalProcess() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
 	virtual STATUS SetCriticalProcess(bool bSet, bool bForce = false);
 	virtual STATUS ReduceWS();
+
+	virtual STATUS LoadModule(const QString& Path);
 
 	virtual void OpenPermissions();
 

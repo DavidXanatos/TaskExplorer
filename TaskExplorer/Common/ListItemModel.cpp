@@ -130,7 +130,9 @@ QModelIndex CListItemModel::FindIndex(const QVariant& ID)
 void CListItemModel::Clear()
 {
 	//beginResetModel();
-	beginRemoveRows(QModelIndex(), 0, rowCount());
+	if (rowCount() == 0)
+		return;
+	beginRemoveRows(QModelIndex(), 0, rowCount()-1);
 	foreach(SListNode* pNode, m_List)
 		delete pNode;
 	m_List.clear();

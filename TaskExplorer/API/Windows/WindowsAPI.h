@@ -3,6 +3,7 @@
 #include "WinProcess.h"
 #include "WinSocket.h"
 #include "ProcessHacker/EventMonitor.h"
+#include "ProcessHacker/GpuMonitor.h"
 #include "SymbolProvider.h"
 #include "WinService.h"
 #include "WinDriver.h"
@@ -46,10 +47,11 @@ public:
 
 	virtual bool UpdateOpenFileList();
 
-	virtual bool UpdateServiceList();
+	virtual bool UpdateServiceList(bool bRefresh = false);
 
 	virtual bool UpdateDriverList();
 
+	virtual CGpuMonitor* GetGpuMonitor()				{ return m_pGpuMonitor; }
 
 	virtual CSymbolProviderPtr GetSymbolProvider()		{ return m_pSymbolProvider; }
 
@@ -90,6 +92,7 @@ protected:
 	void AddDiskIO(int Type, ulong TransferSize);
 
 	CEventMonitor*			m_pEventMonitor;
+	CGpuMonitor*			m_pGpuMonitor;
 
 	mutable QReadWriteLock	m_FileNameMutex;
 	QMap<quint64, QString>	m_FileNames;
@@ -126,6 +129,3 @@ private:
 };
 
 extern ulong g_fileObjectTypeIndex;
-
-quint64 FILETIME2ms(quint64 fileTime);
-time_t FILETIME2time(quint64 fileTime);

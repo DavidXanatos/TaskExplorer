@@ -7,7 +7,9 @@
 CRunAsDialog::CRunAsDialog(quint64 PID, QWidget *parent)
 	: QMainWindow(parent)
 {
-	ui.setupUi(this);
+	QWidget* centralWidget = new QWidget();
+	this->setCentralWidget(centralWidget);
+	ui.setupUi(centralWidget);
 
 	m_PID = PID;
 

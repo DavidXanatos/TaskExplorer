@@ -46,7 +46,7 @@ CSystemView::CSystemView(QWidget *parent)
 
 	/*m_pStatsList = new QTreeWidgetEx();
 
-	m_pStatsList->setItemDelegate(new CStyledGridItemDelegate(m_pStatsList->fontMetrics().height() + 3, this));
+	m_pStatsList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pStatsList->setHeaderLabels(tr("Name|Value").split("|"));
 	m_pStatsList->header()->hide();
 

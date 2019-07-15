@@ -3,10 +3,6 @@
 #include "qzlib.h"
 #include "Common.h"
 
-/*QString CSettings::m_sAppDir;
-QString CSettings::m_sConfigDir;
-bool CSettings::m_bPortable = true;*/
-
 bool TestWriteRight(const QString& Path)
 {
 	QFile TestFile(Path + "/~test-" + GetRand64Str() + ".tmp");
@@ -16,61 +12,40 @@ bool TestWriteRight(const QString& Path)
 	return TestFile.remove();
 }
 
-/*void CSettings::InitSettingsEnvironment(const QString& Orga, const QString& Name, const QString& Domain)
+CSettings::CSettings(const QString& AppName, QMap<QString, SSetting> DefaultValues, QObject* qObject) : QObject(qObject)
 {
-	QCoreApplication::setOrganizationName(Orga);
-	QCoreApplication::setApplicationName(Name);
-	QCoreApplication::setOrganizationDomain(Domain);
+	m_ConfigDir = QCoreApplication::applicationDirPath();
+	if (!(m_bPortable = QFile::exists(m_ConfigDir + "/" + AppName + ".ini")))
+	{
+		QStringList dirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+		if (dirs.isEmpty())
+			m_ConfigDir = QDir::homePath() + "/." + AppName;
+		else
+			m_ConfigDir = dirs.first() + "/" + AppName;
+		QDir().mkpath(m_ConfigDir);
+	}
 
-	m_sAppDir = QCoreApplication::applicationDirPath();
+	m_pConf = new QSettings(m_ConfigDir + "/" + AppName + ".ini", QSettings::IniFormat, this);
 
-#ifndef __APPLE__
-	m_sConfigDir = m_sAppDir + "/Config";
-	if(!CreateDir(m_sConfigDir) || !TestWriteRight(m_sConfigDir)
-#ifdef WIN32
-		|| QFile::exists(m_sAppDir + "/NeoInstaller.exe")
-#endif
-	 )
-#endif
-		InitInstalled();
+	m_pConf->sync();
 
-	QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, GetValuesDir());
-}
-
-void CSettings::InitInstalled()
-{
-	QStringList dirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
-	if(dirs.isEmpty())
-		m_sConfigDir = QDir::homePath() + "/." + QCoreApplication::organizationName().toLower();
-	else
-		m_sConfigDir = dirs.first() + "/" + QCoreApplication::organizationName();
-
-	CreateDir(m_sConfigDir);
-	m_bPortable = false;
-}*/
-
-CSettings::CSettings(const QString& FileName, QMap<QString, SSetting> DefaultValues, QObject* qObject) : QSettings(FileName, QSettings::IniFormat, qObject)
-{
 	m_DefaultValues = DefaultValues;
-
-	sync();
-
 	foreach (const QString& Key, m_DefaultValues.uniqueKeys())
 	{
 		const SSetting& Setting = m_DefaultValues[Key];
-		if(!contains(Key) || !Setting.Check(value(Key)))
+		if(!m_pConf->contains(Key) || !Setting.Check(m_pConf->value(Key)))
 		{
 			if(Setting.IsBlob())
-				setValue(Key, Setting.Value.toByteArray().toBase64().replace("+","-").replace("/","_").replace("=",""));
+				m_pConf->setValue(Key, Setting.Value.toByteArray().toBase64().replace("+","-").replace("/","_").replace("=",""));
 			else
-				setValue(Key, Setting.Value);
+				m_pConf->setValue(Key, Setting.Value);
 		}
 	}
 }
 
 CSettings::~CSettings()
 {
-	sync();
+	m_pConf->sync();
 }
 
 bool CSettings::SetValue(const QString &key, const QVariant &value)
@@ -79,14 +54,14 @@ bool CSettings::SetValue(const QString &key, const QVariant &value)
 
 	if (!m_DefaultValues.isEmpty())
 	{
-		ASSERT(contains(key));
+		ASSERT(m_pConf->contains(key));
 #ifndef _DEBUG
 		if (!m_DefaultValues[key].Check(value))
 			return false;
 #endif
 	}
 
-	setValue(key, value);
+	m_pConf->setValue(key, value);
 
 	m_ValueCache.clear();
 	return true;
@@ -96,9 +71,9 @@ QVariant CSettings::GetValue(const QString &key, const QVariant& default)
 {
 	QMutexLocker Locker(&m_Mutex);
 
-	ASSERT(m_DefaultValues.isEmpty() || contains(key));	
+	ASSERT(m_DefaultValues.isEmpty() || m_pConf->contains(key));	
 
-	return value(key, default);
+	return m_pConf->value(key, default);
 }
 
 void CSettings::SetBlob(const QString& key, const QByteArray& value)
@@ -127,7 +102,7 @@ const QStringList CSettings::ListKeys(const QString& Root)
 {
 	QMutexLocker Locker(&m_Mutex); 
 	QStringList Keys;
-	foreach(const QString& Key, allKeys())
+	foreach(const QString& Key, m_pConf->allKeys())
 	{
 		QStringList Path = Key.split("/");
 		ASSERT(Path.count() == 2);

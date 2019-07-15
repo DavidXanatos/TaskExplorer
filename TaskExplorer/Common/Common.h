@@ -59,6 +59,23 @@ private:
 typedef SDelta<quint64>	SDelta32;
 typedef SDelta<quint64>	SDelta64;
 
+template <typename T>
+QVariantList toVariantList( const QList<T> &list )
+{
+    QVariantList newList;
+    foreach( const T &item, list )
+        newList << item;
+
+    return newList;
+}
+
+template <typename T>
+QList<T> reversed( const QList<T> & in ) {
+    QList<T> result;
+    result.reserve( in.size() ); // reserve is new in Qt 4.7
+    std::reverse_copy( in.begin(), in.end(), std::back_inserter( result ) );
+    return result;
+}
 
 template <class T>
 class CScoped

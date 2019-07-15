@@ -31,11 +31,16 @@ CWinSvcWindow::CWinSvcWindow(QSharedPointer<CWinService> pService, QWidget *pare
 	m_LaunchProtectedValid = false;
 	m_OriginalLaunchProtected = 0;
 
-	ui.setupUi(this);
+	QWidget* centralWidget = new QWidget();
+	this->setCentralWidget(centralWidget);
+	ui.setupUi(centralWidget);
+
 	this->setWindowTitle(tr("Properties of %1").arg(m_pService->GetName()));
-	m_pDependencies = new CServiceListWidget(ui.dependenciesTab);
+	m_pDependencies = new CServiceListWidget();
+	ui.dependenciesLayout->addWidget(m_pDependencies, 0, 0);
 	m_pDependencies->SetLabel(tr("This service depends on the following services:"));
-	m_pDependants = new CServiceListWidget(ui.dependantsTab);
+	m_pDependants = new CServiceListWidget();
+	ui.dependantsLayout->addWidget(m_pDependants, 0, 0);
 	m_pDependants->SetLabel(tr("The following services depend on this service:"));
 	ui.triggers->setHeaderLabels(tr("Trigger|Action").split("|"));
 	ui.privilegs->setHeaderLabels(tr("Name|Display name").split("|"));

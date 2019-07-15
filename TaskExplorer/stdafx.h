@@ -102,6 +102,8 @@ using namespace std;
 #include <QFileDialog>
 #include <QProgressBar>
 #include <QInputDialog>
+#include <QToolTip>
+#include <QColorDialog>
 
 // other includes
 
