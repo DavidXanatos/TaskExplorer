@@ -2,6 +2,31 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [0.5] - 2019-07-22
+### Added
+- added search filter to all panels by pressinf Ctrl+F
+- find open file/handles/dll's
+- find strings in program memory
+- extended QHexEditor with the ability to search for unicode (UTF-16) strings
+- added context menu to qhexeditor
+- terminate tasks and close handles/sockets/windows using the del key
+- added status bar infos
+- add system info window in case one closed the system info panel
+- disable system info tab settings when panel is collapsed
+
+### Changed 
+- reworked tree graph's for better performance
+
+### Fixed
+- fixed an issue where reused handles woule be colored as to be removed permanently
+- fixed column order getting messed up in process tree when adding/removing columns
+- QHexEditor does not longer allow to replace a string with a different length string when its not in insert moe
+- fixed crash bug in CWinToken::InitStaticData
+- fixed a many of small bugs preventing compilation of the UI on Linux
+
+
+
 ## [0.4] - 2019-07-15
 ### Added
 - gpu usage statistics

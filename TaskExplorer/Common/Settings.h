@@ -27,10 +27,10 @@ public:
 
 	union SCacheVal
 	{
-		bool	Bool;
-		qint32	Int;
-		quint32	UInt;
-		quint64	UInt64;
+        bool	_Bool;
+        qint32	_Int;
+        quint32	_UInt;
+        quint64	_UInt64;
 	};
 
 	struct SSetting
@@ -101,7 +101,7 @@ public:
 	virtual ~CSettings();
 
 	bool				SetValue(const QString& key, const QVariant& value);
-	QVariant			GetValue(const QString& key, const QVariant& default = QVariant());
+	QVariant			GetValue(const QString& key, const QVariant& preset = QVariant());
 
 	void				SetBlob(const QString& key, const QByteArray& value);
 	QByteArray			GetBlob(const QString& key);
@@ -112,12 +112,12 @@ public:
 		QMutexLocker Locker(&m_Mutex); \
 		QMap<SStrRef, SCacheVal>::Iterator I =  m_ValueCache.find(key); \
 		if(I != m_ValueCache.end()) \
-			return I.value().##y; \
+            return I.value()._##y; \
 		Locker.unlock(); \
 		x val = GetValue(key, def).to##z(); \
 		Locker.relock(); \
 		SCacheVal entry; \
-		entry.##y = val; \
+        entry._##y = val; \
 		m_ValueCache.insert(key, entry); \
 		return val; \
 	}
@@ -127,8 +127,8 @@ public:
 	IMPL_CFG_CACHE_GET(quint64, UInt64, ULongLong);
 #undef IMPL_CFG_CACHE_GET
 
-	const QString		GetString(const QString& key, const QVariant& default = QVariant())		{return GetValue(key, default).toString();}
-	const QStringList	GetStringList(const QString& key, const QVariant& default = QVariant())	{return GetValue(key, default).toStringList();}
+	const QString		GetString(const QString& key, const QVariant& preset = QVariant())		{return GetValue(key, preset).toString();}
+	const QStringList	GetStringList(const QString& key, const QVariant& preset = QVariant())	{return GetValue(key, preset).toStringList();}
 
 	const QStringList 	ListSettings()												{QMutexLocker Locker(&m_Mutex); return m_pConf->allKeys();}
 	const QStringList 	ListGroupes()												{QMutexLocker Locker(&m_Mutex); return m_pConf->childGroups();}

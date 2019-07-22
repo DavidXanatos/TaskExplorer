@@ -1049,6 +1049,15 @@ bool QHexEdit::focusNextPrevChild(bool next)
 }
 
 // ********************************************************************** Handle selections
+void QHexEdit::sellect(qint64 address, qint64 length)
+{
+	qint64 curPos = (address - _addressOffset)*2;
+    setCursorPosition(curPos + length*2);
+    resetSelection(curPos);
+    setSelection(curPos + length*2);
+    ensureVisible();
+}
+
 void QHexEdit::resetSelection()
 {
     _bSelectionBegin = _bSelectionInit;

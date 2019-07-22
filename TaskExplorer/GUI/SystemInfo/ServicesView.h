@@ -2,9 +2,9 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\..\API\ServiceInfo.h"
-#include "..\Models\ServiceModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../../API/ServiceInfo.h"
+#include "../Models/ServiceModel.h"
 
 class CServiceModel;
 class QSortFilterProxyModel;
@@ -40,7 +40,7 @@ private slots:
 	void					OnDoubleClicked(const QModelIndex& Index);
 
 private:
-	QHBoxLayout*			m_pMainLayout;
+	QVBoxLayout*			m_pMainLayout;
 
 	QTreeViewEx*			m_pServiceList;
 	CServiceModel*			m_pServiceModel;

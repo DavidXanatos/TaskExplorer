@@ -2,31 +2,36 @@
 
 class CSortFilterProxyModel: public QSortFilterProxyModel
 {
+	Q_OBJECT
+
 public:
-	CSortFilterProxyModel(bool bAlternate, QObject* parrent = 0) : QSortFilterProxyModel(parrent) {m_bAlternate = bAlternate;}
+	CSortFilterProxyModel(bool bAlternate, QObject* parrent = 0) : QSortFilterProxyModel(parrent) 
+	{
+		m_bAlternate = bAlternate;
+	}
 
 	bool filterAcceptsRow(int source_row, const QModelIndex & source_parent) const
 	{
-		// custom behaviour :
+		// allow the item to pass if any of the child items pass
 		if(!filterRegExp().isEmpty())
 		{
 			// get source-model index for current row
-			QModelIndex source_index = sourceModel()->index(source_row, this->filterKeyColumn(), source_parent);
+			QModelIndex source_index = sourceModel()->index(source_row, 0, source_parent);
 			if(source_index.isValid())
 			{
 				// if any of children matches the filter, then current index matches the filter as well
-				int nb = sourceModel()->rowCount(source_index) ;
+				int nb = sourceModel()->rowCount(source_index);
 				for(int i = 0; i < nb; i++)
 				{
 					if(filterAcceptsRow(i, source_index))
 						return true;
 				}
-				// check current index itself :
-				QString key = sourceModel()->data(source_index, filterRole()).toString();
-				return key.contains(filterRegExp()) ;
+				// check current index itself
+				return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
 			}
 		}
-		// parent call for initial behaviour
+
+		// default behavioure
 		return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
 	}
 
@@ -41,6 +46,13 @@ public:
 				return QColor(Qt::white);
 		}
 		return Data;
+	}
+
+public slots:
+	void SetFilter(const QRegExp& Exp, int Col = -1) // -1 = any
+	{
+		setFilterKeyColumn(Col); 
+		setFilterRegExp(Exp);
 	}
 
 protected:

@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\Common\TabPanel.h"
+#include "../../Common/TabPanel.h"
 
 #include "SystemView.h"
 #include "DriversView.h"

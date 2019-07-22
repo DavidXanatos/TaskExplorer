@@ -2,17 +2,18 @@
 #include "TaskExplorer.h"
 #include "ProcessTree.h"
 #include "../Common/Common.h"
-#include "Models\ProcessModel.h"
-#include "..\Common\SortFilterProxyModel.h"
+#include "Models/ProcessModel.h"
+#include "../Common/SortFilterProxyModel.h"
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker/GpuMonitor.h"
 #endif
 #include "../API/MemDumper.h"
-#include "..\Common\ProgressDialog.h"
+#include "../Common/ProgressDialog.h"
 #include "TaskInfo/TaskInfoWindow.h"
 #include "RunAsDialog.h"
+#include "../Common/Finder.h"
 
 CProcessTree::CProcessTree(QWidget *parent)
 	: CTaskView(parent)
@@ -21,7 +22,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	this->ForceColumn(CProcessModel::eProcess);
 
-	m_pMainLayout = new QHBoxLayout();
+	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
@@ -53,6 +54,8 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	m_pMainLayout->addWidget(m_pProcessList);
 	// 
+
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
 	//connect(m_pProcessList->GetView()->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(OnUpdateHistory()));
 	//connect(m_pProcessList->GetView(), SIGNAL(expanded(const QModelIndex &)), this, SLOT(OnUpdateHistory()));
@@ -92,47 +95,41 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	connect(theAPI, SIGNAL(ProcessListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), SLOT(OnProcessListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-	QStringList EnabledColumns = theConf->GetStringList("MainWindow/ProcessTree_EnabledColumns");
-	if (EnabledColumns.count() <= 1)
+	QByteArray Columns = theConf->GetBlob("MainWindow/ProcessTree_Columns");
+	if (Columns.isEmpty())
 	{
-		EnabledColumns.append(QString::number(CProcessModel::ePID));
-		EnabledColumns.append(QString::number(CProcessModel::eCPU));
-		EnabledColumns.append(QString::number(CProcessModel::eIO_TotalRate));
-		EnabledColumns.append(QString::number(CProcessModel::eStaus));
-		EnabledColumns.append(QString::number(CProcessModel::ePrivateBytes));
-		EnabledColumns.append(QString::number(CProcessModel::eUpTime));
-		EnabledColumns.append(QString::number(CProcessModel::eServices));
-		EnabledColumns.append(QString::number(CProcessModel::ePriorityClass));
-		EnabledColumns.append(QString::number(CProcessModel::eHandles));
+		for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+			m_pProcessList->GetView()->setColumnHidden(i, true);
+
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePID, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCPU, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eIO_TotalRate, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eStaus, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eWorkingSet, false); // thats what best represents the InMemory value
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eStartTime, false); // less refreshes as uptime 
 #ifdef WIN32
-		EnabledColumns.append(QString::number(CProcessModel::eWND_Handles));
-		EnabledColumns.append(QString::number(CProcessModel::eGDI_Handles));
-		EnabledColumns.append(QString::number(CProcessModel::eUSER_Handles));
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eServices, false);
 #endif
-		EnabledColumns.append(QString::number(CProcessModel::eThreads));
-		EnabledColumns.append(QString::number(CProcessModel::eCommandLine));
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePriorityClass, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eHandles, false);
+#ifdef WIN32
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eWND_Handles, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eGDI_Handles, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eUSER_Handles, false);
+#endif
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eThreads, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
 	}
-
-	//for(int i=0; i < m_pProcessModel->columnCount(); i++)
-	//	m_pProcessList->GetView()->setColumnHidden(i, true);
-
-	foreach(const QString& Column, EnabledColumns) 
-	{
-		//m_pProcessList->GetView()->setColumnHidden(Column.toInt(), false);
-		m_pProcessModel->SetColumnEnabled(Column.toInt(), true);
-	}
-
-	m_pProcessList->restoreState(theConf->GetBlob("MainWindow/ProcessTree_Columns"));
+	else
+		m_pProcessList->restoreState(Columns);
+	m_pProcessModel->SetColumnEnabled(0, true);
+	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+		m_pProcessModel->SetColumnEnabled(i, !m_pProcessList->GetView()->isColumnHidden(i));
 }
 
 CProcessTree::~CProcessTree()
 {
 	theConf->SetBlob("MainWindow/ProcessTree_Columns", m_pProcessList->saveState());
-
-	QStringList EnabledColumns;
-	foreach(int column, m_pProcessModel->GetColumns())
-		EnabledColumns.append(QString::number(column));
-	theConf->SetValue("MainWindow/ProcessTree_EnabledColumns", EnabledColumns);
 }
 
 void CProcessTree::OnTreeEnabled(bool bEnable)
@@ -152,7 +149,7 @@ void CProcessTree::AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, 
 
 	for(int i = from; i <= to; i++)
 	{
-		QCheckBox *checkBox = new QCheckBox(m_pProcessModel->GetColumn(i), pSubMenu);
+		QCheckBox *checkBox = new QCheckBox(m_pProcessModel->GetColumHeader(i), pSubMenu);
 		connect(checkBox, SIGNAL(stateChanged(int)), this, SLOT(OnHeaderMenu()));
 		QWidgetAction *pAction = new QWidgetAction(pSubMenu);
 		pAction->setDefaultWidget(checkBox);
@@ -169,7 +166,7 @@ void CProcessTree::OnHeaderMenu(const QPoint &point)
 		//for(int i = 1; i < m_pProcessModel->MaxColumns(); i++)
 		for(int i = CProcessModel::ePID; i <= CProcessModel::eCommandLine; i++)
 		{
-			QCheckBox *checkBox = new QCheckBox(m_pProcessModel->GetColumn(i), m_pHeaderMenu);
+			QCheckBox *checkBox = new QCheckBox(m_pProcessModel->GetColumHeader(i), m_pHeaderMenu);
 			connect(checkBox, SIGNAL(stateChanged(int)), this, SLOT(OnHeaderMenu()));
 			QWidgetAction *pAction = new QWidgetAction(m_pHeaderMenu);
 			pAction->setDefaultWidget(checkBox);
@@ -205,14 +202,16 @@ void CProcessTree::OnHeaderMenu()
 {
 	QCheckBox *checkBox = (QCheckBox*)sender();
 	int Column = m_Columns.value(checkBox, -1);
+
+	m_pProcessList->GetView()->setColumnHidden(Column, !checkBox->isChecked());
 	m_pProcessModel->SetColumnEnabled(Column, checkBox->isChecked());
 }
 
 void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CProcessPtr> ProcessList = theAPI->GetProcessList();
+	m_Processes = theAPI->GetProcessList();
 
-	m_pProcessModel->Sync(ProcessList);
+	m_pProcessModel->Sync(m_Processes);
 
 	// If we are dsplaying a tree than always auto expand new items
 	if (m_pProcessModel->IsTree())
@@ -397,137 +396,120 @@ void CProcessTree::OnRunAsThis()
 	pWnd->show();
 }
 
+void CProcessTree::UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History)
+{
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > OldMap;
+	m_pProcessList->StartUpdatingWidgets(OldMap, History);
+	//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+	for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+	{
+		Index = Index.sibling(Index.row(), HistoryColumn);
+		if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
+			break; // out of view
+		
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
+
+		CHistoryWidget* pGraph = OldMap.take(PID).first;
+		if (!pGraph)
+		{
+			QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
+
+			pGraph = new CHistoryWidget(Graphs[PID]);
+			pGraph->setFixedHeight(CellHeight);
+			History.insert(PID, qMakePair((QPointer<CHistoryWidget>)pGraph, QPersistentModelIndex(Index)));
+			m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+		}
+	}
+	m_pProcessList->EndUpdatingWidgets(OldMap, History);
+}
+
 void CProcessTree::OnUpdateHistory()
 {
-	//QList<QModelIndex> AllIndexes = m_pProcessModel->GetAllIndexes();
-
 	float Div = (theConf->GetInt("Options/LinuxStyleCPU") == 1) ? theAPI->GetCpuCount() : 1.0f;
 
-	if(m_pProcessModel->IsColumnEnabled(CProcessModel::eCPU_History))
+	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eCPU_History))
 	{
-		int HistoryColumn = m_pProcessModel->GetColumnIndex(CProcessModel::eCPU_History);
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pProcessList->StartUpdatingWidgets(OldMap, m_CPU_History);
-
 		int CellHeight = theGUI->GetCellHeight();
-		int CellWidth = m_pProcessList->GetView()->columnWidth(HistoryColumn);
+		int CellWidth = m_pProcessList->GetView()->columnWidth(CProcessModel::eCPU_History);
 
-		//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-		//		break; // out of view
-		for(QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_CPU_Graphs;
+		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//foreach(const QModelIndex& ModelIndex, AllIndexes)
-		//{
-			quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
-			if(!pGraph)
+			quint64 PID = pProcess->GetProcessId();
+			CHistoryGraph* pGraph = Old.take(PID);
+			if (!pGraph)
 			{
-				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(true);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
-				m_CPU_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+				m_CPU_Graphs.insert(PID, pGraph);
 			}
 
-			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-			STaskStatsEx Stats = pProcess->GetCpuStats();
+			STaskStats Stats = pProcess->GetCpuStats();
 
-			pGraph->SetValue(0, Stats.CpuUsage/Div);
-			pGraph->SetValue(1, Stats.CpuKernelUsage/Div);
+			pGraph->SetValue(0, Stats.CpuUsage / Div);
+			pGraph->SetValue(1, Stats.CpuKernelUsage / Div);
 			pGraph->Update(CellHeight, CellWidth);
 		}
-		m_pProcessList->EndUpdatingWidgets(OldMap, m_CPU_History);
+		foreach(quint64 TID, Old.keys())
+			m_CPU_Graphs.take(TID)->deleteLater();
+
+		UpdateIndexWidget(CProcessModel::eCPU_History, CellHeight, m_CPU_Graphs, m_CPU_History);
 	}
 
-	if(m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_History))
+	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_History))
 	{
-		int HistoryColumn = m_pProcessModel->GetColumnIndex(CProcessModel::eGPU_History);
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pProcessList->StartUpdatingWidgets(OldMap, m_GPU_History);
-
 		int CellHeight = theGUI->GetCellHeight();
-		int CellWidth = m_pProcessList->GetView()->columnWidth(HistoryColumn);
+		int CellWidth = m_pProcessList->GetView()->columnWidth(CProcessModel::eGPU_History);
 
-		//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-		//		break; // out of view
-		for(QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_GPU_Graphs;
+		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//foreach(const QModelIndex& ModelIndex, AllIndexes)
-		//{
-			quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
-			if(!pGraph)
+			quint64 PID = pProcess->GetProcessId();
+			CHistoryGraph* pGraph = Old.take(PID);
+			if (!pGraph)
 			{
-				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(true);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, Qt::green);
-				m_GPU_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+				m_GPU_Graphs.insert(PID, pGraph);
 			}
-
-			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 
 			pGraph->SetValue(0, pProcess->GetGpuUsage());
 			pGraph->Update(CellHeight, CellWidth);
 		}
-		m_pProcessList->EndUpdatingWidgets(OldMap, m_CPU_History);
+		foreach(quint64 TID, Old.keys())
+			m_GPU_Graphs.take(TID)->deleteLater();
+
+		UpdateIndexWidget(CProcessModel::eGPU_History, CellHeight, m_GPU_Graphs, m_GPU_History);
 	}
 
 	quint64 TotalMemoryUsed = theAPI->GetCommitedMemory();
 
-	if(m_pProcessModel->IsColumnEnabled(CProcessModel::eMEM_History))
+	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eMEM_History))
 	{
-		int HistoryColumn = m_pProcessModel->GetColumnIndex(CProcessModel::eMEM_History);
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pProcessList->StartUpdatingWidgets(OldMap, m_MEM_History);
-		
 		int CellHeight = theGUI->GetCellHeight();
-		int CellWidth = m_pProcessList->GetView()->columnWidth(HistoryColumn);
+		int CellWidth = m_pProcessList->GetView()->columnWidth(CProcessModel::eMEM_History);
 
-		//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-		//		break; // out of view
-		for(QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_MEM_Graphs;
+		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//foreach(const QModelIndex& ModelIndex, AllIndexes)
-		//{
-			quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
-			if(!pGraph)
+			quint64 PID = pProcess->GetProcessId();
+			CHistoryGraph* pGraph = Old.take(PID);
+			if (!pGraph)
 			{
-				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(true);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, QColor("#CCFF33"));
-				m_MEM_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+				m_MEM_Graphs.insert(PID, pGraph);
 			}
 
-			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-			pGraph->SetValue(0, TotalMemoryUsed ? (float)pProcess->GetWorkingSetSize()/TotalMemoryUsed : 0);
+			pGraph->SetValue(0, TotalMemoryUsed ? (float)pProcess->GetWorkingSetSize() / TotalMemoryUsed : 0);
 			pGraph->Update(CellHeight, CellWidth);
 		}
-		m_pProcessList->EndUpdatingWidgets(OldMap, m_MEM_History);
+		foreach(quint64 TID, Old.keys())
+			m_MEM_Graphs.take(TID)->deleteLater();
+
+		UpdateIndexWidget(CProcessModel::eMEM_History, CellHeight, m_MEM_Graphs, m_MEM_History);
 	}
 
 #ifdef WIN32
@@ -536,42 +518,28 @@ void CProcessTree::OnUpdateHistory()
 	CGpuMonitor::SGpuMemory GpuMemory = pGpuMonitor->GetGpuMemory();
 	quint64 TotalShared = GpuMemory.SharedLimit;
 	quint64 TotalDedicated = GpuMemory.DedicatedLimit;
+#else
+    // todo linux
+    quint64 TotalShared = 0;
+    quint64 TotalDedicated = 0;
 #endif
 
-	if(m_pProcessModel->IsColumnEnabled(CProcessModel::eVMEM_History))
+	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eVMEM_History))
 	{
-		int HistoryColumn = m_pProcessModel->GetColumnIndex(CProcessModel::eVMEM_History);
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pProcessList->StartUpdatingWidgets(OldMap, m_VMEM_History);
-		
 		int CellHeight = theGUI->GetCellHeight();
-		int CellWidth = m_pProcessList->GetView()->columnWidth(HistoryColumn);
+		int CellWidth = m_pProcessList->GetView()->columnWidth(CProcessModel::eVMEM_History);
 
-		//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-		//		break; // out of view
-		for(QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_VMEM_Graphs;
+		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//foreach(const QModelIndex& ModelIndex, AllIndexes)
-		//{
-			quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
-			if(!pGraph)
+			quint64 PID = pProcess->GetProcessId();
+			CHistoryGraph* pGraph = Old.take(PID);
+			if (!pGraph)
 			{
-				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(true);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, QColor("#CCFF33"));
-				m_VMEM_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+				m_VMEM_Graphs.insert(PID, pGraph);
 			}
-
-			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 
 			float DedicatedMemory = TotalDedicated ? (float)pProcess->GetGpuDedicatedUsage() / TotalDedicated : 0;
 			float SharedMemory = TotalShared ? (float)pProcess->GetGpuSharedUsage() / TotalShared : 0;
@@ -579,7 +547,10 @@ void CProcessTree::OnUpdateHistory()
 			pGraph->SetValue(0, qMax(DedicatedMemory, SharedMemory));
 			pGraph->Update(CellHeight, CellWidth);
 		}
-		m_pProcessList->EndUpdatingWidgets(OldMap, m_VMEM_History);
+		foreach(quint64 TID, Old.keys())
+			m_VMEM_Graphs.take(TID)->deleteLater();
+
+		UpdateIndexWidget(CProcessModel::eVMEM_History, CellHeight, m_VMEM_Graphs, m_VMEM_History);
 	}
 
 
@@ -589,95 +560,67 @@ void CProcessTree::OnUpdateHistory()
 	if (TotalDisk < TotalIO)
 		TotalDisk = TotalIO;
 
-	if(m_pProcessModel->IsColumnEnabled(CProcessModel::eIO_History))
+	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eIO_History))
 	{
-		int HistoryColumn = m_pProcessModel->GetColumnIndex(CProcessModel::eIO_History);
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pProcessList->StartUpdatingWidgets(OldMap, m_IO_History);
-		
 		int CellHeight = theGUI->GetCellHeight();
-		int CellWidth = m_pProcessList->GetView()->columnWidth(HistoryColumn);
+		int CellWidth = m_pProcessList->GetView()->columnWidth(CProcessModel::eIO_History);
 
-		//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-		//		break; // out of view
-		for(QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_IO_Graphs;
+		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//foreach(const QModelIndex& ModelIndex, AllIndexes)
-		//{
-			quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
-			if(!pGraph)
+			quint64 PID = pProcess->GetProcessId();
+			CHistoryGraph* pGraph = Old.take(PID);
+			if (!pGraph)
 			{
-				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(false);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
 				pGraph->AddValue(2, Qt::blue);
-				m_IO_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+				m_IO_Graphs.insert(PID, pGraph);
 			}
 
-			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 			SProcStats Stats = pProcess->GetStats();
 
-			pGraph->SetValue(0, TotalDisk ? (float)qMax(Stats.Disk.ReadRate.Get(), Stats.Io.ReadRate.Get())/TotalDisk : 0);
-			pGraph->SetValue(1, TotalDisk ? (float)qMax(Stats.Disk.WriteRate.Get(), Stats.Io.WriteRate.Get())/TotalDisk : 0);
-			pGraph->SetValue(2, TotalIO ? (float)Stats.Io.OtherRate.Get()/TotalIO : 0);
+			pGraph->SetValue(0, TotalDisk ? (float)qMax(Stats.Disk.ReadRate.Get(), Stats.Io.ReadRate.Get()) / TotalDisk : 0);
+			pGraph->SetValue(1, TotalDisk ? (float)qMax(Stats.Disk.WriteRate.Get(), Stats.Io.WriteRate.Get()) / TotalDisk : 0);
+			pGraph->SetValue(2, TotalIO ? (float)Stats.Io.OtherRate.Get() / TotalIO : 0);
 			pGraph->Update(CellHeight, CellWidth);
 		}
-		m_pProcessList->EndUpdatingWidgets(OldMap, m_IO_History);
+		foreach(quint64 TID, Old.keys())
+			m_IO_Graphs.take(TID)->deleteLater();
+
+		UpdateIndexWidget(CProcessModel::eIO_History, CellHeight, m_IO_Graphs, m_IO_History);
 	}
 
 	quint64 TotalNet = SysStats.Net.ReceiveRate.Get() + SysStats.Net.SendRate.Get();
 
-	if(m_pProcessModel->IsColumnEnabled(CProcessModel::eNET_History))
+	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eNET_History))
 	{
-		int HistoryColumn = m_pProcessModel->GetColumnIndex(CProcessModel::eNET_History);
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pProcessList->StartUpdatingWidgets(OldMap, m_NET_History);
-		
 		int CellHeight = theGUI->GetCellHeight();
-		int CellWidth = m_pProcessList->GetView()->columnWidth(HistoryColumn);
+		int CellWidth = m_pProcessList->GetView()->columnWidth(CProcessModel::eNET_History);
 
-		//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-		//		break; // out of view
-		for(QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_NET_Graphs;
+		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//foreach(const QModelIndex& ModelIndex, AllIndexes)
-		//{
-			quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
-			if(!pGraph)
+			quint64 PID = pProcess->GetProcessId();
+			CHistoryGraph* pGraph = Old.take(PID);
+			if (!pGraph)
 			{
-				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(false);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
-				m_NET_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+				m_NET_Graphs.insert(PID, pGraph);
 			}
 
-			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 			SProcStats Stats = pProcess->GetStats();
 
-			pGraph->SetValue(0, TotalNet ? (float)Stats.Net.ReceiveRate.Get()/TotalNet : 0);
-			pGraph->SetValue(1, TotalNet ? (float)Stats.Net.SendRate.Get()/TotalNet : 0);
+			pGraph->SetValue(0, TotalNet ? (float)Stats.Net.ReceiveRate.Get() / TotalNet : 0);
+			pGraph->SetValue(1, TotalNet ? (float)Stats.Net.SendRate.Get() / TotalNet : 0);
 			pGraph->Update(CellHeight, CellWidth);
 		}
-		m_pProcessList->EndUpdatingWidgets(OldMap, m_NET_History);
+		foreach(quint64 TID, Old.keys())
+			m_NET_Graphs.take(TID)->deleteLater();
+
+		UpdateIndexWidget(CProcessModel::eNET_History, CellHeight, m_NET_Graphs, m_NET_History);
 	}
 }

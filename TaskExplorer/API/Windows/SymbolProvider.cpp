@@ -27,7 +27,7 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 #include "../../Common/Common.h"
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 
 #include <dbghelp.h>
 

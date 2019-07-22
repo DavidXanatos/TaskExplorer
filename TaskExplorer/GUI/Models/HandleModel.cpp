@@ -47,11 +47,11 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		bool State = false;
 		int Changed = 0;
 
-		// Note: icons are loaded asynchroniusly
-		if (!pNode->Icon.isValid())
-		{
-			CProcessPtr pProcess = pNode->pHandle->GetProcess().objectCast<CProcessInfo>();
+		CProcessPtr pProcess = pNode->pHandle->GetProcess().objectCast<CProcessInfo>();
 
+		// Note: icons are loaded asynchroniusly
+		if (m_bUseIcons && !pNode->Icon.isValid())
+		{
 			if (!pProcess.isNull())
 			{
 				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
@@ -81,7 +81,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 			QVariant Value;
 			switch(section)
 			{
-				case eProcess:			Value = pHandle->GetProcessName(); break;	
+				case eProcess:			Value = pProcess.isNull() ? tr("Unknown Process") : pProcess->GetName(); break;	
 				case eHandle:			Value = pHandle->GetHandleId(); break;
 				case eType:				Value = pHandle->GetTypeName(); break;
 				case eName:				Value = pHandle->GetFileName(); break;

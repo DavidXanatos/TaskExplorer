@@ -9,18 +9,13 @@
 #endif
 
 
-
 CProcessModel::CProcessModel(QObject *parent)
 :CTreeItemModel(parent)
 {
 	m_bUseIcons = true;
 	m_bUseDescr = true;
 
-#ifdef LIMIT_COLUMNS
-	m_Columns.append(eProcess);
-#else
 	m_Columns.insert(eProcess);
-#endif
 }
 
 CProcessModel::~CProcessModel()
@@ -36,8 +31,10 @@ QList<QVariant> CProcessModel::MakeProcPath(const CProcessPtr& pProcess, const Q
 
 	if (!pParent.isNull())
 	{
+#ifdef WIN32
 		if (!qobject_cast<CWinProcess*>(pProcess.data())->ValidateParent(pParent.data()))
 			return list;
+#endif
 
 		list = MakeProcPath(pParent, ProcessList);
 		list.append(ParentPID);
@@ -48,8 +45,6 @@ QList<QVariant> CProcessModel::MakeProcPath(const CProcessPtr& pProcess, const Q
 
 void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 {
-	//QList<QModelIndex> AllIndexes;
-
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QMap<QVariant, STreeNode*> Old = m_Map;
 
@@ -78,23 +73,15 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		{
 			Old[ID] = NULL;
 			Index = Find(m_Root, pNode);
-			//if(Index.isValid())
-			//	AllIndexes.append(Index);
 		}
 
 		//if(Index.isValid()) // this is to slow, be more precise
 		//	emit dataChanged(createIndex(Index.row(), 0, pNode), createIndex(Index.row(), columnCount()-1, pNode));
-
-#ifdef LIMIT_COLUMNS
-		if (pNode->Values.size() != m_Columns.size()) 
-			pNode->Values.resize(m_Columns.size());
-#endif		
 		
 #ifdef WIN32
 		QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
 		CWinTokenPtr pToken = pWinProc->GetToken();
 #endif
-
 
 		int Col = 0;
 		bool State = false;
@@ -144,15 +131,11 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 		for(int section = eProcess; section < columnCount(); section++)
 		{
-			QVariant Value;
-#ifdef LIMIT_COLUMNS
-			switch(m_Columns[section])
-#else
 			if (!m_Columns.contains(section))
-				continue;
+				continue; // ignore columns which are hidden
 
+			QVariant Value;
 			switch(section)
-#endif
 			{
 				case eProcess:		
 					if (m_bUseDescr)
@@ -349,11 +332,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					Changed = 1;
 				ColValue.Raw = Value;
 
-#ifdef LIMIT_COLUMNS
-				switch(m_Columns[section])
-#else
 				switch(section)
-#endif
 				{
 					case ePID:				if (Value.toLongLong() < 0) ColValue.Formated = ""; break;
 
@@ -456,16 +435,15 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 	CTreeItemModel::Sync(New, Old);
 
-	/*for (QMap<QList<QVariant>, QList<STreeNode*> >::const_iterator I = New.begin(); I != New.end(); I++)
-	{
-		foreach(STreeNode* pNode, I.value())
-		{
-			QModelIndex Index = Find(m_Root, pNode);
-			if(Index.isValid())
-				AllIndexes.append(Index);
-		}
-	}*/
-	
+	//for (QMap<QList<QVariant>, QList<STreeNode*> >::const_iterator I = New.begin(); I != New.end(); I++)
+	//{
+	//	foreach(STreeNode* pNode, I.value())
+	//	{
+	//		QModelIndex Index = Find(m_Root, pNode);
+	//		if(Index.isValid())
+	//			AllIndexes.append(Index);
+	//	}
+	//}
 	//m_AllIndexes = AllIndexes;
 }
 
@@ -482,24 +460,13 @@ CProcessPtr CProcessModel::GetProcess(const QModelIndex &index) const
 
 int CProcessModel::columnCount(const QModelIndex &parent) const
 {
-#ifdef LIMIT_COLUMNS
-	return m_Columns.size();
-#else
 	return eCount;
-#endif
 }
 
 QVariant CProcessModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
-	{
-#ifdef LIMIT_COLUMNS
-		if(m_Columns.size() > section)
-			return GetColumn(m_Columns[section]);
-#else
-		return GetColumn(section);
-#endif
-	}
+		return GetColumHeader(section);
     return QVariant();
 }
 
@@ -508,57 +475,15 @@ bool CProcessModel::IsColumnEnabled(int column)
 	return m_Columns.contains(column);
 }
 
-int CProcessModel::GetColumnIndex(int index)
-{
-#ifdef LIMIT_COLUMNS
-	return m_Columns.indexOf(index);
-#else
-	return index;
-#endif
-}
-
 void CProcessModel::SetColumnEnabled(int column, bool set)
 {
-	//emit layoutAboutToBeChanged();
-	beginResetModel();
 	if (!set)
-	{
-#ifdef LIMIT_COLUMNS
-		int index = m_Columns.indexOf(column);
-		if (index != -1)
-		{
-			//beginRemoveColumns(QModelIndex(),index,index);
-			m_Columns.removeAt(index);
-			//endRemoveColumns();
-		}
-#else
 		m_Columns.remove(column);
-#endif
-	}
-	else if (!m_Columns.contains(column)) 
-	{
-#ifdef LIMIT_COLUMNS
-		if (column < MaxColumns())
-		{
-			//beginInsertColumns(QModelIndex(),m_Columns.size(),m_Columns.size());
-			m_Columns.append(column);
-			//qSort(m_Columns.begin(), m_Columns.end(), [](const int& a, const int& b) { return a < b; });
-			//endInsertColumns();
-		}
-#else
+	else
 		m_Columns.insert(column);
-#endif
-	}
-	endResetModel();
-	//emit layoutChanged();
 }
 
-int CProcessModel::MaxColumns() const
-{
-	return eCount;
-}
-
-QString CProcessModel::GetColumn(int section) const
+QString CProcessModel::GetColumHeader(int section) const
 {
 	switch(section)
 	{

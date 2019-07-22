@@ -4,7 +4,7 @@
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
 #include "../../Common/SettingsWidgets.h"
-#include "..\..\API\WndInfo.h"
+#include "../../API/WndInfo.h"
 #include "../../API/ProcessInfo.h"
 
 class CWindowModel;
@@ -41,7 +41,7 @@ protected:
 
 private:
 
-	QHBoxLayout*			m_pMainLayout;
+	QVBoxLayout*			m_pMainLayout;
 
 	QTreeViewEx*			m_pWindowList;
 	CWindowModel*			m_pWindowModel;

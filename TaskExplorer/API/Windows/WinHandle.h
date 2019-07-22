@@ -123,6 +123,7 @@ public:
 protected:
 	friend class CWindowsAPI;
 	friend class CWinProcess;
+	friend class CWinHandleFinder;
 
 	bool InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 TimeStamp);
 

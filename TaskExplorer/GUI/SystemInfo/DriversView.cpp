@@ -5,12 +5,13 @@
 #ifdef WIN32
 #include "../../API/Windows/WinDriver.h"		
 #endif
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../Common/SortFilterProxyModel.h"
+#include "../../Common/Finder.h"
 
 CDriversView::CDriversView(QWidget *parent)
 	:CPanelView(parent)
 {
-	m_pMainLayout = new QHBoxLayout();
+	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
@@ -39,6 +40,8 @@ CDriversView::CDriversView(QWidget *parent)
 	m_pMainLayout->addWidget(m_pDriverList);
 	// 
 
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
+
 	QByteArray Columns = theConf->GetBlob(objectName() + "/DriversView_Columns");
 	if (Columns.isEmpty())
 	{
@@ -46,7 +49,9 @@ CDriversView::CDriversView(QWidget *parent)
 			m_pDriverList->setColumnHidden(i, true);
 
 		m_pDriverList->setColumnHidden(CDriverModel::eDriver, false);
+#ifdef WIN32
 		m_pDriverList->setColumnHidden(CDriverModel::eDescription, false);
+#endif
 		m_pDriverList->setColumnHidden(CDriverModel::eBinaryPath, false);
 
 	}

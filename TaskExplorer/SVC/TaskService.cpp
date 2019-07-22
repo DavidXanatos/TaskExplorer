@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "TaskService.h"
-#include "..\Common\Common.h"
+#include "../Common/Common.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "../API/Windows/WinDumper.h"

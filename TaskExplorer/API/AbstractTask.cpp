@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "AbstractTask.h"
-#include "../../GUI/TaskExplorer.h"
+#include "../GUI/TaskExplorer.h"
 
 
 void STaskStats::UpdateStats(quint64 sysTotalTime, quint64 sysTotalCycleTime )

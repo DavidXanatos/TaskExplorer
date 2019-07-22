@@ -1,6 +1,6 @@
 #pragma once
 #include <qobject.h>
-#include "../Common/FlexError.h"
+#include "../../Common/FlexError.h"
 #include "../ProcessInfo.h"
 #include "../AbstractInfo.h"
 
@@ -184,8 +184,8 @@ public:
 
 	virtual QMap<QString, SAttribute> GetAttributes();
 
-	static QString CWinToken::GetSecurityAttributeTypeString(quint16 Type);
-	static QString CWinToken::GetSecurityAttributeFlagsString(quint32 Flags);
+        static QString GetSecurityAttributeTypeString(quint16 Type);
+        static QString GetSecurityAttributeFlagsString(quint32 Flags);
 
 	enum EQueryType
 	{

@@ -2,10 +2,10 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\..\API\SocketInfo.h"
-#include "..\Models\SocketModel.h"
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../../API/SocketInfo.h"
+#include "../Models/SocketModel.h"
+#include "../../Common/SortFilterProxyModel.h"
 
 class CSocketsView : public CPanelView
 {
@@ -35,7 +35,7 @@ protected:
 	
 private:
 
-	QHBoxLayout*			m_pMainLayout;
+	QVBoxLayout*			m_pMainLayout;
 
 	QTreeViewEx*			m_pSocketList;
 	CSocketModel*			m_pSocketModel;

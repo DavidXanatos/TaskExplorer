@@ -256,8 +256,8 @@
   <ItemGroup>
     <ClCompile Include="API\AbstractTask.cpp" />
     <ClCompile Include="API\DriverInfo.cpp" />
+    <ClCompile Include="API\Finders\AbstractFinder.cpp" />
     <ClCompile Include="API\HandleInfo.cpp" />
-    <ClCompile Include="API\IOStats.cpp" />
     <ClCompile Include="API\MemDumper.cpp" />
     <ClCompile Include="API\MemoryInfo.cpp" />
     <ClCompile Include="API\ModuleInfo.cpp" />
@@ -268,6 +268,9 @@
     <ClCompile Include="API\StackTrace.cpp" />
     <ClCompile Include="API\SystemAPI.cpp" />
     <ClCompile Include="API\ThreadInfo.cpp" />
+    <ClCompile Include="API\Windows\Finders\WinHandleFinder.cpp" />
+    <ClCompile Include="API\Windows\Finders\WinStringFinder.cpp" />
+    <ClCompile Include="API\Windows\Finders\WinModuleFinder.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\EventMonitor.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\GpuMonitor.cpp" />
@@ -302,6 +305,7 @@
     <ClCompile Include="Common\ComboInputDialog.cpp" />
     <ClCompile Include="Common\Common.cpp" />
     <ClCompile Include="Common\DebugHelpers.cpp" />
+    <ClCompile Include="Common\Finder.cpp" />
     <ClCompile Include="Common\IncrementalPlot.cpp" />
     <ClCompile Include="Common\ItemChooser.cpp" />
     <ClCompile Include="Common\KeyValueInputDialog.cpp" />
@@ -324,9 +328,15 @@
     <ClCompile Include="GUI\Models\ProcessModel.cpp" />
     <ClCompile Include="GUI\Models\ServiceModel.cpp" />
     <ClCompile Include="GUI\Models\SocketModel.cpp" />
+    <ClCompile Include="GUI\Models\StringModel.cpp" />
     <ClCompile Include="GUI\Models\ThreadModel.cpp" />
     <ClCompile Include="GUI\Models\WindowModel.cpp" />
     <ClCompile Include="GUI\NewService.cpp" />
+    <ClCompile Include="GUI\Search\HandleSearch.cpp" />
+    <ClCompile Include="GUI\Search\MemorySearch.cpp" />
+    <ClCompile Include="GUI\Search\ModuleSearch.cpp" />
+    <ClCompile Include="GUI\Search\SearchWindow.cpp" />
+    <ClCompile Include="GUI\Search\StringView.cpp" />
     <ClCompile Include="GUI\SettingsWindow.cpp" />
     <ClCompile Include="GUI\ProcessPicker.cpp" />
     <ClCompile Include="GUI\ProcessTree.cpp">
@@ -349,6 +359,7 @@
     <ClCompile Include="GUI\SystemInfo\ServiceListWidget.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServicesView.cpp" />
     <ClCompile Include="GUI\SystemInfo\SystemInfoView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\SystemInfoWindow.cpp" />
     <ClCompile Include="GUI\SystemInfo\SystemView.cpp" />
     <ClCompile Include="GUI\SystemInfo\WinSvcShutdown.cpp" />
     <ClCompile Include="GUI\SystemInfo\WinSvcTrigger.cpp" />
@@ -481,7 +492,8 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../API/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../API/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
-    <ClInclude Include="API\IOStats.h" />
+    <QtMoc Include="API\Finders\AbstractFinder.h" />
+    <ClInclude Include="API\MiscStats.h" />
     <QtMoc Include="API\AbstractInfo.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../API/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;../../API/%(Filename)%(Extension)</ForceInclude>
@@ -491,6 +503,10 @@
     <QtMoc Include="API\MemDumper.h" />
     <QtMoc Include="API\MemoryInfo.h" />
     <ClInclude Include="API\StackTrace.h" />
+    <QtMoc Include="API\Windows\Finders\WinHandleFinder.h" />
+    <QtMoc Include="API\Windows\Finders\WinStringFinder.h" />
+    <QtMoc Include="API\Windows\Finders\WinModuleFinder.h" />
+    <QtMoc Include="API\StringInfo.h" />
     <ClInclude Include="API\Windows\ProcessHacker.h" />
     <QtMoc Include="Common\TreeWidgetEx.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
@@ -656,6 +672,7 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
     <ClInclude Include="Common\ExitDialog.h" />
+    <QtMoc Include="Common\Finder.h" />
     <ClInclude Include="Common\FlexError.h" />
     <QtMoc Include="Common\PanelView.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
@@ -691,7 +708,7 @@
     <QtMoc Include="Common\ProgressDialog.h" />
     <QtMoc Include="Common\ItemChooser.h" />
     <ClInclude Include="Common\qzlib.h" />
-    <ClInclude Include="Common\SortFilterProxyModel.h" />
+    <QtMoc Include="Common\SortFilterProxyModel.h" />
     <QtMoc Include="GUI\Models\ThreadModel.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/Models/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;../../GUI/Models/%(Filename)%(Extension)</ForceInclude>
@@ -840,6 +857,7 @@
     <QtMoc Include="GUI\MemoryEditor.h" />
     <QtMoc Include="GUI\SettingsWindow.h" />
     <ClInclude Include="GUI\CustomItemDelegate.h" />
+    <QtMoc Include="GUI\Models\StringModel.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -871,6 +889,12 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
+    <QtMoc Include="GUI\Search\HandleSearch.h" />
+    <QtMoc Include="GUI\Search\ModuleSearch.h" />
+    <QtMoc Include="GUI\Search\MemorySearch.h" />
+    <QtMoc Include="GUI\Search\StringView.h" />
+    <QtMoc Include="GUI\Search\SearchWindow.h" />
+    <QtMoc Include="GUI\SystemInfo\SystemInfoWindow.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
@@ -913,12 +937,12 @@
     <Text Include="..\TODO.md" />
   </ItemGroup>
   <ItemGroup>
-    <QtUic Include="Form Files\NewService.ui" />
-    <QtUic Include="Form Files\RunAsDialog.ui" />
-    <QtUic Include="Form Files\SettingsWindow.ui" />
-    <QtUic Include="Form Files\WinSvcShutdown.ui" />
-    <QtUic Include="Form Files\WinSvcTrigger.ui" />
-    <QtUic Include="Form Files\WinSvcWindow.ui" />
+    <QtUic Include="Forms\NewService.ui" />
+    <QtUic Include="Forms\RunAsDialog.ui" />
+    <QtUic Include="Forms\SettingsWindow.ui" />
+    <QtUic Include="Forms\WinSvcShutdown.ui" />
+    <QtUic Include="Forms\WinSvcTrigger.ui" />
+    <QtUic Include="Forms\WinSvcWindow.ui" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

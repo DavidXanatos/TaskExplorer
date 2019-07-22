@@ -1,9 +1,9 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\API\ProcessInfo.h"
-#include "..\..\Common\PanelView.h"
-#include "..\..\Common\TreeWidgetEx.h"
-#include "..\StatsView.h"
+#include "../../API/ProcessInfo.h"
+#include "../../Common/PanelView.h"
+#include "../../Common/TreeWidgetEx.h"
+#include "../StatsView.h"
 
 class CProcessView : public QWidget //CPanelView
 {

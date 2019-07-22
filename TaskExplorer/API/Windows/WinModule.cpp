@@ -228,16 +228,14 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	{
 		NTSTATUS status;
 
-		VERIFY_RESULT VerifyResult;
-		PPH_STRING VerifySignerName;
-		ulong ImportFunctions;
-		ulong ImportModules;
+		VERIFY_RESULT VerifyResult = VERIFY_RESULT(0); //VrUnknown
+		PPH_STRING VerifySignerName = NULL;
+		if(theConf->GetBool("Options/VerifySignatures", true))
+			VerifyResult = PhVerifyFileCached(FileName, PackageFullName, &VerifySignerName, FALSE);
 
 		BOOLEAN IsPacked;
-
-		VerifyResult = PhVerifyFileCached(FileName, PackageFullName, &VerifySignerName, FALSE);
-
-
+		ulong ImportFunctions;
+		ulong ImportModules;
 		status = PhIsExecutablePacked(FileName->Buffer, &IsPacked, &ImportModules, &ImportFunctions);
 
 		// If we got an Module-related error, the Module is packed.

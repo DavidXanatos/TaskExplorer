@@ -12,13 +12,15 @@ CNewService::CNewService(QWidget *parent)
 	this->setCentralWidget(centralWidget);
 	ui.setupUi(centralWidget);
 
+#ifdef WIN32
 	for (int i = 0; i < 10; i++)
 		ui.svcType->addItem((char*)PhpServiceTypePairs[i].Key, (quint64)PhpServiceTypePairs[i].Value);
 	for (int i = 0; i < 5; i++)
 		ui.startType->addItem((char*)PhpServiceStartTypePairs[i].Key, (quint64)PhpServiceStartTypePairs[i].Value);
 	for (int i = 0; i < 4; i++)
 		ui.errorControl->addItem((char*)PhpServiceErrorControlPairs[i].Key, (quint64)PhpServiceErrorControlPairs[i].Value);
-	
+#endif
+
 	ui.svcType->setCurrentIndex(2); // "Own Process"
 	ui.startType->setCurrentIndex(4); // "Demand Start"
 	ui.errorControl->setCurrentIndex(0); // "Ignore"

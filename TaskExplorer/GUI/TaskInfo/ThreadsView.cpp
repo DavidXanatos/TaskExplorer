@@ -5,6 +5,7 @@
 #ifdef WIN32
 #include "../../API/Windows/WinThread.h"
 #endif
+#include "../../Common/Finder.h"
 
 CThreadsView::CThreadsView(QWidget *parent)
 	: CTaskView(parent)
@@ -49,6 +50,9 @@ CThreadsView::CThreadsView(QWidget *parent)
 	connect(m_pThreadList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
 	// 
 
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
+
+
 	// Stack List
 	m_pStackView = new CStackView(this);
 	
@@ -89,7 +93,9 @@ CThreadsView::CThreadsView(QWidget *parent)
 		m_pThreadList->setColumnHidden(CThreadModel::eService, false);
 #endif
 		m_pThreadList->setColumnHidden(CThreadModel::eState, false);
+#ifdef WIN32
 		m_pThreadList->setColumnHidden(CThreadModel::eType, false);
+#endif
 		m_pThreadList->setColumnHidden(CThreadModel::eCreated, false);
 	}
 	else
@@ -145,9 +151,9 @@ void CThreadsView::Refresh()
 
 void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CThreadPtr> Threads = m_pCurProcess->GetThreadList();
+	m_Threads = m_pCurProcess->GetThreadList();
 
-	m_pThreadModel->Sync(Threads);
+	m_pThreadModel->Sync(m_Threads);
 
 	if(!m_pCurThread.isNull())
 		m_pCurThread->TraceStack();
@@ -264,44 +270,53 @@ void CThreadsView::OnUpdateHistory()
 	if (!m_pThreadList->isColumnHidden(CThreadModel::eCPU_History))
 	{
 		int HistoryColumn = CThreadModel::eCPU_History;
-		QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > OldMap;
-		m_pThreadList->StartUpdatingWidgets(OldMap, m_CPU_History);
-
 		int CellHeight = theGUI->GetCellHeight();
 		int CellWidth = m_pThreadList->columnWidth(HistoryColumn);
 
-		//for(QModelIndex Index = m_pThreadList->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
-		//{
-		//	Index = Index.sibling(Index.row(), HistoryColumn);
-		//	if(!m_pThreadList->viewport()->rect().intersects(m_pThreadList->visualRect(Index)))
-		//		break; // out of view
-		for (QModelIndex Index = m_pSortProxy->index(0, HistoryColumn); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
+		QMap<quint64, CHistoryGraph*> Old = m_CPU_Graphs;
+		foreach(const CThreadPtr& pThread, m_Threads)
 		{
-			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		//for(int i=0; i < m_pThreadModel->rowCount(); i++)
-		//{
-		//	QModelIndex ModelIndex = m_pSortProxy->index(i, HistoryColumn);
-			quint64 PID = m_pThreadModel->Data(ModelIndex, Qt::UserRole, CThreadModel::eThread).toULongLong();
-
-			CHistoryGraph* pGraph = OldMap.take(PID).first;
+			quint64 TID = pThread->GetThreadId();
+			CHistoryGraph* pGraph = Old.take(TID);
 			if (!pGraph)
 			{
-				//QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
-
-				pGraph = new CHistoryGraph(true);
-				pGraph->setFixedHeight(CellHeight);
+				pGraph = new CHistoryGraph(true, Qt::white, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
-				m_CPU_History.insert(PID, qMakePair((QPointer<CHistoryGraph>)pGraph, QPersistentModelIndex(Index)));
-				m_pThreadList->setIndexWidget(Index, pGraph);
+				m_CPU_Graphs.insert(TID, pGraph);
 			}
 
-			CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
 			STaskStats Stats = pThread->GetCpuStats();
 
 			pGraph->SetValue(0, Stats.CpuUsage);
 			pGraph->SetValue(1, Stats.CpuKernelUsage);
 			pGraph->Update(CellHeight, CellWidth);
+		}
+		foreach(quint64 TID, Old.keys())
+			m_CPU_Graphs.take(TID)->deleteLater();
+
+
+		QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > OldMap;
+		m_pThreadList->StartUpdatingWidgets(OldMap, m_CPU_History);
+		for(QModelIndex Index = m_pThreadList->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
+		{
+			Index = Index.sibling(Index.row(), HistoryColumn);
+			if(!m_pThreadList->viewport()->rect().intersects(m_pThreadList->visualRect(Index)))
+				break; // out of view
+		
+			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+			quint64 TID = m_pThreadModel->Data(ModelIndex, Qt::UserRole, CThreadModel::eThread).toULongLong();
+
+			CHistoryWidget* pGraph = OldMap.take(TID).first;
+			if (!pGraph)
+			{
+				QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
+
+				pGraph = new CHistoryWidget(m_CPU_Graphs[TID]);
+				pGraph->setFixedHeight(CellHeight);
+				m_CPU_History.insert(TID, qMakePair((QPointer<CHistoryWidget>)pGraph, QPersistentModelIndex(Index)));
+				m_pThreadList->setIndexWidget(Index, pGraph);
+			}
 		}
 		m_pThreadList->EndUpdatingWidgets(OldMap, m_CPU_History);
 	}

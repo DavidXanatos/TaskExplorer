@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "SocketInfo.h"
-#include "../../GUI/TaskExplorer.h"
+#include "../GUI/TaskExplorer.h"
 
 
 CSocketInfo::CSocketInfo(QObject *parent) : CAbstractInfoEx(parent)

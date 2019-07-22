@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "ThreadInfo.h"
 
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 
 CThreadInfo::CThreadInfo(QObject *parent) : CAbstractTask(parent)
 {

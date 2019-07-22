@@ -6,6 +6,7 @@
 CListItemModel::CListItemModel(QObject *parent)
 :QAbstractItemModel(parent)
 {
+	m_bUseIcons = false;
 }
 
 CListItemModel::~CListItemModel()

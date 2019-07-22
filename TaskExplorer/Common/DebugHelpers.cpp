@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "DebugHelpers.h"
+#include "Common.h"
 #include <QDebug>
 
 #ifdef WIN32
@@ -377,9 +378,9 @@ void InitMiniDumpWriter(const wchar_t* Name)
     InstallSigAction(SIGSEGV);
 }
 
-uint64 GetCurCycle()
+quint64 GetCurCycle()
 {
-	return GetCurTick()*1000; // ToDo
+    return GetCurTick()*1000; // ToDo
 }
 
 #else

@@ -1,9 +1,9 @@
 #include "stdafx.h"
 #include "GraphBar.h"
 #include "TaskExplorer.h"
-#include "..\Common\ItemChooser.h"
+#include "../Common/ItemChooser.h"
 #ifdef WIN32
-#include "..\API\Windows\WindowsAPI.h"
+#include "../API/Windows/WindowsAPI.h"
 #endif
 
 CGraphBar::CGraphBar()
@@ -331,6 +331,7 @@ void CGraphBar::UpdateGraphs()
 
 			break;
 
+#ifdef WIN32
 		case eSambaPlot:
 			Text = tr("Samba<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 			
@@ -367,6 +368,7 @@ void CGraphBar::UpdateGraphs()
 			pPlot->AddPlotPoint("SentServer", Stats.SambaServer.SendRate.Get() );
 
 			break;
+#endif
 
 		case eRasPlot:
 			Text = tr("RAS/VPN<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
@@ -626,6 +628,7 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		Text += tr("</ul>");
 		break;
 
+#ifdef WIN32
 	case eSambaPlot:
 		Text = tr("<h3>Samba share:</h3>");
 		Text += tr("<ul>");
@@ -650,7 +653,8 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		Text += tr("<li><b>Receive</b> rate: %1</li>").arg(FormatSize(Stats.SambaServer.ReceiveRate.Get()));
 		Text += tr("<li><b>Send</b> rate: %1</li>").arg(FormatSize(Stats.SambaServer.SendRate.Get()));
 		Text += tr("</ul>");
-		break;
+        break;
+#endif
 
 	case eRasPlot:
 		Text = tr("<h3>RAS & VPN Traffic:</h3>");

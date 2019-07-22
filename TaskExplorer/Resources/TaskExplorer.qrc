@@ -13,5 +13,6 @@
     <qresource prefix="/">
         <file>TaskExplorer.png</file>
         <file>ProcessHacker.png</file>
+        <file>close.png</file>
     </qresource>
 </RCC>

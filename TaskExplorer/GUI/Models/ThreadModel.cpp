@@ -81,7 +81,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 #ifdef WIN32
 				case eStartAddress:			Value = pWinThread->GetStartAddressString(); break;
 #endif
-				case ePriority:				Value = pThread->GetPriority(); break;
+                case ePriority:				Value = (quint32)pThread->GetPriority(); break;
 #ifdef WIN32
 				case eService:				Value = pWinThread->GetServiceName(); break;
 				case eName:					Value = pWinThread->GetThreadName(); break;
@@ -92,9 +92,9 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eStartModule:			Value = pWinThread->GetStartAddressFileName(); break;
 #endif
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
-				case eBasePriority:			Value = pThread->GetBasePriority(); break;
-				case ePagePriority:			Value = pThread->GetPagePriority(); break;
-				case eIOPriority:			Value = pThread->GetIOPriority(); break;
+                case eBasePriority:			Value = (quint32)pThread->GetBasePriority(); break;
+                case ePagePriority:			Value = (quint32)pThread->GetPagePriority(); break;
+                case eIOPriority:			Value = (quint32)pThread->GetIOPriority(); break;
 				case eCycles:				Value = CpuStats.CycleDelta.Value; break;
 				case eState:				Value = pThread->GetStateString(); break;
 				case eKernelTime:			Value = CpuStats.CpuKernelDelta.Value;

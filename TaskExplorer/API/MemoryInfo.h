@@ -1,7 +1,7 @@
 #pragma once
 #include <qobject.h>
 #include "AbstractInfo.h"
-#include "..\Common\FlexError.h"
+#include "../Common/FlexError.h"
 
 class CMemoryInfo: public CAbstractInfoEx
 {

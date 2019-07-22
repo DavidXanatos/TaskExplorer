@@ -3,9 +3,9 @@
 #include "../../Common/TreeWidgetEx.h"
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\Models\HandleModel.h"
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../Models/HandleModel.h"
+#include "../../Common/SortFilterProxyModel.h"
 
 class CHandleFilterModel: public CSortFilterProxyModel
 {
@@ -66,12 +66,13 @@ class CHandlesView : public CPanelView
 {
 	Q_OBJECT
 public:
-	CHandlesView(bool bAll = false, QWidget *parent = 0);
+	CHandlesView(int iAll = 0, QWidget *parent = 0);
 	virtual ~CHandlesView();
 
 public slots:
 	void					ShowProcess(const CProcessPtr& pProcess);
 	void					Refresh();
+	void					ShowHandles(const QMap<quint64, CHandlePtr>& Handles);
 
 	void					UpdateFilter();
 	void					UpdateFilter(const QString & filter);
@@ -94,7 +95,7 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
-	bool					m_ShowAllFiles;
+	int						m_ShowAllFiles;
 	CProcessPtr				m_pCurProcess;
 
 private:

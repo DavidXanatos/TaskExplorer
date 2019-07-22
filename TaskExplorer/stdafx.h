@@ -104,6 +104,7 @@ using namespace std;
 #include <QInputDialog>
 #include <QToolTip>
 #include <QColorDialog>
+#include <QToolButton>
 
 // other includes
 

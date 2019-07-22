@@ -28,7 +28,7 @@
 #include <lsasup.h>
 #include <userenv.h>
 
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 
 #include "WindowsAPI.h"
 #include "WinProcess.h"
@@ -998,10 +998,14 @@ bool CWinProcess::UpdateHandles()
     BOOLEAN filterNeeded;
 
 	if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_DUP_HANDLE, m->UniqueProcessId)))
+	{
+		emit HandlesUpdated(Added, Changed, Removed);
 		return false;
+	}
 
 	if (!NT_SUCCESS(PhEnumHandlesGeneric(m->UniqueProcessId, ProcessHandle, &handleInfo, &filterNeeded))) {
 		NtClose(ProcessHandle);
+		emit HandlesUpdated(Added, Changed, Removed);
 		return false;
 	}
 
@@ -1140,17 +1144,15 @@ bool CWinProcess::UpdateModules()
 
 	NTSTATUS runSttus = PhEnumGenericModules(m->UniqueProcessId, m->QueryHandle, PH_ENUM_GENERIC_MAPPED_FILES | PH_ENUM_GENERIC_MAPPED_IMAGES, EnumModulesCallback, modules);
 
-	QMap<quint64, CModulePtr> OldModules = GetModleList();
+	QMap<quint64, CModulePtr> OldModules = GetModuleList();
 
 	bool HaveFirst = OldModules.count() > 0;
+	//quint64 FirstBaseAddress = 0;
 
 	// Look for new modules.
 	for (ulong i = 0; i < modules->Count; i++)
 	{
 		PPH_MODULE_INFO module = (PPH_MODULE_INFO)modules->Items[i];
-
-		/*PhReferenceObject(module->Name);
-		PhReferenceObject(module->FileName);*/
 
 		quint64 BaseAddress = (quint64)module->BaseAddress;
 		QString FileName = CastPhString(module->FileName, false);
@@ -1200,6 +1202,9 @@ bool CWinProcess::UpdateModules()
 			OldModules.erase(I);
 		}
 
+		//if (!FirstBaseAddress && pModule->IsFirst())
+		//	FirstBaseAddress = pModule->GetBaseAddress();
+
 		bool bChanged = false;
 		bChanged = pModule->UpdateDynamicData(module);
 
@@ -1227,6 +1232,12 @@ bool CWinProcess::UpdateModules()
 		m_ModuleList.remove(BaseAddress);
 		Removed.insert(BaseAddress);
 	}
+
+	/*foreach(const CModulePtr& pModule, m_ModuleList)
+	{
+		if (pModule->GetParentBaseAddress() == 0)
+			pModule->SetParentBaseAddress(FirstBaseAddress);
+	}*/
 	Locker.unlock();
 
 	emit ModulesUpdated(Added, Changed, Removed);

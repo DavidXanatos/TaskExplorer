@@ -1,9 +1,9 @@
 #include "stdafx.h"
-#include "GUI\TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include <QtWidgets/QApplication>
 //#include <vld.h>
 #include <QThreadPool>
-#include "SVC\TaskService.h"
+#include "SVC/TaskService.h"
 #ifdef WIN32
 #include "API/Windows/ProcessHacker.h"
 #include "API/Windows/WinAdmin.h"
@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 	bool bSvc = false;
 	QString svcName = TASK_SERVICE_NAME;
 	int timeOut = 0;
-	char* run_svc = NULL;
+    const char* run_svc = NULL;
     for(int i = 1; i < argc; i++)
     {
 		if (strcmp(argv[i], "-svc") == 0)
@@ -54,11 +54,13 @@ int main(int argc, char *argv[])
 #endif
     }
 
+#ifdef WIN32
 	if (!bSvc && !IsElevated())
 	{
 		if (SkipUacRun())
 			return 0;
 	}
+#endif
 
 	if (run_svc)
 	{
@@ -72,50 +74,6 @@ int main(int argc, char *argv[])
 	if (bSvc)		new QCoreApplication(argc, argv);
 	else			new QApplication(argc, argv);
 
-
-#ifndef WIN64
-    if (PhIsExecutingInWow64())
-    {
-		QString BinaryPath = "";
-
-		static char* relativeFileNames[] =
-		{
-			"\\x64\\TaskExplorer.exe",
-			"\\..\\x64\\TaskExplorer.exe",
-#ifdef DEBUG
-			"\\..\\..\\x64\\Debug\\TaskExplorer.exe"
-#else
-			"\\..\\..\\x64\\Release\\TaskExplorer.exe"
-#endif
-		};
-
-		QString AppDir = QApplication::applicationDirPath();
-
-		for (int i = 0; i < RTL_NUMBER_OF(relativeFileNames); i++)
-		{
-			QString TestPath = QDir::cleanPath(AppDir + relativeFileNames[i]);
-			if (QFile::exists(TestPath))
-			{
-				BinaryPath = TestPath.replace("/","\\");
-				break;
-			}
-		}
-
-		if (!BinaryPath.isEmpty())
-			QProcess::startDetached(BinaryPath, QCoreApplication::instance()->arguments());
-		else
-		{
-			QMessageBox::critical(NULL, "TaskExplorer", CTaskExplorer::tr(
-				"You are attempting to run the 32-bit version of Task Explorer on 64-bit Windows. "
-				"Most features will not work correctly.\n\n"
-				"Please run the 64-bit version of Task Explorer instead."
-			));
-		}
-		//QApplication::instance()->quit();
-		return 0;
-    }
-#endif
-
 	theConf = new CSettings("TaskExplorer");
 
 	QThreadPool::globalInstance()->setMaxThreadCount(theConf->GetInt("Options/MaxThreadPool", 10));
@@ -128,6 +86,51 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+#ifdef WIN32
+#ifndef WIN64
+		if (PhIsExecutingInWow64())
+		{
+			QString BinaryPath = "";
+
+			static char* relativeFileNames[] =
+			{
+				"\\x64\\TaskExplorer.exe",
+				"\\..\\x64\\TaskExplorer.exe",
+#ifdef DEBUG
+				"\\..\\..\\x64\\Debug\\TaskExplorer.exe"
+#else
+				"\\..\\..\\x64\\Release\\TaskExplorer.exe"
+#endif
+			};
+
+			QString AppDir = QApplication::applicationDirPath();
+
+			for (int i = 0; i < RTL_NUMBER_OF(relativeFileNames); i++)
+			{
+				QString TestPath = QDir::cleanPath(AppDir + relativeFileNames[i]);
+				if (QFile::exists(TestPath))
+				{
+					BinaryPath = TestPath.replace("/", "\\");
+					break;
+				}
+			}
+
+			if (!BinaryPath.isEmpty())
+				QProcess::startDetached(BinaryPath, QCoreApplication::instance()->arguments());
+			else
+			{
+				QMessageBox::critical(NULL, "TaskExplorer", CTaskExplorer::tr(
+					"You are attempting to run the 32-bit version of Task Explorer on 64-bit Windows. "
+					"Most features will not work correctly.\n\n"
+					"Please run the 64-bit version of Task Explorer instead."
+				));
+			}
+			//QApplication::instance()->quit();
+			return 0;
+		}
+#endif
+#endif
+
 		new CTaskExplorer();
 		
 		ret = QApplication::exec();

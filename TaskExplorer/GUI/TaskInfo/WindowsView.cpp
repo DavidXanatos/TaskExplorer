@@ -6,8 +6,9 @@
 #include "../../API/Windows/WinWnd.h"
 #include "../../API/Windows/ProcessHacker.h"
 #endif
-#include "..\Models\WindowModel.h"
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../Models/WindowModel.h"
+#include "../../Common/SortFilterProxyModel.h"
+#include "../../Common/Finder.h"
 
 
 CWindowsView::CWindowsView(QWidget *parent)
@@ -15,7 +16,7 @@ CWindowsView::CWindowsView(QWidget *parent)
 {
 	m_LockValue = false;
 
-	m_pMainLayout = new QHBoxLayout();
+	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 	
@@ -53,6 +54,9 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pSplitter->addWidget(m_pWindowList);
 	m_pSplitter->setCollapsible(0, false);
 	// 
+
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
+
 
 	connect(m_pWindowList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnItemSelected(const QModelIndex&)));
 	connect(m_pWindowList->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), this, SLOT(OnItemSelected(QModelIndex)));
@@ -92,6 +96,9 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pMinimize = m_pMenu->addAction(tr("Minimize"), this, SLOT(OnWindowAction()));
 	m_pMaximize = m_pMenu->addAction(tr("Maximize"), this, SLOT(OnWindowAction()));
 	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnWindowAction()));
+	m_pClose->setShortcut(QKeySequence::Delete);
+	m_pClose->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	this->addAction(m_pClose);
 
 	m_pMenu->addSeparator();
 	m_pVisible = m_pMenu->addAction(tr("Visible"), this, SLOT(OnWindowAction()));
@@ -206,6 +213,12 @@ void CWindowsView::OnWindowAction()
 {
 	if (m_LockValue)
 		return;
+
+	if (sender() == m_pClose)
+	{
+		if (QMessageBox("TaskExplorer", tr("Do you want to close the selected window(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+			return;
+	}
 
 	// QList<STATUS> Errors;
 	foreach(const QModelIndex& Index, m_pWindowList->selectedRows())

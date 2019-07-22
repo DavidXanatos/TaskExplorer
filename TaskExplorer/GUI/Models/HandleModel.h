@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "Common/ListItemModel.h"
-#include "..\..\API\HandleInfo.h"
+#include "../../API/HandleInfo.h"
 
 class CHandleModel : public CListItemModel
 {

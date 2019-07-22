@@ -2,18 +2,19 @@
 
 #include <QtWidgets/QMainWindow>
 #include "ProcessTree.h"
-#include "SystemInfo\SystemInfoView.h"
-#include "TaskInfo\TaskInfoView.h"
-#include "API\SystemAPI.h"
+#include "SystemInfo/SystemInfoView.h"
+#include "TaskInfo/TaskInfoView.h"
+#include "API/SystemAPI.h"
 #include "Common/Settings.h"
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	4
+#define VERSION_MIN 	5
 #define VERSION_REV 	0
 #define VERSION_UPD 	0
 
 class CGraphBar;
+class CHistoryGraph;
 class CCustomItemDelegate;
 
 class CTaskExplorer : public QMainWindow
@@ -61,7 +62,7 @@ signals:
 public slots:
 	void				UpdateAll();
 
-	void				UpdateTray();
+	void				UpdateStatus();
 
 	void				UpdateOptions();
 
@@ -88,6 +89,12 @@ private slots:
 	void				OnKernelServices();
 	void				OnTaskTab();
 
+	void				OnSystemInfo();
+
+	void				OnFindHandle();
+	void				OnFindDll();
+	void				OnFindMemory();
+
 	void				OnSettings();
 	void				OnAutoRun();
 	void				OnSkipUAC();
@@ -102,6 +109,8 @@ private slots:
 	void				OnAbout();
 
 	void				OnGraphsResized(int Size);
+
+	void				OnSplitterMoved();
 
 private:
 	QWidget*			m_pMainWidget;
@@ -120,6 +129,12 @@ private:
 
 	CTaskInfoView*		m_pTaskInfo;
 
+	QLabel*				m_pStausCPU;
+	QLabel*				m_pStausGPU;
+	QLabel*				m_pStausMEM;
+	QLabel*				m_pStausIO;
+	QLabel*				m_pStausNET;
+
 	QMenu*				m_pMenuProcess;
 
 	QMenu*				m_pMenuView;
@@ -128,11 +143,17 @@ private:
 	QAction*			m_pMenuKernelServices;
 #endif
 	QMenu*				m_pMenuTaskTabs;
+	QAction*			m_pMenuSystemInfo;
 
 	QMap<QAction*, int> m_Act2Tab;
 
 	QAction*			m_pMenuPauseRefresh;
 	QAction*			m_pMenuRefreshNow;
+
+	QMenu*				m_pMenuFind;
+	QAction*			m_pMenuFindHandle;
+	QAction*			m_pMenuFindDll;
+	QAction*			m_pMenuFindMemory;
 
 	QMenu*				m_pMenuOptions;
 	QAction*			m_pMenuSettings;
@@ -163,7 +184,7 @@ private:
 
 	bool				m_bExit;
 
-	QImage				m_TrayGraph;
+	CHistoryGraph*		m_pTrayGraph;
 
 	CCustomItemDelegate* m_pCustomItemDelegate;
 };

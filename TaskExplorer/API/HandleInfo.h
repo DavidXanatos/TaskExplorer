@@ -1,7 +1,7 @@
 #pragma once
 #include <qobject.h>
 #include "AbstractInfo.h"
-#include "..\Common\FlexError.h"
+#include "../Common/FlexError.h"
 
 class CHandleInfo: public CAbstractInfoEx
 {
@@ -21,9 +21,7 @@ public:
 	virtual quint64 GetSize()	const				{ QReadLocker Locker(&m_Mutex); return m_Size; }
 	virtual QString GetGrantedAccessString() const = 0;
 
-
-	virtual QString			GetProcessName()		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
-	virtual QSharedPointer<QObject>	GetProcess()	{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	virtual QSharedPointer<QObject>	GetProcess() const { QReadLocker Locker(&m_Mutex); return m_pProcess; }
 
 	virtual STATUS		Close(bool bForce = false) = 0;
 
@@ -35,7 +33,6 @@ protected:
 	quint64				m_Position;
 	quint64				m_Size;
 
-	QString				m_ProcessName;
 	QSharedPointer<QObject>	m_pProcess;
 };
 

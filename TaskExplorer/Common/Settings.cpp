@@ -67,13 +67,13 @@ bool CSettings::SetValue(const QString &key, const QVariant &value)
 	return true;
 }
 
-QVariant CSettings::GetValue(const QString &key, const QVariant& default)
+QVariant CSettings::GetValue(const QString &key, const QVariant& preset)
 {
 	QMutexLocker Locker(&m_Mutex);
 
 	ASSERT(m_DefaultValues.isEmpty() || m_pConf->contains(key));	
 
-	return m_pConf->value(key, default);
+	return m_pConf->value(key, preset);
 }
 
 void CSettings::SetBlob(const QString& key, const QByteArray& value)

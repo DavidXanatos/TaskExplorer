@@ -1,10 +1,7 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\API\ProcessInfo.h"
-#include "..\..\Common\TreeItemModel.h"
-
-
-#define LIMIT_COLUMNS
+#include "../../API/ProcessInfo.h"
+#include "../../Common/TreeItemModel.h"
 
 class CProcessModel : public CTreeItemModel
 {
@@ -24,15 +21,8 @@ public:
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
 	bool			IsColumnEnabled(int column);
-	int				GetColumnIndex(int index);
 	void			SetColumnEnabled(int column, bool set);
-	QString			GetColumn(int column) const;
-	int				MaxColumns() const;
-#ifdef LIMIT_COLUMNS
-	QVector<int>	GetColumns() const { return m_Columns; }
-#endif
-
-	//QList<QModelIndex> GetAllIndexes() const { return m_AllIndexes; }
+	QString			GetColumHeader(int column) const;
 
 	enum EColumns
 	{
@@ -228,13 +218,7 @@ protected:
 	
 	bool					m_bUseDescr;
 
-#ifdef LIMIT_COLUMNS
-	QVector<int>			m_Columns;
-#else
 	QSet<int>				m_Columns;
-#endif
 
 	virtual QVariant GetDefaultIcon() const;
-
-	//QList<QModelIndex> m_AllIndexes;
 };

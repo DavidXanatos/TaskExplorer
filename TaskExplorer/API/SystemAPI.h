@@ -1,6 +1,6 @@
 #pragma once
 #include <qobject.h>
-#include "IOStats.h"
+#include "MiscStats.h"
 #include "ProcessInfo.h"
 #include "SocketInfo.h"
 #include "HandleInfo.h"

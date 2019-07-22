@@ -40,9 +40,6 @@ CWinDumper::CWinDumper(QObject* parent)
 
 CWinDumper::~CWinDumper()
 {
-	if(!wait(10*1000))
-		terminate();
-
 	delete m;
 }
 

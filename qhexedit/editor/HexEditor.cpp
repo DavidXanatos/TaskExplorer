@@ -158,6 +158,11 @@ void QHexEditor::showSearchDialog()
     searchDialog->show();
 }
 
+void QHexEditor::sellect(qint64 address, qint64 length)
+{
+	hexEdit->sellect(address, length);
+}
+
 void QHexEditor::init()
 {
     setAttribute(Qt::WA_DeleteOnClose);
@@ -166,6 +171,8 @@ void QHexEditor::init()
     setCentralWidget(hexEdit);
     connect(hexEdit, SIGNAL(overwriteModeChanged(bool)), this, SLOT(setOverwriteMode(bool)));
     connect(hexEdit, SIGNAL(dataChanged()), this, SLOT(dataChanged()));
+	hexEdit->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(hexEdit, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
     createActions();
     createMenus();
@@ -273,6 +280,8 @@ void QHexEditor::createMenus()
     fileMenu->addAction(saveAsAct);
     fileMenu->addAction(saveReadable);
     fileMenu->addSeparator();
+    fileMenu->addAction(optionsAct);
+    fileMenu->addSeparator();
     fileMenu->addAction(exitAct);
 
     editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -286,8 +295,6 @@ void QHexEditor::createMenus()
     editMenu->addSeparator();
     editMenu->addAction(findAct);
     editMenu->addAction(findNextAct);
-    editMenu->addSeparator();
-    editMenu->addAction(optionsAct);
 
     helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(aboutAct);
@@ -416,4 +423,9 @@ bool QHexEditor::saveFile(const QString &fileName)
 
 void QHexEditor::writeSettings()
 {
+}
+
+void QHexEditor::OnMenu(const QPoint &)
+{
+	editMenu->popup(QCursor::pos());
 }

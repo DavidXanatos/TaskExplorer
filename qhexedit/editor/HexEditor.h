@@ -25,6 +25,9 @@ public:
     QHexEditor(QWidget *parent = Q_NULLPTR);
 	virtual ~QHexEditor();
 
+public slots:
+	virtual void sellect(qint64 address, qint64 length);
+
 protected:
     virtual void closeEvent(QCloseEvent *event);
 
@@ -44,6 +47,8 @@ protected slots:
     virtual void setSize(qint64 size);
     virtual void showOptionsDialog();
     virtual void showSearchDialog();
+
+	virtual void OnMenu(const QPoint &);
 
 protected:
     virtual void init();

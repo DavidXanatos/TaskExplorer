@@ -1,8 +1,8 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\Common\PanelView.h"
-#include "..\..\Common\TreeWidgetEx.h"
-#include "..\..\API\Windows\WinProcess.h"
+#include "../../Common/PanelView.h"
+#include "../../Common/TreeWidgetEx.h"
+#include "../../API/Windows/WinProcess.h"
 
 class CTokenView : public CPanelView
 {

@@ -98,8 +98,8 @@ void CWindowModel::Sync(const QMap<quint64, CWndPtr>& ModuleList)
 #ifdef WIN32
 				case eClass:		Value = pWinWnd->GetWindowClass(); break;
 #endif
-				case eText:			Value = pWinWnd->GetWindowTitle(); break;
-				case eThread:		Value = pWinWnd->GetThreadId(); break;
+                case eText:			Value = pWindow->GetWindowTitle(); break;
+                case eThread:		Value = pWindow->GetThreadId(); break;
 #ifdef WIN32
 				case eModule:		Value = pWinWnd->GetModuleString(); break;
 #endif

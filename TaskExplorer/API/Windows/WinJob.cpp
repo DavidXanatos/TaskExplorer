@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "WinJob.h"
-#include "..\TaskExplorer\GUI\TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
 

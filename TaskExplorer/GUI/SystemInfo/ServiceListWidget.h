@@ -2,8 +2,8 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ServiceInfo.h"
-#include "..\Models\ServiceModel.h"
+#include "../../API/ServiceInfo.h"
+#include "../Models/ServiceModel.h"
 
 class CServiceModel;
 class QSortFilterProxyModel;

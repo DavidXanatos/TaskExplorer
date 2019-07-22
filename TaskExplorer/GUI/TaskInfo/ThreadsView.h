@@ -3,12 +3,12 @@
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/TreeWidgetEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\Models\ThreadModel.h"
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../Models/ThreadModel.h"
+#include "../../Common/SortFilterProxyModel.h"
 #include "StackView.h"
 #include "../TaskView.h"
-#include "../Common/HistoryGraph.h"
+#include "../../Common/HistoryGraph.h"
 
 class CThreadsView : public CTaskView
 {
@@ -45,6 +45,7 @@ protected:
 
 	CProcessPtr				m_pCurProcess;
 	CThreadPtr				m_pCurThread;
+	QMap<quint64, CThreadPtr> m_Threads;
 
 private:
 	QVBoxLayout*			m_pMainLayout;
@@ -56,7 +57,9 @@ private:
 	QTreeViewEx*			m_pThreadList;
 	CThreadModel*			m_pThreadModel;
 	QSortFilterProxyModel*	m_pSortProxy;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_CPU_History;
+
+	QMap<quint64, CHistoryGraph*> m_CPU_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_CPU_History;
 
 	CStackView*				m_pStackView;
 

@@ -13,6 +13,10 @@
 #include "GraphBar.h"
 #include "SettingsWindow.h"
 #include "CustomItemDelegate.h"
+#include "Search/HandleSearch.h"
+#include "Search/ModuleSearch.h"
+#include "Search/MemorySearch.h"
+#include "SystemInfo/SystemInfoWindow.h"
 
 CSystemAPI*	theAPI = NULL;
 
@@ -72,7 +76,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		g_ExeIcon.addFile(":/Icons/exe64.png");
 	}
 
-	if (g_ExeIcon.isNull())
+	if (g_DllIcon.isNull())
 	{
 		g_DllIcon = QIcon(":/Icons/dll16.png");
 		g_DllIcon.addFile(":/Icons/dll32.png");
@@ -127,6 +131,9 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pPanelSplitter->addWidget(m_pTaskInfo);
 	m_pPanelSplitter->setCollapsible(1, false);
 
+	connect(m_pMainSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
+	connect(m_pPanelSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
+
 	connect(m_pProcessTree, SIGNAL(ProcessClicked(const CProcessPtr)), m_pTaskInfo, SLOT(ShowProcess(const CProcessPtr)));
 
 
@@ -144,7 +151,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuProcess->addAction(tr("Exit"), this, SLOT(OnExit()));
 
 #ifdef WIN32
-		m_pElevate->setVisible(!PhGetOwnTokenAttributes().Elevated);
+		m_pElevate->setVisible(!theAPI->RootAvaiable());
 #endif
 
 	m_pMenuView = menuBar()->addMenu(tr("&View"));
@@ -175,27 +182,34 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		}
 
 		m_pMenuView->addSeparator();
+		m_pMenuSystemInfo = m_pMenuView->addAction(tr("System Info"), this, SLOT(OnSystemInfo()));
+		m_pMenuView->addSeparator();
 		m_pMenuPauseRefresh = m_pMenuView->addAction(tr("Pause Refresh"));
 		m_pMenuPauseRefresh->setCheckable(true);
 		m_pMenuRefreshNow = m_pMenuView->addAction(tr("Refresh Now"), this, SLOT(UpdateAll()));
 
+	m_pMenuFind = menuBar()->addMenu(tr("&Find"));
+		m_pMenuFindHandle = m_pMenuFind->addAction(tr("Find Handles"), this, SLOT(OnFindHandle()));
+		m_pMenuFindDll = m_pMenuFind->addAction(tr("Find Module (dll)"), this, SLOT(OnFindDll()));
+		m_pMenuFindMemory = m_pMenuFind->addAction(tr("Find String in Memory"), this, SLOT(OnFindMemory()));
+
 	m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
 		m_pMenuSettings = m_pMenuOptions->addAction(tr("Settings"), this, SLOT(OnSettings()));
-		m_pMenuOptions->addSeparator();
-		m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
-		m_pMenuAutoRun->setCheckable(true);
-		m_pMenuAutoRun->setChecked(IsAutorunEnabled());
 #ifdef WIN32
+        m_pMenuOptions->addSeparator();
+        m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
+        m_pMenuAutoRun->setCheckable(true);
+        m_pMenuAutoRun->setChecked(IsAutorunEnabled());
 		m_pMenuUAC = m_pMenuOptions->addAction(tr("Skip UAC"), this, SLOT(OnSkipUAC()));
 		m_pMenuUAC->setCheckable(true);
-		m_pMenuUAC->setEnabled(PhGetOwnTokenAttributes().Elevated);
+		m_pMenuUAC->setEnabled(theAPI->RootAvaiable());
 		m_pMenuUAC->setChecked(SkipUacRun(true));
 #endif
 
 	m_pMenuTools = menuBar()->addMenu(tr("&Tools"));
 		m_pMenuServices = m_pMenuTools->addMenu(tr("&Services"));
 			m_pMenuCreateService = m_pMenuServices->addAction(tr("Create new Service"), this, SLOT(OnCreateService()));
-			m_pMenuCreateService->setEnabled(PhGetOwnTokenAttributes().Elevated);
+			m_pMenuCreateService->setEnabled(theAPI->RootAvaiable());
 			m_pMenuUpdateServices = m_pMenuServices->addAction(tr("ReLoad all Service"), this, SLOT(OnReloadService()));
 #ifdef WIN32
 			m_pMenuSCMPermissions = m_pMenuServices->addAction(tr("Service Control Manager Permissions"), this, SLOT(OnSCMPermissions()));
@@ -213,7 +227,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About ProcessHacker Library"), this, SLOT(OnAbout()));
 #endif
 		m_pMenuAboutQt = m_pMenuHelp->addAction(tr("About the Qt Framework"), this, SLOT(OnAbout()));
-		m_pMenuHelp->addSeparator();
+		//m_pMenuHelp->addSeparator();
 		m_pMenuAbout = m_pMenuHelp->addAction(QIcon(":/TaskExplorer.png"), tr("About TaskExplorer"), this, SLOT(OnAbout()));
 
 
@@ -222,6 +236,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pPanelSplitter->restoreState(theConf->GetBlob("MainWindow/Panel_Splitter"));
 	m_pGraphSplitter->restoreState(theConf->GetBlob("MainWindow/Graph_Splitter"));
 
+	OnSplitterMoved();
 
 
 	bool bAutoRun = QApplication::arguments().contains("-autorun");
@@ -240,8 +255,19 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	if(!bAutoRun && !theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->hide();
 
-	//QLabel* m_pInfo = new QLabel(tr("test"));
-	//statusBar()->addPermanentWidget(m_pInfo);
+	m_pTrayGraph = NULL;
+
+	m_pStausCPU	= new QLabel();
+	statusBar()->addPermanentWidget(m_pStausCPU);
+	m_pStausGPU	= new QLabel();
+	statusBar()->addPermanentWidget(m_pStausGPU);
+	m_pStausMEM	= new QLabel();
+	statusBar()->addPermanentWidget(m_pStausMEM);
+	m_pStausIO	= new QLabel();
+	statusBar()->addPermanentWidget(m_pStausIO);
+	m_pStausNET	= new QLabel();
+	statusBar()->addPermanentWidget(m_pStausNET);
+
 
 	m_pCustomItemDelegate->m_Grid = theConf->GetBool("Options/ShowGrid", true);
 	m_pCustomItemDelegate->m_Color = QColor(theConf->GetString("Colors/GridColor", "#808080"));
@@ -277,7 +303,9 @@ CTaskExplorer::~CTaskExplorer()
 
 void CTaskExplorer::OnInitDone()
 {
+#ifdef WIN32
 	m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
+#endif
 }
 
 void CTaskExplorer::OnGraphsResized(int Size)
@@ -332,13 +360,25 @@ void CTaskExplorer::UpdateAll()
 	m_pTaskInfo->Refresh();
 	m_pSystemInfo->Refresh();
 
-	UpdateTray();
+	UpdateStatus();
 }
 
-void CTaskExplorer::UpdateTray()
+void CTaskExplorer::UpdateStatus()
 {
-	if (!m_pTrayIcon->isVisible())
-		return;
+	m_pStausCPU->setText(tr("CPU: %1%    ").arg(int(100 * theAPI->GetCpuUsage())));
+	m_pStausCPU->setToolTip(theAPI->GetCpuModel());
+
+	QString GPU;
+	QStringList GpuInfo;
+#ifdef WIN32
+	CGpuMonitor* pGpuMonitor = ((CWindowsAPI*)theAPI)->GetGpuMonitor();
+	for (int i = 0; i < pGpuMonitor->GetGpuCount(); i++) {
+		GPU.append(tr("GPU-%1: %2%    ").arg(i).arg(int(100 * pGpuMonitor->GetGpuUsage(i))));
+		GpuInfo.append(pGpuMonitor->GetGpuInfo(i).Description);
+	}
+#endif
+	m_pStausGPU->setToolTip(GpuInfo.join("\r\n"));
+	m_pStausGPU->setText(GPU);
 
 	quint64 RamUsage = theAPI->GetPhysicalUsed();
 	quint64 SwapedMemory = theAPI->GetSwapedOutMemory();
@@ -348,6 +388,53 @@ void CTaskExplorer::UpdateTray()
 	quint64 TotalSwap = theAPI->GetTotalSwapMemory();
 
 	quint64 TotalMemory = Max(theAPI->GetInstalledMemory(), theAPI->GetCommitedMemory()); // theAPI->GetMemoryLimit();
+
+	if(TotalSwap > 0)
+		m_pStausMEM->setText(tr("Memory: %1/%2/(%3 + %4)    ").arg(FormatSize(RamUsage)).arg(FormatSize(CommitedMemory)).arg(FormatSize(InstalledMemory)).arg(FormatSize(TotalSwap)));
+	else
+		m_pStausMEM->setText(tr("Memory: %1/%2/%3    ").arg(FormatSize(RamUsage)).arg(FormatSize(CommitedMemory)).arg(FormatSize(InstalledMemory)));
+
+	QStringList MemInfo;
+	MemInfo.append(tr("Installed: %1").arg(FormatSize(InstalledMemory)));
+	MemInfo.append(tr("Swap: %1").arg(FormatSize(TotalSwap)));
+	MemInfo.append(tr("Commited: %1").arg(FormatSize(CommitedMemory)));
+	MemInfo.append(tr("Physical: %1").arg(FormatSize(RamUsage)));
+	m_pStausMEM->setToolTip(MemInfo.join("\r\n"));
+
+
+	SSysStats Stats = theAPI->GetStats();
+
+	QString IO;
+	IO += tr("R: %1").arg(FormatSize(qMax(Stats.Io.ReadRate.Get(), qMax(Stats.MMapIo.ReadRate.Get(), Stats.Disk.ReadRate.Get()))) + "/s");
+	IO += " ";
+	IO += tr("W: %1").arg(FormatSize(qMax(Stats.Io.WriteRate.Get(), qMax(Stats.MMapIo.WriteRate.Get(), Stats.Disk.WriteRate.Get()))) + "/s");
+	m_pStausIO->setText(IO + "    ");
+
+	QStringList IOInfo;
+	IOInfo.append(tr("FileIO; Read: %1/s; Write: %2/s; Other: %3/s").arg(FormatSize(Stats.Io.ReadRate.Get())).arg(FormatSize(Stats.Io.WriteRate.Get())).arg(FormatSize(Stats.Io.OtherRate.Get())));
+	IOInfo.append(tr("MMapIO; Read: %1/s; Write: %2/s").arg(FormatSize(Stats.MMapIo.ReadRate.Get())).arg(FormatSize(Stats.MMapIo.WriteRate.Get())));
+#ifdef WIN32
+	if(((CWindowsAPI*)theAPI)->IsMonitoringETW())
+		IOInfo.append(tr("DiskIO; Read: %1/s; Write: %2/s").arg(FormatSize(Stats.Disk.ReadRate.Get())).arg(FormatSize(Stats.Disk.WriteRate.Get())));
+#endif
+	m_pStausIO->setToolTip(IOInfo.join("\r\n"));
+
+
+	QString Net;
+	Net += tr("D: %1").arg(FormatSize(Stats.NetIf.ReceiveRate.Get()) + "/s");
+	Net += " ";
+	Net += tr("U: %1").arg(FormatSize(Stats.NetIf.SendRate.Get()) + "/s");
+	m_pStausNET->setText(Net + "    ");
+
+	QStringList NetInfo;
+	NetInfo.append(tr("TCP/IP; Download: %1/s; Upload: %2/s").arg(FormatSize(Stats.NetIf.ReceiveRate.Get())).arg(FormatSize(Stats.NetIf.SendRate.Get())));
+	NetInfo.append(tr("VPN/RAS; Download: %1/s; Upload: %2/s").arg(FormatSize(Stats.NetRas.ReceiveRate.Get())).arg(FormatSize(Stats.NetRas.SendRate.Get())));
+	m_pStausNET->setToolTip(NetInfo.join("\r\n"));
+
+
+
+	if (!m_pTrayIcon->isVisible())
+		return;
 
 	QString TrayInfo = tr("Task Explorer\r\nCPU: %1%\r\nRam: %2%").arg(int(100 * theAPI->GetCpuUsage()))
 		.arg(InstalledMemory > 0 ? (int)100 * RamUsage / InstalledMemory : 0);
@@ -369,9 +456,10 @@ void CTaskExplorer::UpdateTray()
 		MemMode = 2; // ram and swap in two columns
 	else
 	{
-		if (!m_TrayGraph.isNull()) 
+		if (m_pTrayGraph) 
 		{
-			m_TrayGraph = QImage();
+			m_pTrayGraph->deleteLater();
+			m_pTrayGraph = NULL;
 
 			QIcon Icon;
 			Icon.addFile(":/TaskExplorer.png");
@@ -434,16 +522,26 @@ void CTaskExplorer::UpdateTray()
 
 		ASSERT(TrayIcon.width() > offset);
 
-		QMap<int, CHistoryGraph::SValue> TrayValues;
-		TrayValues[0] = { theAPI->GetCpuUsage(), Qt::green };
-		TrayValues[1] = { theAPI->GetCpuKernelUsage(), Qt::red };
-		TrayValues[2] = { theAPI->GetCpuDPCUsage(), Qt::blue };
-		// Note: we may add an cuttof show 0 below 10%
-		CHistoryGraph::Update(m_TrayGraph, QColor(0, 128, 0), TrayValues, TrayIcon.height(), TrayIcon.width() - offset);
+		if (m_pTrayGraph == NULL)
+		{
+			m_pTrayGraph = new CHistoryGraph(true, QColor(0, 128, 0), this);
+			m_pTrayGraph->AddValue(0, Qt::green);
+			m_pTrayGraph->AddValue(1, Qt::red);
+			m_pTrayGraph->AddValue(2, Qt::blue);
+		}
 
-		qp.translate(TrayIcon.width() - m_TrayGraph.height(), TrayIcon.height());
+		// Note: we may add an cuttof show 0 below 10%
+		m_pTrayGraph->SetValue(0, theAPI->GetCpuUsage());
+		m_pTrayGraph->SetValue(1, theAPI->GetCpuKernelUsage());
+		m_pTrayGraph->SetValue(2, theAPI->GetCpuDPCUsage());
+
+		m_pTrayGraph->Update(TrayIcon.height(), TrayIcon.width() - offset);
+
+
+		QImage TrayGraph = m_pTrayGraph->GetImage();
+		qp.translate(TrayIcon.width() - TrayGraph.height(), TrayIcon.height());
 		qp.rotate(270);
-		qp.drawImage(0, 0, m_TrayGraph);
+		qp.drawImage(0, 0, TrayGraph);
 	}
 
 	m_pTrayIcon->setIcon(QIcon(QPixmap::fromImage(TrayIcon)));
@@ -536,8 +634,10 @@ void CTaskExplorer::OnSysTab()
 
 void CTaskExplorer::OnKernelServices()
 {
+#ifdef WIN32
 	theConf->SetValue("MainWindow/ShowDrivers", m_pMenuKernelServices->isChecked());
 	m_pSystemInfo->SetShowKernelServices(m_pMenuKernelServices->isChecked());
+#endif
 }
 
 void CTaskExplorer::OnTaskTab()
@@ -545,6 +645,12 @@ void CTaskExplorer::OnTaskTab()
 	QAction* pAction = (QAction*)sender();
 	int Index = m_Act2Tab.value(pAction);
 	m_pTaskInfo->ShowTab(Index, pAction->isChecked());
+}
+
+void CTaskExplorer::OnSystemInfo()
+{
+	CSystemInfoWindow* pSystemInfoWindow = new CSystemInfoWindow();
+	pSystemInfoWindow->show();
 }
 
 void CTaskExplorer::OnSettings()
@@ -571,7 +677,9 @@ void CTaskExplorer::UpdateOptions()
 
 void CTaskExplorer::OnAutoRun()
 {
+#ifdef WIN32
 	AutorunEnable(m_pMenuAutoRun->isChecked());
+#endif
 }
 
 void CTaskExplorer::OnSkipUAC()
@@ -612,12 +720,36 @@ void CTaskExplorer::OnSCMPermissions()
 #endif
 }
 
+void CTaskExplorer::OnFindHandle()
+{
+	CHandleSearch* pHandleSearch = new CHandleSearch();
+	pHandleSearch->show();
+}
+
+void CTaskExplorer::OnFindDll()
+{
+	CModuleSearch* pModuleSearch = new CModuleSearch();
+	pModuleSearch->show();
+}
+
+void CTaskExplorer::OnFindMemory()
+{
+	CMemorySearch* pMemorySearch = new CMemorySearch();
+	pMemorySearch->show();
+}
+
 void CTaskExplorer::OnMonitorETW()
 {
 #ifdef WIN32
 	theConf->SetValue("Options/MonitorETW", m_pMenuETW->isChecked());
 	((CWindowsAPI*)theAPI)->MonitorETW(m_pMenuETW->isChecked());
 #endif
+}
+
+void CTaskExplorer::OnSplitterMoved()
+{
+	m_pMenuTaskTabs->setEnabled(m_pMainSplitter->sizes()[1] > 0);
+	m_pMenuSysTabs->setEnabled(m_pMainSplitter->sizes()[1] > 0 && m_pPanelSplitter->sizes()[0] > 0);
 }
 
 QStyledItemDelegate* CTaskExplorer::GetItemDelegate() 

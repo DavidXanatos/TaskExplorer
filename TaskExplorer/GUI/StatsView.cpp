@@ -189,12 +189,14 @@ void CStatsView::SetupTree()
 
 void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 {
+#ifdef WIN32
 	if (m_MonitorsETW != ((CWindowsAPI*)theAPI)->IsMonitoringETW())
 	{
 		m_MonitorsETW = ((CWindowsAPI*)theAPI)->IsMonitoringETW();
 
 		SetupTree();
 	}
+#endif
 
 	STaskStatsEx CpuStats = pProcess->GetCpuStats();
 

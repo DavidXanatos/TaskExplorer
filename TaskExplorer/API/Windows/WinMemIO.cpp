@@ -23,10 +23,6 @@ struct SWinMemIO
 	HANDLE ProcessHandle;
 };
 
-CWinMemIO::CWinMemIO(CWinMemory* pMemory, QObject* parent)
-	: CWinMemIO(pMemory->GetBaseAddress(), pMemory->GetRegionSize(), pMemory->GetProcessId(), parent)
-{
-}
 
 CWinMemIO::CWinMemIO(quint64 BaseAddress, quint64 RegionSize, quint64 ProcessId, bool bUnMap, QObject* parent)
 	: QIODevice(parent)

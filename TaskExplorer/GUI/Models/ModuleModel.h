@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\API\ModuleInfo.h"
-#include "..\..\Common\TreeItemModel.h"
+#include "../../API/ModuleInfo.h"
+#include "../../Common/TreeItemModel.h"
 
 
 class CModuleModel : public CTreeItemModel
@@ -22,6 +22,7 @@ public:
 	enum EColumns
 	{
 		eModule = 0,
+		eModuleFile,
 		eBaseAddress,
 		eSize,
 #ifdef WIN32

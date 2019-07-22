@@ -1,8 +1,10 @@
 #include "stdafx.h"
 #include "WinSvcTrigger.h"
-#include "../API/Windows/ProcessHacker/PhSvc.h"
-#include "../Common/ComboInputDialog.h"
-#include "../Common/MultiLineInputDialog.h"
+#ifdef WIN32
+#include "../../API/Windows/ProcessHacker/PhSvc.h"
+#endif
+#include "../../Common/ComboInputDialog.h"
+#include "../../Common/MultiLineInputDialog.h"
 
 
 CWinSvcTrigger::CWinSvcTrigger(QWidget *parent)

@@ -6,14 +6,8 @@
 #include <ras.h>
 #include <raserror.h>
 
-
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include "../SVC/TaskService.h"
-
-int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
-
-int _QSet_qquint64ype = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
-int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
 
 ulong g_fileObjectTypeIndex = ULONG_MAX;
 
@@ -186,7 +180,7 @@ CWindowsAPI::~CWindowsAPI()
 
 bool CWindowsAPI::RootAvaiable()
 {
-	return KphIsConnected();
+	return PhGetOwnTokenAttributes().Elevated;
 }
 
 quint64 CWindowsAPI::UpdateCpuStats(bool SetCpuUsage)
@@ -1002,7 +996,6 @@ bool CWindowsAPI::UpdateOpenFileList()
 	// Copy the handle Map
 	QMap<quint64, CHandlePtr> OldHandles = GetOpenFilesList();
 
-	// Note: we coudl do without the driver but we dont want to
 	//if (!KphIsConnected())
 	//{
 	//	PhFree(handleInfo);
@@ -1073,15 +1066,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 		//	Changed.insert(handle->HandleValue);
 
 		if (pWinHandle->m_pProcess.isNull())
-		{
-			CProcessPtr pProcess = GetProcessByID(handle->UniqueProcessId);
-			if (!pProcess.isNull()) {
-				pWinHandle->m_pProcess = pProcess;
-				pWinHandle->m_ProcessName = pProcess->GetName();
-			}
-			else
-				pWinHandle->m_ProcessName = tr("Unknown Process");
-		}
+			pWinHandle->m_pProcess = GetProcessByID(handle->UniqueProcessId);
 	}
 
 	foreach(HANDLE ProcessHandle, ProcessHandles)

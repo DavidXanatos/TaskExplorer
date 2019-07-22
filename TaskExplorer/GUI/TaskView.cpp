@@ -18,6 +18,10 @@ CTaskView::~CTaskView()
 void CTaskView::AddTaskItemsToMenu()
 {
 	m_pTerminate = m_pMenu->addAction(tr("Terminate"), this, SLOT(OnTaskAction()));
+	m_pTerminate->setShortcut(QKeySequence::Delete);
+	m_pTerminate->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	this->addAction(m_pTerminate);
+
 	m_pSuspend = m_pMenu->addAction(tr("Suspend"), this, SLOT(OnTaskAction()));
 	m_pResume = m_pMenu->addAction(tr("Resume"), this, SLOT(OnTaskAction()));
 }
@@ -214,7 +218,7 @@ void CTaskView::OnAffinity()
 
 		for (int j = 0; j < Affinity.size(); j++)
 		{
-			int curBit = (AffinityMask >> j) & 1ui64;
+            int curBit = (AffinityMask >> j) & 1ULL;
 			if (i == 0)
 				Affinity[j] = curBit;
 			else if (curBit != Affinity[j]) // && Affinity[j] != 2
@@ -239,9 +243,9 @@ void CTaskView::OnAffinity()
 		for (int j = 0; j < Affinity.size(); j++)
 		{
 			if (Affinity[j] == 1)
-				AffinityMask |= (1ui64 << j);
+                AffinityMask |= (1ULL << j);
 			else if(Affinity[j] == 0)
-				AffinityMask &= ~(1ui64 << j);
+                AffinityMask &= ~(1ULL << j);
 		}
 
 		STATUS Status = pTask->SetAffinityMask(AffinityMask);

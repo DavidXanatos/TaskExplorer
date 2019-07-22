@@ -1,12 +1,9 @@
 #pragma once
 
-#include "WinMemory.h"
-
 class CWinMemIO : public QIODevice
 {
 	Q_OBJECT
 public:
-	CWinMemIO(CWinMemory* pMemory, QObject* parent = NULL);
 	CWinMemIO(quint64 BaseAddress, quint64 RegionSize, quint64 ProcessId, bool bUnMap = false, QObject* parent = NULL);
 	virtual ~CWinMemIO();
 

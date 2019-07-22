@@ -30,15 +30,19 @@
 
 struct SWinThread
 {
-	SWinThread() :
-		ThreadHandle(NULL),
-		StartAddressResolveLevel(PhsrlAddress)
+	SWinThread()
 	{
+		ThreadHandle = NULL;
+		StartAddressResolveLevel = PhsrlAddress;
+		memset(&idealProcessorNumber, 0, sizeof(PROCESSOR_NUMBER));
+
 		CreateTime.QuadPart = 0;
 	}
 
 	HANDLE ThreadHandle;
 	PH_SYMBOL_RESOLVE_LEVEL StartAddressResolveLevel;
+
+	PROCESSOR_NUMBER idealProcessorNumber;
 
 	LARGE_INTEGER CreateTime;
 };
@@ -216,11 +220,9 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 		PROCESSOR_NUMBER idealProcessorNumber;
 		if (NT_SUCCESS(PhGetThreadIdealProcessor(m->ThreadHandle, &idealProcessorNumber)))
 		{
-			QString IdealCPU = tr("%1:%2").arg(idealProcessorNumber.Group).arg(idealProcessorNumber.Number);
-
-			if (IdealCPU != m_IdealProcessor)
+			if (memcmp(&idealProcessorNumber, &m->idealProcessorNumber, sizeof(PROCESSOR_NUMBER)) != 0)
 			{
-				m_IdealProcessor = IdealCPU;
+				memcpy(&m->idealProcessorNumber, &idealProcessorNumber, sizeof(PROCESSOR_NUMBER));
 				modified = TRUE;
 			}
 		}
@@ -544,6 +546,11 @@ STATUS CWinThread::Resume()
 		return ERR(tr("Failed to resume thread"), status);
     }
 	return OK;
+}
+
+QString CWinThread::GetIdealProcessor() const
+{
+	return tr("%1:%2").arg(m->idealProcessorNumber.Group).arg(m->idealProcessorNumber.Number);
 }
 
 QString CWinThread::GetTypeString() const

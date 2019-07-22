@@ -7,8 +7,10 @@
 #include "ThreadsView.h"
 #include "ModulesView.h"
 #include "MemoryView.h"
+#ifdef WIN32
 #include "JobView.h"
 #include "TokenView.h"
+#endif
 #include "WindowsView.h"
 #include "EnvironmentView.h"
 #include "../SystemInfo/ServicesView.h"
@@ -50,7 +52,7 @@ void CTaskInfoView::InitializeTabs()
 	m_pThreadsView = new CThreadsView(this);
 	AddTab(m_pThreadsView, tr("Threads"));
 
-	m_pModulesView = new CModulesView(this);
+	m_pModulesView = new CModulesView(false, this);
 	AddTab(m_pModulesView, tr("Modules"));
 
 	m_pWindowsView = new CWindowsView(this);

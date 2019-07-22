@@ -13,6 +13,7 @@ CRunAsDialog::CRunAsDialog(quint64 PID, QWidget *parent)
 
 	m_PID = PID;
 
+#ifdef WIN32
 	ui.loginType->addItem("Batch", LOGON32_LOGON_BATCH);
 	ui.loginType->addItem("Interactive", LOGON32_LOGON_INTERACTIVE);
 	ui.loginType->addItem("Network", LOGON32_LOGON_NETWORK);
@@ -27,6 +28,7 @@ CRunAsDialog::CRunAsDialog(quint64 PID, QWidget *parent)
 
     SetDefaultSessionEntry(ui.session);
 	SetDefaultDesktopEntry(ui.desktop);
+#endif
 
 	if (m_PID != 0)
 	{

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "..\ThreadInfo.h"
+#include "../ThreadInfo.h"
 
 class CWinThread;
 class CAbstractSymbolProviderJob;

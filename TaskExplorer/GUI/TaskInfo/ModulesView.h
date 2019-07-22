@@ -2,23 +2,25 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\Models\ModuleModel.h"
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../Models/ModuleModel.h"
+#include "../../Common/SortFilterProxyModel.h"
 
 class CModulesView : public CPanelView
 {
 	Q_OBJECT
 public:
-	CModulesView(QWidget *parent = 0);
+	CModulesView(bool bGlobal, QWidget *parent = 0);
 	virtual ~CModulesView();
 
 public slots:
 	void					ShowProcess(const CProcessPtr& pProcess);
 	void					Refresh();
+	void					ShowModules(const QMap<quint64, CModulePtr>& Modules);
 
 private slots:
 	void					OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+	void					OnDoubleClicked();
 
 	void					OnMenu(const QPoint &point);
 
@@ -45,6 +47,7 @@ private:
 	QSortFilterProxyModel*	m_pSortProxy;
 
 	//QMenu*					m_pMenu;
+	QAction*				m_pOpen;
 	QAction*				m_pUnload;
 };
 

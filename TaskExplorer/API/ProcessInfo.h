@@ -6,7 +6,7 @@
 #include "HandleInfo.h"
 #include "WndInfo.h"
 #include "AbstractTask.h"
-#include "IOStats.h"
+#include "MiscStats.h"
 #include "MemoryInfo.h"
 
 struct STaskStatsEx : STaskStats
@@ -103,7 +103,7 @@ public:
 	virtual QMap<quint64, CHandlePtr> GetHandleList()	{ QReadLocker Locker(&m_HandleMutex); return m_HandleList; }
 	
 	// Modules
-	virtual QMap<quint64, CModulePtr> GetModleList()	{ QReadLocker Locker(&m_ModuleMutex); return m_ModuleList; }
+	virtual QMap<quint64, CModulePtr> GetModuleList()	{ QReadLocker Locker(&m_ModuleMutex); return m_ModuleList; }
 
 	// Windows
 	virtual QMap<quint64, CWndPtr>	  GetWindowList()	{ QReadLocker Locker(&m_WindowMutex); return m_WindowList; }

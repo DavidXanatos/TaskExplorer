@@ -5,12 +5,13 @@
 #ifdef WIN32
 #include "../../API/Windows/WinSocket.h"		
 #endif
+#include "../../Common/Finder.h"
 
 
 CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
 {
-	m_pMainLayout = new QHBoxLayout();
+	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
@@ -39,6 +40,10 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 		m_pSocketList->setColumnFixed(CSocketModel::eProcess, true);
 		m_pSocketList->setColumnHidden(CSocketModel::eProcess, true);
 	}
+	else
+	{
+		m_pSocketModel->SetUseIcons(true);
+	}
 
 	m_pSocketList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pSocketList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
@@ -48,10 +53,17 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 	m_pMainLayout->addWidget(m_pSocketList);
 	// 
 
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
+
+
 	connect(theAPI, SIGNAL(SocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnSocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
 	//m_pMenu = new QMenu();
 	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnClose()));
+	m_pClose->setShortcut(QKeySequence::Delete);
+	m_pClose->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	this->addAction(m_pClose);
+
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
@@ -64,7 +76,9 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 		if (bAll)
 		{
 			m_pSocketList->setColumnHidden(CSocketModel::eProcess, false);
+#ifdef WIN32
 			m_pSocketList->setColumnHidden(CSocketModel::eOwner, false);
+#endif
 		}
 		m_pSocketList->setColumnHidden(CSocketModel::eProtocol, false);
 		m_pSocketList->setColumnHidden(CSocketModel::eState, false);

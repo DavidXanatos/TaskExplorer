@@ -1,11 +1,11 @@
 #pragma once
 
-class CHistoryGraph: public QWidget
+class CHistoryGraph: public QObject
 {
 public:
-	CHistoryGraph(bool bSimpleMode = false, QWidget* parent = 0) : QWidget(parent) {
+	CHistoryGraph(bool bSimpleMode = false, QColor BkG = Qt::white, QObject* parent = NULL) : QObject(parent) {
 		m_SimpleMode = bSimpleMode;
-		m_BkG = Qt::white;
+		m_BkG = BkG;
 	}
 	~CHistoryGraph() {}
 
@@ -23,6 +23,8 @@ public:
 	{
 		Update(m_Graph, m_BkG, m_Values, CellHeight, CellWidth, m_SimpleMode);
 	}
+
+	QImage GetImage() const { return m_Graph; }
 
 	struct SValue
 	{
@@ -128,16 +130,30 @@ public:
 	}
 
 protected:
-	void paintEvent(QPaintEvent* e)
-	{
-		QPainter qp(this);
-		qp.translate(width() - m_Graph.height()-1, height());
-		qp.rotate(270);
-		qp.drawImage(0, 0, m_Graph);
-	}
-
 	QImage				m_Graph;
 	QColor				m_BkG;
 	QMap<int, SValue>	m_Values;
 	bool				m_SimpleMode;
+};
+
+class CHistoryWidget: public QWidget
+{
+public:
+	CHistoryWidget(CHistoryGraph* pHistoryGraph, QWidget* parent = NULL) : QWidget(parent) { m_pHistoryGraph = pHistoryGraph; }
+	~CHistoryWidget() {}
+
+protected:
+	void paintEvent(QPaintEvent* e)
+	{
+		if (m_pHistoryGraph)
+		{
+			QImage HistoryGraph = m_pHistoryGraph->GetImage();
+			QPainter qp(this);
+			qp.translate(width() - HistoryGraph.height() - 1, height());
+			qp.rotate(270);
+			qp.drawImage(0, 0, HistoryGraph);
+		}
+	}
+
+	QPointer<CHistoryGraph> m_pHistoryGraph;
 };

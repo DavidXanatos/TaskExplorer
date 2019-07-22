@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
-#include "..\..\API\MemoryInfo.h"
-#include "..\..\Common\TreeItemModel.h"
+#include "../../API/MemoryInfo.h"
+#include "../../Common/TreeItemModel.h"
 
 
 class CMemoryModel : public CTreeItemModel

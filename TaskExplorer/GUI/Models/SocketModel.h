@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "Common/ListItemModel.h"
-#include "..\..\API\SocketInfo.h"
+#include "../../API/SocketInfo.h"
 
 class CSocketModel : public CListItemModel
 {

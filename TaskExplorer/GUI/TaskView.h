@@ -1,8 +1,8 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/PanelView.h"
+#include "../Common/PanelView.h"
 
-#include "../../API/AbstractTask.h"
+#include "../API/AbstractTask.h"
 
 class CTaskView : public CPanelView
 {

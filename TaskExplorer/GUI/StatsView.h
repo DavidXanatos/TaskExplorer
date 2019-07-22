@@ -3,9 +3,9 @@
 #include "../Common/TreeViewEx.h"
 #include "../Common/TreeWidgetEx.h"
 #include "../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
+#include "../API/ProcessInfo.h"
 #ifdef WIN32
-#include "../../API/Windows/WinProcess.h"
+#include "../API/Windows/WinProcess.h"
 #endif
 
 class CStatsView : public CPanelView

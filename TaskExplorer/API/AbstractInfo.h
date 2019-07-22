@@ -1,6 +1,6 @@
 #pragma once
 #include <qobject.h>
-#include "..\Common\Common.h"
+#include "../Common/Common.h"
 
 class CAbstractInfo : public QObject
 {

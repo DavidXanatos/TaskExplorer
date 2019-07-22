@@ -55,6 +55,7 @@ bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handl
 	m_TypeIndex = handle->ObjectTypeIndex;
 
 	m_CreateTimeStamp = TimeStamp;
+	m_RemoveTimeStamp = 0; // handles can be reused
 
 	return true;
 }

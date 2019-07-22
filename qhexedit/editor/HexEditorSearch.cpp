@@ -83,15 +83,28 @@ QByteArray QHexEditorSearch::getContent(int comboIndex, const QString &input)
         case 0:     // hex
             findBa = QByteArray::fromHex(input.toLatin1());
             break;
-        case 1:     // text
+        case 1:     // text UTF-8
             findBa = input.toUtf8();
             break;
+        case 2:     // text Unicode
+		{
+			QTextCodec *codec = QTextCodec::codecForName("UTF-16");
+			QTextEncoder *encoderWithoutBom = codec->makeEncoder( QTextCodec::IgnoreHeader );
+			findBa  = encoderWithoutBom ->fromUnicode( input );
+			break;
+		}
     }
     return findBa;
 }
 
 qint64 QHexEditorSearch::replaceOccurrence(qint64 idx, const QByteArray &replaceBa)
 {
+	if (_hexEdit->overwriteMode() &&  _findBa.length() != replaceBa.length())
+	{
+		QMessageBox::warning(this, tr("QHexEdit"), tr("In overwrite mode, the find and replace string must have the same length!"));
+		return QMessageBox::Cancel;
+	}
+
     int result = QMessageBox::Yes;
     if (replaceBa.length() >= 0)
     {
@@ -103,7 +116,7 @@ qint64 QHexEditorSearch::replaceOccurrence(qint64 idx, const QByteArray &replace
 
             if (result == QMessageBox::Yes)
             {
-                _hexEdit->replace(idx, replaceBa.length(), replaceBa);
+                _hexEdit->replace(idx, _findBa.length(), replaceBa);
                 _hexEdit->update();
             }
         }

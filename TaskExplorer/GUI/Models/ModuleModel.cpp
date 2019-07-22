@@ -5,6 +5,7 @@
 #ifdef WIN32
 #include "../../API/Windows/WinModule.h"
 #endif
+#include "../../API/ProcessInfo.h"
 
 
 CModuleModel::CModuleModel(QObject *parent)
@@ -38,9 +39,10 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QMap<QVariant, STreeNode*> Old = m_Map;
 
-	foreach (const CModulePtr& pModule, ModuleList)
+	for (QMap<quint64, CModulePtr>::const_iterator I = ModuleList.begin(); I != ModuleList.end(); ++I)
 	{
-		QVariant ID = pModule->GetBaseAddress();
+		const CModulePtr& pModule = I.value();
+		QVariant ID = I.key();
 
 		QModelIndex Index;
 		QList<QVariant> Path;
@@ -70,12 +72,19 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 		bool State = false;
 		bool Changed = false;
 
+		CProcessPtr pProcess = (!m_bTree) ? pNode->pModule->GetProcess().objectCast<CProcessInfo>() : NULL;
+
 		// Note: icons are loaded asynchroniusly
 		if (m_bUseIcons && !pNode->Icon.isValid())
 		{
-			QPixmap Icon = pNode->pModule->GetFileIcon();
+			QPixmap Icon;
+			if (!pProcess.isNull())
+				Icon = pProcess->GetModuleInfo()->GetFileIcon();
+			else
+				Icon = pNode->pModule->GetFileIcon();
+
 			if (!Icon.isNull()) {
-				Changed = true; // set change for first column
+				Changed = 1; // set change for first column
 				pNode->Icon = Icon;
 			}
 		}
@@ -89,7 +98,8 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 			QVariant Value;
 			switch(section)
 			{
-				case eModule:				Value = pNode->pModule->GetName(); break;
+				case eModule:				if (!pProcess.isNull()) { Value = pProcess->GetName(); break; }
+				case eModuleFile:			Value = pNode->pModule->GetName(); break;
 				case eBaseAddress:			Value = pModule->GetBaseAddress(); break;
 				case eSize:					Value = pModule->GetSize(); break;
 #ifdef WIN32
@@ -181,7 +191,8 @@ QVariant CModuleModel::headerData(int section, Qt::Orientation orientation, int 
 	{
 		switch(section)
 		{
-			case eModule:				return tr("Name");
+			case eModule:				if(!m_bTree) return tr("Process");
+			case eModuleFile:			return tr("Name");
 			case eBaseAddress:			return tr("Base address");
 			case eSize:					return tr("Size");
 #ifdef WIN32
@@ -215,5 +226,7 @@ QVariant CModuleModel::headerData(int section, Qt::Orientation orientation, int 
 
 QVariant CModuleModel::GetDefaultIcon() const 
 { 
-	return g_DllIcon;
+	if(m_bTree)
+		return g_DllIcon;
+	return g_ExeIcon;
 }

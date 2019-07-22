@@ -1,6 +1,15 @@
 #include "stdafx.h"
 #include "SystemAPI.h"
-#include "Windows\WindowsAPI.h"
+#ifdef WIN32
+#include "Windows/WindowsAPI.h"
+#else
+#include "Linux/LinuxAPI.h"
+#endif
+
+int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
+
+int _QSet_qquint64ype = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
+int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
 
 #define CORE_THREAD
 
@@ -55,7 +64,7 @@ CSystemAPI* CSystemAPI::New()
 #ifdef WIN32
 	return new CWindowsAPI();
 #else
-	// todo: implement other systems liek Linux
+    return new CLinuxAPI();
 #endif
 }
 

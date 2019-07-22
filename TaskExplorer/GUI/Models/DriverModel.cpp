@@ -72,8 +72,11 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 
 				switch (section)
 				{
+                    case eDriver: break;
+#ifdef WIN32
 					case eImageBase:	ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;
 					case eImageSize:	ColValue.Formated = FormatSize(Value.toULongLong()); break;			
+#endif
 				}
 			}
 

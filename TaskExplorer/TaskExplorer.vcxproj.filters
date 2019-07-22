@@ -14,10 +14,6 @@
       <Extensions>qrc;*</Extensions>
       <ParseFiles>false</ParseFiles>
     </Filter>
-    <Filter Include="Form Files">
-      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
-      <Extensions>ui</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
       <Extensions>qrc;*</Extensions>
@@ -54,6 +50,19 @@
     </Filter>
     <Filter Include="SVC">
       <UniqueIdentifier>{7b001913-6098-46fb-9e4e-e5f4c3d2f1d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Finders">
+      <UniqueIdentifier>{6ef269c7-c699-47e7-9e3f-d6b1791a7fad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\Finders">
+      <UniqueIdentifier>{92d3809e-b8e3-4eb4-9470-b188ab162722}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TaskExplorer\Search">
+      <UniqueIdentifier>{231e956e-a3d1-428d-8dc0-8fe2686f57d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Forms">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -179,9 +188,6 @@
     </ClCompile>
     <ClCompile Include="API\Windows\WinWnd.cpp">
       <Filter>API\Windows</Filter>
-    </ClCompile>
-    <ClCompile Include="API\IOStats.cpp">
-      <Filter>API</Filter>
     </ClCompile>
     <ClCompile Include="Common\SplitTreeView.cpp">
       <Filter>Common</Filter>
@@ -354,6 +360,42 @@
     <ClCompile Include="Common\ItemChooser.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\Finder.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Search\HandleSearch.cpp">
+      <Filter>TaskExplorer\Search</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Finders\AbstractFinder.cpp">
+      <Filter>API\Finders</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Finders\WinHandleFinder.cpp">
+      <Filter>API\Windows\Finders</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Finders\WinModuleFinder.cpp">
+      <Filter>API\Windows\Finders</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Search\ModuleSearch.cpp">
+      <Filter>TaskExplorer\Search</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Search\MemorySearch.cpp">
+      <Filter>TaskExplorer\Search</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\StringModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Search\StringView.cpp">
+      <Filter>TaskExplorer\Search</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Finders\WinStringFinder.cpp">
+      <Filter>API\Windows\Finders</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Search\SearchWindow.cpp">
+      <Filter>TaskExplorer\Search</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\SystemInfoWindow.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -371,9 +413,6 @@
     <ClInclude Include="API\StackTrace.h">
       <Filter>API</Filter>
     </ClInclude>
-    <ClInclude Include="API\IOStats.h">
-      <Filter>API</Filter>
-    </ClInclude>
     <ClInclude Include="Common\FlexError.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -385,9 +424,6 @@
     </ClInclude>
     <ClInclude Include="GUI\ProcessPicker.h">
       <Filter>TaskExplorer</Filter>
-    </ClInclude>
-    <ClInclude Include="Common\SortFilterProxyModel.h">
-      <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\HistoryGraph.h">
       <Filter>Common</Filter>
@@ -412,6 +448,9 @@
     </ClInclude>
     <ClInclude Include="GUI\CustomItemDelegate.h">
       <Filter>TaskExplorer</Filter>
+    </ClInclude>
+    <ClInclude Include="API\MiscStats.h">
+      <Filter>API</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -676,6 +715,48 @@
     <QtMoc Include="Common\ItemChooser.h">
       <Filter>Common</Filter>
     </QtMoc>
+    <QtMoc Include="Common\Finder.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\SortFilterProxyModel.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Search\HandleSearch.h">
+      <Filter>TaskExplorer\Search</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Finders\AbstractFinder.h">
+      <Filter>API\Finders</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Finders\WinHandleFinder.h">
+      <Filter>API\Windows\Finders</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Finders\WinModuleFinder.h">
+      <Filter>API\Windows\Finders</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Search\ModuleSearch.h">
+      <Filter>TaskExplorer\Search</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Search\MemorySearch.h">
+      <Filter>TaskExplorer\Search</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\StringModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Search\StringView.h">
+      <Filter>TaskExplorer\Search</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Finders\WinStringFinder.h">
+      <Filter>API\Windows\Finders</Filter>
+    </QtMoc>
+    <QtMoc Include="API\StringInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Search\SearchWindow.h">
+      <Filter>TaskExplorer\Search</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\SystemInfoWindow.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -711,23 +792,23 @@
     <Text Include="..\TODO.md" />
   </ItemGroup>
   <ItemGroup>
-    <QtUic Include="Form Files\NewService.ui">
-      <Filter>Form Files</Filter>
+    <QtUic Include="Forms\NewService.ui">
+      <Filter>Forms</Filter>
     </QtUic>
-    <QtUic Include="Form Files\RunAsDialog.ui">
-      <Filter>Form Files</Filter>
+    <QtUic Include="Forms\RunAsDialog.ui">
+      <Filter>Forms</Filter>
     </QtUic>
-    <QtUic Include="Form Files\SettingsWindow.ui">
-      <Filter>Form Files</Filter>
+    <QtUic Include="Forms\SettingsWindow.ui">
+      <Filter>Forms</Filter>
     </QtUic>
-    <QtUic Include="Form Files\WinSvcShutdown.ui">
-      <Filter>Form Files</Filter>
+    <QtUic Include="Forms\WinSvcShutdown.ui">
+      <Filter>Forms</Filter>
     </QtUic>
-    <QtUic Include="Form Files\WinSvcTrigger.ui">
-      <Filter>Form Files</Filter>
+    <QtUic Include="Forms\WinSvcTrigger.ui">
+      <Filter>Forms</Filter>
     </QtUic>
-    <QtUic Include="Form Files\WinSvcWindow.ui">
-      <Filter>Form Files</Filter>
+    <QtUic Include="Forms\WinSvcWindow.ui">
+      <Filter>Forms</Filter>
     </QtUic>
   </ItemGroup>
 </Project>

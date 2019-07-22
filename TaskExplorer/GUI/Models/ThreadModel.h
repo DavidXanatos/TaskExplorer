@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "Common/ListItemModel.h"
-#include "..\..\API\ThreadInfo.h"
+#include "../../API/ThreadInfo.h"
 
 class CThreadModel : public CListItemModel
 {

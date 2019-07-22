@@ -7,13 +7,14 @@
 #include "../../API/Windows/ProcessHacker.h"	
 #include "WinSvcWindow.h"
 #endif
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../Common/SortFilterProxyModel.h"
+#include "../../Common/Finder.h"
 
 
 CServicesView::CServicesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
 {
-	m_pMainLayout = new QHBoxLayout();
+	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
@@ -42,17 +43,22 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_pMainLayout->addWidget(m_pServiceList);
 	// 
 
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
+
 	if (!bAll)
 	{
 		m_pServiceList->setColumnFixed(CServiceModel::ePID, true);
 		m_pServiceList->setColumnHidden(CServiceModel::ePID, true);
 
+#ifdef WIN32
 		m_pServiceList->setColumnFixed(CServiceModel::eGroupe, true);
 		m_pServiceList->setColumnHidden(CServiceModel::eGroupe, true);
+#endif
 
 		m_pServiceList->setColumnFixed(CServiceModel::eFileName, true);
 		m_pServiceList->setColumnHidden(CServiceModel::eFileName, true);
 
+#ifdef WIN32
 		m_pServiceList->setColumnFixed(CServiceModel::eDescription, true);
 		m_pServiceList->setColumnHidden(CServiceModel::eDescription, true);
 
@@ -61,6 +67,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 		m_pServiceList->setColumnFixed(CServiceModel::eVersion, true);
 		m_pServiceList->setColumnHidden(CServiceModel::eVersion, true);
+#endif
 
 		m_pServiceList->setColumnFixed(CServiceModel::eBinaryPath, true);
 		m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, true);
@@ -76,10 +83,14 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 			m_pServiceList->setColumnHidden(i, true);
 
 		m_pServiceList->setColumnHidden(CServiceModel::eService, false);
+#ifdef WIN32
 		m_pServiceList->setColumnHidden(CServiceModel::eDisplayName, false);
 		m_pServiceList->setColumnHidden(CServiceModel::eType, false);
+#endif
 		m_pServiceList->setColumnHidden(CServiceModel::eStatus, false);
+#ifdef WIN32
 		m_pServiceList->setColumnHidden(CServiceModel::eStartType, false);
+#endif
 		if (bAll) {
 			m_pServiceList->setColumnHidden(CServiceModel::ePID, false);
 			m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, false);

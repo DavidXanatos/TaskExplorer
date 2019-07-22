@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include "../../Common/SettingsWidgets.h"
 #include "TokenView.h"
 #include "TaskInfoWindow.h"
@@ -81,7 +81,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pTokenList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pTokenList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(m_pTokenList, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this, SLOT(OnItemDoubleClicked(QTreeWidgetItem*, int)));
+	//connect(m_pTokenList, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this, SLOT(OnItemDoubleClicked(QTreeWidgetItem*, int)));
 	//m_pGeneralLayout->addWidget(m_pTokenList, 3, 0, 1, 6);
 
 	m_pTabWidget->addTab(m_pTokenList, tr("General"));

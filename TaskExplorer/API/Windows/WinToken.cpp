@@ -24,7 +24,7 @@
 
 #include "stdafx.h"
 #include "WinToken.h"
-#include "..\TaskExplorer\GUI\TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
 
@@ -244,21 +244,21 @@ bool CWinToken::InitStaticData(void* QueryHandle, EQueryType Type)
             {
                 appContainerName = PhGetAppContainerName(appContainerInfo->TokenAppContainer);
                 appContainerSid = PhSidToStringSid(appContainerInfo->TokenAppContainer);
+
+				if (appContainerName)
+				{
+					m_UserName = CastPhString(appContainerName) + tr(" (APP_CONTAINER)");
+				}
+
+				if (appContainerSid)
+				{
+					m_UserSid = QByteArray((char*)appContainerInfo->TokenAppContainer, RtlLengthSid(appContainerInfo->TokenAppContainer));
+
+					m_SidString = CastPhString(appContainerSid);
+				}
             }
 
             PhFree(appContainerInfo);
-        }
-
-        if (appContainerName)
-        {
-			m_UserName = CastPhString(appContainerName) + tr(" (APP_CONTAINER)");
-        }
-
-        if (appContainerSid)
-        {
-			m_UserSid = QByteArray((char*)appContainerInfo->TokenAppContainer, RtlLengthSid(appContainerInfo->TokenAppContainer));
-
-			m_SidString = CastPhString(appContainerSid);
         }
     }
 

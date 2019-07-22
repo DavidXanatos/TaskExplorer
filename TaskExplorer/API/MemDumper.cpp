@@ -11,6 +11,8 @@ CMemDumper::CMemDumper(QObject* parent)
 
 CMemDumper::~CMemDumper()
 {
+	if(!wait(10*1000))
+		terminate();
 }
 
 CMemDumper* CMemDumper::New()

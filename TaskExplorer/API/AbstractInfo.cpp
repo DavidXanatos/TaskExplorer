@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "AbstractInfo.h"
-#include "../../GUI/TaskExplorer.h"
+#include "../GUI/TaskExplorer.h"
 
 
 CAbstractInfoEx::CAbstractInfoEx(QObject *parent)

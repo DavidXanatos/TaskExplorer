@@ -1,6 +1,6 @@
 #pragma once
 #include "../Common/TreeViewEx.h"
-#include "..\API\ProcessInfo.h"
+#include "../API/ProcessInfo.h"
 
 
 class CAffinityDialog : public QDialog

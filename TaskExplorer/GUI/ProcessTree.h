@@ -2,7 +2,7 @@
 #include <qwidget.h>
 #include "../Common/SplitTreeView.h"
 #include "../Common/HistoryGraph.h"
-#include "..\API\ProcessInfo.h"
+#include "../API/ProcessInfo.h"
 #include "TaskView.h"
 
 class CProcessModel;
@@ -41,26 +41,37 @@ private slots:
 protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
 
+	void					UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History);
+
 	virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView() 				{ return m_pProcessList->GetView(); }
 	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
 	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
+	QMap<quint64, CProcessPtr> m_Processes;
+
 private:
 	void					AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, int from, int to);
 
-	QHBoxLayout*			m_pMainLayout;
+	QVBoxLayout*			m_pMainLayout;
 
 	CProcessModel*			m_pProcessModel;
 	QSortFilterProxyModel*	m_pSortProxy;
 	CSplitTreeView*			m_pProcessList;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_CPU_History;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_MEM_History;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_IO_History;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_NET_History;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_GPU_History;
-	QMap<quint64, QPair<QPointer<CHistoryGraph>, QPersistentModelIndex> > m_VMEM_History;
+
+	QMap<quint64, CHistoryGraph*> m_CPU_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_CPU_History;
+	QMap<quint64, CHistoryGraph*> m_MEM_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_MEM_History;
+	QMap<quint64, CHistoryGraph*> m_IO_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_IO_History;
+	QMap<quint64, CHistoryGraph*> m_NET_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_NET_History;
+	QMap<quint64, CHistoryGraph*> m_GPU_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_GPU_History;
+	QMap<quint64, CHistoryGraph*> m_VMEM_Graphs;
+	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_VMEM_History;
 
 	QMenu*					m_pHeaderMenu;
 	QMap<QCheckBox*,int>	m_Columns;

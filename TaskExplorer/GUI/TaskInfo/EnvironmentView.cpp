@@ -1,7 +1,7 @@
 #include "stdafx.h"
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include "EnvironmentView.h"
-#include "../Common/KeyValueInputDialog.h"
+#include "../../Common/KeyValueInputDialog.h"
 
 
 CEnvironmentView::CEnvironmentView(QWidget *parent)

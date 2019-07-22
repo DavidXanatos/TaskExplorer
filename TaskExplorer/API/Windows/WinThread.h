@@ -41,7 +41,7 @@ public:
 	virtual STATUS SetCriticalThread(bool bSet, bool bForce = false);
 	virtual STATUS CancelIO();
 
-	virtual QString GetIdealProcessor() const			{ QReadLocker Locker(&m_Mutex); return m_IdealProcessor; }
+	virtual QString GetIdealProcessor() const;
 
 	virtual QString GetTypeString() const;
 
@@ -71,7 +71,6 @@ protected:
 
 	bool		m_IsGuiThread;
 	bool		m_IsCritical;
-	QString		m_IdealProcessor;
 
 	struct SWinThread*	m;
 };

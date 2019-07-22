@@ -1,9 +1,9 @@
 #include "stdafx.h"
-#include "../TaskExplorer/GUI/TaskExplorer.h"
+#include "GUI/TaskExplorer.h"
 #include "JobView.h"
 #include "../ProcessPicker.h"
-#include "..\..\Common\SortFilterProxyModel.h"
-#include "../Models\ProcessModel.h"
+#include "../../Common/SortFilterProxyModel.h"
+#include "../Models/ProcessModel.h"
 
 CJobView::CJobView(QWidget *parent)
 	:CPanelView(parent)

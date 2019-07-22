@@ -8,6 +8,8 @@ class CListItemModel : public QAbstractItemModel
 public:
     CListItemModel(QObject *parent = 0);
 	virtual ~CListItemModel();
+	
+	void			SetUseIcons(bool bUseIcons)		{ m_bUseIcons = bUseIcons; }
 
 	void			Sync(QList<QVariantMap> List);
 	QModelIndex		FindIndex(const QVariant& ID);
@@ -62,4 +64,5 @@ protected:
 
 	QList<SListNode*>			m_List;
 	QMap<QVariant, SListNode*>	m_Map;
+	bool								m_bUseIcons;
 };

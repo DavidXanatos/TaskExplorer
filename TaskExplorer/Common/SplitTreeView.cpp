@@ -131,7 +131,7 @@ void CSplitTreeView::SetTreeWidth(int Width)
 
 void CSplitTreeView::OnSplitterMoved(int pos, int index)
 {
-	if (index != 0)
+	if (index != 1)
 		return;
 
 	//if ((pos > 0) == m_bTreeEnabled)

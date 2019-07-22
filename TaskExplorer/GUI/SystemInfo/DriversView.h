@@ -2,9 +2,9 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\..\API\DriverInfo.h"
-#include "..\Models\DriverModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../../API/DriverInfo.h"
+#include "../Models/DriverModel.h"
 
 class CDriverModel;
 class QSortFilterProxyModel;
@@ -32,7 +32,7 @@ private slots:
 
 private:
 
-	QHBoxLayout*			m_pMainLayout;
+	QVBoxLayout*			m_pMainLayout;
 
 	QTreeViewEx*			m_pDriverList;
 	CDriverModel*			m_pDriverModel;

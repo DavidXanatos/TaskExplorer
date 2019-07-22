@@ -2,10 +2,10 @@
 #include <qwidget.h>
 #include "../../Common/TreeViewEx.h"
 #include "../../Common/PanelView.h"
-#include "..\..\API\ProcessInfo.h"
-#include "..\..\API\SocketInfo.h"
-#include "..\Models\MemoryModel.h"
-#include "..\..\Common\SortFilterProxyModel.h"
+#include "../../API/ProcessInfo.h"
+#include "../../API/SocketInfo.h"
+#include "../Models/MemoryModel.h"
+#include "../../Common/SortFilterProxyModel.h"
 
 class CMemoryFilterModel: public CSortFilterProxyModel
 {
@@ -52,9 +52,10 @@ public:
 public slots:
 	void					ShowProcess(const CProcessPtr& pProcess);
 	void					Refresh();
+	void					Search();
 
 private slots:
-	void					OnDoubleClicked(const QModelIndex& Index);
+	void					OnDoubleClicked();
 
 	void					UpdateFilter();
 
@@ -81,12 +82,14 @@ private:
 	QHBoxLayout*			m_pFilterLayout;
 	QCheckBox*				m_pHideFree;
 	QPushButton*			m_pRefresh;
+	QPushButton*			m_pSearch;
 
 	QTreeViewEx*			m_pMemoryList;
 	CMemoryModel*			m_pMemoryModel;
 	CMemoryFilterModel*		m_pSortProxy;
 
 	//QMenu*					m_pMenu;
+	QAction*				m_pMenuEdit;
 	QAction*				m_pMenuSave;
 	QAction*				m_pMenuProtect;
 	QAction*				m_pMenuFree;

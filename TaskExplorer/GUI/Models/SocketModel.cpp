@@ -55,7 +55,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
-		if (!pNode->Icon.isValid())
+		if (m_bUseIcons && !pNode->Icon.isValid())
 		{
 			CProcessPtr pProcess = pNode->pSocket->GetProcess();
 			if (!pProcess.isNull())

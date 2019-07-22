@@ -309,7 +309,7 @@ struct SUnOverflow
 
 	__inline quint64 GetValue()
 	{
-		return ((quint64)OverflowCount * 0xFFFFFFFFui64) + (quint64)Value;
+        return ((quint64)OverflowCount * 0xFFFFFFFFULL) + (quint64)Value;
 	}
 
 

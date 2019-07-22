@@ -12,6 +12,7 @@ CServiceModel::CServiceModel(QObject *parent)
 #ifdef WIN32
 	m_ShowDriver = true;
 #endif
+	m_bUseIcons = true;
 }
 
 CServiceModel::~CServiceModel()
@@ -55,7 +56,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 		// Note: icons are loaded asynchroniusly
 #ifdef WIN32
-		if (!pNode->Icon.isValid())
+		if (m_bUseIcons && !pNode->Icon.isValid())
 		{
 			QPixmap Icon = pWinService->IsDriver() ? g_DllIcon.pixmap(16,16) : pService->GetModuleInfo()->GetFileIcon();
 			if (!Icon.isNull()) {

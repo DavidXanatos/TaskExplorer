@@ -11,13 +11,25 @@ DEFINES += QHEXEDIT_EXPORTS
 HEADERS = \
     qhexedit.h \
     chunks.h \
-    commands.h
-
+    commands.h \
+    ../editor/HexEditor.h \
+    ../editor/HexEditorOptions.h \
+    ../editor/HexEditorSearch.h
 
 SOURCES = \
     qhexedit.cpp \
     chunks.cpp \
-    commands.cpp
+    commands.cpp \
+    ../editor/HexEditor.cpp \
+    ../editor/HexEditorOptions.cpp \
+    ../editor/HexEditorSearch.cpp
+
+RESOURCES = \
+    ../editor/Resource/qhexedit.qrc
+
+FORMS += \
+    ../editor/Resource/HexEditorOptions.ui \
+    ../editor/Resource/HexEditorSearch.ui
 
 Release:TARGET = qhexedit
 Debug:TARGET = qhexeditd

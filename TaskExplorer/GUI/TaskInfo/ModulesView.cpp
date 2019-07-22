@@ -2,27 +2,33 @@
 #include "../TaskExplorer.h"
 #include "ModulesView.h"
 #include "../../Common/Common.h"
+#include "../../Common/Finder.h"
+#ifdef WIN32
+#include "../../API/Windows/ProcessHacker.h"
+#endif
 
-CModulesView::CModulesView(QWidget *parent)
+CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
-	m_pFilterWidget = new QWidget();
-	m_pMainLayout->addWidget(m_pFilterWidget);
+	if (!bGlobal)
+	{
+		m_pFilterWidget = new QWidget();
+		m_pMainLayout->addWidget(m_pFilterWidget);
 
-	m_pFilterLayout = new QHBoxLayout();
-	m_pFilterLayout->setMargin(3);
-	m_pFilterWidget->setLayout(m_pFilterLayout);
+		m_pFilterLayout = new QHBoxLayout();
+		m_pFilterLayout->setMargin(3);
+		m_pFilterWidget->setLayout(m_pFilterLayout);
 
-	m_pLoadModule = new QPushButton(tr("Inject DLL"));
-	m_pFilterLayout->addWidget(m_pLoadModule);
+		m_pLoadModule = new QPushButton(tr("Inject DLL"));
+		connect(m_pLoadModule, SIGNAL(pressed()), this, SLOT(OnLoad()));
+		m_pFilterLayout->addWidget(m_pLoadModule);
 
-	m_pFilterLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
-
-	connect(m_pLoadModule, SIGNAL(pressed(bool)), this, SLOT(OnLoad()));
+		m_pFilterLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
+	}
 
 	// Module List
 	m_pModuleModel = new CModuleModel();
@@ -46,13 +52,32 @@ CModulesView::CModulesView(QWidget *parent)
 
 	m_pModuleList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pModuleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+	connect(m_pModuleList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
 	connect(theGUI, SIGNAL(ReloadAll()), m_pModuleModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pModuleList);
 	// 
 
+	if (bGlobal)
+	{
+		m_pModuleModel->SetUseIcons(true);
+		m_pModuleModel->SetTree(false);
+	}
+	else
+	{
+		m_pModuleList->setColumnHidden(CModuleModel::eModuleFile, true);
+		m_pModuleList->setColumnFixed(CModuleModel::eModuleFile, true);
+	}
+
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
+
+
 	//m_pMenu = new QMenu();
+	m_pOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
+	
+	m_pMenu->addSeparator();
+	
 	m_pUnload = m_pMenu->addAction(tr("Unload"), this, SLOT(OnUnload()));
 	m_pMenu->addSeparator();
 	AddPanelItemsToMenu();
@@ -67,7 +92,9 @@ CModulesView::CModulesView(QWidget *parent)
 		m_pModuleList->setColumnHidden(CModuleModel::eModule, false);
 		m_pModuleList->setColumnHidden(CModuleModel::eBaseAddress, false);
 		m_pModuleList->setColumnHidden(CModuleModel::eSize, false);
+#ifdef WIN32
 		m_pModuleList->setColumnHidden(CModuleModel::eDescription, false);
+#endif
 		m_pModuleList->setColumnHidden(CModuleModel::eFileName, false);
 	}
 	else
@@ -103,7 +130,7 @@ void CModulesView::Refresh()
 
 void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CModulePtr> Modules = m_pCurProcess->GetModleList();
+	QMap<quint64, CModulePtr> Modules = m_pCurProcess->GetModuleList();
 
 	m_pModuleModel->Sync(Modules);
 
@@ -113,10 +140,21 @@ void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, 
 	});
 }
 
+void CModulesView::ShowModules(const QMap<quint64, CModulePtr>& Modules)
+{
+	m_pModuleModel->Sync(Modules);
+
+	QTimer::singleShot(100, this, [this, Modules]() {
+		foreach(quint64 ID, Modules.keys())
+			m_pModuleList->expand(m_pSortProxy->mapFromSource(m_pModuleModel->FindIndex(ID)));
+	});
+}
+
 void CModulesView::OnMenu(const QPoint &point)
 {
 	QModelIndex Index = m_pModuleList->currentIndex();
 	
+	m_pOpen->setEnabled(m_pModuleList->selectedRows().count() == 1);
 	m_pUnload->setEnabled(Index.isValid());
 	
 	CPanelView::OnMenu(point);
@@ -182,4 +220,19 @@ void CModulesView::OnLoad()
 			Errors.append(Status);
 	}
 	CTaskExplorer::CheckErrors(Errors);
+}
+
+void CModulesView::OnDoubleClicked()
+{
+	QModelIndex Index = m_pModuleList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CModulePtr pModule = m_pModuleModel->GetModule(ModelIndex);
+	if (!pModule)
+		return;
+
+#ifdef WIN32
+	PPH_STRING phFileName = CastQString(pModule->GetFileName());
+	PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+	PhDereferenceObject(phFileName);
+#endif
 }

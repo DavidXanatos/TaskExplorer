@@ -302,6 +302,6 @@ QIODevice* CWinMemory::MkDevice()
 	if (!IsAllocationBase() && (GetState() & MEM_COMMIT) == 0)
 		return NULL;
 
-	return new CWinMemIO(this);
+	return new CWinMemIO(GetBaseAddress(), GetRegionSize(), GetProcessId());
 }
 
