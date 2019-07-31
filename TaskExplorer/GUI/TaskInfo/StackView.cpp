@@ -14,7 +14,7 @@ CStackView::CStackView(QWidget *parent)
 	// Stack List
 	m_pStackList = new QTreeWidgetEx();
 	m_pStackList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pStackList->setHeaderLabels(tr("#|Name|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
+	m_pStackList->setHeaderLabels(tr("#|Symbol|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
 
 	m_pStackList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pStackList->setSortingEnabled(false);
@@ -24,6 +24,8 @@ CStackView::CStackView(QWidget *parent)
 
 	m_pMainLayout->addWidget(m_pStackList);
 	// 
+
+	m_bIsInvalid = false;
 
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu(false);
@@ -35,6 +37,17 @@ CStackView::CStackView(QWidget *parent)
 CStackView::~CStackView()
 {
 	theConf->SetBlob(objectName() + "/StackView_Columns", m_pStackList->header()->saveState());
+}
+
+void CStackView::Invalidate()
+{
+	m_bIsInvalid = true;
+
+	for (int i = 0; i < m_pStackList->topLevelItemCount(); i++)
+	{
+		for(int j=0; j < m_pStackList->columnCount(); j++)
+			m_pStackList->topLevelItem(i)->setForeground(j, Qt::lightGray);
+	}
 }
 
 void CStackView::ShowStack(const CStackTracePtr& StackTrace)
@@ -55,7 +68,13 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 		else
 			pItem = m_pStackList->topLevelItem(i);
 
-		pItem->setText(eName, StackFrame.Symbol);
+		if (m_bIsInvalid)
+		{
+			for (int j = 0; j < m_pStackList->columnCount(); j++)
+				m_pStackList->topLevelItem(i)->setForeground(j, Qt::black);
+		}
+
+		pItem->setText(eSymbol, StackFrame.Symbol);
 		pItem->setText(eStackAddress, "0x" + QString::number(StackFrame.StackAddress, 16));
 		pItem->setText(eFrameAddress, "0x" + QString::number(StackFrame.FrameAddress, 16));
 		pItem->setText(eControlAddress, "0x" + QString::number(StackFrame.PcAddress, 16));
@@ -66,4 +85,6 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 
 	for (; i < m_pStackList->topLevelItemCount(); )
 		delete m_pStackList->topLevelItem(i);
+
+	m_bIsInvalid = false;
 }

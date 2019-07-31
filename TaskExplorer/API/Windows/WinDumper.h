@@ -22,4 +22,4 @@ private:
 	struct SWinDumper* m;
 };
 
-quint32 PhSvcApiWriteMiniDumpProcess(const QVariantMap& Parameters);
+quint32 SvcApiWriteMiniDumpProcess(const QVariantMap& Parameters);

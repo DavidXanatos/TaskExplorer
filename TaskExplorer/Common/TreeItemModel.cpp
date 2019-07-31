@@ -18,7 +18,7 @@ CTreeItemModel::~CTreeItemModel()
 	delete m_Root;
 }
 
-QList<QVariant> CTreeItemModel::MakePath(const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List)
+QList<QVariant> CSimpleTreeModel::MakePath(const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List)
 {
 	QVariant ParentID = Cur["ParentID"];
 
@@ -32,7 +32,7 @@ QList<QVariant> CTreeItemModel::MakePath(const QVariantMap& Cur, const QMap<QVar
 	return list;
 }
 
-void CTreeItemModel::Sync(const QMap<QVariant, QVariantMap>& List)
+void CSimpleTreeModel::Sync(const QMap<QVariant, QVariantMap>& List)
 {
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QMap<QVariant, STreeNode*> Old = m_Map;
@@ -69,10 +69,10 @@ void CTreeItemModel::Sync(const QMap<QVariant, QVariantMap>& List)
 		bool State = false;
 		bool Changed = false;
 
-		QVariantList Values = Cur["Values"].toList();
+		QVariantMap Values = Cur["Values"].toMap();
 		for(int section = FIRST_COLUMN; section < columnCount(); section++)
 		{
-			QVariant Value = Values[section];
+			QVariant Value = Values[QString::number(section)];
 
 			STreeNode::SValue& ColValue = pNode->Values[section];
 
@@ -430,20 +430,17 @@ int CTreeItemModel::rowCount(const QModelIndex &parent) const
 	return pNode->Children.count();
 }
 
-int CTreeItemModel::columnCount(const QModelIndex &parent) const
+int CSimpleTreeModel::columnCount(const QModelIndex &parent) const
 {
-	return 1;
+	return m_Headers.count();
 }
 
-QVariant CTreeItemModel::headerData(int section, Qt::Orientation orientation, int role) const
+QVariant CSimpleTreeModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
 	{
-		switch(section)
-		{
-			case FIRST_COLUMN:		return tr("Value");
-			// ...
-		}
+		if (section < m_Headers.size())
+			return m_Headers.at(section);
 	}
     return QVariant();
 }

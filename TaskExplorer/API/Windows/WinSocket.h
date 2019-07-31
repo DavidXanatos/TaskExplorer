@@ -36,3 +36,5 @@ protected:
 private:
 	struct SWinSocket* m;
 };
+
+QVariant SvcApiCloseSocket(const QVariantMap& Parameters);

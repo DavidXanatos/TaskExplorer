@@ -49,6 +49,9 @@ public:
 		eIdealProcessor,
 		eCritical,
 #endif
+#ifdef WIN32
+		eAppDomain,
+#endif
 		eCount
 	};
 

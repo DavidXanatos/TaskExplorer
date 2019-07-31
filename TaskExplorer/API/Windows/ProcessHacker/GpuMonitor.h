@@ -12,6 +12,8 @@ public:
 
 	bool		Init();
 
+	bool		UpdateAdapters();
+
 	static QString QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const /*DEVPROPKEY*/struct _DEVPROPKEY *DeviceProperty);
 	static QString QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, ulong DeviceProperty);
 	static quint64 QueryGpuInstalledMemory(/*DEVINST*/quint32 DeviceHandle);
@@ -87,5 +89,5 @@ protected:
 	SDelta64			m_ClockTotalRunningTimeDelta;
 	quint64				m_ClockTotalRunningTimeFrequency;
 
-	QReadWriteLock		m_StatsMutex; // todo
+	mutable QReadWriteLock		m_StatsMutex;
 };

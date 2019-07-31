@@ -24,7 +24,7 @@
 
 #include "stdafx.h"
 #include "WinToken.h"
-#include "GUI/TaskExplorer.h"
+#include "../../GUI/TaskExplorer.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
 

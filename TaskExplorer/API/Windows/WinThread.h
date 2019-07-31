@@ -40,17 +40,21 @@ public:
 	virtual bool IsCriticalThread() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
 	virtual STATUS SetCriticalThread(bool bSet, bool bForce = false);
 	virtual STATUS CancelIO();
+	virtual QString GetAppDomain() const;
 
 	virtual QString GetIdealProcessor() const;
 
 	virtual QString GetTypeString() const;
 
-	virtual void TraceStack();
+	virtual quint64 TraceStack();
 
 	virtual void OpenPermissions();
 
 private slots:
-	void	OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName);
+	void		OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName);
+
+	void		UpdateAppDomain();
+	void		OnAppDomain(int Index);
 
 protected:
 	friend class CWinProcess;
@@ -72,5 +76,9 @@ protected:
 	bool		m_IsGuiThread;
 	bool		m_IsCritical;
 
+	QString		m_AppDomain;
+
 	struct SWinThread*	m;
 };
+
+QString SvcGetClrThreadAppDomain(const QVariantMap& Parameters);

@@ -6,7 +6,7 @@
 #include <ras.h>
 #include <raserror.h>
 
-#include "GUI/TaskExplorer.h"
+#include "../GUI/TaskExplorer.h"
 #include "../SVC/TaskService.h"
 
 ulong g_fileObjectTypeIndex = ULONG_MAX;
@@ -360,11 +360,8 @@ void CWindowsAPI::UpdateNetStats()
 
 		QWriteLocker Locker(&m_StatsMutex);
 
-		m_Stats.NetIf.ReceiveRaw = uRecvTotal;
-		m_Stats.NetIf.ReceiveCount = uSentCount;
-
-		m_Stats.NetIf.SendRaw = uSentTotal;
-		m_Stats.NetIf.SendCount = uRecvCount;
+		m_Stats.NetIf.SetReceive(uRecvTotal, uSentCount);
+		m_Stats.NetIf.SetSend(uSentTotal, uRecvCount);
 	}
 
 
@@ -388,7 +385,7 @@ void CWindowsAPI::UpdateNetStats()
 	{
 		QWriteLocker Locker(&m_StatsMutex);
 
-		// given that nowadays ras is almost exclusivly used for VPN's there is no point in differentiating here by type
+		// Note: given that nowadays ras is almost exclusivly used for VPN's there is no point in differentiating here by type
 
 		//quint64 uVpnRecvTotal = 0;
 		//quint64 uVpnRecvCount = 0;
@@ -448,18 +445,11 @@ void CWindowsAPI::UpdateNetStats()
 		foreach(const QString& EntryName, OldRasCons)
 			m_RasCons.remove(EntryName);
 
-
-		//m_Stats.NetVpn.ReceiveRaw = uVpnRecvTotal;
-		//m_Stats.NetVpn.ReceiveCount = uVpnSentCount;
-		//
-		//m_Stats.NetVpn.SendRaw = uVpnSentTotal;
-		//m_Stats.NetVpn.SendCount = uVpnRecvCount;
-
-		m_Stats.NetRas.ReceiveRaw = uRasRecvTotal;
-		m_Stats.NetRas.ReceiveCount = uRasSentCount;
-
-		m_Stats.NetRas.SendRaw = uRasSentTotal;
-		m_Stats.NetRas.SendCount = uRasRecvCount;
+		//m_Stats.NetVpn.SetReceive(uVpnRecvTotal, uVpnSentCount);
+		//m_Stats.NetVpn.SetSend(uVpnSentTotal, uVpnRecvCount);
+		
+		m_Stats.NetRas.SetReceive(uRasRecvTotal, uRasSentCount);
+		m_Stats.NetRas.SetSend(uRasSentTotal, uRasRecvCount);
 	}
 
 	delete[] lpRasConn;
@@ -468,47 +458,25 @@ void CWindowsAPI::UpdateNetStats()
 	/////////////////////////////////////////////////////////////////////
 	// samba traffic
 
-	LARGE_INTEGER ClientBytesReceived;
-	LARGE_INTEGER ClientSendRaw;
+	QWriteLocker Locker(&m_StatsMutex);
+
 	STAT_WORKSTATION_0* wrkStat = NULL;
 	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanWorkstation", 0, 0, (LPBYTE*)&wrkStat)) && wrkStat != NULL)
 	{
-		ClientBytesReceived = wrkStat->BytesReceived;
-		//ClientReceiveCount = wrkStat->SmbsReceived;
-		
-		ClientSendRaw = wrkStat->BytesTransmitted;
-		//ClientSendCount = wrkStat->SmbsTransmitted;
+		m_Stats.SambaClient.SetReceive(wrkStat->BytesReceived.QuadPart, 0 /*wrkStat->SmbsReceived*/);
+		m_Stats.SambaClient.SetSend(wrkStat->BytesTransmitted.QuadPart, 0 /*wrkStat->SmbsTransmitted*/);
 
 		NetApiBufferFree(wrkStat);
 	}
 
-	LARGE_INTEGER ServerBytesReceived;
-	LARGE_INTEGER ServerSendRaw;
 	_STAT_SERVER_0* srvStat = NULL;
-	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)) && srvStat != NULL) // fix-me: why can this be null?
+	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)) && srvStat != NULL)
 	{
-		ServerBytesReceived.HighPart = srvStat->sts0_bytesrcvd_high;
-		ServerBytesReceived.LowPart = srvStat->sts0_bytesrcvd_low;
-	
-		ServerSendRaw.HighPart = srvStat->sts0_bytessent_high;
-		ServerSendRaw.LowPart = srvStat->sts0_bytessent_low;
-	
+		m_Stats.SambaServer.SetReceive((LARGE_INTEGER { srvStat->sts0_bytesrcvd_low, (LONG)srvStat->sts0_bytesrcvd_high }).QuadPart, 0 /*???*/);
+		m_Stats.SambaServer.SetSend((LARGE_INTEGER { srvStat->sts0_bytessent_low, (LONG)srvStat->sts0_bytessent_high }).QuadPart, 0 /*???*/);
+
 		NetApiBufferFree(srvStat);
 	}
-
-	QWriteLocker Locker(&m_StatsMutex);
-
-	m_Stats.SambaClient.ReceiveRaw = ClientBytesReceived.QuadPart;
-	//m_Stats.SambaClient.ReceiveCount = ClientReceiveCount.QuadPart;
-		
-	m_Stats.SambaClient.SendRaw = ClientSendRaw.QuadPart;
-	//m_Stats.SambaClient.SendCount = ClientSendCount.QuadPart;
-
-	m_Stats.SambaServer.ReceiveRaw = ServerBytesReceived.QuadPart;
-	//m_Stats.SambaServer.ReceiveCount = 
-
-	m_Stats.SambaServer.SendRaw =ServerSendRaw.QuadPart;
-	//m_Stats.SambaServer.SendCount = 
 }
 
 bool CWindowsAPI::UpdateSysStats()

@@ -4,6 +4,7 @@
 #include "../../Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinThread.h"
+#include "../../API/Windows/WindowsAPI.h"
 #endif
 #include "../../Common/Finder.h"
 
@@ -38,7 +39,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pThreadList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pThreadList->setSortingEnabled(true);
 
-	m_pSplitter->addWidget(m_pThreadList);
+	m_pSplitter->addWidget(CFinder::AddFinder(m_pThreadList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
 
 	m_pThreadList->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -50,8 +51,6 @@ CThreadsView::CThreadsView(QWidget *parent)
 	connect(m_pThreadList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
 	// 
 
-	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
-
 
 	// Stack List
 	m_pStackView = new CStackView(this);
@@ -59,6 +58,8 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pSplitter->addWidget(m_pStackView);
 	m_pSplitter->setCollapsible(1, false);
 	// 
+
+	m_CurStackTraceJob = 0;
 
 	//m_pMenu = new QMenu();
 	AddTaskItemsToMenu();
@@ -147,6 +148,9 @@ void CThreadsView::Refresh()
 	// Note: See coment in CWinProcess::UpdateThreads(), ... so windows we just call ShowThreads right away.
 	ShowThreads(QSet<quint64>(), QSet<quint64>(), QSet<quint64>());
 #endif
+
+	if(!m_pCurThread.isNull() && m_CurStackTraceJob == 0)
+		m_CurStackTraceJob = m_pCurThread->TraceStack();
 }
 
 void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
@@ -155,28 +159,45 @@ void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 
 	m_pThreadModel->Sync(m_Threads);
 
-	if(!m_pCurThread.isNull())
-		m_pCurThread->TraceStack();
-
 	OnUpdateHistory();
 }
 
 void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
-
 	m_pCurThread = m_pThreadModel->GetThread(ModelIndex);
+
+	if (m_CurStackTraceJob)
+	{
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->CancelJob(m_CurStackTraceJob);
+		m_CurStackTraceJob = 0;
+	}
+
+	disconnect(m_pStackView, SLOT(ShowStack(const CStackTracePtr&)));
+
+	//m_pStackView->Clear();
+	m_pStackView->Invalidate();
 
 	if (!m_pCurThread.isNull()) 
 	{
-		disconnect(m_pStackView, SLOT(ShowStack(const CStackTracePtr&)));
+		connect(m_pCurThread.data(), SIGNAL(StackTraced(const CStackTracePtr&)), this, SLOT(ShowStack(const CStackTracePtr&)));
 
-		m_pStackView->Clear();
-
-		connect(m_pCurThread.data(), SIGNAL(StackTraced(const CStackTracePtr&)), m_pStackView, SLOT(ShowStack(const CStackTracePtr&)));
-
-		m_pCurThread->TraceStack();
+		m_CurStackTraceJob = m_pCurThread->TraceStack();
 	}
+}
+
+void CThreadsView::ShowStack(const CStackTracePtr& StackTrace)
+{
+	if (!m_pCurThread)
+		return;
+	if (StackTrace->GetProcessId() != m_pCurThread->GetProcessId())
+		return;
+	if (StackTrace->GetThreadId() != m_pCurThread->GetThreadId())
+		return;
+
+	m_CurStackTraceJob = 0;
+
+	m_pStackView->ShowStack(StackTrace);
 }
 
 QList<CTaskPtr> CThreadsView::GetSellectedTasks()
@@ -321,3 +342,4 @@ void CThreadsView::OnUpdateHistory()
 		m_pThreadList->EndUpdatingWidgets(OldMap, m_CPU_History);
 	}
 }
+

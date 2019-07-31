@@ -4,7 +4,11 @@
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "../API/Windows/WinDumper.h"
+#include "../API/Windows/SymbolProvider.h"
 #include "../API/Windows/WinAdmin.h"
+#include "../API/Windows/WinThread.h"
+#include "../API/Windows/WinSocket.h"
+#include "../GUI/TaskExplorer.h"
 
 // we need to adjust the pipe permissions in order to allow a user process to communicate with a service
 #include <aclapi.h>
@@ -25,11 +29,15 @@ bool fixLocalServerPermissions(QLocalServer *server)
 }
 #endif
 
-QMutex CTaskService::m_TempMutex;
+QMutex CTaskService::m_Mutex;
 QString CTaskService::m_TempName;
+QString CTaskService::m_TempSocket;
+#ifdef WIN64
+QString CTaskService::m_TempSocket32;
+#endif
 
  CTaskService::CTaskService(int argc, char **argv, const QString& svcName, int timeout)
-	: QtServiceBase(argc, argv, svcName)
+	: QtServiceBase(argc, argv, svcName) 
 {
     setServiceDescription("Task Explorer worker service");
     //setServiceFlags(QtServiceBase::CanBeSuspended);
@@ -138,19 +146,117 @@ void CTaskService::receiveConnection()
 
 	QVariant Response = false;	
 #ifdef WIN32
-	if (Command == "SvcInvokeRunAsService")
+	if (Command == "RunAsService")
 	{
-		Response = PhSvcApiInvokeRunAsService(Parameters);
+		Response = SvcApiInvokeRunAsService(Parameters);
 	}
-	else if (Command == "SvcGetProcessId")
+	else if (Command == "GetProcessId")
 	{
 		Response = (quint64)NtCurrentProcessId();
 	}
-	else if (Command == "SvcWriteMiniDumpProcess")
+	else if (Command == "WriteMiniDumpProcess")
 	{
-		Response = PhSvcApiWriteMiniDumpProcess(Parameters);
+		Response = SvcApiWriteMiniDumpProcess(Parameters);
 	}
-	else if (Command == "SvcCallSendMessage")
+	else if (Command == "PredictAddressesFromClrData")
+	{
+		Response = SvcApiPredictAddressesFromClrData(Parameters);
+	}
+	else if (Command == "GetRuntimeNameByAddressClrProcess")
+	{
+		Response = SvcApiGetRuntimeNameByAddressClrProcess(Parameters);
+	}
+	else if (Command == "GetClrThreadAppDomain")
+	{
+		Response = SvcGetClrThreadAppDomain(Parameters);
+	}
+	else if (Command == "ExecTaskAction")
+	{
+		if(quint64 ThreadId = Parameters["ThreadId"].toULongLong())
+			Response = ExecTaskAction(Parameters["ProcessId"].toULongLong(), ThreadId, Parameters["Action"].toString(), Parameters["Data"]);
+		else
+			Response = ExecTaskAction(Parameters["ProcessId"].toULongLong(), Parameters["Action"].toString(), Parameters["Data"]);
+	}
+	else if (Command == "ExecServiceAction")
+	{
+		Response = ExecServiceAction(Parameters["Name"].toString(), Parameters["Action"].toString(), Parameters["Data"]);
+	}
+	else if (Command == "ChangeServiceConfig")
+	{
+		QString ServiceName = Parameters["ServiceName"].toString();
+
+		ULONG win32Result = 0;
+		SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_CHANGE_CONFIG);
+		if (serviceHandle)
+		{
+			if (Parameters.contains("InfoLevel") && Parameters.contains("InfoData"))
+			{
+				DWORD InfoLevel = Parameters["InfoLevel"].toUInt();
+				QByteArray Info = Parameters["InfoData"].toByteArray();
+
+				if (!ChangeServiceConfig2(serviceHandle, InfoLevel, Info.data()))
+				{
+					win32Result = GetLastError();
+				}
+			}
+			else if(Parameters.contains("ServiceType") && Parameters.contains("StartType") && Parameters.contains("ErrorControl"))
+			{
+				DWORD newServiceType = Parameters["ServiceType"].toULongLong();
+				DWORD newStartType = Parameters["StartType"].toULongLong();
+				DWORD newErrorControl = Parameters["ErrorControl"].toULongLong();
+
+				wstring BinaryPathName = Parameters.value("BinaryPathName").toString().toStdWString();
+				wstring LoadOrderGroup = Parameters.value("LoadOrderGroup").toString().toStdWString();
+				
+				DWORD newTagId = Parameters.value("LocalAdTagIddress").toUInt();
+				
+				wstring Dependencies;
+				foreach(const QString& service, Parameters.value("Dependencies").toStringList())
+				{
+					Dependencies.append(service.toStdWString());
+					Dependencies.push_back(L'\0');
+				}
+				Dependencies.push_back(L'\0');
+				
+				wstring ServiceStartName = Parameters.value("ServiceStartName").toString().toStdWString();
+				wstring Password = Parameters.value("Password").toString().toStdWString();
+				wstring DisplayName = Parameters.value("DisplayName").toString().toStdWString();
+
+
+				if (!ChangeServiceConfig(
+					serviceHandle,
+					newServiceType,
+					newStartType,
+					newErrorControl,
+					Parameters.contains("BinaryPathName") ? BinaryPathName.c_str() : NULL,
+					Parameters.contains("LoadOrderGroup") ? LoadOrderGroup.c_str() : NULL,
+					Parameters.contains("LocalAdTagIddress") ? &newTagId : NULL,
+					Parameters.contains("Dependencies") ? Dependencies.c_str() : NULL,
+					Parameters.contains("ServiceStartName") ? ServiceStartName.c_str() : NULL,
+					Parameters.contains("Password") ? Password.c_str() : NULL,
+					Parameters.contains("DisplayName") ? DisplayName.c_str() : NULL
+				))
+				{
+					win32Result = GetLastError();
+				}
+			}
+			else
+			{
+				win32Result = ERROR_INVALID_PARAMETER;
+			}
+
+			CloseServiceHandle(serviceHandle);
+		}
+		else
+			win32Result = (quint32)GetLastError();
+
+		Response = (quint32)win32Result;
+	}
+	else if (Command == "CloseSocket")
+	{
+		Response = SvcApiCloseSocket(Parameters);
+	}
+	else if (Command == "SendMessage")
 	{
 		HWND hWnd = (HWND)Parameters["hWnd"].toULongLong();
 		UINT Msg = Parameters["Msg"].toULongLong();
@@ -164,13 +270,261 @@ void CTaskService::receiveConnection()
 	}
 	else
 #endif
-	if (Request.toString() == "refresh")
+	if (Request.toString() == "Quit")
+		QTimer::singleShot(100, QCoreApplication::instance(), SLOT(quit()));
+	else if (Request.toString() == "Refresh")
 		Response = true;
 	else
 		Response = "Unknown Command";
 
 	SendVariant(pSocket, Response, 2000);
     pSocket->waitForDisconnected(1000);
+}
+
+bool CTaskService::CheckStatus(long Status)
+{
+#ifdef WIN32
+    if (!(Status == STATUS_ACCESS_DENIED || Status == STATUS_PRIVILEGE_NOT_HELD ||
+      (NT_NTWIN32(Status) && WIN32_FROM_NTSTATUS(Status) == ERROR_ACCESS_DENIED)))
+        return false;
+#endif
+
+    if (theAPI->RootAvaiable())
+        return false;
+
+	return theConf->GetBool("Options/AutoElevate", true);
+}
+
+bool CTaskService::TaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
+{
+	QString SocketName = CTaskService::RunWorker();
+
+	if (SocketName.isEmpty())
+		return false;
+	
+	QVariantMap Parameters;
+	Parameters["ProcessId"] = ProcessId;
+	Parameters["ThreadId"] = ThreadId;
+	Parameters["Action"] = Action;
+	Parameters["Data"] = Data;
+
+	QVariantMap Request;
+	Request["Command"] = "ExecTaskAction";
+	Request["Parameters"] = Parameters;
+
+	QVariant Response = CTaskService::SendCommand(SocketName, Request);
+
+	if (Response.type() == QVariant::Int)
+		return Response.toInt() == 0;
+	return false;	
+}
+
+long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data)
+{
+	NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
+#ifdef WIN32
+	HANDLE processHandle = NULL;
+	if (Action == "Terminate")
+	{
+		if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_TERMINATE, (HANDLE)ProcessId)))
+		{
+			// An exit status of 1 is used here for compatibility reasons:
+			// 1. Both Task Manager and Process Explorer use 1.
+			// 2. winlogon tries to restart explorer.exe if the exit status is not 1.
+
+			status = PhTerminateProcess(processHandle, 1);
+		}
+	}
+	else if (Action == "Suspend")
+	{
+		if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SUSPEND_RESUME, (HANDLE)ProcessId)))
+		{
+			status = NtSuspendProcess(processHandle);
+		}
+	}
+	else if (Action == "Resume")
+	{
+		if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SUSPEND_RESUME, (HANDLE)ProcessId)))
+		{
+			status = NtResumeProcess(processHandle);
+		}
+	}
+	else if (Action.left(3) == "Set")
+	{
+		if ((HANDLE)ProcessId != SYSTEM_PROCESS_ID)
+		{
+			// Changing the priority of System can lead to a BSOD on some versions of Windows,
+			// so disallow this.
+			status = STATUS_UNSUCCESSFUL;
+		}
+		else if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, (HANDLE)ProcessId)))
+		{
+			if (Action == "SetPriority")
+			{
+				PROCESS_PRIORITY_CLASS priorityClass;
+
+				priorityClass.Foreground = FALSE;
+				priorityClass.PriorityClass = (UCHAR)Data.toUInt();
+
+				status = PhSetProcessPriority(processHandle, priorityClass);
+			}
+			else if (Action == "SetPagePriority")
+			{
+				status = PhSetProcessPagePriority(processHandle, Data.toInt());
+			}
+			else if (Action == "SetIOPriority")
+			{
+				status = PhSetProcessIoPriority(processHandle, (IO_PRIORITY_HINT)Data.toInt());
+			}
+			else if (Action == "SetAffinityMask")
+			{
+				status = PhSetProcessAffinityMask(processHandle, Data.toULongLong());
+			}
+		}
+	}
+	if(processHandle)
+		NtClose(processHandle);
+#endif
+	return status;
+}
+
+long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
+{
+	NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
+#ifdef WIN32
+	HANDLE threadHandle = NULL;
+	if (Action == "Terminate")
+	{
+		if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_TERMINATE, (HANDLE)ThreadId)))
+		{
+			status = NtTerminateThread(threadHandle, STATUS_SUCCESS);
+		}
+	}
+	else if (Action == "Suspend")
+	{
+		if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_SUSPEND_RESUME, (HANDLE)ThreadId)))
+		{
+			status = NtSuspendThread(threadHandle, NULL);
+		}
+	}
+	else if (Action == "Resume")
+	{
+		if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_SUSPEND_RESUME, (HANDLE)ThreadId)))
+		{
+			status = NtResumeThread(threadHandle, NULL);
+		}
+	}
+	else if (Action.left(3) == "Set")
+	{
+		if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_SET_INFORMATION, (HANDLE)ThreadId)))
+		{
+			if (Action == "SetPriority")
+			{
+				status = PhSetThreadBasePriority(threadHandle, Data.toInt());
+			}
+			else if (Action == "SetPagePriority")
+			{
+				status = PhSetThreadPagePriority(threadHandle, Data.toInt());
+			}
+			else if (Action == "SetIOPriority")
+			{
+				status = PhSetThreadIoPriority(threadHandle, (IO_PRIORITY_HINT)Data.toInt());
+			}
+			else if (Action == "SetAffinityMask")
+			{
+				status = PhSetThreadAffinityMask(threadHandle, Data.toULongLong());
+			}
+		}
+	}
+	if(threadHandle)
+		NtClose(threadHandle);
+#endif
+	return status;
+}
+
+bool CTaskService::ServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
+{
+	QString SocketName = CTaskService::RunWorker();
+
+	if (SocketName.isEmpty())
+		return false;
+	
+	QVariantMap Parameters;
+	Parameters["Name"] = Name;
+	Parameters["Data"] = Data;
+	Parameters["Action"] = Action;
+
+	QVariantMap Request;
+	Request["Command"] = "ServiceTaskAction";
+	Request["Parameters"] = Parameters;
+
+	QVariant Response = CTaskService::SendCommand(SocketName, Request);
+
+	if (Response.type() == QVariant::Int)
+		return Response.toInt() == 0;
+	return false;	
+}
+
+long CTaskService::ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
+{
+	NTSTATUS status = 0;
+#ifdef WIN32
+	wstring SvcName = Name.toStdWString();
+	SC_HANDLE serviceHandle = NULL;
+	if (Action == "Start")
+	{
+		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_START);
+		if (serviceHandle)
+		{
+			if (!StartService(serviceHandle, 0, NULL))
+				status = PhGetLastWin32ErrorAsNtStatus();
+		}
+	}
+	else if (Action == "Pause")
+	{
+		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
+		if (serviceHandle)
+		{
+			SERVICE_STATUS serviceStatus;
+			if (!ControlService(serviceHandle, SERVICE_CONTROL_PAUSE, &serviceStatus))
+				status = PhGetLastWin32ErrorAsNtStatus();
+		}
+	}
+	else if (Action == "Continue")
+	{
+		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
+		if (serviceHandle)
+		{
+			SERVICE_STATUS serviceStatus;
+			if (!ControlService(serviceHandle, SERVICE_CONTROL_CONTINUE, &serviceStatus))
+				status = PhGetLastWin32ErrorAsNtStatus();
+		}
+	}
+	else if (Action == "Stop")
+	{
+		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_STOP);
+		if (serviceHandle)
+		{
+			SERVICE_STATUS serviceStatus;
+			if (!ControlService(serviceHandle, SERVICE_CONTROL_STOP, &serviceStatus))
+				status = PhGetLastWin32ErrorAsNtStatus();
+		}
+	}
+	else if (Action == "Delete")
+	{
+		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), DELETE);
+		if (serviceHandle)
+		{
+			if (!DeleteService(serviceHandle))
+				status = PhGetLastWin32ErrorAsNtStatus();
+		}
+	}
+	else
+		status = STATUS_INVALID_PARAMETER;
+	if(serviceHandle)
+		CloseServiceHandle(serviceHandle);
+#endif
+	return status;
 }
 
 QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Command, int timeout)
@@ -190,7 +544,122 @@ QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Co
 	if (!Ok || !SendVariant(&Socket, Command, timeout))
 		return QVariant(); // invalid variant means communication failed
 
-	return RecvVariant(&Socket, timeout);
+	QVariant Response = RecvVariant(&Socket, timeout);
+#ifdef _DEBUG
+	ASSERT(Response.toString() != "Unknown Command");
+#endif
+	return Response;
+}
+
+#ifdef WIN64
+QString CTaskService::RunWorker(bool bElevanted, bool b32Bit)
+#else
+QString CTaskService::RunWorker(bool bElevanted)
+#endif
+{
+	QMutexLocker Locker(&m_Mutex);
+
+#ifdef WIN32
+	QString BinaryPath;
+#ifdef WIN64
+	if (b32Bit)
+	{
+		static char* relativeFileNames[] =
+		{
+			"\\x86\\TaskExplorer.exe",
+			"\\..\\x86\\TaskExplorer.exe",
+#ifdef DEBUG
+			"\\..\\..\\Win32\\Debug\\TaskExplorer.exe"
+#else
+			"\\..\\..\\Win32\\Release\\TaskExplorer.exe"
+#endif
+		};
+
+		QString AppDir = QApplication::applicationDirPath();
+
+		for (int i = 0; i < RTL_NUMBER_OF(relativeFileNames); i++)
+		{
+			QString TestPath = QDir::cleanPath(AppDir + relativeFileNames[i]);
+			if (QFile::exists(TestPath))
+			{
+				BinaryPath = TestPath.replace("/", "\\");
+				break;
+			}
+		}
+
+		if (BinaryPath.isEmpty())
+			return QString();
+	}
+	else
+#endif
+	{
+		wchar_t szPath[MAX_PATH];
+		if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
+			return false;
+		BinaryPath = QString::fromWCharArray(szPath);
+	}
+
+	QString SocketName;
+	{
+#ifdef WIN64
+		if (b32Bit)
+			SocketName = m_TempSocket32;
+		else
+#endif
+			SocketName = m_TempSocket;
+	}
+
+	if (!SocketName.isEmpty())
+	{
+		if (SendCommand(SocketName, "Refresh", 500).toBool() == true)
+			return SocketName;
+	}
+
+	SocketName = TASK_SERVICE_NAME;
+	SocketName += "_" + GetRand64Str();
+
+	wstring Arguments = L"-wrk \"" + SocketName.toStdWString() + L"\"";
+#if 0
+	Arguments.append(L" -timeout 50000");
+	Arguments.append(L" -dbg_wait");
+#else
+	Arguments.append(L" -timeout 5000");
+#endif
+
+	HANDLE ProcessHandle = NULL;
+	if (bElevanted && !PhGetOwnTokenAttributes().Elevated)
+		PhShellProcessHackerEx(NULL, (wchar_t*)BinaryPath.toStdWString().c_str(), (wchar_t*)Arguments.c_str(), SW_HIDE, PH_SHELL_EXECUTE_ADMIN | PH_SHELL_EXECUTE_NOZONECHECKS, 0, 0, &ProcessHandle);
+	else
+		PhShellProcessHackerEx(NULL, (wchar_t*)BinaryPath.toStdWString().c_str(), (wchar_t*)Arguments.c_str(), SW_HIDE, PH_SHELL_EXECUTE_NOZONECHECKS, 0, 0, &ProcessHandle);
+	if (ProcessHandle == NULL)
+		return QString();
+
+#ifdef WIN64
+	if (b32Bit)
+		m_TempSocket32 = SocketName;
+	else
+#endif
+		m_TempSocket = SocketName;
+
+	return SocketName;
+#else
+	return QString(); // todo: linux
+#endif
+}
+
+void CTaskService::TerminateWorkers()
+{
+	QMutexLocker Locker(&m_Mutex);
+
+	if (!m_TempName.isEmpty())
+		Terminate(m_TempName);
+
+	if (!m_TempSocket.isEmpty())
+		Terminate(m_TempSocket);
+#ifdef WIN64
+	if (!m_TempSocket32.isEmpty())
+		Terminate(m_TempSocket32);
+#endif
 }
 
 // Note: we could do that using QtService, but it does not expose the required API directly only through start parameters
@@ -201,10 +670,12 @@ QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Co
 
 QString CTaskService::RunService()
 {
+	QMutexLocker Locker(&m_Mutex);
+
 #ifdef WIN32
 	QString ServiceName = TASK_SERVICE_NAME;
 
-	// check if a persistent service is installed and running
+	/*// check if a persistent service is installed and running
 	bool isRunning = false;
 	bool isInstalled = false;
 	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_QUERY_STATUS);
@@ -217,16 +688,13 @@ QString CTaskService::RunService()
 		CloseServiceHandle(serviceHandle);
 	}
 	if (isRunning)
-		return ServiceName;
+		return ServiceName;*/
 
-	// if not, than chack if there is a temporary service reachable
-	if (!isInstalled)
 	{
-		QString TempName = GetTempName();
-		if (!TempName.isEmpty())
+		if (!m_TempName.isEmpty())
 		{
-			if (SendCommand(TempName, "refresh", 500).toBool() == true)
-				return TempName;
+			if (SendCommand(m_TempName, "Refresh", 500).toBool() == true)
+				return m_TempName;
 		}
 	}
 
@@ -234,51 +702,12 @@ QString CTaskService::RunService()
 	ServiceName += "_" + GetRand64Str();
 	if (RunService(ServiceName))
 	{
-		QMutexLocker Locker(&m_TempMutex);
 		m_TempName = ServiceName;
 		return ServiceName;
 	}
 #endif
 	return QString();
 }
-
-#ifdef WIN64
-QString CTaskService::RunService32()
-{
-	QString BinaryPath = "";
-
-    static char* relativeFileNames[] =
-    {
-        "\\x86\\TaskExplorer.exe",
-        "\\..\\x86\\TaskExplorer.exe",
-#ifdef DEBUG
-        "\\..\\..\\Win32\\Debug\\TaskExplorer.exe"
-#else
-		"\\..\\..\\Win32\\Release\\TaskExplorer.exe"
-#endif
-    };
-
-	QString AppDir = QApplication::applicationDirPath();
-
-    for (int i = 0; i < RTL_NUMBER_OF(relativeFileNames); i++)
-    {
-		QString TestPath = QDir::cleanPath(AppDir + relativeFileNames[i]);
-		if (QFile::exists(TestPath))
-		{
-			BinaryPath = TestPath.replace("/","\\");
-			break;
-		}
-    }
-
-	if(BinaryPath.isEmpty())
-		return QString();
-
-	QString ServiceName = (TASK_SERVICE_NAME "_") + GetRand64Str();
-	if (RunService(ServiceName, BinaryPath))
-		return ServiceName;
-	return QString();
-}
-#endif
 
 bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 {
@@ -324,9 +753,12 @@ bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 		if (!(scManagerHandle = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE)))
 			return false; //PhGetLastWin32ErrorAsNtStatus();
 
-		wstring CommandLine = L"\"" + BinaryPath.toStdWString() + L"\" -svc \"" + ServiceName.toStdWString() + L"\" -timeout 5000";
-#ifdef _DEBUG
-		//CommandLine.append(L"-dbg_wait");
+		wstring CommandLine = L"\"" + BinaryPath.toStdWString() + L"\" -svc \"" + ServiceName.toStdWString() + L"\"";
+#if 0
+		CommandLine.append(L" -timeout 50000");
+		CommandLine.append(L" -dbg_wait");
+#else
+		CommandLine.append(L" -timeout 5000");
 #endif
 
 		SC_HANDLE serviceHandle = CreateService(scManagerHandle, ServiceName.toStdWString().c_str(), ServiceName.toStdWString().c_str(), SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS, SERVICE_DEMAND_START,

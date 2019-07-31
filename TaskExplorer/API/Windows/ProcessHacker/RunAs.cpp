@@ -139,7 +139,7 @@ NTSTATUS PhExecuteRunAsCommand3(
 	Parameters["ServiceName"] = ServiceName;
 
 	QVariantMap Request;
-	Request["Command"] = "SvcInvokeRunAsService";
+	Request["Command"] = "RunAsService";
 	Request["Parameters"] = Parameters;
 
 	QVariant Response = CTaskService::SendCommand(ServiceName, Request);
@@ -248,7 +248,7 @@ NTSTATUS PhInvokeRunAsService(
 }
 
 
-quint32 PhSvcApiInvokeRunAsService(const QVariantMap& Parameters)
+long SvcApiInvokeRunAsService(const QVariantMap& Parameters)
 {
 	NTSTATUS status = STATUS_INVALID_PARAMETER;
 	PH_RUNAS_SERVICE_PARAMETERS parameters;

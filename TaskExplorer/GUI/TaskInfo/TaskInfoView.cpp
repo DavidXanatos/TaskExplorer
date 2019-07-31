@@ -12,6 +12,7 @@
 #include "TokenView.h"
 #endif
 #include "WindowsView.h"
+#include "DotNetView.h"
 #include "EnvironmentView.h"
 #include "../SystemInfo/ServicesView.h"
 
@@ -70,6 +71,9 @@ void CTaskInfoView::InitializeTabs()
 
 	m_pServiceView = new CServicesView(false, this);
 	AddTab(m_pServiceView, tr("Service"));
+
+	m_pDotNetView = new CDotNetView(this);
+	AddTab(m_pDotNetView, tr(".NET"));
 #endif
 
 	m_pEnvironmentView = new CEnvironmentView(this);

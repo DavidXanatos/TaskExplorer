@@ -129,6 +129,8 @@ void CIncrementalPlot::SetTexts(const QStringList& Texts)
 
 void CIncrementalPlot::Clear()
 {
+	m_pPlot->setAxisAutoScale(QwtPlot::yLeft);
+
 	foreach(const SCurve& Curve, m_Curves)
 	{
 		delete Curve.pPlot;

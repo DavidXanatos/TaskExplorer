@@ -105,6 +105,7 @@ using namespace std;
 #include <QToolTip>
 #include <QColorDialog>
 #include <QToolButton>
+#include <QScreen>
 
 // other includes
 
@@ -128,3 +129,5 @@ using namespace std;
 #endif
 
 #include "Common/DebugHelpers.h"
+
+#define USE_QEXTWIDGETS

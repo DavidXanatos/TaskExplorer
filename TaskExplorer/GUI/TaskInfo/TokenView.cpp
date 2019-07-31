@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "GUI/TaskExplorer.h"
+#include "../TaskExplorer.h"
 #include "../../Common/SettingsWidgets.h"
 #include "TokenView.h"
 #include "TaskInfoWindow.h"

@@ -39,7 +39,7 @@ CTaskInfoWindow::CTaskInfoWindow(QWidget* pSingleTab, const QString& TabName, QW
 	m_pMainWidget->setLayout(m_pMainLayout);
 	this->setCentralWidget(m_pMainWidget);
 
-	QTabWidget* pTabWidget = new QTabWidget();
+	QTabWidget* pTabWidget = new QTabWidget(); // this is just decoration ;)
 	pTabWidget->addTab(pSingleTab, TabName);
 	m_pMainLayout->addWidget(pTabWidget);
 	m_pTaskInfo = pSingleTab;

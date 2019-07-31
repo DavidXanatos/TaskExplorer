@@ -28,7 +28,7 @@
 #include <lsasup.h>
 #include <userenv.h>
 
-#include "GUI/TaskExplorer.h"
+#include "../../GUI/TaskExplorer.h"
 
 #include "WindowsAPI.h"
 #include "WinProcess.h"
@@ -38,6 +38,7 @@
 #include "WinWnd.h"
 #include "ProcessHacker/memprv.h"
 #include "../Common/Common.h"
+#include "../../SVC/TaskService.h"
 
  // CWinProcess private members
 
@@ -2162,7 +2163,11 @@ STATUS CWinProcess::SetPriority(long Value)
 
     if (!NT_SUCCESS(status))
     {
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "SetPriority", Value))
+				return OK;
+		}
 
 		return ERR(tr("Failed to set Process priority"), status);
     }
@@ -2192,6 +2197,12 @@ STATUS CWinProcess::SetPagePriority(long Value)
 
     if (!NT_SUCCESS(status))
     {
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "SetPagePriority", Value))
+				return OK;
+		}
+
 		return ERR(tr("Failed to set Page priority"), status);
     }
 	return OK;
@@ -2220,7 +2231,11 @@ STATUS CWinProcess::SetIOPriority(long Value)
 
     if (!NT_SUCCESS(status))
     {
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "SetIOPriority", Value))
+				return OK;
+		}
 
 		return ERR(tr("Failed to set I/O priority"), status);
     }
@@ -2229,6 +2244,8 @@ STATUS CWinProcess::SetIOPriority(long Value)
 
 STATUS CWinProcess::SetAffinityMask(quint64 Value)
 {
+	QWriteLocker Locker(&m_Mutex); 
+
 	NTSTATUS status;
 	HANDLE processHandle;
     if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
@@ -2239,7 +2256,11 @@ STATUS CWinProcess::SetAffinityMask(quint64 Value)
 
     if (!NT_SUCCESS(status))
     {
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "SetAffinityMask", Value))
+				return OK;
+		}
 
 		return ERR(tr("Failed to set CPU affinity"), status);
     }
@@ -2262,10 +2283,13 @@ STATUS CWinProcess::Terminate()
         NtClose(processHandle);
     }
 
-
     if (!NT_SUCCESS(status))
     {
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "Terminate"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to terminate process"), status);
     }
@@ -2292,7 +2316,11 @@ STATUS CWinProcess::Suspend()
 
     if (!NT_SUCCESS(status))
     {
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "Suspend"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to suspend process"), status);
     }
@@ -2313,7 +2341,11 @@ STATUS CWinProcess::Resume()
 
     if (!NT_SUCCESS(status))
     {
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "Resume"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to resume process"), status);
     }
@@ -2506,12 +2538,6 @@ void CWinProcess::OpenPermissions()
 	QWriteLocker Locker(&m_Mutex); 
 
     PhEditSecurity(NULL, (wchar_t*)m_ProcessName.toStdWString().c_str(), L"Process", (PPH_OPEN_OBJECT)PhpProcessGeneralOpenProcess, NULL, (HANDLE)m->UniqueProcessId);
-}
-
-bool CWinProcess::IsWow64() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->IsWow64;
 }
 
 quint64 CWinProcess::GetPebBaseAddress(bool bWow64) const

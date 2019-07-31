@@ -8,7 +8,7 @@ struct SJobStats
 {
 	SJobStats()
 	{
-		LastStatUpdate = 0;
+		LastStatUpdate = GetCurTick();
 	}
 
 	bool UpdateStats()

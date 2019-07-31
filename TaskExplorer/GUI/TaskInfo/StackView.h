@@ -14,6 +14,7 @@ public:
 
 public slots:
 	void					Clear()			{ m_pStackList->clear(); }
+	void					Invalidate();
 	void					ShowStack(const CStackTracePtr& StackTrace);
 
 	//void					OnMenu(const QPoint &point);
@@ -27,7 +28,7 @@ private:
 	enum EStackColumns
 	{
 		eStack = 0,
-		eName,
+		eSymbol,
 		eStackAddress,
 		eFrameAddress,
 		eControlAddress,
@@ -39,6 +40,7 @@ private:
 
 	QVBoxLayout*			m_pMainLayout;
 
+	bool					m_bIsInvalid;
 	QTreeWidgetEx*			m_pStackList;
 
 	//QMenu*					m_pMenu;

@@ -1,7 +1,8 @@
 #include "stdafx.h"
-#include "GUI/TaskExplorer.h"
+#include "../TaskExplorer.h"
 #include "EnvironmentView.h"
 #include "../../Common/KeyValueInputDialog.h"
+#include "../../Common/Finder.h"
 
 
 CEnvironmentView::CEnvironmentView(QWidget *parent)
@@ -12,9 +13,18 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	this->setLayout(m_pMainLayout);
 
 	// Variables List
-	m_pVariablesList = new QTreeWidgetEx();
+	m_pVariablesModel = new CSimpleListModel();
+	m_pVariablesModel->setHeaderLabels(tr("Name|Type|Value").split("|"));
+
+	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy->setSortRole(Qt::EditRole);
+    m_pSortProxy->setSourceModel(m_pVariablesModel);
+	m_pSortProxy->setDynamicSortFilter(true);
+
+	m_pVariablesList = new QTreeViewEx();
 	m_pVariablesList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pVariablesList->setHeaderLabels(tr("Name|Type|Value").split("|"));
+	
+	m_pVariablesList->setModel(m_pSortProxy);
 
 	m_pVariablesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pVariablesList->setSortingEnabled(false);
@@ -22,9 +32,11 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	m_pVariablesList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pVariablesList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(m_pVariablesList, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this, SLOT(OnItemDoubleClicked(QTreeWidgetItem*, int)));
+	connect(m_pVariablesList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnItemDoubleClicked(const QModelIndex&)));
 	m_pMainLayout->addWidget(m_pVariablesList);
 	// 
+
+	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
 	//m_pMenu = new QMenu();
 	m_pEdit = m_pMenu->addAction(tr("Edit"), this, SLOT(OnEdit()));
@@ -56,37 +68,28 @@ void CEnvironmentView::Refresh()
 
 	QMap<QString, CProcessInfo::SEnvVar> EnvVars = m_pCurProcess->GetEnvVariables();
 
-	QMap<QString, QTreeWidgetItem*> OldVars;
-	for(int i = 0; i < m_pVariablesList->topLevelItemCount(); ++i) 
-	{
-		QTreeWidgetItem* pItem = m_pVariablesList->topLevelItem(i);
-		QString TypeName = pItem->data(eName, Qt::UserRole).toString();
-		OldVars.insert(TypeName ,pItem);
-	}
-
+	QList<QVariantMap> List;
 	foreach(const CProcessInfo::SEnvVar EnvVar, EnvVars)
 	{
-		QTreeWidgetItem* pItem = OldVars.take(EnvVar.GetTypeName());
-		if(!pItem)
-		{
-			pItem = new QTreeWidgetItem();
-			pItem->setText(eName, EnvVar.Name);
-			pItem->setData(eName, Qt::UserRole, EnvVar.GetTypeName());
-			m_pVariablesList->addTopLevelItem(pItem);
-		}
+		QVariantMap Item;
+		Item["ID"] = EnvVar.GetTypeName();
+		
+		QVariantMap Values;
+		Values.insert(QString::number(eName), EnvVar.Name);
+		Values.insert(QString::number(eType), EnvVar.GetType());
+		Values.insert(QString::number(eValue), EnvVar.Value);
 
-		pItem->setText(eType, EnvVar.GetType());
-		pItem->setText(eValue, EnvVar.Value);	
+		Item["Values"] = Values;
+		List.append(Item);
 	}
-
-	foreach(QTreeWidgetItem* pItem, OldVars)
-		delete pItem;
+	m_pVariablesModel->Sync(List);
 }
 
 void CEnvironmentView::OnMenu(const QPoint &point)
 {
-	QTreeWidgetItem* pItem = m_pVariablesList->currentItem();
-	QString Name = pItem ? pItem->data(eName, Qt::UserRole).toString() : 0;
+	QModelIndex Index = m_pVariablesList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	QString Name = ModelIndex.isValid() ? m_pVariablesModel->Data(ModelIndex, Qt::EditRole, eName).toString() : "";
 
 	m_pEdit->setEnabled(!Name.isEmpty());
 	m_pDelete->setEnabled(!Name.isEmpty());
@@ -96,18 +99,21 @@ void CEnvironmentView::OnMenu(const QPoint &point)
 
 void CEnvironmentView::OnEdit()
 {
-	OnItemDoubleClicked(m_pVariablesList->currentItem(), 0);
+	QModelIndex Index = m_pVariablesList->currentIndex();
+	OnItemDoubleClicked(Index);
 }
 
 void CEnvironmentView::OnAdd()
 {
-	OnItemDoubleClicked(NULL, 0);
+	OnItemDoubleClicked(QModelIndex());
 }
 
-void CEnvironmentView::OnItemDoubleClicked(QTreeWidgetItem* pItem, int Column)
+void CEnvironmentView::OnItemDoubleClicked(const QModelIndex& Index)
 {
-	QString Name = pItem ? pItem->text(eName) : 0;
-	QString Value = pItem ? pItem->text(eValue) : 0;
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+
+	QString Name = ModelIndex.isValid() ? m_pVariablesModel->Data(ModelIndex, Qt::EditRole, eName).toString() : "";
+	QString Value = ModelIndex.isValid() ? m_pVariablesModel->Data(ModelIndex, Qt::EditRole, eValue).toString() : "";
 
 	CKeyValueInputDialog KVDailog(this);
 	KVDailog.setWindowTitle("TaskExplorer");
@@ -127,8 +133,11 @@ void CEnvironmentView::OnItemDoubleClicked(QTreeWidgetItem* pItem, int Column)
 
 void CEnvironmentView::OnDelete()
 {
-	QTreeWidgetItem* pItem = m_pVariablesList->currentItem();
-	QString Name = pItem ? pItem->text(eName) : 0;
+	QModelIndex Index = m_pVariablesList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	if (!ModelIndex.isValid())
+		return;
+	QString Name = m_pVariablesModel->Data(ModelIndex, Qt::EditRole, eName).toString();
 
 	if(QMessageBox("TaskExplorer", tr("Do you want to delete the environment variable %1").arg(Name), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;

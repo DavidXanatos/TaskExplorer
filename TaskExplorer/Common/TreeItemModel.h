@@ -14,7 +14,6 @@ public:
 	bool			IsTree() const					{ return m_bTree; }
 	void			SetUseIcons(bool bUseIcons)		{ m_bUseIcons = bUseIcons; }
 
-	void			Sync(const QMap<QVariant, QVariantMap>& List);
 	void			CountItems();
 	QModelIndex		FindIndex(const QVariant& ID);
 	void			RemoveIndex(const QModelIndex &index);
@@ -28,8 +27,8 @@ public:
     virtual QModelIndex		index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
     virtual QModelIndex		parent(const QModelIndex &index) const;
     virtual int				rowCount(const QModelIndex &parent = QModelIndex()) const;
-	virtual int				columnCount(const QModelIndex &parent = QModelIndex()) const;
-	virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const ;
+	virtual int				columnCount(const QModelIndex &parent = QModelIndex()) const = 0;
+	virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const = 0;
 
 public slots:
 	void			Clear();
@@ -82,12 +81,30 @@ protected:
 	QModelIndex		Find(STreeNode* pParent, STreeNode* pNode);
 	int				CountItems(STreeNode* pRoot);
 
-	QList<QVariant>  MakePath(const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List);
-
 	virtual QVariant GetDefaultIcon() const { return QVariant(); }
 
 	STreeNode*							m_Root;
 	QMultiMap<QVariant, STreeNode*>		m_Map;
 	bool								m_bTree;
 	bool								m_bUseIcons;
+};
+
+class CSimpleTreeModel : public CTreeItemModel
+{
+	Q_OBJECT
+
+public:
+	CSimpleTreeModel(QObject *parent = 0) : CTreeItemModel(parent) {}
+	
+	void			Sync(const QMap<QVariant, QVariantMap>& List);
+
+	void			setHeaderLabels(const QStringList& Columns) { m_Headers = Columns; }
+
+	virtual int				columnCount(const QModelIndex &parent = QModelIndex()) const;
+    virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+
+protected:
+	QList<QVariant>  MakePath(const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List);
+
+	QStringList		m_Headers;
 };

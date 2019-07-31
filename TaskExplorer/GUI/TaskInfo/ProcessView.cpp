@@ -175,7 +175,7 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 #ifdef WIN32
 		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
-		if (pWinProc->IsWow64())
+		if (pWinProc->IsWoW64())
 			m_pPEBAddress->setText(tr("0x%1 (32-bit: 0x%2)").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')).arg(pWinProc->GetPebBaseAddress(true), 8, 16, QChar('0')));
 		else
 			m_pPEBAddress->setText(tr("0x%1").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')));

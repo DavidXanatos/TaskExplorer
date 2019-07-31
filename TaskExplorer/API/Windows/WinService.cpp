@@ -28,6 +28,7 @@
 #include "WinService.h"
 #include "WinModule.h"
 #include "WindowsAPI.h"
+#include "../../SVC/TaskService.h"
 
 #include "ProcessHacker.h"
 
@@ -365,7 +366,11 @@ STATUS CWinService::Start()
     {
         NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
 
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::ServiceAction(m_SvcName, "Start"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to start service"), status);
     }
@@ -394,7 +399,11 @@ STATUS CWinService::Pause()
     {
         NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
 
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::ServiceAction(m_SvcName, "Pause"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to pause service"), status);
     }
@@ -423,7 +432,11 @@ STATUS CWinService::Continue()
     {
         NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
 
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::ServiceAction(m_SvcName, "Continue"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to continue service"), status);
     }
@@ -452,9 +465,13 @@ STATUS CWinService::Stop()
     {
         NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
 
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::ServiceAction(m_SvcName, "Stop"))
+				return OK;
+		}
 
-		return ERR(tr("Failed to start service"), status);
+		return ERR(tr("Failed to stop service"), status);
     }
 	return OK;
 }
@@ -486,7 +503,11 @@ STATUS CWinService::Delete(bool bForce)
     {
         NTSTATUS status = PhGetLastWin32ErrorAsNtStatus();
 
-		// todo run itself as service and retry
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::ServiceAction(m_SvcName, "Delete"))
+				return OK;
+		}
 
 		return ERR(tr("Failed to delete service"), status);
     }

@@ -2,6 +2,10 @@
 #include <qwidget.h>
 #include "Settings.h"
 
+#ifdef USE_QEXTWIDGETS
+#include "../../qextwidgets/qtabwidgetex.h"
+#endif
+
 class CTabPanel : public QWidget
 {
 	Q_OBJECT
@@ -22,7 +26,11 @@ protected:
 
 	QVBoxLayout*		m_pMainLayout;
 
+#ifdef USE_QEXTWIDGETS
+	QTabWidgetEx*		m_pTabs;
+#else
 	QTabWidget*			m_pTabs;
+#endif
 	struct STab
 	{
 		QString	Name;

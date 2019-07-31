@@ -16,12 +16,28 @@ public:
 #else
 	static QVariant SendCommand(const QString& socketName, const QVariant &Command, int timeout = 5000);
 #endif
+	static void Terminate(const QString& socketName) { CTaskService::SendCommand(socketName, "Quit", 500); }
+
+#ifdef WIN64
+	static QString RunWorker(bool bElevanted = true, bool b32Bit = false);
+#else
+	static QString RunWorker(bool bElevanted = true);
+#endif
+
+	static bool CheckStatus(long Status);
+
+	static bool TaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data = QVariant()) { return TaskAction(ProcessId, 0, Action, Data); }
+	static bool TaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data = QVariant());
+	static bool ServiceAction(const QString& Name, const QString& Action, const QVariant& Data = QVariant());
 
 	static QString RunService();
-#ifdef WIN64
-	static QString RunService32();
-#endif
 	static bool RunService(const QString& ServiceName, QString BinaryPath = "");
+
+	static void TerminateWorkers();
+
+	void start();
+
+	void stop();
 
 public slots:
 	void		receiveConnection();
@@ -39,11 +55,11 @@ protected:
 		return QCoreApplication::exec(); 
 	}
 
+	long ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data);
+	long ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data);
+	long ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data);
+
 	void timerEvent(QTimerEvent *e);
-
-	void start();
-
-	void stop();
 
     //void pause() {}
     //void resume() {}
@@ -55,8 +71,10 @@ protected:
 
 
 private:
-	static QString GetTempName() { QMutexLocker Locker(&m_TempMutex); return m_TempName; }
-
-	static QMutex m_TempMutex;
+	static QMutex m_Mutex;
 	static QString m_TempName;
+	static QString m_TempSocket;
+#ifdef WIN64
+	static QString m_TempSocket32;
+#endif
 };

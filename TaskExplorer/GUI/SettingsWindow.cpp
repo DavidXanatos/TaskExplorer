@@ -25,6 +25,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkUndecorate->setChecked(theConf->GetBool("Options/DbgHelpUndecorate", true));
 	ui.symbolPath->setText(theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols"));
+	ui.chkSymbolPath->setChecked(theConf->GetBool("Options/DbgHelpSearch", true));
+
 
 	ui.chkShowTray->setChecked(theConf->GetBool("SysTray/Show", true));
 
@@ -124,6 +126,7 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/DbgHelpUndecorate", ui.chkUndecorate->isChecked());
 	theConf->SetValue("Options/DbgHelpSearchPath", ui.symbolPath->text());
+	theConf->SetValue("Options/DbgHelpSearch", ui.chkSymbolPath->isChecked());
 
 	theConf->SetValue("SysTray/Show", ui.chkShowTray->isChecked());
 

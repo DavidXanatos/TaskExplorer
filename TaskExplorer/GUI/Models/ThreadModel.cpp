@@ -103,6 +103,9 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eIdealProcessor:		Value = pWinThread->GetIdealProcessor(); break;
 				case eCritical:				Value = pWinThread->IsCriticalThread() ? tr("Critical") : ""; break;
 #endif
+#ifdef WIN32
+				case eAppDomain:			Value = pWinThread->GetAppDomain(); break;
+#endif
 			}
 
 			SThreadNode::SValue& ColValue = pNode->Values[section];
@@ -188,6 +191,9 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 #ifdef WIN32
 			case eIdealProcessor:		return tr("Ideal processor");
 			case eCritical:				return tr("Critical");
+#endif
+#ifdef WIN32
+			case eAppDomain:			return tr("App Domain");
 #endif
 		}
 	}

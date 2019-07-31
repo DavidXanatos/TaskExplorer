@@ -27,11 +27,11 @@ CMemoryView::CMemoryView(QWidget *parent)
 	m_pFilterLayout->addWidget(m_pHideFree);
 
 	m_pRefresh = new QPushButton(tr("Refresh"));
-	connect(m_pRefresh, SIGNAL(pressed()), this, SLOT(Refresh()));
+	connect(m_pRefresh, SIGNAL(pressed()), this, SLOT(OnRefresh()));
 	m_pFilterLayout->addWidget(m_pRefresh);
 
 	m_pSearch = new QPushButton(tr("Search"));
-	connect(m_pSearch, SIGNAL(pressed()), this, SLOT(Search()));
+	connect(m_pSearch, SIGNAL(pressed()), this, SLOT(OnSearch()));
 	m_pFilterLayout->addWidget(m_pSearch);
 
 	m_pFilterLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
@@ -110,12 +110,12 @@ void CMemoryView::ShowProcess(const CProcessPtr& pProcess)
 {
 	m_pCurProcess = pProcess;
 
-	Refresh();
+	OnRefresh();
 
 	m_pMemoryList->expandAll();
 }
 
-void CMemoryView::Refresh()
+void CMemoryView::OnRefresh()
 {
 	if (!m_pCurProcess)
 		return;
@@ -125,7 +125,7 @@ void CMemoryView::Refresh()
 	m_pMemoryModel->Sync(MemoryList);
 }
 
-void CMemoryView::Search()
+void CMemoryView::OnSearch()
 {
 	CMemorySearch* pMemorySearch = new CMemorySearch(m_pCurProcess);
 	pMemorySearch->show();

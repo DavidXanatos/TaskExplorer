@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "GUI/TaskExplorer.h"
+#include "../TaskExplorer.h"
 #include "JobView.h"
 #include "../ProcessPicker.h"
 #include "../../Common/SortFilterProxyModel.h"

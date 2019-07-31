@@ -57,8 +57,10 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
-	//connect(m_pProcessList->GetView()->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(OnUpdateHistory()));
-	//connect(m_pProcessList->GetView(), SIGNAL(expanded(const QModelIndex &)), this, SLOT(OnUpdateHistory()));
+#ifndef _DEBUG
+	connect(m_pProcessList->GetView()->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(OnUpdateHistory()));
+	connect(m_pProcessList->GetView(), SIGNAL(expanded(const QModelIndex &)), this, SLOT(OnUpdateHistory()));
+#endif
 
 
 	//m_pMenu = new QMenu();

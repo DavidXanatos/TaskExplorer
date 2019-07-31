@@ -50,12 +50,10 @@ CWindowsView::CWindowsView(QWidget *parent)
 
 	connect(theGUI, SIGNAL(ReloadAll()), m_pWindowModel, SLOT(Clear()));
 
-	//m_pMainLayout->addWidget(m_pWindowList);
-	m_pSplitter->addWidget(m_pWindowList);
+	m_pSplitter->addWidget(CFinder::AddFinder(m_pWindowList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
 	// 
 
-	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
 
 	connect(m_pWindowList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnItemSelected(const QModelIndex&)));
@@ -216,7 +214,7 @@ void CWindowsView::OnWindowAction()
 
 	if (sender() == m_pClose)
 	{
-		if (QMessageBox("TaskExplorer", tr("Do you want to close the selected window(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+		if (QMessageBox("TaskExplorer", tr("Do you want to close the selected window(s)"), QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 			return;
 	}
 

@@ -8,7 +8,12 @@ CTabPanel::CTabPanel(QWidget* parent)
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
+#ifdef USE_QEXTWIDGETS
+	m_pTabs = new QTabWidgetEx();
+	m_pTabs->setMultiRow(true);
+#else
 	m_pTabs = new QTabWidget();
+#endif
 	m_pMainLayout->addWidget(m_pTabs);
 }
 

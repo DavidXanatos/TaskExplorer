@@ -126,10 +126,11 @@ void CWinDumper::run()
     callbackInfo.CallbackParam = this;
 
 #ifdef _WIN64
+	QString SocketName;
     if (m->IsWow64)
     {
-		QString ServiceName = CTaskService::RunService32();
-		if (ServiceName.isEmpty())
+		SocketName = CTaskService::RunWorker(false, true);
+		if (SocketName.isEmpty())
 		{
 			emit StatusMessage(tr("Failed to start a 32-bit version of TaskExplorer. A 64-bit dump will be created instead."));
 		}
@@ -139,7 +140,7 @@ void CWinDumper::run()
 
 			NTSTATUS status;
 
-			HANDLE ServiceProcessId = (HANDLE)CTaskService::SendCommand(ServiceName, "SvcGetProcessId").toULongLong();
+			HANDLE ServiceProcessId = (HANDLE)CTaskService::SendCommand(SocketName, "GetProcessId").toULongLong();
 			if (ServiceProcessId)
 			{
 				HANDLE serverHandle = NULL;
@@ -161,10 +162,10 @@ void CWinDumper::run()
 							Parameters["DumpType"] = (int)m->DumpType;
 
 							QVariantMap Request;
-							Request["Command"] = "SvcWriteMiniDumpProcess";
+							Request["Command"] = "WriteMiniDumpProcess";
 							Request["Parameters"] = Parameters;
 
-							QVariant Response = CTaskService::SendCommand(ServiceName, Request, -1); // no timeout, this may take a while
+							QVariant Response = CTaskService::SendCommand(SocketName, Request, -1); // no timeout, this may take a while
 							if (NT_SUCCESS(Response.toUInt()))
 							{
 								emit StatusMessage(tr("32-bit memory dump Completed."), 0);
@@ -191,13 +192,15 @@ void CWinDumper::run()
 
 #ifdef _WIN64
 Completed:
+	//if(!SocketName.isEmpty())
+	//	CTaskService::Terminate(SocketName);
 #endif
 
 	NtClose(m->FileHandle);
 	NtClose(m->ProcessHandle);
 }
 
-quint32 PhSvcApiWriteMiniDumpProcess(const QVariantMap& Parameters)
+quint32 SvcApiWriteMiniDumpProcess(const QVariantMap& Parameters)
 {
 	HANDLE LocalProcessHandle = (HANDLE)Parameters["LocalProcessHandle"].toULongLong();
 	HANDLE ProcessId = (HANDLE)Parameters["ProcessId"].toULongLong();

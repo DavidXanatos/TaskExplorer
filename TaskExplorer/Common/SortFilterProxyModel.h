@@ -8,10 +8,14 @@ public:
 	CSortFilterProxyModel(bool bAlternate, QObject* parrent = 0) : QSortFilterProxyModel(parrent) 
 	{
 		m_bAlternate = bAlternate;
+		m_bHighLight = false;
 	}
 
 	bool filterAcceptsRow(int source_row, const QModelIndex & source_parent) const
 	{
+		if (m_bHighLight)
+			return true;
+
 		// allow the item to pass if any of the child items pass
 		if(!filterRegExp().isEmpty())
 		{
@@ -38,23 +42,39 @@ public:
 	QVariant data(const QModelIndex &index, int role) const
 	{
 		QVariant Data = QSortFilterProxyModel::data(index, role);
-		if(m_bAlternate && role == Qt::BackgroundRole && !Data.isValid())
+		if (role == Qt::BackgroundRole)
 		{
-			if (0 == index.row() % 2)
-				return QColor(226, 237, 253);
-			else
+			if (m_bHighLight)
+			{
+				if (!filterRegExp().isEmpty())
+				{
+					QString Key = QSortFilterProxyModel::data(index, filterRole()).toString();
+					if (Key.contains(filterRegExp()))
+						return QColor(Qt::yellow);
+				}
 				return QColor(Qt::white);
+			}
+
+			if (m_bAlternate && !Data.isValid())
+			{
+				if (0 == index.row() % 2)
+					return QColor(226, 237, 253);
+				else
+					return QColor(Qt::white);
+			}
 		}
 		return Data;
 	}
 
 public slots:
-	void SetFilter(const QRegExp& Exp, int Col = -1) // -1 = any
+	void SetFilter(const QRegExp& Exp, bool bHighLight = false, int Col = -1) // -1 = any
 	{
+		m_bHighLight = bHighLight;
 		setFilterKeyColumn(Col); 
 		setFilterRegExp(Exp);
 	}
 
 protected:
 	bool		m_bAlternate;
+	bool		m_bHighLight;
 };

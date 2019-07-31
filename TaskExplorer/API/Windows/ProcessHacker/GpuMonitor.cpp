@@ -99,6 +99,12 @@ bool CGpuMonitor::Init()
 	return true;
 }
 
+bool CGpuMonitor::UpdateAdapters()
+{
+	// todo: xxx // todo: update gpu adapter list in case a eGPU got attached/removed
+	return true;
+}
+
 QString CGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const /*DEVPROPKEY*/struct _DEVPROPKEY *DeviceProperty)
 {
     CONFIGRET result;

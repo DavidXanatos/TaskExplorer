@@ -156,9 +156,6 @@
     <ClCompile Include="GUI\Models\ThreadModel.cpp">
       <Filter>TaskExplorer\Models</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\SymbolProvider.cpp">
-      <Filter>API\Windows</Filter>
-    </ClCompile>
     <ClCompile Include="API\StackTrace.cpp">
       <Filter>API</Filter>
     </ClCompile>
@@ -396,6 +393,24 @@
     <ClCompile Include="GUI\SystemInfo\SystemInfoWindow.cpp">
       <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\clrsup.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\DotNetView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\AssemblyEnum.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\AssemblyList.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\SymbolProvider.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -451,6 +466,18 @@
     </ClInclude>
     <ClInclude Include="API\MiscStats.h">
       <Filter>API</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clrsup.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clretw.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\AssemblyList.h">
+      <Filter>API</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -537,9 +564,6 @@
     </QtMoc>
     <QtMoc Include="GUI\Models\ThreadModel.h">
       <Filter>TaskExplorer\Models</Filter>
-    </QtMoc>
-    <QtMoc Include="API\Windows\SymbolProvider.h">
-      <Filter>API\Windows</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\WinService.h">
       <Filter>API\Windows</Filter>
@@ -706,9 +730,6 @@
     <QtMoc Include="API\Windows\WinToken.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
-    <QtMoc Include="API\Windows\ProcessHacker\GpuMonitor.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
     <QtMoc Include="GUI\SettingsWindow.h">
       <Filter>TaskExplorer</Filter>
     </QtMoc>
@@ -756,6 +777,18 @@
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\SystemInfoWindow.h">
       <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\DotNetView.h">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\ProcessHacker\AssemblyEnum.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\ProcessHacker\GpuMonitor.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\SymbolProvider.h">
+      <Filter>API\Windows</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

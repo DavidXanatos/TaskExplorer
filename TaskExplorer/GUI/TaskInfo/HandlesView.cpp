@@ -104,6 +104,10 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	}
 #endif
 
+	m_pSplitter = new QSplitter();
+	m_pSplitter->setOrientation(Qt::Vertical);
+	m_pMainLayout->addWidget(m_pSplitter);
+
 	// Handle List
 	m_pHandleModel = new CHandleModel();
 	
@@ -111,10 +115,6 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pHandleModel);
 	m_pSortProxy->setDynamicSortFilter(true);
-
-	m_pSplitter = new QSplitter();
-	m_pSplitter->setOrientation(Qt::Vertical);
-	m_pMainLayout->addWidget(m_pSplitter);
 
 	m_pHandleList = new QTreeViewEx();
 	m_pHandleList->setItemDelegate(theGUI->GetItemDelegate());
@@ -135,11 +135,9 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	connect(m_pHandleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 	connect(m_pHandleList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
-	m_pSplitter->addWidget(m_pHandleList);
+	m_pSplitter->addWidget(CFinder::AddFinder(m_pHandleList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
 	// 
-
-	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
 	if (iAll == 1)
 	{
@@ -481,7 +479,7 @@ void CHandlesView::OnHandleAction()
 {
 	if (sender() == m_pClose)
 	{
-		if (QMessageBox("TaskExplorer", tr("Do you want to close the selected handle(s)"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+		if (QMessageBox("TaskExplorer", tr("Do you want to close the selected handle(s)"), QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 			return;
 	}
 

@@ -13,6 +13,7 @@ class CMemoryView;
 class CTokenView;
 class CJobView;
 class CServicesView;
+class CDotNetView;
 class CEnvironmentView;
 
 
@@ -46,6 +47,7 @@ private:
 	CTokenView*			m_pTokenView;
 	CJobView*			m_pJobView;
 	CServicesView*		m_pServiceView;
+	CDotNetView*		m_pDotNetView;
 #endif
 	CEnvironmentView*	m_pEnvironmentView;
 };

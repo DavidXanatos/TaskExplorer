@@ -51,11 +51,12 @@ public:
 
 public slots:
 	void					ShowProcess(const CProcessPtr& pProcess);
-	void					Refresh();
-	void					Search();
+	void					Refresh() {} // only manual refresh
 
 private slots:
 	void					OnDoubleClicked();
+	void					OnRefresh();
+	void					OnSearch();
 
 	void					UpdateFilter();
 

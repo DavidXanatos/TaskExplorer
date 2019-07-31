@@ -137,6 +137,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	connect(m_pProcessTree, SIGNAL(ProcessClicked(const CProcessPtr)), m_pTaskInfo, SLOT(ShowProcess(const CProcessPtr)));
 
 
+#ifdef WIN32
+	connect(qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider().data(), SIGNAL(StatusMessage(const QString&)), this, SLOT(OnStatusMessage(const QString&)));
+#endif
+
 	m_pMenuProcess = menuBar()->addMenu(tr("&Process"));
 		m_pMenuProcess->addAction(tr("Run..."), this, SLOT(OnRun()));
 		m_pMenuProcess->addAction(tr("Run as Administrator..."), this, SLOT(OnRunAdmin()));
@@ -280,7 +284,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	if (!bAutoRun)
 		show();
 
-	statusBar()->showMessage(tr("TaskExplorer is ready..."));
+	statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
 
 	UpdateAll();
 }
@@ -356,9 +360,14 @@ void CTaskExplorer::UpdateAll()
 	QTimer::singleShot(0, theAPI, SLOT(UpdateDriverList()));
 
 
-	m_pGraphBar->UpdateGraphs();
-	m_pTaskInfo->Refresh();
-	m_pSystemInfo->Refresh();
+	//if(m_pMainSplitter->sizes()[0] > 0)
+		m_pGraphBar->UpdateGraphs();
+	
+	if(m_pMainSplitter->sizes()[1] > 0)
+		m_pTaskInfo->Refresh();
+
+	if(m_pMainSplitter->sizes()[1] > 0 && m_pPanelSplitter->sizes()[0] > 0)
+		m_pSystemInfo->Refresh();
 
 	UpdateStatus();
 }
@@ -757,9 +766,17 @@ QStyledItemDelegate* CTaskExplorer::GetItemDelegate()
 	return m_pCustomItemDelegate; 
 }
 
+float CTaskExplorer::GetDpiScale()
+{
+	return QGuiApplication::primaryScreen()->logicalDotsPerInch() / 96.0;// *100.0;
+}
+
 int CTaskExplorer::GetCellHeight()
 {
-	return 16;
+	QFontMetrics fontMetrics(QApplication::font());
+	int fontHeight = fontMetrics.height();
+	
+	return (fontHeight + 3) * GetDpiScale();
 }
 
 QColor CTaskExplorer::GetColor(int Color)
@@ -795,6 +812,11 @@ QColor CTaskExplorer::GetColor(int Color)
 		return QColor(ColorUse.first);
 
 	return QColor(theConf->GetString("Colors/Background", "#FFFFFF"));
+}
+
+void CTaskExplorer::OnStatusMessage(const QString& Message)
+{
+	statusBar()->showMessage(Message, 5000); // show for 5 seconds
 }
 
 QString CTaskExplorer::GetVersion()

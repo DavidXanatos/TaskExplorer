@@ -1466,8 +1466,8 @@ NTSTATUS PhSvcCallSendMessage(
 	_In_ BOOLEAN Post
 )
 {
-	QString ServiceName = CTaskService::RunService();
-	if (ServiceName.isEmpty())
+	QString SocketName = CTaskService::RunWorker();
+	if (SocketName.isEmpty())
 		return STATUS_ACCESS_DENIED;
 
 	QVariantMap Parameters;
@@ -1478,10 +1478,10 @@ NTSTATUS PhSvcCallSendMessage(
 	Parameters["Post"] = (bool)Post;
 
 	QVariantMap Request;
-	Request["Command"] = "SvcCallSendMessage";
+	Request["Command"] = "SendMessage";
 	Request["Parameters"] = Parameters;
 
-	CTaskService::SendCommand(ServiceName, Request);
+	CTaskService::SendCommand(SocketName, Request);
 
 	return STATUS_SUCCESS;
 }

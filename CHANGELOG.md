@@ -2,6 +2,24 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.6] - 2019-07-31
+### Added
+- .NET stack tracking support
+- .NET Tab with assemblies and performance infos
+- panel search can now instead of only filtering also just highlight the results
+- when encountering an access denided we now try to start an elevated worker and retry
+- added option to edit service dependencies
+- forked QTabBar and QTabWidget to provide a windows like multiRow operation mode
+
+### Changed
+- taskexplorer can now be started as elevated worker or 32 bit worker not just as a service
+- improved stack trace display handling
+- improved service info window
+
+### Fixed
+- memory view being unnececerly refreshed
+- fixed dpi scling issue
+
 
 ## [0.5] - 2019-07-22
 ### Added

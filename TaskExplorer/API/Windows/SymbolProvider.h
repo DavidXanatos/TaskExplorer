@@ -19,7 +19,12 @@ public:
 
 	void		GetSymbolFromAddress(quint64 ProcessId, quint64 Address, QObject *receiver, const char *member);
 
-	void		GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject *receiver, const char *member);
+	quint64		GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject *receiver, const char *member);
+
+	void		CancelJob(quint64 JobID);
+
+signals:
+	void		StatusMessage(const QString& Message);
 
 protected:
 	void		UnInit();
@@ -28,11 +33,13 @@ protected:
 
 	bool		m_bRunning;
 
+	mutable QMutex				m_JobMutex;
+	QQueue<CAbstractSymbolProviderJob*>	m_JobQueue;
+
 private:
 	QMap<quint64, struct SSymbolProvider*> mm;
 
-	mutable QMutex				m_JobMutex;
-	QQueue<CAbstractSymbolProviderJob*>	m_JobQueue;
+	struct _PH_CALLBACK_REGISTRATION* m_SymbolProviderEventRegistration;
 };
 
 typedef QSharedPointer<CSymbolProvider> CSymbolProviderPtr;
@@ -98,4 +105,5 @@ public:
 	void		OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame);
 };
 
-
+QVariant SvcApiPredictAddressesFromClrData(const QVariantMap& Parameters);
+QVariant SvcApiGetRuntimeNameByAddressClrProcess(const QVariantMap& Parameters);

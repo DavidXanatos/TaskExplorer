@@ -34,6 +34,8 @@ private slots:
 
 	void					OnThreadAction();
 
+	void					ShowStack(const CStackTracePtr& StackTrace);
+
 protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
 
@@ -46,6 +48,8 @@ protected:
 	CProcessPtr				m_pCurProcess;
 	CThreadPtr				m_pCurThread;
 	QMap<quint64, CThreadPtr> m_Threads;
+
+	quint64					m_CurStackTraceJob;
 
 private:
 	QVBoxLayout*			m_pMainLayout;

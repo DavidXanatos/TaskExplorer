@@ -8,8 +8,10 @@ public:
 	CFinder(QSortFilterProxyModel* pSortProxy, QWidget *parent = NULL);
 	~CFinder();
 
+	static QWidget* AddFinder(QWidget* pList, QSortFilterProxyModel* pSortProxy);
+
 signals:
-	void				SetFilter(const QRegExp& Exp, int Column = -1);
+	void				SetFilter(const QRegExp& Exp, bool bHighLight = false, int Column = -1);
 
 public slots:
 	void				Open();
@@ -24,6 +26,7 @@ private:
 	QCheckBox*			m_pCaseSensitive;
 	QCheckBox*			m_pRegExp;
 	QComboBox*			m_pColumn;
+	QCheckBox*			m_pHighLight;
 
 	QSortFilterProxyModel* m_pSortProxy;
 };

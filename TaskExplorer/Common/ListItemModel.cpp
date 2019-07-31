@@ -15,7 +15,7 @@ CListItemModel::~CListItemModel()
 		delete pNode;
 }
 
-void CListItemModel::Sync(QList<QVariantMap> List)
+void CSimpleListModel::Sync(QList<QVariantMap> List)
 {
 	QList<SListNode*> New;
 	QMap<QVariant, SListNode*> Old = m_Map;
@@ -44,10 +44,10 @@ void CListItemModel::Sync(QList<QVariantMap> List)
 		bool State = false;
 		bool Changed = false;
 
-		QVariantList Values = Cur["Values"].toList();
+		QVariantMap Values = Cur["Values"].toMap();
 		for(int section = FIRST_COLUMN; section < columnCount(); section++)
 		{
-			QVariant Value = Values[section];
+			QVariant Value = Values[QString::number(section)];
 
 			SListNode::SValue& ColValue = pNode->Values[section];
 
@@ -245,20 +245,17 @@ int CListItemModel::rowCount(const QModelIndex &parent) const
 	return m_List.count();
 }
 
-int CListItemModel::columnCount(const QModelIndex &parent) const
+int CSimpleListModel::columnCount(const QModelIndex &parent) const
 {
-	return 1;
+	return m_Headers.count();
 }
 
-QVariant CListItemModel::headerData(int section, Qt::Orientation orientation, int role) const
+QVariant CSimpleListModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
 	{
-		switch(section)
-		{
-			case FIRST_COLUMN:		return tr("Value");
-			// ...
-		}
+		if (section < m_Headers.size())
+			return m_Headers.at(section);
 	}
     return QVariant();
 }

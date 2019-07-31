@@ -8,6 +8,12 @@
 #define DEBUG
 #endif
 
+#ifdef WIN64
+#ifndef _WIN64
+#deinfe _WIN64
+#endif
+#endif
+
 #if !defined(_PHAPP_)
 #define PHAPPAPI __declspec(dllimport)
 #else

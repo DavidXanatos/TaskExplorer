@@ -17,14 +17,16 @@ int main(int argc, char *argv[])
 	qsrand(QTime::currentTime().msec());
 
 	bool bSvc = false;
+	bool bWrk = false;
 	QString svcName = TASK_SERVICE_NAME;
 	int timeOut = 0;
     const char* run_svc = NULL;
     for(int i = 1; i < argc; i++)
     {
-		if (strcmp(argv[i], "-svc") == 0)
+		if (strcmp(argv[i], "-svc") == 0 || strcmp(argv[i], "-wrk") == 0)
 		{
-			bSvc = true;
+			bSvc = (strcmp(argv[i], "-svc") == 0);
+			bWrk = (strcmp(argv[i], "-wrk") == 0);
 			if(++i < argc)
 				svcName =  argv[i];
 		}
@@ -55,7 +57,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef WIN32
-	if (!bSvc && !IsElevated())
+	if (!bSvc && !bWrk && !IsElevated())
 	{
 		if (SkipUacRun())
 			return 0;
@@ -71,23 +73,31 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE; // 1
 	}
 
-	if (bSvc)		new QCoreApplication(argc, argv);
-	else			new QApplication(argc, argv);
+	if (bSvc || bWrk)	new QCoreApplication(argc, argv);
+	else				new QApplication(argc, argv);
 
 	theConf = new CSettings("TaskExplorer");
 
 	QThreadPool::globalInstance()->setMaxThreadCount(theConf->GetInt("Options/MaxThreadPool", 10));
 
 	int ret = 0;
-	if (bSvc)
+	if (bSvc || bWrk)
 	{
 		CTaskService Svc(1/*argc*/, argv, svcName, timeOut);
-		ret = Svc.exec();
+		if(bSvc)
+			ret = Svc.exec();
+		else
+		{
+			Svc.start();
+			QCoreApplication::exec();
+			Svc.stop();
+		}
 	}
 	else
 	{
 #ifdef WIN32
 #ifndef WIN64
+#ifndef _DEBUG
 		if (PhIsExecutingInWow64())
 		{
 			QString BinaryPath = "";
@@ -130,12 +140,15 @@ int main(int argc, char *argv[])
 		}
 #endif
 #endif
+#endif
 
 		new CTaskExplorer();
 		
 		ret = QApplication::exec();
 
 		delete theGUI;
+
+		CTaskService::TerminateWorkers();
 	}
 
 	delete theConf;

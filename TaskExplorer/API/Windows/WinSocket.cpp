@@ -29,6 +29,7 @@
 
 #include "WinSocket.h"
 #include "WindowsAPI.h"
+#include "../../SVC/TaskService.h"
 
 #include <QtWin>
 
@@ -332,17 +333,37 @@ void CWinSocket::AddNetworkIO(int Type, ulong TransferSize)
 	}
 }
 
-STATUS CWinSocket::Close()
+bool SvcCallCloseSocket(const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
 {
-	if (m_ProtocolType != PH_TCP4_NETWORK_PROTOCOL || m_State != MIB_TCP_STATE_ESTAB)
-		return ERR(tr("Not supported type or state"));
+	QString SocketName = CTaskService::RunWorker();
+	if (SocketName.isEmpty())
+		return false;
 
+	QVariantMap Parameters;
+	Parameters["LocalAddress"] = LocalAddress.toString();
+	Parameters["LocalPort"] = LocalPort;
+	Parameters["RemoteAddress"] = RemoteAddress.toString();
+	Parameters["RemotePort"] = RemotePort;
+
+	QVariantMap Request;
+	Request["Command"] = "CloseSocket";
+	Request["Parameters"] = Parameters;
+
+	QVariant Response = CTaskService::SendCommand(SocketName, Request);
+
+	if (Response.type() == QVariant::Int)
+		return Response.toInt() == 0;
+	return false;	
+}
+
+long CloseSocket(const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
+{
 	MIB_TCPROW tcpRow;
 	tcpRow.dwState = MIB_TCP_STATE_DELETE_TCB;
-	tcpRow.dwLocalAddr = htonl(m_LocalAddress.toIPv4Address());
-	tcpRow.dwLocalPort = htons(m_LocalPort);
-	tcpRow.dwRemoteAddr = htonl(m_RemoteAddress.toIPv4Address());
-	tcpRow.dwRemotePort = htons(m_RemotePort);
+	tcpRow.dwLocalAddr = htonl(LocalAddress.toIPv4Address());
+	tcpRow.dwLocalPort = htons(LocalPort);
+	tcpRow.dwRemoteAddr = htonl(RemoteAddress.toIPv4Address());
+	tcpRow.dwRemotePort = htons(RemotePort);
 
 	// ToDo: make it work with IPv6
 	// Note: there is (as of 2019) no SetTcp6Entry that would accept MIB_TCP6ROW :/
@@ -364,12 +385,36 @@ STATUS CWinSocket::Close()
 	if (result == NO_ERROR)
 		return OK;
 
-	
 	// SetTcpEntry returns ERROR_MR_MID_NOT_FOUND for access denied errors for some reason.
     if (result == ERROR_MR_MID_NOT_FOUND)
 		result = ERROR_ACCESS_DENIED;
+
+	return result;
+}
+
+QVariant SvcApiCloseSocket(const QVariantMap& Parameters)
+{
+	QHostAddress LocalAddress = QHostAddress(Parameters["LocalAddress"].toString());
+	quint16 LocalPort = Parameters["LocalPort"].toInt();
+	QHostAddress RemoteAddress = QHostAddress(Parameters["RemoteAddress"].toString());
+	quint16 RemotePort = Parameters["RemotePort"].toInt();
+
+	long result = CloseSocket(LocalAddress, LocalPort, RemoteAddress, RemotePort);
+	return result;
+}
+
+STATUS CWinSocket::Close()
+{
+	if (m_ProtocolType != PH_TCP4_NETWORK_PROTOCOL || m_State != MIB_TCP_STATE_ESTAB)
+		return ERR(tr("Not supported type or state"));
+
+	long result = CloseSocket(m_LocalAddress, m_LocalPort, m_RemoteAddress, m_RemotePort);
 	
-	// todo run itself as service and retry
+	if (CTaskService::CheckStatus(result))
+	{
+		if (SvcCallCloseSocket(m_LocalAddress, m_LocalPort, m_RemoteAddress, m_RemotePort))
+			return OK;
+	}
 
 	return ERR(result);
 }

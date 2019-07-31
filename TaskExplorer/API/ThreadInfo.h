@@ -25,7 +25,7 @@ public:
 	virtual STaskStats GetCpuStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats; }
 
 public slots:
-	virtual void TraceStack() = 0;
+	virtual quint64 TraceStack() = 0;
 
 signals:
 	void			StackTraced(const CStackTracePtr& StackTrace);

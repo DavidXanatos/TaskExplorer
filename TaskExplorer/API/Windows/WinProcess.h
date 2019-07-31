@@ -122,7 +122,6 @@ public:
 
 	virtual void OpenPermissions();
 
-	virtual bool	IsWow64() const;
 	virtual quint64 GetPebBaseAddress(bool bWow64 = false) const;
 
 	virtual CWinJobPtr		GetJob() const;

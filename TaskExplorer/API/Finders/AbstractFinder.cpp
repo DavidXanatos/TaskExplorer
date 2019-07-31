@@ -16,6 +16,7 @@ CAbstractFinder::CAbstractFinder(QObject* parent) : QThread(parent)
 
 CAbstractFinder::~CAbstractFinder() 
 {
+	m_bCancel = true;
 	if(!wait(10*1000))
 		terminate();
 }

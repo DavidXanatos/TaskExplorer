@@ -97,6 +97,16 @@ struct SNetStats
 		SendRaw += size;
 	}
 
+	void SetReceive(quint64 size, quint64 count) {
+		ReceiveCount = count;
+		ReceiveRaw = size;
+	}
+
+	void SetSend(quint64 size, quint64 count) {
+		SendCount = count;
+		SendRaw = size;
+	}
+
 	void UpdateStats(quint64 Interval)
 	{
 		ReceiveDelta.Update(ReceiveCount);
@@ -215,6 +225,11 @@ struct SIOStatsEx: SDiskStats
 
 struct SSockStats
 {
+	SSockStats()
+	{
+		LastStatUpdate = GetCurTick();
+	}
+
 	quint64 UpdateStats()
 	{
 		quint64 curTick = GetCurTick();
@@ -235,7 +250,7 @@ struct SProcStats
 {
 	SProcStats()
 	{
-		LastStatUpdate = 0;
+		LastStatUpdate = GetCurTick();
 	}
 
 	quint64 UpdateStats()

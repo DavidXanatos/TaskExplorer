@@ -54,7 +54,7 @@ BOOLEAN PhInitializeNamespacePolicy(
 
 VOID PhSetDesktopWinStaAccess(VOID);
 
-quint32 PhSvcApiInvokeRunAsService(const QVariantMap& Parameters);
+long SvcApiInvokeRunAsService(const QVariantMap& Parameters);
 
 NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine);
 

@@ -180,7 +180,7 @@ void CTaskView::OnMenu(const QPoint& Point)
 void CTaskView::OnTaskAction()
 {
 	if(QMessageBox("TaskExplorer", tr("Do you want to %1 the selected task(s)").arg(((QAction*)sender())->text().toLower())
-	 , QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+	 , QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
 	QList<CTaskPtr>	Tasks = GetSellectedTasks();

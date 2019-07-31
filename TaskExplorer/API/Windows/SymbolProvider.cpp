@@ -27,7 +27,9 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 #include "../../Common/Common.h"
-#include "GUI/TaskExplorer.h"
+#include "../../GUI/TaskExplorer.h"
+#include "clrsup.h"
+#include "../../SVC/TaskService.h"
 
 #include <dbghelp.h>
 
@@ -36,9 +38,18 @@ struct SSymbolProvider
 	SSymbolProvider(quint64 PID)
 	{
 		ProcessId = (HANDLE)PID;
+		ThreadId = NULL;
 		SymbolProvider = PhCreateSymbolProvider(ProcessId);
+		ThreadHandle = NULL;
+
+		//.NET
 		IsWow64 = FALSE;
-		ConnectedToPhSvc = FALSE;
+		Support = NULL;
+		PredictedEip = NULL;
+		PredictedEbp = NULL;
+		PredictedEsp = NULL;
+
+		LastTimeUsed = 0;
 	}
 
 	~SSymbolProvider() {
@@ -50,11 +61,17 @@ struct SSymbolProvider
 	}
 
 	HANDLE ProcessId;
+	HANDLE ThreadId;
 	PPH_SYMBOL_PROVIDER SymbolProvider;
+	HANDLE ThreadHandle;
 
 	//.NET
 	BOOLEAN IsWow64;
-	BOOLEAN ConnectedToPhSvc;
+	PCLR_PROCESS_SUPPORT Support;
+	QString SocketName;
+    PVOID PredictedEip;
+    PVOID PredictedEbp;
+    PVOID PredictedEsp;
 
 	time_t LastTimeUsed;
 };
@@ -63,6 +80,88 @@ struct SSymbolProvider
 CSymbolProvider::CSymbolProvider(QObject *parent) : QThread(parent)
 {
 	m_bRunning = false;
+
+	m_SymbolProviderEventRegistration = new PH_CALLBACK_REGISTRATION;
+	memset(m_SymbolProviderEventRegistration, 0, sizeof(PH_CALLBACK_REGISTRATION));
+}
+
+VOID SymbolProviderEventCallbackHandler(
+    _In_opt_ PVOID Parameter,
+    _In_opt_ PVOID Context
+    )
+{
+    PPH_SYMBOL_EVENT_DATA event = (PPH_SYMBOL_EVENT_DATA)Parameter;
+    CSymbolProvider* This = (CSymbolProvider*)Context;
+    PPH_STRING statusMessage = NULL;
+
+    switch (event->ActionCode)
+    {
+    case CBA_DEFERRED_SYMBOL_LOAD_START:
+    case CBA_DEFERRED_SYMBOL_LOAD_COMPLETE:
+    case CBA_DEFERRED_SYMBOL_LOAD_FAILURE:
+    case CBA_SYMBOLS_UNLOADED:
+        {
+            PIMAGEHLP_DEFERRED_SYMBOL_LOADW64 callbackData = (PIMAGEHLP_DEFERRED_SYMBOL_LOADW64)event->EventData;
+            PPH_STRING fileName = NULL;
+
+            if (callbackData->FileName[0] != UNICODE_NULL)
+            {
+                fileName = PhCreateString(callbackData->FileName);
+                PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
+            }
+
+            switch (event->ActionCode)
+            {
+            case CBA_DEFERRED_SYMBOL_LOAD_START:
+                statusMessage = PhFormatString(L"Loading symbols from %s...", PhGetStringOrEmpty(fileName));
+                break;
+            case CBA_DEFERRED_SYMBOL_LOAD_COMPLETE:
+                statusMessage = PhFormatString(L"Loaded symbols from %s...", PhGetStringOrEmpty(fileName));
+                break;
+            case CBA_DEFERRED_SYMBOL_LOAD_FAILURE:
+                statusMessage = PhFormatString(L"Failed to load %s...", PhGetStringOrEmpty(fileName));
+                break;
+            case CBA_SYMBOLS_UNLOADED:
+                statusMessage = PhFormatString(L"Unloading %s...", PhGetStringOrEmpty(fileName));
+                break;
+            }
+
+            if (fileName)
+                PhDereferenceObject(fileName);
+        }
+        break;
+    case CBA_READ_MEMORY:
+        {
+            PIMAGEHLP_CBA_READ_MEMORY callbackEvent = (PIMAGEHLP_CBA_READ_MEMORY)event->EventData;
+            //statusMessage = PhFormatString(L"Reading %lu bytes of memory from %I64u...", callbackEvent->bytes, callbackEvent->addr);
+        }
+        break;
+    case CBA_EVENT:
+        {
+            PIMAGEHLP_CBA_EVENTW callbackEvent = (PIMAGEHLP_CBA_EVENTW)event->EventData;
+            statusMessage = PhFormatString(L"%s", callbackEvent->desc);
+        }
+        break;
+    case CBA_DEBUG_INFO:
+        {
+            statusMessage = PhFormatString(L"%s", event->EventData);
+        }
+        break;
+    case CBA_ENGINE_PRESENT:
+    case CBA_DEFERRED_SYMBOL_LOAD_PARTIAL:
+    case CBA_DEFERRED_SYMBOL_LOAD_CANCEL:
+    default:
+        {
+            //statusMessage = PhFormatString(L"Unknown: %lu", event->ActionCode);
+        }
+        break;
+    }
+
+    if (statusMessage)
+    {
+        //dprintf("%S\r\n", statusMessage->Buffer);
+		emit This->StatusMessage(CastPhString(statusMessage));
+    }
 }
 
 bool CSymbolProvider::Init()
@@ -72,6 +171,8 @@ bool CSymbolProvider::Init()
         if (m->SymbolProvider->IsRealHandle)
             m->ProcessHandle = m->SymbolProvider->ProcessHandle;
     }*/
+
+	PhRegisterCallback(&PhSymbolEventCallback, (PPH_CALLBACK_FUNCTION)SymbolProviderEventCallbackHandler, this, m_SymbolProviderEventRegistration);
 
 	// start thread
 	m_bRunning = true;
@@ -83,6 +184,8 @@ bool CSymbolProvider::Init()
 CSymbolProvider::~CSymbolProvider()
 {
 	UnInit();
+
+	delete m_SymbolProviderEventRegistration;
 }
 
 void CSymbolProvider::UnInit()
@@ -93,6 +196,8 @@ void CSymbolProvider::UnInit()
 
 	if (!wait(10 * 1000))
 		terminate();
+
+	PhUnregisterCallback(&PhSymbolEventCallback, m_SymbolProviderEventRegistration);
 
 	while (!m_JobQueue.isEmpty()) {
 		m_JobQueue.takeFirst()->deleteLater();
@@ -106,14 +211,6 @@ void CSymbolProvider::GetSymbolFromAddress(quint64 ProcessId, quint64 Address, Q
         return;
     }
 
-	/*const char* bracketPosition = strchr(member, '(');
-	if (!bracketPosition || !(member[0] >= '0' && member[0] <= '2')) {
-		qWarning("CSymbolProvider::GetSymbolFromAddress: Invalid slot specification");
-		return;
-	}
-	QByteArray methodName(member+1, bracketPosition - 1 - member); // extract method name
-	QMetaObject::invokeMethod(const_cast<QObject *>(receiver), methodName.constData(), Qt::AutoConnection, Q_ARG(const QString&, "test"));*/
-
 	CSymbolProviderJob* pJob = new CSymbolProviderJob(ProcessId, Address); 
 	pJob->moveToThread(this);
 	QObject::connect(pJob, SIGNAL(SymbolFromAddress(quint64, quint64, int, const QString&, const QString&, const QString&)), receiver, member, Qt::QueuedConnection);
@@ -122,11 +219,11 @@ void CSymbolProvider::GetSymbolFromAddress(quint64 ProcessId, quint64 Address, Q
 	m_JobQueue.append(pJob);
 }
 
-void CSymbolProvider::GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject *receiver, const char *member)
+quint64 CSymbolProvider::GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject *receiver, const char *member)
 {
     if (!QAbstractEventDispatcher::instance(QThread::currentThread())) {
         qWarning("CSymbolProvider::GetSymbolFromAddress() called with no event dispatcher");
-        return;
+        return NULL;
     }
 
 	CStackProviderJob* pJob = new CStackProviderJob(ProcessId, ThreadId); 
@@ -134,7 +231,30 @@ void CSymbolProvider::GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject
 	QObject::connect(pJob, SIGNAL(StackTraced(const CStackTracePtr&)), receiver, member, Qt::QueuedConnection);
 
 	QMutexLocker Locker(&m_JobMutex);
-	m_JobQueue.append(pJob);
+	int i = 0; // insert Stack Traces before other symbol requests
+	for (; i < m_JobQueue.size(); i++)
+	{
+		if (qobject_cast<CStackProviderJob*>(m_JobQueue.at(i)) == NULL)
+			break;
+	}
+	m_JobQueue.insert(i, pJob);
+
+	return (quint64)((CAbstractSymbolProviderJob*)pJob);
+}
+
+void CSymbolProvider::CancelJob(quint64 JobID)
+{
+	QMutexLocker Locker(&m_JobMutex);
+	for (int i = 0; i < m_JobQueue.size(); i++)
+	{
+		CAbstractSymbolProviderJob* pJob = m_JobQueue.at(i);
+		if (((quint64)pJob) == JobID)
+		{
+			pJob->deleteLater();
+			m_JobQueue.removeAt(i);
+			break;
+		}
+	}
 }
 
 // thrdprov.c
@@ -245,18 +365,13 @@ VOID PhLoadSymbolsThreadProvider(SSymbolProvider* m)
 VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
 {
 	bool DbgHelpUndecorate = theConf->GetBool("Options/DbgHelpUndecorate", true);
-	QString DbgHelpSearchPath = theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
-
 	PhSetOptionsSymbolProvider(SYMOPT_UNDNAME, DbgHelpUndecorate ? SYMOPT_UNDNAME : 0);
 
-	PPH_STRING searchPath = CastQString(DbgHelpSearchPath);
-
-	if (searchPath->Length != 0)
-		PhSetSearchPathSymbolProvider(SymbolProvider, searchPath->Buffer);
-
-	PhDereferenceObject(searchPath);
+	bool DbgHelpSearch = theConf->GetBool("Options/DbgHelpSearch", true);
+	QString DbgHelpSearchPath = theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
+	if (DbgHelpSearch && DbgHelpSearchPath.length() > 0)
+		PhSetSearchPathSymbolProvider(SymbolProvider, (wchar_t*)DbgHelpSearchPath.toStdWString().c_str());
 }
-
 
 void CSymbolProvider::run()
 {
@@ -266,7 +381,7 @@ void CSymbolProvider::run()
 
 	while (m_bRunning)
 	{
-		time_t OldTime = GetTime() - 60; // cleanup everythign older than 60 sec
+		time_t OldTime = GetTime() - 5; // cleanup everythign older than 5 sec
 		if (LastCleanUp < OldTime)
 		{
 			foreach(SSymbolProvider* m, mm.values())
@@ -344,25 +459,21 @@ BOOLEAN NTAPI PhpWalkThreadStackCallback(_In_ PPH_THREAD_STACK_FRAME StackFrame,
     return TRUE;
 }
 
-typedef struct _CLR_PROCESS_SUPPORT
-{
-    struct IXCLRDataProcess *DataProcess;
-} CLR_PROCESS_SUPPORT, *PCLR_PROCESS_SUPPORT;
-
 void CStackProviderJob::Run(struct SSymbolProvider* m)
 {
 	this->m = m;
+	m->ThreadId = (HANDLE)m_ThreadId;
 
 	m_StackTrace = CStackTracePtr(new CStackTrace(m_ProcessId, m_ThreadId));
 
 	NTSTATUS status;
-    HANDLE threadHandle;
 	CLIENT_ID clientId;
 
     clientId.UniqueProcess = (HANDLE)m_ProcessId;
     clientId.UniqueThread = (HANDLE)m_ThreadId;
 
-/*#if _WIN64
+	// case PluginThreadStackInitializing:
+#ifdef WIN64
     HANDLE processHandle;
 
     if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, clientId.UniqueProcess)))
@@ -370,39 +481,206 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
         PhGetProcessIsWow64(processHandle, &m->IsWow64);
         NtClose(processHandle);
     }
-#endif*/
+#endif
+	//
 
 	PhLoadSymbolsThreadProvider(m);
 
-	if (!NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, (HANDLE)m_ThreadId)))
+	if (!NT_SUCCESS(status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, (HANDLE)m_ThreadId)))
     {
         if (KphIsConnected())
         {
-            status = PhOpenThread(&threadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)m_ThreadId);
+            status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)m_ThreadId);
         }
     }
 
-	// todo: add -net support
-	/*BOOLEAN isDotNet;
-	if (!NT_SUCCESS(PhGetProcessIsDotNet(clientId.UniqueProcess, &isDotNet)) || !isDotNet)
-		return;
+	//case PluginThreadStackBeginDefaultWalkStack:
+	if (theConf->GetBool("Options/DbgTraceDotNet", true))
+	{
+		BOOLEAN isDotNet;
+		if (NT_SUCCESS(PhGetProcessIsDotNet(clientId.UniqueProcess, &isDotNet)) && isDotNet)
+		{
+			m->Support = (PCLR_PROCESS_SUPPORT)CreateClrProcessSupport(clientId.UniqueProcess);
 
-	PCLR_PROCESS_SUPPORT Support = (PCLR_PROCESS_SUPPORT)CreateClrProcessSupport(clientId.UniqueProcess);
-
-#ifdef _WIN64
-	if (m->IsWow64)
-		m->ConnectedToPhSvc = PhUiConnectToPhSvcEx(NULL, Wow64PhSvcMode, FALSE);
-#endif*/
+#ifdef WIN64
+			if (m->IsWow64)
+				m->SocketName = CTaskService::RunWorker(false, true);
+#endif
+		}
+	}
+	//
 
 	if (NT_SUCCESS(status))
 	{
-		status = PhWalkThreadStack(threadHandle, m->SymbolProvider->ProcessHandle, &clientId, m->SymbolProvider,
+		status = PhWalkThreadStack(m->ThreadHandle, m->SymbolProvider->ProcessHandle, &clientId, m->SymbolProvider,
 			PH_WALK_I386_STACK | PH_WALK_AMD64_STACK | PH_WALK_KERNEL_STACK, PhpWalkThreadStackCallback, this);
 	}
+
+	// case PluginThreadStackEndDefaultWalkStack:
+    if (m->Support)
+    {
+        FreeClrProcessSupport(m->Support);
+        m->Support = NULL;
+    }
+
+#ifdef WIN64
+    //if (!m->SocketName.isEmpty())
+    //	CTaskService::TerminateService(m->SocketName);
+#endif
+	//
 
 	emit StackTraced(m_StackTrace);
 }
 
+void PredictAddressesFromClrData(PCLR_PROCESS_SUPPORT Support, HANDLE ThreadId, PVOID PcAddress, PVOID FrameAddress, PVOID StackAddress, PVOID *PredictedEip, PVOID *PredictedEbp, PVOID *PredictedEsp)
+{
+#ifdef _WIN64
+    *PredictedEip = NULL;
+    *PredictedEbp = NULL;
+    *PredictedEsp = NULL;
+#else
+    IXCLRDataTask *task;
+
+    *PredictedEip = NULL;
+    *PredictedEbp = NULL;
+    *PredictedEsp = NULL;
+
+    if (SUCCEEDED(IXCLRDataProcess_GetTaskByOSThreadID(Support->DataProcess, HandleToUlong(ThreadId), &task)))
+    {
+        IXCLRDataStackWalk *stackWalk;
+
+        if (SUCCEEDED(IXCLRDataTask_CreateStackWalk(task, 0xf, &stackWalk)))
+        {
+            HRESULT result;
+            BOOLEAN firstTime = TRUE;
+            CONTEXT context;
+            ULONG32 contextSize;
+
+            memset(&context, 0, sizeof(CONTEXT));
+            context.ContextFlags = CONTEXT_CONTROL;
+            context.Eip = PtrToUlong(PcAddress);
+            context.Ebp = PtrToUlong(FrameAddress);
+            context.Esp = PtrToUlong(StackAddress);
+
+            result = IXCLRDataStackWalk_SetContext2(stackWalk, CLRDATA_STACK_SET_CURRENT_CONTEXT, sizeof(CONTEXT), (BYTE *)&context);
+
+            if (SUCCEEDED(result = IXCLRDataStackWalk_Next(stackWalk)) && result != S_FALSE)
+            {
+                if (SUCCEEDED(IXCLRDataStackWalk_GetContext(stackWalk, CONTEXT_CONTROL, sizeof(CONTEXT), &contextSize, (BYTE *)&context)))
+                {
+                    *PredictedEip = UlongToPtr(context.Eip);
+                    *PredictedEbp = UlongToPtr(context.Ebp);
+                    *PredictedEsp = UlongToPtr(context.Esp);
+                }
+            }
+
+            IXCLRDataStackWalk_Release(stackWalk);
+        }
+
+        IXCLRDataTask_Release(task);
+    }
+#endif
+}
+
+void CallPredictAddressesFromClrData(const QString& SocketName, HANDLE ProcessId, HANDLE ThreadId, PVOID PcAddress, PVOID FrameAddress, PVOID StackAddress,PVOID *PredictedEip, PVOID *PredictedEbp, PVOID *PredictedEsp)
+{
+    *PredictedEip = NULL;
+    *PredictedEbp = NULL;
+    *PredictedEsp = NULL;
+
+	QVariantMap Parameters;
+	Parameters["ProcessId"] = (quint64)HandleToUlong(ProcessId);
+	Parameters["ThreadId"] = (quint64)HandleToUlong(ThreadId);
+	Parameters["PcAddress"] = (quint64)PtrToUlong(PcAddress);
+	Parameters["FrameAddress"] = (quint64)PtrToUlong(FrameAddress);
+	Parameters["StackAddress"] = (quint64)PtrToUlong(StackAddress);
+
+	QVariantMap Request;
+	Request["Command"] = "PredictAddressesFromClrData";
+	Request["Parameters"] = Parameters;
+
+	QVariant Response = CTaskService::SendCommand(SocketName, Request);
+
+	if(Response.type() == QVariant::Map)
+	{
+		QVariantMap Result = Response.toMap();
+
+		*PredictedEip = UlongToPtr(Result["PredictedEip"].toULongLong());
+        *PredictedEbp = UlongToPtr(Result["PredictedEbp"].toULongLong());
+        *PredictedEsp = UlongToPtr(Result["PredictedEsp"].toULongLong());
+	}
+}
+
+QVariant SvcApiPredictAddressesFromClrData(const QVariantMap& Parameters)
+{
+    PCLR_PROCESS_SUPPORT support = CreateClrProcessSupport(UlongToHandle(Parameters["ProcessId"].toULongLong()));
+    if (!support)
+        return false;
+
+	PVOID predictedEip;
+    PVOID predictedEbp;
+    PVOID predictedEsp;
+	PredictAddressesFromClrData(support, 
+		UlongToHandle(Parameters["ThreadId"].toULongLong()), 
+		UlongToPtr(Parameters["PcAddress"].toULongLong()), 
+		UlongToPtr(Parameters["FrameAddress"].toULongLong()), 
+		UlongToPtr(Parameters["StackAddress"].toULongLong()), 
+		&predictedEip, &predictedEbp, &predictedEsp);
+
+	FreeClrProcessSupport(support);
+
+	QVariantMap Result;
+	Result["PredictedEip"] = (quint64)PtrToUlong(predictedEip);
+	Result["PredictedEbp"] = (quint64)PtrToUlong(predictedEbp);
+    Result["PredictedEsp"] =  (quint64)PtrToUlong(predictedEsp);
+	return Result;
+}
+
+QString CallGetRuntimeNameByAddress(const QString& SocketName, HANDLE ProcessId, ULONG64 Address, PULONG64 Displacement)
+{
+	QVariantMap Parameters;
+	Parameters["ProcessId"] = (quint64)HandleToUlong(ProcessId);
+	Parameters["Address"] = (quint64)Address;
+	
+	QVariantMap Request;
+	Request["Command"] = "GetRuntimeNameByAddressClrProcess";
+	Request["Parameters"] = Parameters;
+
+	QVariant Response = CTaskService::SendCommand(SocketName, Request);
+
+	if (Response.type() == QVariant::Map)
+	{
+		QVariantMap Result = Response.toMap();
+
+		if (Displacement)
+			*Displacement = Result["Displacement"].toULongLong();
+
+		return Result["Name"].toString();
+	}
+	return QString();
+}
+
+QVariant SvcApiGetRuntimeNameByAddressClrProcess(const QVariantMap& Parameters)
+{
+	PCLR_PROCESS_SUPPORT support = CreateClrProcessSupport(UlongToHandle(Parameters["ProcessId"].toULongLong()));
+    if (!support)
+        return false;
+
+	ULONG64 Displacement;
+	PPH_STRING name = GetRuntimeNameByAddressClrProcess(support, Parameters["Address"].toULongLong(), &Displacement);
+
+	FreeClrProcessSupport(support);
+
+	if (!name)
+		return false;
+
+	QVariantMap Result;
+	Result["Name"] = CastPhString(name);
+	Result["Displacement"] = (quint64)Displacement;
+	return Result;
+}
+
+// PhpWalkThreadStackCallback
 void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 {
     //if (m->Terminating)
@@ -418,6 +696,61 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
     {
         Symbol += tr(" (No unwind info)");
     }
+
+	// case PluginThreadStackResolveSymbol:
+    QString ManagedSymbol;
+    ULONG64 displacement;
+
+    if (m->Support)
+    {
+#ifndef WIN64
+        PVOID predictedEip = m->PredictedEip;
+        PVOID predictedEbp = m->PredictedEbp;
+        PVOID predictedEsp = m->PredictedEsp;
+
+        PredictAddressesFromClrData(m->Support, m->ThreadId, StackFrame->PcAddress, StackFrame->FrameAddress, StackFrame->StackAddress, 
+			&m->PredictedEip, &m->PredictedEbp, &m->PredictedEsp);
+
+        // Fix up dbghelp EBP with real EBP given by the CLR data routines.
+        if (StackFrame->PcAddress == predictedEip)
+        {
+            StackFrame->FrameAddress = predictedEbp;
+            StackFrame->StackAddress = predictedEsp;
+        }
+#endif
+
+        ManagedSymbol = CastPhString(GetRuntimeNameByAddressClrProcess(m->Support, (ULONG64)StackFrame->PcAddress, &displacement));
+    }
+#ifdef _WIN64
+    else if (m->IsWow64 && !m->SocketName.isEmpty())
+    {
+        PVOID predictedEip = m->PredictedEip;
+        PVOID predictedEbp = m->PredictedEbp;
+        PVOID predictedEsp = m->PredictedEsp;
+
+        CallPredictAddressesFromClrData(m->SocketName, m->ProcessId, m->ThreadId, StackFrame->PcAddress, StackFrame->FrameAddress, StackFrame->StackAddress, 
+			&m->PredictedEip, &m->PredictedEbp, &m->PredictedEsp);
+
+        // Fix up dbghelp EBP with real EBP given by the CLR data routines.
+        if (StackFrame->PcAddress == predictedEip)
+        {
+            StackFrame->FrameAddress = predictedEbp;
+            StackFrame->StackAddress = predictedEsp;
+        }
+
+        ManagedSymbol = CallGetRuntimeNameByAddress(m->SocketName, m->ProcessId, (ULONG64)StackFrame->PcAddress, &displacement);
+    }
+#endif
+
+    if (!ManagedSymbol.isEmpty())
+    {
+		if (displacement != 0)
+			ManagedSymbol.append(tr(" + 0x%1").arg(displacement, 0, 16));
+		ManagedSymbol.append(tr(" <-- %1").arg(Symbol));
+
+		Symbol = ManagedSymbol;
+    }
+	//
 
 	quint64 Params[4] = { (quint64)StackFrame->Params[0], (quint64)StackFrame->Params[1], (quint64)StackFrame->Params[2], (quint64)StackFrame->Params[3] };
 	
