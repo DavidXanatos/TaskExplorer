@@ -47,7 +47,7 @@ CDotNetView::CDotNetView(QWidget *parent)
 	m_pAssemblyList->setModel(m_pSortProxy);
 
 	m_pAssemblyList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pAssemblyList->setSortingEnabled(false);
+	m_pAssemblyList->setSortingEnabled(true);
 
 	m_pAssemblyList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pAssemblyList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));

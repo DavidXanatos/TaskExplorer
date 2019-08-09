@@ -9,7 +9,7 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	6
+#define VERSION_MIN 	7
 #define VERSION_REV 	0
 #define VERSION_UPD 	0
 
@@ -26,8 +26,9 @@ public:
 	virtual ~CTaskExplorer();
 
 	QStyledItemDelegate*	GetItemDelegate();
-	int					GetCellHeight();
+	int						GetCellHeight();
 	float					GetDpiScale();
+	QVector<QColor>			GetPlotColors();
 
 	enum EColor {
 		eNone = 0,
@@ -44,6 +45,7 @@ public:
 #endif
 		eElevated,
 #ifdef WIN32
+		eDriver,
 		eGuiThread,
 		eIsInherited,
 		eIsProtected,
@@ -74,9 +76,7 @@ protected:
 	//quint16				m_uTimerCounter;
 	int					m_uTimerID;
 
-private slots:
-	void				OnInitDone();
-	
+private slots:	
 	void				OnStatusMessage(const QString& Message);
 
 	void				OnRun();
@@ -89,7 +89,7 @@ private slots:
 	void				OnExit();
 
 	void				OnSysTab();
-	void				OnKernelServices();
+	//void				OnKernelServices();
 	void				OnTaskTab();
 
 	void				OnSystemInfo();
@@ -105,6 +105,7 @@ private slots:
 	void				OnCreateService();
 	void				OnReloadService();
 	void				OnSCMPermissions();
+	void				OnFreeMemory();
 	void				OnMonitorETW();
 
 	void				OnSysTray(QSystemTrayIcon::ActivationReason Reason);
@@ -171,6 +172,12 @@ private:
 	QAction*			m_pMenuUpdateServices;
 #ifdef WIN32
 	QAction*			m_pMenuSCMPermissions;
+	QMenu*				m_pMenuFree;
+	QAction*			m_pMenuFreeWorkingSet;
+	QAction*			m_pMenuFreeModPages;
+	QAction*			m_pMenuFreeStandby;
+	QAction*			m_pMenuFreePriority0;
+	QAction*			m_pMenuCombinePages;
 	QAction*			m_pMenuETW;
 #endif
 

@@ -709,7 +709,11 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	if (m->QueryHandle && m->UniqueProcessId != SYSTEM_PROCESS_ID) // System token can't be opened (dmex)
 	{
 		if (m_pToken && m_pToken->UpdateDynamicData())
+		{
+			m->IsElevated = (m_pToken->GetElevationType() == TokenElevationTypeFull);
+
 			modified = TRUE;
+		}
 	}
 
     // Job
@@ -2567,3 +2571,44 @@ QMap<quint64, CMemoryPtr> CWinProcess::GetMemoryMap() const
 	return MemoryMap;
 }
 
+bool CWinProcess::UpdateGDIList(QMap<quint64, CWinGDIPtr>& List) const
+{
+	PGDI_SHARED_MEMORY gdiShared = (PGDI_SHARED_MEMORY)NtCurrentPeb()->GdiSharedHandleTable;
+    USHORT processId = (USHORT)GetProcessId();
+
+	bool bInitTimeStamp = !List.isEmpty();
+	QMap<quint64, CWinGDIPtr> OldList = List;
+
+    for (ulong i = 0; i < GDI_MAX_HANDLE_COUNT; i++)
+    {
+        PWSTR typeName;
+        INT lvItemIndex;
+        WCHAR pointer[PH_PTR_STR_LEN_1];
+
+        PGDI_HANDLE_ENTRY handle = &gdiShared->Handles[i];
+
+        if (handle->Owner.ProcessId != processId)
+            continue;
+
+		CWinGDIPtr pWinGDI = OldList.take(GDI_MAKE_HANDLE(i, handle->Unique));
+		if (!pWinGDI)
+		{
+			pWinGDI = CWinGDIPtr(new CWinGDI());
+			if (bInitTimeStamp)
+				pWinGDI->InitTimeStamp();
+			pWinGDI->InitData(i, handle);
+			List.insert(pWinGDI->GetHandleId(), pWinGDI);
+		}
+    }
+
+	foreach(quint64 HandleId, OldList.keys())
+	{
+		CWinGDIPtr pWinGDI = List.value(HandleId);
+		if (pWinGDI->CanBeRemoved())
+			List.remove(HandleId);
+		else if (!pWinGDI->IsMarkedForRemoval())
+			pWinGDI->MarkForRemoval();
+	}
+
+	return true;
+}

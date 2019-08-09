@@ -3,26 +3,25 @@
 #include "ProcessHacker.h"
 #include "WinHandle.h"
 #include <lm.h>
-#include <ras.h>
-#include <raserror.h>
+#include "Monitors/WinGpuMonitor.h"
+#include "Monitors/WinNetMonitor.h"
+#include "Monitors/WinDiskMonitor.h"
 
 #include "../GUI/TaskExplorer.h"
 #include "../SVC/TaskService.h"
 
 ulong g_fileObjectTypeIndex = ULONG_MAX;
-
 struct SWindowsAPI
 {
 	SWindowsAPI()
 	{
-		//PowerInformation = new PROCESSOR_POWER_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
-		//memset(&PowerInformation, 0, sizeof(PROCESSOR_POWER_INFORMATION));
+		PowerInformation = NULL;
+		InterruptInformation = NULL;
+		CurrentPerformanceDistribution = NULL;
+		PreviousPerformanceDistribution = NULL;
 
-		CpuIdleCycleTime = new LARGE_INTEGER[PhSystemBasicInformation.NumberOfProcessors];
-		memset(CpuIdleCycleTime, 0, sizeof(LARGE_INTEGER)*PhSystemBasicInformation.NumberOfProcessors);
-	
-		CpuSystemCycleTime = new LARGE_INTEGER[PhSystemBasicInformation.NumberOfProcessors];
-		memset(CpuSystemCycleTime, 0, sizeof(LARGE_INTEGER)*PhSystemBasicInformation.NumberOfProcessors);
+		CpuIdleCycleTime = NULL;
+		CpuSystemCycleTime = NULL;
 
 		memset(&DpcsProcessInformation, 0, sizeof(SYSTEM_PROCESS_INFORMATION));
 		RtlInitUnicodeString(&DpcsProcessInformation.ImageName, L"DPCs");
@@ -37,11 +36,22 @@ struct SWindowsAPI
 
 	~SWindowsAPI()
 	{
+		delete[] PowerInformation;
+		delete[] InterruptInformation;
+		if (CurrentPerformanceDistribution)
+			PhFree(CurrentPerformanceDistribution);
+		if (PreviousPerformanceDistribution)
+			PhFree(PreviousPerformanceDistribution);
+
 		delete[] CpuIdleCycleTime;
+
 		delete[] CpuSystemCycleTime;
 	}
 
-	//PPROCESSOR_POWER_INFORMATION PowerInformation;
+	PPROCESSOR_POWER_INFORMATION PowerInformation;
+	PSYSTEM_INTERRUPT_INFORMATION InterruptInformation;
+	PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION CurrentPerformanceDistribution;
+	PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION PreviousPerformanceDistribution;
 
 	SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION CpuTotals;
 
@@ -98,12 +108,56 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_pGpuMonitor = NULL;
 	m_pSymbolProvider = NULL;
 
+	m_bTestSigning = false;
+	m_bDriverFailed = false;
+
 	m = new SWindowsAPI();
 }
 
 bool CWindowsAPI::Init()
 {
 	InitPH();
+
+	SYSTEM_CODEINTEGRITY_INFORMATION sci = {sizeof(SYSTEM_CODEINTEGRITY_INFORMATION)};
+	if(NT_SUCCESS(NtQuerySystemInformation(SystemCodeIntegrityInformation, &sci, sizeof(sci), NULL)))
+	{
+		bool bCoseIntegrityEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_ENABLED*/ 0x1);
+		bool bTestSigningEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_TESTSIGN*/ 0x2);
+
+		m_bTestSigning = (!bCoseIntegrityEnabled || bTestSigningEnabled);
+	}
+
+	int iUseDriver = theConf->GetInt("Options/UseDriver", 1);
+	if (!PhIsExecutingInWow64() && iUseDriver != 0)
+	{
+		m_DriverFileName = theConf->GetString("Options/DriverFile");
+		QString DeviceName;
+		if (!m_DriverFileName.isEmpty())
+			DeviceName = theConf->GetString("Options/DriverDevice");
+		else
+		{
+			if (QFile::exists(QApplication::applicationDirPath() + "/xprocesshacker.sys"))
+			{
+				DeviceName = "XProcessHacker3";
+				m_DriverFileName = "xprocesshacker.sys";
+			}
+			else
+			{
+				DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
+				m_DriverFileName = "kprocesshacker.sys";
+			}
+		}
+
+		STATUS Status = InitKPH(iUseDriver == 1, DeviceName.toStdWString(), m_DriverFileName.toStdWString());
+
+		if (Status.IsError())
+		{
+			qDebug() << Status.GetText();
+			m_bDriverFailed = true;
+		}
+		else
+			qDebug() << tr("Process Hacker kernel driver connected.");
+	}
 
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
 	if (PhBeginInitOnce(&initOnce))
@@ -120,30 +174,61 @@ bool CWindowsAPI::Init()
 	if (!InitCpuCount())
 	{
 		m_NumaCount = 1;
-		m_CoreCount = m_CpuCount = PhSystemBasicInformation.NumberOfProcessors;
+		m_PackageCount = 1;
+		m_CoreCount = PhSystemBasicInformation.NumberOfProcessors;
 	}
+	// Note: we must ensure m_CpuCount is the same as NumberOfProcessors
+	m_CpuCount = PhSystemBasicInformation.NumberOfProcessors;
+
+	m->CpuIdleCycleTime = new LARGE_INTEGER[PhSystemBasicInformation.NumberOfProcessors];
+	memset(m->CpuIdleCycleTime, 0, sizeof(LARGE_INTEGER)*PhSystemBasicInformation.NumberOfProcessors);
+	
+	m->CpuSystemCycleTime = new LARGE_INTEGER[PhSystemBasicInformation.NumberOfProcessors];
+	memset(m->CpuSystemCycleTime, 0, sizeof(LARGE_INTEGER)*PhSystemBasicInformation.NumberOfProcessors);
 
 	m_InstalledMemory = ::GetInstalledMemory();
 	m_AvailableMemory = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages, PAGE_SIZE);
 	m_ReservedMemory = m_InstalledMemory - UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages, PAGE_SIZE);
 
+	m->PowerInformation =  new PROCESSOR_POWER_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
+	if (!NT_SUCCESS(NtPowerInformation(ProcessorInformation, NULL, 0, m->PowerInformation, sizeof(PROCESSOR_POWER_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors)))
+		memset(m->PowerInformation, 0, sizeof(PROCESSOR_POWER_INFORMATION)*PhSystemBasicInformation.NumberOfProcessors);
+
+	m->InterruptInformation = new SYSTEM_INTERRUPT_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
+
+
 	WCHAR brandString[49];
 	PhSipGetCpuBrandString(brandString);
-
 	m_CPU_String = QString::fromWCharArray(brandString);
 
-	//NtPowerInformation(ProcessorInformation, NULL, 0, m->PowerInformation, sizeof(PROCESSOR_POWER_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors));
+	InitWindowsInfo();
+	
+	wchar_t machine[UNCLEN + 1];
+	DWORD machine_len = UNCLEN + 1;
+    GetComputerName(machine, &machine_len);
+	m_HostName = QString::fromWCharArray(machine);
+
+	wchar_t user[UNLEN + 1];
+	DWORD user_len = UNLEN + 1;
+	GetUserName(user, &user_len);
+	m_UserName = QString::fromWCharArray(user);
+
+	m_SystemDir = CastPhString(PhGetSystemDirectory());
 
 	if (theConf->GetBool("Options/MonitorETW", true))
 		MonitorETW(true);
 
-	m_pGpuMonitor = new CGpuMonitor();
+	m_pGpuMonitor = new CWinGpuMonitor();
 	m_pGpuMonitor->Init();
+
+	m_pNetMonitor = new CWinNetMonitor();
+	m_pNetMonitor->Init();
+
+	m_pDiskMonitor = new CWinDiskMonitor();
+	m_pDiskMonitor->Init();
 
 	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
 	m_pSymbolProvider->Init();
-
-	emit InitDone();
 
 	return true;
 }
@@ -174,6 +259,8 @@ CWindowsAPI::~CWindowsAPI()
 	delete m_pEventMonitor;
 
 	delete m_pGpuMonitor;
+	delete m_pNetMonitor;
+	delete m_pDiskMonitor;
 
 	delete m;
 }
@@ -238,6 +325,29 @@ quint64 CWindowsAPI::UpdateCpuStats(bool SetCpuUsage)
 
 	delete[] CpuInformation;
 
+
+	//////////////////////////////
+	// Update CPU Clock speeds
+
+    if (m->PreviousPerformanceDistribution)
+        PhFree(m->PreviousPerformanceDistribution);
+    m->PreviousPerformanceDistribution = m->CurrentPerformanceDistribution;
+    m->CurrentPerformanceDistribution = NULL;
+    PhSipQueryProcessorPerformanceDistribution((PVOID*)&m->CurrentPerformanceDistribution);
+
+
+	// ToDo: don't just look on [0] use all cpus
+
+	double cpuGhz = 0;
+	double cpuFraction = 0;
+    if (PhSipGetCpuFrequencyFromDistribution(m->CurrentPerformanceDistribution, m->PreviousPerformanceDistribution, &cpuFraction))
+        cpuGhz = (double)m->PowerInformation[0].MaxMhz * cpuFraction / 1000;
+	else
+		cpuGhz = (double)m->PowerInformation[0].CurrentMhz / 1000;
+   
+	m_CpuBaseClock = (double)m->PowerInformation[0].MaxMhz / 1000;
+	m_CpuCurrentClock = cpuGhz;
+
     return totalTime;
 }
 
@@ -280,6 +390,7 @@ void CWindowsAPI::UpdatePerfStats()
 	NtQuerySystemInformation(SystemPerformanceInformation, &PerfInformation, sizeof(SYSTEM_PERFORMANCE_INFORMATION), NULL);
 
 	QWriteLocker Locker(&m_StatsMutex);
+
 	m_Stats.Io.SetRead(PerfInformation.IoReadTransferCount.QuadPart, PerfInformation.IoReadOperationCount);
 	m_Stats.Io.SetWrite(PerfInformation.IoWriteTransferCount.QuadPart, PerfInformation.IoWriteOperationCount);
 	m_Stats.Io.SetOther(PerfInformation.IoOtherTransferCount.QuadPart, PerfInformation.IoOtherOperationCount);
@@ -297,39 +408,63 @@ void CWindowsAPI::UpdatePerfStats()
 	m_Stats.MMapIo.WriteCount = (quint64)PerfInformation.MappedWriteIoCount + (quint64)PerfInformation.DirtyWriteIoCount + (quint64)PerfInformation.CcLazyWriteIos;
 
 	m_CpuStats.PageFaultsDelta.Update(PerfInformation.PageFaultCount);
+	m_CpuStats.PageReadsDelta.Update(PerfInformation.PageReadCount);
+	m_CpuStats.PageFileWritesDelta.Update(PerfInformation.DirtyPagesWriteCount);
+	m_CpuStats.MappedWritesDelta.Update(PerfInformation.MappedPagesWriteCount);
 
 	m_CommitedMemory = UInt32x32To64(PerfInformation.CommittedPages, PAGE_SIZE);
 	m_CommitedMemoryPeak = UInt32x32To64(PerfInformation.PeakCommitment, PAGE_SIZE);
 	m_MemoryLimit = UInt32x32To64(PerfInformation.CommitLimit, PAGE_SIZE);
-	m_PagedMemory = UInt32x32To64(PerfInformation.PagedPoolPages, PAGE_SIZE);
-	m_PersistentPagedMemory = UInt32x32To64(PerfInformation.ResidentPagedPoolPage, PAGE_SIZE);
-	m_NonPagedMemory = UInt32x32To64(PerfInformation.NonPagedPoolPages, PAGE_SIZE);
+	m_PagedPool = UInt32x32To64(PerfInformation.PagedPoolPages, PAGE_SIZE);
+	m_PersistentPagedPool = UInt32x32To64(PerfInformation.ResidentPagedPoolPage, PAGE_SIZE);
+	m_NonPagedPool = UInt32x32To64(PerfInformation.NonPagedPoolPages, PAGE_SIZE);
 	m_PhysicalUsed = UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages - PerfInformation.AvailablePages, PAGE_SIZE);
 	m_CacheMemory = UInt32x32To64(PerfInformation.ResidentSystemCachePage, PAGE_SIZE);
+	m_KernelMemory = UInt32x32To64(PerfInformation.ResidentSystemCodePage, PAGE_SIZE);
+	m_DriverMemory = UInt32x32To64(PerfInformation.ResidentSystemDriverPage, PAGE_SIZE);
 
 	quint64 TotalSwapMemory = 0;
 	quint64 SwapedOutMemory = 0;
 
-	//PSYSTEM_PAGEFILE_INFORMATION PageFiles = NULL;
-	PVOID PageFiles = NULL;
-	ULONG len = 0;
-	NTSTATUS status = NtQuerySystemInformation(SystemPageFileInformation, NULL, 0, &len);
-	if (status == STATUS_INFO_LENGTH_MISMATCH)
-		PageFiles = (PSYSTEM_PAGEFILE_INFORMATION)malloc(len);
-	
-	status = NtQuerySystemInformation(SystemPageFileInformation, PageFiles, len, NULL);
-    if(NT_SUCCESS(status))
+	PVOID PageFiles;
+	if (NT_SUCCESS(PhEnumPagefiles(&PageFiles)))
     {
+		m_PageFiles.clear();
+
 		for (PSYSTEM_PAGEFILE_INFORMATION pagefile = PH_FIRST_PAGEFILE(PageFiles); pagefile; pagefile = PH_NEXT_PAGEFILE(pagefile))
 		{
 			TotalSwapMemory += UInt32x32To64(pagefile->TotalSize, PAGE_SIZE);
 			SwapedOutMemory += UInt32x32To64(pagefile->TotalInUse, PAGE_SIZE);
+
+	        PPH_STRING fileName = PhCreateStringFromUnicodeString(&pagefile->PageFileName);
+		    PPH_STRING newFileName = PhGetFileName(fileName);
+			PhDereferenceObject(fileName);
+
+			SPageFile PageFile;
+			PageFile.Path = CastPhString(newFileName);
+			PageFile.TotalSize = UInt32x32To64(pagefile->TotalSize, PAGE_SIZE);
+			PageFile.TotalInUse = UInt32x32To64(pagefile->TotalInUse, PAGE_SIZE);
+			PageFile.PeakUsage = UInt32x32To64(pagefile->PeakUsage, PAGE_SIZE);
+			m_PageFiles.append(PageFile);
 		}
+
+        PhFree(PageFiles);
     }
-	free(PageFiles);
 
 	m_TotalSwapMemory = TotalSwapMemory;
 	m_SwapedOutMemory = SwapedOutMemory;
+
+    ULONG64 dpcCount = 0;
+    if (NT_SUCCESS(NtQuerySystemInformation(SystemInterruptInformation, m->InterruptInformation, sizeof(SYSTEM_INTERRUPT_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors, NULL)))
+    {
+        for (int i = 0; i < PhSystemBasicInformation.NumberOfProcessors; i++)
+            dpcCount += m->InterruptInformation[i].DpcCount;
+    }
+
+	m_CpuStats.ContextSwitchesDelta.Update(PerfInformation.ContextSwitches);
+	m_CpuStats.InterruptsDelta.Update(m->CpuTotals.InterruptCount);
+	m_CpuStats.DpcsDelta.Update(dpcCount);
+	m_CpuStats.SystemCallsDelta.Update(PerfInformation.SystemCalls);	
 }
 
 void CWindowsAPI::UpdateNetStats()
@@ -347,6 +482,7 @@ void CWindowsAPI::UpdateNetStats()
 
 			if (pIfRow->InterfaceAndOperStatusFlags.FilterInterface)
 				continue;
+
 			//qDebug() << QString::fromWCharArray(pIfRow->Description);
 
 			uRecvTotal += pIfRow->InOctets;
@@ -363,96 +499,6 @@ void CWindowsAPI::UpdateNetStats()
 		m_Stats.NetIf.SetReceive(uRecvTotal, uSentCount);
 		m_Stats.NetIf.SetSend(uSentTotal, uRecvCount);
 	}
-
-
-	/////////////////////////////////////////////////////////////////////
-	// ras connections
-
-	LPRASCONN lpRasConn = new RASCONN[1];
-	DWORD cb = sizeof(RASCONN);
-	lpRasConn->dwSize = sizeof(RASCONN);
-	DWORD dwConnections = 0;
-	DWORD dwRet = RasEnumConnections(lpRasConn, &cb, &dwConnections);
-	if (dwRet == ERROR_BUFFER_TOO_SMALL)
-	{
-		delete[] lpRasConn;
-		lpRasConn = new RASCONN[dwConnections];
-		lpRasConn->dwSize = sizeof(RASCONN);
-		dwRet = RasEnumConnections(lpRasConn, &cb, &dwConnections);
-	}
-
-	if (dwRet == ERROR_SUCCESS)
-	{
-		QWriteLocker Locker(&m_StatsMutex);
-
-		// Note: given that nowadays ras is almost exclusivly used for VPN's there is no point in differentiating here by type
-
-		//quint64 uVpnRecvTotal = 0;
-		//quint64 uVpnRecvCount = 0;
-		//quint64 uVpnSentTotal = 0;
-		//quint64 uVpnSentCount = 0;
-
-		quint64 uRasRecvTotal = 0;
-		quint64 uRasRecvCount = 0;
-		quint64 uRasSentTotal = 0;
-		quint64 uRasSentCount = 0;
-
-		QSet<QString> OldRasCons = m_RasCons.keys().toSet();
-
-		for (DWORD i = 0; i < dwConnections; i++)
-		{
-			LPRASCONN pRasConn = &lpRasConn[i];
-
-			QString EntryName = QString::fromWCharArray(pRasConn->szEntryName);
-
-			SWinRasCon* pRasCon = NULL;
-			QMap<QString, SWinRasCon>::iterator I = m_RasCons.find(EntryName);
-			if (I == m_RasCons.end())
-			{
-				pRasCon = &m_RasCons.insert(EntryName, SWinRasCon()).value();
-				pRasCon->EntryName = EntryName;
-				pRasCon->DeviceName = QString::fromWCharArray(pRasConn->szDeviceName);
-			}
-			else
-			{
-				pRasCon = &I.value();
-				OldRasCons.remove(EntryName);
-			}
-
-			RAS_STATS Statistics;
-			Statistics.dwSize = sizeof(RAS_STATS);
-			if (RasGetConnectionStatistics(pRasConn->hrasconn, &Statistics) != ERROR_SUCCESS)
-				continue;
-
-			//if (_wcsicmp(pRasConn->szDeviceType, RASDT_Vpn) == 0)
-			//{
-			//	uVpnRecvTotal += pRasCon->BytesRecv.FixValue(Statistics.dwBytesRcved);
-			//	uVpnRecvCount += pRasCon->RecvCount = Statistics.dwFramesRcved;
-			//
-			//	uVpnSentTotal += pRasCon->BytesSent.FixValue(Statistics.dwBytesXmited);
-			//	uVpnSentCount += pRasCon->SentCount = Statistics.dwFramesXmited;
-			//}
-			//else
-			{
-				uRasRecvTotal += pRasCon->BytesRecv.FixValue(Statistics.dwBytesRcved);
-				uRasRecvCount += pRasCon->RecvCount = Statistics.dwFramesRcved;
-
-				uRasSentTotal += pRasCon->BytesSent.FixValue(Statistics.dwBytesXmited);
-				uRasSentCount += pRasCon->SentCount = Statistics.dwFramesXmited;
-			}
-		}
-
-		foreach(const QString& EntryName, OldRasCons)
-			m_RasCons.remove(EntryName);
-
-		//m_Stats.NetVpn.SetReceive(uVpnRecvTotal, uVpnSentCount);
-		//m_Stats.NetVpn.SetSend(uVpnSentTotal, uVpnRecvCount);
-		
-		m_Stats.NetRas.SetReceive(uRasRecvTotal, uRasSentCount);
-		m_Stats.NetRas.SetSend(uRasSentTotal, uRasRecvCount);
-	}
-
-	delete[] lpRasConn;
 
 
 	/////////////////////////////////////////////////////////////////////
@@ -482,6 +528,8 @@ void CWindowsAPI::UpdateNetStats()
 bool CWindowsAPI::UpdateSysStats()
 {
 	m_pGpuMonitor->UpdateGpuStats();
+	m_pNetMonitor->UpdateNetStats();
+	m_pDiskMonitor->UpdateDiskStats();
 
 	UpdatePerfStats();
 
@@ -700,6 +748,15 @@ quint32 CWindowsAPI::EnumWindows()
 	m_WindowMap = WindowMap;
 
 	return WndCount;
+}
+
+void CWindowsAPI::OnHardwareChanged()
+{
+	m_HardwareChangePending = false;
+
+	m_pGpuMonitor->UpdateAdapters();
+	m_pNetMonitor->UpdateAdapters();
+	m_pDiskMonitor->UpdateDisks();
 }
 
 quint64	CWindowsAPI::GetCpuIdleCycleTime(int index)
@@ -1229,6 +1286,61 @@ bool CWindowsAPI::UpdateDriverList()
 	return true; 
 }
 
+bool CWindowsAPI::InitWindowsInfo()
+{
+	bool bServer = false;
+	QString ReleaseId;
+	HANDLE keyHandle;
+	static PH_STRINGREF currentVersion = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows NT\\CurrentVersion");
+    if (NT_SUCCESS(PhOpenKey(&keyHandle, KEY_READ, PH_KEY_LOCAL_MACHINE, &currentVersion, 0)))
+    {
+		m_SystemName = CastPhString(PhQueryRegistryString(keyHandle, L"ProductName"));
+		bServer = CastPhString(PhQueryRegistryString(keyHandle, L"InstallationType")) == "Server";
+		ReleaseId = CastPhString(PhQueryRegistryString(keyHandle, L"ReleaseId"));
+
+        NtClose(keyHandle);
+    }
+
+	if (WindowsVersion == WINDOWS_NEW)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/WinNew"));
+	// Windows 2000
+	else if (PhOsVersion.dwMajorVersion == 5 && PhOsVersion.dwMinorVersion == 0)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win2k"));
+	// Windows XP, Windows Server 2003
+	else if (PhOsVersion.dwMajorVersion == 5 && PhOsVersion.dwMinorVersion > 0)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/WinXP"));
+	// Windows Vista, Windows Server 2008
+	else if (PhOsVersion.dwMajorVersion == 6 && PhOsVersion.dwMinorVersion == 0)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win6"));
+    // Windows 7, Windows Server 2008 R2
+	else if (PhOsVersion.dwMajorVersion == 6 && PhOsVersion.dwMinorVersion == 1)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win7"));
+    // Windows 8, Windows Server 2012
+	else if (PhOsVersion.dwMajorVersion == 6 && PhOsVersion.dwMinorVersion == 2)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win8"));
+    // Windows 8.1, Windows Server 2012 R2
+	else if (PhOsVersion.dwMajorVersion == 6 && PhOsVersion.dwMinorVersion == 3)
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win8"));
+    // Windows 10, Windows Server 2016
+    else if (PhOsVersion.dwMajorVersion == 10 && PhOsVersion.dwMinorVersion == 0)
+        m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win10"));
+	else
+		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/WinOld"));
+
+	m_SystemVersion = tr("Windows %1.%2").arg(PhOsVersion.dwMajorVersion).arg(PhOsVersion.dwMinorVersion);
+	if(!ReleaseId.isEmpty())
+		m_SystemBuild = tr("%1 (%2)").arg(ReleaseId).arg(PhOsVersion.dwBuildNumber);
+	else
+		m_SystemBuild = tr("%1").arg(PhOsVersion.dwBuildNumber);
+
+	return true;
+}
+
+quint64  CWindowsAPI::GetUpTime() const
+{
+	return GetTickCount64() / 1000;
+}
+
 //////////////////////////////////////////////////
 //
 
@@ -1325,6 +1437,8 @@ bool CWindowsAPI::InitCpuCount()
 	m_CoreCount = processorCoreCount;
 	m_CpuCount = logicalProcessorCount;
 	m_NumaCount = numaNodeCount;
+	m_PackageCount = processorPackageCount;
 
 	return m_CoreCount > 0 && m_CpuCount > 0;
 }
+

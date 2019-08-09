@@ -38,6 +38,7 @@ public:
 
         messageLabel = new QLabel(q);
         messageLabel->setMinimumSize(QSize(300, 0));
+		messageLabel->setSizePolicy(QSizePolicy::Expanding, messageLabel->sizePolicy().verticalPolicy());
         messageLabel->setWordWrap(true);
         messageLabel->setOpenExternalLinks(true);
         messageLabel->setTextInteractionFlags(Qt::LinksAccessibleByKeyboard|Qt::LinksAccessibleByMouse);
@@ -211,11 +212,12 @@ CCheckableMessageBox::question(QWidget *parent,
                               const QString &checkBoxText,
                               bool *checkBoxSetting,
                               QDialogButtonBox::StandardButtons buttons,
-                              QDialogButtonBox::StandardButton defaultButton)
+                              QDialogButtonBox::StandardButton defaultButton, 
+							  QMessageBox::Icon icon)
 {
     CCheckableMessageBox mb(parent);
     mb.setWindowTitle(title);
-    mb.setIconPixmap(QMessageBox::standardIcon(QMessageBox::Question));
+    mb.setIconPixmap(QMessageBox::standardIcon(icon));
     mb.setText(question);
     mb.setCheckBoxText(checkBoxText);
     mb.setChecked(*checkBoxSetting);

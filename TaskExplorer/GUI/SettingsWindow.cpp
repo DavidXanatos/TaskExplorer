@@ -39,6 +39,11 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkToTray->setChecked(theConf->GetBool("SysTray/CloseToTray", true));
 
+	ui.useDriver->addItem(tr("No"));
+	ui.useDriver->addItem(tr("Yes (when elevated)"));
+	ui.useDriver->addItem(tr("Yes (always, unsecure)"));
+	ui.useDriver->setCurrentIndex(theConf->GetInt("Options/UseDriver", 1));
+
 
 	ui.persistenceTime->setValue(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
@@ -69,8 +74,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	Colors.append(SColor { "NetProcess", tr(".NET processes"), "#DCFF00"});
 #endif
 	Colors.append(SColor { "ElevatedProcess", tr("Elevated processes"), "#FFBB30"});
-
 #ifdef WIN32
+	Colors.append(SColor { "KernelServices", tr("Kernel Services (Driver)"), "#FFC880"});
 	Colors.append(SColor { "GuiThread", tr("Gui threads"), "#AACCFF"});
 	Colors.append(SColor { "IsInherited", tr("Inherited handles"), "#77FFFF"});
 	Colors.append(SColor { "IsProtected", tr("Protected handles"), "#FF77FF"});
@@ -133,6 +138,8 @@ void CSettingsWindow::apply()
 	theConf->SetValue("SysTray/GraphMode", ui.trayMode->currentData());
 
 	theConf->SetValue("SysTray/CloseToTray", ui.chkToTray->isChecked());
+
+	theConf->SetValue("Options/UseDriver", ui.useDriver->currentIndex());
 
 
 	theConf->SetValue("Options/PersistenceTime", ui.persistenceTime->value());

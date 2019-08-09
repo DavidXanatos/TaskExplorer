@@ -13,9 +13,13 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pScrollArea = new QScrollArea();
 	m_pMainLayout->addWidget(m_pScrollArea);
 
-	QWidget* m_pInfoWidget = new QWidget();
+	m_pInfoWidget = new QWidget();
+	m_pScrollArea->setFrameShape(QFrame::NoFrame);
 	m_pScrollArea->setWidgetResizable(true);
 	m_pScrollArea->setWidget(m_pInfoWidget);
+	QPalette pal = m_pScrollArea->palette();
+	pal.setColor(QPalette::Background, Qt::transparent);
+	m_pScrollArea->setPalette(pal);
 
 	m_pInfoLayout = new QVBoxLayout();
 	m_pInfoWidget->setLayout(m_pInfoLayout);
@@ -26,23 +30,45 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pSystemLayout = new QGridLayout();
 	m_pSystemLayout->setSpacing(2);
 	m_pSystemBox->setLayout(m_pSystemLayout);
+
 	int row = 0;
 
-	m_pSystemLayout->addWidget(new QLabel(tr("Cpu Model:")), row, 0);
-	m_pCpuModel = new QLabel();
-	m_pCpuModel->setSizePolicy(QSizePolicy::Expanding, m_pCpuModel->sizePolicy().verticalPolicy());
-	m_pSystemLayout->addWidget(m_pCpuModel, row++, 1);
+	m_pIcon = new QLabel();
+	m_pSystemLayout->addWidget(m_pIcon, 0, 0, 4, 1);
 
-	m_pSystemLayout->addWidget(new QLabel(tr("TotalMemory:")), row, 0);
-	m_pSystemMemory = new QLabel();
-	m_pSystemLayout->addWidget(m_pSystemMemory, row++, 1);
+	m_pSystemName = new QLabel();
+	m_pSystemName->setSizePolicy(QSizePolicy::Expanding, m_pSystemName->sizePolicy().verticalPolicy());
+	m_pSystemLayout->addWidget(m_pSystemName, row++, 1, 1, 2);
+	
+	m_pSystemLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row++, 1);
 
-	// todo
-	/*
-		system host name
-		ram info dim count
-		cpu features: virtualization etc
-	*/
+	m_pSystemLayout->addWidget(new QLabel(tr("Version:")), row, 1);
+	m_pSystemVersion = new QLabel();
+	m_pSystemVersion->setSizePolicy(QSizePolicy::Expanding, m_pSystemVersion->sizePolicy().verticalPolicy());
+	m_pSystemLayout->addWidget(m_pSystemVersion, row++, 2);
+
+	m_pSystemLayout->addWidget(new QLabel(tr("Build:")), row, 1);
+	m_pSystemBuild = new QLabel();
+	m_pSystemLayout->addWidget(m_pSystemBuild, row++, 2);
+
+
+	m_pSystemLayout->addWidget(new QLabel(tr("Up time:")), row, 0);
+	m_pUpTime = new QLabel();
+	m_pSystemLayout->addWidget(m_pUpTime, row++, 1, 1, 2);
+
+	m_pSystemLayout->addWidget(new QLabel(tr("Host name:")), row, 0);
+	m_pHostName = new QLabel();
+	m_pSystemLayout->addWidget(m_pHostName, row++, 1, 1, 2);
+
+	m_pSystemLayout->addWidget(new QLabel(tr("User name:")), row, 0);
+	m_pUserName = new QLabel();
+	m_pSystemLayout->addWidget(m_pUserName, row++, 1, 1, 2);
+
+	m_pSystemLayout->addWidget(new QLabel(tr("System directory:")), row++, 0, 1, 3);
+	m_pSystemDir = new QLineEdit();
+	m_pSystemDir->setReadOnly(true);
+	m_pSystemLayout->addWidget(m_pSystemDir, row++, 0, 1, 3);
+
 
 	/*m_pStatsList = new QTreeWidgetEx();
 
@@ -83,8 +109,17 @@ CSystemView::~CSystemView()
 
 void CSystemView::Refresh()
 {
-	m_pCpuModel->setText(theAPI->GetCpuModel());
-	m_pSystemMemory->setText(FormatSize(theAPI->GetInstalledMemory()));
+	if(m_pIcon->pixmap() == NULL)
+		m_pIcon->setPixmap(theAPI->GetSystemIcon().scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
+	m_pSystemName->setText(theAPI->GetSystemName());
+	m_pSystemVersion->setText(theAPI->GetSystemVersion());
+	m_pSystemBuild->setText(theAPI->GetSystemBuild());
+
+	m_pUpTime->setText(FormatTime(theAPI->GetUpTime()));
+	m_pHostName->setText(theAPI->GetHostName());
+	m_pUserName->setText(theAPI->GetUserName());
+	m_pSystemDir->setText(theAPI->GetSystemDir());
 
 	m_pStatsView->ShowSystem();
 }

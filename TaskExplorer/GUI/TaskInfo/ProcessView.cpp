@@ -16,9 +16,13 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pScrollArea = new QScrollArea();
 	m_pMainLayout->addWidget(m_pScrollArea);
 
-	QWidget* m_pInfoWidget = new QWidget();
+	m_pInfoWidget = new QWidget();
+	m_pScrollArea->setFrameShape(QFrame::NoFrame);
 	m_pScrollArea->setWidgetResizable(true);
 	m_pScrollArea->setWidget(m_pInfoWidget);
+	QPalette pal = m_pScrollArea->palette();
+	pal.setColor(QPalette::Background, Qt::transparent);
+	m_pScrollArea->setPalette(pal);
 
 	m_pInfoLayout = new QVBoxLayout();
 	m_pInfoWidget->setLayout(m_pInfoLayout);

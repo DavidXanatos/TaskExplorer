@@ -209,15 +209,25 @@ static LONG __stdcall MyCrashHandlerExceptionFilter(EXCEPTION_POINTERS* pEx)
     __asm mov esp,eax;
   }
 #endif
+  bool bSuccess = false;
 
-  wchar_t s_szMiniDumpFileName[128];
-  wchar_t s_szMiniDumpMessage[256];
-  wsprintf(s_szMiniDumpFileName, L"%s %s.dmp", s_szMiniDumpName, QDateTime::currentDateTime().toString("dd.MM.yyyy hh-mm-ss,zzz").replace(QRegExp("[:*?<>|\"\\/]"), "_").toStdWString().c_str());
-  wsprintf(s_szMiniDumpMessage, L"%s crashed!\r\nCrashdump saved to root directory.\r\nPlease post the file \"%s\" on ...", s_szMiniDumpName, s_szMiniDumpFileName);
+  wchar_t szMiniDumpFileName[128];
+  wsprintf(szMiniDumpFileName, L"%s %s.dmp", s_szMiniDumpName, QDateTime::currentDateTime().toString("dd.MM.yyyy hh-mm-ss,zzz").replace(QRegExp("[:*?<>|\"\\/]"), "_").toStdWString().c_str());
+  
+  wchar_t szMiniDumpPath[MAX_PATH] = { 0 };
 
-  bool bFailed = true;
-  HANDLE hFile;
-  hFile = CreateFile(s_szMiniDumpFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  HANDLE hFile = CreateFile(szMiniDumpFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (hFile != INVALID_HANDLE_VALUE)
+	GetCurrentDirectory(MAX_PATH, szMiniDumpPath);
+  else
+  {
+	  GetTempPath(MAX_PATH, szMiniDumpPath);
+
+	  wchar_t szMiniDumpFilePath[MAX_PATH] = { 0 };
+	  wsprintf(szMiniDumpFilePath, L"%s\\%s.dmp", szMiniDumpPath, szMiniDumpFileName);
+	  hFile = CreateFile(szMiniDumpFilePath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  }
+
   if (hFile != INVALID_HANDLE_VALUE)
   {
     MINIDUMP_EXCEPTION_INFORMATION stMDEI;
@@ -225,29 +235,19 @@ static LONG __stdcall MyCrashHandlerExceptionFilter(EXCEPTION_POINTERS* pEx)
     stMDEI.ExceptionPointers = pEx;
     stMDEI.ClientPointers = TRUE;
     // try to create an miniDump:
-    if (s_pMDWD(
-      GetCurrentProcess(),
-      GetCurrentProcessId(),
-      hFile,
-      s_dumpTyp,
-      &stMDEI,
-      NULL,
-      NULL
-      ))
+    if (s_pMDWD(GetCurrentProcess(), GetCurrentProcessId(), hFile, s_dumpTyp, &stMDEI, NULL, NULL))
     {
-      bFailed = false;  // suceeded
+      bSuccess = true;
     }
     CloseHandle(hFile);
   }
 
-  if (bFailed)
-  {
-    return EXCEPTION_CONTINUE_SEARCH;
-  }
-
-  // Optional display an error message
-  FatalAppExit(-1, s_szMiniDumpMessage);
-
+  wchar_t szMiniDumpMessage[256];
+  if (!bSuccess)
+	wsprintf(szMiniDumpMessage, L"%s crashed!\r\nCrashdump creation failed.", s_szMiniDumpName);
+  else
+	wsprintf(szMiniDumpMessage, L"%s crashed!\r\nCrashdump saved to \"%s\".\r\nPlease report the crash and attach the file \"%s\".", s_szMiniDumpName, szMiniDumpPath, szMiniDumpFileName);
+  MessageBox(NULL, szMiniDumpMessage, s_szMiniDumpName, MB_OK | MB_ICONERROR);
 
   // or return one of the following:
   // - EXCEPTION_CONTINUE_SEARCH
@@ -337,10 +337,10 @@ void crit_err_hdlr(int sig_num, siginfo_t * info, void * ucontext)
 
     messages = backtrace_symbols(array, size);
 
-    char s_szMiniDumpFileName[128];
-    sprintf(s_szMiniDumpFileName, "%S_%s.log", s_szMiniDumpName, QDateTime::currentDateTime().toString("dd.MM.yyyy_hh-mm-ss,zzz").replace(QRegExp("[:*?<>|\"\\/]"), "_").toStdString().c_str());
+    char szMiniDumpFileName[128];
+    sprintf(szMiniDumpFileName, "%S_%s.log", s_szMiniDumpName, QDateTime::currentDateTime().toString("dd.MM.yyyy_hh-mm-ss,zzz").replace(QRegExp("[:*?<>|\"\\/]"), "_").toStdString().c_str());
 
-    FILE* file = fopen(s_szMiniDumpFileName, "wb");
+    FILE* file = fopen(szMiniDumpFileName, "wb");
 
     /* skip first stack frame (points here) */
     for (i = 1; i < size && messages != NULL; ++i)

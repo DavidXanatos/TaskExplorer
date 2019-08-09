@@ -372,7 +372,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eTotalCPU_Time:
 					case eKernelCPU_Time:
 					case eUserCPU_Time:
-											ColValue.Formated = FormatTime(ColValue.Raw.toULongLong()/10000);
+											ColValue.Formated = FormatTime(ColValue.Raw.toULongLong()/10000); break;
 					case ePriorityClass:	ColValue.Formated = pProcess->GetPriorityString(); break;
 #ifdef WIN32
 					case eIntegrity:		ColValue.Formated = pToken ? pToken->GetIntegrityString() : "";  break;
@@ -540,7 +540,7 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eASLR:					return tr("ASLR");
 #endif
 		case eUpTime:				return tr("Up Time");
-		case eArch:					return tr("Cpu Arch.");
+		case eArch:					return tr("CPU Arch.");
 		case eElevation:			return tr("Elevation");
 /*#ifdef WIN32
 		case eWindowTitle:			return tr("Window title");

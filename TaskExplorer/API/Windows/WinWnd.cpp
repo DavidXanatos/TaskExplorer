@@ -173,7 +173,7 @@ STATUS CWinWnd::BringToFront()
 
 	GetWindowPlacement((HWND)m_hWnd, &placement);
 
-	if (placement.showCmd == SW_MINIMIZE)
+	if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
 		ShowWindowAsync((HWND)m_hWnd, SW_RESTORE);
 	else
 		SetForegroundWindow((HWND)m_hWnd);

@@ -25,6 +25,8 @@ public:
 	virtual quint64				GetCreateTimeStamp() const	{ QReadLocker Locker(&m_Mutex); return m_CreateTimeStamp; }
 	virtual bool				IsNewlyCreated() const;
 
+	
+	virtual void				InitTimeStamp()				{ QWriteLocker Locker(&m_Mutex); m_CreateTimeStamp = GetTime() * 1000; }
 	virtual void				MarkForRemoval()			{ QWriteLocker Locker(&m_Mutex); m_RemoveTimeStamp = GetCurTick(); }
 	virtual bool				IsMarkedForRemoval() const	{ QReadLocker Locker(&m_Mutex); return m_RemoveTimeStamp != 0; }
 	virtual bool				CanBeRemoved() const;

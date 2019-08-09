@@ -6,10 +6,10 @@
 #include "../../API/Windows/WinService.h"	
 #include "../../API/Windows/ProcessHacker.h"	
 #include "WinSvcWindow.h"
+#include "../../API/Windows/WinProcess.h"
 #endif
 #include "../../Common/SortFilterProxyModel.h"
 #include "../../Common/Finder.h"
-
 
 CServicesView::CServicesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
@@ -109,6 +109,10 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_pMenuDelete = m_pMenu->addAction(tr("Delete"), this, SLOT(OnServiceAction()));
 #ifdef WIN32
 	m_pMenuOpenKey = m_pMenu->addAction(tr("Open key"), this, SLOT(OnServiceAction()));
+	m_pMenu->addSeparator();
+	m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"));
+	m_pMenuKernelServices->setCheckable(true);
+	m_pMenuKernelServices->setChecked(theConf->GetValue(objectName() + "/ShowKernelServices", true).toBool());
 #endif
 
 	AddPanelItemsToMenu();
@@ -120,18 +124,16 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 CServicesView::~CServicesView()
 {
 	theConf->SetBlob(objectName() + "/ServicesView_Columns", m_pServiceList->header()->saveState());
+	theConf->SetValue(objectName() + "/ShowKernelServices", m_pMenuKernelServices->isChecked());
 }
-
-#ifdef WIN32
-void CServicesView::SetShowKernelServices(bool bShow)
-{
-	m_pServiceModel->SetShowKernelServices(bShow);
-}
-#endif
 
 void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
 {
 	QMap<QString, CServicePtr> ServiceList = theAPI->GetServiceList();
+
+#ifdef WIN32
+	m_pServiceModel->SetShowKernelServices(m_pMenuKernelServices->isChecked());
+#endif
 
 	m_pServiceModel->Sync(ServiceList);
 }

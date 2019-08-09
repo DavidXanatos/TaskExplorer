@@ -1,6 +1,22 @@
 #include "stdafx.h"
 #include "IncrementalPlot.h"
+#include "Common.h"
 
+class CDateScale : public QwtScaleDraw
+{
+public:
+	QwtText label(double value) const { 
+		return QDateTime::fromTime_t(value).time().toString(Qt::ISODate);  
+	}
+};
+
+class CBytesScale : public QwtScaleDraw
+{
+public:
+  QwtText label(double value) const {
+	  return FormatSize(value);
+  }
+};
 
 CIncrementalPlot::CIncrementalPlot(const QColor& Back, const QColor& Front, const QColor& Grid, QWidget *parent)
 	:QWidget(parent)
@@ -9,6 +25,7 @@ CIncrementalPlot::CIncrementalPlot(const QColor& Back, const QColor& Front, cons
 	m_iLimit = 300;
 
 	m_Counter = 1;
+	m_UseDate = false;
 
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
@@ -74,14 +91,22 @@ void CIncrementalPlot::UseTimer(bool bUse)
 		m_Counter = 1;
 }
 
-void CIncrementalPlot::SetupLegend(const QColor& Front, const QString& yAxis, EUnits eUnits, bool useTimer, bool bShowLegent)
+void CIncrementalPlot::SetupLegend(const QColor& Front, const QString& yAxis, EUnits eXUnits, EUnits eYUnits, bool useTimer, bool bShowLegent)
 {
 	QFont smallerFont(QApplication::font());
-	m_pPlot->setAxisScaleDraw(QwtPlot::xBottom, new CDateScale);
-	switch(eUnits)
+	switch (eXUnits)
 	{
-		case eBytes: m_pPlot->setAxisScaleDraw(QwtPlot::yLeft, new CRateScale);
+		case eDate:		
+			m_pPlot->setAxisScaleDraw(QwtPlot::xBottom, new CDateScale); 
+			break;
 	}
+	switch(eYUnits)
+	{
+		case eBytes:	
+			m_pPlot->setAxisScaleDraw(QwtPlot::yLeft, new CBytesScale);
+			break;
+	}
+	m_UseDate = (eXUnits == eDate);
 	m_pPlot->setAxisFont(QwtPlot::yLeft,smallerFont);
 	m_pPlot->setAxisFont(QwtPlot::xBottom,smallerFont);
 
@@ -142,11 +167,6 @@ void CIncrementalPlot::Clear()
 
 void CIncrementalPlot::InitCurve(SCurve& Curve)
 {
-	if (Curve.xData)
-		free(Curve.xData);
-	if (Curve.yData)
-		free(Curve.yData);
-
 	if (m_Counter && m_iLimit)
 	{
 		Curve.uSize = m_iLimit;
@@ -184,11 +204,24 @@ void CIncrementalPlot::AddPlot(const QString& Name, const QColor& Color, Qt::Pen
 		Curve.pPlot->setBrush(QBrush(Color));
 	}
 
-	InitCurve(Curve);
+	if (!m_UseDate)
+		InitCurve(Curve);
 
     Curve.pPlot->attach(m_pPlot);
 
 	m_pPlot->canvas()->setCursor(Qt::ArrowCursor);
+}
+
+void CIncrementalPlot::RemovePlot(const QString& Name)
+{
+	if(!m_Curves.contains(Name))
+		return;
+
+	SCurve& Curve = m_Curves.take(Name);
+	
+	delete Curve.pPlot;
+	free(Curve.xData);
+	free(Curve.yData);
 }
 
 void CIncrementalPlot::AddPlotPoint(const QString& Name, double Value)
@@ -207,13 +240,16 @@ void CIncrementalPlot::AddPlotPoint(const QString& Name, double Value)
 	}
 	else
 	{
-		if (m_Counter)
+		if (m_Counter && !m_UseDate)
 			bFreezeX = true;
 		else
 			memmove(Curve.xData, Curve.xData + 1, sizeof(double)*(Curve.uSize - 1));
 		memmove(Curve.yData, Curve.yData + 1, sizeof(double)*(Curve.uSize - 1));
 	}
-	if (!bFreezeX)
+
+	if (m_UseDate)
+		Curve.xData[Curve.uSize-1] = GetTime();
+	else if (!bFreezeX)
 		Curve.xData[Curve.uSize-1] = m_Counter ? m_Counter++ : m_Timer.elapsed();
 	Curve.yData[Curve.uSize-1] = Value;
 
@@ -241,7 +277,18 @@ void CIncrementalPlot::Reset()
 	{
 		SCurve& Curve = *(SCurve*)&curve;
 
-		InitCurve(Curve);
+		if (Curve.xData) {
+			free(Curve.xData);
+			Curve.xData = NULL;
+		}
+		if (Curve.yData) {
+			free(Curve.yData);
+			Curve.yData = NULL;
+		}
+		Curve.uSize = 0;
+
+		if (!m_UseDate)
+			InitCurve(Curve);
 	}
 
 	m_pPlot->replot();

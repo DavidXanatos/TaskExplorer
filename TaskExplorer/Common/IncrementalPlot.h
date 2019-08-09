@@ -53,22 +53,6 @@ protected:
 };
 
 
-class CDateScale : public QwtScaleDraw
-{
-public:
-	QwtText label(double value) const { 
-		return QDateTime::fromTime_t(value/1000).time().toString(Qt::ISODate);  
-	}
-};
-
-class CRateScale : public QwtScaleDraw
-{
-public:
-  QwtText label(double value) const {
-	  return QString::number(value, 'f', 2);
-  }
-};
-
 class QwtLegendEx: public QwtLegend
 {
 public:
@@ -195,7 +179,8 @@ class CIncrementalPlot : public QWidget
 public:
 	enum EUnits {
 		eAU,
-		eBytes
+		eBytes,
+		eDate
 	};
 
 	CIncrementalPlot(const QColor& Back = Qt::darkGray, const QColor& Front = Qt::transparent, const QColor& Grid = Qt::transparent, QWidget *parent = 0);
@@ -203,11 +188,12 @@ public:
 
 	void				UseTimer(bool bUse = true);
 
-	void				SetupLegend(const QColor& Front = Qt::lightGray, const QString& yAxis = "", EUnits eUnits = eAU, bool useTimer = false, bool bShowLegent = true);
+	void				SetupLegend(const QColor& Front = Qt::lightGray, const QString& yAxis = "", EUnits eXUnits = eAU, EUnits eYUnits = eAU, bool useTimer = false, bool bShowLegent = true);
 
 	void				SetRagne(double Max, double Min = 0.0);
 	double				GetRangeMax();
 	void				AddPlot(const QString& Name, const QColor& Color, Qt::PenStyle Style, bool Fill = false, const QString& Title = "", int width = 1);
+	void				RemovePlot(const QString& Name);
 	void				AddPlotPoint(const QString& Name, double Value);
 
 	void				SetText(const QString& Text);
@@ -252,4 +238,5 @@ protected:
 
 	QElapsedTimer		m_Timer;
 	quint64				m_Counter;
+	bool				m_UseDate;
 };

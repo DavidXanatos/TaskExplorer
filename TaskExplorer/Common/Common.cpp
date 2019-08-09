@@ -113,17 +113,17 @@ QString FormatSize(quint64 Size, int Precision)
 {
 	double Div;
 	if(Size > (quint64)(Div = 1.0*1024*1024*1024*1024*1024*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + "EB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " EB";
 	if(Size > (quint64)(Div = 1.0*1024*1024*1024*1024*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + "PB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " PB";
 	if(Size > (quint64)(Div = 1.0*1024*1024*1024*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + "TB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " TB";
 	if(Size > (quint64)(Div = 1.0*1024*1024*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + "GB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " GB";
 	if(Size > (quint64)(Div = 1.0*1024*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + "MB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " MB";
 	if(Size > (quint64)(Div = 1.0*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + "kB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " kB";
 	return QString::number(double(Size)) + "B";
 }
 
@@ -131,17 +131,17 @@ QString FormatUnit(quint64 Size, int Precision)
 {
 	double Div;
 	if(Size > (quint64)(Div = 1.0*1000*1000*1000*1024*1000*1000))
-		return QString::number(double(Size)/Div, 'f', Precision) + "E";
+		return QString::number(double(Size)/Div, 'f', Precision) + " E";
 	if(Size > (quint64)(Div = 1.0*1000*1000*1000*1000*1000))
-		return QString::number(double(Size)/Div, 'f', Precision) + "P";
+		return QString::number(double(Size)/Div, 'f', Precision) + " P";
 	if(Size > (quint64)(Div = 1.0*1000*1000*1000*1000))
-		return QString::number(double(Size)/Div, 'f', Precision) + "T";
+		return QString::number(double(Size)/Div, 'f', Precision) + " T";
 	if(Size > (quint64)(Div = 1.0*1000*1000*1000))
-		return QString::number(double(Size)/Div, 'f', Precision) + "G";
+		return QString::number(double(Size)/Div, 'f', Precision) + " G";
 	if(Size > (quint64)(Div = 1.0*1000*1000))
-		return QString::number(double(Size)/Div, 'f', Precision) + "M";
+		return QString::number(double(Size)/Div, 'f', Precision) + " M";
 	if(Size > (quint64)(Div = 1.0*1000))
-		return QString::number(double(Size)/Div, 'f', Precision) + "K";
+		return QString::number(double(Size)/Div, 'f', Precision) + " K";
 	return QString::number(double(Size));
 }
 

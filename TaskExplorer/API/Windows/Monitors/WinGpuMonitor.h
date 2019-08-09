@@ -1,18 +1,17 @@
 #pragma once
 
-#include "../../../Common/Common.h"
-#include "../WinProcess.h"
+#include "../../Monitors/GpuMonitor.h"
 
-class CGpuMonitor : public QObject
+class CWinGpuMonitor : public CGpuMonitor
 {
 	Q_OBJECT
 public:
-	CGpuMonitor(QObject *parent = nullptr);
-    virtual ~CGpuMonitor();
+	CWinGpuMonitor(QObject *parent = nullptr);
+    virtual ~CWinGpuMonitor();
 
-	bool		Init();
+	virtual bool		Init();
 
-	bool		UpdateAdapters();
+	virtual bool		UpdateAdapters();
 
 	static QString QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const /*DEVPROPKEY*/struct _DEVPROPKEY *DeviceProperty);
 	static QString QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, ulong DeviceProperty);
@@ -21,48 +20,14 @@ public:
 
 	static QString GetNodeEngineTypeString(/*D3DKMT_NODEMETADATA**/struct _D3DKMT_NODEMETADATA* NodeMetaData);
 
-	bool		UpdateGpuStats() { return UpdateSystemStats(); }
+	virtual bool		UpdateGpuStats();
 
-	bool		UpdateSystemStats();
-
-	bool		UpdateProcessStats(const CProcessPtr& pProcess);
-
-	struct SGpuMemory
-	{
-		SGpuMemory()
-		{
-			DedicatedLimit = 0;
-			DedicatedUsage = 0;
-			SharedLimit = 0;
-			SharedUsage = 0;
-		}
-
-		quint64 DedicatedLimit;
-		quint64 DedicatedUsage;
-		quint64	SharedLimit;
-		quint64	SharedUsage;
-	};
-
-	struct SGpuInfo
-	{
-		SGpuInfo()
-		{
-		}
-
-		QString DeviceInterface;
-		QString Description;
-		QStringList NodeNameList;
-	};
-
-	virtual int			GetGpuCount() { QReadLocker Locker(&m_StatsMutex); return m_GpuAdapterList.count(); }
-	virtual SGpuInfo	GetGpuInfo(int Index);
-	virtual float		GetGpuUsage(int Index);
-	virtual SGpuMemory	GetGpuMemory(int Index);
-	virtual SGpuMemory	GetGpuMemory();
+	virtual QMap<QString, CGpuMonitor::SGpuInfo> GetAllGpuList();
+	virtual SGpuMemory			GetGpuMemory();
 
 protected:
 
-	bool InitializeD3DStatistics();
+	QMap<QString, struct SGpuAdapter*> GetAdapterList() { QReadLocker Locker(&m_StatsMutex); return m_GpuAdapterList; }
 
 	struct SGpuAdapter*	AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* AdapterLuid, ulong NumberOfSegments, ulong NumberOfNodes);
 
@@ -83,9 +48,8 @@ protected:
 
 	//float				m_GpuNodeUsage;
 
-	QList<struct SGpuAdapter*> m_GpuAdapterList;
+	QMap<QString, struct SGpuAdapter*> m_GpuAdapterList;
 
-	//QVector<SDelta64>	m_GpuNodesTotalRunningTimeDeltas;
 	SDelta64			m_ClockTotalRunningTimeDelta;
 	quint64				m_ClockTotalRunningTimeFrequency;
 

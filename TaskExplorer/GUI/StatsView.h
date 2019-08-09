@@ -52,7 +52,7 @@ private:
 		eRate,
 		eDelta,
 		ePeak,
-		eLimit,
+		//eLimit,
 		eColCount
 	};
 
@@ -66,6 +66,9 @@ private:
 	QTreeWidgetItem*		m_pUserTime;				//	###						###
 	QTreeWidgetItem*		m_pTotalTime;				//	###						###
 	QTreeWidgetItem*		m_pContextSwitches;			//	###						###
+	QTreeWidgetItem*		m_pInterrupts;				//	###						###
+	QTreeWidgetItem*		m_pDPCs;					//	###						###
+	QTreeWidgetItem*		m_pSysCalls;				//	###						###
 
 	QTreeWidgetItem*		m_pMemory;
 	QTreeWidgetItem*		m_pPrivateBytes;			//			###				###
@@ -74,7 +77,7 @@ private:
 	QTreeWidgetItem*		m_pCommitCharge;			//			###						###		###
 	QTreeWidgetItem*		m_pWorkingSet;				//			###
 	QTreeWidgetItem*		m_pPrivateWS;				//			###
-	QTreeWidgetItem*		m_pSharedWS;				//			###								###
+	QTreeWidgetItem*		m_pSharedWS;				//			###						
 	QTreeWidgetItem*		m_pPagedPool;				//			###						###
 	QTreeWidgetItem*		m_pNonPagedPool;			//			###						###
 

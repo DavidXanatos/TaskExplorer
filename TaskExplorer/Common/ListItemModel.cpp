@@ -193,7 +193,7 @@ QVariant CListItemModel::Data(const QModelIndex &index, int role, int section) c
 		{
 			if (pNode->IsGray)
 			{
-				QColor Color = Qt::gray;
+				QColor Color = Qt::darkGray;
 				return QBrush(Color);
 			}
 			break;

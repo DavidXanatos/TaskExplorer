@@ -6,10 +6,19 @@ class QTreeWidgetEx: public QTreeWidget
 public:
 	QTreeWidgetEx(QWidget *parent = 0) : QTreeWidget(parent) 
 	{
+		m_AutoFitMax = 0;
+
 		header()->setContextMenuPolicy(Qt::CustomContextMenu);
 		connect(header(), SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenuRequested(const QPoint &)));
 
 		m_pMenu = new QMenu(this);
+
+        // Important: if something is shown/hidden we need a new size
+		connect(this->model(), SIGNAL(rowsInserted(const QModelIndex &, int, int)), this, SLOT(OnExpandCollapsed()));
+		connect(this->model(), SIGNAL(rowsRemoved(const QModelIndex &, int, int)), this, SLOT(OnExpandCollapsed()));
+		//connect(this->header(), SIGNAL(geometriesChanged()), this, SLOT(OnExpandCollapsed())); // fixme
+        connect(this, SIGNAL(expanded(const QModelIndex &)), this, SLOT(OnExpandCollapsed()));
+        connect(this, SIGNAL(collapsed(const QModelIndex &)), this, SLOT(OnExpandCollapsed()));
 	}
 
 	static void AddSubItem(QTreeWidgetItem* pRoot, const QString& Key, const QString& Value)
@@ -18,6 +27,15 @@ public:
 		pItem->setText(1, Value);
 		pRoot->addChild(pItem);
 	}
+
+	// Use this function to make the widget autosize to show all items up to this value
+	void setAutoFitMax(int AutoFitMax)
+	{
+		m_AutoFitMax = AutoFitMax;
+	}
+
+    QSize sizeHint() const {return m_AutoFitMax ? MySize() : QTreeWidget::sizeHint(); };
+    QSize minimumSizeHint() const { return m_AutoFitMax ? MySize() : QTreeWidget::sizeHint(); };
 
 private slots:
 	void				OnMenuRequested(const QPoint &point)
@@ -46,9 +64,56 @@ private slots:
 		QAction* pAction = (QAction*)sender();
 		int Column = m_Columns.value(pAction, -1);
 		setColumnHidden(Column, !pAction->isChecked());
+		QTimer::singleShot(10, this, SLOT(OnExpandCollapsed()));
+	}
+
+	void OnExpandCollapsed() 
+	{
+		if (m_AutoFitMax) 
+			updateGeometry();
 	}
 
 protected:
+    QSize MySize() const
+    {   //QSize tst(sizeHintForColumn(0) + 2 * frameWidth(), sizeHintForRow(0) + 2 * frameWidth());
+
+        int neededHight= 2 * frameWidth()+ this->header()->height();
+
+        QAbstractItemModel* m = this->model();
+
+		QModelIndex root = this->rootIndex();
+        //if(this->rootIsDecorated())
+        neededHight += recursiveHeightHint(root,m);
+        
+		if (this->horizontalScrollBar()->isVisible())
+			neededHight += this->horizontalScrollBar()->height();
+
+		if (neededHight > m_AutoFitMax)
+			neededHight = m_AutoFitMax;
+
+        QSize temp = QTreeView::sizeHint();
+        temp.setHeight(neededHight);
+        return QSize(1,neededHight);
+    }
+
+    // we need the size of all visible items -> isExpanded
+    // the root item is usually shown as a non-Valid index -> !i.isValid()
+    int recursiveHeightHint(QModelIndex i,QAbstractItemModel* m) const
+    {
+        int temp=sizeHintForIndex(i).height() + 1;
+        if(this->isExpanded(i) || !i.isValid())
+        {
+			if(m->hasChildren(i))
+			{
+				int numRows = m->rowCount(i);
+				for(int count =0;count<numRows;count++)
+					temp+=recursiveHeightHint(m->index(count,0,i),m);
+			}
+        }
+        return temp;
+    }
+
 	QMenu*				m_pMenu;
 	QMap<QAction*, int>	m_Columns;
+	int					m_AutoFitMax;
 };

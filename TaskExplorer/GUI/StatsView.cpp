@@ -20,7 +20,7 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	// Stack List
 	m_pStatsList = new QTreeWidgetEx();
 	m_pStatsList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pStatsList->setHeaderLabels(tr("Name|Count|Size|Rate|Delta|Peak|Limit").split("|"));
+	m_pStatsList->setHeaderLabels(tr("Name|Count|Size|Rate|Delta|Peak").split("|"));
 
 	m_pStatsList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pStatsList->setSortingEnabled(false);
@@ -36,10 +36,12 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	SetupTree();
 
 	if (eView == eProcess || eView == eSystem)
-		m_pStatsList->setMinimumHeight(450);
+		m_pStatsList->setAutoFitMax(800 * theGUI->GetDpiScale());
+	else
+		m_pStatsList->setMinimumHeight(50);
 
 	//m_pMenu = new QMenu();
-	AddPanelItemsToMenu(false);
+	AddPanelItemsToMenu();
 
 	setObjectName(parent->parent() ? parent->parent()->objectName() : "InfoWindow");
 	m_pStatsList->header()->restoreState(theConf->GetBlob(objectName() + "/StatsView_Columns"));
@@ -76,26 +78,40 @@ void CStatsView::SetupTree()
 	{
 		m_pTotalTime = new QTreeWidgetItem(tr("Total time").split("|"));
 		m_pCPU->addChild(m_pTotalTime);
+	}
+	if (m_eView == eProcess || m_eView == eSystem)
+	{
 		m_pContextSwitches = new QTreeWidgetItem(tr("Context switches").split("|"));
 		m_pCPU->addChild(m_pContextSwitches);
+	}
+	if (m_eView == eSystem)
+	{
+		m_pInterrupts = new QTreeWidgetItem(tr("Interrupts").split("|"));
+		m_pCPU->addChild(m_pInterrupts);
+		m_pDPCs = new QTreeWidgetItem(tr("DPCs").split("|"));
+		m_pCPU->addChild(m_pDPCs);
+		m_pSysCalls = new QTreeWidgetItem(tr("System calls").split("|"));
+		m_pCPU->addChild(m_pSysCalls);
 	}
 
 	m_pMemory = new QTreeWidgetItem(tr("Memory").split("|"));
 	m_pStatsList->addTopLevelItem(m_pMemory);
-	if (m_eView == eSystem)
+	/*if (m_eView == eSystem)
 	{
 		m_pCommitCharge = new QTreeWidgetItem(tr("Commit Charge").split("|"));
 		m_pMemory->addChild(m_pCommitCharge);
-		m_pVirtualSize = new QTreeWidgetItem(tr("Paged virtusl size").split("|"));
+		m_pVirtualSize = new QTreeWidgetItem(tr("Paged pool virtual size").split("|"));
 		m_pMemory->addChild(m_pVirtualSize);
-		m_pWorkingSet = new QTreeWidgetItem(tr("Paged working set").split("|"));
+		m_pWorkingSet = new QTreeWidgetItem(tr("Paged pool working set").split("|"));
 		m_pMemory->addChild(m_pWorkingSet);
-	}
+		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool usage").split("|"));
+		m_pMemory->addChild(m_pNonPagedPool);
+	}*/
 	if (m_eView == eProcess) 
 	{
 		m_pPrivateBytes = new QTreeWidgetItem(tr("Private bytes").split("|"));
 		m_pMemory->addChild(m_pPrivateBytes);
-		m_pVirtualSize = new QTreeWidgetItem(tr("Virtusl size").split("|"));
+		m_pVirtualSize = new QTreeWidgetItem(tr("Virtual size").split("|"));
 		m_pMemory->addChild(m_pVirtualSize);
 		m_pWorkingSet = new QTreeWidgetItem(tr("Working set").split("|"));
 		m_pMemory->addChild(m_pWorkingSet);
@@ -108,8 +124,10 @@ void CStatsView::SetupTree()
 		m_pMemory->addChild(m_pPrivateWS);
 		m_pSharedWS = new QTreeWidgetItem(tr("Shared working set").split("|"));
 		m_pMemory->addChild(m_pSharedWS);
-		m_pPagedPool = new QTreeWidgetItem(tr("Paged pool").split("|"));
+		m_pPagedPool = new QTreeWidgetItem(tr("Paged pool usage").split("|"));
 		m_pMemory->addChild(m_pPagedPool);
+		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool usage").split("|"));
+		m_pMemory->addChild(m_pNonPagedPool);
 	}
 #ifdef WIN32
 	else if(m_eView == eJob)
@@ -120,11 +138,6 @@ void CStatsView::SetupTree()
 		m_pMemory->addChild(m_pSharedWS);
 	}
 #endif
-	if (m_eView == eProcess || m_eView == eSystem)
-	{
-		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool").split("|"));
-		m_pMemory->addChild(m_pNonPagedPool);
-	}
 
 	m_pIO = new QTreeWidgetItem(tr("I/O").split("|"));
 	m_pStatsList->addTopLevelItem(m_pIO);
@@ -303,24 +316,35 @@ void CStatsView::ShowIoStats(const SProcStats& Stats)
 
 void CStatsView::ShowSystem()
 {
-	SCpuStats CpuStats = theAPI->GetCpuStats();
+	SCpuStatsEx CpuStats = theAPI->GetCpuStats();
 
 	// CPU
+	m_pContextSwitches->setText(eCount, QString::number(CpuStats.ContextSwitchesDelta.Value));
+	m_pContextSwitches->setText(eDelta, QString::number(CpuStats.ContextSwitchesDelta.Delta));
+
+	m_pInterrupts->setText(eCount, QString::number(CpuStats.InterruptsDelta.Value));
+	m_pInterrupts->setText(eDelta, QString::number(CpuStats.InterruptsDelta.Delta));
+
+	m_pDPCs->setText(eCount, QString::number(CpuStats.DpcsDelta.Value));
+	m_pDPCs->setText(eDelta, QString::number(CpuStats.DpcsDelta.Delta));
+
+	m_pSysCalls->setText(eCount, QString::number(CpuStats.SystemCallsDelta.Value));
+	m_pSysCalls->setText(eDelta, QString::number(CpuStats.SystemCallsDelta.Delta));
 
 
 	// Memory
-	m_pCommitCharge->setText(eSize, FormatSize(theAPI->GetCommitedMemory()));
+	/*m_pCommitCharge->setText(eSize, FormatSize(theAPI->GetCommitedMemory()));
 	m_pCommitCharge->setText(ePeak, FormatSize(theAPI->GetCommitedMemoryPeak()));
-	m_pCommitCharge->setText(eLimit, FormatSize(theAPI->GetMemoryLimit()));
+	//m_pCommitCharge->setText(eLimit, FormatSize(theAPI->GetMemoryLimit()));
 
-	m_pVirtualSize->setText(eSize, FormatSize(theAPI->GetPagedMemory()));
+	m_pVirtualSize->setText(eSize, FormatSize(theAPI->GetPagedPool()));
 
-	m_pWorkingSet->setText(eSize, FormatSize(theAPI->GetPersistentPagedMemory()));
+	m_pWorkingSet->setText(eSize, FormatSize(theAPI->GetPersistentPagedPool()));
+
+	m_pNonPagedPool->setText(eSize, FormatSize(theAPI->GetNonPagedPool()));*/
 
 	m_pPageFaults->setText(eCount, QString::number(CpuStats.PageFaultsDelta.Value));
 	m_pPageFaults->setText(eDelta, QString::number(CpuStats.PageFaultsDelta.Delta));
-
-	m_pNonPagedPool->setText(eSize, FormatSize(theAPI->GetNonPagedMemory()));
 
 	// IO
 	SSysStats Stats = theAPI->GetStats();

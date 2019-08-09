@@ -70,7 +70,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 		if (pService->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
 		else if (pService->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinService->IsDriver())			RowColor = CTaskExplorer::eElevated;
+		else if (pWinService->IsDriver())			RowColor = CTaskExplorer::eDriver;
 #endif
 
 		if (pNode->iColor != RowColor) {

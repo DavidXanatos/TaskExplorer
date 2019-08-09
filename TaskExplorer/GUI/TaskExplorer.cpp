@@ -17,6 +17,7 @@
 #include "Search/ModuleSearch.h"
 #include "Search/MemorySearch.h"
 #include "SystemInfo/SystemInfoWindow.h"
+#include "../Common/CheckableMessageBox.h"
 
 CSystemAPI*	theAPI = NULL;
 
@@ -30,19 +31,44 @@ CTaskExplorer* theGUI = NULL;
 #if defined(Q_OS_WIN)
 #include <wtypes.h>
 #include <QAbstractNativeEventFilter>
+#include <dbt.h>
 
 class CNativeEventFilter : public QAbstractNativeEventFilter
 {
 public:
 	virtual bool nativeEventFilter(const QByteArray &eventType, void *message, long *result)
 	{
-		if (eventType == "windows_generic_MSG" || eventType == "windows_dispatcher_MSG") {
+		if (eventType == "windows_generic_MSG" || eventType == "windows_dispatcher_MSG") 
+		{
 			MSG *msg = static_cast<MSG *>(message);
-			if (msg->message == WM_NOTIFY) {
+			//if(msg->message != 275 && msg->message != 1025)
+			//	qDebug() << msg->message;
+			if (msg->message == WM_NOTIFY) 
+			{
 				LRESULT ret;
 				if (PhMwpOnNotify((NMHDR *)msg->lParam, &ret))
 					*result = ret;
 				return true;
+			}
+			else if (msg->message == WM_DEVICECHANGE) 
+			{
+				switch (msg->wParam)
+				{
+				/*case DBT_DEVICEARRIVAL: // Drive letter added
+				case DBT_DEVICEREMOVECOMPLETE: // Drive letter removed
+					{
+						DEV_BROADCAST_HDR* deviceBroadcast = (DEV_BROADCAST_HDR*)msg->lParam;
+
+						if (deviceBroadcast->dbch_devicetype == DBT_DEVTYP_VOLUME)
+						{
+							
+						}
+					}
+					break;*/
+				case DBT_DEVNODES_CHANGED: // hardware changed
+					theAPI->NotifyHardwareChanged();
+					break;
+				}
 			}
 		}
 		return false;
@@ -56,11 +82,18 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 {
 	theGUI = this;
 
-	this->setWindowTitle(tr("TaskExplorer v%1").arg(GetVersion()));
-
 	theAPI = CSystemAPI::New();
 
-	connect(theAPI, SIGNAL(InitDone()), this, SLOT(OnInitDone()));
+	QMetaObject::invokeMethod(theAPI, "Init", Qt::BlockingQueuedConnection);
+
+	QString appTitle = tr("TaskExplorer v%1").arg(GetVersion());
+	if (theAPI->RootAvaiable())
+#ifdef WIN32
+		appTitle.append(tr(" (Administrator)"));
+#else
+		appTitle.append(tr(" (root)"));
+#endif
+	this->setWindowTitle(appTitle);
 
 #if defined(Q_OS_WIN)
 	PhMainWndHandle = (HWND)QWidget::winId();
@@ -168,13 +201,13 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			m_Act2Tab[pAction] = i;
 		}
 
-#ifdef WIN32
+/*#ifdef WIN32
 		m_pMenuSysTabs->addSeparator();
 		m_pMenuKernelServices = m_pMenuSysTabs->addAction(tr("Show Kernel Services"), this, SLOT(OnKernelServices()));
 		m_pMenuKernelServices->setCheckable(true);
 		m_pMenuKernelServices->setChecked(theConf->GetBool("MainWindow/ShowDrivers", true));
 		OnKernelServices();
-#endif
+#endif*/
 
 		m_pMenuTaskTabs = m_pMenuView->addMenu(tr("Task Tabs"));
 		for (int i = 0; i < m_pTaskInfo->GetTabCount(); i++)
@@ -217,11 +250,20 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			m_pMenuUpdateServices = m_pMenuServices->addAction(tr("ReLoad all Service"), this, SLOT(OnReloadService()));
 #ifdef WIN32
 			m_pMenuSCMPermissions = m_pMenuServices->addAction(tr("Service Control Manager Permissions"), this, SLOT(OnSCMPermissions()));
+
+		m_pMenuFree = m_pMenuTools->addMenu(tr("&Free Memory"));
+			m_pMenuFreeWorkingSet = m_pMenuFree->addAction(tr("Empty Working set"), this, SLOT(OnFreeMemory()));
+			m_pMenuFreeModPages = m_pMenuFree->addAction(tr("Empty Modified pages"), this, SLOT(OnFreeMemory()));
+			m_pMenuFreeStandby = m_pMenuFree->addAction(tr("Empty Standby list"), this, SLOT(OnFreeMemory()));
+			m_pMenuFreePriority0 = m_pMenuFree->addAction(tr("Empty Priority 0 list"), this, SLOT(OnFreeMemory()));
+			m_pMenuFree->addSeparator();
+			m_pMenuCombinePages = m_pMenuFree->addAction(tr("Combine Pages"), this, SLOT(OnFreeMemory()));
 #endif
 		m_pMenuTools->addSeparator();
 #ifdef WIN32
 		m_pMenuETW = m_pMenuTools->addAction(tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
 		m_pMenuETW->setCheckable(true);
+		m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
@@ -278,13 +320,42 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pGraphBar->UpdateLengths();
 
-	//m_uTimerCounter = 0;
-	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
-
 	if (!bAutoRun)
 		show();
 
-	statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
+#ifdef WIN32
+	if(KphIsConnected())
+		statusBar()->showMessage(tr("TaskExplorer with %1 driver is ready...").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 30000);
+	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
+	{
+		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
+			"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked. "
+			"If this is the case you have the following options:\r\n"
+			"1. Try to set an exception for the kprocesshacker.sys and/or disable your anti-virus's self defense mechanism, if it permits that (which many don't).\r\n"
+			"2. Use a custom build driver xprocesshacker.sys. To do that you have two options, eider:\r\n"
+			"2a. Use a driver signed with a leaked code signing certificate to do that un-pack xprocesshacker_hack-sign.zip into the application directory, using he password 'leaked'. "
+			"Note however that due to the use of a leaked certificate the driver may be mistakenly flagged as a virus, so you will need to add an exemption for the file.\r\n"
+			"2b. Use an driver signed with a test signing certificate, to do that un-pack xprocesshacker_test-sign.zip into the application directory, "
+			"enable test signing mode using an elevated command prompt by entering 'Bcdedit.exe -set TESTSIGNING ON' and rebooting your system. "
+			"Note however that enabling test signing mode will add a watermark to the left bottom corner of your desktop. There are tools to remove these though."
+		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
+
+		bool State = false;
+		CCheckableMessageBox::question(this, "TaskExplorer", Message
+			, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
+
+		if (State)
+			theConf->SetValue("Options/UseDriver", false);
+
+		statusBar()->showMessage(tr("TaskExplorer failed to load driver %1").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 180000);
+	}
+	else
+#endif
+		statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
+
+
+	//m_uTimerCounter = 0;
+	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
 	UpdateAll();
 }
@@ -300,16 +371,10 @@ CTaskExplorer::~CTaskExplorer()
 	theConf->SetBlob("MainWindow/Panel_Splitter",m_pPanelSplitter->saveState());
 	theConf->SetBlob("MainWindow/Graph_Splitter",m_pGraphSplitter->saveState());
 
-	delete theAPI;
+	theAPI->deleteLater();
+	theAPI = NULL;
 
 	theGUI = NULL;
-}
-
-void CTaskExplorer::OnInitDone()
-{
-#ifdef WIN32
-	m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
-#endif
 }
 
 void CTaskExplorer::OnGraphsResized(int Size)
@@ -366,8 +431,11 @@ void CTaskExplorer::UpdateAll()
 	if(m_pMainSplitter->sizes()[1] > 0)
 		m_pTaskInfo->Refresh();
 
-	if(m_pMainSplitter->sizes()[1] > 0 && m_pPanelSplitter->sizes()[0] > 0)
+	if (m_pMainSplitter->sizes()[1] > 0 && m_pPanelSplitter->sizes()[0] > 0)
+	{
 		m_pSystemInfo->Refresh();
+		m_pSystemInfo->UpdateGraphs();
+	}
 
 	UpdateStatus();
 }
@@ -377,16 +445,18 @@ void CTaskExplorer::UpdateStatus()
 	m_pStausCPU->setText(tr("CPU: %1%    ").arg(int(100 * theAPI->GetCpuUsage())));
 	m_pStausCPU->setToolTip(theAPI->GetCpuModel());
 
+	QMap<QString, CGpuMonitor::SGpuInfo> GpuList = theAPI->GetGpuMonitor()->GetAllGpuList();
+
 	QString GPU;
-	QStringList GpuInfo;
-#ifdef WIN32
-	CGpuMonitor* pGpuMonitor = ((CWindowsAPI*)theAPI)->GetGpuMonitor();
-	for (int i = 0; i < pGpuMonitor->GetGpuCount(); i++) {
-		GPU.append(tr("GPU-%1: %2%    ").arg(i).arg(int(100 * pGpuMonitor->GetGpuUsage(i))));
-		GpuInfo.append(pGpuMonitor->GetGpuInfo(i).Description);
+	QStringList GpuInfos;
+	int i = 0;
+	foreach(const CGpuMonitor::SGpuInfo &GpuInfo, GpuList)
+	{
+		GPU.append(tr("GPU-%1: %2%    ").arg(i).arg(int(100 * GpuInfo.TimeUsage)));
+		GpuInfos.append(GpuInfo.Description);
+		i++;
 	}
-#endif
-	m_pStausGPU->setToolTip(GpuInfo.join("\r\n"));
+	m_pStausGPU->setToolTip(GpuInfos.join("\r\n"));
 	m_pStausGPU->setText(GPU);
 
 	quint64 RamUsage = theAPI->GetPhysicalUsed();
@@ -428,16 +498,20 @@ void CTaskExplorer::UpdateStatus()
 #endif
 	m_pStausIO->setToolTip(IOInfo.join("\r\n"));
 
+	CNetMonitor* pNetMonitor = theAPI->GetNetMonitor();
+
+	CNetMonitor::SDataRates NetRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eNet);
+	CNetMonitor::SDataRates RasRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eRas);
 
 	QString Net;
-	Net += tr("D: %1").arg(FormatSize(Stats.NetIf.ReceiveRate.Get()) + "/s");
+	Net += tr("D: %1").arg(FormatSize(NetRates.ReceiveRate) + "/s");
 	Net += " ";
-	Net += tr("U: %1").arg(FormatSize(Stats.NetIf.SendRate.Get()) + "/s");
+	Net += tr("U: %1").arg(FormatSize(NetRates.SendRate) + "/s");
 	m_pStausNET->setText(Net + "    ");
 
 	QStringList NetInfo;
-	NetInfo.append(tr("TCP/IP; Download: %1/s; Upload: %2/s").arg(FormatSize(Stats.NetIf.ReceiveRate.Get())).arg(FormatSize(Stats.NetIf.SendRate.Get())));
-	NetInfo.append(tr("VPN/RAS; Download: %1/s; Upload: %2/s").arg(FormatSize(Stats.NetRas.ReceiveRate.Get())).arg(FormatSize(Stats.NetRas.SendRate.Get())));
+	NetInfo.append(tr("TCP/IP; Download: %1/s; Upload: %2/s").arg(FormatSize(NetRates.ReceiveRate)).arg(FormatSize(NetRates.SendRate)));
+	NetInfo.append(tr("VPN/RAS; Download: %1/s; Upload: %2/s").arg(FormatSize(RasRates.ReceiveRate)).arg(FormatSize(RasRates.SendRate)));
 	m_pStausNET->setToolTip(NetInfo.join("\r\n"));
 
 
@@ -629,7 +703,21 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 			m_pTrayMenu->popup(QCursor::pos());	
 			break;
 		case QSystemTrayIcon::DoubleClick:
-			show();
+			if (isVisible())
+				hide();
+			else
+			{
+				show();
+#ifdef WIN32
+				WINDOWPLACEMENT placement = { sizeof(placement) };
+				GetWindowPlacement(PhMainWndHandle, &placement);
+
+				if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
+					ShowWindowAsync(PhMainWndHandle, SW_RESTORE);
+				else
+					SetForegroundWindow(PhMainWndHandle);
+#endif
+			}
 			break;
 	}
 }
@@ -641,13 +729,13 @@ void CTaskExplorer::OnSysTab()
 	m_pSystemInfo->ShowTab(Index, pAction->isChecked());
 }
 
-void CTaskExplorer::OnKernelServices()
+/*void CTaskExplorer::OnKernelServices()
 {
 #ifdef WIN32
 	theConf->SetValue("MainWindow/ShowDrivers", m_pMenuKernelServices->isChecked());
 	m_pSystemInfo->SetShowKernelServices(m_pMenuKernelServices->isChecked());
 #endif
-}
+}*/
 
 void CTaskExplorer::OnTaskTab()
 {
@@ -729,6 +817,55 @@ void CTaskExplorer::OnSCMPermissions()
 #endif
 }
 
+void CTaskExplorer::OnFreeMemory()
+{
+#ifdef WIN32
+	SYSTEM_MEMORY_LIST_COMMAND command = MemoryCommandMax;
+
+	if (sender() == m_pMenuFreeWorkingSet)
+		command = MemoryEmptyWorkingSets;
+	else if (sender() == m_pMenuFreeModPages)
+		command = MemoryFlushModifiedList;
+	else if (sender() == m_pMenuFreeStandby)
+		command = MemoryPurgeStandbyList;
+	else if (sender() == m_pMenuFreePriority0)
+		command = MemoryPurgeLowPriorityStandbyList;
+	
+	QApplication::setOverrideCursor(Qt::WaitCursor);
+
+	NTSTATUS status;
+	if (command == MemoryCommandMax)
+	{
+		MEMORY_COMBINE_INFORMATION_EX combineInfo = { 0 };
+		status = NtSetSystemInformation(SystemCombinePhysicalMemoryInformation, &combineInfo, sizeof(MEMORY_COMBINE_INFORMATION_EX));
+	}
+	else
+	{
+		status = NtSetSystemInformation(SystemMemoryListInformation, &command, sizeof(SYSTEM_MEMORY_LIST_COMMAND));
+		if (status == STATUS_PRIVILEGE_NOT_HELD)
+		{
+			QString SocketName = CTaskService::RunWorker();
+			if (!SocketName.isEmpty())
+			{
+				QVariantMap Parameters;
+				Parameters["Command"] = (int)command;
+
+				QVariantMap Request;
+				Request["Command"] = "FreeMemory";
+				Request["Parameters"] = Parameters;
+
+				status = CTaskService::SendCommand(SocketName, Request).toInt();
+			}
+		}
+	}
+
+	QApplication::restoreOverrideCursor();
+
+	if (!NT_SUCCESS(status)) 
+		QMessageBox::warning(NULL, "TaskExplorer", tr("Memory opertion failed; Error: %1").arg(status));
+#endif
+}
+
 void CTaskExplorer::OnFindHandle()
 {
 	CHandleSearch* pHandleSearch = new CHandleSearch();
@@ -779,6 +916,41 @@ int CTaskExplorer::GetCellHeight()
 	return (fontHeight + 3) * GetDpiScale();
 }
 
+QVector<QColor> CTaskExplorer::GetPlotColors()
+{
+	static QVector<QColor> Colors;
+	if (Colors.isEmpty())
+	{
+		Colors.append(Qt::red);
+		Colors.append(Qt::green);
+		Colors.append(Qt::blue);
+		Colors.append(Qt::yellow);
+
+		Colors.append("#f58231"); // Orange
+		Colors.append("#911eb4"); // Purple
+		Colors.append("#42d4f4"); // Cyan
+		Colors.append("#f032e6"); // Magenta
+		Colors.append("#bfef45"); // Lime
+		Colors.append("#fabebe"); // Pink
+		Colors.append("#469990"); // Teal
+		Colors.append("#e6beff"); // Lavender
+		Colors.append("#9A6324"); // Brown
+		Colors.append("#fffac8"); // Beige
+		Colors.append("#800000"); // Maroon
+		Colors.append("#aaffc3"); // Mint
+		Colors.append("#808000"); // Olive
+		Colors.append("#ffd8b1"); // Acricot
+		Colors.append("#000075"); // Navy
+
+		Colors.append("#e6194B"); // Red
+		Colors.append("#3cb44b"); // Green
+		Colors.append("#4363d8"); // Yellow
+		Colors.append("#ffe119"); // Blue
+	}
+
+	return Colors;
+}
+
 QColor CTaskExplorer::GetColor(int Color)
 {
 	QString ColorStr;
@@ -797,13 +969,12 @@ QColor CTaskExplorer::GetColor(int Color)
 	case eDotNet:		ColorStr = theConf->GetString("Colors/NetProcess", "#DCFF00"); break;
 #endif
 	case eElevated:		ColorStr = theConf->GetString("Colors/ElevatedProcess", "#FFBB30"); break;
-
 #ifdef WIN32
+	case eDriver:		ColorStr = theConf->GetString("Colors/KernelServices", "#FFC880"); break;
 	case eGuiThread:	ColorStr = theConf->GetString("Colors/GuiThread", "#AACCFF"); break;
 	case eIsInherited:	ColorStr = theConf->GetString("Colors/IsInherited", "#77FFFF"); break;
 	case eIsProtected:	ColorStr = theConf->GetString("Colors/IsProtected", "#FF77FF"); break;
 #endif
-
 	case eExecutable:	ColorStr = theConf->GetString("Colors/Executable", "#FF90E0"); break;
 	}
 
@@ -846,8 +1017,6 @@ void CTaskExplorer::OnAbout()
 			return;
 		}
 #endif
-
-
 
 		QString AboutCaption = tr(
 			"<h3>About TaskExplorer</h3>"

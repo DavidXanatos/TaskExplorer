@@ -23,14 +23,15 @@
  */
 
 #include "stdafx.h"
-#include "GpuMonitor.h"
+#include "WinGpuMonitor.h"
 #include "../ProcessHacker.h"
+#include "../WinProcess.h"
 #include "../../GUI/TaskExplorer.h"
 
 #define D3D11_NO_HELPERS
 #include <d3d11.h>
 extern "C" {
-#include "d3dkmt.h"
+#include "../ProcessHacker/d3dkmt.h"
 }
 
 #include <cfgmgr32.h>
@@ -45,8 +46,6 @@ struct SGpuAdapter
 		SegmentCount = 0;
 		NodeCount = 0;
 		//FirstNodeIndex = 0;
-
-		TimeUsage = 0;
 	}
 
 	LUID AdapterLuid;
@@ -59,14 +58,11 @@ struct SGpuAdapter
 	RTL_BITMAP ApertureBitMap;
 	QVector<ulong> ApertureBitMapBuffer;
 
-	CGpuMonitor::SGpuMemory GpuMemory;
-
 	QVector<SDelta64> TotalTimeDeltas;
-	float TimeUsage;
 };
 
-CGpuMonitor::CGpuMonitor(QObject *parent)
-	: QObject(parent)
+CWinGpuMonitor::CWinGpuMonitor(QObject *parent)
+	: CGpuMonitor(parent)
 {
 	//m_GpuTotalNodeCount = 0;
 	//m_GpuTotalSegmentCount = 0;
@@ -82,30 +78,22 @@ CGpuMonitor::CGpuMonitor(QObject *parent)
 	m_ClockTotalRunningTimeFrequency = 0;
 }
 
-CGpuMonitor::~CGpuMonitor()
+CWinGpuMonitor::~CWinGpuMonitor()
 {
 	foreach(SGpuAdapter* adapter, m_GpuAdapterList)
 		delete adapter;
 	m_GpuAdapterList.clear();
 }
 
-bool CGpuMonitor::Init()
+bool CWinGpuMonitor::Init()
 {
-	if (!InitializeD3DStatistics())
+	if (!UpdateAdapters())
 		return false;
 
-	//m_GpuNodesTotalRunningTimeDeltas.resize(m_GpuTotalNodeCount);
-
 	return true;
 }
 
-bool CGpuMonitor::UpdateAdapters()
-{
-	// todo: xxx // todo: update gpu adapter list in case a eGPU got attached/removed
-	return true;
-}
-
-QString CGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const /*DEVPROPKEY*/struct _DEVPROPKEY *DeviceProperty)
+QString CWinGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const /*DEVPROPKEY*/struct _DEVPROPKEY *DeviceProperty)
 {
     CONFIGRET result;
     PBYTE buffer;
@@ -127,7 +115,7 @@ QString CGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const 
     if (result != CR_SUCCESS)
     {
         PhFree(buffer);
-        return NULL;
+        return QString();
     }
 
     switch (propertyType)
@@ -159,10 +147,10 @@ QString CGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const 
     }
     PhFree(buffer);
 
-    return NULL;
+    return QString();
 }
 
-QString CGpuMonitor::QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, ulong DeviceProperty)
+QString CWinGpuMonitor::QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, ulong DeviceProperty)
 {
     CONFIGRET result;
     
@@ -188,7 +176,7 @@ QString CGpuMonitor::QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle
 // Note: MSDN states this value must be created by video devices BUT Task Manager 
 // doesn't query this value and I currently don't know where it's getting the gpu memory information.
 // https://docs.microsoft.com/en-us/windows-hardware/drivers/display/registering-hardware-information
-quint64 CGpuMonitor::QueryGpuInstalledMemory(/*DEVINST*/quint32 DeviceHandle)
+quint64 CWinGpuMonitor::QueryGpuInstalledMemory(/*DEVINST*/quint32 DeviceHandle)
 {
     ULONG64 installedMemory = ULLONG_MAX;
     HKEY keyHandle;
@@ -209,7 +197,7 @@ quint64 CGpuMonitor::QueryGpuInstalledMemory(/*DEVINST*/quint32 DeviceHandle)
     return installedMemory;
 }
 
-bool CGpuMonitor::QueryDeviceProperties(wchar_t* DeviceInterface, QString* Description, QString* DriverDate, QString* DriverVersion, QString* LocationInfo, quint64* InstalledMemory)
+bool CWinGpuMonitor::QueryDeviceProperties(wchar_t* DeviceInterface, QString* Description, QString* DriverDate, QString* DriverVersion, QString* LocationInfo, quint64* InstalledMemory)
 {
     DEVPROPTYPE devicePropertyType;
     DEVINST deviceInstanceHandle;
@@ -241,7 +229,7 @@ bool CGpuMonitor::QueryDeviceProperties(wchar_t* DeviceInterface, QString* Descr
     return true;
 }
 
-QString CGpuMonitor::GetNodeEngineTypeString(/*D3DKMT_NODEMETADATA**/struct _D3DKMT_NODEMETADATA* NodeMetaData)
+QString CWinGpuMonitor::GetNodeEngineTypeString(/*D3DKMT_NODEMETADATA**/struct _D3DKMT_NODEMETADATA* NodeMetaData)
 {
     switch (NodeMetaData->EngineType)
     {
@@ -399,7 +387,7 @@ D3DKMT_DRIVERVERSION EtpGetGpuWddmVersion(_In_ D3DKMT_HANDLE AdapterHandle)
 }
 
 
-SGpuAdapter* CGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* pAdapterLuid, ulong NumberOfSegments, ulong NumberOfNodes)
+SGpuAdapter* CWinGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* pAdapterLuid, ulong NumberOfSegments, ulong NumberOfNodes)
 {
 	SGpuAdapter* adapter = new SGpuAdapter();
 
@@ -415,8 +403,54 @@ SGpuAdapter* CGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_H
     RtlInitializeBitMap(&adapter->ApertureBitMap, adapter->ApertureBitMapBuffer.data(), NumberOfSegments);
 
     QString description;
-    if (QueryDeviceProperties(DeviceInterface, &description, NULL, NULL, NULL, NULL))
-        adapter->Info.Description = description;
+    QString driverDate;
+    QString driverVersion;
+    QString locationInfo;
+    ULONG64 installedMemory;
+	if (QueryDeviceProperties(DeviceInterface, &description, &driverDate, &driverVersion, &locationInfo, &installedMemory))
+	{
+		adapter->Info.Description = description;
+		adapter->Info.DriverDate = driverDate;
+		adapter->Info.DriverVersion = driverVersion;
+		adapter->Info.LocationInfo = locationInfo;
+		adapter->Info.InstalledMemory = installedMemory;
+	}
+
+	/*D3DKMT_DRIVERVERSION wddmversion;
+    memset(&wddmversion, 0, sizeof(D3DKMT_DRIVERVERSION));
+    if (NT_SUCCESS(EtQueryAdapterInformation(AdapterHandle, KMTQAITYPE_DRIVERVERSION, &wddmversion, sizeof(D3DKMT_DRIVERVERSION))))
+    {
+        switch (wddmversion)
+        {
+        case KMT_DRIVERVERSION_WDDM_1_0:				adapter->Info.WDDMVersion = tr("WDDM 1.0"); break;
+        case KMT_DRIVERVERSION_WDDM_1_1_PRERELEASE:		adapter->Info.WDDMVersion = tr("WDDM 1.1 (pre-release)"); break;
+        case KMT_DRIVERVERSION_WDDM_1_1:				adapter->Info.WDDMVersion = tr("WDDM 1.1"); break;
+        case KMT_DRIVERVERSION_WDDM_1_2:				adapter->Info.WDDMVersion = tr("WDDM 1.2"); break;
+        case KMT_DRIVERVERSION_WDDM_1_3:				adapter->Info.WDDMVersion = tr("WDDM 1.3"); break;
+        case KMT_DRIVERVERSION_WDDM_2_0:				adapter->Info.WDDMVersion = tr("WDDM 2.0"); break;
+        case KMT_DRIVERVERSION_WDDM_2_1:				adapter->Info.WDDMVersion = tr("WDDM 2.1"); break;
+        case KMT_DRIVERVERSION_WDDM_2_2:				adapter->Info.WDDMVersion = tr("WDDM 2.2"); break;
+        case KMT_DRIVERVERSION_WDDM_2_3:				adapter->Info.WDDMVersion = tr("WDDM 2.3"); break;
+        case KMT_DRIVERVERSION_WDDM_2_4:				adapter->Info.WDDMVersion = tr("WDDM 2.4"); break;
+        case KMT_DRIVERVERSION_WDDM_2_5:				adapter->Info.WDDMVersion = tr("WDDM 2.5"); break;
+        case KMT_DRIVERVERSION_WDDM_2_6:				adapter->Info.WDDMVersion = tr("WDDM 2.6"); break;
+        default:										adapter->Info.WDDMVersion = tr("Unknown");
+        }
+    }*/
+
+    D3DKMT_QUERY_DEVICE_IDS adapterDeviceId;
+    memset(&adapterDeviceId, 0, sizeof(D3DKMT_QUERY_DEVICE_IDS));
+	if (NT_SUCCESS(EtQueryAdapterInformation(AdapterHandle, KMTQAITYPE_PHYSICALADAPTERDEVICEIDS, &adapterDeviceId, sizeof(D3DKMT_QUERY_DEVICE_IDS))))
+	{
+		adapter->Info.VendorID = adapterDeviceId.DeviceIds.VendorID;
+		adapter->Info.DeviceID = adapterDeviceId.DeviceIds.DeviceID;
+	}
+
+	/*D3DKMT_ADAPTER_PERFDATA adapterPerfData;
+    memset(&adapterPerfData, 0, sizeof(D3DKMT_ADAPTER_PERFDATA));
+	if (NT_SUCCESS(EtQueryAdapterInformation(AdapterHandle, KMTQAITYPE_ADAPTERPERFDATA, &adapterPerfData, sizeof(D3DKMT_ADAPTER_PERFDATA))))
+	{
+	}*/
 
     if (WindowsVersion >= WINDOWS_10_RS4) // Note: Changed to RS4 due to reports of BSODs on LTSB versions of RS3
     {
@@ -426,48 +460,46 @@ SGpuAdapter* CGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_H
             memset(&metaDataInfo, 0, sizeof(D3DKMT_NODEMETADATA));
             metaDataInfo.NodeOrdinal = i;
 			if (NT_SUCCESS(EtQueryAdapterInformation(AdapterHandle, KMTQAITYPE_NODEMETADATA, &metaDataInfo, sizeof(D3DKMT_NODEMETADATA))))
-				adapter->Info.NodeNameList.append(GetNodeEngineTypeString(&metaDataInfo));
-            else
-				adapter->Info.NodeNameList.append(QString());
+				adapter->Info.Nodes.append(SGpuNode(GetNodeEngineTypeString(&metaDataInfo)));
+			else
+				adapter->Info.Nodes.append(SGpuNode(tr("Node: %1").arg(i)));
         }
     }
-
-	m_GpuAdapterList.append(adapter);
+	else
+	{
+        for (ULONG i = 0; i < adapter->NodeCount; i++)
+			adapter->Info.Nodes.append(SGpuNode(tr("Node: %1").arg(i)));
+	}
 
 	return adapter;
 }
 
-bool CGpuMonitor::InitializeD3DStatistics()
+bool CWinGpuMonitor::UpdateAdapters()
 {
-    PPH_LIST deviceAdapterList;
-    PWSTR deviceInterfaceList;
     ULONG deviceInterfaceListLength = 0;
-    PWSTR deviceInterface;
-    D3DKMT_OPENADAPTERFROMDEVICENAME openAdapterFromDeviceName;
-    D3DKMT_QUERYSTATISTICS queryStatistics;
-
     if (CM_Get_Device_Interface_List_Size(&deviceInterfaceListLength, (PGUID)&GUID_DISPLAY_DEVICE_ARRIVAL, NULL, CM_GET_DEVICE_INTERFACE_LIST_PRESENT) != CR_SUCCESS)
         return false;
 
-    deviceInterfaceList = (PWSTR)PhAllocate(deviceInterfaceListLength * sizeof(WCHAR));
+    PWSTR deviceInterfaceList = (PWSTR)PhAllocate(deviceInterfaceListLength * sizeof(WCHAR));
     memset(deviceInterfaceList, 0, deviceInterfaceListLength * sizeof(WCHAR));
-
     if (CM_Get_Device_Interface_List((PGUID)&GUID_DISPLAY_DEVICE_ARRIVAL, NULL, deviceInterfaceList, deviceInterfaceListLength, CM_GET_DEVICE_INTERFACE_LIST_PRESENT) != CR_SUCCESS)
     {
         PhFree(deviceInterfaceList);
         return false;
     }
 
-    deviceAdapterList = PhCreateList(10);
-
-    for (deviceInterface = deviceInterfaceList; *deviceInterface; deviceInterface += PhCountStringZ(deviceInterface) + 1)
+    PPH_LIST deviceAdapterList = PhCreateList(10);
+    for (PWSTR deviceInterface = deviceInterfaceList; *deviceInterface; deviceInterface += PhCountStringZ(deviceInterface) + 1)
     {
         PhAddItemList(deviceAdapterList, deviceInterface);
     }
 
+	QMap<QString, SGpuAdapter*> OldAdapters = GetAdapterList();
+
     for (ULONG i = 0; i < deviceAdapterList->Count; i++)
     {
-        memset(&openAdapterFromDeviceName, 0, sizeof(D3DKMT_OPENADAPTERFROMDEVICENAME));
+		D3DKMT_OPENADAPTERFROMDEVICENAME openAdapterFromDeviceName;
+		memset(&openAdapterFromDeviceName, 0, sizeof(D3DKMT_OPENADAPTERFROMDEVICENAME));
         openAdapterFromDeviceName.DeviceName = (PWSTR)deviceAdapterList->Items[i];
 
         if (!NT_SUCCESS(D3DKMTOpenAdapterFromDeviceName(&openAdapterFromDeviceName)))
@@ -482,92 +514,89 @@ bool CGpuMonitor::InitializeD3DStatistics()
             }
         }
 
-		//
-					//m_GpuDedicatedLimit += segmentInfo.DedicatedVideoMemorySize;
-					//m_GpuSharedLimit += segmentInfo.SharedSystemMemorySize;
-		//
+		QString DeviceInterface = QString::fromWCharArray(openAdapterFromDeviceName.DeviceName);
 
-        memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
-        queryStatistics.Type = D3DKMT_QUERYSTATISTICS_ADAPTER;
-        queryStatistics.AdapterLuid = openAdapterFromDeviceName.AdapterLuid;
-
-        if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
-        {
-			QWriteLocker Locker(&m_StatsMutex);
-
-            SGpuAdapter* gpuAdapter;
-
-            gpuAdapter = AddDisplayAdapter(openAdapterFromDeviceName.DeviceName, openAdapterFromDeviceName.AdapterHandle, &openAdapterFromDeviceName.AdapterLuid,  
-											queryStatistics.QueryResult.AdapterInformation.NbSegments, queryStatistics.QueryResult.AdapterInformation.NodeCount);
-
-			//
-			if (WindowsVersion >= WINDOWS_10_RS4) // Note: Changed to RS4 due to reports of BSODs on LTSB versions of RS3
+		SGpuAdapter* gpuAdapter = OldAdapters.take(DeviceInterface);
+		if (gpuAdapter == NULL)
+		{
+			D3DKMT_QUERYSTATISTICS queryStatistics;
+			memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
+			queryStatistics.Type = D3DKMT_QUERYSTATISTICS_ADAPTER;
+			queryStatistics.AdapterLuid = openAdapterFromDeviceName.AdapterLuid;
+			if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
 			{
-				D3DKMT_SEGMENTSIZEINFO segmentInfo;
-				memset(&segmentInfo, 0, sizeof(D3DKMT_SEGMENTSIZEINFO));
-				if (NT_SUCCESS(EtQueryAdapterInformation(openAdapterFromDeviceName.AdapterHandle, KMTQAITYPE_GETSEGMENTSIZE, &segmentInfo, sizeof(D3DKMT_SEGMENTSIZEINFO))))
+				QWriteLocker Locker(&m_StatsMutex);
+
+				gpuAdapter = AddDisplayAdapter(openAdapterFromDeviceName.DeviceName, openAdapterFromDeviceName.AdapterHandle, &openAdapterFromDeviceName.AdapterLuid,
+					queryStatistics.QueryResult.AdapterInformation.NbSegments, queryStatistics.QueryResult.AdapterInformation.NodeCount);
+
+				m_GpuAdapterList.insert(gpuAdapter->Info.DeviceInterface, gpuAdapter);
+
+				//
+				if (WindowsVersion >= WINDOWS_10_RS4) // Note: Changed to RS4 due to reports of BSODs on LTSB versions of RS3
 				{
-					gpuAdapter->GpuMemory.DedicatedLimit += segmentInfo.DedicatedVideoMemorySize;
-					gpuAdapter->GpuMemory.SharedLimit += segmentInfo.SharedSystemMemorySize;
+					D3DKMT_SEGMENTSIZEINFO segmentInfo;
+					memset(&segmentInfo, 0, sizeof(D3DKMT_SEGMENTSIZEINFO));
+					if (NT_SUCCESS(EtQueryAdapterInformation(openAdapterFromDeviceName.AdapterHandle, KMTQAITYPE_GETSEGMENTSIZE, &segmentInfo, sizeof(D3DKMT_SEGMENTSIZEINFO))))
+					{
+						gpuAdapter->Info.Memory.DedicatedLimit += segmentInfo.DedicatedVideoMemorySize;
+						gpuAdapter->Info.Memory.SharedLimit += segmentInfo.SharedSystemMemorySize;
+					}
+				}
+				//
+
+
+				for (ULONG ii = 0; ii < gpuAdapter->SegmentCount; ii++)
+				{
+					memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
+					queryStatistics.Type = D3DKMT_QUERYSTATISTICS_SEGMENT;
+					queryStatistics.AdapterLuid = openAdapterFromDeviceName.AdapterLuid;
+					queryStatistics.QuerySegment.SegmentId = ii;
+
+					if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
+					{
+						ULONG64 commitLimit;
+						ULONG aperture;
+
+						if (WindowsVersion >= WINDOWS_8)
+						{
+							commitLimit = queryStatistics.QueryResult.SegmentInformation.CommitLimit;
+							aperture = queryStatistics.QueryResult.SegmentInformation.Aperture;
+						}
+						else
+						{
+							commitLimit = queryStatistics.QueryResult.SegmentInformationV1.CommitLimit;
+							aperture = queryStatistics.QueryResult.SegmentInformationV1.Aperture;
+						}
+
+						if (WindowsVersion < WINDOWS_10_RS4) // Note: Changed to RS4 due to reports of BSODs on LTSB versions of RS3
+						{
+							if (aperture)
+								gpuAdapter->Info.Memory.SharedLimit += commitLimit;
+							else
+								gpuAdapter->Info.Memory.DedicatedLimit += commitLimit;
+						}
+
+						if (aperture)
+							RtlSetBits(&gpuAdapter->ApertureBitMap, ii, 1);
+					}
 				}
 			}
-			//
-
-            //gpuAdapter->FirstNodeIndex = m_GpuNextNodeIndex;
-            //m_GpuTotalNodeCount += gpuAdapter->NodeCount;
-            //m_GpuTotalSegmentCount += gpuAdapter->SegmentCount;
-            //m_GpuNextNodeIndex += gpuAdapter->NodeCount;
-
-            for (ULONG ii = 0; ii < gpuAdapter->SegmentCount; ii++)
-            {
-                memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
-                queryStatistics.Type = D3DKMT_QUERYSTATISTICS_SEGMENT;
-                queryStatistics.AdapterLuid = openAdapterFromDeviceName.AdapterLuid;
-                queryStatistics.QuerySegment.SegmentId = ii;
-
-                if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
-                {
-                    ULONG64 commitLimit;
-                    ULONG aperture;
-
-                    if (WindowsVersion >= WINDOWS_8)
-                    {
-                        commitLimit = queryStatistics.QueryResult.SegmentInformation.CommitLimit;
-                        aperture = queryStatistics.QueryResult.SegmentInformation.Aperture;
-                    }
-                    else
-                    {
-                        commitLimit = queryStatistics.QueryResult.SegmentInformationV1.CommitLimit;
-                        aperture = queryStatistics.QueryResult.SegmentInformationV1.Aperture;
-                    }
-
-                    if (WindowsVersion < WINDOWS_10_RS4) // Note: Changed to RS4 due to reports of BSODs on LTSB versions of RS3
-                    {
-                        if (aperture)
-							gpuAdapter->GpuMemory.SharedLimit += commitLimit;
-                            //m_GpuSharedLimit += commitLimit;
-                        else
-							gpuAdapter->GpuMemory.DedicatedLimit += commitLimit;
-                            //m_GpuDedicatedLimit += commitLimit;
-                    }
-
-                    if (aperture)
-                        RtlSetBits(&gpuAdapter->ApertureBitMap, ii, 1);
-                }
-            }
-        }
+		}
 
         EtCloseAdapterHandle(openAdapterFromDeviceName.AdapterHandle);
     }
 
+	foreach(const QString& DeviceInterface, OldAdapters.keys())
+		delete m_GpuAdapterList.take(DeviceInterface);
+
     PhDereferenceObject(deviceAdapterList);
     PhFree(deviceInterfaceList);
 
-    //return m_GpuTotalNodeCount > 0;
 	return true;
 }
 
-void CGpuMonitor::UpdateProcessSegmentInformation(const CProcessPtr& pProcess)
+void CWinGpuMonitor::UpdateProcessSegmentInformation(const CProcessPtr& pProcess)
 {
 	HANDLE QueryHandle = pProcess.objectCast<CWinProcess>()->GetQueryHandle();
     if (!QueryHandle)
@@ -576,10 +605,8 @@ void CGpuMonitor::UpdateProcessSegmentInformation(const CProcessPtr& pProcess)
     ULONG64 dedicatedUsage = 0;
     ULONG64 sharedUsage = 0;
 
-    for (ULONG i = 0; i < m_GpuAdapterList.count(); i++)
+	foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
     {
-		SGpuAdapter* gpuAdapter = m_GpuAdapterList.at(i);
-
         for (ULONG j = 0; j < gpuAdapter->SegmentCount; j++)
         {
 			D3DKMT_QUERYSTATISTICS queryStatistics;
@@ -610,15 +637,13 @@ void CGpuMonitor::UpdateProcessSegmentInformation(const CProcessPtr& pProcess)
 	pProcess->SetGpuMemoryUsage(dedicatedUsage, sharedUsage);
 }
 
-void CGpuMonitor::UpdateSystemSegmentInformation()
+void CWinGpuMonitor::UpdateSystemSegmentInformation()
 {
     //ULONG64 dedicatedUsage = 0;
     //ULONG64 sharedUsage = 0;
 
-    for (ULONG i = 0; i < m_GpuAdapterList.count(); i++)
-    {
-		SGpuAdapter* gpuAdapter = m_GpuAdapterList.at(i);
-
+    foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
+	{
 		ULONG64 dedicatedUsage = 0;
 		ULONG64 sharedUsage = 0;
 
@@ -647,15 +672,15 @@ void CGpuMonitor::UpdateSystemSegmentInformation()
             }
         }
 
-		gpuAdapter->GpuMemory.DedicatedUsage = dedicatedUsage;
-		gpuAdapter->GpuMemory.SharedUsage = sharedUsage;
+		gpuAdapter->Info.Memory.DedicatedUsage = dedicatedUsage;
+		gpuAdapter->Info.Memory.SharedUsage = sharedUsage;
     }
 
     //m_GpuDedicatedUsage = dedicatedUsage;
     //m_GpuSharedUsage = sharedUsage;
 }
 
-void CGpuMonitor::UpdateProcessNodeInformation(const CProcessPtr& pProcess)
+void CWinGpuMonitor::UpdateProcessNodeInformation(const CProcessPtr& pProcess)
 {
 	HANDLE QueryHandle = pProcess.objectCast<CWinProcess>()->GetQueryHandle();
     if (!QueryHandle)
@@ -665,9 +690,8 @@ void CGpuMonitor::UpdateProcessNodeInformation(const CProcessPtr& pProcess)
 	
 	QStringList CurrentAdapter;
 
-    for (ULONG i = 0; i < m_GpuAdapterList.count(); i++)
-    {
-		SGpuAdapter* gpuAdapter = m_GpuAdapterList.at(i);
+    foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
+	{
 
 		ULONG64 adapterRunningTime = 0;
         for (ULONG j = 0; j < gpuAdapter->NodeCount; j++)
@@ -699,12 +723,10 @@ void CGpuMonitor::UpdateProcessNodeInformation(const CProcessPtr& pProcess)
 	pProcess->SetGpuAdapter(CurrentAdapter.join(","));
 }
 
-void CGpuMonitor::UpdateSystemNodeInformation()
+void CWinGpuMonitor::UpdateSystemNodeInformation()
 {
-    for (ULONG i = 0; i < m_GpuAdapterList.count(); i++)
-    {
-		SGpuAdapter* gpuAdapter = m_GpuAdapterList.at(i);
-
+    foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
+	{
         for (ULONG j = 0; j < gpuAdapter->NodeCount; j++)
         {
 			D3DKMT_QUERYSTATISTICS queryStatistics;
@@ -723,7 +745,6 @@ void CGpuMonitor::UpdateSystemNodeInformation()
                 //systemRunningTime = queryStatistics.QueryResult.NodeInformation.SystemInformation.RunningTime.QuadPart;
 
 				gpuAdapter->TotalTimeDeltas[j].Update(runningTime);
-				//m_GpuNodesTotalRunningTimeDeltas[gpuAdapter->FirstNodeIndex + j].Update(runningTime);
             }
         }
     }
@@ -734,7 +755,7 @@ void CGpuMonitor::UpdateSystemNodeInformation()
 	m_ClockTotalRunningTimeFrequency = performanceFrequency.QuadPart;
 }
 
-bool CGpuMonitor::UpdateSystemStats()
+bool CWinGpuMonitor::UpdateGpuStats()
 {
 	// Update global statistics.
 	{
@@ -751,10 +772,8 @@ bool CGpuMonitor::UpdateSystemStats()
 	{
 		QWriteLocker Locker(&m_StatsMutex);
 
-		for (ULONG i = 0; i < m_GpuAdapterList.count(); i++)
+		foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
 		{
-			SGpuAdapter* gpuAdapter = m_GpuAdapterList.at(i);
-
 			float tempGpuUsage = 0;
 
 			for (ULONG j = 0; j < gpuAdapter->NodeCount; j++)
@@ -764,23 +783,14 @@ bool CGpuMonitor::UpdateSystemStats()
 				if (usage > 1)
 					usage = 1;
 
+				gpuAdapter->Info.Nodes[j].TimeUsage = usage;
+
 				if (usage > tempGpuUsage)
 					tempGpuUsage = usage;
 			}
 
-			gpuAdapter->TimeUsage = tempGpuUsage;
+			gpuAdapter->Info.TimeUsage = tempGpuUsage;
 		}
-
-		/*for (quint32 i = 0; i < m_GpuTotalNodeCount; i++)
-		{
-			FLOAT usage = (float)(m_GpuNodesTotalRunningTimeDeltas[i].Delta / elapsedTime);
-
-			if (usage > 1)
-				usage = 1;
-
-			if (usage > tempGpuUsage)
-				tempGpuUsage = usage;
-		}*/
 	}
 
 	//m_GpuNodeUsage = tempGpuUsage;
@@ -802,47 +812,32 @@ bool CGpuMonitor::UpdateSystemStats()
 	return true;
 }
 
-CGpuMonitor::SGpuInfo CGpuMonitor::GetGpuInfo(int Index) 
-{ 
-	QReadLocker Locker(&m_StatsMutex); 
-	if (Index >= m_GpuAdapterList.size())
-		return SGpuInfo();
-	return m_GpuAdapterList.at(Index)->Info;
-}
-
-float CGpuMonitor::GetGpuUsage(int Index)
+QMap<QString, CGpuMonitor::SGpuInfo> CWinGpuMonitor::GetAllGpuList()
 {
-	QReadLocker Locker(&m_StatsMutex); 
-	if (Index >= m_GpuAdapterList.size())
-		return 0.0;
-	return m_GpuAdapterList[Index]->TimeUsage;
+	QReadLocker Locker(&m_StatsMutex);
+
+	QMap<QString, CGpuMonitor::SGpuInfo> List; 
+	foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
+		List.insert(gpuAdapter->Info.DeviceInterface, gpuAdapter->Info);
+	return List;
 }
 
-CGpuMonitor::SGpuMemory CGpuMonitor::GetGpuMemory(int Index)
-{
-	QReadLocker Locker(&m_StatsMutex); 
-	if (Index >= m_GpuAdapterList.size())
-		return SGpuMemory();
-	return m_GpuAdapterList[Index]->GpuMemory;
-}
-
-CGpuMonitor::SGpuMemory CGpuMonitor::GetGpuMemory()
+CGpuMonitor::SGpuMemory CWinGpuMonitor::GetGpuMemory()
 {
 	SGpuMemory TotalMemory;
 
 	QReadLocker Locker(&m_StatsMutex); 
-	for (ULONG i = 0; i < m_GpuAdapterList.count(); i++)
+	foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
 	{
-		SGpuAdapter* gpuAdapter = m_GpuAdapterList.at(i);
-
-		TotalMemory.DedicatedLimit += gpuAdapter->GpuMemory.DedicatedLimit;
-		TotalMemory.DedicatedUsage += gpuAdapter->GpuMemory.DedicatedUsage;
-		TotalMemory.SharedLimit += gpuAdapter->GpuMemory.SharedLimit;
-		TotalMemory.SharedUsage += gpuAdapter->GpuMemory.SharedUsage;
+		TotalMemory.DedicatedLimit += gpuAdapter->Info.Memory.DedicatedLimit;
+		TotalMemory.DedicatedUsage += gpuAdapter->Info.Memory.DedicatedUsage;
+		TotalMemory.SharedLimit += gpuAdapter->Info.Memory.SharedLimit;
+		TotalMemory.SharedUsage += gpuAdapter->Info.Memory.SharedUsage;
 	}
 
 	return TotalMemory;
 }
+
 
 /*
 typedef struct _ET_PROCESS_GPU_STATISTICS

@@ -43,6 +43,10 @@
 #include <combaseapi.h>
 #include <lsasup.h>
 #include <phnative.h>
+#include <ntgdi.h>
+
+
+#include "../../Common/FlexError.h"
 
 // begin_phapppub
 #define DPCS_PROCESS_ID ((HANDLE)(LONG_PTR)-2)
@@ -76,6 +80,8 @@ extern "C" {
 
 // initialization call
 int InitPH(bool bSvc = false);
+
+STATUS InitKPH(bool bPrivilegeCheck, wstring DeviceName, wstring FileName);
 
 void PhShowAbout(QWidget* parent);
 
@@ -180,5 +186,6 @@ VOID WeInvertWindowBorder(_In_ HWND hWnd);
 // syssccpu.c
 
 VOID PhSipGetCpuBrandString(_Out_writes_(49) PWSTR BrandString);
-BOOLEAN PhSipGetCpuFrequencyFromDistribution(_Out_ DOUBLE *Fraction);
+BOOLEAN PhSipGetCpuFrequencyFromDistribution(PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Current, PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Previous, double* Fraction);
+NTSTATUS PhSipQueryProcessorPerformanceDistribution(_Out_ PVOID *Buffer);
 

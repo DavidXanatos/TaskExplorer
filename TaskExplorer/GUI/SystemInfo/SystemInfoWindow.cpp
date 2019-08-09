@@ -45,4 +45,5 @@ void CSystemInfoWindow::timerEvent(QTimerEvent* pEvent)
 		return;
 
 	QMetaObject::invokeMethod(m_pSystemInfo, "Refresh", Qt::AutoConnection);
+	QMetaObject::invokeMethod(m_pSystemInfo, "UpdateGraphs", Qt::AutoConnection);
 }

@@ -268,6 +268,11 @@ void CTaskService::receiveConnection()
 		else
 			Response = SendMessage(hWnd, Msg, wParam, lParam);
 	}
+	else if (Command == "FreeMemory")
+	{
+		SYSTEM_MEMORY_LIST_COMMAND command = (SYSTEM_MEMORY_LIST_COMMAND)Parameters["Command"].toInt();
+		Response = NtSetSystemInformation(SystemMemoryListInformation, &command, sizeof(SYSTEM_MEMORY_LIST_COMMAND));
+	}
 	else
 #endif
 	if (Request.toString() == "Quit")

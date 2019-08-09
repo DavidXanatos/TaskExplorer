@@ -2,8 +2,7 @@
 #include "../ProcessInfo.h"
 #include "WinJob.h"
 #include "WinToken.h"
-
-class CWinProcessPrivate;
+#include "WinGDI.h"
 
 class CWinProcess : public CProcessInfo
 {
@@ -127,6 +126,8 @@ public:
 	virtual CWinJobPtr		GetJob() const;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
+
+	virtual bool UpdateGDIList(QMap<quint64, CWinGDIPtr>& List) const;
 
 public slots:
 	virtual bool	UpdateThreads();

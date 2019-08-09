@@ -80,6 +80,7 @@ private:
 	//QMenu*					m_pMenu;
 
 	//QAction*				m_pTerminateTree;
+	QAction*				m_pOpenPath;
 	QAction*				m_pCreateDump;
 	QAction*				m_pDebug; // []
 #ifdef WIN32

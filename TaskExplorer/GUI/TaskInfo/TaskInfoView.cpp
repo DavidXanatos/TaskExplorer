@@ -10,9 +10,10 @@
 #ifdef WIN32
 #include "JobView.h"
 #include "TokenView.h"
+#include "DotNetView.h"
+#include "GDIView.h"
 #endif
 #include "WindowsView.h"
-#include "DotNetView.h"
 #include "EnvironmentView.h"
 #include "../SystemInfo/ServicesView.h"
 
@@ -74,6 +75,9 @@ void CTaskInfoView::InitializeTabs()
 
 	m_pDotNetView = new CDotNetView(this);
 	AddTab(m_pDotNetView, tr(".NET"));
+
+	m_pGDIView = new CGDIView(this);
+	AddTab(m_pGDIView, tr("GDI"));
 #endif
 
 	m_pEnvironmentView = new CEnvironmentView(this);

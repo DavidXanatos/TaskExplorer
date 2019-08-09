@@ -14,6 +14,10 @@ bool SkipUacRun(bool test_only = false);
 
 int main(int argc, char *argv[])
 {
+#ifndef _DEBUG
+	InitMiniDumpWriter(L"TaskExplorer");
+#endif
+
 	qsrand(QTime::currentTime().msec());
 
 	bool bSvc = false;

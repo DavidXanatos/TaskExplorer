@@ -2,28 +2,10 @@
 #include "../SystemAPI.h"
 #include "WinProcess.h"
 #include "WinSocket.h"
-#include "ProcessHacker/EventMonitor.h"
-#include "ProcessHacker/GpuMonitor.h"
+#include "Monitors/EventMonitor.h"
 #include "SymbolProvider.h"
 #include "WinService.h"
 #include "WinDriver.h"
-
-struct SWinRasCon
-{
-	SWinRasCon()
-	{
-		SentCount = 0;
-		RecvCount = 0;
-	}
-
-	QString EntryName;
-	QString DeviceName;
-
-	SUnOverflow BytesSent;
-	quint32 SentCount;
-	SUnOverflow BytesRecv;
-	quint32 RecvCount;
-};
 
 class CWindowsAPI : public CSystemAPI
 {
@@ -51,8 +33,6 @@ public:
 
 	virtual bool UpdateDriverList();
 
-	virtual CGpuMonitor* GetGpuMonitor()				{ return m_pGpuMonitor; }
-
 	virtual CSymbolProviderPtr GetSymbolProvider()		{ return m_pSymbolProvider; }
 
 	virtual quint64	GetCpuIdleCycleTime(int index);
@@ -73,9 +53,14 @@ public:
 
 	virtual QList<QString> GetServicesByPID(quint64 ProcessId) const			 { QReadLocker Locker(&m_ServiceMutex); return m_ServiceByPID.values(ProcessId); }
 
-	virtual QMap<QString, SWinRasCon> GetRasCons() const						 { QReadLocker Locker(&m_StatsMutex);  return m_RasCons; }
+	virtual quint64 GetUpTime() const;
 
 	bool		IsMonitoringETW() const					{ return m_pEventMonitor != NULL; }
+
+	virtual bool IsTestSigning() const					{ QReadLocker Locker(&m_Mutex); return m_bTestSigning; }
+	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_bDriverFailed; }
+	virtual QString GetDriverFileName() const			{ QReadLocker Locker(&m_Mutex); return m_DriverFileName; }
+
 
 public slots:
 	void		MonitorETW(bool bEnable);
@@ -85,20 +70,21 @@ public slots:
 	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime);
 
 protected:
+	virtual void OnHardwareChanged();
 
-	quint32 EnumWindows();
+	quint32		EnumWindows();
 
-	void AddNetworkIO(int Type, ulong TransferSize);
-	void AddDiskIO(int Type, ulong TransferSize);
+	void		AddNetworkIO(int Type, ulong TransferSize);
+	void		AddDiskIO(int Type, ulong TransferSize);
+
+	bool		InitWindowsInfo();
 
 	CEventMonitor*			m_pEventMonitor;
-	CGpuMonitor*			m_pGpuMonitor;
+
 
 	mutable QReadWriteLock	m_FileNameMutex;
 	QMap<quint64, QString>	m_FileNames;
 
-	// Guard it with m_StatsLocker
-	QMap<QString, SWinRasCon> m_RasCons;
 
 	// Guard it with		m_OpenFilesMutex
 	//QMultiMap<quint64, CHandleRef> m_HandleByObject;
@@ -124,6 +110,10 @@ private:
 	bool InitCpuCount();
 
 	QString GetFileNameByID(quint64 FileId) const;
+
+	bool m_bTestSigning;
+	bool m_bDriverFailed;
+	QString m_DriverFileName;
 
 	struct SWindowsAPI* m;
 };

@@ -27,7 +27,8 @@ public:
                  const QString &checkBoxText,
                  bool *checkBoxSetting,
                  QDialogButtonBox::StandardButtons buttons = QDialogButtonBox::Yes|QDialogButtonBox::No,
-                 QDialogButtonBox::StandardButton defaultButton = QDialogButtonBox::No);
+                 QDialogButtonBox::StandardButton defaultButton = QDialogButtonBox::No,
+				 QMessageBox::Icon icon = QMessageBox::Question);
 
     QString text() const;
     void setText(const QString &);

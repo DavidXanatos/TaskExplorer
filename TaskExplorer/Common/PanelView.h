@@ -56,9 +56,14 @@ public:
 		m_pTreeList->setContextMenuPolicy(Qt::CustomContextMenu);
 		connect(m_pTreeList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 		m_pMainLayout->addWidget(m_pTreeList);
-		
-		AddPanelItemsToMenu(false);
+		m_pTreeList->setMinimumHeight(50);
+		AddPanelItemsToMenu();
+
+		m_pLastAction = m_pMenu->actions()[0];
 	}
+
+	virtual QMenu*				GetMenu()	{ return m_pMenu; }
+	virtual void				AddAction(QAction* pAction) { m_pMenu->insertAction(m_pLastAction, pAction); }
 
 	virtual T*					GetTree()	{ return m_pTreeList; }
 	virtual QTreeView*			GetView()	{ return m_pTreeList; }
@@ -68,4 +73,6 @@ protected:
 	QVBoxLayout*			m_pMainLayout;
 
 	T*						m_pTreeList;
+
+	QAction*				m_pLastAction;
 };

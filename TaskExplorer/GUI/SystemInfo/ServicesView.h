@@ -19,10 +19,6 @@ public:
 
 	//void					OnMenu(const QPoint &point);
 
-#ifdef WIN32
-	void					SetShowKernelServices(bool bShow);
-#endif
-
 public slots:
 	void					Refresh() {}
 
@@ -55,6 +51,7 @@ private:
 	QAction*				m_pMenuDelete;
 #ifdef WIN32
 	QAction*				m_pMenuOpenKey;
+	QAction*				m_pMenuKernelServices;
 #endif
 };
 

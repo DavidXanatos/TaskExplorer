@@ -88,11 +88,13 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 
 	int RowColor = CTaskExplorer::eNone;
-	if (pMemory->IsExecutable()) RowColor = CTaskExplorer::eExecutable;
+	if (pMemory->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
+	else if (pMemory->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+	else if (pMemory->IsExecutable())		RowColor = CTaskExplorer::eExecutable;
 #ifdef WIN32
-	else if (pWinMemory->IsBitmapRegion()) RowColor = CTaskExplorer::eElevated;
+	else if (pWinMemory->IsBitmapRegion())	RowColor = CTaskExplorer::eElevated;
 #endif
-	else if (pMemory->IsPrivate()) RowColor = CTaskExplorer::eUser;
+	else if (pMemory->IsPrivate())			RowColor = CTaskExplorer::eUser;
 
 	if (pNode->iColor != RowColor) {
 		pNode->iColor = RowColor;

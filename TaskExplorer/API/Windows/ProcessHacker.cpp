@@ -27,6 +27,7 @@
 #include <settings.h>
 
 #include "../../SVC/TaskService.h"
+#include "../../GUI/TaskExplorer.h"
 
 QString CastPhString(PPH_STRING phString, bool bDeRef)
 {
@@ -62,158 +63,7 @@ time_t FILETIME2time(quint64 fileTime)
 	return FILETIME2ms(fileTime) / 1000ULL;
 }
 
-#ifndef _DEBUG
-#include <symprv.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <minidumpapiset.h>
-//} // Note: minidumpapiset is missing extern "C" as of version \10.0.17763.0\um\minidumpapiset.h
-
-ULONG CALLBACK PhpUnhandledExceptionCallback(
-    _In_ PEXCEPTION_POINTERS ExceptionInfo
-    )
-{
-    PPH_STRING errorMessage;
-    INT result;
-    PPH_STRING message;
-    TASKDIALOGCONFIG config = { sizeof(TASKDIALOGCONFIG) };
-    TASKDIALOG_BUTTON buttons[2];
-
-    if (NT_NTWIN32(ExceptionInfo->ExceptionRecord->ExceptionCode))
-        errorMessage = PhGetStatusMessage(0, WIN32_FROM_NTSTATUS(ExceptionInfo->ExceptionRecord->ExceptionCode));
-    else
-        errorMessage = PhGetStatusMessage(ExceptionInfo->ExceptionRecord->ExceptionCode, 0);
-
-    message = PhFormatString(
-        L"Error code: 0x%08X (%s)",
-        ExceptionInfo->ExceptionRecord->ExceptionCode,
-        PhGetStringOrEmpty(errorMessage)
-        );
-
-    config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION;
-    config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
-    config.pszWindowTitle = PhApplicationName;
-    config.pszMainIcon = TD_ERROR_ICON;
-    config.pszMainInstruction = L"Task Explorer has crashed :(";
-    config.pszContent = message->Buffer;
-
-    buttons[0].nButtonID = IDYES;
-    buttons[0].pszButtonText = L"Minidump";
-    /*buttons[1].nButtonID = IDRETRY;
-    buttons[1].pszButtonText = L"Restart";*/
-
-    config.cButtons = RTL_NUMBER_OF(buttons);
-    config.pButtons = buttons;
-    config.nDefaultButton = IDCLOSE;
-
-    if (TaskDialogIndirect(
-        &config,
-        &result,
-        NULL,
-        NULL
-        ) == S_OK)
-    {
-        switch (result)
-        {
-        /*case IDRETRY:
-            {
-                PhShellProcessHacker(
-                    NULL,
-                    NULL,
-                    SW_SHOW,
-                    0,
-                    PH_SHELL_APP_PROPAGATE_PARAMETERS | PH_SHELL_APP_PROPAGATE_PARAMETERS_IGNORE_VISIBILITY,
-                    0,
-                    NULL
-                    );
-            }
-            break;*/
-        case IDYES:
-            {
-                static PH_STRINGREF dumpFilePath = PH_STRINGREF_INIT(L"%USERPROFILE%\\Desktop\\");
-                HANDLE fileHandle;
-                PPH_STRING dumpDirectory;
-                PPH_STRING dumpFileName;
-                WCHAR alphastring[16] = L"";
-
-                dumpDirectory = PhExpandEnvironmentStrings(&dumpFilePath);
-                PhGenerateRandomAlphaString(alphastring, RTL_NUMBER_OF(alphastring));
-
-                dumpFileName = PhConcatStrings(
-                    4,
-                    PhGetString(dumpDirectory),
-                    L"\\TaskExplorer_",
-                    alphastring,
-                    L"_DumpFile.dmp"
-                    );
-
-                if (NT_SUCCESS(PhCreateFileWin32(
-                    &fileHandle,
-                    dumpFileName->Buffer,
-                    FILE_GENERIC_WRITE,
-                    FILE_ATTRIBUTE_NORMAL,
-                    FILE_SHARE_READ | FILE_SHARE_DELETE,
-                    FILE_OVERWRITE_IF,
-                    FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
-                    )))
-                {
-                    MINIDUMP_EXCEPTION_INFORMATION exceptionInfo;
-
-                    exceptionInfo.ThreadId = HandleToUlong(NtCurrentThreadId());
-                    exceptionInfo.ExceptionPointers = ExceptionInfo;
-                    exceptionInfo.ClientPointers = FALSE;
-
-                    PhWriteMiniDumpProcess(
-                        NtCurrentProcess(),
-                        NtCurrentProcessId(),
-                        fileHandle,
-                        MiniDumpNormal,
-                        &exceptionInfo,
-                        NULL,
-                        NULL
-                        );
-
-                    NtClose(fileHandle);
-                }
-
-                PhDereferenceObject(dumpFileName);
-                PhDereferenceObject(dumpDirectory);
-            }
-            break;
-        }
-    }
-
-    RtlExitUserProcess(ExceptionInfo->ExceptionRecord->ExceptionCode);
-
-    PhDereferenceObject(message);
-    PhDereferenceObject(errorMessage);
-
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-#endif
-
-BOOLEAN PhInitializeExceptionPolicy(
-	VOID
-)
-{
-#ifndef _DEBUG
-	ULONG errorMode;
-
-	if (NT_SUCCESS(PhGetProcessErrorMode(NtCurrentProcess(), &errorMode)))
-	{
-		errorMode &= ~(SEM_NOOPENFILEERRORBOX | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
-		PhSetProcessErrorMode(NtCurrentProcess(), errorMode);
-	}
-
-	// NOTE: We really shouldn't be using this function since it can be
-	// preempted by the Win32 SetUnhandledExceptionFilter function. (dmex)
-	RtlSetUnhandledExceptionFilter(PhpUnhandledExceptionCallback);
-#endif
-
-	return TRUE;
-}
-
+/*
 BOOLEAN PhInitializeNamespacePolicy(
 	VOID
 )
@@ -259,6 +109,7 @@ BOOLEAN PhInitializeNamespacePolicy(
 
 	return FALSE;
 }
+*/
 
 /*
 BOOLEAN PhInitializeMitigationPolicy(
@@ -448,14 +299,14 @@ VOID PhInitializeKph(
     NTSTATUS status;
     PPH_STRING applicationDirectory;
     PPH_STRING kprocesshackerFileName;
-    PPH_STRING processhackerSigFileName;
+    //PPH_STRING processhackerSigFileName;
     KPH_PARAMETERS parameters;
 
     if (!(applicationDirectory = PhGetApplicationDirectory()))
         return;
 
     kprocesshackerFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"kprocesshacker.sys");
-    processhackerSigFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"ProcessHacker.sig");
+    //processhackerSigFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"ProcessHacker.sig");
     PhDereferenceObject(applicationDirectory);
 
     if (!RtlDoesFileExists_U(kprocesshackerFileName->Buffer))
@@ -468,14 +319,15 @@ VOID PhInitializeKph(
     parameters.CreateDynamicConfiguration = TRUE;
 
     if (NT_SUCCESS(status = KphConnect2Ex(
-        KPH_DEVICE_SHORT_NAME,
+        //KPH_DEVICE_SHORT_NAME,
+		L"XProcessHacker3",
         kprocesshackerFileName->Buffer,
         &parameters
         )))
     {
 		qDebug() << "Process Hacker kernel driver connected.";
 
-#if 0
+/*
 		PUCHAR signature;
         ULONG signatureSize;
 
@@ -500,7 +352,7 @@ VOID PhInitializeKph(
         {
 			qDebug() << "Unable to load the kernel driver signature.";
         }
-#endif
+*/
     }
     else
     {
@@ -508,7 +360,7 @@ VOID PhInitializeKph(
     }
 
     PhDereferenceObject(kprocesshackerFileName);
-    PhDereferenceObject(processhackerSigFileName);
+    //PhDereferenceObject(processhackerSigFileName);
 }
 
 int InitPH(bool bSvc)
@@ -523,10 +375,10 @@ int InitPH(bool bSvc)
 
 	if (!NT_SUCCESS(PhInitializePhLibEx(L"Task Explorer", ULONG_MAX, Instance, 0, 0)))
 		return 1;
-	if (!PhInitializeExceptionPolicy())
-		return 1;
-	if (!PhInitializeNamespacePolicy())
-		return 1;
+	//if (!PhInitializeExceptionPolicy())
+	//	return 1;
+	//if (!PhInitializeNamespacePolicy())
+	//	return 1;
 	//if (!PhInitializeMitigationPolicy())
 	//	return 1;
 	//if (!PhInitializeRestartPolicy())
@@ -558,12 +410,42 @@ int InitPH(bool bSvc)
 	PhpAddIntegerSetting(L"EnableSecurityAdvancedDialog", L"1");
 	PhpAddStringSetting(L"FileBrowseExecutable", L"%SystemRoot%\\explorer.exe /select,\"%s\"");
 
-    if (!PhIsExecutingInWow64())
+    /*if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseKProcessHacker", true))
     {
         PhInitializeKph();
-    }
+    }*/
 
 	return 0;
+}
+
+STATUS InitKPH(bool bPrivilegeCheck, wstring DeviceName, wstring FileName)
+{
+	if (DeviceName.empty())
+		DeviceName = KPH_DEVICE_SHORT_NAME;
+	if (FileName.empty())
+		FileName = L"kprocesshacker.sys";
+
+	if (FileName.find(L"\\") == -1)
+	{
+		PPH_STRING applicationDirectory = PhGetApplicationDirectory();
+		if (!applicationDirectory)
+			return ERR(QObject::tr("Unable to get the application directory."), STATUS_NOT_FOUND);
+
+		FileName = wstring(applicationDirectory->Buffer) + FileName;
+		PhDereferenceObject(applicationDirectory);
+	}
+
+    if (!RtlDoesFileExists_U((wchar_t*)FileName.c_str()))
+		return ERR(QObject::tr("The Process Hacker kernel driver '%1' was not found in the application directory.").arg(QString::fromStdWString(FileName)), STATUS_NOT_FOUND);
+
+	KPH_PARAMETERS parameters;
+    parameters.SecurityLevel = bPrivilegeCheck ? KphSecurityPrivilegeCheck : KphSecurityNone;
+    parameters.CreateDynamicConfiguration = TRUE;
+	NTSTATUS status = KphConnect2Ex((wchar_t*)DeviceName.c_str(), (wchar_t*)FileName.c_str(), &parameters);
+    if (!NT_SUCCESS(status))
+		return ERR(QObject::tr("Unable to load the kernel driver."), status);
+    
+	return OK;
 }
 
 void PhShowAbout(QWidget* parent)
@@ -1486,13 +1368,10 @@ NTSTATUS PhSvcCallSendMessage(
 	return STATUS_SUCCESS;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////////
 // syssccpu.c
 
-VOID PhSipGetCpuBrandString(
-    _Out_writes_(49) PWSTR BrandString
-    )
+VOID PhSipGetCpuBrandString(_Out_writes_(49) PWSTR BrandString)
 {
     // dmex: The __cpuid instruction generates quite a few FPs by security software (malware uses this as an anti-VM trick)...
     // TODO: This comment block should be removed if the SystemProcessorBrandString class is more reliable.
@@ -1503,20 +1382,13 @@ VOID PhSipGetCpuBrandString(
 
     CHAR brandString[49];
 
-    NtQuerySystemInformation(
-        SystemProcessorBrandString,
-        brandString,
-        sizeof(brandString),
-        NULL
-        );
+    NtQuerySystemInformation(SystemProcessorBrandString, brandString, sizeof(brandString), NULL);
 
     PhZeroExtendToUtf16Buffer(brandString, 48, BrandString);
     BrandString[48] = UNICODE_NULL;
 }
 
-/*BOOLEAN PhSipGetCpuFrequencyFromDistribution(
-    _Out_ DOUBLE *Fraction
-    )
+BOOLEAN PhSipGetCpuFrequencyFromDistribution(PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Current, PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Previous, double* Fraction)
 {
     ULONG stateSize;
     PVOID differences;
@@ -1530,16 +1402,16 @@ VOID PhSipGetCpuBrandString(
 
     // Calculate the differences from the last performance distribution.
 
-    if (CurrentPerformanceDistribution->ProcessorCount != NumberOfProcessors || PreviousPerformanceDistribution->ProcessorCount != NumberOfProcessors)
+    if (!Current || Current->ProcessorCount != PhSystemBasicInformation.NumberOfProcessors || !Previous || Previous->ProcessorCount != PhSystemBasicInformation.NumberOfProcessors)
         return FALSE;
 
     stateSize = FIELD_OFFSET(SYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION, States) + sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT) * 2;
-    differences = PhAllocate(stateSize * NumberOfProcessors);
+    differences = PhAllocate(stateSize * PhSystemBasicInformation.NumberOfProcessors);
 
-    for (i = 0; i < NumberOfProcessors; i++)
+    for (i = 0; i < PhSystemBasicInformation.NumberOfProcessors; i++)
     {
-        stateDistribution = PTR_ADD_OFFSET(CurrentPerformanceDistribution, CurrentPerformanceDistribution->Offsets[i]);
-        stateDifference = PTR_ADD_OFFSET(differences, stateSize * i);
+        stateDistribution = (PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION)PTR_ADD_OFFSET(Current, Current->Offsets[i]);
+        stateDifference = (PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION)PTR_ADD_OFFSET(differences, stateSize * i);
 
         if (stateDistribution->StateCount != 2)
         {
@@ -1555,17 +1427,17 @@ VOID PhSipGetCpuBrandString(
             }
             else
             {
-                hitcountOld = PTR_ADD_OFFSET(stateDistribution->States, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8) * j);
+                hitcountOld = (PSYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8)PTR_ADD_OFFSET(stateDistribution->States, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8) * j);
                 stateDifference->States[j].Hits = hitcountOld->Hits;
                 stateDifference->States[j].PercentFrequency = hitcountOld->PercentFrequency;
             }
         }
     }
 
-    for (i = 0; i < NumberOfProcessors; i++)
+    for (i = 0; i < PhSystemBasicInformation.NumberOfProcessors; i++)
     {
-        stateDistribution = PTR_ADD_OFFSET(PreviousPerformanceDistribution, PreviousPerformanceDistribution->Offsets[i]);
-        stateDifference = PTR_ADD_OFFSET(differences, stateSize * i);
+        stateDistribution = (PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION)PTR_ADD_OFFSET(Previous, Previous->Offsets[i]);
+        stateDifference = (PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION)PTR_ADD_OFFSET(differences, stateSize * i);
 
         if (stateDistribution->StateCount != 2)
         {
@@ -1581,7 +1453,7 @@ VOID PhSipGetCpuBrandString(
             }
             else
             {
-                hitcountOld = PTR_ADD_OFFSET(stateDistribution->States, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8) * j);
+                hitcountOld = (PSYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8)PTR_ADD_OFFSET(stateDistribution->States, sizeof(SYSTEM_PROCESSOR_PERFORMANCE_HITCOUNT_WIN8) * j);
                 stateDifference->States[j].Hits -= hitcountOld->Hits;
             }
         }
@@ -1592,9 +1464,9 @@ VOID PhSipGetCpuBrandString(
     count = 0;
     total = 0;
 
-    for (i = 0; i < NumberOfProcessors; i++)
+    for (i = 0; i < PhSystemBasicInformation.NumberOfProcessors; i++)
     {
-        stateDifference = PTR_ADD_OFFSET(differences, stateSize * i);
+        stateDifference = (PSYSTEM_PROCESSOR_PERFORMANCE_STATE_DISTRIBUTION)PTR_ADD_OFFSET(differences, stateSize * i);
 
         for (j = 0; j < 2; j++)
         {
@@ -1613,4 +1485,34 @@ VOID PhSipGetCpuBrandString(
     *Fraction = total;
 
     return TRUE;
-}*/
+}
+
+NTSTATUS PhSipQueryProcessorPerformanceDistribution(_Out_ PVOID *Buffer)
+{
+    NTSTATUS status;
+    PVOID buffer;
+    ULONG bufferSize;
+    ULONG attempts;
+
+    bufferSize = 0x100;
+    buffer = PhAllocate(bufferSize);
+
+    status = NtQuerySystemInformation(SystemProcessorPerformanceDistribution, buffer, bufferSize, &bufferSize);
+    attempts = 0;
+
+    while (status == STATUS_INFO_LENGTH_MISMATCH && attempts < 8)
+    {
+        PhFree(buffer);
+        buffer = PhAllocate(bufferSize);
+
+        status = NtQuerySystemInformation(SystemProcessorPerformanceDistribution, buffer, bufferSize, &bufferSize);
+        attempts++;
+    }
+
+    if (NT_SUCCESS(status))
+        *Buffer = buffer;
+    else
+        PhFree(buffer);
+
+    return status;
+}

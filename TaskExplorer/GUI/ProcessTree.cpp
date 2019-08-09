@@ -7,7 +7,7 @@
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WindowsAPI.h"
-#include "../API/Windows/ProcessHacker/GpuMonitor.h"
+#include "../API/Windows/ProcessHacker.h"
 #endif
 #include "../API/MemDumper.h"
 #include "../Common/ProgressDialog.h"
@@ -68,8 +68,9 @@ CProcessTree::CProcessTree(QWidget *parent)
 	//QAction*				m_pTerminateTree;
 	m_pMenu->addSeparator();
 
+	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
+
 	m_pCreateDump = m_pMenu->addAction(tr("Create Crash Dump"), this, SLOT(OnCrashDump()));
-	m_pCreateDump->setDisabled(true); // todo: implement
 	m_pDebug = m_pMenu->addAction(tr("Debug"), this, SLOT(OnProcessAction()));
 	m_pDebug->setCheckable(true);
 #ifdef WIN32
@@ -213,6 +214,9 @@ void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Chang
 {
 	m_Processes = theAPI->GetProcessList();
 
+	if (!theGUI->isVisible())
+		return;
+
 	m_pProcessModel->Sync(m_Processes);
 
 	// If we are dsplaying a tree than always auto expand new items
@@ -355,6 +359,12 @@ void CProcessTree::OnProcessAction()
 					pWinProcess->AttachDebugger();
 				else
 					pWinProcess->DetachDebugger();
+			}
+			else if (sender() == m_pOpenPath)
+			{
+				PPH_STRING phFileName = CastQString(pWinProcess->GetFileName());
+				PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+				PhDereferenceObject(phFileName);
 			}
 			
 

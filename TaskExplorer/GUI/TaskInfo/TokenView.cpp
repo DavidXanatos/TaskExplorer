@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
-#include "../../Common/SettingsWidgets.h"
 #include "TokenView.h"
 #include "TaskInfoWindow.h"
 #include "../API/Windows/ProcessHacker.h"
@@ -67,6 +66,7 @@ CTokenView::CTokenView(QWidget *parent)
 	row++;
 
 	m_pTabWidget = new QTabWidget();
+	m_pTabWidget->setMinimumHeight(100);
 	//m_pTabWidget->setTabPosition(QTabWidget::East);
 	m_pMainLayout->addWidget(m_pTabWidget);
 
@@ -74,6 +74,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pTokenList = new QTreeWidgetEx();
 	m_pTokenList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pTokenList->setHeaderLabels(tr("Name|Status|Description").split("|"));
+	m_pTokenList->setMinimumHeight(50);
 
 	m_pTokenList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pTokenList->setSortingEnabled(false);

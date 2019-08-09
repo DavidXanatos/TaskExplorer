@@ -64,6 +64,17 @@
       <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
       <Extensions>ui</Extensions>
     </Filter>
+    <Filter Include="Translation Files">
+      <UniqueIdentifier>{639EADAA-A684-42e4-A9AD-28FC9BCB8F7C}</UniqueIdentifier>
+      <Extensions>ts</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="API\Windows\Monitors">
+      <UniqueIdentifier>{1f73c8d8-9f81-409c-adbe-bec566d7a2bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Monitors">
+      <UniqueIdentifier>{74c948b0-3d3a-4256-9035-eccf45401174}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -312,9 +323,6 @@
     <ClCompile Include="API\Windows\ProcessHacker\ProcMtgn.cpp">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\ProcessHacker\EventMonitor.cpp">
-      <Filter>API\Windows\ProcessHacker</Filter>
-    </ClCompile>
     <ClCompile Include="API\Windows\WinAdmin.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
@@ -347,9 +355,6 @@
     </ClCompile>
     <ClCompile Include="API\Windows\WinToken.cpp">
       <Filter>API\Windows</Filter>
-    </ClCompile>
-    <ClCompile Include="API\Windows\ProcessHacker\GpuMonitor.cpp">
-      <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
     <ClCompile Include="GUI\SettingsWindow.cpp">
       <Filter>TaskExplorer</Filter>
@@ -408,8 +413,62 @@
     <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\storage.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\GDIView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinGDI.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\GDIModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\CPUView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\DiskView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\GPUView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\NetworkView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\RAMView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
     <ClCompile Include="API\Windows\SymbolProvider.cpp">
       <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\WinDiskMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\WinGpuMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\WinNetMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Monitors\DiskMonitor.cpp">
+      <Filter>API\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Monitors\GpuMonitor.cpp">
+      <Filter>API\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Monitors\NetMonitor.cpp">
+      <Filter>API\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FlowLayout.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -478,6 +537,12 @@
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\devices.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FlowLayout.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -697,9 +762,6 @@
     <QtMoc Include="GUI\SystemInfo\ServiceListWidget.h">
       <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
-    <QtMoc Include="API\Windows\ProcessHacker\EventMonitor.h">
-      <Filter>API\Windows\ProcessHacker</Filter>
-    </QtMoc>
     <QtMoc Include="API\MemDumper.h">
       <Filter>API</Filter>
     </QtMoc>
@@ -784,11 +846,53 @@
     <QtMoc Include="API\Windows\ProcessHacker\AssemblyEnum.h">
       <Filter>API\Windows\ProcessHacker</Filter>
     </QtMoc>
-    <QtMoc Include="API\Windows\ProcessHacker\GpuMonitor.h">
-      <Filter>API\Windows\ProcessHacker</Filter>
+    <QtMoc Include="GUI\TaskInfo\GDIView.h">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinGDI.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\RAMView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\CPUView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\DiskView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\GDIModel.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\GPUView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\NetworkView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\SymbolProvider.h">
       <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\WinDiskMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\WinGpuMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\WinNetMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Monitors\DiskMonitor.h">
+      <Filter>API\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Monitors\GpuMonitor.h">
+      <Filter>API\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Monitors\NetMonitor.h">
+      <Filter>API\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\EventMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
@@ -820,6 +924,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CHANGELOG.md" />
+    <None Include="taskexplorer_de.ts">
+      <Filter>Translation Files</Filter>
+    </None>
+    <None Include="taskexplorer_en.ts">
+      <Filter>Translation Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\TODO.md" />

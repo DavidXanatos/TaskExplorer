@@ -28,7 +28,7 @@
 #include "ProcessHacker.h"
 #include "../../Common/Common.h"
 #include "../../GUI/TaskExplorer.h"
-#include "clrsup.h"
+#include "./ProcessHacker/clrsup.h"
 #include "../../SVC/TaskService.h"
 
 #include <dbghelp.h>
@@ -85,7 +85,7 @@ CSymbolProvider::CSymbolProvider(QObject *parent) : QThread(parent)
 	memset(m_SymbolProviderEventRegistration, 0, sizeof(PH_CALLBACK_REGISTRATION));
 }
 
-VOID SymbolProviderEventCallbackHandler(
+VOID __stdcall SymbolProviderEventCallbackHandler(
     _In_opt_ PVOID Parameter,
     _In_opt_ PVOID Context
     )
@@ -266,7 +266,7 @@ typedef struct _PH_THREAD_SYMBOL_LOAD_CONTEXT
 } PH_THREAD_SYMBOL_LOAD_CONTEXT, *PPH_THREAD_SYMBOL_LOAD_CONTEXT;
 
 // thrdprov.c
-BOOLEAN LoadSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ PVOID Context)
+BOOLEAN __stdcall LoadSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ PVOID Context)
 {
     PPH_THREAD_SYMBOL_LOAD_CONTEXT context = (PPH_THREAD_SYMBOL_LOAD_CONTEXT)Context;
     PPH_SYMBOL_PROVIDER symbolProvider = context->SymbolProvider;

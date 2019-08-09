@@ -32,6 +32,7 @@ CGraphBar::CGraphBar()
 
 	m_pLastTipGraph = NULL;
 
+
 	int Rows = theConf->GetInt("Options/GraphRows", 2);
 	QList<EGraph> Graphs;
 	QStringList GraphList = theConf->GetStringList("Options/Graphs");
@@ -65,8 +66,8 @@ CGraphBar::CGraphBar()
 CGraphBar::~CGraphBar()
 {
 	QStringList GraphList;
-	foreach(const TGraphPair& Graph, m_Graphs)
-		GraphList.append(QString::number(Graph.first));
+	foreach(const SGraph& Graph, m_Graphs)
+		GraphList.append(QString::number(Graph.Type));
 	theConf->SetValue("Options/GraphRows", m_Rows);
 	theConf->SetValue("Options/Graphs", GraphList);
 }
@@ -98,8 +99,8 @@ void CGraphBar::UpdateLengths()
 	int interval = theConf->GetInt("Options/RefreshInterval", 1000); // 5 minutes default
 	int limit = interval ? theConf->GetInt("Options/GraphLength", 300) * 1000 / interval : 300;
 	
-	foreach(const TGraphPair& Graph, m_Graphs)
-		Graph.second->SetLimit(limit);
+	foreach(const SGraph& Graph, m_Graphs)
+		Graph.pPlot->SetLimit(limit);
 }
 
 void CGraphBar::AddGraph(EGraph Graph, int row, int column)
@@ -121,11 +122,9 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 		break;
 	case eGpuMemPlot:
 	{
-#ifdef WIN32
 		pPlot->SetRagne(100);
 		pPlot->AddPlot("Dedicated", Qt::green, Qt::SolidLine, true);
 		pPlot->AddPlot("Shared", Qt::red, Qt::SolidLine, true);
-#endif
 		break;
 	}
 	case eObjectPlot:
@@ -180,16 +179,8 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 		pPlot->AddPlot("Send", Qt::red, Qt::SolidLine);
 		break;
 	case eGpuPlot:
-	{
 		pPlot->SetRagne(100);
-#ifdef WIN32
-		CGpuMonitor* pGpuMonitor = ((CWindowsAPI*)theAPI)->GetGpuMonitor();
-		QColor GpuColors[] = { Qt::green, Qt::cyan, Qt::yellow, Qt::blue};
-		for (int i = 0; i < pGpuMonitor->GetGpuCount(); i++)
-			pPlot->AddPlot("Gpu_" + QString::number(i), GpuColors[i % ARRSIZE(GpuColors)], Qt::SolidLine, true);
-#endif
 		break;
-	}
 	case eCpuPlot:
 		pPlot->SetRagne(100);
 		pPlot->AddPlot("User", Qt::green, Qt::SolidLine, true);
@@ -200,7 +191,10 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 
 	FixPlotScale(pPlot);
 
-	m_Graphs.append(qMakePair(Graph, pPlot));
+	SGraph GraphData;
+	GraphData.Type = Graph;
+	GraphData.pPlot = pPlot;
+	m_Graphs.append(GraphData);
 	
 	m_pMainLayout->addWidget(pPlot, row, column);
 
@@ -216,8 +210,8 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 
 void CGraphBar::DeleteGraphs()
 {
-	foreach(const TGraphPair& Graph, m_Graphs)
-		delete Graph.second;
+	foreach(const SGraph& Graph, m_Graphs)
+		delete Graph.pPlot;
 	m_Graphs.clear();
 }
 
@@ -233,16 +227,16 @@ void CGraphBar::FixPlotScale(CIncrementalPlot* pPlot)
 void CGraphBar::UpdateGraphs()
 {
 	SSysStats Stats = theAPI->GetStats();
-#ifdef WIN32
-	CGpuMonitor* pGpuMonitor = ((CWindowsAPI*)theAPI)->GetGpuMonitor();
-#endif
+	CGpuMonitor* pGpuMonitor = theAPI->GetGpuMonitor();
+	CDiskMonitor* pDiskMonitor = theAPI->GetDiskMonitor();
+	CNetMonitor* pNetMonitor = theAPI->GetNetMonitor();
 
-	foreach(const TGraphPair& Graph, m_Graphs)
+	for(QList<SGraph>::iterator I = m_Graphs.begin(); I != m_Graphs.end(); ++I)
 	{
-		CIncrementalPlot* pPlot = Graph.second;
+		CIncrementalPlot* pPlot = I->pPlot;
 		QString Text;
 		QStringList Texts;
-		switch (Graph.first)
+		switch (I->Type)
 		{
 		case eMemoryPlot:
 			Text = tr("Memory=%1%").arg(theAPI->GetInstalledMemory() ? (int)100*theAPI->GetPhysicalUsed()/theAPI->GetInstalledMemory() : 0);
@@ -255,7 +249,6 @@ void CGraphBar::UpdateGraphs()
 			break;
 		case eGpuMemPlot:
 		{
-#ifdef WIN32
 			CGpuMonitor::SGpuMemory GpuMemory = pGpuMonitor->GetGpuMemory();
 			
 			Text = tr("Gpu Memory");
@@ -265,7 +258,6 @@ void CGraphBar::UpdateGraphs()
 
 			Texts.append(FormatUnit(GpuMemory.SharedUsage, 0));
 			pPlot->AddPlotPoint("Shared", GpuMemory.SharedLimit ? 100 * GpuMemory.SharedUsage / GpuMemory.SharedLimit : 0);
-#endif
 			break;
 		}
 		case eObjectPlot:
@@ -297,15 +289,84 @@ void CGraphBar::UpdateGraphs()
 			break;
 
 		case eDiskIoPlot:
-			Text = tr("DiskIO<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
-			
-			Texts.append(FormatUnit(Stats.Disk.ReadRate.Get(), 0));
-			pPlot->AddPlotPoint("Read", Stats.Disk.ReadRate.Get());
+		{
+			CDiskMonitor::SDataRates DiskRates = pDiskMonitor->GetAllDiskDataRates();
+			int DiskUsage = theConf->GetInt("Options/DiskUsageMode", 2);
 
-			Texts.append(FormatUnit(Stats.Disk.WriteRate.Get(), 0));
-			pPlot->AddPlotPoint("Write", Stats.Disk.WriteRate.Get());
+			int DiskPlotCount = I->Params["DiskPlotCount"].toInt();
+			if(DiskUsage != 0 && DiskRates.DiskCount > 0 && (DiskRates.Supported == DiskRates.DiskCount || DiskUsage == 1))
+			{
+				QMap<QString, CDiskMonitor::SDiskInfo> DiskList = pDiskMonitor->GetDiskList();
+
+				if (DiskPlotCount != DiskRates.Supported)
+				{
+					DiskPlotCount = 0;
+					pPlot->Clear();
+
+					pPlot->SetRagne(100);
+					QVector<QColor> Colors = theGUI->GetPlotColors();
+					foreach(const CDiskMonitor::SDiskInfo& Disk, DiskList)
+					{
+						if (!Disk.DeviceSupported)
+							continue;
+
+						pPlot->AddPlot("Disk_" + QString::number(DiskPlotCount), Colors[DiskPlotCount % Colors.size()], Qt::SolidLine, true);
+						DiskPlotCount++;
+					}
+					I->Params["DiskPlotCount"] = DiskPlotCount;
+				}
+
+				int MaxDiskUsage = 0;
+				int i = 0;
+				foreach(const CDiskMonitor::SDiskInfo& Disk, DiskList)
+				{
+					if (!Disk.DeviceSupported)
+						continue;
+
+					int DiskUsage = Disk.ActiveTime;
+					Texts.append(tr("%1%").arg(DiskUsage));
+					pPlot->AddPlotPoint("Disk_" + QString::number(i), DiskUsage);
+					if (DiskUsage > MaxDiskUsage)
+						MaxDiskUsage = DiskUsage;
+					i++;
+				}
+				Text = tr("Disk=%1%").arg(MaxDiskUsage);
+			}
+			else
+			{
+				if (DiskPlotCount != 0)
+				{
+					I->Params["DiskPlotCount"] = 0;
+					pPlot->Clear();
+					pPlot->AddPlot("Read", Qt::green, Qt::SolidLine);
+					pPlot->AddPlot("Write", Qt::red, Qt::SolidLine);
+				}
+
+				Text = tr("DiskIO<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
+
+				quint64 ReadRate = 0;
+				quint64 WriteRate = 0;
+#ifdef WIN32
+				if (!((CWindowsAPI*)theAPI)->IsMonitoringETW())
+				{
+					ReadRate = DiskRates.ReadRate;
+					WriteRate = DiskRates.WriteRate;
+				}
+				else
+#endif
+				{
+					ReadRate = Stats.Disk.ReadRate.Get();
+					WriteRate = Stats.Disk.WriteRate.Get();
+				}
+
+				Texts.append(FormatUnit(Stats.Disk.ReadRate.Get(), 0));
+				pPlot->AddPlotPoint("Read", Stats.Disk.ReadRate.Get());
+
+				Texts.append(FormatUnit(Stats.Disk.WriteRate.Get(), 0));
+				pPlot->AddPlotPoint("Write", Stats.Disk.WriteRate.Get());
+			}
 			break;
-
+		}
 		case eMMapIoPlot:
 			Text = tr("MMapIO<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
@@ -371,45 +432,69 @@ void CGraphBar::UpdateGraphs()
 #endif
 
 		case eRasPlot:
-			Text = tr("RAS/VPN<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
-	
-			Texts.append(FormatUnit(Stats.NetRas.ReceiveRate.Get(), 0));
-			pPlot->AddPlotPoint("Recv", Stats.NetRas.ReceiveRate.Get());
+		{
+			CNetMonitor::SDataRates RasRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eRas);
 
-			Texts.append(FormatUnit(Stats.NetRas.SendRate.Get(), 0));
-			pPlot->AddPlotPoint("Send", Stats.NetRas.SendRate.Get());
+			Text = tr("RAS/VPN<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
+
+			Texts.append(FormatUnit(RasRates.ReceiveRate, 0));
+			pPlot->AddPlotPoint("Recv", RasRates.ReceiveRate);
+
+			Texts.append(FormatUnit(RasRates.SendRate, 0));
+			pPlot->AddPlotPoint("Send", RasRates.SendRate);
 
 			break;
-
+		}
 		case eNetworkPlot:
+		{
+			CNetMonitor::SDataRates NetRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eNet);
+
 			Text = tr("TCP/IP<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
-			Texts.append(FormatUnit(Stats.NetIf.ReceiveRate.Get(), 0));
-			pPlot->AddPlotPoint("Recv", Stats.NetIf.ReceiveRate.Get());
+			Texts.append(FormatUnit(NetRates.ReceiveRate, 0));
+			pPlot->AddPlotPoint("Recv", NetRates.ReceiveRate);
 
-			Texts.append(FormatUnit(Stats.NetIf.SendRate.Get(), 0));
-			pPlot->AddPlotPoint("Send", Stats.NetIf.SendRate.Get());
+			Texts.append(FormatUnit(NetRates.SendRate, 0));
+			pPlot->AddPlotPoint("Send", NetRates.SendRate);
 
 			break;
-
+		}
 		case eGpuPlot:
 		{
-#ifdef WIN32
-			int MaxGpuUsage = 0;
-			for (int i = 0; i < pGpuMonitor->GetGpuCount(); i++)
+			QMap<QString, CGpuMonitor::SGpuInfo> GpuList = pGpuMonitor->GetAllGpuList();
+
+			int GpuPlotCount = I->Params["GpuPlotCount"].toInt();
+			if (GpuPlotCount != GpuList.size())
 			{
-				int GpuUsage = 100 * pGpuMonitor->GetGpuUsage(i);
+				GpuPlotCount = 0;
+				pPlot->Clear();
+
+				pPlot->SetRagne(100);
+				QVector<QColor> Colors = theGUI->GetPlotColors();
+				foreach(const CGpuMonitor::SGpuInfo &GpuInfo, GpuList)
+				{
+					pPlot->AddPlot("Gpu_" + QString::number(GpuPlotCount), Colors[GpuPlotCount % Colors.size()], Qt::SolidLine, true);
+					GpuPlotCount++;
+				}
+				I->Params["GpuPlotCount"] = GpuPlotCount;
+			}
+
+			int MaxGpuUsage = 0;
+			int i = 0;
+			foreach(const CGpuMonitor::SGpuInfo &GpuInfo, GpuList)
+			{
+				int GpuUsage = 100 * GpuInfo.TimeUsage;
 				Texts.append(tr("%1%").arg(GpuUsage));
 				pPlot->AddPlotPoint("Gpu_" + QString::number(i), GpuUsage);
 				if (GpuUsage > MaxGpuUsage)
 					MaxGpuUsage = GpuUsage;
+				i++;
 			}
-			Text = tr("Gpu=%1%").arg(MaxGpuUsage);
-#endif
+			Text = tr("GPU=%1%").arg(MaxGpuUsage);
 			break;
 		}
 		case eCpuPlot:
-			Text = tr("Cpu=%1%").arg(int(100*theAPI->GetCpuUsage()));
+			Text = tr("CPU=%1%").arg(int(100*theAPI->GetCpuUsage()));
 			
 			Texts.append(tr("%1%").arg(int(100*theAPI->GetCpuUserUsage())));
 			pPlot->AddPlotPoint("User", theAPI->GetCpuUsage()*100);
@@ -446,10 +531,10 @@ void CGraphBar::ClearGraphs()
 	}
 	else
 	{
-		foreach(const TGraphPair& Graph, m_Graphs)
+		foreach(const SGraph& Graph, m_Graphs)
 		{
-			Graph.second->Reset();
-			FixPlotScale(Graph.second);
+			Graph.pPlot->Reset();
+			FixPlotScale(Graph.pPlot);
 		}
 	}
 }
@@ -489,8 +574,8 @@ void CGraphBar::CustomizeGraphs()
 	ItemChooser.AddItem(tr("CPU Usage"), eCpuPlot);
 
 	QVariantList ChoosenItems;
-	foreach(const TGraphPair& Graph, m_Graphs)
-		ChoosenItems.append(Graph.first);
+	foreach(const SGraph& Graph, m_Graphs)
+		ChoosenItems.append(Graph.Type);
 	ItemChooser.ChooseItems(ChoosenItems);
 
 	if (!ItemChooser.exec())
@@ -528,11 +613,13 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 	QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
 
 	EGraph Type = eCount;
-	foreach(const TGraphPair& Graph, m_Graphs)
+	QVariantMap Params;
+	foreach(const SGraph& Graph, m_Graphs)
 	{
-		if (Graph.second == m_pLastTipGraph)
+		if (Graph.pPlot == m_pLastTipGraph)
 		{
-			Type = Graph.first;
+			Type = Graph.Type;
+			Params = Graph.Params;
 			break;
 		}
 	}
@@ -540,9 +627,9 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		return;
 
 	SSysStats Stats = theAPI->GetStats();
-#ifdef WIN32
-	CGpuMonitor* pGpuMonitor = ((CWindowsAPI*)theAPI)->GetGpuMonitor();
-#endif
+	CGpuMonitor* pGpuMonitor = theAPI->GetGpuMonitor();
+	CDiskMonitor* pDiskMonitor = theAPI->GetDiskMonitor();
+	CNetMonitor* pNetMonitor = theAPI->GetNetMonitor();
 
 	QString Text;
 	switch (Type)
@@ -558,23 +645,21 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		break;
 	case eGpuMemPlot:
 	{
-#ifdef WIN32
+		QMap<QString, CGpuMonitor::SGpuInfo> GpuList = pGpuMonitor->GetAllGpuList();
+
 		Text = tr("<h3>GPU Memory Usage:</h3>");
 		Text += tr("<ul>");
-		for (int i = 0; i < pGpuMonitor->GetGpuCount(); i++)
+		foreach(const CGpuMonitor::SGpuInfo &GpuInfo, GpuList)
 		{
-			CGpuMonitor::SGpuInfo GpuInfo = pGpuMonitor->GetGpuInfo(i);
 			Text += tr("<li>%1</li>").arg(GpuInfo.Description);
 			Text += tr("<ul>");
 
-			CGpuMonitor::SGpuMemory GpuMemory = pGpuMonitor->GetGpuMemory(i);
-			Text += tr("<li><b>Dedicated</b> memory: %1/%2</li>").arg(FormatSize(GpuMemory.DedicatedUsage)).arg(FormatSize(GpuMemory.DedicatedLimit));
-			Text += tr("<li><b>Shared</b> memory: %1/%2</li>").arg(FormatSize(GpuMemory.SharedUsage)).arg(FormatSize(GpuMemory.SharedLimit));
+			Text += tr("<li><b>Dedicated</b> memory: %1/%2</li>").arg(FormatSize(GpuInfo.Memory.DedicatedUsage)).arg(FormatSize(GpuInfo.Memory.DedicatedLimit));
+			Text += tr("<li><b>Shared</b> memory: %1/%2</li>").arg(FormatSize(GpuInfo.Memory.SharedUsage)).arg(FormatSize(GpuInfo.Memory.SharedLimit));
 
 			Text += tr("</ul>");
 		}
 		Text += tr("</ul>");
-#endif
 		break;
 	}
 	case eObjectPlot:
@@ -604,11 +689,26 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		break;
 
 	case eDiskIoPlot:
-		Text = tr("<h3>Disk I/O:</h3>");
-		Text += tr("<ul>");
-		Text += tr("<li><b>Read</b> rate: %1</li>").arg(FormatSize(Stats.Disk.ReadRate.Get()));
-		Text += tr("<li><b>Write</b> rate: %1</li>").arg(FormatSize(Stats.Disk.WriteRate.Get()));
-		Text += tr("</ul>");
+		if(Params["DiskPlotCount"].toInt() > 0)
+		{
+			QMap<QString, CDiskMonitor::SDiskInfo> DiskList = pDiskMonitor->GetDiskList();
+
+			Text = tr("<h3>Disk Usage:</h3>");
+			Text += tr("<ul>");
+			foreach(const CDiskMonitor::SDiskInfo& Disk, DiskList)
+			{
+				Text += tr("<li><b>%1</b> usage: %2%</li>").arg(Disk.DeviceName).arg(int(Disk.ActiveTime));
+			}
+			Text += tr("</ul>");
+		}
+		else
+		{
+			Text = tr("<h3>Disk I/O:</h3>");
+			Text += tr("<ul>");
+			Text += tr("<li><b>Read</b> rate: %1</li>").arg(FormatSize(Stats.Disk.ReadRate.Get()));
+			Text += tr("<li><b>Write</b> rate: %1</li>").arg(FormatSize(Stats.Disk.WriteRate.Get()));
+			Text += tr("</ul>");
+		}
 		break;
 
 	case eMMapIoPlot:
@@ -657,33 +757,37 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 #endif
 
 	case eRasPlot:
+	{
+		CNetMonitor::SDataRates RasRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eRas);
+
 		Text = tr("<h3>RAS & VPN Traffic:</h3>");
 		Text += tr("<ul>");
-		Text += tr("<li><b>Receive</b> rate: %1</li>").arg(FormatSize(Stats.NetRas.ReceiveRate.Get()));
-		Text += tr("<li><b>Send</b> rate: %1</li>").arg(FormatSize(Stats.NetRas.SendRate.Get()));
+		Text += tr("<li><b>Receive</b> rate: %1</li>").arg(FormatSize(RasRates.ReceiveRate));
+		Text += tr("<li><b>Send</b> rate: %1</li>").arg(FormatSize(RasRates.SendRate));
 		Text += tr("</ul>");
 		break;
-
+	}
 	case eNetworkPlot:
+	{
+		CNetMonitor::SDataRates NetRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eNet);
+
 		Text = tr("<h3>TCP/IP Traffic:</h3>");
 		Text += tr("<ul>");
-		Text += tr("<li><b>Receive</b> rate: %1</li>").arg(FormatSize(Stats.NetIf.ReceiveRate.Get()));
-		Text += tr("<li><b>Send</b> rate: %1</li>").arg(FormatSize(Stats.NetIf.SendRate.Get()));
+		Text += tr("<li><b>Receive</b> rate: %1</li>").arg(FormatSize(NetRates.ReceiveRate));
+		Text += tr("<li><b>Send</b> rate: %1</li>").arg(FormatSize(NetRates.SendRate));
+
 		Text += tr("</ul>");
 		break;
-
+	}
 	case eGpuPlot:
 	{
-#ifdef WIN32
+		QMap<QString, CGpuMonitor::SGpuInfo> GpuList = pGpuMonitor->GetAllGpuList();
+
 		Text = tr("<h3>GPU Usage:</h3>");
 		Text += tr("<ul>");
-		for (int i = 0; i < pGpuMonitor->GetGpuCount(); i++)
-		{
-			CGpuMonitor::SGpuInfo GpuInfo = pGpuMonitor->GetGpuInfo(i);
-			Text += tr("<li><b>%1</b> usage: %2%</li>").arg(GpuInfo.Description).arg(int(100*pGpuMonitor->GetGpuUsage(i)));
-		}
+		foreach(const CGpuMonitor::SGpuInfo &GpuInfo, GpuList)
+			Text += tr("<li><b>%1</b> usage: %2%</li>").arg(GpuInfo.Description).arg(int(100*GpuInfo.TimeUsage));
 		Text += tr("</ul>");
-#endif
 		break;
 	}
 	case eCpuPlot:

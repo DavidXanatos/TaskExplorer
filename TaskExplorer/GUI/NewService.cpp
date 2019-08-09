@@ -71,8 +71,11 @@ void CNewService::accept()
 
 	if(win32Result != ERROR_SUCCESS)
 		QMessageBox::warning(NULL, "TaskExplorer", tr("Failed to create service, error: %1").arg(win32Result));
-	else 
+	else
+	{
+		QMessageBox::information(NULL, "TaskExplorer", tr("Successfully creted service: %1").arg(ui.scvName->text()));
 		this->close();
+	}
 #endif
 }
 

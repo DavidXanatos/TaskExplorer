@@ -27,7 +27,7 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	m_pVariablesList->setModel(m_pSortProxy);
 
 	m_pVariablesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pVariablesList->setSortingEnabled(false);
+	m_pVariablesList->setSortingEnabled(true);
 
 	m_pVariablesList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pVariablesList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));

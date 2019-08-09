@@ -263,6 +263,9 @@
     <ClCompile Include="API\MemoryInfo.cpp" />
     <ClCompile Include="API\ModuleInfo.cpp" />
     <ClCompile Include="API\AbstractInfo.cpp" />
+    <ClCompile Include="API\Monitors\DiskMonitor.cpp" />
+    <ClCompile Include="API\Monitors\GpuMonitor.cpp" />
+    <ClCompile Include="API\Monitors\NetMonitor.cpp" />
     <ClCompile Include="API\ProcessInfo.cpp" />
     <ClCompile Include="API\ServiceInfo.cpp" />
     <ClCompile Include="API\SocketInfo.cpp" />
@@ -272,27 +275,32 @@
     <ClCompile Include="API\Windows\Finders\WinHandleFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinStringFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinModuleFinder.cpp" />
+    <ClCompile Include="API\Windows\Monitors\WinDiskMonitor.cpp" />
+    <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp" />
+    <ClCompile Include="API\Windows\Monitors\WinGpuMonitor.cpp" />
+    <ClCompile Include="API\Windows\Monitors\WinNetMonitor.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\AssemblyEnum.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\clrsup.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp" />
-    <ClCompile Include="API\Windows\ProcessHacker\EventMonitor.cpp" />
-    <ClCompile Include="API\Windows\ProcessHacker\GpuMonitor.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ProcMtgn.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\RunAs.cpp" />
-    <ClCompile Include="API\Windows\SymbolProvider.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\storage.cpp" />
     <ClCompile Include="API\Windows\RunAsTI.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="API\Windows\SymbolProvider.cpp" />
     <ClCompile Include="API\Windows\WinAdmin.cpp" />
     <ClCompile Include="API\Windows\WindowsAPI.cpp" />
     <ClCompile Include="API\Windows\WinDriver.cpp" />
     <ClCompile Include="API\Windows\WinDumper.cpp" />
+    <ClCompile Include="API\Windows\WinGDI.cpp" />
     <ClCompile Include="API\Windows\WinHandle.cpp" />
     <ClCompile Include="API\Windows\WinJob.cpp" />
     <ClCompile Include="API\Windows\WinMemIO.cpp" />
@@ -310,6 +318,7 @@
     <ClCompile Include="Common\Common.cpp" />
     <ClCompile Include="Common\DebugHelpers.cpp" />
     <ClCompile Include="Common\Finder.cpp" />
+    <ClCompile Include="Common\FlowLayout.cpp" />
     <ClCompile Include="Common\IncrementalPlot.cpp" />
     <ClCompile Include="Common\ItemChooser.cpp" />
     <ClCompile Include="Common\KeyValueInputDialog.cpp" />
@@ -326,6 +335,7 @@
     <ClCompile Include="GUI\GraphBar.cpp" />
     <ClCompile Include="GUI\MemoryEditor.cpp" />
     <ClCompile Include="GUI\Models\DriverModel.cpp" />
+    <ClCompile Include="GUI\Models\GDIModel.cpp" />
     <ClCompile Include="GUI\Models\HandleModel.cpp" />
     <ClCompile Include="GUI\Models\MemoryModel.cpp" />
     <ClCompile Include="GUI\Models\ModuleModel.cpp" />
@@ -359,7 +369,12 @@
     </ClCompile>
     <ClCompile Include="GUI\RunAsDialog.cpp" />
     <ClCompile Include="GUI\StatsView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\CPUView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\DiskView.cpp" />
     <ClCompile Include="GUI\SystemInfo\DriversView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\GPUView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\NetworkView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\RAMView.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServiceListWidget.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServicesView.cpp" />
     <ClCompile Include="GUI\SystemInfo\SystemInfoView.cpp" />
@@ -371,6 +386,7 @@
     <ClCompile Include="GUI\TaskExplorer.cpp" />
     <ClCompile Include="GUI\TaskInfo\DotNetView.cpp" />
     <ClCompile Include="GUI\TaskInfo\EnvironmentView.cpp" />
+    <ClCompile Include="GUI\TaskInfo\GDIView.cpp" />
     <ClCompile Include="GUI\TaskInfo\HandlesView.cpp" />
     <ClCompile Include="GUI\TaskInfo\JobView.cpp" />
     <ClCompile Include="GUI\TaskInfo\MemoryView.cpp" />
@@ -508,11 +524,18 @@
     </QtMoc>
     <QtMoc Include="API\MemDumper.h" />
     <QtMoc Include="API\MemoryInfo.h" />
+    <QtMoc Include="API\Monitors\DiskMonitor.h" />
+    <QtMoc Include="API\Monitors\GpuMonitor.h" />
+    <QtMoc Include="API\Monitors\NetMonitor.h" />
     <ClInclude Include="API\StackTrace.h" />
     <QtMoc Include="API\Windows\Finders\WinHandleFinder.h" />
     <QtMoc Include="API\Windows\Finders\WinStringFinder.h" />
     <QtMoc Include="API\Windows\Finders\WinModuleFinder.h" />
     <QtMoc Include="API\StringInfo.h" />
+    <QtMoc Include="API\Windows\Monitors\WinDiskMonitor.h" />
+    <QtMoc Include="API\Windows\Monitors\EventMonitor.h" />
+    <QtMoc Include="API\Windows\Monitors\WinGpuMonitor.h" />
+    <QtMoc Include="API\Windows\Monitors\WinNetMonitor.h" />
     <ClInclude Include="API\Windows\ProcessHacker.h" />
     <QtMoc Include="Common\TreeWidgetEx.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
@@ -580,17 +603,11 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../API/Windows/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../API/Windows/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
-    <QtMoc Include="API\Windows\ProcessHacker\EventMonitor.h">
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;../../API/Windows/ProcessHacker/%(Filename)%(Extension)</ForceInclude>
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../API/Windows/ProcessHacker/%(Filename)%(Extension)</ForceInclude>
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../API/Windows/ProcessHacker/%(Filename)%(Extension)</ForceInclude>
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../API/Windows/ProcessHacker/%(Filename)%(Extension)</ForceInclude>
-    </QtMoc>
     <QtMoc Include="API\Windows\ProcessHacker\AssemblyEnum.h" />
     <ClInclude Include="API\Windows\ProcessHacker\clretw.h" />
     <ClInclude Include="API\Windows\ProcessHacker\clrsup.h" />
     <ClInclude Include="API\Windows\ProcessHacker\d3dkmt.h" />
-    <QtMoc Include="API\Windows\ProcessHacker\GpuMonitor.h" />
+    <ClInclude Include="API\Windows\ProcessHacker\devices.h" />
     <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h" />
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h" />
     <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h" />
@@ -608,6 +625,7 @@
     <QtMoc Include="API\Windows\WinMemory.h" />
     <QtMoc Include="API\Windows\WinMemIO.h" />
     <QtMoc Include="API\Windows\WinToken.h" />
+    <QtMoc Include="API\Windows\WinGDI.h" />
     <ClInclude Include="Common\Common.h" />
     <ClInclude Include="Common\DebugHelpers.h" />
     <QtMoc Include="Common\TreeViewEx.h">
@@ -703,6 +721,7 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
+    <ClInclude Include="Common\FlowLayout.h" />
     <ClInclude Include="Common\HistoryGraph.h" />
     <QtMoc Include="Common\MultiLineInputDialog.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
@@ -863,6 +882,7 @@
     <QtMoc Include="GUI\SettingsWindow.h" />
     <ClInclude Include="GUI\CustomItemDelegate.h" />
     <QtMoc Include="GUI\Models\StringModel.h" />
+    <QtMoc Include="GUI\Models\GDIModel.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -901,6 +921,12 @@
     <QtMoc Include="GUI\Search\SearchWindow.h" />
     <QtMoc Include="GUI\SystemInfo\SystemInfoWindow.h" />
     <QtMoc Include="GUI\TaskInfo\DotNetView.h" />
+    <QtMoc Include="GUI\TaskInfo\GDIView.h" />
+    <QtMoc Include="GUI\SystemInfo\CPUView.h" />
+    <QtMoc Include="GUI\SystemInfo\DiskView.h" />
+    <QtMoc Include="GUI\SystemInfo\GPUView.h" />
+    <QtMoc Include="GUI\SystemInfo\NetworkView.h" />
+    <QtMoc Include="GUI\SystemInfo\RAMView.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
@@ -938,6 +964,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CHANGELOG.md" />
+    <None Include="taskexplorer_de.ts" />
+    <None Include="taskexplorer_en.ts" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\TODO.md" />

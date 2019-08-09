@@ -77,6 +77,30 @@ struct SRateCounter2 : SRateCounter
 	quint64				TotalRate;
 };
 
+struct SSmoother
+{
+	SSmoother()
+	{
+		TotalValue = 0;
+	}
+
+	quint64 Smooth(quint64 newValue)
+	{
+		while(SmoothList.size() > 5)
+		{
+			TotalValue -= SmoothList.front();
+			SmoothList.pop_front();
+		}
+		SmoothList.push_back(newValue);
+		TotalValue += newValue;
+
+		return TotalValue / SmoothList.size();
+	}
+
+	list<quint64>	SmoothList;
+	quint64			TotalValue;
+};
+
 struct SNetStats
 {
 	SNetStats()
@@ -282,8 +306,6 @@ struct SSysStats: SProcStats
 		MMapIo.UpdateStats(time_ms);
 
 		NetIf.UpdateStats(time_ms);
-		//NetVpn.UpdateStats(time_ms);
-		NetRas.UpdateStats(time_ms);
 
 #ifdef WIN32
 		SambaServer.UpdateStats(time_ms);
@@ -296,8 +318,6 @@ struct SSysStats: SProcStats
 	SIOStatsEx	MMapIo;
 
 	SNetStats	NetIf;
-	//SNetStats	NetVpn;
-	SNetStats	NetRas;
 
 #ifdef WIN32
 	SNetStats	SambaServer;

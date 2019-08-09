@@ -177,31 +177,6 @@ protected:
 };
 
 ///////////////////////////////////////////////////
-// CUSSEdit
-
-class CUSSEdit: public CTxtEdit
-{
-	Q_OBJECT
-
-public:
-	CUSSEdit(QWidget *parent = 0);
-
-	void				SetText(const QString& Text);
-	QString				GetText();
-
-signals:
-	void				textChanged(const QString& text);
-
-private slots:
-	void				OnType(int Index);
-
-protected:
-	QComboBox*			m_pType;
-	QLineEdit*			m_pEdit;
-	bool				m_bHold;
-};
-
-///////////////////////////////////////////////////
 //
 
 class QComboBoxEx: public QComboBox 
@@ -214,41 +189,6 @@ public:
 	QComboBoxEx(QWidget* pParent = 0) : QComboBox(pParent) {}
 
 	QVariant				GetData() {return itemData(currentIndex());}
-};
-
-///////////////////////////////////////////////////
-// QSortOptions
-
-class QSortOptions: public QComboBox 
-{
-	Q_OBJECT
-
-public:
-	QSortOptions(QWidget* pParent = 0) ;
-
-	void					SetValue(const QString& str);
-	QString					GetValue();
-
-protected:
-	QMap<int, QString> opts;
-	QStandardItemModel* model;
-};
-
-
-///////////////////////////////////////////////////
-// CAnonSlider
-
-class CAnonSlider: public QWidget
-{
-	Q_OBJECT
-
-public:
-	CAnonSlider(QWidget *parent = 0);
-
-	QSlider*		GetSlider()		{return m_pSlider;}
-
-protected:
-	QSlider*		m_pSlider;
 };
 
 ///////////////////////////////////////////////////
@@ -363,7 +303,12 @@ protected:
 	bool m_exponential;
 };
 
+
+///////////////////////////////////////////////////
+// CMenuAction & CActionWidget
+
 class QMenu_: public QMenu { public: void initStyleOption_(QStyleOptionMenuItem *option, const QAction *action) const {QMenu::initStyleOption(option, action);} };
+
 
 class CActionWidget: public QWidget
 {
@@ -416,4 +361,59 @@ public:
         pWidget->setLayout(pLayout);
         setDefaultWidget(pWidget);
     }
+};
+
+///////////////////////////////////////////////////
+// QCheckComboBox
+
+class QCheckComboBox : public QComboBox
+{
+	Q_OBJECT
+public:
+	QCheckComboBox()
+	{
+		view()->viewport()->installEventFilter(this);
+	}
+
+	virtual bool eventFilter(QObject *watched, QEvent *e)
+	{
+		switch (e->type())
+		{
+		case QEvent::MouseButtonPress:
+			break;
+		case QEvent::MouseButtonRelease:
+			QMouseEvent *m = static_cast<QMouseEvent *>(e);
+
+			// is check box rect pressed
+			if (m->localPos().x() < this->height()) 
+			{
+				QStandardItemModel *model_ = qobject_cast<QStandardItemModel *>(model());
+				Qt::CheckState state = model_->data(view()->currentIndex(), Qt::CheckStateRole).value<Qt::CheckState>();
+
+				if (state != Qt::Checked)
+					state = Qt::Checked;
+				else
+					state = Qt::Unchecked;
+
+				model_->setData(view()->currentIndex(), state, Qt::CheckStateRole);
+
+				emit checkStateChanged(view()->currentIndex().row(), state);
+				return true;
+			}
+
+			/*if (isVisible() && view()->rect().contains(m->pos()) && view()->currentIndex().isValid()
+				&& (view()->currentIndex().flags() & Qt::ItemIsEnabled)
+				&& (view()->currentIndex().flags() & Qt::ItemIsSelectable)) {
+				this->hidePopup();
+				this->setCurrentIndex(view()->currentIndex().row());
+				return true;
+			}*/
+
+			break;
+		}
+		return false;
+	}
+
+signals:
+	void checkStateChanged(int Index, Qt::CheckState state);
 };

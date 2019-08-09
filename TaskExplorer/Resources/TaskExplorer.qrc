@@ -15,4 +15,14 @@
         <file>ProcessHacker.png</file>
         <file>close.png</file>
     </qresource>
+    <qresource prefix="/WinLogos">
+        <file alias="WinOld">WinLogos/1-4 Old Windows.png</file>
+        <file alias="Win2k">WinLogos/5 Windows 2000.png</file>
+        <file alias="WinXP">WinLogos/5.1 Windows XP.png</file>
+        <file alias="Win6">WinLogos/6 Windows Vista.png</file>
+        <file alias="Win7">WinLogos/7 Windows 7.png</file>
+        <file alias="Win8">WinLogos/8 Windows 8.png</file>
+        <file alias="Win10">WinLogos/10 Windows 10.png</file>
+        <file alias="WinNew">WinLogos/10+Windows New.png</file>
+    </qresource>
 </RCC>

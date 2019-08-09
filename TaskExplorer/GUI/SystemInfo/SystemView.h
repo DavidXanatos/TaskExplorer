@@ -20,8 +20,6 @@ protected:
 	//virtual QTreeView*			GetView()	{ return m_pStatsList; }
 	//virtual QAbstractItemModel* GetModel()	{ return m_pStatsList->model(); }
 
-	CProcessPtr				m_pCurProcess;
-
 private:
 	QVBoxLayout*			m_pMainLayout;
 
@@ -32,11 +30,15 @@ private:
 
 	QGroupBox*				m_pSystemBox;
 	QGridLayout*			m_pSystemLayout;
-	
-	//QLabel*					m_pCpuModelLabel;
-	QLabel*					m_pCpuModel;
-	//QLabel*					m_pSystemMemoryLabel;
-	QLabel*					m_pSystemMemory;
+	QLabel*					m_pIcon;
+	QLabel*					m_pSystemName;
+	QLabel*					m_pSystemVersion;
+	QLabel*					m_pSystemBuild;
+
+	QLabel*					m_pUpTime;
+	QLabel*					m_pHostName;
+	QLabel*					m_pUserName;
+	QLineEdit*				m_pSystemDir;
 
 	//QTreeWidgetEx*			m_pStatsList;
 	CStatsView*				m_pStatsView;

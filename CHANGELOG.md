@@ -2,6 +2,38 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.7] - 2019-08-09
+### Added
+- added a custom drivers as some AV software does not like kprocesshacker.sys, just unpack one of the following and it will be used instead
+-- self-signed xprocesshacker.sys driver in xprocesshacker_test-sign.zip
+-- signed with a leaked cert in xprocesshacker_hack-sign.zip PW: leaked
+- added GDI objects tab
+- added CPU Info tab
+- added Memory/RAM Info tab including page file info
+- added Disk/IO Info tab
+- added Network Info tab also containing RAS infos
+- added GPU Info tab
+- added open path option to process tree
+- added free memory commands to tools menu
+- added crash dump creation
+
+### Changed
+- improved disk usag graph to show percentage of disk utilization instead of just data rate
+- double click on thray now toggles show/hife of the window
+- moved "Show Kernel Services" from view menu to services sub menu
+- reworked system info tab
+
+### Fixed
+- fixed column issue in process picker and job tab
+- fixed total/kernel/user cpu columns showing the wrong values
+- fixed potential rais condition when initialising LibPH
+- fixed issue with settings dialog
+- fixed race condition when deleting theAPI
+- fixed crash issue on 32 bit platforms
+- fixed issue causing the elevation status not being resolved
+
+
+
 ## [0.6] - 2019-07-31
 ### Added
 - .NET stack tracking support
@@ -19,6 +51,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - memory view being unnececerly refreshed
 - fixed dpi scling issue
+
 
 
 ## [0.5] - 2019-07-22

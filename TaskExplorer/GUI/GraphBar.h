@@ -66,8 +66,19 @@ private:
 	void					DeleteGraphs();
 
 	int						m_Rows;
-	typedef QPair<EGraph, CIncrementalPlot*> TGraphPair;
-	QList<TGraphPair>		m_Graphs;
+	struct SGraph
+	{
+		SGraph()
+		{
+			Type = eCount;
+			pPlot = NULL;
+		}
+
+		EGraph Type;
+		CIncrementalPlot* pPlot;
+		QVariantMap Params;
+	};
+	QList<SGraph>			m_Graphs;
 
 	QGridLayout*			m_pMainLayout;
 

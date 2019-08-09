@@ -15,9 +15,12 @@ int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
 
 CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 {
+	m_PackageCount = 0;
 	m_NumaCount = 0;
 	m_CoreCount = 0;
 	m_CpuCount = 0;
+	m_CpuBaseClock = 0;
+	m_CpuCurrentClock = 0;
 
 	m_CpuStatsDPCUsage = 0;
 
@@ -28,16 +31,20 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 	m_MemoryLimit = 0;
 	m_SwapedOutMemory = 0;
 	m_TotalSwapMemory = 0;
-	m_PagedMemory = 0;
-	m_PersistentPagedMemory = 0;
-	m_NonPagedMemory = 0;
+	m_PagedPool = 0;
+	m_PersistentPagedPool = 0;
+	m_NonPagedPool = 0;
 	m_PhysicalUsed = 0;
 	m_CacheMemory = 0;
+	m_KernelMemory = 0;
+	m_DriverMemory = 0;
 	m_ReservedMemory = 0;
 
 	m_TotalProcesses = 0;
 	m_TotalThreads = 0;
 	m_TotalHandles = 0;
+
+	m_HardwareChangePending = false;
 
 	m_FileListUpdateWatcher = NULL;
 
@@ -47,8 +54,6 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 	this->moveToThread(pThread);
 	pThread->start();
 #endif
-
-	QTimer::singleShot(0, this, SLOT(Init()));
 }
 
 
@@ -57,6 +62,9 @@ CSystemAPI::~CSystemAPI()
 #ifdef CORE_THREAD
 	this->thread()->quit();
 #endif
+
+	if (m_FileListUpdateWatcher) 
+		m_FileListUpdateWatcher->waitForFinished();
 }
 
 CSystemAPI* CSystemAPI::New()
@@ -157,4 +165,13 @@ void CSystemAPI::OnOpenFilesUpdated()
 {
 	m_FileListUpdateWatcher->deleteLater();
 	m_FileListUpdateWatcher = NULL;
+}
+
+void CSystemAPI::NotifyHardwareChanged()
+{
+	if(!m_HardwareChangePending)
+	{
+		m_HardwareChangePending = true;
+		QTimer::singleShot(100,this,SLOT(OnHardwareChanged())); // OnHardwareChanged must first do m_HardwareChangePending = false;
+	}
 }
