@@ -1,0 +1,339 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (Australia) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENA)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_AUS
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,10,0,0
+ PRODUCTVERSION 1,10,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "0c0904b0"
+        BEGIN
+            VALUE "CompanyName", "wj32"
+            VALUE "FileDescription", "Extended Services for Process Hacker"
+            VALUE "FileVersion", "1.10"
+            VALUE "InternalName", "ExtendedServices"
+            VALUE "LegalCopyright", "Licensed under the GNU GPL, v3."
+            VALUE "OriginalFilename", "ExtendedServices.dll"
+            VALUE "ProductName", "Extended Services for Process Hacker"
+            VALUE "ProductVersion", "1.10"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0xc09, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_SRVLIST DIALOGEX 0, 0, 282, 183
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "List"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Static",IDC_SERVICES_LAYOUT,7,19,268,157,NOT WS_VISIBLE
+    LTEXT           "Static",IDC_MESSAGE,7,7,268,8
+END
+
+IDD_SRVRECOVERY DIALOGEX 0, 0, 282, 183
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Recovery"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "First failure:",IDC_STATIC,7,8,40,8
+    COMBOBOX        IDC_FIRSTFAILURE,85,7,103,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Second failure:",IDC_STATIC,7,24,49,8
+    COMBOBOX        IDC_SECONDFAILURE,85,23,103,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Subsequent failures:",IDC_STATIC,7,40,67,8
+    COMBOBOX        IDC_SUBSEQUENTFAILURES,85,39,103,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Reset fail count after:",IDC_STATIC,7,56,72,8
+    EDITTEXT        IDC_RESETFAILCOUNT,85,55,40,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "days",IDC_STATIC,130,56,16,8
+    LTEXT           "Restart service after:",IDC_RESTARTSERVICEAFTER_LABEL,7,72,70,8
+    EDITTEXT        IDC_RESTARTSERVICEAFTER,85,71,40,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "minutes",IDC_RESTARTSERVICEAFTER_MINUTES,130,72,26,8
+    CONTROL         "Enable actions for stops with errors",IDC_ENABLEFORERRORSTOPS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,87,129,10
+    PUSHBUTTON      "Restart Computer Options...",IDC_RESTARTCOMPUTEROPTIONS,7,100,114,14
+    GROUPBOX        "Run program",IDC_RUNPROGRAM_GROUP,7,118,268,45
+    LTEXT           "Program:",IDC_RUNPROGRAM_LABEL,15,132,30,8
+    EDITTEXT        IDC_RUNPROGRAM,50,131,165,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse...",IDC_BROWSE,220,130,50,14
+    LTEXT           "Append /fail=%1% to pass the fail count to the program.",IDC_RUNPROGRAM_INFO,15,148,186,8
+END
+
+IDD_RESTARTCOMP DIALOGEX 0, 0, 245, 137
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Restart the computer after:",IDC_STATIC,7,8,90,8
+    EDITTEXT        IDC_RESTARTCOMPAFTER,102,7,40,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "minutes",IDC_STATIC,147,8,26,8
+    CONTROL         "Before restarting, send this message to computers on the network:",IDC_ENABLERESTARTMESSAGE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,23,231,10
+    EDITTEXT        IDC_RESTARTMESSAGE,7,36,231,76,ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL
+    PUSHBUTTON      "Use Default Message",IDC_USEDEFAULTMESSAGE,7,116,79,14
+    DEFPUSHBUTTON   "OK",IDOK,134,116,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,188,116,50,14
+END
+
+IDD_SRVRECOVERY2 DIALOGEX 0, 0, 282, 183
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Recovery"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CTEXT           "If this service fails, the computer will restart.\nRecovery actions are not supported for this service.",IDC_STATIC,51,80,179,21
+END
+
+IDD_SRVPROGRESS DIALOGEX 0, 0, 204, 61
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Progress"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "Cancel",IDCANCEL,147,40,50,14
+    LTEXT           "Progress",IDC_MESSAGE,7,7,190,8,SS_ENDELLIPSIS
+    CONTROL         "",IDC_PROGRESS,"msctls_progress32",WS_BORDER,7,21,190,14
+END
+
+IDD_SRVOTHER DIALOGEX 0, 0, 282, 218
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Other"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Preshutdown timeout:",IDC_STATIC,7,8,72,8
+    EDITTEXT        IDC_PRESHUTDOWNTIMEOUT,85,7,75,12,ES_AUTOHSCROLL
+    LTEXT           "milliseconds",IDC_STATIC,166,8,38,8
+    LTEXT           "Service SID:",IDC_STATIC,7,24,40,8
+    EDITTEXT        IDC_SERVICESID,64,23,211,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "SID type:",IDC_STATIC,7,40,32,8
+    COMBOBOX        IDC_SIDTYPE,64,39,122,30,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Protection:",IDC_STATIC,7,57,36,8
+    COMBOBOX        IDC_PROTECTION,64,56,122,30,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Required privileges:",IDC_STATIC,7,77,64,8
+    CONTROL         "",IDC_PRIVILEGES,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,88,268,79
+    PUSHBUTTON      "Add...",IDC_ADD,171,171,50,14
+    PUSHBUTTON      "Remove",IDC_REMOVE,225,171,50,14
+END
+
+IDD_OPTIONS DIALOGEX 0, 0, 215, 54
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Options"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "Enable Services submenu for processes",IDC_ENABLESERVICESMENU,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,142,10
+    DEFPUSHBUTTON   "OK",IDOK,105,33,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,158,33,50,14
+END
+
+IDD_SRVTRIGGER DIALOGEX 0, 0, 330, 196
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Trigger"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Type:",IDC_STATIC,7,9,20,8
+    COMBOBOX        IDC_TYPE,52,7,271,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Subtype:",IDC_STATIC,7,26,30,8
+    COMBOBOX        IDC_SUBTYPE,52,24,271,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_SUBTYPECUSTOM,52,41,271,12,ES_AUTOHSCROLL
+    LTEXT           "Action:",IDC_STATIC,7,59,24,8
+    COMBOBOX        IDC_ACTION,52,58,72,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Data items:",IDC_STATIC,7,76,38,8
+    CONTROL         "",IDC_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,52,79,217,90
+    PUSHBUTTON      "New...",IDC_NEW,273,79,50,14
+    PUSHBUTTON      "Edit...",IDC_EDIT,273,96,50,14
+    PUSHBUTTON      "Delete",IDC_DELETE,273,113,50,14
+    DEFPUSHBUTTON   "OK",IDOK,219,175,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,273,175,50,14
+END
+
+IDD_VALUE DIALOGEX 0, 0, 267, 167
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Edit Data"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Values (one per line):",IDC_STATIC,7,7,69,8
+    EDITTEXT        IDC_VALUES,7,18,253,124,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN | WS_VSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,156,146,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,210,146,50,14
+END
+
+IDD_SRVTRIGGERS DIALOGEX 0, 0, 282, 218
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Triggers"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_TRIGGERS,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,268,186
+    PUSHBUTTON      "New...",IDC_NEW,117,197,50,14
+    PUSHBUTTON      "Edit...",IDC_EDIT,171,197,50,14
+    PUSHBUTTON      "Delete",IDC_DELETE,225,197,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_SRVLIST, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 275
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 176
+    END
+
+    IDD_SRVRECOVERY, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 275
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 176
+    END
+
+    IDD_RESTARTCOMP, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 238
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 130
+    END
+
+    IDD_SRVRECOVERY2, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 275
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 176
+    END
+
+    IDD_SRVPROGRESS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 197
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 54
+    END
+
+    IDD_SRVOTHER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 275
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 211
+    END
+
+    IDD_OPTIONS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 208
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 47
+    END
+
+    IDD_SRVTRIGGER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 323
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 189
+    END
+
+    IDD_VALUE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 260
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 160
+    END
+
+    IDD_SRVTRIGGERS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 275
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 211
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (Australia) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

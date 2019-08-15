@@ -1,0 +1,210 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (Australia) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENA)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_AUS
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 2,1,0,0
+ PRODUCTVERSION 2,1,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "0c0904b0"
+        BEGIN
+            VALUE "CompanyName", "dmex"
+            VALUE "FileDescription", "ToolStatus plugin for Process Hacker"
+            VALUE "FileVersion", "2.1"
+            VALUE "InternalName", "ToolStatus"
+            VALUE "LegalCopyright", "Licensed under the GNU GPL, v3."
+            VALUE "OriginalFilename", "ToolStatus.dll"
+            VALUE "ProductName", "ToolStatus plugin for Process Hacker"
+            VALUE "ProductVersion", "2.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0xc09, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_STATUS MENU
+BEGIN
+    POPUP "Status"
+    BEGIN
+        MENUITEM "CPU Usage",                   ID_STATUS_CPUUSAGE
+        MENUITEM "Commit Charge",               ID_STATUS_COMMITCHARGE
+        MENUITEM "Physical Memory",             ID_STATUS_PHYSICALMEMORY
+        MENUITEM "Number of Processes",         ID_STATUS_NUMBEROFPROCESSES
+        MENUITEM "Number of Threads",           ID_STATUS_NUMBEROFTHREADS
+        MENUITEM "Number of Handles",           ID_STATUS_NUMBEROFHANDLES
+        MENUITEM "Number of Visible Items",     ID_STATUS_NUMBEROFVISIBLEITEMS
+        MENUITEM "Number of Selected Items",    ID_STATUS_NUMBEROFSELECTEDITEMS
+        MENUITEM "I/O Read+Other",              ID_STATUS_IO_RO
+        MENUITEM "I/O Write",                   ID_STATUS_IO_W
+        MENUITEM "Max. CPU Process",            ID_STATUS_MAX_CPU_PROCESS
+        MENUITEM "Max. I/O Process",            ID_STATUS_MAX_IO_PROCESS
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_OPTIONS DIALOGEX 0, 0, 267, 98
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Options"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "Enable toolbar",IDC_ENABLE_TOOLBAR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,62,10
+    CONTROL         "Enable search box",IDC_ENABLE_SEARCHBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,20,75,10
+    CONTROL         "Enable status bar",IDC_ENABLE_STATUSBAR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,33,72,10
+    CONTROL         "Resolve ghost windows to hung windows",IDC_RESOLVEGHOSTWINDOWS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,46,147,10
+    RTEXT           "Toolbar display style:",IDC_DISPLAYSTYLETEXT,187,7,70,8
+    COMBOBOX        IDC_DISPLAYSTYLECOMBO,182,18,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    RTEXT           "Searchbox display style:",IDC_SEARCHBOX_DISPLAYSTYLETEXT,179,34,78,8
+    COMBOBOX        IDC_SEARCHBOX_DISPLAYSTYLECOMBO,182,45,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Customize Toolbar",IDC_CUSTOMIZETOOLBAR,7,77,70,14
+    DEFPUSHBUTTON   "OK",IDOK,155,77,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,211,77,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_OPTIONS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 260
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 91
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_MAINWND_ACCEL ACCELERATORS
+BEGIN
+    "K",            ID_SEARCH,              VIRTKEY, CONTROL, NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// PNG
+//
+
+IDB_SEARCH_ACTIVE       PNG                     "resources\\active_search.png"
+IDB_SEARCH_INACTIVE     PNG                     "resources\\inactive_search.png"
+IDB_APPLICATION         PNG                     "resources\\application.png"
+IDB_APPLICATION_GO      PNG                     "resources\\application_go.png"
+IDB_ARROW_REFRESH       PNG                     "resources\\arrow_refresh.png"
+IDB_CHART_LINE          PNG                     "resources\\chart_line.png"
+IDB_COG_EDIT            PNG                     "resources\\cog_edit.png"
+IDB_CROSS               PNG                     "resources\\cross.png"
+IDB_FIND                PNG                     "resources\\find.png"
+IDB_APPLICATION_GET     PNG                     "resources\\application_get.png"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_APPLICATION_GO_BMP  BITMAP                  "resources\\application_go.bmp"
+IDB_ARROW_REFRESH_BMP   BITMAP                  "resources\\arrow_refresh.bmp"
+IDB_CHART_LINE_BMP      BITMAP                  "resources\\chart_line.bmp"
+IDB_COG_EDIT_BMP        BITMAP                  "resources\\cog_edit.bmp"
+IDB_CROSS_BMP           BITMAP                  "resources\\cross.bmp"
+IDB_FIND_BMP            BITMAP                  "resources\\find.bmp"
+IDB_APPLICATION_BMP     BITMAP                  "resources\\application.bmp"
+IDB_SEARCH_ACTIVE_BMP   BITMAP                  "resources\\active_search.bmp"
+IDB_SEARCH_INACTIVE_BMP BITMAP                  "resources\\inactive_search.bmp"
+IDB_APPLICATION_GET_BMP BITMAP                  "resources\\application_get.bmp"
+#endif    // English (Australia) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

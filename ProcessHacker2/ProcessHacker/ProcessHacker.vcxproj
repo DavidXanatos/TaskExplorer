@@ -1,0 +1,424 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{0271DD27-6707-4290-8DFE-285702B7115D}</ProjectGuid>
+    <RootNamespace>ProcessHacker</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)bin\$(Configuration)$(PlatformArchitecture)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)obj\$(Configuration)$(PlatformArchitecture)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)bin\$(Configuration)$(PlatformArchitecture)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)obj\$(Configuration)$(PlatformArchitecture)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)bin\$(Configuration)$(PlatformArchitecture)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)obj\$(Configuration)$(PlatformArchitecture)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)bin\$(Configuration)$(PlatformArchitecture)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)obj\$(Configuration)$(PlatformArchitecture)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</GenerateManifest>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</GenerateManifest>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</GenerateManifest>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../phlib/include;include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;DEBUG;_WINDOWS;PHLIB_EXPORT;PHAPP_EXPORT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CallingConvention>StdCall</CallingConvention>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>noarg.obj;noenv.obj;ntdll.lib;winsta.lib;comctl32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../lib/lib32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
+    </Link>
+    <PreBuildEvent>
+      <Command>update_rev.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Generating revision number...</Message>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../phlib/include;include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN64;DEBUG;_WINDOWS;PHLIB_EXPORT;PHAPP_EXPORT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CallingConvention>StdCall</CallingConvention>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>noarg.obj;noenv.obj;ntdll.lib;winsta.lib;comctl32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../lib/lib64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX64</TargetMachine>
+      <MinimumRequiredVersion>5.02</MinimumRequiredVersion>
+    </Link>
+    <PreBuildEvent>
+      <Command>update_rev.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Generating revision number...</Message>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../phlib/include;include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;PHLIB_EXPORT;PHAPP_EXPORT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CallingConvention>StdCall</CallingConvention>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>noarg.obj;noenv.obj;ntdll.lib;winsta.lib;comctl32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../lib/lib32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+      <SetChecksum>true</SetChecksum>
+      <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
+    </Link>
+    <PreBuildEvent>
+      <Command>update_rev.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Generating revision number...</Message>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../phlib/include;include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN64;NDEBUG;_WINDOWS;PHLIB_EXPORT;PHAPP_EXPORT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CallingConvention>StdCall</CallingConvention>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>noarg.obj;noenv.obj;ntdll.lib;winsta.lib;comctl32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../lib/lib64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX64</TargetMachine>
+      <SetChecksum>true</SetChecksum>
+      <MinimumRequiredVersion>5.02</MinimumRequiredVersion>
+    </Link>
+    <PreBuildEvent>
+      <Command>update_rev.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Generating revision number...</Message>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\phlib\apiimport.c" />
+    <ClCompile Include="..\phlib\basesup.c" />
+    <ClCompile Include="..\phlib\basesupa.c" />
+    <ClCompile Include="..\phlib\circbuf.c" />
+    <ClCompile Include="..\phlib\collect.c" />
+    <ClCompile Include="..\phlib\colorbox.c" />
+    <ClCompile Include="..\phlib\cpysave.c" />
+    <ClCompile Include="..\phlib\data.c" />
+    <ClCompile Include="..\phlib\dspick.c" />
+    <ClCompile Include="..\phlib\emenu.c" />
+    <ClCompile Include="..\phlib\error.c" />
+    <ClCompile Include="..\phlib\extlv.c" />
+    <ClCompile Include="..\phlib\fastlock.c" />
+    <ClCompile Include="..\phlib\filepool.c" />
+    <ClCompile Include="..\phlib\format.c" />
+    <ClCompile Include="..\phlib\global.c" />
+    <ClCompile Include="..\phlib\graph.c" />
+    <ClCompile Include="..\phlib\guisup.c" />
+    <ClCompile Include="..\phlib\handle.c" />
+    <ClCompile Include="..\phlib\hexedit.c" />
+    <ClCompile Include="..\phlib\hndlinfo.c" />
+    <ClCompile Include="..\phlib\icotobmp.c" />
+    <ClCompile Include="..\phlib\iosup.c" />
+    <ClCompile Include="..\phlib\kph.c" />
+    <ClCompile Include="..\phlib\kphdata.c" />
+    <ClCompile Include="..\phlib\lsa.c" />
+    <ClCompile Include="..\phlib\mapimg.c" />
+    <ClCompile Include="..\phlib\maplib.c" />
+    <ClCompile Include="..\phlib\md5.c" />
+    <ClCompile Include="..\phlib\native.c" />
+    <ClCompile Include="..\phlib\provider.c" />
+    <ClCompile Include="..\phlib\queuedlock.c" />
+    <ClCompile Include="..\phlib\ref.c" />
+    <ClCompile Include="..\phlib\secdata.c" />
+    <ClCompile Include="..\phlib\secedit.c" />
+    <ClCompile Include="..\phlib\sha.c" />
+    <ClCompile Include="..\phlib\support.c" />
+    <ClCompile Include="..\phlib\svcsup.c" />
+    <ClCompile Include="..\phlib\symprv.c" />
+    <ClCompile Include="..\phlib\sync.c" />
+    <ClCompile Include="..\phlib\treenew.c" />
+    <ClCompile Include="..\phlib\verify.c" />
+    <ClCompile Include="..\phlib\workqueue.c" />
+    <ClCompile Include="about.c" />
+    <ClCompile Include="actions.c" />
+    <ClCompile Include="affinity.c" />
+    <ClCompile Include="anawait.c" />
+    <ClCompile Include="appsup.c" />
+    <ClCompile Include="chcol.c" />
+    <ClCompile Include="chdlg.c" />
+    <ClCompile Include="chproc.c" />
+    <ClCompile Include="cmdmode.c" />
+    <ClCompile Include="colmgr.c" />
+    <ClCompile Include="dbgcon.c" />
+    <ClCompile Include="extmgr.c" />
+    <ClCompile Include="findobj.c" />
+    <ClCompile Include="gdihndl.c" />
+    <ClCompile Include="hidnproc.c" />
+    <ClCompile Include="hndllist.c" />
+    <ClCompile Include="hndlprp.c" />
+    <ClCompile Include="hndlprv.c" />
+    <ClCompile Include="hndlstat.c" />
+    <ClCompile Include="infodlg.c" />
+    <ClCompile Include="itemtips.c" />
+    <ClCompile Include="jobprp.c" />
+    <ClCompile Include="log.c" />
+    <ClCompile Include="logwnd.c" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="mainwnd.c" />
+    <ClCompile Include="mdump.c" />
+    <ClCompile Include="memedit.c" />
+    <ClCompile Include="memlist.c" />
+    <ClCompile Include="memlists.c" />
+    <ClCompile Include="memprot.c" />
+    <ClCompile Include="memprv.c" />
+    <ClCompile Include="memrslt.c" />
+    <ClCompile Include="memsrch.c" />
+    <ClCompile Include="miniinfo.c" />
+    <ClCompile Include="modlist.c" />
+    <ClCompile Include="modprv.c" />
+    <ClCompile Include="netlist.c" />
+    <ClCompile Include="netprv.c" />
+    <ClCompile Include="netstk.c" />
+    <ClCompile Include="notifico.c" />
+    <ClCompile Include="ntobjprp.c" />
+    <ClCompile Include="options.c" />
+    <ClCompile Include="pagfiles.c" />
+    <ClCompile Include="pcre\pcreposix.c" />
+    <ClCompile Include="pcre\pcre_chartables.c" />
+    <ClCompile Include="pcre\pcre_compile.c" />
+    <ClCompile Include="pcre\pcre_config.c" />
+    <ClCompile Include="pcre\pcre_dfa_exec.c" />
+    <ClCompile Include="pcre\pcre_exec.c" />
+    <ClCompile Include="pcre\pcre_fullinfo.c" />
+    <ClCompile Include="pcre\pcre_get.c" />
+    <ClCompile Include="pcre\pcre_globals.c" />
+    <ClCompile Include="pcre\pcre_info.c" />
+    <ClCompile Include="pcre\pcre_maketables.c" />
+    <ClCompile Include="pcre\pcre_newline.c" />
+    <ClCompile Include="pcre\pcre_ord2utf8.c" />
+    <ClCompile Include="pcre\pcre_refcount.c" />
+    <ClCompile Include="pcre\pcre_study.c" />
+    <ClCompile Include="pcre\pcre_tables.c" />
+    <ClCompile Include="pcre\pcre_try_flipped.c" />
+    <ClCompile Include="pcre\pcre_ucd.c" />
+    <ClCompile Include="pcre\pcre_valid_utf8.c" />
+    <ClCompile Include="pcre\pcre_version.c" />
+    <ClCompile Include="pcre\pcre_xclass.c" />
+    <ClCompile Include="phsvc\clapi.c" />
+    <ClCompile Include="phsvc\svcapi.c" />
+    <ClCompile Include="phsvc\svcapiport.c" />
+    <ClCompile Include="phsvc\svcclient.c" />
+    <ClCompile Include="phsvc\svcmain.c" />
+    <ClCompile Include="plugin.c" />
+    <ClCompile Include="plugman.c" />
+    <ClCompile Include="procgrp.c" />
+    <ClCompile Include="procprp.c" />
+    <ClCompile Include="procprv.c" />
+    <ClCompile Include="procrec.c" />
+    <ClCompile Include="proctree.c" />
+    <ClCompile Include="runas.c" />
+    <ClCompile Include="sessprp.c" />
+    <ClCompile Include="sessshad.c" />
+    <ClCompile Include="settings.c" />
+    <ClCompile Include="srvcr.c" />
+    <ClCompile Include="srvctl.c" />
+    <ClCompile Include="srvlist.c" />
+    <ClCompile Include="srvprp.c" />
+    <ClCompile Include="srvprv.c" />
+    <ClCompile Include="sessmsg.c" />
+    <ClCompile Include="sysinfo.c" />
+    <ClCompile Include="termator.c" />
+    <ClCompile Include="thrdlist.c" />
+    <ClCompile Include="thrdprv.c" />
+    <ClCompile Include="thrdstk.c" />
+    <ClCompile Include="tokprp.c" />
+    <ClCompile Include="mxml\mxml-attr.c" />
+    <ClCompile Include="mxml\mxml-entity.c" />
+    <ClCompile Include="mxml\mxml-file.c" />
+    <ClCompile Include="mxml\mxml-index.c" />
+    <ClCompile Include="mxml\mxml-node.c" />
+    <ClCompile Include="mxml\mxml-private.c" />
+    <ClCompile Include="mxml\mxml-search.c" />
+    <ClCompile Include="mxml\mxml-set.c" />
+    <ClCompile Include="mxml\mxml-string.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\phlib\circbuf_i.h" />
+    <ClInclude Include="..\phlib\format_i.h" />
+    <ClInclude Include="include\colmgr.h" />
+    <ClInclude Include="include\extmgr.h" />
+    <ClInclude Include="include\extmgri.h" />
+    <ClInclude Include="include\heapstruct.h" />
+    <ClInclude Include="include\mainwndp.h" />
+    <ClInclude Include="include\miniinfop.h" />
+    <ClInclude Include="include\notifico.h" />
+    <ClInclude Include="include\phsvccl.h" />
+    <ClInclude Include="include\sysinfo.h" />
+    <ClInclude Include="include\uimodels.h" />
+    <ClInclude Include="include\miniinfo.h" />
+    <ClInclude Include="mxml\config.h" />
+    <ClInclude Include="include\hidnproc.h" />
+    <ClInclude Include="include\memsrch.h" />
+    <ClInclude Include="mxml\mxml-private.h" />
+    <ClInclude Include="mxml\mxml.h" />
+    <ClInclude Include="include\phapp.h" />
+    <ClInclude Include="include\phsvc.h" />
+    <ClInclude Include="include\phsvcapi.h" />
+    <ClInclude Include="include\phappres.h" />
+    <ClInclude Include="pcre\config.h" />
+    <ClInclude Include="pcre\pcre.h" />
+    <ClInclude Include="pcre\pcreposix.h" />
+    <ClInclude Include="pcre\pcre_internal.h" />
+    <ClInclude Include="pcre\ucp.h" />
+    <ClInclude Include="include\procgrp.h" />
+    <ClInclude Include="sdk\phdk.h" />
+    <ClInclude Include="include\phplug.h" />
+    <ClInclude Include="include\procprpp.h" />
+    <ClInclude Include="include\providers.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="include\settings.h" />
+    <ClInclude Include="include\settingsp.h" />
+    <ClInclude Include="include\sysinfop.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resources\application.bmp" />
+    <None Include="resources\application.ico" />
+    <None Include="resources\application_go.ico" />
+    <None Include="resources\bricks.bmp" />
+    <None Include="resources\cog.ico" />
+    <None Include="resources\cog_edit.bmp" />
+    <None Include="resources\cog_edit.png" />
+    <None Include="resources\cog_go.ico" />
+    <None Include="resources\cross.bmp" />
+    <None Include="resources\folder.bmp" />
+    <None Include="resources\magnifier.bmp" />
+    <None Include="resources\pencil.bmp" />
+    <None Include="ProcessHacker.ico" />
+    <None Include="resources\ProcessHacker.png" />
+    <None Include="resources\tick.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ProcessHacker.rc" />
+    <ResourceCompile Include="version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="ProcessHacker.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\cog.bmp" />
+    <Image Include="resources\pin.bmp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
