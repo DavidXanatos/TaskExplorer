@@ -28,6 +28,7 @@ public:
 	virtual QString			GetGroupName() const { QReadLocker Locker(&m_Mutex); return m_GroupName; }
 	virtual QByteArray		GetGroupSid() const { QReadLocker Locker(&m_Mutex); return m_GroupSid; }
 
+	virtual bool			IsElevated() const { QReadLocker Locker(&m_Mutex); return m_Elevated; }
 	virtual int				GetElevationType() const { QReadLocker Locker(&m_Mutex); return m_ElevationType; }
 	virtual quint32			GetIntegrityLevel() const { QReadLocker Locker(&m_Mutex); return m_IntegrityLevel; }
 	virtual STATUS			SetIntegrityLevel(quint32 IntegrityLevel) const;
@@ -215,6 +216,7 @@ protected:
 	QByteArray	m_GroupSid;
 	ulong		m_SessionId;
 
+	bool		m_Elevated;
 	int			m_ElevationType;
 	quint32		m_IntegrityLevel;
 	QString		m_IntegrityString;

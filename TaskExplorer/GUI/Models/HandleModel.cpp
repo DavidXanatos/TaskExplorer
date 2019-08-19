@@ -106,11 +106,13 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 				switch (section)
 				{
-					//case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
+					case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
 					case eType:				ColValue.Formated = pHandle->GetTypeString(); break;
 #ifdef WIN32
-					case eObjectAddress:	ColValue.Formated = "0x" + QString::number(pWinHandle->GetObjectAddress(), 16); break;	
+					case eObjectAddress:	ColValue.Formated = FormatAddress(pWinHandle->GetObjectAddress()); break;	
 #endif
+					case eSize:
+					case ePosition:			ColValue.Formated = FormatNumber(Value.toULongLong());
 				}
 			}
 

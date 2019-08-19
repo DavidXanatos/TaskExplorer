@@ -12,6 +12,7 @@
 struct STaskStatsEx : STaskStats
 {
 	SDelta32 		PageFaultsDelta;
+	SDelta32 		HardFaultsDelta;
 	SDelta64 		PrivateBytesDelta;
 };
 
@@ -38,8 +39,8 @@ public:
 
 	// Parameters
 	virtual QString GetFileName() const					{ QReadLocker Locker(&m_Mutex); return m_FileName; }
-	virtual QString GetCommandLine() const				{ QReadLocker Locker(&m_Mutex); return m_CommandLine; }
-	virtual QString GetWorkingDirectory() const			{ QReadLocker Locker(&m_Mutex); return m_WorkingDirectory; }
+	virtual QString GetCommandLineStr() const			{ QReadLocker Locker(&m_Mutex); return m_CommandLine; }
+	virtual QString GetWorkingDirectory() const = 0;
 
 	// Other fields
 	virtual QString GetUserName() const					{ QReadLocker Locker(&m_Mutex); return m_UserName; }
@@ -50,7 +51,7 @@ public:
 
 	virtual quint64 GetWorkingSetPrivateSize() const	{ QReadLocker Locker(&m_Mutex); return m_WorkingSetPrivateSize; }
 	virtual ulong GetPeakNumberOfThreads() const		{ QReadLocker Locker(&m_Mutex); return m_PeakNumberOfThreads; }
-	virtual ulong GetHardFaultCount() const				{ QReadLocker Locker(&m_Mutex); return m_HardFaultCount; }
+	virtual ulong GetPeakNumberOfHandles() const = 0;
 
 	virtual quint64 GetPeakPrivateBytes() const = 0;
 	virtual quint64 GetWorkingSetSize() const = 0;
@@ -60,7 +61,7 @@ public:
 	virtual quint64 GetShareableWorkingSetSize() const = 0;
 	virtual quint64 GetVirtualSize() const = 0;
 	virtual quint64 GetPeakVirtualSize() const = 0;
-	virtual quint32 GetPageFaultCount() const = 0;
+	//virtual quint32 GetPageFaultCount() const = 0;
 	virtual quint64 GetPagedPool() const = 0;
 	virtual quint64 GetPeakPagedPool() const = 0;
 	virtual quint64 GetNonPagedPool() const = 0;
@@ -92,21 +93,22 @@ public:
 	virtual bool IsUserProcess() const = 0;
 	virtual bool IsElevated() const = 0;
 
-	virtual SProcStats	GetStats() const				{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
+	virtual SProcStats	GetStats() const					{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
-	virtual CModulePtr GetModuleInfo()					{ QReadLocker Locker(&m_Mutex); return m_pModuleInfo; }
+	virtual CModulePtr GetModuleInfo() const				{ QReadLocker Locker(&m_Mutex); return m_pModuleInfo; }
 
 	// Threads
-	virtual QMap<quint64, CThreadPtr> GetThreadList()	{ QReadLocker Locker(&m_ThreadMutex); return m_ThreadList; }
+	virtual QMap<quint64, CThreadPtr> GetThreadList() const	{ QReadLocker Locker(&m_ThreadMutex); return m_ThreadList; }
 
 	// Handles
-	virtual QMap<quint64, CHandlePtr> GetHandleList()	{ QReadLocker Locker(&m_HandleMutex); return m_HandleList; }
+	virtual QMap<quint64, CHandlePtr> GetHandleList() const	{ QReadLocker Locker(&m_HandleMutex); return m_HandleList; }
 	
 	// Modules
-	virtual QMap<quint64, CModulePtr> GetModuleList()	{ QReadLocker Locker(&m_ModuleMutex); return m_ModuleList; }
+	virtual QMap<quint64, CModulePtr> GetModuleList() const	{ QReadLocker Locker(&m_ModuleMutex); return m_ModuleList; }
 
 	// Windows
-	virtual QMap<quint64, CWndPtr>	  GetWindowList()	{ QReadLocker Locker(&m_WindowMutex); return m_WindowList; }
+	virtual QMap<quint64, CWndPtr>	  GetWindowList() const	{ QReadLocker Locker(&m_WindowMutex); return m_WindowList; }
+	virtual CWndPtr					GetWindowByHwnd(quint64 hwnd) const { QReadLocker Locker(&m_WindowMutex); return m_WindowList.value(hwnd); }
 
 	struct SEnvVar
 	{
@@ -138,6 +140,8 @@ public:
 	virtual STATUS					EditEnvVariable(const QString& Name, const QString& Value) = 0;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const = 0;
+
+	virtual CWndPtr GetMainWindowHwnd() const = 0;
 
 	virtual STATUS LoadModule(const QString& Path) = 0;
 
@@ -173,7 +177,6 @@ protected:
 
 	quint64							m_WorkingSetPrivateSize;
 	ulong							m_PeakNumberOfThreads;
-	ulong							m_HardFaultCount;
 
 
 	// I/O stats

@@ -61,3 +61,24 @@ CDiskMonitor::SDataRates CDiskMonitor::GetAllDiskDataRates() const
 
 	return DataRates;
 }
+
+bool CDiskMonitor::AllDisksSupported() const
+{
+	QReadLocker Locker(&m_StatsMutex);
+
+	for (QMap<QString, SDiskInfo>::const_iterator I = m_DiskList.begin(); I != m_DiskList.end(); I++)
+	{
+		const SDiskInfo* entry = &I.value();
+
+		if (!entry->DevicePresent)
+			continue;
+
+		if(entry->TotalSize == 0)
+			continue;
+
+		if (!entry->DeviceSupported)
+			return false;
+	}
+
+	return true;
+}

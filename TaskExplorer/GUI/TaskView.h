@@ -18,8 +18,6 @@ private slots:
 
 	void					OnPriority();
 
-	void					OnPermissions();
-
 protected:
 	virtual QList<CTaskPtr>	GetSellectedTasks() = 0;
 
@@ -42,8 +40,6 @@ protected:
 	QAction*				m_pTerminate;
 	QAction*				m_pSuspend;
 	QAction*				m_pResume;
-
-	QAction*				m_pPermissions;
 
 	// Priority Items
 	QAction*				m_pAffinity;

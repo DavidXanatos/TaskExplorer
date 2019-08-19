@@ -76,10 +76,10 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 		}
 
 		pItem->setText(eSymbol, StackFrame.Symbol);
-		pItem->setText(eStackAddress, "0x" + QString::number(StackFrame.StackAddress, 16));
-		pItem->setText(eFrameAddress, "0x" + QString::number(StackFrame.FrameAddress, 16));
-		pItem->setText(eControlAddress, "0x" + QString::number(StackFrame.PcAddress, 16));
-		pItem->setText(eReturnAddress, "0x" + QString::number(StackFrame.ReturnAddress, 16));
+		pItem->setText(eStackAddress, FormatAddress(StackFrame.StackAddress));
+		pItem->setText(eFrameAddress, FormatAddress(StackFrame.FrameAddress));
+		pItem->setText(eControlAddress, FormatAddress(StackFrame.PcAddress));
+		pItem->setText(eReturnAddress, FormatAddress(StackFrame.ReturnAddress));
 		pItem->setText(eStackParameter, tr("0x%1 0x%2 0x%3 0x%4").arg(StackFrame.Params[0], 0, 16).arg(StackFrame.Params[1], 0, 16).arg(StackFrame.Params[2], 0, 16).arg(StackFrame.Params[3], 0, 16));
 		pItem->setText(eFileInfo, StackFrame.FileInfo);
 	}

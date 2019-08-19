@@ -23,6 +23,7 @@ public:
 	virtual ulong GetSubsystem() const;
 	virtual QString GetSubsystemString() const;
 	virtual quint64 GetRawCreateTime() const;
+	virtual QString GetWorkingDirectory() const;
 
 	// Flags
 	virtual bool IsSubsystemProcess() const;
@@ -36,13 +37,19 @@ public:
 	virtual quint64 GetShareableWorkingSetSize() const;
 	virtual quint64 GetVirtualSize() const;
 	virtual quint64 GetPeakVirtualSize() const;
-	virtual quint32 GetPageFaultCount() const;
+	//virtual quint32 GetPageFaultCount() const;
 	virtual quint64 GetPagedPool() const;
 	virtual quint64 GetPeakPagedPool() const;
 	virtual quint64 GetNonPagedPool() const;
 	virtual quint64 GetPeakNonPagedPool() const;
 	virtual quint64 GetMinimumWS() const;
 	virtual quint64 GetMaximumWS() const;
+
+	virtual ulong	GetPeakNumberOfHandles() const;
+	virtual quint64 GetUpTime() const;
+	virtual quint64 GetSuspendTime() const;
+	virtual int		GetHangCount() const;
+	virtual int		GetGhostCount() const;
 
 	virtual QString GetPriorityString() const;
 	virtual STATUS SetPriority(long Value);
@@ -95,10 +102,12 @@ public:
 	virtual bool IsServiceProcess() const;
 	virtual bool IsUserProcess() const;
 	virtual bool IsElevated() const;
-	virtual bool IsJobProcess() const;
+	//virtual bool IsJobProcess() const;
+	virtual bool IsInJob() const;
 	virtual bool IsPicoProcess() const;
 	virtual bool IsImmersiveProcess() const;
 	virtual bool IsNetProcess() const;
+	virtual quint64 GetConsoleHostId() const;
 
 	virtual QString GetPackageName() const; 
 	virtual QString GetAppID() const; 
@@ -113,7 +122,7 @@ public:
 	virtual QString GetMitigationString() const;
 
 	virtual QString GetDesktopInfo() const;
-	virtual bool IsCriticalProcess() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
+	virtual bool IsCriticalProcess() const;
 	virtual STATUS SetCriticalProcess(bool bSet, bool bForce = false);
 	virtual STATUS ReduceWS();
 
@@ -127,7 +136,32 @@ public:
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
 
+	virtual CWndPtr GetMainWindowHwnd() const;
+
 	virtual bool UpdateGDIList(QMap<quint64, CWinGDIPtr>& List) const;
+
+	struct STask
+	{
+		QString Name;
+		QString Path;
+	};
+	virtual QList<STask>	GetTasks() const;
+
+	struct SDriver
+	{
+		QString Name;
+		QString Path;
+	};
+	virtual QList<SDriver>	GetUmdfDrivers() const;
+
+	struct SWmiProvider
+	{
+		QString ProviderName;
+		QString NamespacePath;
+		QString FileName;
+		QString UserName;
+	};
+	virtual QList<SWmiProvider>	QueryWmiProviders() const;
 
 public slots:
 	virtual bool	UpdateThreads();
@@ -137,13 +171,15 @@ public slots:
 
 	void			OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
 
+private slots:
+	//bool UpdateDynamicDataExt();
+
 protected:
 	friend class CWindowsAPI;
 
-	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process);
-	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, quint64 sysTotalTime, quint64 sysTotalCycleTime);
-	bool UpdateDynamicDataExt();
-	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo);
+	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 
 	void AddNetworkIO(int Type, ulong TransferSize);
@@ -168,8 +204,9 @@ protected:
 	CWinTokenPtr					m_pToken;
 
 private:
-	quint64	m_lastExtUpdate;
-	void	UpdateExtDataIfNeeded() const;
+	//volatile quint64 m_lastExtUpdate;
+	//void	UpdateExtDataIfNeeded() const;
+	void UpdateWsCounters() const;
 
 	quint64 m_LastUpdateHandles;
 

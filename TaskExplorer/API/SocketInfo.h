@@ -52,9 +52,9 @@ public:
 
 	virtual STATUS				Close() = 0;
 
-protected:
 	virtual void				UpdateStats();
 
+protected:
 	quint64						m_HashID;
 
 	ulong						m_ProtocolType;

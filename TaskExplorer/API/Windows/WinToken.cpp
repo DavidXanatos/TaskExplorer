@@ -47,8 +47,9 @@ CWinToken::CWinToken(QObject *parent)
 {
 	m_IsAppContainer = false;
 	m_SessionId = 0;
+	m_Elevated = false;
 	m_ElevationType = 0;
-	m_IntegrityLevel = 0;
+	m_IntegrityLevel = -1;
 	m_Virtualization = 0;
 
 	m = new SWinToken();
@@ -121,7 +122,7 @@ QString GetSidFullNameCached(const QByteArray& Sid, QObject* pTarget)
 
 	if (pTarget) // so if we want a quick result we skip this step
 	{
-		// ToDo: we shoudl use a dedicated worker thread as Qt's Future system will start many paralell requests
+		// ToDo: we should use a dedicated worker thread as Qt's Future system will start many paralell requests
 		// so we may end up with multiple requests for teh same SID, and as we have a limited worker pool 
 		// we may block other things using QFutureWatcher like resolving file infos for CWinModule
 
@@ -283,13 +284,21 @@ bool CWinToken::UpdateDynamicData()
 	if (NT_SUCCESS(PhGetTokenElevationType(tokenHandle, &elevationType)))
 		m_ElevationType = elevationType;
 
+	BOOLEAN elevated = TRUE;
+	if (NT_SUCCESS(PhGetTokenIsElevated(tokenHandle, &elevated)))
+		m_Elevated = elevated;
+
+
 	// Integrity
 	MANDATORY_LEVEL_RID integrityLevel;
 	PWSTR integrityString;  // this will point to static stings so dont free it
 	if (NT_SUCCESS(PhGetTokenIntegrityLevelRID(tokenHandle, &integrityLevel, &integrityString)))
 	{
-		m_IntegrityLevel = integrityLevel;
-		m_IntegrityString = QString::fromWCharArray(integrityString);
+		if (m_IntegrityLevel != integrityLevel)
+		{
+			m_IntegrityLevel = integrityLevel;
+			m_IntegrityString = QString::fromWCharArray(integrityString);
+		}
 	}
 
 	BOOLEAN isVirtualizationAllowed;
@@ -324,14 +333,13 @@ bool CWinToken::UpdateExtendedData()
 		return false;
 
     //PhpUpdateTokenDangerousFlags
-	// ToDo:
+	// ToDo: xxx
     /*TOKEN_MANDATORY_POLICY mandatoryPolicy;
     if (NT_SUCCESS(PhGetTokenMandatoryPolicy(tokenHandle, &mandatoryPolicy)))
     {
         // The disabled no-write-up policy is considered to be dangerous (diversenok)
         if ((mandatoryPolicy.Policy & TOKEN_MANDATORY_POLICY_NO_WRITE_UP) == 0)
         {
-            // todo: xxx
             // PH_PROCESS_TOKEN_FLAG_NO_WRITE_UP, "No-Write-Up Policy", "Prevents the process from modifying objects with a higher integrity"
         }
     }
@@ -342,7 +350,6 @@ bool CWinToken::UpdateExtendedData()
         // The presence of SandboxInert flag is considered dangerous (diversenok)
         if (isSandboxInert)
         {
-			// todo: xxx
             // PH_PROCESS_TOKEN_FLAG_SANDBOX_INERT, "Sandbox Inert", "Ignore AppLocker rules and Software Restriction Policies"
         }
     }
@@ -353,7 +360,6 @@ bool CWinToken::UpdateExtendedData()
         // The presence of UIAccess flag is considered dangerous (diversenok)
         if (isUIAccess)
         {
-			// todo: xxx
             // PH_PROCESS_TOKEN_FLAG_UIACCESS, "UIAccess", "Ignore User Interface Privilege Isolation"
         }
     }*/
@@ -1112,7 +1118,7 @@ CWinToken::SContainerInfo CWinToken::GetContainerInfo()
     if (NT_SUCCESS(PhGetTokenAppContainerNumber(tokenHandle, &appContainerNumber)))
 		ContainerInfo.appContainerNumber = appContainerNumber;
 
-    // TODO: TokenIsLessPrivilegedAppContainer
+    // TO-DO: TokenIsLessPrivilegedAppContainer
     {
         static UNICODE_STRING attributeNameUs = RTL_CONSTANT_STRING(L"WIN://NOALLAPPPKG");
         PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;

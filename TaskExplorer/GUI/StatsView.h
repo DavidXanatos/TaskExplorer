@@ -74,6 +74,7 @@ private:
 	QTreeWidgetItem*		m_pPrivateBytes;			//			###				###
 	QTreeWidgetItem*		m_pVirtualSize;				//			###						###
 	QTreeWidgetItem*		m_pPageFaults;				//	###						###
+	QTreeWidgetItem*		m_pHardFaults;				//	###						###
 	QTreeWidgetItem*		m_pCommitCharge;			//			###						###		###
 	QTreeWidgetItem*		m_pWorkingSet;				//			###
 	QTreeWidgetItem*		m_pPrivateWS;				//			###
@@ -98,11 +99,16 @@ private:
 
 	QTreeWidgetItem*		m_pOther;
 	QTreeWidgetItem*		m_pProcesses;				//	###	
-	QTreeWidgetItem*		m_pThreads;					//	###	
+	QTreeWidgetItem*		m_pThreads;					//	###								###
 	QTreeWidgetItem*		m_pHandles;					//	###								###
 	QTreeWidgetItem*		m_pGdiObjects;				//	###
 	QTreeWidgetItem*		m_pUserObjects;				//	###
 	QTreeWidgetItem*		m_pWndObjects;				//	###
+	
+	QTreeWidgetItem*		m_pUpTime;					//	###
+	QTreeWidgetItem*		m_pSuspendTime;				//	###
+	QTreeWidgetItem*		m_pHangCount;				//	###
+	QTreeWidgetItem*		m_pGhostCount;				//	###
 	
 
 	//QMenu*					m_pMenu;

@@ -116,7 +116,7 @@ void CWindowModel::Sync(const QMap<quint64, CWndPtr>& ModuleList)
 				switch (section)
 				{
 					case eHandle:		ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;
-					case eThread:		break; // todo
+					//case eThread:		ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;
 				}
 			}
 

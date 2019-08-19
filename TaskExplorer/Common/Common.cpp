@@ -161,6 +161,19 @@ QString FormatTime(quint64 Time)
 	return QString().sprintf("%dd%02d:%02d:%02d", days, hours, minutes, seconds);
 }
 
+QString	FormatNumber(quint64 Number)
+{
+	QString String = QString::number(Number);
+	for (int i = String.length() - 3; i > 0; i -= 3)
+		String.insert(i, QString::fromWCharArray(L"\u202F")); // L"\u2009"
+	return String;
+}
+
+QString	FormatAddress(quint64 Address, int length)
+{
+	return "0x" + QString::number(Address, 16).rightJustified(length, '0');
+}
+
 bool ReadFromDevice(QIODevice* dev, char* data, int len, int timeout)
 {
 	while (dev->bytesAvailable() < len) {
@@ -204,17 +217,20 @@ void GrayScale (QImage& Image)
 	}
 }
 
-QAction* MakeAction(QToolBar* pParent, const QString& IconFile, const QString& Text)
+QIcon MakeActionIcon(const QString& IconFile)
 {
-	QAction* pAction = new QAction(Text, pParent);
-	
 	QImage Image(IconFile);
 	QIcon Icon;
 	Icon.addPixmap(QPixmap::fromImage(Image), QIcon::Normal);
 	GrayScale(Image);
 	Icon.addPixmap(QPixmap::fromImage(Image), QIcon::Disabled);
-	pAction->setIcon(Icon);
-	
+	return Icon;
+}
+
+QAction* MakeAction(QToolBar* pParent, const QString& IconFile, const QString& Text)
+{
+	QAction* pAction = new QAction(Text, pParent);
+	pAction->setIcon(MakeActionIcon(IconFile));
 	pParent->addAction(pAction);
 	return pAction;
 }

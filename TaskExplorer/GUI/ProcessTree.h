@@ -31,12 +31,16 @@ private slots:
 	
 	void					OnHeaderMenu(const QPoint& Point);
 	void					OnHeaderMenu();
+	
+	void					OnToolTipCallback(const QVariant& ID, QString& ToolTip);
 
 	//void					OnMenu(const QPoint& Point);
 
 	void					OnCrashDump();
 	void					OnProcessAction();
 	void					OnRunAsThis();
+
+	void					OnPermissions();
 
 protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
@@ -80,17 +84,19 @@ private:
 	//QMenu*					m_pMenu;
 
 	//QAction*				m_pTerminateTree;
+	QAction*				m_pBringInFront;
 	QAction*				m_pOpenPath;
+	QMenu*					m_pMiscMenu;
+	QAction*				m_pRunAsThis;
 	QAction*				m_pCreateDump;
 	QAction*				m_pDebug; // []
 #ifdef WIN32
 	QAction*				m_pVirtualization; // []
 	//QAction*				m_pWindows;
-	//QAction*				m_pGDI_Handles;
 	QAction*				m_pCritical; // []
 	QAction*				m_pReduceWS;
 	//QAction*				m_pUnloadModules;
 	//QAction*				m_pWatchWS;
+	QAction*				m_pPermissions;
 #endif
-	QAction*				m_pRunAsThis;
 };

@@ -131,7 +131,7 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 			switch (section)
 			{
-				case eBaseAddress:	ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;	
+				case eBaseAddress:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;	
 
 				case eSize:
 

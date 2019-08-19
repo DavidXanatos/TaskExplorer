@@ -648,7 +648,7 @@ QString CTaskService::RunWorker(bool bElevanted)
 
 	return SocketName;
 #else
-	return QString(); // todo: linux
+	return QString(); // linux-todo:
 #endif
 }
 

@@ -15,7 +15,7 @@ struct SRateCounter
 
 	virtual void Update(quint64 Interval, quint64 AddDelta)
 	{
-		// ToDo; instead of pushing and popping use a sircualr buffer approche.
+		// ToDo: instead of pushing and popping use a ring buffer
 
 		while(TotalTime > AVG_INTERVAL && !RateStat.empty())
 		{
@@ -165,6 +165,16 @@ struct SIOStats
 		WriteRaw = 0;
 	}
 
+	void AddRead(quint64 size) {
+		ReadCount++;
+		ReadRaw += size;
+	}
+
+	void AddWrite(quint64 size) {
+		WriteCount++;
+		WriteRaw += size;
+	}
+
 	void SetRead(quint64 size, quint64 count) {
 		ReadCount = count;
 		ReadRaw = size;
@@ -199,24 +209,7 @@ struct SIOStats
 	SRateCounter	WriteRate;
 };
 
-struct SDiskStats: SIOStats
-{
-	SDiskStats()
-	{
-	}
-
-	void AddRead(quint64 size) {
-		ReadCount++;
-		ReadRaw += size;
-	}
-
-	void AddWrite(quint64 size) {
-		WriteCount++;
-		WriteRaw += size;
-	}
-};
-
-struct SIOStatsEx: SDiskStats
+struct SIOStatsEx: SIOStats
 {
 	SIOStatsEx()
 	{
@@ -232,7 +225,7 @@ struct SIOStatsEx: SDiskStats
 
 	void UpdateStats(quint64 Interval)
 	{
-		SDiskStats::UpdateStats(Interval);
+		SIOStats::UpdateStats(Interval);
 		OtherDelta.Update(OtherCount);
 		OtherRawDelta.Update(OtherRaw);
 		OtherRate.Update(Interval, OtherRawDelta.Delta);
@@ -293,7 +286,7 @@ struct SProcStats
 	quint64		LastStatUpdate;
 
 	SNetStats	Net;
-	SDiskStats	Disk;
+	SIOStats	Disk;
 	SIOStatsEx	Io;
 };
 
@@ -305,7 +298,7 @@ struct SSysStats: SProcStats
 
 		MMapIo.UpdateStats(time_ms);
 
-		NetIf.UpdateStats(time_ms);
+		//NetIf.UpdateStats(time_ms);
 
 #ifdef WIN32
 		SambaServer.UpdateStats(time_ms);
@@ -317,7 +310,7 @@ struct SSysStats: SProcStats
 
 	SIOStatsEx	MMapIo;
 
-	SNetStats	NetIf;
+	//SNetStats	NetIf;
 
 #ifdef WIN32
 	SNetStats	SambaServer;

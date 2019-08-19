@@ -65,7 +65,6 @@ signals:
 	void				clicked(const QModelIndex& Index);
 	void				doubleClicked(const QModelIndex& Index);
 	void				currentChanged(const QModelIndex &current, const QModelIndex &previous);
-	// todo add more relevant signals
 
 public slots:
 	void				hideColumn(int column) { m_pList->hideColumn(column); }

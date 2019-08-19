@@ -27,7 +27,7 @@ public slots:
 protected:
 	virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView()	{ return m_pServiceList; }
-	virtual QAbstractItemModel* GetModel()	{ return m_pServiceModel; }
+	virtual QAbstractItemModel* GetModel()	{ return m_pSortProxy; }
 
 private slots:
 	void					OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);

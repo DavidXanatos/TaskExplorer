@@ -366,7 +366,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 
 	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Name"), pWinHandle->GetOriginalName());
 	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Type"), pWinHandle->GetTypeString());
-	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Object address"), "0x" + QString::number(pWinHandle->GetObjectAddress(), 16));
+	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Object address"), FormatAddress(pWinHandle->GetObjectAddress()));
 	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Granted access"), pWinHandle->GetGrantedAccessString());
 
 
@@ -431,7 +431,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 	}
 	else if(TypeName == "Timer")
 	{
-		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Remaining"), QString::number(HandleInfo.Timer.Remaining)); // todo
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Remaining"), QString::number(HandleInfo.Timer.Remaining));
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Signaled"), HandleInfo.Timer.Signaled ? tr("True") : tr("False"));
 	}
 	else

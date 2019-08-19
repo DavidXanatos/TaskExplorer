@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "DiskView.h"
 #include "../TaskExplorer.h"
+#ifdef WIN32
+#include "../../API/Windows/WindowsAPI.h"
+#endif
 
 CDiskView::CDiskView(QWidget *parent)
 	:QWidget(parent)
@@ -66,6 +69,8 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pWritePlot->setMinimumWidth(50);
 	m_pWritePlot->SetupLegend(Front, tr("Write Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pWRPlotLayout->addWidget(m_pWritePlot);
+
+	m_bHasUnSupported = false;
 
 	m_pIOPlotWidget = new QWidget();
 	m_pIOPlotLayout = new QVBoxLayout();
@@ -167,20 +172,28 @@ void CDiskView::Refresh()
 			m_pDiskList->GetTree()->addTopLevelItem(pItem);
 		}
 
-		pItem->setText(eActivityTime, tr("%1 %").arg((int)DiskInfo.ActiveTime));
-		pItem->setText(eResponseTime, tr("%1 ms").arg(DiskInfo.ResponseTime, 2, 'g', 2));
-		pItem->setText(eQueueLength, QString::number(DiskInfo.QueueDepth));
+		if (DiskInfo.DeviceSupported)
+		{
+			pItem->setText(eActivityTime, tr("%1 %").arg((int)DiskInfo.ActiveTime));
+			pItem->setText(eResponseTime, tr("%1 ms").arg(DiskInfo.ResponseTime, 2, 'g', 2));
+			pItem->setText(eQueueLength, QString::number(DiskInfo.QueueDepth));
 
-		pItem->setText(eReadRate, tr("%1/s").arg(FormatSize(DiskInfo.ReadRate.Get())));
-		pItem->setText(eBytesRead, FormatSize(DiskInfo.ReadRawDelta.Value));
-		pItem->setText(eBytesReadDelta, FormatSize(DiskInfo.ReadRawDelta.Delta));
-		pItem->setText(eReads, FormatUnit(DiskInfo.ReadDelta.Value));
-		pItem->setText(eReadsDelta, QString::number(DiskInfo.ReadDelta.Delta));
-		pItem->setText(eWriteRate, tr("%1/s").arg(FormatSize(DiskInfo.WriteRate.Get())));
-		pItem->setText(eBytesWriten, FormatSize(DiskInfo.WriteRawDelta.Value));
-		pItem->setText(eBytesWritenDelta, FormatSize(DiskInfo.WriteRawDelta.Delta));
-		pItem->setText(eWrites, FormatUnit(DiskInfo.WriteDelta.Value));
-		pItem->setText(eWritesDelta, QString::number(DiskInfo.WriteDelta.Delta));
+			pItem->setText(eReadRate, tr("%1/s").arg(FormatSize(DiskInfo.ReadRate.Get())));
+			pItem->setText(eBytesRead, FormatSize(DiskInfo.ReadRawDelta.Value));
+			pItem->setText(eBytesReadDelta, FormatSize(DiskInfo.ReadRawDelta.Delta));
+			pItem->setText(eReads, FormatNumber(DiskInfo.ReadDelta.Value));
+			pItem->setText(eReadsDelta, FormatNumber(DiskInfo.ReadDelta.Delta));
+			pItem->setText(eWriteRate, tr("%1/s").arg(FormatSize(DiskInfo.WriteRate.Get())));
+			pItem->setText(eBytesWriten, FormatSize(DiskInfo.WriteRawDelta.Value));
+			pItem->setText(eBytesWritenDelta, FormatSize(DiskInfo.WriteRawDelta.Delta));
+			pItem->setText(eWrites, FormatNumber(DiskInfo.WriteDelta.Value));
+			pItem->setText(eWritesDelta, FormatNumber(DiskInfo.WriteDelta.Delta));
+		}
+		else
+		{
+			for(int i=eActivityTime; i <= eWritesDelta; i++ )
+				pItem->setText(i, tr("N/A"));
+		}
 
 		pItem->setText(eDevicePath, DiskInfo.DevicePath);
 	}
@@ -232,6 +245,28 @@ void CDiskView::UpdateGraphs()
 		m_pDiskPlot->SetRagne(100);
 	}
 
+	if ((DiskRates.Supported != DiskRates.DiskCount) != m_bHasUnSupported)
+	{
+		m_bHasUnSupported = (DiskRates.Supported != DiskRates.DiskCount);
+
+		if (!m_bHasUnSupported)
+		{
+			m_pReadPlot->RemovePlot("Disk_UnSupported");
+			m_pWritePlot->RemovePlot("Disk_UnSupported");
+		}
+		else
+		{
+			QVector<QColor> Colors = theGUI->GetPlotColors();
+			m_pReadPlot->AddPlot("Disk_UnSupported", Colors[(m_Disks.size() + 1) % Colors.size()], Qt::SolidLine, false, tr("Other Disks (unsupported)"));
+			m_pWritePlot->AddPlot("Disk_UnSupported", Colors[(m_Disks.size() + 1) % Colors.size()], Qt::SolidLine, false, tr("Other Disks (unsupported)"));
+		}
+	}
+
+	bool useDiskCounters = false;
+
+	quint64 SummReadRate = 0;
+	quint64 SummWriteRate = 0;
+
 	foreach(const CDiskMonitor::SDiskInfo& Disk, DiskList)
 	{
 		if (!Disk.DeviceSupported)
@@ -241,14 +276,35 @@ void CDiskView::UpdateGraphs()
 
 		m_pReadPlot->AddPlotPoint("Disk_" + Disk.DevicePath, Disk.ReadRate.Get());
 		m_pWritePlot->AddPlotPoint("Disk_" + Disk.DevicePath, Disk.WriteRate.Get());
+
+		SummReadRate += Disk.ReadRate.Get();
+		SummWriteRate += Disk.WriteRate.Get();
 	}
 
-	SSysStats Stats = theAPI->GetStats();
+	SSysStats SysStats = theAPI->GetStats();
 
-	m_pFileIOPlot->AddPlotPoint("FileIO_Read", Stats.Io.ReadRate.Get());
-	m_pFileIOPlot->AddPlotPoint("FileIO_Write", Stats.Io.WriteRate.Get());
-	m_pFileIOPlot->AddPlotPoint("FileIO_Other", Stats.Io.OtherRate.Get());
+	m_pFileIOPlot->AddPlotPoint("FileIO_Read", SysStats.Io.ReadRate.Get());
+	m_pFileIOPlot->AddPlotPoint("FileIO_Write", SysStats.Io.WriteRate.Get());
+	m_pFileIOPlot->AddPlotPoint("FileIO_Other", SysStats.Io.OtherRate.Get());
 
-	m_pMMapIOPlot->AddPlotPoint("MMapIO_Read", Stats.MMapIo.ReadRate.Get());
-	m_pMMapIOPlot->AddPlotPoint("MMapIO_Write", Stats.MMapIo.WriteRate.Get());
+	m_pMMapIOPlot->AddPlotPoint("MMapIO_Read", SysStats.MMapIo.ReadRate.Get());
+	m_pMMapIOPlot->AddPlotPoint("MMapIO_Write", SysStats.MMapIo.WriteRate.Get());
+
+	if(m_bHasUnSupported)
+	{
+		quint64 OtherReadRate = SysStats.Disk.ReadRate.Get();
+		if (OtherReadRate > SummReadRate)
+			OtherReadRate -= SummReadRate;
+		else
+			OtherReadRate = 0;
+
+		quint64 OtherWriteRate = SysStats.Disk.WriteRate.Get();
+		if (OtherWriteRate > SummWriteRate)
+			OtherWriteRate -= SummWriteRate;
+		else
+			OtherWriteRate = 0;
+
+		m_pReadPlot->AddPlotPoint("Disk_UnSupported", OtherReadRate);
+		m_pWritePlot->AddPlotPoint("Disk_UnSupported", OtherWriteRate);
+	}
 }

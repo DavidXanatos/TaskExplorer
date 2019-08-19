@@ -67,10 +67,6 @@ void CTaskView::AddPriorityItemsToMenu(EPriorityType Style, bool bAddSeparator)
 	if(bAddSeparator)
 		m_pMenu->addSeparator();
 
-	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
-
-	m_pMenu->addSeparator();
-
 	m_pAffinity = m_pMenu->addAction(tr("Affinity"), this, SLOT(OnAffinity()));
 
 	m_pPriority = m_pMenu->addMenu(tr("Priority"));
@@ -171,8 +167,6 @@ void CTaskView::OnMenu(const QPoint& Point)
 	m_pPagePriority->setEnabled(Tasks.count() > 0);
 	foreach(QAction* pAction, m_pPagePriority->actions())
 		pAction->setChecked(m_pPriorityLevels[pAction].Value == PagePriority);
-
-	m_pPermissions->setEnabled(Tasks.count() == 1);
 
 	CPanelView::OnMenu(Point);
 }
@@ -279,22 +273,4 @@ void CTaskView::OnPriority()
 	}
 
 	CTaskExplorer::CheckErrors(Errors);
-}
-
-void CTaskView::OnPermissions()
-{
-#ifdef WIN32
-	QList<CTaskPtr>	Tasks = GetSellectedTasks();
-	if (Tasks.count() != 1)
-		return;
-
-	if (QSharedPointer<CWinThread> pWinThread = Tasks.first().objectCast<CWinThread>())
-	{
-		pWinThread->OpenPermissions();
-	}
-	else if (QSharedPointer<CWinProcess> pWinProcess = Tasks.first().objectCast<CWinProcess>())
-	{
-		pWinProcess->OpenPermissions();
-	}
-#endif
 }

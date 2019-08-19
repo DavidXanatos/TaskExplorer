@@ -105,7 +105,7 @@ struct SEventMonitor
 	TRACEHANDLE SessionHandle;
 	PUNICODE_STRING ActualKernelLoggerName;
 	PGUID ActualSessionGuid;
-	PEVENT_TRACE_PROPERTIES TraceProperties; // ToDo: free this?
+	PEVENT_TRACE_PROPERTIES TraceProperties;
 	BOOLEAN IsStartedSession;
 };
 
@@ -157,6 +157,8 @@ CEventMonitor::~CEventMonitor()
 	if (!wait(5 * 1000))
 		terminate();
 
+	if (m->TraceProperties)
+		PhFree(m->TraceProperties);
 	delete m;
 }
 
@@ -487,7 +489,7 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 
 	// Note: this could easely be integrated in EtpEtwEventCallback (DX)
 
-    // TODO: Find a way to call CloseTrace when the enumeration finishes so we can
+    // TO-DO: Find a way to call CloseTrace when the enumeration finishes so we can
     // stop the trace cleanly.
 
     if (IsEqualGUID(EventRecord->EventHeader.ProviderId, FileIoGuid_I))

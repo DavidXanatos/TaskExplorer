@@ -6,6 +6,9 @@
 #include "SymbolProvider.h"
 #include "WinService.h"
 #include "WinDriver.h"
+#include "WinWnd.h"
+
+#define USE_SYSTEM_FULL_PROCESS
 
 class CWindowsAPI : public CSystemAPI
 {
@@ -41,31 +44,28 @@ public:
 	virtual quint32 GetTotalUserObjects() const			{ QReadLocker Locker(&m_StatsMutex); return m_TotalUserObjects; }
 	virtual quint32 GetTotalWndObjects() const			{ QReadLocker Locker(&m_StatsMutex); return m_TotalWndObjects; }
 
-	struct SWndInfo
-	{
-		quint64 hwnd;
-		quint64 parent;
-		quint64 processId;
-        quint64 threadId;
-	};
-
-	virtual QMultiMap<quint64, SWndInfo> GetWindowByPID(quint64 ProcessId) const { QReadLocker Locker(&m_WindowMutex); return m_WindowMap[ProcessId]; }
+	virtual QMultiMap<quint64, quint64> GetWindowByPID(quint64 ProcessId) const  { QReadLocker Locker(&m_WindowMutex); return m_WindowMap[ProcessId]; }
 
 	virtual QList<QString> GetServicesByPID(quint64 ProcessId) const			 { QReadLocker Locker(&m_ServiceMutex); return m_ServiceByPID.values(ProcessId); }
 
 	virtual quint64 GetUpTime() const;
 
-	bool		IsMonitoringETW() const					{ return m_pEventMonitor != NULL; }
+	virtual QList<SUser> GetUsers() const;
+
+	virtual bool HasExtProcInfo() const;
+	virtual bool IsMonitoringETW() const				{ return m_pEventMonitor != NULL; }
 
 	virtual bool IsTestSigning() const					{ QReadLocker Locker(&m_Mutex); return m_bTestSigning; }
 	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_bDriverFailed; }
 	virtual QString GetDriverFileName() const			{ QReadLocker Locker(&m_Mutex); return m_DriverFileName; }
 
+	//__inline bool UseDiskCounters() const				{ return m_UseDiskCounters != eDontUse; }
+	__inline bool UseDiskCounters() const				{ return m_UseDiskCounters; }
 
 public slots:
 	void		MonitorETW(bool bEnable);
 	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
-								const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
+								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime);
 
@@ -82,8 +82,8 @@ protected:
 	CEventMonitor*			m_pEventMonitor;
 
 
-	mutable QReadWriteLock	m_FileNameMutex;
-	QMap<quint64, QString>	m_FileNames;
+	//mutable QReadWriteLock	m_FileNameMutex;
+	//QMap<quint64, QString>	m_FileNames;
 
 
 	// Guard it with		m_OpenFilesMutex
@@ -99,12 +99,23 @@ protected:
 	quint32					m_TotalUserObjects;
 	quint32					m_TotalWndObjects;
 
+
+	/*enum EUseDiskCounters
+	{
+		eDontUse = 0,
+		eForProgramsOnly,
+		eUseForSystem
+	};
+	volatile EUseDiskCounters m_UseDiskCounters;*/
+	volatile bool			m_UseDiskCounters;
+
 	mutable QReadWriteLock	m_WindowMutex;
-	QMap<quint64, QMultiMap<quint64, SWndInfo> > m_WindowMap;
+	QMap<quint64, QMultiMap<quint64, quint64> > m_WindowMap;
+	QMap<quint64, QPair<quint64, quint64> > m_WindowRevMap;
 
 private:
 	void UpdatePerfStats();
-	void UpdateNetStats();
+	void UpdateSambaStats();
 	quint64 UpdateCpuStats(bool SetCpuUsage);
 	quint64 UpdateCpuCycleStats();
 	bool InitCpuCount();

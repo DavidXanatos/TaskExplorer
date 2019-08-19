@@ -27,6 +27,9 @@ public:
 public slots:
 	void			Clear();
 
+signals:
+	void			ToolTipCallback(const QVariant& ID, QString& ToolTip) const;
+
 protected:
 	struct SListNode
 	{

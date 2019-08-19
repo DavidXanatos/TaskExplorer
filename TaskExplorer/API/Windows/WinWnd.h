@@ -1,6 +1,8 @@
 #pragma once
-#include "WindowsAPI.h"
 #include "../WndInfo.h"
+
+#undef IsMinimized
+#undef IsMaximized
 
 class CWinWnd : public CWndInfo
 {
@@ -19,8 +21,11 @@ public:
 
 	virtual STATUS BringToFront();
 	virtual STATUS Highlight();
+	virtual bool IsNormal() const;
 	virtual STATUS Restore();
+	virtual bool IsMinimized() const;
 	virtual STATUS Minimize();
+	virtual bool IsMaximized() const;
 	virtual STATUS Maximize();
 	virtual STATUS Close();
 
@@ -55,16 +60,20 @@ public:
 
 		QMap<QString, QString> Properties;
 
-		//QMap<QString, QString> PropertyStorage; // todo:
+		QMap<QString, QString> PropertyStorage;
 	};
 
 	virtual SWndInfo GetWndInfo() const;
+
+	typedef void (*WNDENUMPROCEX)(quint64 hWnd, /*quint64 hParent,*/ void* Param);
+
+	static void EnumAllWindows(WNDENUMPROCEX in_Proc, void* in_Param);
 
 protected:
 	friend class CWindowsAPI;
 	friend class CWinProcess;
 
-	bool  InitStaticData(const CWindowsAPI::SWndInfo& WndInfo, void* QueryHandle);
+	bool InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, void* QueryHandle);
 	bool UpdateDynamicData();
 
 	QString			m_WindowClass;

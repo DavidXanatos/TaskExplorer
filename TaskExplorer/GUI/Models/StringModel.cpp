@@ -82,7 +82,9 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 				{
 					case eAddress:
 					case eBaseAddress:	
-										ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;	
+										ColValue.Formated = FormatAddress(Value.toULongLong()); break;	
+					case eLength:
+										ColValue.Formated = FormatNumber(Value.toULongLong()); break;	
 				}
 			}
 

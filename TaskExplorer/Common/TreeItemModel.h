@@ -35,6 +35,7 @@ public slots:
 
 signals:
 	void			CheckChanged(const QVariant& ID, bool State);
+	void			ToolTipCallback(const QVariant& ID, QString& ToolTip) const;
 	void			Updated();
 
 protected:

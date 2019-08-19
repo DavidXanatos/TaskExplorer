@@ -6,6 +6,7 @@
 #include "../../API/Windows/WinProcess.h"
 #include "../../API/Windows/WinToken.h"
 #include "../../API/Windows/WinModule.h"
+#include "../../API/Windows/WindowsAPI.h"
 #endif
 
 
@@ -50,6 +51,11 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 	bool bShow32 = theConf->GetBool("Options/Show32", true);
 	time_t curTime = GetTime();
+
+#ifdef WIN32
+	bool HasExtProcInfo = ((CWindowsAPI*)theAPI)->HasExtProcInfo();
+	bool IsMonitoringETW = ((CWindowsAPI*)theAPI)->IsMonitoringETW();
+#endif
 
 	foreach (const CProcessPtr& pProcess, ProcessList)
 	{
@@ -111,7 +117,8 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #endif
 		else if (pProcess->IsUserProcess())			RowColor = CTaskExplorer::eUser;
 #ifdef WIN32
-		else if (pWinProc->IsJobProcess())			RowColor = CTaskExplorer::eJob;
+		//else if (pWinProc->IsJobProcess())			RowColor = CTaskExplorer::eJob;
+		else if (pWinProc->IsInJob())				RowColor = CTaskExplorer::eJob;
 #endif
 		
 		if (pNode->iColor != RowColor) {
@@ -168,9 +175,9 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eUserName:				Value = pProcess->GetUserName(); break;
 #ifdef WIN32
 				case eServices:				Value = pWinProc->GetServiceList().join(tr(", ")); break;
-				case eDescription:			Value = pWinProc->GetModuleInfo()->GetFileInfo("Description"); break;
-				case eCompanyName:			Value = pWinProc->GetModuleInfo()->GetFileInfo("CompanyName"); break;
-				case eVersion:				Value = pWinProc->GetModuleInfo()->GetFileInfo("FileVersion"); break;
+				case eDescription:			Value = pProcess->GetModuleInfo()->GetFileInfo("Description"); break;
+				case eCompanyName:			Value = pProcess->GetModuleInfo()->GetFileInfo("CompanyName"); break;
+				case eVersion:				Value = pProcess->GetModuleInfo()->GetFileInfo("FileVersion"); break;
 #endif
 
 				case eGPU_History:			Value = pProcess->GetGpuUsage(); break;
@@ -182,7 +189,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eGPU_Adapter:			Value = pProcess->GetGpuAdapter(); break;
 
 				case eFileName:				Value = pProcess->GetFileName(); break;
-				case eCommandLine:			Value = pProcess->GetCommandLine(); break;
+				case eCommandLine:			Value = pProcess->GetCommandLineStr(); break;
 				case ePeakPrivateBytes:		Value = pProcess->GetPeakPrivateBytes(); break;
 				case eMEM_History:
 				case eWorkingSet:			Value = pProcess->GetWorkingSetSize(); break;
@@ -192,13 +199,14 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eShareableWS:			Value = pProcess->GetShareableWorkingSetSize(); break;
 				case eVirtualSize:			Value = pProcess->GetVirtualSize(); break;
 				case ePeakVirtualSize:		Value = pProcess->GetPeakVirtualSize(); break;
-				case ePageFaults:			Value = pProcess->GetPageFaultCount(); break;
 				case eSessionID:			Value = pProcess->GetSessionID(); break;
 				case ePriorityClass:		Value = (quint32)pProcess->GetPriority(); break;
 				case eBasePriority:			Value = (quint32)pProcess->GetBasePriority(); break;
 
 				case eThreads:				Value = (quint32)pProcess->GetNumberOfThreads(); break;
+				case ePeakThreads:			Value = (quint32)pProcess->GetPeakNumberOfThreads(); break;
 				case eHandles:				Value = (quint32)pProcess->GetNumberOfHandles(); break;
+				case ePeakHandles:			Value = (quint32)pProcess->GetPeakNumberOfHandles(); break;
 #ifdef WIN32
 				case eWND_Handles:			Value = (quint32)pWinProc->GetWndHandles(); break;
 				case eGDI_Handles:			Value = (quint32)pWinProc->GetGdiHandles(); break;
@@ -235,8 +243,11 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #endif
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
 				case eContextSwitchesDelta:	Value = CpuStats.ContextSwitchesDelta.Delta; break;
+				case ePageFaults:			Value = CpuStats.PageFaultsDelta.Value; break;
 				case ePageFaultsDelta:		Value = CpuStats.PageFaultsDelta.Delta; break;
-				
+				case eHardFaults:			Value = CpuStats.HardFaultsDelta.Value; break;
+				case eHardFaultsDelta:		Value = CpuStats.HardFaultsDelta.Delta; break;
+
 				// IO
 				case eIO_Reads:				Value = Stats.Io.ReadCount; break;
 				case eIO_Writes:			Value = Stats.Io.WriteCount; break;
@@ -283,6 +294,11 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eProtection:			Value = (int)pWinProc->GetProtection(); break;
 				case eDesktop:				Value = pWinProc->GetDesktopInfo(); break;
 				case eCritical:				Value = pWinProc->IsCriticalProcess() ? tr("Critical") : ""; break;
+
+				case eUpTime2:				Value = pWinProc->GetUpTime(); break;
+				case eSuspendedTime:		Value = pWinProc->GetSuspendTime(); break;
+				case eHangCount:			Value = pWinProc->GetHangCount(); break;
+				case eGhostCount:			Value = pWinProc->GetGhostCount(); break;
 #endif
 
 				// Network IO
@@ -315,14 +331,17 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				//case eTotalBytesDelta:	Value = ; break;
 				case eReadRate:				Value = Stats.Disk.ReadRate.Get(); break;
 				case eWriteRate:			Value = Stats.Disk.WriteRate.Get(); break;
-
-				/*case eHardFaults:			Value = break;
-				case eHardFaultsDelta:		Value = break;
-				case ePeakThreads:			Value = break;
-				case eGPU:					Value = break;
-				case eGPU_DedicatedBytes:	Value = break;
-				case eGPU_SharedBytes:		Value = break;*/
 			}
+
+#ifdef WIN32
+			if (!IsMonitoringETW)
+			{
+				// Note: this columns are not available without ETW being enabled
+				if (section == eNET_History || (section >= eNet_TotalRate && section <= eSendRate)
+				 || ((section >= eDisk_TotalRate && section <= eWriteRate) && !HasExtProcInfo))
+					Value = tr("N/A");
+			}
+#endif
 
 			SProcessNode::SValue& ColValue = pNode->Values[section];
 
@@ -362,17 +381,48 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 					case eFileSize:
 											ColValue.Formated = FormatSize(Value.toULongLong()); break;
+
+					case eWND_Handles:
+					case eGDI_Handles:
+					case eUSER_Handles:
+					case eCycles:
+					case eCyclesDelta:
+					case eContextSwitches:
+					case eContextSwitchesDelta:
+					case ePageFaults:
+					case ePageFaultsDelta:
+					case eHardFaults:
+					case eHardFaultsDelta:
+					case eIO_Reads:
+					case eIO_Writes:
+					case eIO_Other:
+					case eIO_ReadsDelta:
+					case eIO_WritesDelta:
+					case eIO_OtherDelta:
+					case eReceives:
+					case eSends:
+					case eReceivesDetla:
+					case eSendsDelta:
+					case eReads:
+					case eWrites:
+					case eReadsDelta:
+					case eWritesDelta:
+										ColValue.Formated = FormatNumber(Value.toULongLong()); break;
+
 					case eStartTime:
 #ifdef WIN32
 					case eTimeStamp:
 #endif
 					case eFileModifiedTime:
 											if (Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
-					case eUpTime:			if (Value.toULongLong() != 0) ColValue.Formated = FormatTime(Value.toULongLong()); break;
+					case eUpTime:			
+					case eUpTime2:			
+					case eSuspendedTime:
+											if (Value.toULongLong() != 0) ColValue.Formated = FormatTime(Value.toULongLong()); break;
 					case eTotalCPU_Time:
 					case eKernelCPU_Time:
 					case eUserCPU_Time:
-											ColValue.Formated = FormatTime(ColValue.Raw.toULongLong()/10000); break;
+											ColValue.Formated = FormatTime(Value.toULongLong()/10000); break;
 					case ePriorityClass:	ColValue.Formated = pProcess->GetPriorityString(); break;
 #ifdef WIN32
 					case eIntegrity:		ColValue.Formated = pToken ? pToken->GetIntegrityString() : "";  break;
@@ -400,7 +450,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eWriteBytes:
 					case eReadBytesDelta:
 					case eWriteBytesDelta:
-												ColValue.Formated = FormatSize(Value.toULongLong()); break; 
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()); break; 
 
 					case eIO_TotalRate:
 					case eIO_ReadRate:
@@ -412,7 +462,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eReadRate:
 					case eWriteRate:
 					case eDisk_TotalRate:
-												ColValue.Formated = FormatSize(Value.toULongLong()) + "/s"; break; 
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()) + "/s"; break; 
 
 
 				}
@@ -510,7 +560,6 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eShareableWS:			return tr("Shareable WS");
 		case eVirtualSize:			return tr("Virtual size");
 		case ePeakVirtualSize:		return tr("Peak virtual size");
-		case ePageFaults:			return tr("Page faults");
 		case eSessionID:			return tr("Session ID");
 		case ePriorityClass:		return tr("Priority class");
 		case eBasePriority:			return tr("Base priority");
@@ -521,7 +570,9 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eGPU_Adapter:			return tr("GPU Adapter");
 
 		case eThreads:				return tr("Threads");
+		case ePeakThreads:			return tr("Peak threads");
 		case eHandles:				return tr("Handles");
+		case ePeakHandles:			return tr("Peak handles");
 #ifdef WIN32
 		case eWND_Handles:			return tr("Windows");	
 		case eGDI_Handles:			return tr("GDI handles");
@@ -561,7 +612,10 @@ QString CProcessModel::GetColumHeader(int section) const
 #endif
 		case eContextSwitches:		return tr("Context switches");
 		case eContextSwitchesDelta:	return tr("Context switches delta");
+		case ePageFaults:			return tr("Page faults");
 		case ePageFaultsDelta:		return tr("Page faults delta");
+		case eHardFaults:			return tr("Hard faults");
+		case eHardFaultsDelta:		return tr("Hard faults delta");
 
 		// IO
 		case eIO_Reads:				return tr("I/O reads");
@@ -609,6 +663,11 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eProtection:			return tr("Protection");
 		case eDesktop:				return tr("Desktop");
 		case eCritical:				return tr("Critical");
+
+		case eUpTime2:				return tr("Running Time");
+		case eSuspendedTime:		return tr("Suspended Time");
+		case eHangCount:			return tr("Hang Count");
+		case eGhostCount:			return tr("Ghost Count");
 #endif
 
 
@@ -641,13 +700,6 @@ QString CProcessModel::GetColumHeader(int section) const
 		//case eTotalBytesDelta:		return tr("Disk total bytes delta");
 		case eReadRate:				return tr("Disk read rate");
 		case eWriteRate:			return tr("Disk write rate");
-
-		/*case eHardFaults:			return tr("Hard faults");
-		case eHardFaultsDelta:		return tr("Hard faults delta");
-		case ePeakThreads:			return tr("Peak threads");
-		case eGPU:					return tr("GPU");
-		case eGPU_DedicatedBytes:	return tr("GPU dedicated bytes");
-		case eGPU_SharedBytes:		return tr("GPU shared bytes");*/
 	}
 	return "";
 }

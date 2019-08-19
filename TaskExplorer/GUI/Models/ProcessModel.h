@@ -75,6 +75,8 @@ public:
 		ePeakVirtualSize,
 		ePageFaults,
 		ePageFaultsDelta,
+		eHardFaults,
+		eHardFaultsDelta,
 		ePagedPool,
 		ePeakPagedPool,
 		eNonPagedPool,
@@ -91,12 +93,14 @@ public:
 
 		// objects
 		eHandles,
+		ePeakHandles,
 #ifdef WIN32
 		eWND_Handles,
 		eGDI_Handles,
 		eUSER_Handles,
 #endif
 		eThreads,
+		ePeakThreads,
 
 		//Protection
 #ifdef WIN32
@@ -159,6 +163,11 @@ public:
 
 		eJobObjectID,
 		eDesktop,
+
+		eUpTime2,
+		eSuspendedTime,
+		eHangCount,
+		eGhostCount,
 #endif
 		eSessionID,
 
@@ -193,12 +202,6 @@ public:
 		eReadRate,
 		eWriteRate,
 
-		/*eHardFaults,
-		eHardFaultsDelta,
-		ePeakThreads,
-		eGPU,
-		eGPU_DedicatedBytes,
-		eGPU_SharedBytes,*/
 		eCount
 	};
 

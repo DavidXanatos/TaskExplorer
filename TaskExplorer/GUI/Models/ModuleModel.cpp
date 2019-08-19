@@ -137,9 +137,9 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 
 				switch (section)
 				{
-					case eBaseAddress:		ColValue.Formated = "0x" + QString::number(pModule->GetBaseAddress(), 16); break;
+					case eBaseAddress:		ColValue.Formated = FormatAddress(pModule->GetBaseAddress()); break;
 					case eSize:				ColValue.Formated = FormatSize(pModule->GetSize()); break;
-					case eParentBaseAddress:ColValue.Formated = "0x" + QString::number(pModule->GetParentBaseAddress(), 16); break;
+					case eParentBaseAddress:ColValue.Formated = FormatAddress(pModule->GetParentBaseAddress()); break;
 #ifdef WIN32
 					case eTimeStamp:		ColValue.Formated = pWinModule->GetImageTimeDateStamp().toString("dd.MM.yyyy hh:mm:ss"); break;
 					case eLoadTime:			ColValue.Formated = pWinModule->GetLoadTime().toString("dd.MM.yyyy hh:mm:ss"); break;
@@ -147,7 +147,7 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 					case eFileSize:			ColValue.Formated = FormatSize(pModule->GetFileSize()); break;
 					case eFileModifiedTime:	ColValue.Formated = pModule->GetModificationTime().toString("dd.MM.yyyy hh:mm:ss"); break;
 #ifdef WIN32
-					case eEntryPoint:		ColValue.Formated = "0x" + QString::number(pWinModule->GetEntryPoint(), 16); break;
+					case eEntryPoint:		ColValue.Formated = FormatAddress(pWinModule->GetEntryPoint()); break;
 #endif
 				}
 			}

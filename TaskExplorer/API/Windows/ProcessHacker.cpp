@@ -111,102 +111,6 @@ BOOLEAN PhInitializeNamespacePolicy(
 }
 */
 
-/*
-BOOLEAN PhInitializeMitigationPolicy(
-	VOID
-)
-{
-#ifndef DEBUG
-#define DEFAULT_MITIGATION_POLICY_FLAGS \
-    (PROCESS_CREATION_MITIGATION_POLICY_HEAP_TERMINATE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_PROHIBIT_DYNAMIC_CODE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_REMOTE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_LOW_LABEL_ALWAYS_ON)
-
-	static PH_STRINGREF nompCommandlinePart = PH_STRINGREF_INIT(L" -nomp");
-	static PH_STRINGREF rasCommandlinePart = PH_STRINGREF_INIT(L" -ras");
-	BOOLEAN success = TRUE;
-	PH_STRINGREF commandlineSr;
-	PPH_STRING commandline = NULL;
-	PS_SYSTEM_DLL_INIT_BLOCK(*LdrSystemDllInitBlock_I) = NULL;
-	STARTUPINFOEX startupInfo = { sizeof(STARTUPINFOEX) };
-	SIZE_T attributeListLength;
-	ULONG64 flags;
-
-	if (WindowsVersion < WINDOWS_10_RS3)
-		return TRUE;
-
-	PhUnicodeStringToStringRef(&NtCurrentPeb()->ProcessParameters->CommandLine, &commandlineSr);
-
-	// NOTE: The SCM has a bug where calling CreateProcess with PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY to restart the service with mitigations
-	// causes the SCM to spew EVENT_SERVICE_DIFFERENT_PID_CONNECTED in the system eventlog and terminate the service. (dmex)
-	// WARN: This bug makes it impossible to start services with mitigation polices when the service doesn't have an IFEO key...
-	if (PhFindStringInStringRef(&commandlineSr, &rasCommandlinePart, FALSE) != -1)
-		return TRUE;
-	if (PhEndsWithStringRef(&commandlineSr, &nompCommandlinePart, FALSE))
-		return TRUE;
-
-	if (!(LdrSystemDllInitBlock_I = (PS_SYSTEM_DLL_INIT_BLOCK(*)) PhGetDllProcedureAddress(L"ntdll.dll", "LdrSystemDllInitBlock", 0)))
-		goto CleanupExit;
-
-	if (!RTL_CONTAINS_FIELD(LdrSystemDllInitBlock_I, LdrSystemDllInitBlock_I->Size, MitigationOptionsMap))
-		goto CleanupExit;
-
-	if ((LdrSystemDllInitBlock_I->MitigationOptionsMap.Map[0] & DEFAULT_MITIGATION_POLICY_FLAGS) == DEFAULT_MITIGATION_POLICY_FLAGS)
-		goto CleanupExit;
-
-	if (!InitializeProcThreadAttributeList(NULL, 1, 0, &attributeListLength) && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-		goto CleanupExit;
-
-	startupInfo.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)PhAllocate(attributeListLength);
-
-	if (!InitializeProcThreadAttributeList(startupInfo.lpAttributeList, 1, 0, &attributeListLength))
-		goto CleanupExit;
-
-	flags = DEFAULT_MITIGATION_POLICY_FLAGS;
-	if (!UpdateProcThreadAttribute(startupInfo.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &flags, sizeof(ULONG64), NULL, NULL))
-		goto CleanupExit;
-
-	commandline = PhConcatStringRef2(&commandlineSr, &nompCommandlinePart);
-
-	if (NT_SUCCESS(PhCreateProcessWin32Ex(
-		NULL,
-		PhGetString(commandline),
-		NULL,
-		NULL,
-		&startupInfo.StartupInfo,
-		PH_CREATE_PROCESS_EXTENDED_STARTUPINFO | PH_CREATE_PROCESS_BREAKAWAY_FROM_JOB,
-		NULL,
-		NULL,
-		NULL,
-		NULL
-	)))
-	{
-		success = FALSE;
-	}
-
-CleanupExit:
-
-	if (commandline)
-		PhDereferenceObject(commandline);
-
-	if (startupInfo.lpAttributeList)
-	{
-		DeleteProcThreadAttributeList(startupInfo.lpAttributeList);
-		PhFree(startupInfo.lpAttributeList);
-	}
-
-	return success;
-#else
-	return TRUE;
-#endif
-}
-*/
-
 VOID PhpEnablePrivileges(
 	VOID
 )
@@ -363,9 +267,20 @@ VOID PhInitializeKph(
     //PhDereferenceObject(processhackerSigFileName);
 }
 
+HMODULE GetThisModuleHandle()
+{
+    //Returns module handle where this function is running in: EXE or DLL
+    HMODULE hModule = NULL;
+    ::GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
+        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+        (LPCTSTR)GetThisModuleHandle, &hModule);
+
+    return hModule;
+}
+
 int InitPH(bool bSvc)
 {
-	HINSTANCE Instance = NULL; // todo?
+	HINSTANCE Instance = GetThisModuleHandle(); // (HINSTANCE)::GetModuleHandle(NULL);
 	LONG result;
 #ifdef DEBUG
 	PHP_BASE_THREAD_DBG dbg;
@@ -418,30 +333,25 @@ int InitPH(bool bSvc)
 	return 0;
 }
 
-STATUS InitKPH(bool bPrivilegeCheck, wstring DeviceName, wstring FileName)
+STATUS InitKPH(QString DeviceName, QString FileName, bool bPrivilegeCheck)
 {
-	if (DeviceName.empty())
-		DeviceName = KPH_DEVICE_SHORT_NAME;
-	if (FileName.empty())
-		FileName = L"kprocesshacker.sys";
+	if (DeviceName.isEmpty())
+		DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
+	if (FileName.isEmpty())
+		FileName = "kprocesshacker.sys";
 
-	if (FileName.find(L"\\") == -1)
-	{
-		PPH_STRING applicationDirectory = PhGetApplicationDirectory();
-		if (!applicationDirectory)
-			return ERR(QObject::tr("Unable to get the application directory."), STATUS_NOT_FOUND);
+	// if the file name is not a full path Add the application directory
+	if (!FileName.contains("\\"))
+		FileName = QApplication::applicationDirPath() + "/" + FileName;
 
-		FileName = wstring(applicationDirectory->Buffer) + FileName;
-		PhDereferenceObject(applicationDirectory);
-	}
-
-    if (!RtlDoesFileExists_U((wchar_t*)FileName.c_str()))
-		return ERR(QObject::tr("The Process Hacker kernel driver '%1' was not found in the application directory.").arg(QString::fromStdWString(FileName)), STATUS_NOT_FOUND);
+	FileName = FileName.replace("/", "\\");
+    if (!QFile::exists(FileName))
+		return ERR(QObject::tr("The Process Hacker kernel driver '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
 
 	KPH_PARAMETERS parameters;
     parameters.SecurityLevel = bPrivilegeCheck ? KphSecurityPrivilegeCheck : KphSecurityNone;
     parameters.CreateDynamicConfiguration = TRUE;
-	NTSTATUS status = KphConnect2Ex((wchar_t*)DeviceName.c_str(), (wchar_t*)FileName.c_str(), &parameters);
+	NTSTATUS status = KphConnect2Ex((wchar_t*)DeviceName.toStdWString().c_str(), (wchar_t*)FileName.toStdWString().c_str(), &parameters);
     if (!NT_SUCCESS(status))
 		return ERR(QObject::tr("Unable to load the kernel driver."), status);
     
@@ -499,223 +409,9 @@ extern "C" {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
-// netprv.c
-BOOLEAN PhGetNetworkConnections(
-    _Out_ PPH_NETWORK_CONNECTION *Connections,
-    _Out_ PULONG NumberOfConnections
-    )
-{
-    PVOID table;
-    ULONG tableSize;
-    PMIB_TCPTABLE_OWNER_MODULE tcp4Table;
-    PMIB_UDPTABLE_OWNER_MODULE udp4Table;
-    PMIB_TCP6TABLE_OWNER_MODULE tcp6Table;
-    PMIB_UDP6TABLE_OWNER_MODULE udp6Table;
-    ULONG count = 0;
-    ULONG i;
-    ULONG index = 0;
-    PPH_NETWORK_CONNECTION connections;
-
-    // TCP IPv4
-
-    tableSize = 0;
-    GetExtendedTcpTable(NULL, &tableSize, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0);
-    table = PhAllocate(tableSize);
-
-    if (GetExtendedTcpTable(table, &tableSize, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0) == NO_ERROR)
-    {
-        tcp4Table = (PMIB_TCPTABLE_OWNER_MODULE)table;
-        count += tcp4Table->dwNumEntries;
-    }
-    else
-    {
-        PhFree(table);
-        tcp4Table = NULL;
-    }
-
-    // TCP IPv6
-
-    tableSize = 0;
-    GetExtendedTcpTable(NULL, &tableSize, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0);
-
-    table = PhAllocate(tableSize);
-
-    if (GetExtendedTcpTable(table, &tableSize, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0) == NO_ERROR)
-    {
-        tcp6Table = (PMIB_TCP6TABLE_OWNER_MODULE)table;
-        count += tcp6Table->dwNumEntries;
-    }
-    else
-    {
-        PhFree(table);
-        tcp6Table = NULL;
-    }
-
-    // UDP IPv4
-
-    tableSize = 0;
-    GetExtendedUdpTable(NULL, &tableSize, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0);
-    table = PhAllocate(tableSize);
-
-    if (GetExtendedUdpTable(table, &tableSize, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0) == NO_ERROR)
-    {
-        udp4Table = (PMIB_UDPTABLE_OWNER_MODULE)table;
-        count += udp4Table->dwNumEntries;
-    }
-    else
-    {
-        PhFree(table);
-        udp4Table = NULL;
-    }
-
-    // UDP IPv6
-
-    tableSize = 0;
-    GetExtendedUdpTable(NULL, &tableSize, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0);
-    table = PhAllocate(tableSize);
-
-    if (GetExtendedUdpTable(table, &tableSize, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0) == NO_ERROR)
-    {
-        udp6Table = (PMIB_UDP6TABLE_OWNER_MODULE)table;
-        count += udp6Table->dwNumEntries;
-    }
-    else
-    {
-        PhFree(table);
-        udp6Table = NULL;
-    }
-
-    connections = (PPH_NETWORK_CONNECTION)PhAllocate(sizeof(PH_NETWORK_CONNECTION) * count);
-    memset(connections, 0, sizeof(PH_NETWORK_CONNECTION) * count);
-
-    if (tcp4Table)
-    {
-        for (i = 0; i < tcp4Table->dwNumEntries; i++)
-        {
-            connections[index].ProtocolType = PH_TCP4_NETWORK_PROTOCOL;
-
-            connections[index].LocalEndpoint.Address.Type = PH_IPV4_NETWORK_TYPE;
-            connections[index].LocalEndpoint.Address.Ipv4 = tcp4Table->table[i].dwLocalAddr;
-            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)tcp4Table->table[i].dwLocalPort);
-
-            connections[index].RemoteEndpoint.Address.Type = PH_IPV4_NETWORK_TYPE;
-            connections[index].RemoteEndpoint.Address.Ipv4 = tcp4Table->table[i].dwRemoteAddr;
-            connections[index].RemoteEndpoint.Port = _byteswap_ushort((USHORT)tcp4Table->table[i].dwRemotePort);
-
-            connections[index].State = tcp4Table->table[i].dwState;
-            connections[index].ProcessId = UlongToHandle(tcp4Table->table[i].dwOwningPid);
-            connections[index].CreateTime = tcp4Table->table[i].liCreateTimestamp;
-            memcpy(
-                connections[index].OwnerInfo,
-                tcp4Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
-                );
-
-            index++;
-        }
-
-        PhFree(tcp4Table);
-    }
-
-    if (tcp6Table)
-    {
-        for (i = 0; i < tcp6Table->dwNumEntries; i++)
-        {
-            connections[index].ProtocolType = PH_TCP6_NETWORK_PROTOCOL;
-
-            connections[index].LocalEndpoint.Address.Type = PH_IPV6_NETWORK_TYPE;
-            memcpy(connections[index].LocalEndpoint.Address.Ipv6, tcp6Table->table[i].ucLocalAddr, 16);
-            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)tcp6Table->table[i].dwLocalPort);
-
-            connections[index].RemoteEndpoint.Address.Type = PH_IPV6_NETWORK_TYPE;
-            memcpy(connections[index].RemoteEndpoint.Address.Ipv6, tcp6Table->table[i].ucRemoteAddr, 16);
-            connections[index].RemoteEndpoint.Port = _byteswap_ushort((USHORT)tcp6Table->table[i].dwRemotePort);
-
-            connections[index].State = tcp6Table->table[i].dwState;
-            connections[index].ProcessId = UlongToHandle(tcp6Table->table[i].dwOwningPid);
-            connections[index].CreateTime = tcp6Table->table[i].liCreateTimestamp;
-            memcpy(
-                connections[index].OwnerInfo,
-                tcp6Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
-                );
-
-            connections[index].LocalScopeId = tcp6Table->table[i].dwLocalScopeId;
-            connections[index].RemoteScopeId = tcp6Table->table[i].dwRemoteScopeId;
-
-            index++;
-        }
-
-        PhFree(tcp6Table);
-    }
-
-    if (udp4Table)
-    {
-        for (i = 0; i < udp4Table->dwNumEntries; i++)
-        {
-            connections[index].ProtocolType = PH_UDP4_NETWORK_PROTOCOL;
-
-            connections[index].LocalEndpoint.Address.Type = PH_IPV4_NETWORK_TYPE;
-            connections[index].LocalEndpoint.Address.Ipv4 = udp4Table->table[i].dwLocalAddr;
-            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)udp4Table->table[i].dwLocalPort);
-
-            connections[index].RemoteEndpoint.Address.Type = 0;
-
-            connections[index].State = 0;
-            connections[index].ProcessId = UlongToHandle(udp4Table->table[i].dwOwningPid);
-            connections[index].CreateTime = udp4Table->table[i].liCreateTimestamp;
-            memcpy(
-                connections[index].OwnerInfo,
-                udp4Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
-                );
-
-            index++;
-        }
-
-        PhFree(udp4Table);
-    }
-
-    if (udp6Table)
-    {
-        for (i = 0; i < udp6Table->dwNumEntries; i++)
-        {
-            connections[index].ProtocolType = PH_UDP6_NETWORK_PROTOCOL;
-
-            connections[index].LocalEndpoint.Address.Type = PH_IPV6_NETWORK_TYPE;
-            memcpy(connections[index].LocalEndpoint.Address.Ipv6, udp6Table->table[i].ucLocalAddr, 16);
-            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)udp6Table->table[i].dwLocalPort);
-
-            connections[index].RemoteEndpoint.Address.Type = 0;
-
-            connections[index].State = 0;
-            connections[index].ProcessId = UlongToHandle(udp6Table->table[i].dwOwningPid);
-            connections[index].CreateTime = udp6Table->table[i].liCreateTimestamp;
-            memcpy(
-                connections[index].OwnerInfo,
-                udp6Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
-                );
-
-            index++;
-        }
-
-        PhFree(udp6Table);
-    }
-
-    *NumberOfConnections = count;
-    *Connections = connections;
-
-    return TRUE;
-}
-
-////////////////////////////////////////////////////////////////////////////////////
 // appsup.c
 
-PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(
-	_In_ HANDLE ProcessId,
-	_In_ PPH_STRING FileName
-)
+PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(quint64 ProcessId, const QString& FileName)
 {
 	int knownProcessType;
 	PH_STRINGREF systemRootPrefix;
@@ -725,15 +421,15 @@ PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(
 	BOOLEAN isWow64 = FALSE;
 #endif
 
-	if (ProcessId == SYSTEM_PROCESS_ID || ProcessId == SYSTEM_IDLE_PROCESS_ID)
+	if (ProcessId == (quint64)SYSTEM_PROCESS_ID || ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID)
 		return SystemProcessType;
 
-	if (PhIsNullOrEmptyString(FileName))
+	if (FileName.isEmpty())
 		return UnknownProcessType;
 
 	PhGetSystemRoot(&systemRootPrefix);
 
-	fileName = (PPH_STRING)PhReferenceObject(FileName);
+	fileName = CastQString(FileName);
 	name = fileName->sr;
 
 	knownProcessType = UnknownProcessType;
@@ -820,6 +516,237 @@ PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(
 #endif
 
 	return (PH_KNOWN_PROCESS_TYPE)knownProcessType;
+}
+
+BOOLEAN NTAPI PhpSvchostCommandLineCallback(_In_opt_ PPH_COMMAND_LINE_OPTION Option, _In_opt_ PPH_STRING Value, _In_opt_ PVOID Context)
+{
+    PPH_KNOWN_PROCESS_COMMAND_LINE knownCommandLine = (PPH_KNOWN_PROCESS_COMMAND_LINE)Context;
+
+	if (Option && Option->Id == 1)
+	{
+		PhSwapReference((PVOID*)&knownCommandLine->ServiceHost.GroupName, Value);
+	}
+
+    return TRUE;
+}
+
+
+BOOLEAN PhaGetProcessKnownCommandLine(
+    _In_ PPH_STRING CommandLine,
+    _In_ PH_KNOWN_PROCESS_TYPE KnownProcessType,
+    _Out_ PPH_KNOWN_PROCESS_COMMAND_LINE KnownCommandLine
+    )
+{
+    switch (KnownProcessType & KnownProcessTypeMask)
+    {
+    case ServiceHostProcessType:
+        {
+            // svchost.exe -k <GroupName>
+
+            static PH_COMMAND_LINE_OPTION options[] =
+            {
+                { 1, L"k", MandatoryArgumentType }
+            };
+
+            KnownCommandLine->ServiceHost.GroupName = NULL;
+
+            PhParseCommandLine(
+                &CommandLine->sr,
+                options,
+                sizeof(options) / sizeof(PH_COMMAND_LINE_OPTION),
+                PH_COMMAND_LINE_IGNORE_UNKNOWN_OPTIONS,
+                PhpSvchostCommandLineCallback,
+                KnownCommandLine
+                );
+
+            if (KnownCommandLine->ServiceHost.GroupName)
+            {
+                PH_AUTO(KnownCommandLine->ServiceHost.GroupName);
+                return TRUE;
+            }
+            else
+            {
+                return FALSE;
+            }
+        }
+        break;
+    case RunDllAsAppProcessType:
+        {
+            // rundll32.exe <DllName>,<ProcedureName> ...
+
+            SIZE_T i;
+            PH_STRINGREF dllNamePart;
+            PH_STRINGREF procedureNamePart;
+            PPH_STRING dllName;
+            PPH_STRING procedureName;
+
+            i = 0;
+
+            // Get the rundll32.exe part.
+
+            dllName = PhParseCommandLinePart(&CommandLine->sr, &i);
+
+            if (!dllName)
+                return FALSE;
+
+            PhDereferenceObject(dllName);
+
+            // Get the DLL name part.
+
+            while (i < CommandLine->Length / sizeof(WCHAR) && CommandLine->Buffer[i] == ' ')
+                i++;
+
+            dllName = PhParseCommandLinePart(&CommandLine->sr, &i);
+
+            if (!dllName)
+                return FALSE;
+
+            PH_AUTO(dllName);
+
+            // The procedure name begins after the last comma.
+
+            if (!PhSplitStringRefAtLastChar(&dllName->sr, ',', &dllNamePart, &procedureNamePart))
+                return FALSE;
+
+            dllName = (PPH_STRING)PH_AUTO(PhCreateString2(&dllNamePart));
+            procedureName = (PPH_STRING)PH_AUTO(PhCreateString2(&procedureNamePart));
+
+            // If the DLL name isn't an absolute path, assume it's in system32.
+            // TO-DO: Use a proper search function.
+
+            if (RtlDetermineDosPathNameType_U(dllName->Buffer) == RtlPathTypeRelative)
+            {
+                dllName = PhaConcatStrings(
+                    3,
+                    PH_AUTO_T(PH_STRING, PhGetSystemDirectory())->Buffer,
+                    L"\\",
+                    dllName->Buffer
+                    );
+            }
+
+            KnownCommandLine->RunDllAsApp.FileName = dllName;
+            KnownCommandLine->RunDllAsApp.ProcedureName = procedureName;
+        }
+        break;
+    case ComSurrogateProcessType:
+        {
+            // dllhost.exe /processid:<Guid>
+
+            static PH_STRINGREF inprocServer32Name = PH_STRINGREF_INIT(L"InprocServer32");
+
+            SIZE_T i;
+            ULONG_PTR indexOfProcessId;
+            PPH_STRING argPart;
+            PPH_STRING guidString;
+            UNICODE_STRING guidStringUs;
+            GUID guid;
+            HANDLE rootKeyHandle;
+            HANDLE inprocServer32KeyHandle;
+            PPH_STRING fileName;
+
+            i = 0;
+
+            // Get the dllhost.exe part.
+
+            argPart = PhParseCommandLinePart(&CommandLine->sr, &i);
+
+            if (!argPart)
+                return FALSE;
+
+            PhDereferenceObject(argPart);
+
+            // Get the argument part.
+
+            while (i < (ULONG)CommandLine->Length / sizeof(WCHAR) && CommandLine->Buffer[i] == ' ')
+                i++;
+
+            argPart = PhParseCommandLinePart(&CommandLine->sr, &i);
+
+            if (!argPart)
+                return FALSE;
+
+            PH_AUTO(argPart);
+
+            // Find "/processid:"; the GUID is just after that.
+
+            _wcsupr(argPart->Buffer);
+            indexOfProcessId = PhFindStringInString(argPart, 0, L"/PROCESSID:");
+
+            if (indexOfProcessId == -1)
+                return FALSE;
+
+            guidString = PhaSubstring(
+                argPart,
+                indexOfProcessId + 11,
+                (ULONG)argPart->Length / sizeof(WCHAR) - indexOfProcessId - 11
+                );
+            PhStringRefToUnicodeString(&guidString->sr, &guidStringUs);
+
+            if (!NT_SUCCESS(RtlGUIDFromString(
+                &guidStringUs,
+                &guid
+                )))
+                return FALSE;
+
+            KnownCommandLine->ComSurrogate.Guid = guid;
+            KnownCommandLine->ComSurrogate.Name = NULL;
+            KnownCommandLine->ComSurrogate.FileName = NULL;
+
+            // Lookup the GUID in the registry to determine the name and file name.
+
+            if (NT_SUCCESS(PhOpenKey(
+                &rootKeyHandle,
+                KEY_READ,
+                PH_KEY_CLASSES_ROOT,
+                &PhaConcatStrings2(L"CLSID\\", guidString->Buffer)->sr,
+                0
+                )))
+            {
+                KnownCommandLine->ComSurrogate.Name =
+                    (PPH_STRING)PH_AUTO(PhQueryRegistryString(rootKeyHandle, NULL));
+
+                if (NT_SUCCESS(PhOpenKey(
+                    &inprocServer32KeyHandle,
+                    KEY_READ,
+                    rootKeyHandle,
+                    &inprocServer32Name,
+                    0
+                    )))
+                {
+                    KnownCommandLine->ComSurrogate.FileName =
+                        (PPH_STRING)PH_AUTO(PhQueryRegistryString(inprocServer32KeyHandle, NULL));
+
+                    if (fileName = (PPH_STRING)PH_AUTO(PhExpandEnvironmentStrings(
+                        &KnownCommandLine->ComSurrogate.FileName->sr
+                        )))
+                    {
+                        KnownCommandLine->ComSurrogate.FileName = fileName;
+                    }
+
+                    NtClose(inprocServer32KeyHandle);
+                }
+
+                NtClose(rootKeyHandle);
+            }
+            else if (NT_SUCCESS(PhOpenKey(
+                &rootKeyHandle,
+                KEY_READ,
+                PH_KEY_CLASSES_ROOT,
+                &PhaConcatStrings2(L"AppID\\", guidString->Buffer)->sr,
+                0
+                )))
+            {
+                KnownCommandLine->ComSurrogate.Name =
+                    (PPH_STRING)PH_AUTO(PhQueryRegistryString(rootKeyHandle, NULL));
+                NtClose(rootKeyHandle);
+            }
+        }
+        break;
+    default:
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 GUID XP_CONTEXT_GUID = { 0xbeb1b341, 0x6837, 0x4c83, { 0x83, 0x66, 0x2b, 0x45, 0x1e, 0x7c, 0xe6, 0x9b } };
@@ -1130,7 +1057,8 @@ BOOLEAN PhpSelectFavoriteInRegedit(
         PostMessage(RegeditWindow, WM_MENUSELECT, MAKEWPARAM(0, 0xffff), 0);
 
     // Bring regedit to the top.
-    if (IsMinimized(RegeditWindow))
+    //if (IsMinimized(RegeditWindow))
+	if (IsIconic(RegeditWindow))
     {
         ShowWindow(RegeditWindow, SW_RESTORE);
         SetForegroundWindow(RegeditWindow);
@@ -1370,23 +1298,6 @@ NTSTATUS PhSvcCallSendMessage(
 
 ////////////////////////////////////////////////////////////////////////////////////
 // syssccpu.c
-
-VOID PhSipGetCpuBrandString(_Out_writes_(49) PWSTR BrandString)
-{
-    // dmex: The __cpuid instruction generates quite a few FPs by security software (malware uses this as an anti-VM trick)...
-    // TODO: This comment block should be removed if the SystemProcessorBrandString class is more reliable.
-    //ULONG brandString[4 * 3];
-    //__cpuid(&brandString[0], 0x80000002);
-    //__cpuid(&brandString[4], 0x80000003);
-    //__cpuid(&brandString[8], 0x80000004);
-
-    CHAR brandString[49];
-
-    NtQuerySystemInformation(SystemProcessorBrandString, brandString, sizeof(brandString), NULL);
-
-    PhZeroExtendToUtf16Buffer(brandString, 48, BrandString);
-    BrandString[48] = UNICODE_NULL;
-}
 
 BOOLEAN PhSipGetCpuFrequencyFromDistribution(PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Current, PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Previous, double* Fraction)
 {

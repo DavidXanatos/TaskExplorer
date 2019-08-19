@@ -35,6 +35,7 @@ public:
 		eTimeStamp,
 		//eLocalHostname,
 		//eRemoteHostname,
+
 		eReceives,
 		eSends,
 		eReceiveBytes,
@@ -45,12 +46,12 @@ public:
 		eReceiveBytesDelta,
 		eSendBytesDelta,
 		//eTotalBytesDelta,
-#ifdef WIN32
-		eFirewallStatus,
-#endif
 		eReceiveRate,
 		eSendRate,
 		//eTotalRate,
+#ifdef WIN32
+		eFirewallStatus,
+#endif
 		eCount
 	};
 

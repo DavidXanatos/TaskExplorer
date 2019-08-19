@@ -63,18 +63,26 @@ CThreadsView::CThreadsView(QWidget *parent)
 
 	//m_pMenu = new QMenu();
 	AddTaskItemsToMenu();
-	m_pMenu->addSeparator();
+
 #ifdef WIN32
-	m_pCancelIO = m_pMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
+	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
+	m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
 	//m_pAnalyze;
-	m_pCritical = m_pMenu->addAction(tr("Critical"), this, SLOT(OnThreadAction()));
-	m_pCritical->setCheckable(true);
-	//m_pPermissions;
-	//m_pToken;
+	m_pCritical = m_pMiscMenu->addAction(tr("Critical"), this, SLOT(OnThreadAction()));
+	m_pCritical->setCheckable(true);	
 #endif
-	//m_pWindows;
+
 	AddPriorityItemsToMenu(eThread);
+
+#ifdef WIN32
+	m_pMenu->addSeparator();
+
+	//m_pToken;
+	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
+#endif
+
 	AddPanelItemsToMenu();
+
 
 	setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/ThreadView_Columns");
@@ -226,9 +234,11 @@ void CThreadsView::OnMenu(const QPoint &point)
 
 	m_pCritical->setEnabled(!pWinThread.isNull());
 	m_pCritical->setChecked(pWinThread && pWinThread->IsCriticalThread());
+
+	m_pPermissions->setEnabled(m_pThreadList->selectedRows().count() == 1);
 #endif
 
-	CPanelView::OnMenu(point);
+	CTaskView::OnMenu(point);
 }
 
 void CThreadsView::OnThreadAction()
@@ -343,3 +353,16 @@ void CThreadsView::OnUpdateHistory()
 	}
 }
 
+void CThreadsView::OnPermissions()
+{
+#ifdef WIN32
+	QList<CTaskPtr>	Tasks = GetSellectedTasks();
+	if (Tasks.count() != 1)
+		return;
+
+	if (QSharedPointer<CWinThread> pWinThread = Tasks.first().objectCast<CWinThread>())
+	{
+		pWinThread->OpenPermissions();
+	}
+#endif
+}

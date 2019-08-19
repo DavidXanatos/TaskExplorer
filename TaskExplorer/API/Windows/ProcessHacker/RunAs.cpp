@@ -299,7 +299,7 @@ VOID PhSetDesktopWinStaAccess(
     CHAR allAppPackagesSidBuffer[FIELD_OFFSET(SID, SubAuthority) + sizeof(ULONG) * 2];
     PSID allAppPackagesSid;
 
-    // TODO: Set security on the correct window station and desktop.
+    // TO-DO: Set security on the correct window station and desktop.
 
     allAppPackagesSid = (PISID)allAppPackagesSidBuffer;
     RtlInitializeSid(allAppPackagesSid, &appPackageAuthority, SECURITY_BUILTIN_APP_PACKAGE_RID_COUNT);
@@ -407,8 +407,7 @@ NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine)
     PPH_STRING commandLine;
     ULONG bytesNeeded = 0;
 
-    //commandLine = PhConcatStrings2(CommandLine, L""); // todo:
-	commandLine = PhConcatStrings2(USER_SHARED_DATA->NtSystemRoot, L"\\System32\\cmd.exe");
+    commandLine = PhConcatStrings2(CommandLine, L"");
 
     if (!(serviceHandle = PhOpenService(L"TrustedInstaller", SERVICE_QUERY_STATUS | SERVICE_START)))
     {

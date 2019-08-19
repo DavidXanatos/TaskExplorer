@@ -22,6 +22,10 @@ CWinModule::CWinModule(quint64 ProcessId, bool IsSubsystemProcess, QObject *pare
 	m_ImageDllCharacteristics = 0;
 
 	m_VerifyResult = VrUnknown;
+
+	m_IsPacked = false;
+	m_ImportFunctions = 0;
+	m_ImportModules = 0;
 }
 
 CWinModule::~CWinModule()
@@ -47,7 +51,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 
 	if (m_IsSubsystemProcess)
     {
-        // HACK: Update the module type. (TODO: Move into PhEnumGenericModules) (dmex)
+        // HACK: Update the module type. (TO-DO: Move into PhEnumGenericModules) (dmex)
         m_Type = PH_MODULE_TYPE_ELF_MAPPED_IMAGE;
     }
     else
@@ -293,6 +297,10 @@ void CWinModule::OnInitAsyncData(int Index)
 	m_VerifyResult = (EVerifyResult)Result["VerifyResult"].toInt();
 	m_VerifySignerName = Result["VerifySignerName"].toString();
 
+	m_IsPacked = Result["IsPacked"].toBool();
+	m_ImportFunctions = Result["ImportFunctions"].toUInt();
+	m_ImportModules = Result["ImportModules"].toUInt();
+
 	emit AsyncDataDone(Result["IsPacked"].toBool(), Result["ImportFunctions"].toUInt(), Result["ImportModules"].toUInt());
 }
 
@@ -430,8 +438,6 @@ STATUS CWinModule::Unload(bool bForce)
 
         if (!NT_SUCCESS(status))
         {
-			// todo run itself as service and retry
-
 			return ERR(tr("Unable to unload driver."), status);
         }
 

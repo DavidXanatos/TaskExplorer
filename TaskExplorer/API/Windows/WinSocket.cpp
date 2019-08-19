@@ -30,6 +30,7 @@
 #include "WinSocket.h"
 #include "WindowsAPI.h"
 #include "../../SVC/TaskService.h"
+#include "Monitors/WinNetMonitor.h"
 
 #include <QtWin>
 
@@ -63,6 +64,8 @@ CWinSocket::CWinSocket(QObject *parent)
 {
 	m_SubsystemProcess = false;
 
+	m_LastActivity = GetCurTick();
+
 	m = new SWinSocket;
 }
 
@@ -71,7 +74,7 @@ CWinSocket::~CWinSocket()
 	delete m;
 }
 
-QHostAddress CWinSocket::PH2QAddress(struct _PH_IP_ADDRESS* addr)
+/*QHostAddress CWinSocket::PH2QAddress(struct _PH_IP_ADDRESS* addr)
 {
 	QHostAddress address;
 	if (addr->Type == PH_IPV4_NETWORK_TYPE)
@@ -90,7 +93,7 @@ QHostAddress CWinSocket::PH2QAddress(struct _PH_IP_ADDRESS* addr)
 	}
 
 	return address;
-}
+}*/
 
 bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
 	const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
@@ -100,11 +103,11 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
 	m_ProtocolType = ProtocolType;
 	m_LocalAddress = LocalAddress;
 	m_LocalPort = LocalPort;
-	if ((m_ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0)
-	{
+	//if ((m_ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0)
+	//{
 		m_RemoteAddress = RemoteAddress;
 		m_RemotePort = RemotePort;
-	}
+	//}
 	m_ProcessId = ProcessId;
 
 	// generate a somewhat unique id to optimize map search
@@ -155,7 +158,7 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
 	}
 
 	//
-	// ToDo: Resolve host names
+	// ToDo: xxx Resolve host names
 	//
 
 	// EtpUpdateFirewallStatus
@@ -173,18 +176,18 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
 	return true;
 }
 
-bool CWinSocket::InitStaticDataEx(struct _PH_NETWORK_CONNECTION* connection)
+bool CWinSocket::InitStaticDataEx(SSocket* connection)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_CreateTimeStamp = FILETIME2ms(connection->CreateTime.QuadPart);
+	m_CreateTimeStamp = connection->CreateTime;
 
 	ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
 	memcpy(OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);
 
 	// PhpUpdateNetworkItemOwner
     PVOID serviceTag = UlongToPtr(*(PULONG)OwnerInfo);
-    PPH_STRING serviceName = PhGetServiceNameFromTag(connection->ProcessId, serviceTag);
+    PPH_STRING serviceName = PhGetServiceNameFromTag((HANDLE)connection->ProcessId, serviceTag);
 	m_OwnerService = CastPhString(serviceName);
 	//
 
@@ -194,7 +197,7 @@ bool CWinSocket::InitStaticDataEx(struct _PH_NETWORK_CONNECTION* connection)
 	return true;
 }
 
-bool CWinSocket::UpdateDynamicData(struct _PH_NETWORK_CONNECTION* connection)
+bool CWinSocket::UpdateDynamicData(SSocket* connection)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -326,11 +329,20 @@ void CWinSocket::AddNetworkIO(int Type, ulong TransferSize)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
+	m_LastActivity = GetCurTick();
+	m_RemoveTimeStamp = 0;
+
 	switch (Type)
 	{
 	case EtEtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
 	case EtEtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
 	}
+}
+
+quint64	CWinSocket::GetIdleTime() const
+{
+	QReadLocker Locker(&m_StatsMutex);
+	return GetCurTick() - m_LastActivity;
 }
 
 bool SvcCallCloseSocket(const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
@@ -417,4 +429,202 @@ STATUS CWinSocket::Close()
 	}
 
 	return ERR(result);
+}
+
+QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
+{
+    PVOID table;
+    ULONG tableSize;
+    PMIB_TCPTABLE_OWNER_MODULE tcp4Table;
+    PMIB_UDPTABLE_OWNER_MODULE udp4Table;
+    PMIB_TCP6TABLE_OWNER_MODULE tcp6Table;
+    PMIB_UDP6TABLE_OWNER_MODULE udp6Table;
+    ULONG count = 0;
+    ULONG i;
+    ULONG index = 0;
+    QVector<SSocket> connections;
+
+    // TCP IPv4
+
+    tableSize = 0;
+    GetExtendedTcpTable(NULL, &tableSize, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0);
+    table = PhAllocate(tableSize);
+
+    if (GetExtendedTcpTable(table, &tableSize, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0) == NO_ERROR)
+    {
+        tcp4Table = (PMIB_TCPTABLE_OWNER_MODULE)table;
+        count += tcp4Table->dwNumEntries;
+    }
+    else
+    {
+        PhFree(table);
+        tcp4Table = NULL;
+    }
+
+    // TCP IPv6
+
+    tableSize = 0;
+    GetExtendedTcpTable(NULL, &tableSize, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0);
+
+    table = PhAllocate(tableSize);
+
+    if (GetExtendedTcpTable(table, &tableSize, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0) == NO_ERROR)
+    {
+        tcp6Table = (PMIB_TCP6TABLE_OWNER_MODULE)table;
+        count += tcp6Table->dwNumEntries;
+    }
+    else
+    {
+        PhFree(table);
+        tcp6Table = NULL;
+    }
+
+    // UDP IPv4
+
+    tableSize = 0;
+    GetExtendedUdpTable(NULL, &tableSize, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0);
+    table = PhAllocate(tableSize);
+
+    if (GetExtendedUdpTable(table, &tableSize, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0) == NO_ERROR)
+    {
+        udp4Table = (PMIB_UDPTABLE_OWNER_MODULE)table;
+        count += udp4Table->dwNumEntries;
+    }
+    else
+    {
+        PhFree(table);
+        udp4Table = NULL;
+    }
+
+    // UDP IPv6
+
+    tableSize = 0;
+    GetExtendedUdpTable(NULL, &tableSize, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0);
+    table = PhAllocate(tableSize);
+
+    if (GetExtendedUdpTable(table, &tableSize, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0) == NO_ERROR)
+    {
+        udp6Table = (PMIB_UDP6TABLE_OWNER_MODULE)table;
+        count += udp6Table->dwNumEntries;
+    }
+    else
+    {
+        PhFree(table);
+        udp6Table = NULL;
+    }
+
+	connections.resize(count);
+
+    if (tcp4Table)
+    {
+        for (i = 0; i < tcp4Table->dwNumEntries; i++)
+        {
+            connections[index].ProtocolType = PH_TCP4_NETWORK_PROTOCOL;
+
+            connections[index].LocalEndpoint.Address = QHostAddress(ntohl(tcp4Table->table[i].dwLocalAddr));
+            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)tcp4Table->table[i].dwLocalPort);
+
+            connections[index].RemoteEndpoint.Address = QHostAddress(ntohl(tcp4Table->table[i].dwRemoteAddr));
+            connections[index].RemoteEndpoint.Port = _byteswap_ushort((USHORT)tcp4Table->table[i].dwRemotePort);
+
+            connections[index].State = tcp4Table->table[i].dwState;
+            connections[index].ProcessId = tcp4Table->table[i].dwOwningPid;
+            connections[index].CreateTime = FILETIME2ms(tcp4Table->table[i].liCreateTimestamp.QuadPart);
+            memcpy(
+                connections[index].OwnerInfo,
+                tcp4Table->table[i].OwningModuleInfo,
+                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                );
+
+            index++;
+        }
+
+        PhFree(tcp4Table);
+    }
+
+    if (tcp6Table)
+    {
+        for (i = 0; i < tcp6Table->dwNumEntries; i++)
+        {
+            connections[index].ProtocolType = PH_TCP6_NETWORK_PROTOCOL;
+
+            connections[index].LocalEndpoint.Address = QHostAddress((quint8*)tcp6Table->table[i].ucLocalAddr);
+            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)tcp6Table->table[i].dwLocalPort);
+
+            connections[index].RemoteEndpoint.Address = QHostAddress((quint8*)tcp6Table->table[i].ucRemoteAddr);
+            connections[index].RemoteEndpoint.Port = _byteswap_ushort((USHORT)tcp6Table->table[i].dwRemotePort);
+
+            connections[index].State = tcp6Table->table[i].dwState;
+            connections[index].ProcessId = tcp6Table->table[i].dwOwningPid;
+            connections[index].CreateTime = FILETIME2ms(tcp6Table->table[i].liCreateTimestamp.QuadPart);
+            memcpy(
+                connections[index].OwnerInfo,
+                tcp6Table->table[i].OwningModuleInfo,
+                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                );
+
+            connections[index].LocalScopeId = tcp6Table->table[i].dwLocalScopeId;
+            connections[index].RemoteScopeId = tcp6Table->table[i].dwRemoteScopeId;
+
+            index++;
+        }
+
+        PhFree(tcp6Table);
+    }
+
+    if (udp4Table)
+    {
+        for (i = 0; i < udp4Table->dwNumEntries; i++)
+        {
+            connections[index].ProtocolType = PH_UDP4_NETWORK_PROTOCOL;
+
+            connections[index].LocalEndpoint.Address = QHostAddress(ntohl(udp4Table->table[i].dwLocalAddr));
+            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)udp4Table->table[i].dwLocalPort);
+
+			connections[index].RemoteEndpoint.Address = QHostAddress();
+			connections[index].RemoteEndpoint.Port = 0;
+
+            connections[index].State = 0;
+            connections[index].ProcessId = udp4Table->table[i].dwOwningPid;
+            connections[index].CreateTime = FILETIME2ms(udp4Table->table[i].liCreateTimestamp.QuadPart);
+            memcpy(
+                connections[index].OwnerInfo,
+                udp4Table->table[i].OwningModuleInfo,
+                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                );
+
+            index++;
+        }
+
+        PhFree(udp4Table);
+    }
+
+    if (udp6Table)
+    {
+        for (i = 0; i < udp6Table->dwNumEntries; i++)
+        {
+            connections[index].ProtocolType = PH_UDP6_NETWORK_PROTOCOL;
+
+            connections[index].LocalEndpoint.Address = QHostAddress((quint8*)udp6Table->table[i].ucLocalAddr);
+            connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)udp6Table->table[i].dwLocalPort);
+
+            connections[index].RemoteEndpoint.Address = QHostAddress();
+			connections[index].RemoteEndpoint.Port = 0;
+
+            connections[index].State = 0;
+            connections[index].ProcessId = udp6Table->table[i].dwOwningPid;
+            connections[index].CreateTime = FILETIME2ms(udp6Table->table[i].liCreateTimestamp.QuadPart);
+            memcpy(
+                connections[index].OwnerInfo,
+                udp6Table->table[i].OwningModuleInfo,
+                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                );
+
+            index++;
+        }
+
+        PhFree(udp6Table);
+    }
+
+    return connections;
 }

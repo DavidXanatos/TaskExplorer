@@ -861,9 +861,6 @@
     <QtMoc Include="GUI\SystemInfo\DiskView.h">
       <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
-    <QtMoc Include="GUI\Models\GDIModel.h">
-      <Filter>TaskExplorer\SystemInfo</Filter>
-    </QtMoc>
     <QtMoc Include="GUI\SystemInfo\GPUView.h">
       <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
@@ -893,6 +890,9 @@
     </QtMoc>
     <QtMoc Include="API\Windows\Monitors\EventMonitor.h">
       <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\GDIModel.h">
+      <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
@@ -924,12 +924,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CHANGELOG.md" />
-    <None Include="taskexplorer_de.ts">
-      <Filter>Translation Files</Filter>
-    </None>
-    <None Include="taskexplorer_en.ts">
-      <Filter>Translation Files</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\TODO.md" />

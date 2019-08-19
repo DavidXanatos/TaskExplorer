@@ -64,6 +64,7 @@ private:
 
 	CIncrementalPlot*		m_pReadPlot;
 	CIncrementalPlot*		m_pWritePlot;
+	bool					m_bHasUnSupported;
 
 	QWidget*				m_pIOPlotWidget;
 	QVBoxLayout*			m_pIOPlotLayout;

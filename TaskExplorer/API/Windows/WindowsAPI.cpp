@@ -10,6 +10,10 @@
 #include "../GUI/TaskExplorer.h"
 #include "../SVC/TaskService.h"
 
+extern "C" {
+#include <winsta.h>
+}
+
 ulong g_fileObjectTypeIndex = ULONG_MAX;
 struct SWindowsAPI
 {
@@ -100,6 +104,9 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_TotalUserObjects = 0;
 	m_TotalWndObjects = 0;
 
+	//m_UseDiskCounters = eDontUse;
+	m_UseDiskCounters = false;
+
 	m_InstalledMemory = 0;
 	m_AvailableMemory = 0;
 	m_ReservedMemory = 0;
@@ -148,7 +155,7 @@ bool CWindowsAPI::Init()
 			}
 		}
 
-		STATUS Status = InitKPH(iUseDriver == 1, DeviceName.toStdWString(), m_DriverFileName.toStdWString());
+		STATUS Status = InitKPH(DeviceName, m_DriverFileName, iUseDriver == 1);
 
 		if (Status.IsError())
 		{
@@ -197,9 +204,9 @@ bool CWindowsAPI::Init()
 	m->InterruptInformation = new SYSTEM_INTERRUPT_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
 
 
-	WCHAR brandString[49];
-	PhSipGetCpuBrandString(brandString);
-	m_CPU_String = QString::fromWCharArray(brandString);
+	CHAR brandString[49];
+    NtQuerySystemInformation(SystemProcessorBrandString, brandString, sizeof(brandString), NULL);
+	m_CPU_String = QString(brandString);
 
 	InitWindowsInfo();
 	
@@ -215,7 +222,7 @@ bool CWindowsAPI::Init()
 
 	m_SystemDir = CastPhString(PhGetSystemDirectory());
 
-	if (theConf->GetBool("Options/MonitorETW", true))
+	if (theConf->GetBool("Options/MonitorETW", false))
 		MonitorETW(true);
 
 	m_pGpuMonitor = new CWinGpuMonitor();
@@ -238,20 +245,20 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 	if (bEnable == (m_pEventMonitor != NULL))
 		return;
 
-	if (!bEnable)
+	if (bEnable)
 	{
-		delete m_pEventMonitor;
-		m_pEventMonitor = NULL;
-		return;
+		m_pEventMonitor = new CEventMonitor();
+
+		connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, ulong, ulong, QHostAddress, quint16, QHostAddress, quint16)));
+		connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
+		connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)));
+
+		if (m_pEventMonitor->Init())
+			return;
 	}
 
-	m_pEventMonitor = new CEventMonitor();
-
-	connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)));
-	connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
-	connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)));
-
-	m_pEventMonitor->Init();
+	delete m_pEventMonitor;
+	m_pEventMonitor = NULL;
 }
 
 CWindowsAPI::~CWindowsAPI()
@@ -467,43 +474,8 @@ void CWindowsAPI::UpdatePerfStats()
 	m_CpuStats.SystemCallsDelta.Update(PerfInformation.SystemCalls);	
 }
 
-void CWindowsAPI::UpdateNetStats()
+void CWindowsAPI::UpdateSambaStats()
 {
-	MIB_IF_TABLE2* pIfTable = NULL;
-	if (GetIfTable2(&pIfTable) == NO_ERROR)
-	{
-		quint64 uRecvTotal = 0;
-		quint64 uRecvCount = 0;
-		quint64 uSentTotal = 0;
-		quint64 uSentCount = 0;
-		for (int i = 0; i < pIfTable->NumEntries; i++)
-		{
-			MIB_IF_ROW2* pIfRow = (MIB_IF_ROW2*)& pIfTable->Table[i];
-
-			if (pIfRow->InterfaceAndOperStatusFlags.FilterInterface)
-				continue;
-
-			//qDebug() << QString::fromWCharArray(pIfRow->Description);
-
-			uRecvTotal += pIfRow->InOctets;
-			uRecvCount += pIfRow->InUcastPkts + pIfRow->InNUcastPkts;
-
-			uSentTotal += pIfRow->OutOctets;
-			uSentCount += pIfRow->OutUcastPkts + pIfRow->OutNUcastPkts;
-		}
-
-		FreeMibTable(pIfTable);
-
-		QWriteLocker Locker(&m_StatsMutex);
-
-		m_Stats.NetIf.SetReceive(uRecvTotal, uSentCount);
-		m_Stats.NetIf.SetSend(uSentTotal, uRecvCount);
-	}
-
-
-	/////////////////////////////////////////////////////////////////////
-	// samba traffic
-
 	QWriteLocker Locker(&m_StatsMutex);
 
 	STAT_WORKSTATION_0* wrkStat = NULL;
@@ -533,7 +505,7 @@ bool CWindowsAPI::UpdateSysStats()
 
 	UpdatePerfStats();
 
-	UpdateNetStats();
+	UpdateSambaStats();
 
 	QWriteLocker StatsLocker(&m_StatsMutex);
 	m_Stats.UpdateStats();
@@ -547,14 +519,14 @@ bool CWindowsAPI::UpdateProcessList()
     quint64 sysTotalCycleTime = 0; // total cycle time for this update period
     quint64 sysIdleCycleTime = 0; // total idle cycle time for this update period
 
-	bool PhEnableCycleCpuUsage = false; // todo add settings
+	bool PhEnableCycleCpuUsage = false; // todo: add settings
 
     if (PhEnableCycleCpuUsage)
     {
         sysTotalTime = UpdateCpuStats(false);
         sysIdleCycleTime = UpdateCpuCycleStats();
 
-		// sysTotalCycleTime = todo count from all processes what a mess
+		// sysTotalCycleTime = todo: count from all processes what a mess
     }
     else
     {
@@ -571,8 +543,13 @@ bool CWindowsAPI::UpdateProcessList()
 	QSet<quint64> Removed;
 
 	PVOID processes;
-	if (!NT_SUCCESS(PhEnumProcesses(&processes)))
-		return false;
+	bool bFullProcessInfo = (WindowsVersion >= WINDOWS_8) && RootAvaiable();
+	if (!bFullProcessInfo || !NT_SUCCESS(PhEnumProcessesEx(&processes, SystemFullProcessInformation)))
+	{
+		bFullProcessInfo = false; // API not supported
+		if (!NT_SUCCESS(PhEnumProcesses(&processes)))
+			return false;
+	}
 
     // Add the fake processes to the PID list.
     //
@@ -600,6 +577,18 @@ bool CWindowsAPI::UpdateProcessList()
 	quint32 newTotalUserObjects = 0;
 	quint32 newTotalWndObjects = EnumWindows();
 
+	/*if (!HasExtProcInfo() || theConf->GetBool("Options/DiskAlwaysUseETW", false))
+		m_UseDiskCounters = eDontUse;
+	else if (m_pDiskMonitor->AllDisksSupported())
+		m_UseDiskCounters = eUseForSystem;
+	else
+		m_UseDiskCounters = eForProgramsOnly;*/
+
+	m_UseDiskCounters = HasExtProcInfo() && m_pDiskMonitor->AllDisksSupported() && !theConf->GetBool("Options/DiskAlwaysUseETW", false);
+
+	PROCESS_DISK_COUNTERS DiskCounters;
+	memset(&DiskCounters, 0, sizeof(DiskCounters));
+
 	// Copy the process Map
 	QMap<quint64, CProcessPtr>	OldProcesses = GetProcessList();
 
@@ -613,16 +602,16 @@ bool CWindowsAPI::UpdateProcessList()
 		if (pProcess.isNull())
 		{
 			pProcess = QSharedPointer<CWinProcess>(new CWinProcess());
-			bAdd = pProcess->InitStaticData(process);
+			bAdd = pProcess->InitStaticData(process, bFullProcessInfo);
 			QWriteLocker Locker(&m_ProcessMutex);
 			ASSERT(!m_ProcessList.contains(ProcessID));
 			m_ProcessList.insert(ProcessID, pProcess);
 		}
 
 		bool bChanged = false;
-		bChanged = pProcess->UpdateDynamicData(process, iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime);
+		bChanged = pProcess->UpdateDynamicData(process, bFullProcessInfo, iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime);
 
-		pProcess->UpdateThreadData(process, iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime); // a thread can ever only use one CPU to use linux style ylways
+		pProcess->UpdateThreadData(process, bFullProcessInfo, iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime); // a thread can ever only use one CPU to use linux style ylways
 
 		pProcess->SetWndHandles(GetWindowByPID((quint64)process->UniqueProcessId).count());
 
@@ -637,6 +626,17 @@ bool CWindowsAPI::UpdateProcessList()
 		
 		newTotalGuiObjects += pProcess->GetGdiHandles();
 		newTotalUserObjects += pProcess->GetUserHandles();
+
+		//if (m_UseDiskCounters == eUseForSystem && PH_IS_REAL_PROCESS_ID(process->UniqueProcessId))
+		if (m_UseDiskCounters && PH_IS_REAL_PROCESS_ID(process->UniqueProcessId))
+		{
+			PSYSTEM_PROCESS_INFORMATION_EXTENSION processExtension = bFullProcessInfo ? PH_EXTENDED_PROCESS_EXTENSION(process) : PH_PROCESS_EXTENSION(process);
+			DiskCounters.BytesRead += processExtension->DiskCounters.BytesRead;
+			DiskCounters.BytesWritten += processExtension->DiskCounters.BytesWritten;
+			DiskCounters.FlushOperationCount += processExtension->DiskCounters.FlushOperationCount;
+			DiskCounters.ReadOperationCount += processExtension->DiskCounters.ReadOperationCount;
+			DiskCounters.WriteOperationCount += processExtension->DiskCounters.WriteOperationCount;
+		}
 
         // Trick ourselves into thinking that the fake processes
         // are on the list.
@@ -700,10 +700,19 @@ bool CWindowsAPI::UpdateProcessList()
 
 	m_CpuStatsDPCUsage = CpuStatsDPCUsage; // & interrupts
 
+	//if (m_UseDiskCounters == eUseForSystem)
+	if (m_UseDiskCounters)
+	{
+		m_Stats.Disk.SetRead(DiskCounters.BytesRead, DiskCounters.ReadOperationCount);
+		m_Stats.Disk.SetWrite(DiskCounters.BytesWritten, DiskCounters.WriteOperationCount);
+		// DiskCounters.FlushOperationCount // todo
+	}
+
 	return true;
 }
 
-void EnumChildWindows(HWND hwnd, QMap<quint64, QMultiMap<quint64, CWindowsAPI::SWndInfo> >& WindowMap, quint32& WndCount)
+#if 0
+void EnumChildWindows(HWND hwnd, QMap<quint64, QMultiMap<quint64, quint64> >& WindowMap, quint32& WndCount)
 {
     HWND childWindow = NULL;
     ULONG i = 0;
@@ -715,17 +724,9 @@ void EnumChildWindows(HWND hwnd, QMap<quint64, QMultiMap<quint64, CWindowsAPI::S
 		WndCount++;
 
         ULONG processId;
-        ULONG threadId;
+        ULONG threadId = GetWindowThreadProcessId(childWindow, &processId);
 
-        threadId = GetWindowThreadProcessId(childWindow, &processId);
-
-		CWindowsAPI::SWndInfo WndInfo;
-		WndInfo.hwnd = (quint64)childWindow;
-		WndInfo.parent = (quint64)hwnd;
-		WndInfo.processId = processId;
-		WndInfo.threadId = threadId;
-
-		WindowMap[processId].insertMulti(threadId, WndInfo);
+		WindowMap[processId].insertMulti(threadId, (quint64)childWindow);
 
 		EnumChildWindows(childWindow, WindowMap, WndCount);
 
@@ -736,9 +737,9 @@ void EnumChildWindows(HWND hwnd, QMap<quint64, QMultiMap<quint64, CWindowsAPI::S
 quint32 CWindowsAPI::EnumWindows()
 {
 	quint32 WndCount = 0;
-	QMap<quint64, QMultiMap<quint64, SWndInfo> > WindowMap; // QMap<ProcessId, QMultiMap<ThreadId, HWND> > 
+	QMap<quint64, QMultiMap<quint64, quint64> > WindowMap; // QMap<ProcessId, QMultiMap<ThreadId, HWND> > 
 
-	// When enumerating windows in windows we have only very little ability to filter the results
+	// Using FindWindowEx we have only very little ability to filter the results
 	// so to avoind going throuhgh the full list over and over agian we just cache ist in a double multi map
 	// this way we can asily look up all windows of a process or all all windows belinging to a given thread
 
@@ -749,6 +750,63 @@ quint32 CWindowsAPI::EnumWindows()
 
 	return WndCount;
 }
+#else
+
+struct CWindowsAPI__WndEnumStruct
+{
+	QMap<quint64, QPair<quint64, quint64> > OldWindows;
+
+	QReadWriteLock* pWindowMutex;
+	QMap<quint64, QMultiMap<quint64, quint64> >* pWindowMap;
+	QMap<quint64, QPair<quint64, quint64> >* pWindowRevMap;
+};
+
+void CWindowsAPI__WndEnumProc(quint64 hWnd, /*quint64 hParent,*/ void* Param)
+{
+	CWindowsAPI__WndEnumStruct* pContext = (CWindowsAPI__WndEnumStruct*)Param;
+
+	QMap<quint64, QPair<quint64, quint64> >::iterator I = pContext->OldWindows.find(hWnd);
+	if (I == pContext->OldWindows.end())
+	{
+		ULONG processId;
+		ULONG threadId = GetWindowThreadProcessId((HWND)hWnd, &processId);
+
+		QWriteLocker Locker(pContext->pWindowMutex);
+		pContext->pWindowMap->operator[](processId).insertMulti(threadId, hWnd);
+		pContext->pWindowRevMap->insert(hWnd, qMakePair((quint64)processId, (quint64)threadId));
+	}
+	else
+		pContext->OldWindows.erase(I);
+}
+
+quint32 CWindowsAPI::EnumWindows()
+{
+	CWindowsAPI__WndEnumStruct Context;
+	Context.OldWindows = m_WindowRevMap;
+
+	Context.pWindowMutex = &m_WindowMutex;
+	Context.pWindowMap = &m_WindowMap;
+	Context.pWindowRevMap = &m_WindowRevMap;
+
+	CWinWnd::EnumAllWindows(CWindowsAPI__WndEnumProc, &Context);
+
+	QWriteLocker Locker(Context.pWindowMutex);
+	foreach(quint64 hWnd, Context.OldWindows.keys())
+	{
+		QPair<quint64, quint64> PidTid = Context.pWindowRevMap->take(hWnd);
+
+		QMap<quint64, QMultiMap<quint64, quint64> >::iterator I = Context.pWindowMap->find(PidTid.first);
+		if (I != Context.pWindowMap->end())
+		{
+			I->remove(PidTid.second, hWnd);
+			if (I->isEmpty())
+				Context.pWindowMap->erase(I);
+		}
+	}
+
+	return m_WindowRevMap.size();
+}
+#endif
 
 void CWindowsAPI::OnHardwareChanged()
 {
@@ -791,9 +849,6 @@ bool CWindowsAPI::UpdateSocketList()
 	QSet<quint64> Changed;
 	QSet<quint64> Removed;
 
-    PPH_NETWORK_CONNECTION connections;
-    ulong numberOfConnections;
-
     if (!NetworkImportDone)
     {
         WSADATA wsaData;
@@ -802,29 +857,25 @@ bool CWindowsAPI::UpdateSocketList()
         NetworkImportDone = TRUE;
     }
 
-	if (!PhGetNetworkConnections(&connections, &numberOfConnections))
-		return false;
+	QVector<CWinSocket::SSocket> connections = CWinSocket::GetNetworkConnections();
 
 	//QWriteLocker Locker(&m_SocketMutex);
 	
 	// Copy the socket map Map
 	QMultiMap<quint64, CSocketPtr> OldSockets = GetSocketList();
 
-	for (ulong i = 0; i < numberOfConnections; i++)
+	for (ulong i = 0; i < connections.size(); i++)
 	{
 		QSharedPointer<CWinSocket> pSocket;
 
-		QHostAddress LocalAddress = CWinSocket::PH2QAddress(&connections[i].LocalEndpoint.Address);
-		quint16 LocalPort = connections[i].LocalEndpoint.Port;
-		QHostAddress RemoteAddress = CWinSocket::PH2QAddress(&connections[i].RemoteEndpoint.Address);
-		quint16  RemotePort = connections[i].RemoteEndpoint.Port;
-
 		bool bAdd = false;
-		QMultiMap<quint64, CSocketPtr>::iterator I = FindSocketEntry(OldSockets, (quint64)connections[i].ProcessId, (quint64)connections[i].ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, true);
+		QMultiMap<quint64, CSocketPtr>::iterator I = FindSocketEntry(OldSockets, (quint64)connections[i].ProcessId, (quint64)connections[i].ProtocolType, 
+			connections[i].LocalEndpoint.Address, connections[i].LocalEndpoint.Port, connections[i].RemoteEndpoint.Address, connections[i].RemoteEndpoint.Port, true);
 		if (I == OldSockets.end())
 		{
 			pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
-			bAdd = pSocket->InitStaticData((quint64)connections[i].ProcessId, (quint64)connections[i].ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
+			bAdd = pSocket->InitStaticData((quint64)connections[i].ProcessId, (quint64)connections[i].ProtocolType, 
+				connections[i].LocalEndpoint.Address, connections[i].LocalEndpoint.Port, connections[i].RemoteEndpoint.Address, connections[i].RemoteEndpoint.Port);
 			QWriteLocker Locker(&m_SocketMutex);
 			m_SocketList.insertMulti(pSocket->m_HashID, pSocket);
 		}
@@ -847,6 +898,19 @@ bool CWindowsAPI::UpdateSocketList()
 			Changed.insert(pSocket->m_HashID);
 	}
 
+	// For UDP Traffic keep the pseudo connections listed for a while
+	for (QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); )
+	{
+		if ((I.value()->GetProtocolType() & PH_UDP_PROTOCOL_TYPE) != 0 && I.value()->GetRemotePort() != 0 &&
+			I.value().objectCast<CWinSocket>()->GetIdleTime() < theConf->GetUInt64("Options/UdpPersistenceTime", 3000))
+		{
+			I.value()->UpdateStats();
+			I = OldSockets.erase(I);
+		}
+		else
+			I++;
+	}
+
 	QWriteLocker Locker(&m_SocketMutex);
 	// purle all sockets left as thay are not longer running
 	for(QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); ++I)
@@ -861,8 +925,6 @@ bool CWindowsAPI::UpdateSocketList()
 			pSocket->MarkForRemoval();
 	}
 	Locker.unlock();
-
-	PhFree(connections);
 
 	emit SocketListUpdated(Added, Changed, Removed);
 	return true;
@@ -902,42 +964,23 @@ void CWindowsAPI::AddDiskIO(int Type, ulong TransferSize)
 }
 
 void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize, // note ThreadId is always -1
-								const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
+								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort)
 {
     // Note: there is always the possibility of us receiving the event too early,
     // before the process item or network item is created. 
 
 	AddNetworkIO(Type, TransferSize);
 
-	// Hack to get samba stats - check for system using Samba port 445 + (NetBIOS 137, 138, and 139)
-	// the propper way has been found
-	/*if (ProcessId == (quint64)SYSTEM_PROCESS_ID)
-	{
-		if (RemotePort == 445)// || RemotePort == 137 || RemotePort == 138 || RemotePort == 139) // Samba client
-		{
-			QWriteLocker Locker(&m_StatsMutex);
-			switch (Type)
-			{
-			case EtEtwNetworkReceiveType:	m_Stats.SambaClient.AddReceive(TransferSize); break;
-			case EtEtwNetworkSendType:		m_Stats.SambaClient.AddSend(TransferSize); break;
-			}
-		}
-		else if (LocalPort == 445)// || LocalPort == 137 || LocalPort == 138 || LocalPort == 139) // Samba server
-		{
-			QWriteLocker Locker(&m_StatsMutex);
-			switch (Type)
-			{
-			case EtEtwNetworkReceiveType:	m_Stats.SambaServer.AddReceive(TransferSize); break;
-			case EtEtwNetworkSendType:		m_Stats.SambaServer.AddSend(TransferSize); break;
-			}
-		}
-	}*/
+	bool bStrict = false;
 
-	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, false).objectCast<CWinSocket>();
+	if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0 && theConf->GetBool("Options/UseUDPPseudoConnectins", false))
+		bStrict = true;
+
+	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, bStrict).objectCast<CWinSocket>();
 	bool bAdd = false;
 	if (pSocket.isNull())
 	{
-		//qDebug() << ProcessId  << Type << LocalAddress.toString() << LocalPort << RemoteAddress.toString() << RemotePort;
+		qDebug() << ProcessId  << Type << LocalAddress.toString() << LocalPort << RemoteAddress.toString() << RemotePort;
 
 		pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
 		bAdd = pSocket->InitStaticData(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
@@ -957,10 +1000,7 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	// Since Windows 8, we no longer get the correct process/thread IDs in the
 	// event headers for file events. 
 
-	/*CHandlePtr FileHandle = m_HandleByObject.value(FileId); // does not work :-(
-	if (!FileHandle.isNull())
-		qDebug() << FileHandle->GetFileName() << FileName;*/
-
+	/*
 	QWriteLocker Locker(&m_FileNameMutex);
 
 	switch (Type)
@@ -974,21 +1014,25 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
     case EtEtwFileDeleteType: // FileDelete
 		m_FileNames.remove(FileId);
         break;
-
-    }
+    }*/
 }
 
-QString CWindowsAPI::GetFileNameByID(quint64 FileId) const
+/*QString CWindowsAPI::GetFileNameByID(quint64 FileId) const
 {
 	QReadLocker Locker(&m_FileNameMutex);
 	return m_FileNames.value(FileId, tr("Unknown file name"));;
-}
+}*/
 
 void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime)
 {
-	QString FileName = GetFileNameByID(FileId);
+	//if (m_UseDiskCounters == eUseForSystem)
+	if (m_UseDiskCounters)
+		return;
 
 	AddDiskIO(Type, TransferSize);
+
+	//if (m_UseDiskCounters == eForProgramsOnly)
+	//	return;
 
 	QSharedPointer<CWinProcess> pProcess;
 	if (ProcessId != -1)
@@ -1002,7 +1046,9 @@ void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	// todo: FileName ist often unknown and FileId doesn't seam to have relations to open handled
 	//			we want to be able to show for eadch open file the i/o that must be doable somehow...
 
+	//QString FileName = GetFileNameByID(FileId);
 	//pHandle->AddDiskIO(Type, TransferSize);
+
 }
 
 
@@ -1081,14 +1127,11 @@ bool CWindowsAPI::UpdateOpenFileList()
 				Added.insert(handle->HandleValue);
 				QWriteLocker Locker(&m_OpenFilesMutex);
 				if (m_OpenFilesList.contains(handle->HandleValue))
-					continue; // ToDo: whyt are there duplicate results in the handle list?!
+					continue; // ToDo: why are there duplicate results in the handle list?!
 				m_OpenFilesList.insert(handle->HandleValue, pWinHandle);
 				//m_HandleByObject.insertMulti(pWinHandle->GetObject(), pWinHandle);
 			}
 		}
-		// ToDo: do we want to start it right away and dont wait?
-		//else if (pWinHandle->UpdateDynamicData(handle,(quint64)ProcessHandle))
-		//	Changed.insert(handle->HandleValue);
 
 		if (pWinHandle->m_pProcess.isNull())
 			pWinHandle->m_pProcess = GetProcessByID(handle->UniqueProcessId);
@@ -1336,9 +1379,62 @@ bool CWindowsAPI::InitWindowsInfo()
 	return true;
 }
 
-quint64  CWindowsAPI::GetUpTime() const
+quint64 CWindowsAPI::GetUpTime() const
 {
 	return GetTickCount64() / 1000;
+}
+
+QList<CSystemAPI::SUser> CWindowsAPI::GetUsers() const
+{
+	QList<SUser> List;
+
+	PSESSIONIDW sessions;
+    ULONG numberOfSessions;
+    if (WinStationEnumerateW(NULL, &sessions, &numberOfSessions))
+    {
+        for (ULONG i = 0; i < numberOfSessions; i++)
+        {
+			ULONG returnLength;
+			WINSTATIONINFORMATION winStationInfo;
+            if (!WinStationQueryInformationW(NULL, sessions[i].SessionId, WinStationInformation, &winStationInfo, sizeof(WINSTATIONINFORMATION), &returnLength))
+            {
+                winStationInfo.Domain[0] = UNICODE_NULL;
+                winStationInfo.UserName[0] = UNICODE_NULL;
+            }
+
+            if (winStationInfo.Domain[0] == UNICODE_NULL || winStationInfo.UserName[0] == UNICODE_NULL)
+                continue; // Probably the Services or RDP-Tcp session.
+
+			SUser User;
+			User.UserName = QString::fromWCharArray(winStationInfo.Domain) + "\\" + QString::fromWCharArray(winStationInfo.UserName);
+			User.SessionId = sessions[i].SessionId;
+
+			switch (sessions[i].State)
+			{
+				case State_Active:			User.Status = tr("Active"); break;
+				case State_Connected:		User.Status = tr("Connected"); break;
+				case State_ConnectQuery:	User.Status = tr("Connect query"); break;
+				case State_Shadow:			User.Status = tr("Shadow"); break;
+				case State_Disconnected:	User.Status = tr("Disconnected"); break;
+				case State_Idle:			User.Status = tr("Idle"); break;
+				case State_Listen:			User.Status = tr("Listen"); break;
+				case State_Reset:			User.Status = tr("Reset"); break;
+				case State_Down:			User.Status = tr("Down"); break;
+				case State_Init:			User.Status = tr("Init"); break;
+			}
+
+			List.append(User);
+        }
+
+        WinStationFreeMemory(sessions);
+    }
+
+	return List;
+}
+
+bool CWindowsAPI::HasExtProcInfo() const
+{
+	return (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64());
 }
 
 //////////////////////////////////////////////////

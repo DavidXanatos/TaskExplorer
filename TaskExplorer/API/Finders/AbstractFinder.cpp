@@ -26,7 +26,7 @@ CAbstractFinder* CAbstractFinder::FindHandles(const QVariant& Type, const QRegEx
 #ifdef WIN32
 	return new CWinHandleFinder(Type, RegExp);
 #else
-	// todo: implement other systems liek Linux
+	// linux-todo:
 #endif // WIN32
 }
 
@@ -35,7 +35,7 @@ CAbstractFinder* CAbstractFinder::FindModules(const QVariant& Type, const QRegEx
 #ifdef WIN32
 	return new CWinModuleFinder(Type, RegExp);
 #else
-	// todo: implement other systems liek Linux
+	// linux-todo:
 #endif // WIN32
 }
 
@@ -44,6 +44,6 @@ CAbstractFinder* CAbstractFinder::FindStrings(const SMemOptions& Options, const 
 #ifdef WIN32
 	return new CWinStringFinder(Options, RegExp, pProcess);
 #else
-	// todo: implement other systems liek Linux
+	// linux-todo:
 #endif // WIN32
 }

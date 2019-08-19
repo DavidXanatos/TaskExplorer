@@ -10,7 +10,7 @@
 
 #define VERSION_MJR		0
 #define VERSION_MIN 	7
-#define VERSION_REV 	0
+#define VERSION_REV 	5
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -69,10 +69,11 @@ public slots:
 
 	void				UpdateOptions();
 
+	void				UpdateUserMenu();
+
 protected:
 	void				timerEvent(QTimerEvent* pEvent);
 	void				closeEvent(QCloseEvent *e);
-
 	//quint16				m_uTimerCounter;
 	int					m_uTimerID;
 
@@ -84,8 +85,9 @@ private slots:
 	void				OnRunUser();
 	void				OnRunAs();
 	void				OnRunSys();
+	void				OnComputerAction();
+	void				OnUserAction();
 	void				OnElevate();
-
 	void				OnExit();
 
 	void				OnSysTab();
@@ -133,13 +135,39 @@ private:
 
 	CTaskInfoView*		m_pTaskInfo;
 
-	QLabel*				m_pStausCPU;
-	QLabel*				m_pStausGPU;
-	QLabel*				m_pStausMEM;
-	QLabel*				m_pStausIO;
-	QLabel*				m_pStausNET;
 
 	QMenu*				m_pMenuProcess;
+	QAction*			m_pMenuRun;
+	QAction*			m_pMenuRunAsUser;
+	QAction*			m_pMenuRunAsAdmin;
+	QAction*			m_pMenuRunAs;
+	QAction*			m_pMenuRunSys;
+	QAction*			m_pMenuElevate;
+	QAction*			m_pMenuExit;
+
+	QMenu*				m_pMenuComputer;
+	QAction*			m_pMenuLock;
+	QAction*			m_pMenuLogOff;
+	QAction*			m_pMenuSleep;
+	QAction*			m_pMenuHibernate;
+	QAction*			m_pMenuRestart;
+	QAction*			m_pMenuForceRestart;
+	QAction*			m_pMenuRestartEx;
+	QAction*			m_pMenuShutdown;
+	QAction*			m_pMenuForceShutdown;
+	QAction*			m_pMenuHybridShutdown;
+
+	QMenu*				m_pMenuUsers;
+	QMap<int, QMenu*>	m_UserMenus;
+	enum EUserCommands
+	{
+		eUserConnect,
+		eUserDisconnect,
+		eUserLogoff,
+		/*eRemoteControll,
+		eSendMessage,
+		eUserInfo*/
+	};
 
 	QMenu*				m_pMenuView;
 	QMenu*				m_pMenuSysTabs;
@@ -191,6 +219,15 @@ private:
 
 	QSystemTrayIcon*	m_pTrayIcon;
 	QMenu*				m_pTrayMenu;
+
+	QToolBar*			m_pToolBar;
+
+	QLabel*				m_pStausCPU;
+	QLabel*				m_pStausGPU;
+	QLabel*				m_pStausMEM;
+	QLabel*				m_pStausIO;
+	QLabel*				m_pStausNET;
+
 
 	bool				m_bExit;
 

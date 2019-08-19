@@ -42,6 +42,11 @@ public:
 	virtual QString GetVerifyResultString() const;
 	virtual QString GetVerifySignerName() const 			{ QReadLocker Locker(&m_Mutex); return m_VerifySignerName; }
 
+	virtual bool IsPacked() const 							{ QReadLocker Locker(&m_Mutex); return m_IsPacked; }
+	virtual ulong GetImportFunctions() const 				{ QReadLocker Locker(&m_Mutex); return m_ImportFunctions; }
+	virtual ulong GetImportModules() const 					{ QReadLocker Locker(&m_Mutex); return m_ImportModules; }
+
+
 	void InitAsyncData(const QString& FileName, const QString& PackageFullName = "");
 
 	virtual STATUS				Unload(bool bForce = false);
@@ -71,8 +76,14 @@ protected:
 	quint16						m_ImageCharacteristics;
 	quint16						m_ImageDllCharacteristics;
 
+	// Signature
 	EVerifyResult				m_VerifyResult;
 	QString						m_VerifySignerName;
+	
+	// Signature, Packed
+	bool						m_IsPacked;
+	ulong						m_ImportFunctions;
+	ulong						m_ImportModules;
 
 protected slots:
 	void OnInitAsyncData(int Index);

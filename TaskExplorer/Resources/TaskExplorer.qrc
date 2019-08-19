@@ -25,4 +25,41 @@
         <file alias="Win10">WinLogos/10 Windows 10.png</file>
         <file alias="WinNew">WinLogos/10+Windows New.png</file>
     </qresource>
+    <qresource prefix="/Actions">
+        <file alias="Settings">Actions/config.png</file>
+        <file alias="Pause">Actions/pause.png</file>
+        <file alias="FreeMem">Actions/clean.png</file>
+        <file alias="Find">Actions/find.png</file>
+        <file alias="MonitorETW">Actions/etw_mon.png</file>
+        <file alias="Refresh">Actions/refresh.png</file>
+        <file alias="SysInfo">Actions/sys_info.png</file>
+        <file alias="Lock">Actions/lock.png</file>
+        <file alias="Shutdown">Actions/shutdown.png</file>
+        <file alias="Users">Actions/users.png</file>
+        <file alias="Services">Actions/services.png</file>
+        <file alias="Connect">Actions/connect.png</file>
+        <file alias="Disconnect">Actions/disconnect.png</file>
+        <file alias="Hibernate">Actions/hibernate.png</file>
+        <file alias="Logoff">Actions/logoff.png</file>
+        <file alias="Reboot">Actions/reboot.png</file>
+        <file alias="HardReboot">Actions/reboot2.png</file>
+        <file alias="HardShutdown">Actions/shutdown2.png</file>
+        <file alias="StandBy">Actions/standby.png</file>
+        <file alias="RebootMenu">Actions/reboot3.png</file>
+        <file alias="HybridShutdown">Actions/shutdown3.png</file>
+        <file alias="Exit">Actions/exit.png</file>
+        <file alias="Login">Actions/login.png</file>
+        <file alias="Run">Actions/run.png</file>
+        <file alias="RunAs">Actions/run_as.png</file>
+        <file alias="RunRoot">Actions/run_root.png</file>
+        <file alias="RunTI">Actions/run_ti.png</file>
+        <file alias="RunUser">Actions/run_user.png</file>
+        <file alias="FindDLL">Actions/find_dll.png</file>
+        <file alias="FindHandle">Actions/find_handle.png</file>
+        <file alias="FindString">Actions/find_string.png</file>
+        <file alias="Shield">Actions/shield.png</file>
+        <file alias="UserInfo">Actions/user_info.png</file>
+        <file alias="SendMsg">Actions/user_msg.png</file>
+        <file alias="User">Actions/user.png</file>
+    </qresource>
 </RCC>

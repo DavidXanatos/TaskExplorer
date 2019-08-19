@@ -3,6 +3,10 @@
 #include "../../GUI/TaskExplorer.h"
 #include "WinWnd.h"
 
+#define NOSHLWAPI
+#include <shellapi.h>
+#include <propsys.h>
+#include <propvarutil.h>
 
 CWinWnd::CWinWnd(QObject *parent) 
 	: CWndInfo(parent) 
@@ -13,16 +17,16 @@ CWinWnd::~CWinWnd()
 {
 }
 
-bool CWinWnd::InitStaticData(const CWindowsAPI::SWndInfo& WndInfo, void* QueryHandle)
+bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, void* QueryHandle)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	HWND WindowHandle = (HWND)WndInfo.hwnd;
+	HWND WindowHandle = (HWND)hWnd;
 
-	m_hWnd = WndInfo.hwnd;
-	m_ParentWnd = WndInfo.parent;
-	m_ProcessId = WndInfo.processId;
-	m_ThreadId = WndInfo.threadId;
+	m_hWnd = hWnd;
+	m_ParentWnd = (quint64)::GetParent(WindowHandle);
+	m_ProcessId = ProcessId;
+	m_ThreadId = ThreadId;
 
     WCHAR WindowClass[64];
     GetClassName(WindowHandle, WindowClass, sizeof(WindowClass) / sizeof(WCHAR));
@@ -86,7 +90,12 @@ bool CWinWnd::UpdateDynamicData()
 	WINDOWPLACEMENT placement = { sizeof(placement) };
 	if (GetWindowPlacement((HWND)m_hWnd, &placement))
 	{
-		//placement.showCmd // todo: do somethign with this
+		if (m_ShowCommand != placement.showCmd)
+		{
+			modified = TRUE;
+
+			m_ShowCommand = placement.showCmd;
+		}
 	}
 
 	bool WindowEnabled = (GetWindowLong((HWND)m_hWnd, GWL_STYLE) & WS_DISABLED) == 0;
@@ -148,7 +157,6 @@ STATUS CWinWnd::SetAlwaysOnTop(bool bSet)
 STATUS CWinWnd::SetWindowAlpha(int iAlpha)
 {
 	QWriteLocker Locker(&m_Mutex);
-
     if (iAlpha == 255)
     {
         // Remove the WS_EX_LAYERED bit since it is not needed.
@@ -168,16 +176,10 @@ STATUS CWinWnd::SetWindowAlpha(int iAlpha)
 STATUS CWinWnd::BringToFront()
 {
 	QWriteLocker Locker(&m_Mutex);
-
-	WINDOWPLACEMENT placement = { sizeof(placement) };
-
-	GetWindowPlacement((HWND)m_hWnd, &placement);
-
-	if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
+	if (m_ShowCommand == SW_MINIMIZE || m_ShowCommand == SW_SHOWMINIMIZED)
 		ShowWindowAsync((HWND)m_hWnd, SW_RESTORE);
 	else
 		SetForegroundWindow((HWND)m_hWnd);
-
 	return OK;
 }
 
@@ -201,6 +203,12 @@ STATUS CWinWnd::Highlight()
 	return OK;
 }
 
+bool CWinWnd::IsNormal() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m_ShowCommand == SW_NORMAL;
+}
+
 STATUS CWinWnd::Restore()
 {
 	QWriteLocker Locker(&m_Mutex);
@@ -208,11 +216,23 @@ STATUS CWinWnd::Restore()
 	return OK;
 }
 
+bool CWinWnd::IsMinimized() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m_ShowCommand == SW_MINIMIZE || m_ShowCommand == SW_SHOWMINIMIZED;
+}
+
 STATUS CWinWnd::Minimize()
 {
 	QWriteLocker Locker(&m_Mutex);
 	ShowWindowAsync((HWND)m_hWnd, SW_MINIMIZE);
 	return OK;
+}
+
+bool CWinWnd::IsMaximized() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m_ShowCommand == SW_MAXIMIZE;
 }
 
 STATUS CWinWnd::Maximize()
@@ -518,7 +538,75 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	// Property Storage
 
-	// todo
+	// todo:
+	/*
+    // Initialization code
+	HRESULT result = -1;
+	if(QThread::currentThread() != theAPI->thread())
+		result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+    IPropertyStore *propstore;
+    ULONG count;
+    ULONG i;
+
+    if (SUCCEEDED(SHGetPropertyStoreForWindow(WindowHandle, *(_GUID*)&IID_IPropertyStore, (PVOID*)&propstore)))
+    {
+        if (SUCCEEDED(IPropertyStore_GetCount(propstore, &count)))
+        {
+            for (i = 0; i < count; i++)
+            {
+                PROPERTYKEY propkey;
+
+                if (SUCCEEDED(IPropertyStore_GetAt(propstore, i, &propkey)))
+                {
+                    INT lvItemIndex;
+                    PROPVARIANT propKeyVariant = { 0 };
+                    PWSTR propKeyName;
+
+                    if (SUCCEEDED(PSGetNameFromPropertyKey(propkey, &propKeyName)))
+                    {
+						; //lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, propKeyName, NULL);
+
+                        CoTaskMemFree(propKeyName);
+                    }
+                    else
+                    {
+                        WCHAR propKeyString[PKEYSTR_MAX];
+
+                        if (SUCCEEDED(PSStringFromPropertyKey(propkey, propKeyString, RTL_NUMBER_OF(propKeyString))))
+                            ; //lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, propKeyString, NULL);
+                        else
+                            ; //lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, L"Unknown", NULL);
+						int x = 0;
+                    }
+
+                    if (SUCCEEDED(IPropertyStore_GetValue(propstore, propkey, &propKeyVariant)))
+                    {
+                        if (SUCCEEDED(PSFormatForDisplayAlloc(propkey, propKeyVariant, PDFF_DEFAULT, &propKeyName)))
+                        {
+                            ; //PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, propKeyName);
+                            CoTaskMemFree(propKeyName);
+                        }
+
+                        //if (SUCCEEDED(PropVariantToStringAlloc(&propKeyVariant, &propKeyName)))
+                        //{
+                        //    PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, propKeyName);
+                        //    CoTaskMemFree(propKeyName);
+                        //}
+
+                        PropVariantClear(&propKeyVariant);
+                    }
+                }
+            }
+        }
+
+        IPropertyStore_Release(propstore);
+    }
+
+    // De-initialization code
+    if (result == S_OK || result == S_FALSE)
+        CoUninitialize();
+	*/
 
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	//
@@ -548,4 +636,198 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 	}
 
 	return WndInfo;
+}
+
+// Undocumented windows API from win32u.dll
+// https://stackoverflow.com/questions/38205375/enumwindows-function-in-win10-enumerates-only-desktop-apps
+//
+
+typedef NTSTATUS (WINAPI *NtUserBuildHwndList) (
+	HDESK in_hDesk, 
+	HWND  in_hWndNext, 
+	BOOL  in_EnumChildren, 
+	BOOL  in_RemoveImmersive, 
+	DWORD in_ThreadID, 
+	UINT  in_Max, 
+	HWND *out_List, 
+	UINT *out_Cnt
+);
+
+HWND* BuildWindowList
+(
+	HDESK in_hDesk,
+	HWND  in_hWnd,
+	BOOL  in_RemoveImmersive,
+	UINT  in_ThreadID,
+	INT  *out_Cnt
+)
+{
+	UINT  lv_Max;
+	UINT  lv_Cnt;
+	UINT  lv_NtStatus;
+	HWND *lv_List;
+
+	static NtUserBuildHwndList lib_NtUserBuildHwndListW10 = NULL;
+	static PH_INITONCE initOnce = PH_INITONCE_INIT;
+	if (PhBeginInitOnce(&initOnce))
+	{
+		lib_NtUserBuildHwndListW10 = (NtUserBuildHwndList)PhGetModuleProcAddress(L"win32u.dll", "NtUserBuildHwndList");
+
+		PhEndInitOnce(&initOnce);
+	}
+
+	// is api not supported?
+	if (!lib_NtUserBuildHwndListW10)
+		return NULL;
+
+	// initial size of list
+	lv_Max = 512;
+
+	// retry to get list
+	for (;;)
+	{
+		// allocate list
+		if ((lv_List = (HWND*)malloc(lv_Max * sizeof(HWND))) == NULL)
+			break;
+
+		// call the api
+		lv_NtStatus = lib_NtUserBuildHwndListW10(
+			in_hDesk, in_hWnd,
+			in_hWnd ? TRUE : FALSE,
+			in_RemoveImmersive,
+			in_ThreadID,
+			lv_Max, lv_List, &lv_Cnt);
+
+		// success?
+		if (lv_NtStatus == NOERROR)
+			break;
+
+		// free allocated list
+		free(lv_List);
+
+		// clear
+		lv_List = NULL;
+
+		// other error then buffersize? or no increase in size?
+		if (lv_NtStatus != STATUS_BUFFER_TOO_SMALL || lv_Cnt <= lv_Max)
+			break;
+
+		// update max plus some extra to take changes in number of windows into account
+		lv_Max = lv_Cnt + 16;
+	}
+
+	// return the count
+	*out_Cnt = lv_Cnt;
+
+	// return the list, or NULL when failed
+	return lv_List;
+}
+
+void CWinWnd__EnumAllWindows10(CWinWnd::WNDENUMPROCEX in_Proc, void* in_Param, HWND in_Parent)
+{
+	INT   lv_Cnt;
+	HWND  lv_hWnd;
+	HWND  lv_hFirstWnd;
+	HWND  lv_hParent;
+	HWND *lv_List;
+
+	// first try api to get full window list including immersive/metro apps
+	lv_List = BuildWindowList(0, in_Parent, FALSE, 0, &lv_Cnt);
+
+	// success?
+	if (lv_List)
+	{
+		// loop through list
+		while (lv_Cnt-- > 0)
+		{
+			// get handle
+			lv_hWnd = lv_List[lv_Cnt];
+
+			// filter out the invalid entry (0x00000001) then call the callback
+			if (IsWindow(lv_hWnd))
+			{
+				// call the callback
+				in_Proc((quint64)lv_hWnd, /*in_Parent ? (quint64)GetParent(lv_hWnd) : 0,*/ in_Param);
+
+				// enumerate all child windows
+				if (in_Parent == NULL)
+					CWinWnd__EnumAllWindows10(in_Proc, in_Param, lv_hWnd);
+			}
+		}
+
+		// free the list
+		free(lv_List);
+	}
+	else
+	{
+		// get desktop window, this is equivalent to specifying NULL as hwndParent
+		lv_hParent = in_Parent ? in_Parent : GetDesktopWindow();
+
+		// fallback to using FindWindowEx, get first top-level window
+		lv_hFirstWnd = FindWindowEx(lv_hParent, 0, 0, 0);
+
+		// init the enumeration
+		lv_Cnt = 0;
+		lv_hWnd = lv_hFirstWnd;
+
+		// loop through windows found
+		// - since 2012 the EnumWindows API in windows has a problem (on purpose by MS)
+		//   that it does not return all windows (no metro apps, no start menu etc)
+		// - luckally the FindWindowEx() still is clean and working
+		while (lv_hWnd)
+		{
+			// call the callback
+			in_Proc((quint64)lv_hWnd, /*(quint64)in_Parent,*/ in_Param);
+			
+			// enumerate child windows
+			CWinWnd__EnumAllWindows10(in_Proc, in_Param, lv_hWnd);
+
+			// get next window
+			lv_hWnd = FindWindowEx(lv_hParent, lv_hWnd, 0, 0);
+
+			// protect against changes in window hierachy during enumeration
+			if (lv_hWnd == lv_hFirstWnd || lv_Cnt++ > 10000)
+				break;
+		}
+	}
+}
+
+struct CWinWnd__WndEnumStruct
+{
+	CWinWnd::WNDENUMPROCEX Proc;
+	void* Param;
+	bool Child;
+};
+
+BOOL NTAPI CWinWnd__WndEnumProc(HWND hWnd, LPARAM lParam)
+{
+	CWinWnd__WndEnumStruct* pContext = (CWinWnd__WndEnumStruct*)lParam;
+	if (!pContext->Child)
+	{
+		pContext->Proc((quint64)hWnd, /*0,*/ pContext->Param);
+
+		CWinWnd__WndEnumStruct Context = *pContext;
+		Context.Child = true;
+
+		EnumChildWindows(hWnd, CWinWnd__WndEnumProc, (LPARAM)&Context);
+	}
+	else
+		pContext->Proc((quint64)hWnd, /*(quint64)GetParent(hWnd),*/ pContext->Param);
+	return TRUE;
+}
+
+void CWinWnd::EnumAllWindows(WNDENUMPROCEX in_Proc, void* in_Param)
+{
+	// on windows prior to windows 8 we can use the regular API
+	if (WindowsVersion < WINDOWS_8)
+	{
+		CWinWnd__WndEnumStruct Context;
+		Context.Proc = in_Proc;
+		Context.Param = in_Param;
+		Context.Child = false;
+
+		EnumWindows(CWinWnd__WndEnumProc, (LPARAM)&Context);
+	}
+	else
+		CWinWnd__EnumAllWindows10(in_Proc, in_Param, NULL);
 }

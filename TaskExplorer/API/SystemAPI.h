@@ -78,6 +78,7 @@ public:
 	virtual QMap<quint64, CHandlePtr> GetOpenFilesList();
 
 	virtual QMap<QString, CServicePtr> GetServiceList();
+	virtual CServicePtr			GetService(const QString& Name);
 
 	virtual QMap<QString, CDriverPtr> GetDriverList();
 
@@ -130,6 +131,19 @@ public:
 	virtual QString GetHostName() const				{ QReadLocker Locker(&m_Mutex); return m_HostName; }
 	virtual QString GetUserName() const				{ QReadLocker Locker(&m_Mutex); return m_UserName; }
 	virtual QString GetSystemDir() const			{ QReadLocker Locker(&m_Mutex); return m_SystemDir; }
+
+	struct SUser
+	{
+		SUser()
+		{
+			SessionId = 0;
+		}
+		QString UserName;
+		quint32 SessionId;
+		QString Status;
+	};
+
+	virtual QList<SUser> GetUsers() const = 0;
 
 	virtual CGpuMonitor* GetGpuMonitor()			{ return m_pGpuMonitor; }
 	virtual CNetMonitor* GetNetMonitor()			{ return m_pNetMonitor; }

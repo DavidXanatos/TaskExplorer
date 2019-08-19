@@ -2,7 +2,7 @@
 
 #include "../ProcessHacker.h"
 
-// todo add count
+// todo: add count
 extern PH_KEY_VALUE_PAIR PhpServiceTypePairs[];
 extern PH_KEY_VALUE_PAIR PhpServiceStartTypePairs[];
 extern PH_KEY_VALUE_PAIR PhpServiceErrorControlPairs[];
@@ -47,7 +47,7 @@ extern GUID RpcInterfaceEventGuid;
 extern GUID NamedPipeEventGuid;
 extern GUID SubTypeUnknownGuid; // dummy
 
-// todo add count
+// todo: add count
 extern TYPE_ENTRY TypeEntries[];
 extern SUBTYPE_ENTRY SubTypeEntries[];
 
@@ -122,7 +122,7 @@ PPH_STRING EspConvertNewLinesToNulls(
 	_In_ PPH_STRING String
 );
 
-// todo add count
+// todo: add count
 extern PH_KEY_VALUE_PAIR EspServiceSidTypePairs[];
 extern PH_KEY_VALUE_PAIR EspServiceLaunchProtectedPairs[];
 
@@ -134,5 +134,5 @@ ULONG EspGetServiceSidTypeInteger(
 	_In_ PWSTR SidType
 );
 
-// todo add count
+// todo: add count
 extern PH_KEY_VALUE_PAIR ServiceActionPairs[];

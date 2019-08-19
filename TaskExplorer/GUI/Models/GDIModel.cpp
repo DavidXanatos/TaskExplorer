@@ -75,8 +75,8 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 				switch (section)
 				{
-					case eHandle:
-                    case eObject:	ColValue.Formated = "0x" + QString::number(ColValue.Raw.toUInt(), 16); break;
+					case eHandle:	ColValue.Formated = "0x" + QString::number(Value.toUInt(), 16); break;
+                    case eObject:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;
 				}
 			}
 

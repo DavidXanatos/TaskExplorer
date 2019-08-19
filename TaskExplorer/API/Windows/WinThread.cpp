@@ -145,7 +145,59 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 		modified = TRUE;
 	}
 
-    // Update the GUI thread status.
+
+	QWriteLocker StatsLocker(&m_StatsMutex);
+
+    // Update the context switch count.
+    {
+        ULONG oldDelta;
+
+        oldDelta = m_CpuStats.ContextSwitchesDelta.Delta;
+        m_CpuStats.ContextSwitchesDelta.Update(thread->ContextSwitches);
+
+        if (m_CpuStats.ContextSwitchesDelta.Delta != oldDelta)
+        {
+            modified = TRUE;
+        }
+    }
+
+    // Update the cycle count.
+	if(sysTotalCycleTime != 0)
+	{
+        ULONG64 cycles = 0;
+        ULONG64 oldDelta;
+
+        oldDelta = m_CpuStats.CycleDelta.Delta;
+
+
+		if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
+			PhGetThreadCycleTime(m->ThreadHandle, &cycles);
+		else
+			cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
+
+		m_CpuStats.CycleDelta.Update(cycles);
+
+        if (m_CpuStats.CycleDelta.Delta != oldDelta)
+            modified = TRUE;
+    }
+
+    // Update the CPU time deltas.
+    m_CpuStats.CpuKernelDelta.Update(m_KernelTime);
+    m_CpuStats.CpuUserDelta.Update(m_UserTime);
+
+	// If the cycle time isn't available, we'll fall back to using the CPU time.
+	m_CpuStats.UpdateStats(sysTotalTime, (m_ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || m->ThreadHandle) ? sysTotalCycleTime : 0);
+
+	return modified;
+}
+
+bool CWinThread::UpdateExtendedData()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	BOOLEAN modified = FALSE;
+
+	// Update the GUI thread status.
     {
         GUITHREADINFO info = { sizeof(GUITHREADINFO) };
         bool oldIsGuiThread = m_IsGuiThread;
@@ -228,62 +280,12 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 		}
 	}
 
-
-	QWriteLocker StatsLocker(&m_StatsMutex);
-
-    // Update the context switch count.
-    {
-        ULONG oldDelta;
-
-        oldDelta = m_CpuStats.ContextSwitchesDelta.Delta;
-        m_CpuStats.ContextSwitchesDelta.Update(thread->ContextSwitches);
-
-        if (m_CpuStats.ContextSwitchesDelta.Delta != oldDelta)
-        {
-            modified = TRUE;
-        }
-    }
-
-    // Update the cycle count.
-	{
-        ULONG64 cycles = 0;
-        ULONG64 oldDelta;
-
-        oldDelta = m_CpuStats.CycleDelta.Delta;
-
-
-		if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
-		{
-			PhGetThreadCycleTime(m->ThreadHandle, &cycles);
-		}
-		else
-		{
-			cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
-		}
-
-		m_CpuStats.CycleDelta.Update(cycles);
-
-        if (m_CpuStats.CycleDelta.Delta != oldDelta)
-            modified = TRUE;
-    }
-
-    // Update the CPU time deltas.
-    m_CpuStats.CpuKernelDelta.Update(m_KernelTime);
-    m_CpuStats.CpuUserDelta.Update(m_UserTime);
-
-	// If the cycle time isn't available, we'll fall back to using the CPU time.
-	m_CpuStats.UpdateStats(sysTotalTime, (m_ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || m->ThreadHandle) ? sysTotalCycleTime : 0);
-
-	return modified;
-}
-
-bool CWinThread::UpdateExtendedData()
-{
 	if (m->StartAddressResolveLevel != PhsrlFunction)
 	{
 		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetSymbolFromAddress(m_ProcessId, m_StartAddress, this, SLOT(OnSymbolFromAddress(quint64, quint64, int, const QString&, const QString&, const QString&)));
 	}
-	return true;
+
+	return modified;
 }
 
 void CWinThread::OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName)
@@ -361,8 +363,7 @@ QString CWinThread::GetStartAddressString() const
 
 	if (!m_StartAddressString.isEmpty())
 		return m_StartAddressString;
-
-	return "0x" + QString::number(m_StartAddress,16);
+	return FormatAddress(m_StartAddress);
 }
 
 QString CWinThread::GetPriorityString() const
@@ -773,7 +774,7 @@ static NTSTATUS NTAPI PhpThreadPermissionsOpenThread(_Out_ PHANDLE Handle, _In_ 
 
 void CWinThread::OpenPermissions()
 {
-	QWriteLocker Locker(&m_Mutex); 
+	QReadLocker Locker(&m_Mutex); 
 
     PhEditSecurity(NULL, (wchar_t*)GetStartAddressString().toStdWString().c_str(), L"Thread", PhpThreadPermissionsOpenThread, NULL, (HANDLE)m_ThreadId);
 }

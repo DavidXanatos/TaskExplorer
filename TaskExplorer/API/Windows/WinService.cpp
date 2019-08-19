@@ -213,7 +213,7 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 			PhDereferenceObject(Name);
 
 			// get file info
-			// todo dont re do it
+			// todo: dont re do it
 			if (!m_FileName.isEmpty())
 				qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName);
 
@@ -539,7 +539,7 @@ NTSTATUS PhpCloseServiceCallback(_In_opt_ PVOID Context)
 
 void CWinService::OpenPermissions()
 {
-	QWriteLocker Locker(&m_Mutex);
+	QReadLocker Locker(&m_Mutex);
 
 	wstring* pName = new wstring;
 	*pName = m_SvcName.toStdWString();

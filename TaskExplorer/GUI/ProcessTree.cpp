@@ -6,6 +6,7 @@
 #include "../Common/SortFilterProxyModel.h"
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
+#include "../API/Windows/WinModule.h"
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker.h"
 #endif
@@ -50,6 +51,8 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pProcessList->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	m_pProcessList->GetTree()->setItemDelegate(theGUI->GetItemDelegate());
 
+	connect(m_pProcessModel, SIGNAL(ToolTipCallback(const QVariant&, QString&)), this, SLOT(OnToolTipCallback(const QVariant&, QString&)), Qt::DirectConnection);
+
 	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pProcessList);
@@ -64,29 +67,36 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 
 	//m_pMenu = new QMenu();
-	AddTaskItemsToMenu();
-	//QAction*				m_pTerminateTree;
+	m_pBringInFront = m_pMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
+	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
 	m_pMenu->addSeparator();
 
-	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
+	AddTaskItemsToMenu();
+	//QAction*				m_pTerminateTree;
 
-	m_pCreateDump = m_pMenu->addAction(tr("Create Crash Dump"), this, SLOT(OnCrashDump()));
-	m_pDebug = m_pMenu->addAction(tr("Debug"), this, SLOT(OnProcessAction()));
+	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
+	m_pRunAsThis = m_pMiscMenu->addAction(tr("Run as this User"), this, SLOT(OnRunAsThis()));
+	m_pCreateDump = m_pMiscMenu->addAction(tr("Create Crash Dump"), this, SLOT(OnCrashDump()));
+	m_pDebug = m_pMiscMenu->addAction(tr("Debug"), this, SLOT(OnProcessAction()));
 	m_pDebug->setCheckable(true);
 #ifdef WIN32
-	m_pVirtualization = m_pMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
+	m_pReduceWS = m_pMiscMenu->addAction(tr("Reduce Working Set"), this, SLOT(OnProcessAction()));
+	m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
 	m_pVirtualization->setCheckable(true);
 	//QAction*				m_pWindows;
-	//QAction*				m_pGDI_Handles;
-	m_pCritical = m_pMenu->addAction(tr("Critical"), this, SLOT(OnProcessAction()));
-	m_pCritical->setCheckable(true);
-	m_pReduceWS = m_pMenu->addAction(tr("Reduce Working Set"), this, SLOT(OnProcessAction()));
 	//QAction*				m_pUnloadModules;
 	//QAction*				m_pWatchWS;
+	m_pCritical = m_pMiscMenu->addAction(tr("Critical"), this, SLOT(OnProcessAction()));
+	m_pCritical->setCheckable(true);
 #endif
-	m_pRunAsThis = m_pMenu->addAction(tr("Run as this User"), this, SLOT(OnRunAsThis()));
-
+	
 	AddPriorityItemsToMenu(eProcess, m_pMenu);
+
+#ifdef WIN32
+	m_pMenu->addSeparator();
+	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
+#endif
+
 	AddPanelItemsToMenu(m_pMenu);
 
 
@@ -184,7 +194,7 @@ void CProcessTree::OnHeaderMenu(const QPoint &point)
 		AddHeaderSubMenu(m_pHeaderMenu, tr("CPU"), CProcessModel::eCPU, CProcessModel::eCyclesDelta);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("Memory"), CProcessModel::ePrivateBytes, CProcessModel::ePrivateBytesDelta);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("GPU"), CProcessModel::eGPU_Usage, CProcessModel::eGPU_Adapter);
-		AddHeaderSubMenu(m_pHeaderMenu, tr("Objects"), CProcessModel::eHandles, CProcessModel::eThreads);
+		AddHeaderSubMenu(m_pHeaderMenu, tr("Objects"), CProcessModel::eHandles, CProcessModel::ePeakThreads);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("File Info"), CProcessModel::eFileName, CProcessModel::eFileSize);
 #ifdef WIN32
 		AddHeaderSubMenu(m_pHeaderMenu, tr("Protection"), CProcessModel::eIntegrity, CProcessModel::eCritical);
@@ -214,7 +224,7 @@ void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Chang
 {
 	m_Processes = theAPI->GetProcessList();
 
-	if (!theGUI->isVisible())
+	if (!theGUI->isVisible() || theGUI->windowState().testFlag(Qt::WindowMinimized))
 		return;
 
 	m_pProcessModel->Sync(m_Processes);
@@ -270,12 +280,244 @@ QList<CTaskPtr> CProcessTree::GetSellectedTasks()
 	return List;
 }
 
+void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
+{
+	CProcessPtr pProcess = theAPI->GetProcessByID(ID.toULongLong());
+	if (pProcess.isNull())
+		return;
+
+	QStringList InfoLines;
+
+	QString CommandLine = pProcess->GetCommandLineStr();
+	// This is necessary because the tooltip control seems to use some kind of O(n^9999) word-wrapping algorithm.
+	for (int i = 100; i < CommandLine.length(); i += 101)
+		CommandLine.insert(i, "\n");
+	InfoLines.append(CommandLine);
+
+	InfoLines.append(tr("File:"));
+	InfoLines.append(tr("    %1").arg(pProcess->GetFileName()));
+
+#ifdef WIN32
+	QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
+	QSharedPointer<CWinModule> pWinModule = pProcess->GetModuleInfo().objectCast<CWinModule>();
+
+	InfoLines.append(tr("    %1 %2").arg(pWinModule->GetFileInfo("Description")).arg(pWinModule->GetFileInfo("FileVersion")));
+	InfoLines.append(tr("    %1").arg(pWinModule->GetFileInfo("CompanyName")));
+
+	PH_KNOWN_PROCESS_TYPE KnownProcessType = PhGetProcessKnownTypeEx(pProcess->GetProcessId(), pProcess->GetFileName());
+
+	// Known command line information
+    PH_KNOWN_PROCESS_COMMAND_LINE knownCommandLine;
+	if (KnownProcessType != UnknownProcessType)
+	{
+		PH_AUTO_POOL autoPool;
+		PhInitializeAutoPool(&autoPool);
+
+		PPH_STRING commandLine = (PPH_STRING)PH_AUTO(CastQString(pProcess->GetCommandLineStr()));
+
+		if (PhaGetProcessKnownCommandLine(commandLine, KnownProcessType, &knownCommandLine))
+		{
+			switch (KnownProcessType & KnownProcessTypeMask)
+			{
+				case ServiceHostProcessType:
+				{
+					InfoLines.append(tr("Service group name:"));
+					InfoLines.append(tr("    %1").arg(CastPhString(knownCommandLine.ServiceHost.GroupName, false)));
+					break;
+				}
+				case RunDllAsAppProcessType:
+				{
+					PH_IMAGE_VERSION_INFO versionInfo;
+					if (PhInitializeImageVersionInfo(&versionInfo, knownCommandLine.RunDllAsApp.FileName->Buffer))
+					{
+						InfoLines.append(tr("Run DLL target file:"));
+						InfoLines.append(tr("    %1 %2").arg(CastPhString(versionInfo.FileDescription, false)).arg(CastPhString(versionInfo.FileVersion, false)));
+						InfoLines.append(tr("    %1").arg(CastPhString(versionInfo.CompanyName, false)));
+
+						PhDeleteImageVersionInfo(&versionInfo);
+					}
+					break;
+				}
+				case ComSurrogateProcessType:
+				{
+					InfoLines.append(tr("COM target:"));
+
+					if (knownCommandLine.ComSurrogate.Name)
+						InfoLines.append(tr("    %1").arg(CastPhString(knownCommandLine.ComSurrogate.Name, false)));
+
+					PPH_STRING guidString = PhFormatGuid(&knownCommandLine.ComSurrogate.Guid);
+					if (guidString)
+						InfoLines.append(tr("    %1").arg(CastPhString(guidString)));
+
+					PH_IMAGE_VERSION_INFO versionInfo;
+					if (knownCommandLine.ComSurrogate.FileName && PhInitializeImageVersionInfo(&versionInfo, knownCommandLine.ComSurrogate.FileName->Buffer))
+					{
+						InfoLines.append(tr("COM target file:"));
+						InfoLines.append(tr("    %1 %2").arg(CastPhString(versionInfo.FileDescription, false)).arg(CastPhString(versionInfo.FileVersion, false)));
+						InfoLines.append(tr("    %1").arg(CastPhString(versionInfo.CompanyName, false)));
+					}
+					break;
+				}
+			}
+		}
+
+		PhDeleteAutoPool(&autoPool);
+	}
+
+	// Services
+	QStringList ServiceList = pWinProc->GetServiceList();
+    if (!ServiceList.isEmpty())
+    {
+		InfoLines.append(tr("Services:"));
+
+		foreach(const QString& Service, ServiceList)
+		{
+			CServicePtr pService = theAPI->GetService(Service);
+			if(pService)
+				InfoLines.append(tr("    %1 (%2)").arg(Service).arg(pService->GetDisplayName()));
+			else
+				InfoLines.append(tr("    %1").arg(Service));
+		}
+    }
+
+	// Tasks, Drivers
+    switch (KnownProcessType & KnownProcessTypeMask)
+    {
+		case TaskHostProcessType:
+        {
+			QList<CWinProcess::STask> Tasks = pWinProc->GetTasks();
+			if (!Tasks.isEmpty())
+			{
+				InfoLines.append(tr("Tasks:"));
+				foreach(const CWinProcess::STask& Task, Tasks)
+					InfoLines.append(tr("    %1 (%2)").arg(Task.Name).arg(Task.Path));
+			}
+        }
+        break;
+		case UmdfHostProcessType:
+        {
+			QList<CWinProcess::SDriver> Drivers = pWinProc->GetUmdfDrivers();
+			if (!Drivers.isEmpty())
+			{
+				InfoLines.append(tr("Drivers:"));
+				foreach(const CWinProcess::SDriver& Driver, Drivers)
+					InfoLines.append(tr("    %1 (%2)").arg(Driver.Name).arg(Driver.Path));
+			}
+        }
+        break;
+		case EdgeProcessType:
+        {
+			CWinTokenPtr pToken = pWinProc->GetToken();
+			if (!pToken)
+				break;
+			
+			QString SidString = pToken->GetSidString();
+
+			QString EdgeInfo;
+			if (SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194", Qt::CaseInsensitive))
+				EdgeInfo = tr("Microsoft Edge Manager");
+			else if (SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-1206159417-1570029349-2913729690-1184509225", Qt::CaseInsensitive))
+				EdgeInfo = tr("Browser Extensions");
+			else if (SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-3513710562-3729412521-1863153555-1462103995", Qt::CaseInsensitive))
+				EdgeInfo = tr("User Interface Service");
+			else if (SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-1821068571-1793888307-623627345-1529106238", Qt::CaseInsensitive))
+				EdgeInfo = tr("Chakra Jit Compiler");
+			else if (SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-3859068477-1314311106-1651661491-1685393560", Qt::CaseInsensitive))
+				EdgeInfo = tr("Adobe Flash Player");
+			else if (SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-4256926629-1688279915-2739229046-3928706915", Qt::CaseInsensitive) 
+				  || SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-2385269614-3243675-834220592-3047885450", Qt::CaseInsensitive)
+				  || SidString.compare("S-1-15-2-3624051433-2125758914-1423191267-1740899205-1073925389-3782572162-737981194-355265979-2879959831-980936148-1241729999", Qt::CaseInsensitive))
+				EdgeInfo = tr("Background Tab Pool");
+
+			if (!EdgeInfo.isEmpty())
+			{
+				InfoLines.append(tr("Edge:"));
+				InfoLines.append(tr("    %1").arg(EdgeInfo));
+			}
+        }
+        break;
+		case WmiProviderHostType:
+        {
+			QList<CWinProcess::SWmiProvider> Providers = pWinProc->QueryWmiProviders();
+			if (!Providers.isEmpty())
+			{
+				InfoLines.append(tr("WMI Providers:"));
+				foreach(const CWinProcess::SWmiProvider& Provider, Providers)
+					InfoLines.append(tr("    %1 (%2)").arg(Provider.ProviderName).arg(Provider.FileName));
+			}
+        }      
+        break;
+    }
+
+    // Notes
+    {
+		QStringList Notes;
+
+		switch (pWinModule->GetVerifyResult())
+		{
+			case VrTrusted:
+			{
+				QString Signer = pWinModule->GetVerifySignerName();
+				if(Signer.isEmpty())
+					Notes.append(tr("    Signer: %1").arg(Signer));
+				else
+					Notes.append(tr("    Signed"));
+				break;
+			}
+			case VrNoSignature:
+				Notes.append(tr("    Signature invalid"));
+				break;
+		}
+		
+        if (pWinModule->IsPacked())
+        {
+			Notes.append(tr("    Image is probably packed (%1 imports over %2 modules).").arg(pWinModule->GetImportFunctions()).arg(pWinModule->GetImportModules()));
+        }
+
+		quint64 ConsoleHostProcessId = pWinProc->GetConsoleHostId();
+        if (ConsoleHostProcessId & ~3)
+        {
+            QString Description = tr("Console host");
+            if (ConsoleHostProcessId & 2)
+                Description = tr("Console application");
+			quint64 PID = (ConsoleHostProcessId & ~3);
+			CProcessPtr pHostProcess = theAPI->GetProcessByID(PID);
+			Notes.append(tr("    %1: %2 (%3)").arg(Description).arg(pHostProcess ? pHostProcess->GetName() : tr("Non-existent process")).arg(PID));
+        }
+
+		QString PackageFullName = pWinProc->GetPackageName();
+        if (!PackageFullName.isEmpty())
+			Notes.append(tr("    Package name: %1").arg(PackageFullName));
+
+        if (pWinProc->IsNetProcess())
+            Notes.append(tr("    Process is managed (.NET)."));
+        if (pWinProc->IsElevated())
+            Notes.append(tr("    Process is elevated."));
+        if (pWinProc->IsImmersiveProcess())
+            Notes.append(tr("    Process is a Modern UI app."));
+        if (pWinProc->IsInJob())
+            Notes.append(tr("    Process is in a job."));
+        if (pWinProc->IsWoW64())
+            Notes.append(tr("    Process is 32-bit (WOW64)."));
+
+        if (!Notes.isEmpty())
+        {
+			InfoLines.append(tr("Notes:"));
+			InfoLines.append(Notes);
+        }
+    }
+#endif
+
+	ToolTip = InfoLines.join("\n");
+}
+
 void CProcessTree::OnMenu(const QPoint &point)
 {
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 	
+	m_pRunAsThis->setEnabled(m_pProcessList->selectedRows().count() == 1);
 	m_pCreateDump->setEnabled(m_pProcessList->selectedRows().count() == 1);
 	m_pDebug->setEnabled(m_pProcessList->selectedRows().count() == 1);
 	m_pDebug->setChecked(pProcess && pProcess->HasDebugger());
@@ -291,8 +533,9 @@ void CProcessTree::OnMenu(const QPoint &point)
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
 
 	m_pReduceWS->setEnabled(!pWinProcess.isNull());
+
+	m_pPermissions->setEnabled(m_pProcessList->selectedRows().count() == 1);
 #endif
-	m_pRunAsThis->setEnabled(m_pProcessList->selectedRows().count() == 1);
 
 	CTaskView::OnMenu(point);
 }
@@ -360,6 +603,12 @@ void CProcessTree::OnProcessAction()
 				else
 					pWinProcess->DetachDebugger();
 			}
+			else if (sender() == m_pBringInFront)
+			{
+				CWndPtr pWnd = pWinProcess->GetMainWindowHwnd();
+				if (pWnd)
+					pWnd->BringToFront();
+			}
 			else if (sender() == m_pOpenPath)
 			{
 				PPH_STRING phFileName = CastQString(pWinProcess->GetFileName());
@@ -407,6 +656,21 @@ void CProcessTree::OnRunAsThis()
 	CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetProcessId());
 	pWnd->show();
 }
+
+void CProcessTree::OnPermissions()
+{
+#ifdef WIN32
+	QList<CTaskPtr>	Tasks = GetSellectedTasks();
+	if (Tasks.count() != 1)
+		return;
+
+	if (QSharedPointer<CWinProcess> pWinProcess = Tasks.first().objectCast<CWinProcess>())
+	{
+		pWinProcess->OpenPermissions();
+	}
+#endif
+}
+
 
 void CProcessTree::UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History)
 {
@@ -531,7 +795,7 @@ void CProcessTree::OnUpdateHistory()
 	quint64 TotalShared = GpuMemory.SharedLimit;
 	quint64 TotalDedicated = GpuMemory.DedicatedLimit;
 #else
-    // todo linux
+	// linux-todo:
     quint64 TotalShared = 0;
     quint64 TotalDedicated = 0;
 #endif

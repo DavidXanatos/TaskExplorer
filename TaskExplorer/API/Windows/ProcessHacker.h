@@ -81,29 +81,9 @@ extern "C" {
 // initialization call
 int InitPH(bool bSvc = false);
 
-STATUS InitKPH(bool bPrivilegeCheck, wstring DeviceName, wstring FileName);
+STATUS InitKPH(QString DeviceName = QString(), QString FileName = QString(), bool bPrivilegeCheck = true);
 
 void PhShowAbout(QWidget* parent);
-
-////////////////////////////////////////////////////////////////////////////////////
-// netprv.h
-
-#define PH_NETWORK_OWNER_INFO_SIZE 16
-
-typedef struct _PH_NETWORK_CONNECTION
-{
-    ULONG ProtocolType;
-    PH_IP_ENDPOINT LocalEndpoint;
-    PH_IP_ENDPOINT RemoteEndpoint;
-    ULONG State;
-    HANDLE ProcessId;
-    LARGE_INTEGER CreateTime;
-    ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
-    ULONG LocalScopeId; // Ipv6
-    ULONG RemoteScopeId; // Ipv6
-} PH_NETWORK_CONNECTION, *PPH_NETWORK_CONNECTION;
-
-BOOLEAN PhGetNetworkConnections(_Out_ PPH_NETWORK_CONNECTION *Connections, _Out_ PULONG NumberOfConnections);
 
 ////////////////////////////////////////////////////////////////////////////////////
 // appsup.h
@@ -134,7 +114,28 @@ typedef enum _PH_KNOWN_PROCESS_TYPE
 } PH_KNOWN_PROCESS_TYPE;
 
 
-PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(_In_ HANDLE ProcessId, _In_ PPH_STRING FileName);
+PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(quint64 ProcessId, const QString& FileName);
+
+typedef union _PH_KNOWN_PROCESS_COMMAND_LINE
+{
+    struct
+    {
+        PPH_STRING GroupName;
+    } ServiceHost;
+    struct
+    {
+        PPH_STRING FileName;
+        PPH_STRING ProcedureName;
+    } RunDllAsApp;
+    struct
+    {
+        GUID Guid;
+        PPH_STRING Name; // optional
+        PPH_STRING FileName; // optional
+    } ComSurrogate;
+} PH_KNOWN_PROCESS_COMMAND_LINE, *PPH_KNOWN_PROCESS_COMMAND_LINE;
+
+BOOLEAN PhaGetProcessKnownCommandLine(_In_ PPH_STRING CommandLine, _In_ PH_KNOWN_PROCESS_TYPE KnownProcessType, _Out_ PPH_KNOWN_PROCESS_COMMAND_LINE KnownCommandLine);
 
 extern GUID XP_CONTEXT_GUID;
 extern GUID VISTA_CONTEXT_GUID;
@@ -185,7 +186,6 @@ VOID WeInvertWindowBorder(_In_ HWND hWnd);
 ////////////////////////////////////////////////////////////////////////////////////
 // syssccpu.c
 
-VOID PhSipGetCpuBrandString(_Out_writes_(49) PWSTR BrandString);
 BOOLEAN PhSipGetCpuFrequencyFromDistribution(PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Current, PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Previous, double* Fraction);
 NTSTATUS PhSipQueryProcessorPerformanceDistribution(_Out_ PVOID *Buffer);
 

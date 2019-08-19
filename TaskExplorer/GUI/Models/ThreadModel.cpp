@@ -92,6 +92,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eStartModule:			Value = pWinThread->GetStartAddressFileName(); break;
 #endif
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
+				case eContextSwitchesDelta:	Value = CpuStats.ContextSwitchesDelta.Delta; break;
                 case eBasePriority:			Value = (quint32)pThread->GetBasePriority(); break;
                 case ePagePriority:			Value = (quint32)pThread->GetPagePriority(); break;
                 case eIOPriority:			Value = (quint32)pThread->GetIOPriority(); break;
@@ -118,10 +119,15 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 
 				switch (section)
 				{
-					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId(), 16); break;
+					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId()); break;
 					case eCPU:					ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10,2) + "%"; break;
 					case ePriority:				ColValue.Formated = pThread->GetPriorityString(); break;
-					case eCreated:				ColValue.Formated = QDateTime::fromTime_t(pThread->GetCreateTimeStamp()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eCreated:				ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eCyclesDelta:
+					case eCycles:
+					case eContextSwitches:
+					case eContextSwitchesDelta:
+												ColValue.Formated = FormatNumber(Value.toULongLong()); break;
 				}
 			}
 
@@ -181,6 +187,7 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 			case eStartModule:			return tr("Start module");
 #endif
 			case eContextSwitches:		return tr("Context switches");
+			case eContextSwitchesDelta:	return tr("Context switches delta");
 			case eBasePriority:			return tr("Base priority");
 			case ePagePriority:			return tr("Page priority");
 			case eIOPriority:			return tr("I/O priority");

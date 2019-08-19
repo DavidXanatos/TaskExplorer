@@ -276,6 +276,7 @@ void CServicesView::OnDoubleClicked(const QModelIndex& Index)
 	QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).objectCast<CWinService>();
 
 	CWinSvcWindow* pWnd = new CWinSvcWindow(pService);
+	connect(pWnd, SIGNAL(ServicesChanged()), theGUI, SLOT(OnReloadService()));
 	pWnd->show();
 #endif
 }

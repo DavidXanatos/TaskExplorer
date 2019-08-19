@@ -185,13 +185,13 @@ void CNetworkView::Refresh()
 		pItem->setText(eReadRate, tr("%1/s").arg(FormatSize(NicInfo.ReceiveRate.Get())));
 		pItem->setText(eBytesRead, FormatSize(NicInfo.ReceiveRawDelta.Value));
 		pItem->setText(eBytesReadDelta, FormatSize(NicInfo.ReceiveRawDelta.Delta));
-		pItem->setText(eReads, FormatUnit(NicInfo.ReceiveDelta.Value));
-		pItem->setText(eReadsDelta, QString::number(NicInfo.ReceiveDelta.Delta));
+		pItem->setText(eReads, FormatNumber(NicInfo.ReceiveDelta.Value));
+		pItem->setText(eReadsDelta, FormatNumber(NicInfo.ReceiveDelta.Delta));
 		pItem->setText(eWriteRate, tr("%1/s").arg(FormatSize(NicInfo.SendRate.Get())));
 		pItem->setText(eBytesWriten, FormatSize(NicInfo.SendRawDelta.Value));
 		pItem->setText(eBytesWritenDelta, FormatSize(NicInfo.SendRawDelta.Delta));
-		pItem->setText(eWrites, FormatUnit(NicInfo.SendDelta.Value));
-		pItem->setText(eWritesDelta, QString::number(NicInfo.SendDelta.Delta));
+		pItem->setText(eWrites, FormatNumber(NicInfo.SendDelta.Value));
+		pItem->setText(eWritesDelta, FormatNumber(NicInfo.SendDelta.Delta));
 
 		pItem->setText(eAddress, CNetworkView__JoinAddresses(NicInfo.Addresses, NicInfo.NetMasks).join(", "));
 		pItem->setText(eGateway, CNetworkView__JoinAddresses(NicInfo.Gateways).join(", "));

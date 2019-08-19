@@ -1058,26 +1058,26 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // Exceptions should only occur in rare situations and not in the normal control flow of the program;
     // this counter was designed as an indicator of potential performance problems due to large (> 100s) rate of exceptions thrown.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // # of Filters / sec
     // This counter displays the number of.NET exception filters executed per second.An exception filter evaluates whether an exception should be handled or not.
     // This counter tracks the rate of exception filters evaluated; irrespective of whether the exception was handled or not.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // # of Finallys / sec
     // This counter displays the number of finally blocks executed per second.
     // A finally block is guaranteed to be executed regardless of how the try block was exited.
     // Only the finally blocks that are executed for an exception are counted; finally blocks on normal code paths are not counted by this counter.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Throw To Catch Depth / sec
     // This counter displays the number of stack frames traversed from the frame that threw the .NET exception to the frame that handled the exception per second.
     // This counter resets to 0 when an exception handler is entered; so nested exceptions would show the handler to handler stack depth.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // This counter displays the current number of Com-Callable-Wrappers (CCWs).
     // A CCW is a proxy for the .NET managed object being referenced from unmanaged COM client(s).
@@ -1122,7 +1122,7 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // IL Bytes Jitted / sec
     // This counter displays the rate at which IL bytes are jitted per second.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // This counter displays the current number of classes loaded in all Assemblies.
     PhAddListViewGroupItem(ListViewHandle, DOTNET_CATEGORY_LOADING, DOTNET_INDEX_LOADING_CURRENTLOADED, L"Current Classes Loaded", UlongToPtr(DOTNET_INDEX_LOADING_CURRENTLOADED));
@@ -1170,31 +1170,31 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // This counter displays the number of classes that failed to load per second.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
     // These load failures could be due to many reasons like inadequate security or illegal format. Full details can be found in the profiling services help.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Rate of appdomains unloaded
     // This counter displays the number of AppDomains unloaded per second.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Rate of Classes Loaded
     // This counter displays the number of classes loaded per second in all Assemblies.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Rate of appdomains
     // This counter displays the number of AppDomains loaded per second.
     // AppDomains(application domains) provide a secure and versatile unit of processing that the CLR can use to provide isolation between applications
     // running in the same process. This counter is not an average over time; it displays the difference between the values observed in the last two samples
     // divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Rate of Assemblies
     // This counter displays the number of Assemblies loaded across all AppDomains per second.
     // If the Assembly is loaded as domain - neutral from multiple AppDomains then this counter is incremented once only.Assemblies can be loaded as
     // domain - neutral when their code can be shared by all AppDomains or they can be loaded as domain - specific when their code is private to the AppDomain.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // This counter displays the total number of times threads in the CLR have attempted to acquire a managed lock unsuccessfully.
     // Managed locks can be acquired in many ways; by the "lock" statement in C# or by calling System.Monitor.Enter or by using MethodImplOptions.Synchronized custom attribute.
@@ -1230,19 +1230,19 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // Contention Rate / sec
     // Rate at which threads in the runtime attempt to acquire a managed lock unsuccessfully.
     // Managed locks can be acquired in many ways; by the "lock" statement in C# or by calling System.Monitor.Enter or by using MethodImplOptions.Synchronized custom attribute.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Queue Length / sec
     // This counter displays the number of threads per second waiting to acquire some lock in the application.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // rate of recognized threads / sec
     // This counter displays the number of threads per second that have been recognized by the CLR; these threads have a corresponding .NET thread object associated with them.
     // These threads are not created by the CLR; they are created outside the CLR but have since run inside the CLR at least once.
     // Only unique threads are tracked; threads with same thread ID re-entering the CLR or recreated after thread exit are not counted twice.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // This counter displays the number of times the generation 0 objects (youngest; most recently allocated) are garbage collected (Gen 0 GC) since the start of the application.
     // Gen 0 GC occurs when the available memory in generation 0 is not sufficient to satisfy an allocation request.
@@ -1358,7 +1358,7 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // objects that are promoted just because they are waiting to be finalized are not included in this counter.
     // Memory is promoted when it survives a garbage collection.This counter was designed as an indicator of relatively long-lived objects being created per sec.
     // This counter displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Gen 1 Promoted Bytes / Sec
     // This counter displays the bytes per second that are promoted from generation 1 to generation 2 (oldest);
@@ -1367,18 +1367,18 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // Nothing is promoted from generation 2 since it is the oldest.
     // This counter was designed as an indicator of very long-lived objects being created per sec.
     // This counter displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Promoted Finalization - Memory from Gen 1
     // This counter displays the bytes of memory that are promoted from generation 1 to generation 2 just because they are waiting to be finalized.
     // This counter displays the value observed at the end of the last GC; its not a cumulative counter.This counter is reset to 0 if the last GC was a Gen 0 GC only.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Allocated Bytes / sec
     // This counter displays the rate of bytes per second allocated on the GC Heap.
     // This counter is updated at the end of every GC; not at each allocation.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // This counter displays the total number of remote procedure calls invoked since the start of this application.
     // A remote procedure call is a call on any object outside the callers AppDomain.
@@ -1408,14 +1408,14 @@ void InitDotNetStatTree(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& PerfC
     // This counter displays the number of remote procedure calls invoked per second.
     // A remote procedure call is a call on any object outside the callers AppDomain.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // Context - Bound Objects Alloc / sec
     // This counter displays the number of context - bound objects allocated per second.
     // Instances of classes that can be bound to a context are called context - bound objects; context - bound classes are marked with Context Attributes
     // which provide usage rules for synchronization; thread affinity; transactions etc.
     // This counter is not an average over time; it displays the difference between the values observed in the last two samples divided by the duration of the sample interval.
-    // TODO: We need to count the delta.
+    // TO-DO: We need to count the delta.
 
     // This counter displays the total number of runtime Code Access Security(CAS) checks performed since the start of the application.
     // Runtime CAS checks are performed when a caller makes a call to a callee demanding a particular permission;
@@ -1768,7 +1768,7 @@ void UpdateDotNetStatTree(CWinProcess* pProcess, const QMap<int, QTreeWidgetItem
 							PH_FORMAT format[1];
 							WCHAR formatBuffer[10];
 
-							// TODO: perlib never shows the TimeInJit value and it can sometimes show values above 100% ???
+							// TO-DO: perlib never shows the TimeInJit value and it can sometimes show values above 100% ???
 							// SeeAlso: https://github.com/dotnet/coreclr/blob/master/src/gc/gcee.cpp#L324
 							PhInitFormatF(&format[0], (context->DotNetPerfJit.timeInJit << 8) * 100 / (FLOAT)(context->DotNetPerfJit.timeInJitBase << 8), 2);
 

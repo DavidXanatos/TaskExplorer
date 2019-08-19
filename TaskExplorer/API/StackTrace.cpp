@@ -24,7 +24,8 @@ void CStackTrace::AddFrame(QString Symbol, quint64 PcAddress, quint64 ReturnAddr
 	Frame.Params[3] = Params[3];
 	Frame.Flags = Flags;
 	Frame.FileInfo = FileInfo;
-	m_StackFrames.prepend(Frame);
+	//m_StackFrames.prepend(Frame); // TI - style - current position last
+	m_StackFrames.append(Frame); // regular style - current position first (better for scrolling)
 }
 
 const CStackTrace::SStackFrame& CStackTrace::GetFrame(int index) const

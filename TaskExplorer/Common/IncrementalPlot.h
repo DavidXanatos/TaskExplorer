@@ -28,7 +28,7 @@ protected:
 	{
 		QwtPlot::drawCanvas(p);
 
-		p->setPen(Qt::white); // todo set color properly
+		p->setPen(Qt::white); // todo: set color from proeprty
 
 		int x = 2;
 		int y = 0;

@@ -164,7 +164,7 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 		m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
 		m_pFilePath->setText(m_pCurProcess->GetFileName());
 
-		m_pCmdLine->setText(m_pCurProcess->GetCommandLine());
+		m_pCmdLine->setText(m_pCurProcess->GetCommandLineStr());
 		m_pCurDir->setText(m_pCurProcess->GetWorkingDirectory());
 		m_pProcessId->setText(tr("%1/%2").arg(m_pCurProcess->GetProcessId()).arg(m_pCurProcess->GetParentId()));
 		m_pUserName->setText(m_pCurProcess->GetUserName());
@@ -180,9 +180,9 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
 		if (pWinProc->IsWoW64())
-			m_pPEBAddress->setText(tr("0x%1 (32-bit: 0x%2)").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')).arg(pWinProc->GetPebBaseAddress(true), 8, 16, QChar('0')));
+			m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinProc->GetPebBaseAddress())).arg(FormatAddress(pWinProc->GetPebBaseAddress(true))));
 		else
-			m_pPEBAddress->setText(tr("0x%1").arg(pWinProc->GetPebBaseAddress(), 8, 16, QChar('0')));
+			m_pPEBAddress->setText(FormatAddress(pWinProc->GetPebBaseAddress()));
 		m_ImageType->setText(tr("Image type: %1").arg(m_pCurProcess->GetArchString()));
 
 		m_pMitigation->setText(pWinProc->GetMitigationString());

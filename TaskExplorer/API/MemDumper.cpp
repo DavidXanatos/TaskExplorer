@@ -20,6 +20,6 @@ CMemDumper* CMemDumper::New()
 #ifdef WIN32
 	return new CWinDumper();
 #else
-	// todo: implement other systems liek Linux
+	// linux-todo:
 #endif // WIN32
 }

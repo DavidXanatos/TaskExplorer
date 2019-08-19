@@ -25,7 +25,7 @@ public slots:
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView()	{ return m_pDriverList; }
-	virtual QAbstractItemModel* GetModel()	{ return m_pDriverModel; }
+	virtual QAbstractItemModel* GetModel()	{ return m_pSortProxy; }
 
 private slots:
 	void					OnDriverListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);

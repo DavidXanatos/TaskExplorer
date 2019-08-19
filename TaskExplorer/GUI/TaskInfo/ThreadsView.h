@@ -34,6 +34,8 @@ private slots:
 
 	void					OnThreadAction();
 
+	void					OnPermissions();
+
 	void					ShowStack(const CStackTracePtr& StackTrace);
 
 protected:
@@ -70,11 +72,12 @@ private:
 	//QMenu*					m_pMenu;
 
 #ifdef WIN32
+	QMenu*					m_pMiscMenu;
 	QAction*				m_pCancelIO;
 	//QAction*				m_pAnalyze;
 	QAction*				m_pCritical;
-	//QAction*				m_pPermissions;
 	//QAction*				m_pToken;
+	QAction*				m_pPermissions;
 #endif
 	//QAction*				m_pWindows;
 

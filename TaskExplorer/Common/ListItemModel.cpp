@@ -168,6 +168,14 @@ QVariant CListItemModel::Data(const QModelIndex &index, int role, int section) c
 		{
 			return pNode->Values[section].Raw;
 		}
+		case Qt::ToolTipRole:
+		{
+			QString ToolTip;
+			emit ToolTipCallback(pNode->ID, ToolTip);
+			if(!ToolTip.isNull())
+				return ToolTip;
+			break;
+		}
 		case Qt::DecorationRole:
 		{
 			if (section == FIRST_COLUMN)

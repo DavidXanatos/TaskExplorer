@@ -23,6 +23,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.refreshInterval->setValue(theConf->GetInt("Options/RefreshInterval", 1000));
 	ui.graphLength->setValue(theConf->GetInt("Options/GraphLength", 300));
 
+	ui.chkUdpCons->setChecked(theConf->GetBool("Options/UseUDPPseudoConnectins", false));
+
 	ui.chkUndecorate->setChecked(theConf->GetBool("Options/DbgHelpUndecorate", true));
 	ui.symbolPath->setText(theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols"));
 	ui.chkSymbolPath->setChecked(theConf->GetBool("Options/DbgHelpSearch", true));
@@ -44,6 +46,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.useDriver->addItem(tr("Yes (always, unsecure)"));
 	ui.useDriver->setCurrentIndex(theConf->GetInt("Options/UseDriver", 1));
 
+	ui.chkSoftForce->setCheckState((Qt::CheckState)theConf->GetInt("Options/UseSoftForce", 2));
 
 	ui.persistenceTime->setValue(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
@@ -129,6 +132,9 @@ void CSettingsWindow::apply()
 	theConf->SetValue("Options/RefreshInterval", ui.refreshInterval->value());
 	theConf->SetValue("Options/GraphLength", ui.graphLength->value());
 
+	theConf->SetValue("Options/UseUDPPseudoConnectins", ui.chkUdpCons->isChecked());
+
+
 	theConf->SetValue("Options/DbgHelpUndecorate", ui.chkUndecorate->isChecked());
 	theConf->SetValue("Options/DbgHelpSearchPath", ui.symbolPath->text());
 	theConf->SetValue("Options/DbgHelpSearch", ui.chkSymbolPath->isChecked());
@@ -140,6 +146,8 @@ void CSettingsWindow::apply()
 	theConf->SetValue("SysTray/CloseToTray", ui.chkToTray->isChecked());
 
 	theConf->SetValue("Options/UseDriver", ui.useDriver->currentIndex());
+
+	theConf->SetValue("Options/UseSoftForce", (int)ui.chkSoftForce->checkState());
 
 
 	theConf->SetValue("Options/PersistenceTime", ui.persistenceTime->value());

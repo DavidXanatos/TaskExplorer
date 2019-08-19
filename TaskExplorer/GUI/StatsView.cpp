@@ -120,6 +120,8 @@ void CStatsView::SetupTree()
 	m_pMemory->addChild(m_pPageFaults);
 	if (m_eView == eProcess) 
 	{
+		m_pHardFaults = new QTreeWidgetItem(tr("Hard faults").split("|"));
+		m_pMemory->addChild(m_pHardFaults);
 		m_pPrivateWS = new QTreeWidgetItem(tr("Private working set").split("|"));
 		m_pMemory->addChild(m_pPrivateWS);
 		m_pSharedWS = new QTreeWidgetItem(tr("Shared working set").split("|"));
@@ -192,7 +194,19 @@ void CStatsView::SetupTree()
 		m_pWndObjects = new QTreeWidgetItem(tr("Windows").split("|"));
 		m_pOther->addChild(m_pWndObjects);
 	}
-
+#ifdef WIN32
+	if (m_eView == eProcess)
+	{
+		m_pUpTime = new QTreeWidgetItem(tr("Running time").split("|"));
+		m_pOther->addChild(m_pUpTime);
+		m_pSuspendTime = new QTreeWidgetItem(tr("Suspended time").split("|"));
+		m_pOther->addChild(m_pSuspendTime);
+		m_pHangCount = new QTreeWidgetItem(tr("Hang count").split("|"));
+		m_pOther->addChild(m_pHangCount);
+		m_pGhostCount = new QTreeWidgetItem(tr("Ghost count").split("|"));
+		m_pOther->addChild(m_pGhostCount);
+	}
+#endif
 
 	m_pStatsList->expandAll();
 	//
@@ -214,8 +228,8 @@ void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 	STaskStatsEx CpuStats = pProcess->GetCpuStats();
 
 	// CPU
-	m_pCycles->setText(eCount, FormatUnit(CpuStats.CycleDelta.Value, 2));
-	m_pCycles->setText(eDelta, FormatUnit(CpuStats.CycleDelta.Delta, 2));
+	m_pCycles->setText(eCount, FormatNumber(CpuStats.CycleDelta.Value));
+	m_pCycles->setText(eDelta, FormatNumber(CpuStats.CycleDelta.Delta));
 
 	m_pKernelTime->setText(eCount, FormatTime(CpuStats.CpuKernelDelta.Value/CPU_TIME_DIVIDER));
 	m_pKernelTime->setText(eDelta, FormatTime(CpuStats.CpuKernelDelta.Delta/CPU_TIME_DIVIDER));
@@ -226,8 +240,8 @@ void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 	m_pTotalTime->setText(eCount, FormatTime((CpuStats.CpuKernelDelta.Value + CpuStats.CpuUserDelta.Value)/CPU_TIME_DIVIDER));
 	m_pTotalTime->setText(eDelta, FormatTime((CpuStats.CpuKernelDelta.Delta + CpuStats.CpuUserDelta.Delta)/CPU_TIME_DIVIDER));
 
-	m_pContextSwitches->setText(eSize, QString::number(CpuStats.ContextSwitchesDelta.Value));
-	m_pContextSwitches->setText(eDelta, QString::number(CpuStats.ContextSwitchesDelta.Delta));
+	m_pContextSwitches->setText(eSize, FormatNumber(CpuStats.ContextSwitchesDelta.Value));
+	m_pContextSwitches->setText(eDelta, FormatNumber(CpuStats.ContextSwitchesDelta.Delta));
 
 	// Memory
 	m_pPrivateBytes->setText(eSize, FormatSize(CpuStats.PrivateBytesDelta.Value));
@@ -236,8 +250,11 @@ void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 	m_pVirtualSize->setText(eSize, FormatSize(pProcess->GetVirtualSize()));
 	m_pVirtualSize->setText(ePeak, FormatSize(pProcess->GetPeakVirtualSize()));
 	
-	m_pPageFaults->setText(eCount, QString::number(CpuStats.PageFaultsDelta.Value));
-	m_pPageFaults->setText(eDelta, QString::number(CpuStats.PageFaultsDelta.Delta));
+	m_pPageFaults->setText(eCount, FormatNumber(CpuStats.PageFaultsDelta.Value));
+	m_pPageFaults->setText(eDelta, FormatNumber(CpuStats.PageFaultsDelta.Delta));
+
+	m_pHardFaults->setText(eCount, FormatNumber(CpuStats.HardFaultsDelta.Value));
+	m_pHardFaults->setText(eDelta, FormatNumber(CpuStats.HardFaultsDelta.Delta));
 
 	m_pWorkingSet->setText(eSize, FormatSize(pProcess->GetWorkingSetSize()));
 
@@ -256,61 +273,66 @@ void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 	ShowIoStats(Stats);
 
 	// other
-	m_pThreads->setText(eCount, QString::number(pProcess->GetNumberOfThreads()));
-	m_pHandles->setText(eCount, QString::number(pProcess->GetNumberOfHandles()));
-	//m_pHandles->setText(ePeak, QString::number(pProcess->GetpeakNumberOfHandles()));
+	m_pThreads->setText(eCount, FormatNumber(pProcess->GetNumberOfThreads()));
+	m_pThreads->setText(ePeak, FormatNumber(pProcess->GetPeakNumberOfThreads()));
+	m_pHandles->setText(eCount, FormatNumber(pProcess->GetNumberOfHandles()));
+	m_pHandles->setText(ePeak, FormatNumber(pProcess->GetPeakNumberOfHandles()));
 
 #ifdef WIN32
 	CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
-	m_pGdiObjects->setText(eCount, QString::number(pWinProc->GetGdiHandles()));
+	m_pGdiObjects->setText(eCount, FormatNumber(pWinProc->GetGdiHandles()));
 
-	m_pUserObjects->setText(eCount, QString::number(pWinProc->GetUserHandles()));
+	m_pUserObjects->setText(eCount, FormatNumber(pWinProc->GetUserHandles()));
 
-	m_pWndObjects->setText(eCount, QString::number(pWinProc->GetWndHandles()));
+	m_pWndObjects->setText(eCount, FormatNumber(pWinProc->GetWndHandles()));
+
+
+	m_pUpTime->setText(eDelta, FormatTime(pWinProc->GetUpTime()));
+	m_pSuspendTime->setText(eDelta, FormatTime(pWinProc->GetSuspendTime()));
+	m_pHangCount->setText(eCount, FormatNumber(pWinProc->GetHangCount()));
+	m_pGhostCount->setText(eCount, FormatNumber(pWinProc->GetGhostCount()));
 #endif
-
-	// todo: add uptime stats?
 }
 
 void CStatsView::ShowIoStats(const SProcStats& Stats)
 {
-	m_pIOReads->setText(eCount, QString::number(Stats.Io.ReadDelta.Value));
+	m_pIOReads->setText(eCount, FormatNumber(Stats.Io.ReadDelta.Value));
 	m_pIOReads->setText(eSize, FormatSize(Stats.Io.ReadRawDelta.Value));
 	m_pIOReads->setText(eRate, FormatSize(Stats.Io.ReadRate.Get()) + "/s");
-	m_pIOReads->setText(eDelta, QString::number(Stats.Io.ReadDelta.Delta));
+	m_pIOReads->setText(eDelta, FormatNumber(Stats.Io.ReadDelta.Delta));
 
-	m_pIOWrites->setText(eCount, QString::number(Stats.Io.WriteDelta.Value));
+	m_pIOWrites->setText(eCount, FormatNumber(Stats.Io.WriteDelta.Value));
 	m_pIOWrites->setText(eSize, FormatSize(Stats.Io.WriteRawDelta.Value));
 	m_pIOWrites->setText(eRate, FormatSize(Stats.Io.WriteRate.Get()) + "/s");
-	m_pIOWrites->setText(eDelta, QString::number(Stats.Io.WriteDelta.Delta));
+	m_pIOWrites->setText(eDelta, FormatNumber(Stats.Io.WriteDelta.Delta));
 
-	m_pIOOther->setText(eCount, QString::number(Stats.Io.OtherDelta.Value));
+	m_pIOOther->setText(eCount, FormatNumber(Stats.Io.OtherDelta.Value));
 	m_pIOOther->setText(eSize, FormatSize(Stats.Io.OtherRawDelta.Value));
 	m_pIOOther->setText(eRate, FormatSize(Stats.Io.OtherRate.Get()) + "/s");
-	m_pIOOther->setText(eDelta, QString::number(Stats.Io.OtherDelta.Delta));
+	m_pIOOther->setText(eDelta, FormatNumber(Stats.Io.OtherDelta.Delta));
 
 	if (m_MonitorsETW)
 	{
-		m_pDiskReads->setText(eCount, QString::number(Stats.Disk.ReadDelta.Value));
+		m_pDiskReads->setText(eCount, FormatNumber(Stats.Disk.ReadDelta.Value));
 		m_pDiskReads->setText(eSize, FormatSize(Stats.Disk.ReadRawDelta.Value));
 		m_pDiskReads->setText(eRate, FormatSize(Stats.Disk.ReadRate.Get()) + "/s");
-		m_pDiskReads->setText(eDelta, QString::number(Stats.Disk.ReadDelta.Delta));
+		m_pDiskReads->setText(eDelta, FormatNumber(Stats.Disk.ReadDelta.Delta));
 
-		m_pDiskWrites->setText(eCount, QString::number(Stats.Disk.WriteDelta.Value));
+		m_pDiskWrites->setText(eCount, FormatNumber(Stats.Disk.WriteDelta.Value));
 		m_pDiskWrites->setText(eSize, FormatSize(Stats.Disk.WriteRawDelta.Value));
 		m_pDiskWrites->setText(eRate, FormatSize(Stats.Disk.WriteRate.Get()) + "/s");
-		m_pDiskWrites->setText(eDelta, QString::number(Stats.Disk.WriteDelta.Delta));
+		m_pDiskWrites->setText(eDelta, FormatNumber(Stats.Disk.WriteDelta.Delta));
 
-		m_pNetSends->setText(eCount, QString::number(Stats.Net.SendDelta.Value));
+		m_pNetSends->setText(eCount, FormatNumber(Stats.Net.SendDelta.Value));
 		m_pNetSends->setText(eSize, FormatSize(Stats.Net.SendRawDelta.Value));
 		m_pNetSends->setText(eRate, FormatSize(Stats.Net.SendRate.Get()) + "/s");
-		m_pNetSends->setText(eDelta, QString::number(Stats.Net.SendDelta.Delta));
+		m_pNetSends->setText(eDelta, FormatNumber(Stats.Net.SendDelta.Delta));
 
-		m_pNetReceives->setText(eCount, QString::number(Stats.Net.ReceiveDelta.Value));
+		m_pNetReceives->setText(eCount, FormatNumber(Stats.Net.ReceiveDelta.Value));
 		m_pNetReceives->setText(eSize, FormatSize(Stats.Net.ReceiveRawDelta.Value));
 		m_pNetReceives->setText(eRate, FormatSize(Stats.Net.ReceiveRate.Get()) + "/s");
-		m_pNetReceives->setText(eDelta, QString::number(Stats.Net.ReceiveDelta.Delta));
+		m_pNetReceives->setText(eDelta, FormatNumber(Stats.Net.ReceiveDelta.Delta));
 	}
 }
 
@@ -319,17 +341,17 @@ void CStatsView::ShowSystem()
 	SCpuStatsEx CpuStats = theAPI->GetCpuStats();
 
 	// CPU
-	m_pContextSwitches->setText(eCount, QString::number(CpuStats.ContextSwitchesDelta.Value));
-	m_pContextSwitches->setText(eDelta, QString::number(CpuStats.ContextSwitchesDelta.Delta));
+	m_pContextSwitches->setText(eCount, FormatNumber(CpuStats.ContextSwitchesDelta.Value));
+	m_pContextSwitches->setText(eDelta, FormatNumber(CpuStats.ContextSwitchesDelta.Delta));
 
-	m_pInterrupts->setText(eCount, QString::number(CpuStats.InterruptsDelta.Value));
-	m_pInterrupts->setText(eDelta, QString::number(CpuStats.InterruptsDelta.Delta));
+	m_pInterrupts->setText(eCount, FormatNumber(CpuStats.InterruptsDelta.Value));
+	m_pInterrupts->setText(eDelta, FormatNumber(CpuStats.InterruptsDelta.Delta));
 
-	m_pDPCs->setText(eCount, QString::number(CpuStats.DpcsDelta.Value));
-	m_pDPCs->setText(eDelta, QString::number(CpuStats.DpcsDelta.Delta));
+	m_pDPCs->setText(eCount, FormatNumber(CpuStats.DpcsDelta.Value));
+	m_pDPCs->setText(eDelta, FormatNumber(CpuStats.DpcsDelta.Delta));
 
-	m_pSysCalls->setText(eCount, QString::number(CpuStats.SystemCallsDelta.Value));
-	m_pSysCalls->setText(eDelta, QString::number(CpuStats.SystemCallsDelta.Delta));
+	m_pSysCalls->setText(eCount, FormatNumber(CpuStats.SystemCallsDelta.Value));
+	m_pSysCalls->setText(eDelta, FormatNumber(CpuStats.SystemCallsDelta.Delta));
 
 
 	// Memory
@@ -343,45 +365,45 @@ void CStatsView::ShowSystem()
 
 	m_pNonPagedPool->setText(eSize, FormatSize(theAPI->GetNonPagedPool()));*/
 
-	m_pPageFaults->setText(eCount, QString::number(CpuStats.PageFaultsDelta.Value));
-	m_pPageFaults->setText(eDelta, QString::number(CpuStats.PageFaultsDelta.Delta));
+	m_pPageFaults->setText(eCount, FormatNumber(CpuStats.PageFaultsDelta.Value));
+	m_pPageFaults->setText(eDelta, FormatNumber(CpuStats.PageFaultsDelta.Delta));
 
 	// IO
-	SSysStats Stats = theAPI->GetStats();
-	ShowIoStats(Stats);
+	SSysStats SysStats = theAPI->GetStats();
+	ShowIoStats(SysStats);
 
-	m_pMMapIOReads->setText(eCount, QString::number(Stats.MMapIo.ReadDelta.Value));
-	m_pMMapIOReads->setText(eSize, FormatSize(Stats.MMapIo.ReadRawDelta.Value));
-	m_pMMapIOReads->setText(eRate, FormatSize(Stats.MMapIo.ReadRate.Get()) + "/s");
-	m_pMMapIOReads->setText(eDelta, QString::number(Stats.MMapIo.ReadDelta.Delta));
+	m_pMMapIOReads->setText(eCount, FormatNumber(SysStats.MMapIo.ReadDelta.Value));
+	m_pMMapIOReads->setText(eSize, FormatSize(SysStats.MMapIo.ReadRawDelta.Value));
+	m_pMMapIOReads->setText(eRate, FormatSize(SysStats.MMapIo.ReadRate.Get()) + "/s");
+	m_pMMapIOReads->setText(eDelta, FormatNumber(SysStats.MMapIo.ReadDelta.Delta));
 
-	m_pMMapIOWrites->setText(eCount, QString::number(Stats.MMapIo.WriteDelta.Value));
-	m_pMMapIOWrites->setText(eSize, FormatSize(Stats.MMapIo.WriteRawDelta.Value));
-	m_pMMapIOWrites->setText(eRate, FormatSize(Stats.MMapIo.WriteRate.Get()) + "/s");
-	m_pMMapIOWrites->setText(eDelta, QString::number(Stats.MMapIo.WriteDelta.Delta));
+	m_pMMapIOWrites->setText(eCount, FormatNumber(SysStats.MMapIo.WriteDelta.Value));
+	m_pMMapIOWrites->setText(eSize, FormatSize(SysStats.MMapIo.WriteRawDelta.Value));
+	m_pMMapIOWrites->setText(eRate, FormatSize(SysStats.MMapIo.WriteRate.Get()) + "/s");
+	m_pMMapIOWrites->setText(eDelta, FormatNumber(SysStats.MMapIo.WriteDelta.Delta));
 
 	// other
-	m_pProcesses->setText(eCount, QString::number(theAPI->GetTotalProcesses()));
+	m_pProcesses->setText(eCount, FormatNumber(theAPI->GetTotalProcesses()));
 
-	m_pThreads->setText(eCount, QString::number(theAPI->GetTotalThreads()));
+	m_pThreads->setText(eCount, FormatNumber(theAPI->GetTotalThreads()));
 
-	m_pHandles->setText(eCount, QString::number(theAPI->GetTotalHandles()));
-	//m_pHandles->setText(ePeak, FormatUnit(pProcess->GetpeakNumberOfHandles()));
+	m_pHandles->setText(eCount, FormatNumber(theAPI->GetTotalHandles()));
+	//m_pHandles->setText(ePeak, FormatNumber(pProcess->GetpeakNumberOfHandles()));
 
 #ifdef WIN32
-	m_pGdiObjects->setText(eCount, QString::number(((CWindowsAPI*)theAPI)->GetTotalGuiObjects()));
+	m_pGdiObjects->setText(eCount, FormatNumber(((CWindowsAPI*)theAPI)->GetTotalGuiObjects()));
 
-	m_pUserObjects->setText(eCount, QString::number(((CWindowsAPI*)theAPI)->GetTotalUserObjects()));
+	m_pUserObjects->setText(eCount, FormatNumber(((CWindowsAPI*)theAPI)->GetTotalUserObjects()));
 
-	m_pWndObjects->setText(eCount, QString::number(((CWindowsAPI*)theAPI)->GetTotalWndObjects()));
+	m_pWndObjects->setText(eCount, FormatNumber(((CWindowsAPI*)theAPI)->GetTotalWndObjects()));
 #endif
 }
 
 #ifdef WIN32
 void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 {
-	m_pProcesses->setText(eCount, QString::number(pCurJob->GetActiveProcesses()));
-	m_pProcesses->setText(ePeak, QString::number(pCurJob->GetTotalProcesses())); // not quite peak but close enough ;)
+	m_pProcesses->setText(eCount, FormatNumber(pCurJob->GetActiveProcesses()));
+	m_pProcesses->setText(ePeak, FormatNumber(pCurJob->GetTotalProcesses())); // not quite peak but close enough ;)
 	// GetTerminatedProcesses()
 	
 	SJobStats Stats = pCurJob->GetStats();
@@ -394,27 +416,27 @@ void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 	m_pUserTime->setText(eDelta, FormatTime(Stats.UserDelta.Delta/CPU_TIME_DIVIDER));
 
 	// memory
-	m_pPageFaults->setText(eCount, QString::number(Stats.PageFaultsDelta.Value));
-	m_pPageFaults->setText(eDelta, QString::number(Stats.PageFaultsDelta.Delta));
+	m_pPageFaults->setText(eCount, FormatNumber(Stats.PageFaultsDelta.Value));
+	m_pPageFaults->setText(eDelta, FormatNumber(Stats.PageFaultsDelta.Delta));
 
 	m_pPrivateWS->setText(eSize, FormatSize(pCurJob->GetPeakProcessMemoryUsed()));
 
 	m_pSharedWS->setText(eSize, FormatSize(pCurJob->GetPeakJobMemoryUsed()));
 
 	// IO
-	m_pIOReads->setText(eCount, QString::number(Stats.Io.ReadDelta.Value));
+	m_pIOReads->setText(eCount, FormatNumber(Stats.Io.ReadDelta.Value));
 	m_pIOReads->setText(eSize, FormatSize(Stats.Io.ReadRawDelta.Value));
 	m_pIOReads->setText(eRate, FormatSize(Stats.Io.ReadRate.Get()) + "/s");
-	m_pIOReads->setText(eDelta, QString::number(Stats.Io.ReadDelta.Delta));
+	m_pIOReads->setText(eDelta, FormatNumber(Stats.Io.ReadDelta.Delta));
 
-	m_pIOWrites->setText(eCount, QString::number(Stats.Io.WriteDelta.Value));
+	m_pIOWrites->setText(eCount, FormatNumber(Stats.Io.WriteDelta.Value));
 	m_pIOWrites->setText(eSize, FormatSize(Stats.Io.WriteRawDelta.Value));
 	m_pIOWrites->setText(eRate, FormatSize(Stats.Io.WriteRate.Get()) + "/s");
-	m_pIOWrites->setText(eDelta, QString::number(Stats.Io.WriteDelta.Delta));
+	m_pIOWrites->setText(eDelta, FormatNumber(Stats.Io.WriteDelta.Delta));
 
-	m_pIOOther->setText(eCount, QString::number(Stats.Io.OtherDelta.Value));
+	m_pIOOther->setText(eCount, FormatNumber(Stats.Io.OtherDelta.Value));
 	m_pIOOther->setText(eSize, FormatSize(Stats.Io.OtherRawDelta.Value));
 	m_pIOOther->setText(eRate, FormatSize(Stats.Io.OtherRate.Get()) + "/s");
-	m_pIOOther->setText(eDelta, QString::number(Stats.Io.OtherDelta.Delta));
+	m_pIOOther->setText(eDelta, FormatNumber(Stats.Io.OtherDelta.Delta));
 }
 #endif

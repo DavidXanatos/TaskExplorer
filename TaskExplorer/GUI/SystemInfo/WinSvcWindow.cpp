@@ -403,7 +403,8 @@ void CWinSvcWindow::SaveGeneral()
 			}
 
 			m_GeneralChanged = false;
-			//PhMarkNeedsConfigUpdateServiceItem(serviceItem); // todo
+
+			emit ServicesChanged();
 		}
 		else
 		{
@@ -438,7 +439,8 @@ void CWinSvcWindow::SaveGeneral()
                 }
 
 				m_GeneralChanged = false;
-                //PhMarkNeedsConfigUpdateServiceItem(serviceItem); // todo
+                
+				ServicesChanged();
             }
 		}
 	}
@@ -464,7 +466,6 @@ void CWinSvcWindow::LoadRecovery()
 	if ((m_pService->GetFlags() & SERVICE_RUNS_IN_SYSTEM_PROCESS) != 0)
 	{
 		// Services which run in system processes don't support failure actions.
-        // todo: Create a different page with a message saying this.
 		ui.recoveryTab->setEnabled(false);
 		return;
 	}

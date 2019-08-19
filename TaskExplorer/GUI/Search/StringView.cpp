@@ -106,7 +106,7 @@ void CStringView::OnDoubleClicked()
 #ifdef WIN32
 	QIODevice* pDevice = new CWinMemIO(pString->GetBaseAddress(), pString->GetRegionSize(), pString->GetProcess()->GetProcessId());
 #else
-	// todo: linux
+	// linux-todo:
     QIODevice* pDevice = NULL;
 #endif
 

@@ -316,7 +316,7 @@ STATUS CWinJob::AddProcess(quint64 ProcessId)
 
 void CWinJob::OpenPermissions()
 {
-	QWriteLocker Locker(&m_Mutex); 
+	QReadLocker Locker(&m_Mutex); 
 
-    PhEditSecurity(NULL, L"Job", L"Job", PhpOpenProcessJobForPage, NULL, m); // todo: fixme m may get deleted!!!
+    PhEditSecurity(NULL, L"Job", L"Job", PhpOpenProcessJobForPage, NULL, m); // todo: xxx fixme m may get deleted!!!
 }

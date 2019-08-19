@@ -307,7 +307,7 @@ NTSTATUS PhEnumHandlesGeneric(
 		*Handles = convertedHandles;
 		*FilterNeeded = FALSE;
 	}
-	else if (WindowsVersion >= WINDOWS_8 /*&& PhGetIntegerSetting(L"EnableHandleSnapshot")*/) // ToDo: add settings
+	else if (WindowsVersion >= WINDOWS_8 && theConf->GetBool("Options/EnableHandleSnapshot", true))
 	{
 		PPROCESS_HANDLE_SNAPSHOT_INFORMATION handles;
 		PSYSTEM_HANDLE_INFORMATION_EX convertedHandles;
@@ -500,6 +500,15 @@ QString CWinHandle::GetSectionType(ulong Attribs)
 	return tr("Unknown");
 };
 
+VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider);
+BOOLEAN NTAPI EnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ PVOID Context)
+{
+    if (Module->Type == PH_MODULE_TYPE_MODULE || Module->Type == PH_MODULE_TYPE_WOW64_MODULE)
+        PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Module->FileName->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
+    return TRUE;
+}
+
+
 CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -530,7 +539,7 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 			if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcBasicInformation, &alpcInfo, sizeof(ALPC_BASIC_INFORMATION), NULL)))
 			{
 				HandleInfo.Port.SeqNumber = (quint64)alpcInfo.SequenceNo;
-				HandleInfo.Port.Context = (quint64)alpcInfo.PortContext; // L"0x%Ix"
+				HandleInfo.Port.Context = (quint64)alpcInfo.PortContext;
 			}
 
 			NtClose(alpcPortHandle);
@@ -782,8 +791,7 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
                 {
                     PhEnumGenericModules(basicInfo.ProcessId, symbolProvider->ProcessHandle, 0, EnumGenericModulesCallback, symbolProvider);
 
-                    symbol = PhGetSymbolFromAddress(symbolProvider, (ULONG64)basicInfo.StartRoutine,
-                        NULL, NULL, NULL, NULL);
+                    symbol = PhGetSymbolFromAddress(symbolProvider, (ULONG64)basicInfo.StartRoutine, NULL, NULL, NULL, NULL);
                 }
 
                 PhDereferenceObject(symbolProvider);
@@ -976,7 +984,7 @@ static NTSTATUS PhpCleanupHandleFromProcess(_In_opt_ PVOID Context)
 
 void CWinHandle::OpenPermissions()
 {
-	QWriteLocker Locker(&m_Mutex); 
+	QReadLocker Locker(&m_Mutex); 
 
 	QPair<HANDLE, HANDLE>* pPair = new QPair<HANDLE, HANDLE>((HANDLE)m_ProcessId, (HANDLE)m_HandleId);
     PhEditSecurity(NULL, (wchar_t*)m_FileName.toStdWString().c_str(), L"Handle", (PPH_OPEN_OBJECT)PhpDuplicateHandleFromProcess, (PPH_CLOSE_OBJECT)PhpCleanupHandleFromProcess, pPair);

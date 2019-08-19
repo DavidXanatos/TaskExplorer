@@ -364,16 +364,16 @@ void CRAMView::Refresh()
 
 	m_pNPPoolUsage->setText(FormatSize(theAPI->GetNonPagedPool()));
 
-	// todo: add limti valoues make them work on win10
+	// todo: add limti values make them work on win10
 	//m_pPPoolLimit;
 	//m_pNPPoolLimit;
 
 	SCpuStatsEx CpuStats = theAPI->GetCpuStats();
 
-	m_pPagingFault->setText(tr("%2 / %1").arg(FormatUnit(CpuStats.PageFaultsDelta.Value)).arg(CpuStats.PageFaultsDelta.Delta));
-	m_pPagingReads->setText(tr("%2 / %1").arg(FormatUnit(CpuStats.PageReadsDelta.Value)).arg(CpuStats.PageReadsDelta.Delta));
-	m_pPagingFileWrites->setText(tr("%2 / %1").arg(FormatUnit(CpuStats.PageFileWritesDelta.Value)).arg(CpuStats.PageFileWritesDelta.Delta));
-	m_pMappedWrites->setText(tr("%2 / %1").arg(FormatUnit(CpuStats.MappedWritesDelta.Value)).arg(CpuStats.MappedWritesDelta.Delta));
+	m_pPagingFault->setText(tr("%2 / %1").arg(FormatNumber(CpuStats.PageFaultsDelta.Value)).arg(FormatNumber(CpuStats.PageFaultsDelta.Delta)));
+	m_pPagingReads->setText(tr("%2 / %1").arg(FormatNumber(CpuStats.PageReadsDelta.Value)).arg(FormatNumber(CpuStats.PageReadsDelta.Delta)));
+	m_pPagingFileWrites->setText(tr("%2 / %1").arg(FormatNumber(CpuStats.PageFileWritesDelta.Value)).arg(FormatNumber(CpuStats.PageFileWritesDelta.Delta)));
+	m_pMappedWrites->setText(tr("%2 / %1").arg(FormatNumber(CpuStats.MappedWritesDelta.Value)).arg(FormatNumber(CpuStats.MappedWritesDelta.Delta)));
 
 
 	QMap<QString, QTreeWidgetItem*> OldFiles;

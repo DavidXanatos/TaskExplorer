@@ -14,6 +14,9 @@ public:
 	CWinSvcWindow(QSharedPointer<CWinService> pService, QWidget *parent = Q_NULLPTR);
 	~CWinSvcWindow();
 
+signals:
+	void ServicesChanged();
+
 private slots:
 	void accept();
 	void reject();

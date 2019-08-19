@@ -38,6 +38,7 @@ public:
 		eStartModule,
 #endif
 		eContextSwitches,
+		eContextSwitchesDelta,
 		eBasePriority,
 		ePagePriority,
 		eIOPriority,

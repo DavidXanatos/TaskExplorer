@@ -36,7 +36,7 @@ bool CSocketInfo::Match(quint64 ProcessId, ulong ProtocolType, const QHostAddres
 	}
 
 	// a socket may be bount to all adapters than it has a local null address
-	if (bStrict || m_LocalAddress != QHostAddress::Any)
+	if (bStrict || m_LocalAddress != QHostAddress::AnyIPv4)
 	{
 		if(m_LocalAddress != LocalAddress)
 			return false;

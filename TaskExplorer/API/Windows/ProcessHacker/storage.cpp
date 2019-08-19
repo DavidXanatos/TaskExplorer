@@ -498,7 +498,7 @@ BOOLEAN DiskDriveQueryDeviceInformation(
 
     PSTORAGE_DEVICE_DESCRIPTOR deviceDescriptor = (PSTORAGE_DEVICE_DESCRIPTOR)buffer;
 
-    // TODO: Use the following fields:
+    // TO-DO: Use the following fields:
     // STORAGE_BUS_TYPE BusType;
     // DWORD RawPropertiesLength;
     // BYTE RawDeviceProperties[1];
@@ -599,7 +599,7 @@ NTSTATUS DiskDriveQueryStatistics(
 
     memset(&result, 0, sizeof(DISK_PERFORMANCE));
 
-    // TODO: IOCTL_DISK_GET_PERFORMANCE_INFO from ntdddisk.h
+    // TO-DO: IOCTL_DISK_GET_PERFORMANCE_INFO from ntdddisk.h
     status = NtDeviceIoControlFile(
         DeviceHandle,
         NULL,
@@ -645,7 +645,7 @@ PPH_STRING DiskDriveQueryGeometry(
         sizeof(result)
         )))
     {
-        // TODO: This doesn't return total capacity like Task Manager.
+        // TO-DO: This doesn't return total capacity like Task Manager.
         return PhFormatSize(result.Cylinders.QuadPart * result.TracksPerCylinder * result.SectorsPerTrack * result.BytesPerSector, ULONG_MAX);
     }
 
@@ -715,7 +715,7 @@ NTSTATUS DiskDriveQueryImminentFailure(
         //USHORT structureVersion = (USHORT)(storagePredictFailure.VendorSpecific[0] * 256 + storagePredictFailure.VendorSpecific[1]);
         //USHORT majorVersion = HIBYTE(structureVersion);
         //USHORT minorVersion = LOBYTE(structureVersion);
-        //TODO: include storagePredictFailure.PredictFailure;
+        //TO-DO: include storagePredictFailure.PredictFailure;
 
         diskAttributeList = PhCreateList(30);
 
@@ -737,7 +737,7 @@ NTSTATUS DiskDriveQueryImminentFailure(
         //There is no standard way for a host to read or change attribute threshholds.
         //See the SMART(RETURN STATUS) command for information about how a device reports that a
         //threshhold has been exceeded.
-        // TODO: Query Threshholds.
+        // TO-DO: Query Threshholds.
 
         for (UCHAR i = 0; i < 30; ++i)
         {
@@ -758,7 +758,7 @@ NTSTATUS DiskDriveQueryImminentFailure(
                 info->CurrentValue = attribute->CurrentValue;
                 info->WorstValue = attribute->WorstValue;
 
-                // TODO: These flag offsets might be off-by-one.
+                // TO-DO: These flag offsets might be off-by-one.
                 info->Advisory = (attribute->Flags & 0x1) == 0x0;
                 info->FailureImminent = (attribute->Flags & 0x1) == 0x1;
                 info->OnlineDataCollection = (attribute->Flags & 0x2) == 0x2;

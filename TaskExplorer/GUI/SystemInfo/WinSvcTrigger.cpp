@@ -141,7 +141,7 @@ void CWinSvcTrigger::FixServiceTriggerControls()
 bool EspSetTriggerData(const QString& Value, PES_TRIGGER_DATA Data)
 {
 	// todo: add for every type a sanity check
-	// todo handle number input as hex
+	// todo: handle number input as hex
 	if (Data->Type == SERVICE_TRIGGER_DATA_TYPE_STRING)
 	{
 		if(Data->String)
@@ -183,7 +183,7 @@ bool EspSetTriggerData(const QString& Value, PES_TRIGGER_DATA Data)
 QString EspFormatTriggerData(PES_TRIGGER_DATA Data, bool bForDisplay = true)
 {
 	QString Text = "";
-	// todo display numbers as hex
+	// todo: display numbers as hex
     if (Data->Type == SERVICE_TRIGGER_DATA_TYPE_STRING)
     {
         // This check works for both normal strings and multistrings.

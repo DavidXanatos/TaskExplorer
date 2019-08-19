@@ -14,7 +14,6 @@ CProcessInfo::CProcessInfo(QObject *parent) : CAbstractTask(parent)
 
 	m_WorkingSetPrivateSize = 0;
 	m_PeakNumberOfThreads = 0;
-	m_HardFaultCount = 0;
 
 	m_GpuDedicatedUsage = 0;
 	m_GpuSharedUsage = 0;

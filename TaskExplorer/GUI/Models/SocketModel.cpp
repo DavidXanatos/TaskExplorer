@@ -4,6 +4,7 @@
 #include "../../Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinSocket.h"
+#include "../../API/Windows/WindowsAPI.h"
 #endif
 
 CSocketModel::CSocketModel(QObject *parent)
@@ -99,6 +100,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				case eTimeStamp:		Value = pSocket->GetCreateTimeStamp(); break;
 				//case eLocalHostname:	Value = ; break; 
 				//case eRemoteHostname:	Value = ; break; 
+
 				case eReceives:			Value = Stats.Net.ReceiveCount; break; 
 				case eSends:			Value = Stats.Net.SendCount; break; 
 				case eReceiveBytes:		Value = Stats.Net.ReceiveRaw; break; 
@@ -109,13 +111,22 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				case eReceiveBytesDelta:Value = Stats.Net.ReceiveRawDelta.Delta; break; 
 				case eSendBytesDelta:	Value = Stats.Net.SendRawDelta.Delta; break; 
 				//case eTotalBytesDelta:	Value = ; break; 
-#ifdef WIN32
-				case eFirewallStatus:	Value = pWinSock->GetFirewallStatus(); break; 
-#endif
 				case eReceiveRate:		Value = Stats.Net.ReceiveRate.Get(); break; 
 				case eSendRate:			Value = Stats.Net.SendRate.Get(); break; 
 				//case eTotalRate:		Value = ; break; 
+#ifdef WIN32
+				case eFirewallStatus:	Value = pWinSock->GetFirewallStatus(); break; 
+#endif
 			}
+
+#ifdef WIN32
+			if (!((CWindowsAPI*)theAPI)->IsMonitoringETW())
+			{
+				// Note: all rate and transfer values are not available without ETW being enabled
+				if (section >= eReceives && section < eFirewallStatus)
+					Value = tr("N/A");
+			}
+#endif
 
 			SSocketNode::SValue& ColValue = pNode->Values[section];
 
@@ -133,11 +144,16 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 					case eSendBytes:
 					case eReceiveBytesDelta:
 					case eSendBytesDelta:
-												ColValue.Formated = FormatSize(Value.toULongLong()); break; 
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()); break; 
 
 					case eReceiveRate:
 					case eSendRate:
-												ColValue.Formated = FormatSize(Value.toULongLong()) + "/s"; break; 
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()) + "/s"; break; 
+					case eReceives:
+					case eSends:
+					case eReceivesDetla:
+					case eSendsDelta:
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatNumber(Value.toULongLong()); break; 
 				}
 			}
 

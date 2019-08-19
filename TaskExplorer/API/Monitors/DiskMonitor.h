@@ -85,7 +85,8 @@ public:
 		quint64 WriteRate;
 	};
 
-	virtual SDataRates GetAllDiskDataRates() const;
+	virtual SDataRates	GetAllDiskDataRates() const;
+	virtual bool		AllDisksSupported() const;
 
 protected:
 	QMap<QString, SDiskInfo>	m_DiskList;

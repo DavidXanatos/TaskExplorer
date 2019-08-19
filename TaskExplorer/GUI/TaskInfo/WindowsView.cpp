@@ -2,13 +2,15 @@
 #include "../TaskExplorer.h"
 #include "WindowsView.h"
 #include "../../Common/Common.h"
-#ifdef WIN32
-#include "../../API/Windows/WinWnd.h"
-#include "../../API/Windows/ProcessHacker.h"
-#endif
 #include "../Models/WindowModel.h"
 #include "../../Common/SortFilterProxyModel.h"
 #include "../../Common/Finder.h"
+#ifdef WIN32
+#include "../../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/WinWnd.h"
+#undef IsMinimized
+#undef IsMaximized
+#endif
 
 
 CWindowsView::CWindowsView(QWidget *parent)
@@ -165,6 +167,9 @@ void CWindowsView::OnMenu(const QPoint &point)
 	int Enabled = 0;
 	int OnTop = 0;
 	int Opacity = 255;
+	int Normal = 0;
+	int Mimimized = 0;
+	int Maximized = 0;
 	foreach(const QModelIndex& Index, m_pWindowList->selectedRows())
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
@@ -179,6 +184,12 @@ void CWindowsView::OnMenu(const QPoint &point)
 			Enabled++;
 		if (pWindow->IsAlwaysOnTop())
 			OnTop++;
+		if (pWindow->IsNormal())
+			Normal++;
+		if (pWindow->IsMinimized())
+			Mimimized++;
+		if (pWindow->IsMaximized())
+			Maximized++;
 
 		Opacity = pWindow->GetWindowAlpha(); // just take the last one
 	}
@@ -188,9 +199,9 @@ void CWindowsView::OnMenu(const QPoint &point)
 	m_pBringToFront->setEnabled(Count == 1);
 	m_pHighlight->setEnabled(Count == 1);
 
-	m_pRestore->setEnabled(Count >= 1);
-	m_pMinimize->setEnabled(Count >= 1);
-	m_pMaximize->setEnabled(Count >= 1);
+	m_pRestore->setEnabled(Normal < Count);
+	m_pMinimize->setEnabled(Mimimized < Count);
+	m_pMaximize->setEnabled(Maximized < Count);
 	m_pClose->setEnabled(Count >= 1);
 
 	m_pVisible->setEnabled(Count >= 1);

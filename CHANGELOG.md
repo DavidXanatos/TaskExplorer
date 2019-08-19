@@ -2,6 +2,40 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+
+
+## [0.7.5] - 2019-08-19
+### Added
+- tooltips to process tree
+- added tool-bar
+- bring to front on tray single click
+- added bring in front command to the process tree
+- disks which don't support performance queries now will get an own read/write rates graph called "unsupported" in the disk plot using ETW data
+- added option to simulate UDP pseudo connections using ETW data.
+- added hard fault count and delta
+- added process uptime informations
+- added peak handles and threads columns
+- added computer menu (lock, shutdown, reboot, etc...)
+- added users menu (enum users, status, log off, etc...)
+- added some menu icons
+
+### Changed
+- ETW is now disabled by default, its really only needed for socket data rates
+- when minimized or hiden no more ui updates to save cpu
+- better number formating, long numbers are now split in groups of 3
+- now using SYSTEM_PROCESS_INFORMATION_EXTENSION for process disk rates when possible, this is much more reliable than ETW
+- reduced cpu usage when updating thread info (more data are now loaded only on demand)
+- reduced cpu usage of window enumeration by using NtUserBuildHwndList (on windows 10) instead of FindWindowEx and by caching more data
+- reduced cpu usage by using SystemFullProcessInformation to enum processes when possible (elevation required), instead of using additional calls to get the same data
+- reorganized task menus for better usability
+
+### Fixed
+- fixed issue when attaching a debugger
+- fixed resize issue when collapsing the side panel
+- fixed crash issue with text copy in service and driver views
+- fixed issue in socket listing
+
+
 ## [0.7] - 2019-08-09
 ### Added
 - added a custom drivers as some AV software does not like kprocesshacker.sys, just unpack one of the following and it will be used instead

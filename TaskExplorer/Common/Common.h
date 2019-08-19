@@ -22,6 +22,8 @@ QStringList SplitStr(const QString& String, QString Separator);
 QString FormatSize(quint64 Size, int Precision = 2);
 QString FormatUnit(quint64 Size, int Precision = 0);
 QString	FormatTime(quint64 Time);
+QString	FormatNumber(quint64 Number);
+QString	FormatAddress(quint64 Address, int length = 16);
 
 template<class T>
 struct SDelta
@@ -41,7 +43,7 @@ struct SDelta
 
 	void Update(T New) {
 		if (Initialized) {
-			//ASSERT(New >= Value); // todo
+			//ASSERT(New >= Value); // todo: xxx
 			Delta = New - Value;
 		}
 		else
@@ -103,6 +105,7 @@ bool ReadFromDevice(QIODevice* dev, char* data, int len, int timeout = 5000);
 
 void GrayScale (QImage& Image);
 
+QIcon MakeActionIcon(const QString& IconFile);
 QAction* MakeAction(QToolBar* pParent, const QString& IconFile, const QString& Text = "");
 QMenu* MakeMenu(QMenu* pParent, const QString& Text, const QString& IconFile = "");
 QAction* MakeAction(QMenu* pParent, const QString& Text, const QString& IconFile = "");

@@ -54,7 +54,7 @@ CCPUView::CCPUView(QWidget *parent)
 
 	m_CpuSmoother.resize(theAPI->GetCpuCount());
 
-	// todo: xxx - add option to show only one cpu graph
+	// todo: xxx - add option to show only one cpu per graph
 
 	m_pInfoWidget = new QWidget();
 	m_pInfoLayout = new QHBoxLayout();
@@ -145,10 +145,10 @@ void CCPUView::Refresh()
 
 	SCpuStatsEx Stats = theAPI->GetCpuStats();
 
-	m_pSwitches->setText(tr("%1 / %2").arg(Stats.ContextSwitchesDelta.Delta).arg(FormatUnit(Stats.ContextSwitchesDelta.Value)));
-	m_pInterrupts->setText(tr("%1 / %2").arg(Stats.InterruptsDelta.Delta).arg(FormatUnit(Stats.InterruptsDelta.Value)));
-	m_pDPCs->setText(tr("%1 / %2").arg(Stats.DpcsDelta.Delta).arg(FormatUnit(Stats.DpcsDelta.Value)));
-	m_pSysCalls->setText(tr("%1 / %2").arg(Stats.SystemCallsDelta.Delta).arg(FormatUnit(Stats.SystemCallsDelta.Value)));
+	m_pSwitches->setText(tr("%1 / %2").arg(FormatNumber(Stats.ContextSwitchesDelta.Delta)).arg(FormatNumber(Stats.ContextSwitchesDelta.Value)));
+	m_pInterrupts->setText(tr("%1 / %2").arg(FormatNumber(Stats.InterruptsDelta.Delta)).arg(FormatNumber(Stats.InterruptsDelta.Value)));
+	m_pDPCs->setText(tr("%1 / %2").arg(FormatNumber(Stats.DpcsDelta.Delta)).arg(FormatNumber(Stats.DpcsDelta.Value)));
+	m_pSysCalls->setText(tr("%1 / %2").arg(FormatNumber(Stats.SystemCallsDelta.Delta)).arg(FormatNumber(Stats.SystemCallsDelta.Value)));
 }
 
 void CCPUView::UpdateGraphs()
