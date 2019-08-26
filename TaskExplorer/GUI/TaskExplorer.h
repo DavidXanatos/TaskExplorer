@@ -9,8 +9,8 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	7
-#define VERSION_REV 	5
+#define VERSION_MIN 	8
+#define VERSION_REV 	0
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -33,6 +33,9 @@ public:
 	enum EColor {
 		eNone = 0,
 		eAdded,
+#ifdef WIN32
+		eDange,
+#endif
 		eToBeRemoved,
 		eSystem,
 		eUser,
@@ -76,6 +79,7 @@ protected:
 	void				closeEvent(QCloseEvent *e);
 	//quint16				m_uTimerCounter;
 	int					m_uTimerID;
+	quint64				m_LastTimer;
 
 private slots:	
 	void				OnStatusMessage(const QString& Message);
@@ -181,6 +185,7 @@ private:
 
 	QAction*			m_pMenuPauseRefresh;
 	QAction*			m_pMenuRefreshNow;
+	QAction*			m_pMenuExpandAll;
 
 	QMenu*				m_pMenuFind;
 	QAction*			m_pMenuFindHandle;
@@ -236,8 +241,6 @@ private:
 	CCustomItemDelegate* m_pCustomItemDelegate;
 };
 
-extern CSettings*		theConf;
-extern CSystemAPI*		theAPI;
 extern CTaskExplorer*	theGUI;
 
 extern QIcon g_ExeIcon;

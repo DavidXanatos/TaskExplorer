@@ -8,6 +8,8 @@
 #define VIRTUALIZATION_ALLOWED		0x01
 #define VIRTUALIZATION_ENABLED		0x02
 
+#undef GetUserName
+
 class CWinToken : public CAbstractInfo
 {
 	Q_OBJECT
@@ -16,6 +18,7 @@ public:
 	virtual ~CWinToken();
 
 	static CWinToken* NewSystemToken();
+	static CWinToken* TokenFromProcess(void* QueryHandle);
 	static CWinToken* TokenFromHandle(quint64 ProcessId, quint64 HandleId);
 
 	virtual QString			GetUserName() const { QReadLocker Locker(&m_Mutex); return m_UserName; }
@@ -185,8 +188,17 @@ public:
 
 	virtual QMap<QString, SAttribute> GetAttributes();
 
-        static QString GetSecurityAttributeTypeString(quint16 Type);
-        static QString GetSecurityAttributeFlagsString(quint32 Flags);
+	enum EDangerousFlags
+	{
+		eNoWriteUpDisabled,
+		eSandboxInertEnabled,
+		eUIAccessEnabled,
+	};
+
+	virtual QSet<EDangerousFlags> GetDangerousFlags() const { QReadLocker Locker(&m_Mutex); return m_DangerousFlags; }
+
+    static QString GetSecurityAttributeTypeString(quint16 Type);
+    static QString GetSecurityAttributeFlagsString(quint32 Flags);
 
 	enum EQueryType
 	{
@@ -196,14 +208,14 @@ public:
 	};
 
 public slots:
-	virtual void OnSidResolved(int Index);
+	virtual void OnSidResolved(const QByteArray& SID, const QString& Name);
 
 protected:
 	friend class CWinProcess;
 	friend class CTokenView;
 
-	bool InitStaticData(void* QueryHandle, EQueryType Type = eProcess);
-	bool UpdateDynamicData();
+	bool InitStaticData();
+	bool UpdateDynamicData(bool MonitorChange = true, bool IsOrWasRunning = false);
 	bool UpdateExtendedData();
 
 	QString		m_UserName;
@@ -222,10 +234,21 @@ protected:
 	QString		m_IntegrityString;
 	int			m_Virtualization;
 
+	enum ETokenState
+	{
+		eNotInitialized = 0,
+		eNotYetLocked,
+		eInitialized,
+		eHasChanged
+	}			m_TokenState;
+
 	QMap<QByteArray, SGroup> m_Groups;
 	QMap<QString, SPrivilege> m_Privileges;
-
+	QSet<EDangerousFlags> m_DangerousFlags;
+	
 private:
+	void SetDangerousFlag(EDangerousFlags Flag, bool Set);
+
 	struct SWinToken*		m;
 };
 

@@ -1,7 +1,9 @@
 #pragma once
 
-#define ERROR_UNDEFINED (-1)
-#define ERROR_CONFIRM (-2)
+#define ERROR_UNDEFINED (1)
+#define ERROR_CONFIRM (2)
+#define ERROR_INTERNAL (3)
+#define ERROR_PARAMS (4)
 
 class CFlexError
 {
@@ -10,11 +12,11 @@ public:
 	{
 		m = NULL;
 	}
-	CFlexError(const QString& Error, ulong Status = ERROR_UNDEFINED) : CFlexError() 
+	CFlexError(const QString& Error, long Status = ERROR_UNDEFINED) : CFlexError() 
 	{
 		Attach(MkError(Error, Status));
 	}
-	CFlexError(ulong Status) : CFlexError(QObject::tr("Error"), Status) 
+	CFlexError(long Status) : CFlexError(QObject::tr("Error"), Status) 
 	{
 	}
 	CFlexError(const CFlexError& other) : CFlexError() 
@@ -34,7 +36,7 @@ public:
 	}
 
 	__inline bool IsError() const { return m != NULL; }
-	__inline ulong GetStatus() const { return m ? m->Status : 0; }
+	__inline long GetStatus() const { return m ? m->Status : 0; }
 	__inline QString GetText() const { return m ? m->Error: ""; }
 
 	operator bool() const				{return !IsError();}
@@ -43,12 +45,12 @@ private:
 	struct SFlexError
 	{
 		QString Error;
-		ulong Status;
+		long Status;
 
 		mutable atomic<int> aRefCnt;
 	} *m;
 
-	SFlexError* MkError(const QString& Error, ulong Status)
+	SFlexError* MkError(const QString& Error, long Status)
 	{
 		SFlexError* p = new SFlexError();
 		p->Error = Error;

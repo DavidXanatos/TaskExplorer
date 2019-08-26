@@ -20,8 +20,6 @@ public:
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-	bool			IsColumnEnabled(int column);
-	void			SetColumnEnabled(int column, bool set);
 	QString			GetColumHeader(int column) const;
 
 	enum EColumns
@@ -85,7 +83,7 @@ public:
 		eMaximumWS,
 		ePrivateBytesDelta,
 
-		// GPI
+		// GPU
 		eGPU_Usage,
 		eGPU_Shared,
 		eGPU_Dedicated,
@@ -109,7 +107,6 @@ public:
 		eVerifiedSigner,
 		eASLR,
 		eDEP,
-		eVirtualized,
 		eCF_Guard,
 		eProtection,
 		eCritical,
@@ -153,6 +150,7 @@ public:
 
 		// Other
 		eSubsystem, // WSL or Wine
+		eVirtualized,
 		eArch,
 #ifdef WIN32
 		eOS_Context,
@@ -164,7 +162,7 @@ public:
 		eJobObjectID,
 		eDesktop,
 
-		eUpTime2,
+		eRunningTime,
 		eSuspendedTime,
 		eHangCount,
 		eGhostCount,
@@ -215,13 +213,12 @@ protected:
 		int					iColor;
 	};
 
-	virtual STreeNode* MkNode(const QVariant& Id) { return new SProcessNode(Id); }
-
-	QList<QVariant>  MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
+	virtual STreeNode*		MkNode(const QVariant& Id) { return new SProcessNode(Id); }
+		
+	QList<QVariant>			MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
+	bool					TestProcPath(const QList<QVariant>& Path, const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList, int Index = 0);
 	
 	bool					m_bUseDescr;
-
-	QSet<int>				m_Columns;
 
 	virtual QVariant GetDefaultIcon() const;
 };

@@ -14,8 +14,9 @@ public:
 	virtual quint64 GetThreadId()	const			{ QReadLocker Locker(&m_Mutex); return m_ThreadId; }
 	virtual quint64 GetProcessId()	const			{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
-	
+	virtual QString GetStartAddressString() const = 0;
 	virtual int GetState()	const					{ QReadLocker Locker(&m_Mutex); return m_State; }
+	virtual quint64 GetWaitState()	const			{ QReadLocker Locker(&m_Mutex); return ((quint64)m_State) | ((quint64)m_WaitReason << 32); }
 	virtual QString GetStateString() const = 0;
 	virtual int GetWaitReason()	const				{ QReadLocker Locker(&m_Mutex); return m_WaitReason; }
 
@@ -23,6 +24,10 @@ public:
 	virtual bool IsMainThread() const				{ QReadLocker Locker(&m_Mutex); return m_IsMainThread; }
 
 	virtual STaskStats GetCpuStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats; }
+
+	virtual QSharedPointer<QObject>	GetProcess() const;
+	//virtual QSharedPointer<QObject>	GetProcess() const { QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	virtual void SetProcess(QSharedPointer<QObject> pProcess) { QWriteLocker Locker(&m_Mutex); m_pProcess = pProcess; }
 
 public slots:
 	virtual quint64 TraceStack() = 0;
@@ -39,6 +44,7 @@ protected:
 	int				m_State;
 	int				m_WaitReason;
 
+	QSharedPointer<QObject>	m_pProcess;
 
 	STaskStats		m_CpuStats;
 };

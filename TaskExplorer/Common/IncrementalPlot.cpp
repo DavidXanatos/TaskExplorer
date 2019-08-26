@@ -129,7 +129,11 @@ void CIncrementalPlot::SetupLegend(const QColor& Front, const QString& yAxis, EU
 
 void CIncrementalPlot::SetLimit(int iLimit)
 {
-	m_iLimit = iLimit; 
+	if (m_iLimit != iLimit)
+	{
+		m_iLimit = iLimit;
+		Reset();
+	}
 }
 
 void CIncrementalPlot::SetRagne(double Max, double Min)

@@ -17,7 +17,7 @@ public:
 	virtual ~CGDIView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 
 private slots:
@@ -29,7 +29,18 @@ protected:
 	virtual QTreeView*			GetView() 				{ return m_pGDIList; }
 	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
 
-	CProcessPtr				m_pCurProcess;
+	enum EView
+	{
+		eNone,
+		eSingle,
+		eMulti
+	};
+
+	virtual void			SwitchView(EView ViewMode);
+
+	EView					m_ViewMode;
+
+	QList<CProcessPtr>			m_Processes;
 
 	QMap<quint64, CWinGDIPtr>	m_GDIList;
 

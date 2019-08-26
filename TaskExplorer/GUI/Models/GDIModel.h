@@ -23,6 +23,7 @@ public:
 		eHandle = 0,
 		eType,
 		eObject,
+		eProcess,
 		eInformation,
 		eCount
 	};

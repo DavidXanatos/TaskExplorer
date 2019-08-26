@@ -1,7 +1,7 @@
 #pragma once
-#include <qwidget.h>
+#include "TreeViewEx.h"
 
-class CListItemModel : public QAbstractItemModel
+class CListItemModel : public QAbstractItemModelEx
 {
     Q_OBJECT
 
@@ -60,12 +60,15 @@ protected:
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SListNode(Id); }
 
-	void Sync(QList<SListNode*>& New, QMap<QVariant, SListNode*>& Old);
+	void Sync(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old);
 
 	virtual QVariant GetDefaultIcon() const { return QVariant(); }
 
+	int GetRow(SListNode* pNode) const;
+
 	QList<SListNode*>			m_List;
-	QMap<QVariant, SListNode*>	m_Map;
+	QHash<void*, int>			m_RevList;
+	QHash<QVariant, SListNode*>	m_Map;
 	bool								m_bUseIcons;
 };
 

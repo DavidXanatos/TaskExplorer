@@ -73,7 +73,7 @@ protected:
 	friend class CWindowsAPI;
 	friend class CWinProcess;
 
-	bool InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, void* QueryHandle);
+	bool InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, void* QueryHandle, const QString& ProcessName);
 	bool UpdateDynamicData();
 
 	QString			m_WindowClass;

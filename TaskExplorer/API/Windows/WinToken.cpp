@@ -24,7 +24,6 @@
 
 #include "stdafx.h"
 #include "WinToken.h"
-#include "../../GUI/TaskExplorer.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
 
@@ -35,11 +34,19 @@ struct SWinToken
 		QueryHandle = NULL;
 		Handle = NULL;
 		Type = CWinToken::eProcess;
+		ExtAccess = false;
+
+		tokenLuid = authenticationLuid = tokenModifiedLuid = 0;
 	}
 
 	HANDLE QueryHandle;
 	HANDLE Handle;
 	CWinToken::EQueryType Type;
+	bool ExtAccess;
+
+	quint32 tokenLuid;
+	quint32 authenticationLuid;
+	quint32 tokenModifiedLuid;
 };
 
 CWinToken::CWinToken(QObject *parent)
@@ -52,6 +59,8 @@ CWinToken::CWinToken(QObject *parent)
 	m_IntegrityLevel = -1;
 	m_Virtualization = 0;
 
+	m_TokenState = eNotInitialized;
+
 	m = new SWinToken();
 }
 
@@ -62,7 +71,7 @@ CWinToken::~CWinToken()
 	delete m;
 }
 
-NTSTATUS NTAPI PhpOpenProcessTokenForPage(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinToken__OpenProcessToken(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
 	NTSTATUS status = STATUS_INVALID_PARAMETER;
 	SWinToken* m = (SWinToken*)Context;
@@ -84,7 +93,7 @@ NTSTATUS NTAPI PhpOpenProcessTokenForPage(_Out_ PHANDLE Handle, _In_ ACCESS_MASK
 		//    return status;
 
 		// HACK: Add extra access_masks for querying default token. (dmex)
-		if (!NT_SUCCESS(status = PhOpenProcessToken(processHandle, DesiredAccess | TOKEN_READ | TOKEN_ADJUST_DEFAULT | READ_CONTROL, Handle)))
+		if (!m->ExtAccess || !NT_SUCCESS(status = PhOpenProcessToken(processHandle, DesiredAccess | TOKEN_READ | TOKEN_ADJUST_DEFAULT | READ_CONTROL, Handle)))
 		{
 			status = PhOpenProcessToken(processHandle, DesiredAccess, Handle);
 		}
@@ -94,70 +103,20 @@ NTSTATUS NTAPI PhpOpenProcessTokenForPage(_Out_ PHANDLE Handle, _In_ ACCESS_MASK
 	return status;
 }
 
-
-QReadWriteLock g_Sid2NameMutex;
-QMap<QByteArray, QString> g_Sid2NameCache;
-
-QPair<QByteArray, QString> GetSidFullNameAndCache(const QByteArray& Sid)
+void CWinToken::OnSidResolved(const QByteArray& SID, const QString& Name)
 {
-	QWriteLocker WriteLocker(&g_Sid2NameMutex);
-	PPH_STRING fullName = PhGetSidFullName((PSID)Sid.data(), TRUE, NULL);
-	QString FullName = CastPhString(fullName);
-	g_Sid2NameCache.insert(Sid, FullName);
-	return qMakePair(Sid, FullName);
-}
-
-QString GetSidFullNameCached(const QByteArray& Sid, QObject* pTarget)
-{
-	QReadLocker ReadLocker(&g_Sid2NameMutex);
-	QMap<QByteArray, QString>::iterator I = g_Sid2NameCache.find(Sid);
-	if (I != g_Sid2NameCache.end())
-		return I.value();
-	ReadLocker.unlock();
-
-	// From PhpProcessQueryStage1 
-	// Note: We delay resolving the SID name because the local LSA cache might still be
-	// initializing for users on domain networks with slow links (e.g. VPNs). This can block
-	// for a very long time depending on server/network conditions. (dmex)
-
-	if (pTarget) // so if we want a quick result we skip this step
-	{
-		// ToDo: we should use a dedicated worker thread as Qt's Future system will start many paralell requests
-		// so we may end up with multiple requests for teh same SID, and as we have a limited worker pool 
-		// we may block other things using QFutureWatcher like resolving file infos for CWinModule
-
-		QFutureWatcher<QPair<QByteArray, QString> >* pWatcher = new QFutureWatcher<QPair<QByteArray, QString> >(pTarget); // Note: the job will be canceled if the file will be deleted :D
-		QObject::connect(pWatcher, SIGNAL(resultReadyAt(int)), pTarget, SLOT(OnSidResolved(int)));
-		QObject::connect(pWatcher, SIGNAL(finished()), pWatcher, SLOT(deleteLater()));
-		pWatcher->setFuture(QtConcurrent::run(GetSidFullNameAndCache, Sid));
-
-		return CWinToken::tr("Resolving...");
-	}
-
-	return CWinToken::tr("Not resolved...");
-}
-
-void CWinToken::OnSidResolved(int Index)
-{
-	QFutureWatcher<QPair<QByteArray, QString> >* pWatcher = (QFutureWatcher<QPair<QByteArray, QString> >*)sender();
-
-	if (!pWatcher)
-		return;
-
-	QPair<QByteArray, QString> Result = pWatcher->resultAt(Index);
-
 	QWriteLocker Locker(&m_Mutex);
-	if(Result.first == m_UserSid)
-		m_UserName = Result.second;
-	else if(Result.first == m_OwnerSid)
-		m_OwnerName = Result.second;
-	else if(Result.first == m_GroupSid)
-		m_GroupName = Result.second;
+	if(SID == m_UserSid)
+		m_UserName = Name;
+	else if(SID == m_OwnerSid)
+		m_OwnerName = Name;
+	else if(SID == m_GroupSid)
+		m_GroupName = Name;
 	else
 	{
-		QMap<QByteArray, SGroup>::iterator I = m_Groups.find(Result.first);
+		QMap<QByteArray, SGroup>::iterator I = m_Groups.find(SID);
 		if (I != m_Groups.end())
-			I.value().Name = Result.second;
+			I.value().Name = Name;
 	}
 }
 
@@ -165,7 +124,7 @@ CWinToken* CWinToken::NewSystemToken()
 {
 	CWinToken* pToken = new CWinToken();
 	pToken->m_UserSid = QByteArray((char*)&PhSeLocalSystemSid, RtlLengthSid(&PhSeLocalSystemSid));
-	pToken->m_UserName = GetSidFullNameCached(pToken->m_UserSid, pToken);
+	pToken->m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(pToken->m_UserSid, pToken, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 	return pToken;
 }
 
@@ -176,21 +135,129 @@ CWinToken* CWinToken::TokenFromHandle(quint64 ProcessId, quint64 HandleId)
         return NULL;
 
 	CWinToken* pToken = new CWinToken();
+	pToken->m->Type = eHandle;
+	pToken->m->QueryHandle = processHandle;
 	pToken->m->Handle = (HANDLE)HandleId;
-	pToken->InitStaticData(processHandle, eHandle);
+	pToken->InitStaticData();
 	return pToken;
 }
 
-bool CWinToken::InitStaticData(void* QueryHandle, EQueryType Type)
+CWinToken* CWinToken::TokenFromProcess(void* QueryHandle)
+{
+	CWinToken* pToken = new CWinToken();
+	pToken->m->Type = eProcess;
+	pToken->m->QueryHandle = QueryHandle;
+	pToken->InitStaticData();
+	return pToken;
+}
+
+bool CWinToken::InitStaticData()
+{
+	// Note: Once a process has started running the process token is locked and can no longer be modified. 
+	//		However using CREATE_SUSPENDED and calling the undocumented NtSetInformationProcess function, 
+	//		with the ProcessAccessToken parameter, the token can be changed before calling ResumeThread().
+	//		
+	//		Generall it is possible to alter a primary token on early stages of process start.
+	//
+	//		Hence we have to be able to handle teh case when the entire tocken gets replaced.
+	//
+	return true;
+}
+
+bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m->Type = Type;
-	m->QueryHandle = QueryHandle;
+	// When token data has been initialized and we are not monitoring for tocken changes we can return here.
+	if (m_TokenState == eInitialized && !MonitorChange)
+		return false;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return false;
+
+
+	// if we are monitoring tocken change we always update some values
+
+	// Integrity
+	MANDATORY_LEVEL_RID integrityLevel;
+	PWSTR integrityString;  // this will point to static stings so dont free it
+	if (NT_SUCCESS(PhGetTokenIntegrityLevelRID(tokenHandle, &integrityLevel, &integrityString)))
+	{
+		if (m_IntegrityLevel != integrityLevel)
+		{
+			m_IntegrityLevel = integrityLevel;
+			m_IntegrityString = QString::fromWCharArray(integrityString);
+		}
+	}
+
+	// A feature of User Account Control (UAC) that allows per-machine file and registry operations to target virtual, 
+	//		per-user file and registry locations rather than the actual per-machine locations.
+	BOOLEAN isVirtualizationAllowed;
+    if (NT_SUCCESS(PhGetTokenIsVirtualizationAllowed(tokenHandle, &isVirtualizationAllowed)))
+    {
+        if (isVirtualizationAllowed)
+        {
+			m_Virtualization = VIRTUALIZATION_ALLOWED;
+
+			BOOLEAN isVirtualizationEnabled;
+            if (NT_SUCCESS(PhGetTokenIsVirtualizationEnabled(tokenHandle, &isVirtualizationEnabled)))
+            {
+				if (isVirtualizationEnabled)
+					m_Virtualization |= VIRTUALIZATION_ENABLED;
+            }
+        }
+        else
+			m_Virtualization = VIRTUALIZATION_NOT_ALLOWED;
+    }
+
+	TOKEN_ELEVATION_TYPE elevationType;
+	if (NT_SUCCESS(PhGetTokenElevationType(tokenHandle, &elevationType)))
+		m_ElevationType = elevationType;
+
+	//BOOLEAN elevated = TRUE;
+	//if (NT_SUCCESS(PhGetTokenIsElevated(tokenHandle, &elevated)))
+	//	m_Elevated = elevated;
+	m_Elevated = (m_ElevationType == TokenElevationTypeFull);
+
+
+	// if the token is initialized we only need to check if it changed
+	TOKEN_STATISTICS statistics;
+	if (NT_SUCCESS(PhGetTokenStatistics(tokenHandle, &statistics)))
+	{
+		if (m_TokenState == eInitialized)
+		{
+			if (m->tokenLuid != statistics.TokenId.LowPart
+			 || m->authenticationLuid != statistics.AuthenticationId.LowPart
+			 || m->tokenModifiedLuid != statistics.ModifiedId.LowPart)
+			{
+				m_TokenState = eHasChanged;
+			}
+			else
+			{
+				NtClose(tokenHandle);
+
+				return false;
+			}
+		}
+		else
+		{
+			m->tokenLuid = statistics.TokenId.LowPart;
+			m->authenticationLuid = statistics.AuthenticationId.LowPart;
+			m->tokenModifiedLuid = statistics.ModifiedId.LowPart;
+		}
+	}
+
+
+	// full update
+
+	if (m_TokenState < eInitialized)
+	{
+		if (IsOrWasRunning)
+			m_TokenState = eInitialized;
+		else if(m_TokenState == eNotInitialized)
+			m_TokenState = eNotYetLocked;
+	}
 
 	BOOLEAN tokenIsAppContainer = FALSE;
     PhGetTokenIsAppContainer(tokenHandle, &tokenIsAppContainer);
@@ -203,7 +270,7 @@ bool CWinToken::InitStaticData(void* QueryHandle, EQueryType Type)
 
         if (!tokenIsAppContainer) // HACK (dmex)
         {
-			m_UserName = GetSidFullNameCached(m_UserSid, this);
+			m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(m_UserSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
         }
 
 		PPH_STRING stringUserSid;
@@ -218,7 +285,7 @@ bool CWinToken::InitStaticData(void* QueryHandle, EQueryType Type)
     {
 		m_OwnerSid = QByteArray((char*)tokenOwner->Owner, RtlLengthSid(tokenOwner->Owner));
 
-		m_OwnerName = GetSidFullNameCached(m_OwnerSid, this);
+		m_OwnerName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(m_OwnerSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 
         PhFree(tokenOwner);
     }
@@ -228,10 +295,15 @@ bool CWinToken::InitStaticData(void* QueryHandle, EQueryType Type)
     {
 		m_GroupSid = QByteArray((char*)tokenPrimaryGroup->PrimaryGroup, RtlLengthSid(tokenPrimaryGroup->PrimaryGroup));
 
-		m_GroupName = GetSidFullNameCached(m_GroupSid, this);
+		m_GroupName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(m_GroupSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 
         PhFree(tokenPrimaryGroup);
     }
+
+	ULONG sessionId;
+	if (NT_SUCCESS(PhGetTokenSessionId(tokenHandle, &sessionId)))
+		m_SessionId = sessionId;
+
 
     if (WINDOWS_HAS_IMMERSIVE)
     {
@@ -268,101 +340,35 @@ bool CWinToken::InitStaticData(void* QueryHandle, EQueryType Type)
 	return true;
 }
 
-bool CWinToken::UpdateDynamicData()
-{
-	QWriteLocker Locker(&m_Mutex); 
-
-	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
-		return false;
-
-	ULONG sessionId;
-	if (NT_SUCCESS(PhGetTokenSessionId(tokenHandle, &sessionId)))
-		m_SessionId = sessionId;
-
-	TOKEN_ELEVATION_TYPE elevationType;
-	if (NT_SUCCESS(PhGetTokenElevationType(tokenHandle, &elevationType)))
-		m_ElevationType = elevationType;
-
-	BOOLEAN elevated = TRUE;
-	if (NT_SUCCESS(PhGetTokenIsElevated(tokenHandle, &elevated)))
-		m_Elevated = elevated;
-
-
-	// Integrity
-	MANDATORY_LEVEL_RID integrityLevel;
-	PWSTR integrityString;  // this will point to static stings so dont free it
-	if (NT_SUCCESS(PhGetTokenIntegrityLevelRID(tokenHandle, &integrityLevel, &integrityString)))
-	{
-		if (m_IntegrityLevel != integrityLevel)
-		{
-			m_IntegrityLevel = integrityLevel;
-			m_IntegrityString = QString::fromWCharArray(integrityString);
-		}
-	}
-
-	BOOLEAN isVirtualizationAllowed;
-    if (NT_SUCCESS(PhGetTokenIsVirtualizationAllowed(tokenHandle, &isVirtualizationAllowed)))
-    {
-        if (isVirtualizationAllowed)
-        {
-			m_Virtualization = VIRTUALIZATION_ALLOWED;
-
-			BOOLEAN isVirtualizationEnabled;
-            if (NT_SUCCESS(PhGetTokenIsVirtualizationEnabled(tokenHandle, &isVirtualizationEnabled)))
-            {
-				if (isVirtualizationEnabled)
-					m_Virtualization |= VIRTUALIZATION_ENABLED;
-            }
-        }
-        else
-			m_Virtualization = VIRTUALIZATION_NOT_ALLOWED;
-    }
-
-	NtClose(tokenHandle);
-
-	return true;
-}
-
 bool CWinToken::UpdateExtendedData()
 {
 	QWriteLocker Locker(&m_Mutex); 
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return false;
 
     //PhpUpdateTokenDangerousFlags
-	// ToDo: xxx
-    /*TOKEN_MANDATORY_POLICY mandatoryPolicy;
+	TOKEN_MANDATORY_POLICY mandatoryPolicy;
     if (NT_SUCCESS(PhGetTokenMandatoryPolicy(tokenHandle, &mandatoryPolicy)))
     {
         // The disabled no-write-up policy is considered to be dangerous (diversenok)
-        if ((mandatoryPolicy.Policy & TOKEN_MANDATORY_POLICY_NO_WRITE_UP) == 0)
-        {
-            // PH_PROCESS_TOKEN_FLAG_NO_WRITE_UP, "No-Write-Up Policy", "Prevents the process from modifying objects with a higher integrity"
-        }
+		SetDangerousFlag(eNoWriteUpDisabled, (mandatoryPolicy.Policy & TOKEN_MANDATORY_POLICY_NO_WRITE_UP) == 0);
     }
 
     BOOLEAN isSandboxInert;
     if (NT_SUCCESS(PhGetTokenIsSandBoxInert(tokenHandle, &isSandboxInert)))
     {
-        // The presence of SandboxInert flag is considered dangerous (diversenok)
-        if (isSandboxInert)
-        {
-            // PH_PROCESS_TOKEN_FLAG_SANDBOX_INERT, "Sandbox Inert", "Ignore AppLocker rules and Software Restriction Policies"
-        }
+		// The presence of SandboxInert flag is considered dangerous (diversenok)
+		SetDangerousFlag(eSandboxInertEnabled, isSandboxInert);
     }
 
 	BOOLEAN isUIAccess;
     if (NT_SUCCESS(PhGetTokenIsUIAccessEnabled(tokenHandle, &isUIAccess)))
     {
         // The presence of UIAccess flag is considered dangerous (diversenok)
-        if (isUIAccess)
-        {
-            // PH_PROCESS_TOKEN_FLAG_UIACCESS, "UIAccess", "Ignore User Interface Privilege Isolation"
-        }
-    }*/
+		SetDangerousFlag(eUIAccessEnabled, isUIAccess);
+    }
 	//
 
     //PhpUpdateTokenGroups
@@ -378,7 +384,7 @@ bool CWinToken::UpdateExtendedData()
 			Group.Restricted = false;
 			//Group.SidString = CastPhString(PhSidToStringSid(Groups->Groups[i].Sid));
 			Group.Attributes = Groups->Groups[i].Attributes;
-			Group.Name = GetSidFullNameCached(Sid, this);
+			Group.Name = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(Sid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 		}
 		
 		PhFree(Groups);
@@ -396,7 +402,7 @@ bool CWinToken::UpdateExtendedData()
 			Group.Restricted = true;
 			//Group.SidString = CastPhString(PhSidToStringSid(RestrictedSIDs->Groups[i].Sid));
 			Group.Attributes = RestrictedSIDs->Groups[i].Attributes;
-			Group.Name = GetSidFullNameCached(Sid, this);
+			Group.Name = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(Sid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 		}
 
 		PhFree(RestrictedSIDs);
@@ -434,6 +440,13 @@ bool CWinToken::UpdateExtendedData()
 	return true;
 }
 
+void CWinToken::SetDangerousFlag(EDangerousFlags Flag, bool Set)
+{
+	if (Set)
+		m_DangerousFlags.insert(Flag);
+	else
+		m_DangerousFlags.remove(Flag);
+}
 
 QString CWinToken::GetElevationString() const
 {
@@ -543,87 +556,6 @@ bool CWinToken::IsPrivilegeModified(quint32 Attributes)
 	return ((Attributes & SE_PRIVILEGE_ENABLED) != 0) != ((Attributes & SE_PRIVILEGE_ENABLED_BY_DEFAULT) != 0);
 }
 
-/*{
-                    NTSTATUS status;
-                    PPHP_TOKEN_PAGE_LISTVIEW_ITEM *listViewItems;
-                    ULONG numberOfItems;
-                    HANDLE tokenHandle;
-
-                    PhGetSelectedListViewItemParams(
-                        tokenPageContext->ListViewHandle,
-                        &listViewItems,
-                        &numberOfItems
-                        );
-
-                    if (numberOfItems != 1)
-                    {
-                        PhFree(listViewItems);
-                        break;
-                    }
-
-                    if ((listViewItems[0]->ItemCategory != PH_PROCESS_TOKEN_CATEGORY_DANGEROUS_FLAGS) ||
-                        (listViewItems[0]->ItemFlag != PH_PROCESS_TOKEN_FLAG_UIACCESS))
-                    {
-                        PhFree(listViewItems);
-                        break;
-                    }
-
-                    if (!PhShowConfirmMessage(
-                        hwndDlg,
-                        L"remove",
-                        L"the UIAccess flag",
-                        L"Removing this flag may reduce the functionality of the process "
-                        L"provided it is an accessibility application.",
-                        FALSE
-                        ))
-                    {
-                        PhFree(listViewItems);
-                        break;
-                    }
-
-                    status = tokenPageContext->OpenObject(
-                        &tokenHandle,
-                        TOKEN_ADJUST_DEFAULT,
-                        tokenPageContext->Context // ProcessId
-                        );
-
-                    if (NT_SUCCESS(status))
-                    {
-                        ExtendedListView_SetRedraw(tokenPageContext->ListViewHandle, FALSE);
-
-                        status = PhSetTokenUIAccessEnabled(tokenHandle, FALSE);
-
-                        if (NT_SUCCESS(status))
-                        {
-                            INT lvItemIndex = PhFindListViewItemByParam(
-                                tokenPageContext->ListViewHandle,
-                                -1,
-                                listViewItems[0]
-                                );
-
-                            if (lvItemIndex != -1)
-                            {
-                                ListView_DeleteItem(tokenPageContext->ListViewHandle, lvItemIndex);
-                            }
-                        }
-                        else
-                        {
-                            PhShowStatus(hwndDlg, L"Unable to disable UIAccess flag.", status, 0);
-                        }
-
-                        ExtendedListView_SortItems(tokenPageContext->ListViewHandle);
-                        ExtendedListView_SetRedraw(tokenPageContext->ListViewHandle, TRUE);
-
-                        NtClose(tokenHandle);
-                    }
-                    else
-                    {
-                        PhShowStatus(hwndDlg, L"Unable to open the token.", status, 0);
-                    }
-
-                    PhFree(listViewItems);
-                }*/
-
 STATUS CWinToken::SetVirtualizationEnabled(bool bSet)
 {
 	QWriteLocker Locker(&m_Mutex);
@@ -652,7 +584,7 @@ STATUS CWinToken::SetIntegrityLevel(quint32 IntegrityLevel) const
 	NTSTATUS status;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(status = PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY | TOKEN_ADJUST_DEFAULT, m)))
+	if (!NT_SUCCESS(status = CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY | TOKEN_ADJUST_DEFAULT, m)))
 		return ERR(tr("Could not open token."), status);
 
     static SID_IDENTIFIER_AUTHORITY mandatoryLabelAuthority = SECURITY_MANDATORY_LABEL_AUTHORITY;
@@ -689,7 +621,7 @@ STATUS CWinToken::PrivilegeAction(const SPrivilege& Privilege, EAction Action, b
 	NTSTATUS status;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(status = PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_ADJUST_PRIVILEGES, m)))
+	if (!NT_SUCCESS(status = CWinToken__OpenProcessToken(&tokenHandle, TOKEN_ADJUST_PRIVILEGES, m)))
 		return ERR(tr("Could not open token."), status);
 
     ULONG newAttributes = Privilege.Attributes;
@@ -737,7 +669,7 @@ STATUS CWinToken::GroupAction(const SGroup& Group, EAction Action)
 	NTSTATUS status;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(status = PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_ADJUST_GROUPS, m)))
+	if (!NT_SUCCESS(status = CWinToken__OpenProcessToken(&tokenHandle, TOKEN_ADJUST_GROUPS, m)))
 		return ERR(tr("Could not open token."), status);
 
 	ULONG newAttributes = Group.Attributes;
@@ -776,11 +708,25 @@ STATUS CWinToken::GroupAction(const SGroup& Group, EAction Action)
 	return OK;
 }
 
+NTSTATUS NTAPI CWinToken__cbPermissionsClosed(_In_opt_ PVOID Context)
+{
+	SWinToken* context = (SWinToken*)Context;
+	delete context;
+
+	return STATUS_SUCCESS;
+}
+
 void CWinToken::OpenPermissions(bool bDefaultToken)
 {
-	QWriteLocker Locker(&m_Mutex); 
-
-    PhEditSecurity(NULL, bDefaultToken ? L"Default Token" : L"Token", bDefaultToken ? L"TokenDefault" : L"Token", PhpOpenProcessTokenForPage, NULL, m);  // todo: fixme m may get deleted!!!
+	QReadLocker Locker(&m_Mutex); 
+	SWinToken* context = new SWinToken();
+	context->QueryHandle = m->QueryHandle;
+	context->Handle = m->Handle;
+	context->Type = m->Type;
+	if(bDefaultToken)
+		context->ExtAccess = true;
+	Locker.unlock();
+    PhEditSecurity(NULL, bDefaultToken ? L"Default Token" : L"Token", bDefaultToken ? L"TokenDefault" : L"Token", CWinToken__OpenProcessToken, CWinToken__cbPermissionsClosed, context);
 }
 
 QSharedPointer<CWinToken> CWinToken::GetLinkedToken()
@@ -788,13 +734,13 @@ QSharedPointer<CWinToken> CWinToken::GetLinkedToken()
 	QReadLocker Locker(&m_Mutex); 
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return QSharedPointer<CWinToken>();
 
 	QSharedPointer<CWinToken> pLinkedToken = QSharedPointer<CWinToken>(new CWinToken());
-
-	pLinkedToken->InitStaticData(tokenHandle, eLinked);
-
+	pLinkedToken->m->Type = eLinked;
+	pLinkedToken->m->QueryHandle = tokenHandle;
+	pLinkedToken->InitStaticData();
 	return pLinkedToken;
 }
 
@@ -968,7 +914,7 @@ CWinToken::SAdvancedInfo CWinToken::GetAdvancedInfo()
 	SAdvancedInfo AdvancedInfo;
 
 	HANDLE tokenHandle = NULL;
-    if (NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY | TOKEN_QUERY_SOURCE, m)))
+    if (NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY | TOKEN_QUERY_SOURCE, m)))
     {
 		WCHAR tokenSourceName[TOKEN_SOURCE_LENGTH + 1] = L"Unknown";
         WCHAR tokenSourceLuid[PH_PTR_STR_LEN_1] = L"Unknown";
@@ -985,7 +931,7 @@ CWinToken::SAdvancedInfo CWinToken::GetAdvancedInfo()
         }
     }
 
-	if (tokenHandle == NULL && !NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (tokenHandle == NULL && !NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return AdvancedInfo;
 
 	TOKEN_STATISTICS statistics;
@@ -1078,7 +1024,7 @@ CWinToken::SContainerInfo CWinToken::GetContainerInfo()
 	SContainerInfo ContainerInfo;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return ContainerInfo;
 
 	APPCONTAINER_SID_TYPE appContainerSidType = InvalidAppContainerSidType;
@@ -1161,7 +1107,7 @@ CWinToken::SContainerInfo CWinToken::GetContainerInfo()
 
 
 
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY | TOKEN_IMPERSONATE | TOKEN_DUPLICATE, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY | TOKEN_IMPERSONATE | TOKEN_DUPLICATE, m)))
 		return ContainerInfo;
 
 	//PTOKEN_APPCONTAINER_INFORMATION appContainerInfo;
@@ -1186,7 +1132,7 @@ QMap<QByteArray, CWinToken::SCapability> CWinToken::GetCapabilities()
 	QMap<QByteArray, SCapability> Capabilities;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return Capabilities;
 
 	PTOKEN_GROUPS capabilities;
@@ -1311,7 +1257,7 @@ QMap<QString, CWinToken::SAttribute> CWinToken::GetClaims(bool DeviceClaims)
 	QMap<QString, SAttribute> Claims;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return Claims;
 
 
@@ -1433,7 +1379,7 @@ QMap<QString, CWinToken::SAttribute> CWinToken::GetAttributes()
 	QMap<QString, SAttribute> Attributes;
 
 	HANDLE tokenHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessTokenForPage(&tokenHandle, TOKEN_QUERY, m)))
+	if (!NT_SUCCESS(CWinToken__OpenProcessToken(&tokenHandle, TOKEN_QUERY, m)))
 		return Attributes;
 
 	PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;

@@ -166,7 +166,7 @@ protected:
 	// Parameters
 	QString							m_FileName;
 	QString							m_CommandLine;
-	QString							m_WorkingDirectory;
+	//QString							m_WorkingDirectory;
 	
 	// Other fields
 	QString							m_UserName;

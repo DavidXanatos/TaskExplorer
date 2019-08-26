@@ -15,7 +15,7 @@ public:
 	virtual ~CEnvironmentView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 
 private slots:

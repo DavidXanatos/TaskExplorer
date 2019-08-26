@@ -17,6 +17,7 @@ CWindowsView::CWindowsView(QWidget *parent)
 	:CPanelView(parent)
 {
 	m_LockValue = false;
+	m_PendingUpdates = 0;
 
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
@@ -62,7 +63,7 @@ CWindowsView::CWindowsView(QWidget *parent)
 	connect(m_pWindowList->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), this, SLOT(OnItemSelected(QModelIndex)));
 
 	// Handle Details
-	m_pWindowDetails = new CPanelWidget<QTreeWidgetEx>();
+	m_pWindowDetails = new CPanelWidgetEx();
 
 	m_pWindowDetails->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pWindowDetails->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
@@ -74,15 +75,9 @@ CWindowsView::CWindowsView(QWidget *parent)
 	//m_pSplitter->setCollapsible(1, false);
 	//
 
+	m_ViewMode = eNone;
 	setObjectName(parent->objectName());
-
-	QByteArray Columns = theConf->GetBlob(objectName() + "/WindowsView_Columns");
-	if (Columns.isEmpty())
-	{
-		//
-	}
-	else
-		m_pWindowList->header()->restoreState(Columns);
+	SwitchView(eSingle);
 	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/WindowsView_Splitter"));
 	m_pWindowDetails->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/WindowsDetail_Columns"));
 
@@ -118,23 +113,58 @@ CWindowsView::CWindowsView(QWidget *parent)
 	AddPanelItemsToMenu();
 }
 
-
 CWindowsView::~CWindowsView()
 {
-	theConf->SetBlob(objectName() + "/WindowsView_Columns", m_pWindowList->header()->saveState());
+	SwitchView(eNone);
 	theConf->SetBlob(objectName() + "/WindowsView_Splitter",m_pSplitter->saveState());
 	theConf->SetBlob(objectName() + "/WindowsDetail_Columns", m_pWindowDetails->GetView()->header()->saveState());
 }
 
-void CWindowsView::ShowProcess(const CProcessPtr& pProcess)
+void CWindowsView::SwitchView(EView ViewMode)
 {
-	if (m_pCurProcess != pProcess)
+	switch (m_ViewMode)
 	{
-		disconnect(this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+		case eSingle:	theConf->SetBlob(objectName() + "/WindowsView_Columns", m_pWindowList->saveState()); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/WindowsMultiView_Columns", m_pWindowList->saveState()); break;
+	}
 
-		m_pCurProcess = pProcess;
+	m_ViewMode = ViewMode;
 
-		connect(m_pCurProcess.data(), SIGNAL(WindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnWindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	QByteArray Columns;
+	switch (m_ViewMode)
+	{
+		case eSingle:	Columns = theConf->GetBlob(objectName() + "/WindowsView_Columns"); break;
+		case eMulti:	Columns = theConf->GetBlob(objectName() + "/WindowsMultiView_Columns"); break;
+		default:
+			return;
+	}
+	
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pWindowModel->columnCount(); i++)
+			m_pWindowList->SetColumnHidden(i, false);
+	}
+	else
+		m_pWindowList->restoreState(Columns);
+}
+
+
+void CWindowsView::ShowProcesses(const QList<CProcessPtr>& Processes)
+{
+	if (m_Processes != Processes)
+	{
+		disconnect(this, SLOT(ShowWindows(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+
+		m_Processes = Processes;
+		m_PendingUpdates = 0;
+
+		m_pWindowModel->SetExtThreadId(m_Processes.size() > 1);
+		m_pWindowModel->Clear();
+
+		SwitchView(m_Processes.size() > 1 ? eMulti : eSingle);
+
+		foreach(const CProcessPtr& pProcess, m_Processes)
+			connect(pProcess.data(), SIGNAL(WindowsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowWindows(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
 
 	Refresh();
@@ -142,17 +172,41 @@ void CWindowsView::ShowProcess(const CProcessPtr& pProcess)
 
 void CWindowsView::Refresh()
 {
-	if (!m_pCurProcess)
+	if (m_PendingUpdates > 0)
 		return;
 
-	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateWindows()));
+	m_PendingUpdates = 0;
+	foreach(const CProcessPtr& pProcess, m_Processes)
+	{
+		m_PendingUpdates++;
+		QTimer::singleShot(0, pProcess.data(), SLOT(UpdateWindows()));
+	}
 }
 
-void CWindowsView::OnWindowsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
+void CWindowsView::ShowWindows(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CWndPtr> Windows = m_pCurProcess->GetWindowList();
+	/*if (m_Processes.count() == 1)
+	{
+		m_PendingUpdates = 0;
 
-	m_pWindowModel->Sync(Windows);
+		m_pWindowModel->Sync(m_Processes.first()->GetWindowList());
+	}
+	else*/
+	{
+		if (--m_PendingUpdates != 0)
+			return;
+
+		QHash<quint64, CWndPtr> AllWindows;
+		foreach(const CProcessPtr& pProcess, m_Processes) {
+			QMap<quint64, CWndPtr> Windows = pProcess->GetWindowList();
+			for (QMap<quint64, CWndPtr>::iterator I = Windows.begin(); I != Windows.end(); I++)
+			{
+				ASSERT(!AllWindows.contains(I.key()));
+				AllWindows.insert(I.key(), I.value());
+			}
+		}
+		Added = m_pWindowModel->Sync(AllWindows);
+	}
 
 	QTimer::singleShot(100, this, [this, Added]() {
 		foreach(quint64 ID, Added)

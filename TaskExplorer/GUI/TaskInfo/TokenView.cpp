@@ -8,6 +8,7 @@
 CTokenView::CTokenView(QWidget *parent)
 	:CPanelView(parent)
 {
+	m_LockValues = false;
 
 	QVBoxLayout* m_pMainLayout = new QVBoxLayout();
 	//m_pMainLayout->setMargin(0);
@@ -50,19 +51,20 @@ CTokenView::CTokenView(QWidget *parent)
 	row++;
 
 	m_pGeneralLayout->addWidget(new QLabel(tr("Session:")), row, 0, 1, 1);
-	m_pSession = new QLabel("0");
+	m_pSession = new QLabel(tr("0"));
 	m_pSession ->setSizePolicy(QSizePolicy::Expanding, m_pSession->sizePolicy().verticalPolicy());
 	m_pGeneralLayout->addWidget(m_pSession, row, 1, 1, 1);
 
 	m_pGeneralLayout->addWidget(new QLabel(tr("Elevanted:")), row, 2, 1, 1);
-	m_pElevated = new QLabel("No");
+	m_pElevated = new QLabel(tr("No"));
 	m_pElevated ->setSizePolicy(QSizePolicy::Expanding, m_pElevated->sizePolicy().verticalPolicy());
 	m_pGeneralLayout->addWidget(m_pElevated, row, 3, 1, 1);
 
 	m_pGeneralLayout->addWidget(new QLabel(tr("Virtualized:")), row, 4, 1, 1);
-	m_pVirtualized = new QLabel("No");
+	m_pVirtualized = new QCheckBox(tr("No"));
 	m_pVirtualized ->setSizePolicy(QSizePolicy::Expanding, m_pVirtualized->sizePolicy().verticalPolicy());
 	m_pGeneralLayout->addWidget(m_pVirtualized, row, 5, 1, 1);
+	connect(m_pVirtualized, SIGNAL(stateChanged(int)), this, SLOT(OnChangeVirtualization()));
 	row++;
 
 	m_pTabWidget = new QTabWidget();
@@ -85,10 +87,11 @@ CTokenView::CTokenView(QWidget *parent)
 	//connect(m_pTokenList, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this, SLOT(OnItemDoubleClicked(QTreeWidgetItem*, int)));
 	//m_pGeneralLayout->addWidget(m_pTokenList, 3, 0, 1, 6);
 
-	m_pTabWidget->addTab(m_pTokenList, tr("General"));
+	m_pTabWidget->addTab(CFinder::AddFinder(m_pTokenList, this, true, &m_pFinder), tr("General"));
+
 	// 
-	//m_pDangerousFlags = new QTreeWidgetItem(tr("Dangerous Flags").split("|"));
-	//m_pTokenList->addTopLevelItem(m_pDangerousFlags);
+	m_pDangerousFlags = new QTreeWidgetItem(tr("Dangerous Flags").split("|"));
+	m_pTokenList->addTopLevelItem(m_pDangerousFlags);
 	m_pPrivileges = new QTreeWidgetItem(tr("Privileges").split("|"));
 	m_pTokenList->addTopLevelItem(m_pPrivileges);
 	m_pGroups = new QTreeWidgetItem(tr("Groups").split("|"));
@@ -98,7 +101,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pTokenList->expandAll();
 
 	//
-	m_pAdvanced = new CPanelWidget<QTreeWidgetEx>();
+	m_pAdvanced = new CPanelWidgetEx();
 
 	m_pAdvanced->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pAdvanced->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
@@ -165,7 +168,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pAdvanced->GetTree()->expandAll();
 
 	//
-	m_pContainer = new CPanelWidget<QTreeWidgetEx>();
+	m_pContainer = new CPanelWidgetEx();
 
 	m_pContainer->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pContainer->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
@@ -214,7 +217,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pContainer->GetTree()->expandAll();
 
 	//
-	m_pCapabilities = new CPanelWidget<QTreeWidgetEx>();
+	m_pCapabilities = new CPanelWidgetEx();
 
 	m_pCapabilities->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pCapabilities->GetView())->setHeaderLabels(tr("Capabilities").split("|"));
@@ -227,7 +230,7 @@ CTokenView::CTokenView(QWidget *parent)
 
 	
 	//
-	m_pClaims = new CPanelWidget<QTreeWidgetEx>();
+	m_pClaims = new CPanelWidgetEx();
 
 	m_pClaims->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pClaims->GetView())->setHeaderLabels(tr("Claims").split("|"));
@@ -242,7 +245,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pDeviceClaims = new QTreeWidgetItem(tr("Device claims").split("|"));
 	
 	//
-	m_pAttributes = new CPanelWidget<QTreeWidgetEx>();
+	m_pAttributes = new CPanelWidgetEx();
 
 	m_pAttributes->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pAttributes->GetView())->setHeaderLabels(tr("Attributes").split("|"));
@@ -307,11 +310,23 @@ CTokenView::~CTokenView()
 	theConf->SetBlob(objectName() + "/TokenViewContainer_Columns", m_pContainer->GetTree()->header()->saveState());
 }
 
-void CTokenView::ShowProcess(const CProcessPtr& pProcess)
+void CTokenView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
+	CProcessPtr pProcess;
+	if (Processes.count() > 1)
+	{
+		setEnabled(false);
+	}
+	else if(!Processes.isEmpty())
+	{
+		setEnabled(true);
+		pProcess = Processes.first();
+	}
+
 	m_pCurProcess = pProcess.objectCast<CWinProcess>();
 
-	ShowToken(m_pCurProcess->GetToken());
+	if(m_pCurProcess)
+		ShowToken(m_pCurProcess->GetToken());
 }
 
 void CTokenView__SetRowColor(QTreeWidgetItem* pItem, bool bEnabled, bool bModified)
@@ -354,6 +369,8 @@ void CTokenView::Refresh()
 	if (!m_pCurToken)
 		return;
 
+	// ensure we have up to date informations
+	m_pCurToken->UpdateDynamicData();
 	m_pCurToken->UpdateExtendedData();
 
 	m_pContainer->setEnabled(m_pCurToken->IsAppContainer());
@@ -376,12 +393,16 @@ void CTokenView__SetTextIfChanged(T pEdit, const QString& Text) {
 
 void CTokenView::UpdateGeneral()
 {
+	m_LockValues = true;
+
 	CTokenView__SetTextIfChanged(m_pUser, m_pCurToken->GetUserName()); // note: this is being resolved asynchroniusly
 	CTokenView__SetTextIfChanged(m_pUserSID, m_pCurToken->GetSidString());
 
 	CTokenView__SetTextIfChanged(m_pSession, QString::number(m_pCurToken->GetSessionId()));
 	CTokenView__SetTextIfChanged(m_pElevated, m_pCurToken->GetElevationString());
 	CTokenView__SetTextIfChanged(m_pVirtualized, m_pCurToken->GetVirtualizationString());
+	m_pVirtualized->setEnabled(m_pCurToken->IsVirtualizationAllowed());
+	m_pVirtualized->setChecked(m_pCurToken->IsVirtualizationEnabled());
 
 	CTokenView__SetTextIfChanged(m_pOwner, m_pCurToken->GetOwnerName()); // note: this is being resolved asynchroniusly
 	CTokenView__SetTextIfChanged(m_pGroup, m_pCurToken->GetGroupName()); // note: this is being resolved asynchroniusly
@@ -402,6 +423,64 @@ void CTokenView::UpdateGeneral()
         }
 	}
 
+	m_LockValues = false;
+
+	//
+	QSet<CWinToken::EDangerousFlags> DangerousFlags = m_pCurToken->GetDangerousFlags();
+
+	QMap<int, QTreeWidgetItem*> OldDangerousFlags;
+	for(int i = 0; i < m_pDangerousFlags->childCount(); ++i)
+	{
+		QTreeWidgetItem* pItem = m_pDangerousFlags->child(i);
+		int Flag = pItem->data(0, Qt::UserRole).toInt();
+		ASSERT(!OldDangerousFlags.contains(Flag));
+		OldDangerousFlags.insert(Flag,pItem);
+	}
+
+	foreach (CWinToken::EDangerousFlags Flag, DangerousFlags)
+	{
+		QTreeWidgetItem* pItem = OldDangerousFlags.take(Flag);
+		if(!pItem)
+		{
+			QString Name;
+			QString Description;
+
+			switch (Flag)
+			{
+			case CWinToken::eNoWriteUpDisabled:
+				Name = tr("No-Write-Up Policy Disabled");
+				Description = tr("Prevents the process from modifying objects with a higher integrity");
+				break;
+			case CWinToken::eSandboxInertEnabled:
+				Name = tr("Sandbox Inert Enabled");
+				Description = tr("Ignore AppLocker rules and Software Restriction Policies");
+				break;
+			case CWinToken::eUIAccessEnabled:
+				Name = tr("UIAccess Enabled");
+				Description = tr("Ignore User Interface Privilege Isolation");
+				break;
+			default:
+				Name = tr("Dangerous Flag: %1").arg(Flag);
+			}
+
+			pItem = new QTreeWidgetItem();
+			pItem->setText(eName, Name);
+			pItem->setData(eName, Qt::UserRole, Flag);
+			pItem->setText(eDescription, Description);
+			m_pDangerousFlags->addChild(pItem);
+		}
+
+		CTokenView__SetRowColor(pItem, false, false);
+		//pItem->setText(eStatus, );
+	}
+
+	foreach(QTreeWidgetItem* pCurItem, OldDangerousFlags)
+		delete pCurItem;
+	//
+
+	//
+	QMap<QString, CWinToken::SPrivilege> Privileges = m_pCurToken->GetPrivileges();
+
 	QMap<QString, QTreeWidgetItem*> OldPrivileges;
 	for(int i = 0; i < m_pPrivileges->childCount(); ++i)
 	{
@@ -411,7 +490,6 @@ void CTokenView::UpdateGeneral()
 		OldPrivileges.insert(Name,pItem);
 	}
 
-	QMap<QString, CWinToken::SPrivilege> Privileges = m_pCurToken->GetPrivileges();
 	foreach (const CWinToken::SPrivilege& Privilege, Privileges)
 	{
 		QTreeWidgetItem* pItem = OldPrivileges.take(Privilege.Name);
@@ -430,8 +508,11 @@ void CTokenView::UpdateGeneral()
 
 	foreach(QTreeWidgetItem* pCurItem, OldPrivileges)
 		delete pCurItem;
+	//
 
 
+	//
+	QMap<QByteArray, CWinToken::SGroup> Groups = m_pCurToken->GetGroups();
 
 	QMap<QByteArray, QTreeWidgetItem*> OldGroups;
 	for(int i = 0; i < m_pGroups->childCount(); ++i)
@@ -450,7 +531,6 @@ void CTokenView::UpdateGeneral()
 		OldGroups.insert(Sid,pItem);
 	}
 
-	QMap<QByteArray, CWinToken::SGroup> Groups = m_pCurToken->GetGroups();
 	foreach (const CWinToken::SGroup& Group, Groups)
 	{
 		QTreeWidgetItem* pItem = OldGroups.take(Group.Sid);
@@ -473,11 +553,15 @@ void CTokenView::UpdateGeneral()
 
 	foreach(QTreeWidgetItem* pCurItem, OldGroups)
 		delete pCurItem;
+	//
 
-	//m_pDangerousFlags->setHidden(m_pDangerousFlags->childCount() == 0);
+	m_pDangerousFlags->setHidden(m_pDangerousFlags->childCount() == 0);
 	m_pPrivileges->setHidden(m_pPrivileges->childCount() == 0);
 	m_pGroups->setHidden(m_pGroups->childCount() == 0);
 	m_pRestrictingSIDs->setHidden(m_pRestrictingSIDs->childCount() == 0);
+
+	if (!m_pFinder->GetRegExp().isEmpty())
+		SetFilter(m_pFinder->GetRegExp());
 }
 
 void CTokenView::UpdateAdvanced()
@@ -794,8 +878,22 @@ void CTokenView::OnPermissions()
 		m_pCurToken->OpenPermissions();
 }
 
+void CTokenView::OnChangeVirtualization()
+{
+	if (m_LockValues || !m_pCurToken)
+		return;
+
+	STATUS Status = m_pCurToken->SetVirtualizationEnabled(m_pVirtualized->isChecked());
+
+	if(Status.IsError())
+		QMessageBox::warning(this, "TaskExplorer", tr("Unable to set the virtualization, error: %1").arg(Status.GetText()));
+}
+
 void CTokenView::OnChangeIntegrity()
 {
+	if (m_LockValues || !m_pCurToken)
+		return;
+
 	quint32 IntegrityLevel = m_pIntegrity->currentData().toUInt();
 	if (IntegrityLevel == m_pCurToken->GetIntegrityLevel())
 		return;
@@ -803,10 +901,10 @@ void CTokenView::OnChangeIntegrity()
 	if (QMessageBox("TaskExplorer", tr("Once lowered, the integrity level of the token cannot be raised again."), QMessageBox::Question, QMessageBox::Apply, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Apply)
 		return;
 
-	STATUS status = m_pCurToken->SetIntegrityLevel(IntegrityLevel);
+	STATUS Status = m_pCurToken->SetIntegrityLevel(IntegrityLevel);
 
-	if(status.IsError())
-		QMessageBox::warning(this, "TaskExplorer", tr("Unable to set the integrity level, error: %1").arg(status.GetText()));
+	if(Status.IsError())
+		QMessageBox::warning(this, "TaskExplorer", tr("Unable to set the integrity level, error: %1").arg(Status.GetText()));
 }
 
 void CTokenView::OnLinkedToken()
@@ -822,4 +920,9 @@ void CTokenView::OnLinkedToken()
 		pTokenView->ShowToken(pLinkedToken);
 		pTaskInfoWindow->show();
 	}
+}
+
+void CTokenView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
+{
+	CPanelWidgetEx::ApplyFilter(m_pTokenList, Exp/*, bHighLight, Col*/);
 }

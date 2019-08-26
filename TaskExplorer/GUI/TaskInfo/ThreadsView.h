@@ -18,7 +18,7 @@ public:
 	virtual ~CThreadsView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					SellectThread(quint64 ThreadId);
 	void					Refresh();
 
@@ -47,7 +47,19 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
-	CProcessPtr				m_pCurProcess;
+	enum EView
+	{
+		eNone,
+		eSingle,
+		eMulti
+	};
+
+	virtual void			SwitchView(EView ViewMode);
+
+	EView					m_ViewMode;
+
+	QList<CProcessPtr>		m_Processes;
+	//int						m_PendingUpdates;
 	CThreadPtr				m_pCurThread;
 	QMap<quint64, CThreadPtr> m_Threads;
 

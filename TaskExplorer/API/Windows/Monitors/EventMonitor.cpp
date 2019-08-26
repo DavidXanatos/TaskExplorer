@@ -554,6 +554,8 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 
 void CEventMonitor::run()
 {
+	SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
+
 	//exec();
 
 	ULONG result;

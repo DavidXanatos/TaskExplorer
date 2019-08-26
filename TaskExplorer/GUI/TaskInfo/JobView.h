@@ -19,7 +19,7 @@ public:
 	virtual ~CJobView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					ShowJob(const CWinJobPtr& pJob);
 	void					Refresh();
 
@@ -35,8 +35,8 @@ protected:
 	virtual QTreeView*			GetView() 				{ return m_pProcessList; }
 	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
 
-	CProcessPtr				m_pCurProcess;
-	CWinJobPtr				m_pCurJob;
+	QSharedPointer<CWinProcess>	m_pCurProcess;
+	CWinJobPtr					m_pCurJob;
 
 private:
 	enum EStackColumns
@@ -66,7 +66,9 @@ private:
 
 	QPushButton*			m_pAddProcess;
 
-	// Limits....
+	QTabWidget*				m_pAdvancedTabs;
+
+	CPanelWidgetEx* m_pLimits;
 
 	//QLabel*					m_pJobStatsLabel;
 	CStatsView*				m_pJobStats;

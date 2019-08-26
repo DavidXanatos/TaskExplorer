@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "WinJob.h"
-#include "../../GUI/TaskExplorer.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
 
@@ -37,7 +36,7 @@ CWinJob::~CWinJob()
 	delete m;
 }
 
-NTSTATUS NTAPI PhpOpenProcessJobForPage(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinJob__OpenProcessJob(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
 	NTSTATUS status = STATUS_INVALID_PARAMETER;
 	SWinJob* m = (SWinJob*)Context;
@@ -78,20 +77,28 @@ CWinJob* CWinJob::JobFromHandle(quint64 ProcessId, quint64 HandleId)
         return NULL;
 
 	CWinJob* pJob = new CWinJob();
+	pJob->m->Type = eHandle;
+	pJob->m->QueryHandle = processHandle;
 	pJob->m->Handle = (HANDLE)HandleId;
-	pJob->InitStaticData(processHandle, eHandle);
+	pJob->InitStaticData();
 	return pJob;
 }
 
-bool CWinJob::InitStaticData(void* QueryHandle, EQueryType Type)
+CWinJob* CWinJob::JobFromProcess(void* QueryHandle)
 {
-	QWriteLocker Locker(&m_Mutex); 
+	CWinJob* pJob = new CWinJob();
+	pJob->m->Type = eProcess;
+	pJob->m->QueryHandle = QueryHandle;
+	pJob->InitStaticData();
+	return pJob;
+}
 
-	m->QueryHandle = QueryHandle;
-	m->Type = Type;
+bool CWinJob::InitStaticData()
+{
+	QWriteLocker Locker(&m_Mutex);
 
 	HANDLE jobHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_QUERY, m)))
+	if (!NT_SUCCESS(CWinJob__OpenProcessJob(&jobHandle, JOB_OBJECT_QUERY, m)))
 		return false;
 
 	PPH_STRING jobObjectName = NULL;
@@ -99,122 +106,6 @@ bool CWinJob::InitStaticData(void* QueryHandle, EQueryType Type)
 	m_JobName = CastPhString(jobObjectName);
 	if (m_JobName.isEmpty())
 		m_JobName = tr("Unnamed job");
-
-	// todo: xxx
-	/*JOBOBJECT_EXTENDED_LIMIT_INFORMATION extendedLimits;
-	if (NT_SUCCESS(PhGetJobExtendedLimits(m->jobHandle, &extendedLimits)))
-    {
-        ULONG flags = extendedLimits.BasicLimitInformation.LimitFlags;
-
-        if (flags & JOB_OBJECT_LIMIT_ACTIVE_PROCESS)
-        {
-            WCHAR value[PH_INT32_STR_LEN_1];
-            PhPrintUInt32(value, extendedLimits.BasicLimitInformation.ActiveProcessLimit);
-            PhpAddLimit(limitsLv, L"Active processes", value);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_AFFINITY)
-        {
-            WCHAR value[PH_PTR_STR_LEN_1];
-            PhPrintPointer(value, (PVOID)extendedLimits.BasicLimitInformation.Affinity);
-            PhpAddLimit(limitsLv, L"Affinity", value);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_BREAKAWAY_OK)
-        {
-            PhpAddLimit(limitsLv, L"Breakaway OK", L"Enabled");
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION)
-        {
-            PhpAddLimit(limitsLv, L"Die on unhandled exception", L"Enabled");
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_JOB_MEMORY)
-        {
-            PPH_STRING value = PhaFormatSize(extendedLimits.JobMemoryLimit, -1);
-            PhpAddLimit(limitsLv, L"Job memory", value->Buffer);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_JOB_TIME)
-        {
-            WCHAR value[PH_TIMESPAN_STR_LEN_1];
-            PhPrintTimeSpan(value, extendedLimits.BasicLimitInformation.PerJobUserTimeLimit.QuadPart,
-                PH_TIMESPAN_DHMS);
-            PhpAddLimit(limitsLv, L"Job time", value);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
-        {
-            PhpAddLimit(limitsLv, L"Kill on job close", L"Enabled");
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_PRIORITY_CLASS)
-        {
-            PhpAddLimit(limitsLv, L"Priority class",
-                PhGetProcessPriorityClassString(extendedLimits.BasicLimitInformation.PriorityClass));
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_PROCESS_MEMORY)
-        {
-            PPH_STRING value = PhaFormatSize(extendedLimits.ProcessMemoryLimit, -1);
-            PhpAddLimit(limitsLv, L"Process memory", value->Buffer);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_PROCESS_TIME)
-        {
-            WCHAR value[PH_TIMESPAN_STR_LEN_1];
-            PhPrintTimeSpan(value, extendedLimits.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart,
-                PH_TIMESPAN_DHMS);
-            PhpAddLimit(limitsLv, L"Process time", value);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_SCHEDULING_CLASS)
-        {
-            WCHAR value[PH_INT32_STR_LEN_1];
-            PhPrintUInt32(value, extendedLimits.BasicLimitInformation.SchedulingClass);
-            PhpAddLimit(limitsLv, L"Scheduling class", value);
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK)
-        {
-            PhpAddLimit(limitsLv, L"Silent breakaway OK", L"Enabled");
-        }
-
-        if (flags & JOB_OBJECT_LIMIT_WORKINGSET)
-        {
-            PPH_STRING value;
-
-            value = PhaFormatSize(extendedLimits.BasicLimitInformation.MinimumWorkingSetSize, -1);
-            PhpAddLimit(limitsLv, L"Working set minimum", value->Buffer);
-
-            value = PhaFormatSize(extendedLimits.BasicLimitInformation.MaximumWorkingSetSize, -1);
-            PhpAddLimit(limitsLv, L"Working set maximum", value->Buffer);
-        }
-    }
-
-	JOBOBJECT_BASIC_UI_RESTRICTIONS basicUiRestrictions;
-    if (NT_SUCCESS(PhGetJobBasicUiRestrictions(m->jobHandle, &basicUiRestrictions)))
-    {
-        ULONG flags = basicUiRestrictions.UIRestrictionsClass;
-
-        if (flags & JOB_OBJECT_UILIMIT_DESKTOP)
-            PhpAddLimit(limitsLv, L"Desktop", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_DISPLAYSETTINGS)
-            PhpAddLimit(limitsLv, L"Display settings", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_EXITWINDOWS)
-            PhpAddLimit(limitsLv, L"Exit windows", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_GLOBALATOMS)
-            PhpAddLimit(limitsLv, L"Global atoms", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_HANDLES)
-            PhpAddLimit(limitsLv, L"Handles", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_READCLIPBOARD)
-            PhpAddLimit(limitsLv, L"Read clipboard", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS)
-            PhpAddLimit(limitsLv, L"System parameters", L"Limited");
-        if (flags & JOB_OBJECT_UILIMIT_WRITECLIPBOARD)
-            PhpAddLimit(limitsLv, L"Write clipboard", L"Limited");
-    }*/
 
 	NtClose(jobHandle);
 
@@ -226,8 +117,90 @@ bool CWinJob::UpdateDynamicData()
 	QWriteLocker Locker(&m_Mutex); 
 
 	HANDLE jobHandle = NULL;
-	if (!NT_SUCCESS(PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_QUERY, m)))
+	if (!NT_SUCCESS(CWinJob__OpenProcessJob(&jobHandle, JOB_OBJECT_QUERY, m)))
 		return false;
+
+	//
+	m_Limits.clear();
+
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION extendedLimits;
+	if (NT_SUCCESS(PhGetJobExtendedLimits(jobHandle, &extendedLimits)))
+    {
+        ULONG flags = extendedLimits.BasicLimitInformation.LimitFlags;
+
+        if (flags & JOB_OBJECT_LIMIT_ACTIVE_PROCESS)
+			m_Limits.append(SJobLimit(tr("Active processes"), SJobLimit::eNumber, (int)extendedLimits.BasicLimitInformation.ActiveProcessLimit));
+
+        if (flags & JOB_OBJECT_LIMIT_AFFINITY)
+			m_Limits.append(SJobLimit(tr("Affinity"), SJobLimit::eAddress, (quint64)extendedLimits.BasicLimitInformation.Affinity));
+
+        if (flags & JOB_OBJECT_LIMIT_BREAKAWAY_OK)
+			m_Limits.append(SJobLimit(tr("Breakaway OK"), SJobLimit::eEnabled, true));
+
+        if (flags & JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION)
+			m_Limits.append(SJobLimit(tr("Die on unhandled exception"), SJobLimit::eEnabled, true));
+
+        if (flags & JOB_OBJECT_LIMIT_JOB_MEMORY)
+			m_Limits.append(SJobLimit(tr("Job memory"), SJobLimit::eSize, (quint64)extendedLimits.JobMemoryLimit));
+
+        if (flags & JOB_OBJECT_LIMIT_JOB_TIME)
+			m_Limits.append(SJobLimit(tr("Job time"), SJobLimit::eTimeMs, extendedLimits.BasicLimitInformation.PerJobUserTimeLimit.QuadPart / PH_TICKS_PER_MS));
+
+        if (flags & JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
+			m_Limits.append(SJobLimit(tr("Kill on job close"), SJobLimit::eEnabled, true));
+
+        if (flags & JOB_OBJECT_LIMIT_PRIORITY_CLASS)
+			m_Limits.append(SJobLimit(tr("Priority class"), SJobLimit::eString, CWinProcess::GetPriorityString(extendedLimits.BasicLimitInformation.PriorityClass)));
+
+        if (flags & JOB_OBJECT_LIMIT_PROCESS_MEMORY)
+			m_Limits.append(SJobLimit(tr("Process memory"), SJobLimit::eSize, (quint64)extendedLimits.ProcessMemoryLimit));
+
+        if (flags & JOB_OBJECT_LIMIT_PROCESS_TIME)
+			m_Limits.append(SJobLimit(tr("Process time"), SJobLimit::eTimeMs, extendedLimits.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart / PH_TICKS_PER_MS));
+
+        if (flags & JOB_OBJECT_LIMIT_SCHEDULING_CLASS)
+			m_Limits.append(SJobLimit(tr("Scheduling class"), SJobLimit::eNumber, (quint32)extendedLimits.BasicLimitInformation.SchedulingClass));
+
+        if (flags & JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK)
+			m_Limits.append(SJobLimit(tr("Silent breakaway OK"), SJobLimit::eEnabled, true));
+
+		if (flags & JOB_OBJECT_LIMIT_WORKINGSET)
+		{
+			m_Limits.append(SJobLimit(tr("Working set minimum"), SJobLimit::eSize, (quint64)extendedLimits.BasicLimitInformation.MinimumWorkingSetSize));
+			m_Limits.append(SJobLimit(tr("Working set maximum"), SJobLimit::eSize, (quint64)extendedLimits.BasicLimitInformation.MaximumWorkingSetSize));
+		}
+    }
+
+	JOBOBJECT_BASIC_UI_RESTRICTIONS basicUiRestrictions;
+    if (NT_SUCCESS(PhGetJobBasicUiRestrictions(jobHandle, &basicUiRestrictions)))
+    {
+        ULONG flags = basicUiRestrictions.UIRestrictionsClass;
+
+        if (flags & JOB_OBJECT_UILIMIT_DESKTOP)
+			m_Limits.append(SJobLimit(tr("Desktop limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_DISPLAYSETTINGS)
+			m_Limits.append(SJobLimit(tr("Display settings limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_EXITWINDOWS)
+			m_Limits.append(SJobLimit(tr("Exit windows limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_GLOBALATOMS)
+			m_Limits.append(SJobLimit(tr("Global atoms limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_HANDLES)
+			m_Limits.append(SJobLimit(tr("Handles limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_READCLIPBOARD)
+			m_Limits.append(SJobLimit(tr("Read clipboard limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS)
+			m_Limits.append(SJobLimit(tr("System parameters limited"), SJobLimit::eLimited, true));
+
+        if (flags & JOB_OBJECT_UILIMIT_WRITECLIPBOARD)
+			m_Limits.append(SJobLimit(tr("Write clipboard limited"), SJobLimit::eLimited, true));
+    }
+	//
 
 	m_Processes.clear();
 	PJOBOBJECT_BASIC_PROCESS_ID_LIST processIdList;
@@ -278,7 +251,7 @@ bool CWinJob::UpdateDynamicData()
 STATUS CWinJob::Terminate()
 {   
     HANDLE jobHandle;
-	NTSTATUS status = PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_TERMINATE, m);
+	NTSTATUS status = CWinJob__OpenProcessJob(&jobHandle, JOB_OBJECT_TERMINATE, m);
 	if (!NT_SUCCESS(status))
 		return ERR(tr("Failed to open job"), status);
 
@@ -301,7 +274,7 @@ STATUS CWinJob::AddProcess(quint64 ProcessId)
 
     if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_TERMINATE | PROCESS_SET_QUOTA, processId)))
     {
-        if (NT_SUCCESS(status = PhpOpenProcessJobForPage(&jobHandle, JOB_OBJECT_ASSIGN_PROCESS | JOB_OBJECT_QUERY, m)))
+        if (NT_SUCCESS(status = CWinJob__OpenProcessJob(&jobHandle, JOB_OBJECT_ASSIGN_PROCESS | JOB_OBJECT_QUERY, m)))
         {
             status = NtAssignProcessToJobObject(jobHandle, processHandle);
             NtClose(jobHandle);
@@ -314,9 +287,21 @@ STATUS CWinJob::AddProcess(quint64 ProcessId)
 	return OK;
 }
 
+NTSTATUS NTAPI CWinJob__cbPermissionsClosed(_In_opt_ PVOID Context)
+{
+	SWinJob* context = (SWinJob*)Context;
+	delete context;
+
+	return STATUS_SUCCESS;
+}
+
 void CWinJob::OpenPermissions()
 {
 	QReadLocker Locker(&m_Mutex); 
-
-    PhEditSecurity(NULL, L"Job", L"Job", PhpOpenProcessJobForPage, NULL, m); // todo: xxx fixme m may get deleted!!!
+	SWinJob* context = new SWinJob();
+	context->QueryHandle = m->QueryHandle;
+	context->Handle = m->Handle;
+	context->Type = m->Type;
+	Locker.unlock();
+    PhEditSecurity(NULL, L"Job", L"Job", CWinJob__OpenProcessJob, CWinJob__cbPermissionsClosed, context);
 }

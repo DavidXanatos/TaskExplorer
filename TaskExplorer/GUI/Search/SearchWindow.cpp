@@ -103,16 +103,19 @@ void CSearchWindow::OnProgress(float value, const QString& Info)
 
 bool CSearchWindow::CheckCountAndAbbort(int Count)
 {
-	m_pResultCount->setText(tr("Results: %1").arg(Count));
-
-	int Limit = theConf->GetInt("Options/ResultLimit", 100000);
-	if (Count <= Limit)
+	int Limit = theConf->GetInt("Options/ResultLimit", 2000000);
+	if (Count <= Limit) 
+	{
+		m_pResultCount->setText(tr("Results: %1").arg(Count));
 		return true;
+	}
 	
 	if (!m_pFinder->IsCanceled())
 	{
 		m_pFinder->Cancel();
-		QMessageBox::critical(this, tr("TaskExplorer"), tr("Search canceled as the UI can not handle more than %1 results with deecent performance, consider using a search therm to limti results.").arg(Limit));
+		QMessageBox::critical(this, tr("TaskExplorer"), tr("Result limit, of %1, reached.\r\n"
+			"Search canceled to prevent the UI from becoming unusably slow.\r\n\r\n"
+			"To change the limit adjust the option 'Options/ResultLimit'.").arg(FormatNumber(Limit)));
 	}
 	return false;
 }

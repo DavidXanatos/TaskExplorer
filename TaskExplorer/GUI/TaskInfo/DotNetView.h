@@ -16,7 +16,7 @@ public:
 	virtual ~CDotNetView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 
 private slots:
@@ -57,7 +57,7 @@ private:
 
 	QSplitter*				m_pSplitter;
 
-	CPanelWidget<QTreeWidgetEx>* m_pPerfStats;
+	CPanelWidgetEx* m_pPerfStats;
 	QMap<int, QTreeWidgetItem*> m_PerfCounters;
 
 	//QMenu*					m_pMenu;

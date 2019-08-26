@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Finder.h"
 
-QWidget* CFinder::AddFinder(QWidget* pList, QSortFilterProxyModel* pSortProxy)
+QWidget* CFinder::AddFinder(QWidget* pList, QObject* pFilterTarget, bool HighLightOption, CFinder** ppFinder)
 {
 	QWidget* pWidget = new QWidget();
 	QVBoxLayout* pLayout = new QVBoxLayout();
@@ -9,12 +9,15 @@ QWidget* CFinder::AddFinder(QWidget* pList, QSortFilterProxyModel* pSortProxy)
 	pWidget->setLayout(pLayout);
 
 	pLayout->addWidget(pList);
-	pLayout->addWidget(new CFinder(pSortProxy, pWidget));
+	CFinder* pFinder = new CFinder(pFilterTarget, pWidget, HighLightOption);
+	pLayout->addWidget(pFinder);
 
+	if (ppFinder)
+		*ppFinder = pFinder;
 	return pWidget;
 }
 
-CFinder::CFinder(QSortFilterProxyModel* pSortProxy, QWidget *parent)
+CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 :QWidget(parent)
 {
 	m_pSearchLayout = new QHBoxLayout();
@@ -40,10 +43,16 @@ CFinder::CFinder(QSortFilterProxyModel* pSortProxy, QWidget *parent)
 	m_pColumn = new QComboBox();
 	m_pSearchLayout->addWidget(m_pColumn);
 	connect(m_pColumn, SIGNAL(currentIndexChanged(int)), this, SLOT(OnUpdate()));
+	m_pColumn->setVisible(false);
 
-	m_pHighLight = new QCheckBox(tr("Highlight"));
-	m_pSearchLayout->addWidget(m_pHighLight);
-	connect(m_pHighLight, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
+	if (HighLightOption)
+	{
+		m_pHighLight = new QCheckBox(tr("Highlight"));
+		m_pSearchLayout->addWidget(m_pHighLight);
+		connect(m_pHighLight, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
+	}
+	else
+		m_pHighLight = NULL;
 
 	QToolButton* pClose = new QToolButton(this);
     pClose->setIcon(QIcon(":/close.png"));
@@ -71,8 +80,9 @@ CFinder::CFinder(QSortFilterProxyModel* pSortProxy, QWidget *parent)
 		QObject::connect(pFind, SIGNAL(triggered()), this, SLOT(Open()));
 	}
 
-	m_pSortProxy = pSortProxy;
-	QObject::connect(this, SIGNAL(SetFilter(const QRegExp&, bool, int)), m_pSortProxy, SLOT(SetFilter(const QRegExp&, bool, int)));
+	m_pSortProxy = qobject_cast<QSortFilterProxyModel*>(pFilterTarget);
+	if (pFilterTarget)
+		QObject::connect(this, SIGNAL(SetFilter(const QRegExp&, bool, int)), pFilterTarget, SLOT(SetFilter(const QRegExp&, bool, int)));
 }
 
 CFinder::~CFinder()
@@ -82,21 +92,29 @@ CFinder::~CFinder()
 
 void CFinder::Open()
 {
-	m_pColumn->clear();
-
-	m_pColumn->addItem(tr("All columns"), -1);
-	for (int i = 0; i < m_pSortProxy->columnCount(); i++)
-		m_pColumn->addItem(m_pSortProxy->headerData(i, Qt::Horizontal, Qt::DisplayRole).toString(), i);
+	if (m_pSortProxy && m_pColumn->count() == 0)
+	{
+		m_pColumn->addItem(tr("All columns"), -1);
+		for (int i = 0; i < m_pSortProxy->columnCount(); i++)
+			m_pColumn->addItem(m_pSortProxy->headerData(i, Qt::Horizontal, Qt::DisplayRole).toString(), i);
+		m_pColumn->setVisible(true);
+	}
 
 	show();
 	m_pSearch->setFocus(Qt::OtherFocusReason);
 	OnUpdate();
 }
 
+QRegExp CFinder::GetRegExp() const
+{
+	if (!isVisible())
+		return QRegExp();
+	return QRegExp(m_pSearch->text(), m_pCaseSensitive->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive, m_pRegExp->isChecked() ? QRegExp::RegExp : QRegExp::FixedString);
+}
+
 void CFinder::OnUpdate()
 {
-	QRegExp RegExp = QRegExp(m_pSearch->text(), m_pCaseSensitive->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive, m_pRegExp->isChecked() ? QRegExp::RegExp : QRegExp::FixedString);
-	emit SetFilter(RegExp, m_pHighLight->isChecked(), m_pColumn->currentData().toInt());
+	emit SetFilter(GetRegExp(), GetHighLight(), GetColumn());
 }
 
 void CFinder::Close()

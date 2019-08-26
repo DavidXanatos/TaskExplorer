@@ -59,7 +59,7 @@ CDotNetView::CDotNetView(QWidget *parent)
 	// 
 
 	// Performance Details
-	m_pPerfStats = new CPanelWidget<QTreeWidgetEx>();
+	m_pPerfStats = new CPanelWidgetEx();
 
 	m_pPerfStats->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pPerfStats->GetView())->setHeaderLabels(tr("Counter|Value").split("|"));
@@ -83,26 +83,46 @@ CDotNetView::CDotNetView(QWidget *parent)
 	QByteArray Columns = theConf->GetBlob(objectName() + "/DotNetView_Columns");
 	if (Columns.isEmpty())
 	{
-		m_pAssemblyList->setColumnHidden(eID, true);
-		m_pAssemblyList->setColumnHidden(eNativePath, true);
+		for (int i = 0; i < m_pAssemblyModel->columnCount(); i++)
+			m_pAssemblyList->SetColumnHidden(i, true);
+
+		m_pAssemblyList->SetColumnHidden(eStructure, false);
+		m_pAssemblyList->SetColumnHidden(eFileName, false);
+		m_pAssemblyList->SetColumnHidden(eFlags, false);
 	}
 	else
-		m_pAssemblyList->header()->restoreState(Columns);
+		m_pAssemblyList->restoreState(Columns);
 	m_pPerfStats->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/PerfStats_Columns"));
 	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/DotNetView_Splitter"));
 }
 
 CDotNetView::~CDotNetView()
 {
-	theConf->SetBlob(objectName() + "/DotNetView_Columns", m_pAssemblyList->header()->saveState());
+	theConf->SetBlob(objectName() + "/DotNetView_Columns", m_pAssemblyList->saveState());
 	theConf->SetBlob(objectName() + "/DotNetView_Splitter",m_pSplitter->saveState());
 	if(m_pPerfStats)
 		theConf->SetBlob(objectName() + "/PerfStats_Columns", m_pPerfStats->GetView()->header()->saveState());
 }
 
-void CDotNetView::ShowProcess(const CProcessPtr& pProcess)
+void CDotNetView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
-	m_pCurProcess = pProcess;
+	CProcessPtr pProcess;
+	if (Processes.count() > 1)
+	{
+		setEnabled(false);
+	}
+	else if(!Processes.isEmpty())
+	{
+		setEnabled(true);
+		pProcess = Processes.first();
+	}
+
+	if (m_pCurProcess != pProcess)
+	{
+		m_pCurProcess = pProcess;
+
+		m_pAssemblyModel->Clear();
+	}
 
 	OnRefresh();
 	Refresh();

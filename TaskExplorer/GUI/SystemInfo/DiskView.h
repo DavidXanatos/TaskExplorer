@@ -72,6 +72,6 @@ private:
 	CIncrementalPlot*		m_pFileIOPlot;
 	CIncrementalPlot*		m_pMMapIOPlot;
 
-	CPanelWidget<QTreeWidgetEx>* m_pDiskList;
+	CPanelWidgetEx* m_pDiskList;
 };
 

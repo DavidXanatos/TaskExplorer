@@ -131,3 +131,5 @@ using namespace std;
 #include "Common/DebugHelpers.h"
 
 #define USE_QEXTWIDGETS
+
+extern class CSettings*		theConf;

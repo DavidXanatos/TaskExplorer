@@ -13,6 +13,8 @@ public:
 
 	void			Sync(QMap<quint64, CHandlePtr> HandleList);
 
+	void			SetSizePosNA(bool bSet) { m_SizePosNA = bSet; }
+
 	CHandlePtr		GetHandle(const QModelIndex &index) const;
 
 	int				columnCount(const QModelIndex &parent = QModelIndex()) const;
@@ -49,6 +51,7 @@ protected:
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SHandleNode(Id); }
 
+	bool m_SizePosNA;
 	
 	virtual QVariant GetDefaultIcon() const;
 };

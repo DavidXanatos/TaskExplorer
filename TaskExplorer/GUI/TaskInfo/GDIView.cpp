@@ -4,6 +4,7 @@
 #include "../../Common/KeyValueInputDialog.h"
 #include "../../Common/Finder.h"
 #include "../../API/Windows/WinProcess.h"
+#include "../../API/Windows/ProcessHacker.h"
 
 
 CGDIView::CGDIView(QWidget *parent)
@@ -40,21 +41,56 @@ CGDIView::CGDIView(QWidget *parent)
 
 	AddPanelItemsToMenu();
 
+	m_ViewMode = eNone;
 	setObjectName(parent->objectName());
-	m_pGDIList->header()->restoreState(theConf->GetBlob(objectName() + "/GDIView_Columns"));
+	SwitchView(eSingle);
 }
 
 CGDIView::~CGDIView()
 {
-	theConf->SetBlob(objectName() + "/GDIView_Columns", m_pGDIList->header()->saveState());
+	SwitchView(eNone);
 }
 
-void CGDIView::ShowProcess(const CProcessPtr& pProcess)
+void CGDIView::SwitchView(EView ViewMode)
 {
-	if (m_pCurProcess == pProcess)
+	switch (m_ViewMode)
+	{
+		case eSingle:	theConf->SetBlob(objectName() + "/GDIView_Columns", m_pGDIList->saveState()); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/GDIMultiView_Columns", m_pGDIList->saveState()); break;
+	}
+
+	m_ViewMode = ViewMode;
+
+	QByteArray Columns;
+	switch (m_ViewMode)
+	{
+		case eSingle:	Columns = theConf->GetBlob(objectName() + "/GDIView_Columns"); break;
+		case eMulti:	Columns = theConf->GetBlob(objectName() + "/GDIMultiView_Columns"); break;
+		default:
+			return;
+	}
+	
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pGDIModel->columnCount(); i++)
+			m_pGDIList->SetColumnHidden(i, false);
+
+		if(m_ViewMode == eSingle)
+			m_pGDIList->SetColumnHidden(CGDIModel::eProcess, true);
+	}
+	else
+		m_pGDIList->restoreState(Columns);
+}
+
+
+void CGDIView::ShowProcesses(const QList<CProcessPtr>& Processes)
+{
+	if (m_Processes == Processes)
 		return;
 
-	m_pCurProcess = pProcess;
+	m_Processes = Processes;
+
+	SwitchView(m_Processes.size() > 1 ? eMulti : eSingle);
 
 	m_GDIList.clear();
 
@@ -63,10 +99,49 @@ void CGDIView::ShowProcess(const CProcessPtr& pProcess)
 
 void CGDIView::Refresh()
 {
-	if (!m_pCurProcess)
-		return;
+	bool bInitTimeStamp = !m_GDIList.isEmpty();
 
-	qobject_cast<CWinProcess*>(m_pCurProcess.data())->UpdateGDIList(m_GDIList);
+	QMap<quint64, CWinGDIPtr> OldList = m_GDIList;
+
+	foreach(const CProcessPtr& pProcess, m_Processes)
+	{
+		QString ProcessName = pProcess->GetName();
+
+		PGDI_SHARED_MEMORY gdiShared = (PGDI_SHARED_MEMORY)NtCurrentPeb()->GdiSharedHandleTable;
+		USHORT processId = (USHORT)pProcess->GetProcessId();
+
+		for (ulong i = 0; i < GDI_MAX_HANDLE_COUNT; i++)
+		{
+			PWSTR typeName;
+			INT lvItemIndex;
+			WCHAR pointer[PH_PTR_STR_LEN_1];
+
+			PGDI_HANDLE_ENTRY handle = &gdiShared->Handles[i];
+
+			if (handle->Owner.ProcessId != processId)
+				continue;
+
+			CWinGDIPtr pWinGDI = OldList.take(GDI_MAKE_HANDLE(i, handle->Unique));
+			if (!pWinGDI)
+			{
+				pWinGDI = CWinGDIPtr(new CWinGDI());
+				if (bInitTimeStamp)
+					pWinGDI->InitTimeStamp();
+				pWinGDI->InitData(i, handle, ProcessName);
+				m_GDIList.insert(pWinGDI->GetHandleId(), pWinGDI);
+			}
+		}
+	}
+
+	foreach(quint64 HandleId, OldList.keys())
+	{
+		CWinGDIPtr pWinGDI = m_GDIList.value(HandleId);
+		if (pWinGDI->CanBeRemoved())
+			m_GDIList.remove(HandleId);
+		else if (!pWinGDI->IsMarkedForRemoval())
+			pWinGDI->MarkForRemoval();
+	}
+
 
 	m_pGDIModel->Sync(m_GDIList);
 }

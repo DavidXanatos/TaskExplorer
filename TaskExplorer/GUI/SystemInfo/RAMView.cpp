@@ -218,7 +218,7 @@ CRAMView::CRAMView(QWidget *parent)
 	////////////////////////////////////////
 
 	// Page Files
-	m_pSwapList = new CPanelWidget<QTreeWidgetEx>();
+	m_pSwapList = new CPanelWidgetEx();
 
 	m_pSwapList->GetTree()->setItemDelegate(theGUI->GetItemDelegate());
 	m_pSwapList->GetTree()->setHeaderLabels(tr("File name|Usag|Peak usage|Total size").split("|"));

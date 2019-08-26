@@ -12,7 +12,9 @@ public:
     CWindowModel(QObject *parent = 0);
 	~CWindowModel();
 
-	void			Sync(const QMap<quint64, CWndPtr>& ModuleList);
+	QSet<quint64>	Sync(const QHash<quint64, CWndPtr>& WindowList);
+
+	void			SetExtThreadId(bool bSet) { m_bExtThreadId = bSet; }
 
 	CWndPtr			GetWindow(const QModelIndex &index) const;
 
@@ -41,9 +43,12 @@ protected:
 		CWndPtr			pWindow;
 	};
 
-	virtual STreeNode* MkNode(const QVariant& Id) { return new SWindowNode(Id); }
+	virtual STreeNode*		MkNode(const QVariant& Id) { return new SWindowNode(Id); }
 
-	QList<QVariant>  MakeWndPath(const CWndPtr& pWindow, const QMap<quint64, CWndPtr>& WindowList);
+	QList<QVariant>			MakeWndPath(const CWndPtr& pWindow, const QHash<quint64, CWndPtr>& WindowList);
+	bool					TestWndPath(const QList<QVariant>& Path, const CWndPtr& pWindow, const QHash<quint64, CWndPtr>& WindowList, int Index = 0);
 
-	virtual QVariant GetDefaultIcon() const;
+	bool m_bExtThreadId;
+
+	virtual QVariant		GetDefaultIcon() const;
 };

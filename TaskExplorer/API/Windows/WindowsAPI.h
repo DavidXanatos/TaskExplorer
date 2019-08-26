@@ -3,6 +3,7 @@
 #include "WinProcess.h"
 #include "WinSocket.h"
 #include "Monitors/EventMonitor.h"
+#include "SidResolver.h"
 #include "SymbolProvider.h"
 #include "WinService.h"
 #include "WinDriver.h"
@@ -36,7 +37,9 @@ public:
 
 	virtual bool UpdateDriverList();
 
-	virtual CSymbolProviderPtr GetSymbolProvider()		{ return m_pSymbolProvider; }
+	virtual CSymbolProvider* GetSymbolProvider()		{ return m_pSymbolProvider; }
+
+	virtual CSidResolver* GetSidResolver()				{ return m_pSidResolver; }
 
 	virtual quint64	GetCpuIdleCycleTime(int index);
 
@@ -92,7 +95,9 @@ protected:
 	// Guard it with m_ServiceMutex
 	QMultiMap<quint64, QString>	m_ServiceByPID;
 
-	CSymbolProviderPtr		m_pSymbolProvider;
+	CSymbolProvider*		m_pSymbolProvider;
+
+	CSidResolver*			m_pSidResolver;
 
 	// Guard it with		m_StatsMutex
 	quint32					m_TotalGuiObjects;
@@ -118,6 +123,7 @@ private:
 	void UpdateSambaStats();
 	quint64 UpdateCpuStats(bool SetCpuUsage);
 	quint64 UpdateCpuCycleStats();
+	void UpdateCPUCycles(quint64 TotalCycleTime, quint64 IdleCycleTime);
 	bool InitCpuCount();
 
 	QString GetFileNameByID(quint64 FileId) const;
@@ -130,3 +136,4 @@ private:
 };
 
 extern ulong g_fileObjectTypeIndex;
+extern ulong g_EtwRegistrationTypeIndex;

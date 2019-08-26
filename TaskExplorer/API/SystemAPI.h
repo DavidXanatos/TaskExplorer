@@ -256,3 +256,5 @@ protected:
 	static bool					UpdateOpenFileListAsync(CSystemAPI* This);
 	QFutureWatcher<bool>*		m_FileListUpdateWatcher;
 };
+
+extern CSystemAPI*		theAPI;

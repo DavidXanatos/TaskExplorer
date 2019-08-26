@@ -17,7 +17,7 @@ CStringModel::~CStringModel()
 void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	for (QMap<quint64, CStringInfoPtr>::const_iterator I = StringList.begin(); I != StringList.end(); ++I)
 	{
@@ -36,7 +36,7 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 		int Col = 0;
@@ -46,7 +46,7 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 		CProcessPtr pProcess = pString->GetProcess();
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid())
+		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
 		{
 			if (!pProcess.isNull())
 			{
@@ -60,6 +60,9 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 
 		for(int section = eProcess; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value;
 			switch(section)
 			{

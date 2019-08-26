@@ -52,6 +52,7 @@ public:
 	virtual int		GetGhostCount() const;
 
 	virtual QString GetPriorityString() const;
+	static QString GetPriorityString(ulong value);
 	virtual STATUS SetPriority(long Value);
 	virtual STATUS SetBasePriority(long Value)		{ return ERR(); }
 	virtual STATUS SetPagePriority(long Value);
@@ -102,6 +103,7 @@ public:
 	virtual bool IsServiceProcess() const;
 	virtual bool IsUserProcess() const;
 	virtual bool IsElevated() const;
+	virtual bool TokenHasChanged() const;
 	//virtual bool IsJobProcess() const;
 	virtual bool IsInJob() const;
 	virtual bool IsPicoProcess() const;
@@ -137,8 +139,6 @@ public:
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
 
 	virtual CWndPtr GetMainWindowHwnd() const;
-
-	virtual bool UpdateGDIList(QMap<quint64, CWinGDIPtr>& List) const;
 
 	struct STask
 	{
@@ -178,8 +178,10 @@ protected:
 	friend class CWindowsAPI;
 
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo);
-	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
-	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
+	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
+	bool UpdateTokenData(bool MonitorChange);
+	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 
 	void AddNetworkIO(int Type, ulong TransferSize);
@@ -213,3 +215,4 @@ private:
 	struct SWinProcess* m;
 };
 
+QVariantList GetProcessUnloadedDlls(quint64 ProcessId);

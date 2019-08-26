@@ -15,7 +15,7 @@ public:
 	virtual ~CSocketsView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 
 private slots:
@@ -33,6 +33,17 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pSocketModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 	
+	enum EView
+	{
+		eNone,
+		eSingle,
+		eMulti
+	};
+
+	virtual void			SwitchView(EView ViewMode);
+
+	EView					m_ViewMode;
+
 private:
 
 	QVBoxLayout*			m_pMainLayout;

@@ -23,12 +23,9 @@ extern "C" {
 #include "../Common/CheckableMessageBox.h"
 
 
-CSystemAPI*	theAPI = NULL;
-
 QIcon g_ExeIcon;
 QIcon g_DllIcon;
 
-CSettings* theConf = NULL;
 CTaskExplorer* theGUI = NULL;
 
 
@@ -178,11 +175,12 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	connect(m_pMainSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
 	connect(m_pPanelSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
 
-	connect(m_pProcessTree, SIGNAL(ProcessClicked(const CProcessPtr)), m_pTaskInfo, SLOT(ShowProcess(const CProcessPtr)));
+	//connect(m_pProcessTree, SIGNAL(ProcessClicked(const CProcessPtr)), m_pTaskInfo, SLOT(ShowProcess(const CProcessPtr)));
+	connect(m_pProcessTree, SIGNAL(ProcessesSelected(const QList<CProcessPtr>&)), m_pTaskInfo, SLOT(ShowProcesses(const QList<CProcessPtr>&)));
 
 
 #ifdef WIN32
-	connect(qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider().data(), SIGNAL(StatusMessage(const QString&)), this, SLOT(OnStatusMessage(const QString&)));
+	connect(qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider(), SIGNAL(StatusMessage(const QString&)), this, SLOT(OnStatusMessage(const QString&)));
 #endif
 
 
@@ -252,6 +250,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuPauseRefresh = m_pMenuView->addAction(MakeActionIcon(":/Actions/Pause"), tr("Pause Refresh"));
 		m_pMenuPauseRefresh->setCheckable(true);
 		m_pMenuRefreshNow = m_pMenuView->addAction(MakeActionIcon(":/Actions/Refresh"), tr("Refresh Now"), this, SLOT(UpdateAll()));
+		m_pMenuExpandAll = m_pMenuView->addAction(tr("Expand all"), m_pProcessTree, SLOT(OnExpandAll()));
 
 	m_pMenuFind = menuBar()->addMenu(tr("&Find"));
 		m_pMenuFindHandle = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindHandle"), tr("Find Handles"), this, SLOT(OnFindHandle()));
@@ -436,6 +435,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
 
 
+	m_LastTimer = 0;
 	//m_uTimerCounter = 0;
 	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
@@ -492,6 +492,9 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	if (pEvent->timerId() != m_uTimerID)
 		return;
 
+	if (GetCurTick() - m_LastTimer < theConf->GetInt("Options/RefreshInterval", 1000) / 2)
+		return;
+
 	UpdateUserMenu();
 
 	if(!m_pMenuPauseRefresh->isChecked())
@@ -504,6 +507,8 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 		m_pSystemInfo->UpdateGraphs();
 
 	UpdateStatus();
+
+	m_LastTimer = GetCurTick();
 }
 
 void CTaskExplorer::UpdateAll()
@@ -1037,7 +1042,7 @@ void CTaskExplorer::OnReloadService()
 }
 
 #ifdef WIN32
-NTSTATUS PhpOpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+NTSTATUS NTAPI CTaskExplorer_OpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
     SC_HANDLE serviceHandle;
     if (serviceHandle = OpenSCManager(NULL, NULL, DesiredAccess))
@@ -1052,7 +1057,7 @@ NTSTATUS PhpOpenServiceControlManager(_Out_ PHANDLE Handle, _In_ ACCESS_MASK Des
 void CTaskExplorer::OnSCMPermissions()
 {
 #ifdef WIN32
-	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", (PPH_OPEN_OBJECT)PhpOpenServiceControlManager, NULL, NULL);
+	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", CTaskExplorer_OpenServiceControlManager, NULL, NULL);
 #endif
 }
 
@@ -1206,6 +1211,9 @@ QColor CTaskExplorer::GetColor(int Color)
 	case eToBeRemoved:	ColorStr = theConf->GetString("Colors/ToBeRemoved", "#F08080"); break;
 	case eAdded:		ColorStr = theConf->GetString("Colors/NewlyCreated", "#00FF7F"); break;
 	
+#ifdef WIN32
+	case eDange:		ColorStr = theConf->GetString("Colors/DangerousProcess", "#FF0000"); break;
+#endif
 	case eSystem:		ColorStr = theConf->GetString("Colors/SystemProcess", "#AACCFF"); break;
 	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFF80"); break;
 	case eService:		ColorStr = theConf->GetString("Colors/ServiceProcess", "#80FFFF"); break;

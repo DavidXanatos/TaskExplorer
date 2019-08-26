@@ -88,7 +88,7 @@ private:
 	QGroupBox*				m_pSwapBox;
 	QGridLayout*			m_pSwapLayout;
 
-	CPanelWidget<QTreeWidgetEx>* m_pSwapList;
+	CPanelWidgetEx* m_pSwapList;
 
 #ifdef WIN32
 	QWidget*				m_pListsWidget;

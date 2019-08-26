@@ -13,6 +13,8 @@ public:
 
 	void			Sync(QMap<quint64, CThreadPtr> ThreadList);
 
+	void			SetExtThreadId(bool bSet) { m_bExtThreadId = bSet; }
+
 	CThreadPtr		GetThread(const QModelIndex &index) const;
 
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
@@ -66,5 +68,9 @@ protected:
 		int					iColor;
 	};
 
+	bool m_bExtThreadId;
+
 	virtual SListNode* MkNode(const QVariant& Id) { return new SThreadNode(Id); }
+
+	virtual QVariant GetDefaultIcon() const;
 };

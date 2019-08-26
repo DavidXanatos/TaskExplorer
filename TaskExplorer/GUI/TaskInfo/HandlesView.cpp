@@ -6,6 +6,7 @@
 #include "../../API/Windows/WinHandle.h"
 #include "../../API/Windows/ProcessHacker.h"
 #include "../../API/Windows/WinMemIO.h"
+#include "../../API/Windows/WindowsAPI.h"
 #endif
 #include "TaskInfoWindow.h"
 #include "TokenView.h"
@@ -16,6 +17,8 @@
 CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	:CPanelView(parent)
 {
+	m_PendingUpdates = 0;
+
 	m_ShowAllFiles = iAll;
 
 	m_pMainLayout = new QVBoxLayout();
@@ -36,24 +39,8 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 		m_pShowType = new QComboBox();
 		m_pFilterLayout->addWidget(m_pShowType);
 
-		m_pShowType->addItem(tr("All"), "");
-		/*
-		m_pShowType->addItem(tr("File"), "File");
-		m_pShowType->addItem(tr("Keys"), "Key");
-		m_pShowType->addItem(tr("ALPC Ports"), "ALPC Port");
-		m_pShowType->addItem(tr("Sections"), "Section");
-		m_pShowType->addItem(tr("Mutants"), "Mutant");
-		m_pShowType->addItem(tr("Processes"), "Process");
-		m_pShowType->addItem(tr("Threads"), "Thread");
-		m_pShowType->addItem(tr("Tokens"), "Token");
-		m_pShowType->addItem(tr("Desktops"), "Desktop");
-		m_pShowType->addItem(tr("Events"), "Event");
-		m_pShowType->addItem(tr("Event Pairs"), "EventPair");
-		m_pShowType->addItem(tr("Jobs"), "Job");
-		m_pShowType->addItem(tr("Semaphores"), "Semaphore");
-		m_pShowType->addItem(tr("Timers"), "Timer");
-		m_pShowType->addItem(tr("Worker Factories"), "TpWorkerFactory");
-		*/
+		//m_pShowType->addItem(tr("All"), "");
+		m_pShowType->addItem(tr("All"), -1);
 
 		POBJECT_TYPES_INFORMATION objectTypes;
 		if (NT_SUCCESS(PhEnumObjectTypes(&objectTypes)))
@@ -63,7 +50,15 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 			{
 				QString Type = QString::fromWCharArray(objectType->TypeName.Buffer, objectType->TypeName.Length / sizeof(wchar_t));
 
-				m_pShowType->addItem(Type, Type);
+				//m_pShowType->addItem(Type, Type);
+
+				int objectIndex;
+				if (WindowsVersion >= WINDOWS_8_1)
+					objectIndex = objectType->TypeIndex;
+				else
+					objectIndex = i + 2;
+
+				m_pShowType->addItem(Type, objectIndex);
 
 				objectType = (POBJECT_TYPE_INFORMATION)PH_NEXT_OBJECT_TYPE(objectType);
 			}
@@ -89,7 +84,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 //#endif
 		//m_pFilterLayout->addWidget(m_pShowDetails);
 
-		m_pShowType->setCurrentIndex(m_pShowType->findData(theConf->GetString("HandleView/ShowType", "")));
+		m_pShowType->setCurrentIndex(m_pShowType->findText(theConf->GetString("HandleView/ShowType", "")));
 		m_pHideUnnamed->setChecked(theConf->GetBool("HandleView/HideUnNamed", false));
 		m_pHideETW->setChecked(theConf->GetBool("HandleView/HideETW", true));
 		//m_pShowDetails->setChecked(theConf->GetBool("HandleView/ShowDetails", false));
@@ -111,7 +106,8 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	// Handle List
 	m_pHandleModel = new CHandleModel();
 	
-	m_pSortProxy = new CHandleFilterModel(false, this);
+	//m_pSortProxy = new CHandleFilterModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(false, this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pHandleModel);
 	m_pSortProxy->setDynamicSortFilter(true);
@@ -128,8 +124,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 
 	if (iAll == 0)
 		UpdateFilter();
-	else
-		m_pHandleModel->SetUseIcons(true);
+	m_pHandleModel->SetUseIcons(true);
 
 	m_pHandleList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pHandleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
@@ -143,7 +138,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	{
 		m_pHandleDetails = NULL;
 
-		connect(theAPI, SIGNAL(OpenFileListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+		connect(theAPI, SIGNAL(OpenFileListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowOpenFiles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
 	else
 	{
@@ -151,7 +146,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 		connect(m_pHandleList->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), this, SLOT(OnItemSelected(QModelIndex)));
 
 		// Handle Details
-		m_pHandleDetails = new CPanelWidget<QTreeWidgetEx>();
+		m_pHandleDetails = new CPanelWidgetEx();
 
 		m_pHandleDetails->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 		((QTreeWidgetEx*)m_pHandleDetails->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
@@ -167,51 +162,31 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 		m_pHandleDetails->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/HandlesDetail_Columns"));
 	}
 
-
-	if (iAll == 0)
+	//if (iAll != 0)
+	if (iAll == 2)
 	{
-		m_pHandleList->setColumnFixed(CHandleModel::eProcess, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eProcess, true);
+		m_pHandleList->SetColumnHidden(CHandleModel::ePosition, true, true);
+		m_pHandleList->SetColumnHidden(CHandleModel::eSize, true, true);
 	}
-	else
-	{
-		m_pHandleList->setColumnFixed(CHandleModel::ePosition, true);
-		m_pHandleList->setColumnHidden(CHandleModel::ePosition, true);
-		m_pHandleList->setColumnFixed(CHandleModel::eSize, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eSize, true);
 
-		if (iAll == 1)
-		{
-			m_pHandleList->setColumnFixed(CHandleModel::eType, true);
-			m_pHandleList->setColumnHidden(CHandleModel::eType, true);
+	if (iAll == 1)
+	{
+		m_pHandleList->SetColumnHidden(CHandleModel::eType, true, true);
 #ifdef WIN32
-			m_pHandleList->setColumnFixed(CHandleModel::eAttributes, true);
-			m_pHandleList->setColumnHidden(CHandleModel::eAttributes, true);
-			m_pHandleList->setColumnFixed(CHandleModel::eObjectAddress, true);
-			m_pHandleList->setColumnHidden(CHandleModel::eObjectAddress, true);
-			m_pHandleList->setColumnFixed(CHandleModel::eOriginalName, true);
-			m_pHandleList->setColumnHidden(CHandleModel::eOriginalName, true);
+		m_pHandleList->SetColumnHidden(CHandleModel::eAttributes, true, true);
+		m_pHandleList->SetColumnHidden(CHandleModel::eObjectAddress, true, true);
+		m_pHandleList->SetColumnHidden(CHandleModel::eOriginalName, true, true);
 #endif
-		}
 	}
 
+	m_ViewMode = eNone;
 	setObjectName(parent->objectName());
-	QByteArray Columns = theConf->GetBlob(objectName() + "/HandlesView_Columns");
-	if (Columns.isEmpty())
-	{
-		//m_pHandleList->setColumnHidden(CHandleModel::eGrantedAccess, true);
-		//m_pHandleList->setColumnHidden(CHandleModel::eFileShareAccess, true);
-#ifdef WIN32
-		m_pHandleList->setColumnHidden(CHandleModel::eAttributes, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eObjectAddress, true);
-		m_pHandleList->setColumnHidden(CHandleModel::eOriginalName, true);
-#endif
-	}
-	else
-		m_pHandleList->header()->restoreState(Columns);
+	SwitchView(eSingle);
+
 	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Splitter"));
 
-
+	connect(m_pHandleList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+	OnColumnsChanged();
 
 	//m_pMenu = new QMenu();
 	m_pOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
@@ -266,26 +241,81 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 
 CHandlesView::~CHandlesView()
 {
-	theConf->SetBlob(objectName() + "/HandlesView_Columns", m_pHandleList->header()->saveState());
+	SwitchView(eNone);
 	theConf->SetBlob(objectName() + "/HandlesView_Splitter",m_pSplitter->saveState());
 	if(m_pHandleDetails)
 		theConf->SetBlob(objectName() + "/HandlesDetail_Columns", m_pHandleDetails->GetView()->header()->saveState());
 }
 
-void CHandlesView::ShowProcess(const CProcessPtr& pProcess)
+void CHandlesView::SwitchView(EView ViewMode)
+{
+	switch (m_ViewMode)
+	{
+		case eSingle:	theConf->SetBlob(objectName() + "/HandlesView_Columns", m_pHandleList->saveState()); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/HandlesMultiView_Columns", m_pHandleList->saveState()); break;
+	}
+
+	m_ViewMode = ViewMode;
+
+	QByteArray Columns;
+	switch (m_ViewMode)
+	{
+		case eSingle:	Columns = theConf->GetBlob(objectName() + "/HandlesView_Columns"); break;
+		case eMulti:	Columns = theConf->GetBlob(objectName() + "/HandlesMultiView_Columns"); break;
+		default:
+			return;
+	}
+	
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pHandleModel->columnCount(); i++)
+			m_pHandleList->SetColumnHidden(i, true);
+
+		if (m_ViewMode == eMulti)
+			m_pHandleList->SetColumnHidden(CHandleModel::eProcess, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::eHandle, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::eType, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::eName, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::ePosition, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::eSize, false);
+		//m_pHandleList->SetColumnHidden(CHandleModel::eRefs, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::eGrantedAccess, false);
+#ifdef WIN32
+		m_pHandleList->SetColumnHidden(CHandleModel::eFileShareAccess, false);
+#endif
+	}
+	else
+		m_pHandleList->restoreState(Columns);
+}
+
+
+void CHandlesView::OnColumnsChanged()
+{
+	// automatically set the setting based on wether the columns are checked or not
+	theConf->SetValue("Options/OpenFileGetPosition", 
+		m_pHandleModel->IsColumnEnabled(CHandleModel::ePosition) 
+	 || m_pHandleModel->IsColumnEnabled(CHandleModel::eSize)
+	);
+}
+
+void CHandlesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
 	if (m_ShowAllFiles) {
 		ASSERT(0);
 		return;
 	}
 
-	if (m_pCurProcess != pProcess)
+	if (m_Processes != Processes)
 	{
 		disconnect(this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-		m_pCurProcess = pProcess;
+		m_Processes = Processes;
+		m_PendingUpdates = 0;
 
-		connect(m_pCurProcess.data(), SIGNAL(HandlesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+		SwitchView(m_Processes.size() > 1 ? eMulti : eSingle);
+
+		foreach(const CProcessPtr& pProcess, m_Processes)
+			connect(pProcess.data(), SIGNAL(HandlesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowHandles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
 
 	Refresh();
@@ -297,22 +327,67 @@ void CHandlesView::Refresh()
 	{
 		theAPI->UpdateOpenFileListAsync();
 	}
-	else if(m_pCurProcess)
+	else
 	{
-		QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateHandles()));
+		if (m_PendingUpdates > 0)
+			return;
+
+		m_PendingUpdates = 0;
+		foreach(const CProcessPtr& pProcess, m_Processes)
+		{
+			m_PendingUpdates++;
+			QTimer::singleShot(0, pProcess.data(), SLOT(UpdateHandles()));
+		}
 	}
 }
 
 void CHandlesView::ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	if (m_ShowAllFiles == 1)
+	/*if(m_Processes.count() == 1)
 	{
-		ShowHandles(theAPI->GetOpenFilesList());
+		m_PendingUpdates = 0;
+
+		ShowHandles(m_Processes.first()->GetHandleList());
 	}
-	else if (m_pCurProcess)
+	else*/
 	{
-		ShowHandles(m_pCurProcess->GetHandleList());
+		if (--m_PendingUpdates != 0)
+			return;
+
+		int ShowType = m_pShowType->currentData().toInt();
+		bool HideUnnamed = m_pHideUnnamed->isChecked();
+		bool HideETW = m_pHideETW->isChecked();
+
+		QMap<quint64, CHandlePtr> AllHandles;
+		foreach(const CProcessPtr& pProcess, m_Processes) {
+			QMap<quint64, CHandlePtr> Handles = pProcess->GetHandleList();
+			for (QMap<quint64, CHandlePtr>::iterator I = Handles.begin(); I != Handles.end(); I++)
+			{
+				const CHandlePtr& pHandle = I.value();
+				if (ShowType != -1 && ShowType != pHandle->GetTypeIndex())
+					continue;
+				if (HideUnnamed && pHandle->GetFileName().isEmpty())
+					continue;
+#ifdef WIN32
+				if(HideETW && g_EtwRegistrationTypeIndex == pHandle->GetTypeIndex())
+					continue;
+#endif
+
+				ASSERT(!AllHandles.contains(I.key()));
+				AllHandles.insert(I.key(), I.value());
+			}
+		}
+		ShowHandles(AllHandles);
 	}
+}
+
+void CHandlesView::ShowOpenFiles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
+{
+	bool bGetDanymicData = theConf->GetBool("Options/OpenFileGetPosition", false);
+
+	m_pHandleModel->SetSizePosNA(!bGetDanymicData);
+
+	ShowHandles(theAPI->GetOpenFilesList());
 }
 
 void CHandlesView::ShowHandles(const QMap<quint64, CHandlePtr>& Handles)
@@ -323,7 +398,7 @@ void CHandlesView::ShowHandles(const QMap<quint64, CHandlePtr>& Handles)
 void CHandlesView::UpdateFilter()
 {
 #ifdef WIN32
-    UpdateFilter(m_pShowType->currentData().toString());
+    UpdateFilter(m_pShowType->currentText());
 #endif
 }
 
@@ -333,7 +408,7 @@ void CHandlesView::UpdateFilter(const QString & filter)
 	theConf->SetValue("HandleView/ShowType", filter);
 	theConf->SetValue("HandleView/HideUnNamed", m_pHideUnnamed->isChecked());
 	theConf->SetValue("HandleView/HideETW", m_pHideETW->isChecked());
-	m_pSortProxy->SetFilter(filter, m_pHideUnnamed->isChecked(), m_pHideETW->isChecked());
+	//m_pSortProxy->SetFilter(filter, m_pHideUnnamed->isChecked(), m_pHideETW->isChecked());
 #endif
 }
 
@@ -408,7 +483,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Count"), CWinHandle::GetFileAccessMode(HandleInfo.Mutant.Count));
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Abandoned"), HandleInfo.Mutant.Abandoned ? tr("True") : tr("False"));
 		CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo.Task.TID);
-		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID));
 	}
 	else if(TypeName == "Process" || TypeName == "Thread")
 	{
@@ -421,7 +496,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		else
 		{
 			CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo.Task.TID);
-			Name = tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID);
+			Name = tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(HandleInfo.Task.PID).arg(HandleInfo.Task.TID);
 		}
 
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Name"), Name);
@@ -638,7 +713,6 @@ void CHandlesView::OnDoubleClicked()
 	else if (Type == "Section")
 	{
 		// Read/Write &memory
-
 		CWinMemIO* pDevice = CWinMemIO::FromHandle(pHandle->GetProcessId(), pHandle->GetHandleId());
 		if (!pDevice) {
 			QMessageBox("TaskExplorer", tr("This memory region can not be edited"), QMessageBox::Warning, QMessageBox::Ok, QMessageBox::NoButton, QMessageBox::NoButton).exec();
@@ -646,7 +720,8 @@ void CHandlesView::OnDoubleClicked()
 		}
 
 		CMemoryEditor* pEditor = new CMemoryEditor();
-		pEditor->setWindowTitle(tr("Memory Editor: %1 (%2)").arg(m_pCurProcess->GetName()).arg(m_pCurProcess->GetParentId()));
+		if(CProcessPtr pProcess = pHandle->GetProcess().objectCast<CProcessInfo>())
+			pEditor->setWindowTitle(tr("Memory Editor: %1 (%2)").arg(pProcess->GetName()).arg(pProcess->GetParentId()));
 		pEditor->setDevice(pDevice);
 		pEditor->show();
 	}
@@ -682,7 +757,7 @@ void CHandlesView::OnDoubleClicked()
 		// unix
 #endif
 
-		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pProcess, ThreadId);
+		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << pProcess, ThreadId);
 		pTaskInfoWindow->show();
 	}
 }

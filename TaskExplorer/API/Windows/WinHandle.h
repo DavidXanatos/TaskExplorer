@@ -14,6 +14,8 @@ public:
 	CWinHandle(QObject *parent = nullptr);
 	virtual ~CWinHandle();
 
+	static quint64 MakeID(quint64 HandleValue, quint64 UniqueProcessId);
+
 	virtual quint64 GetObjectAddress()	const		{ QReadLocker Locker(&m_Mutex); return m_Object; }
 	
 	virtual ulong GetAttributes() const				{ QReadLocker Locker(&m_Mutex); return m_Attributes; }

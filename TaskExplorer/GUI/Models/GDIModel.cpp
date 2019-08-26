@@ -15,7 +15,7 @@ CGDIModel::~CGDIModel()
 void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CWinGDIPtr& pGDI, List)
 	{
@@ -33,7 +33,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 		int Col = 0;
@@ -56,10 +56,14 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 		for(int section = eHandle; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value;
 			switch(section)
 			{
 				case eHandle:			Value = (quint32)pGDI->GetHandleId(); break;
+				case eProcess:			Value = pGDI->GetProcessId();  break;
 				case eType:				Value = pGDI->GetTypeString(); break;
 				case eObject:			Value = pGDI->GetObject(); break;
 				case eInformation:		Value = pGDI->GetInformations(); break;
@@ -75,6 +79,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 				switch (section)
 				{
+					case eProcess:	ColValue.Formated = tr("%1 (%2)").arg(pGDI->GetProcessName()).arg(pGDI->GetProcessId()); 
 					case eHandle:	ColValue.Formated = "0x" + QString::number(Value.toUInt(), 16); break;
                     case eObject:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;
 				}
@@ -119,6 +124,7 @@ QVariant CGDIModel::headerData(int section, Qt::Orientation orientation, int rol
 		switch(section)
 		{
 			case eHandle:			return tr("Handle");
+			case eProcess:			return tr("Process");
 			case eType:				return tr("Type");
 			case eObject:			return tr("Object");
 			case eInformation:		return tr("Informations");

@@ -27,7 +27,6 @@
 #include <settings.h>
 
 #include "../../SVC/TaskService.h"
-#include "../../GUI/TaskExplorer.h"
 
 QString CastPhString(PPH_STRING phString, bool bDeRef)
 {

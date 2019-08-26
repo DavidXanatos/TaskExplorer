@@ -25,11 +25,14 @@ public slots:
 
 	//void					OnMenu(const QPoint &point);
 
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					ShowSystem();
 #ifdef WIN32
 	void					ShowJob(const CWinJobPtr& pCurJob);
 #endif
+
+private slots:
+	void					SetFilter(const QRegExp& Exp, bool bHighLight = false, int Col = -1); // -1 = any
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);

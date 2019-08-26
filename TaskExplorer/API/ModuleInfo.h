@@ -28,6 +28,9 @@ public:
 	virtual void SetFirst(bool bSet = true)					{ QWriteLocker Locker(&m_Mutex); m_IsFirst = bSet; }
 	virtual bool IsFirst() const							{ QReadLocker Locker(&m_Mutex); return m_IsFirst; }
 
+	virtual void SetLoaded(bool bSet)						{ QWriteLocker Locker(&m_Mutex); m_IsLoaded = bSet; }
+	virtual bool IsLoaded() const							{ QReadLocker Locker(&m_Mutex); return m_IsLoaded; }
+
 	virtual void SetFileInfos(const QMap<QString, QString>&	FileDetails) { QWriteLocker Locker(&m_Mutex); m_FileDetails = FileDetails; }
 	virtual QString GetFileInfo(const QString& Name) const	{ QReadLocker Locker(&m_Mutex); return m_FileDetails[Name]; }
 
@@ -50,6 +53,7 @@ protected:
 	quint64						m_Size;
     quint64						m_ParentBaseAddress;
 	bool						m_IsFirst;
+	bool						m_IsLoaded;
 
 	QMap<QString, QString>		m_FileDetails;
 

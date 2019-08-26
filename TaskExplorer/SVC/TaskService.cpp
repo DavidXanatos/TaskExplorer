@@ -1,14 +1,16 @@
 #include "stdafx.h"
 #include "TaskService.h"
 #include "../Common/Common.h"
+#include "../Common/Settings.h"
+#include "../API/SystemAPI.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "../API/Windows/WinDumper.h"
 #include "../API/Windows/SymbolProvider.h"
 #include "../API/Windows/WinAdmin.h"
+#include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WinThread.h"
 #include "../API/Windows/WinSocket.h"
-#include "../GUI/TaskExplorer.h"
 
 // we need to adjust the pipe permissions in order to allow a user process to communicate with a service
 #include <aclapi.h>
@@ -169,6 +171,10 @@ void CTaskService::receiveConnection()
 	else if (Command == "GetClrThreadAppDomain")
 	{
 		Response = SvcGetClrThreadAppDomain(Parameters);
+	}
+	else if (Command == "GetProcessUnloadedDlls")
+	{
+		Response = GetProcessUnloadedDlls(Parameters["ProcessId"].toULongLong());
 	}
 	else if (Command == "ExecTaskAction")
 	{

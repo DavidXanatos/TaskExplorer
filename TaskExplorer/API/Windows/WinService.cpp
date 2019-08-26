@@ -24,7 +24,6 @@
 
 
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinService.h"
 #include "WinModule.h"
 #include "WindowsAPI.h"
@@ -514,7 +513,7 @@ STATUS CWinService::Delete(bool bForce)
 	return OK;
 }
 
-static NTSTATUS PhpOpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinService__OpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
 	SC_HANDLE serviceHandle;
 	wstring* pName = ((wstring*)Context);
@@ -528,10 +527,9 @@ static NTSTATUS PhpOpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAcc
 	return PhGetLastWin32ErrorAsNtStatus();
 }
 
-NTSTATUS PhpCloseServiceCallback(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinService__cbPermissionsClosed(_In_opt_ PVOID Context)
 {
 	wstring* pName = ((wstring*)Context);
-
 	delete pName;
 
 	return STATUS_SUCCESS;
@@ -539,9 +537,9 @@ NTSTATUS PhpCloseServiceCallback(_In_opt_ PVOID Context)
 
 void CWinService::OpenPermissions()
 {
-	QReadLocker Locker(&m_Mutex);
 
 	wstring* pName = new wstring;
-	*pName = m_SvcName.toStdWString();
-	PhEditSecurity(NULL, (wchar_t*)m_DisplayName.toStdWString().c_str(), L"Service", (PPH_OPEN_OBJECT)PhpOpenService, (PPH_CLOSE_OBJECT)PhpCloseServiceCallback, pName);
+	*pName = GetName().toStdWString();
+
+	PhEditSecurity(NULL, (wchar_t*)m_DisplayName.toStdWString().c_str(), L"Service", CWinService__OpenService, CWinService__cbPermissionsClosed, pName);
 }

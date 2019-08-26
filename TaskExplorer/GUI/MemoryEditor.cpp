@@ -10,6 +10,8 @@ CMemoryEditor::CMemoryEditor(QWidget *parent)
 	init();
 	emptyAct->setEnabled(false);
 	hexEdit->setDisableInsert(true);
+
+	this->setWindowTitle(tr("Memory Editor"));
 }
 
 CMemoryEditor::~CMemoryEditor()

@@ -66,8 +66,7 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	}
 	else
 	{
-		m_pModuleList->setColumnHidden(CModuleModel::eModuleFile, true);
-		m_pModuleList->setColumnFixed(CModuleModel::eModuleFile, true);
+		m_pModuleList->SetColumnHidden(CModuleModel::eModuleFile, true, true);
 	}
 
 	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
@@ -87,27 +86,38 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	if (Columns.isEmpty())
 	{
 		for (int i = 0; i < m_pModuleModel->columnCount(); i++)
-			m_pModuleList->setColumnHidden(i, true);
+			m_pModuleList->SetColumnHidden(i, true);
 
-		m_pModuleList->setColumnHidden(CModuleModel::eModule, false);
-		m_pModuleList->setColumnHidden(CModuleModel::eBaseAddress, false);
-		m_pModuleList->setColumnHidden(CModuleModel::eSize, false);
+		m_pModuleList->SetColumnHidden(CModuleModel::eModule, false);
+		m_pModuleList->SetColumnHidden(CModuleModel::eBaseAddress, false);
+		m_pModuleList->SetColumnHidden(CModuleModel::eSize, false);
 #ifdef WIN32
-		m_pModuleList->setColumnHidden(CModuleModel::eDescription, false);
+		m_pModuleList->SetColumnHidden(CModuleModel::eDescription, false);
 #endif
-		m_pModuleList->setColumnHidden(CModuleModel::eFileName, false);
+		m_pModuleList->SetColumnHidden(CModuleModel::eFileName, false);
 	}
 	else
-		m_pModuleList->header()->restoreState(Columns);
+		m_pModuleList->restoreState(Columns);
 }
 
 CModulesView::~CModulesView()
 {
-	theConf->SetBlob(objectName() + "/ModulesView_Columns", m_pModuleList->header()->saveState());
+	theConf->SetBlob(objectName() + "/ModulesView_Columns", m_pModuleList->saveState());
 }
 
-void CModulesView::ShowProcess(const CProcessPtr& pProcess)
+void CModulesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
+	CProcessPtr pProcess;
+	if (Processes.count() > 1)
+	{
+		setEnabled(false);
+	}
+	else if(!Processes.isEmpty())
+	{
+		setEnabled(true);
+		pProcess = Processes.first();
+	}
+
 	if (m_pCurProcess != pProcess)
 	{
 		disconnect(this, SLOT(OnModulesUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
@@ -152,10 +162,17 @@ void CModulesView::ShowModules(const QMap<quint64, CModulePtr>& Modules)
 
 void CModulesView::OnMenu(const QPoint &point)
 {
-	QModelIndex Index = m_pModuleList->currentIndex();
-	
+	int Loaded = 0;
+	foreach(const QModelIndex& Index, m_pModuleList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CModulePtr pModule = m_pModuleModel->GetModule(ModelIndex);
+		if (pModule->IsLoaded())
+			Loaded++;
+	}
+
 	m_pOpen->setEnabled(m_pModuleList->selectedRows().count() == 1);
-	m_pUnload->setEnabled(Index.isValid());
+	m_pUnload->setEnabled(Loaded > 0);
 	
 	CPanelView::OnMenu(point);
 }

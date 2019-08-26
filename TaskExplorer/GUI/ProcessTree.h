@@ -17,6 +17,10 @@ public:
 
 signals:
 	void					ProcessClicked(const CProcessPtr& pProcess);
+	void					ProcessesSelected(const QList<CProcessPtr>& Processes);
+
+public slots:
+	void					OnExpandAll();
 
 private slots:
 	void					OnTreeEnabled(bool bEnabled);
@@ -26,9 +30,14 @@ private slots:
 	void					OnUpdateHistory();
 
 	//void					OnClicked(const QModelIndex& Index);
-	void					OnDoubleClicked(const QModelIndex& Index);
+	//void					OnDoubleClicked(const QModelIndex& Index);
 	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
-	
+	void					OnSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected);
+
+	void					OnColumnsChanged();
+
+	void					OnShowProperties();
+
 	void					OnHeaderMenu(const QPoint& Point);
 	void					OnHeaderMenu();
 	
@@ -43,9 +52,22 @@ private slots:
 	void					OnPermissions();
 
 protected:
+	template <class T>
+	QList<T>					GetSellectedProcesses()
+	{
+		QList<T> List;
+		foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
+		{
+			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+			CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+			if(!pProcess.isNull())
+				List.append(pProcess);
+		}
+		return List;
+	}
 	virtual QList<CTaskPtr>		GetSellectedTasks();
 
-	void					UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History);
+	void						UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History);
 
 	virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView() 				{ return m_pProcessList->GetView(); }
@@ -85,13 +107,14 @@ private:
 
 	//QAction*				m_pTerminateTree;
 	QAction*				m_pBringInFront;
+	QAction*				m_pShowProperties;
 	QAction*				m_pOpenPath;
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pRunAsThis;
 	QAction*				m_pCreateDump;
 	QAction*				m_pDebug; // []
 #ifdef WIN32
-	QAction*				m_pVirtualization; // []
+	//QAction*				m_pVirtualization; // []
 	//QAction*				m_pWindows;
 	QAction*				m_pCritical; // []
 	QAction*				m_pReduceWS;

@@ -20,6 +20,7 @@ public:
 	virtual quint64 GetParentWnd() const		{ QReadLocker Locker(&m_Mutex); return m_ParentWnd; }
 	virtual quint64 GetProcessId() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 	virtual quint64 GetThreadId() const			{ QReadLocker Locker(&m_Mutex); return m_ThreadId; }
+	virtual QString GetProcessName() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
 
 	virtual QString GetWindowTitle() const		{ QReadLocker Locker(&m_Mutex); return m_WindowTitle; }
 	virtual bool IsVisible() const				{ QReadLocker Locker(&m_Mutex); return m_WindowVisible; }
@@ -49,6 +50,7 @@ protected:
 	quint64			m_ParentWnd;
 	quint64			m_ProcessId;
     quint64			m_ThreadId;
+	QString			m_ProcessName;
 
 	QString			m_WindowTitle;
 	bool			m_WindowVisible;

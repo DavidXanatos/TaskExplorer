@@ -45,68 +45,15 @@
         <enum>QTabWidget::North</enum>
        </property>
        <property name="currentIndex">
-        <number>2</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="tab">
         <attribute name="title">
          <string>Options</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_4">
-         <item row="0" column="0">
+         <item row="1" column="0">
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="12" column="0">
-            <widget class="QLabel" name="label_10">
-             <property name="text">
-              <string>Infos in tray:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="11" column="1">
-            <widget class="QCheckBox" name="chkShowTray">
-             <property name="text">
-              <string>Show Sys-Tray</string>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="1">
-            <widget class="QCheckBox" name="chkUndecorate">
-             <property name="text">
-              <string>Undecorate symbols</string>
-             </property>
-            </widget>
-           </item>
-           <item row="6" column="0">
-            <widget class="QLabel" name="label_6">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Symbol options</string>
-             </property>
-            </widget>
-           </item>
-           <item row="15" column="2">
-            <spacer name="horizontalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="8" column="1" colspan="2">
-            <widget class="QLineEdit" name="symbolPath"/>
-           </item>
            <item row="0" column="0">
             <widget class="QLabel" name="label_4">
              <property name="font">
@@ -117,120 +64,6 @@
              </property>
              <property name="text">
               <string>General options</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="1">
-            <widget class="QSpinBox" name="refreshInterval">
-             <property name="maximum">
-              <number>10000</number>
-             </property>
-             <property name="singleStep">
-              <number>250</number>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_9">
-             <property name="text">
-              <string>Refresh interval:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="15" column="0">
-            <spacer name="horizontalSpacer_3">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="4" column="2">
-            <widget class="QLabel" name="label_11">
-             <property name="text">
-              <string>seconds</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QCheckBox" name="chkShow32">
-             <property name="text">
-              <string>Append &quot;*32&quot; to WoW64 processes</string>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="3">
-            <widget class="QCheckBox" name="chkSymbolPath">
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-           <item row="15" column="1">
-            <spacer name="verticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="13" column="1">
-            <widget class="QCheckBox" name="chkToTray">
-             <property name="text">
-              <string>Close to Sys-Tray</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="2">
-            <widget class="QLabel" name="label_12">
-             <property name="text">
-              <string>milliseconds</string>
-             </property>
-            </widget>
-           </item>
-           <item row="12" column="1">
-            <widget class="QComboBox" name="trayMode"/>
-           </item>
-           <item row="4" column="0">
-            <widget class="QLabel" name="label_8">
-             <property name="text">
-              <string>Graph length:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="1">
-            <widget class="QSpinBox" name="graphLength">
-             <property name="maximum">
-              <number>1800</number>
-             </property>
-             <property name="singleStep">
-              <number>60</number>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="0">
-            <widget class="QLabel" name="label_7">
-             <property name="text">
-              <string>Symbol path:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -247,7 +80,108 @@
              </property>
             </widget>
            </item>
+           <item row="7" column="1">
+            <widget class="QCheckBox" name="chkShow32">
+             <property name="text">
+              <string>Append &quot;*32&quot; to WoW64 processes</string>
+             </property>
+            </widget>
+           </item>
+           <item row="11" column="1">
+            <widget class="QCheckBox" name="chkShowTray">
+             <property name="text">
+              <string>Show Sys-Tray</string>
+             </property>
+            </widget>
+           </item>
+           <item row="15" column="2">
+            <spacer name="horizontalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="5" column="1">
+            <widget class="QSpinBox" name="refreshInterval">
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="singleStep">
+              <number>250</number>
+             </property>
+            </widget>
+           </item>
+           <item row="12" column="0">
+            <widget class="QLabel" name="label_10">
+             <property name="text">
+              <string>Infos in tray:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="2">
+            <widget class="QLabel" name="label_12">
+             <property name="text">
+              <string>milliseconds</string>
+             </property>
+            </widget>
+           </item>
+           <item row="15" column="1">
+            <spacer name="verticalSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_8">
+             <property name="text">
+              <string>Graph length:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_9">
+             <property name="text">
+              <string>Refresh interval:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="2">
+            <widget class="QLabel" name="label_11">
+             <property name="text">
+              <string>seconds</string>
+             </property>
+            </widget>
+           </item>
            <item row="1" column="1">
+            <widget class="QCheckBox" name="chkUseCycles">
+             <property name="text">
+              <string>Use cycle count to calculate CPU Usage</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
             <widget class="QCheckBox" name="chkLinuxStyle">
              <property name="text">
               <string>Show CPU Usage like on Linux</string>
@@ -257,7 +191,40 @@
              </property>
             </widget>
            </item>
-           <item row="5" column="1">
+           <item row="6" column="1">
+            <widget class="QSpinBox" name="graphLength">
+             <property name="maximum">
+              <number>1800</number>
+             </property>
+             <property name="singleStep">
+              <number>60</number>
+             </property>
+            </widget>
+           </item>
+           <item row="13" column="1">
+            <widget class="QCheckBox" name="chkToTray">
+             <property name="text">
+              <string>Close to Sys-Tray</string>
+             </property>
+            </widget>
+           </item>
+           <item row="15" column="0">
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="12" column="1">
+            <widget class="QComboBox" name="trayMode"/>
+           </item>
+           <item row="8" column="1" colspan="2">
             <widget class="QCheckBox" name="chkUdpCons">
              <property name="text">
               <string>Show Pseudo UDP Connections</string>
@@ -340,45 +307,6 @@
         <layout class="QGridLayout" name="gridLayout_6">
          <item row="0" column="0">
           <layout class="QGridLayout" name="gridLayout_5">
-           <item row="3" column="2">
-            <spacer name="horizontalSpacer_5">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="3" column="0">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_15">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Driver Options</string>
-             </property>
-            </widget>
-           </item>
            <item row="1" column="0">
             <widget class="QLabel" name="label_14">
              <property name="text">
@@ -399,7 +327,60 @@
              </property>
             </widget>
            </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_15">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Driver Options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Symbol options</string>
+             </property>
+            </widget>
+           </item>
            <item row="3" column="1">
+            <widget class="QCheckBox" name="chkUndecorate">
+             <property name="text">
+              <string>Undecorate symbols</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QCheckBox" name="chkSymbolPath">
+             <property name="text">
+              <string>Download Symbols:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_7">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Module options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="12" column="1">
             <spacer name="verticalSpacer_2">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -412,14 +393,60 @@
              </property>
             </spacer>
            </item>
-           <item row="2" column="1" colspan="2">
-            <widget class="QCheckBox" name="chkSoftForce">
+           <item row="12" column="0">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="12" column="2">
+            <spacer name="horizontalSpacer_5">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="6" column="1">
+            <widget class="QCheckBox" name="chkTraceDLLs">
              <property name="text">
-              <string>Use soft force, hold CTRL to use hard force</string>
+              <string>Trace unloaded modules</string>
              </property>
             </widget>
            </item>
-           <item row="2" column="0">
+           <item row="7" column="1">
+            <widget class="QCheckBox" name="chkGetRefServices">
+             <property name="text">
+              <string>Resolce refering services</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_17">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Other Options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="0">
             <widget class="QLabel" name="label_16">
              <property name="text">
               <string>Forced Shutdown/Reboot:</string>
@@ -428,6 +455,16 @@
               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
+           </item>
+           <item row="9" column="1" colspan="2">
+            <widget class="QCheckBox" name="chkSoftForce">
+             <property name="text">
+              <string>Use soft force, hold CTRL to use hard force</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1" colspan="2">
+            <widget class="QLineEdit" name="symbolPath"/>
            </item>
           </layout>
          </item>

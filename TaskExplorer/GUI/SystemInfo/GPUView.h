@@ -59,6 +59,6 @@ private:
 
 	QMap<QString, CIncrementalPlot*>m_NodePlots;
 	
-	CPanelWidget<QTreeWidgetEx>* m_pGPUList;
+	CPanelWidgetEx* m_pGPUList;
 };
 

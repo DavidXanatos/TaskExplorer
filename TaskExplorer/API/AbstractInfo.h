@@ -32,6 +32,7 @@ public:
 	virtual bool				CanBeRemoved() const;
 
 protected:
+	volatile mutable bool		m_NewlyCreated;
 	quint64						m_CreateTimeStamp;
 
 	quint64						m_RemoveTimeStamp;

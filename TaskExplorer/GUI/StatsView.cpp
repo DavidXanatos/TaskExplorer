@@ -28,7 +28,7 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	m_pStatsList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pStatsList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	m_pMainLayout->addWidget(m_pStatsList);
+	m_pMainLayout->addWidget(CFinder::AddFinder(m_pStatsList, this, true));
 	// 
 
 	m_MonitorsETW = false;
@@ -143,32 +143,29 @@ void CStatsView::SetupTree()
 
 	m_pIO = new QTreeWidgetItem(tr("I/O").split("|"));
 	m_pStatsList->addTopLevelItem(m_pIO);
-	m_pIOReads = new QTreeWidgetItem(tr("I/O reads").split("|"));
+	m_pIOReads = new QTreeWidgetItem(tr("File I/O reads").split("|"));
 	m_pIO->addChild(m_pIOReads);
-	m_pIOWrites = new QTreeWidgetItem(tr("I/O writes").split("|"));
+	m_pIOWrites = new QTreeWidgetItem(tr("File I/O writes").split("|"));
 	m_pIO->addChild(m_pIOWrites);
 	m_pIOOther = new QTreeWidgetItem(tr("Other I/O").split("|"));
 	m_pIO->addChild(m_pIOOther);
 	if (m_eView == eSystem)
 	{
-		m_pMMapIOReads = new QTreeWidgetItem(tr("Mem. I/O reads").split("|"));
+		m_pMMapIOReads = new QTreeWidgetItem(tr("Mapped I/O reads").split("|"));
 		m_pIO->addChild(m_pMMapIOReads);
-		m_pMMapIOWrites = new QTreeWidgetItem(tr("Mem. I/O writes").split("|"));
+		m_pMMapIOWrites = new QTreeWidgetItem(tr("Mapped I/O writes").split("|"));
 		m_pIO->addChild(m_pMMapIOWrites);
 	}
 	if (m_eView == eProcess || m_eView == eSystem)
 	{
-		if (m_MonitorsETW)
-		{
-			m_pDiskReads = new QTreeWidgetItem(tr("Disk reads").split("|"));
-			m_pIO->addChild(m_pDiskReads);
-			m_pDiskWrites = new QTreeWidgetItem(tr("Disk writes").split("|"));
-			m_pIO->addChild(m_pDiskWrites);
-			m_pNetSends = new QTreeWidgetItem(tr("Network Sends").split("|"));
-			m_pIO->addChild(m_pNetSends);
-			m_pNetReceives = new QTreeWidgetItem(tr("Network Receive").split("|"));
-			m_pIO->addChild(m_pNetReceives);
-		}
+		m_pDiskReads = new QTreeWidgetItem(tr("Disk reads").split("|"));
+		m_pIO->addChild(m_pDiskReads);
+		m_pDiskWrites = new QTreeWidgetItem(tr("Disk writes").split("|"));
+		m_pIO->addChild(m_pDiskWrites);
+		m_pNetSends = new QTreeWidgetItem(tr("Network Sends").split("|"));
+		m_pIO->addChild(m_pNetSends);
+		m_pNetReceives = new QTreeWidgetItem(tr("Network Receive").split("|"));
+		m_pIO->addChild(m_pNetReceives);
 	}
 
 	m_pOther = new QTreeWidgetItem(tr("Other").split("|"));
@@ -214,7 +211,7 @@ void CStatsView::SetupTree()
 
 #define CPU_TIME_DIVIDER (10 * 1000 * 1000) // the clock resolution is 100ns we need 1sec
 
-void CStatsView::ShowProcess(const CProcessPtr& pProcess)
+void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
 #ifdef WIN32
 	if (m_MonitorsETW != ((CWindowsAPI*)theAPI)->IsMonitoringETW())
@@ -225,74 +222,155 @@ void CStatsView::ShowProcess(const CProcessPtr& pProcess)
 	}
 #endif
 
-	STaskStatsEx CpuStats = pProcess->GetCpuStats();
+	if (Processes.isEmpty())
+		return;
 
-	// CPU
-	m_pCycles->setText(eCount, FormatNumber(CpuStats.CycleDelta.Value));
-	m_pCycles->setText(eDelta, FormatNumber(CpuStats.CycleDelta.Delta));
+	enum EFormat
+	{
+		eUndefined = 0,
+		eFormatSize,
+		eFormatRate,
+		eFormatTime,
+		eFormatNumber
+	};
 
-	m_pKernelTime->setText(eCount, FormatTime(CpuStats.CpuKernelDelta.Value/CPU_TIME_DIVIDER));
-	m_pKernelTime->setText(eDelta, FormatTime(CpuStats.CpuKernelDelta.Delta/CPU_TIME_DIVIDER));
+	struct SAccStat
+	{
+		SAccStat(): Column(-1), Format(eUndefined), Value(0) { }
 
-	m_pUserTime->setText(eCount, FormatTime(CpuStats.CpuUserDelta.Value/CPU_TIME_DIVIDER));
-	m_pUserTime->setText(eDelta, FormatTime(CpuStats.CpuUserDelta.Delta/CPU_TIME_DIVIDER));
+		int Column;
+		EFormat Format;
+		quint64 Value;
 
-	m_pTotalTime->setText(eCount, FormatTime((CpuStats.CpuKernelDelta.Value + CpuStats.CpuUserDelta.Value)/CPU_TIME_DIVIDER));
-	m_pTotalTime->setText(eDelta, FormatTime((CpuStats.CpuKernelDelta.Delta + CpuStats.CpuUserDelta.Delta)/CPU_TIME_DIVIDER));
+		void AddSumm(int column, EFormat format, quint64 value)
+		{
+			Column = column;
+			Format = format;
+			Value += value;
+		}
+	};
 
-	m_pContextSwitches->setText(eSize, FormatNumber(CpuStats.ContextSwitchesDelta.Value));
-	m_pContextSwitches->setText(eDelta, FormatNumber(CpuStats.ContextSwitchesDelta.Delta));
+	QMap<QTreeWidgetItem*, SAccStat> AccStats;
 
-	// Memory
-	m_pPrivateBytes->setText(eSize, FormatSize(CpuStats.PrivateBytesDelta.Value));
-	m_pPrivateBytes->setText(eDelta, FormatSize(CpuStats.PrivateBytesDelta.Delta));
+	foreach(const CProcessPtr& pProcess, Processes)
+	{
+		STaskStatsEx CpuStats = pProcess->GetCpuStats();
 
-	m_pVirtualSize->setText(eSize, FormatSize(pProcess->GetVirtualSize()));
-	m_pVirtualSize->setText(ePeak, FormatSize(pProcess->GetPeakVirtualSize()));
-	
-	m_pPageFaults->setText(eCount, FormatNumber(CpuStats.PageFaultsDelta.Value));
-	m_pPageFaults->setText(eDelta, FormatNumber(CpuStats.PageFaultsDelta.Delta));
+		// CPU
+		AccStats[m_pCycles].AddSumm(eCount, eFormatNumber, CpuStats.CycleDelta.Value);
+		AccStats[m_pCycles].AddSumm(eDelta, eFormatNumber, CpuStats.CycleDelta.Delta);
 
-	m_pHardFaults->setText(eCount, FormatNumber(CpuStats.HardFaultsDelta.Value));
-	m_pHardFaults->setText(eDelta, FormatNumber(CpuStats.HardFaultsDelta.Delta));
+		AccStats[m_pKernelTime].AddSumm(eCount, eFormatTime, CpuStats.CpuKernelDelta.Value / CPU_TIME_DIVIDER);
+		AccStats[m_pKernelTime].AddSumm(eDelta, eFormatTime, CpuStats.CpuKernelDelta.Delta / CPU_TIME_DIVIDER);
 
-	m_pWorkingSet->setText(eSize, FormatSize(pProcess->GetWorkingSetSize()));
+		AccStats[m_pUserTime].AddSumm(eCount, eFormatTime, CpuStats.CpuUserDelta.Value / CPU_TIME_DIVIDER);
+		AccStats[m_pUserTime].AddSumm(eDelta, eFormatTime, CpuStats.CpuUserDelta.Delta / CPU_TIME_DIVIDER);
 
-	m_pPrivateWS->setText(eSize, FormatSize(pProcess->GetPrivateWorkingSetSize()));
+		AccStats[m_pTotalTime].AddSumm(eCount, eFormatTime, (CpuStats.CpuKernelDelta.Value + CpuStats.CpuUserDelta.Value) / CPU_TIME_DIVIDER);
+		AccStats[m_pTotalTime].AddSumm(eDelta, eFormatTime, (CpuStats.CpuKernelDelta.Delta + CpuStats.CpuUserDelta.Delta) / CPU_TIME_DIVIDER);
 
-	m_pSharedWS->setText(eSize, FormatSize(pProcess->GetShareableWorkingSetSize()));
-	
-	m_pPagedPool->setText(eSize, FormatSize(pProcess->GetPagedPool()));
-	m_pPagedPool->setText(ePeak, FormatSize(pProcess->GetPeakPagedPool()));
+		AccStats[m_pContextSwitches].AddSumm(eCount, eFormatNumber, CpuStats.ContextSwitchesDelta.Value);
+		AccStats[m_pContextSwitches].AddSumm(eDelta, eFormatNumber, CpuStats.ContextSwitchesDelta.Delta);
 
-	m_pNonPagedPool->setText(eSize, FormatSize(pProcess->GetNonPagedPool()));
-	m_pNonPagedPool->setText(ePeak, FormatSize(pProcess->GetPeakNonPagedPool()));
+		// Memory
+		AccStats[m_pPrivateBytes].AddSumm(eSize, eFormatSize, CpuStats.PrivateBytesDelta.Value);
+		AccStats[m_pPrivateBytes].AddSumm(eDelta, eFormatSize, CpuStats.PrivateBytesDelta.Delta);
 
-	// IO
-	SProcStats Stats = pProcess->GetStats();
-	ShowIoStats(Stats);
+		AccStats[m_pVirtualSize].AddSumm(eSize, eFormatSize, pProcess->GetVirtualSize());
+		AccStats[m_pVirtualSize].AddSumm(ePeak, eFormatSize, pProcess->GetPeakVirtualSize());
 
-	// other
-	m_pThreads->setText(eCount, FormatNumber(pProcess->GetNumberOfThreads()));
-	m_pThreads->setText(ePeak, FormatNumber(pProcess->GetPeakNumberOfThreads()));
-	m_pHandles->setText(eCount, FormatNumber(pProcess->GetNumberOfHandles()));
-	m_pHandles->setText(ePeak, FormatNumber(pProcess->GetPeakNumberOfHandles()));
+		AccStats[m_pPageFaults].AddSumm(eCount, eFormatNumber, CpuStats.PageFaultsDelta.Value);
+		AccStats[m_pPageFaults].AddSumm(eDelta, eFormatNumber, CpuStats.PageFaultsDelta.Delta);
+
+		AccStats[m_pHardFaults].AddSumm(eCount, eFormatNumber, CpuStats.HardFaultsDelta.Value);
+		AccStats[m_pHardFaults].AddSumm(eDelta, eFormatNumber, CpuStats.HardFaultsDelta.Delta);
+
+		AccStats[m_pWorkingSet].AddSumm(eSize, eFormatSize, pProcess->GetWorkingSetSize());
+
+		AccStats[m_pPrivateWS].AddSumm(eSize, eFormatSize, pProcess->GetPrivateWorkingSetSize());
+
+		AccStats[m_pSharedWS].AddSumm(eSize, eFormatSize, pProcess->GetShareableWorkingSetSize());
+
+		AccStats[m_pPagedPool].AddSumm(eSize, eFormatSize, pProcess->GetPagedPool());
+		AccStats[m_pPagedPool].AddSumm(ePeak, eFormatSize, pProcess->GetPeakPagedPool());
+
+		AccStats[m_pNonPagedPool].AddSumm(eSize, eFormatSize, pProcess->GetNonPagedPool());
+		AccStats[m_pNonPagedPool].AddSumm(ePeak, eFormatSize, pProcess->GetPeakNonPagedPool());
+
+		// IO
+		SProcStats Stats = pProcess->GetStats();
+
+		AccStats[m_pIOReads].AddSumm(eCount, eFormatNumber, Stats.Io.ReadDelta.Value);
+		AccStats[m_pIOReads].AddSumm(eSize, eFormatSize, Stats.Io.ReadRawDelta.Value);
+		AccStats[m_pIOReads].AddSumm(eRate, eFormatRate, Stats.Io.ReadRate.Get());
+		AccStats[m_pIOReads].AddSumm(eDelta, eFormatNumber, Stats.Io.ReadDelta.Delta);
+
+		AccStats[m_pIOWrites].AddSumm(eCount, eFormatNumber, Stats.Io.WriteDelta.Value);
+		AccStats[m_pIOWrites].AddSumm(eSize, eFormatSize, Stats.Io.WriteRawDelta.Value);
+		AccStats[m_pIOWrites].AddSumm(eRate, eFormatRate, Stats.Io.WriteRate.Get());
+		AccStats[m_pIOWrites].AddSumm(eDelta, eFormatNumber, Stats.Io.WriteDelta.Delta);
+
+		AccStats[m_pIOOther].AddSumm(eCount, eFormatNumber, Stats.Io.OtherDelta.Value);
+		AccStats[m_pIOOther].AddSumm(eSize, eFormatSize, Stats.Io.OtherRawDelta.Value);
+		AccStats[m_pIOOther].AddSumm(eRate, eFormatRate, Stats.Io.OtherRate.Get());
+		AccStats[m_pIOOther].AddSumm(eDelta, eFormatNumber, Stats.Io.OtherDelta.Delta);
+
+		AccStats[m_pDiskReads].AddSumm(eCount, eFormatNumber, Stats.Disk.ReadDelta.Value);
+		AccStats[m_pDiskReads].AddSumm(eSize, eFormatSize, Stats.Disk.ReadRawDelta.Value);
+		AccStats[m_pDiskReads].AddSumm(eRate, eFormatRate, Stats.Disk.ReadRate.Get());
+		AccStats[m_pDiskReads].AddSumm(eDelta, eFormatNumber, Stats.Disk.ReadDelta.Delta);
+
+		AccStats[m_pDiskWrites].AddSumm(eCount, eFormatNumber, Stats.Disk.WriteDelta.Value);
+		AccStats[m_pDiskWrites].AddSumm(eSize, eFormatSize, Stats.Disk.WriteRawDelta.Value);
+		AccStats[m_pDiskWrites].AddSumm(eRate, eFormatRate, Stats.Disk.WriteRate.Get());
+		AccStats[m_pDiskWrites].AddSumm(eDelta, eFormatNumber, Stats.Disk.WriteDelta.Delta);
+
+		if (m_MonitorsETW)
+		{
+			AccStats[m_pNetSends].AddSumm(eCount, eFormatNumber, Stats.Net.SendDelta.Value);
+			AccStats[m_pNetSends].AddSumm(eSize, eFormatSize, Stats.Net.SendRawDelta.Value);
+			AccStats[m_pNetSends].AddSumm(eRate, eFormatRate, Stats.Net.SendRate.Get());
+			AccStats[m_pNetSends].AddSumm(eDelta, eFormatNumber, Stats.Net.SendDelta.Delta);
+
+			AccStats[m_pNetReceives].AddSumm(eCount, eFormatNumber, Stats.Net.ReceiveDelta.Value);
+			AccStats[m_pNetReceives].AddSumm(eSize, eFormatSize, Stats.Net.ReceiveRawDelta.Value);
+			AccStats[m_pNetReceives].AddSumm(eRate, eFormatRate, Stats.Net.ReceiveRate.Get());
+			AccStats[m_pNetReceives].AddSumm(eDelta, eFormatNumber, Stats.Net.ReceiveDelta.Delta);
+		}
+
+		// other
+		AccStats[m_pThreads].AddSumm(eCount, eFormatNumber, pProcess->GetNumberOfThreads());
+		AccStats[m_pThreads].AddSumm(ePeak, eFormatNumber, pProcess->GetPeakNumberOfThreads());
+		AccStats[m_pHandles].AddSumm(eCount, eFormatNumber, pProcess->GetNumberOfHandles());
+		AccStats[m_pHandles].AddSumm(ePeak, eFormatNumber, pProcess->GetPeakNumberOfHandles());
 
 #ifdef WIN32
-	CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
-	m_pGdiObjects->setText(eCount, FormatNumber(pWinProc->GetGdiHandles()));
+		AccStats[m_pGdiObjects].AddSumm(eCount, eFormatNumber, pWinProc->GetGdiHandles());
 
-	m_pUserObjects->setText(eCount, FormatNumber(pWinProc->GetUserHandles()));
+		AccStats[m_pUserObjects].AddSumm(eCount, eFormatNumber, pWinProc->GetUserHandles());
 
-	m_pWndObjects->setText(eCount, FormatNumber(pWinProc->GetWndHandles()));
+		AccStats[m_pWndObjects].AddSumm(eCount, eFormatNumber, pWinProc->GetWndHandles());
 
 
-	m_pUpTime->setText(eDelta, FormatTime(pWinProc->GetUpTime()));
-	m_pSuspendTime->setText(eDelta, FormatTime(pWinProc->GetSuspendTime()));
-	m_pHangCount->setText(eCount, FormatNumber(pWinProc->GetHangCount()));
-	m_pGhostCount->setText(eCount, FormatNumber(pWinProc->GetGhostCount()));
+		AccStats[m_pUpTime].AddSumm(eCount, eFormatTime, pWinProc->GetUpTime());
+		AccStats[m_pSuspendTime].AddSumm(eCount, eFormatTime, pWinProc->GetSuspendTime());
+		AccStats[m_pHangCount].AddSumm(eCount, eFormatNumber, pWinProc->GetHangCount());
+		AccStats[m_pGhostCount].AddSumm(eCount, eFormatNumber, pWinProc->GetGhostCount());
 #endif
+	}
+	
+	for (QMap<QTreeWidgetItem*, SAccStat>::iterator I = AccStats.begin(); I != AccStats.end(); I++)
+	{
+		switch (I->Format)
+		{
+		case eFormatSize:	I.key()->setText(I->Column, FormatSize(I->Value)); break;
+		case eFormatRate:	I.key()->setText(I->Column, FormatSize(I->Value) + tr("/s")); break;
+		case eFormatTime:	I.key()->setText(I->Column, FormatTime(I->Value)); break;
+		case eFormatNumber:	I.key()->setText(I->Column, FormatNumber(I->Value)); break;
+		}
+	}
 }
 
 void CStatsView::ShowIoStats(const SProcStats& Stats)
@@ -312,18 +390,18 @@ void CStatsView::ShowIoStats(const SProcStats& Stats)
 	m_pIOOther->setText(eRate, FormatSize(Stats.Io.OtherRate.Get()) + "/s");
 	m_pIOOther->setText(eDelta, FormatNumber(Stats.Io.OtherDelta.Delta));
 
+	m_pDiskReads->setText(eCount, FormatNumber(Stats.Disk.ReadDelta.Value));
+	m_pDiskReads->setText(eSize, FormatSize(Stats.Disk.ReadRawDelta.Value));
+	m_pDiskReads->setText(eRate, FormatSize(Stats.Disk.ReadRate.Get()) + "/s");
+	m_pDiskReads->setText(eDelta, FormatNumber(Stats.Disk.ReadDelta.Delta));
+
+	m_pDiskWrites->setText(eCount, FormatNumber(Stats.Disk.WriteDelta.Value));
+	m_pDiskWrites->setText(eSize, FormatSize(Stats.Disk.WriteRawDelta.Value));
+	m_pDiskWrites->setText(eRate, FormatSize(Stats.Disk.WriteRate.Get()) + "/s");
+	m_pDiskWrites->setText(eDelta, FormatNumber(Stats.Disk.WriteDelta.Delta));
+
 	if (m_MonitorsETW)
 	{
-		m_pDiskReads->setText(eCount, FormatNumber(Stats.Disk.ReadDelta.Value));
-		m_pDiskReads->setText(eSize, FormatSize(Stats.Disk.ReadRawDelta.Value));
-		m_pDiskReads->setText(eRate, FormatSize(Stats.Disk.ReadRate.Get()) + "/s");
-		m_pDiskReads->setText(eDelta, FormatNumber(Stats.Disk.ReadDelta.Delta));
-
-		m_pDiskWrites->setText(eCount, FormatNumber(Stats.Disk.WriteDelta.Value));
-		m_pDiskWrites->setText(eSize, FormatSize(Stats.Disk.WriteRawDelta.Value));
-		m_pDiskWrites->setText(eRate, FormatSize(Stats.Disk.WriteRate.Get()) + "/s");
-		m_pDiskWrites->setText(eDelta, FormatNumber(Stats.Disk.WriteDelta.Delta));
-
 		m_pNetSends->setText(eCount, FormatNumber(Stats.Net.SendDelta.Value));
 		m_pNetSends->setText(eSize, FormatSize(Stats.Net.SendRawDelta.Value));
 		m_pNetSends->setText(eRate, FormatSize(Stats.Net.SendRate.Get()) + "/s");
@@ -440,3 +518,8 @@ void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 	m_pIOOther->setText(eDelta, FormatNumber(Stats.Io.OtherDelta.Delta));
 }
 #endif
+
+void CStatsView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
+{
+	CPanelWidgetEx::ApplyFilter(m_pStatsList, Exp/*, bHighLight, Col*/);
+}

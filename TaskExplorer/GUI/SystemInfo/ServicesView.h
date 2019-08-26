@@ -22,7 +22,7 @@ public:
 public slots:
 	void					Refresh() {}
 
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 
 protected:
 	virtual void				OnMenu(const QPoint& Point);

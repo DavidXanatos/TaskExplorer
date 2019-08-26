@@ -470,6 +470,9 @@
     <ClCompile Include="Common\FlowLayout.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\SidResolver.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -893,6 +896,9 @@
     </QtMoc>
     <QtMoc Include="GUI\Models\GDIModel.h">
       <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\SidResolver.h">
+      <Filter>API\Windows</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

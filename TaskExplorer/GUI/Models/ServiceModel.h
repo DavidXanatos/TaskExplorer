@@ -25,15 +25,13 @@ public:
 	enum EColumns
 	{
 		eService = 0,
+		eStatus,
+		ePID,
 #ifdef WIN32
 		eDisplayName,
 		eType,
-#endif
-		eStatus,
-#ifdef WIN32
 		eStartType,
 #endif
-		ePID,
 		eFileName,
 #ifdef WIN32
 		eErrorControl,

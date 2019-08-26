@@ -13,7 +13,7 @@ public:
 
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					ShowToken(const CWinTokenPtr& pToken);
 	void					Refresh();
 
@@ -25,7 +25,10 @@ private slots:
 	void					OnDefaultToken();
 	void					OnPermissions();
 	void					OnChangeIntegrity();
+	void					OnChangeVirtualization();
 	void					OnLinkedToken();
+
+	void					SetFilter(const QRegExp& Exp, bool bHighLight = false, int Col = -1); // -1 = any
 
 protected:
 	virtual void				OnMenu(const QPoint& Point);
@@ -43,6 +46,8 @@ private:
 	void	UpdateClaims();
 	void	UpdateAttributes(QMap<QString, CWinToken::SAttribute> Attributes, QTreeWidgetItem* pRoot = NULL);
 	void	UpdateAttributes();
+
+	bool					m_LockValues;
 
 	enum EStackColumns
 	{
@@ -62,16 +67,18 @@ private:
 
 	QLabel*					m_pSession;
 	QLabel*					m_pElevated;
-	QLabel*					m_pVirtualized;
+	QCheckBox*				m_pVirtualized;
 
 	QLineEdit*				m_pOwner;
 	QLineEdit*				m_pGroup;
 
 	QTreeWidgetEx*			m_pTokenList;
-	//QTreeWidgetItem*		m_pDangerousFlags;
+	QTreeWidgetItem*		m_pDangerousFlags;
 	QTreeWidgetItem*		m_pPrivileges;
 	QTreeWidgetItem*		m_pGroups;
 	QTreeWidgetItem*		m_pRestrictingSIDs;
+
+	CFinder*				m_pFinder;
 
 	QPushButton*			m_pDefaultToken;
 	QPushButton*			m_pPermissions;
@@ -79,7 +86,7 @@ private:
 	QPushButton*			m_pLinkedToken;
 
 
-	CPanelWidget<QTreeWidgetEx>*	m_pAdvanced;
+	CPanelWidgetEx*	m_pAdvanced;
 	QTreeWidgetItem*			m_pAdvGeneral;
 	QTreeWidgetItem*				m_pAdvType;
 	QTreeWidgetItem*				m_pAdvImpersonation;
@@ -107,7 +114,7 @@ private:
 	QTreeWidgetItem*				m_pAdvProfilePath;
 	QTreeWidgetItem*				m_pAdvProfileKey;
 
-	CPanelWidget<QTreeWidgetEx>*	m_pContainer;
+	CPanelWidgetEx*	m_pContainer;
 	QTreeWidgetItem*			m_pContGeneral;
 	QTreeWidgetItem*				m_pContName;
 	QTreeWidgetItem*				m_pContType;
@@ -126,14 +133,14 @@ private:
 	QTreeWidgetItem*				m_pContProfilePath;
 	QTreeWidgetItem*				m_pContProfileKey;
 
-	CPanelWidget<QTreeWidgetEx>*	m_pCapabilities;
+	CPanelWidgetEx*	m_pCapabilities;
 
-	CPanelWidget<QTreeWidgetEx>*	m_pClaims;
+	CPanelWidgetEx*	m_pClaims;
 	QTreeWidgetItem*					m_pUserClaims;
 	QTreeWidgetItem*					m_pDeviceClaims;
 
 
-	CPanelWidget<QTreeWidgetEx>*	m_pAttributes;
+	CPanelWidgetEx*	m_pAttributes;
 
 	QAction*				m_pEnable;
 	QAction*				m_pDisable;

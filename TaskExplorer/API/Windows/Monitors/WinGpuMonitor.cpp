@@ -26,7 +26,8 @@
 #include "WinGpuMonitor.h"
 #include "../ProcessHacker.h"
 #include "../WinProcess.h"
-#include "../../GUI/TaskExplorer.h"
+#include "../WindowsAPI.h"
+#include "../../../Common/Settings.h"
 
 #define D3D11_NO_HELPERS
 #include <d3d11.h>
@@ -796,17 +797,20 @@ bool CWinGpuMonitor::UpdateGpuStats()
 	//m_GpuNodeUsage = tempGpuUsage;
 
 
-	// Update per-process statistics.
-	QMap<quint64, CProcessPtr> ProcessList = theAPI->GetProcessList();
-
-	foreach(const CProcessPtr& pProcess, ProcessList)
+	if (theConf->GetBool("Options/GPUStatsGetPerProcess", false))
 	{
-		QWriteLocker Locker(&m_StatsMutex);
+		// Update per-process statistics.
+		QMap<quint64, CProcessPtr> ProcessList = theAPI->GetProcessList();
 
-		UpdateProcessSegmentInformation(pProcess);
-        UpdateProcessNodeInformation(pProcess);
+		foreach(const CProcessPtr& pProcess, ProcessList)
+		{
+			QWriteLocker Locker(&m_StatsMutex);
 
-		pProcess->UpdateGpuTimeUsage(elapsedTime);
+			UpdateProcessSegmentInformation(pProcess);
+			UpdateProcessNodeInformation(pProcess);
+
+			pProcess->UpdateGpuTimeUsage(elapsedTime);
+		}
 	}
 
 	return true;

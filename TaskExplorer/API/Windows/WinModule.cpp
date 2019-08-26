@@ -1,10 +1,8 @@
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinModule.h"
-
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
-
+#include "../../Common/Settings.h"
 
 #include <QtWin>
 
@@ -36,6 +34,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 {
 	QWriteLocker Locker(&m_Mutex);
 
+	m_IsLoaded = true;
 	m_FileName = CastPhString(module->FileName, false);
 	m_ModuleName = CastPhString(module->Name, false);
 
@@ -129,6 +128,73 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 		m_ModificationTime = QDateTime::fromTime_t(FILETIME2time(networkOpenInfo.LastWriteTime.QuadPart));
         m_FileSize = networkOpenInfo.EndOfFile.QuadPart;
     }
+
+	return true;
+}
+
+bool CWinModule::ResolveRefServices()
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	static PQUERY_TAG_INFORMATION I_QueryTagInformation = NULL;
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    if (PhBeginInitOnce(&initOnce))
+    {
+        I_QueryTagInformation = (PQUERY_TAG_INFORMATION)PhGetModuleProcAddress(L"advapi32.dll", "I_QueryTagInformation");
+        PhEndInitOnce(&initOnce);
+    }
+
+	if (!I_QueryTagInformation)
+		return false;
+	
+	wstring ModuleName = m_ModuleName.toStdWString();
+
+	TAG_INFO_NAMES_REFERENCING_MODULE namesReferencingModule;
+	memset(&namesReferencingModule, 0, sizeof(TAG_INFO_NAMES_REFERENCING_MODULE));
+	namesReferencingModule.InParams.dwPid = m_ProcessId;
+	namesReferencingModule.InParams.pszModule = (wchar_t*)ModuleName.c_str();
+
+	ULONG win32Result = I_QueryTagInformation(NULL, eTagInfoLevelNamesReferencingModule, &namesReferencingModule);
+
+	if (win32Result == ERROR_NO_MORE_ITEMS)
+		win32Result = ERROR_SUCCESS;
+
+	if (win32Result != ERROR_SUCCESS)
+		return false;
+
+	if (!namesReferencingModule.OutParams.pmszNames)
+		return false;
+
+	m_Services.clear();
+
+	PWSTR serviceName = namesReferencingModule.OutParams.pmszNames;
+	while (TRUE)
+	{
+		ULONG nameLength = (ULONG)PhCountStringZ(serviceName);
+		if (nameLength == 0)
+			break;
+
+		m_Services.append(QString::fromWCharArray(serviceName, nameLength));
+
+		serviceName += nameLength + 1;
+	}
+
+	LocalFree(namesReferencingModule.OutParams.pmszNames);
+	
+	return true;
+}
+
+bool CWinModule::InitStaticData(const QVariantMap& Module)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	m_IsLoaded = false;
+	//Module["Sequence"].toInt();
+	m_ModuleName = Module["ImageName"].toString();
+	m_BaseAddress = Module["BaseAddress"].toULongLong();
+	m_Size = Module["Size"].toULongLong();
+	m_LoadTime == Module["TimeStamp"].toDateTime();
+	//Module["Checksum"].toByteArray();
 
 	return true;
 }

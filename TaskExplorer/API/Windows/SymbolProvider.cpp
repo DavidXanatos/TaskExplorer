@@ -27,9 +27,9 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 #include "../../Common/Common.h"
-#include "../../GUI/TaskExplorer.h"
 #include "./ProcessHacker/clrsup.h"
 #include "../../SVC/TaskService.h"
+#include "../../Common/Settings.h"
 
 #include <dbghelp.h>
 
@@ -199,6 +199,7 @@ void CSymbolProvider::UnInit()
 
 	PhUnregisterCallback(&PhSymbolEventCallback, m_SymbolProviderEventRegistration);
 
+	// cleanup unfinished tasks
 	while (!m_JobQueue.isEmpty()) {
 		m_JobQueue.takeFirst()->deleteLater();
 	}
@@ -375,6 +376,8 @@ VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
 
 void CSymbolProvider::run()
 {
+	SetThreadDescription(GetCurrentThread(), L"Symbol Provider");
+
 	//exec();
 
 	time_t LastCleanUp = 0;
@@ -426,11 +429,6 @@ void CSymbolProvider::run()
 	foreach(SSymbolProvider* m, mm)
 		delete m;
 	mm.clear();
-
-	// cleanup unfinished tasks
-	QMutexLocker Locker(&m_JobMutex);
-	while (!m_JobQueue.isEmpty())
-		m_JobQueue.takeFirst()->deleteLater();
 }
 
 void CSymbolProviderJob::Run(struct SSymbolProvider* m)

@@ -25,29 +25,50 @@ CProcessModel::~CProcessModel()
 
 QList<QVariant> CProcessModel::MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList)
 {
-	QList<QVariant> list;
+	QList<QVariant> Path;
 
-	quint64 ParentPID = pProcess->GetParentId();
-	CProcessPtr pParent = ProcessList.value(ParentPID);
+	quint64 ParentID = pProcess->GetParentId();
+	CProcessPtr pParent = ProcessList.value(ParentID);
 
 	if (!pParent.isNull())
 	{
 #ifdef WIN32
 		if (!qobject_cast<CWinProcess*>(pProcess.data())->ValidateParent(pParent.data()))
-			return list;
+			return Path;
 #endif
 
-		list = MakeProcPath(pParent, ProcessList);
-		list.append(ParentPID);
+		Path = MakeProcPath(pParent, ProcessList);
+		Path.append(ParentID);
 	}
 
-	return list;
+	return Path;
+}
+
+bool CProcessModel::TestProcPath(const QList<QVariant>& Path, const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList, int Index)
+{
+	quint64 ParentID = pProcess->GetParentId();
+	CProcessPtr pParent = ProcessList.value(ParentID);
+
+	if (!pParent.isNull())
+	{
+#ifdef WIN32
+		if (!qobject_cast<CWinProcess*>(pProcess.data())->ValidateParent(pParent.data()))
+			return Path.size() == Index;
+#endif
+
+		if(Index >= Path.size() || Path[Path.size() - Index - 1] != ParentID)
+			return false;
+
+		return TestProcPath(Path, pParent, ProcessList, Index + 1);
+	}
+
+	return Path.size() == Index;
 }
 
 void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 {
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
-	QMap<QVariant, STreeNode*> Old = m_Map;
+	QHash<QVariant, STreeNode*> Old = m_Map;
 
 	bool bShow32 = theConf->GetBool("Options/Show32", true);
 	time_t curTime = GetTime();
@@ -62,18 +83,16 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		QVariant ID = pProcess->GetProcessId();
 
 		QModelIndex Index;
-		QList<QVariant> Path;
-		if(m_bTree)
-			Path = MakeProcPath(pProcess, ProcessList);
 		
 		SProcessNode* pNode = static_cast<SProcessNode*>(Old.value(ID));
-		if(!pNode || pNode->Path != Path)
+		if(!pNode || (m_bTree ? !TestProcPath(pNode->Path, pProcess, ProcessList) : !pNode->Path.isEmpty()))
 		{
 			pNode = static_cast<SProcessNode*>(MkNode(ID));
 			pNode->Values.resize(columnCount());
-			pNode->Path = Path;
+			if (m_bTree)
+				pNode->Path = MakeProcPath(pProcess, ProcessList);
 			pNode->pProcess = pProcess;
-			New[Path].append(pNode);
+			New[pNode->Path].append(pNode);
 		}
 		else
 		{
@@ -107,6 +126,9 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		int RowColor = CTaskExplorer::eNone;
 		if (pProcess->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
 		else if (pProcess->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+#ifdef WIN32
+		else if (pWinProc->TokenHasChanged())		RowColor = CTaskExplorer::eDange;
+#endif
 		else if (pProcess->IsServiceProcess())		RowColor = CTaskExplorer::eService;
 		else if (pProcess->IsSystemProcess())		RowColor = CTaskExplorer::eSystem;
 		else if (pProcess->IsElevated())			RowColor = CTaskExplorer::eElevated;
@@ -238,8 +260,8 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eCycles:				Value = CpuStats.CycleDelta.Value; break;
 				case eCyclesDelta:			Value = CpuStats.CycleDelta.Delta; break;
 #ifdef WIN32
-				case eDEP:					Value = pWinProc->GetDEPStatusString();
-				case eVirtualized:			Value = pToken ? pToken->GetVirtualizationString() : "";
+				case eDEP:					Value = pWinProc->GetDEPStatusString(); break;
+				case eVirtualized:			Value = pToken ? pToken->GetVirtualizationString() : ""; break;
 #endif
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
 				case eContextSwitchesDelta:	Value = CpuStats.ContextSwitchesDelta.Delta; break;
@@ -295,7 +317,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eDesktop:				Value = pWinProc->GetDesktopInfo(); break;
 				case eCritical:				Value = pWinProc->IsCriticalProcess() ? tr("Critical") : ""; break;
 
-				case eUpTime2:				Value = pWinProc->GetUpTime(); break;
+				case eRunningTime:			Value = pWinProc->GetUpTime(); break;
 				case eSuspendedTime:		Value = pWinProc->GetSuspendTime(); break;
 				case eHangCount:			Value = pWinProc->GetHangCount(); break;
 				case eGhostCount:			Value = pWinProc->GetGhostCount(); break;
@@ -416,7 +438,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eFileModifiedTime:
 											if (Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 					case eUpTime:			
-					case eUpTime2:			
+					case eRunningTime:			
 					case eSuspendedTime:
 											if (Value.toULongLong() != 0) ColValue.Formated = FormatTime(Value.toULongLong()); break;
 					case eTotalCPU_Time:
@@ -518,19 +540,6 @@ QVariant CProcessModel::headerData(int section, Qt::Orientation orientation, int
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
 		return GetColumHeader(section);
     return QVariant();
-}
-
-bool CProcessModel::IsColumnEnabled(int column)
-{
-	return m_Columns.contains(column);
-}
-
-void CProcessModel::SetColumnEnabled(int column, bool set)
-{
-	if (!set)
-		m_Columns.remove(column);
-	else
-		m_Columns.insert(column);
 }
 
 QString CProcessModel::GetColumHeader(int section) const
@@ -664,7 +673,7 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eDesktop:				return tr("Desktop");
 		case eCritical:				return tr("Critical");
 
-		case eUpTime2:				return tr("Running Time");
+		case eRunningTime:			return tr("Running Time");
 		case eSuspendedTime:		return tr("Suspended Time");
 		case eHangCount:			return tr("Hang Count");
 		case eGhostCount:			return tr("Ghost Count");

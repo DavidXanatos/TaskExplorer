@@ -4,7 +4,6 @@
 #include "../../../Common/Common.h"
 #include "../WinHandle.h"
 #include "../WindowsAPI.h"
-#include "../../../GUI/TaskExplorer.h"
 
 CWinHandleFinder::CWinHandleFinder(const QVariant& Type, const QRegExp& RegExp, QObject* parent) : CAbstractFinder(parent) 
 {
@@ -58,6 +57,8 @@ void CWinHandleFinder::run()
 
 			if (pWinHandle->m_FileName.isEmpty() || !pWinHandle->m_FileName.contains(m_RegExp))
 				continue;
+
+			//pWinHandle->UpdateDynamicData(handle, (quint64)ProcessHandle);
 
 			List.append(pWinHandle);
 

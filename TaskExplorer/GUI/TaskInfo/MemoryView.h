@@ -50,7 +50,7 @@ public:
 	virtual ~CMemoryView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh() {} // only manual refresh
 
 private slots:

@@ -59,7 +59,7 @@ CNetworkView::CNetworkView(QWidget *parent)
 	m_HiddenAdapters = theConf->GetStringList("Options/HiddenNICs");
 
 	// NIC Details
-	m_pNICList = new CPanelWidget<QTreeWidgetEx>();
+	m_pNICList = new CPanelWidgetEx();
 
 	m_pNICList->GetTree()->setItemDelegate(theGUI->GetItemDelegate());
 	m_pNICList->GetTree()->setHeaderLabels(tr("Adapter|State|Speed|Receive Rate|Bytes Receive Delta|Bytes Receive|Receives Delta|Receives|Send Rate|Bytes Sent Delta|Bytes Sent|Send Delta|Sent|Address|Gateway|DNS|Domain|Interface").split("|"));

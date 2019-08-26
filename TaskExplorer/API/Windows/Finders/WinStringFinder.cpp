@@ -27,7 +27,6 @@
 #include "../ProcessHacker.h"
 #include "../../StringInfo.h"
 #include "../WindowsAPI.h"
-#include "../../../GUI/TaskExplorer.h"
 
 CWinStringFinder::CWinStringFinder(const SMemOptions& Options, const QRegExp& RegExp, const CProcessPtr& pProcess, QObject* parent) : CAbstractFinder(parent) 
 {
@@ -59,11 +58,10 @@ void CWinStringFinder::run()
 				emit Progress(float(i) / Processes.count(), I.value()->GetName());
 
 			STATUS status = FindStrings(I.value());
-			if (status.IsError())
+			if (status.IsError() && status.GetStatus() > 0)
 			{
 				emit Error(status.GetText(), status.GetStatus());
-				if (status.GetStatus() > 0)
-					break;
+				break;
 			}
 		}
 	}
@@ -109,10 +107,10 @@ STATUS CWinStringFinder::FindStrings(const CProcessPtr& pProcess)
 	{
 		hex = QByteArray::fromHex(m_RegExp.pattern().toLatin1());
 		if (hex.length() < 2)
-			return ERR(tr("Match String to short, min length 2"), 1);
+			return ERR(tr("Match String to short, min length 2"), ERROR_PARAMS);
 	}
 	else if (minimumLength < 4)
-        return ERR(tr("Match String to short, min length 4"), 1);
+        return ERR(tr("Match String to short, min length 4"), ERROR_PARAMS);
 
     baseAddress = (PVOID)0;
 
@@ -120,7 +118,7 @@ STATUS CWinStringFinder::FindStrings(const CProcessPtr& pProcess)
     buffer = (PUCHAR)PhAllocatePage(bufferSize, NULL);
 
     if (!buffer)
-        return ERR(tr("Allocation error"), 2);
+        return ERR(tr("Allocation error"), ERROR_INTERNAL);
 
     displayBufferCount = PH_DISPLAY_BUFFER_COUNT;
     displayBuffer = (PWSTR)PhAllocatePage((displayBufferCount + 1) * sizeof(WCHAR), NULL);
@@ -128,7 +126,7 @@ STATUS CWinStringFinder::FindStrings(const CProcessPtr& pProcess)
     if (!displayBuffer)
     {
         PhFreePage(buffer);
-        return ERR(tr("Allocation error"), 2);
+        return ERR(tr("Allocation error"), ERROR_INTERNAL);
     }
 
     if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, (HANDLE)pProcess->GetProcessId())))
@@ -410,7 +408,7 @@ ContinueLoop:
 	emit Results(List);
 
 	if(!buffer)
-		return ERR(tr("Allocation error"), 2);
+		return ERR(tr("Allocation error"), ERROR_INTERNAL);
 
 	return OK;
 }

@@ -65,7 +65,7 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pPlotLayout->addWidget(m_pVRAMPlot);
 	
 	// GPU Details
-	m_pGPUList = new CPanelWidget<QTreeWidgetEx>();
+	m_pGPUList = new CPanelWidgetEx();
 
 	m_pGPUList->GetTree()->setItemDelegate(theGUI->GetItemDelegate());
 	m_pGPUList->GetTree()->setHeaderLabels(tr("Model|Location|Driver Version|HwID|Dedicated Usage|Dedicated Limit|Shared Usage|Shared Limit|Device Interface").split("|"));

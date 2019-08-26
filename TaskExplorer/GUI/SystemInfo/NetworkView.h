@@ -69,7 +69,7 @@ private:
 	CIncrementalPlot*		m_pDlPlot;
 	CIncrementalPlot*		m_pUlPlot;
 
-	CPanelWidget<QTreeWidgetEx>* m_pNICList;
+	CPanelWidgetEx* m_pNICList;
 
 	QAction*				m_pShowDisconnected;
 };

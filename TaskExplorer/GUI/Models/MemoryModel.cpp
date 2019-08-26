@@ -16,20 +16,20 @@ CMemoryModel::~CMemoryModel()
 {
 }
 
-QList<QVariant> CMemoryModel::MakeWndPath(const CMemoryPtr& pMemory, const QMap<quint64, CMemoryPtr>& ModuleList)
+QList<QVariant> CMemoryModel::MakeMemPath(const CMemoryPtr& pMemory, const QMap<quint64, CMemoryPtr>& ModuleList)
 {
-	QList<QVariant> list;
+	QList<QVariant> Path;
 	if (!pMemory->IsAllocationBase())
 	{
-		list.append(pMemory->GetAllocationBase());
+		Path.append(pMemory->GetAllocationBase());
 	}
-	return list;
+	return Path;
 }
 
 void CMemoryModel::Sync(const QMap<quint64, CMemoryPtr>& ModuleList)
 {
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
-	QMap<QVariant, STreeNode*> Old = m_Map;
+	QHash<QVariant, STreeNode*> Old = m_Map;
 
 	foreach (const CMemoryPtr& pMemory, ModuleList)
 	{
@@ -38,7 +38,7 @@ void CMemoryModel::Sync(const QMap<quint64, CMemoryPtr>& ModuleList)
 		QModelIndex Index;
 		QList<QVariant> Path;
 		if(m_bTree)
-			Path = MakeWndPath(pMemory, ModuleList);
+			Path = MakeMemPath(pMemory, ModuleList);
 		
 		SMemoryNode* pNode = static_cast<SMemoryNode*>(Old.value(ID));
 		if(!pNode || pNode->Path != Path)
@@ -104,6 +104,9 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 	for(int section = eBaseAddress; section < columnCount(); section++)
 	{
+		if (!m_Columns.contains(section))
+			continue; // ignore columns which are hidden
+
 		QVariant Value;
 		switch(section)
 		{

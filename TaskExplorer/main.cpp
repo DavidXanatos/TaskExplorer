@@ -12,6 +12,8 @@
 bool SkipUacRun(bool test_only = false);
 #endif
 
+CSettings* theConf = NULL;
+
 int main(int argc, char *argv[])
 {
 #ifndef _DEBUG

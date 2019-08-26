@@ -6,14 +6,15 @@
 #include "Linux/LinuxAPI.h"
 #endif
 
+CSystemAPI*	theAPI = NULL;
+
 int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
 
 int _QSet_qquint64ype = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
 int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
 
-#define CORE_THREAD
-
-CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
+// When running this in a separate thread, QObject parent must be NULL
+CSystemAPI::CSystemAPI(QObject *parent) 
 {
 	m_PackageCount = 0;
 	m_NumaCount = 0;
@@ -48,20 +49,15 @@ CSystemAPI::CSystemAPI(QObject *parent): QObject(parent)
 
 	m_FileListUpdateWatcher = NULL;
 
-#ifdef CORE_THREAD
-	ASSERT(parent == NULL); // When running this in a separate thread, parent must be NULL!!!
 	QThread *pThread = new QThread();
 	this->moveToThread(pThread);
 	pThread->start();
-#endif
 }
 
 
 CSystemAPI::~CSystemAPI()
 {
-#ifdef CORE_THREAD
 	this->thread()->quit();
-#endif
 
 	if (m_FileListUpdateWatcher) 
 		m_FileListUpdateWatcher->waitForFinished();

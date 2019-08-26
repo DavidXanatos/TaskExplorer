@@ -5,6 +5,8 @@
 #include "../../Common/PanelView.h"
 #include "../../API/ProcessInfo.h"
 
+class CFinder;
+
 class CStackView : public CPanelView
 {
 	Q_OBJECT
@@ -18,6 +20,8 @@ public slots:
 	void					ShowStack(const CStackTracePtr& StackTrace);
 
 	//void					OnMenu(const QPoint &point);
+
+	void					SetFilter(const QRegExp& Exp, bool bHighLight = false, int Col = -1); // -1 = any
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
@@ -42,6 +46,8 @@ private:
 
 	bool					m_bIsInvalid;
 	QTreeWidgetEx*			m_pStackList;
+
+	CFinder*				m_pFinder;
 
 	//QMenu*					m_pMenu;
 };

@@ -115,9 +115,13 @@ PPH_STRING PhpGetGdiHandleInformation(_In_ ULONG Handle)
 }
 
 
-bool CWinGDI::InitData(ulong index, struct _GDI_HANDLE_ENTRY* handle)
+bool CWinGDI::InitData(ulong index, struct _GDI_HANDLE_ENTRY* handle, const QString& ProcessName)
 {
 	QWriteLocker Locker(&m_Mutex);
+
+	m_ProcessName = ProcessName;
+
+	m_ProcessId = handle->Owner.ProcessId;
 
 	m_HandleId = GDI_MAKE_HANDLE(index, handle->Unique);
 

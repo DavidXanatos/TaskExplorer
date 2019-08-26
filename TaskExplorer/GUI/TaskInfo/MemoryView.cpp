@@ -88,26 +88,37 @@ CMemoryView::CMemoryView(QWidget *parent)
 	if (Columns.isEmpty())
 	{
 		for (int i = 0; i < m_pMemoryModel->columnCount(); i++)
-			m_pMemoryList->setColumnHidden(i, true);
+			m_pMemoryList->SetColumnHidden(i, true);
 
-		m_pMemoryList->setColumnHidden(CMemoryModel::eBaseAddress, false);
-		m_pMemoryList->setColumnHidden(CMemoryModel::eType, false);
-		m_pMemoryList->setColumnHidden(CMemoryModel::eSize, false);
-		m_pMemoryList->setColumnHidden(CMemoryModel::eProtection, false);
-		m_pMemoryList->setColumnHidden(CMemoryModel::eUse, false);
+		m_pMemoryList->SetColumnHidden(CMemoryModel::eBaseAddress, false);
+		m_pMemoryList->SetColumnHidden(CMemoryModel::eType, false);
+		m_pMemoryList->SetColumnHidden(CMemoryModel::eSize, false);
+		m_pMemoryList->SetColumnHidden(CMemoryModel::eProtection, false);
+		m_pMemoryList->SetColumnHidden(CMemoryModel::eUse, false);
 	}
 	else
-		m_pMemoryList->header()->restoreState(Columns);
+		m_pMemoryList->restoreState(Columns);
 }
 
 
 CMemoryView::~CMemoryView()
 {
-	theConf->SetBlob(objectName() + "/MemorysView_Columns", m_pMemoryList->header()->saveState());
+	theConf->SetBlob(objectName() + "/MemorysView_Columns", m_pMemoryList->saveState());
 }
 
-void CMemoryView::ShowProcess(const CProcessPtr& pProcess)
+void CMemoryView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
+	CProcessPtr pProcess;
+	if (Processes.count() > 1)
+	{
+		setEnabled(false);
+	}
+	else if(!Processes.isEmpty())
+	{
+		setEnabled(true);
+		pProcess = Processes.first();
+	}
+
 	m_pCurProcess = pProcess;
 
 	OnRefresh();

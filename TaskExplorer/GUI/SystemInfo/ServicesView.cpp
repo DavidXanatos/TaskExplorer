@@ -47,30 +47,17 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 	if (!bAll)
 	{
-		m_pServiceList->setColumnFixed(CServiceModel::ePID, true);
-		m_pServiceList->setColumnHidden(CServiceModel::ePID, true);
-
+		//m_pServiceList->SetColumnHidden(CServiceModel::ePID, true, true);
 #ifdef WIN32
-		m_pServiceList->setColumnFixed(CServiceModel::eGroupe, true);
-		m_pServiceList->setColumnHidden(CServiceModel::eGroupe, true);
+		m_pServiceList->SetColumnHidden(CServiceModel::eGroupe, true, true);
 #endif
-
-		m_pServiceList->setColumnFixed(CServiceModel::eFileName, true);
-		m_pServiceList->setColumnHidden(CServiceModel::eFileName, true);
-
+		m_pServiceList->SetColumnHidden(CServiceModel::eFileName, true, true);
 #ifdef WIN32
-		m_pServiceList->setColumnFixed(CServiceModel::eDescription, true);
-		m_pServiceList->setColumnHidden(CServiceModel::eDescription, true);
-
-		m_pServiceList->setColumnFixed(CServiceModel::eCompanyName, true);
-		m_pServiceList->setColumnHidden(CServiceModel::eCompanyName, true);
-
-		m_pServiceList->setColumnFixed(CServiceModel::eVersion, true);
-		m_pServiceList->setColumnHidden(CServiceModel::eVersion, true);
+		m_pServiceList->SetColumnHidden(CServiceModel::eDescription, true, true);
+		m_pServiceList->SetColumnHidden(CServiceModel::eCompanyName, true, true);
+		m_pServiceList->SetColumnHidden(CServiceModel::eVersion, true, true);
 #endif
-
-		m_pServiceList->setColumnFixed(CServiceModel::eBinaryPath, true);
-		m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, true);
+		//m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, true, true);
 	}
 
 	//connect(m_pServiceList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
@@ -80,24 +67,24 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	if (Columns.isEmpty())
 	{
 		for (int i = 0; i < m_pServiceModel->columnCount(); i++)
-			m_pServiceList->setColumnHidden(i, true);
+			m_pServiceList->SetColumnHidden(i, true);
 
-		m_pServiceList->setColumnHidden(CServiceModel::eService, false);
+		m_pServiceList->SetColumnHidden(CServiceModel::eService, false);
 #ifdef WIN32
-		m_pServiceList->setColumnHidden(CServiceModel::eDisplayName, false);
-		m_pServiceList->setColumnHidden(CServiceModel::eType, false);
+		m_pServiceList->SetColumnHidden(CServiceModel::eDisplayName, false);
+		m_pServiceList->SetColumnHidden(CServiceModel::eType, false);
 #endif
-		m_pServiceList->setColumnHidden(CServiceModel::eStatus, false);
+		m_pServiceList->SetColumnHidden(CServiceModel::eStatus, false);
 #ifdef WIN32
-		m_pServiceList->setColumnHidden(CServiceModel::eStartType, false);
+		m_pServiceList->SetColumnHidden(CServiceModel::eStartType, false);
 #endif
 		if (bAll) {
-			m_pServiceList->setColumnHidden(CServiceModel::ePID, false);
-			m_pServiceList->setColumnHidden(CServiceModel::eBinaryPath, false);
+			m_pServiceList->SetColumnHidden(CServiceModel::ePID, false);
+			m_pServiceList->SetColumnHidden(CServiceModel::eBinaryPath, false);
 		}
 	}
 	else
-		m_pServiceList->header()->restoreState(Columns);
+		m_pServiceList->restoreState(Columns);
 
 	//m_pMenu = new QMenu();
 	m_pMenuStart = m_pMenu->addAction(tr("Start"), this, SLOT(OnServiceAction()));
@@ -109,10 +96,15 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_pMenuDelete = m_pMenu->addAction(tr("Delete"), this, SLOT(OnServiceAction()));
 #ifdef WIN32
 	m_pMenuOpenKey = m_pMenu->addAction(tr("Open key"), this, SLOT(OnServiceAction()));
-	m_pMenu->addSeparator();
-	m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"));
-	m_pMenuKernelServices->setCheckable(true);
-	m_pMenuKernelServices->setChecked(theConf->GetValue(objectName() + "/ShowKernelServices", true).toBool());
+	if (bAll)
+	{
+		m_pMenu->addSeparator();
+		m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"));
+		m_pMenuKernelServices->setCheckable(true);
+		m_pMenuKernelServices->setChecked(theConf->GetValue(objectName() + "/ShowKernelServices", true).toBool());
+	}
+	else
+		m_pMenuKernelServices = NULL;
 #endif
 
 	AddPanelItemsToMenu();
@@ -123,8 +115,11 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 CServicesView::~CServicesView()
 {
-	theConf->SetBlob(objectName() + "/ServicesView_Columns", m_pServiceList->header()->saveState());
-	theConf->SetValue(objectName() + "/ShowKernelServices", m_pMenuKernelServices->isChecked());
+	theConf->SetBlob(objectName() + "/ServicesView_Columns", m_pServiceList->saveState());
+	if (m_pMenuKernelServices)
+	{
+		theConf->SetValue(objectName() + "/ShowKernelServices", m_pMenuKernelServices->isChecked());
+	}
 }
 
 void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
@@ -132,23 +127,34 @@ void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Chan
 	QMap<QString, CServicePtr> ServiceList = theAPI->GetServiceList();
 
 #ifdef WIN32
-	m_pServiceModel->SetShowKernelServices(m_pMenuKernelServices->isChecked());
+	if (m_pMenuKernelServices)
+	{
+		m_pServiceModel->SetShowKernelServices(m_pMenuKernelServices->isChecked());
+	}
+	else
+	{
+		m_pServiceModel->SetShowKernelServices(false);
+	}
 #endif
 
 	m_pServiceModel->Sync(ServiceList);
 }
 
-void CServicesView::ShowProcess(const CProcessPtr& pProcess)
+void CServicesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
 #ifdef WIN32
 	QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
 	QMap<QString, CServicePtr> Services;
-	foreach(const QString& ServiceName, pProcess.objectCast<CWinProcess>()->GetServiceList())
+
+	foreach(const CProcessPtr& pProcess, Processes)
 	{
-		CServicePtr pService = AllServices[ServiceName.toLower()];
-		if (!pService)
-			pService = CServicePtr(new CWinService(ServiceName));
-		Services.insert(ServiceName.toLower(), pService);
+		foreach(const QString& ServiceName, pProcess.objectCast<CWinProcess>()->GetServiceList())
+		{
+			CServicePtr pService = AllServices[ServiceName.toLower()];
+			if (!pService)
+				pService = CServicePtr(new CWinService(ServiceName));
+			Services.insert(ServiceName.toLower(), pService);
+		}
 	}
 
 	m_pServiceModel->Sync(Services);

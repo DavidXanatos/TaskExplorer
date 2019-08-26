@@ -1,7 +1,8 @@
 #include "stdafx.h"
 #include "ProcessHacker.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinWnd.h"
+#include "WinThread.h"
+#include "WindowsAPI.h"
 
 #define NOSHLWAPI
 #include <shellapi.h>
@@ -17,7 +18,7 @@ CWinWnd::~CWinWnd()
 {
 }
 
-bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, void* QueryHandle)
+bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, void* QueryHandle, const QString& ProcessName)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -27,6 +28,7 @@ bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, 
 	m_ParentWnd = (quint64)::GetParent(WindowHandle);
 	m_ProcessId = ProcessId;
 	m_ThreadId = ThreadId;
+	m_ProcessName = ProcessName;
 
     WCHAR WindowClass[64];
     GetClassName(WindowHandle, WindowClass, sizeof(WindowClass) / sizeof(WCHAR));
@@ -364,7 +366,7 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 	WndInfo.Text = CastPhString(windowText);
 
 	CThreadPtr pThread = theAPI->GetThreadByID(ThreadId);
-	WndInfo.Thread = tr("%1 (%2): %3").arg(QString(pThread ? pThread->GetName() : tr("unknown"))).arg(ProcessId).arg(ThreadId);
+	WndInfo.Thread = tr("%1 (%2): %3").arg(pThread ? pThread->GetStartAddressString() : tr("unknown")).arg(ProcessId).arg(ThreadId);
 	
     WINDOWINFO windowInfo = { sizeof(WINDOWINFO) };
     WINDOWPLACEMENT windowPlacement = { sizeof(WINDOWPLACEMENT) };

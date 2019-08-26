@@ -14,7 +14,7 @@ public:
 	virtual ~CModulesView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 	void					ShowModules(const QMap<quint64, CModulePtr>& Modules);
 

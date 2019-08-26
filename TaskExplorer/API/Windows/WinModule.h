@@ -11,6 +11,7 @@ public:
 	void SetSubsystemProcess(bool IsSubsystemProcess)		{ QReadLocker Locker(&m_Mutex); m_IsSubsystemProcess = IsSubsystemProcess; }
 
 	virtual quint64 GetEntryPoint() const 					{ QReadLocker Locker(&m_Mutex); return m_EntryPoint; }
+	virtual QStringList GetRefServices()const				{ QReadLocker Locker(&m_Mutex); return m_Services; }
 
 	virtual quint64 GetType() const 						{ QReadLocker Locker(&m_Mutex); return m_Type; }
 	virtual QString GetTypeString() const;
@@ -59,6 +60,8 @@ protected:
 	friend class CWinProcess;
 
 	bool InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessHandle);
+	bool InitStaticData(const QVariantMap& Module);
+	bool ResolveRefServices();
 
 	bool UpdateDynamicData(struct _PH_MODULE_INFO* module);
 
@@ -66,6 +69,7 @@ protected:
 	quint64						m_ProcessId;
 	bool						m_IsSubsystemProcess;
     quint64						m_EntryPoint;
+	QStringList					m_Services;
     ulong						m_Flags;
     ulong						m_Type;
     quint16						m_LoadReason;

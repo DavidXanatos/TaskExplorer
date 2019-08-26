@@ -46,17 +46,17 @@ CDriversView::CDriversView(QWidget *parent)
 	if (Columns.isEmpty())
 	{
 		for (int i = 0; i < m_pDriverModel->columnCount(); i++)
-			m_pDriverList->setColumnHidden(i, true);
+			m_pDriverList->SetColumnHidden(i, true);
 
-		m_pDriverList->setColumnHidden(CDriverModel::eDriver, false);
+		m_pDriverList->SetColumnHidden(CDriverModel::eDriver, false);
 #ifdef WIN32
-		m_pDriverList->setColumnHidden(CDriverModel::eDescription, false);
+		m_pDriverList->SetColumnHidden(CDriverModel::eDescription, false);
 #endif
-		m_pDriverList->setColumnHidden(CDriverModel::eBinaryPath, false);
+		m_pDriverList->SetColumnHidden(CDriverModel::eBinaryPath, false);
 
 	}
 	else
-		m_pDriverList->header()->restoreState(Columns);
+		m_pDriverList->restoreState(Columns);
 
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu();
@@ -67,7 +67,7 @@ CDriversView::CDriversView(QWidget *parent)
 
 CDriversView::~CDriversView()
 {
-	theConf->SetBlob(objectName() + "/DriversView_Columns", m_pDriverList->header()->saveState());
+	theConf->SetBlob(objectName() + "/DriversView_Columns", m_pDriverList->saveState());
 }
 
 

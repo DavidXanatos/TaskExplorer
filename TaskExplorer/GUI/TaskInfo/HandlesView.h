@@ -7,7 +7,7 @@
 #include "../Models/HandleModel.h"
 #include "../../Common/SortFilterProxyModel.h"
 
-class CHandleFilterModel: public CSortFilterProxyModel
+/*class CHandleFilterModel: public CSortFilterProxyModel
 {
 public:
 	CHandleFilterModel(bool bAlternate, QObject* parrent = 0) : CSortFilterProxyModel(bAlternate, parrent) 
@@ -47,7 +47,7 @@ public:
 				if (m_bHideEtwReg && Type == "EtwRegistration")
 					return false;
 
-				if (!m_ShowType.isEmpty() && Type != m_ShowType)
+				if (!m_ShowType.isEmpty() && !Type.contains(m_ShowType))
 					return false;
 			}
 		}
@@ -60,7 +60,7 @@ protected:
 	QString m_ShowType;
 	bool m_bHideUnnmed;
 	bool m_bHideEtwReg;
-};
+};*/
 
 class CHandlesView : public CPanelView
 {
@@ -70,7 +70,7 @@ public:
 	virtual ~CHandlesView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 	void					ShowHandles(const QMap<quint64, CHandlePtr>& Handles);
 
@@ -80,8 +80,11 @@ public slots:
 
 private slots:
 	void					ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+	void					ShowOpenFiles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnItemSelected(const QModelIndex &current);
 	void					OnDoubleClicked();
+
+	void					OnColumnsChanged();
 
 	//void					OnMenu(const QPoint &point);
 
@@ -95,8 +98,20 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
+	enum EView
+	{
+		eNone,
+		eSingle,
+		eMulti
+	};
+
+	virtual void			SwitchView(EView ViewMode);
+
+	EView					m_ViewMode;
+
 	int						m_ShowAllFiles;
-	CProcessPtr				m_pCurProcess;
+	QList<CProcessPtr>		m_Processes;
+	int						m_PendingUpdates;
 
 private:
 	QVBoxLayout*			m_pMainLayout;
@@ -110,11 +125,12 @@ private:
 
 	QTreeViewEx*			m_pHandleList;
 	CHandleModel*			m_pHandleModel;
-	CHandleFilterModel*		m_pSortProxy;
+	//CHandleFilterModel*		m_pSortProxy;
+	CSortFilterProxyModel*	m_pSortProxy;
 
 	QSplitter*				m_pSplitter;
 
-	CPanelWidget<QTreeWidgetEx>* m_pHandleDetails;
+	CPanelWidgetEx* m_pHandleDetails;
 
 	//QMenu*					m_pMenu;
 	QAction*				m_pClose;

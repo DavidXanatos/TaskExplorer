@@ -11,6 +11,8 @@
 CThreadsView::CThreadsView(QWidget *parent)
 	: CTaskView(parent)
 {
+	//m_PendingUpdates = 0;
+
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
@@ -83,49 +85,79 @@ CThreadsView::CThreadsView(QWidget *parent)
 
 	AddPanelItemsToMenu();
 
-
+	m_ViewMode = eNone;
 	setObjectName(parent->objectName());
-	QByteArray Columns = theConf->GetBlob(objectName() + "/ThreadView_Columns");
-	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pThreadModel->columnCount(); i++)
-			m_pThreadList->setColumnHidden(i, true);
-
-		m_pThreadList->setColumnHidden(CThreadModel::eThread, false);
-		m_pThreadList->setColumnHidden(CThreadModel::eCPU, false);
-		m_pThreadList->setColumnHidden(CThreadModel::eCPU_History, false);
-#ifdef WIN32
-		m_pThreadList->setColumnHidden(CThreadModel::eStartAddress, false);
-#endif
-		m_pThreadList->setColumnHidden(CThreadModel::ePriority, false);
-#ifdef WIN32
-		m_pThreadList->setColumnHidden(CThreadModel::eService, false);
-#endif
-		m_pThreadList->setColumnHidden(CThreadModel::eState, false);
-#ifdef WIN32
-		m_pThreadList->setColumnHidden(CThreadModel::eType, false);
-#endif
-		m_pThreadList->setColumnHidden(CThreadModel::eCreated, false);
-	}
-	else
-		m_pThreadList->header()->restoreState(Columns);
+	SwitchView(eSingle);
 }
-
 
 CThreadsView::~CThreadsView()
 {
-	theConf->SetBlob(objectName() + "/ThreadView_Columns", m_pThreadList->header()->saveState());
+	SwitchView(eNone);
 }
 
-void CThreadsView::ShowProcess(const CProcessPtr& pProcess)
+void CThreadsView::SwitchView(EView ViewMode)
 {
-	if (m_pCurProcess != pProcess)
+	switch (m_ViewMode)
+	{
+		case eSingle:	theConf->SetBlob(objectName() + "/ThreadView_Columns", m_pThreadList->saveState()); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/ThreadMultiView_Columns", m_pThreadList->saveState()); break;
+	}
+
+	m_ViewMode = ViewMode;
+
+	QByteArray Columns;
+	switch (m_ViewMode)
+	{
+		case eSingle:	Columns = theConf->GetBlob(objectName() + "/ThreadView_Columns"); break;
+		case eMulti:	Columns = theConf->GetBlob(objectName() + "/ThreadMultiView_Columns"); break;
+		default:
+			return;
+	}
+
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pThreadModel->columnCount(); i++)
+			m_pThreadList->SetColumnHidden(i, true);
+
+		m_pThreadList->SetColumnHidden(CThreadModel::eThread, false);
+		m_pThreadList->SetColumnHidden(CThreadModel::eCPU, false);
+		if(m_ViewMode == eSingle)
+			m_pThreadList->SetColumnHidden(CThreadModel::eCPU_History, false);
+#ifdef WIN32
+		m_pThreadList->SetColumnHidden(CThreadModel::eStartAddress, false);
+#endif
+		m_pThreadList->SetColumnHidden(CThreadModel::ePriority, false);
+#ifdef WIN32
+		m_pThreadList->SetColumnHidden(CThreadModel::eService, false);
+#endif
+		m_pThreadList->SetColumnHidden(CThreadModel::eState, false);
+#ifdef WIN32
+		m_pThreadList->SetColumnHidden(CThreadModel::eType, false);
+#endif
+		m_pThreadList->SetColumnHidden(CThreadModel::eCreated, false);
+	}
+	else
+		m_pThreadList->restoreState(Columns);
+}
+
+
+void CThreadsView::ShowProcesses(const QList<CProcessPtr>& Processes)
+{
+	if (m_Processes != Processes)
 	{
 		disconnect(this, SLOT(ShowThreads(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
-		m_pCurProcess = pProcess;
+		m_Processes = Processes;
+		//m_PendingUpdates = 0;
 
-		connect(m_pCurProcess.data(), SIGNAL(ThreadsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowThreads(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+		m_pThreadModel->SetUseIcons(m_Processes.size() > 1);
+		m_pThreadModel->SetExtThreadId(m_Processes.size() > 1);
+		m_pThreadModel->Clear();
+
+		SwitchView(m_Processes.size() > 1 ? eMulti : eSingle);
+
+		foreach(const CProcessPtr& pProcess, m_Processes)
+			connect(pProcess.data(), SIGNAL(ThreadsUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowThreads(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 	}
 
 	Refresh();
@@ -147,23 +179,46 @@ void CThreadsView::SellectThread(quint64 ThreadId)
 
 void CThreadsView::Refresh()
 {
-	if (!m_pCurProcess)
-		return;
-
-	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateThreads()));
-
-#ifdef WIN32
-	// Note: See coment in CWinProcess::UpdateThreads(), ... so windows we just call ShowThreads right away.
-	ShowThreads(QSet<quint64>(), QSet<quint64>(), QSet<quint64>());
-#endif
-
 	if(!m_pCurThread.isNull() && m_CurStackTraceJob == 0)
 		m_CurStackTraceJob = m_pCurThread->TraceStack();
+
+	//if (m_PendingUpdates > 0)
+	//	return;
+
+	//m_PendingUpdates = 0;
+	foreach(const CProcessPtr& pProcess, m_Processes)
+	{
+		//m_PendingUpdates++;
+		QTimer::singleShot(0, pProcess.data(), SLOT(UpdateThreads()));
+	}
+
+	// Note: See coment in CWinProcess::UpdateThreads(), ... so windows we just call ShowThreads right away.
+	ShowThreads(QSet<quint64>(), QSet<quint64>(), QSet<quint64>());
 }
 
 void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	m_Threads = m_pCurProcess->GetThreadList();
+	if(m_Processes.count() == 1)
+	{
+		//m_PendingUpdates = 0;
+
+		m_Threads = m_Processes.first()->GetThreadList();
+	}
+	else // merge the maps
+	{
+		//if (--m_PendingUpdates > 0)
+		//	return;
+
+		m_Threads.clear();
+		foreach(const CProcessPtr& pProcess, m_Processes) {
+			QMap<quint64, CThreadPtr> Threads = pProcess->GetThreadList();
+			for (QMap<quint64, CThreadPtr>::iterator I = Threads.begin(); I != Threads.end(); I++)
+			{
+				ASSERT(!m_Threads.contains(I.key()));
+				m_Threads.insert(I.key(), I.value());
+			}
+		}
+	}
 
 	m_pThreadModel->Sync(m_Threads);
 

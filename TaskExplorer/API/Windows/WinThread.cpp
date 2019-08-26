@@ -22,7 +22,6 @@
  */
 
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinThread.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
@@ -67,11 +66,9 @@ CWinThread::~CWinThread()
 	delete m;
 }
 
-bool CWinThread::InitStaticData(void* pProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread)
+bool CWinThread::InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread)
 {
 	QWriteLocker Locker(&m_Mutex);
-
-	HANDLE ProcessHandle = *(HANDLE*)pProcessHandle;
 
 	m_ThreadId = (quint64)thread->ClientId.UniqueThread;
 	m_ProcessId = (quint64)thread->ClientId.UniqueProcess;
@@ -103,6 +100,7 @@ bool CWinThread::InitStaticData(void* pProcessHandle, struct _SYSTEM_THREAD_INFO
         startAddress = thread->StartAddress;
 
     m_StartAddress = (ULONG64)startAddress;
+	m_StartAddressString = FormatAddress(m_StartAddress); // this will be replaced with the resolved symbol
 
 	if (WindowsVersion >= WINDOWS_10_RS1)
     {
@@ -116,7 +114,7 @@ bool CWinThread::InitStaticData(void* pProcessHandle, struct _SYSTEM_THREAD_INFO
 	return true;
 }
 
-bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime, quint64 sysTotalCycleTime)
+bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -162,7 +160,7 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
     }
 
     // Update the cycle count.
-	if(sysTotalCycleTime != 0)
+	if(sysTotalTime == 0)
 	{
         ULONG64 cycles = 0;
         ULONG64 oldDelta;
@@ -185,10 +183,16 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
     m_CpuStats.CpuKernelDelta.Update(m_KernelTime);
     m_CpuStats.CpuUserDelta.Update(m_UserTime);
 
-	// If the cycle time isn't available, we'll fall back to using the CPU time.
-	m_CpuStats.UpdateStats(sysTotalTime, (m_ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || m->ThreadHandle) ? sysTotalCycleTime : 0);
+	m_CpuStats.UpdateStats(sysTotalTime);
 
 	return modified;
+}
+
+void CWinThread::UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime)
+{
+	QWriteLocker StatsLocker(&m_StatsMutex);
+	// If the cycle time isn't available, we'll fall back to using the CPU time.
+	m_CpuStats.UpdateStats(sysTotalTime, (m_ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || m->ThreadHandle) ? sysTotalCycleTime : 0);
 }
 
 bool CWinThread::UpdateExtendedData()
@@ -309,6 +313,14 @@ quint64 CWinThread::TraceStack()
 	return qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetStackTrace(m_ProcessId, m_ThreadId, this, SIGNAL(StackTraced(const CStackTracePtr&)));
 }
 
+QString CWinThread::GetName() const
+{
+	CProcessPtr pProcess = GetProcess().objectCast<CProcessInfo>();
+	if (pProcess)
+		return pProcess->GetName();
+	return tr("Unknown process");
+}
+
 QString CWinThread::GetStateString() const
 {
 	QReadLocker Locker(&m_Mutex);
@@ -360,10 +372,7 @@ quint64 CWinThread::GetRawCreateTime() const
 QString CWinThread::GetStartAddressString() const
 {
 	QReadLocker Locker(&m_Mutex);
-
-	if (!m_StartAddressString.isEmpty())
-		return m_StartAddressString;
-	return FormatAddress(m_StartAddress);
+	return m_StartAddressString;
 }
 
 QString CWinThread::GetPriorityString() const
@@ -699,11 +708,12 @@ QString SvcGetClrThreadAppDomain(const QVariantMap& Parameters)
 
 QString GetClrThreadAppDomain(quint64 ProcessId, quint64 ThreadId)
 {
-	BOOLEAN isDotNet;
+	/*BOOLEAN isDotNet;
 	if (!NT_SUCCESS(PhGetProcessIsDotNet((HANDLE)ProcessId, &isDotNet)) || !isDotNet)
-		return "";
+		return "";*/
 
-	BOOLEAN IsWow64;
+#ifdef WIN64
+	BOOLEAN IsWow64 = FALSE;
 
     HANDLE processHandle;
     if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)ProcessId)))
@@ -712,7 +722,6 @@ QString GetClrThreadAppDomain(quint64 ProcessId, quint64 ThreadId)
         NtClose(processHandle);
     }
 
-#ifdef WIN64
     if (IsWow64)
     {
 		QString SocketName = CTaskService::RunWorker(false, true);
@@ -745,12 +754,17 @@ QString CWinThread::GetAppDomain() const
 		return m_AppDomain;
 	Locker.unlock();
 
+	((CWinThread*)this)->SetAppDomain("");
 	QTimer::singleShot(0, this, SLOT(UpdateAppDomain()));
 	return "";
 }
 
 void CWinThread::UpdateAppDomain()
 {
+	BOOLEAN isDotNet;
+	if (!NT_SUCCESS(PhGetProcessIsDotNet((HANDLE)m_ProcessId, &isDotNet)) || !isDotNet)
+		return; // nothign to do here
+
 	QFutureWatcher<QString>* pWatcher = new QFutureWatcher<QString>(this);
 	QObject::connect(pWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(OnAppDomain(int)));
 	QObject::connect(pWatcher, SIGNAL(finished()), pWatcher, SLOT(deleteLater()));
@@ -760,21 +774,16 @@ void CWinThread::UpdateAppDomain()
 void CWinThread::OnAppDomain(int Index)
 {
 	QFutureWatcher<QString>* pWatcher = (QFutureWatcher<QString>*)sender();
-	if (!pWatcher)
-		return;
-
-	QWriteLocker Locker(&m_Mutex);
-	m_AppDomain = pWatcher->resultAt(Index);
+	if (pWatcher)
+		SetAppDomain(pWatcher->resultAt(Index));
 }
 
-static NTSTATUS NTAPI PhpThreadPermissionsOpenThread(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
+static NTSTATUS NTAPI CWinThread_OpenThreadPermissions(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
     return PhOpenThread(Handle, DesiredAccess, (HANDLE)Context);
 }
 
 void CWinThread::OpenPermissions()
 {
-	QReadLocker Locker(&m_Mutex); 
-
-    PhEditSecurity(NULL, (wchar_t*)GetStartAddressString().toStdWString().c_str(), L"Thread", PhpThreadPermissionsOpenThread, NULL, (HANDLE)m_ThreadId);
+    PhEditSecurity(NULL, (wchar_t*)GetStartAddressString().toStdWString().c_str(), L"Thread", CWinThread_OpenThreadPermissions, NULL, (HANDLE)GetThreadId());
 }

@@ -4,7 +4,7 @@
 #define FIRST_COLUMN 0
 
 CListItemModel::CListItemModel(QObject *parent)
-:QAbstractItemModel(parent)
+: QAbstractItemModelEx(parent)
 {
 	m_bUseIcons = false;
 }
@@ -15,10 +15,18 @@ CListItemModel::~CListItemModel()
 		delete pNode;
 }
 
+int CListItemModel::GetRow(SListNode* pNode) const
+{
+	int Index = m_RevList.value(pNode, -1);
+	ASSERT(Index != -1);
+	ASSERT(m_List[Index] == pNode); 
+	return Index;
+}
+
 void CSimpleListModel::Sync(QList<QVariantMap> List)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const QVariantMap& Cur, List)
 	{
@@ -37,7 +45,7 @@ void CSimpleListModel::Sync(QList<QVariantMap> List)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 		int Col = 0;
@@ -47,6 +55,9 @@ void CSimpleListModel::Sync(QList<QVariantMap> List)
 		QVariantMap Values = Cur["Values"].toMap();
 		for(int section = FIRST_COLUMN; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value = Values[QString::number(section)];
 
 			SListNode::SValue& ColValue = pNode->Values[section];
@@ -75,8 +86,10 @@ void CSimpleListModel::Sync(QList<QVariantMap> List)
 	CListItemModel::Sync(New, Old);
 }
 
-void CListItemModel::Sync(QList<SListNode*>& New, QMap<QVariant, SListNode*>& Old)
+void CListItemModel::Sync(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old)
 {
+	int Removed = 0;
+
 	int Begin = -1;
 	int End = -1;
 	for(int i = m_List.count()-1; i >= -1; i--) 
@@ -93,8 +106,14 @@ void CListItemModel::Sync(QList<SListNode*>& New, QMap<QVariant, SListNode*>& Ol
 			Begin = i + 1;
 
 			beginRemoveRows(QModelIndex(), Begin, End);
-			for(int j = End; j >= Begin; j--)
-				delete m_List.takeAt(j);
+			for (int j = End; j >= Begin; j--)
+			{
+				Removed++;
+
+				SListNode* pNode = m_List.takeAt(j);
+				m_RevList.remove(pNode);
+				delete pNode;
+			}
 			endRemoveRows();
 
 			End = -1;
@@ -102,12 +121,23 @@ void CListItemModel::Sync(QList<SListNode*>& New, QMap<QVariant, SListNode*>& Ol
 		}
     }
 
+	// if something was removed we need to update the row cache
+	if (Removed > 0)
+	{
+		ASSERT(m_RevList.size() == m_List.size());
+		for (int i = 0; i < m_List.count(); i++)
+			m_RevList[m_List[i]] = i;
+	}
+
 	Begin = m_List.count();
 	for(QList<SListNode*>::iterator I = New.begin(); I != New.end(); I++)
 	{
 		SListNode* pNode = *I;
 		m_Map.insert(pNode->ID, pNode);
+		
+		int Index = m_List.size();
 		m_List.append(pNode);
+		m_RevList.insert(pNode, Index);
 	}
 	End = m_List.count();
 	if(Begin < End)
@@ -137,6 +167,7 @@ void CListItemModel::Clear()
 	foreach(SListNode* pNode, m_List)
 		delete pNode;
 	m_List.clear();
+	m_RevList.clear();
 	m_Map.clear();
 	endRemoveRows();
 	//endResetModel();
@@ -178,7 +209,7 @@ QVariant CListItemModel::Data(const QModelIndex &index, int role, int section) c
 		}
 		case Qt::DecorationRole:
 		{
-			if (section == FIRST_COLUMN)
+			if (m_bUseIcons && section == FIRST_COLUMN)
 				return pNode->Icon.isValid() ? pNode->Icon : GetDefaultIcon();
 			break;
 		}

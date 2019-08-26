@@ -3,7 +3,6 @@
 #include "../ProcessHacker.h"
 #include "../WinModule.h"
 #include "../WindowsAPI.h"
-#include "../../../GUI/TaskExplorer.h"
 
 
 CWinModuleFinder::CWinModuleFinder(const QVariant& Type, const QRegExp& RegExp, QObject* parent) : CAbstractFinder(parent) 

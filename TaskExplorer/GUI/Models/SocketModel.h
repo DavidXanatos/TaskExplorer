@@ -11,7 +11,7 @@ public:
     CSocketModel(QObject *parent = 0);
 	~CSocketModel();
 
-	void			SetProcessFilter(const CProcessPtr& pProcess) { m_ProcessFilter = true; m_CurProcess = pProcess; }
+	void			SetProcessFilter(const QList<CProcessPtr>& Processes) { m_ProcessFilter = true; m_Processes = Processes; }
 
 	void			Sync(QMultiMap<quint64, CSocketPtr> SocketList);
 	
@@ -30,7 +30,7 @@ public:
 		eRemoteAddress,
 		eRemotePort,
 #ifdef WIN32
-		eOwner,
+		eOwnerService,
 #endif
 		eTimeStamp,
 		//eLocalHostname,
@@ -57,7 +57,7 @@ public:
 
 protected:
 	bool					m_ProcessFilter;
-	CProcessPtr				m_CurProcess;
+	QList<CProcessPtr>		m_Processes;
 
 	struct SSocketNode: SListNode
 	{

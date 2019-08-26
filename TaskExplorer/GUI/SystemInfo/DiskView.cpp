@@ -99,7 +99,7 @@ CDiskView::CDiskView(QWidget *parent)
 
 
 	// Disk Details
-	m_pDiskList = new CPanelWidget<QTreeWidgetEx>();
+	m_pDiskList = new CPanelWidgetEx();
 
 	m_pDiskList->GetTree()->setItemDelegate(theGUI->GetItemDelegate());
 	m_pDiskList->GetTree()->setHeaderLabels(tr("Disk Name|Usage|Latency|Queue|Read Rate|Bytes Read Delta|Bytes Read|Reads Delta|Reads|Write Rate|Bytes Writen Delta|Bytes Writen|Writes Delta|Writes|Device Path").split("|"));

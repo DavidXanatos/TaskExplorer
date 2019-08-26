@@ -6,15 +6,16 @@
 #include "Monitors/WinGpuMonitor.h"
 #include "Monitors/WinNetMonitor.h"
 #include "Monitors/WinDiskMonitor.h"
-
-#include "../GUI/TaskExplorer.h"
 #include "../SVC/TaskService.h"
+#include "../Common/Settings.h"
 
 extern "C" {
 #include <winsta.h>
 }
 
 ulong g_fileObjectTypeIndex = ULONG_MAX;
+ulong g_EtwRegistrationTypeIndex = ULONG_MAX;
+
 struct SWindowsAPI
 {
 	SWindowsAPI()
@@ -114,6 +115,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_pEventMonitor = NULL;
 	m_pGpuMonitor = NULL;
 	m_pSymbolProvider = NULL;
+	m_pSidResolver = NULL;
 
 	m_bTestSigning = false;
 	m_bDriverFailed = false;
@@ -123,6 +125,8 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 bool CWindowsAPI::Init()
 {
+	SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
+
 	InitPH();
 
 	SYSTEM_CODEINTEGRITY_INFORMATION sci = {sizeof(SYSTEM_CODEINTEGRITY_INFORMATION)};
@@ -170,8 +174,11 @@ bool CWindowsAPI::Init()
 	if (PhBeginInitOnce(&initOnce))
     {
         UNICODE_STRING fileTypeName = RTL_CONSTANT_STRING(L"File");
-
         g_fileObjectTypeIndex = PhGetObjectTypeNumber(&fileTypeName);
+
+		UNICODE_STRING EtwRegistrationTypeName = RTL_CONSTANT_STRING(L"EtwRegistration");
+        g_EtwRegistrationTypeIndex = PhGetObjectTypeNumber(&EtwRegistrationTypeName);
+		
 
         PhEndInitOnce(&initOnce);
     }
@@ -234,8 +241,11 @@ bool CWindowsAPI::Init()
 	m_pDiskMonitor = new CWinDiskMonitor();
 	m_pDiskMonitor->Init();
 
-	m_pSymbolProvider = CSymbolProviderPtr(new CSymbolProvider());
+	m_pSymbolProvider = new CSymbolProvider();
 	m_pSymbolProvider->Init();
+
+	m_pSidResolver = new CSidResolver();
+	m_pSidResolver->Init();
 
 	return true;
 }
@@ -269,6 +279,9 @@ CWindowsAPI::~CWindowsAPI()
 	delete m_pNetMonitor;
 	delete m_pDiskMonitor;
 
+	delete m_pSymbolProvider;
+	delete m_pSidResolver;
+
 	delete m;
 }
 
@@ -277,6 +290,7 @@ bool CWindowsAPI::RootAvaiable()
 	return PhGetOwnTokenAttributes().Elevated;
 }
 
+// PhpUpdateCpuInformation
 quint64 CWindowsAPI::UpdateCpuStats(bool SetCpuUsage)
 {
 	QWriteLocker Locker(&m_StatsMutex);
@@ -357,17 +371,17 @@ quint64 CWindowsAPI::UpdateCpuStats(bool SetCpuUsage)
 
     return totalTime;
 }
+//
 
+// PhpUpdateCpuCycleInformation
 quint64 CWindowsAPI::UpdateCpuCycleStats()
 {			
 	QWriteLocker Locker(&m_StatsMutex);
 
     // Idle
 
-    // We need to query this separately because the idle cycle time in SYSTEM_PROCESS_INFORMATION
-    // doesn't give us data for individual processors.
-
-    NtQuerySystemInformation(SystemProcessorIdleCycleTimeInformation, &m->CpuIdleCycleTime, sizeof(LARGE_INTEGER) * PhSystemBasicInformation.NumberOfProcessors, NULL);
+    // We need to query this separately because the idle cycle time in SYSTEM_PROCESS_INFORMATION doesn't give us data for individual processors.
+    NtQuerySystemInformation(SystemProcessorIdleCycleTimeInformation, m->CpuIdleCycleTime, sizeof(LARGE_INTEGER) * PhSystemBasicInformation.NumberOfProcessors, NULL);
 
 	quint64 totalIdle = 0;
     for (ulong i = 0; i < (ulong)PhSystemBasicInformation.NumberOfProcessors; i++)
@@ -377,8 +391,6 @@ quint64 CWindowsAPI::UpdateCpuCycleStats()
 
 
     // System
-
-	
     NtQuerySystemInformation(SystemProcessorCycleTimeInformation, m->CpuSystemCycleTime, sizeof(LARGE_INTEGER) * PhSystemBasicInformation.NumberOfProcessors, NULL);
 
     quint64 totalSys = 0;
@@ -390,6 +402,78 @@ quint64 CWindowsAPI::UpdateCpuCycleStats()
 
 	return m->CpuIdleCycleDelta.Delta;
 }
+//
+
+// PhpUpdateCpuCycleUsageInformation
+void CWindowsAPI::UpdateCPUCycles(quint64 TotalCycleTime, quint64 IdleCycleTime)
+{
+    FLOAT baseCpuUsage;
+    FLOAT totalTimeDelta;
+    ULONG64 totalTime;
+
+    // Cycle time is not only lacking for kernel/user components, but also for individual
+    // processors. We can get the total idle cycle time for individual processors but
+    // without knowing the total cycle time for individual processors, this information
+    // is useless.
+    //
+    // We'll start by calculating the total CPU usage, then we'll calculate the kernel/user
+    // components. In the event that the corresponding CPU time deltas are zero, we'll split
+    // the CPU usage evenly across the kernel/user components. CPU usage for individual
+    // processors is left untouched, because it's too difficult to provide an estimate.
+    //
+    // Let I_1, I_2, ..., I_n be the idle cycle times and T_1, T_2, ..., T_n be the
+    // total cycle times. Let I'_1, I'_2, ..., I'_n be the idle CPU times and T'_1, T'_2, ...,
+    // T'_n be the total CPU times.
+    // We know all I'_n, T'_n and I_n, but we only know sigma(T). The "real" total CPU usage is
+    // sigma(I)/sigma(T), and the "real" individual CPU usage is I_n/T_n. The problem is that
+    // we don't know T_n; we only know sigma(T). Hence we need to find values i_1, i_2, ..., i_n
+    // and t_1, t_2, ..., t_n such that:
+    // sigma(i)/sigma(t) ~= sigma(I)/sigma(T), and
+    // i_n/t_n ~= I_n/T_n
+    //
+    // Solution 1: Set i_n = I_n and t_n = sigma(T)*T'_n/sigma(T'). Then:
+    // sigma(i)/sigma(t) = sigma(I)/(sigma(T)*sigma(T')/sigma(T')) = sigma(I)/sigma(T), and
+    // i_n/t_n = I_n/T'_n*sigma(T')/sigma(T) ~= I_n/T_n since I_n/T'_n ~= I_n/T_n and sigma(T')/sigma(T) ~= 1.
+    // However, it is not guaranteed that i_n/t_n <= 1, which may lead to CPU usages over 100% being displayed.
+    //
+    // Solution 2: Set i_n = I'_n and t_n = T'_n. Then:
+    // sigma(i)/sigma(t) = sigma(I')/sigma(T') ~= sigma(I)/sigma(T) since I'_n ~= I_n and T'_n ~= T_n.
+    // i_n/t_n = I'_n/T'_n ~= I_n/T_n as above.
+    // Not scaling at all is currently the best solution, since it's fast, simple and guarantees that i_n/t_n <= 1.
+
+    baseCpuUsage = 1 - (FLOAT)IdleCycleTime / TotalCycleTime;
+    totalTimeDelta = (FLOAT)(m_CpuStats.KernelDelta.Delta + m_CpuStats.UserDelta.Delta);
+
+    if (totalTimeDelta != 0)
+    {
+        m_CpuStats.KernelUsage = baseCpuUsage * ((FLOAT)m_CpuStats.KernelDelta.Delta / totalTimeDelta);
+        m_CpuStats.UserUsage = baseCpuUsage * ((FLOAT)m_CpuStats.UserDelta.Delta / totalTimeDelta);
+    }
+    else
+    {
+        m_CpuStats.KernelUsage = baseCpuUsage / 2;
+        m_CpuStats.UserUsage = baseCpuUsage / 2;
+    }
+
+    for (ulong i = 0; i < (ulong)PhSystemBasicInformation.NumberOfProcessors; i++)
+    {
+		SCpuStats& CpuStats = m_CpusStats[i];
+
+        totalTime = CpuStats.KernelDelta.Delta + CpuStats.UserDelta.Delta + CpuStats.IdleDelta.Delta;
+
+        if (totalTime != 0)
+        {
+            CpuStats.KernelUsage = (FLOAT)CpuStats.KernelDelta.Delta / totalTime;
+            CpuStats.UserUsage = (FLOAT)CpuStats.UserDelta.Delta / totalTime;
+        }
+        else
+        {
+            CpuStats.KernelUsage = 0;
+            CpuStats.UserUsage = 0;
+        }
+    }
+}
+//
 
 void CWindowsAPI::UpdatePerfStats()
 {
@@ -515,28 +599,13 @@ bool CWindowsAPI::UpdateSysStats()
 
 bool CWindowsAPI::UpdateProcessList()
 {
-	quint64 sysTotalTime; // total time for this update period
-    quint64 sysTotalCycleTime = 0; // total cycle time for this update period
-    quint64 sysIdleCycleTime = 0; // total idle cycle time for this update period
-
-	bool PhEnableCycleCpuUsage = false; // todo: add settings
-
-    if (PhEnableCycleCpuUsage)
-    {
-        sysTotalTime = UpdateCpuStats(false);
-        sysIdleCycleTime = UpdateCpuCycleStats();
-
-		// sysTotalCycleTime = todo: count from all processes what a mess
-    }
-    else
-    {
-        sysTotalTime = UpdateCpuStats(true);
-    }
-
+	bool EnableCycleCpuUsage = theConf->GetBool("Options/EnableCycleCpuUsage", false);
 	int iLinuxStyleCPU = theConf->GetInt("Options/LinuxStyleCPU", 2);
 
+	quint64 sysTotalTime = UpdateCpuStats(!EnableCycleCpuUsage); // total time for this update period
+	quint64 sysTotalCycleTime = 0; // total cycle time for this update period
+    quint64 sysIdleCycleTime = EnableCycleCpuUsage ? UpdateCpuCycleStats() : 0; // total idle cycle time for this update period
 	quint64 sysTotalTimePerCPU = sysTotalTime / m_CpuCount;
-
 
 	QSet<quint64> Added;
 	QSet<quint64> Changed;
@@ -556,7 +625,7 @@ bool CWindowsAPI::UpdateProcessList()
     // On Windows 7 the two fake processes are merged into "Interrupts" since we can only get cycle
     // time information both DPCs and Interrupts combined.
 
-    if (PhEnableCycleCpuUsage)
+    if (EnableCycleCpuUsage)
     {
         m->InterruptsProcessInformation.KernelTime.QuadPart = m->CpuTotals.DpcTime.QuadPart + m->CpuTotals.InterruptTime.QuadPart;
         m->InterruptsProcessInformation.CycleTime = m->CpuSystemCycleDelta.Value;
@@ -576,6 +645,8 @@ bool CWindowsAPI::UpdateProcessList()
 	quint32 newTotalGuiObjects = 0;
 	quint32 newTotalUserObjects = 0;
 	quint32 newTotalWndObjects = EnumWindows();
+
+	bool MonitorTockenChange = theConf->GetBool("Options/MonitorTockenChange", false);
 
 	/*if (!HasExtProcInfo() || theConf->GetBool("Options/DiskAlwaysUseETW", false))
 		m_UseDiskCounters = eDontUse;
@@ -609,9 +680,14 @@ bool CWindowsAPI::UpdateProcessList()
 		}
 
 		bool bChanged = false;
-		bChanged = pProcess->UpdateDynamicData(process, bFullProcessInfo, iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime);
+		bChanged = pProcess->UpdateDynamicData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime));
 
-		pProcess->UpdateThreadData(process, bFullProcessInfo, iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, sysTotalCycleTime); // a thread can ever only use one CPU to use linux style ylways
+		if (EnableCycleCpuUsage)
+			sysTotalCycleTime += pProcess->GetCpuStats().CycleDelta.Delta;
+
+		pProcess->UpdateThreadData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime)); // a thread can ever only use one CPU to use linux style ylways
+
+		pProcess->UpdateTokenData(MonitorTockenChange);
 
 		pProcess->SetWndHandles(GetWindowByPID((quint64)process->UniqueProcessId).count());
 
@@ -656,12 +732,20 @@ bool CWindowsAPI::UpdateProcessList()
 
             if (process == NULL)
             {
-                if (PhEnableCycleCpuUsage)
+                if (EnableCycleCpuUsage)
                     process = &m->InterruptsProcessInformation;
                 else
                     process = &m->DpcsProcessInformation;
             }
         }
+	}
+
+	if (EnableCycleCpuUsage)
+	{
+		foreach(const CProcessPtr& pProcess, GetProcessList())
+			pProcess.objectCast<CWinProcess>()->UpdateCPUCycles(sysTotalTime, sysTotalCycleTime);
+
+		UpdateCPUCycles(sysTotalCycleTime, sysIdleCycleTime);
 	}
 
 	// purle all processes left as thay are not longer running
@@ -980,7 +1064,7 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 	bool bAdd = false;
 	if (pSocket.isNull())
 	{
-		qDebug() << ProcessId  << Type << LocalAddress.toString() << LocalPort << RemoteAddress.toString() << RemotePort;
+		//qDebug() << ProcessId  << Type << LocalAddress.toString() << LocalPort << RemoteAddress.toString() << RemotePort;
 
 		pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
 		bAdd = pSocket->InitStaticData(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
@@ -1062,6 +1146,8 @@ bool CWindowsAPI::UpdateOpenFileList()
     if (!NT_SUCCESS(PhEnumHandlesEx(&handleInfo)))
         return false;
 
+	bool bGetDanymicData = theConf->GetBool("Options/OpenFileGetPosition", false);
+
 	quint64 TimeStamp = GetTime() * 1000;
 
 	// Copy the handle Map
@@ -1086,7 +1172,9 @@ bool CWindowsAPI::UpdateOpenFileList()
 		if (handle->ObjectTypeIndex != g_fileObjectTypeIndex)
 			continue;
 
-		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(handle->HandleValue).objectCast<CWinHandle>();
+		quint64 HandleID = CWinHandle::MakeID(handle->HandleValue, handle->UniqueProcessId);
+
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).objectCast<CWinHandle>();
 
 		bool WasReused = false;
 		// Also compare the object pointers to make sure a
@@ -1104,17 +1192,21 @@ bool CWindowsAPI::UpdateOpenFileList()
 		}
 		
 		if (WasReused)
-			Removed.insert(handle->HandleValue);
+			Removed.insert(HandleID);
 
-		if (bAdd || WasReused)
+		HANDLE &ProcessHandle = ProcessHandles[handle->UniqueProcessId];
+
+		if (bAdd || WasReused || bGetDanymicData)
 		{
-			HANDLE &ProcessHandle = ProcessHandles[handle->UniqueProcessId];	
 			if (ProcessHandle == NULL)
 			{
 				if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_DUP_HANDLE, (HANDLE)handle->UniqueProcessId)))
 					continue;
 			}
+		}
 
+		if (bAdd || WasReused)
+		{
 			pWinHandle->InitStaticData(handle, TimeStamp);
             pWinHandle->InitExtData(handle,(quint64)ProcessHandle);	
 
@@ -1124,17 +1216,22 @@ bool CWindowsAPI::UpdateOpenFileList()
 
 			if (bAdd)
 			{
-				Added.insert(handle->HandleValue);
+				Added.insert(HandleID);
 				QWriteLocker Locker(&m_OpenFilesMutex);
-				if (m_OpenFilesList.contains(handle->HandleValue))
-					continue; // ToDo: why are there duplicate results in the handle list?!
-				m_OpenFilesList.insert(handle->HandleValue, pWinHandle);
+				ASSERT(!m_OpenFilesList.contains(HandleID));
+				m_OpenFilesList.insert(HandleID, pWinHandle);
 				//m_HandleByObject.insertMulti(pWinHandle->GetObject(), pWinHandle);
 			}
 		}
+		
+		if (bGetDanymicData)
+		{
+			if (pWinHandle->UpdateDynamicData(handle, (quint64)ProcessHandle))
+				Changed.insert(HandleID);
+		}
 
-		if (pWinHandle->m_pProcess.isNull())
-			pWinHandle->m_pProcess = GetProcessByID(handle->UniqueProcessId);
+		//if (pWinHandle->GetProcess().isNull())
+		//	pWinHandle->SetProcess(GetProcessByID(handle->UniqueProcessId));
 	}
 
 	foreach(HANDLE ProcessHandle, ProcessHandles)

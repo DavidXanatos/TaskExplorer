@@ -45,14 +45,9 @@ CStringView::CStringView(bool bGlobal, QWidget *parent)
 	// 
 
 	if (!bGlobal)
-	{
-		m_pStringList->setColumnHidden(CStringModel::eProcess, true);
-		m_pStringList->setColumnFixed(CStringModel::eProcess, true);
-	}
+		m_pStringList->SetColumnHidden(CStringModel::eProcess, true, true);
 	else
-	{
 		m_pStringModel->SetUseIcons(true);
-	}
 
 	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
@@ -66,13 +61,13 @@ CStringView::CStringView(bool bGlobal, QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pStringList->header()->restoreState(theConf->GetBlob(objectName() + "/StringsView_Columns"));
+	m_pStringList->restoreState(theConf->GetBlob(objectName() + "/StringsView_Columns"));
 }
 
 
 CStringView::~CStringView()
 {
-	theConf->SetBlob(objectName() + "/StringsView_Columns", m_pStringList->header()->saveState());
+	theConf->SetBlob(objectName() + "/StringsView_Columns", m_pStringList->saveState());
 }
 
 

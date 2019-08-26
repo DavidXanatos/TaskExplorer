@@ -9,6 +9,7 @@
 CHandleModel::CHandleModel(QObject *parent)
 :CListItemModel(parent)
 {
+	m_SizePosNA = false;
 }
 
 CHandleModel::~CHandleModel()
@@ -18,7 +19,7 @@ CHandleModel::~CHandleModel()
 void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CHandlePtr& pHandle, HandleList)
 	{
@@ -36,7 +37,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 #ifdef WIN32
@@ -50,7 +51,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		CProcessPtr pProcess = pNode->pHandle->GetProcess().objectCast<CProcessInfo>();
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid())
+		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
 		{
 			if (!pProcess.isNull())
 			{
@@ -78,10 +79,13 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 		for(int section = eProcess; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value;
 			switch(section)
 			{
-				case eProcess:			Value = pProcess.isNull() ? tr("Unknown Process") : pProcess->GetName(); break;	
+				case eProcess:			Value = pHandle->GetProcessId(); break;	
 				case eHandle:			Value = pHandle->GetHandleId(); break;
 				case eType:				Value = pHandle->GetTypeName(); break;
 				case eName:				Value = pHandle->GetFileName(); break;
@@ -96,6 +100,9 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 #endif
 			}
 
+			if (m_SizePosNA && (section == ePosition || section == eSize))
+				Value = tr("N/A");
+
 			SHandleNode::SValue& ColValue = pNode->Values[section];
 
 			if (ColValue.Raw != Value)
@@ -106,13 +113,14 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 				switch (section)
 				{
+					case eProcess:			ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(pHandle->GetProcessId()); break;	
 					case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
 					case eType:				ColValue.Formated = pHandle->GetTypeString(); break;
 #ifdef WIN32
 					case eObjectAddress:	ColValue.Formated = FormatAddress(pWinHandle->GetObjectAddress()); break;	
 #endif
 					case eSize:
-					case ePosition:			ColValue.Formated = FormatNumber(Value.toULongLong());
+					case ePosition:			if(Value.type() != QVariant::String) ColValue.Formated = FormatNumber(Value.toULongLong());
 				}
 			}
 

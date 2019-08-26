@@ -20,6 +20,7 @@ public slots:
 
 private slots:
 	void OnChangeColor(QListWidgetItem* pItem);
+	void OnChange();
 
 protected:
 	void closeEvent(QCloseEvent *e);

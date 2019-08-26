@@ -20,13 +20,13 @@ CSocketModel::~CSocketModel()
 void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CSocketPtr& pSocket, SocketList)
 	{
 		if (m_ProcessFilter)
 		{
-			if (pSocket->GetProcess() != m_CurProcess)
+			if (!m_Processes.contains(pSocket->GetProcess()))
 				continue;
 		}
 
@@ -44,7 +44,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 #ifdef WIN32
@@ -56,7 +56,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid())
+		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
 		{
 			CProcessPtr pProcess = pNode->pSocket->GetProcess();
 			if (!pProcess.isNull())
@@ -84,10 +84,13 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 		for(int section = eProcess; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value;
 			switch(section)
 			{
-				case eProcess:			Value = pSocket->GetProcessName(); break;
+				case eProcess:			Value = pSocket->GetProcessName();
 				case eProtocol:			Value = pSocket->GetProtocolString(); break; 
 				case eState:			Value = pSocket->GetStateString(); break; 
 				case eLocalAddress:		Value = pSocket->GetLocalAddress().toString(); break;
@@ -95,7 +98,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 				case eRemoteAddress:	Value = pSocket->GetRemoteAddress().toString(); break; 
 				case eRemotePort:		Value = pSocket->GetRemotePort(); break; 
 #ifdef WIN32
-				case eOwner:			Value = pWinSock->GetOwnerServiceName(); break; 
+				case eOwnerService:		Value = pWinSock->GetOwnerServiceName(); break; 
 #endif
 				case eTimeStamp:		Value = pSocket->GetCreateTimeStamp(); break;
 				//case eLocalHostname:	Value = ; break; 
@@ -138,6 +141,13 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 				switch (section)
 				{
+					case eProcess:			{
+												quint64 ProcessId = pSocket->GetProcessId();
+												if (ProcessId)
+													ColValue.Formated = tr("%1 (%2)").arg(pSocket->GetProcessName()).arg(ProcessId);
+												break;
+											}
+
 					case eTimeStamp:			ColValue.Formated = QDateTime::fromTime_t(pSocket->GetCreateTimeStamp()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 
 					case eReceiveBytes:
@@ -203,7 +213,7 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 			case eRemoteAddress:	return tr("Remote address");
 			case eRemotePort:		return tr("Remote port");
 #ifdef WIN32
-			case eOwner:			return tr("Owner");
+			case eOwnerService:		return tr("Owner");
 #endif
 			case eTimeStamp:		return tr("Time stamp");
 			//case eLocalHostname:	return tr("Local hostname");

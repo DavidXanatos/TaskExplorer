@@ -69,6 +69,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	//m_pMenu = new QMenu();
 	m_pBringInFront = m_pMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
 	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
+	m_pShowProperties = m_pMenu->addAction(tr("Properties"), this, SLOT(OnShowProperties()));
 	m_pMenu->addSeparator();
 
 	AddTaskItemsToMenu();
@@ -81,8 +82,8 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pDebug->setCheckable(true);
 #ifdef WIN32
 	m_pReduceWS = m_pMiscMenu->addAction(tr("Reduce Working Set"), this, SLOT(OnProcessAction()));
-	m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
-	m_pVirtualization->setCheckable(true);
+	//m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
+	//m_pVirtualization->setCheckable(true);
 	//QAction*				m_pWindows;
 	//QAction*				m_pUnloadModules;
 	//QAction*				m_pWatchWS;
@@ -102,9 +103,10 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 
 	//connect(m_pProcessList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
-	connect(m_pProcessList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked(const QModelIndex&)));
+	//connect(m_pProcessList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked(const QModelIndex&)));
+	connect(m_pProcessList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnShowProperties()));
 	connect(m_pProcessList, SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
-
+	connect(m_pProcessList, SIGNAL(selectionChanged(QItemSelection,QItemSelection)), this, SLOT(OnSelectionChanged(QItemSelection,QItemSelection)));
 
 	connect(theAPI, SIGNAL(ProcessListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), SLOT(OnProcessListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
@@ -135,14 +137,38 @@ CProcessTree::CProcessTree(QWidget *parent)
 	}
 	else
 		m_pProcessList->restoreState(Columns);
+
 	m_pProcessModel->SetColumnEnabled(0, true);
 	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
 		m_pProcessModel->SetColumnEnabled(i, !m_pProcessList->GetView()->isColumnHidden(i));
+
+	//connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+	OnColumnsChanged();
 }
 
 CProcessTree::~CProcessTree()
 {
 	theConf->SetBlob("MainWindow/ProcessTree_Columns", m_pProcessList->saveState());
+}
+
+void CProcessTree::OnColumnsChanged()
+{
+	// automatically set the setting based on wether the columns are checked or not
+
+	theConf->SetValue("Options/GPUStatsGetPerProcess", 
+		m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_History)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVMEM_History)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Usage)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Shared)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Dedicated)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Adapter)
+	);
+
+	theConf->SetValue("Options/MonitorTockenChange", 
+		m_pProcessModel->IsColumnEnabled(CProcessModel::eElevation)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVirtualized)
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eIntegrity)
+	);
 }
 
 void CProcessTree::OnTreeEnabled(bool bEnable)
@@ -218,6 +244,7 @@ void CProcessTree::OnHeaderMenu()
 
 	m_pProcessList->GetView()->setColumnHidden(Column, !checkBox->isChecked());
 	m_pProcessModel->SetColumnEnabled(Column, checkBox->isChecked());
+	OnColumnsChanged();
 }
 
 void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
@@ -250,12 +277,14 @@ void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Chang
 	OnUpdateHistory();
 }
 
-void CProcessTree::OnDoubleClicked(const QModelIndex& Index)
+void CProcessTree::OnExpandAll()
 {
-	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	m_pProcessList->expandAll();
+}
 
-	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-	CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pProcess);
+void CProcessTree::OnShowProperties()
+{
+	CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(GetSellectedProcesses<CProcessPtr>());
 	pTaskInfoWindow->show();
 }
 
@@ -267,17 +296,14 @@ void CProcessTree::OnCurrentChanged(const QModelIndex &current, const QModelInde
 	emit ProcessClicked(pProcess);
 }
 
-QList<CTaskPtr> CProcessTree::GetSellectedTasks()
+void CProcessTree::OnSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected)
 {
-	QList<CTaskPtr> List;
-	foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
-	{
-		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-		if(!pProcess.isNull())
-			List.append(pProcess);
-	}
-	return List;
+	emit ProcessesSelected(GetSellectedProcesses<CProcessPtr>());
+}
+
+QList<CTaskPtr> CProcessTree::GetSellectedTasks() 
+{
+	return GetSellectedProcesses<CTaskPtr>(); 
 }
 
 void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
@@ -517,6 +543,8 @@ void CProcessTree::OnMenu(const QPoint &point)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 	
+	m_pShowProperties->setEnabled(m_pProcessList->selectedRows().count() > 0);
+	m_pBringInFront->setEnabled(m_pProcessList->selectedRows().count() == 1);
 	m_pRunAsThis->setEnabled(m_pProcessList->selectedRows().count() == 1);
 	m_pCreateDump->setEnabled(m_pProcessList->selectedRows().count() == 1);
 	m_pDebug->setEnabled(m_pProcessList->selectedRows().count() == 1);
@@ -526,8 +554,8 @@ void CProcessTree::OnMenu(const QPoint &point)
 	QSharedPointer<CWinProcess> pWinProcess = pProcess.objectCast<CWinProcess>();
 	CWinTokenPtr pToken = pWinProcess ? pWinProcess->GetToken() : NULL;
 
-	m_pVirtualization->setEnabled(pToken && pToken->IsVirtualizationAllowed());
-	m_pVirtualization->setChecked(pToken && pToken->IsVirtualizationEnabled());
+	//m_pVirtualization->setEnabled(pToken && pToken->IsVirtualizationAllowed());
+	//m_pVirtualization->setChecked(pToken && pToken->IsVirtualizationEnabled());
 
 	m_pCritical->setEnabled(!pWinProcess.isNull());
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
@@ -584,7 +612,7 @@ void CProcessTree::OnProcessAction()
 		{
 		retry:
 			STATUS Status = OK;
-			if (sender() == m_pVirtualization)
+			/*if (sender() == m_pVirtualization)
 			{
 				CWinTokenPtr pToken = pWinProcess->GetToken();
 				if (pToken)
@@ -592,7 +620,7 @@ void CProcessTree::OnProcessAction()
 				else
 					Status = ERR(tr("This process does not have a token."), -1);
 			}
-			else if (sender() == m_pCritical)
+			else*/ if (sender() == m_pCritical)
 				Status = pWinProcess->SetCriticalProcess(m_pCritical->isChecked(), Force == 1);
 			else if (sender() == m_pReduceWS)
 				Status = pWinProcess->ReduceWS();
@@ -702,7 +730,7 @@ void CProcessTree::UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<qui
 
 void CProcessTree::OnUpdateHistory()
 {
-	float Div = (theConf->GetInt("Options/LinuxStyleCPU") == 1) ? theAPI->GetCpuCount() : 1.0f;
+	float Div = (theConf->GetInt("Options/LinuxStyleCPU") == 1 && !theConf->GetBool("Options/EnableCycleCpuUsage", false)) ? theAPI->GetCpuCount() : 1.0f;
 
 	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eCPU_History))
 	{

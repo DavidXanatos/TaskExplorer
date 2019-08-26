@@ -27,14 +27,15 @@ public:
 
 public slots:
 	void				OnTab(int tabIndex);
-	void				ShowProcess(const CProcessPtr& pProcess);
+	//void				ShowProcess(const CProcessPtr& pProcess);
+	void				ShowProcesses(const QList<CProcessPtr>& Processes);
 	void				SellectThread(quint64 ThreadId);
 	void				Refresh();
 
 protected:
 	virtual void		InitializeTabs();
 
-	CProcessPtr			m_pCurProcess;
+	QList<CProcessPtr>  m_Processes;
 
 private:
 	CProcessView*		m_pProcessView;

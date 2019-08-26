@@ -50,7 +50,16 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.persistenceTime->setValue(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
+	ui.chkGetRefServices->setChecked(theConf->GetBool("Options/GetServicesRefModule", true));
+	ui.chkTraceDLLs->setChecked(theConf->GetBool("Options/TraceUnloadedModules", false));
+	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", false));
+
+	//ui.chkOpenFilePos->setChecked(theConf->GetBool("Options/OpenFileGetPosition", false));
+
 	connect(ui.colorList, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(OnChangeColor(QListWidgetItem*)));
+
+	connect(ui.chkShowTray, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
+	connect(ui.chkUseCycles, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
 
 	struct SColor
 	{
@@ -64,6 +73,9 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	Colors.append(SColor { "Background", tr("Default background"), "#FFFFFF"});
 	
 	// list colors:
+#ifdef WIN32
+	Colors.append(SColor { "DangerousProcess", tr("Dangerous process"), "#FF0000"});
+#endif
 	Colors.append(SColor { "NewlyCreated", tr("New items"), "#00FF7F"});
 	Colors.append(SColor { "ToBeRemoved", tr("Removed items"), "#F08080"});
 	
@@ -111,6 +123,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	connect(ui.buttonBox->button(QDialogButtonBox::Ok), SIGNAL(pressed()), this, SLOT(accept()));
 	connect(ui.buttonBox->button(QDialogButtonBox::Apply), SIGNAL(pressed()), this, SLOT(apply()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+
+	OnChange();
 }
 
 void CSettingsWindow::closeEvent(QCloseEvent *e)
@@ -152,6 +166,13 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/PersistenceTime", ui.persistenceTime->value());
 	
+	theConf->SetValue("Options/GetServicesRefModule", ui.chkGetRefServices->isChecked());
+	theConf->SetValue("Options/TraceUnloadedModules", ui.chkTraceDLLs->isChecked());
+	theConf->SetValue("Options/EnableCycleCpuUsage", ui.chkUseCycles->isChecked());
+
+	//theConf->SetValue("Options/OpenFileGetPosition", ui.chkOpenFilePos->isChecked());
+
+
 
 	for (int i = 0; i < ui.colorList->count(); i++)
 	{
@@ -188,4 +209,11 @@ void CSettingsWindow::OnChangeColor(QListWidgetItem* pItem)
 	QColor color = QColorDialog::getColor(pItem->backgroundColor(), this, "Select color");
 	if (color.isValid())
 		pItem->setBackgroundColor(color);
+}
+
+void CSettingsWindow::OnChange()
+{
+	ui.chkLinuxStyle->setEnabled(!ui.chkUseCycles->isChecked());
+	ui.chkToTray->setEnabled(ui.chkShowTray->isChecked());
+	ui.trayMode->setEnabled(ui.chkShowTray->isChecked());
 }

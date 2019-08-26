@@ -14,6 +14,7 @@ public:
 	virtual quint64 GetHandleId() const				{ QReadLocker Locker(&m_Mutex); return m_HandleId; }
 	virtual quint64 GetProcessId()	const			{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
+	virtual ulong GetTypeIndex() const = 0;
 	virtual QString GetTypeName() const = 0;
 	virtual QString GetTypeString() const = 0;
 	virtual QString GetFileName() const				{ QReadLocker Locker(&m_Mutex); return m_FileName; }
@@ -21,7 +22,9 @@ public:
 	virtual quint64 GetSize()	const				{ QReadLocker Locker(&m_Mutex); return m_Size; }
 	virtual QString GetGrantedAccessString() const = 0;
 
-	virtual QSharedPointer<QObject>	GetProcess() const { QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	virtual QSharedPointer<QObject>	GetProcess() const;
+	//virtual QSharedPointer<QObject>	GetProcess() const { QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	virtual void SetProcess(QSharedPointer<QObject> pProcess) { QWriteLocker Locker(&m_Mutex); m_pProcess = pProcess; }
 
 	virtual STATUS		Close(bool bForce = false) = 0;
 

@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "ProcessView.h"
 #include "../TaskExplorer.h"
+#include "../../Common/SortFilterProxyModel.h"
+#include "../Models/ProcessModel.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
 #endif
@@ -27,8 +29,21 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pInfoLayout = new QVBoxLayout();
 	m_pInfoWidget->setLayout(m_pInfoLayout);
 
+	m_pStackedWidget = new QWidget();
+	m_pStackedLayout = new QStackedLayout();
+	m_pStackedWidget->setLayout(m_pStackedLayout);
+	m_pInfoLayout->addWidget(m_pStackedWidget);
+
+	m_pOneProcWidget = new QWidget();
+	m_pOneProcLayout = new QVBoxLayout();
+	m_pOneProcLayout->setMargin(0);
+	m_pOneProcWidget->setLayout(m_pOneProcLayout);
+	//m_pInfoLayout->addWidget(m_pOneProcWidget);
+	m_pStackedLayout->addWidget(m_pOneProcWidget);
+
+
 	m_pFileBox = new QGroupBox(tr("File"));
-	m_pInfoLayout->addWidget(m_pFileBox);
+	m_pOneProcLayout->addWidget(m_pFileBox);
 
 	m_pFileLayout = new QGridLayout();
 	m_pFileLayout->setSpacing(2);
@@ -57,7 +72,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pProcessBox = new QGroupBox(tr("Process"));
 	//m_pProcessBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	m_pInfoLayout->addWidget(m_pProcessBox);
+	m_pOneProcLayout->addWidget(m_pProcessBox);
 
 	m_pProcessLayout = new QGridLayout();
 	m_pProcessLayout->setSpacing(2);
@@ -108,26 +123,42 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pProcessLayout->addWidget(m_Protecetion, row++, 2);
 #endif
 
-	/*m_pStatsList = new QTreeWidgetEx();
+	m_pMultiProcWidget = new QWidget();
+	m_pMultiProcLayout = new QVBoxLayout();
+	m_pMultiProcLayout->setMargin(0);
+	m_pMultiProcWidget->setLayout(m_pMultiProcLayout);
+	m_pInfoLayout->addWidget(m_pMultiProcWidget);
+	//m_pMultiProcWidget->setVisible(false);
+	m_pStackedLayout->addWidget(m_pMultiProcWidget);
 
-	m_pStatsList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pStatsList->setHeaderLabels(tr("Name|Value").split("|"));
-	m_pStatsList->header()->hide();
 
-	m_pStatsList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pStatsList->setSortingEnabled(false);
+	// Process List
+	m_pProcessModel = new CProcessModel();
+	//connect(m_pProcessModel, SIGNAL(CheckChanged(quint64, bool)), this, SLOT(OnCheckChanged(quint64, bool)));
+	//connect(m_pProcessModel, SIGNAL(Updated()), this, SLOT(OnUpdated()));
 
-	for (int i = 0; i < 100; i++) {
-		QTreeWidgetItem* pItem = new QTreeWidgetItem();
-		//pItem->setData(0, Qt::UserRole, i);
-		pItem->setText(0, QString::number(i));
-		m_pStatsList->addTopLevelItem(pItem);
-	}
+	m_pProcessModel->SetTree(false);
 
-	m_pStatsList->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(m_pStatsList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
+	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy->setSortRole(Qt::EditRole);
+    m_pSortProxy->setSourceModel(m_pProcessModel);
+	m_pSortProxy->setDynamicSortFilter(true);
 
-	m_pInfoLayout->addWidget(m_pStatsList);*/
+
+	m_pProcessList = new QTreeViewEx();
+	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
+	m_pProcessList->setMinimumHeight(50);
+
+	m_pProcessList->setModel(m_pSortProxy);
+
+	m_pProcessList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_pProcessList->setSortingEnabled(true);
+
+	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
+
+	m_pMultiProcLayout->addWidget(m_pProcessList);
+	///
+
 
 	m_pStatsView = new CStatsView(CStatsView::eProcess, this);
 	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
@@ -137,57 +168,117 @@ CProcessView::CProcessView(QWidget *parent)
 	pSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_pProcessLayout->addWidget(pSpacer, row, 1);*/
 	//m_pInfoLayout->addWidget(pSpacer);
+
+	for (int i = 0; i < m_pProcessModel->columnCount(); i++)
+	{
+		if ((i >= CProcessModel::eCPU_History && i <= CProcessModel::eVMEM_History)
+#ifdef WIN32
+		 || (i >= CProcessModel::eIntegrity && i <= CProcessModel::eCritical)
+#endif
+		 || (i >= CProcessModel::eCPU && i <= CProcessModel::eCyclesDelta)
+		 || (i >= CProcessModel::ePrivateBytes && i <= CProcessModel::ePrivateBytesDelta)
+		 || (i >= CProcessModel::eGPU_Usage && i <= CProcessModel::eGPU_Adapter)
+		 || (i >= CProcessModel::eHandles && i <= CProcessModel::ePeakThreads)
+		 || (i >= CProcessModel::eSubsystem && i <= CProcessModel::eSessionID)
+		 || (i >= CProcessModel::eIO_TotalRate && i <= CProcessModel::eIO_OtherRate)
+		 || (i >= CProcessModel::eNet_TotalRate && i <= CProcessModel::eSendRate)
+		 || (i >= CProcessModel::eDisk_TotalRate && i <= CProcessModel::eWriteRate)
+		 || i == CProcessModel::eSharedWS || i == CProcessModel::eShareableWS)
+		{
+			m_pProcessList->SetColumnHidden(i, true, true);
+		}
+	}
+
+	setObjectName(parent ? parent->objectName() : "InfoWindow");
+	QByteArray Columns = theConf->GetBlob(objectName() + "/Processes_Columns");
+	if (Columns.isEmpty())
+	{
+		for (int i = 0; i < m_pProcessModel->columnCount(); i++)
+			m_pProcessList->setColumnHidden(i, true);
+
+		m_pProcessList->SetColumnHidden(CProcessModel::eProcess, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eUserName, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eVersion, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eCompanyName, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
+		//current directory
+		m_pProcessList->SetColumnHidden(CProcessModel::eFileName, false);
+		// started by
+	}
+	else
+		m_pProcessList->restoreState(Columns);
 }
 
 
 CProcessView::~CProcessView()
 {
+	theConf->SetBlob(objectName() + "/Processes_Columns", m_pProcessList->saveState());
 }
 
-void CProcessView::ShowProcess(const CProcessPtr& pProcess)
+void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
-	if (m_pCurProcess != pProcess)
+	if (m_Processes != Processes)
 	{
-		m_pCurProcess = pProcess;
+		m_Processes = Processes;
 
-		CModulePtr pModule = m_pCurProcess->GetModuleInfo();
+		if(m_Processes.count() <= 1)
+		{
+			//m_pMultiProcWidget->setVisible(false);
+			//m_pOneProcWidget->setVisible(true);
+			m_pStackedLayout->setCurrentWidget(m_pOneProcWidget);
 
-		QPixmap Icon = pModule->GetFileIcon(true);
-		m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
-		QString Description = pModule->GetFileInfo("Description");
-		if (!Description.isEmpty())
-			m_pProcessName->setText(Description + " (" + m_pCurProcess->GetName() + ")");
-		else
-			m_pProcessName->setText(m_pCurProcess->GetName());
+			if (m_Processes.count() == 1)
+			{
+				CProcessPtr pProcess = m_Processes.first();
 
-		m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
-		m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
-		m_pFilePath->setText(m_pCurProcess->GetFileName());
+				CModulePtr pModule = pProcess->GetModuleInfo();
 
-		m_pCmdLine->setText(m_pCurProcess->GetCommandLineStr());
-		m_pCurDir->setText(m_pCurProcess->GetWorkingDirectory());
-		m_pProcessId->setText(tr("%1/%2").arg(m_pCurProcess->GetProcessId()).arg(m_pCurProcess->GetParentId()));
-		m_pUserName->setText(m_pCurProcess->GetUserName());
+				QPixmap Icon = pModule->GetFileIcon(true);
+				m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
+				QString Description = pModule->GetFileInfo("Description");
+				if (!Description.isEmpty())
+					m_pProcessName->setText(Description + " (" + pProcess->GetName() + ")");
+				else
+					m_pProcessName->setText(pProcess->GetName());
+
+				m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
+				m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
+				m_pFilePath->setText(pProcess->GetFileName());
+
+				m_pCmdLine->setText(pProcess->GetCommandLineStr());
+				m_pCurDir->setText(pProcess->GetWorkingDirectory());
+				m_pProcessId->setText(tr("%1/%2").arg(pProcess->GetProcessId()).arg(pProcess->GetParentId()));
+				m_pUserName->setText(pProcess->GetUserName());
 
 
-		CProcessPtr pParent = theAPI->GetProcessByID(m_pCurProcess->GetParentId());
-		if (!pProcess->ValidateParent(pParent.data()))
-			pParent.clear();
-		m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName());
+				CProcessPtr pParent = theAPI->GetProcessByID(pProcess->GetParentId());
+				if (!pProcess->ValidateParent(pParent.data()))
+					pParent.clear();
+				m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName());
 
 
 #ifdef WIN32
-		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+				CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
-		if (pWinProc->IsWoW64())
-			m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinProc->GetPebBaseAddress())).arg(FormatAddress(pWinProc->GetPebBaseAddress(true))));
-		else
-			m_pPEBAddress->setText(FormatAddress(pWinProc->GetPebBaseAddress()));
-		m_ImageType->setText(tr("Image type: %1").arg(m_pCurProcess->GetArchString()));
+				if (pWinProc->IsWoW64())
+					m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinProc->GetPebBaseAddress())).arg(FormatAddress(pWinProc->GetPebBaseAddress(true))));
+				else
+					m_pPEBAddress->setText(FormatAddress(pWinProc->GetPebBaseAddress()));
+				m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
 
-		m_pMitigation->setText(pWinProc->GetMitigationString());
-		m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
+				m_pMitigation->setText(pWinProc->GetMitigationString());
+				m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
 #endif
+			}
+		}
+		else
+		{
+			//m_pMultiProcWidget->setVisible(true);
+			//m_pOneProcWidget->setVisible(false);
+			m_pStackedLayout->setCurrentWidget(m_pMultiProcWidget);
+		}
 	}
 
 	Refresh();
@@ -195,8 +286,13 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 
 void CProcessView::Refresh()
 {
-	if (!m_pCurProcess)
-		return;
+	if (m_Processes.count() > 1)
+	{
+		QMap<quint64, CProcessPtr> ProcessList;
+		foreach(const CProcessPtr& pProcess, m_Processes)
+			ProcessList.insert(pProcess->GetProcessId(), pProcess);
+		m_pProcessModel->Sync(ProcessList);
+	}
 
-	m_pStatsView->ShowProcess(m_pCurProcess);
+	m_pStatsView->ShowProcesses(m_Processes);
 }

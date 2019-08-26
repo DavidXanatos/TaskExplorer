@@ -86,9 +86,17 @@ void CTaskInfoView::InitializeTabs()
 	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
-void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)
+/*void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)
 {
-	m_pCurProcess = pProcess;
+
+}*/
+
+void CTaskInfoView::ShowProcesses(const QList<CProcessPtr>& Processes)
+{
+	if (m_Processes == Processes)
+		return;
+
+	m_Processes = Processes;
 
 	OnTab(m_pTabs->currentIndex());
 }
@@ -101,8 +109,11 @@ void CTaskInfoView::SellectThread(quint64 ThreadId)
 
 void CTaskInfoView::OnTab(int tabIndex)
 {
-	if (!m_pCurProcess.isNull())
-		QMetaObject::invokeMethod(m_pTabs->currentWidget(), "ShowProcess", Qt::AutoConnection, Q_ARG(const CProcessPtr&, m_pCurProcess));
+	if (!m_Processes.isEmpty())
+	{
+		//QMetaObject::invokeMethod(m_pTabs->currentWidget(), "ShowProcess", Qt::AutoConnection, Q_ARG(const CProcessPtr&, m_Processes.first()));
+		QMetaObject::invokeMethod(m_pTabs->currentWidget(), "ShowProcesses", Qt::AutoConnection, Q_ARG(const QList<CProcessPtr>&, m_Processes));
+	}
 }
 
 void CTaskInfoView::Refresh()

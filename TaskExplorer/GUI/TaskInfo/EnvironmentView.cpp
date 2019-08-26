@@ -46,16 +46,27 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pVariablesList->header()->restoreState(theConf->GetBlob(objectName() + "/EnvironmentView_Columns"));
+	m_pVariablesList->restoreState(theConf->GetBlob(objectName() + "/EnvironmentView_Columns"));
 }
 
 CEnvironmentView::~CEnvironmentView()
 {
-	theConf->SetBlob(objectName() + "/EnvironmentView_Columns", m_pVariablesList->header()->saveState());
+	theConf->SetBlob(objectName() + "/EnvironmentView_Columns", m_pVariablesList->saveState());
 }
 
-void CEnvironmentView::ShowProcess(const CProcessPtr& pProcess)
+void CEnvironmentView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
+	CProcessPtr pProcess;
+	if (Processes.count() > 1)
+	{
+		setEnabled(false);
+	}
+	else if(!Processes.isEmpty())
+	{
+		setEnabled(true);
+		pProcess = Processes.first();
+	}
+
 	m_pCurProcess = pProcess;
 
 	Refresh();

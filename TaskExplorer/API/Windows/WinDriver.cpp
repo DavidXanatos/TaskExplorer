@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinDriver.h"
 #include "WinModule.h"
 #include "WindowsAPI.h"

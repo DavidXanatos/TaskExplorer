@@ -18,7 +18,7 @@ CDriverModel::~CDriverModel()
 void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CDriverPtr& pDriver, DriverList)
 	{
@@ -36,7 +36,7 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 		int Col = 0;
@@ -49,6 +49,9 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 
 		for(int section = eDriver; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value;
 			switch(section)
 			{

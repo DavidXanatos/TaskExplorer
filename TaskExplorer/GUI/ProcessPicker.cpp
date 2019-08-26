@@ -63,49 +63,45 @@ CProcessPicker::CProcessPicker(QWidget* parent)
 		 || i == CProcessModel::eSharedWS || i == CProcessModel::eShareableWS 
 		 || i == CProcessModel::eMinimumWS || i == CProcessModel::eMaximumWS)
 		{
-			m_pProcessList->setColumnFixed(i, true);
-			m_pProcessList->setColumnHidden(i, true);
-			m_pProcessModel->SetColumnEnabled(i, false);
+			m_pProcessList->SetColumnHidden(i, true, true);
 		}
-		else
-			m_pProcessModel->SetColumnEnabled(i, true);
 	}
 
 	QByteArray Columns = theConf->GetBlob("ProcessPicker/Process_Columns");
 	if (Columns.isEmpty())
 	{
 		for (int i = 0; i < m_pProcessModel->columnCount(); i++)
-			m_pProcessList->setColumnHidden(i, true);
+			m_pProcessList->SetColumnHidden(i, true);
 
-		m_pProcessList->setColumnHidden(CProcessModel::ePID, false);
-		m_pProcessList->setColumnHidden(CProcessModel::eCPU, false);
-		m_pProcessList->setColumnHidden(CProcessModel::eIO_TotalRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eStaus, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::ePrivateBytes, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::ePriorityClass, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eGDI_Handles, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eUSER_Handles, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eWND_Handles, false);
-		m_pProcessList->setColumnHidden(CProcessModel::eStartTime, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eIO_ReadRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eIO_WriteRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eIO_OtherRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eReceiveRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eSendRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eReadRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eWriteRate, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eIO_ReadBytes, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eIO_WriteBytes, false);
-		//m_pProcessList->setColumnHidden(CProcessModel::eIO_OtherBytes, false);
-		m_pProcessList->setColumnHidden(CProcessModel::eCommandLine, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eIO_TotalRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eStaus, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::ePrivateBytes, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::ePriorityClass, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eGDI_Handles, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eUSER_Handles, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eWND_Handles, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eStartTime, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_ReadRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_WriteRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_OtherRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eReceiveRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eSendRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eReadRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eWriteRate, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_ReadBytes, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_WriteBytes, false);
+		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_OtherBytes, false);
+		m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
 	}
 	else
-		m_pProcessList->header()->restoreState(Columns);
+		m_pProcessList->restoreState(Columns);
 }
 
 CProcessPicker::~CProcessPicker()
 {
-	theConf->SetBlob("ProcessPicker/Process_Columns", m_pProcessList->header()->saveState());
+	theConf->SetBlob("ProcessPicker/Process_Columns", m_pProcessList->saveState());
 }
 
 void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)

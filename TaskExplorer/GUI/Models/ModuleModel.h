@@ -46,6 +46,7 @@ public:
 		eFileSize,
 #ifdef WIN32
 		eEntryPoint,
+		eService,
 #endif
 		eParentBaseAddress,
 		eCount
@@ -59,9 +60,10 @@ protected:
 		CModulePtr			pModule;
 	};
 
-	virtual STreeNode* MkNode(const QVariant& Id) { return new SModuleNode(Id); }
+	virtual STreeNode*		MkNode(const QVariant& Id) { return new SModuleNode(Id); }
 
-	QList<QVariant>  MakeModPath(const CModulePtr& pModule, const QMap<quint64, CModulePtr>& ModuleList);
+	QList<QVariant>			MakeModPath(const CModulePtr& pModule, const QMap<quint64, CModulePtr>& ModuleList);
+	bool					TestModPath(const QList<QVariant>& Path, const CModulePtr& pModule, const QMap<quint64, CModulePtr>& ModuleList, int Index = 0);
 
-	virtual QVariant GetDefaultIcon() const;
+	virtual QVariant		GetDefaultIcon() const;
 };

@@ -23,10 +23,10 @@
  */
 
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinHandle.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
+#include "../../Common/Settings.h"
 
 CWinHandle::CWinHandle(QObject *parent) 
 	: CHandleInfo(parent) 
@@ -42,12 +42,19 @@ CWinHandle::~CWinHandle()
 {
 }
 
+quint64 CWinHandle::MakeID(quint64 HandleValue, quint64 UniqueProcessId)
+{
+	quint64 HandleID = HandleValue;
+	HandleID ^= (UniqueProcessId << 32);
+	HandleID ^= (UniqueProcessId >> 32);
+	return HandleID;
+}
+
 bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 TimeStamp)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_ProcessId = (quint64)handle->UniqueProcessId;
-
+	m_ProcessId = handle->UniqueProcessId;
 	m_HandleId = handle->HandleValue;
 	m_Object = (quint64)handle->Object;
 	m_Attributes = handle->HandleAttributes;
@@ -136,7 +143,9 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
 	if (m_TypeName == "File")
     {
         HANDLE fileHandle;
-        if (NT_SUCCESS(NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0)))
+		NTSTATUS status = NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0);
+
+        if (NT_SUCCESS(status))
         {
 			QString SubTypeName;
 			quint64 FileSize = 0;
@@ -217,7 +226,7 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
             NtClose(fileHandle);
         }
     }
-	if(m_TypeName == "Section")
+	else if(m_TypeName == "Section")
 	{
 		HANDLE sectionHandle;
 		NTSTATUS status = NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &sectionHandle, SECTION_QUERY | SECTION_MAP_READ, 0, 0 );
@@ -969,23 +978,24 @@ STATUS CWinHandle::DoHandleAction(EHandleAction Action)
 	return OK;
 }
 
-static NTSTATUS PhpDuplicateHandleFromProcess(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess,_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinHandle__DuplicateHandle(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess,_In_opt_ PVOID Context)
 {
 	QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
 	return PhpDuplicateHandleFromProcess(Handle, DesiredAccess, pPair->first, pPair->second);
 }
 
-static NTSTATUS PhpCleanupHandleFromProcess(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinHandle__cbPermissionsClosed(_In_opt_ PVOID Context)
 {
 	QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
 	delete pPair;
-	return 1;
+
+	return STATUS_SUCCESS;
 }
 
 void CWinHandle::OpenPermissions()
 {
 	QReadLocker Locker(&m_Mutex); 
-
 	QPair<HANDLE, HANDLE>* pPair = new QPair<HANDLE, HANDLE>((HANDLE)m_ProcessId, (HANDLE)m_HandleId);
-    PhEditSecurity(NULL, (wchar_t*)m_FileName.toStdWString().c_str(), L"Handle", (PPH_OPEN_OBJECT)PhpDuplicateHandleFromProcess, (PPH_CLOSE_OBJECT)PhpCleanupHandleFromProcess, pPair);
+	Locker.unlock();
+    PhEditSecurity(NULL, (wchar_t*)m_FileName.toStdWString().c_str(), L"Handle", CWinHandle__DuplicateHandle, CWinHandle__cbPermissionsClosed, pPair);
 }

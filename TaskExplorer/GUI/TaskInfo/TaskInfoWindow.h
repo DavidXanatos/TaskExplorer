@@ -8,7 +8,7 @@ class CTaskInfoWindow : public QMainWindow
 {
 	Q_OBJECT
 public:
-	CTaskInfoWindow(const CProcessPtr& pProcess, quint64 ThreaId = 0, QWidget *parent = Q_NULLPTR);
+	CTaskInfoWindow(const QList<CProcessPtr>& Processes, quint64 ThreaId = 0, QWidget *parent = Q_NULLPTR);
 	CTaskInfoWindow(QWidget* pSingleTab, const QString& TabName, QWidget *parent = Q_NULLPTR);
 	virtual ~CTaskInfoWindow();
 

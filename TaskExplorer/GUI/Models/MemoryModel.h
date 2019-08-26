@@ -47,9 +47,10 @@ protected:
 		int					iColor;
 	};
 
-	virtual STreeNode* MkNode(const QVariant& Id) { return new SMemoryNode(Id); }
+	virtual STreeNode*		MkNode(const QVariant& Id) { return new SMemoryNode(Id); }
 
-	QList<QVariant>  MakeWndPath(const CMemoryPtr& pMemory, const QMap<quint64, CMemoryPtr>& MemoryList);
+	QList<QVariant>			MakeMemPath(const CMemoryPtr& pMemory, const QMap<quint64, CMemoryPtr>& MemoryList);
+	//bool					TestMemPath(const QList<QVariant>& Path, const CMemoryPtr& pMemory, const QMap<quint64, CMemoryPtr>& MemoryList, int Index = 0);
 
-	void UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, QModelIndex& Index);
+	void					UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, QModelIndex& Index);
 };

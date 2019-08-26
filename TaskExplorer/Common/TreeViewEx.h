@@ -2,6 +2,102 @@
 
 #include <QStyledItemDelegate>
 
+__inline uint qHash( const QVariant & var )
+{
+    if ( !var.isValid() || var.isNull() )
+        //return -1;
+        Q_ASSERT(0);
+
+    switch ( var.type() )
+    {
+        case QVariant::Int:
+                return qHash( var.toInt() );
+            break;
+        case QVariant::UInt:
+                return qHash( var.toUInt() );
+            break;
+        case QVariant::Bool:
+                return qHash( var.toUInt() );
+            break;
+        case QVariant::Double:
+                return qHash( var.toUInt() );
+            break;
+        case QVariant::LongLong:
+                return qHash( var.toLongLong() );
+            break;
+        case QVariant::ULongLong:
+                return qHash( var.toULongLong() );
+            break;
+        case QVariant::String:
+                return qHash( var.toString() );
+            break;
+        case QVariant::Char:
+                return qHash( var.toChar() );
+            break;
+        case QVariant::StringList:
+                return qHash( var.toString() );
+            break;
+        case QVariant::ByteArray:
+                return qHash( var.toByteArray() );
+            break;
+        case QVariant::Date:
+        case QVariant::Time:
+        case QVariant::DateTime:
+        case QVariant::Url:
+        case QVariant::Locale:
+        case QVariant::RegExp:
+                return qHash( var.toString() );
+            break;
+        case QVariant::Map:
+        case QVariant::List:
+        case QVariant::BitArray:
+        case QVariant::Size:
+        case QVariant::SizeF:
+        case QVariant::Rect:
+        case QVariant::LineF:
+        case QVariant::Line:
+        case QVariant::RectF:
+        case QVariant::Point:
+        case QVariant::PointF:
+            // not supported yet
+            break;
+        case QVariant::UserType:
+        case QVariant::Invalid:
+        default:
+            return -1;
+    }
+
+    // could not generate a hash for the given variant
+    return -1;
+}
+
+class QAbstractItemModelEx : public QAbstractItemModel
+{
+    Q_OBJECT
+
+public:
+	QAbstractItemModelEx(QObject *parent = 0) : QAbstractItemModel(parent) {}
+	virtual ~QAbstractItemModelEx() {}
+
+	bool IsColumnEnabled(int column)
+	{
+		return m_Columns.contains(column);
+	}
+
+	void SetColumnEnabled(int column, bool set)
+	{
+		if (!set)
+			m_Columns.remove(column);
+		else
+			m_Columns.insert(column);
+	}
+
+protected:
+
+	QSet<int>				m_Columns;
+};
+
+
 class QTreeViewEx: public QTreeView
 {
 	Q_OBJECT
@@ -14,24 +110,17 @@ public:
 		m_pMenu = new QMenu(this);
 	}
 
-	/*void setColumnHiddenEx(int column, bool hide) {
-		
-		setColumnHidden(column, hide);
-		if (hide)
-			m_FixedColumns.insert(column);
-		else
-			m_FixedColumns.remove(column);
-
-		foreach(QAction* pAction, m_Columns.keys())
-			pAction->deleteLater();
-		m_Columns.clear();
-	}*/
-
-	void setColumnFixed(int column, bool fixed) {
+	void setColumnFixed(int column, bool fixed) 
+	{
 		if (fixed)
 			m_FixedColumns.insert(column);
 		else
 			m_FixedColumns.remove(column);
+	}
+
+	bool isColumnFixed(int column) const
+	{
+		return m_FixedColumns.contains(column);
 	}
 
 	QModelIndexList selectedRows() const
@@ -82,6 +171,61 @@ public:
 		}
 	}
 
+	bool restoreState(const QByteArray &state)
+	{
+		bool bRet = header()->restoreState(state);
+		
+		SyncColumnsWithModel();
+
+		return bRet;
+	}
+
+	QByteArray saveState() const
+	{
+		return header()->saveState();
+	}
+
+	QAbstractItemModelEx* modelEx() const
+	{
+		QAbstractItemModelEx* pModel = qobject_cast<QAbstractItemModelEx*>(model());
+		if (!pModel)
+		{
+			QSortFilterProxyModel* pProxyModel = qobject_cast<QSortFilterProxyModel*>(model());
+			if(pProxyModel)
+				pModel = qobject_cast<QAbstractItemModelEx*>(pProxyModel->sourceModel());
+		}
+		return pModel;
+	}
+
+	void SetColumnHidden(int column, bool hide, bool fixed = false)
+	{
+		if (!fixed && isColumnFixed(column))
+			return; // can not change fixed columns
+
+		setColumnHidden(column, hide);
+
+		if(QAbstractItemModelEx* pModel = modelEx())
+			pModel->SetColumnEnabled(column, !hide);
+
+		if (fixed)
+			setColumnFixed(column, true);
+
+		emit ColumnChanged(column, !hide);
+	}
+
+signals:
+	void				ColumnChanged(int column, bool visible);
+
+public slots:
+	void SyncColumnsWithModel()
+	{
+		if(QAbstractItemModelEx* pModel = modelEx())
+		{
+			for (int i = 0; i < pModel->columnCount(); i++)
+				pModel->SetColumnEnabled(i, !isColumnHidden(i));
+		}
+	}
+
 private slots:
 	void				OnMenuRequested(const QPoint &point)
 	{
@@ -113,7 +257,7 @@ private slots:
 	{
 		QAction* pAction = (QAction*)sender();
 		int Column = m_Columns.value(pAction, -1);
-		setColumnHidden(Column, !pAction->isChecked());
+		SetColumnHidden(Column, !pAction->isChecked());
 	}
 
 protected:

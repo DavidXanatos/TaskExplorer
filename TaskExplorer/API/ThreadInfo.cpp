@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "ThreadInfo.h"
-
-#include "GUI/TaskExplorer.h"
+#include "SystemAPI.h"
 
 CThreadInfo::CThreadInfo(QObject *parent) : CAbstractTask(parent)
 {
@@ -18,4 +17,18 @@ CThreadInfo::CThreadInfo(QObject *parent) : CAbstractTask(parent)
 CThreadInfo::~CThreadInfo()
 {
 	theAPI->ClearThread(m_ThreadId);
+}
+
+QSharedPointer<QObject>	CThreadInfo::GetProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	if (m_pProcess.isNull())
+	{
+		Locker.unlock();
+
+		((CThreadInfo*)this)->SetProcess(theAPI->GetProcessByID(m_ProcessId));
+		
+		Locker.relock();
+	}
+	return m_pProcess;
 }

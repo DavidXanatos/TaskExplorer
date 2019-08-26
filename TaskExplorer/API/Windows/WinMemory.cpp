@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinMemory.h"
 #include "WindowsAPI.h"
 #include "WinMemIO.h"

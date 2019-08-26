@@ -42,8 +42,6 @@ private:
 	struct _PH_CALLBACK_REGISTRATION* m_SymbolProviderEventRegistration;
 };
 
-typedef QSharedPointer<CSymbolProvider> CSymbolProviderPtr;
-
 
 class CAbstractSymbolProviderJob : public QObject
 {

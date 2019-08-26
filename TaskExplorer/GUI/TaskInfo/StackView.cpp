@@ -2,6 +2,7 @@
 #include "../TaskExplorer.h"
 #include "StackView.h"
 #include "../../Common/Common.h"
+#include "../../Common/Finder.h"
 
 
 CStackView::CStackView(QWidget *parent)
@@ -23,7 +24,7 @@ CStackView::CStackView(QWidget *parent)
 	m_pStackList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pStackList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	m_pMainLayout->addWidget(m_pStackList);
+	m_pMainLayout->addWidget(CFinder::AddFinder(m_pStackList, this, true, &m_pFinder));
 	// 
 
 	m_bIsInvalid = false;
@@ -51,6 +52,11 @@ void CStackView::Invalidate()
 	}
 }
 
+void CStackView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
+{
+	CPanelWidgetEx::ApplyFilter(m_pStackList, Exp/*, bHighLight, Col*/);
+}
+
 void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 {
 	int i = 0;
@@ -72,7 +78,7 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 		if (m_bIsInvalid)
 		{
 			for (int j = 0; j < m_pStackList->columnCount(); j++)
-				m_pStackList->topLevelItem(i)->setForeground(j, Qt::black);
+				pItem->setForeground(j, Qt::black);
 		}
 
 		pItem->setText(eSymbol, StackFrame.Symbol);
@@ -86,6 +92,9 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 
 	for (; i < m_pStackList->topLevelItemCount(); )
 		delete m_pStackList->topLevelItem(i);
+
+	if (!m_pFinder->GetRegExp().isEmpty())
+		SetFilter(m_pFinder->GetRegExp());
 
 	m_bIsInvalid = false;
 }

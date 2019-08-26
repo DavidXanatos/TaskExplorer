@@ -39,6 +39,7 @@ public:
 	CWinJob(QObject *parent = nullptr);
 	virtual ~CWinJob();
 
+	static CWinJob*	JobFromProcess(void* QueryHandle);
 	static CWinJob*	JobFromHandle(quint64 ProcessId, quint64 HandleId);
 
 	virtual QString			GetJobName() const { QReadLocker Locker(&m_Mutex); return m_JobName; }
@@ -53,6 +54,33 @@ public:
 	virtual quint32			GetPeakJobMemoryUsed() const { QReadLocker Locker(&m_Mutex); return m_PeakJobMemoryUsed; }
 
 	virtual SJobStats		GetStats() const { QReadLocker Locker(&m_Mutex);  return m_Stats; }
+
+	struct SJobLimit
+	{
+		enum EType
+		{
+			eString,
+			eSize,
+			eTimeMs,
+			eAddress,
+			eNumber,
+			eEnabled,
+			eLimited
+		};
+
+		SJobLimit(const QString& name, EType type, const QVariant& value)
+		{
+			Name = name;
+			Type = type;
+			Value = value;
+		}
+
+		QString Name;
+		EType Type;
+		QVariant Value;
+	};
+	
+	virtual QList<SJobLimit> GetLimits() const { QReadLocker Locker(&m_Mutex);  return m_Limits; }
 
 	virtual STATUS			Terminate();
 	virtual STATUS			AddProcess(quint64 ProcessId);
@@ -69,7 +97,7 @@ protected:
 	friend class CWinProcess;
 	friend class CJobView;
 
-	bool InitStaticData(void* QueryHandle, EQueryType Type = eProcess);
+	bool InitStaticData();
 	bool UpdateDynamicData();
 
 	QString				m_JobName;
@@ -82,6 +110,8 @@ protected:
 	quint64				m_PeakJobMemoryUsed;
 
 	SJobStats			m_Stats;
+
+	QList<SJobLimit>	m_Limits;
 
 	QMap<quint64, CProcessPtr>	m_Processes;
 

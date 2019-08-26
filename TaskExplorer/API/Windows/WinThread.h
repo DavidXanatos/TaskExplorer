@@ -10,7 +10,7 @@ public:
 
 	virtual quint64 GetRawCreateTime() const;
 
-	virtual QString GetName() const						{ return GetStartAddressString(); }
+	virtual QString GetName() const;
 
 	virtual quint64 GetStartAddress() const				{ QReadLocker Locker(&m_Mutex); return m_StartAddress; }
 	virtual QString GetStartAddressString() const;
@@ -59,10 +59,13 @@ private slots:
 protected:
 	friend class CWinProcess;
 
-	bool InitStaticData(void* pProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread);
-	bool UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread);
+	bool UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime);
 	bool UpdateExtendedData();
+	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
+
+	virtual void SetAppDomain(const QString& AppDomain) { QWriteLocker Locker(&m_Mutex); m_AppDomain = AppDomain; }
 
 	QString		m_ServiceName;
 	QString		m_ThreadName;

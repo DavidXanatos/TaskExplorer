@@ -19,11 +19,11 @@ public:
 	virtual ~CWindowsView();
 
 public slots:
-	void					ShowProcess(const CProcessPtr& pProcess);
+	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 
 private slots:
-	void					OnWindowsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+	void					ShowWindows(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnItemSelected(const QModelIndex &current);
 
 	//void					OnMenu(const QPoint &point);
@@ -37,7 +37,19 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pSocketModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
-	CProcessPtr				m_pCurProcess;
+	enum EView
+	{
+		eNone,
+		eSingle,
+		eMulti
+	};
+
+	virtual void			SwitchView(EView ViewMode);
+
+	EView					m_ViewMode;
+
+	QList<CProcessPtr>		m_Processes;
+	int						m_PendingUpdates;
 
 private:
 
@@ -63,7 +75,7 @@ private:
 
 	QSplitter*				m_pSplitter;
 
-	CPanelWidget<QTreeWidgetEx>* m_pWindowDetails;
+	CPanelWidgetEx* m_pWindowDetails;
 
 	bool					m_LockValue;
 };

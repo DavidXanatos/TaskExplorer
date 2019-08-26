@@ -22,7 +22,7 @@ CServiceModel::~CServiceModel()
 void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 {
 	QList<SListNode*> New;
-	QMap<QVariant, SListNode*> Old = m_Map;
+	QHash<QVariant, SListNode*> Old = m_Map;
 
 	foreach (const CServicePtr& pService, ServiceList)
 	{
@@ -47,7 +47,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 		else
 		{
 			Old[ID] = NULL;
-			Row = m_List.indexOf(pNode);
+			Row = GetRow(pNode);
 		}
 
 		int Col = 0;
@@ -56,7 +56,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 		// Note: icons are loaded asynchroniusly
 #ifdef WIN32
-		if (m_bUseIcons && !pNode->Icon.isValid())
+		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eService))
 		{
 			QPixmap Icon = pWinService->IsDriver() ? g_DllIcon.pixmap(16,16) : pService->GetModuleInfo()->GetFileIcon();
 			if (!Icon.isNull()) {
@@ -88,6 +88,9 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 		for(int section = eService; section < columnCount(); section++)
 		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
 			QVariant Value;
 			switch(section)
 			{

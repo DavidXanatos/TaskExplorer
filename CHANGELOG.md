@@ -3,6 +3,31 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [0.8.0] - 2019-08-26
+### Added
+- added listing of unloaded DLLs (shown in gray in modules tab)
+- added "Services referencing" feature to modules tab -> column
+- added optional CPU cycle based CPU usage calculation
+- show merged informations when more than one process is sellected
+- added search (highlight) feature to the stack trace list
+- added Dangerous Flags from process hacker to the token tab
+- added job limits informations tab to the job tab
+- added search functionality to all remaining list/tree views
+
+### Changed
+- optimized cpu uage all models are now aware of hidden columns and dont query them
+- improved tree and list model performance by mor than an order of magnitude
+- some values, like per process gpu sats, are not longer queried when thair columns are hidden
+- reworked the token handling to optimize performance and properly hanle situations when a Token gets replaced
+- moved Sid Resolving to a dedicated worker thread
+
+### Fixes
+- issue with .NET tab not getting cleared when an other process was selected
+- fixed issue not all open file references being shopwed when a handle value was reused
+- fixed error in global memory search
+- fixed issue in token panel with the integrity combo box
+
+
 
 ## [0.7.5] - 2019-08-19
 ### Added

@@ -22,7 +22,6 @@
  */
 
 #include "stdafx.h"
-#include "../../GUI/TaskExplorer.h"
 #include "WinProcess.h"
 #include "ProcessHacker.h"
 #include <lsasup.h>
@@ -156,10 +155,6 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
 			}
 		}
 	}
-
-	//
-	// ToDo: xxx Resolve host names
-	//
 
 	// EtpUpdateFirewallStatus
 	WCHAR RemoteAddressString[INET6_ADDRSTRLEN + 1] = { 0 };
