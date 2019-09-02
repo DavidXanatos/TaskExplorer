@@ -135,7 +135,7 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 				case eVerificationStatus:	Value = pWinModule->GetVerifyResultString(); break;
 				case eVerifiedSigner:		Value = pWinModule->GetVerifySignerName(); break;
 				case eASLR:					Value = pWinModule->GetASLRString(); break;
-				case eTimeStamp:			Value = pWinModule->GetImageTimeDateStamp(); break;
+				case eTimeStamp:			Value = pWinModule->GetTimeStamp(); break;
 				case eCFGuard:				Value = pWinModule->GetCFGuardString(); break;
 				case eLoadTime:				Value = pWinModule->GetLoadTime(); break;
 				case eLoadReason:			Value = pWinModule->GetLoadReasonString(); break;
@@ -159,18 +159,20 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 
 				switch (section)
 				{
-					case eBaseAddress:		ColValue.Formated = FormatAddress(pModule->GetBaseAddress()); break;
-					case eSize:				ColValue.Formated = FormatSize(pModule->GetSize()); break;
-					case eParentBaseAddress:ColValue.Formated = FormatAddress(pModule->GetParentBaseAddress()); break;
+					case eBaseAddress:
+					case eParentBaseAddress:
 #ifdef WIN32
-					case eTimeStamp:		ColValue.Formated = pWinModule->GetImageTimeDateStamp().toString("dd.MM.yyyy hh:mm:ss"); break;
-					case eLoadTime:			ColValue.Formated = pWinModule->GetLoadTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eEntryPoint:
 #endif
-					case eFileSize:			ColValue.Formated = FormatSize(pModule->GetFileSize()); break;
-					case eFileModifiedTime:	ColValue.Formated = pModule->GetModificationTime().toString("dd.MM.yyyy hh:mm:ss"); break;
+											ColValue.Formated = FormatAddress(ColValue.Raw.toULongLong()); break;
+					case eSize:
+					case eFileSize:			
+											ColValue.Formated = FormatSize(ColValue.Raw.toULongLong()); break;
 #ifdef WIN32
-					case eEntryPoint:		ColValue.Formated = FormatAddress(pWinModule->GetEntryPoint()); break;
+					case eTimeStamp:
+					case eLoadTime:
 #endif
+					case eFileModifiedTime:	ColValue.Formated = QDateTime::fromTime_t(ColValue.Raw.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
 				}
 			}
 

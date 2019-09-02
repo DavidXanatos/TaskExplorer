@@ -9,6 +9,10 @@
 #include "MiscStats.h"
 #include "MemoryInfo.h"
 
+#ifdef WIN32
+#undef GetUserName
+#endif
+
 struct STaskStatsEx : STaskStats
 {
 	SDelta32 		PageFaultsDelta;
@@ -34,7 +38,7 @@ public:
 	virtual QString GetArchString() const = 0;
 	virtual quint64 GetSessionID() const = 0;
 
-	virtual ulong GetSubsystem() const = 0;
+	virtual quint16 GetSubsystem() const = 0;
 	virtual QString GetSubsystemString() const = 0; // on windows wls, etc... on linux wine or not
 
 	// Parameters
@@ -46,12 +50,12 @@ public:
 	virtual QString GetUserName() const					{ QReadLocker Locker(&m_Mutex); return m_UserName; }
 
 	// Dynamic
-	virtual ulong GetNumberOfThreads() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfThreads; }
-	virtual ulong GetNumberOfHandles() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfHandles; }
+	virtual quint32 GetNumberOfThreads() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfThreads; }
+	virtual quint32 GetNumberOfHandles() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfHandles; }
 
 	virtual quint64 GetWorkingSetPrivateSize() const	{ QReadLocker Locker(&m_Mutex); return m_WorkingSetPrivateSize; }
-	virtual ulong GetPeakNumberOfThreads() const		{ QReadLocker Locker(&m_Mutex); return m_PeakNumberOfThreads; }
-	virtual ulong GetPeakNumberOfHandles() const = 0;
+	virtual quint32 GetPeakNumberOfThreads() const		{ QReadLocker Locker(&m_Mutex); return m_PeakNumberOfThreads; }
+	virtual quint32 GetPeakNumberOfHandles() const = 0;
 
 	virtual quint64 GetPeakPrivateBytes() const = 0;
 	virtual quint64 GetWorkingSetSize() const = 0;
@@ -141,7 +145,9 @@ public:
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const = 0;
 
-	virtual CWndPtr GetMainWindowHwnd() const = 0;
+	virtual QList<CWndPtr> GetWindows() const = 0;
+	virtual CWndPtr	GetMainWindow() const = 0;
+	
 
 	virtual STATUS LoadModule(const QString& Path) = 0;
 
@@ -172,11 +178,11 @@ protected:
 	QString							m_UserName;
 
 	// Dynamic
-	ulong							m_NumberOfThreads;
-	ulong							m_NumberOfHandles;
+	quint32							m_NumberOfThreads;
+	quint32							m_NumberOfHandles;
 
 	quint64							m_WorkingSetPrivateSize;
-	ulong							m_PeakNumberOfThreads;
+	quint32							m_PeakNumberOfThreads;
 
 
 	// I/O stats

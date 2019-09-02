@@ -29,7 +29,7 @@ public:
 
 	virtual bool UpdateSocketList();
 
-	virtual CSocketPtr FindSocket(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
+	virtual CSocketPtr FindSocket(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
 
 	virtual bool UpdateOpenFileList();
 
@@ -40,6 +40,7 @@ public:
 	virtual CSymbolProvider* GetSymbolProvider()		{ return m_pSymbolProvider; }
 
 	virtual CSidResolver* GetSidResolver()				{ return m_pSidResolver; }
+
 
 	virtual quint64	GetCpuIdleCycleTime(int index);
 
@@ -67,18 +68,18 @@ public:
 
 public slots:
 	void		MonitorETW(bool bEnable);
-	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
+	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, quint32 ProtocolType, quint32 TransferSize,
 								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
-	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime);
+	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
 
 protected:
 	virtual void OnHardwareChanged();
 
 	quint32		EnumWindows();
 
-	void		AddNetworkIO(int Type, ulong TransferSize);
-	void		AddDiskIO(int Type, ulong TransferSize);
+	void		AddNetworkIO(int Type, quint32 TransferSize);
+	void		AddDiskIO(int Type, quint32 TransferSize);
 
 	bool		InitWindowsInfo();
 
@@ -98,6 +99,7 @@ protected:
 	CSymbolProvider*		m_pSymbolProvider;
 
 	CSidResolver*			m_pSidResolver;
+	
 
 	// Guard it with		m_StatsMutex
 	quint32					m_TotalGuiObjects;
@@ -135,5 +137,7 @@ private:
 	struct SWindowsAPI* m;
 };
 
-extern ulong g_fileObjectTypeIndex;
-extern ulong g_EtwRegistrationTypeIndex;
+extern quint32 g_fileObjectTypeIndex;
+extern quint32 g_EtwRegistrationTypeIndex;
+
+#define CPU_TIME_DIVIDER (10 * 1000 * 1000) // the clock resolution is 100ns we need 1sec

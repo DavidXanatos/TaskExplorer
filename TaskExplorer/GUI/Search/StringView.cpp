@@ -39,7 +39,7 @@ CStringView::CStringView(bool bGlobal, QWidget *parent)
 
 	connect(m_pStringList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pStringModel, SLOT(Clear()));
+	//connect(theGUI, SIGNAL(ReloadAll()), m_pStringModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pStringList);
 	// 
@@ -77,10 +77,10 @@ void CStringView::OnMenu(const QPoint &point)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CStringInfoPtr pString = m_pStringModel->GetString(ModelIndex);
 
-	int count = m_pStringList->selectedRows().count();
+	QModelIndexList selectedRows = m_pStringList->selectedRows();
 
-	m_pMenuEdit->setEnabled(count == 1);
-	m_pMenuSave->setEnabled(count > 0);
+	m_pMenuEdit->setEnabled(selectedRows.count() == 1);
+	m_pMenuSave->setEnabled(selectedRows.count() > 0);
 
 	CPanelView::OnMenu(point);
 }

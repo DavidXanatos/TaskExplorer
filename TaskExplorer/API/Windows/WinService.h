@@ -9,11 +9,11 @@ public:
 	CWinService(const QString& Name, QObject *parent = nullptr);
 	virtual ~CWinService();
 
-	virtual ulong GetType() const					{ QReadLocker Locker(&m_Mutex); return m_Type; }
+	virtual quint32 GetType() const					{ QReadLocker Locker(&m_Mutex); return m_Type; }
 	virtual QString GetTypeString() const;
-	virtual ulong GetState() const					{ QReadLocker Locker(&m_Mutex); return m_State; }
-	virtual ulong GetControlsAccepted() const		{ QReadLocker Locker(&m_Mutex); return m_ControlsAccepted; }
-	virtual ulong GetFlags() const					{ QReadLocker Locker(&m_Mutex); return m_Flags; }	
+	virtual quint32 GetState() const				{ QReadLocker Locker(&m_Mutex); return m_State; }
+	virtual quint32 GetControlsAccepted() const		{ QReadLocker Locker(&m_Mutex); return m_ControlsAccepted; }
+	virtual quint32 GetFlags() const				{ QReadLocker Locker(&m_Mutex); return m_Flags; }	
 
 	virtual bool IsStopped() const;
 	virtual bool IsRunning() const;
@@ -22,9 +22,9 @@ public:
 
 	virtual bool IsDriver() const;
 
-	virtual ulong GetStartType() const				{ QReadLocker Locker(&m_Mutex); return m_StartType; }
+	virtual quint32 GetStartType() const			{ QReadLocker Locker(&m_Mutex); return m_StartType; }
 	virtual QString GetStartTypeString() const;
-	virtual ulong GetErrorControl() const			{ QReadLocker Locker(&m_Mutex); return m_ErrorControl; }
+	virtual quint32 GetErrorControl() const			{ QReadLocker Locker(&m_Mutex); return m_ErrorControl; }
 	virtual QString GetErrorControlString() const;
 
 	virtual QString GetGroupeName() const			{ QReadLocker Locker(&m_Mutex); return m_GroupeName; }
@@ -39,7 +39,7 @@ public:
 	virtual void OpenPermissions();
 
 public slots:
-	void			OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
+	void			OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules);
 
 protected:
 	friend class CWindowsAPI;
@@ -49,18 +49,18 @@ protected:
 	bool UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE_STATUS_PROCESSW* service, bool bRefresh);
 	void UnInit();
 
-	ulong							m_Type;
-	ulong							m_State;
-	ulong							m_ControlsAccepted;
-	ulong							m_Flags;
+	quint32							m_Type;
+	quint32							m_State;
+	quint32							m_ControlsAccepted;
+	quint32							m_Flags;
 
-	ulong							m_StartType;
-	ulong							m_ErrorControl;
+	quint32							m_StartType;
+	quint32							m_ErrorControl;
 
 	QString							m_GroupeName;
 	QString							m_Description;
 
-	QDateTime						m_KeyLastWriteTime;
+	quint64							m_KeyLastWriteTime;
 
 	struct SWinService* m;
 };

@@ -16,6 +16,7 @@ public:
 public slots:
 	void					Refresh();
 	void					UpdateGraphs();
+	void					ReConfigurePlots();
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
@@ -25,6 +26,8 @@ protected:
 	QSet<QString>			m_Disks;
 
 private:
+	int						m_PlotLimit;
+
 	enum EColumns
 	{
 		eDiskName = 0,

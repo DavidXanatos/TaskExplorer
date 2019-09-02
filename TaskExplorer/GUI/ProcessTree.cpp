@@ -67,16 +67,19 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 
 	//m_pMenu = new QMenu();
-	m_pBringInFront = m_pMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
-	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
 	m_pShowProperties = m_pMenu->addAction(tr("Properties"), this, SLOT(OnShowProperties()));
+	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
+	m_pBringInFront = m_pMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
 	m_pMenu->addSeparator();
+
+	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnProcessAction()));
 
 	AddTaskItemsToMenu();
 	//QAction*				m_pTerminateTree;
 
 	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
 	m_pRunAsThis = m_pMiscMenu->addAction(tr("Run as this User"), this, SLOT(OnRunAsThis()));
+	m_pQuit = m_pMiscMenu->addAction(tr("Quit (WM_QUIT)"), this, SLOT(OnProcessAction()));
 	m_pCreateDump = m_pMiscMenu->addAction(tr("Create Crash Dump"), this, SLOT(OnCrashDump()));
 	m_pDebug = m_pMiscMenu->addAction(tr("Debug"), this, SLOT(OnProcessAction()));
 	m_pDebug->setCheckable(true);
@@ -543,26 +546,35 @@ void CProcessTree::OnMenu(const QPoint &point)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 	
-	m_pShowProperties->setEnabled(m_pProcessList->selectedRows().count() > 0);
-	m_pBringInFront->setEnabled(m_pProcessList->selectedRows().count() == 1);
-	m_pRunAsThis->setEnabled(m_pProcessList->selectedRows().count() == 1);
-	m_pCreateDump->setEnabled(m_pProcessList->selectedRows().count() == 1);
-	m_pDebug->setEnabled(m_pProcessList->selectedRows().count() == 1);
+	QModelIndexList selectedRows = m_pProcessList->selectedRows();
+
+	QList<CWndPtr> Windows;
+	if (selectedRows.count() > 1)
+		Windows = pProcess->GetWindows();
+
+	m_pShowProperties->setEnabled(selectedRows.count() > 0);
+	m_pBringInFront->setEnabled(selectedRows.count() == 1 && !Windows.isEmpty());
+	m_pClose->setEnabled(!Windows.isEmpty());
+
+	m_pQuit->setEnabled(!Windows.isEmpty());
+	m_pRunAsThis->setEnabled(selectedRows.count() == 1);
+	m_pCreateDump->setEnabled(selectedRows.count() == 1);
+	m_pDebug->setEnabled(selectedRows.count() == 1);
 	m_pDebug->setChecked(pProcess && pProcess->HasDebugger());
 
 #ifdef WIN32
 	QSharedPointer<CWinProcess> pWinProcess = pProcess.objectCast<CWinProcess>();
-	CWinTokenPtr pToken = pWinProcess ? pWinProcess->GetToken() : NULL;
 
+	//CWinTokenPtr pToken = pWinProcess ? pWinProcess->GetToken() : NULL;
 	//m_pVirtualization->setEnabled(pToken && pToken->IsVirtualizationAllowed());
 	//m_pVirtualization->setChecked(pToken && pToken->IsVirtualizationEnabled());
 
-	m_pCritical->setEnabled(!pWinProcess.isNull());
+	m_pCritical->setEnabled(selectedRows.count() > 0);
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
 
-	m_pReduceWS->setEnabled(!pWinProcess.isNull());
+	m_pReduceWS->setEnabled(selectedRows.count() > 0);
 
-	m_pPermissions->setEnabled(m_pProcessList->selectedRows().count() == 1);
+	m_pPermissions->setEnabled(selectedRows.count() == 1);
 #endif
 
 	CTaskView::OnMenu(point);
@@ -631,10 +643,19 @@ void CProcessTree::OnProcessAction()
 				else
 					pWinProcess->DetachDebugger();
 			}
+			else if (sender() == m_pClose || sender() == m_pQuit)
+			{
+				QList<CWndPtr> Windows = pProcess->GetWindows();
+				foreach(const CWndPtr& pWnd, Windows)
+				{
+					if (QSharedPointer<CWinWnd> pWinWnd = pWnd.objectCast<CWinWnd>())
+						pWinWnd->PostWndMessage(sender() == m_pQuit ? WM_QUIT : WM_CLOSE);
+				}
+			}
 			else if (sender() == m_pBringInFront)
 			{
-				CWndPtr pWnd = pWinProcess->GetMainWindowHwnd();
-				if (pWnd)
+				CWndPtr pWnd = pProcess->GetMainWindow();
+				if (!pWnd.isNull())
 					pWnd->BringToFront();
 			}
 			else if (sender() == m_pOpenPath)
@@ -730,7 +751,7 @@ void CProcessTree::UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<qui
 
 void CProcessTree::OnUpdateHistory()
 {
-	float Div = (theConf->GetInt("Options/LinuxStyleCPU") == 1 && !theConf->GetBool("Options/EnableCycleCpuUsage", false)) ? theAPI->GetCpuCount() : 1.0f;
+	float Div = (theConf->GetInt("Options/LinuxStyleCPU") == 1) ? theAPI->GetCpuCount() : 1.0f;
 
 	if (m_pProcessModel->IsColumnEnabled(CProcessModel::eCPU_History))
 	{

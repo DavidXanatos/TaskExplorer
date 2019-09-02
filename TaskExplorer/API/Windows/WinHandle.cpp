@@ -375,7 +375,7 @@ QString CWinHandle::GetAttributesString() const
 	return "";
 }
 
-STATUS CWinHandle::SetAttribute(ulong Attribute, bool bSet)
+STATUS CWinHandle::SetAttribute(quint32 Attribute, bool bSet)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -428,7 +428,6 @@ STATUS CWinHandle::SetInherited(bool bSet)
 {
 	return SetAttribute(OBJ_INHERIT, bSet);
 }
-
 
 QString CWinHandle::GetFileShareAccessString() const
 {
@@ -487,7 +486,7 @@ PH_ACCESS_ENTRY FileModeAccessEntries[6] =
     { L"FILE_SYNCHRONOUS_IO_NONALERT", FILE_SYNCHRONOUS_IO_NONALERT, FALSE, FALSE, L"Synchronous non-alert" },
 };
 
-QString CWinHandle::GetFileAccessMode(ulong Mode)
+QString CWinHandle::GetFileAccessMode(quint32 Mode)
 {
 	// Since FILE_MODE_INFORMATION has no flag for asynchronous I/O we should use our own flag and set
 	// it only if none of synchronous flags are present. That's why we need PhFileModeUpdAsyncFlag.
@@ -496,7 +495,7 @@ QString CWinHandle::GetFileAccessMode(ulong Mode)
 	return QString("0x%1 (%2)").arg(Mode, 0, 16).arg(CastPhString(fileModeAccessStr));
 }
 
-QString CWinHandle::GetSectionType(ulong Attribs)
+QString CWinHandle::GetSectionType(quint32 Attribs)
 {
     if (Attribs & SEC_COMMIT)
         return tr("Commit");

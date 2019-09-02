@@ -123,8 +123,13 @@ QString FormatSize(quint64 Size, int Precision)
 	if(Size > (quint64)(Div = 1.0*1024*1024))
 		return QString::number(double(Size)/Div, 'f', Precision) + " MB";
 	if(Size > (quint64)(Div = 1.0*1024))
-		return QString::number(double(Size)/Div, 'f', Precision) + " kB";
+		return QString::number(double(Size)/Div, 'f', Precision) + " KB";
 	return QString::number(double(Size)) + "B";
+}
+
+QString FormatRate(quint64 Size, int Precision)
+{
+	return FormatSize(Size, Precision) + "/s";
 }
 
 QString FormatUnit(quint64 Size, int Precision)

@@ -15,7 +15,8 @@ public:
 	virtual QString			GetOwnerServiceName()	{ QReadLocker Locker(&m_Mutex); return m_OwnerService; }
 	virtual bool			IsSubsystemProcess()	{ QReadLocker Locker(&m_Mutex); return m_SubsystemProcess; }
 
-	virtual QString			GetFirewallStatus();
+	virtual int				GetFirewallStatus();
+	virtual QString			GetFirewallStatusString();
 
 	virtual quint64			GetIdleTime() const;
 
@@ -44,14 +45,14 @@ public:
 protected:
 	friend class CWindowsAPI;
 
-	bool InitStaticData(quint64 ProcessId, ulong ProtocolType,
+	bool InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 		const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 
 	bool InitStaticDataEx(SSocket* connection);
 
 	bool UpdateDynamicData(SSocket* connection);
 
-	void AddNetworkIO(int Type, ulong TransferSize);
+	void AddNetworkIO(int Type, quint32 TransferSize);
 
 	QString			m_OwnerService;
 	bool			m_SubsystemProcess;

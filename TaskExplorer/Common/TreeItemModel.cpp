@@ -333,10 +333,10 @@ bool CTreeItemModel::setData(const QModelIndex &index, const QVariant &value, in
 QVariant CTreeItemModel::Data(const QModelIndex &index, int role, int section) const
 {
 	if (!index.isValid())
-        return QVariant();
+		return QVariant();
 
-    //if(role == Qt::SizeHintRole)
-    //    return QSize(64,16); // for fixing height
+	//if(role == Qt::SizeHintRole)
+	//    return QSize(64,16); // for fixing height
 
 	STreeNode* pNode = static_cast<STreeNode*>(index.internalPointer());
 	ASSERT(pNode);
@@ -344,6 +344,11 @@ QVariant CTreeItemModel::Data(const QModelIndex &index, int role, int section) c
 	if (pNode->Values.size() <= section)
 		return QVariant();
 
+	return NodeData(pNode, role, section);
+}
+
+QVariant CTreeItemModel::NodeData(STreeNode* pNode, int role, int section) const
+{
     switch(role)
 	{
 		case Qt::DisplayRole:

@@ -26,10 +26,10 @@ public:
 	bool		IsRunning() { return m_bRunning; }
 
 signals:
-	void		NetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize,
+	void		NetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, quint32 ProtocolType, quint32 TransferSize,
 								const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 	void		FileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
-	void		DiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime);
+	void		DiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
 
 protected:
 	virtual void run();
@@ -41,7 +41,7 @@ protected:
 
 private:
 	bool		StartSession();
-	ulong		ControlSession(ulong ControlCode);
+	quint32		ControlSession(quint32 ControlCode);
 	void		FlushSession();
 	void		StopSession();
 

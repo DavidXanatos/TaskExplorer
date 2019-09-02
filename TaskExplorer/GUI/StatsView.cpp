@@ -209,8 +209,6 @@ void CStatsView::SetupTree()
 	//
 }
 
-#define CPU_TIME_DIVIDER (10 * 1000 * 1000) // the clock resolution is 100ns we need 1sec
-
 void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
 #ifdef WIN32
@@ -236,18 +234,26 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 	struct SAccStat
 	{
-		SAccStat(): Column(-1), Format(eUndefined), Value(0) { }
+		struct SColStat
+		{
+			SColStat(): Format(eUndefined), Value(0) { }
 
-		int Column;
-		EFormat Format;
-		quint64 Value;
+			EFormat Format;
+			quint64 Value;
+
+			void AddSumm(EFormat format, quint64 value)
+			{
+				Format = format;
+				Value += value;
+			}
+		};
 
 		void AddSumm(int column, EFormat format, quint64 value)
 		{
-			Column = column;
-			Format = format;
-			Value += value;
+			Columns[column].AddSumm(format, value);
 		}
+
+		QMap<int, SColStat> Columns;
 	};
 
 	QMap<QTreeWidgetItem*, SAccStat> AccStats;
@@ -363,12 +369,13 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	
 	for (QMap<QTreeWidgetItem*, SAccStat>::iterator I = AccStats.begin(); I != AccStats.end(); I++)
 	{
-		switch (I->Format)
+		for (QMap<int, SAccStat::SColStat>::iterator J = I->Columns.begin(); J != I->Columns.end(); J++)
+		switch (J->Format)
 		{
-		case eFormatSize:	I.key()->setText(I->Column, FormatSize(I->Value)); break;
-		case eFormatRate:	I.key()->setText(I->Column, FormatSize(I->Value) + tr("/s")); break;
-		case eFormatTime:	I.key()->setText(I->Column, FormatTime(I->Value)); break;
-		case eFormatNumber:	I.key()->setText(I->Column, FormatNumber(I->Value)); break;
+		case eFormatSize:	I.key()->setText(J.key(), FormatSize(J->Value)); break;
+		case eFormatRate:	I.key()->setText(J.key(), FormatRate(J->Value)); break;
+		case eFormatTime:	I.key()->setText(J.key(), FormatTime(J->Value)); break;
+		case eFormatNumber:	I.key()->setText(J.key(), FormatNumber(J->Value)); break;
 		}
 	}
 }
@@ -377,39 +384,39 @@ void CStatsView::ShowIoStats(const SProcStats& Stats)
 {
 	m_pIOReads->setText(eCount, FormatNumber(Stats.Io.ReadDelta.Value));
 	m_pIOReads->setText(eSize, FormatSize(Stats.Io.ReadRawDelta.Value));
-	m_pIOReads->setText(eRate, FormatSize(Stats.Io.ReadRate.Get()) + "/s");
+	m_pIOReads->setText(eRate, FormatRate(Stats.Io.ReadRate.Get()));
 	m_pIOReads->setText(eDelta, FormatNumber(Stats.Io.ReadDelta.Delta));
 
 	m_pIOWrites->setText(eCount, FormatNumber(Stats.Io.WriteDelta.Value));
 	m_pIOWrites->setText(eSize, FormatSize(Stats.Io.WriteRawDelta.Value));
-	m_pIOWrites->setText(eRate, FormatSize(Stats.Io.WriteRate.Get()) + "/s");
+	m_pIOWrites->setText(eRate, FormatRate(Stats.Io.WriteRate.Get()));
 	m_pIOWrites->setText(eDelta, FormatNumber(Stats.Io.WriteDelta.Delta));
 
 	m_pIOOther->setText(eCount, FormatNumber(Stats.Io.OtherDelta.Value));
 	m_pIOOther->setText(eSize, FormatSize(Stats.Io.OtherRawDelta.Value));
-	m_pIOOther->setText(eRate, FormatSize(Stats.Io.OtherRate.Get()) + "/s");
+	m_pIOOther->setText(eRate, FormatRate(Stats.Io.OtherRate.Get()));
 	m_pIOOther->setText(eDelta, FormatNumber(Stats.Io.OtherDelta.Delta));
 
 	m_pDiskReads->setText(eCount, FormatNumber(Stats.Disk.ReadDelta.Value));
 	m_pDiskReads->setText(eSize, FormatSize(Stats.Disk.ReadRawDelta.Value));
-	m_pDiskReads->setText(eRate, FormatSize(Stats.Disk.ReadRate.Get()) + "/s");
+	m_pDiskReads->setText(eRate, FormatRate(Stats.Disk.ReadRate.Get()));
 	m_pDiskReads->setText(eDelta, FormatNumber(Stats.Disk.ReadDelta.Delta));
 
 	m_pDiskWrites->setText(eCount, FormatNumber(Stats.Disk.WriteDelta.Value));
 	m_pDiskWrites->setText(eSize, FormatSize(Stats.Disk.WriteRawDelta.Value));
-	m_pDiskWrites->setText(eRate, FormatSize(Stats.Disk.WriteRate.Get()) + "/s");
+	m_pDiskWrites->setText(eRate, FormatRate(Stats.Disk.WriteRate.Get()));
 	m_pDiskWrites->setText(eDelta, FormatNumber(Stats.Disk.WriteDelta.Delta));
 
 	if (m_MonitorsETW)
 	{
 		m_pNetSends->setText(eCount, FormatNumber(Stats.Net.SendDelta.Value));
 		m_pNetSends->setText(eSize, FormatSize(Stats.Net.SendRawDelta.Value));
-		m_pNetSends->setText(eRate, FormatSize(Stats.Net.SendRate.Get()) + "/s");
+		m_pNetSends->setText(eRate, FormatRate(Stats.Net.SendRate.Get()));
 		m_pNetSends->setText(eDelta, FormatNumber(Stats.Net.SendDelta.Delta));
 
 		m_pNetReceives->setText(eCount, FormatNumber(Stats.Net.ReceiveDelta.Value));
 		m_pNetReceives->setText(eSize, FormatSize(Stats.Net.ReceiveRawDelta.Value));
-		m_pNetReceives->setText(eRate, FormatSize(Stats.Net.ReceiveRate.Get()) + "/s");
+		m_pNetReceives->setText(eRate, FormatRate(Stats.Net.ReceiveRate.Get()));
 		m_pNetReceives->setText(eDelta, FormatNumber(Stats.Net.ReceiveDelta.Delta));
 	}
 }
@@ -452,12 +459,12 @@ void CStatsView::ShowSystem()
 
 	m_pMMapIOReads->setText(eCount, FormatNumber(SysStats.MMapIo.ReadDelta.Value));
 	m_pMMapIOReads->setText(eSize, FormatSize(SysStats.MMapIo.ReadRawDelta.Value));
-	m_pMMapIOReads->setText(eRate, FormatSize(SysStats.MMapIo.ReadRate.Get()) + "/s");
+	m_pMMapIOReads->setText(eRate, FormatRate(SysStats.MMapIo.ReadRate.Get()));
 	m_pMMapIOReads->setText(eDelta, FormatNumber(SysStats.MMapIo.ReadDelta.Delta));
 
 	m_pMMapIOWrites->setText(eCount, FormatNumber(SysStats.MMapIo.WriteDelta.Value));
 	m_pMMapIOWrites->setText(eSize, FormatSize(SysStats.MMapIo.WriteRawDelta.Value));
-	m_pMMapIOWrites->setText(eRate, FormatSize(SysStats.MMapIo.WriteRate.Get()) + "/s");
+	m_pMMapIOWrites->setText(eRate, FormatRate(SysStats.MMapIo.WriteRate.Get()));
 	m_pMMapIOWrites->setText(eDelta, FormatNumber(SysStats.MMapIo.WriteDelta.Delta));
 
 	// other
@@ -504,17 +511,17 @@ void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 	// IO
 	m_pIOReads->setText(eCount, FormatNumber(Stats.Io.ReadDelta.Value));
 	m_pIOReads->setText(eSize, FormatSize(Stats.Io.ReadRawDelta.Value));
-	m_pIOReads->setText(eRate, FormatSize(Stats.Io.ReadRate.Get()) + "/s");
+	m_pIOReads->setText(eRate, FormatRate(Stats.Io.ReadRate.Get()));
 	m_pIOReads->setText(eDelta, FormatNumber(Stats.Io.ReadDelta.Delta));
 
 	m_pIOWrites->setText(eCount, FormatNumber(Stats.Io.WriteDelta.Value));
 	m_pIOWrites->setText(eSize, FormatSize(Stats.Io.WriteRawDelta.Value));
-	m_pIOWrites->setText(eRate, FormatSize(Stats.Io.WriteRate.Get()) + "/s");
+	m_pIOWrites->setText(eRate, FormatRate(Stats.Io.WriteRate.Get()));
 	m_pIOWrites->setText(eDelta, FormatNumber(Stats.Io.WriteDelta.Delta));
 
 	m_pIOOther->setText(eCount, FormatNumber(Stats.Io.OtherDelta.Value));
 	m_pIOOther->setText(eSize, FormatSize(Stats.Io.OtherRawDelta.Value));
-	m_pIOOther->setText(eRate, FormatSize(Stats.Io.OtherRate.Get()) + "/s");
+	m_pIOOther->setText(eRate, FormatRate(Stats.Io.OtherRate.Get()));
 	m_pIOOther->setText(eDelta, FormatNumber(Stats.Io.OtherDelta.Delta));
 }
 #endif

@@ -25,7 +25,7 @@ public:
 	virtual QByteArray		GetUserSid() const { QReadLocker Locker(&m_Mutex); return m_UserSid; }
 	virtual QString			GetSidString() const { QReadLocker Locker(&m_Mutex); return m_SidString; }
 	virtual bool			IsAppContainer() const { QReadLocker Locker(&m_Mutex); return m_IsAppContainer; }
-	virtual ulong			GetSessionId() const { QReadLocker Locker(&m_Mutex); return m_SessionId; }
+	virtual quint32			GetSessionId() const { QReadLocker Locker(&m_Mutex); return m_SessionId; }
 	virtual QString			GetOwnerName() const { QReadLocker Locker(&m_Mutex); return m_OwnerName; }
 	virtual QByteArray		GetOwnerSid() const { QReadLocker Locker(&m_Mutex); return m_OwnerSid; }
 	virtual QString			GetGroupName() const { QReadLocker Locker(&m_Mutex); return m_GroupName; }
@@ -226,7 +226,7 @@ protected:
 	QByteArray	m_OwnerSid;
 	QString		m_GroupName;
 	QByteArray	m_GroupSid;
-	ulong		m_SessionId;
+	quint32		m_SessionId;
 
 	bool		m_Elevated;
 	int			m_ElevationType;

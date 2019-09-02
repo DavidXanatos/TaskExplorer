@@ -98,7 +98,7 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 	if (pNode->iColor != RowColor) {
 		pNode->iColor = RowColor;
-		pNode->Color = CTaskExplorer::GetColor(RowColor);
+		pNode->Color = CTaskExplorer::GetListColor(RowColor);
 		Changed = 2;
 	}
 

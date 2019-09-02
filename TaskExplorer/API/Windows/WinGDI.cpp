@@ -115,7 +115,7 @@ PPH_STRING PhpGetGdiHandleInformation(_In_ ULONG Handle)
 }
 
 
-bool CWinGDI::InitData(ulong index, struct _GDI_HANDLE_ENTRY* handle, const QString& ProcessName)
+bool CWinGDI::InitData(quint32 index, struct _GDI_HANDLE_ENTRY* handle, const QString& ProcessName)
 {
 	QWriteLocker Locker(&m_Mutex);
 

@@ -282,6 +282,8 @@ void CThreadsView::OnMenu(const QPoint &point)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
 
+	QModelIndexList selectedRows = m_pThreadList->selectedRows();
+
 #ifdef WIN32
 	QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
 
@@ -290,7 +292,7 @@ void CThreadsView::OnMenu(const QPoint &point)
 	m_pCritical->setEnabled(!pWinThread.isNull());
 	m_pCritical->setChecked(pWinThread && pWinThread->IsCriticalThread());
 
-	m_pPermissions->setEnabled(m_pThreadList->selectedRows().count() == 1);
+	m_pPermissions->setEnabled(selectedRows.count() == 1);
 #endif
 
 	CTaskView::OnMenu(point);

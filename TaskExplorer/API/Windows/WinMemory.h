@@ -53,7 +53,7 @@ protected:
         } Stack;
         struct
         {
-            ulong Index;
+            quint32 Index;
         } Heap;
     } u;
 	QString u_Custom_Text; // u_MappedFile_FileName;

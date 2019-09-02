@@ -64,10 +64,12 @@ CWinService::CWinService(QObject *parent)
 	m_StartType = 0;
 	m_ErrorControl = 0;
 
+	m_KeyLastWriteTime = 0;
+
 	m = new SWinService();
 
 	m_pModuleInfo = CModulePtr(new CWinModule());
-	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, ulong, ulong)), this, SLOT(OnAsyncDataDone(bool, ulong, ulong)));
+	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
 }
 
 CWinService::CWinService(const QString& Name, QObject *parent)
@@ -199,7 +201,7 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 				PKEY_BASIC_INFORMATION basicInfo;
 				if (NT_SUCCESS(PhQueryKey(keyHandle, KeyBasicInformation, (PVOID*)&basicInfo)))
 				{
-					m_KeyLastWriteTime = QDateTime::fromTime_t(FILETIME2time(basicInfo->LastWriteTime.QuadPart));
+					m_KeyLastWriteTime = FILETIME2time(basicInfo->LastWriteTime.QuadPart);
 					PhFree(basicInfo);
 				}
 
@@ -241,7 +243,7 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 	return modified;
 }
 
-void CWinService::OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules)
+void CWinService::OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules)
 {
 }
 

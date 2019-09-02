@@ -75,7 +75,9 @@ protected:
 		QVector<SValue>		Values;
 	};
 
-	virtual STreeNode* MkNode(const QVariant& Id) { return new STreeNode(Id); }
+	virtual QVariant	NodeData(STreeNode* pNode, int role, int section) const;
+
+	virtual STreeNode*	MkNode(const QVariant& Id) { return new STreeNode(Id); }
 
 	void			Sync(QMap<QList<QVariant>, QList<STreeNode*> >& New, QHash<QVariant, STreeNode*>& Old);
 	void			Purge(STreeNode* pParent, const QModelIndex &parent, QHash<QVariant, STreeNode*> &Old);

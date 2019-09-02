@@ -4,7 +4,6 @@
 
 void STaskStats::UpdateStats(quint64 sysTotalTime, quint64 sysTotalCycleTime)
 {
-
 	if (sysTotalCycleTime != 0)
 	{
 		// Below Windows 7, sum of kernel and user CPU usage; above Windows 7, cycle-based CPU usage.
@@ -20,25 +19,25 @@ void STaskStats::UpdateStats(quint64 sysTotalTime, quint64 sysTotalCycleTime)
 		if (totalDelta != 0)
 		{
 			CpuKernelUsage = newCpuUsage * ((float)CpuKernelDelta.Delta / totalDelta);
-			CpuUsage = newCpuUsage * ((float)CpuUserDelta.Delta / totalDelta);
+			CpuUserUsage = newCpuUsage * ((float)CpuUserDelta.Delta / totalDelta);
 		}
 		else if (CpuUserDelta.Value != 0)
 		{
 			CpuKernelUsage = newCpuUsage / 2;
-			CpuUsage = newCpuUsage / 2;
+			CpuUserUsage = newCpuUsage / 2;
 		}
 		else
 		{
 			CpuKernelUsage = newCpuUsage;
-			CpuUsage = 0;
+			CpuUserUsage = 0;
 		}
 	}
 	else if(sysTotalTime != 0)
 	{
 		CpuKernelUsage = (float)CpuKernelDelta.Delta / sysTotalTime;
 		CpuUserUsage = (float)CpuUserDelta.Delta / sysTotalTime;
-		CpuUsage = CpuKernelUsage + CpuUserUsage;
 	}
+	CpuUsage = CpuKernelUsage + CpuUserUsage;
 }
 
 CAbstractTask::CAbstractTask(QObject *parent)

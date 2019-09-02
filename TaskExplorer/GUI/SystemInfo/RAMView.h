@@ -15,6 +15,7 @@ public:
 public slots:
 	void					Refresh();
 	void					UpdateGraphs();
+	void					ReConfigurePlots();
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
@@ -22,6 +23,8 @@ protected:
 	//virtual QAbstractItemModel* GetModel()	{ return m_pStatsList->model(); }
 
 private:
+	int						m_PlotLimit;
+
 	enum EColumns
 	{
 		eFileName = 0,

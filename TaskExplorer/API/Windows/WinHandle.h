@@ -18,17 +18,17 @@ public:
 
 	virtual quint64 GetObjectAddress()	const		{ QReadLocker Locker(&m_Mutex); return m_Object; }
 	
-	virtual ulong GetAttributes() const				{ QReadLocker Locker(&m_Mutex); return m_Attributes; }
+	virtual quint32 GetAttributes() const			{ QReadLocker Locker(&m_Mutex); return m_Attributes; }
 	virtual QString GetAttributesString() const;
-	virtual STATUS SetAttribute(ulong Attribute, bool bSet = true);
+	virtual STATUS SetAttribute(quint32 Attribute, bool bSet = true);
 	virtual bool IsProtected() const;
 	virtual STATUS SetProtected(bool bSet);
 	virtual bool IsInherited() const;
 	virtual STATUS SetInherited(bool bSet);
 
-	virtual ulong GetGrantedAccess() const			{ QReadLocker Locker(&m_Mutex); return m_GrantedAccess; }
-	virtual ulong GetTypeIndex() const				{ QReadLocker Locker(&m_Mutex); return m_TypeIndex; }
-	virtual ulong GetFileFlags() const				{ QReadLocker Locker(&m_Mutex); return m_FileFlags; }
+	virtual quint32 GetGrantedAccess() const		{ QReadLocker Locker(&m_Mutex); return m_GrantedAccess; }
+	virtual quint32 GetTypeIndex() const			{ QReadLocker Locker(&m_Mutex); return m_TypeIndex; }
+	virtual quint32 GetFileFlags() const			{ QReadLocker Locker(&m_Mutex); return m_FileFlags; }
 
 	virtual QString GetTypeName() const				{ QReadLocker Locker(&m_Mutex); return m_TypeName; }
 	virtual QString GetOriginalName() const			{ QReadLocker Locker(&m_Mutex); return m_OriginalName; }
@@ -44,8 +44,8 @@ public:
 			memset(this, 0, sizeof(SHandleInfo));
 		}
 
-		ulong References;
-		ulong Handles;
+		quint32 References;
+		quint32 Handles;
 
 		quint64 Paged;
 		quint64 VirtualSize;
@@ -60,7 +60,7 @@ public:
 
 			struct
 			{
-				ulong Mode;
+				quint32 Mode;
 				bool IsDir;
 				quint64 Size;
 				quint64 Position;
@@ -68,7 +68,7 @@ public:
 
 			struct
 			{
-				ulong Attribs;
+				quint32 Attribs;
 				quint64 Size;
 			} Section;
 
@@ -97,8 +97,8 @@ public:
 		};
 	};
 
-	static QString GetFileAccessMode(ulong Mode);
-	static QString GetSectionType(ulong Attribs);
+	static QString GetFileAccessMode(quint32 Mode);
+	static QString GetSectionType(quint32 Attribs);
 	virtual SHandleInfo GetHandleInfo() const;
 
 	virtual STATUS				Close(bool bForce = false);
@@ -135,10 +135,10 @@ protected:
 	bool UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle);
 
 	quint64				m_Object;
-	ulong				m_Attributes;
-	ulong				m_GrantedAccess;
-	ulong				m_TypeIndex;
-	ulong				m_FileFlags;
+	quint32				m_Attributes;
+	quint32				m_GrantedAccess;
+	quint32				m_TypeIndex;
+	quint32				m_FileFlags;
 
 	QString				m_TypeName;
     QString				m_OriginalName;

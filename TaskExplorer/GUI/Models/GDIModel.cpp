@@ -46,7 +46,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
-			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			pNode->Color = CTaskExplorer::GetListColor(RowColor);
 			Changed = 2;
 		}
 

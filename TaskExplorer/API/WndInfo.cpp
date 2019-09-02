@@ -10,6 +10,7 @@ CWndInfo::CWndInfo(QObject *parent) : CAbstractInfo(parent)
     m_ThreadId = 0;
 	m_WindowVisible = false;
 	m_WindowEnabled = false;
+	m_WindowHung = false;
 	m_ShowCommand = 0;
 	m_WindowOnTop = false;
 	m_WindowAlpha = 255;

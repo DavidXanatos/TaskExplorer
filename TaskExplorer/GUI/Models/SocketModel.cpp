@@ -21,6 +21,9 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 {
 	QList<SListNode*> New;
 	QHash<QVariant, SListNode*> Old = m_Map;
+	
+	bool IsMonitoringETW = ((CWindowsAPI*)theAPI)->IsMonitoringETW();
+	bool bClearZeros = theConf->GetBool("Options/ClearZeros", true);
 
 	foreach (const CSocketPtr& pSocket, SocketList)
 	{
@@ -75,7 +78,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
-			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			pNode->Color = CTaskExplorer::GetListColor(RowColor);
 			Changed = 2;
 		}
 
@@ -90,9 +93,9 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 			QVariant Value;
 			switch(section)
 			{
-				case eProcess:			Value = pSocket->GetProcessName();
-				case eProtocol:			Value = pSocket->GetProtocolString(); break; 
-				case eState:			Value = pSocket->GetStateString(); break; 
+				case eProcess:			Value = pSocket->GetProcessName(); break;
+				case eProtocol:			Value = (quint32)pSocket->GetProtocolType(); break; 
+				case eState:			Value = (quint32)pSocket->GetState(); break; 
 				case eLocalAddress:		Value = pSocket->GetLocalAddress().toString(); break;
 				case eLocalPort:		Value = pSocket->GetLocalPort(); break; 
 				case eRemoteAddress:	Value = pSocket->GetRemoteAddress().toString(); break; 
@@ -102,14 +105,14 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 #endif
 				case eTimeStamp:		Value = pSocket->GetCreateTimeStamp(); break;
 				//case eLocalHostname:	Value = ; break; 
-				//case eRemoteHostname:	Value = ; break; 
+				//case eRemoteHostname:	Value = pSocket->GetRemoteHostName(); break; 
 
 				case eReceives:			Value = Stats.Net.ReceiveCount; break; 
 				case eSends:			Value = Stats.Net.SendCount; break; 
 				case eReceiveBytes:		Value = Stats.Net.ReceiveRaw; break; 
 				case eSendBytes:		Value = Stats.Net.SendRaw; break; 
 				//case eTotalBytes:		Value = ; break; 
-				case eReceivesDetla:	Value = Stats.Net.ReceiveDelta.Delta; break; 
+				case eReceivesDelta:	Value = Stats.Net.ReceiveDelta.Delta; break; 
 				case eSendsDelta:		Value = Stats.Net.SendDelta.Delta; break; 
 				case eReceiveBytesDelta:Value = Stats.Net.ReceiveRawDelta.Delta; break; 
 				case eSendBytesDelta:	Value = Stats.Net.SendRawDelta.Delta; break; 
@@ -122,16 +125,13 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 #endif
 			}
 
-#ifdef WIN32
-			if (!((CWindowsAPI*)theAPI)->IsMonitoringETW())
-			{
-				// Note: all rate and transfer values are not available without ETW being enabled
-				if (section >= eReceives && section < eFirewallStatus)
-					Value = tr("N/A");
-			}
-#endif
-
 			SSocketNode::SValue& ColValue = pNode->Values[section];
+
+#ifdef WIN32
+			// Note: all rate and transfer values are not available without ETW being enabled
+			if (!IsMonitoringETW && section >= eReceives && section < eFirewallStatus)
+				Value = tr("N/A");
+#endif
 
 			if (ColValue.Raw != Value)
 			{
@@ -148,22 +148,32 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 												break;
 											}
 
+					case eProtocol:				ColValue.Formated = pSocket->GetProtocolString(); break; 
+					case eState:				ColValue.Formated = pSocket->GetStateString(); break; 			
+
 					case eTimeStamp:			ColValue.Formated = QDateTime::fromTime_t(pSocket->GetCreateTimeStamp()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 
 					case eReceiveBytes:
 					case eSendBytes:
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()); break; 
 					case eReceiveBytesDelta:
 					case eSendBytesDelta:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()); break; 
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatSizeEx(Value.toULongLong(), bClearZeros); break; 
 
 					case eReceiveRate:
 					case eSendRate:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()) + "/s"; break; 
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatRateEx(Value.toULongLong(), bClearZeros); break; 
+
 					case eReceives:
 					case eSends:
-					case eReceivesDetla:
-					case eSendsDelta:
 												if(Value.type() != QVariant::String) ColValue.Formated = FormatNumber(Value.toULongLong()); break; 
+					case eReceivesDelta:
+					case eSendsDelta:
+												if(Value.type() != QVariant::String) ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break; 
+#ifdef WIN32
+					case eFirewallStatus:		ColValue.Formated = pWinSock->GetFirewallStatusString(); break; 
+#endif
+												
 				}
 			}
 
@@ -223,7 +233,7 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 			case eReceiveBytes:		return tr("Receive bytes");
 			case eSendBytes:		return tr("Send bytes");
 			//case eTotalBytes:		return tr("Total bytes");
-			case eReceivesDetla:	return tr("Receives detla");
+			case eReceivesDelta:	return tr("Receives delta");
 			case eSendsDelta:		return tr("Sends delta");
 			case eReceiveBytesDelta:return tr("Receive bytes delta");
 			case eSendBytesDelta:	return tr("Send bytes delta");

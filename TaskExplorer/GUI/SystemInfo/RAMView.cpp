@@ -37,24 +37,29 @@ CRAMView::CRAMView(QWidget *parent)
 	pal.setColor(QPalette::Background, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
-	QColor Back = QColor(0, 0, 64);
-	QColor Front = QColor(187, 206, 239);
-	QColor Grid = QColor(46, 44, 119);
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pRAMPlot = new CIncrementalPlot(Back, Front, Grid);
 	m_pRAMPlot->setMinimumHeight(120);
 	m_pRAMPlot->setMinimumWidth(50);
 	m_pRAMPlot->SetupLegend(Front, tr("Memory Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pRAMPlot->SetLimit(m_PlotLimit);
 	m_pScrollLayout->addWidget(m_pRAMPlot, 0, 0, 1, 3);
 
 	m_pRAMPlot->AddPlot("Commited", Qt::green, Qt::SolidLine, false, tr("Commit charge"));
 	m_pRAMPlot->AddPlot("Swapped", Qt::red, Qt::SolidLine, false, tr("Swap memory"));
 	m_pRAMPlot->AddPlot("Cache", Qt::blue, Qt::SolidLine, false, tr("Cache"));
 	m_pRAMPlot->AddPlot("Physical", Qt::yellow, Qt::SolidLine, false, tr("Physical memory"));
+	//m_pRAMPlot->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
 	m_pInfoTabs = new QTabWidget();
 	//m_pInfoTabs->setDocumentMode(true);
-	m_pScrollLayout->addWidget(m_pInfoTabs, 1, 0, 1, 3);
+	m_pInfoTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+	m_pScrollLayout->addWidget(m_pInfoTabs, 1, 0);
 
 
 	////////////////////////////////////////
@@ -71,7 +76,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pVMemBox->setLayout(m_pVMemLayout);
 	m_pMemoryLayout->addWidget(m_pVMemBox, 0, 0);
 	//m_pMemoryLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 1, 0, 2, 1);
-	m_pMemoryLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 1, 0);
+	m_pMemoryLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 1, 0, 2, 1);
 	
 
 	int row = 0;
@@ -97,7 +102,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pRAMLayout = new QGridLayout();
 	m_pRAMBox->setLayout(m_pRAMLayout);
 	m_pMemoryLayout->addWidget(m_pRAMBox, 0, 1, 2, 1);
-	//m_pMemoryLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 2, 0);
+	m_pMemoryLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 2, 0);
 
 	row = 0;
 	m_pRAMLayout->addWidget(new QLabel(tr("Usage")), row, 0);
@@ -342,6 +347,16 @@ CRAMView::~CRAMView()
 	theConf->SetValue(objectName() + "/RAMView_Tab", m_pInfoTabs->currentIndex());
 }
 
+void CRAMView::ReConfigurePlots()
+{
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
+
+	m_pRAMPlot->SetLimit(m_PlotLimit);
+	m_pRAMPlot->SetColors(Back, Front, Grid);
+}
 
 void CRAMView::Refresh()
 {

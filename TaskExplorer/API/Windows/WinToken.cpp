@@ -124,7 +124,7 @@ CWinToken* CWinToken::NewSystemToken()
 {
 	CWinToken* pToken = new CWinToken();
 	pToken->m_UserSid = QByteArray((char*)&PhSeLocalSystemSid, RtlLengthSid(&PhSeLocalSystemSid));
-	pToken->m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(pToken->m_UserSid, pToken, SLOT(OnSidResolved(const QByteArray&, const QString&)));
+	pToken->m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(pToken->m_UserSid, pToken, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 	return pToken;
 }
 
@@ -270,7 +270,7 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
 
         if (!tokenIsAppContainer) // HACK (dmex)
         {
-			m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(m_UserSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
+			m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(m_UserSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
         }
 
 		PPH_STRING stringUserSid;
@@ -285,7 +285,7 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
     {
 		m_OwnerSid = QByteArray((char*)tokenOwner->Owner, RtlLengthSid(tokenOwner->Owner));
 
-		m_OwnerName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(m_OwnerSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
+		m_OwnerName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(m_OwnerSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 
         PhFree(tokenOwner);
     }
@@ -295,7 +295,7 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
     {
 		m_GroupSid = QByteArray((char*)tokenPrimaryGroup->PrimaryGroup, RtlLengthSid(tokenPrimaryGroup->PrimaryGroup));
 
-		m_GroupName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(m_GroupSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
+		m_GroupName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(m_GroupSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 
         PhFree(tokenPrimaryGroup);
     }
@@ -384,7 +384,7 @@ bool CWinToken::UpdateExtendedData()
 			Group.Restricted = false;
 			//Group.SidString = CastPhString(PhSidToStringSid(Groups->Groups[i].Sid));
 			Group.Attributes = Groups->Groups[i].Attributes;
-			Group.Name = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(Sid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
+			Group.Name = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(Sid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 		}
 		
 		PhFree(Groups);
@@ -402,7 +402,7 @@ bool CWinToken::UpdateExtendedData()
 			Group.Restricted = true;
 			//Group.SidString = CastPhString(PhSidToStringSid(RestrictedSIDs->Groups[i].Sid));
 			Group.Attributes = RestrictedSIDs->Groups[i].Attributes;
-			Group.Name = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullNameCached(Sid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
+			Group.Name = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(Sid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 		}
 
 		PhFree(RestrictedSIDs);

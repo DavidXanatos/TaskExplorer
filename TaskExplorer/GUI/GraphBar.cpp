@@ -60,6 +60,9 @@ CGraphBar::CGraphBar()
 			Graphs.append((EGraph)Graph.toInt());
 	}
 
+	m_PlotLimit = theGUI->GetGraphLimit();
+	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+
 	AddGraphs(Graphs, Rows);
 }
 
@@ -94,22 +97,28 @@ void CGraphBar::AddGraphs(QList<EGraph> Graphs, int Rows)
 	emit Resized(m_Rows * 40);
 }
 
-void CGraphBar::UpdateLengths()
+void CGraphBar::ReConfigurePlots()
 {
-	int interval = theConf->GetInt("Options/RefreshInterval", 1000); // 5 minutes default
-	int limit = interval ? theConf->GetInt("Options/GraphLength", 300) * 1000 / interval : 300;
-	
-	foreach(const SGraph& Graph, m_Graphs)
-		Graph.pPlot->SetLimit(limit);
+	m_PlotLimit = theGUI->GetGraphLimit();
+	QColor Back = theGUI->GetColor(CTaskExplorer::eGraphBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::eGraphFront);
+
+	foreach(const SGraph& Graph, m_Graphs) {
+		Graph.pPlot->SetLimit(m_PlotLimit);
+		Graph.pPlot->SetColors(Back);
+		Graph.pPlot->SetTextColor(Front);
+	}
 }
 
 void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 {
-	CIncrementalPlot* pPlot = new CIncrementalPlot();
+	QColor Back = theGUI->GetColor(CTaskExplorer::eGraphBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::eGraphFront);
 
-	int interval = theConf->GetInt("Options/RefreshInterval", 1000); // 5 minutes default
-	int limit = interval ? theConf->GetInt("Options/GraphLength", 300) * 1000 / interval : 300;
-	pPlot->SetLimit(limit);
+	CIncrementalPlot* pPlot = new CIncrementalPlot(Back);
+
+	pPlot->SetLimit(m_PlotLimit);
+	pPlot->SetTextColor(Front);
 
 	switch (Graph)
 	{
@@ -253,10 +262,10 @@ void CGraphBar::UpdateGraphs()
 			
 			Text = tr("Gpu Memory");
 
-			Texts.append(FormatUnit(GpuMemory.DedicatedUsage, 0));
+			Texts.append(FormatSize(GpuMemory.DedicatedUsage, 0));
 			pPlot->AddPlotPoint("Dedicated", GpuMemory.DedicatedLimit ? 100 * GpuMemory.DedicatedUsage / GpuMemory.DedicatedLimit : 0);
 
-			Texts.append(FormatUnit(GpuMemory.SharedUsage, 0));
+			Texts.append(FormatSize(GpuMemory.SharedUsage, 0));
 			pPlot->AddPlotPoint("Shared", GpuMemory.SharedLimit ? 100 * GpuMemory.SharedUsage / GpuMemory.SharedLimit : 0);
 			break;
 		}
@@ -359,10 +368,10 @@ void CGraphBar::UpdateGraphs()
 					WriteRate = DiskRates.WriteRate;
 				}
 
-				Texts.append(FormatUnit(SysStats.Disk.ReadRate.Get(), 0));
+				Texts.append(FormatSize(SysStats.Disk.ReadRate.Get(), 0));
 				pPlot->AddPlotPoint("Read", SysStats.Disk.ReadRate.Get());
 
-				Texts.append(FormatUnit(SysStats.Disk.WriteRate.Get(), 0));
+				Texts.append(FormatSize(SysStats.Disk.WriteRate.Get(), 0));
 				pPlot->AddPlotPoint("Write", SysStats.Disk.WriteRate.Get());
 			}
 			break;
@@ -370,10 +379,10 @@ void CGraphBar::UpdateGraphs()
 		case eMMapIoPlot:
 			Text = tr("MMapIO<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
-			Texts.append(FormatUnit(SysStats.MMapIo.ReadRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.MMapIo.ReadRate.Get(), 0));
 			pPlot->AddPlotPoint("Read", SysStats.MMapIo.ReadRate.Get());
 
-			Texts.append(FormatUnit(SysStats.MMapIo.WriteRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.MMapIo.WriteRate.Get(), 0));
 			pPlot->AddPlotPoint("Write", SysStats.MMapIo.WriteRate.Get());
 
 			break;
@@ -381,13 +390,13 @@ void CGraphBar::UpdateGraphs()
 		case eFileIoPlot:
 			Text = tr("FileIO<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
-			Texts.append(FormatUnit(SysStats.Io.ReadRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.Io.ReadRate.Get(), 0));
 			pPlot->AddPlotPoint("Read", SysStats.Io.ReadRate.Get());
 
-			Texts.append(FormatUnit(SysStats.Io.WriteRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.Io.WriteRate.Get(), 0));
 			pPlot->AddPlotPoint("Write", SysStats.Io.WriteRate.Get());
 
-			Texts.append(FormatUnit(SysStats.Io.OtherRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.Io.OtherRate.Get(), 0));
 			pPlot->AddPlotPoint("Other", SysStats.Io.OtherRate.Get());
 
 			break;
@@ -396,8 +405,8 @@ void CGraphBar::UpdateGraphs()
 		case eSambaPlot:
 			Text = tr("Samba<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 			
-			Texts.append(FormatUnit(SysStats.SambaClient.ReceiveRate.Get() + SysStats.SambaServer.ReceiveRate.Get(), 0));
-			Texts.append(FormatUnit(SysStats.SambaClient.SendRate.Get() + SysStats.SambaServer.SendRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.SambaClient.ReceiveRate.Get() + SysStats.SambaServer.ReceiveRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.SambaClient.SendRate.Get() + SysStats.SambaServer.SendRate.Get(), 0));
 
 			pPlot->AddPlotPoint("RecvTotal", SysStats.SambaClient.ReceiveRate.Get() + SysStats.SambaServer.ReceiveRate.Get());
 			pPlot->AddPlotPoint("SentTotal", SysStats.SambaClient.SendRate.Get() + SysStats.SambaServer.SendRate.Get());
@@ -411,10 +420,10 @@ void CGraphBar::UpdateGraphs()
 		case eClientPlot:
 			Text = tr("Client<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
-			Texts.append(FormatUnit(SysStats.SambaClient.ReceiveRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.SambaClient.ReceiveRate.Get(), 0));
 			pPlot->AddPlotPoint("RecvClient", SysStats.SambaClient.ReceiveRate.Get());
 
-			Texts.append(FormatUnit(SysStats.SambaClient.SendRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.SambaClient.SendRate.Get(), 0));
 			pPlot->AddPlotPoint("SentClient", SysStats.SambaClient.SendRate.Get() );
 
 			break;
@@ -422,10 +431,10 @@ void CGraphBar::UpdateGraphs()
 		case eServerPlot:
 			Text = tr("Server<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 	
-			Texts.append(FormatUnit(SysStats.SambaServer.ReceiveRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.SambaServer.ReceiveRate.Get(), 0));
 			pPlot->AddPlotPoint("RecvServer", SysStats.SambaServer.ReceiveRate.Get());
 
-			Texts.append(FormatUnit(SysStats.SambaServer.SendRate.Get(), 0));
+			Texts.append(FormatSize(SysStats.SambaServer.SendRate.Get(), 0));
 			pPlot->AddPlotPoint("SentServer", SysStats.SambaServer.SendRate.Get() );
 
 			break;
@@ -437,10 +446,10 @@ void CGraphBar::UpdateGraphs()
 
 			Text = tr("RAS/VPN<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
-			Texts.append(FormatUnit(RasRates.ReceiveRate, 0));
+			Texts.append(FormatSize(RasRates.ReceiveRate, 0));
 			pPlot->AddPlotPoint("Recv", RasRates.ReceiveRate);
 
-			Texts.append(FormatUnit(RasRates.SendRate, 0));
+			Texts.append(FormatSize(RasRates.SendRate, 0));
 			pPlot->AddPlotPoint("Send", RasRates.SendRate);
 
 			break;
@@ -451,10 +460,10 @@ void CGraphBar::UpdateGraphs()
 
 			Text = tr("TCP/IP<%1").arg(FormatSize(pPlot->GetRangeMax(), 0));
 
-			Texts.append(FormatUnit(NetRates.ReceiveRate, 0));
+			Texts.append(FormatSize(NetRates.ReceiveRate, 0));
 			pPlot->AddPlotPoint("Recv", NetRates.ReceiveRate);
 
-			Texts.append(FormatUnit(NetRates.SendRate, 0));
+			Texts.append(FormatSize(NetRates.SendRate, 0));
 			pPlot->AddPlotPoint("Send", NetRates.SendRate);
 
 			break;

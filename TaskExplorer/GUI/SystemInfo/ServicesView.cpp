@@ -163,11 +163,13 @@ void CServicesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 void CServicesView::OnMenu(const QPoint &point)
 {
+	QModelIndexList selectedRows = m_pServiceList->selectedRows();
+
 	int CanStart = 0;
 	int CanStop = 0;
 	int CanPause = 0;
 	int CanContinue = 0;
-	foreach(const QModelIndex& Index, m_pServiceList->selectedRows())
+	foreach(const QModelIndex& Index, selectedRows)
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 #ifdef WIN32
@@ -206,9 +208,9 @@ void CServicesView::OnMenu(const QPoint &point)
 	m_pMenuPause->setEnabled(CanPause > 0);
 	m_pMenuStop->setEnabled(CanStop > 0);
 
-	m_pMenuDelete->setEnabled(m_pServiceList->selectedRows().count() >= 1);
+	m_pMenuDelete->setEnabled(selectedRows.count() >= 1);
 #ifdef WIN32
-	m_pMenuOpenKey->setEnabled(m_pServiceList->selectedRows().count() == 1);
+	m_pMenuOpenKey->setEnabled(selectedRows.count() == 1);
 #endif
 
 	CPanelView::OnMenu(point);

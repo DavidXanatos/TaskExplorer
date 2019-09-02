@@ -14,11 +14,14 @@ public:
 	virtual QString GetWindowClass() const		{ QReadLocker Locker(&m_Mutex); return m_WindowClass; }
 	virtual QString GetModuleString() const		{ QReadLocker Locker(&m_Mutex); return m_ModuleString; }
 
+	virtual bool IsWindowValid() const;
+
 	virtual STATUS SetVisible(bool bSet);
 	virtual STATUS SetEnabled(bool bSet);
 	virtual STATUS SetAlwaysOnTop(bool bSet);
 	virtual STATUS SetWindowAlpha(int iAlpha);
 
+	virtual STATUS PostWndMessage(quint32 Msg, quint64 wParam = 0, quint64 lParam = 0);
 	virtual STATUS BringToFront();
 	virtual STATUS Highlight();
 	virtual bool IsNormal() const;
@@ -42,7 +45,7 @@ public:
 		QString InstanceString;
 		quint64 UserdataHandle;
 		bool	IsUnicode;
-		ulong	WindowId;
+		quint32	WindowId;
 		QString Font;
 		QString Styles;
 		QString StylesEx;

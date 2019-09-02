@@ -20,6 +20,7 @@
 #define PH_UDP6_NETWORK_PROTOCOL (PH_IPV6_NETWORK_TYPE | PH_UDP_PROTOCOL_TYPE)
 #endif
 
+
 class CSocketInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
@@ -30,13 +31,13 @@ public:
 
 	virtual quint64				GetHashID() const			{ QReadLocker Locker(&m_Mutex); return m_HashID; }
 
-	virtual ulong				GetProtocolType() const		{ QReadLocker Locker(&m_Mutex); return m_ProtocolType; }
+	virtual quint32				GetProtocolType() const		{ QReadLocker Locker(&m_Mutex); return m_ProtocolType; }
 	virtual QString				GetProtocolString();
 	virtual QHostAddress		GetLocalAddress() const		{ QReadLocker Locker(&m_Mutex); return m_LocalAddress; }
 	virtual quint16				GetLocalPort() const		{ QReadLocker Locker(&m_Mutex); return m_LocalPort; }
 	virtual QHostAddress		GetRemoteAddress() const	{ QReadLocker Locker(&m_Mutex); return m_RemoteAddress; }
 	virtual quint16				GetRemotePort() const		{ QReadLocker Locker(&m_Mutex); return m_RemotePort; }
-	virtual ulong				GetState() const			{ QReadLocker Locker(&m_Mutex); return m_State; }
+	virtual quint32				GetState() const			{ QReadLocker Locker(&m_Mutex); return m_State; }
 	virtual QString				GetStateString();
 	virtual quint64				GetProcessId() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
@@ -46,9 +47,9 @@ public:
 	virtual SSockStats			GetStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
 
-	virtual bool				Match(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
+	virtual bool				Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
 
-	static quint64				MkHash(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
+	static quint64				MkHash(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 
 	virtual STATUS				Close() = 0;
 
@@ -57,17 +58,16 @@ public:
 protected:
 	quint64						m_HashID;
 
-	ulong						m_ProtocolType;
+	quint32						m_ProtocolType;
 	QHostAddress				m_LocalAddress;
 	quint16						m_LocalPort;
 	QHostAddress				m_RemoteAddress;
 	quint16						m_RemotePort;
-	ulong						m_State;
+	quint32						m_State;
 	quint64						m_ProcessId;
 
 	QString						m_ProcessName;
 	CProcessRef					m_pProcess;
-
 
 	// I/O stats
 	mutable QReadWriteLock		m_StatsMutex;

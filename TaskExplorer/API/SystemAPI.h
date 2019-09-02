@@ -64,7 +64,7 @@ public:
 	CSystemAPI(QObject *parent = nullptr);
 	virtual ~CSystemAPI();
 
-	static CSystemAPI* New();
+	static void InitAPI();
 
 	virtual bool RootAvaiable() = 0;
 

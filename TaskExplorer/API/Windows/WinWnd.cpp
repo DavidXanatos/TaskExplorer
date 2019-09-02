@@ -116,6 +116,14 @@ bool CWinWnd::UpdateDynamicData()
 		m_WindowOnTop = WindowOnTop;
 	}
 
+	bool WindowHung = !!IsHungAppWindow((HWND)m_hWnd);
+	if (m_WindowHung != WindowHung)
+	{
+		modified = TRUE;
+
+		m_WindowHung = WindowHung;
+	}
+
 	BYTE alpha;
 	ULONG flags;
     if (!GetLayeredWindowAttributes((HWND)m_hWnd, NULL, &alpha, &flags) || !(flags & LWA_ALPHA))
@@ -130,6 +138,12 @@ bool CWinWnd::UpdateDynamicData()
 	}
 
 	return modified;
+}
+
+bool CWinWnd::IsWindowValid() const
+{
+	// Note: Windows handles can be re-used once the window is destroyed, so this is not 100% reliable!
+	return ::IsWindow((HWND)m_hWnd) && m_ParentWnd == (quint64)::GetParent((HWND)m_hWnd);
 }
 
 STATUS CWinWnd::SetVisible(bool bSet)
@@ -171,6 +185,13 @@ STATUS CWinWnd::SetWindowAlpha(int iAlpha)
         PhSetWindowExStyle((HWND)m_hWnd, WS_EX_LAYERED, WS_EX_LAYERED);
         SetLayeredWindowAttributes((HWND)m_hWnd, 0, (BYTE)iAlpha, LWA_ALPHA);
     }
+	return OK;
+}
+
+STATUS CWinWnd::PostWndMessage(quint32 Msg, quint64 wParam, quint64 lParam)
+{
+	QWriteLocker Locker(&m_Mutex);
+	PostMessage((HWND)m_hWnd, Msg, wParam, lParam);
 	return OK;
 }
 

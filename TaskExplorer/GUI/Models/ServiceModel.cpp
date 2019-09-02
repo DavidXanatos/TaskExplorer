@@ -75,7 +75,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
-			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			pNode->Color = CTaskExplorer::GetListColor(RowColor);
 			Changed = 2;
 		}
 

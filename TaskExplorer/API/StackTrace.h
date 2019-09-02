@@ -12,7 +12,7 @@ public:
 	
 	void Clear()							{ m_StackFrames.clear(); }
 
-	void AddFrame(QString Symbol, quint64 PcAddress, quint64 ReturnAddress, quint64 FrameAddress, quint64 StackAddress, quint64 BStoreAddress, quint64 Params[4], ulong Flags, const QString& FileInfo = "");
+	void AddFrame(QString Symbol, quint64 PcAddress, quint64 ReturnAddress, quint64 FrameAddress, quint64 StackAddress, quint64 BStoreAddress, quint64 Params[4], quint32 Flags, const QString& FileInfo = "");
 
 	int	GetCount() const					{ return m_StackFrames.count(); }
 
@@ -25,7 +25,7 @@ public:
 		quint64 StackAddress;
 		quint64 BStoreAddress;
 		quint64 Params[4];
-		ulong Flags;
+		quint32 Flags;
 		QString FileInfo;
 	};
 

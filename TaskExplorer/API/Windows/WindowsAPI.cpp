@@ -13,8 +13,8 @@ extern "C" {
 #include <winsta.h>
 }
 
-ulong g_fileObjectTypeIndex = ULONG_MAX;
-ulong g_EtwRegistrationTypeIndex = ULONG_MAX;
+quint32 g_fileObjectTypeIndex = ULONG_MAX;
+quint32 g_EtwRegistrationTypeIndex = ULONG_MAX;
 
 struct SWindowsAPI
 {
@@ -125,7 +125,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 bool CWindowsAPI::Init()
 {
-	SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
+	//SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
 
 	InitPH();
 
@@ -259,9 +259,9 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 	{
 		m_pEventMonitor = new CEventMonitor();
 
-		connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, ulong, ulong, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, ulong, ulong, QHostAddress, quint16, QHostAddress, quint16)));
+		connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, quint32, quint32, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, quint32, quint32, QHostAddress, quint16, QHostAddress, quint16)));
 		connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
-		connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, ulong, ulong, quint64)));
+		connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, quint32, quint32, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, quint32, quint32, quint64)));
 
 		if (m_pEventMonitor->Init())
 			return;
@@ -441,13 +441,13 @@ void CWindowsAPI::UpdateCPUCycles(quint64 TotalCycleTime, quint64 IdleCycleTime)
     // i_n/t_n = I'_n/T'_n ~= I_n/T_n as above.
     // Not scaling at all is currently the best solution, since it's fast, simple and guarantees that i_n/t_n <= 1.
 
-    baseCpuUsage = 1 - (FLOAT)IdleCycleTime / TotalCycleTime;
+    baseCpuUsage = TotalCycleTime ? 1 - (FLOAT)IdleCycleTime / TotalCycleTime : 0;
     totalTimeDelta = (FLOAT)(m_CpuStats.KernelDelta.Delta + m_CpuStats.UserDelta.Delta);
 
     if (totalTimeDelta != 0)
     {
-        m_CpuStats.KernelUsage = baseCpuUsage * ((FLOAT)m_CpuStats.KernelDelta.Delta / totalTimeDelta);
-        m_CpuStats.UserUsage = baseCpuUsage * ((FLOAT)m_CpuStats.UserDelta.Delta / totalTimeDelta);
+        m_CpuStats.KernelUsage = totalTimeDelta != 0 ? baseCpuUsage * ((FLOAT)m_CpuStats.KernelDelta.Delta / totalTimeDelta) : 0;
+        m_CpuStats.UserUsage = totalTimeDelta != 0 ? baseCpuUsage * ((FLOAT)m_CpuStats.UserDelta.Delta / totalTimeDelta) : 0;
     }
     else
     {
@@ -599,7 +599,7 @@ bool CWindowsAPI::UpdateSysStats()
 
 bool CWindowsAPI::UpdateProcessList()
 {
-	bool EnableCycleCpuUsage = theConf->GetBool("Options/EnableCycleCpuUsage", false);
+	bool EnableCycleCpuUsage = theConf->GetBool("Options/EnableCycleCpuUsage", true);
 	int iLinuxStyleCPU = theConf->GetInt("Options/LinuxStyleCPU", 2);
 
 	quint64 sysTotalTime = UpdateCpuStats(!EnableCycleCpuUsage); // total time for this update period
@@ -742,8 +742,14 @@ bool CWindowsAPI::UpdateProcessList()
 
 	if (EnableCycleCpuUsage)
 	{
+		quint64 sysTotalCycleTimePerCPU = sysTotalCycleTime / m_CpuCount;
+
 		foreach(const CProcessPtr& pProcess, GetProcessList())
-			pProcess.objectCast<CWinProcess>()->UpdateCPUCycles(sysTotalTime, sysTotalCycleTime);
+		{
+			pProcess.objectCast<CWinProcess>()->UpdateCPUCycles(iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU == 1 ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
+
+			pProcess.objectCast<CWinProcess>()->UpdateThreadCPUCycles(iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
+		}
 
 		UpdateCPUCycles(sysTotalCycleTime, sysIdleCycleTime);
 	}
@@ -912,7 +918,7 @@ quint64	CWindowsAPI::GetCpuIdleCycleTime(int index)
 
 static BOOLEAN NetworkImportDone = FALSE;
 
-QMultiMap<quint64, CSocketPtr>::iterator FindSocketEntry(QMultiMap<quint64, CSocketPtr> &Sockets, quint64 ProcessId, ulong ProtocolType, 
+QMultiMap<quint64, CSocketPtr>::iterator FindSocketEntry(QMultiMap<quint64, CSocketPtr> &Sockets, quint64 ProcessId, quint32 ProtocolType, 
 							const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
 {
 	quint64 HashID = CSocketInfo::MkHash(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
@@ -1014,7 +1020,7 @@ bool CWindowsAPI::UpdateSocketList()
 	return true;
 }
 
-CSocketPtr CWindowsAPI::FindSocket(quint64 ProcessId, ulong ProtocolType,
+CSocketPtr CWindowsAPI::FindSocket(quint64 ProcessId, quint32 ProtocolType,
 	const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
 {
 	QReadLocker Locker(&m_SocketMutex);
@@ -1025,7 +1031,7 @@ CSocketPtr CWindowsAPI::FindSocket(quint64 ProcessId, ulong ProtocolType,
 	return I.value();
 }
 
-void CWindowsAPI::AddNetworkIO(int Type, ulong TransferSize)
+void CWindowsAPI::AddNetworkIO(int Type, quint32 TransferSize)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
@@ -1036,7 +1042,7 @@ void CWindowsAPI::AddNetworkIO(int Type, ulong TransferSize)
 	}
 }
 
-void CWindowsAPI::AddDiskIO(int Type, ulong TransferSize)
+void CWindowsAPI::AddDiskIO(int Type, quint32 TransferSize)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
@@ -1047,7 +1053,7 @@ void CWindowsAPI::AddDiskIO(int Type, ulong TransferSize)
 	}
 }
 
-void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, ulong ProtocolType, ulong TransferSize, // note ThreadId is always -1
+void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, quint32 ProtocolType, quint32 TransferSize, // note ThreadId is always -1
 								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort)
 {
     // Note: there is always the possibility of us receiving the event too early,
@@ -1107,7 +1113,7 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	return m_FileNames.value(FileId, tr("Unknown file name"));;
 }*/
 
-void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, ulong IrpFlags, ulong TransferSize, quint64 HighResResponseTime)
+void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime)
 {
 	//if (m_UseDiskCounters == eUseForSystem)
 	if (m_UseDiskCounters)

@@ -25,7 +25,6 @@ public:
 		eThread = 0,
 		eCPU,
 		eCPU_History,
-		eCyclesDelta,
 #ifdef WIN32
 		eStartAddress,
 #endif
@@ -45,6 +44,7 @@ public:
 		ePagePriority,
 		eIOPriority,
 		eCycles,
+		eCyclesDelta,
 		eState,
 		eKernelTime,
 		eUserTime,

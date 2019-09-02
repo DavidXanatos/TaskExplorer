@@ -41,7 +41,7 @@ public:
 		eReceiveBytes,
 		eSendBytes,
 		//eTotalBytes,
-		eReceivesDetla,
+		eReceivesDelta,
 		eSendsDelta,
 		eReceiveBytesDelta,
 		eSendBytesDelta,

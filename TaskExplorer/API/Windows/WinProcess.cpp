@@ -51,14 +51,6 @@ struct SWinProcess
 		SessionId = -1;
 		CreateTime.QuadPart = 0;
 
-		ImageTimeDateStamp = 0;
-		ImageCharacteristics = 0;
-		ImageReserved = 0;
-		ImageSubsystem = 0;
-		ImageDllCharacteristics = 0;
-		PebBaseAddress = 0;
-		PebBaseAddress32 = 0;
-
 		Flags = NULL;
 		AsyncFinished = false;
 		OsContextVersion = 0;
@@ -82,15 +74,6 @@ struct SWinProcess
 	// Basic
 	quint64 SessionId;
 	LARGE_INTEGER CreateTime;
-
-	// Image
-    ULONG ImageTimeDateStamp;
-    USHORT ImageCharacteristics;
-    USHORT ImageReserved;
-    USHORT ImageSubsystem;
-    USHORT ImageDllCharacteristics;
-	quint64 PebBaseAddress;
-	quint64 PebBaseAddress32;
 
 	// Flags
 	union
@@ -139,18 +122,18 @@ struct SWinProcess
 	// Other Fields
 	PS_PROTECTION Protection;
 	quint64 ProcessSequenceNumber;
-	ulong JobObjectId;
+	quint32 JobObjectId;
 	QString PackageFullName;
 	QString AppID;
 	ULONG DpiAwareness;
 
 	// Signature, Packed
-	ulong ImportFunctions;
-	ulong ImportModules;
+	quint32 ImportFunctions;
+	quint32 ImportModules;
 
 	// OS Context
     GUID OsContextGuid;
-    ulong OsContextVersion;
+    quint32 OsContextVersion;
 
 	// Misc.
 	ULONG DepStatus;
@@ -172,8 +155,8 @@ CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 
 	m_IsCritical = false;
 
-	m_pModuleInfo = CModulePtr(new CWinModule());
-	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, ulong, ulong)), this, SLOT(OnAsyncDataDone(bool, ulong, ulong)));
+	m_pModuleInfo = CModulePtr(new CWinMainModule());
+	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
 
 	m_LastUpdateHandles = 0;
 
@@ -563,53 +546,6 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 		}
 	}
 
-	// subsystem
-	if (m->IsSubsystemProcess)
-    {
-        m->ImageSubsystem = IMAGE_SUBSYSTEM_POSIX_CUI;
-    }
-    else if(m->QueryHandle)
-    {
-        PROCESS_BASIC_INFORMATION basicInfo;
-        if (NT_SUCCESS(PhGetProcessBasicInformation(m->QueryHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
-        {
-			m->PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
-			if (m->IsWow64)
-			{
-				PVOID peb32;
-				PhGetProcessPeb32(m->QueryHandle, &peb32);
-				m->PebBaseAddress32 = (quint64)peb32;
-			}
-
-			if (m->IsHandleValid)
-			{
-				PVOID imageBaseAddress;
-				PH_REMOTE_MAPPED_IMAGE mappedImage;
-                if (NT_SUCCESS(NtReadVirtualMemory(m->QueryHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL )))
-                {
-                    if (NT_SUCCESS(PhLoadRemoteMappedImage(m->QueryHandle, imageBaseAddress, &mappedImage)))
-                    {
-                        m->ImageTimeDateStamp = mappedImage.NtHeaders->FileHeader.TimeDateStamp;
-                        m->ImageCharacteristics = mappedImage.NtHeaders->FileHeader.Characteristics;
-
-                        if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-                        {
-                            m->ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
-                            m->ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
-                        }
-                        else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
-                        {
-                            m->ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
-                            m->ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
-                        }
-
-                        PhUnloadRemoteMappedImage(&mappedImage);
-                    }
-                }
-            }
-        }
-    }
-
 	// desktop
 	if (m->IsHandleValid)
 	{
@@ -623,13 +559,14 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 	if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == DPCS_PROCESS_ID || m->UniqueProcessId == INTERRUPTS_PROCESS_ID)
 		return true;
 
-	qobject_cast<CWinModule*>(m_pModuleInfo)->SetSubsystemProcess(m->IsSubsystemProcess);
-	qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName, m->PackageFullName);
+	QSharedPointer<CWinMainModule> pModule = m_pModuleInfo.objectCast<CWinMainModule>();
+	pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, (quint64)m->QueryHandle, m->IsHandleValid, m->IsWow64);
+	pModule->InitAsyncData(m->PackageFullName);
 
 	return true;
 }
 
-void CWinProcess::OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules)
+void CWinProcess::OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules)
 {
 	m->IsPacked = IsPacked;
 	m->ImportFunctions = ImportFunctions;
@@ -801,7 +738,6 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		{
 			BOOLEAN isBeingDebugged = FALSE;
 			PhGetProcessIsBeingDebugged(m->QueryHandle, &isBeingDebugged);
-
 			if (m->IsBeingDebugged != isBeingDebugged)
 			{
 				m->IsBeingDebugged = isBeingDebugged;
@@ -815,6 +751,10 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		m_GdiHandles = GetGuiResources(m->QueryHandle, GR_GDIOBJECTS);
 		m_UserHandles = GetGuiResources(m->QueryHandle, GR_USEROBJECTS);
 
+		// DEP Status
+		ULONG depStatus = 0;
+		if (NT_SUCCESS(PhGetProcessDepStatus(m->QueryHandle, &depStatus)))
+			m->DepStatus = depStatus;
 
 		// update critical flag
 		BOOLEAN breakOnTermination;
@@ -878,17 +818,19 @@ bool CWinProcess::UpdateTokenData(bool MonitorChange)
 		return false;
 	
 	m->IsElevated = m_pToken->IsElevated();
-	m_UserName = m_pToken->GetUserName();
 	return true;
 }
 
 void CWinProcess::UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime)
 {
-	foreach(const CThreadPtr& pThread, GetThreadList())
-		pThread.objectCast<CWinThread>()->UpdateCPUCycles(sysTotalTime, sysTotalCycleTime);
-
 	QWriteLocker StatsLocker(&m_StatsMutex);
 	m_CpuStats.UpdateStats(sysTotalTime, sysTotalCycleTime);
+}
+
+void CWinProcess::UpdateThreadCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime)
+{
+	foreach(const CThreadPtr& pThread, GetThreadList())
+		pThread.objectCast<CWinThread>()->UpdateCPUCycles(sysTotalTime, sysTotalCycleTime);
 }
 
 /*bool CWinProcess::UpdateDynamicDataExt()
@@ -963,7 +905,7 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 	//if (!HaveFirst)
 	//	qDebug() << "No Main ThreadIn:" << m_ProcessName;
 
-	QWriteLocker Locker(&m_HandleMutex);
+	QWriteLocker Locker(&m_ThreadMutex);
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 ThreadID, OldThreads.keys())
 	{
@@ -1198,7 +1140,7 @@ bool CWinProcess::UpdateModules()
 			bAdd = pModule->InitStaticData(module, (quint64)m->QueryHandle);
 			
 			if (pModule->GetType() != PH_MODULE_TYPE_ELF_MAPPED_IMAGE)
-				pModule->InitAsyncData(pModule->GetFileName());
+				pModule->InitAsyncData();
 
 			// todo: this should be refreshed
 			if (theConf->GetBool("Options/GetServicesRefModule", true))
@@ -1299,7 +1241,6 @@ bool CWinProcess::UpdateModules()
 			quint64 BaseAddress = Module["BaseAddress"].toULongLong();
 
 			/*Module["Sequence"].toInt();
-			Module["TimeStamp"].toDateTime();
 			Module["Checksum"].toByteArray();*/
 
 			QSharedPointer<CWinModule> pModule;
@@ -1378,7 +1319,7 @@ QVariantList GetProcessUnloadedDlls(quint64 ProcessId)
 			Module["ImageName"] = QString::fromWCharArray(rtlEvent->ImageName);
 			Module["BaseAddress"] = (quint64)rtlEvent->BaseAddress;
 			Module["Size"] = (quint64)rtlEvent->SizeOfImage;
-			Module["TimeStamp"] = QDateTime::fromTime_t(rtlEvent->TimeDateStamp);
+			Module["TimeStamp"] = (quint64)rtlEvent->TimeDateStamp;
 			Module["Checksum"] = QByteArray::fromRawData((char*)&rtlEvent->CheckSum, sizeof(rtlEvent->CheckSum));
 
 			List.append(Module);
@@ -1442,7 +1383,7 @@ bool CWinProcess::UpdateWindows()
 	return true;
 }
 
-void CWinProcess::AddNetworkIO(int Type, ulong TransferSize)
+void CWinProcess::AddNetworkIO(int Type, quint32 TransferSize)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
@@ -1453,7 +1394,7 @@ void CWinProcess::AddNetworkIO(int Type, ulong TransferSize)
 	}
 }
 
-void CWinProcess::AddDiskIO(int Type, ulong TransferSize)
+void CWinProcess::AddDiskIO(int Type, quint32 TransferSize)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
@@ -1490,16 +1431,16 @@ quint64 CWinProcess::GetSessionID() const
 	return m->SessionId; 
 }
 
-ulong CWinProcess::GetSubsystem() const
+quint16 CWinProcess::GetSubsystem() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return m->ImageSubsystem;
+	QSharedPointer<CWinMainModule> pModule = m_pModuleInfo.objectCast<CWinMainModule>();
+	return pModule->GetImageSubsystem();
 }
 
 QString CWinProcess::GetSubsystemString() const
 {
-	QReadLocker Locker(&m_Mutex); 
-    switch (m->ImageSubsystem)
+    switch (GetSubsystem())
     {
 	case 0:								return "";
     case IMAGE_SUBSYSTEM_NATIVE:		return tr("Native");
@@ -1509,6 +1450,12 @@ QString CWinProcess::GetSubsystemString() const
     case IMAGE_SUBSYSTEM_POSIX_CUI:		return tr("POSIX");
     default:							return tr("Unknown");
     }
+}
+
+QString CWinProcess::GetUserName() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m_pToken ? m_pToken->GetUserName() : QString();
 }
 
 quint64 CWinProcess::GetProcessSequenceNumber() const
@@ -1580,8 +1527,20 @@ bool CWinProcess::IsSubsystemProcess() const
 	return (int)m->IsSecureProcess;
 }
 
+QString CWinProcess::GetWindowTitle() const
+{
+	CWndPtr pWnd = GetMainWindow();
+	return pWnd ? pWnd->GetWindowTitle() : QString();
+}
+
+QString CWinProcess::GetWindowStatusString() const
+{
+	CWndPtr pWnd = GetMainWindow();
+	return pWnd.isNull() ? QString() : pWnd->IsHung() ? tr("Not responding") : tr("Running");
+}
+
 // OS context
-ulong CWinProcess::GetOsContextVersion() const
+quint32 CWinProcess::GetOsContextVersion() const
 {
 	QReadLocker Locker(&m_Mutex);
 	return m->OsContextVersion;
@@ -1589,8 +1548,7 @@ ulong CWinProcess::GetOsContextVersion() const
 
 QString CWinProcess::GetOsContextString() const
 {
-	QReadLocker Locker(&m_Mutex);
-    switch (m->OsContextVersion)
+    switch (GetOsContextVersion())
     {
     case WINDOWS_10:	return tr("Windows 10");
     case WINDOWS_8_1:	return tr("Windows 8.1");
@@ -1621,12 +1579,6 @@ QString CWinProcess::GetCFGuardString() const
 	if (m->IsControlFlowGuardEnabled)
 		return tr("CF Guard");
 	return "";
-}
-
-QDateTime CWinProcess::GetTimeStamp() const
-{
-	QReadLocker Locker(&m_Mutex);
-	return QDateTime::fromTime_t(m->ImageTimeDateStamp);
 }
 
 QMap<QString, CWinProcess::SEnvVar>	CWinProcess::GetEnvVariables() const
@@ -2009,7 +1961,7 @@ QString CWinProcess::GetAppID() const
 	return m->AppID;	
 }
 
-ulong CWinProcess::GetDPIAwareness() const
+quint32 CWinProcess::GetDPIAwareness() const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->DpiAwareness;
@@ -2027,7 +1979,7 @@ QString CWinProcess::GetDPIAwarenessString() const
 	return "";
 }
 
-ulong CWinProcess::GetProtection() const 
+quint32 CWinProcess::GetProtection() const 
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->Protection.Level;
@@ -2223,7 +2175,7 @@ quint64 CWinProcess::GetMaximumWS() const
 	return m->QuotaLimits.MaximumWorkingSetSize;
 }
 
-ulong CWinProcess::GetPeakNumberOfHandles() const
+quint32 CWinProcess::GetPeakNumberOfHandles() const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->HandleInfo.HandleCountHighWatermark;
@@ -2266,7 +2218,7 @@ QString CWinProcess::GetPriorityString() const
 	return GetPriorityString(m_Priority);
 }
 
-QString CWinProcess::GetPriorityString(ulong value)
+QString CWinProcess::GetPriorityString(quint32 value)
 {
 	switch (value)
     {
@@ -2690,12 +2642,6 @@ void CWinProcess::OpenPermissions()
     PhEditSecurity(NULL, (wchar_t*)m_ProcessName.toStdWString().c_str(), L"Process", CWinProcess_OpenProcessPermissions, NULL, (HANDLE)GetProcessId());
 }
 
-quint64 CWinProcess::GetPebBaseAddress(bool bWow64) const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return bWow64 ? m->PebBaseAddress32 : m->PebBaseAddress;
-}
-
 CWinJobPtr CWinProcess::GetJob() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -2713,14 +2659,15 @@ QMap<quint64, CMemoryPtr> CWinProcess::GetMemoryMap() const
 	return MemoryMap;
 }
 
-CWndPtr CWinProcess::GetMainWindowHwnd() const
+QList<CWndPtr> CWinProcess::GetWindows() const
 {
-	quint64 Window = 0;
-	quint64 ImmersiveWindow = 0;
 	bool IsImmersive = IsImmersiveProcess();
 
-	QMultiMap<quint64, quint64> Windows = ((CWindowsAPI*)theAPI)->GetWindowByPID(GetProcessId());
-	foreach(quint64 hWnd, Windows)
+	QList<quint64> Windows;
+	QList<quint64> ImmersiveWindows;
+
+	QMultiMap<quint64, quint64> WindowList = ((CWindowsAPI*)theAPI)->GetWindowByPID(GetProcessId());
+	foreach(quint64 hWnd, WindowList)
 	{
 		HWND WindowHandle = (HWND)hWnd;
 		if (!IsWindowVisible(WindowHandle))
@@ -2733,24 +2680,52 @@ CWndPtr CWinProcess::GetMainWindowHwnd() const
 		if (PhGetWindowTextEx(WindowHandle, PH_GET_WINDOW_TEXT_INTERNAL | PH_GET_WINDOW_TEXT_LENGTH_ONLY, NULL) == 0) // skip windows with no title
 			continue;
 
-        if (!ImmersiveWindow && IsImmersive && GetProp(WindowHandle, L"Windows.ImmersiveShell.IdentifyAsMainCoreWindow"))
-            ImmersiveWindow = hWnd;
+		if (IsImmersive && GetProp(WindowHandle, L"Windows.ImmersiveShell.IdentifyAsMainCoreWindow"))
+			ImmersiveWindows.append(hWnd);
 
 		WINDOWINFO windowInfo;
         windowInfo.cbSize = sizeof(WINDOWINFO);
-        if (!Window && GetWindowInfo(WindowHandle, &windowInfo) && (windowInfo.dwStyle & WS_DLGFRAME))
-        {
-            Window = hWnd;
-
-            // If we're not looking at an immersive process, there's no need to search any more windows.
-			if (!IsImmersive)
-				break;
-        }
+        if (GetWindowInfo(WindowHandle, &windowInfo) && (windowInfo.dwStyle & WS_DLGFRAME))
+            Windows.append(hWnd);
 	}
+
+	if (!ImmersiveWindows.isEmpty())
+		Windows = ImmersiveWindows;
 
 	((CWinProcess*)this)->UpdateWindows();
 
-	return GetWindowByHwnd(ImmersiveWindow ? ImmersiveWindow : Window);
+	QList<CWndPtr> WindowObjects;
+	foreach(quint64 hWnd, Windows)
+		WindowObjects.append(GetWindowByHwnd(hWnd));
+	return WindowObjects;
+}
+
+CWndPtr	CWinProcess::GetMainWindow() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	CWndPtr pMainWnd = m_pMainWnd;
+	Locker.unlock();
+
+	// m_pMainWnd gets invalidated on each proces enumeration so no need to update here anything
+	/*if (!pMainWnd.isNull())
+	{
+		QSharedPointer<CWinWnd> pWinWnd = pMainWnd.objectCast<CWinWnd>();
+		if (pWinWnd->IsWindowValid())
+			pWinWnd->UpdateDynamicData();
+		else
+			pMainWnd.clear();
+	}*/
+
+	if (pMainWnd.isNull() && m_WndHandles > 0)
+	{
+		QList<CWndPtr> Windows = GetWindows();
+		if (!Windows.isEmpty())
+			pMainWnd = Windows.first();
+
+		QWriteLocker WriteLocker(&m_Mutex); 
+		((CWinProcess*)this)->m_pMainWnd = pMainWnd;
+	}
+	return pMainWnd;
 }
 
 #include <taskschd.h>

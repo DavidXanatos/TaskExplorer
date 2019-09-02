@@ -39,21 +39,24 @@ CNetworkView::CNetworkView(QWidget *parent)
 	pal.setColor(QPalette::Background, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
-
-	QColor Back = QColor(0, 0, 64);
-	QColor Front = QColor(187, 206, 239);
-	QColor Grid = QColor(46, 44, 119);
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pDlPlot = new CIncrementalPlot(Back, Front, Grid);
 	m_pDlPlot->setMinimumHeight(120);
 	m_pDlPlot->setMinimumWidth(50);
 	m_pDlPlot->SetupLegend(Front, tr("Download Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pDlPlot->SetLimit(m_PlotLimit);
 	m_pScrollLayout->addWidget(m_pDlPlot, 0, 0, 1, 3);
 
 	m_pUlPlot = new CIncrementalPlot(Back, Front, Grid);
 	m_pUlPlot->setMinimumHeight(120);
 	m_pUlPlot->setMinimumWidth(50);
 	m_pUlPlot->SetupLegend(Front, tr("Upload Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pUlPlot->SetLimit(m_PlotLimit);
 	m_pScrollLayout->addWidget(m_pUlPlot, 1, 0, 1, 3);
 
 	m_HiddenAdapters = theConf->GetStringList("Options/HiddenNICs");
@@ -111,6 +114,19 @@ CNetworkView::~CNetworkView()
 	theConf->SetValue("Options/HiddenNICs", m_HiddenAdapters);
 	theConf->SetBlob(objectName() + "/NetworkView_Columns", m_pNICList->GetView()->header()->saveState());
 	theConf->SetValue(objectName() + "/ShowDisconnected", m_pShowDisconnected->isChecked());
+}
+
+void CNetworkView::ReConfigurePlots()
+{
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
+
+	m_pDlPlot->SetLimit(m_PlotLimit);
+	m_pDlPlot->SetColors(Back, Front, Grid);
+	m_pUlPlot->SetLimit(m_PlotLimit);
+	m_pUlPlot->SetColors(Back, Front, Grid);
 }
 
 void CNetworkView::OnAdapterCheck(QTreeWidgetItem* item, int column)
@@ -174,7 +190,7 @@ void CNetworkView::Refresh()
 		for(int j=0; j < pItem->columnCount(); j++)
 			pItem->setForeground(j, NicInfo.LinkState != CNetMonitor::SNicInfo::eDisconnected ? QColor(Qt::black) : QColor(Qt::gray));
 
-		pItem->setText(eLinkSpeed, tr("%1/s").arg(FormatSize(NicInfo.LinkSpeed / 8)));
+		pItem->setText(eLinkSpeed, FormatRate(NicInfo.LinkSpeed / 8));
 		switch (NicInfo.LinkState)
 		{
 		case CNetMonitor::SNicInfo::eConnected:		pItem->setText(eLinkState, tr("Connected"));	break;
@@ -182,12 +198,12 @@ void CNetworkView::Refresh()
 		default:									pItem->setText(eLinkState, tr("Unknown")); break;
 		}
 
-		pItem->setText(eReadRate, tr("%1/s").arg(FormatSize(NicInfo.ReceiveRate.Get())));
+		pItem->setText(eReadRate, FormatRate(NicInfo.ReceiveRate.Get()));
 		pItem->setText(eBytesRead, FormatSize(NicInfo.ReceiveRawDelta.Value));
 		pItem->setText(eBytesReadDelta, FormatSize(NicInfo.ReceiveRawDelta.Delta));
 		pItem->setText(eReads, FormatNumber(NicInfo.ReceiveDelta.Value));
 		pItem->setText(eReadsDelta, FormatNumber(NicInfo.ReceiveDelta.Delta));
-		pItem->setText(eWriteRate, tr("%1/s").arg(FormatSize(NicInfo.SendRate.Get())));
+		pItem->setText(eWriteRate, FormatRate(NicInfo.SendRate.Get()));
 		pItem->setText(eBytesWriten, FormatSize(NicInfo.SendRawDelta.Value));
 		pItem->setText(eBytesWritenDelta, FormatSize(NicInfo.SendRawDelta.Delta));
 		pItem->setText(eWrites, FormatNumber(NicInfo.SendDelta.Value));

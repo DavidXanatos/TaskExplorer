@@ -5,6 +5,7 @@
 #include "../Models/ProcessModel.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
+#include "../../API/Windows/WinModule.h"
 #endif
 
 
@@ -261,11 +262,12 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 #ifdef WIN32
 				CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+				CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
 
 				if (pWinProc->IsWoW64())
-					m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinProc->GetPebBaseAddress())).arg(FormatAddress(pWinProc->GetPebBaseAddress(true))));
+					m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinModule->GetPebBaseAddress())).arg(FormatAddress(pWinModule->GetPebBaseAddress(true))));
 				else
-					m_pPEBAddress->setText(FormatAddress(pWinProc->GetPebBaseAddress()));
+					m_pPEBAddress->setText(FormatAddress(pWinModule->GetPebBaseAddress()));
 				m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
 
 				m_pMitigation->setText(pWinProc->GetMitigationString());

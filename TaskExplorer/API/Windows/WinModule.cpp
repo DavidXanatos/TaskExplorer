@@ -14,8 +14,10 @@ CWinModule::CWinModule(quint64 ProcessId, bool IsSubsystemProcess, QObject *pare
 	m_EntryPoint = NULL;
     m_Flags = 0;
     m_Type = 0;
+	m_LoadTime = 0;
     m_LoadReason = 0;
     m_LoadCount = 0;
+	m_ImageTimeStamp = 0;
 	m_ImageCharacteristics = 0;
 	m_ImageDllCharacteristics = 0;
 
@@ -38,15 +40,16 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	m_FileName = CastPhString(module->FileName, false);
 	m_ModuleName = CastPhString(module->Name, false);
 
-    m_BaseAddress = (quint64)module->BaseAddress;
-    m_EntryPoint = (quint64)module->EntryPoint;
-    m_Size = module->Size;
-    m_Flags = module->Flags;
-    m_Type = module->Type;
-    m_LoadReason = module->LoadReason;
-    m_LoadCount = module->LoadCount;
-    m_LoadTime = QDateTime::fromTime_t(FILETIME2time(module->LoadTime.QuadPart));
-    m_ParentBaseAddress = (quint64)module->ParentBaseAddress;
+	m_BaseAddress = (quint64)module->BaseAddress;
+	m_EntryPoint = (quint64)module->EntryPoint;
+	m_Size = module->Size;
+	m_Flags = module->Flags;
+	m_Type = module->Type;
+	m_LoadReason = module->LoadReason;
+	m_LoadCount = module->LoadCount;
+	m_LoadTime = FILETIME2time(module->LoadTime.QuadPart);
+	m_ParentBaseAddress = (quint64)module->ParentBaseAddress;
+
 
 	if (m_IsSubsystemProcess)
     {
@@ -92,7 +95,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
             ULONG_PTR imageBase = 0;
             ULONG entryPoint = 0;
 
-            m_ImageTimeDateStamp = QDateTime::fromTime_t(remoteMappedImage.NtHeaders->FileHeader.TimeDateStamp);
+            m_ImageTimeStamp = remoteMappedImage.NtHeaders->FileHeader.TimeDateStamp;
             m_ImageCharacteristics = remoteMappedImage.NtHeaders->FileHeader.Characteristics;
 
             if (remoteMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
@@ -122,14 +125,19 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
         }
     }
 
-	FILE_NETWORK_OPEN_INFORMATION networkOpenInfo;
-    if (NT_SUCCESS(PhQueryFullAttributesFileWin32((PWSTR)m_FileName.toStdWString().c_str(), &networkOpenInfo)))
-    {
-		m_ModificationTime = QDateTime::fromTime_t(FILETIME2time(networkOpenInfo.LastWriteTime.QuadPart));
-        m_FileSize = networkOpenInfo.EndOfFile.QuadPart;
-    }
+	InitFileInfo();
 
 	return true;
+}
+
+void CWinModule::InitFileInfo()
+{
+	FILE_NETWORK_OPEN_INFORMATION networkOpenInfo;
+	if (NT_SUCCESS(PhQueryFullAttributesFileWin32((PWSTR)m_FileName.toStdWString().c_str(), &networkOpenInfo)))
+	{
+		m_ModificationTime = FILETIME2time(networkOpenInfo.LastWriteTime.QuadPart);
+		m_FileSize = networkOpenInfo.EndOfFile.QuadPart;
+	}
 }
 
 bool CWinModule::ResolveRefServices()
@@ -193,7 +201,7 @@ bool CWinModule::InitStaticData(const QVariantMap& Module)
 	m_ModuleName = Module["ImageName"].toString();
 	m_BaseAddress = Module["BaseAddress"].toULongLong();
 	m_Size = Module["Size"].toULongLong();
-	m_LoadTime == Module["TimeStamp"].toDateTime();
+	m_LoadTime = Module["TimeStamp"].toULongLong();
 	//Module["Checksum"].toByteArray();
 
 	return true;
@@ -212,30 +220,26 @@ bool CWinModule::UpdateDynamicData(struct _PH_MODULE_INFO* module)
 	BOOLEAN modified = FALSE;
 
 	/*
-            
+        if (m_JustProcessed)
+            modified = TRUE;
 
-            if (m_JustProcessed)
-                modified = TRUE;
+        m_JustProcessed = FALSE;
 
-            m_JustProcessed = FALSE;
-
-            if (m_LoadCount != module->LoadCount)
-            {
-                m_LoadCount = module->LoadCount;
-                modified = TRUE;
-            }
+        if (m_LoadCount != module->LoadCount)
+        {
+            m_LoadCount = module->LoadCount;
+            modified = TRUE;
+        }
 	*/
 	return modified;
 }
 
-void CWinModule::InitAsyncData(const QString& FileName, const QString& PackageFullName)
+void CWinModule::InitAsyncData(const QString& PackageFullName)
 {
 	QReadLocker Locker(&m_Mutex);
 
-	m_FileName = FileName;
-
 	QVariantMap Params;
-	Params["FileName"] = FileName;
+	Params["FileName"] = m_FileName;
 	Params["PackageFullName"] = PackageFullName;
 	Params["IsSubsystemProcess"] = m_IsSubsystemProcess;
 
@@ -532,4 +536,74 @@ STATUS CWinModule::Unload(bool bForce)
     }
 
     return OK;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// CWinMainModule 
+
+bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, quint64 ProcessHandle, bool IsHandleValid, bool IsWow64)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	m_IsLoaded = true;
+	m_ProcessId = ProcessId;
+	m_FileName = FileName;
+	m_IsSubsystemProcess = IsSubsystemProcess;
+
+	// subsystem
+	if (m_IsSubsystemProcess)
+    {
+        m_ImageSubsystem = IMAGE_SUBSYSTEM_POSIX_CUI;
+    }
+    else if(ProcessHandle)
+    {
+        PROCESS_BASIC_INFORMATION basicInfo;
+        if (NT_SUCCESS(PhGetProcessBasicInformation((HANDLE)ProcessHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
+        {
+			m_PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
+			if (IsWow64)
+			{
+				PVOID peb32;
+				PhGetProcessPeb32((HANDLE)ProcessHandle, &peb32);
+				m_PebBaseAddress32 = (quint64)peb32;
+			}
+
+			if (IsHandleValid)
+			{
+				PVOID imageBaseAddress;
+				PH_REMOTE_MAPPED_IMAGE mappedImage;
+                if (NT_SUCCESS(NtReadVirtualMemory((HANDLE)ProcessHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL)))
+                {
+                    if (NT_SUCCESS(PhLoadRemoteMappedImage((HANDLE)ProcessHandle, imageBaseAddress, &mappedImage)))
+                    {
+                        m_ImageTimeStamp = mappedImage.NtHeaders->FileHeader.TimeDateStamp;
+                        m_ImageCharacteristics = mappedImage.NtHeaders->FileHeader.Characteristics;
+
+                        if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+                        {
+                            m_ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
+                            m_ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
+                        }
+                        else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+                        {
+                            m_ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
+                            m_ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
+                        }
+
+                        PhUnloadRemoteMappedImage(&mappedImage);
+                    }
+                }
+            }
+        }
+    }
+
+	InitFileInfo();
+
+	return true;
+}
+
+quint64 CWinMainModule::GetPebBaseAddress(bool bWow64) const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return bWow64 ? m_PebBaseAddress32 : m_PebBaseAddress;
 }

@@ -9,6 +9,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	this->setCentralWidget(centralWidget);
 	ui.setupUi(centralWidget);
 
+	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", true));
 	ui.chkLinuxStyle->setTristate(true);
 	ui.chkLinuxStyle->setToolTip(tr("Linux CPU Usage shows 100% per core, i.e. if a process is using 2 cores to 100% it will show as 200% total cpu usage.\r\nPartiallyChecked state means apply only to thread list."));
 	switch (theConf->GetInt("Options/LinuxStyleCPU", 2))
@@ -17,8 +18,11 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	case 1:	ui.chkLinuxStyle->setCheckState(Qt::Checked); break;
 	case 2:	ui.chkLinuxStyle->setCheckState(Qt::PartiallyChecked); break;
 	}
+	ui.chkClearZeros->setChecked(theConf->GetBool("Options/ClearZeros", true));
 
 	ui.chkShow32->setChecked(theConf->GetBool("Options/Show32", true));
+
+	ui.highlightCount->setValue(theConf->GetInt("Options/HighLoadHighlightCount", 5));
 
 	ui.refreshInterval->setValue(theConf->GetInt("Options/RefreshInterval", 1000));
 	ui.graphLength->setValue(theConf->GetInt("Options/GraphLength", 300));
@@ -52,14 +56,13 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkGetRefServices->setChecked(theConf->GetBool("Options/GetServicesRefModule", true));
 	ui.chkTraceDLLs->setChecked(theConf->GetBool("Options/TraceUnloadedModules", false));
-	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", false));
 
 	//ui.chkOpenFilePos->setChecked(theConf->GetBool("Options/OpenFileGetPosition", false));
 
 	connect(ui.colorList, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(OnChangeColor(QListWidgetItem*)));
 
 	connect(ui.chkShowTray, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
-	connect(ui.chkUseCycles, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
+	//connect(ui.chkUseCycles, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
 
 	struct SColor
 	{
@@ -69,6 +72,14 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	};
 
 	QList<SColor> Colors;
+	// plot colors:
+	Colors.append(SColor { "GraphBack", tr("Graph background"), "#808080"});
+	Colors.append(SColor { "GraphFront", tr("Graph text"), "#FFFFFF"});
+
+	Colors.append(SColor { "PlotBack", tr("Plot background"), "#EFEFEF"});
+	Colors.append(SColor { "PlotFront", tr("Plot text"), "#505050"});
+	Colors.append(SColor { "PlotGrid", tr("Plot grid"), "#C7C7C7"});
+
 	Colors.append(SColor { "GridColor", tr("List grid color"), "#808080"});
 	Colors.append(SColor { "Background", tr("Default background"), "#FFFFFF"});
 	
@@ -108,7 +119,10 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 		// pItem->setFlags(pItem->flags() | Qt::ItemIsUserCheckable); // set checkable flag
 		if (Color.Name == "GridColor")
 			pItem->setCheckState(theConf->GetBool("Options/ShowGrid", true) ? Qt::Checked : Qt::Unchecked);
-		else if (Color.Name != "Background")
+		else if (Color.Name != "Background" 
+		 && Color.Name != "GraphBack" && Color.Name != "GraphFront"
+		 && Color.Name != "PlotBack" && Color.Name != "PlotFront" && Color.Name != "PlotGrid" 
+		)
 		{
 			bool bUse = ColorUse.second.isEmpty() || ColorUse.second.compare("true", Qt::CaseInsensitive) == 0 || ColorUse.second.toInt() != 0;
 			pItem->setCheckState(bUse ? Qt::Checked : Qt::Unchecked);
@@ -134,14 +148,18 @@ void CSettingsWindow::closeEvent(QCloseEvent *e)
 
 void CSettingsWindow::apply()
 {
+	theConf->SetValue("Options/EnableCycleCpuUsage", ui.chkUseCycles->isChecked());
 	switch (ui.chkLinuxStyle->checkState())
 	{
 	case Qt::Unchecked: theConf->GetInt("Options/LinuxStyleCPU", 0); break;
 	case Qt::Checked: theConf->GetInt("Options/LinuxStyleCPU", 1); break;
 	case Qt::PartiallyChecked:theConf->GetInt("Options/LinuxStyleCPU", 2); break;
 	}
+	theConf->SetValue("Options/ClearZeros", ui.chkClearZeros->isChecked());
 
 	theConf->SetValue("Options/Show32", ui.chkShow32->isChecked());
+
+	theConf->SetValue("Options/HighLoadHighlightCount", ui.highlightCount->value());
 
 	theConf->SetValue("Options/RefreshInterval", ui.refreshInterval->value());
 	theConf->SetValue("Options/GraphLength", ui.graphLength->value());
@@ -168,7 +186,6 @@ void CSettingsWindow::apply()
 	
 	theConf->SetValue("Options/GetServicesRefModule", ui.chkGetRefServices->isChecked());
 	theConf->SetValue("Options/TraceUnloadedModules", ui.chkTraceDLLs->isChecked());
-	theConf->SetValue("Options/EnableCycleCpuUsage", ui.chkUseCycles->isChecked());
 
 	//theConf->SetValue("Options/OpenFileGetPosition", ui.chkOpenFilePos->isChecked());
 
@@ -183,7 +200,10 @@ void CSettingsWindow::apply()
 
 		if (Name == "GridColor")
 			theConf->SetValue("Options/ShowGrid", pItem->checkState() == Qt::Checked);
-		else if (Name != "Background")
+		else if (Name != "Background"
+		 && Name != "GraphBack" && Name != "GraphFront"
+		 && Name != "PlotBack" && Name != "PlotFront" && Name != "PlotGrid" 
+		)
 			ColorStr += ";" + QString((pItem->checkState() == Qt::Checked) ? "true" : "false");
 
 		theConf->SetValue("Colors/" + Name, ColorStr);
@@ -213,7 +233,7 @@ void CSettingsWindow::OnChangeColor(QListWidgetItem* pItem)
 
 void CSettingsWindow::OnChange()
 {
-	ui.chkLinuxStyle->setEnabled(!ui.chkUseCycles->isChecked());
+	//ui.chkLinuxStyle->setEnabled(!ui.chkUseCycles->isChecked());
 	ui.chkToTray->setEnabled(ui.chkShowTray->isChecked());
 	ui.trayMode->setEnabled(ui.chkShowTray->isChecked());
 }

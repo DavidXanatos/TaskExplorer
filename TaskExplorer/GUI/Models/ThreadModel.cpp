@@ -21,6 +21,8 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 	QList<SListNode*> New;
 	QHash<QVariant, SListNode*> Old = m_Map;
 
+	bool bClearZeros = theConf->GetBool("Options/ClearZeros", true);
+
 	foreach (const CThreadPtr& pThread, ThreadList)
 	{
 		QVariant ID = pThread->GetThreadId();
@@ -72,7 +74,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
-			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			pNode->Color = CTaskExplorer::GetListColor(RowColor);
 			Changed = 2;
 		}
 
@@ -95,7 +97,6 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eThread:				Value = pThread->GetThreadId(); break;
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; break;
-				case eCyclesDelta:			Value = CpuStats.CycleDelta.Delta; break;
 #ifdef WIN32
 				case eStartAddress:			Value = pWinThread->GetStartAddressString(); break;
 #endif
@@ -115,6 +116,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
                 case ePagePriority:			Value = (quint32)pThread->GetPagePriority(); break;
                 case eIOPriority:			Value = (quint32)pThread->GetIOPriority(); break;
 				case eCycles:				Value = CpuStats.CycleDelta.Value; break;
+				case eCyclesDelta:			Value = CpuStats.CycleDelta.Delta; break;
 				case eState:				Value = pThread->GetWaitState(); break;
 				case eKernelTime:			Value = CpuStats.CpuKernelDelta.Value;
 				case eUserTime:				Value = CpuStats.CpuUserDelta.Value;
@@ -141,16 +143,17 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 													ColValue.Formated = tr("%1 (%2): %3").arg(pThread->GetName()).arg(pThread->GetProcessId()).arg(pThread->GetThreadId());
 												break;
 					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId()); break;
-					case eCPU:					ColValue.Formated = QString::number(CpuStats.CpuUsage*100, 10,2) + "%"; break;
+					case eCPU:					ColValue.Formated = (!bClearZeros || CpuStats.CpuUsage > 0.00004) ? QString::number(CpuStats.CpuUsage*100, 10, 2) + "%" : ""; break;
 					case ePriority:				ColValue.Formated = pThread->GetPriorityString(); break;
 					case eCreated:				ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 					case eType:					ColValue.Formated = pWinThread->GetTypeString(); break;
 					case eState:				ColValue.Formated = pThread->GetStateString(); break;
-					case eCyclesDelta:
 					case eCycles:
 					case eContextSwitches:
-					case eContextSwitchesDelta:
 												ColValue.Formated = FormatNumber(Value.toULongLong()); break;
+					case eCyclesDelta:
+					case eContextSwitchesDelta:
+												ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
 				}
 			}
 

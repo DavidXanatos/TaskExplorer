@@ -8,8 +8,6 @@ public:
 	CWinModule(quint64 ProcessId = -1, bool IsSubsystemProcess = false, QObject *parent = nullptr);
 	virtual ~CWinModule();
 
-	void SetSubsystemProcess(bool IsSubsystemProcess)		{ QReadLocker Locker(&m_Mutex); m_IsSubsystemProcess = IsSubsystemProcess; }
-
 	virtual quint64 GetEntryPoint() const 					{ QReadLocker Locker(&m_Mutex); return m_EntryPoint; }
 	virtual QStringList GetRefServices()const				{ QReadLocker Locker(&m_Mutex); return m_Services; }
 
@@ -17,9 +15,9 @@ public:
 	virtual QString GetTypeString() const;
 	
 	virtual quint16 GetLoadCount() const 					{ QReadLocker Locker(&m_Mutex); return m_LoadCount; }
-	virtual QDateTime GetLoadTime() const 					{ QReadLocker Locker(&m_Mutex); return m_LoadTime; }
+	virtual quint64 GetLoadTime() const 					{ QReadLocker Locker(&m_Mutex); return m_LoadTime; }
 
-	virtual QDateTime GetImageTimeDateStamp() const 		{ QReadLocker Locker(&m_Mutex); return m_ImageTimeDateStamp; }
+	virtual quint64 GetTimeStamp() const 					{ QReadLocker Locker(&m_Mutex); return m_ImageTimeStamp; }
 
 	virtual void ClearControlFlowGuardEnabled();
 
@@ -44,23 +42,23 @@ public:
 	virtual QString GetVerifySignerName() const 			{ QReadLocker Locker(&m_Mutex); return m_VerifySignerName; }
 
 	virtual bool IsPacked() const 							{ QReadLocker Locker(&m_Mutex); return m_IsPacked; }
-	virtual ulong GetImportFunctions() const 				{ QReadLocker Locker(&m_Mutex); return m_ImportFunctions; }
-	virtual ulong GetImportModules() const 					{ QReadLocker Locker(&m_Mutex); return m_ImportModules; }
+	virtual quint32 GetImportFunctions() const 				{ QReadLocker Locker(&m_Mutex); return m_ImportFunctions; }
+	virtual quint32 GetImportModules() const 				{ QReadLocker Locker(&m_Mutex); return m_ImportModules; }
 
 
-	void InitAsyncData(const QString& FileName, const QString& PackageFullName = "");
+	void InitAsyncData(const QString& PackageFullName = "");
 
 	virtual STATUS				Unload(bool bForce = false);
 
 signals:
-	void	AsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
+	void	AsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules);
 
 protected:
-	friend class CWindowsAPI;
 	friend class CWinProcess;
 
 	bool InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessHandle);
 	bool InitStaticData(const QVariantMap& Module);
+	void InitFileInfo();
 	bool ResolveRefServices();
 
 	bool UpdateDynamicData(struct _PH_MODULE_INFO* module);
@@ -70,13 +68,13 @@ protected:
 	bool						m_IsSubsystemProcess;
     quint64						m_EntryPoint;
 	QStringList					m_Services;
-    ulong						m_Flags;
-    ulong						m_Type;
+    quint32						m_Flags;
+    quint32						m_Type;
     quint16						m_LoadReason;
     quint16						m_LoadCount;
-	QDateTime					m_LoadTime;
+	quint64						m_LoadTime;
 
-	QDateTime					m_ImageTimeDateStamp;
+	quint64						m_ImageTimeStamp;
 	quint16						m_ImageCharacteristics;
 	quint16						m_ImageDllCharacteristics;
 
@@ -86,12 +84,36 @@ protected:
 	
 	// Signature, Packed
 	bool						m_IsPacked;
-	ulong						m_ImportFunctions;
-	ulong						m_ImportModules;
+	quint32						m_ImportFunctions;
+	quint32						m_ImportModules;
 
 protected slots:
 	void OnInitAsyncData(int Index);
 
 private:
 	static QVariantMap InitAsyncData(QVariantMap Params);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// CWinMainModule 
+
+class CWinMainModule : public CWinModule
+{
+	Q_OBJECT
+public:
+	CWinMainModule(QObject *parent = nullptr) : CWinModule(-1, false, parent) {}
+	virtual ~CWinMainModule() {}
+	
+	virtual quint16 GetImageSubsystem() const 				{ QReadLocker Locker(&m_Mutex); return m_ImageSubsystem; }
+	virtual quint64 GetPebBaseAddress(bool bWow64 = false) const;
+
+
+protected:
+	friend class CWinProcess;
+
+	bool InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, quint64 ProcessHandle, bool IsHandleValid, bool IsWow64);
+
+    quint16						m_ImageSubsystem;
+	quint64						m_PebBaseAddress;
+	quint64						m_PebBaseAddress32;
 };

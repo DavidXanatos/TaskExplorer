@@ -34,10 +34,11 @@ CGPUView::CGPUView(QWidget *parent)
 	pal.setColor(QPalette::Background, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
-
-	QColor Back = QColor(0, 0, 64);
-	QColor Front = QColor(187, 206, 239);
-	QColor Grid = QColor(46, 44, 119);
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pGraphTabs = new QTabWidget();
 	m_pGraphTabs->setTabPosition(QTabWidget::South);
@@ -55,6 +56,7 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pGPUPlot->setMinimumWidth(50);
 	m_pGPUPlot->SetupLegend(Front, tr("GPU Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eAU);
 	m_pGPUPlot->SetRagne(100);
+	m_pGPUPlot->SetLimit(m_PlotLimit);
 	m_pPlotLayout->addWidget(m_pGPUPlot);
 	
 
@@ -62,8 +64,13 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pVRAMPlot->setMinimumHeight(120);
 	m_pVRAMPlot->setMinimumWidth(50);
 	m_pVRAMPlot->SetupLegend(Front, tr("VRAM Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pVRAMPlot->SetLimit(m_PlotLimit);
 	m_pPlotLayout->addWidget(m_pVRAMPlot);
 	
+	m_pMultiGraph = new QCheckBox(tr("Show one graph per Node"));
+	connect(m_pMultiGraph, SIGNAL(stateChanged(int)), this, SLOT(OnMultiPlot(int)));
+	m_pScrollLayout->addWidget(m_pMultiGraph, 1, 0, 1, 3);
+
 	// GPU Details
 	m_pGPUList = new CPanelWidgetEx();
 
@@ -74,7 +81,7 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pGPUList->GetTree()->setMinimumHeight(100);
 	m_pGPUList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
-	m_pScrollLayout->addWidget(m_pGPUList, 1, 0, 1, 3);
+	m_pScrollLayout->addWidget(m_pGPUList, 2, 0, 1, 3);
 	//
 
 	setObjectName(parent->objectName());
@@ -87,11 +94,44 @@ CGPUView::CGPUView(QWidget *parent)
 	}
 	else
 		m_pGPUList->GetView()->header()->restoreState(Columns);
+
+	m_pMultiGraph->setChecked(theConf->GetValue(objectName() + "/GPUMultiView", false).toBool());
 }
 
 CGPUView::~CGPUView()
 {
 	theConf->SetBlob(objectName() + "/GPUView_Columns", m_pGPUList->GetView()->header()->saveState());
+	theConf->SetValue(objectName() + "/GPUMultiView", m_pMultiGraph->isChecked());
+}
+
+void CGPUView::OnMultiPlot(int State)
+{
+	foreach(const SNodePlots& NodePlots, m_NodePlots)
+		NodePlots.pStackedLayout->setCurrentIndex(m_pMultiGraph->isChecked() ? 1 : 0);
+}
+
+void CGPUView::ReConfigurePlots()
+{
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
+
+	m_pGPUPlot->SetLimit(m_PlotLimit);
+	m_pGPUPlot->SetColors(Back, Front, Grid);
+	m_pVRAMPlot->SetLimit(m_PlotLimit);
+	m_pVRAMPlot->SetColors(Back, Front, Grid);
+
+	foreach(const SNodePlots& NodePlots, m_NodePlots)
+	{
+		for (int i = 0; i < NodePlots.pGrid->GetCount(); i++)
+		{
+			CIncrementalPlot* pPlot = qobject_cast<CIncrementalPlot*>(NodePlots.pGrid->GetWidget(i));
+			pPlot->SetLimit(m_PlotLimit);
+			pPlot->SetColors(Back, Qt::transparent, Grid);
+			pPlot->SetTextColor(Front);
+		}
+	}
 }
 
 void CGPUView::Refresh()
@@ -144,9 +184,9 @@ void CGPUView::UpdateGraphs()
 
 	if (m_Adapters.count() != GpuList.count())
 	{
-		QColor Back = QColor(0, 0, 64);
-		QColor Front = QColor(187, 206, 239);
-		QColor Grid = QColor(46, 44, 119);
+		QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+		QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+		QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 		QSet<QString> OldAdapters = m_Adapters;
 
@@ -165,18 +205,40 @@ void CGPUView::UpdateGraphs()
 			//m_pVRAMPlot->AddPlot("GpuL_" + GpuInfo.DeviceInterface, Colors[m_Adapters.size() % Colors.size()], Qt::DotLine, false);
 			m_pVRAMPlot->AddPlot("GpuS_" + GpuInfo.DeviceInterface, Colors[m_Adapters.size() % Colors.size()], Qt::DashLine, false);
 
+			SNodePlots NodePlots;
 
-			CIncrementalPlot* pPlot = new CIncrementalPlot(Back, Front, Grid);
-			pPlot->setMinimumHeight(120);
-			pPlot->setMinimumWidth(50);
-			pPlot->SetRagne(100);
-			pPlot->SetupLegend(Front, tr("Node Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eAU);
+			NodePlots.pStackedWidget = new QWidget(this);
+			NodePlots.pStackedLayout = new QStackedLayout();
+			NodePlots.pStackedWidget->setLayout(NodePlots.pStackedLayout);
+			m_pGraphTabs->addTab(NodePlots.pStackedWidget, GpuInfo.Description);
 
-			m_pGraphTabs->addTab(pPlot, GpuInfo.Description);
-			m_NodePlots.insert(GpuInfo.DeviceInterface, pPlot);
+			NodePlots.pPlot = new CIncrementalPlot(Back, Front, Grid);
+			NodePlots.pPlot->setMinimumHeight(120);
+			NodePlots.pPlot->setMinimumWidth(50);
+			NodePlots.pPlot->SetRagne(100);
+			NodePlots.pPlot->SetupLegend(Front, tr("Node Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eAU);
+			NodePlots.pPlot->SetLimit(m_PlotLimit);
+			NodePlots.pStackedLayout->addWidget(NodePlots.pPlot);
+
+			NodePlots.pGrid = new CSmartGridWidget();
+			NodePlots.pStackedLayout->addWidget(NodePlots.pGrid);
 
 			for (int j = 0; j < GpuInfo.Nodes.count(); j++)
-				pPlot->AddPlot("Node_" + QString::number(j), Colors[j % Colors.size()], Qt::SolidLine, false, GpuInfo.Nodes[j].Name);
+			{
+				NodePlots.pPlot->AddPlot("Node_" + QString::number(j), Colors[j % Colors.size()], Qt::SolidLine, false, GpuInfo.Nodes[j].Name);
+
+				CIncrementalPlot* pPlot = new CIncrementalPlot(Back, Qt::transparent, Grid);
+				pPlot->SetRagne(100);
+				pPlot->SetLimit(m_PlotLimit);
+				pPlot->SetTextColor(Front);
+				NodePlots.pGrid->AddWidget(pPlot);
+
+				pPlot->SetText(GpuInfo.Nodes[j].Name);
+				pPlot->AddPlot("Node", Qt::green, Qt::SolidLine, true);
+			}
+
+			m_NodePlots.insert(GpuInfo.DeviceInterface, NodePlots);
+			NodePlots.pStackedLayout->setCurrentIndex(m_pMultiGraph->isChecked() ? 1 : 0);
 		}
 
 		foreach(const QString& DeviceInterface, OldAdapters)
@@ -188,7 +250,9 @@ void CGPUView::UpdateGraphs()
 			//m_pVRAMPlot->RemovePlot("GpuL_" + DeviceInterface);
 			m_pVRAMPlot->RemovePlot("GpuS_" + DeviceInterface);
 
-			delete m_NodePlots.take(DeviceInterface);
+			SNodePlots NodePlots = m_NodePlots.take(DeviceInterface);
+
+			delete NodePlots.pStackedWidget;
 		}
 	}
 
@@ -200,11 +264,21 @@ void CGPUView::UpdateGraphs()
 		//m_pVRAMPlot->AddPlotPoint("GpuL_" + GpuInfo.DeviceInterface, GpuInfo.Memory.DedicatedLimit);
 		m_pVRAMPlot->AddPlotPoint("GpuS_" + GpuInfo.DeviceInterface, GpuInfo.Memory.SharedUsage);
 
-		CIncrementalPlot* pPlot = m_NodePlots.value(GpuInfo.DeviceInterface);
-		if (pPlot)
+		SNodePlots NodePlots = m_NodePlots.value(GpuInfo.DeviceInterface);
+
+		if (NodePlots.pPlot)
 		{
 			for (int j = 0; j < GpuInfo.Nodes.count(); j++)
-				pPlot->AddPlotPoint("Node_" + QString::number(j), 100 * GpuInfo.Nodes[j].TimeUsage);
+				NodePlots.pPlot->AddPlotPoint("Node_" + QString::number(j), 100 * GpuInfo.Nodes[j].TimeUsage);
+		}
+
+		if (NodePlots.pGrid)
+		{
+			for (int j = 0; j < GpuInfo.Nodes.count(); j++)
+			{
+				CIncrementalPlot* pPlot = qobject_cast<CIncrementalPlot*>(NodePlots.pGrid->GetWidget(j));
+				pPlot->AddPlotPoint("Node", 100 * GpuInfo.Nodes[j].TimeUsage);
+			}
 		}
 	}
 }

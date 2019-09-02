@@ -50,9 +50,9 @@ struct SGpuAdapter
 	}
 
 	LUID AdapterLuid;
-	ulong SegmentCount;
-	ulong NodeCount;
-	//ulong FirstNodeIndex;
+	quint32 SegmentCount;
+	quint32 NodeCount;
+	//quint32 FirstNodeIndex;
 
 	CGpuMonitor::SGpuInfo Info;
 
@@ -151,7 +151,7 @@ QString CWinGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, con
     return QString();
 }
 
-QString CWinGpuMonitor::QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, ulong DeviceProperty)
+QString CWinGpuMonitor::QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, quint32 DeviceProperty)
 {
     CONFIGRET result;
     
@@ -388,7 +388,7 @@ D3DKMT_DRIVERVERSION EtpGetGpuWddmVersion(_In_ D3DKMT_HANDLE AdapterHandle)
 }
 
 
-SGpuAdapter* CWinGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* pAdapterLuid, ulong NumberOfSegments, ulong NumberOfNodes)
+SGpuAdapter* CWinGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* pAdapterLuid, quint32 NumberOfSegments, quint32 NumberOfNodes)
 {
 	SGpuAdapter* adapter = new SGpuAdapter();
 
@@ -397,7 +397,7 @@ SGpuAdapter* CWinGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKM
     adapter->NodeCount = NumberOfNodes;
     adapter->SegmentCount = NumberOfSegments;
 
-	adapter->ApertureBitMapBuffer.fill(0, BYTES_NEEDED_FOR_BITS(NumberOfSegments) / sizeof(ulong));
+	adapter->ApertureBitMapBuffer.fill(0, BYTES_NEEDED_FOR_BITS(NumberOfSegments) / sizeof(quint32));
 
 	adapter->TotalTimeDeltas.resize(NumberOfNodes);
 

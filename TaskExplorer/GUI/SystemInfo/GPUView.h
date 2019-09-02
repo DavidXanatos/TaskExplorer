@@ -5,6 +5,7 @@
 #include "../../Common/TreeWidgetEx.h"
 #include "../../Common/IncrementalPlot.h"
 #include "../../Common/PanelView.h"
+#include "../../Common/SmartGridWidget.h"
 
 class CGPUView : public QWidget //CPanelView
 {
@@ -16,6 +17,10 @@ public:
 public slots:
 	void					Refresh();
 	void					UpdateGraphs();
+	void					ReConfigurePlots();
+
+private slots:
+	void					OnMultiPlot(int State);
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
@@ -25,6 +30,8 @@ protected:
 	QSet<QString>			m_Adapters;
 
 private:
+	int						m_PlotLimit;
+
 	enum EColumns
 	{
 		eModelName = 0,
@@ -57,7 +64,19 @@ private:
 	CIncrementalPlot*		m_pGPUPlot;
 	CIncrementalPlot*		m_pVRAMPlot;
 
-	QMap<QString, CIncrementalPlot*>m_NodePlots;
+	QCheckBox*				m_pMultiGraph;	
+
+	struct SNodePlots
+	{
+		SNodePlots() : pStackedWidget(NULL), pStackedLayout(NULL), pPlot(NULL), pGrid(NULL) {}
+
+		QWidget*				pStackedWidget;
+		QStackedLayout*			pStackedLayout;
+		CIncrementalPlot*		pPlot;
+		CSmartGridWidget*		pGrid;
+	};
+
+	QMap<QString, SNodePlots>m_NodePlots;
 	
 	CPanelWidgetEx* m_pGPUList;
 };

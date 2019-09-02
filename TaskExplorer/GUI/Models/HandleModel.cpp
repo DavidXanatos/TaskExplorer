@@ -20,6 +20,8 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 {
 	QList<SListNode*> New;
 	QHash<QVariant, SListNode*> Old = m_Map;
+	
+	bool bClearZeros = theConf->GetBool("Options/ClearZeros", true);
 
 	foreach (const CHandlePtr& pHandle, HandleList)
 	{
@@ -73,7 +75,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
-			pNode->Color = CTaskExplorer::GetColor(RowColor);
+			pNode->Color = CTaskExplorer::GetListColor(RowColor);
 			Changed = 2;
 		}
 
@@ -91,19 +93,19 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 				case eName:				Value = pHandle->GetFileName(); break;
 				case ePosition:			Value = pHandle->GetPosition(); break;	
 				case eSize:				Value = pHandle->GetSize(); break;	
-				case eGrantedAccess:	Value = pHandle->GetGrantedAccessString(); break;
+				case eGrantedAccess:	Value = (quint32)pHandle->GetGrantedAccess(); break;
 #ifdef WIN32
-				case eFileShareAccess:	Value = pWinHandle->GetFileShareAccessString(); break;	
-				case eAttributes:		Value = pWinHandle->GetAttributesString(); break;	
+				case eFileShareAccess:	Value = (quint32)pWinHandle->GetFileFlags(); break;	
+				case eAttributes:		Value = (quint32)pWinHandle->GetAttributes(); break;	
 				case eObjectAddress:	Value = pWinHandle->GetObjectAddress(); break;	
 				case eOriginalName:		Value = pWinHandle->GetOriginalName(); break;	
 #endif
 			}
 
+			SHandleNode::SValue& ColValue = pNode->Values[section];
+
 			if (m_SizePosNA && (section == ePosition || section == eSize))
 				Value = tr("N/A");
-
-			SHandleNode::SValue& ColValue = pNode->Values[section];
 
 			if (ColValue.Raw != Value)
 			{
@@ -116,11 +118,14 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 					case eProcess:			ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(pHandle->GetProcessId()); break;	
 					case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
 					case eType:				ColValue.Formated = pHandle->GetTypeString(); break;
+					case eGrantedAccess:	ColValue.Formated = pHandle->GetGrantedAccessString(); break;
 #ifdef WIN32
+					case eAttributes:		ColValue.Formated = pWinHandle->GetAttributesString(); break;	
+					case eFileShareAccess:	ColValue.Formated = pWinHandle->GetFileShareAccessString(); break;	
 					case eObjectAddress:	ColValue.Formated = FormatAddress(pWinHandle->GetObjectAddress()); break;	
 #endif
 					case eSize:
-					case ePosition:			if(Value.type() != QVariant::String) ColValue.Formated = FormatNumber(Value.toULongLong());
+					case ePosition:			if(Value.type() != QVariant::String) ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros);
 				}
 			}
 

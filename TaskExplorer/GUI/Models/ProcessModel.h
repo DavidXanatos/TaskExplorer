@@ -33,10 +33,6 @@ public:
 #endif
 		eUpTime,
 		eStartTime,
-/*#ifdef WIN32
-		eWindowTitle,
-		eWindowStatus,
-#endif*/
 		eElevation,
 		eCommandLine,
 
@@ -155,6 +151,9 @@ public:
 #ifdef WIN32
 		eOS_Context,
 
+		eWindowTitle,
+		eWindowStatus,
+
 		ePackageName,
 		eAppID,
 		eDPI_Awareness,
@@ -177,7 +176,7 @@ public:
 		eReceiveBytes,
 		eSendBytes,
 		//case eTotalBytes,
-		eReceivesDetla,
+		eReceivesDelta,
 		eSendsDelta,
 		eReceiveBytesDelta,
 		eSendBytesDelta,
@@ -211,7 +210,11 @@ protected:
 		CProcessPtr			pProcess;
 
 		int					iColor;
+
+		QSet<int>			Bold;
 	};
+
+	virtual QVariant		NodeData(STreeNode* pNode, int role, int section) const;
 
 	virtual STreeNode*		MkNode(const QVariant& Id) { return new SProcessNode(Id); }
 		

@@ -18,7 +18,7 @@ CSocketInfo::~CSocketInfo()
 {
 }
 
-bool CSocketInfo::Match(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
+bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
 {
 	QReadLocker Locker(&m_Mutex); 
 
@@ -57,7 +57,7 @@ bool CSocketInfo::Match(quint64 ProcessId, ulong ProtocolType, const QHostAddres
 	return true;
 }
 
-quint64 CSocketInfo::MkHash(quint64 ProcessId, ulong ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
+quint64 CSocketInfo::MkHash(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
 {
 	if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0)
 		RemotePort = 0;

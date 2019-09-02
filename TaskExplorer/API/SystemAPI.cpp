@@ -59,17 +59,20 @@ CSystemAPI::~CSystemAPI()
 {
 	this->thread()->quit();
 
-	if (m_FileListUpdateWatcher) 
-		m_FileListUpdateWatcher->waitForFinished();
+	/*if (m_FileListUpdateWatcher) 
+		m_FileListUpdateWatcher->isRunning();*/
+
+	theAPI = NULL;
 }
 
-CSystemAPI* CSystemAPI::New()
+void CSystemAPI::InitAPI()
 {
 #ifdef WIN32
-	return new CWindowsAPI();
+	theAPI = new CWindowsAPI();
 #else
-    return new CLinuxAPI();
+    theAPI = new CLinuxAPI();
 #endif
+	QMetaObject::invokeMethod(theAPI, "Init", Qt::BlockingQueuedConnection);
 }
 
 /*void CSystemAPI::UpdateStats()

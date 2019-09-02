@@ -51,11 +51,12 @@ CIncrementalPlot::CIncrementalPlot(const QColor& Back, const QColor& Front, cons
 			.arg(Back.red()).arg(Back.green()).arg(Back.blue()));
 	}
 
+	m_pGrid = NULL;
 	if (Grid != Qt::transparent)
 	{
-		QwtPlotGrid *pGrid = new QwtPlotGrid;
-		pGrid->setMajorPen(QPen(Grid, 0, Qt::DotLine));
-		pGrid->attach(m_pPlot);
+		m_pGrid = new QwtPlotGrid;
+		m_pGrid->setMajorPen(QPen(Grid, 0, Qt::DotLine));
+		m_pGrid->attach(m_pPlot);
 	}
 
 	/*QwtPlotPanner *pPanner = new QwtPlotPanner(m_pPlot->canvas());
@@ -129,11 +130,30 @@ void CIncrementalPlot::SetupLegend(const QColor& Front, const QString& yAxis, EU
 
 void CIncrementalPlot::SetLimit(int iLimit)
 {
-	if (m_iLimit != iLimit)
+	if (m_iLimit == iLimit)
+		return;
+	
+	m_iLimit = iLimit;
+	Reset();
+}
+
+void CIncrementalPlot::SetColors(const QColor& Back, const QColor& Front, const QColor& Grid)
+{
+	if (Front == Qt::transparent)
 	{
-		m_iLimit = iLimit;
-		Reset();
+		m_pPlot->setStyleSheet(QString("background-color: rgb(%4, %5, %6);")
+			.arg(Back.red()).arg(Back.green()).arg(Back.blue()));
+
 	}
+	else
+	{
+		m_pPlot->setStyleSheet(QString("color: rgb(%1, %2, %3); background-color: rgb(%4, %5, %6);")
+			.arg(Front.red()).arg(Front.green()).arg(Front.blue())
+			.arg(Back.red()).arg(Back.green()).arg(Back.blue()));
+	}
+
+	if(m_pGrid)
+		m_pGrid->setMajorPen(QPen(Grid, 0, Qt::DotLine));
 }
 
 void CIncrementalPlot::SetRagne(double Max, double Min)
@@ -149,6 +169,11 @@ double CIncrementalPlot::GetRangeMax()
 void CIncrementalPlot::SetText(const QString& Text)
 {
 	m_pPlot->SetText(Text);
+}
+
+void CIncrementalPlot::SetTextColor(const QColor& Color)
+{
+	m_pPlot->SetTextColor(Color);
 }
 
 void CIncrementalPlot::SetTexts(const QStringList& Texts)

@@ -21,6 +21,7 @@ class QwtPlotEx : public QwtPlot
 public:
 	
 	void SetText(const QString& Text) { m_Text = Text; }
+	void SetTextColor(const QColor& Color) { m_Color = Color; }
 	void SetTexts(const QStringList& Texts) { m_Texts = Texts; }
 
 protected:
@@ -28,7 +29,7 @@ protected:
 	{
 		QwtPlot::drawCanvas(p);
 
-		p->setPen(Qt::white); // todo: set color from proeprty
+		p->setPen(m_Color);
 
 		int x = 2;
 		int y = 0;
@@ -49,6 +50,7 @@ protected:
 	}
 
 	QString m_Text;
+	QColor m_Color;
 	QStringList m_Texts;
 };
 
@@ -197,12 +199,14 @@ public:
 	void				AddPlotPoint(const QString& Name, double Value);
 
 	void				SetText(const QString& Text);
+	void				SetTextColor(const QColor& Color);
 	void				SetTexts(const QStringList& Texts);
 
 	void				Reset();
 	void				Clear();
 
 	void				SetLimit(int iLimit);
+	void				SetColors(const QColor& Back = Qt::darkGray, const QColor& Front = Qt::transparent, const QColor& Grid = Qt::transparent);
 
 	QwtPlotEx*			GetPlot() { return m_pPlot; }
 
@@ -232,6 +236,7 @@ protected:
 	QVBoxLayout*		m_pMainLayout;
 
 	QwtPlotEx*			m_pPlot;
+	QwtPlotGrid*		m_pGrid;
 	QMap<QString, SCurve> m_Curves;
 	bool				m_bReplotPending;
 	int					m_iLimit;

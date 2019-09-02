@@ -20,7 +20,7 @@ public:
 	virtual QString GetArchString() const;
 	virtual quint64 GetSessionID() const;
 	virtual CWinTokenPtr GetToken() const			{ QReadLocker Locker(&m_Mutex); return m_pToken; }
-	virtual ulong GetSubsystem() const;
+	virtual quint16 GetSubsystem() const;
 	virtual QString GetSubsystemString() const;
 	virtual quint64 GetRawCreateTime() const;
 	virtual QString GetWorkingDirectory() const;
@@ -45,14 +45,14 @@ public:
 	virtual quint64 GetMinimumWS() const;
 	virtual quint64 GetMaximumWS() const;
 
-	virtual ulong	GetPeakNumberOfHandles() const;
+	virtual quint32	GetPeakNumberOfHandles() const;
 	virtual quint64 GetUpTime() const;
 	virtual quint64 GetSuspendTime() const;
 	virtual int		GetHangCount() const;
 	virtual int		GetGhostCount() const;
 
 	virtual QString GetPriorityString() const;
-	static QString GetPriorityString(ulong value);
+	static QString GetPriorityString(quint32 value);
 	virtual STATUS SetPriority(long Value);
 	virtual STATUS SetBasePriority(long Value)		{ return ERR(); }
 	virtual STATUS SetPagePriority(long Value);
@@ -70,23 +70,24 @@ public:
 	virtual QStringList GetServiceList() const		{ QReadLocker Locker(&m_Mutex); return m_ServiceList; }
 
 	// GDI, USER handles
-	virtual ulong GetGdiHandles() const				{ QReadLocker Locker(&m_Mutex); return m_GdiHandles; }
-	virtual ulong GetUserHandles() const			{ QReadLocker Locker(&m_Mutex); return m_UserHandles; }
-	virtual void SetWndHandles(ulong WndHandles) 	{ QWriteLocker Locker(&m_Mutex); m_WndHandles = WndHandles; }
-	virtual ulong GetWndHandles() const				{ QReadLocker Locker(&m_Mutex); return m_WndHandles; }
+	virtual quint32 GetGdiHandles() const			{ QReadLocker Locker(&m_Mutex); return m_GdiHandles; }
+	virtual quint32 GetUserHandles() const			{ QReadLocker Locker(&m_Mutex); return m_UserHandles; }
+	virtual void SetWndHandles(quint32 WndHandles)  { QWriteLocker Locker(&m_Mutex); m_WndHandles = WndHandles; m_pMainWnd.clear(); } // invalidate cached main window pointer
+	virtual quint32 GetWndHandles() const			{ QReadLocker Locker(&m_Mutex); return m_WndHandles; }
 
+	virtual QString GetWindowTitle() const;
+	virtual QString GetWindowStatusString() const;
 
 	// OS context
-	virtual ulong GetOsContextVersion() const;
+	virtual quint32 GetOsContextVersion() const;
 	virtual QString GetOsContextString() const;
 
 	virtual QString GetDEPStatusString() const;
 
 	virtual QString GetCFGuardString() const;
 
-	virtual QDateTime GetTimeStamp() const;
-
 	// Other Fields
+	virtual QString GetUserName() const;
 	virtual quint64 GetProcessSequenceNumber() const;
 
 	virtual QMap<QString, SEnvVar>	GetEnvVariables() const;
@@ -113,13 +114,13 @@ public:
 
 	virtual QString GetPackageName() const; 
 	virtual QString GetAppID() const; 
-	virtual ulong GetDPIAwareness() const;
+	virtual quint32 GetDPIAwareness() const;
 	virtual QString GetDPIAwarenessString() const;
 
 
 	virtual quint64 GetJobObjectID() const;
 
-	virtual ulong GetProtection() const;
+	virtual quint32 GetProtection() const;
 	virtual QString GetProtectionString() const;
 	virtual QString GetMitigationString() const;
 
@@ -132,13 +133,12 @@ public:
 
 	virtual void OpenPermissions();
 
-	virtual quint64 GetPebBaseAddress(bool bWow64 = false) const;
-
 	virtual CWinJobPtr		GetJob() const;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
 
-	virtual CWndPtr GetMainWindowHwnd() const;
+	virtual QList<CWndPtr> GetWindows() const;
+	virtual CWndPtr	GetMainWindow() const;
 
 	struct STask
 	{
@@ -169,7 +169,7 @@ public slots:
 	virtual bool	UpdateModules();
 	virtual bool	UpdateWindows();
 
-	void			OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
+	void			OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules);
 
 private slots:
 	//bool UpdateDynamicDataExt();
@@ -182,10 +182,11 @@ protected:
 	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
 	bool UpdateTokenData(bool MonitorChange);
 	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	void UpdateThreadCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 
-	void AddNetworkIO(int Type, ulong TransferSize);
-	void AddDiskIO(int Type, ulong TransferSize);
+	void AddNetworkIO(int Type, quint32 TransferSize);
+	void AddDiskIO(int Type, quint32 TransferSize);
 
 	// Other fields
 	QList<QString>					m_ServiceList;
@@ -193,17 +194,17 @@ protected:
 	// Dynamic
 
 	// GDI, USER handles
-    ulong m_GdiHandles;
-    ulong m_UserHandles;
-	ulong m_WndHandles;
+    quint32							m_GdiHandles;
+    quint32							m_UserHandles;
+	quint32							m_WndHandles;
 
-	bool m_IsCritical;
-
-	// Threads
-	//QMap<quint64, >
+	bool							m_IsCritical;
 
 	// Token
 	CWinTokenPtr					m_pToken;
+
+	// MainWindow
+	CWndRef							m_pMainWnd;
 
 private:
 	//volatile quint64 m_lastExtUpdate;

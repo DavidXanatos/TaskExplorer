@@ -26,6 +26,7 @@ public:
 	virtual bool IsVisible() const				{ QReadLocker Locker(&m_Mutex); return m_WindowVisible; }
 	virtual STATUS SetVisible(bool bSet) = 0;
 	virtual bool IsEnabled() const				{ QReadLocker Locker(&m_Mutex); return m_WindowEnabled; }
+	virtual bool IsHung() const					{ QReadLocker Locker(&m_Mutex); return m_WindowHung; }
 	virtual int GetShowCommand() const			{ QReadLocker Locker(&m_Mutex); return m_ShowCommand; }
 	virtual STATUS SetEnabled(bool bSet) = 0;
 	virtual bool IsAlwaysOnTop() const			{ QReadLocker Locker(&m_Mutex); return m_WindowOnTop; }
@@ -55,6 +56,7 @@ protected:
 	QString			m_WindowTitle;
 	bool			m_WindowVisible;
 	bool			m_WindowEnabled;
+	bool			m_WindowHung;
 	int				m_ShowCommand;
 	bool			m_WindowOnTop;
 	int				m_WindowAlpha;

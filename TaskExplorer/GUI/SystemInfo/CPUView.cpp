@@ -34,33 +34,55 @@ CCPUView::CCPUView(QWidget *parent)
 	pal.setColor(QPalette::Background, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
-	QColor Back = QColor(0, 0, 64);
-	QColor Front = QColor(187, 206, 239);
-	QColor Grid = QColor(46, 44, 119);
+	m_pStackedWidget = new QWidget(this);
+	m_pStackedLayout = new QStackedLayout();
+	m_pStackedWidget->setLayout(m_pStackedLayout);
+	m_pScrollLayout->addWidget(m_pStackedWidget, 0, 0, 1, 3);
+
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pCPUPlot = new CIncrementalPlot(Back, Front, Grid);
 	m_pCPUPlot->setMinimumHeight(120);
 	m_pCPUPlot->setMinimumWidth(50);
 	m_pCPUPlot->SetupLegend(Front, tr("CPU Usage"), CIncrementalPlot::eDate);
 	m_pCPUPlot->SetRagne(100);
-	m_pScrollLayout->addWidget(m_pCPUPlot, 0, 0, 1, 3);
+	m_pCPUPlot->SetLimit(m_PlotLimit);
+	//m_pScrollLayout->addWidget(m_pCPUPlot, 0, 0, 1, 3);
+	m_pStackedLayout->addWidget(m_pCPUPlot);
+
+	m_pCPUGrid = new CSmartGridWidget();
+	m_pStackedLayout->addWidget(m_pCPUGrid);
 
 	QVector<QColor> Colors = theGUI->GetPlotColors();
 	for (int i = 0; i < theAPI->GetCpuCount(); i++)
 	{
 		m_pCPUPlot->AddPlot("Cpu_" + QString::number(i), Colors[i % Colors.size()], Qt::SolidLine, false, tr("CPU %1").arg(i));
 		m_pCPUPlot->AddPlot("CpuK_" + QString::number(i), Colors[i % Colors.size()], Qt::DotLine, false);
+
+		CIncrementalPlot* pPlot = new CIncrementalPlot(Back, Qt::transparent, Grid);
+		pPlot->SetRagne(100);
+		pPlot->SetLimit(m_PlotLimit);
+		pPlot->SetTextColor(Front);
+		m_pCPUGrid->AddWidget(pPlot);
+
+		pPlot->SetText(tr("CPU %1").arg(i));
+		pPlot->AddPlot("Cpu", Qt::green, Qt::SolidLine, true);
+		pPlot->AddPlot("CpuK", Qt::red, Qt::SolidLine, true);
 	}
 
-	m_CpuSmoother.resize(theAPI->GetCpuCount());
-
-	// todo: xxx - add option to show only one cpu per graph
+	m_pMultiGraph = new QCheckBox(tr("Show one graph per CPU"));
+	connect(m_pMultiGraph, SIGNAL(stateChanged(int)), this, SLOT(OnMultiPlot(int)));
+	m_pScrollLayout->addWidget(m_pMultiGraph, 1, 0, 1, 3);
 
 	m_pInfoWidget = new QWidget();
 	m_pInfoLayout = new QHBoxLayout();
 	m_pInfoLayout->setMargin(0);
 	m_pInfoWidget->setLayout(m_pInfoLayout);
-	m_pScrollLayout->addWidget(m_pInfoWidget, 1, 0, 1, 3);
+	m_pScrollLayout->addWidget(m_pInfoWidget, 2, 0, 1, 3);
 
 	m_pInfoWidget1 = new QWidget();
 	m_pInfoLayout1 = new QVBoxLayout();
@@ -127,12 +149,37 @@ CCPUView::CCPUView(QWidget *parent)
 	m_pOtherLayout->addWidget(m_pSysCalls, row++, 1);
 
 	////////////////////////////////////////
+
+	m_pMultiGraph->setChecked(theConf->GetValue(objectName() + "/CPUMultiView", false).toBool());
 }
 
 CCPUView::~CCPUView()
 {
+	theConf->SetValue(objectName() + "/CPUMultiView", m_pMultiGraph->isChecked());
 }
 
+void CCPUView::OnMultiPlot(int State)
+{
+	m_pStackedLayout->setCurrentIndex(m_pMultiGraph->isChecked() ? 1 : 0);
+}
+
+void CCPUView::ReConfigurePlots()
+{
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
+
+	m_pCPUPlot->SetLimit(m_PlotLimit);
+	m_pCPUPlot->SetColors(Back, Front, Grid);
+	for (int i = 0; i < m_pCPUGrid->GetCount(); i++)
+	{
+		CIncrementalPlot* pPlot = qobject_cast<CIncrementalPlot*>(m_pCPUGrid->GetWidget(i));
+		pPlot->SetLimit(m_PlotLimit);
+		pPlot->SetColors(Back, Qt::transparent, Grid);
+		pPlot->SetTextColor(Front);
+	}
+}
 
 void CCPUView::Refresh()
 {
@@ -156,7 +203,12 @@ void CCPUView::UpdateGraphs()
 	for (int i = 0; i < theAPI->GetCpuCount(); i++)
 	{
 		SCpuStats Stats = theAPI->GetCpuStats(i);
-		m_pCPUPlot->AddPlotPoint("Cpu_" + QString::number(i), m_CpuSmoother[i].first.Smooth(100 * (Stats.KernelUsage + Stats.UserUsage)));
-		m_pCPUPlot->AddPlotPoint("CpuK_" + QString::number(i), m_CpuSmoother[i].second.Smooth(100 * (Stats.KernelUsage)));
+		
+		m_pCPUPlot->AddPlotPoint("Cpu_" + QString::number(i), 100 * (Stats.KernelUsage + Stats.UserUsage));
+		m_pCPUPlot->AddPlotPoint("CpuK_" + QString::number(i), 100 * (Stats.KernelUsage));
+
+		CIncrementalPlot* pPlot = qobject_cast<CIncrementalPlot*>(m_pCPUGrid->GetWidget(i));
+		pPlot->AddPlotPoint("Cpu", 100 * (Stats.KernelUsage + Stats.UserUsage));
+		pPlot->AddPlotPoint("CpuK", 100 * (Stats.KernelUsage));
 	}
 }

@@ -4,6 +4,7 @@
 #include "../../Common/PanelView.h"
 #include "../../Common/TreeWidgetEx.h"
 #include "../../Common/IncrementalPlot.h"
+#include "../../Common/SmartGridWidget.h"
 
 class CCPUView : public QWidget //CPanelView
 {
@@ -15,15 +16,18 @@ public:
 public slots:
 	void					Refresh();
 	void					UpdateGraphs();
+	void					ReConfigurePlots();
 
+private slots:
+	void					OnMultiPlot(int State);
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
 	//virtual QTreeView*			GetView()	{ return m_pStatsList; }
 	//virtual QAbstractItemModel* GetModel()	{ return m_pStatsList->model(); }
 
-	QVector<QPair<SSmoother, SSmoother> > m_CpuSmoother;
-
 private:
+	int						m_PlotLimit;
+
 	QGridLayout*			m_pMainLayout;
 
 	QWidget*				m_pScrollWidget;
@@ -31,7 +35,15 @@ private:
 	QGridLayout*			m_pScrollLayout;
 
 	QLabel*					m_pCPUModel;
+
+	QWidget*				m_pStackedWidget;
+	QStackedLayout*			m_pStackedLayout;
+
 	CIncrementalPlot*		m_pCPUPlot;
+
+	CSmartGridWidget*		m_pCPUGrid;
+
+	QCheckBox*				m_pMultiGraph;
 
 	QWidget*				m_pInfoWidget;
 	QHBoxLayout*			m_pInfoLayout;

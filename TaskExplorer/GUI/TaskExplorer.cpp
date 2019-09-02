@@ -42,6 +42,7 @@ public:
 		if (eventType == "windows_generic_MSG" || eventType == "windows_dispatcher_MSG") 
 		{
 			MSG *msg = static_cast<MSG *>(message);
+
 			//if(msg->message != 275 && msg->message != 1025)
 			//	qDebug() << msg->message;
 			if (msg->message == WM_NOTIFY) 
@@ -83,20 +84,21 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 {
 	theGUI = this;
 
-	theAPI = CSystemAPI::New();
-
-	QMetaObject::invokeMethod(theAPI, "Init", Qt::BlockingQueuedConnection);
+	CSystemAPI::InitAPI();
 
 	QString appTitle = tr("TaskExplorer v%1").arg(GetVersion());
 
-#ifdef WIN32
-	if (KphIsConnected())
-		appTitle.append(tr(" - [kPH]"));
-#endif
-
 	if (theAPI->RootAvaiable())
 #ifdef WIN32
-		appTitle.append(tr(" (Administrator)"));
+		if (KphIsConnected())
+		{
+			if(KphIsVerified())
+				appTitle.append(tr(" (Administrator)+")); // full
+			else
+				appTitle.append(tr(" (Administrator)*")); // limited
+		}
+		else
+			appTitle.append(tr(" (Administrator)"));
 #else
 		appTitle.append(tr(" (root)"));
 #endif
@@ -186,12 +188,13 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pMenuProcess = menuBar()->addMenu(tr("&Tasks"));
 		m_pMenuRun = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/Run"), tr("Run..."), this, SLOT(OnRun()));
-		m_pMenuRunAsUser = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunUser"), tr("Run as Limited User..."), this, SLOT(OnRunUser()));
-		m_pMenuRunAsAdmin = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunRoot"), tr("Run as Administrator..."), this, SLOT(OnRunAdmin()));
+		m_pMenuRunAs = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunAs"), tr("Run as..."), this, SLOT(OnRunAs()));
+		// this can be done with the normal run command anyways
+		//m_pMenuRunAsUser = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunUser"), tr("Run as Limited User..."), this, SLOT(OnRunUser()));
+		//m_pMenuRunAsAdmin = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunRoot"), tr("Run as Administrator..."), this, SLOT(OnRunAdmin()));
 #ifdef WIN32
 		m_pMenuRunSys = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunTI"), tr("Run as TrustedInstaller..."), this, SLOT(OnRunSys()));
 #endif
-		m_pMenuRunAs = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunAs"), tr("Run as..."), this, SLOT(OnRunAs()));
 		m_pMenuProcess->addSeparator();
 		m_pMenuComputer = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Shutdown"), tr("Computer"));
 		m_pMenuUsers = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Users"), tr("Users"));
@@ -312,34 +315,61 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addAction(m_pMenuSettings);
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuPauseRefresh);
-	m_pToolBar->addAction(m_pMenuRefreshNow);
+	//m_pToolBar->addAction(m_pMenuRefreshNow);
+	m_pRefreshButton = new QToolButton();
+	m_pRefreshButton->setIcon(MakeActionIcon(":/Actions/Refresh"));
+	m_pRefreshButton->setToolTip(tr("Refresh Now"));
+	m_pRefreshButton->setPopupMode(QToolButton::MenuButtonPopup);
+	QMenu* pRefreshMenu = new QMenu(m_pRefreshButton);
+	m_pRefreshGroup = new QActionGroup(pRefreshMenu);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Ultra fast (0.1s)"), 100);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Very fast (0.25s)"), 250);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Fast (0.5s)"), 500);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Normal (1s)"), 1000);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Slow (2s)"), 2000);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Very slow (5s)"), 5000);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Extremely slow (10s)"), 10000);
+	connect(m_pRefreshGroup, SIGNAL(triggered(QAction*)), this, SLOT(OnChangeInterval(QAction*)));
+    m_pRefreshButton->setMenu(pRefreshMenu);
+	//QObject::connect(m_pRefreshButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pRefreshButton, SIGNAL(pressed()), this, SLOT(UpdateAll()));
+	m_pToolBar->addWidget(m_pRefreshButton);
+	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuETW);
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuSystemInfo);
 	m_pToolBar->addSeparator();
 	
-	QToolButton* pFindButton = new QToolButton();
-	pFindButton->setIcon(MakeActionIcon(":/Actions/Find"));
-	pFindButton->setPopupMode(QToolButton::MenuButtonPopup);
-    pFindButton->setMenu(m_pMenuFind);
-	//QObject::connect(pFindButton, SIGNAL(triggered(QAction*)), , SLOT());
-	m_pToolBar->addWidget(pFindButton);
+	m_pFindButton = new QToolButton();
+	m_pFindButton->setIcon(MakeActionIcon(":/Actions/Find"));
+	m_pFindButton->setToolTip(tr("Search..."));
+	m_pFindButton->setPopupMode(QToolButton::MenuButtonPopup);
+    m_pFindButton->setMenu(m_pMenuFind);
+	//QObject::connect(m_pFindButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pFindButton, SIGNAL(pressed()), this, SLOT(OnFindHandle()));
+	m_pToolBar->addWidget(m_pFindButton);
 	m_pToolBar->addSeparator();
 
-	QToolButton* pFreeButton = new QToolButton();
-	pFreeButton->setIcon(MakeActionIcon(":/Actions/FreeMem"));
-	pFreeButton->setPopupMode(QToolButton::MenuButtonPopup);
-    pFreeButton->setMenu(m_pMenuFree);
-	//QObject::connect(pFreeButton, SIGNAL(triggered(QAction*)), , SLOT());
-	m_pToolBar->addWidget(pFreeButton);
+	m_pFreeButton = new QToolButton();
+	m_pFreeButton->setIcon(MakeActionIcon(":/Actions/FreeMem"));
+	m_pFreeButton->setToolTip(tr("Free memory"));
+	m_pFreeButton->setPopupMode(QToolButton::MenuButtonPopup);
+    m_pFreeButton->setMenu(m_pMenuFree);
+	//QObject::connect(m_pFreeButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pFreeButton, SIGNAL(pressed()), this, SLOT(OnFreeMemory()));
+	m_pToolBar->addWidget(m_pFreeButton);
 	m_pToolBar->addSeparator();
 	
-	QToolButton* pComputerButton = new QToolButton();
-	pComputerButton->setIcon(MakeActionIcon(":/Actions/Shutdown"));
-	pComputerButton->setPopupMode(QToolButton::MenuButtonPopup);
-	pComputerButton->setMenu(m_pMenuComputer);
-	//QObject::connect(pComputerButton, SIGNAL(triggered(QAction*)), , SLOT());
-	m_pToolBar->addWidget(pComputerButton);
+	m_pComputerButton = new QToolButton();
+	m_pComputerButton->setIcon(MakeActionIcon(":/Actions/Shutdown"));
+	m_pComputerButton->setToolTip(tr("Lock, Shutdown/Reboot, etc..."));
+	m_pComputerButton->setPopupMode(QToolButton::MenuButtonPopup);
+	m_pComputerButton->setMenu(m_pMenuComputer);
+	//QObject::connect(m_pComputerButton, SIGNAL(triggered(QAction*)), , SLOT());
+#ifndef _DEBUG
+	QObject::connect(m_pComputerButton, SIGNAL(pressed()), this, SLOT(OnComputerAction()));
+#endif
+	m_pToolBar->addWidget(m_pComputerButton);
 	m_pToolBar->addSeparator();
 
 	QWidget* pSpacer = new QWidget();
@@ -376,6 +406,14 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	//m_pTrayIcon->setContextMenu(m_pNeoMenu);
 
 	m_pTrayMenu = new QMenu();
+	m_pTrayMenu->addAction(m_pMenuRun);
+	m_pTrayMenu->addAction(m_pMenuRunAs);
+	m_pTrayMenu->addSeparator();
+	m_pTrayMenu->addAction(m_pMenuSystemInfo);
+	m_pTrayMenu->addSeparator();
+	m_pTrayMenu->addMenu(m_pMenuComputer);
+	m_pTrayMenu->addMenu(m_pMenuUsers);
+	m_pTrayMenu->addSeparator();
 	m_pTrayMenu->addAction(m_pMenuExit);
 
 	m_pTrayIcon->show(); // Note: qt bug; without a first show hide does not work :/
@@ -396,29 +434,22 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	statusBar()->addPermanentWidget(m_pStausNET);
 
 
-	m_pCustomItemDelegate->m_Grid = theConf->GetBool("Options/ShowGrid", true);
-	m_pCustomItemDelegate->m_Color = QColor(theConf->GetString("Colors/GridColor", "#808080"));
-
-	m_pGraphBar->UpdateLengths();
+	if (theConf->GetBool("Options/ShowGrid", true))
+		m_pCustomItemDelegate->SetGridColor(QColor(theConf->GetString("Colors/GridColor", "#808080")));
 
 	if (!bAutoRun)
 		show();
 
 #ifdef WIN32
-	if(KphIsConnected())
-		statusBar()->showMessage(tr("TaskExplorer with %1 driver is ready...").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 30000);
+	if (KphIsConnected())
+	{
+		statusBar()->showMessage(tr("TaskExplorer with %1 (%2) driver is ready...").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()).arg(KphIsVerified() ? tr("full") : tr("limited")), 30000);
+	}
 	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
 	{
 		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
-			"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked. "
-			"If this is the case you have the following options:\r\n"
-			"1. Try to set an exception for the kprocesshacker.sys and/or disable your anti-virus's self defense mechanism, if it permits that (which many don't).\r\n"
-			"2. Use a custom build driver xprocesshacker.sys. To do that you have two options, eider:\r\n"
-			"2a. Use a driver signed with a leaked code signing certificate to do that un-pack xprocesshacker_hack-sign.zip into the application directory, using he password 'leaked'. "
-			"Note however that due to the use of a leaked certificate the driver may be mistakenly flagged as a virus, so you will need to add an exemption for the file.\r\n"
-			"2b. Use an driver signed with a test signing certificate, to do that un-pack xprocesshacker_test-sign.zip into the application directory, "
-			"enable test signing mode using an elevated command prompt by entering 'Bcdedit.exe -set TESTSIGNING ON' and rebooting your system. "
-			"Note however that enabling test signing mode will add a watermark to the left bottom corner of your desktop. There are tools to remove these though."
+			"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked.\r\n"
+			"If this is the case you need to add an exception in your AV product for the xprocesshacker.sys file."
 		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
 
 		bool State = false;
@@ -454,7 +485,6 @@ CTaskExplorer::~CTaskExplorer()
 	theConf->SetBlob("MainWindow/Graph_Splitter",m_pGraphSplitter->saveState());
 
 	theAPI->deleteLater();
-	theAPI = NULL;
 
 	theGUI = NULL;
 }
@@ -467,24 +497,39 @@ void CTaskExplorer::OnGraphsResized(int Size)
 	m_pGraphSplitter->setSizes(Sizes);
 }
 
+void CTaskExplorer::OnChangeInterval(QAction* pAction)
+{
+	quint64 Interval = pAction->data().toULongLong();
+	
+	theConf->SetValue("Options/RefreshInterval", Interval);
+
+	killTimer(m_uTimerID);
+	m_uTimerID = startTimer(Interval);
+}
+
 void CTaskExplorer::closeEvent(QCloseEvent *e)
 {
-	if (m_bExit)
-		return;
+	if (!m_bExit)
+	{
+		if (m_pTrayIcon->isVisible() && theConf->GetBool("SysTray/CloseToTray", true))
+		{
+			hide();
 
-	if(m_pTrayIcon->isVisible() && theConf->GetBool("SysTray/CloseToTray", true))
-	{
-		hide();
-		e->ignore();
-	}
-	else
-	{
-		CExitDialog ExitDialog(tr("Do you want to close TaskExplorer?"));
-		if(ExitDialog.exec())
+			e->ignore();
 			return;
-
-		e->ignore();
+		}
+		else
+		{
+			CExitDialog ExitDialog(tr("Do you want to close TaskExplorer?"));
+			if (!ExitDialog.exec())
+			{
+				e->ignore();
+				return;
+			}
+		}
 	}
+
+	QApplication::quit();
 }
 
 void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
@@ -492,10 +537,16 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	if (pEvent->timerId() != m_uTimerID)
 		return;
 
-	if (GetCurTick() - m_LastTimer < theConf->GetInt("Options/RefreshInterval", 1000) / 2)
+	quint64 Interval = theConf->GetInt("Options/RefreshInterval", 1000);
+	if (GetCurTick() - m_LastTimer < Interval / 2)
 		return;
 
 	UpdateUserMenu();
+
+	m_pMenuExpandAll->setEnabled(m_pProcessTree->IsTree());
+
+	foreach(QAction* pAction, m_pRefreshGroup->actions())
+		pAction->setChecked(pAction->data().toULongLong() == Interval);
 
 	if(!m_pMenuPauseRefresh->isChecked())
 		UpdateAll();
@@ -575,17 +626,17 @@ void CTaskExplorer::UpdateStatus()
 	SSysStats SysStats = theAPI->GetStats();
 
 	QString IO;
-	IO += tr("R: %1").arg(FormatSize(qMax(SysStats.Io.ReadRate.Get(), qMax(SysStats.MMapIo.ReadRate.Get(), SysStats.Disk.ReadRate.Get()))) + "/s");
+	IO += tr("R: %1").arg(FormatRate(qMax(SysStats.Io.ReadRate.Get(), qMax(SysStats.MMapIo.ReadRate.Get(), SysStats.Disk.ReadRate.Get()))));
 	IO += " ";
-	IO += tr("W: %1").arg(FormatSize(qMax(SysStats.Io.WriteRate.Get(), qMax(SysStats.MMapIo.WriteRate.Get(), SysStats.Disk.WriteRate.Get()))) + "/s");
+	IO += tr("W: %1").arg(FormatRate(qMax(SysStats.Io.WriteRate.Get(), qMax(SysStats.MMapIo.WriteRate.Get(), SysStats.Disk.WriteRate.Get()))));
 	m_pStausIO->setText(IO + "    ");
 
 	QStringList IOInfo;
-	IOInfo.append(tr("FileIO; Read: %1/s; Write: %2/s; Other: %3/s").arg(FormatSize(SysStats.Io.ReadRate.Get())).arg(FormatSize(SysStats.Io.WriteRate.Get())).arg(FormatSize(SysStats.Io.OtherRate.Get())));
-	IOInfo.append(tr("MMapIO; Read: %1/s; Write: %2/s").arg(FormatSize(SysStats.MMapIo.ReadRate.Get())).arg(FormatSize(SysStats.MMapIo.WriteRate.Get())));
+	IOInfo.append(tr("FileIO; Read: %1; Write: %2; Other: %3").arg(FormatRate(SysStats.Io.ReadRate.Get())).arg(FormatRate(SysStats.Io.WriteRate.Get())).arg(FormatRate(SysStats.Io.OtherRate.Get())));
+	IOInfo.append(tr("MMapIO; Read: %1; Write: %2").arg(FormatRate(SysStats.MMapIo.ReadRate.Get())).arg(FormatRate(SysStats.MMapIo.WriteRate.Get())));
 #ifdef WIN32
 	if(((CWindowsAPI*)theAPI)->HasExtProcInfo() || ((CWindowsAPI*)theAPI)->IsMonitoringETW())
-		IOInfo.append(tr("DiskIO; Read: %1/s; Write: %2/s").arg(FormatSize(SysStats.Disk.ReadRate.Get())).arg(FormatSize(SysStats.Disk.WriteRate.Get())));
+		IOInfo.append(tr("DiskIO; Read: %1; Write: %2").arg(FormatRate(SysStats.Disk.ReadRate.Get())).arg(FormatRate(SysStats.Disk.WriteRate.Get())));
 #endif
 	m_pStausIO->setToolTip(IOInfo.join("\r\n"));
 
@@ -595,14 +646,14 @@ void CTaskExplorer::UpdateStatus()
 	CNetMonitor::SDataRates RasRates = pNetMonitor->GetTotalDataRate(CNetMonitor::eRas);
 
 	QString Net;
-	Net += tr("D: %1").arg(FormatSize(NetRates.ReceiveRate) + "/s");
+	Net += tr("D: %1").arg(FormatRate(NetRates.ReceiveRate));
 	Net += " ";
-	Net += tr("U: %1").arg(FormatSize(NetRates.SendRate) + "/s");
+	Net += tr("U: %1").arg(FormatRate(NetRates.SendRate));
 	m_pStausNET->setText(Net + "    ");
 
 	QStringList NetInfo;
-	NetInfo.append(tr("TCP/IP; Download: %1/s; Upload: %2/s").arg(FormatSize(NetRates.ReceiveRate)).arg(FormatSize(NetRates.SendRate)));
-	NetInfo.append(tr("VPN/RAS; Download: %1/s; Upload: %2/s").arg(FormatSize(RasRates.ReceiveRate)).arg(FormatSize(RasRates.SendRate)));
+	NetInfo.append(tr("TCP/IP; Download: %1; Upload: %2").arg(FormatRate(NetRates.ReceiveRate)).arg(FormatRate(NetRates.SendRate)));
+	NetInfo.append(tr("VPN/RAS; Download: %1; Upload: %2").arg(FormatRate(RasRates.ReceiveRate)).arg(FormatRate(RasRates.SendRate)));
 	m_pStausNET->setToolTip(NetInfo.join("\r\n"));
 
 
@@ -785,7 +836,7 @@ void CTaskExplorer::OnExit()
 
 void CTaskExplorer::OnComputerAction()
 {
-	if (sender() != m_pMenuLock)
+	if (sender() != m_pMenuLock && sender() != m_pComputerButton)
 	{
 		if (QMessageBox("TaskExplorer", tr("Do you really want to %1?").arg(((QAction*)sender())->text()), QMessageBox::Warning, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 			return;
@@ -798,7 +849,7 @@ void CTaskExplorer::OnComputerAction()
 #ifdef WIN32
 	bool bSuccess = false;
 
-	if (sender() == m_pMenuLock)
+	if (sender() == m_pMenuLock || sender() == m_pComputerButton)
 		bSuccess = LockWorkStation();
 	else if (sender() == m_pMenuLogOff)
 		bSuccess = ExitWindowsEx(EWX_LOGOFF, 0);
@@ -961,6 +1012,11 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 	}
 }
 
+void CTaskExplorer::OnShowHide()
+{
+	OnSysTray(QSystemTrayIcon::DoubleClick);
+}
+
 void CTaskExplorer::OnSysTab()
 {
 	QAction* pAction = (QAction*)sender();
@@ -998,10 +1054,10 @@ void CTaskExplorer::OnSettings()
 
 void CTaskExplorer::UpdateOptions()
 {
-	m_pCustomItemDelegate->m_Grid = theConf->GetBool("Options/ShowGrid", true);
-	m_pCustomItemDelegate->m_Color = QColor(theConf->GetString("Colors/GridColor", "#808080"));
-
-	m_pGraphBar->UpdateLengths();
+	if (theConf->GetBool("Options/ShowGrid", true))
+		m_pCustomItemDelegate->SetGridColor(QColor(theConf->GetString("Colors/GridColor", "#808080")));
+	else
+		m_pCustomItemDelegate->SetGridColor(Qt::transparent);
 
 	if(theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->show();
@@ -1208,6 +1264,24 @@ QColor CTaskExplorer::GetColor(int Color)
 	QString ColorStr;
 	switch (Color)
 	{
+	case eGraphBack:	ColorStr = theConf->GetString("Colors/GraphBack", "#808080"); break;
+	case eGraphFront:	ColorStr = theConf->GetString("Colors/GraphFront", "#FFFFFF"); break;
+
+	case ePlotBack:		ColorStr = theConf->GetString("Colors/PlotBack", "#EFEFEF"); break; // QColor(0, 0, 64);
+	case ePlotFront:	ColorStr = theConf->GetString("Colors/PlotFront", "#505050"); break; // QColor(187, 206, 239);
+	case ePlotGrid:		ColorStr = theConf->GetString("Colors/PlotGrid", "#C7C7C7"); break; // QColor(46, 44, 119);
+	}
+	if (!ColorStr.isNull())
+		return QColor(ColorStr);
+
+	return GetListColor(Color);
+}
+
+QColor CTaskExplorer::GetListColor(int Color)
+{
+	QString ColorStr;
+	switch (Color)
+	{
 	case eToBeRemoved:	ColorStr = theConf->GetString("Colors/ToBeRemoved", "#F08080"); break;
 	case eAdded:		ColorStr = theConf->GetString("Colors/NewlyCreated", "#00FF7F"); break;
 	
@@ -1238,6 +1312,15 @@ QColor CTaskExplorer::GetColor(int Color)
 		return QColor(ColorUse.first);
 
 	return QColor(theConf->GetString("Colors/Background", "#FFFFFF"));
+}
+
+
+int CTaskExplorer::GetGraphLimit(bool bLong)
+{
+	int interval = theConf->GetInt("Options/RefreshInterval", 1000); // 5 minutes default
+	int limit = interval ? theConf->GetInt("Options/GraphLength", 300) * 1000 / interval : 300;
+
+	return limit;
 }
 
 void CTaskExplorer::OnStatusMessage(const QString& Message)

@@ -10,7 +10,7 @@
 
 #define VERSION_MJR		0
 #define VERSION_MIN 	8
-#define VERSION_REV 	0
+#define VERSION_REV 	5
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -32,6 +32,14 @@ public:
 
 	enum EColor {
 		eNone = 0,
+
+		eGraphBack,
+		eGraphFront,
+
+		ePlotBack,
+		ePlotFront,
+		ePlotGrid,
+
 		eAdded,
 #ifdef WIN32
 		eDange,
@@ -57,6 +65,9 @@ public:
 		eColorCount
 	};
 	static QColor		GetColor(int Color);
+	static QColor		GetListColor(int Color);
+
+	static int			GetGraphLimit(bool bLong = false);
 
 	static void			CheckErrors(QList<STATUS> Errors);
 
@@ -100,6 +111,8 @@ private slots:
 
 	void				OnSystemInfo();
 
+	void				OnChangeInterval(QAction* pAction);
+
 	void				OnFindHandle();
 	void				OnFindDll();
 	void				OnFindMemory();
@@ -115,6 +128,7 @@ private slots:
 	void				OnMonitorETW();
 
 	void				OnSysTray(QSystemTrayIcon::ActivationReason Reason);
+	void				OnShowHide();
 
 	void				OnAbout();
 
@@ -221,6 +235,13 @@ private:
 	QAction*			m_pMenuAboutPH;
 #endif
 	QAction*			m_pMenuAboutQt;
+
+	QToolButton*		m_pRefreshButton;
+	QActionGroup*		m_pRefreshGroup;
+	QToolButton*		m_pFindButton;
+	QToolButton*		m_pFreeButton;
+	QToolButton*		m_pComputerButton;
+
 
 	QSystemTrayIcon*	m_pTrayIcon;
 	QMenu*				m_pTrayMenu;

@@ -111,10 +111,10 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Debug\qextwidgets.lib;wbemuuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qtmaind.lib;..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;Qt5Concurrentd.lib;Qt5Cored.lib;Qt5Guid.lib;Qt5Networkd.lib;Qt5Widgetsd.lib;Qt5WinExtrasd.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Debug\qextwidgets.lib;wbemuuid.lib;dnsapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
-      <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;cfgmgr32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;cfgmgr32.dll;dnsapi.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <QtMoc>
       <OutputFile>.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</OutputFile>
@@ -325,6 +325,7 @@
     <ClCompile Include="Common\KeyValueInputDialog.cpp" />
     <ClCompile Include="Common\ListItemModel.cpp" />
     <ClCompile Include="Common\MultiLineInputDialog.cpp" />
+    <ClCompile Include="Common\SmartGridWidget.cpp" />
     <ClCompile Include="Common\PanelView.cpp" />
     <ClCompile Include="Common\qzlib.cpp" />
     <ClCompile Include="Common\Settings.cpp" />
@@ -733,6 +734,7 @@
     </QtMoc>
     <QtMoc Include="Common\ProgressDialog.h" />
     <QtMoc Include="Common\ItemChooser.h" />
+    <QtMoc Include="Common\SmartGridWidget.h" />
     <ClInclude Include="Common\qzlib.h" />
     <QtMoc Include="Common\SortFilterProxyModel.h" />
     <QtMoc Include="GUI\Models\ThreadModel.h">

@@ -162,8 +162,10 @@ void CModulesView::ShowModules(const QMap<quint64, CModulePtr>& Modules)
 
 void CModulesView::OnMenu(const QPoint &point)
 {
+	QModelIndexList selectedRows = m_pModuleList->selectedRows();
+
 	int Loaded = 0;
-	foreach(const QModelIndex& Index, m_pModuleList->selectedRows())
+	foreach(const QModelIndex& Index, selectedRows)
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CModulePtr pModule = m_pModuleModel->GetModule(ModelIndex);
@@ -171,7 +173,7 @@ void CModulesView::OnMenu(const QPoint &point)
 			Loaded++;
 	}
 
-	m_pOpen->setEnabled(m_pModuleList->selectedRows().count() == 1);
+	m_pOpen->setEnabled(selectedRows.count() == 1);
 	m_pUnload->setEnabled(Loaded > 0);
 	
 	CPanelView::OnMenu(point);

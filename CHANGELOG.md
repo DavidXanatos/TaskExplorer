@@ -3,7 +3,43 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+
+
+## [0.8.5] - 2019-09-01
+
+### Added
+- multi graph widget (optional individual CPU plots and individual GPU Node plots)
+- plot background/text/grid colirs can now be changed
+- added close (WM_CLOSE) and quit command (WM_QUIT)
+- added option for rates/deltas and cpu/gpu usage to show an empty string instead of '0'
+- added option to highlicht the x top resource users per column
+- reduced GUI cpu load by 20% by improved issuing of cell updates in the process tree model
+- added window title and status columns
+- added toolbar option to quickly adjust the refresh rate
+- added options to tray menu
+
+### Changed
+- system plots now set the proper length
+- all tool bar drop down buttons have now a default action
+- now the xprocesshacker.sys is used by default
+
+### Fixed
+- fixed issues with changing graph length
+- fixed bad color contrast of sellected items
+- fixed a crash (race condition) when closing
+- fixed issues with cycle based cpu usage calculation
+- fixed major issue with process stat display
+- fixed isue with PrivateBytesDelta column
+- fixed issue with asynchroniouse username resolution
+- fixed cpu time columns showing a wrong value
+- fixed broken protection columns DEP and ASLR 
+- fixed broken file info columns size and modification time
+
+
+
 ## [0.8.0] - 2019-08-26
+
 ### Added
 - added listing of unloaded DLLs (shown in gray in modules tab)
 - added "Services referencing" feature to modules tab -> column
@@ -59,6 +95,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - fixed resize issue when collapsing the side panel
 - fixed crash issue with text copy in service and driver views
 - fixed issue in socket listing
+
 
 
 ## [0.7] - 2019-08-09
@@ -131,7 +168,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - fixed an issue where reused handles woule be colored as to be removed permanently
 - fixed column order getting messed up in process tree when adding/removing columns
-- QHexEditor does not longer allow to replace a string with a different length string when its not in insert moe
+- QHexEditor does not longer allow to replace a string with a different length string when its not in insert mode
 - fixed crash bug in CWinToken::InitStaticData
 - fixed a many of small bugs preventing compilation of the UI on Linux
 
@@ -205,7 +242,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - auto run using windows registry
 - build x86 binaries
 - add option to create a process dump
-- afility to run a program with the tocken of an other program (run as this user)
+- afility to run a program with the Token of an other program (run as this user)
 - services tab showing services hosted by the selcted process
 - add go to service key
 - type filter to handles
@@ -334,7 +371,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.0.2] - 2019-05-31
 ### Added
-- ProcessHacker Library integration
 - Global and per process Listing of open sockets/connections
 
 ### Changed

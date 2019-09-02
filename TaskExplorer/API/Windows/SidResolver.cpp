@@ -25,10 +25,10 @@ bool CSidResolver::Init()
 	return true;
 }
 
-QString CSidResolver::GetSidFullNameCached(const QByteArray& Sid, QObject *receiver, const char *member)
+QString CSidResolver::GetSidFullName(const QByteArray& Sid, QObject *receiver, const char *member)
 {
     if (receiver && !QAbstractEventDispatcher::instance(QThread::currentThread())) {
-        qWarning("CSidResolver::GetSidFullNameCached() called with no event dispatcher");
+        qWarning("CSidResolver::GetSidFullName() called with no event dispatcher");
         return "";
     }
 
@@ -68,7 +68,7 @@ void CSidResolver::OnSidResolved(const QByteArray& Sid, const QString& FullName)
 
 void CSidResolver::run()
 {
-	SetThreadDescription(GetCurrentThread(), L"SID Resolver");
+	//SetThreadDescription(GetCurrentThread(), L"SID Resolver");
 
 	int IdleCount = 0;
 	while (m_bRunning)

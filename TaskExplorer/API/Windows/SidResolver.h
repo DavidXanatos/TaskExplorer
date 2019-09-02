@@ -11,7 +11,7 @@ public:
 
 	bool Init();
 
-	QString GetSidFullNameCached(const QByteArray& Sid, QObject *receiver = NULL, const char *member = NULL);
+	QString GetSidFullName(const QByteArray& Sid, QObject *receiver = NULL, const char *member = NULL);
 
 private slots:
 	virtual void OnSidResolved(const QByteArray& Sid, const QString& FullName);

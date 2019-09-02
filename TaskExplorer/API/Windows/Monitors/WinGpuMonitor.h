@@ -14,7 +14,7 @@ public:
 	virtual bool		UpdateAdapters();
 
 	static QString QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, const /*DEVPROPKEY*/struct _DEVPROPKEY *DeviceProperty);
-	static QString QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, ulong DeviceProperty);
+	static QString QueryDeviceRegistryProperty(/*DEVINST*/quint32 DeviceHandle, quint32 DeviceProperty);
 	static quint64 QueryGpuInstalledMemory(/*DEVINST*/quint32 DeviceHandle);
 	static bool QueryDeviceProperties(wchar_t* DeviceInterface, QString* Description, QString* DriverDate, QString* DriverVersion, QString* LocationInfo, quint64* InstalledMemory);
 
@@ -29,7 +29,7 @@ protected:
 
 	QMap<QString, struct SGpuAdapter*> GetAdapterList() { QReadLocker Locker(&m_StatsMutex); return m_GpuAdapterList; }
 
-	struct SGpuAdapter*	AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* AdapterLuid, ulong NumberOfSegments, ulong NumberOfNodes);
+	struct SGpuAdapter*	AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* AdapterLuid, quint32 NumberOfSegments, quint32 NumberOfNodes);
 
 	void				UpdateProcessSegmentInformation(const CProcessPtr& pProcess);
 	void				UpdateSystemSegmentInformation();

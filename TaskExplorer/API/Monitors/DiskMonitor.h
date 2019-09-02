@@ -36,7 +36,7 @@ public:
 			DiskIndex = ULONG_MAX;
 		}
 
-		ulong DeviceIndex;
+		quint32 DeviceIndex;
 		bool DevicePresent;
 		bool DeviceSupported;
 		QString DevicePath;
@@ -55,12 +55,12 @@ public:
 
 		float ResponseTime;
 		float ActiveTime;
-		ulong QueueDepth;
-		ulong SplitCount;
+		quint32 QueueDepth;
+		quint32 SplitCount;
 
 		quint64 TotalSize;
 
-		ulong DiskIndex;
+		quint32 DiskIndex;
 	};
 
 	virtual QMap<QString, SDiskInfo>	GetAllDiskList() const { QReadLocker Locker(&m_StatsMutex); return m_DiskList; }

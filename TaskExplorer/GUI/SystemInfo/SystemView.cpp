@@ -70,27 +70,6 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pSystemLayout->addWidget(m_pSystemDir, row++, 0, 1, 3);
 
 
-	/*m_pStatsList = new QTreeWidgetEx();
-
-	m_pStatsList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pStatsList->setHeaderLabels(tr("Name|Value").split("|"));
-	m_pStatsList->header()->hide();
-
-	m_pStatsList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pStatsList->setSortingEnabled(false);
-
-	for (int i = 0; i < 100; i++) {
-		QTreeWidgetItem* pItem = new QTreeWidgetItem();
-		//pItem->setData(0, Qt::UserRole, i);
-		pItem->setText(0, QString::number(i));
-		m_pStatsList->addTopLevelItem(pItem);
-	}
-
-	m_pStatsList->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(m_pStatsList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
-
-	m_pInfoLayout->addWidget(m_pStatsList);*/
-
 	m_pStatsView = new CStatsView(CStatsView::eSystem, this);
 	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
 	m_pInfoLayout->addWidget(m_pStatsView);

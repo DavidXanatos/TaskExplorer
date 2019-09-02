@@ -94,7 +94,7 @@ CWinSocket::~CWinSocket()
 	return address;
 }*/
 
-bool CWinSocket::InitStaticData(quint64 ProcessId, ulong ProtocolType,
+bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 	const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
 {
 	QWriteLocker Locker(&m_Mutex);
@@ -236,11 +236,15 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 	return modified;
 }
 
-QString CWinSocket::GetFirewallStatus()
-{ 
+int CWinSocket::GetFirewallStatus()
+{
 	QReadLocker Locker(&m_Mutex); 
+	return m->FwStatus;
+}
 
-	switch (m->FwStatus)
+QString CWinSocket::GetFirewallStatusString()
+{ 
+	switch (GetFirewallStatus())
 	{
 		case FirewallAllowedNotRestricted:		return tr("Allowed, not restricted");
 		case FirewallAllowedRestricted:			return tr("Allowed, restricted");
@@ -320,7 +324,7 @@ ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, 
     return result;
 }
 
-void CWinSocket::AddNetworkIO(int Type, ulong TransferSize)
+void CWinSocket::AddNetworkIO(int Type, quint32 TransferSize)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 

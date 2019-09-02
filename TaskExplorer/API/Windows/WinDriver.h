@@ -12,7 +12,7 @@ public:
 	virtual quint64 GetImageSize() const { QReadLocker Locker(&m_Mutex); return m_ImageSize; }
 
 public slots:
-	void			OnAsyncDataDone(bool IsPacked, ulong ImportFunctions, ulong ImportModules);
+	void			OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules);
 
 protected:
 	friend class CWindowsAPI;

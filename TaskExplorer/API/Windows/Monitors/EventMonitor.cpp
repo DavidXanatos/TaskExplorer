@@ -253,7 +253,7 @@ bool CEventMonitor::StartSession()
 	return true;
 }
 
-ulong CEventMonitor::ControlSession(ulong ControlCode)
+quint32 CEventMonitor::ControlSession(quint32 ControlCode)
 {
     // If we have a session handle, we use that instead of the logger name.
 
@@ -399,7 +399,7 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
         // TcpIp/UdpIp
 
 		ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
-		ulong ProtocolType = 0;
+		quint32 ProtocolType = 0;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
@@ -429,7 +429,7 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
         if (Type != EtEtwUnknow)
         {
 			quint64 ProcessId = -1;
-			ulong TransferSize = 0;
+			quint32 TransferSize = 0;
 
 			QHostAddress LocalAddress;
 			quint16 LocalPort = 0;
@@ -554,7 +554,7 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 
 void CEventMonitor::run()
 {
-	SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
+	//SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
 
 	//exec();
 

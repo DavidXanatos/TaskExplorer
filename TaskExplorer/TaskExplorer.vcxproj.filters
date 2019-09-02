@@ -473,6 +473,9 @@
     <ClCompile Include="API\Windows\SidResolver.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="Common\SmartGridWidget.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -899,6 +902,9 @@
     </QtMoc>
     <QtMoc Include="API\Windows\SidResolver.h">
       <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\SmartGridWidget.h">
+      <Filter>Common</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

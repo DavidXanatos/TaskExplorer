@@ -54,43 +54,13 @@
         <layout class="QGridLayout" name="gridLayout_4">
          <item row="1" column="0">
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_4">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_8">
              <property name="text">
-              <string>General options</string>
+              <string>Graph length:</string>
              </property>
-            </widget>
-           </item>
-           <item row="9" column="0">
-            <widget class="QLabel" name="label_5">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Tray options</string>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="1">
-            <widget class="QCheckBox" name="chkShow32">
-             <property name="text">
-              <string>Append &quot;*32&quot; to WoW64 processes</string>
-             </property>
-            </widget>
-           </item>
-           <item row="11" column="1">
-            <widget class="QCheckBox" name="chkShowTray">
-             <property name="text">
-              <string>Show Sys-Tray</string>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -107,6 +77,42 @@
              </property>
             </spacer>
            </item>
+           <item row="15" column="1">
+            <spacer name="verticalSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_9">
+             <property name="text">
+              <string>Refresh interval:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Tray options</string>
+             </property>
+            </widget>
+           </item>
            <item row="5" column="1">
             <widget class="QSpinBox" name="refreshInterval">
              <property name="maximum">
@@ -114,6 +120,33 @@
              </property>
              <property name="singleStep">
               <number>250</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_4">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>General options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QCheckBox" name="chkShow32">
+             <property name="text">
+              <string>Append &quot;*32&quot; to WoW64 processes</string>
+             </property>
+            </widget>
+           </item>
+           <item row="11" column="1">
+            <widget class="QCheckBox" name="chkShowTray">
+             <property name="text">
+              <string>Show Sys-Tray</string>
              </property>
             </widget>
            </item>
@@ -134,39 +167,6 @@
              </property>
             </widget>
            </item>
-           <item row="15" column="1">
-            <spacer name="verticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="6" column="0">
-            <widget class="QLabel" name="label_8">
-             <property name="text">
-              <string>Graph length:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="0">
-            <widget class="QLabel" name="label_9">
-             <property name="text">
-              <string>Refresh interval:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
            <item row="6" column="2">
             <widget class="QLabel" name="label_11">
              <property name="text">
@@ -181,30 +181,13 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="1">
-            <widget class="QCheckBox" name="chkLinuxStyle">
-             <property name="text">
-              <string>Show CPU Usage like on Linux</string>
-             </property>
-             <property name="tristate">
-              <bool>true</bool>
-             </property>
-            </widget>
+           <item row="12" column="1">
+            <widget class="QComboBox" name="trayMode"/>
            </item>
-           <item row="6" column="1">
-            <widget class="QSpinBox" name="graphLength">
-             <property name="maximum">
-              <number>1800</number>
-             </property>
-             <property name="singleStep">
-              <number>60</number>
-             </property>
-            </widget>
-           </item>
-           <item row="13" column="1">
-            <widget class="QCheckBox" name="chkToTray">
+           <item row="8" column="1" colspan="2">
+            <widget class="QCheckBox" name="chkUdpCons">
              <property name="text">
-              <string>Close to Sys-Tray</string>
+              <string>Show Pseudo UDP Connections</string>
              </property>
             </widget>
            </item>
@@ -221,15 +204,52 @@
              </property>
             </spacer>
            </item>
-           <item row="12" column="1">
-            <widget class="QComboBox" name="trayMode"/>
-           </item>
-           <item row="8" column="1" colspan="2">
-            <widget class="QCheckBox" name="chkUdpCons">
+           <item row="2" column="1">
+            <widget class="QCheckBox" name="chkLinuxStyle">
              <property name="text">
-              <string>Show Pseudo UDP Connections</string>
+              <string>Show CPU Usage like on Linux</string>
+             </property>
+             <property name="tristate">
+              <bool>true</bool>
              </property>
             </widget>
+           </item>
+           <item row="13" column="1">
+            <widget class="QCheckBox" name="chkToTray">
+             <property name="text">
+              <string>Close to Sys-Tray</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QSpinBox" name="graphLength">
+             <property name="maximum">
+              <number>1800</number>
+             </property>
+             <property name="singleStep">
+              <number>60</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QCheckBox" name="chkClearZeros">
+             <property name="text">
+              <string>Show empty cells instead of zero</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_18">
+             <property name="text">
+              <string>Highlight high load cells</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QSpinBox" name="highlightCount"/>
            </item>
           </layout>
          </item>

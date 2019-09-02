@@ -157,11 +157,11 @@ int main(int argc, char *argv[])
 		CTaskService::TerminateWorkers();
 	}
 
-	delete theConf;
-	theConf = NULL;
-
 	// note: if ran as a service teh instance wil have already been delted, but delete NULL is ok
 	delete QCoreApplication::instance();
+
+	delete theConf;
+	theConf = NULL;
 
 	return ret;
 }

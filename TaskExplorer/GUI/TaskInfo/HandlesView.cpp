@@ -523,6 +523,8 @@ void CHandlesView::OnMenu(const QPoint &point)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
 
+	QModelIndexList selectedRows = m_pHandleList->selectedRows();
+
 	m_pClose->setEnabled(!pHandle.isNull());
 
 #ifdef WIN32
@@ -544,7 +546,7 @@ void CHandlesView::OnMenu(const QPoint &point)
 
 	m_pTask->menuAction()->setVisible(Type == "Process" || Type == "Thread");
 
-	m_pPermissions->setEnabled(m_pHandleList->selectedRows().count() == 1);
+	m_pPermissions->setEnabled(selectedRows.count() == 1);
 #endif
 	
 	CPanelView::OnMenu(point);

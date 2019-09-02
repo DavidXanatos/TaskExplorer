@@ -3,18 +3,16 @@
 class CCustomItemDelegate : public QStyledItemDelegate
 {
 public:
-	explicit CCustomItemDelegate(int MaxHeight, QObject * parent = 0) : CCustomItemDelegate(MaxHeight, false, parent) { }
-	explicit CCustomItemDelegate(int MaxHeight, QColor Color, QObject * parent = 0) : CCustomItemDelegate(MaxHeight, Color, false, parent) { }
-	explicit CCustomItemDelegate(int MaxHeight, bool Tree, QObject * parent = 0) : CCustomItemDelegate(MaxHeight, QColor(Qt::darkGray), false, parent) { }
-	explicit CCustomItemDelegate(int MaxHeight, QColor Color, bool Tree, QObject * parent = 0) : QStyledItemDelegate(parent) 
+	explicit CCustomItemDelegate(int MaxHeight, QObject * parent = 0) : QStyledItemDelegate(parent) 
 	{
 		m_MaxHeight = MaxHeight;
-		m_Color = Color;  
-		m_Tree = Tree; 
-		m_Grid = true;
+		m_GridColor = Qt::transparent;  
+
+		m_Style = QStyleFactory::create("windows");
+		m_Style->setParent(this);
 	}
  
-	void paint(QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const
+	void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index ) const
     {
 		//QStyledItemDelegate::paint(painter, option, index);
 
@@ -27,32 +25,35 @@ public:
 
 		//opt->backgroundBrush = qvariant_cast<QBrush>(index.data(Qt::BackgroundRole));
 
-		QStyle *style = QApplication::style();
-		style->drawControl(QStyle::CE_ItemViewItem, &opt, painter);
+		//QStyle* style = QApplication::style();
+		m_Style->drawControl(QStyle::CE_ItemViewItem, &opt, painter);
 
 		//
 
-		if (m_Grid)
+		if (m_GridColor != Qt::transparent)
 		{
 			painter->save();
-			painter->setPen(m_Color);
+			painter->setPen(m_GridColor);
 			//painter->drawRect(option.rect);
 			//painter->drawLine(option.rect.left(), option.rect.top(), option.rect.right(), option.rect.top());
 			painter->drawLine(option.rect.right(), option.rect.top(), option.rect.right(), option.rect.bottom());
-			painter->drawLine(option.rect.left() + (m_Tree && index.column() == 0 ? 24 : 0), option.rect.bottom(), option.rect.right(), option.rect.bottom());
+			//painter->drawLine(option.rect.left() + (m_Tree && index.column() == 0 ? 24 : 0), option.rect.bottom(), option.rect.right(), option.rect.bottom());
+			painter->drawLine(option.rect.left(), option.rect.bottom(), option.rect.right(), option.rect.bottom());
 			painter->restore();
 		}
     }
 
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+	void SetGridColor(const QColor& GridColor) { m_GridColor = GridColor; }
+	
+	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 	{
 		QSize size = QStyledItemDelegate::sizeHint(option, index);
 		size.setHeight(m_MaxHeight);
 		return size;
 	}
 
+protected:
 	int m_MaxHeight;
-	bool m_Grid;
-	bool m_Tree;
-	QColor m_Color;
+	QColor m_GridColor;
+	QStyle* m_Style;
 };

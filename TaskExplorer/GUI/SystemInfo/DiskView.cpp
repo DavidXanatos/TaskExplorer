@@ -36,9 +36,11 @@ CDiskView::CDiskView(QWidget *parent)
 	pal.setColor(QPalette::Background, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
-	QColor Back = QColor(0, 0, 64);
-	QColor Front = QColor(187, 206, 239);
-	QColor Grid = QColor(46, 44, 119);
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pGraphTabs = new QTabWidget();
 	m_pGraphTabs->setTabPosition(QTabWidget::South);
@@ -50,6 +52,7 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pDiskPlot->setMinimumWidth(50);
 	m_pDiskPlot->SetupLegend(Front, tr("Disk Usage"), CIncrementalPlot::eDate);
 	m_pDiskPlot->SetRagne(100);
+	m_pDiskPlot->SetLimit(m_PlotLimit);
 	m_pGraphTabs->addTab(m_pDiskPlot, tr("Disk Usage"));
 	
 	m_pWRPlotWidget = new QWidget();
@@ -62,12 +65,14 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pReadPlot->setMinimumHeight(120);
 	m_pReadPlot->setMinimumWidth(50);
 	m_pReadPlot->SetupLegend(Front, tr("Read Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pReadPlot->SetLimit(m_PlotLimit);
 	m_pWRPlotLayout->addWidget(m_pReadPlot);
 
 	m_pWritePlot = new CIncrementalPlot(Back, Front, Grid);
 	m_pWritePlot->setMinimumHeight(120);
 	m_pWritePlot->setMinimumWidth(50);
 	m_pWritePlot->SetupLegend(Front, tr("Write Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pWritePlot->SetLimit(m_PlotLimit);
 	m_pWRPlotLayout->addWidget(m_pWritePlot);
 
 	m_bHasUnSupported = false;
@@ -82,6 +87,7 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pFileIOPlot->setMinimumHeight(120);
 	m_pFileIOPlot->setMinimumWidth(50);
 	m_pFileIOPlot->SetupLegend(Front, tr("File IO"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pFileIOPlot->SetLimit(m_PlotLimit);
 	m_pIOPlotLayout->addWidget(m_pFileIOPlot);
 
 	m_pFileIOPlot->AddPlot("FileIO_Read", Qt::green, Qt::SolidLine, false, tr("Read Rate"));
@@ -92,6 +98,7 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pMMapIOPlot->setMinimumHeight(120);
 	m_pMMapIOPlot->setMinimumWidth(50);
 	m_pMMapIOPlot->SetupLegend(Front, tr("MMap IO"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
+	m_pMMapIOPlot->SetLimit(m_PlotLimit);
 	m_pIOPlotLayout->addWidget(m_pMMapIOPlot);
 
 	m_pMMapIOPlot->AddPlot("MMapIO_Read", Qt::green, Qt::SolidLine, false, tr("Read Rate"));
@@ -144,6 +151,25 @@ CDiskView::~CDiskView()
 	theConf->SetBlob(objectName() + "/DiskView_Columns", m_pDiskList->GetView()->header()->saveState());
 }
 
+void CDiskView::ReConfigurePlots()
+{
+	m_PlotLimit = theGUI->GetGraphLimit(true);
+	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
+	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
+	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
+
+	m_pDiskPlot->SetLimit(m_PlotLimit);
+	m_pDiskPlot->SetColors(Back, Front, Grid);
+	m_pReadPlot->SetLimit(m_PlotLimit);
+	m_pReadPlot->SetColors(Back, Front, Grid);
+	m_pWritePlot->SetLimit(m_PlotLimit);
+	m_pWritePlot->SetColors(Back, Front, Grid);
+	m_pFileIOPlot->SetLimit(m_PlotLimit);
+	m_pFileIOPlot->SetColors(Back, Front, Grid);
+	m_pMMapIOPlot->SetLimit(m_PlotLimit);
+	m_pMMapIOPlot->SetColors(Back, Front, Grid);
+}
+
 void CDiskView::Refresh()
 {
 	CDiskMonitor* pDiskMonitor = theAPI->GetDiskMonitor();
@@ -178,12 +204,12 @@ void CDiskView::Refresh()
 			pItem->setText(eResponseTime, tr("%1 ms").arg(DiskInfo.ResponseTime, 2, 'g', 2));
 			pItem->setText(eQueueLength, QString::number(DiskInfo.QueueDepth));
 
-			pItem->setText(eReadRate, tr("%1/s").arg(FormatSize(DiskInfo.ReadRate.Get())));
+			pItem->setText(eReadRate, FormatRate(DiskInfo.ReadRate.Get()));
 			pItem->setText(eBytesRead, FormatSize(DiskInfo.ReadRawDelta.Value));
 			pItem->setText(eBytesReadDelta, FormatSize(DiskInfo.ReadRawDelta.Delta));
 			pItem->setText(eReads, FormatNumber(DiskInfo.ReadDelta.Value));
 			pItem->setText(eReadsDelta, FormatNumber(DiskInfo.ReadDelta.Delta));
-			pItem->setText(eWriteRate, tr("%1/s").arg(FormatSize(DiskInfo.WriteRate.Get())));
+			pItem->setText(eWriteRate, FormatRate(DiskInfo.WriteRate.Get()));
 			pItem->setText(eBytesWriten, FormatSize(DiskInfo.WriteRawDelta.Value));
 			pItem->setText(eBytesWritenDelta, FormatSize(DiskInfo.WriteRawDelta.Delta));
 			pItem->setText(eWrites, FormatNumber(DiskInfo.WriteDelta.Value));

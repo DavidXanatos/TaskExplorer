@@ -20,9 +20,13 @@ QStringList SplitStr(const QString& String, QString Separator);
 
 
 QString FormatSize(quint64 Size, int Precision = 2);
+__inline QString FormatSizeEx(quint64 Size, bool bEx) { return bEx && (Size == 0) ? QString() : FormatSize(Size); }
+QString FormatRate(quint64 Size, int Precision = 2);
+__inline QString FormatRateEx(quint64 Size, bool bEx) { return bEx && (Size == 0) ? QString() : FormatRate(Size); }
 QString FormatUnit(quint64 Size, int Precision = 0);
 QString	FormatTime(quint64 Time);
 QString	FormatNumber(quint64 Number);
+__inline QString FormatNumberEx(quint64 Number, bool bEx) { return bEx && (Number == 0) ? QString() : FormatNumber(Number); }
 QString	FormatAddress(quint64 Address, int length = 16);
 
 template<class T>

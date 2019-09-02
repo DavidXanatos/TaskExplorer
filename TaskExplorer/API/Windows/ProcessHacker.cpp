@@ -25,6 +25,9 @@
 #include "stdafx.h"
 #include "ProcessHacker.h"
 #include <settings.h>
+extern "C" {
+#include <kphuserp.h>
+}
 
 #include "../../SVC/TaskService.h"
 
@@ -352,8 +355,32 @@ STATUS InitKPH(QString DeviceName, QString FileName, bool bPrivilegeCheck)
     parameters.CreateDynamicConfiguration = TRUE;
 	NTSTATUS status = KphConnect2Ex((wchar_t*)DeviceName.toStdWString().c_str(), (wchar_t*)FileName.toStdWString().c_str(), &parameters);
     if (!NT_SUCCESS(status))
-		return ERR(QObject::tr("Unable to load the kernel driver."), status);
+		return ERR(QObject::tr("Unable to load the kernel driver, Error: %1").arg(CastPhString(PhGetNtMessage(status))), status);
     
+	PUCHAR signature = NULL;
+    ULONG signatureSize = 0;
+
+	QString SigFileName = QApplication::applicationDirPath() + "/TaskExplorer.sig";
+	SigFileName = SigFileName.replace("/", "\\");
+	if (QFile::exists(SigFileName))
+		PhpReadSignature((wchar_t*)SigFileName.toStdWString().c_str(), &signature, &signatureSize);
+
+	// Note: Debug driver accepts a empty signature as valid
+	if (NT_SUCCESS(KphVerifyClient(signature, signatureSize)))
+	{
+#ifdef _DEBUG
+		KPH_KEY Key;
+		KPHP_GET_L1_KEY_CONTEXT Context = { &Key };
+		KphpGetL1KeyContinuation(-1, &Context); // "Master"-Key LOL
+#endif
+		qDebug() << "Successfully verified the client signature.";
+	}
+	else
+		qDebug() << "Unable to verify the client signature.";
+
+	if(signature)
+		PhFree(signature);
+
 	return OK;
 }
 

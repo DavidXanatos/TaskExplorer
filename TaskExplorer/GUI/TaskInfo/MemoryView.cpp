@@ -148,19 +148,19 @@ void CMemoryView::OnMenu(const QPoint &point)
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CMemoryPtr pMemory = m_pMemoryModel->GetMemory(ModelIndex);
 
-	int count = m_pMemoryList->selectedRows().count();
+	QModelIndexList selectedRows = m_pMemoryList->selectedRows();
 
-    if (count == 0 || (count == 1 && !pMemory->IsAllocationBase()))
+    if (selectedRows.count() == 0 || (selectedRows.count() == 1 && !pMemory->IsAllocationBase()))
     {
-		m_pMenuSave->setEnabled(count == 1);
-		m_pMenuProtect->setEnabled(count == 1 && !pMemory->IsFree());
-		m_pMenuFree->setEnabled(count == 1 && !pMemory->IsFree());
-		m_pMenuDecommit->setEnabled(count == 1 && !pMemory->IsFree() && !pMemory->IsMapped());
+		m_pMenuSave->setEnabled(selectedRows.count() == 1);
+		m_pMenuProtect->setEnabled(selectedRows.count() == 1 && !pMemory->IsFree());
+		m_pMenuFree->setEnabled(selectedRows.count() == 1 && !pMemory->IsFree());
+		m_pMenuDecommit->setEnabled(selectedRows.count() == 1 && !pMemory->IsFree() && !pMemory->IsMapped());
     }
     else
     {
 		ulong numberOfAllocationBase = 0;
-		foreach(const QModelIndex& Index, m_pMemoryList->selectedRows())
+		foreach(const QModelIndex& Index, selectedRows)
 		{
 			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 			CMemoryPtr pMemory = m_pMemoryModel->GetMemory(ModelIndex);
@@ -169,7 +169,7 @@ void CMemoryView::OnMenu(const QPoint &point)
                 numberOfAllocationBase++;
         }
 
-        m_pMenuSave->setEnabled(numberOfAllocationBase == 0 || numberOfAllocationBase == count);
+        m_pMenuSave->setEnabled(numberOfAllocationBase == 0 || numberOfAllocationBase == selectedRows.count());
 		m_pMenuProtect->setEnabled(false);
 		m_pMenuFree->setEnabled(false);
 		m_pMenuDecommit->setEnabled(false);

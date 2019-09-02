@@ -15,6 +15,8 @@ public:
 	CProcessTree(QWidget *parent = 0);
 	virtual ~CProcessTree();
 
+	bool					IsTree() const { return m_pProcessList->IsTree(); }
+
 signals:
 	void					ProcessClicked(const CProcessPtr& pProcess);
 	void					ProcessesSelected(const QList<CProcessPtr>& Processes);
@@ -109,7 +111,9 @@ private:
 	QAction*				m_pBringInFront;
 	QAction*				m_pShowProperties;
 	QAction*				m_pOpenPath;
+	QAction*				m_pClose;
 	QMenu*					m_pMiscMenu;
+	QAction*				m_pQuit;
 	QAction*				m_pRunAsThis;
 	QAction*				m_pCreateDump;
 	QAction*				m_pDebug; // []

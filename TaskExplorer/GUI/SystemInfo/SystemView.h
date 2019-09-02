@@ -40,7 +40,6 @@ private:
 	QLabel*					m_pUserName;
 	QLineEdit*				m_pSystemDir;
 
-	//QTreeWidgetEx*			m_pStatsList;
 	CStatsView*				m_pStatsView;
 };
 

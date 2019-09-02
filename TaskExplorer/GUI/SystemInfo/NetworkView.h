@@ -18,6 +18,7 @@ public:
 public slots:
 	void					Refresh();
 	void					UpdateGraphs();
+	void					ReConfigurePlots();
 
 private slots:
 	void					OnAdapterCheck(QTreeWidgetItem* item, int column);
@@ -33,6 +34,8 @@ protected:
 	QStringList				m_HiddenAdapters;
 
 private:
+	int						m_PlotLimit;
+
 	enum EColumns
 	{
 		eAdapter = 0,

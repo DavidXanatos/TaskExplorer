@@ -16,7 +16,7 @@ public:
 	virtual QString GetFileName() const						{ QReadLocker Locker(&m_Mutex); return m_FileName; }
 
 	virtual quint64 GetFileSize() const						{ QReadLocker Locker(&m_Mutex); return m_FileSize; }
-	virtual QDateTime GetModificationTime() const			{ QReadLocker Locker(&m_Mutex); return m_ModificationTime; }
+	virtual quint64 GetModificationTime() const				{ QReadLocker Locker(&m_Mutex); return m_ModificationTime; }
 
 	virtual QString GetName() const							{ QReadLocker Locker(&m_Mutex); return m_ModuleName; }
 
@@ -46,7 +46,7 @@ protected:
 
 	QString						m_FileName;
 	quint64						m_FileSize;
-	QDateTime					m_ModificationTime;
+	quint64						m_ModificationTime;
 
 	QString						m_ModuleName;
 	quint64						m_BaseAddress;

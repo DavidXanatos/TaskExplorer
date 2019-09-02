@@ -13,10 +13,8 @@ public:
 
 public slots:
 	void					UpdateGraphs();
-
 	void					CustomizeGraphs();
-
-	void					UpdateLengths();
+	void					ReConfigurePlots();
 
 private slots:	
 	void					OnMenu(const QPoint& Point);
@@ -66,6 +64,9 @@ private:
 	void					DeleteGraphs();
 
 	int						m_Rows;
+
+	int						m_PlotLimit;
+
 	struct SGraph
 	{
 		SGraph()
