@@ -24,6 +24,7 @@
 #include "stdafx.h"
 #include "EventMonitor.h"
 #include "../ProcessHacker.h"
+#include "../WindowsAPI.h"
 
 #include <evntcons.h>
 
@@ -285,21 +286,21 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // DiskIo
 
-        ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
+        int Type = EventTypeUnknow;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case EVENT_TRACE_TYPE_IO_READ:
-            Type = EtEtwDiskReadType;
+            Type = EtwDiskReadType;
             break;
         case EVENT_TRACE_TYPE_IO_WRITE:
-            Type = EtEtwDiskWriteType;
+            Type = EtwDiskWriteType;
             break;
         default:
             break;
         }
 
-        if (Type != EtEtwUnknow)
+        if (Type != EventTypeUnknow)
         {
             DiskIo_TypeGroup1 *data = (DiskIo_TypeGroup1*)EventRecord->UserData;
 
@@ -331,24 +332,24 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // FileIo
 
-        ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
+        int Type = EventTypeUnknow;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case 0: // Name
-            Type = EtEtwFileNameType;
+            Type = EtwFileNameType;
             break;
         case 32: // FileCreate
-            Type = EtEtwFileCreateType;
+            Type = EtwFileCreateType;
             break;
         case 35: // FileDelete
-            Type = EtEtwFileDeleteType;
+            Type = EtwFileDeleteType;
             break;
         default:
             break;
         }
 
-        if (Type != EtEtwUnknow)
+        if (Type != EventTypeUnknow)
         {
 			quint64 FileId;
 			QString FileName;
@@ -398,35 +399,35 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // TcpIp/UdpIp
 
-		ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
+		int Type = EventTypeUnknow;
 		quint32 ProtocolType = 0;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case EVENT_TRACE_TYPE_SEND: // send
-            Type = EtEtwNetworkSendType;
-            ProtocolType = PH_IPV4_NETWORK_TYPE;
+            Type = EtwNetworkSendType;
+            ProtocolType = NET_TYPE_NETWORK_IPV4;
             break;
         case EVENT_TRACE_TYPE_RECEIVE: // receive
-            Type = EtEtwNetworkReceiveType;
-            ProtocolType = PH_IPV4_NETWORK_TYPE;
+            Type = EtwNetworkReceiveType;
+            ProtocolType = NET_TYPE_NETWORK_IPV4;
             break;
         case EVENT_TRACE_TYPE_SEND + 16: // send ipv6
-            Type = EtEtwNetworkSendType;
-            ProtocolType = PH_IPV6_NETWORK_TYPE;
+            Type = EtwNetworkSendType;
+            ProtocolType = NET_TYPE_NETWORK_IPV6;
             break;
         case EVENT_TRACE_TYPE_RECEIVE + 16: // receive ipv6
-            Type = EtEtwNetworkReceiveType;
-            ProtocolType = PH_IPV6_NETWORK_TYPE;
+            Type = EtwNetworkReceiveType;
+            ProtocolType = NET_TYPE_NETWORK_IPV6;
             break;
         }
 
         if (IsEqualGUID(EventRecord->EventHeader.ProviderId, TcpIpGuid_I))
-            ProtocolType |= PH_TCP_PROTOCOL_TYPE;
+            ProtocolType |= NET_TYPE_PROTOCOL_TCP;
         else
-            ProtocolType |= PH_UDP_PROTOCOL_TYPE;
+            ProtocolType |= NET_TYPE_PROTOCOL_UDP;
 
-        if (Type != EtEtwUnknow)
+        if (Type != EventTypeUnknow)
         {
 			quint64 ProcessId = -1;
 			quint32 TransferSize = 0;
@@ -436,7 +437,7 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 			QHostAddress RemoteAddress;
 			quint16 RemotePort = 0;
 
-            if (ProtocolType & PH_IPV4_NETWORK_TYPE)
+            if (ProtocolType & NET_TYPE_NETWORK_IPV4)
             {
                 TcpIpOrUdpIp_IPV4_Header *data = (TcpIpOrUdpIp_IPV4_Header*)EventRecord->UserData;
 
@@ -449,7 +450,7 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 				RemoteAddress = QHostAddress(ntohl(data->daddr));
 				RemotePort = ntohs(data->dport);
             }
-            else if (ProtocolType & PH_IPV6_NETWORK_TYPE)
+            else if (ProtocolType & NET_TYPE_NETWORK_IPV6)
             {
                 TcpIpOrUdpIp_IPV6_Header *data = (TcpIpOrUdpIp_IPV6_Header*)EventRecord->UserData;
 
@@ -464,7 +465,7 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
             }
 
 			// Note: Incomming UDP packets have the endpoints swaped :/
-			if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0 && Type == EtEtwNetworkReceiveType)
+			if ((ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0 && Type == EtwNetworkReceiveType)
 			{
 				QHostAddress TempAddresss = LocalAddress;
 				quint16 TempPort = LocalPort;
@@ -496,18 +497,18 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
     {
         // FileIo
 
-        ET_ETW_EVENT_TYPE Type = EtEtwUnknow;
+        int Type = EventTypeUnknow;
 
         switch (EventRecord->EventHeader.EventDescriptor.Opcode)
         {
         case 36: // FileRundown
-            Type = EtEtwFileRundownType;
+            Type = EtwFileRundownType;
             break;
         default:
             break;
         }
 
-        if (Type != EtEtwUnknow)
+        if (Type != EventTypeUnknow)
         {
 			quint64 FileId;
 			QString FileName;
@@ -554,7 +555,9 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 
 void CEventMonitor::run()
 {
-	//SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
+#ifdef _DEBUG
+	SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
+#endif
 
 	//exec();
 

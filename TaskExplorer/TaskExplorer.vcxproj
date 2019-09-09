@@ -275,17 +275,22 @@
     <ClCompile Include="API\Windows\Finders\WinHandleFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinStringFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinModuleFinder.cpp" />
+    <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinDiskMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinGpuMonitor.cpp" />
+    <ClCompile Include="API\Windows\Monitors\FwEventMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinNetMonitor.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\AssemblyEnum.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\clrsup.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\db.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\fw.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\pool.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ProcMtgn.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\RunAs.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\storage.cpp" />
@@ -307,6 +312,7 @@
     <ClCompile Include="API\Windows\WinMemIO.cpp" />
     <ClCompile Include="API\Windows\WinMemory.cpp" />
     <ClCompile Include="API\Windows\WinModule.cpp" />
+    <ClCompile Include="API\Windows\WinPoolEntry.cpp" />
     <ClCompile Include="API\Windows\WinProcess.cpp" />
     <ClCompile Include="API\Windows\WinService.cpp" />
     <ClCompile Include="API\Windows\WinSocket.cpp" />
@@ -341,6 +347,8 @@
     <ClCompile Include="GUI\Models\HandleModel.cpp" />
     <ClCompile Include="GUI\Models\MemoryModel.cpp" />
     <ClCompile Include="GUI\Models\ModuleModel.cpp" />
+    <ClCompile Include="GUI\Models\NtObjectModel.cpp" />
+    <ClCompile Include="GUI\Models\PoolModel.cpp" />
     <ClCompile Include="GUI\Models\ProcessModel.cpp" />
     <ClCompile Include="GUI\Models\ServiceModel.cpp" />
     <ClCompile Include="GUI\Models\SocketModel.cpp" />
@@ -373,8 +381,12 @@
     <ClCompile Include="GUI\StatsView.cpp" />
     <ClCompile Include="GUI\SystemInfo\CPUView.cpp" />
     <ClCompile Include="GUI\SystemInfo\DiskView.cpp" />
-    <ClCompile Include="GUI\SystemInfo\DriversView.cpp" />
     <ClCompile Include="GUI\SystemInfo\GPUView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\AtomView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\DriversView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\KernelView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\NtObjectView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\PoolView.cpp" />
     <ClCompile Include="GUI\SystemInfo\NetworkView.cpp" />
     <ClCompile Include="GUI\SystemInfo\RAMView.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServiceListWidget.cpp" />
@@ -538,6 +550,8 @@
     <QtMoc Include="API\Windows\Monitors\EventMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\WinGpuMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\WinNetMonitor.h" />
+    <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h" />
+    <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h" />
     <ClInclude Include="API\Windows\ProcessHacker.h" />
     <QtMoc Include="Common\TreeWidgetEx.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
@@ -613,6 +627,7 @@
     <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h" />
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h" />
     <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h" />
+    <ClInclude Include="API\Windows\ProcessHacker\pooltable.h" />
     <ClInclude Include="API\Windows\ProcessHacker\ProcMtgn.h" />
     <ClInclude Include="API\Windows\ProcessHacker\RunAs.h" />
     <QtMoc Include="Common\ComboInputDialog.h">
@@ -623,12 +638,14 @@
     </QtMoc>
     <QtMoc Include="API\Windows\SymbolProvider.h" />
     <QtMoc Include="API\Windows\SidResolver.h" />
+    <ClInclude Include="API\Windows\ProcessHacker\wf.h" />
     <ClInclude Include="API\Windows\WinAdmin.h" />
     <QtMoc Include="API\Windows\WinDumper.h" />
     <QtMoc Include="API\Windows\WinMemory.h" />
     <QtMoc Include="API\Windows\WinMemIO.h" />
     <QtMoc Include="API\Windows\WinToken.h" />
     <QtMoc Include="API\Windows\WinGDI.h" />
+    <QtMoc Include="API\Windows\WinPoolEntry.h" />
     <ClInclude Include="Common\Common.h" />
     <ClInclude Include="Common\DebugHelpers.h" />
     <QtMoc Include="Common\TreeViewEx.h">
@@ -742,12 +759,6 @@
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;../../GUI/Models/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../GUI/Models/%(Filename)%(Extension)</ForceInclude>
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../GUI/Models/%(Filename)%(Extension)</ForceInclude>
-    </QtMoc>
-    <QtMoc Include="GUI\SystemInfo\DriversView.h">
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
-      <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\ServicesView.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -887,6 +898,8 @@
     <ClInclude Include="GUI\CustomItemDelegate.h" />
     <QtMoc Include="GUI\Models\StringModel.h" />
     <QtMoc Include="GUI\Models\GDIModel.h" />
+    <QtMoc Include="GUI\Models\PoolModel.h" />
+    <QtMoc Include="GUI\Models\NtObjectModel.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -931,6 +944,11 @@
     <QtMoc Include="GUI\SystemInfo\GPUView.h" />
     <QtMoc Include="GUI\SystemInfo\NetworkView.h" />
     <QtMoc Include="GUI\SystemInfo\RAMView.h" />
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\AtomView.h" />
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\DriversView.h" />
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\KernelView.h" />
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\NtObjectView.h" />
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\PoolView.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>

@@ -10,12 +10,18 @@ CTreeItemModel::CTreeItemModel(QObject *parent)
 {
 	m_bTree = true;
 	m_bUseIcons = false;
-	m_Root = MkNode(QVariant());
+	m_Root = NULL;
 }
 
 CTreeItemModel::~CTreeItemModel()
 {
 	delete m_Root;
+}
+
+CSimpleTreeModel::CSimpleTreeModel(QObject *parent) 
+ : CTreeItemModel(parent) 
+{
+	m_Root = MkNode(QVariant());
 }
 
 QList<QVariant> CSimpleTreeModel::MakePath(const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List)

@@ -75,6 +75,9 @@
     <Filter Include="API\Monitors">
       <UniqueIdentifier>{74c948b0-3d3a-4256-9035-eccf45401174}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TaskExplorer\SystemInfo\KernelInfo">
+      <UniqueIdentifier>{e7b5f9f5-6348-4501-af57-cba7740d091d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -88,9 +91,6 @@
     </ClCompile>
     <ClCompile Include="GUI\TaskExplorer.cpp">
       <Filter>TaskExplorer</Filter>
-    </ClCompile>
-    <ClCompile Include="GUI\SystemInfo\DriversView.cpp">
-      <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\ServicesView.cpp">
       <Filter>TaskExplorer\SystemInfo</Filter>
@@ -476,6 +476,45 @@
     <ClCompile Include="Common\SmartGridWidget.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\fw.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\FwEventMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\PoolModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinPoolEntry.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\db.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\pool.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\NtObjectModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\AtomView.cpp">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\DriversView.cpp">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\KernelView.cpp">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\NtObjectView.cpp">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\PoolView.cpp">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -549,6 +588,12 @@
     </ClInclude>
     <ClInclude Include="Common\FlowLayout.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\wf.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\pooltable.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -644,9 +689,6 @@
     </QtMoc>
     <QtMoc Include="GUI\Models\ServiceModel.h">
       <Filter>TaskExplorer\Models</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\SystemInfo\DriversView.h">
-      <Filter>TaskExplorer\SystemInfo</Filter>
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\ServicesView.h">
       <Filter>TaskExplorer\SystemInfo</Filter>
@@ -905,6 +947,36 @@
     </QtMoc>
     <QtMoc Include="Common\SmartGridWidget.h">
       <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\PoolModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinPoolEntry.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\NtObjectModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\AtomView.h">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\NtObjectView.h">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\PoolView.h">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\DriversView.h">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\KernelView.h">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

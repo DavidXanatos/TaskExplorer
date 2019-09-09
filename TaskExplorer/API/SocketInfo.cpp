@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "SocketInfo.h"
 
-
 CSocketInfo::CSocketInfo(QObject *parent) : CAbstractInfoEx(parent)
 {
 	m_HashID = -1;
@@ -28,7 +27,7 @@ bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddr
 	if (m_ProtocolType != ProtocolType)
 		return false;
 
-	if ((m_ProtocolType & (PH_TCP_PROTOCOL_TYPE | PH_UDP_PROTOCOL_TYPE)) != 0)
+	if ((m_ProtocolType & (NET_TYPE_PROTOCOL_TCP | NET_TYPE_PROTOCOL_UDP)) != 0)
 	{
 		if (m_LocalPort != LocalPort)
 			return false;
@@ -42,9 +41,9 @@ bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddr
 	}
 
 	// don't test the remote endpoint if this is a udp socket
-	if (bStrict || (m_ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0)
+	if (bStrict || (m_ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0)
 	{
-		if ((m_ProtocolType & (PH_TCP_PROTOCOL_TYPE | PH_UDP_PROTOCOL_TYPE)) != 0)
+		if ((m_ProtocolType & (NET_TYPE_PROTOCOL_TCP | NET_TYPE_PROTOCOL_UDP)) != 0)
 		{
 			if (m_RemotePort != RemotePort)
 				return false;
@@ -59,7 +58,7 @@ bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddr
 
 quint64 CSocketInfo::MkHash(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort)
 {
-	if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0)
+	if ((ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0)
 		RemotePort = 0;
 
 	quint64 HashID = ((quint64)LocalPort << 0) | ((quint64)RemotePort << 16) | (quint64)(((quint32*)&ProcessId)[0] ^ ((quint32*)&ProcessId)[1]) << 32;
@@ -78,10 +77,10 @@ QString CSocketInfo::GetProtocolString()
 	QReadLocker Locker(&m_Mutex);
     switch (m_ProtocolType)
     {
-		case PH_TCP4_NETWORK_PROTOCOL:	return tr("TCP");
-		case PH_TCP6_NETWORK_PROTOCOL:	return tr("TCP6");
-		case PH_UDP4_NETWORK_PROTOCOL:	return tr("UDP");
-		case PH_UDP6_NETWORK_PROTOCOL:	return tr("UDP6");
+		case NET_TYPE_IPV4_TCP:	return tr("TCP");
+		case NET_TYPE_IPV6_TCP:	return tr("TCP6");
+		case NET_TYPE_IPV4_UDP:	return tr("UDP");
+		case NET_TYPE_IPV6_UDP:	return tr("UDP6");
 		default:						return tr("Unknown");
     }
 }
@@ -107,12 +106,32 @@ typedef enum {
 } MIB_TCP_STATE;
 #endif
 
+void CSocketInfo::SetClosed()
+{ 
+	QWriteLocker Locker(&m_Mutex); 
+	if(m_State != -1)
+		m_State = MIB_TCP_STATE_CLOSED; 
+	Locker.unlock();
+
+	QWriteLocker StatsLocker(&m_StatsMutex);
+	m_Stats.Net.ReceiveDelta.Delta = 0;
+	m_Stats.Net.SendDelta.Delta = 0;
+	m_Stats.Net.ReceiveRawDelta.Delta = 0;
+	m_Stats.Net.SendRawDelta.Delta = 0;
+	m_Stats.Net.ReceiveRate.Clear();
+	m_Stats.Net.SendRate.Clear();
+}
+
 QString CSocketInfo::GetStateString()
 {
 	QReadLocker Locker(&m_Mutex);
 
-	if ((m_ProtocolType & PH_TCP_PROTOCOL_TYPE) == 0)
+	if ((m_ProtocolType & NET_TYPE_PROTOCOL_TCP) == 0)
+	{
+		if(m_State == MIB_TCP_STATE_CLOSED)
+			return tr("Closed");
 		return tr("Open");
+	}
 
 	// all these are TCP states
     switch (m_State)
@@ -129,6 +148,7 @@ QString CSocketInfo::GetStateString()
     case MIB_TCP_STATE_LAST_ACK:	return tr("Last ACK");
     case MIB_TCP_STATE_TIME_WAIT:	return tr("Time wait");
     case MIB_TCP_STATE_DELETE_TCB:	return tr("Delete TCB");
+	case -1:						return tr("Blocked");
     default:						return tr("Unknown");
     }
 }

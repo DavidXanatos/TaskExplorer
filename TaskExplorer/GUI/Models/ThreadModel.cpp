@@ -86,7 +86,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 
 		STaskStats CpuStats = pThread->GetCpuStats();
 
-		for(int section = eThread; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden

@@ -61,5 +61,20 @@
         <file alias="UserInfo">Actions/user_info.png</file>
         <file alias="SendMsg">Actions/user_msg.png</file>
         <file alias="User">Actions/user.png</file>
+        <file alias="MonitorFW">Actions/fw_mon.png</file>
+    </qresource>
+    <qresource prefix="/NtObjects">
+        <file alias="Device">NtObjects/device16.png</file>
+        <file alias="Dll">NtObjects/dll16.png</file>
+        <file alias="Driver">NtObjects/driver16.png</file>
+        <file alias="Event">NtObjects/event16.png</file>
+        <file alias="Folder">NtObjects/folder16.png</file>
+        <file alias="Key">NtObjects/key16.png</file>
+        <file alias="Link">NtObjects/link16.png</file>
+        <file alias="Mutant">NtObjects/mutant16.png</file>
+        <file alias="Port">NtObjects/port16.png</file>
+        <file alias="Section">NtObjects/section16.png</file>
+        <file alias="Session">NtObjects/session16.png</file>
+        <file alias="Unknown">NtObjects/unknown16.png</file>
     </qresource>
 </RCC>

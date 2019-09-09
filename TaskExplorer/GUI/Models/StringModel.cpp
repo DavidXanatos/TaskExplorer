@@ -58,7 +58,7 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 			}
 		}
 
-		for(int section = eProcess; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden

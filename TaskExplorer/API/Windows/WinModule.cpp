@@ -130,6 +130,18 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	return true;
 }
 
+bool CWinModule::InitStaticData(const QString& FileName)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	m_IsLoaded = true;
+	m_FileName = FileName;
+	
+	InitFileInfo();
+
+	return true;
+}
+
 void CWinModule::InitFileInfo()
 {
 	FILE_NETWORK_OPEN_INFORMATION networkOpenInfo;

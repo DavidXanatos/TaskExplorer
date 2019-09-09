@@ -61,7 +61,7 @@ struct SWinSocket
 CWinSocket::CWinSocket(QObject *parent) 
 	: CSocketInfo(parent) 
 {
-	m_SubsystemProcess = false;
+	//m_SubsystemProcess = false;
 
 	m_LastActivity = GetCurTick();
 
@@ -76,14 +76,14 @@ CWinSocket::~CWinSocket()
 /*QHostAddress CWinSocket::PH2QAddress(struct _PH_IP_ADDRESS* addr)
 {
 	QHostAddress address;
-	if (addr->Type == PH_IPV4_NETWORK_TYPE)
+	if (addr->Type == NET_TYPE_NETWORK_IPV4)
 	{
 		if (addr->Ipv4 != 0)
 			address = QHostAddress(ntohl(addr->InAddr.S_un.S_addr));
 		else
 			address = QHostAddress::Any;
 	}
-	else if (addr->Type == PH_IPV6_NETWORK_TYPE)
+	else if (addr->Type == NET_TYPE_NETWORK_IPV6)
 	{
 		if(!PhIsNullIpAddress(addr))
 			address = QHostAddress((quint8*)addr->Ipv6);
@@ -102,7 +102,7 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 	m_ProtocolType = ProtocolType;
 	m_LocalAddress = LocalAddress;
 	m_LocalPort = LocalPort;
-	//if ((m_ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0)
+	//if ((m_ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0)
 	//{
 		m_RemoteAddress = RemoteAddress;
 		m_RemotePort = RemotePort;
@@ -121,14 +121,16 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId);
 		m_pProcess = pProcess; // relember m_pProcess is a week pointer
 
+		ProcessSetNetworkFlag();
+
 		if (CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data()))
 		{
 			m_ProcessName = pWinProc->GetName();
-			m_SubsystemProcess = pWinProc->IsSubsystemProcess();
+			//m_SubsystemProcess = pWinProc->IsSubsystemProcess();
 
 			// PhpUpdateNetworkItemOwner(networkItem, processItem);
 		}
-		else
+		else // Note: we may arrive here from a ETW event so we need to get the process name ourselvs
 		{
 			HANDLE processHandle;
 			PPH_STRING fileName;
@@ -141,14 +143,16 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 			// (for the process list) to identify the owner of every socket but now we need to make 4 system calls for every_last_socket totaling 400,000 system calls... great. (dmex)
 			if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)ProcessId)))
 			{
-				if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
+				/*if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
 				{
 					m_SubsystemProcess = !!basicInfo.IsSubsystemProcess;
-				}
+				}*/
 
 				if (NT_SUCCESS(PhGetProcessImageFileName(processHandle, &fileName)))
 				{
-					m_ProcessName = CastPhString(fileName);
+					QString FileName = CastPhString(fileName);
+					int pos = FileName.lastIndexOf("\\");
+					m_ProcessName = FileName.mid(pos+1);
 				}
 
 				NtClose(processHandle);
@@ -164,14 +168,14 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 	if (RemoteAddressString[0] != 0)
 	{
 		m->FwStatus = EtQueryFirewallStatus(m_ProcessName.toStdWString(), RemoteAddressString, htons(LocalPort), 
-			LocalAddress.protocol() == QAbstractSocket::IPv6Protocol, (ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0, (ProtocolType & PH_TCP_PROTOCOL_TYPE) != 0);
+			LocalAddress.protocol() == QAbstractSocket::IPv6Protocol, (ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0, (ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0);
 	}
 	//
 
 	return true;
 }
 
-bool CWinSocket::InitStaticDataEx(SSocket* connection)
+bool CWinSocket::InitStaticDataEx(SSocket* connection, bool IsNew)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -189,6 +193,9 @@ bool CWinSocket::InitStaticDataEx(SSocket* connection)
 	m->LocalScopeId = connection->LocalScopeId;
 	m->RemoteScopeId = connection->RemoteScopeId;
 
+	// Note: we may have seen thsi socket on ETW before we updated the DNS cache
+	//IsNew
+
 	return true;
 }
 
@@ -198,22 +205,15 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 
     BOOLEAN modified = FALSE;
 
-    //if (InterlockedExchange(&networkItem->JustResolved, 0) != 0)
-    //    modified = TRUE;
-
-    if (m_State != connection->State)
-    {
-        m_State = connection->State;
-        modified = TRUE;
-    }
-
 	if (m_pProcess.isNull())
 	{
 		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId);
-		m_pProcess = pProcess; // relember m_pProcess is a week pointer
-
 		if (!pProcess.isNull())
 		{
+			m_pProcess = pProcess; // relember m_pProcess is a week pointer
+
+			ProcessSetNetworkFlag();
+
 			if (m_ProcessName.isEmpty())
 			{
 				m_ProcessName = pProcess->GetName();
@@ -221,19 +221,33 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 				//PhpUpdateNetworkItemOwner(networkItem, networkItem->ProcessItem);
 				modified = TRUE;
 			}
-
-			/*if (!networkItem->ProcessIconValid && PhTestEvent(&networkItem->ProcessItem->Stage1Event))
-			{
-				networkItem->ProcessIcon = networkItem->ProcessItem->SmallIcon;
-				networkItem->ProcessIconValid = TRUE;
-				modified = TRUE;
-			}*/
 		}
 	}
+
+	if (m_State != connection->State)
+    {
+        m_State = connection->State;
+        modified = TRUE;
+
+		if (connection->State == MIB_TCP_STATE_LISTEN)
+			ProcessSetNetworkFlag();
+    }
 
 	UpdateStats();
 
 	return modified;
+}
+
+void CWinSocket::ProcessSetNetworkFlag()
+{
+	// when calling this QWriteLocker Locker(&m_Mutex); must be set!
+	CProcessPtr pProcess = m_pProcess;
+	if (!pProcess)
+		return;
+
+	if (m_State == MIB_TCP_STATE_LISTEN) // TCP server
+		pProcess->SetNetworkUsageFlag(NET_TYPE_PROTOCOL_TCP_SRV);
+	pProcess->SetNetworkUsageFlag(m_ProtocolType & NET_TYPE_PROTOCOL_MASK);
 }
 
 int CWinSocket::GetFirewallStatus()
@@ -333,8 +347,8 @@ void CWinSocket::AddNetworkIO(int Type, quint32 TransferSize)
 
 	switch (Type)
 	{
-	case EtEtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
-	case EtEtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
+	case EtwNetworkReceiveType:		m_Stats.Net.AddReceive(TransferSize); break;
+	case EtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
 	}
 }
 
@@ -416,7 +430,7 @@ QVariant SvcApiCloseSocket(const QVariantMap& Parameters)
 
 STATUS CWinSocket::Close()
 {
-	if (m_ProtocolType != PH_TCP4_NETWORK_PROTOCOL || m_State != MIB_TCP_STATE_ESTAB)
+	if (m_ProtocolType != NET_TYPE_IPV4_TCP || m_State != MIB_TCP_STATE_ESTAB)
 		return ERR(tr("Not supported type or state"));
 
 	long result = CloseSocket(m_LocalAddress, m_LocalPort, m_RemoteAddress, m_RemotePort);
@@ -518,7 +532,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
     {
         for (i = 0; i < tcp4Table->dwNumEntries; i++)
         {
-            connections[index].ProtocolType = PH_TCP4_NETWORK_PROTOCOL;
+            connections[index].ProtocolType = NET_TYPE_IPV4_TCP;
 
             connections[index].LocalEndpoint.Address = QHostAddress(ntohl(tcp4Table->table[i].dwLocalAddr));
             connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)tcp4Table->table[i].dwLocalPort);
@@ -545,7 +559,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
     {
         for (i = 0; i < tcp6Table->dwNumEntries; i++)
         {
-            connections[index].ProtocolType = PH_TCP6_NETWORK_PROTOCOL;
+            connections[index].ProtocolType = NET_TYPE_IPV6_TCP;
 
             connections[index].LocalEndpoint.Address = QHostAddress((quint8*)tcp6Table->table[i].ucLocalAddr);
             connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)tcp6Table->table[i].dwLocalPort);
@@ -575,7 +589,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
     {
         for (i = 0; i < udp4Table->dwNumEntries; i++)
         {
-            connections[index].ProtocolType = PH_UDP4_NETWORK_PROTOCOL;
+            connections[index].ProtocolType = NET_TYPE_IPV4_UDP;
 
             connections[index].LocalEndpoint.Address = QHostAddress(ntohl(udp4Table->table[i].dwLocalAddr));
             connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)udp4Table->table[i].dwLocalPort);
@@ -602,7 +616,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
     {
         for (i = 0; i < udp6Table->dwNumEntries; i++)
         {
-            connections[index].ProtocolType = PH_UDP6_NETWORK_PROTOCOL;
+            connections[index].ProtocolType = NET_TYPE_IPV6_UDP;
 
             connections[index].LocalEndpoint.Address = QHostAddress((quint8*)udp6Table->table[i].ucLocalAddr);
             connections[index].LocalEndpoint.Port = _byteswap_ushort((USHORT)udp6Table->table[i].dwLocalPort);

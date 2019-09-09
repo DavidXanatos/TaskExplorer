@@ -133,6 +133,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pMemoryLayout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum), 0, 3);
 	////////////////////////////////////////
 	
+	/*
 	m_pPoolWidget = new QWidget();
 	m_pPoolLayout = new QGridLayout();
 	m_pPoolLayout->setMargin(3);
@@ -166,7 +167,6 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pNPPoolBox->setMinimumWidth(150);
 	m_pNPPoolLayout = new QGridLayout();
 	m_pNPPoolBox->setLayout(m_pNPPoolLayout);
-	m_pPoolLayout->addWidget(m_pNPPoolBox, 1, 0);
 	m_pPoolLayout->addWidget(m_pNPPoolBox, 0, 1);
 	m_pPoolLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 1, 1);
 	//m_pPoolLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 2, 0);
@@ -186,6 +186,7 @@ CRAMView::CRAMView(QWidget *parent)
 
 	// Note: Winsows 10 starting with 1809 does not longer provide a value for:
 	//			PagedPoolAllocs, PagedPoolFrees, NonPagedPoolAllocs, NonPagedPoolFrees
+	*/
 
 	////////////////////////////////////////
 
@@ -374,6 +375,7 @@ void CRAMView::Refresh()
 	m_pRAMKernelWS->setText(FormatSize(theAPI->GetKernelMemory()));
 	m_pRAMDriverWS->setText(FormatSize(theAPI->GetDriverMemory()));
 
+	/*
 	m_pPPoolWS->setText(FormatSize(theAPI->GetPersistentPagedPool()));
 	m_pPPoolVSize->setText(FormatSize(theAPI->GetPagedPool()));
 
@@ -382,6 +384,7 @@ void CRAMView::Refresh()
 	// todo: add limti values make them work on win10
 	//m_pPPoolLimit;
 	//m_pNPPoolLimit;
+	*/
 
 	SCpuStatsEx CpuStats = theAPI->GetCpuStats();
 

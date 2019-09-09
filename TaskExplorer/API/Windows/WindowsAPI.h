@@ -3,13 +3,38 @@
 #include "WinProcess.h"
 #include "WinSocket.h"
 #include "Monitors/EventMonitor.h"
+#include "Monitors/FwEventMonitor.h"
+//#include "Monitors/FirewallMonitor.h"
 #include "SidResolver.h"
 #include "SymbolProvider.h"
 #include "WinService.h"
 #include "WinDriver.h"
 #include "WinWnd.h"
+#include "WinPoolEntry.h"
 
-#define USE_SYSTEM_FULL_PROCESS
+enum MISC_WIN_EVENT_TYPE
+{
+	// ETW Disk events
+	EtwDiskReadType = 1,
+	EtwDiskWriteType,
+	
+	// ETW File I/O events
+	EtwFileNameType,
+	EtwFileCreateType,
+	EtwFileDeleteType,
+	EtwFileRundownType,
+	
+	// ETW Network events
+	EtwNetworkReceiveType,
+	EtwNetworkSendType,
+
+	// EventLog Firewall events
+	EvlFirewallAllowed,
+	EvlFirewallBlocked,
+
+	EventTypeUnknow = ULONG_MAX
+};
+
 
 class CWindowsAPI : public CSystemAPI
 {
@@ -41,7 +66,6 @@ public:
 
 	virtual CSidResolver* GetSidResolver()				{ return m_pSidResolver; }
 
-
 	virtual quint64	GetCpuIdleCycleTime(int index);
 
 	virtual quint32 GetTotalGuiObjects() const			{ QReadLocker Locker(&m_StatsMutex); return m_TotalGuiObjects; }
@@ -58,6 +82,7 @@ public:
 
 	virtual bool HasExtProcInfo() const;
 	virtual bool IsMonitoringETW() const				{ return m_pEventMonitor != NULL; }
+	virtual bool IsMonitoringFW() const					{ return m_pFirewallMonitor != NULL; }
 
 	virtual bool IsTestSigning() const					{ QReadLocker Locker(&m_Mutex); return m_bTestSigning; }
 	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_bDriverFailed; }
@@ -66,12 +91,20 @@ public:
 	//__inline bool UseDiskCounters() const				{ return m_UseDiskCounters != eDontUse; }
 	__inline bool UseDiskCounters() const				{ return m_UseDiskCounters; }
 
+	virtual QMap<quint64, CPoolEntryPtr> GetPoolTableList() const { QReadLocker Locker(&m_PoolTableMutex); return m_PoolTableList; }
+
+signals:
+	void		PoolListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
+
 public slots:
 	void		MonitorETW(bool bEnable);
+	void		MonitorFW(bool bEnable);
 	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, quint32 ProtocolType, quint32 TransferSize,
 								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
+
+	bool		UpdatePoolTable();
 
 protected:
 	virtual void OnHardwareChanged();
@@ -84,6 +117,8 @@ protected:
 	bool		InitWindowsInfo();
 
 	CEventMonitor*			m_pEventMonitor;
+	CFwEventMonitor*		m_pFirewallMonitor;
+	//CFirewallMonitor*		m_pFirewallMonitor;
 
 
 	//mutable QReadWriteLock	m_FileNameMutex;
@@ -119,6 +154,9 @@ protected:
 	mutable QReadWriteLock	m_WindowMutex;
 	QMap<quint64, QMultiMap<quint64, quint64> > m_WindowMap;
 	QMap<quint64, QPair<quint64, quint64> > m_WindowRevMap;
+
+	mutable QReadWriteLock		m_PoolTableMutex;
+	QMap<quint64, CPoolEntryPtr>m_PoolTableList;
 
 private:
 	void UpdatePerfStats();

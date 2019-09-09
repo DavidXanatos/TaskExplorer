@@ -10,6 +10,7 @@
 CMemoryModel::CMemoryModel(QObject *parent)
 :CTreeItemModel(parent)
 {
+	m_Root = MkNode(QVariant());
 }
 
 CMemoryModel::~CMemoryModel()
@@ -102,7 +103,7 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 		Changed = 2;
 	}
 
-	for(int section = eBaseAddress; section < columnCount(); section++)
+	for(int section = 0; section < columnCount(); section++)
 	{
 		if (!m_Columns.contains(section))
 			continue; // ignore columns which are hidden

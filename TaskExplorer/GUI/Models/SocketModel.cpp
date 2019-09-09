@@ -73,7 +73,8 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		}
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pSocket->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
+		if (pSocket->WasBlocked())				RowColor = CTaskExplorer::eDangerous;
+		else if (pSocket->IsMarkedForRemoval())	RowColor = CTaskExplorer::eToBeRemoved;
 		else if (pSocket->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
 		
 		if (pNode->iColor != RowColor) {
@@ -85,7 +86,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 		SSockStats Stats = pSocket->GetStats();
 
-		for(int section = eProcess; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden
@@ -151,7 +152,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 					case eProtocol:				ColValue.Formated = pSocket->GetProtocolString(); break; 
 					case eState:				ColValue.Formated = pSocket->GetStateString(); break; 			
 
-					case eTimeStamp:			ColValue.Formated = QDateTime::fromTime_t(pSocket->GetCreateTimeStamp()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eTimeStamp:			ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 
 					case eReceiveBytes:
 					case eSendBytes:

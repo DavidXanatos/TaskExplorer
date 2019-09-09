@@ -9,8 +9,8 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		0
-#define VERSION_MIN 	8
-#define VERSION_REV 	5
+#define VERSION_MIN 	9
+#define VERSION_REV 	0
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -42,7 +42,7 @@ public:
 
 		eAdded,
 #ifdef WIN32
-		eDange,
+		eDangerous,
 #endif
 		eToBeRemoved,
 		eSystem,
@@ -112,6 +112,9 @@ private slots:
 	void				OnSystemInfo();
 
 	void				OnChangeInterval(QAction* pAction);
+	void				OnChangePersistence(QAction* pAction);
+	void				OnStaticPersistence();
+	
 
 	void				OnFindHandle();
 	void				OnFindDll();
@@ -126,6 +129,7 @@ private slots:
 	void				OnSCMPermissions();
 	void				OnFreeMemory();
 	void				OnMonitorETW();
+	void				OnMonitorFW();
 
 	void				OnSysTray(QSystemTrayIcon::ActivationReason Reason);
 	void				OnShowHide();
@@ -225,7 +229,11 @@ private:
 	QAction*			m_pMenuFreeStandby;
 	QAction*			m_pMenuFreePriority0;
 	QAction*			m_pMenuCombinePages;
-	QAction*			m_pMenuETW;
+#endif
+
+#ifdef WIN32
+	QAction*			m_pMenuMonitorETW;
+	QAction*			m_pMenuMonitorFW;
 #endif
 
 	QMenu*				m_pMenuHelp;
@@ -242,6 +250,9 @@ private:
 	QToolButton*		m_pFreeButton;
 	QToolButton*		m_pComputerButton;
 
+	QToolButton*		m_pHoldButton;
+	QActionGroup*		m_pHoldGroup;
+	QAction*			m_pHoldAction;
 
 	QSystemTrayIcon*	m_pTrayIcon;
 	QMenu*				m_pTrayMenu;

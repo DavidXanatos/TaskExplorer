@@ -52,6 +52,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkSoftForce->setCheckState((Qt::CheckState)theConf->GetInt("Options/UseSoftForce", 2));
 
+	ui.highlightTime->setValue(theConf->GetUInt64("Options/HighlightTime", 2500));
 	ui.persistenceTime->setValue(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
 	ui.chkGetRefServices->setChecked(theConf->GetBool("Options/GetServicesRefModule", true));
@@ -181,7 +182,7 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/UseSoftForce", (int)ui.chkSoftForce->checkState());
 
-
+	theConf->SetValue("Options/HighlightTime", ui.highlightTime->value());
 	theConf->SetValue("Options/PersistenceTime", ui.persistenceTime->value());
 	
 	theConf->SetValue("Options/GetServicesRefModule", ui.chkGetRefServices->isChecked());

@@ -1,10 +1,10 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TreeViewEx.h"
-#include "../../Common/PanelView.h"
-#include "../../API/ProcessInfo.h"
-#include "../../API/DriverInfo.h"
-#include "../Models/DriverModel.h"
+#include "../../../Common/TreeViewEx.h"
+#include "../../../Common/PanelView.h"
+#include "../../../API/ProcessInfo.h"
+#include "../../../API/DriverInfo.h"
+#include "../../Models/DriverModel.h"
 
 class CDriverModel;
 class QSortFilterProxyModel;
@@ -20,7 +20,7 @@ public:
 	//void					OnMenu(const QPoint &point);
 
 public slots:
-	void					Refresh() {}
+	void					Refresh();
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);

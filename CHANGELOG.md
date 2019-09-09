@@ -6,6 +6,27 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [0.9.0] - 2019-09-09
+
+### Added
+- added windows firewall monitor to show blockes connection atempts
+- added network column to processes, showing if a process is or was using network sockets
+- added toolbar button to set persistence to 1h
+- added toolbar menu to quickly change item persistence
+- added kernel object tab to system panel, including the pool table and otehr informations
+- added nt object browser sub tab
+- added atom table view to the kernel objects tab
+
+### Changed
+- The system info Drivers tab is now moved to a sub tab of the new kernel objects tab
+- the stack trace section of the thread window can now be colapsed
+
+### Fixed
+- fixed issue disabling network adapter graphs did not work
+- fixed driver view module info was not loaded
+
+
+
 ## [0.8.5] - 2019-09-01
 
 ### Added

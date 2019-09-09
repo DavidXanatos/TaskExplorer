@@ -36,6 +36,7 @@ struct SRateCounter
 	}
 
 	__inline quint64	Get() const			{return ByteRate;}
+	__inline void		Clear()				{ByteRate = 0;}
 
 protected:
 	quint64				ByteRate;
@@ -73,6 +74,9 @@ struct SRateCounter2 : SRateCounter
 		ByteRate = TotalRate / Smooth.size();
 	}
 
+	__inline void		Clear() { ByteRate = 0; Smooth.clear(); TotalRate = 0; }
+
+protected:
 	list<quint64>		Smooth;
 	quint64				TotalRate;
 };

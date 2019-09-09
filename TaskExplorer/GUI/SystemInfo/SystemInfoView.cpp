@@ -3,7 +3,8 @@
 #include "../TaskExplorer.h"
 
 #include "SystemView.h"
-#include "DriversView.h"
+//#include "DriversView.h"
+#include "KernelInfo/KernelView.h"
 #include "../TaskInfo/HandlesView.h"
 #include "../TaskInfo/SocketsView.h"
 #include "ServicesView.h"
@@ -62,12 +63,14 @@ void CSystemInfoView::InitializeTabs()
 	m_pGPUView = new CGPUView(this);
 	AddTab(m_pGPUView, tr("GPU"));
 
-	m_pDriversView = new CDriversView(this);
-	AddTab(m_pDriversView, tr("Drivers"));
+	//m_pDriversView = new CDriversView(this);
+	//AddTab(m_pDriversView, tr("Drivers"));
+	
+	m_pKernelView = new CKernelView(this);
+	AddTab(m_pKernelView, tr("Kernel Objects"));
 
 	m_pServicesView = new CServicesView(true, this);
 	AddTab(m_pServicesView, tr("Services"));
-
 
 
 	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));

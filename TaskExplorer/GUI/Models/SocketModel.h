@@ -33,8 +33,6 @@ public:
 		eOwnerService,
 #endif
 		eTimeStamp,
-		//eLocalHostname,
-		//eRemoteHostname,
 
 		eReceives,
 		eSends,
@@ -52,6 +50,8 @@ public:
 #ifdef WIN32
 		eFirewallStatus,
 #endif
+		//eLocalHostname,
+		eRemoteHostname,
 		eCount
 	};
 

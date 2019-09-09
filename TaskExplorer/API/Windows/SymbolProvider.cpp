@@ -376,7 +376,9 @@ VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
 
 void CSymbolProvider::run()
 {
-	//SetThreadDescription(GetCurrentThread(), L"Symbol Provider");
+#ifdef _DEBUG
+	SetThreadDescription(GetCurrentThread(), L"Symbol Provider");
+#endif
 
 	//exec();
 

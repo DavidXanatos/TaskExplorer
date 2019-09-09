@@ -4,22 +4,21 @@
 #include "../Common/Common.h"
 #include "AbstractInfo.h"
 
-#ifndef PH_NO_NETWORK_PROTOCOL
-#define PH_IPV4_NETWORK_TYPE 0x1
-#define PH_IPV6_NETWORK_TYPE 0x2
-#define PH_NETWORK_TYPE_MASK 0x3
+#define NET_TYPE_NETWORK_IPV4		0x1
+#define NET_TYPE_NETWORK_IPV6		0x2
+#define NET_TYPE_NETWORK_MASK		0x3
 
-#define PH_TCP_PROTOCOL_TYPE 0x10
-#define PH_UDP_PROTOCOL_TYPE 0x20
-#define PH_PROTOCOL_TYPE_MASK 0x30
+#define NET_TYPE_PROTOCOL_TCP		0x10
+#define NET_TYPE_PROTOCOL_UDP		0x20
+#define NET_TYPE_PROTOCOL_MASK		0x30
+#define NET_TYPE_PROTOCOL_TCP_SRV	0x40
+#define NET_TYPE_PROTOCOL_OTHER		0x80
 
-#define PH_NO_NETWORK_PROTOCOL 0x0
-#define PH_TCP4_NETWORK_PROTOCOL (PH_IPV4_NETWORK_TYPE | PH_TCP_PROTOCOL_TYPE)
-#define PH_TCP6_NETWORK_PROTOCOL (PH_IPV6_NETWORK_TYPE | PH_TCP_PROTOCOL_TYPE)
-#define PH_UDP4_NETWORK_PROTOCOL (PH_IPV4_NETWORK_TYPE | PH_UDP_PROTOCOL_TYPE)
-#define PH_UDP6_NETWORK_PROTOCOL (PH_IPV6_NETWORK_TYPE | PH_UDP_PROTOCOL_TYPE)
-#endif
-
+#define NET_TYPE_NONE 0x0
+#define NET_TYPE_IPV4_TCP (NET_TYPE_NETWORK_IPV4 | NET_TYPE_PROTOCOL_TCP)
+#define NET_TYPE_IPV6_TCP (NET_TYPE_NETWORK_IPV6 | NET_TYPE_PROTOCOL_TCP)
+#define NET_TYPE_IPV4_UDP (NET_TYPE_NETWORK_IPV4 | NET_TYPE_PROTOCOL_UDP)
+#define NET_TYPE_IPV6_UDP (NET_TYPE_NETWORK_IPV6 | NET_TYPE_PROTOCOL_UDP)
 
 class CSocketInfo: public CAbstractInfoEx
 {
@@ -38,6 +37,9 @@ public:
 	virtual QHostAddress		GetRemoteAddress() const	{ QReadLocker Locker(&m_Mutex); return m_RemoteAddress; }
 	virtual quint16				GetRemotePort() const		{ QReadLocker Locker(&m_Mutex); return m_RemotePort; }
 	virtual quint32				GetState() const			{ QReadLocker Locker(&m_Mutex); return m_State; }
+	virtual void				SetClosed();
+	virtual void				SetBlocked()				{ QWriteLocker Locker(&m_Mutex); m_State = -1; }
+	virtual bool				WasBlocked() const			{ QReadLocker Locker(&m_Mutex); return m_State == -1; }
 	virtual QString				GetStateString();
 	virtual quint64				GetProcessId() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 

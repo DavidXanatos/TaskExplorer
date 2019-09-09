@@ -136,7 +136,10 @@ CProcessTree::CProcessTree(QWidget *parent)
 		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eUSER_Handles, false);
 #endif
 		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eThreads, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
+		//m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNet_TotalRate, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eDisk_TotalRate, false);
+		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);
 	}
 	else
 		m_pProcessList->restoreState(Columns);

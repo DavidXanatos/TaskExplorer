@@ -1453,3 +1453,67 @@ NTSTATUS PhSipQueryProcessorPerformanceDistribution(_Out_ PVOID *Buffer)
 
     return status;
 }
+
+////////////////////////////////////////////////////////////////////////////////////
+// atom table
+
+NTSTATUS EnumAtomTable(
+    _Out_ PATOM_TABLE_INFORMATION* AtomTable
+    )
+{
+    NTSTATUS status;
+    PVOID buffer;
+    ULONG bufferSize = 0x1000;
+
+    buffer = PhAllocate(bufferSize);
+    memset(buffer, 0, bufferSize);
+
+    status = NtQueryInformationAtom(
+        RTL_ATOM_INVALID_ATOM,
+        AtomTableInformation,
+        buffer,
+        bufferSize,
+        &bufferSize // Not used...
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        PhFree(buffer);
+        return status;
+    }
+
+    *AtomTable = (PATOM_TABLE_INFORMATION)buffer;
+
+    return status;
+}
+
+NTSTATUS QueryAtomTableEntry(
+    _In_ RTL_ATOM Atom,
+    _Out_ PATOM_BASIC_INFORMATION* AtomInfo
+    )
+{
+    NTSTATUS status;
+    PVOID buffer;
+    ULONG bufferSize = 0x1000;
+
+    buffer = PhAllocate(bufferSize);
+    memset(buffer, 0, bufferSize);
+
+    status = NtQueryInformationAtom(
+        Atom,
+        AtomBasicInformation,
+        buffer,
+        bufferSize,
+        &bufferSize // Not used...
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        PhFree(buffer);
+        return status;
+    }
+
+    *AtomInfo = (PATOM_BASIC_INFORMATION)buffer;
+
+    return status;
+}

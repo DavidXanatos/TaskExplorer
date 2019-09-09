@@ -791,3 +791,184 @@ PH_KEY_VALUE_PAIR ServiceActionPairs[] =
     SIP("Run a program", SC_ACTION_RUN_COMMAND),
     SIP("Restart the computer", SC_ACTION_REBOOT)
 };
+
+/*
+* Process Hacker Extra Plugins -
+*   Service Backup and Restore Plugin
+*
+*/
+
+/*
+#include "../../Common/FlexError.h"
+
+static PH_STRINGREF servicesKeyName = PH_STRINGREF_INIT(L"System\\CurrentControlSet\\Services\\");
+static PH_STRINGREF fileExtName = PH_STRINGREF_INIT(L".phservicebackup");
+
+STATUS PhBackupService(const wstring& svcName, const wstring& backFile)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    HANDLE keyHandle = NULL;
+    HANDLE fileHandle = NULL;
+    PPH_STRING serviceKeyName = NULL;
+
+	PH_STRINGREF ServiceItemName = PH_STRINGREF_INIT((wchar_t*)svcName.c_str());
+
+    serviceKeyName = PhConcatStringRef2(&servicesKeyName, &ServiceItemName);
+
+    __try
+    {
+        if (!NT_SUCCESS(status = PhOpenKey(
+            &keyHandle,
+            KEY_ALL_ACCESS, // KEY_READ,
+            PH_KEY_LOCAL_MACHINE,
+            &serviceKeyName->sr,
+            0
+            )))
+        {
+            __leave;
+        }
+
+        if (!NT_SUCCESS(status = PhCreateFileWin32(
+            &fileHandle,
+            (wchar_t*)backFile.c_str(),
+            FILE_GENERIC_WRITE | DELETE,
+            FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ,
+            FILE_OVERWRITE_IF,
+            FILE_NON_DIRECTORY_FILE | FILE_OPEN_FOR_BACKUP_INTENT | FILE_SYNCHRONOUS_IO_NONALERT
+            )))
+        {
+            __leave;
+        }
+
+        if (!NT_SUCCESS(status = NtSaveKeyEx(keyHandle,  fileHandle,  2)))
+        {
+            __leave;
+        }
+    }
+    __finally
+    {
+        if (fileHandle)
+        {
+            NtClose(fileHandle);
+        }
+
+        if (keyHandle)
+        {
+            NtClose(keyHandle);
+        }
+
+        PhDereferenceObject(serviceKeyName);
+    }
+
+    if (!NT_SUCCESS(status))
+		return ERR(QObject::tr("Unable to backup the service"), status);
+    
+	return OK;
+}
+
+STATUS PhRestoreService(const wstring& backFile, const wstring& svcName)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    HANDLE keyHandle = NULL;
+    HANDLE fileHandle = NULL;
+    PPH_STRING serviceKeyName = NULL;
+
+	PH_STRINGREF ServiceItemName = PH_STRINGREF_INIT((wchar_t*)svcName.c_str());
+
+    serviceKeyName = PhConcatStringRef2(&servicesKeyName, &ServiceItemName);
+
+	wstring err;
+
+    __try
+    {
+        if (!NT_SUCCESS(status = PhOpenKey(
+            &keyHandle,
+            KEY_ALL_ACCESS,// KEY_WRITE
+            PH_KEY_LOCAL_MACHINE,
+            &serviceKeyName->sr,
+            0
+            )))
+        {
+            __leave;
+        }
+
+        HKEY appKeyHandle;
+
+        if (RegLoadAppKey(
+            (wchar_t*)backFile.c_str(),
+            &appKeyHandle,
+            KEY_ALL_ACCESS,
+            REG_PROCESS_APPKEY, // REG_APP_HIVE
+            0
+            ) == ERROR_SUCCESS)
+        {
+            PPH_STRING displayName = PhQueryRegistryString(appKeyHandle, L"DisplayName");
+            PPH_STRING currentDisplayName = PhQueryRegistryString(keyHandle, L"DisplayName");
+
+            if (!PhEqualString(displayName, currentDisplayName, TRUE))
+            {
+                PhDereferenceObject(currentDisplayName);
+                PhDereferenceObject(displayName);
+                NtClose(appKeyHandle);
+                err = L"The display name does not match the backup of this service.";
+                __leave;
+            }
+
+            PhDereferenceObject(currentDisplayName);
+            PhDereferenceObject(displayName);
+            NtClose(appKeyHandle);
+        }
+
+        if (PhFindStringInString(ofdFileName, 0, ServiceItem->Name->Buffer) == -1)
+        {
+           PhShowError(OwnerWindow, L"The file name does not match the name of this service.");
+            __leave;
+        }
+
+        if (!NT_SUCCESS(status = PhCreateFileWin32(
+            &fileHandle,
+            (wchar_t*)backFile.c_str(),
+            FILE_GENERIC_READ,
+            FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ,
+            FILE_OPEN,
+            FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+            )))
+        {
+            __leave;
+        }
+
+        if (!NT_SUCCESS(status = NtRestoreKey(
+            keyHandle,
+            fileHandle,
+            0 // REG_FORCE_RESTORE
+            )))
+        {
+            __leave;
+        }
+    }
+    __finally
+    {
+        if (fileHandle)
+        {
+            NtClose(fileHandle);
+        }
+
+        if (keyHandle)
+        {
+            NtClose(keyHandle);
+        }
+
+        PhDereferenceObject(serviceKeyName);
+    }
+
+	if(!err.empty())
+		return ERR(QString::fromStdWString(err), -1);
+
+    if (!NT_SUCCESS(status))
+		return ERR(QObject::tr("Unable to backup the service"), status);
+    
+	return OK;
+}
+*/

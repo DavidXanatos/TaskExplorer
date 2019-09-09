@@ -13,6 +13,8 @@
 CProcessModel::CProcessModel(QObject *parent)
 :CTreeItemModel(parent)
 {
+	m_Root = MkNode(QVariant());
+
 	m_bUseIcons = true;
 	m_bUseDescr = true;
 
@@ -134,7 +136,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		if (pProcess->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
 		else if (pProcess->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinProc->TokenHasChanged())		RowColor = CTaskExplorer::eDange;
+		else if (pWinProc->TokenHasChanged())		RowColor = CTaskExplorer::eDangerous;
 #endif
 		else if (pProcess->IsServiceProcess())		RowColor = CTaskExplorer::eService;
 		else if (pProcess->IsSystemProcess())		RowColor = CTaskExplorer::eSystem;
@@ -167,7 +169,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		SProcStats Stats = pProcess->GetStats();
 		STaskStatsEx CpuStats = pProcess->GetCpuStats();
 
-		for(int section = eProcess; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden
@@ -337,6 +339,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				// Network IO
 				case eNET_History:
 				case eNet_TotalRate:		Value = CurIntValue = Stats.Net.ReceiveRate.Get() + Stats.Net.SendRate.Get(); break; 
+				case eNetUsage:				Value = pProcess->GetNetworkUsageFlags(); break;
 				case eReceives:				Value = CurIntValue = Stats.Net.ReceiveCount; break; 
 				case eSends:				Value = CurIntValue = Stats.Net.SendCount; break; 
 				case eReceiveBytes:			Value = CurIntValue = Stats.Net.ReceiveRaw; break; 
@@ -513,6 +516,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eProtection:		ColValue.Formated = pWinProc->GetProtectionString(); break;
 					case eOS_Context:		ColValue.Formated = pWinProc->GetOsContextString(); break;
 #endif
+					case eNetUsage:			ColValue.Formated = pProcess->GetNetworkUsageString(); break;
 
 					case eIO_ReadBytes:
 					case eIO_WriteBytes:
@@ -798,6 +802,7 @@ QString CProcessModel::GetColumHeader(int section) const
 
 		// Network IO
 		case eNet_TotalRate:		return tr("Network total rate");
+		case eNetUsage:				return tr("Network");
 		case eReceives:				return tr("Network receives");
 		case eSends:				return tr("Network sends");
 		case eReceiveBytes:			return tr("Network receive bytes");

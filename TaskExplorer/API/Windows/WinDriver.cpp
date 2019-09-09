@@ -35,7 +35,8 @@ bool CWinDriver::InitStaticData(struct _RTL_PROCESS_MODULE_INFORMATION* Module)
 
 	m_CreateTimeStamp = GetTime() * 1000;
 
-	qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_BinaryPath);
+	qobject_cast<CWinModule*>(m_pModuleInfo)->InitStaticData(m_BinaryPath);
+	qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData();
 
 	return true;
 }

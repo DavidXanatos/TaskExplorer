@@ -50,11 +50,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 			Changed = 2;
 		}
 
-#ifdef WIN32
-		CWinGDI* pWinGDI = qobject_cast<CWinGDI*>(pGDI.data());
-#endif
-
-		for(int section = eHandle; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden

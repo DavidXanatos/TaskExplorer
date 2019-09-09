@@ -1,12 +1,12 @@
 #include "stdafx.h"
-#include "../TaskExplorer.h"
+#include "../../TaskExplorer.h"
 #include "DriversView.h"
-#include "../../Common/Common.h"
+#include "../../../Common/Common.h"
 #ifdef WIN32
-#include "../../API/Windows/WinDriver.h"		
+#include "../../../API/Windows/WinDriver.h"		
 #endif
-#include "../../Common/SortFilterProxyModel.h"
-#include "../../Common/Finder.h"
+#include "../../../Common/SortFilterProxyModel.h"
+#include "../../../Common/Finder.h"
 
 CDriversView::CDriversView(QWidget *parent)
 	:CPanelView(parent)
@@ -70,6 +70,10 @@ CDriversView::~CDriversView()
 	theConf->SetBlob(objectName() + "/DriversView_Columns", m_pDriverList->saveState());
 }
 
+void CDriversView::Refresh()
+{
+	QTimer::singleShot(0, theAPI, SLOT(UpdateDriverList()));
+}
 
 void CDriversView::OnDriverListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
 {

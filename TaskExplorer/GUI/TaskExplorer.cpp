@@ -88,17 +88,23 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	QString appTitle = tr("TaskExplorer v%1").arg(GetVersion());
 
+#ifdef WIN32
+	if (KphIsConnected())
+	{
+#ifdef _DEBUG
+		if(KphIsVerified())
+			appTitle.append(tr(" - [kPH full]"));
+		else
+			appTitle.append(tr(" - [kPH limited]"));
+#else
+		appTitle.append(tr(" - [kPH]"));
+#endif
+	}
+#endif
+
 	if (theAPI->RootAvaiable())
 #ifdef WIN32
-		if (KphIsConnected())
-		{
-			if(KphIsVerified())
-				appTitle.append(tr(" (Administrator)+")); // full
-			else
-				appTitle.append(tr(" (Administrator)*")); // limited
-		}
-		else
-			appTitle.append(tr(" (Administrator)"));
+		appTitle.append(tr(" (Administrator)"));
 #else
 		appTitle.append(tr(" (root)"));
 #endif
@@ -290,12 +296,17 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			m_pMenuFree->addSeparator();
 			m_pMenuCombinePages = m_pMenuFree->addAction(tr("Combine Pages"), this, SLOT(OnFreeMemory()));
 #endif
+			
 		m_pMenuTools->addSeparator();
 #ifdef WIN32
-		m_pMenuETW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorETW"), tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
-		m_pMenuETW->setCheckable(true);
-		m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
-		//m_pMenuETW->setEnabled(theAPI->RootAvaiable());
+		m_pMenuMonitorETW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorETW"), tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
+		m_pMenuMonitorETW->setCheckable(true);
+		m_pMenuMonitorETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
+		//m_pMenuMonitorETW->setEnabled(theAPI->RootAvaiable());
+		m_pMenuMonitorFW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorFW"), tr("Monitor Windows Firewall"), this, SLOT(OnMonitorFW()));
+		m_pMenuMonitorFW->setCheckable(true);
+		m_pMenuMonitorFW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringFW());
+		//m_pMenuMonitorFW->setEnabled(theAPI->RootAvaiable());
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
@@ -315,6 +326,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addAction(m_pMenuSettings);
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuPauseRefresh);
+
 	//m_pToolBar->addAction(m_pMenuRefreshNow);
 	m_pRefreshButton = new QToolButton();
 	m_pRefreshButton->setIcon(MakeActionIcon(":/Actions/Refresh"));
@@ -334,8 +346,30 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	//QObject::connect(m_pRefreshButton, SIGNAL(triggered(QAction*)), , SLOT());
 	QObject::connect(m_pRefreshButton, SIGNAL(pressed()), this, SLOT(UpdateAll()));
 	m_pToolBar->addWidget(m_pRefreshButton);
+
+	//m_pToolBar->addAction(m_pMenuHoldAll);
+	m_pHoldButton = new QToolButton();
+	m_pHoldButton->setIcon(MakeActionIcon(":/Actions/Hibernate"));
+	m_pHoldButton->setToolTip(tr("Hold ALL removed items"));
+	m_pHoldButton->setCheckable(true);
+	m_pHoldButton->setPopupMode(QToolButton::MenuButtonPopup);
+	QMenu* pHoldMenu = new QMenu(m_pHoldButton);
+	m_pHoldGroup = new QActionGroup(pHoldMenu);
+	MakeAction(m_pHoldGroup, pHoldMenu, tr("Short persistence (2.5s)"), 2500);
+	MakeAction(m_pHoldGroup, pHoldMenu, tr("Normal persistence (5s)"), 5*1000);
+	MakeAction(m_pHoldGroup, pHoldMenu, tr("Long persistence (10s)"), 10*1000);
+	MakeAction(m_pHoldGroup, pHoldMenu, tr("Very long persistence (60s)"), 60*1000);
+	MakeAction(m_pHoldGroup, pHoldMenu, tr("Extremely long persistence (5m)"), 5*60*1000);
+	m_pHoldAction = MakeAction(m_pHoldGroup, pHoldMenu, tr("Pseudo static persistence (1h)"), 60*60*1000);
+	connect(m_pHoldGroup, SIGNAL(triggered(QAction*)), this, SLOT(OnChangePersistence(QAction*)));
+    m_pHoldButton->setMenu(pHoldMenu);
+	//QObject::connect(m_pHoldButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pHoldButton, SIGNAL(pressed()), this, SLOT(OnStaticPersistence()));
+	m_pToolBar->addWidget(m_pHoldButton);
+
 	m_pToolBar->addSeparator();
-	m_pToolBar->addAction(m_pMenuETW);
+	m_pToolBar->addAction(m_pMenuMonitorETW);
+	m_pToolBar->addAction(m_pMenuMonitorFW);
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuSystemInfo);
 	m_pToolBar->addSeparator();
@@ -465,6 +499,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #endif
 		statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
 
+	CAbstractInfoEx::SetHighlightTime(theConf->GetUInt64("Options/HighlightTime", 2500));
+	CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
 	m_LastTimer = 0;
 	//m_uTimerCounter = 0;
@@ -505,6 +541,23 @@ void CTaskExplorer::OnChangeInterval(QAction* pAction)
 
 	killTimer(m_uTimerID);
 	m_uTimerID = startTimer(Interval);
+
+	emit ReloadAll();
+}
+
+void CTaskExplorer::OnStaticPersistence()
+{
+	if(m_pHoldButton->isChecked())
+		CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
+	else 
+		OnChangePersistence(m_pHoldAction);
+}
+
+void CTaskExplorer::OnChangePersistence(QAction* pAction)
+{
+	quint64 Persistence = pAction->data().toULongLong();
+	
+	CAbstractInfoEx::SetPersistenceTime(Persistence);
 }
 
 void CTaskExplorer::closeEvent(QCloseEvent *e)
@@ -548,6 +601,11 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	foreach(QAction* pAction, m_pRefreshGroup->actions())
 		pAction->setChecked(pAction->data().toULongLong() == Interval);
 
+	quint64 Persistence = CAbstractInfoEx::GetPersistenceTime();
+	foreach(QAction* pAction, m_pHoldGroup->actions())
+		pAction->setChecked(pAction->data().toULongLong() == Persistence);
+	m_pHoldButton->setChecked(m_pHoldAction->data().toULongLong() == Persistence);
+
 	if(!m_pMenuPauseRefresh->isChecked())
 		UpdateAll();
 
@@ -570,7 +628,6 @@ void CTaskExplorer::UpdateAll()
 	QTimer::singleShot(0, theAPI, SLOT(UpdateSysStats()));
 
 	QTimer::singleShot(0, theAPI, SLOT(UpdateServiceList()));
-	QTimer::singleShot(0, theAPI, SLOT(UpdateDriverList()));
 
 	if (!isVisible() || windowState().testFlag(Qt::WindowMinimized))
 		return;
@@ -1064,6 +1121,9 @@ void CTaskExplorer::UpdateOptions()
 	else
 		m_pTrayIcon->hide();
 
+	CAbstractInfoEx::SetHighlightTime(theConf->GetUInt64("Options/HighlightTime", 2500));
+	CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
+
 	killTimer(m_uTimerID);
 	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
@@ -1187,14 +1247,28 @@ void CTaskExplorer::OnFindMemory()
 void CTaskExplorer::OnMonitorETW()
 {
 #ifdef WIN32
-	if (m_pMenuETW->isChecked())
+	if (m_pMenuMonitorETW->isChecked())
 	{
 		((CWindowsAPI*)theAPI)->MonitorETW(true);
-		m_pMenuETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
+		m_pMenuMonitorETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
 	}
 	else
 		((CWindowsAPI*)theAPI)->MonitorETW(false);
-	theConf->SetValue("Options/MonitorETW", m_pMenuETW->isChecked());
+	theConf->SetValue("Options/MonitorETW", m_pMenuMonitorETW->isChecked());
+#endif
+}
+
+void CTaskExplorer::OnMonitorFW()
+{
+#ifdef WIN32
+	if (m_pMenuMonitorFW->isChecked())
+	{
+		((CWindowsAPI*)theAPI)->MonitorFW(true);
+		m_pMenuMonitorFW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
+	}
+	else
+		((CWindowsAPI*)theAPI)->MonitorFW(false);
+	theConf->SetValue("Options/MonitorFirewall", m_pMenuMonitorFW->isChecked());
 #endif
 }
 
@@ -1286,7 +1360,7 @@ QColor CTaskExplorer::GetListColor(int Color)
 	case eAdded:		ColorStr = theConf->GetString("Colors/NewlyCreated", "#00FF7F"); break;
 	
 #ifdef WIN32
-	case eDange:		ColorStr = theConf->GetString("Colors/DangerousProcess", "#FF0000"); break;
+	case eDangerous:	ColorStr = theConf->GetString("Colors/DangerousProcess", "#FF0000"); break;
 #endif
 	case eSystem:		ColorStr = theConf->GetString("Colors/SystemProcess", "#AACCFF"); break;
 	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFF80"); break;

@@ -77,10 +77,10 @@ protected:
 
 	virtual QVariant	NodeData(STreeNode* pNode, int role, int section) const;
 
-	virtual STreeNode*	MkNode(const QVariant& Id) { return new STreeNode(Id); }
+	virtual STreeNode*	MkNode(const QVariant& Id) = 0; // { return new STreeNode(Id); }
 
 	void			Sync(QMap<QList<QVariant>, QList<STreeNode*> >& New, QHash<QVariant, STreeNode*>& Old);
-	void			Purge(STreeNode* pParent, const QModelIndex &parent, QHash<QVariant, STreeNode*> &Old);
+	void			Purge(STreeNode* pParent, const QModelIndex &parent, QHash<QVariant, STreeNode*>& Old);
 	void			Fill(STreeNode* pParent, const QModelIndex &parent, const QList<QVariant>& Paths, int PathsIndex, const QList<STreeNode*>& New, const QList<QVariant>& Path);
 	QModelIndex		Find(STreeNode* pParent, STreeNode* pNode);
 	//int				CountItems(STreeNode* pRoot);
@@ -98,7 +98,7 @@ class CSimpleTreeModel : public CTreeItemModel
 	Q_OBJECT
 
 public:
-	CSimpleTreeModel(QObject *parent = 0) : CTreeItemModel(parent) {}
+	CSimpleTreeModel(QObject *parent = 0);
 	
 	void					Sync(const QMap<QVariant, QVariantMap>& List);
 
@@ -108,6 +108,8 @@ public:
     virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
 protected:
+	virtual STreeNode*		MkNode(const QVariant& Id) { return new STreeNode(Id); }
+
 	QList<QVariant>			MakePath(const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List);
 	bool					TestPath(const QList<QVariant>& Path, const QVariantMap& Cur, const QMap<QVariant, QVariantMap>& List, int Index = 0);
 

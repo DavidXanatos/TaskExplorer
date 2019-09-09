@@ -47,7 +47,7 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 		CWinDriver* pWinDriver = qobject_cast<CWinDriver*>(pDriver.data());
 #endif
 
-		for(int section = eDriver; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden

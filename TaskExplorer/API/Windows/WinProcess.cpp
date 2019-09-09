@@ -952,6 +952,47 @@ void CWinProcess::UnInit()
 		NtClose(m->QueryHandle);
 		m->QueryHandle = NULL;
 	}
+
+	QWriteLocker StatsLocker(&m_StatsMutex);
+
+	// Update the deltas.
+	m_CpuStats.CpuKernelDelta.Delta = 0;
+	m_CpuStats.CpuUserDelta.Delta = 0;
+	m_CpuStats.CycleDelta.Delta = 0;
+
+	m_CpuStats.ContextSwitchesDelta.Delta = 0;
+	m_CpuStats.PageFaultsDelta.Delta = 0;
+	m_CpuStats.HardFaultsDelta.Delta = 0;
+	m_CpuStats.PrivateBytesDelta.Delta = 0;
+
+	m_CpuStats.CpuUsage = 0;
+	m_CpuStats.CpuKernelUsage = 0;
+	m_CpuStats.CpuUserUsage = 0;
+
+
+	m_Stats.Net.ReceiveDelta.Delta = 0;
+	m_Stats.Net.SendDelta.Delta = 0;
+	m_Stats.Net.ReceiveRawDelta.Delta = 0;
+	m_Stats.Net.SendRawDelta.Delta = 0;
+	m_Stats.Net.ReceiveRate.Clear();
+	m_Stats.Net.SendRate.Clear();
+
+	m_Stats.Io.ReadDelta.Delta = 0;
+	m_Stats.Io.WriteDelta.Delta = 0;
+	m_Stats.Io.OtherDelta.Delta = 0;
+	m_Stats.Io.ReadRawDelta.Delta = 0;
+	m_Stats.Io.WriteRawDelta.Delta = 0;
+	m_Stats.Io.OtherRawDelta.Delta = 0;
+	m_Stats.Io.ReadRate.Clear();
+	m_Stats.Io.WriteRate.Clear();
+	m_Stats.Io.OtherRate.Clear();
+
+	m_Stats.Disk.ReadDelta.Delta = 0;
+	m_Stats.Disk.WriteDelta.Delta = 0;
+	m_Stats.Disk.ReadRawDelta.Delta = 0;
+	m_Stats.Disk.WriteRawDelta.Delta = 0;
+	m_Stats.Disk.ReadRate.Clear();
+	m_Stats.Disk.WriteRate.Clear();
 }
 
 NTSTATUS PhEnumHandlesGeneric(_In_ HANDLE ProcessId, _In_ HANDLE ProcessHandle, _Out_ PSYSTEM_HANDLE_INFORMATION_EX *Handles, _Out_ PBOOLEAN FilterNeeded);
@@ -1389,8 +1430,8 @@ void CWinProcess::AddNetworkIO(int Type, quint32 TransferSize)
 
 	switch (Type)
 	{
-	case EtEtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
-	case EtEtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
+	case EtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
+	case EtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
 	}
 }
 
@@ -1400,8 +1441,8 @@ void CWinProcess::AddDiskIO(int Type, quint32 TransferSize)
 
 	switch (Type)
 	{
-	case EtEtwDiskReadType:			m_Stats.Disk.AddRead(TransferSize); break;
-	case EtEtwDiskWriteType:		m_Stats.Disk.AddWrite(TransferSize); break;
+	case EtwDiskReadType:			m_Stats.Disk.AddRead(TransferSize); break;
+	case EtwDiskWriteType:		m_Stats.Disk.AddWrite(TransferSize); break;
 	}
 }
 
@@ -2100,7 +2141,7 @@ void CWinProcess::UpdateWsCounters() const
 		return;
 
 	QWriteLocker Locker(&m_Mutex); 
-	m->LastWsCountersUpdate = GetTickCount();
+	m->LastWsCountersUpdate = GetCurTick();
 
 	if(PH_IS_REAL_PROCESS_ID(m->UniqueProcessId)) // WARNING: querying WsCounters causes very high CPU load !!!
 		PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters); 

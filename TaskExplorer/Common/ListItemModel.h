@@ -58,7 +58,7 @@ protected:
 		QVector<SValue>		Values;
 	};
 
-	virtual SListNode* MkNode(const QVariant& Id) { return new SListNode(Id); }
+	virtual SListNode* MkNode(const QVariant& Id) = 0; // { return new SListNode(Id); }
 
 	void Sync(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old);
 
@@ -87,5 +87,7 @@ public:
     virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
 protected:
+	virtual SListNode* MkNode(const QVariant& Id) { return new SListNode(Id); }
+
 	QStringList		m_Headers;
 };

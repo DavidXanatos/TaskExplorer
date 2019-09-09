@@ -13,7 +13,7 @@ public:
 	//static QHostAddress PH2QAddress(struct _PH_IP_ADDRESS* addr);
 
 	virtual QString			GetOwnerServiceName()	{ QReadLocker Locker(&m_Mutex); return m_OwnerService; }
-	virtual bool			IsSubsystemProcess()	{ QReadLocker Locker(&m_Mutex); return m_SubsystemProcess; }
+	//virtual bool			IsSubsystemProcess()	{ QReadLocker Locker(&m_Mutex); return m_SubsystemProcess; }
 
 	virtual int				GetFirewallStatus();
 	virtual QString			GetFirewallStatusString();
@@ -42,23 +42,25 @@ public:
 
 	static QVector<SSocket> GetNetworkConnections();
 
+
 protected:
 	friend class CWindowsAPI;
 
 	bool InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 		const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 
-	bool InitStaticDataEx(SSocket* connection);
+	bool InitStaticDataEx(SSocket* connection, bool IsNew);
 
 	bool UpdateDynamicData(SSocket* connection);
 
 	void AddNetworkIO(int Type, quint32 TransferSize);
 
+	void			ProcessSetNetworkFlag();
+
 	QString			m_OwnerService;
-	bool			m_SubsystemProcess;
+	//bool			m_SubsystemProcess;
 
 	quint64			m_LastActivity;
-
 private:
 	struct SWinSocket* m;
 };

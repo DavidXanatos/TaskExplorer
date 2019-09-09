@@ -306,6 +306,14 @@ void CWinThread::UnInit()
 		NtClose(m->ThreadHandle);
 		m->ThreadHandle = NULL;
 	}
+
+	QWriteLocker StatsLocker(&m_StatsMutex);
+
+	m_CpuStats.ContextSwitchesDelta.Delta = 0;
+	
+	m_CpuStats.CpuUsage = 0;
+	m_CpuStats.CpuKernelUsage = 0;
+	m_CpuStats.CpuUserUsage = 0;
 }
 
 quint64 CWinThread::TraceStack()

@@ -44,6 +44,7 @@
 #include <lsasup.h>
 #include <phnative.h>
 #include <ntgdi.h>
+#include "ProcessHacker/pooltable.h"
 
 
 #include "../../Common/FlexError.h"
@@ -189,3 +190,9 @@ VOID WeInvertWindowBorder(_In_ HWND hWnd);
 BOOLEAN PhSipGetCpuFrequencyFromDistribution(PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Current, PSYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION Previous, double* Fraction);
 NTSTATUS PhSipQueryProcessorPerformanceDistribution(_Out_ PVOID *Buffer);
 
+
+////////////////////////////////////////////////////////////////////////////////////
+// atom table
+
+NTSTATUS EnumAtomTable(_Out_ PATOM_TABLE_INFORMATION* AtomTable);
+NTSTATUS QueryAtomTableEntry(_In_ RTL_ATOM Atom, _Out_ PATOM_BASIC_INFORMATION* AtomInfo);

@@ -1,18 +1,5 @@
 #pragma once
 
-enum ET_ETW_EVENT_TYPE
-{
-	EtEtwDiskReadType = 1,
-	EtEtwDiskWriteType,
-	EtEtwFileNameType,
-	EtEtwFileCreateType,
-	EtEtwFileDeleteType,
-	EtEtwFileRundownType,
-	EtEtwNetworkReceiveType,
-	EtEtwNetworkSendType,
-	EtEtwUnknow = ULONG_MAX
-};
-
 class CEventMonitor : public QThread
 {
     Q_OBJECT

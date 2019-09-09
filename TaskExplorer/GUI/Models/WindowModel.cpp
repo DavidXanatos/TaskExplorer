@@ -10,6 +10,8 @@
 CWindowModel::CWindowModel(QObject *parent)
 :CTreeItemModel(parent)
 {
+	m_Root = MkNode(QVariant());
+
 	m_bExtThreadId = false;
 }
 
@@ -103,7 +105,7 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 		CWinWnd* pWinWnd = qobject_cast<CWinWnd*>(pWindow.data());
 #endif
 
-		for(int section = eHandle; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden

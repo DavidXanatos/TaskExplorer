@@ -37,6 +37,9 @@ struct SWindowsAPI
 		RtlInitUnicodeString(&InterruptsProcessInformation.ImageName, L"Interrupts");
 		InterruptsProcessInformation.UniqueProcessId = INTERRUPTS_PROCESS_ID;
 		InterruptsProcessInformation.InheritedFromUniqueProcessId = SYSTEM_IDLE_PROCESS_ID;
+
+		memset(&PoolTableDB, 0, sizeof(PoolTableDB));
+		
 	}
 
 	~SWindowsAPI()
@@ -77,6 +80,7 @@ struct SWindowsAPI
 	SUnOverflow DirtyPagesWriteCount;
 	SUnOverflow CcLazyWritePages;
 
+	POOLTAG_CONTEXT PoolTableDB;
 };
 
 quint64 GetInstalledMemory()
@@ -113,6 +117,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_ReservedMemory = 0;
 
 	m_pEventMonitor = NULL;
+	m_pFirewallMonitor = NULL;
 	m_pGpuMonitor = NULL;
 	m_pSymbolProvider = NULL;
 	m_pSidResolver = NULL;
@@ -125,7 +130,9 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 bool CWindowsAPI::Init()
 {
-	//SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
+#ifdef _DEBUG
+	SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
+#endif
 
 	InitPH();
 
@@ -210,10 +217,11 @@ bool CWindowsAPI::Init()
 
 	m->InterruptInformation = new SYSTEM_INTERRUPT_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
 
-
 	CHAR brandString[49];
     NtQuerySystemInformation(SystemProcessorBrandString, brandString, sizeof(brandString), NULL);
 	m_CPU_String = QString(brandString);
+
+	LoadPoolTagDatabase(&m->PoolTableDB);
 
 	InitWindowsInfo();
 	
@@ -231,6 +239,9 @@ bool CWindowsAPI::Init()
 
 	if (theConf->GetBool("Options/MonitorETW", false))
 		MonitorETW(true);
+
+	if (theConf->GetBool("Options/MonitorFirewall", false))
+		MonitorFW(true);
 
 	m_pGpuMonitor = new CWinGpuMonitor();
 	m_pGpuMonitor->Init();
@@ -271,9 +282,32 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 	m_pEventMonitor = NULL;
 }
 
+void CWindowsAPI::MonitorFW(bool bEnable)
+{
+	if (bEnable == (m_pFirewallMonitor != NULL))
+		return;
+
+	if (bEnable)
+	{
+		// Note: the FwpmNetEventSubscribe mechanism, does not seam to provide a PID, WTF?!
+		//			So instead we wil enable the firewall auditing policy and monitor the event log :p
+		//m_pFirewallMonitor = new CFirewallMonitor();
+		m_pFirewallMonitor = new CFwEventMonitor();
+
+		connect(m_pFirewallMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, quint32, quint32, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, quint32, quint32, QHostAddress, quint16, QHostAddress, quint16)));
+
+		if (m_pFirewallMonitor->Init())
+			return;
+	}
+
+	delete m_pFirewallMonitor;
+	m_pFirewallMonitor = NULL;
+}
+
 CWindowsAPI::~CWindowsAPI()
 {
 	delete m_pEventMonitor;
+	delete m_pFirewallMonitor;
 
 	delete m_pGpuMonitor;
 	delete m_pNetMonitor;
@@ -281,6 +315,8 @@ CWindowsAPI::~CWindowsAPI()
 
 	delete m_pSymbolProvider;
 	delete m_pSidResolver;
+
+	FreePoolTagDatabase(&m->PoolTableDB);
 
 	delete m;
 }
@@ -746,6 +782,9 @@ bool CWindowsAPI::UpdateProcessList()
 
 		foreach(const CProcessPtr& pProcess, GetProcessList())
 		{
+			if (pProcess->IsMarkedForRemoval())
+				continue;
+
 			pProcess.objectCast<CWinProcess>()->UpdateCPUCycles(iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU == 1 ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
 
 			pProcess.objectCast<CWinProcess>()->UpdateThreadCPUCycles(iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
@@ -935,17 +974,18 @@ QMultiMap<quint64, CSocketPtr>::iterator FindSocketEntry(QMultiMap<quint64, CSoc
 
 bool CWindowsAPI::UpdateSocketList()
 {
-	QSet<quint64> Added;
-	QSet<quint64> Changed;
-	QSet<quint64> Removed;
-
-    if (!NetworkImportDone)
+	if (!NetworkImportDone)
     {
         WSADATA wsaData;
         // Make sure WSA is initialized. (wj32)
         WSAStartup(WINSOCK_VERSION, &wsaData);
         NetworkImportDone = TRUE;
     }
+
+
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
 
 	QVector<CWinSocket::SSocket> connections = CWinSocket::GetNetworkConnections();
 
@@ -977,7 +1017,7 @@ bool CWindowsAPI::UpdateSocketList()
 
 		bool bChanged = false;
 		if (bAdd || pSocket->GetCreateTimeStamp() == 0) { // on network events we may add new, yet un enumerated, sockets 
-			pSocket->InitStaticDataEx(&(connections[i]));
+			pSocket->InitStaticDataEx(&(connections[i]), bAdd);
 			bChanged = true;
 		}
 		bChanged = pSocket->UpdateDynamicData(&(connections[i]));
@@ -988,21 +1028,27 @@ bool CWindowsAPI::UpdateSocketList()
 			Changed.insert(pSocket->m_HashID);
 	}
 
+	quint64 UdpPersistenceTime = theConf->GetUInt64("Options/UdpPersistenceTime", 3000);
 	// For UDP Traffic keep the pseudo connections listed for a while
 	for (QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); )
 	{
-		if ((I.value()->GetProtocolType() & PH_UDP_PROTOCOL_TYPE) != 0 && I.value()->GetRemotePort() != 0 &&
-			I.value().objectCast<CWinSocket>()->GetIdleTime() < theConf->GetUInt64("Options/UdpPersistenceTime", 3000))
+		if ((I.value()->GetProtocolType() & NET_TYPE_PROTOCOL_UDP) != 0 && I.value()->GetRemotePort() != 0 &&
+			I.value().objectCast<CWinSocket>()->GetIdleTime() < UdpPersistenceTime)
 		{
 			I.value()->UpdateStats();
 			I = OldSockets.erase(I);
 		}
 		else
+		{
+			/*quint32 State = I.value()->GetState();
+			if (State != -1 && State != MIB_TCP_STATE_CLOSED)
+				I.value()->SetClosed();*/
 			I++;
+		}
 	}
 
 	QWriteLocker Locker(&m_SocketMutex);
-	// purle all sockets left as thay are not longer running
+	// purge all sockets left as thay are not longer running
 	for(QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); ++I)
 	{
 		QSharedPointer<CWinSocket> pSocket = I.value().objectCast<CWinSocket>();
@@ -1011,8 +1057,11 @@ bool CWindowsAPI::UpdateSocketList()
 			m_SocketList.remove(I.key(), I.value());
 			Removed.insert(I.key());
 		}
-		else if (!pSocket->IsMarkedForRemoval())
+		else if (!pSocket->IsMarkedForRemoval()) 
+		{
+			pSocket->SetClosed();
 			pSocket->MarkForRemoval();
+		}
 	}
 	Locker.unlock();
 
@@ -1037,8 +1086,8 @@ void CWindowsAPI::AddNetworkIO(int Type, quint32 TransferSize)
 
 	switch (Type)
 	{
-	case EtEtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
-	case EtEtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
+	case EtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
+	case EtwNetworkSendType:	m_Stats.Net.AddSend(TransferSize); break;
 	}
 }
 
@@ -1048,8 +1097,8 @@ void CWindowsAPI::AddDiskIO(int Type, quint32 TransferSize)
 
 	switch (Type)
 	{
-	case EtEtwDiskReadType:			m_Stats.Disk.AddRead(TransferSize); break;
-	case EtEtwDiskWriteType:		m_Stats.Disk.AddWrite(TransferSize); break;
+	case EtwDiskReadType:		m_Stats.Disk.AddRead(TransferSize); break;
+	case EtwDiskWriteType:		m_Stats.Disk.AddWrite(TransferSize); break;
 	}
 }
 
@@ -1063,7 +1112,7 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 
 	bool bStrict = false;
 
-	if ((ProtocolType & PH_UDP_PROTOCOL_TYPE) != 0 && theConf->GetBool("Options/UseUDPPseudoConnectins", false))
+	if ((ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0 && theConf->GetBool("Options/UseUDPPseudoConnectins", false))
 		bStrict = true;
 
 	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, bStrict).objectCast<CWinSocket>();
@@ -1074,6 +1123,8 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 
 		pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
 		bAdd = pSocket->InitStaticData(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
+		if (Type == EvlFirewallBlocked)
+			pSocket->SetBlocked();
 		QWriteLocker Locker(&m_SocketMutex);
 		m_SocketList.insertMulti(pSocket->m_HashID, pSocket);
 	}
@@ -1095,13 +1146,13 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 
 	switch (Type)
     {
-    case EtEtwFileNameType: // Name
+    case EtwFileNameType: // Name
         break;
-    case EtEtwFileCreateType: // FileCreate
-	case EtEtwFileRundownType:
+    case EtwFileCreateType: // FileCreate
+	case EtwFileRundownType:
 		m_FileNames.insert(FileId, FileName);
         break;
-    case EtEtwFileDeleteType: // FileDelete
+    case EtwFileDeleteType: // FileDelete
 		m_FileNames.remove(FileId);
         break;
     }*/
@@ -1428,6 +1479,69 @@ bool CWindowsAPI::UpdateDriverList()
     free(ModuleInfo);
 
 	emit DriverListUpdated(Added, Changed, Removed);
+
+	return true; 
+}
+
+bool CWindowsAPI::UpdatePoolTable()
+{
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
+
+	PSYSTEM_POOLTAG_INFORMATION poolTagTable;
+    if (!NT_SUCCESS(EnumPoolTagTable((void**)&poolTagTable)))
+    {
+        return false;
+    }
+
+	QMap<quint64, CPoolEntryPtr> OldPoolTable = GetPoolTableList();
+
+
+	for (ULONG i = 0; i < poolTagTable->Count; i++)
+	{
+		SYSTEM_POOLTAG poolTagInfo = poolTagTable->TagInfo[i];
+		quint64 TagName = poolTagInfo.TagUlong;
+
+		CPoolEntryPtr pPoolEntry = OldPoolTable.take(TagName);
+		
+		bool bAdd = false;
+		if (pPoolEntry.isNull())
+		{
+			pPoolEntry = CPoolEntryPtr(new CWinPoolEntry());
+			QPair<QString, QString> Info = UpdatePoolTagBinaryName(&m->PoolTableDB, TagName);
+			bAdd = pPoolEntry->InitStaticData(TagName, Info.first, Info.second);
+			QWriteLocker Locker(&m_PoolTableMutex);
+			ASSERT(!m_PoolTableList.contains(TagName));
+			m_PoolTableList.insert(TagName, pPoolEntry);
+		}
+
+		bool bChanged = false;
+		bChanged = pPoolEntry->UpdateDynamicData(&poolTagInfo);
+			
+		if (bAdd)
+			Added.insert(TagName);
+		else if (bChanged)
+			Changed.insert(TagName);
+	}
+
+	QWriteLocker Locker(&m_PoolTableMutex);
+	foreach(quint64 TagName, OldPoolTable.keys())
+	{
+		CPoolEntryPtr pPoolEntry = m_PoolTableList.value(TagName);
+		if (pPoolEntry->CanBeRemoved())
+		{
+			m_PoolTableList.remove(TagName);
+			Removed.insert(TagName);
+		}
+		else if (!pPoolEntry->IsMarkedForRemoval())
+			pPoolEntry->MarkForRemoval();
+	}
+	Locker.unlock();
+
+	PhFree(poolTagTable);
+
+	emit PoolListUpdated(Added, Changed, Removed);
 
 	return true; 
 }

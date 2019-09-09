@@ -64,6 +64,7 @@ private:
 	QLabel*					m_pRAMKernelWS;
 	QLabel*					m_pRAMDriverWS;
 
+	/*
 	QWidget*				m_pPoolWidget;
 	QGridLayout*			m_pPoolLayout;
 
@@ -77,6 +78,7 @@ private:
 	QGridLayout*			m_pNPPoolLayout;
 	QLabel*					m_pNPPoolUsage;
 	//QLabel*					m_pNPPoolLimit;
+	*/
 
 	QWidget*				m_pPageWidget;
 	QGridLayout*			m_pPageLayout;

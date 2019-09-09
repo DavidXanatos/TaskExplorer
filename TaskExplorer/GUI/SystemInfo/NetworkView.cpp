@@ -183,7 +183,7 @@ void CNetworkView::Refresh()
 			pItem = new QTreeWidgetItem();
 			pItem->setData(0, Qt::UserRole, I.key());
 			pItem->setText(eAdapter, NicInfo.DeviceName);
-			pItem->setCheckState(0, m_HiddenAdapters.contains(NicInfo.DeviceName) ? Qt::Unchecked : Qt::Checked);
+			pItem->setCheckState(0, m_HiddenAdapters.contains(NicInfo.DeviceInterface) ? Qt::Unchecked : Qt::Checked);
 			m_pNICList->GetTree()->addTopLevelItem(pItem);
 		}
 
@@ -237,7 +237,7 @@ void CNetworkView::UpdateGraphs()
 		QVector<QColor> Colors = theGUI->GetPlotColors();
 		foreach(const CNetMonitor::SNicInfo& Nic, NicList)
 		{
-			if (m_HiddenAdapters.contains(Nic.DeviceName))
+			if (m_HiddenAdapters.contains(Nic.DeviceInterface))
 				continue;
 
 			if (OldAdapters.contains(Nic.DeviceInterface))

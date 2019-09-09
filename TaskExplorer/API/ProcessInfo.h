@@ -97,6 +97,10 @@ public:
 	virtual bool IsUserProcess() const = 0;
 	virtual bool IsElevated() const = 0;
 
+	virtual void SetNetworkUsageFlag(quint64 uFlag)			{ QWriteLocker Locker(&m_StatsMutex); m_NetworkUsageFlags |= uFlag; }
+	virtual int GetNetworkUsageFlags() const				{ QReadLocker Locker(&m_StatsMutex); return m_NetworkUsageFlags; }
+	virtual QString GetNetworkUsageString() const;
+
 	virtual SProcStats	GetStats() const					{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
 	virtual CModulePtr GetModuleInfo() const				{ QReadLocker Locker(&m_Mutex); return m_pModuleInfo; }
@@ -184,6 +188,7 @@ protected:
 	quint64							m_WorkingSetPrivateSize;
 	quint32							m_PeakNumberOfThreads;
 
+	quint32							m_NetworkUsageFlags;
 
 	// I/O stats
 	mutable QReadWriteLock			m_StatsMutex;

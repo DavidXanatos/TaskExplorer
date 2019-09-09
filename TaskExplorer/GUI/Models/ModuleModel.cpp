@@ -11,6 +11,7 @@
 CModuleModel::CModuleModel(QObject *parent)
 :CTreeItemModel(parent)
 {
+	m_Root = MkNode(QVariant());
 }
 
 CModuleModel::~CModuleModel()
@@ -110,7 +111,7 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 		CWinModule* pWinModule = qobject_cast<CWinModule*>(pModule.data());
 #endif
 
-		for(int section = eModule; section < columnCount(); section++)
+		for(int section = 0; section < columnCount(); section++)
 		{
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden

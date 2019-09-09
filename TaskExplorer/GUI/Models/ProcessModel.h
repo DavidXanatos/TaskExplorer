@@ -171,6 +171,7 @@ public:
 
 		// Network IO
 		eNet_TotalRate,
+		eNetUsage,
 		eReceives,
 		eSends,
 		eReceiveBytes,
