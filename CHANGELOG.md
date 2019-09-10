@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [0.9.0b] - 2019-09-10
+
+### fixed
+- fixed crash isue on windows 7 systems when opening permissions tab
+
+
 ## [0.9.0] - 2019-09-09
 
 ### Added

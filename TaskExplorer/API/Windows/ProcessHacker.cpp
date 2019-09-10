@@ -326,6 +326,10 @@ int InitPH(bool bSvc)
 	// note: this is needed to open the permissions panel
 	PhpAddIntegerSetting(L"EnableSecurityAdvancedDialog", L"1");
 	PhpAddStringSetting(L"FileBrowseExecutable", L"%SystemRoot%\\explorer.exe /select,\"%s\"");
+	// for permissions diaog on win 7
+	PhpAddIntegerSetting(L"EnableThemeSupport", L"0");
+	PhpAddIntegerSetting(L"GraphColorMode", L"1");
+	PhpAddIntegerSetting(L"TreeListBorderEnable", L"0");
 
     /*if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseKProcessHacker", true))
     {
