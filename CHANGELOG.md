@@ -6,6 +6,37 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [0.9.25] - 2019-09-15
+
+### Added
+- added remote host names resolution for the socket's tabs
+- added dns cache viever with 60 min persistence 
+-- the dns cache feature correlates the cached data with open sockets and provides a remote host name more reliable than reverse dns lookups
+- better formating when copying panels
+- added column reset option to all lists
+- added f5 full refresh options
+- added security explorer
+- all sub windows now save their geometry
+- addes Working Set Watch fature to count page faults
+- added a few more pool informations
+- added running object table view to kernel objects
+- added Wait Chain Traversal feature to detect deadlocks
+- added option to open thread tokens
+
+### Changed
+- when a new process is seen in an ETW or FW event it is now created and some masic infos are loaded
+- copy cell now can copy multiple cels
+- when enabling/disablign columns a refresh is triggered right away to fill in the data (in caseuse has set a ver slow refresh rate)
+- improved menu layout
+
+### Fixed
+- fixed on copy cell did not work properly with multiple items selected
+- fixed on cppy panel and row copying empty(hiden) columns
+- fixed process tree horizontal scroll bar position reset on selection in tree
+- fixed NtQueryInformationFile deadlock in windows 7 when querying \Device\VolMgrControl
+- fixed issue where some deltas caused a overflow when the counter reset
+
+
 ## [0.9.0b] - 2019-09-10
 
 ### fixed
