@@ -1,13 +1,14 @@
 #include "stdafx.h"
 #include "SettingsWindow.h"
 #include "TaskExplorer.h"
+#include "../Common/Settings.h"
 
 CSettingsWindow::CSettingsWindow(QWidget *parent)
 	: QMainWindow(parent)
 {
 	QWidget* centralWidget = new QWidget();
-	this->setCentralWidget(centralWidget);
 	ui.setupUi(centralWidget);
+	this->setCentralWidget(centralWidget);
 
 	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", true));
 	ui.chkLinuxStyle->setTristate(true);
@@ -139,7 +140,14 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	connect(ui.buttonBox->button(QDialogButtonBox::Apply), SIGNAL(pressed()), this, SLOT(apply()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
+	restoreGeometry(theConf->GetBlob("SettingsWindow/Window_Geometry"));
+
 	OnChange();
+}
+
+CSettingsWindow::~CSettingsWindow()
+{
+	theConf->SetBlob("SettingsWindow/Window_Geometry",saveGeometry());
 }
 
 void CSettingsWindow::closeEvent(QCloseEvent *e)

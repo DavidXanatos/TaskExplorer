@@ -43,13 +43,20 @@ public:
 	virtual QString				GetStateString();
 	virtual quint64				GetProcessId() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
+	virtual QString				GetRemoteHostName() const	{ QReadLocker Locker(&m_Mutex); return m_RemoteHostName; }
+
 	virtual QString				GetProcessName() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
 	virtual CProcessPtr			GetProcess() const			{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
 	
 	virtual SSockStats			GetStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
+	enum EMatchMode
+	{
+		eFuzzy = 0,
+		eStrict,
+	};
 
-	virtual bool				Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
+	virtual bool				Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, EMatchMode Mode);
 
 	static quint64				MkHash(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 
@@ -70,6 +77,8 @@ protected:
 
 	QString						m_ProcessName;
 	CProcessRef					m_pProcess;
+
+	QString						m_RemoteHostName;
 
 	// I/O stats
 	mutable QReadWriteLock		m_StatsMutex;

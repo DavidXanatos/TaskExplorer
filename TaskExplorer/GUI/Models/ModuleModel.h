@@ -12,7 +12,7 @@ public:
     CModuleModel(QObject *parent = 0);
 	~CModuleModel();
 
-	void			Sync(const QMap<quint64, CModulePtr>& ModuleList);
+	QSet<quint64>	Sync(const QMap<quint64, CModulePtr>& ModuleList);
 
 	CModulePtr		GetModule(const QModelIndex &index) const;
 

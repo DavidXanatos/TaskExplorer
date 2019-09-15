@@ -55,6 +55,8 @@ CTaskInfoWindow::CTaskInfoWindow(QWidget* pSingleTab, const QString& TabName, QW
 	//QObject::connect(m_pButtonBox, SIGNAL(rejected()), this, SLOT(close()));
 	m_pMainLayout->addWidget(m_pButtonBox);
 
+	restoreGeometry(theConf->GetBlob("InfoWindow/Window_Geometry"));
+
 	m_uTimerID = startTimer(500);
 }
 

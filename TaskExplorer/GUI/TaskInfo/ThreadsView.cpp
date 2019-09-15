@@ -7,6 +7,8 @@
 #include "../../API/Windows/WindowsAPI.h"
 #endif
 #include "../../Common/Finder.h"
+#include "TaskInfoWindow.h"
+#include "TokenView.h"
 
 CThreadsView::CThreadsView(QWidget *parent)
 	: CTaskView(parent)
@@ -41,16 +43,20 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pThreadList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pThreadList->setSortingEnabled(true);
 
-	m_pSplitter->addWidget(CFinder::AddFinder(m_pThreadList, m_pSortProxy));
-	m_pSplitter->setCollapsible(0, false);
-
 	m_pThreadList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pThreadList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pThreadModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pThreadModel, SLOT(Clear()));
 
 	//connect(m_pThreadList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
 	connect(m_pThreadList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
+
+	m_pThreadList->setColumnReset(2);
+	connect(m_pThreadList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pThreadList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
+	m_pSplitter->addWidget(CFinder::AddFinder(m_pThreadList, m_pSortProxy));
+	m_pSplitter->setCollapsible(0, false);
 	// 
 
 
@@ -58,7 +64,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pStackView = new CStackView(this);
 	
 	m_pSplitter->addWidget(m_pStackView);
-	m_pSplitter->setCollapsible(1, false);
+	//m_pSplitter->setCollapsible(1, false);
 	// 
 
 	m_CurStackTraceJob = 0;
@@ -66,18 +72,17 @@ CThreadsView::CThreadsView(QWidget *parent)
 	//m_pMenu = new QMenu();
 	AddTaskItemsToMenu();
 
-#ifdef WIN32
-	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
-	m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
-	//m_pAnalyze;
-	m_pCritical = m_pMiscMenu->addAction(tr("Critical"), this, SLOT(OnThreadAction()));
-	m_pCritical->setCheckable(true);	
-#endif
-
 	AddPriorityItemsToMenu(eThread);
 
 #ifdef WIN32
 	m_pMenu->addSeparator();
+
+	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
+	m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
+	//m_pAnalyze;
+	m_pCritical = m_pMiscMenu->addAction(tr("Critical Thread Flag"), this, SLOT(OnThreadAction()));
+	m_pCritical->setCheckable(true);
+	m_pToken = m_pMiscMenu->addAction(tr("Impersonation Token"), this, SLOT(OnThreadToken()));
 
 	//m_pToken;
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
@@ -115,31 +120,38 @@ void CThreadsView::SwitchView(EView ViewMode)
 	}
 
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pThreadModel->columnCount(); i++)
-			m_pThreadList->SetColumnHidden(i, true);
-
-		m_pThreadList->SetColumnHidden(CThreadModel::eThread, false);
-		m_pThreadList->SetColumnHidden(CThreadModel::eCPU, false);
-		if(m_ViewMode == eSingle)
-			m_pThreadList->SetColumnHidden(CThreadModel::eCPU_History, false);
-#ifdef WIN32
-		m_pThreadList->SetColumnHidden(CThreadModel::eStartAddress, false);
-#endif
-		m_pThreadList->SetColumnHidden(CThreadModel::ePriority, false);
-#ifdef WIN32
-		m_pThreadList->SetColumnHidden(CThreadModel::eService, false);
-#endif
-		m_pThreadList->SetColumnHidden(CThreadModel::eState, false);
-#ifdef WIN32
-		m_pThreadList->SetColumnHidden(CThreadModel::eType, false);
-#endif
-		m_pThreadList->SetColumnHidden(CThreadModel::eCreated, false);
-	}
+		OnResetColumns();
 	else
 		m_pThreadList->restoreState(Columns);
 }
 
+void CThreadsView::OnResetColumns()
+{
+	for (int i = 0; i < m_pThreadModel->columnCount(); i++)
+		m_pThreadList->SetColumnHidden(i, true);
+
+	m_pThreadList->SetColumnHidden(CThreadModel::eThread, false);
+	m_pThreadList->SetColumnHidden(CThreadModel::eCPU, false);
+	if(m_ViewMode == eSingle)
+		m_pThreadList->SetColumnHidden(CThreadModel::eCPU_History, false);
+#ifdef WIN32
+	m_pThreadList->SetColumnHidden(CThreadModel::eStartAddress, false);
+#endif
+	m_pThreadList->SetColumnHidden(CThreadModel::ePriority, false);
+#ifdef WIN32
+	m_pThreadList->SetColumnHidden(CThreadModel::eService, false);
+#endif
+	m_pThreadList->SetColumnHidden(CThreadModel::eState, false);
+#ifdef WIN32
+	m_pThreadList->SetColumnHidden(CThreadModel::eType, false);
+#endif
+	m_pThreadList->SetColumnHidden(CThreadModel::eCreated, false);
+}
+
+void CThreadsView::OnColumnsChanged()
+{
+	m_pThreadModel->Sync(m_Threads);
+}
 
 void CThreadsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
@@ -238,6 +250,9 @@ void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelInde
 
 	disconnect(m_pStackView, SLOT(ShowStack(const CStackTracePtr&)));
 
+	if (m_pSplitter->sizes()[1] == 0)
+		return;
+
 	//m_pStackView->Clear();
 	m_pStackView->Invalidate();
 
@@ -291,6 +306,8 @@ void CThreadsView::OnMenu(const QPoint &point)
 
 	m_pCritical->setEnabled(!pWinThread.isNull());
 	m_pCritical->setChecked(pWinThread && pWinThread->IsCriticalThread());
+
+	m_pToken->setEnabled(pWinThread && pWinThread->HasToken());
 
 	m_pPermissions->setEnabled(selectedRows.count() == 1);
 #endif
@@ -408,6 +425,28 @@ void CThreadsView::OnUpdateHistory()
 		}
 		m_pThreadList->EndUpdatingWidgets(OldMap, m_CPU_History);
 	}
+}
+
+void CThreadsView::OnThreadToken()
+{
+#ifdef WIN32
+	QList<CTaskPtr>	Tasks = GetSellectedTasks();
+	if (Tasks.count() != 1)
+		return;
+
+	QSharedPointer<CWinThread> pWinThread = Tasks.first().objectCast<CWinThread>();
+	if (!pWinThread)
+		return;
+
+	CWinToken* pToken = CWinToken::TokenFromThread(pWinThread->GetThreadId());
+	if (pToken)
+	{
+		CTokenView* pTokenView = new CTokenView();
+		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pTokenView, tr("Token"));
+		pTokenView->ShowToken(CWinTokenPtr(pToken));
+		pTaskInfoWindow->show();
+	}
+#endif
 }
 
 void CThreadsView::OnPermissions()

@@ -27,7 +27,12 @@ protected:
 	virtual QTreeView*			GetView()	{ return m_pPoolList; }
 	virtual QAbstractItemModel* GetModel()	{ return m_pSortProxy; }
 
+	QMap<quint64, CPoolEntryPtr> m_PoolList;
+
 private slots:
+	//void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					OnPoolListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 private:

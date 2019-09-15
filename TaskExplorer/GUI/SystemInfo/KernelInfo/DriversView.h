@@ -27,7 +27,12 @@ protected:
 	virtual QTreeView*			GetView()	{ return m_pDriverList; }
 	virtual QAbstractItemModel* GetModel()	{ return m_pSortProxy; }
 
+	QMap<QString, CDriverPtr> m_DriverList;
+
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					OnDriverListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
 
 private:

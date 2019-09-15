@@ -24,6 +24,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	//void					OnMenu(const QPoint &point);
 
 	void					OnPermissions();
@@ -37,6 +40,8 @@ protected:
 
 	QSharedPointer<CWinProcess>	m_pCurProcess;
 	CWinJobPtr					m_pCurJob;
+
+	QMap<quint64, CProcessPtr>	m_ProcessList;
 
 private:
 	enum EStackColumns

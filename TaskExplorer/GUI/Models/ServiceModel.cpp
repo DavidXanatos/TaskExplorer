@@ -54,11 +54,18 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 		bool State = false;
 		int Changed = 0;
 
+		CModulePtr pModule = pService->GetModuleInfo();
+
 		// Note: icons are loaded asynchroniusly
 #ifdef WIN32
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eService))
 		{
-			QPixmap Icon = pWinService->IsDriver() ? g_DllIcon.pixmap(16,16) : pService->GetModuleInfo()->GetFileIcon();
+			QPixmap Icon;
+			if (pWinService->IsDriver())
+				Icon = g_DllIcon.pixmap(16, 16);
+			else if (pModule)
+				Icon = pModule->GetFileIcon(); 
+
 			if (!Icon.isNull()) {
 				Changed = 1; // set change for first column
 				pNode->Icon = Icon;
@@ -106,9 +113,9 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 				case ePID:					Value = (int)pService->GetPID(); break;
 				case eFileName:				Value = pService->GetFileName(); break;
 #ifdef WIN32
-				case eDescription:			Value = pService->GetModuleInfo()->GetFileInfo("Description"); break;
-				case eCompanyName:			Value = pService->GetModuleInfo()->GetFileInfo("CompanyName"); break;
-				case eVersion:				Value = pService->GetModuleInfo()->GetFileInfo("FileVersion"); break;
+				case eDescription:			Value = pModule ? pModule->GetFileInfo("Description") : ""; break;
+				case eCompanyName:			Value = pModule ? pModule->GetFileInfo("CompanyName") : ""; break;
+				case eVersion:				Value = pModule ? pModule->GetFileInfo("FileVersion") : ""; break;
 				case eErrorControl:			Value = pWinService->GetErrorControlString(); break;
 				case eGroupe:				Value = pWinService->GetGroupeName(); break;
 #endif

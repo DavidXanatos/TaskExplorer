@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions based on hndlprv.c
  *
  * Copyright (C) 2010-2015 wj32
@@ -188,10 +188,8 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
                 }
             }
 
-			// NOTE: NtQueryInformationFile for '\Device\ConDrv\CurrentIn' causes a deadlock but
-            // we can query other '\Device\ConDrv' console handles. NtQueryInformationFile also
-            // causes a deadlock for some types of named pipes and only on Win10 (dmex)
-            if (!isPipeHandle && !isConsoleHandle)
+			// NOTE: NtQueryInformationFile may hang on no file types see commetn in GetHandleInfo()
+            if (isFileOrDirectory)
             {
                 if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
                 {
@@ -509,6 +507,7 @@ QString CWinHandle::GetSectionType(quint32 Attribs)
 };
 
 VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider);
+
 BOOLEAN NTAPI EnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ PVOID Context)
 {
     if (Module->Type == PH_MODULE_TYPE_MODULE || Module->Type == PH_MODULE_TYPE_WOW64_MODULE)
@@ -613,7 +612,8 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 				HandleInfo.File.Mode = fileModeInfo.Mode;
 			}
 
-			if (!isConsoleHandle)
+			// NOTE: NtQueryInformationFile can hand on windows 7 at \Device\VolMgrControl 
+			if (isFileOrDirectory)
 			{
 				if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
 				{

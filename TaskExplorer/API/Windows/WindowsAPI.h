@@ -7,6 +7,7 @@
 //#include "Monitors/FirewallMonitor.h"
 #include "SidResolver.h"
 #include "SymbolProvider.h"
+#include "DnsResolver.h"
 #include "WinService.h"
 #include "WinDriver.h"
 #include "WinWnd.h"
@@ -48,13 +49,15 @@ public:
 
 	virtual bool RootAvaiable();
 
+	virtual CProcessPtr GetProcessByID(quint64 ProcessId, bool bAddIfNew = false);
+
 	virtual bool UpdateSysStats();
 
 	virtual bool UpdateProcessList();
 
 	virtual bool UpdateSocketList();
 
-	virtual CSocketPtr FindSocket(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict);
+	virtual CSocketPtr FindSocket(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, CSocketInfo::EMatchMode Mode);
 
 	virtual bool UpdateOpenFileList();
 
@@ -65,6 +68,11 @@ public:
 	virtual CSymbolProvider* GetSymbolProvider()		{ return m_pSymbolProvider; }
 
 	virtual CSidResolver* GetSidResolver()				{ return m_pSidResolver; }
+
+	virtual CDnsResolver* GetDnsResolver()				{ return m_pDnsResolver; }
+
+	virtual bool UpdateDnsCache();
+	virtual void FlushDnsCache();
 
 	virtual quint64	GetCpuIdleCycleTime(int index);
 
@@ -90,6 +98,8 @@ public:
 
 	//__inline bool UseDiskCounters() const				{ return m_UseDiskCounters != eDontUse; }
 	__inline bool UseDiskCounters() const				{ return m_UseDiskCounters; }
+
+	virtual QMultiMap<QString, CDnsEntryPtr> GetDnsEntryList() const;
 
 	virtual QMap<quint64, CPoolEntryPtr> GetPoolTableList() const { QReadLocker Locker(&m_PoolTableMutex); return m_PoolTableList; }
 
@@ -134,6 +144,8 @@ protected:
 	CSymbolProvider*		m_pSymbolProvider;
 
 	CSidResolver*			m_pSidResolver;
+
+	CDnsResolver*			m_pDnsResolver;
 	
 
 	// Guard it with		m_StatsMutex

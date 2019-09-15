@@ -8,6 +8,7 @@ class CSocketsView;
 class CServicesView;
 //class CDriversView;
 class CKernelView;
+class CDnsCacheView;
 class CCPUView;
 class CRAMView;
 class CDiskView;
@@ -33,6 +34,7 @@ private:
 	CSystemView*		m_pSystemView;
 	CHandlesView*		m_pAllFilesView;
 	CSocketsView*		m_pAllSocketsView;
+	CDnsCacheView*		m_pDnsCacheView;
 	CServicesView*		m_pServicesView;
 	//CDriversView*		m_pDriversView;
 	CKernelView*		m_pKernelView;

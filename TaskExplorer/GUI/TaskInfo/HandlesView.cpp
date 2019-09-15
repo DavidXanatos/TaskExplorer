@@ -120,7 +120,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_pHandleList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pHandleList->setSortingEnabled(true);
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pHandleModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pHandleModel, SLOT(Clear()));
 
 	if (iAll == 0)
 		UpdateFilter();
@@ -129,6 +129,10 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_pHandleList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pHandleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 	connect(m_pHandleList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
+
+	m_pHandleList->setColumnReset(2);
+	connect(m_pHandleList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pHandleList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pSplitter->addWidget(CFinder::AddFinder(m_pHandleList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
@@ -185,7 +189,6 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 
 	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Splitter"));
 
-	connect(m_pHandleList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 	OnColumnsChanged();
 
 	//m_pMenu = new QMenu();
@@ -267,27 +270,32 @@ void CHandlesView::SwitchView(EView ViewMode)
 	}
 	
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pHandleModel->columnCount(); i++)
-			m_pHandleList->SetColumnHidden(i, true);
-
-		if (m_ViewMode == eMulti)
-			m_pHandleList->SetColumnHidden(CHandleModel::eProcess, false);
-		m_pHandleList->SetColumnHidden(CHandleModel::eHandle, false);
-		m_pHandleList->SetColumnHidden(CHandleModel::eType, false);
-		m_pHandleList->SetColumnHidden(CHandleModel::eName, false);
-		m_pHandleList->SetColumnHidden(CHandleModel::ePosition, false);
-		m_pHandleList->SetColumnHidden(CHandleModel::eSize, false);
-		//m_pHandleList->SetColumnHidden(CHandleModel::eRefs, false);
-		m_pHandleList->SetColumnHidden(CHandleModel::eGrantedAccess, false);
-#ifdef WIN32
-		m_pHandleList->SetColumnHidden(CHandleModel::eFileShareAccess, false);
-#endif
-	}
+		OnResetColumns();
 	else
 		m_pHandleList->restoreState(Columns);
 }
 
+void CHandlesView::OnResetColumns()
+{
+	for (int i = 0; i < m_pHandleModel->columnCount(); i++)
+		m_pHandleList->SetColumnHidden(i, true);
+
+	if (m_ViewMode == eMulti)
+		m_pHandleList->SetColumnHidden(CHandleModel::eProcess, false);
+	m_pHandleList->SetColumnHidden(CHandleModel::eHandle, false);
+	m_pHandleList->SetColumnHidden(CHandleModel::eType, false);
+	m_pHandleList->SetColumnHidden(CHandleModel::eName, false);
+	if (!m_ShowAllFiles)
+	{
+		m_pHandleList->SetColumnHidden(CHandleModel::ePosition, false);
+		m_pHandleList->SetColumnHidden(CHandleModel::eSize, false);
+	}
+	//m_pHandleList->SetColumnHidden(CHandleModel::eRefs, false);
+	m_pHandleList->SetColumnHidden(CHandleModel::eGrantedAccess, false);
+#ifdef WIN32
+	m_pHandleList->SetColumnHidden(CHandleModel::eFileShareAccess, false);
+#endif
+}
 
 void CHandlesView::OnColumnsChanged()
 {
@@ -296,6 +304,8 @@ void CHandlesView::OnColumnsChanged()
 		m_pHandleModel->IsColumnEnabled(CHandleModel::ePosition) 
 	 || m_pHandleModel->IsColumnEnabled(CHandleModel::eSize)
 	);
+
+	m_pHandleModel->Sync(m_Handles);
 }
 
 void CHandlesView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -392,7 +402,9 @@ void CHandlesView::ShowOpenFiles(QSet<quint64> Added, QSet<quint64> Changed, QSe
 
 void CHandlesView::ShowHandles(const QMap<quint64, CHandlePtr>& Handles)
 {
-	m_pHandleModel->Sync(Handles);
+	m_Handles = Handles;
+
+	m_pHandleModel->Sync(m_Handles);
 }
 
 void CHandlesView::UpdateFilter()

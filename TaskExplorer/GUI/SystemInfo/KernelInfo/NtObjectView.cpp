@@ -37,7 +37,7 @@ CNtObjectView::CNtObjectView(QWidget *parent)
 	m_pNtObjectList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pNtObjectList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pNtObjectModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pNtObjectModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pNtObjectList);
 	// 
@@ -46,17 +46,13 @@ CNtObjectView::CNtObjectView(QWidget *parent)
 
 	QByteArray Columns = theConf->GetBlob(objectName() + "/NtObjectView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pNtObjectModel->columnCount(); i++)
-			m_pNtObjectList->SetColumnHidden(i, false);
-	}
+		m_pNtObjectList->OnResetColumns();
 	else
 		m_pNtObjectList->restoreState(Columns);
 
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu();
 }
-
 
 CNtObjectView::~CNtObjectView()
 {

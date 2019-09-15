@@ -25,7 +25,7 @@ struct SJobStats
 	SDelta64	KernelDelta;
 	SDelta64	UserDelta;
 
-	SDelta32 	PageFaultsDelta;
+	SDelta32_64 	PageFaultsDelta;
 
 	quint64		LastStatUpdate;
 

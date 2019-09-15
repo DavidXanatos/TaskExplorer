@@ -38,6 +38,7 @@ public:
 
 	virtual bool IsGuiThread() const					{ QReadLocker Locker(&m_Mutex); return m_IsGuiThread; }
 	virtual bool IsCriticalThread() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
+	virtual bool HasToken() const						{ QReadLocker Locker(&m_Mutex); return m_HasToken; }
 	virtual STATUS SetCriticalThread(bool bSet, bool bForce = false);
 	virtual STATUS CancelIO();
 	virtual QString GetAppDomain() const;
@@ -78,6 +79,7 @@ protected:
 
 	bool		m_IsGuiThread;
 	bool		m_IsCritical;
+	bool		m_HasToken;
 
 	QString		m_AppDomain;
 

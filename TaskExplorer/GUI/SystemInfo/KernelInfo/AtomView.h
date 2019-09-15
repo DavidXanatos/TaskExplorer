@@ -18,6 +18,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	//void					OnResetColumns();
+	//void					OnColumnsChanged();
+
 	//void					OnMenu(const QPoint &point);
 	//void					OnItemDoubleClicked(const QModelIndex& Index);
 
@@ -28,6 +31,7 @@ protected:
 	virtual QTreeView*			GetView() 				{ return m_pAtomList; }
 	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
 
+	QList<QVariantMap>		m_Atoms;
 
 private:
 	enum EColumns

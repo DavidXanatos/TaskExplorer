@@ -15,6 +15,7 @@ class CJobView;
 class CServicesView;
 class CDotNetView;
 class CGDIView;
+//class CDnsCacheView;
 class CEnvironmentView;
 
 
@@ -52,6 +53,7 @@ private:
 	CDotNetView*		m_pDotNetView;
 	CGDIView*			m_pGDIView;
 #endif
+	//CDnsCacheView*		m_pDnsCacheView;
 	CEnvironmentView*	m_pEnvironmentView;
 };
 

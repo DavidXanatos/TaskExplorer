@@ -33,6 +33,10 @@ CGDIView::CGDIView(QWidget *parent)
 	m_pGDIList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pGDIList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
+	m_pGDIList->setColumnReset(2);
+	connect(m_pGDIList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pGDIList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
 	//connect(m_pGDIList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnItemDoubleClicked(const QModelIndex&)));
 	m_pMainLayout->addWidget(m_pGDIList);
 	// 
@@ -71,17 +75,24 @@ void CGDIView::SwitchView(EView ViewMode)
 	}
 	
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pGDIModel->columnCount(); i++)
-			m_pGDIList->SetColumnHidden(i, false);
-
-		if(m_ViewMode == eSingle)
-			m_pGDIList->SetColumnHidden(CGDIModel::eProcess, true);
-	}
+		OnResetColumns();
 	else
 		m_pGDIList->restoreState(Columns);
 }
 
+void CGDIView::OnResetColumns()
+{
+	for (int i = 0; i < m_pGDIModel->columnCount(); i++)
+		m_pGDIList->SetColumnHidden(i, false);
+
+	if(m_ViewMode == eSingle)
+		m_pGDIList->SetColumnHidden(CGDIModel::eProcess, true);
+}
+
+void CGDIView::OnColumnsChanged()
+{
+	m_pGDIModel->Sync(m_GDIList);
+}
 
 void CGDIView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {

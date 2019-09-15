@@ -37,7 +37,7 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pScrollArea->setPalette(pal);
 
 	m_PlotLimit = theGUI->GetGraphLimit(true);
-	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	connect(theGUI, SIGNAL(ReloadPlots()), this, SLOT(ReConfigurePlots()));
 	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
 	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
@@ -115,40 +115,44 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pDiskList->GetTree()->setMinimumHeight(100);
 	m_pDiskList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
+	m_pDiskList->GetTree()->setColumnReset(2);
+	connect(m_pDiskList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+
 	m_pScrollLayout->addWidget(m_pDiskList, 2, 0, 1, 3);
 	//
 
 	setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/DiskView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < eCount; i++)
-			m_pDiskList->GetView()->setColumnHidden(i, true);
-
-		m_pDiskList->GetView()->setColumnHidden(eDiskName, false);
-		m_pDiskList->GetView()->setColumnHidden(eActivityTime, false);
-		m_pDiskList->GetView()->setColumnHidden(eResponseTime, false);
-
-		m_pDiskList->GetView()->setColumnHidden(eReadRate, false);
-		m_pDiskList->GetView()->setColumnHidden(eBytesRead, false);
-		m_pDiskList->GetView()->setColumnHidden(eWriteRate, false);
-		m_pDiskList->GetView()->setColumnHidden(eBytesWriten, false);
-
-		m_pDiskList->GetView()->setColumnHidden(eDevicePath, false);
-	}
+		OnResetColumns();
 	else
 		m_pDiskList->GetView()->header()->restoreState(Columns);
 
-
 	m_pGraphTabs->setCurrentIndex(theConf->GetInt("Options/DiskTab", 0));
 }
-
 
 CDiskView::~CDiskView()
 {
 	theConf->SetValue("Options/DiskTab", m_pGraphTabs->currentIndex());
 	//theConf->SetValue("Options/CurrentDisk", m_pDiskDrives->currentIndex());
 	theConf->SetBlob(objectName() + "/DiskView_Columns", m_pDiskList->GetView()->header()->saveState());
+}
+
+void CDiskView::OnResetColumns()
+{
+	for (int i = 0; i < eCount; i++)
+		m_pDiskList->GetView()->setColumnHidden(i, true);
+
+	m_pDiskList->GetView()->setColumnHidden(eDiskName, false);
+	m_pDiskList->GetView()->setColumnHidden(eActivityTime, false);
+	m_pDiskList->GetView()->setColumnHidden(eResponseTime, false);
+
+	m_pDiskList->GetView()->setColumnHidden(eReadRate, false);
+	m_pDiskList->GetView()->setColumnHidden(eBytesRead, false);
+	m_pDiskList->GetView()->setColumnHidden(eWriteRate, false);
+	m_pDiskList->GetView()->setColumnHidden(eBytesWriten, false);
+
+	m_pDiskList->GetView()->setColumnHidden(eDevicePath, false);
 }
 
 void CDiskView::ReConfigurePlots()

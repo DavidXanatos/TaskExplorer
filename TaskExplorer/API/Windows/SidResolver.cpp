@@ -68,9 +68,8 @@ void CSidResolver::OnSidResolved(const QByteArray& Sid, const QString& FullName)
 
 void CSidResolver::run()
 {
-#ifdef _DEBUG
-	SetThreadDescription(GetCurrentThread(), L"SID Resolver");
-#endif
+	//if(WindowsVersion >= WINDOWS_10_RS1)
+	//	SetThreadDescription(GetCurrentThread(), L"SID Resolver");
 
 	int IdleCount = 0;
 	while (m_bRunning)

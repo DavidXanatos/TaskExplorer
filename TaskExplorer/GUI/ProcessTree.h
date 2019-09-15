@@ -31,12 +31,16 @@ private slots:
 
 	void					OnUpdateHistory();
 
+	void					OnResetColumns();
+
 	//void					OnClicked(const QModelIndex& Index);
 	//void					OnDoubleClicked(const QModelIndex& Index);
 	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 	void					OnSelectionChanged(const QItemSelection& Selected, const QItemSelection& Deselected);
 
 	void					OnColumnsChanged();
+
+	void					OnQuickRefresh();
 
 	void					OnShowProperties();
 
@@ -49,6 +53,8 @@ private slots:
 
 	void					OnCrashDump();
 	void					OnProcessAction();
+	void					OnWsWatch();
+	void					OnWCT();
 	void					OnRunAsThis();
 
 	void					OnPermissions();
@@ -81,6 +87,10 @@ protected:
 
 private:
 	void					AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, int from, int to);
+
+	void					QuickRefresh();
+
+	bool					m_bQuickRefreshPending;
 
 	QVBoxLayout*			m_pMainLayout;
 
@@ -119,11 +129,10 @@ private:
 	QAction*				m_pDebug; // []
 #ifdef WIN32
 	//QAction*				m_pVirtualization; // []
-	//QAction*				m_pWindows;
 	QAction*				m_pCritical; // []
 	QAction*				m_pReduceWS;
-	//QAction*				m_pUnloadModules;
-	//QAction*				m_pWatchWS;
+	QAction*				m_pWatchWS;
+	QAction*				m_pWCT;
 	QAction*				m_pPermissions;
 #endif
 };

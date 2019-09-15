@@ -63,7 +63,7 @@ void CWinHandleFinder::run()
 			List.append(pWinHandle);
 
 			if (pWinHandle->m_pProcess.isNull())
-				pWinHandle->m_pProcess = theAPI->GetProcessByID(handle->UniqueProcessId);
+				pWinHandle->m_pProcess = theAPI->GetProcessByID(handle->UniqueProcessId, true);
 
 			// emit results every second
 			quint64 NewStamp = GetTime() * 1000;

@@ -51,7 +51,11 @@ CWindowsView::CWindowsView(QWidget *parent)
 	m_pWindowList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pWindowList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pWindowModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pWindowModel, SLOT(Clear()));
+
+	m_pWindowList->setColumnReset(2);
+	connect(m_pWindowList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pWindowList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pSplitter->addWidget(CFinder::AddFinder(m_pWindowList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
@@ -140,14 +144,21 @@ void CWindowsView::SwitchView(EView ViewMode)
 	}
 	
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pWindowModel->columnCount(); i++)
-			m_pWindowList->SetColumnHidden(i, false);
-	}
+		OnResetColumns();
 	else
 		m_pWindowList->restoreState(Columns);
 }
 
+void CWindowsView::OnResetColumns()
+{
+	for (int i = 0; i < m_pWindowModel->columnCount(); i++)
+		m_pWindowList->SetColumnHidden(i, false);
+}
+
+void CWindowsView::OnColumnsChanged()
+{
+	m_pWindowModel->Sync(m_Windows);
+}
 
 void CWindowsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
@@ -189,23 +200,27 @@ void CWindowsView::ShowWindows(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 	{
 		m_PendingUpdates = 0;
 
-		m_pWindowModel->Sync(m_Processes.first()->GetWindowList());
+		m_Windows = m_Processes.first()->GetWindowList();
+
+		m_pWindowModel->Sync(m_Windows);
 	}
 	else*/
 	{
 		if (--m_PendingUpdates != 0)
 			return;
 
-		QHash<quint64, CWndPtr> AllWindows;
+		m_Windows.clear();
+
 		foreach(const CProcessPtr& pProcess, m_Processes) {
 			QMap<quint64, CWndPtr> Windows = pProcess->GetWindowList();
 			for (QMap<quint64, CWndPtr>::iterator I = Windows.begin(); I != Windows.end(); I++)
 			{
-				ASSERT(!AllWindows.contains(I.key()));
-				AllWindows.insert(I.key(), I.value());
+				ASSERT(!m_Windows.contains(I.key()));
+				m_Windows.insert(I.key(), I.value());
 			}
 		}
-		Added = m_pWindowModel->Sync(AllWindows);
+
+		Added = m_pWindowModel->Sync(m_Windows);
 	}
 
 	QTimer::singleShot(100, this, [this, Added]() {

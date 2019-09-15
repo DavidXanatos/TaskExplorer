@@ -10,8 +10,8 @@
 
 #define VERSION_MJR		0
 #define VERSION_MIN 	9
-#define VERSION_REV 	0
-#define VERSION_UPD 	2
+#define VERSION_REV 	25
+#define VERSION_UPD 	0
 
 class CGraphBar;
 class CHistoryGraph;
@@ -74,7 +74,8 @@ public:
 	static QString		GetVersion();
 
 signals:
-	void				ReloadAll();
+	void				ReloadPanels();
+	void				ReloadPlots();
 
 public slots:
 	void				UpdateAll();
@@ -93,6 +94,8 @@ protected:
 	quint64				m_LastTimer;
 
 private slots:	
+	void				ApplyOptions();
+
 	void				OnStatusMessage(const QString& Message);
 
 	void				OnRun();
@@ -114,7 +117,7 @@ private slots:
 	void				OnChangeInterval(QAction* pAction);
 	void				OnChangePersistence(QAction* pAction);
 	void				OnStaticPersistence();
-	
+	void				ResetAll();
 
 	void				OnFindHandle();
 	void				OnFindDll();
@@ -127,6 +130,7 @@ private slots:
 	void				OnCreateService();
 	void				OnReloadService();
 	void				OnSCMPermissions();
+	void				OnSecurityExplorer();
 	void				OnFreeMemory();
 	void				OnMonitorETW();
 	void				OnMonitorFW();
@@ -141,6 +145,8 @@ private slots:
 	void				OnSplitterMoved();
 
 private:
+	void				LoadDefaultIcons();
+
 	QWidget*			m_pMainWidget;
 	QVBoxLayout*		m_pMainLayout;
 	QSplitter*			m_pGraphSplitter;
@@ -203,6 +209,7 @@ private:
 
 	QAction*			m_pMenuPauseRefresh;
 	QAction*			m_pMenuRefreshNow;
+	QAction*			m_pMenuResetAll;
 	QAction*			m_pMenuExpandAll;
 
 	QMenu*				m_pMenuFind;
@@ -229,6 +236,10 @@ private:
 	QAction*			m_pMenuFreeStandby;
 	QAction*			m_pMenuFreePriority0;
 	QAction*			m_pMenuCombinePages;
+#endif
+	QAction*			m_pMenuFlushDns;
+#ifdef _WIN32
+	QAction*			m_pMenuSecurityExplorer;
 #endif
 
 #ifdef WIN32

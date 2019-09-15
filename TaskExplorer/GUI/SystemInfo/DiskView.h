@@ -18,6 +18,9 @@ public slots:
 	void					UpdateGraphs();
 	void					ReConfigurePlots();
 
+private slots:
+	void					OnResetColumns();
+
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
 	//virtual QTreeView*			GetView()	{ return m_pStatsList; }

@@ -62,9 +62,10 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
 		{
 			CProcessPtr pProcess = pNode->pSocket->GetProcess();
-			if (!pProcess.isNull())
+			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
+			if (pModule)
 			{
-				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
+				QPixmap Icon = pModule->GetFileIcon();
 				if (!Icon.isNull()) {
 					Changed = 1; // set change for first column
 					pNode->Icon = Icon;
@@ -106,7 +107,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 #endif
 				case eTimeStamp:		Value = pSocket->GetCreateTimeStamp(); break;
 				//case eLocalHostname:	Value = ; break; 
-				//case eRemoteHostname:	Value = pSocket->GetRemoteHostName(); break; 
+				case eRemoteHostname:	Value = pSocket->GetRemoteHostName(); break; 
 
 				case eReceives:			Value = Stats.Net.ReceiveCount; break; 
 				case eSends:			Value = Stats.Net.SendCount; break; 
@@ -228,7 +229,7 @@ QVariant CSocketModel::headerData(int section, Qt::Orientation orientation, int 
 #endif
 			case eTimeStamp:		return tr("Time stamp");
 			//case eLocalHostname:	return tr("Local hostname");
-			//case eRemoteHostname:	return tr("Remote hostname");
+			case eRemoteHostname:	return tr("Remote hostname");
 			case eReceives:			return tr("Receives");
 			case eSends:			return tr("Sends");
 			case eReceiveBytes:		return tr("Receive bytes");

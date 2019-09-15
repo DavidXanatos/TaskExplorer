@@ -20,6 +20,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	//void					OnMenu(const QPoint &point);
 	void					OnDoubleClicked();
 
@@ -33,6 +36,8 @@ protected:
 	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
 
 	CProcessPtr				m_pCurProcess;
+
+	QMap<QVariant, QVariantMap> m_Assemblies;
 
 private:
 	enum EColumns

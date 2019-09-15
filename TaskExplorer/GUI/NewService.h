@@ -9,6 +9,7 @@ class CNewService : public QMainWindow
 
 public:
 	CNewService(QWidget *parent = Q_NULLPTR);
+	~CNewService();
 
 public slots:
 	void accept();

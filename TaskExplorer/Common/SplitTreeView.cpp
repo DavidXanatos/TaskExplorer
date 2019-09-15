@@ -253,7 +253,9 @@ void CSplitTreeView::OnTreeCurrentChanged(const QModelIndex &current, const QMod
 	if (m_LockSellection)
 		return;
 	m_LockSellection = 2;
+	int hPos = m_pList->horizontalScrollBar()->value(); // fix horizontalScrollBar position reset on selection
 	m_pList->selectionModel()->setCurrentIndex(m_pOneModel->mapToSource(current), QItemSelectionModel::SelectCurrent);
+	m_pList->horizontalScrollBar()->setValue(hPos);
 	m_LockSellection = 0;
 	emit currentChanged(m_pOneModel->mapToSource(current), m_pOneModel->mapToSource(previous));
 }

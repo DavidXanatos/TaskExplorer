@@ -19,6 +19,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 	//void					OnMenu(const QPoint &point);
@@ -43,6 +46,8 @@ protected:
 	virtual void			SwitchView(EView ViewMode);
 
 	EView					m_ViewMode;
+
+	QMultiMap<quint64, CSocketPtr> m_SocketList;
 
 private:
 

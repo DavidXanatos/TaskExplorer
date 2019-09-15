@@ -14,6 +14,8 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
+
+	m_bGlobal = bGlobal;
 	if (!bGlobal)
 	{
 		m_pFilterWidget = new QWidget();
@@ -54,7 +56,11 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	connect(m_pModuleList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 	connect(m_pModuleList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pModuleModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pModuleModel, SLOT(Clear()));
+
+	m_pModuleList->setColumnReset(2);
+	connect(m_pModuleList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pModuleList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMainLayout->addWidget(m_pModuleList);
 	// 
@@ -81,28 +87,59 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	m_pMenu->addSeparator();
 	AddPanelItemsToMenu();
 
+	m_ViewMode = eNone;
 	setObjectName(parent->objectName());
-	QByteArray Columns = theConf->GetBlob(objectName() + "/ModulesView_Columns");
-	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pModuleModel->columnCount(); i++)
-			m_pModuleList->SetColumnHidden(i, true);
-
-		m_pModuleList->SetColumnHidden(CModuleModel::eModule, false);
-		m_pModuleList->SetColumnHidden(CModuleModel::eBaseAddress, false);
-		m_pModuleList->SetColumnHidden(CModuleModel::eSize, false);
-#ifdef WIN32
-		m_pModuleList->SetColumnHidden(CModuleModel::eDescription, false);
-#endif
-		m_pModuleList->SetColumnHidden(CModuleModel::eFileName, false);
-	}
-	else
-		m_pModuleList->restoreState(Columns);
+	SwitchView(bGlobal ? eMulti : eSingle);
 }
 
 CModulesView::~CModulesView()
 {
-	theConf->SetBlob(objectName() + "/ModulesView_Columns", m_pModuleList->saveState());
+	SwitchView(eNone);
+}
+
+void CModulesView::SwitchView(EView ViewMode)
+{
+	switch (m_ViewMode)
+	{
+		case eSingle:	theConf->SetBlob(objectName() + "/ModulesView_Columns", m_pModuleList->saveState()); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/ModulesMultiView_Columns", m_pModuleList->saveState()); break;
+	}
+
+	m_ViewMode = ViewMode;
+
+	QByteArray Columns;
+	switch (m_ViewMode)
+	{
+		case eSingle:	Columns = theConf->GetBlob(objectName() + "/ModulesView_Columns"); break;
+		case eMulti:	Columns = theConf->GetBlob(objectName() + "/ModulesMultiView_Columns"); break;
+		default:
+			return;
+	}
+	
+	if (Columns.isEmpty())
+		OnResetColumns();
+	else
+		m_pModuleList->restoreState(Columns);
+}
+
+void CModulesView::OnResetColumns()
+{
+	for (int i = 0; i < m_pModuleModel->columnCount(); i++)
+		m_pModuleList->SetColumnHidden(i, true);
+
+	m_pModuleList->SetColumnHidden(CModuleModel::eModule, false);
+	m_pModuleList->SetColumnHidden(CModuleModel::eBaseAddress, false);
+	m_pModuleList->SetColumnHidden(CModuleModel::eSize, false);
+#ifdef WIN32
+	if(!m_bGlobal)
+		m_pModuleList->SetColumnHidden(CModuleModel::eDescription, false);
+#endif
+	m_pModuleList->SetColumnHidden(CModuleModel::eFileName, false);
+}
+
+void CModulesView::OnColumnsChanged()
+{
+	m_pModuleModel->Sync(m_Modules);
 }
 
 void CModulesView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -140,9 +177,9 @@ void CModulesView::Refresh()
 
 void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CModulePtr> Modules = m_pCurProcess->GetModuleList();
+	m_Modules = m_pCurProcess->GetModuleList();
 
-	m_pModuleModel->Sync(Modules);
+	Added = m_pModuleModel->Sync(m_Modules);
 
 	QTimer::singleShot(100, this, [this, Added]() {
 		foreach(quint64 ID, Added)
@@ -152,7 +189,9 @@ void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, 
 
 void CModulesView::ShowModules(const QMap<quint64, CModulePtr>& Modules)
 {
-	m_pModuleModel->Sync(Modules);
+	m_Modules = Modules;
+
+	m_pModuleModel->Sync(m_Modules);
 
 	QTimer::singleShot(100, this, [this, Modules]() {
 		foreach(quint64 ID, Modules.keys())

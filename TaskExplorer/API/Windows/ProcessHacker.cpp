@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and helper functions
  *
  * Copyright (C) 2009-2016 wj32

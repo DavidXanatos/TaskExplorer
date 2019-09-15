@@ -39,7 +39,9 @@ CStringView::CStringView(bool bGlobal, QWidget *parent)
 
 	connect(m_pStringList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
-	//connect(theGUI, SIGNAL(ReloadAll()), m_pStringModel, SLOT(Clear()));
+	connect(m_pStringList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
+	//connect(theGUI, SIGNAL(ReloadPanels()), m_pStringModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pStringList);
 	// 
@@ -70,6 +72,10 @@ CStringView::~CStringView()
 	theConf->SetBlob(objectName() + "/StringsView_Columns", m_pStringList->saveState());
 }
 
+void CStringView::OnColumnsChanged()
+{
+	m_pStringModel->Sync(m_String);
+}
 
 void CStringView::OnMenu(const QPoint &point)
 {
@@ -87,7 +93,9 @@ void CStringView::OnMenu(const QPoint &point)
 
 void CStringView::ShowStrings(const QMap<quint64, CStringInfoPtr>& String)
 {
-	m_pStringModel->Sync(String);
+	m_String = String;
+
+	m_pStringModel->Sync(m_String);
 }
 
 void CStringView::OnDoubleClicked()

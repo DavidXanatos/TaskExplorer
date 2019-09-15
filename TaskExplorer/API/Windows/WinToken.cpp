@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions based on tokprop.c
  *
  * Copyright (C) 2010-2012 wj32
@@ -83,6 +83,10 @@ NTSTATUS NTAPI CWinToken__OpenProcessToken(_Out_ PHANDLE Handle, _In_ ACCESS_MAS
 	{
 		status = NtDuplicateObject(m->QueryHandle, m->Handle, NtCurrentProcess(), Handle, DesiredAccess, 0, 0 );
 	}
+	else if (m->Type == CWinToken::eThread)
+	{
+		status = NtOpenThreadToken(m->QueryHandle, DesiredAccess, TRUE, Handle);
+	}
 	else
 	{
 		HANDLE processHandle;
@@ -142,6 +146,19 @@ CWinToken* CWinToken::TokenFromHandle(quint64 ProcessId, quint64 HandleId)
 	return pToken;
 }
 
+CWinToken* CWinToken::TokenFromThread(quint64 ThreadId)
+{
+	HANDLE threadHandle;
+    if (!NT_SUCCESS(PhOpenThread(&threadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)ThreadId)))
+        return NULL;
+
+	CWinToken* pToken = new CWinToken();
+	pToken->m->Type = eThread;
+	pToken->m->QueryHandle = threadHandle;
+	pToken->InitStaticData();
+	return pToken;
+}
+
 CWinToken* CWinToken::TokenFromProcess(void* QueryHandle)
 {
 	CWinToken* pToken = new CWinToken();
@@ -159,7 +176,7 @@ bool CWinToken::InitStaticData()
 	//		
 	//		Generall it is possible to alter a primary token on early stages of process start.
 	//
-	//		Hence we have to be able to handle teh case when the entire tocken gets replaced.
+	//		Hence we have to be able to handle teh case when the entire Token gets replaced.
 	//
 	return true;
 }
@@ -168,7 +185,7 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	// When token data has been initialized and we are not monitoring for tocken changes we can return here.
+	// When token data has been initialized and we are not monitoring for Token changes we can return here.
 	if (m_TokenState == eInitialized && !MonitorChange)
 		return false;
 
@@ -177,7 +194,7 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
 		return false;
 
 
-	// if we are monitoring tocken change we always update some values
+	// if we are monitoring Token change we always update some values
 
 	// Integrity
 	MANDATORY_LEVEL_RID integrityLevel;

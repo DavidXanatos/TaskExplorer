@@ -14,6 +14,8 @@
 CServicesView::CServicesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
 {
+	m_bAll = bAll;
+
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
@@ -38,7 +40,11 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_pServiceList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pServiceList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pServiceModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pServiceModel, SLOT(Clear()));
+
+	m_pServiceList->setColumnReset(2);
+	connect(m_pServiceList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	//connect(m_pServiceList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMainLayout->addWidget(m_pServiceList);
 	// 
@@ -65,24 +71,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 	QByteArray Columns = theConf->GetBlob(objectName() + "/ServicesView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pServiceModel->columnCount(); i++)
-			m_pServiceList->SetColumnHidden(i, true);
-
-		m_pServiceList->SetColumnHidden(CServiceModel::eService, false);
-#ifdef WIN32
-		m_pServiceList->SetColumnHidden(CServiceModel::eDisplayName, false);
-		m_pServiceList->SetColumnHidden(CServiceModel::eType, false);
-#endif
-		m_pServiceList->SetColumnHidden(CServiceModel::eStatus, false);
-#ifdef WIN32
-		m_pServiceList->SetColumnHidden(CServiceModel::eStartType, false);
-#endif
-		if (bAll) {
-			m_pServiceList->SetColumnHidden(CServiceModel::ePID, false);
-			m_pServiceList->SetColumnHidden(CServiceModel::eBinaryPath, false);
-		}
-	}
+		OnResetColumns();
 	else
 		m_pServiceList->restoreState(Columns);
 
@@ -99,7 +88,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	if (bAll)
 	{
 		m_pMenu->addSeparator();
-		m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"));
+		m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"), this, SLOT(SyncModel()));
 		m_pMenuKernelServices->setCheckable(true);
 		m_pMenuKernelServices->setChecked(theConf->GetValue(objectName() + "/ShowKernelServices", true).toBool());
 	}
@@ -109,6 +98,9 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 
 	AddPanelItemsToMenu();
 
+	// must be after m_pMenuKernelServices
+	connect(m_pServiceList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
 	if(bAll)
 		connect(theAPI, SIGNAL(ServiceListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)), this, SLOT(OnServiceListUpdated(QSet<QString>, QSet<QString>, QSet<QString>)));
 }
@@ -117,35 +109,59 @@ CServicesView::~CServicesView()
 {
 	theConf->SetBlob(objectName() + "/ServicesView_Columns", m_pServiceList->saveState());
 	if (m_pMenuKernelServices)
-	{
 		theConf->SetValue(objectName() + "/ShowKernelServices", m_pMenuKernelServices->isChecked());
+}
+
+void CServicesView::OnResetColumns()
+{
+	for (int i = 0; i < m_pServiceModel->columnCount(); i++)
+		m_pServiceList->SetColumnHidden(i, true);
+
+	m_pServiceList->SetColumnHidden(CServiceModel::eService, false);
+#ifdef WIN32
+	m_pServiceList->SetColumnHidden(CServiceModel::eDisplayName, false);
+	m_pServiceList->SetColumnHidden(CServiceModel::eType, false);
+#endif
+	m_pServiceList->SetColumnHidden(CServiceModel::eStatus, false);
+#ifdef WIN32
+	m_pServiceList->SetColumnHidden(CServiceModel::eStartType, false);
+#endif
+	if (m_bAll) {
+		m_pServiceList->SetColumnHidden(CServiceModel::ePID, false);
+		m_pServiceList->SetColumnHidden(CServiceModel::eBinaryPath, false);
 	}
+}
+
+void CServicesView::OnColumnsChanged()
+{
+	SyncModel();
 }
 
 void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
 {
-	QMap<QString, CServicePtr> ServiceList = theAPI->GetServiceList();
+	m_ServiceList = theAPI->GetServiceList();
 
+	SyncModel();
+}
+
+void CServicesView::SyncModel()
+{
 #ifdef WIN32
 	if (m_pMenuKernelServices)
-	{
 		m_pServiceModel->SetShowKernelServices(m_pMenuKernelServices->isChecked());
-	}
 	else
-	{
 		m_pServiceModel->SetShowKernelServices(false);
-	}
 #endif
 
-	m_pServiceModel->Sync(ServiceList);
+	m_pServiceModel->Sync(m_ServiceList);
 }
 
 void CServicesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
 #ifdef WIN32
-	QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
-	QMap<QString, CServicePtr> Services;
+	m_ServiceList.clear();
 
+	QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
 	foreach(const CProcessPtr& pProcess, Processes)
 	{
 		foreach(const QString& ServiceName, pProcess.objectCast<CWinProcess>()->GetServiceList())
@@ -153,11 +169,11 @@ void CServicesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			CServicePtr pService = AllServices[ServiceName.toLower()];
 			if (!pService)
 				pService = CServicePtr(new CWinService(ServiceName));
-			Services.insert(ServiceName.toLower(), pService);
+			m_ServiceList.insert(ServiceName.toLower(), pService);
 		}
 	}
 
-	m_pServiceModel->Sync(Services);
+	m_pServiceModel->Sync(m_ServiceList);
 #endif
 }
 

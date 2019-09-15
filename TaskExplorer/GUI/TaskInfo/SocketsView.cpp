@@ -39,7 +39,11 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 	m_pSocketList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pSocketList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pSocketModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pSocketModel, SLOT(Clear()));
+
+	m_pSocketList->setColumnReset(2);
+	connect(m_pSocketList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pSocketList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMainLayout->addWidget(m_pSocketList);
 	// 
@@ -88,28 +92,36 @@ void CSocketsView::SwitchView(EView ViewMode)
 	}
 	
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pSocketModel->columnCount(); i++)
-			m_pSocketList->SetColumnHidden(i, true);
-
-		if (ViewMode == eMulti)
-		{
-			m_pSocketList->SetColumnHidden(CSocketModel::eProcess, false);
-#ifdef WIN32
-			m_pSocketList->SetColumnHidden(CSocketModel::eOwnerService, false);
-#endif
-		}
-		m_pSocketList->SetColumnHidden(CSocketModel::eProtocol, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eState, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eLocalAddress, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eLocalPort, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eRemoteAddress, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eRemotePort, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eSendRate, false);
-		m_pSocketList->SetColumnHidden(CSocketModel::eReceiveRate, false);
-	}
+		OnResetColumns();
 	else
 		m_pSocketList->restoreState(Columns);
+}
+
+void CSocketsView::OnResetColumns()
+{
+	for (int i = 0; i < m_pSocketModel->columnCount(); i++)
+		m_pSocketList->SetColumnHidden(i, true);
+
+	if (m_ViewMode == eMulti)
+	{
+		m_pSocketList->SetColumnHidden(CSocketModel::eProcess, false);
+#ifdef WIN32
+		m_pSocketList->SetColumnHidden(CSocketModel::eOwnerService, false);
+#endif
+	}
+	m_pSocketList->SetColumnHidden(CSocketModel::eProtocol, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eState, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eLocalAddress, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eLocalPort, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eRemoteAddress, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eRemotePort, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eSendRate, false);
+	m_pSocketList->SetColumnHidden(CSocketModel::eReceiveRate, false);
+}
+
+void CSocketsView::OnColumnsChanged()
+{
+	m_pSocketModel->Sync(m_SocketList);
 }
 
 void CSocketsView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -128,9 +140,9 @@ void CSocketsView::Refresh()
 
 void CSocketsView::OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMultiMap<quint64, CSocketPtr> SocketList = theAPI->GetSocketList();
+	m_SocketList = theAPI->GetSocketList();
 
-	m_pSocketModel->Sync(SocketList);
+	m_pSocketModel->Sync(m_SocketList);
 }
 
 void CSocketsView::OnMenu(const QPoint &point)

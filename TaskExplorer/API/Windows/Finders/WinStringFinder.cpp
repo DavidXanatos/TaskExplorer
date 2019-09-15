@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions based on memsrch.c
  *
  * Copyright (C) 2010 wj32

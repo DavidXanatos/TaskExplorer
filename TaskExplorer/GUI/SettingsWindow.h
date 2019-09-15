@@ -9,6 +9,7 @@ class CSettingsWindow : public QMainWindow
 
 public:
 	CSettingsWindow(QWidget *parent = Q_NULLPTR);
+	~CSettingsWindow();
 
 signals:
 	void OptionsChanged();

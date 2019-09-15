@@ -9,6 +9,8 @@
 #include "../API/Windows/WinModule.h"
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker.h"
+#include "WsWatchDialog.h"
+#include "WaitChainDialog.h"
 #endif
 #include "../API/MemDumper.h"
 #include "../Common/ProgressDialog.h"
@@ -20,6 +22,8 @@ CProcessTree::CProcessTree(QWidget *parent)
 	: CTaskView(parent)
 {
 	m_ExpandAll = false;
+
+	m_bQuickRefreshPending = false;
 
 	this->ForceColumn(CProcessModel::eProcess);
 
@@ -53,7 +57,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	connect(m_pProcessModel, SIGNAL(ToolTipCallback(const QVariant&, QString&)), this, SLOT(OnToolTipCallback(const QVariant&, QString&)), Qt::DirectConnection);
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pProcessModel, SLOT(Clear()));
 
 	m_pMainLayout->addWidget(m_pProcessList);
 	// 
@@ -76,7 +80,11 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	AddTaskItemsToMenu();
 	//QAction*				m_pTerminateTree;
+	
+	AddPriorityItemsToMenu(eProcess, m_pMenu);
 
+
+	m_pMenu->addSeparator();
 	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
 	m_pRunAsThis = m_pMiscMenu->addAction(tr("Run as this User"), this, SLOT(OnRunAsThis()));
 	m_pQuit = m_pMiscMenu->addAction(tr("Quit (WM_QUIT)"), this, SLOT(OnProcessAction()));
@@ -85,19 +93,13 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pDebug->setCheckable(true);
 #ifdef WIN32
 	m_pReduceWS = m_pMiscMenu->addAction(tr("Reduce Working Set"), this, SLOT(OnProcessAction()));
+	m_pWatchWS = m_pMiscMenu->addAction(tr("Working Set Watch"), this, SLOT(OnWsWatch()));
+	m_pWCT = m_pMiscMenu->addAction(tr("Wait Chain Traversal"), this, SLOT(OnWCT()));
 	//m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
 	//m_pVirtualization->setCheckable(true);
-	//QAction*				m_pWindows;
-	//QAction*				m_pUnloadModules;
-	//QAction*				m_pWatchWS;
-	m_pCritical = m_pMiscMenu->addAction(tr("Critical"), this, SLOT(OnProcessAction()));
+	m_pCritical = m_pMiscMenu->addAction(tr("Critical Process Flag"), this, SLOT(OnProcessAction()));
 	m_pCritical->setCheckable(true);
-#endif
-	
-	AddPriorityItemsToMenu(eProcess, m_pMenu);
 
-#ifdef WIN32
-	m_pMenu->addSeparator();
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
 
@@ -115,38 +117,15 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	QByteArray Columns = theConf->GetBlob("MainWindow/ProcessTree_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 1; i < m_pProcessModel->columnCount(); i++)
-			m_pProcessList->GetView()->setColumnHidden(i, true);
-
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePID, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCPU, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eIO_TotalRate, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eStaus, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eWorkingSet, false); // thats what best represents the InMemory value
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eStartTime, false); // less refreshes as uptime 
-#ifdef WIN32
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eServices, false);
-#endif
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePriorityClass, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eHandles, false);
-#ifdef WIN32
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eWND_Handles, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eGDI_Handles, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eUSER_Handles, false);
-#endif
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eThreads, false);
-		//m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNet_TotalRate, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eDisk_TotalRate, false);
-		m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);
-	}
+		OnResetColumns();
 	else
+	{
 		m_pProcessList->restoreState(Columns);
 
-	m_pProcessModel->SetColumnEnabled(0, true);
-	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
-		m_pProcessModel->SetColumnEnabled(i, !m_pProcessList->GetView()->isColumnHidden(i));
+		m_pProcessModel->SetColumnEnabled(0, true);
+		for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+			m_pProcessModel->SetColumnEnabled(i, !m_pProcessList->GetView()->isColumnHidden(i));
+	}
 
 	//connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 	OnColumnsChanged();
@@ -155,6 +134,38 @@ CProcessTree::CProcessTree(QWidget *parent)
 CProcessTree::~CProcessTree()
 {
 	theConf->SetBlob("MainWindow/ProcessTree_Columns", m_pProcessList->saveState());
+}
+
+void CProcessTree::OnResetColumns()
+{
+	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+		m_pProcessList->GetView()->setColumnHidden(i, true);
+
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePID, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCPU, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eIO_TotalRate, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eStaus, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eWorkingSet, false); // thats what best represents the InMemory value
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eStartTime, false); // less refreshes as uptime 
+#ifdef WIN32
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eServices, false);
+#endif
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePriorityClass, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eHandles, false);
+#ifdef WIN32
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eWND_Handles, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eGDI_Handles, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eUSER_Handles, false);
+#endif
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eThreads, false);
+	//m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNet_TotalRate, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eDisk_TotalRate, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);
+
+	m_pProcessModel->SetColumnEnabled(0, true);
+	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+		m_pProcessModel->SetColumnEnabled(i, !m_pProcessList->GetView()->isColumnHidden(i));
 }
 
 void CProcessTree::OnColumnsChanged()
@@ -170,11 +181,28 @@ void CProcessTree::OnColumnsChanged()
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Adapter)
 	);
 
-	theConf->SetValue("Options/MonitorTockenChange", 
+	theConf->SetValue("Options/MonitorTokenChange", 
 		m_pProcessModel->IsColumnEnabled(CProcessModel::eElevation)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVirtualized)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eIntegrity)
 	);
+
+	QuickRefresh();
+}
+
+void CProcessTree::QuickRefresh()
+{
+	if (m_bQuickRefreshPending)
+		return;
+	m_bQuickRefreshPending = true;
+	QTimer::singleShot(250, this, SLOT(OnQuickRefresh()));
+}
+
+void CProcessTree::OnQuickRefresh()
+{
+	m_bQuickRefreshPending = false;
+
+	OnProcessListUpdated(QSet<quint64>(), QSet<quint64>(), QSet<quint64>());
 }
 
 void CProcessTree::OnTreeEnabled(bool bEnable)
@@ -235,6 +263,10 @@ void CProcessTree::OnHeaderMenu(const QPoint &point)
 		AddHeaderSubMenu(m_pHeaderMenu, tr("File I/O"), CProcessModel::eIO_TotalRate, CProcessModel::eIO_OtherRate);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("Network I/O"), CProcessModel::eNet_TotalRate, CProcessModel::eSendRate);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("Disk I/O"), CProcessModel::eDisk_TotalRate, CProcessModel::eWriteRate);
+
+		m_pHeaderMenu->addSeparator();
+		QAction* pAction = m_pHeaderMenu->addAction(tr("Reset columns"));
+		connect(pAction, SIGNAL(triggered()), this, SLOT(OnResetColumns()));
 	}
 
 	for(QMap<QCheckBox*, int>::iterator I = m_Columns.begin(); I != m_Columns.end(); I++)
@@ -255,12 +287,12 @@ void CProcessTree::OnHeaderMenu()
 
 void CProcessTree::OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	m_Processes = theAPI->GetProcessList();
-
 	if (!theGUI->isVisible() || theGUI->windowState().testFlag(Qt::WindowMinimized))
 		return;
 
-	m_pProcessModel->Sync(m_Processes);
+	m_Processes = theAPI->GetProcessList();
+
+	Added = m_pProcessModel->Sync(m_Processes);
 
 	// If we are dsplaying a tree than always auto expand new items
 	if (m_pProcessModel->IsTree())
@@ -333,8 +365,11 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 	QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
 	QSharedPointer<CWinModule> pWinModule = pProcess->GetModuleInfo().objectCast<CWinModule>();
 
-	InfoLines.append(tr("    %1 %2").arg(pWinModule->GetFileInfo("Description")).arg(pWinModule->GetFileInfo("FileVersion")));
-	InfoLines.append(tr("    %1").arg(pWinModule->GetFileInfo("CompanyName")));
+	if (pWinModule)
+	{
+		InfoLines.append(tr("    %1 %2").arg(pWinModule->GetFileInfo("Description")).arg(pWinModule->GetFileInfo("FileVersion")));
+		InfoLines.append(tr("    %1").arg(pWinModule->GetFileInfo("CompanyName")));
+	}
 
 	PH_KNOWN_PROCESS_TYPE KnownProcessType = PhGetProcessKnownTypeEx(pProcess->GetProcessId(), pProcess->GetFileName());
 
@@ -485,12 +520,14 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
     {
 		QStringList Notes;
 
-		switch (pWinModule->GetVerifyResult())
+		if (pWinModule)
 		{
+			switch (pWinModule->GetVerifyResult())
+			{
 			case VrTrusted:
 			{
 				QString Signer = pWinModule->GetVerifySignerName();
-				if(Signer.isEmpty())
+				if (Signer.isEmpty())
 					Notes.append(tr("    Signer: %1").arg(Signer));
 				else
 					Notes.append(tr("    Signed"));
@@ -499,12 +536,13 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 			case VrNoSignature:
 				Notes.append(tr("    Signature invalid"));
 				break;
+			}
+
+			if (pWinModule->IsPacked())
+			{
+				Notes.append(tr("    Image is probably packed (%1 imports over %2 modules).").arg(pWinModule->GetImportFunctions()).arg(pWinModule->GetImportModules()));
+			}
 		}
-		
-        if (pWinModule->IsPacked())
-        {
-			Notes.append(tr("    Image is probably packed (%1 imports over %2 modules).").arg(pWinModule->GetImportFunctions()).arg(pWinModule->GetImportModules()));
-        }
 
 		quint64 ConsoleHostProcessId = pWinProc->GetConsoleHostId();
         if (ConsoleHostProcessId & ~3)
@@ -576,6 +614,8 @@ void CProcessTree::OnMenu(const QPoint &point)
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
 
 	m_pReduceWS->setEnabled(selectedRows.count() > 0);
+	m_pWatchWS->setEnabled(selectedRows.count() == 1);
+	m_pWCT->setEnabled(selectedRows.count() == 1);
 
 	m_pPermissions->setEnabled(selectedRows.count() == 1);
 #endif
@@ -699,14 +739,44 @@ void CProcessTree::OnProcessAction()
 #endif
 }
 
+void CProcessTree::OnWsWatch()
+{
+#ifdef _WIN32
+	QModelIndex Index = m_pProcessList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+	if (pProcess)
+	{
+		CWsWatchDialog* pWnd = new CWsWatchDialog(pProcess);
+		pWnd->show();
+	}
+#endif
+}
+
+void CProcessTree::OnWCT()
+{
+#ifdef _WIN32
+	QModelIndex Index = m_pProcessList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+	if (pProcess)
+	{
+		CWaitChainDialog* pWnd = new CWaitChainDialog(pProcess);
+		pWnd->show();
+	}
+#endif
+}
+
 void CProcessTree::OnRunAsThis()
 {
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-
-	CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetProcessId());
-	pWnd->show();
+	if (pProcess)
+	{
+		CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetProcessId());
+		pWnd->show();
+	}
 }
 
 void CProcessTree::OnPermissions()

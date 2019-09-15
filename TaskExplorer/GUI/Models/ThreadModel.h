@@ -50,9 +50,8 @@ public:
 		eUserTime,
 #ifdef WIN32
 		eIdealProcessor,
+		eHasToken,
 		eCritical,
-#endif
-#ifdef WIN32
 		eAppDomain,
 #endif
 		eCount

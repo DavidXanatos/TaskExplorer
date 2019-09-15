@@ -40,7 +40,7 @@ CNetworkView::CNetworkView(QWidget *parent)
 	m_pScrollArea->setPalette(pal);
 
 	m_PlotLimit = theGUI->GetGraphLimit(true);
-	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	connect(theGUI, SIGNAL(ReloadPlots()), this, SLOT(ReConfigurePlots()));
 	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
 	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
@@ -71,6 +71,9 @@ CNetworkView::CNetworkView(QWidget *parent)
 	m_pNICList->GetTree()->setMinimumHeight(100);
 	m_pNICList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
+	m_pNICList->GetTree()->setColumnReset(2);
+	connect(m_pNICList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+
 	m_pScrollLayout->addWidget(m_pNICList, 2, 0, 1, 3);
 	//
 
@@ -85,23 +88,7 @@ CNetworkView::CNetworkView(QWidget *parent)
 	setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/NetworkView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < eCount; i++)
-			m_pNICList->GetView()->setColumnHidden(i, true);
-
-		m_pNICList->GetView()->setColumnHidden(eAdapter, false);
-		//m_pNICList->GetView()->setColumnHidden(eLinkState, false);
-		//m_pNICList->GetView()->setColumnHidden(eLinkSpeed, false);
-
-		m_pNICList->GetView()->setColumnHidden(eReadRate, false);
-		m_pNICList->GetView()->setColumnHidden(eBytesRead, false);
-		m_pNICList->GetView()->setColumnHidden(eWriteRate, false);
-		m_pNICList->GetView()->setColumnHidden(eBytesWriten, false);
-
-		m_pNICList->GetView()->setColumnHidden(eAddress, false);
-
-			
-	}
+		OnResetColumns();
 	else
 		m_pNICList->GetView()->header()->restoreState(Columns);
 
@@ -114,6 +101,23 @@ CNetworkView::~CNetworkView()
 	theConf->SetValue("Options/HiddenNICs", m_HiddenAdapters);
 	theConf->SetBlob(objectName() + "/NetworkView_Columns", m_pNICList->GetView()->header()->saveState());
 	theConf->SetValue(objectName() + "/ShowDisconnected", m_pShowDisconnected->isChecked());
+}
+
+void CNetworkView::OnResetColumns()
+{
+	for (int i = 0; i < eCount; i++)
+		m_pNICList->GetView()->setColumnHidden(i, true);
+
+	m_pNICList->GetView()->setColumnHidden(eAdapter, false);
+	//m_pNICList->GetView()->setColumnHidden(eLinkState, false);
+	//m_pNICList->GetView()->setColumnHidden(eLinkSpeed, false);
+
+	m_pNICList->GetView()->setColumnHidden(eReadRate, false);
+	m_pNICList->GetView()->setColumnHidden(eBytesRead, false);
+	m_pNICList->GetView()->setColumnHidden(eWriteRate, false);
+	m_pNICList->GetView()->setColumnHidden(eBytesWriten, false);
+
+	m_pNICList->GetView()->setColumnHidden(eAddress, false);		
 }
 
 void CNetworkView::ReConfigurePlots()

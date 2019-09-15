@@ -55,9 +55,10 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		// Note: icons are loaded asynchroniusly
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
 		{
-			if (!pProcess.isNull())
+			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
+			if (pModule)
 			{
-				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
+				QPixmap Icon = pModule->GetFileIcon();
 				if (!Icon.isNull()) {
 					Changed = 1; // set change for first column
 					pNode->Icon = Icon;

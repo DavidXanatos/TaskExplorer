@@ -54,6 +54,9 @@ public slots:
 	void					Refresh() {} // only manual refresh
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					OnDoubleClicked();
 	void					OnRefresh();
 	void					OnSearch();
@@ -74,6 +77,8 @@ protected:
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 	
 	CProcessPtr				m_pCurProcess;
+
+	QMultiMap<quint64, CMemoryPtr> m_MemoryList;
 
 private:
 

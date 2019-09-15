@@ -3,6 +3,7 @@
 #ifdef WIN32
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker/RunAs.h"
+#include "SecurityExplorer.h"
 #include "../API/Windows/WinAdmin.h"
 extern "C" {
 #include <winsta.h>
@@ -27,7 +28,6 @@ QIcon g_ExeIcon;
 QIcon g_DllIcon;
 
 CTaskExplorer* theGUI = NULL;
-
 
 #if defined(Q_OS_WIN)
 #include <wtypes.h>
@@ -116,26 +116,12 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
     QApplication::instance()->installNativeEventFilter(new CNativeEventFilter);
 #endif
 
-	if (g_ExeIcon.isNull())
-	{
-		g_ExeIcon = QIcon(":/Icons/exe16.png");
-		g_ExeIcon.addFile(":/Icons/exe32.png");
-		g_ExeIcon.addFile(":/Icons/exe48.png");
-		g_ExeIcon.addFile(":/Icons/exe64.png");
-	}
-
-	if (g_DllIcon.isNull())
-	{
-		g_DllIcon = QIcon(":/Icons/dll16.png");
-		g_DllIcon.addFile(":/Icons/dll32.png");
-		g_DllIcon.addFile(":/Icons/dll48.png");
-		g_DllIcon.addFile(":/Icons/dll64.png");
-	}
-
 	m_bExit = false;
 
 	// a shared item deleagate for all lists
 	m_pCustomItemDelegate = new CCustomItemDelegate(GetCellHeight() + 1, this);
+
+	LoadDefaultIcons();
 
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
@@ -259,7 +245,9 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuPauseRefresh = m_pMenuView->addAction(MakeActionIcon(":/Actions/Pause"), tr("Pause Refresh"));
 		m_pMenuPauseRefresh->setCheckable(true);
 		m_pMenuRefreshNow = m_pMenuView->addAction(MakeActionIcon(":/Actions/Refresh"), tr("Refresh Now"), this, SLOT(UpdateAll()));
-		m_pMenuExpandAll = m_pMenuView->addAction(tr("Expand all"), m_pProcessTree, SLOT(OnExpandAll()));
+		m_pMenuResetAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Reset"), tr("Reset all Panels"), this, SLOT(ResetAll()));
+		m_pMenuResetAll->setShortcut(QKeySequence::Refresh); // F5
+		m_pMenuExpandAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Expand"), tr("Expand Process Tree"), m_pProcessTree, SLOT(OnExpandAll()));
 
 	m_pMenuFind = menuBar()->addMenu(tr("&Find"));
 		m_pMenuFindHandle = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindHandle"), tr("Find Handles"), this, SLOT(OnFindHandle()));
@@ -297,6 +285,11 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			m_pMenuCombinePages = m_pMenuFree->addAction(tr("Combine Pages"), this, SLOT(OnFreeMemory()));
 #endif
 			
+		m_pMenuFlushDns = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Flush"), tr("Flush Dns Cache"), theAPI, SLOT(FlushDnsCache()));
+#ifdef _WIN32
+		m_pMenuSecurityExplorer = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Security"), tr("Security Explorer"), this, SLOT(OnSecurityExplorer()));
+#endif
+
 		m_pMenuTools->addSeparator();
 #ifdef WIN32
 		m_pMenuMonitorETW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorETW"), tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
@@ -468,9 +461,6 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	statusBar()->addPermanentWidget(m_pStausNET);
 
 
-	if (theConf->GetBool("Options/ShowGrid", true))
-		m_pCustomItemDelegate->SetGridColor(QColor(theConf->GetString("Colors/GridColor", "#808080")));
-
 	if (!bAutoRun)
 		show();
 
@@ -499,8 +489,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #endif
 		statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
 
-	CAbstractInfoEx::SetHighlightTime(theConf->GetUInt64("Options/HighlightTime", 2500));
-	CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
+	ApplyOptions();
 
 	m_LastTimer = 0;
 	//m_uTimerCounter = 0;
@@ -542,7 +531,7 @@ void CTaskExplorer::OnChangeInterval(QAction* pAction)
 	killTimer(m_uTimerID);
 	m_uTimerID = startTimer(Interval);
 
-	emit ReloadAll();
+	emit ReloadPlots();
 }
 
 void CTaskExplorer::OnStaticPersistence()
@@ -1109,25 +1098,39 @@ void CTaskExplorer::OnSettings()
 	pSettingsWindow->show();
 }
 
-void CTaskExplorer::UpdateOptions()
+void CTaskExplorer::ApplyOptions()
 {
 	if (theConf->GetBool("Options/ShowGrid", true))
 		m_pCustomItemDelegate->SetGridColor(QColor(theConf->GetString("Colors/GridColor", "#808080")));
 	else
 		m_pCustomItemDelegate->SetGridColor(Qt::transparent);
 
+	CAbstractInfoEx::SetHighlightTime(theConf->GetUInt64("Options/HighlightTime", 2500));
+	CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
+
+	CPanelView::SetSimpleFormat(theConf->GetBool("Options/PanelCopySimple", false));
+	CPanelView::SetMaxCellWidth(theConf->GetBool("Options/PanelCopyMaxCellWidth", 0));
+}
+
+void CTaskExplorer::UpdateOptions()
+{
+	ApplyOptions();
+
 	if(theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->show();
 	else
 		m_pTrayIcon->hide();
 
-	CAbstractInfoEx::SetHighlightTime(theConf->GetUInt64("Options/HighlightTime", 2500));
-	CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
-
 	killTimer(m_uTimerID);
 	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
-	emit ReloadAll();
+	emit ReloadPlots();
+	ResetAll();
+}
+
+void CTaskExplorer::ResetAll()
+{
+	emit ReloadPanels();
 
 	QTimer::singleShot(0, this, SLOT(UpdateAll()));
 }
@@ -1174,6 +1177,14 @@ void CTaskExplorer::OnSCMPermissions()
 {
 #ifdef WIN32
 	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", CTaskExplorer_OpenServiceControlManager, NULL, NULL);
+#endif
+}
+
+void CTaskExplorer::OnSecurityExplorer()
+{
+#ifdef _WIN32
+	CSecurityExplorer* pWnd = new CSecurityExplorer();
+	pWnd->show();
 #endif
 }
 
@@ -1296,6 +1307,25 @@ int CTaskExplorer::GetCellHeight()
 	int fontHeight = fontMetrics.height();
 	
 	return (fontHeight + 3) * GetDpiScale();
+}
+
+void CTaskExplorer::LoadDefaultIcons()
+{
+	if (g_ExeIcon.isNull())
+	{
+		g_ExeIcon = QIcon(":/Icons/exe16.png");
+		g_ExeIcon.addFile(":/Icons/exe32.png");
+		g_ExeIcon.addFile(":/Icons/exe48.png");
+		g_ExeIcon.addFile(":/Icons/exe64.png");
+	}
+
+	if (g_DllIcon.isNull())
+	{
+		g_DllIcon = QIcon(":/Icons/dll16.png");
+		g_DllIcon.addFile(":/Icons/dll32.png");
+		g_DllIcon.addFile(":/Icons/dll48.png");
+		g_DllIcon.addFile(":/Icons/dll64.png");
+	}
 }
 
 QVector<QColor> CTaskExplorer::GetPlotColors()

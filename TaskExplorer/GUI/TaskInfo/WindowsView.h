@@ -23,6 +23,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					ShowWindows(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnItemSelected(const QModelIndex &current);
 
@@ -50,6 +53,8 @@ protected:
 
 	QList<CProcessPtr>		m_Processes;
 	int						m_PendingUpdates;
+
+	QHash<quint64, CWndPtr> m_Windows;
 
 private:
 

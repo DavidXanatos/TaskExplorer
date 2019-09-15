@@ -41,8 +41,8 @@ CWinSvcWindow::CWinSvcWindow(QSharedPointer<CWinService> pService, QWidget *pare
 	m_OtherChanged = false;
 
 	QWidget* centralWidget = new QWidget();
-	this->setCentralWidget(centralWidget);
 	ui.setupUi(centralWidget);
+	this->setCentralWidget(centralWidget);
 
 	this->setWindowTitle(tr("Properties of %1").arg(m_pService->GetName()));
 	m_pDependencies = new CServiceListWidget(true);
@@ -100,6 +100,7 @@ CWinSvcWindow::CWinSvcWindow(QSharedPointer<CWinService> pService, QWidget *pare
 	connect(ui.buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
+	restoreGeometry(theConf->GetBlob("ServiceWindow/Window_Geometry"));
 
 	ASSERT(ui.tabWidget->currentWidget() == ui.generalTab);
 	LoadGeneral();
@@ -109,6 +110,8 @@ CWinSvcWindow::~CWinSvcWindow()
 {
 	foreach(void* pTriggerInfo, m_TriggerInfos)
 		EspDestroyTriggerInfo((PES_TRIGGER_INFO)pTriggerInfo);
+
+	theConf->SetBlob("ServiceWindow/Window_Geometry",saveGeometry());
 }
 
 void CWinSvcWindow::closeEvent(QCloseEvent *e)

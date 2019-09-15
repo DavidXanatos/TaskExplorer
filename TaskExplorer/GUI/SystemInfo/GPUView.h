@@ -20,6 +20,8 @@ public slots:
 	void					ReConfigurePlots();
 
 private slots:
+	void					OnResetColumns();
+
 	void					OnMultiPlot(int State);
 
 protected:

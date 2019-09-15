@@ -18,6 +18,8 @@ public slots:
 	void					ShowStrings(const QMap<quint64, CStringInfoPtr>& String);
 
 private slots:
+	void					OnColumnsChanged();
+
 	void					OnDoubleClicked();
 
 	//void					OnMenu(const QPoint &point);
@@ -32,6 +34,8 @@ protected:
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 	
 	CProcessPtr				m_pCurProcess;
+
+	QMap<quint64, CStringInfoPtr> m_String;
 
 private:
 

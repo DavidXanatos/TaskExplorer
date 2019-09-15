@@ -48,15 +48,16 @@ bool CModuleModel::TestModPath(const QList<QVariant>& Path, const CModulePtr& pM
 	return Path.size() == Index;
 }
 
-void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
+QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 {
+	QSet<quint64> Added;
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QHash<QVariant, STreeNode*> Old = m_Map;
 
 	for (QMap<quint64, CModulePtr>::const_iterator I = ModuleList.begin(); I != ModuleList.end(); ++I)
 	{
 		const CModulePtr& pModule = I.value();
-		QVariant ID = I.key();
+		quint64 ID = I.key();
 
 		QModelIndex Index;
 		
@@ -70,6 +71,7 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 			pNode->pModule = pModule;
 			pNode->IsBold = pModule->IsFirst();
 			New[pNode->Path].append(pNode);
+			Added.insert(ID);
 		}
 		else
 		{
@@ -90,9 +92,9 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eModule))
 		{
 			QPixmap Icon;
-			if (!pProcess.isNull())
-				Icon = pProcess->GetModuleInfo()->GetFileIcon();
-			else
+			if (!pProcess)
+				Icon = pModule->GetFileIcon();
+			else if (CModulePtr pModule = pProcess->GetModuleInfo())
 				Icon = pModule->GetFileIcon();
 
 			if (!Icon.isNull()) {
@@ -193,6 +195,8 @@ void CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 	}
 
 	CTreeItemModel::Sync(New, Old);
+
+	return Added;
 }
 
 CModulePtr CModuleModel::GetModule(const QModelIndex &index) const

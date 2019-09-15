@@ -9,6 +9,7 @@ class CRunAsDialog : public QMainWindow
 
 public:
 	CRunAsDialog(quint64 PID = 0, QWidget *parent = Q_NULLPTR);
+	~CRunAsDialog();
 
 public slots:
 	void accept();

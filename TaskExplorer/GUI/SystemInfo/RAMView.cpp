@@ -38,7 +38,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pScrollArea->setPalette(pal);
 
 	m_PlotLimit = theGUI->GetGraphLimit(true);
-	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	connect(theGUI, SIGNAL(ReloadPlots()), this, SLOT(ReConfigurePlots()));
 	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
 	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
@@ -133,62 +133,6 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pMemoryLayout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum), 0, 3);
 	////////////////////////////////////////
 	
-	/*
-	m_pPoolWidget = new QWidget();
-	m_pPoolLayout = new QGridLayout();
-	m_pPoolLayout->setMargin(3);
-	m_pPoolWidget->setLayout(m_pPoolLayout);
-	m_pInfoTabs->addTab(m_pPoolWidget, tr("Pool"));
-
-
-	m_pPPoolBox = new QGroupBox(tr("Paged pool"));
-	m_pPPoolBox->setMinimumWidth(150);
-	m_pPPoolLayout = new QGridLayout();
-	m_pPPoolBox->setLayout(m_pPPoolLayout);
-	m_pPoolLayout->addWidget(m_pPPoolBox, 0, 0);
-	m_pPoolLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 1, 0);
-
-	row = 0;
-	m_pPPoolLayout->addWidget(new QLabel(tr("Working set")), row, 0);
-	m_pPPoolWS = new QLabel();
-	m_pPPoolLayout->addWidget(m_pPPoolWS, row++, 1);
-
-	m_pPPoolLayout->addWidget(new QLabel(tr("Virtual size")), row, 0);
-	m_pPPoolVSize = new QLabel();
-	m_pPPoolLayout->addWidget(m_pPPoolVSize, row++, 1);
-
-	//m_pPPoolLayout->addWidget(new QLabel(tr("Paged limit")), row, 0);
-	//m_pPPoolLimit = new QLabel();
-	//m_pPPoolLayout->addWidget(m_pPPoolLimit, row++, 1);
-
-	////////////////////////////////////////
-
-	m_pNPPoolBox = new QGroupBox(tr("Non-paged pool"));
-	m_pNPPoolBox->setMinimumWidth(150);
-	m_pNPPoolLayout = new QGridLayout();
-	m_pNPPoolBox->setLayout(m_pNPPoolLayout);
-	m_pPoolLayout->addWidget(m_pNPPoolBox, 0, 1);
-	m_pPoolLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 1, 1);
-	//m_pPoolLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), 2, 0);
-
-	row = 0;
-	m_pNPPoolLayout->addWidget(new QLabel(tr("Usage")), row, 0);
-	m_pNPPoolUsage = new QLabel();
-	m_pNPPoolLayout->addWidget(m_pNPPoolUsage, row++, 1);
-
-	m_pNPPoolLayout->addWidget(new QLabel(), row++, 0);
-
-	//m_pNPPoolLayout->addWidget(new QLabel(tr("Limit")), row, 0);
-	//m_pNPPoolLimit = new QLabel();
-	//m_pNPPoolLayout->addWidget(m_pNPPoolLimit, row++, 1);
-
-	m_pPoolLayout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum), 0, 3);
-
-	// Note: Winsows 10 starting with 1809 does not longer provide a value for:
-	//			PagedPoolAllocs, PagedPoolFrees, NonPagedPoolAllocs, NonPagedPoolFrees
-	*/
-
-	////////////////////////////////////////
 
 	m_pPageWidget = new QWidget();
 	m_pPageLayout = new QGridLayout();
@@ -375,16 +319,6 @@ void CRAMView::Refresh()
 	m_pRAMKernelWS->setText(FormatSize(theAPI->GetKernelMemory()));
 	m_pRAMDriverWS->setText(FormatSize(theAPI->GetDriverMemory()));
 
-	/*
-	m_pPPoolWS->setText(FormatSize(theAPI->GetPersistentPagedPool()));
-	m_pPPoolVSize->setText(FormatSize(theAPI->GetPagedPool()));
-
-	m_pNPPoolUsage->setText(FormatSize(theAPI->GetNonPagedPool()));
-
-	// todo: add limti values make them work on win10
-	//m_pPPoolLimit;
-	//m_pNPPoolLimit;
-	*/
 
 	SCpuStatsEx CpuStats = theAPI->GetCpuStats();
 

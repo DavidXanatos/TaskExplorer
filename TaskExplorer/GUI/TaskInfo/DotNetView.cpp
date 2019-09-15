@@ -54,6 +54,10 @@ CDotNetView::CDotNetView(QWidget *parent)
 
 	connect(m_pAssemblyList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
+	m_pAssemblyList->setColumnReset(2);
+	connect(m_pAssemblyList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pAssemblyList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
 	m_pSplitter->addWidget(CFinder::AddFinder(m_pAssemblyList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
 	// 
@@ -82,14 +86,7 @@ CDotNetView::CDotNetView(QWidget *parent)
 	setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/DotNetView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pAssemblyModel->columnCount(); i++)
-			m_pAssemblyList->SetColumnHidden(i, true);
-
-		m_pAssemblyList->SetColumnHidden(eStructure, false);
-		m_pAssemblyList->SetColumnHidden(eFileName, false);
-		m_pAssemblyList->SetColumnHidden(eFlags, false);
-	}
+		OnResetColumns();
 	else
 		m_pAssemblyList->restoreState(Columns);
 	m_pPerfStats->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/PerfStats_Columns"));
@@ -102,6 +99,21 @@ CDotNetView::~CDotNetView()
 	theConf->SetBlob(objectName() + "/DotNetView_Splitter",m_pSplitter->saveState());
 	if(m_pPerfStats)
 		theConf->SetBlob(objectName() + "/PerfStats_Columns", m_pPerfStats->GetView()->header()->saveState());
+}
+
+void CDotNetView::OnResetColumns()
+{
+	for (int i = 0; i < m_pAssemblyModel->columnCount(); i++)
+		m_pAssemblyList->SetColumnHidden(i, true);
+
+	m_pAssemblyList->SetColumnHidden(eStructure, false);
+	m_pAssemblyList->SetColumnHidden(eFileName, false);
+	m_pAssemblyList->SetColumnHidden(eFlags, false);
+}
+
+void CDotNetView::OnColumnsChanged()
+{
+	m_pAssemblyModel->Sync(m_Assemblies);
 }
 
 void CDotNetView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -145,7 +157,7 @@ void CDotNetView::OnRefresh()
 
 void CDotNetView::OnAssemblies(const CAssemblyListPtr& Assemblies)
 {
-	QMap<QVariant, QVariantMap> List;
+	m_Assemblies.clear();
 
 	for (int i = 0; i < Assemblies->GetCount(); i++)
 	{
@@ -163,11 +175,11 @@ void CDotNetView::OnAssemblies(const CAssemblyListPtr& Assemblies)
 		Values.insert(QString::number(eNativePath), Assembly.NativePath);
 		Item["Values"] = Values;
 
-		ASSERT(!List.contains(Assembly.ID));
-		List.insert(Assembly.ID, Item);
+		ASSERT(!m_Assemblies.contains(Assembly.ID));
+		m_Assemblies.insert(Assembly.ID, Item);
 	}
 
-	m_pAssemblyModel->Sync(List);
+	m_pAssemblyModel->Sync(m_Assemblies);
 
 	m_pAssemblyList->expandAll();
 }

@@ -62,6 +62,10 @@
         <file alias="SendMsg">Actions/user_msg.png</file>
         <file alias="User">Actions/user.png</file>
         <file alias="MonitorFW">Actions/fw_mon.png</file>
+        <file alias="Security">Actions/security.png</file>
+        <file alias="Flush">Actions/flush.png</file>
+        <file alias="Reset">Actions/reset.png</file>
+        <file alias="Expand">Actions/expand.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

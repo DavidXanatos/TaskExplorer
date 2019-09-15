@@ -49,8 +49,8 @@ public:
 		SDelta64 ReadTimeDelta;
 		SDelta64 WriteTimeDelta;
 		SDelta64 IdleTimeDelta;
-		//SDelta32 ReadCountDelta;
-		//SDelta32 WriteCountDelta;
+		//SDelta32_64 ReadCountDelta;
+		//SDelta32_64 WriteCountDelta;
 		SDelta64 QueryTimeDelta;
 
 		float ResponseTime;

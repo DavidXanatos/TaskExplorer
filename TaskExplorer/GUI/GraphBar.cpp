@@ -61,7 +61,7 @@ CGraphBar::CGraphBar()
 	}
 
 	m_PlotLimit = theGUI->GetGraphLimit();
-	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	connect(theGUI, SIGNAL(ReloadPlots()), this, SLOT(ReConfigurePlots()));
 
 	AddGraphs(Graphs, Rows);
 }

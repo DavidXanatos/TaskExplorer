@@ -14,6 +14,8 @@ public:
 
 	virtual bool ValidateParent(CProcessInfo* pParent) const;
 
+	virtual bool IsFullyInitialized() const			{ QReadLocker Locker(&m_Mutex); return m_IsFullyInitialized; }
+
 	// Basic
 	virtual void* GetQueryHandle() const;
 	virtual bool IsWoW64() const;
@@ -177,7 +179,9 @@ private slots:
 protected:
 	friend class CWindowsAPI;
 
+	bool InitStaticData(quint64 ProcessId);
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo);
+	bool InitStaticData(bool bLoadFileName = true); // *NOT Thread Safe* internal function to be called by other InitStaticData's
 	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
 	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
 	bool UpdateTokenData(bool MonitorChange);
@@ -205,6 +209,8 @@ protected:
 
 	// MainWindow
 	CWndRef							m_pMainWnd;
+
+	bool							m_IsFullyInitialized;
 
 private:
 	//volatile quint64 m_lastExtUpdate;

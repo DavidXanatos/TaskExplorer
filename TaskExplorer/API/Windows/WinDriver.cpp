@@ -10,9 +10,6 @@ CWinDriver::CWinDriver(QObject *parent)
 {
 	m_ImageBase = 0;
 	m_ImageSize = 0;
-
-	m_pModuleInfo = CModulePtr(new CWinModule());
-	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
 }
 
 CWinDriver::~CWinDriver()
@@ -35,8 +32,11 @@ bool CWinDriver::InitStaticData(struct _RTL_PROCESS_MODULE_INFORMATION* Module)
 
 	m_CreateTimeStamp = GetTime() * 1000;
 
-	qobject_cast<CWinModule*>(m_pModuleInfo)->InitStaticData(m_BinaryPath);
-	qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData();
+	CWinModule* pModule = new CWinModule();
+	m_pModuleInfo = CModulePtr(pModule);
+	connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
+	pModule->InitStaticData(m_BinaryPath);
+	pModule->InitAsyncData();
 
 	return true;
 }

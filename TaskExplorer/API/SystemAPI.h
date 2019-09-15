@@ -11,6 +11,7 @@
 #include "Monitors/GpuMonitor.h"
 #include "Monitors/NetMonitor.h"
 #include "Monitors/DiskMonitor.h"
+#include "DnsEntry.h"
 
 struct SCpuStats
 {
@@ -30,15 +31,20 @@ struct SCpuStats
 
 struct SCpuStatsEx : SCpuStats
 {
-	SDelta32 PageFaultsDelta;
-	SDelta32 PageReadsDelta;
-	SDelta32 PageFileWritesDelta;
-	SDelta32 MappedWritesDelta;
+	SDelta32_64 PageFaultsDelta;
+	SDelta32_64 PageReadsDelta;
+	SDelta32_64 PageFileWritesDelta;
+	SDelta32_64 MappedWritesDelta;
 
-	SDelta32 ContextSwitchesDelta;
-	SDelta32 InterruptsDelta;
+	SDelta32_64 PagedAllocsDelta;
+	SDelta32_64 PagedFreesDelta;
+	SDelta32_64 NonPagedAllocsDelta;
+	SDelta32_64 NonPagedFreesDelta;
+
+	SDelta32_64 ContextSwitchesDelta;
+	SDelta32_64 InterruptsDelta;
 	SDelta64 DpcsDelta;
-	SDelta32 SystemCallsDelta;
+	SDelta32_64 SystemCallsDelta;
 };
 
 struct SPageFile // on linux swap partition
@@ -69,7 +75,7 @@ public:
 	virtual bool RootAvaiable() = 0;
 
 	virtual QMap<quint64, CProcessPtr> GetProcessList();
-	virtual CProcessPtr GetProcessByID(quint64 ProcessId);
+	virtual CProcessPtr GetProcessByID(quint64 ProcessId, bool bAddIfNew = false);
 	virtual CThreadPtr  GetThreadByID(quint64 ThreadId);
 	virtual CProcessPtr GetProcessByThreadID(quint64 ThreadId);
 
@@ -156,6 +162,8 @@ public:
 
 	virtual void NotifyHardwareChanged();
 
+	virtual QMultiMap<QString, CDnsEntryPtr> GetDnsEntryList() const = 0;
+
 public slots:
 	virtual bool UpdateSysStats() = 0;
 	virtual bool UpdateProcessList() = 0;
@@ -163,6 +171,9 @@ public slots:
 	virtual bool UpdateOpenFileList() = 0;
 	virtual bool UpdateServiceList(bool bRefresh = false) = 0;
 	virtual bool UpdateDriverList() = 0;
+
+	virtual bool UpdateDnsCache() = 0;
+	virtual void FlushDnsCache() = 0;
 
 private slots:
 	virtual bool Init() = 0;
@@ -175,6 +186,8 @@ signals:
 	void OpenFileListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void ServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
 	void DriverListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
+
+	void DnsCacheUpdated();
 
 protected:
 	//virtual void				UpdateStats();

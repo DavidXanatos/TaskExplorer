@@ -259,6 +259,7 @@
     <ClCompile Include="API\DriverInfo.cpp" />
     <ClCompile Include="API\Finders\AbstractFinder.cpp" />
     <ClCompile Include="API\HandleInfo.cpp" />
+    <ClCompile Include="API\DnsEntry.cpp" />
     <ClCompile Include="API\MemDumper.cpp" />
     <ClCompile Include="API\MemoryInfo.cpp" />
     <ClCompile Include="API\ModuleInfo.cpp" />
@@ -275,6 +276,7 @@
     <ClCompile Include="API\Windows\Finders\WinHandleFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinStringFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinModuleFinder.cpp" />
+    <ClCompile Include="API\Windows\DnsResolver.cpp" />
     <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinDiskMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp" />
@@ -342,6 +344,7 @@
     <ClCompile Include="GUI\AffinityDialog.cpp" />
     <ClCompile Include="GUI\GraphBar.cpp" />
     <ClCompile Include="GUI\MemoryEditor.cpp" />
+    <ClCompile Include="GUI\Models\DnsModel.cpp" />
     <ClCompile Include="GUI\Models\DriverModel.cpp" />
     <ClCompile Include="GUI\Models\GDIModel.cpp" />
     <ClCompile Include="GUI\Models\HandleModel.cpp" />
@@ -361,6 +364,7 @@
     <ClCompile Include="GUI\Search\ModuleSearch.cpp" />
     <ClCompile Include="GUI\Search\SearchWindow.cpp" />
     <ClCompile Include="GUI\Search\StringView.cpp" />
+    <ClCompile Include="GUI\SecurityExplorer.cpp" />
     <ClCompile Include="GUI\SettingsWindow.cpp" />
     <ClCompile Include="GUI\ProcessPicker.cpp" />
     <ClCompile Include="GUI\ProcessTree.cpp">
@@ -381,12 +385,14 @@
     <ClCompile Include="GUI\StatsView.cpp" />
     <ClCompile Include="GUI\SystemInfo\CPUView.cpp" />
     <ClCompile Include="GUI\SystemInfo\DiskView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\DnsCacheView.cpp" />
     <ClCompile Include="GUI\SystemInfo\GPUView.cpp" />
     <ClCompile Include="GUI\SystemInfo\KernelInfo\AtomView.cpp" />
     <ClCompile Include="GUI\SystemInfo\KernelInfo\DriversView.cpp" />
     <ClCompile Include="GUI\SystemInfo\KernelInfo\KernelView.cpp" />
     <ClCompile Include="GUI\SystemInfo\KernelInfo\NtObjectView.cpp" />
     <ClCompile Include="GUI\SystemInfo\KernelInfo\PoolView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\RunObjView.cpp" />
     <ClCompile Include="GUI\SystemInfo\NetworkView.cpp" />
     <ClCompile Include="GUI\SystemInfo\RAMView.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServiceListWidget.cpp" />
@@ -414,6 +420,8 @@
     <ClCompile Include="GUI\TaskInfo\TokenView.cpp" />
     <ClCompile Include="GUI\TaskInfo\WindowsView.cpp" />
     <ClCompile Include="GUI\TaskView.cpp" />
+    <ClCompile Include="GUI\WaitChainDialog.cpp" />
+    <ClCompile Include="GUI\WsWatchDialog.cpp" />
     <ClCompile Include="main.cpp">
       <OutputFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
       <OutputFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
@@ -529,6 +537,7 @@
     </QtMoc>
     <QtMoc Include="API\Finders\AbstractFinder.h" />
     <ClInclude Include="API\AssemblyList.h" />
+    <QtMoc Include="API\DnsEntry.h" />
     <ClInclude Include="API\MiscStats.h" />
     <QtMoc Include="API\AbstractInfo.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../API/%(Filename)%(Extension)</ForceInclude>
@@ -550,6 +559,7 @@
     <QtMoc Include="API\Windows\Monitors\EventMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\WinGpuMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\WinNetMonitor.h" />
+    <QtMoc Include="API\Windows\DnsResolver.h" />
     <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h" />
     <ClInclude Include="API\Windows\ProcessHacker.h" />
@@ -898,6 +908,7 @@
     <ClInclude Include="GUI\CustomItemDelegate.h" />
     <QtMoc Include="GUI\Models\StringModel.h" />
     <QtMoc Include="GUI\Models\GDIModel.h" />
+    <QtMoc Include="GUI\Models\DnsModel.h" />
     <QtMoc Include="GUI\Models\PoolModel.h" />
     <QtMoc Include="GUI\Models\NtObjectModel.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
@@ -944,11 +955,16 @@
     <QtMoc Include="GUI\SystemInfo\GPUView.h" />
     <QtMoc Include="GUI\SystemInfo\NetworkView.h" />
     <QtMoc Include="GUI\SystemInfo\RAMView.h" />
+    <QtMoc Include="GUI\SystemInfo\DnsCacheView.h" />
     <QtMoc Include="GUI\SystemInfo\KernelInfo\AtomView.h" />
     <QtMoc Include="GUI\SystemInfo\KernelInfo\DriversView.h" />
     <QtMoc Include="GUI\SystemInfo\KernelInfo\KernelView.h" />
     <QtMoc Include="GUI\SystemInfo\KernelInfo\NtObjectView.h" />
     <QtMoc Include="GUI\SystemInfo\KernelInfo\PoolView.h" />
+    <QtMoc Include="GUI\SecurityExplorer.h" />
+    <QtMoc Include="GUI\WsWatchDialog.h" />
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\RunObjView.h" />
+    <QtMoc Include="GUI\WaitChainDialog.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
@@ -993,6 +1009,7 @@
   <ItemGroup>
     <QtUic Include="Forms\NewService.ui" />
     <QtUic Include="Forms\RunAsDialog.ui" />
+    <QtUic Include="Forms\SecurityExplorer.ui" />
     <QtUic Include="Forms\SettingsWindow.ui" />
     <QtUic Include="Forms\WinSvcShutdown.ui" />
     <QtUic Include="Forms\WinSvcTrigger.ui" />

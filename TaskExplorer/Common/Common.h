@@ -24,46 +24,11 @@ __inline QString FormatSizeEx(quint64 Size, bool bEx) { return bEx && (Size == 0
 QString FormatRate(quint64 Size, int Precision = 2);
 __inline QString FormatRateEx(quint64 Size, bool bEx) { return bEx && (Size == 0) ? QString() : FormatRate(Size); }
 QString FormatUnit(quint64 Size, int Precision = 0);
-QString	FormatTime(quint64 Time);
+QString	FormatTime(quint64 Time, bool ms = false);
 QString	FormatNumber(quint64 Number);
 __inline QString FormatNumberEx(quint64 Number, bool bEx) { return bEx && (Number == 0) ? QString() : FormatNumber(Number); }
 QString	FormatAddress(quint64 Address, int length = 16);
 
-template<class T>
-struct SDelta
-{
-	SDelta()
-	{
-		Initialized = false;
-		Value = 0;
-		Delta = 0;
-	}
-	
-	void Init(T New) {
-		Initialized = true;
-		Delta = 0;
-		Value = New;
-	}
-
-	void Update(T New) {
-		if (Initialized) {
-			//ASSERT(New >= Value); // todo: xxx
-			Delta = New - Value;
-		}
-		else
-			Initialized = true;
-		Value = New;
-	}
-
-	T Value;
-	T Delta;
-
-private:
-	bool Initialized;
-};
-
-typedef SDelta<quint64>	SDelta32;
-typedef SDelta<quint64>	SDelta64;
 
 template <typename T>
 QVariantList toVariantList( const QList<T> &list )

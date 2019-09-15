@@ -23,6 +23,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 	void					OnUpdateHistory();
@@ -33,6 +36,7 @@ private slots:
 	//void					OnMenu(const QPoint &point);
 
 	void					OnThreadAction();
+	void					OnThreadToken();
 
 	void					OnPermissions();
 
@@ -88,7 +92,7 @@ private:
 	QAction*				m_pCancelIO;
 	//QAction*				m_pAnalyze;
 	QAction*				m_pCritical;
-	//QAction*				m_pToken;
+	QAction*				m_pToken;
 	QAction*				m_pPermissions;
 #endif
 	//QAction*				m_pWindows;

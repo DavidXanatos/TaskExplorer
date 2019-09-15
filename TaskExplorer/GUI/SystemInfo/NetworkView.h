@@ -21,6 +21,8 @@ public slots:
 	void					ReConfigurePlots();
 
 private slots:
+	void					OnResetColumns();
+
 	void					OnAdapterCheck(QTreeWidgetItem* item, int column);
 
 protected:

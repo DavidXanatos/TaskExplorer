@@ -1,5 +1,6 @@
 #pragma once
 #include "../SocketInfo.h"
+#include "../DnsEntry.h"
 
 #define PH_NETWORK_OWNER_INFO_SIZE 16
 
@@ -19,6 +20,8 @@ public:
 	virtual QString			GetFirewallStatusString();
 
 	virtual quint64			GetIdleTime() const;
+
+	virtual bool			HasStaticDataEx() const { QReadLocker Locker(&m_Mutex); return m_HasStaticDataEx; }
 
 	virtual STATUS			Close();
 
@@ -42,6 +45,8 @@ public:
 
 	static QVector<SSocket> GetNetworkConnections();
 
+public slots:
+	void			OnHostResolved(const QHostAddress& Address, const QString& HostName);
 
 protected:
 	friend class CWindowsAPI;
@@ -61,6 +66,9 @@ protected:
 	//bool			m_SubsystemProcess;
 
 	quint64			m_LastActivity;
+
+	bool			m_HasStaticDataEx;
+
 private:
 	struct SWinSocket* m;
 };

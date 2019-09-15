@@ -1,6 +1,7 @@
 #pragma once
 #include <qobject.h>
 #include "../AbstractInfo.h"
+#include "../MiscStats.h"
 
 struct SPoolEntryStats
 {

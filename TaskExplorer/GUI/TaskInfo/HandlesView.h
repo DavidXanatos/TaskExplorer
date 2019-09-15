@@ -79,12 +79,13 @@ public slots:
 	//void					OnShowDetails();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					ShowOpenFiles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnItemSelected(const QModelIndex &current);
 	void					OnDoubleClicked();
-
-	void					OnColumnsChanged();
 
 	//void					OnMenu(const QPoint &point);
 
@@ -112,6 +113,8 @@ protected:
 	int						m_ShowAllFiles;
 	QList<CProcessPtr>		m_Processes;
 	int						m_PendingUpdates;
+
+	QMap<quint64, CHandlePtr> m_Handles;
 
 private:
 	QVBoxLayout*			m_pMainLayout;

@@ -55,7 +55,11 @@ CJobView::CJobView(QWidget *parent)
 	m_pProcessList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pProcessList->setSortingEnabled(true);
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pProcessModel, SLOT(Clear()));
+
+	m_pProcessList->setColumnReset(2);
+	connect(m_pProcessList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	//m_pMainLayout->addWidget(m_pProcessList, row++, 0, 1, 3);
 	m_pSplitter->addWidget(m_pProcessList);
@@ -129,16 +133,7 @@ CJobView::CJobView(QWidget *parent)
 	setObjectName(parent ? parent->objectName() : "InfoWindow");
 	QByteArray Columns = theConf->GetBlob(objectName() + "/JobProcess_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pProcessModel->columnCount(); i++)
-			m_pProcessList->SetColumnHidden(i, true);
-
-		m_pProcessList->SetColumnHidden(CProcessModel::eProcess, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eStartTime, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
-	}
+		OnResetColumns();
 	else
 		m_pProcessList->restoreState(Columns);
 
@@ -150,6 +145,23 @@ CJobView::~CJobView()
 {
 	theConf->SetBlob(objectName() + "/JobProcess_Columns", m_pProcessList->saveState());
 	theConf->SetBlob(objectName() + "/JobLimits_Columns", m_pLimits->GetView()->header()->saveState());
+}
+
+void CJobView::OnResetColumns()
+{
+	for (int i = 0; i < m_pProcessModel->columnCount(); i++)
+		m_pProcessList->SetColumnHidden(i, true);
+
+	m_pProcessList->SetColumnHidden(CProcessModel::eProcess, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eStartTime, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
+}
+
+void CJobView::OnColumnsChanged()
+{
+	m_pProcessModel->Sync(m_ProcessList);
 }
 
 void CJobView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -228,7 +240,7 @@ void CJobView::Refresh()
 		{
 		case CWinJob::SJobLimit::eString:	pItem->setText(1, I->Value.toString()); break;
 		case CWinJob::SJobLimit::eSize:		pItem->setText(1, FormatSize(I->Value.toULongLong())); break;
-		case CWinJob::SJobLimit::eTimeMs:	pItem->setText(1, FormatTime(I->Value.toULongLong())); break;
+		case CWinJob::SJobLimit::eTimeMs:	pItem->setText(1, FormatTime(I->Value.toULongLong(), true)); break;
 		case CWinJob::SJobLimit::eAddress:	pItem->setText(1, FormatAddress(I->Value.toULongLong())); break;
 		case CWinJob::SJobLimit::eNumber:	pItem->setText(1, QString::number(I->Value.toUInt())); break;
 		case CWinJob::SJobLimit::eEnabled:	pItem->setText(1, I->Value.toBool() ? tr("Enabled") : tr("Disabled")); break;
@@ -241,8 +253,8 @@ void CJobView::Refresh()
 
 	m_pJobStats->ShowJob(m_pCurJob);
 
-	QMap<quint64, CProcessPtr> ProcessList = m_pCurJob->GetProcesses();
-	m_pProcessModel->Sync(ProcessList);
+	m_ProcessList = m_pCurJob->GetProcesses();
+	m_pProcessModel->Sync(m_ProcessList);
 }
 
 void CJobView::OnMenu(const QPoint &point)

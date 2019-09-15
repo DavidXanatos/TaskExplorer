@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions based on svcsup.c
  *
  * Copyright (C) 2009-2015 wj32
@@ -67,9 +67,6 @@ CWinService::CWinService(QObject *parent)
 	m_KeyLastWriteTime = 0;
 
 	m = new SWinService();
-
-	m_pModuleInfo = CModulePtr(new CWinModule());
-	connect(m_pModuleInfo.data(), SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
 }
 
 CWinService::CWinService(const QString& Name, QObject *parent)
@@ -93,6 +90,10 @@ bool CWinService::InitStaticData(struct _ENUM_SERVICE_STATUS_PROCESSW* service)
 	m_CreateTimeStamp = GetTime() * 1000;
 
 	m->NeedsConfigUpdate = TRUE;
+
+	CWinModule* pModule = new CWinModule();
+	m_pModuleInfo = CModulePtr(pModule);
+	connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
 
 	return true;
 }
@@ -180,8 +181,15 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 						PhDereferenceObject(commandLine);
 					}
 				}
-				m_FileName = CastPhString(fileName);
+				QString FileName = CastPhString(fileName);
 				//
+
+				if (m_FileName != FileName)
+				{
+					m_FileName = FileName;
+					if(!m_FileName.isEmpty() && !m_pModuleInfo.isNull())
+						qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName);
+				}
 
 				PhFree(config);
 			}
@@ -212,11 +220,6 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 			//
 
 			PhDereferenceObject(Name);
-
-			// get file info
-			// todo: dont re do it
-			if (!m_FileName.isEmpty())
-				qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName);
 
 			ULONG returnLength;
 			SERVICE_DELAYED_AUTO_START_INFO delayedAutoStartInfo;

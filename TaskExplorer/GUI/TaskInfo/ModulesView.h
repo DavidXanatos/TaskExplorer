@@ -19,6 +19,9 @@ public slots:
 	void					ShowModules(const QMap<quint64, CModulePtr>& Modules);
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnDoubleClicked();
 
@@ -33,7 +36,21 @@ protected:
 	//virtual QAbstractItemModel* GetModel()				{ return m_pModuleModel; }
 	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
+	enum EView
+	{
+		eNone,
+		eSingle,
+		eMulti
+	};
+
+	virtual void			SwitchView(EView ViewMode);
+
+	EView					m_ViewMode;
+
+	bool					m_bGlobal;
 	CProcessPtr				m_pCurProcess;
+
+	QMap<quint64, CModulePtr> m_Modules;
 
 private:
 	QVBoxLayout*			m_pMainLayout;

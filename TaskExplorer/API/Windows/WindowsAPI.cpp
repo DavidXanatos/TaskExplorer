@@ -40,6 +40,7 @@ struct SWindowsAPI
 
 		memset(&PoolTableDB, 0, sizeof(PoolTableDB));
 		
+		PoolStatsOk = false;
 	}
 
 	~SWindowsAPI()
@@ -81,6 +82,7 @@ struct SWindowsAPI
 	SUnOverflow CcLazyWritePages;
 
 	POOLTAG_CONTEXT PoolTableDB;
+	bool PoolStatsOk;
 };
 
 quint64 GetInstalledMemory()
@@ -121,6 +123,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_pGpuMonitor = NULL;
 	m_pSymbolProvider = NULL;
 	m_pSidResolver = NULL;
+	m_pDnsResolver = NULL;
 
 	m_bTestSigning = false;
 	m_bDriverFailed = false;
@@ -130,9 +133,8 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 bool CWindowsAPI::Init()
 {
-#ifdef _DEBUG
-	SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
-#endif
+	//if(WindowsVersion >= WINDOWS_10_RS1)
+	//	SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
 
 	InitPH();
 
@@ -258,6 +260,10 @@ bool CWindowsAPI::Init()
 	m_pSidResolver = new CSidResolver();
 	m_pSidResolver->Init();
 
+	m_pDnsResolver = new CDnsResolver();
+	connect(m_pDnsResolver, SIGNAL(DnsCacheUpdated()), this, SIGNAL(DnsCacheUpdated()));
+	m_pDnsResolver->Init();
+
 	return true;
 }
 
@@ -315,6 +321,7 @@ CWindowsAPI::~CWindowsAPI()
 
 	delete m_pSymbolProvider;
 	delete m_pSidResolver;
+	delete m_pDnsResolver;
 
 	FreePoolTagDatabase(&m->PoolTableDB);
 
@@ -539,6 +546,15 @@ void CWindowsAPI::UpdatePerfStats()
 	m_CpuStats.PageFileWritesDelta.Update(PerfInformation.DirtyPagesWriteCount);
 	m_CpuStats.MappedWritesDelta.Update(PerfInformation.MappedPagesWriteCount);
 
+	if (PerfInformation.PagedPoolAllocs || PerfInformation.PagedPoolFrees || PerfInformation.NonPagedPoolAllocs || PerfInformation.NonPagedPoolFrees)
+	{
+		m->PoolStatsOk = true;
+		m_CpuStats.PagedAllocsDelta.Update(PerfInformation.PagedPoolAllocs);
+		m_CpuStats.PagedFreesDelta.Update(PerfInformation.PagedPoolFrees);
+		m_CpuStats.NonPagedAllocsDelta.Update(PerfInformation.NonPagedPoolAllocs);
+		m_CpuStats.NonPagedFreesDelta.Update(PerfInformation.NonPagedPoolFrees);
+	}
+
 	m_CommitedMemory = UInt32x32To64(PerfInformation.CommittedPages, PAGE_SIZE);
 	m_CommitedMemoryPeak = UInt32x32To64(PerfInformation.PeakCommitment, PAGE_SIZE);
 	m_MemoryLimit = UInt32x32To64(PerfInformation.CommitLimit, PAGE_SIZE);
@@ -682,7 +698,7 @@ bool CWindowsAPI::UpdateProcessList()
 	quint32 newTotalUserObjects = 0;
 	quint32 newTotalWndObjects = EnumWindows();
 
-	bool MonitorTockenChange = theConf->GetBool("Options/MonitorTockenChange", false);
+	bool MonitorTokenChange = theConf->GetBool("Options/MonitorTokenChange", false);
 
 	/*if (!HasExtProcInfo() || theConf->GetBool("Options/DiskAlwaysUseETW", false))
 		m_UseDiskCounters = eDontUse;
@@ -714,6 +730,11 @@ bool CWindowsAPI::UpdateProcessList()
 			ASSERT(!m_ProcessList.contains(ProcessID));
 			m_ProcessList.insert(ProcessID, pProcess);
 		}
+		else if(!pProcess->IsFullyInitialized())
+		{
+			bAdd = true;
+			pProcess->InitStaticData(process, bFullProcessInfo);
+		}
 
 		bool bChanged = false;
 		bChanged = pProcess->UpdateDynamicData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime));
@@ -723,7 +744,7 @@ bool CWindowsAPI::UpdateProcessList()
 
 		pProcess->UpdateThreadData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime)); // a thread can ever only use one CPU to use linux style ylways
 
-		pProcess->UpdateTokenData(MonitorTockenChange);
+		pProcess->UpdateTokenData(MonitorTokenChange);
 
 		pProcess->SetWndHandles(GetWindowByPID((quint64)process->UniqueProcessId).count());
 
@@ -838,6 +859,25 @@ bool CWindowsAPI::UpdateProcessList()
 	}
 
 	return true;
+}
+
+CProcessPtr CWindowsAPI::GetProcessByID(quint64 ProcessId, bool bAddIfNew)
+{
+	QSharedPointer<CWinProcess> pProcess = CSystemAPI::GetProcessByID(ProcessId, false).objectCast<CWinProcess>();
+	if (!pProcess && bAddIfNew)
+	{
+		QWriteLocker Locker(&m_ProcessMutex);
+		pProcess = m_ProcessList.value(ProcessId).objectCast<CWinProcess>();
+		if(pProcess) // just in case between CSystemAPI::GetProcessByID and QWriteLocker something happened
+			return pProcess;
+
+		pProcess = QSharedPointer<CWinProcess>(new CWinProcess());
+		pProcess->moveToThread(theAPI->thread());
+		pProcess->InitStaticData(ProcessId);
+		//ASSERT(!m_ProcessList.contains(ProcessId)); 
+		m_ProcessList.insert(ProcessId, pProcess);
+	}
+	return pProcess;
 }
 
 #if 0
@@ -958,13 +998,13 @@ quint64	CWindowsAPI::GetCpuIdleCycleTime(int index)
 static BOOLEAN NetworkImportDone = FALSE;
 
 QMultiMap<quint64, CSocketPtr>::iterator FindSocketEntry(QMultiMap<quint64, CSocketPtr> &Sockets, quint64 ProcessId, quint32 ProtocolType, 
-							const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
+							const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, CSocketInfo::EMatchMode Mode)
 {
 	quint64 HashID = CSocketInfo::MkHash(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
 
 	for (QMultiMap<quint64, CSocketPtr>::iterator I = Sockets.find(HashID); I != Sockets.end() && I.key() == HashID; I++)
 	{
-		if (I.value().objectCast<CWinSocket>()->Match(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, bStrict))
+		if (I.value().objectCast<CWinSocket>()->Match(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode))
 			return I;
 	}
 
@@ -981,6 +1021,9 @@ bool CWindowsAPI::UpdateSocketList()
         WSAStartup(WINSOCK_VERSION, &wsaData);
         NetworkImportDone = TRUE;
     }
+
+	// Note: Important; first we must update the DNS cache to be able to properly assign DNS entries to the sockets!!!
+	UpdateDnsCache();
 
 
 	QSet<quint64> Added;
@@ -1000,7 +1043,7 @@ bool CWindowsAPI::UpdateSocketList()
 
 		bool bAdd = false;
 		QMultiMap<quint64, CSocketPtr>::iterator I = FindSocketEntry(OldSockets, (quint64)connections[i].ProcessId, (quint64)connections[i].ProtocolType, 
-			connections[i].LocalEndpoint.Address, connections[i].LocalEndpoint.Port, connections[i].RemoteEndpoint.Address, connections[i].RemoteEndpoint.Port, true);
+			connections[i].LocalEndpoint.Address, connections[i].LocalEndpoint.Port, connections[i].RemoteEndpoint.Address, connections[i].RemoteEndpoint.Port, CSocketInfo::eStrict);
 		if (I == OldSockets.end())
 		{
 			pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
@@ -1016,7 +1059,7 @@ bool CWindowsAPI::UpdateSocketList()
 		}
 
 		bool bChanged = false;
-		if (bAdd || pSocket->GetCreateTimeStamp() == 0) { // on network events we may add new, yet un enumerated, sockets 
+		if (bAdd || !pSocket->HasStaticDataEx()) { // on network events we may add new, yet un enumerated, sockets 
 			pSocket->InitStaticDataEx(&(connections[i]), bAdd);
 			bChanged = true;
 		}
@@ -1032,17 +1075,26 @@ bool CWindowsAPI::UpdateSocketList()
 	// For UDP Traffic keep the pseudo connections listed for a while
 	for (QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); )
 	{
-		if ((I.value()->GetProtocolType() & NET_TYPE_PROTOCOL_UDP) != 0 && I.value()->GetRemotePort() != 0 &&
-			I.value().objectCast<CWinSocket>()->GetIdleTime() < UdpPersistenceTime)
+		QSharedPointer<CWinSocket> pSocket = I.value().objectCast<CWinSocket>();
+		bool bIsUDPPseudoCon = (pSocket->GetProtocolType() & NET_TYPE_PROTOCOL_UDP) != 0 && pSocket->GetRemotePort() != 0;
+
+		if (!pSocket->HasStaticDataEx())
 		{
-			I.value()->UpdateStats();
+			// this is eider a UDP pseudo connection bIsUDPPseudoCon == true or
+			// this was a real socket, but it was closed before we could get its data from the connection Table
+			pSocket->InitStaticDataEx(NULL, false);
+		}
+		
+		if (bIsUDPPseudoCon && pSocket->GetIdleTime() < UdpPersistenceTime) // Active UDP pseudo connection
+		{
+			pSocket->UpdateStats();
 			I = OldSockets.erase(I);
 		}
-		else
+		else // closed connection
 		{
-			/*quint32 State = I.value()->GetState();
+			quint32 State = pSocket->GetState();
 			if (State != -1 && State != MIB_TCP_STATE_CLOSED)
-				I.value()->SetClosed();*/
+				pSocket->SetClosed();
 			I++;
 		}
 	}
@@ -1059,22 +1111,22 @@ bool CWindowsAPI::UpdateSocketList()
 		}
 		else if (!pSocket->IsMarkedForRemoval()) 
 		{
-			pSocket->SetClosed();
 			pSocket->MarkForRemoval();
 		}
 	}
 	Locker.unlock();
 
 	emit SocketListUpdated(Added, Changed, Removed);
+
 	return true;
 }
 
 CSocketPtr CWindowsAPI::FindSocket(quint64 ProcessId, quint32 ProtocolType,
-	const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
+	const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, CSocketInfo::EMatchMode Mode)
 {
 	QReadLocker Locker(&m_SocketMutex);
 
-	QMultiMap<quint64, CSocketPtr>::iterator I = FindSocketEntry(m_SocketList, ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, bStrict);
+	QMultiMap<quint64, CSocketPtr>::iterator I = FindSocketEntry(m_SocketList, ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode);
 	if (I == m_SocketList.end())
 		return CSocketPtr();
 	return I.value();
@@ -1110,12 +1162,12 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 
 	AddNetworkIO(Type, TransferSize);
 
-	bool bStrict = false;
+	CSocketInfo::EMatchMode Mode = CSocketInfo::eFuzzy;
 
 	if ((ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0 && theConf->GetBool("Options/UseUDPPseudoConnectins", false))
-		bStrict = true;
+		Mode = CSocketInfo::eStrict;
 
-	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, bStrict).objectCast<CWinSocket>();
+	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode).objectCast<CWinSocket>();
 	bool bAdd = false;
 	if (pSocket.isNull())
 	{
@@ -1268,7 +1320,7 @@ bool CWindowsAPI::UpdateOpenFileList()
             pWinHandle->InitExtData(handle,(quint64)ProcessHandle);	
 
 			// ignore results without a valid file Name
-			if (pWinHandle->m_FileName.isEmpty())
+			if (pWinHandle->GetFileName().isEmpty())
 				continue; 
 
 			if (bAdd)
@@ -1377,7 +1429,7 @@ bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 			// if the pid just changed we couldn't have set it on the process, so do it now
 			if (uServicePID)
 			{
-				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uServicePID).objectCast<CWinProcess>();
+				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uServicePID, true).objectCast<CWinProcess>();
 				if(pProcess)
 					pProcess->AddService(Name);
 			}
@@ -1497,6 +1549,10 @@ bool CWindowsAPI::UpdatePoolTable()
 
 	QMap<quint64, CPoolEntryPtr> OldPoolTable = GetPoolTableList();
 
+    quint64 PagedPoolAllocs = 0;
+    quint64 PagedPoolFrees = 0;
+    quint64 NonPagedPoolAllocs = 0;
+    quint64 NonPagedPoolFrees = 0;
 
 	for (ULONG i = 0; i < poolTagTable->Count; i++)
 	{
@@ -1518,7 +1574,12 @@ bool CWindowsAPI::UpdatePoolTable()
 
 		bool bChanged = false;
 		bChanged = pPoolEntry->UpdateDynamicData(&poolTagInfo);
-			
+		
+		PagedPoolAllocs += poolTagInfo.PagedAllocs;
+		PagedPoolFrees += poolTagInfo.PagedFrees;
+		NonPagedPoolAllocs += poolTagInfo.NonPagedAllocs;
+		NonPagedPoolFrees += poolTagInfo.NonPagedFrees;
+
 		if (bAdd)
 			Added.insert(TagName);
 		else if (bChanged)
@@ -1542,6 +1603,17 @@ bool CWindowsAPI::UpdatePoolTable()
 	PhFree(poolTagTable);
 
 	emit PoolListUpdated(Added, Changed, Removed);
+
+	if (!m->PoolStatsOk)
+	{
+		// Note: Winsows 10 starting with 1809 does not longer seam to provide a value for:
+		//			PagedPoolAllocs, PagedPoolFrees, NonPagedPoolAllocs, NonPagedPoolFrees
+		QWriteLocker Locker(&m_StatsMutex);
+		m_CpuStats.PagedAllocsDelta.Update64(PagedPoolAllocs);
+		m_CpuStats.PagedFreesDelta.Update64(PagedPoolFrees);
+		m_CpuStats.NonPagedAllocsDelta.Update64(NonPagedPoolAllocs);
+		m_CpuStats.NonPagedFreesDelta.Update64(NonPagedPoolFrees);
+	}
 
 	return true; 
 }
@@ -1652,6 +1724,21 @@ QList<CSystemAPI::SUser> CWindowsAPI::GetUsers() const
 bool CWindowsAPI::HasExtProcInfo() const
 {
 	return (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64());
+}
+
+QMultiMap<QString, CDnsEntryPtr> CWindowsAPI::GetDnsEntryList() const
+{
+	return m_pDnsResolver->GetEntryList();
+}
+
+bool CWindowsAPI::UpdateDnsCache()
+{
+	return m_pDnsResolver->UpdateDnsCache();
+}
+
+void CWindowsAPI::FlushDnsCache()
+{
+	m_pDnsResolver->FlushDnsCache();
 }
 
 //////////////////////////////////////////////////

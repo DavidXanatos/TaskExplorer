@@ -2,13 +2,12 @@
 #include <qwidget.h>
 #include "../../API/ProcessInfo.h"
 #include "../../Common/PanelView.h"
-#include "../../Common/TreeWidgetEx.h"
-#include "../../Common/IncrementalPlot.h"
 
 class CPoolView;
 class CDriversView;
 class CNtObjectView;
 class CAtomView;
+class CRunObjView;
 
 class CKernelView : public QWidget //CPanelView
 {
@@ -19,6 +18,9 @@ public:
 
 public slots:
 	void					Refresh();
+
+private slots:
+	void					AddressFromSymbol(quint64 ProcessId, const QString& Symbol, quint64 Address);
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
@@ -33,6 +35,7 @@ private:
 	CDriversView*			m_pDriversView;
 	CNtObjectView*			m_pNtObjectView;
 	CAtomView*				m_pAtomView;
+	CRunObjView*			m_pRunObjView;
 
 	QGridLayout*			m_pMainLayout;
 
@@ -51,11 +54,19 @@ private:
 	QGridLayout*			m_pPPoolLayout;
 	QLabel*					m_pPPoolWS;
 	QLabel*					m_pPPoolVSize;
-	//QLabel*					m_pPPoolLimit;
+	QLabel*					m_pPPoolLimit;
+	QLabel*					m_pPPoolAllocs;
+	QLabel*					m_pPPoolFrees;
 
 	QGroupBox*				m_pNPPoolBox;
 	QGridLayout*			m_pNPPoolLayout;
 	QLabel*					m_pNPPoolUsage;
-	//QLabel*					m_pNPPoolLimit;
+	QLabel*					m_pNPPoolLimit;
+	QLabel*					m_pNPPoolAllocs;
+	QLabel*					m_pNPPoolFrees;
+
+
+	quint64 m_MmSizeOfPagedPoolInBytes;
+	quint64 m_MmMaximumNonPagedPoolInBytes;
 };
 

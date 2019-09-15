@@ -104,10 +104,17 @@ class QTreeViewEx: public QTreeView
 public:
 	QTreeViewEx(QWidget *parent = 0) : QTreeView(parent) 
 	{
+		m_ColumnReset = 1;
+
 		header()->setContextMenuPolicy(Qt::CustomContextMenu);
 		connect(header(), SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenuRequested(const QPoint &)));
 
 		m_pMenu = new QMenu(this);
+	}
+
+	void setColumnReset(int iMode)
+	{
+		m_ColumnReset = iMode;
 	}
 
 	void setColumnFixed(int column, bool fixed) 
@@ -214,7 +221,8 @@ public:
 	}
 
 signals:
-	void				ColumnChanged(int column, bool visible);
+	void ColumnChanged(int column, bool visible);
+	void ResetColumns();
 
 public slots:
 	void SyncColumnsWithModel()
@@ -226,8 +234,15 @@ public slots:
 		}
 	}
 
+	void OnResetColumns()
+	{
+		QAbstractItemModel* pModel = model();
+		for (int i = 0; i < pModel->columnCount(); i++)
+			SetColumnHidden(i, false);
+	}
+
 private slots:
-	void				OnMenuRequested(const QPoint &point)
+	void OnMenuRequested(const QPoint &point)
 	{
 		QAbstractItemModel* pModel = model();
 
@@ -245,6 +260,16 @@ private slots:
 				m_pMenu->addAction(pAction);
 				m_Columns[pAction] = i;
 			}
+
+			if (m_ColumnReset)
+			{
+				m_pMenu->addSeparator();
+				QAction* pAction = m_pMenu->addAction(tr("Reset columns"));
+				if(m_ColumnReset == 1)
+					connect(pAction, SIGNAL(triggered()), this, SLOT(OnResetColumns()));
+				else
+					connect(pAction, SIGNAL(triggered()), this, SIGNAL(ResetColumns()));
+			}
 		}
 
 		for(QMap<QAction*, int>::iterator I = m_Columns.begin(); I != m_Columns.end(); I++)
@@ -253,7 +278,7 @@ private slots:
 		m_pMenu->popup(QCursor::pos());	
 	}
 
-	void				OnMenu()
+	void OnMenu()
 	{
 		QAction* pAction = (QAction*)sender();
 		int Column = m_Columns.value(pAction, -1);
@@ -264,6 +289,7 @@ protected:
 	QMenu*				m_pMenu;
 	QMap<QAction*, int>	m_Columns;
 	QSet<int>			m_FixedColumns;
+	int					m_ColumnReset;
 };
 
 class QStyledItemDelegateMaxH : public QStyledItemDelegate

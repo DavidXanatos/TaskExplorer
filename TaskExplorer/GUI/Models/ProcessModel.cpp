@@ -67,8 +67,9 @@ bool CProcessModel::TestProcPath(const QList<QVariant>& Path, const CProcessPtr&
 	return Path.size() == Index;
 }
 
-void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
+QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 {
+	QSet<quint64> Added;
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QHash<QVariant, STreeNode*> Old = m_Map;
 
@@ -88,7 +89,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 	foreach (const CProcessPtr& pProcess, ProcessList)
 	{
-		QVariant ID = pProcess->GetProcessId();
+		quint64 ID = pProcess->GetProcessId();
 
 		QModelIndex Index;
 		
@@ -101,6 +102,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				pNode->Path = MakeProcPath(pProcess, ProcessList);
 			pNode->pProcess = pProcess;
 			New[pNode->Path].append(pNode);
+			Added.insert(ID);
 		}
 		else
 		{
@@ -123,7 +125,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
-		if (!pNode->Icon.isValid())
+		if (!pNode->Icon.isValid() && pModule)
 		{
 			QPixmap Icon = pModule->GetFileIcon();
 			if (!Icon.isNull()) {
@@ -180,7 +182,7 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 			switch(section)
 			{
 				case eProcess:		
-					if (m_bUseDescr)
+					if (m_bUseDescr && pModule)
 					{
 						QString Descr = pModule->GetFileInfo("Description");
 						if (!Descr.isEmpty())
@@ -210,9 +212,9 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eUserName:				Value = pProcess->GetUserName(); break;
 #ifdef WIN32
 				case eServices:				Value = pWinProc->GetServiceList().join(tr(", ")); break;
-				case eDescription:			Value = pModule->GetFileInfo("Description"); break;
-				case eCompanyName:			Value = pModule->GetFileInfo("CompanyName"); break;
-				case eVersion:				Value = pModule->GetFileInfo("FileVersion"); break;
+				case eDescription:			Value = pModule ? pModule->GetFileInfo("Description") : ""; break;
+				case eCompanyName:			Value = pModule ? pModule->GetFileInfo("CompanyName") : ""; break;
+				case eVersion:				Value = pModule ? pModule->GetFileInfo("FileVersion") : ""; break;
 #endif
 
 				case eGPU_History:			Value = pProcess->GetGpuUsage(); break;
@@ -255,9 +257,9 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eKernelCPU_Time:		Value = CurIntValue = CpuStats.CpuKernelDelta.Value / CPU_TIME_DIVIDER; break;
 				case eUserCPU_Time:			Value = CurIntValue = CpuStats.CpuUserDelta.Value / CPU_TIME_DIVIDER; break;
 #ifdef WIN32
-				case eVerificationStatus:	Value = pWinModule->GetVerifyResultString(); break;
-				case eVerifiedSigner:		Value = pWinModule->GetVerifySignerName(); break;
-				case eASLR:					Value = pWinModule->GetASLRString(); break;
+				case eVerificationStatus:	Value = pWinModule ? pWinModule->GetVerifyResultString() : ""; break;
+				case eVerifiedSigner:		Value = pWinModule ? pWinModule->GetVerifySignerName() : ""; break;
+				case eASLR:					Value = pWinModule ? pWinModule->GetASLRString() : ""; break;
 #endif
 				case eUpTime:				Value = pProcess->GetCreateTimeStamp() != 0 ? (curTime - pProcess->GetCreateTimeStamp() / 1000) : 0; break; // we must update the value to refresh the display
 				case eArch:					Value = pProcess->GetArchString(); break;
@@ -320,10 +322,10 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eAppID:				Value = pWinProc->GetAppID();  break;
 				case eDPI_Awareness:		Value = (int)pWinProc->GetDPIAwareness(); break;
 				case eCF_Guard:				Value = pWinProc->GetCFGuardString(); break;
-				case eTimeStamp:			Value = pWinModule->GetTimeStamp(); break;
+				case eTimeStamp:			Value = pWinModule ? pWinModule->GetTimeStamp() : 0; break;
 #endif
-				case eFileModifiedTime:		Value = pModule->GetModificationTime(); break;
-				case eFileSize:				Value = pModule->GetFileSize(); break;
+				case eFileModifiedTime:		Value = pModule ? pModule->GetModificationTime() : 0; break;
+				case eFileSize:				Value = pModule ? pModule->GetFileSize() : 0; break;
 #ifdef WIN32
 				case eJobObjectID:			Value = pWinProc->GetJobObjectID(); break;
 				case eProtection:			Value = (int)pWinProc->GetProtection(); break;
@@ -617,6 +619,8 @@ void CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 	//	}
 	//}
 	//m_AllIndexes = AllIndexes;
+
+	return Added;
 }
 
 QVariant CProcessModel::NodeData(STreeNode* pNode, int role, int section) const
@@ -679,6 +683,8 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eCompanyName:			return tr("Company name");
 		case eVersion:				return tr("Version");
 #endif
+		case eNetUsage:				return tr("Network");
+
 		case eFileName:				return tr("File name");
 		case eCommandLine:			return tr("Command line");
 		case ePeakPrivateBytes:		return tr("Peak private bytes");
@@ -802,7 +808,6 @@ QString CProcessModel::GetColumHeader(int section) const
 
 		// Network IO
 		case eNet_TotalRate:		return tr("Network total rate");
-		case eNetUsage:				return tr("Network");
 		case eReceives:				return tr("Network receives");
 		case eSends:				return tr("Network sends");
 		case eReceiveBytes:			return tr("Network receive bytes");

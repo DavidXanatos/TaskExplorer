@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions
  *
  * Copyright (C) 2010-2016 wj32
@@ -220,6 +220,22 @@ void CSymbolProvider::GetSymbolFromAddress(quint64 ProcessId, quint64 Address, Q
 	m_JobQueue.append(pJob);
 }
 
+void CSymbolProvider::GetAddressFromSymbol(quint64 ProcessId, const QString& Symbol, QObject *receiver, const char *member)
+{
+    if (!QAbstractEventDispatcher::instance(QThread::currentThread())) {
+        qWarning("CSymbolProvider::GetAddressFromSymbol() called with no event dispatcher");
+        return;
+    }
+
+	CAddressProviderJob* pJob = new CAddressProviderJob(ProcessId, Symbol); 
+	pJob->moveToThread(this);
+	QObject::connect(pJob, SIGNAL(AddressFromSymbol(quint64, const QString&, quint64)), receiver, member, Qt::QueuedConnection);
+
+	QMutexLocker Locker(&m_JobMutex);
+	m_JobQueue.append(pJob);
+}
+
+
 quint64 CSymbolProvider::GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject *receiver, const char *member)
 {
     if (!QAbstractEventDispatcher::instance(QThread::currentThread())) {
@@ -376,9 +392,8 @@ VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
 
 void CSymbolProvider::run()
 {
-#ifdef _DEBUG
-	SetThreadDescription(GetCurrentThread(), L"Symbol Provider");
-#endif
+	//if(WindowsVersion >= WINDOWS_10_RS1)
+	//	SetThreadDescription(GetCurrentThread(), L"Symbol Provider");
 
 	//exec();
 
@@ -386,7 +401,7 @@ void CSymbolProvider::run()
 
 	while (m_bRunning)
 	{
-		time_t OldTime = GetTime() - 5; // cleanup everythign older than 5 sec
+		time_t OldTime = GetTime() - 3; // cleanup everythign older than 3 sec
 		if (LastCleanUp < OldTime)
 		{
 			foreach(SSymbolProvider* m, mm.values())
@@ -450,6 +465,17 @@ void CSymbolProviderJob::Run(struct SSymbolProvider* m)
 	}
 
 	emit SymbolFromAddress(m_ProcessId, m_Address, (int)StartAddressResolveLevel, CastPhString(AddressString), CastPhString(fileName), CastPhString(symbolName));
+}
+
+void CAddressProviderJob::Run(struct SSymbolProvider* m)
+{
+	this->m = m;
+
+	PH_SYMBOL_INFORMATION symbolInfo;
+	if (!PhGetSymbolFromName(m->SymbolProvider, (wchar_t*)m_Symbol.toStdWString().c_str(), &symbolInfo))
+		return;
+
+	emit AddressFromSymbol(m_ProcessId, m_Symbol, (quint64)symbolInfo.Address);
 }
 
 // thrdstk.c

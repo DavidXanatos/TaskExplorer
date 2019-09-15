@@ -35,7 +35,7 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pScrollArea->setPalette(pal);
 
 	m_PlotLimit = theGUI->GetGraphLimit(true);
-	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	connect(theGUI, SIGNAL(ReloadPlots()), this, SLOT(ReConfigurePlots()));
 	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
 	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
@@ -81,17 +81,16 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pGPUList->GetTree()->setMinimumHeight(100);
 	m_pGPUList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
+	m_pGPUList->GetTree()->setColumnReset(2);
+	connect(m_pGPUList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+
 	m_pScrollLayout->addWidget(m_pGPUList, 2, 0, 1, 3);
 	//
 
 	setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/GPUView_Columns");
 	if (Columns.isEmpty())
-	{
-		m_pGPUList->GetView()->setColumnHidden(eDriverVersion, true);
-		m_pGPUList->GetView()->setColumnHidden(eHwID, true);
-		m_pGPUList->GetView()->setColumnHidden(eDeviceInterface, true);
-	}
+		OnResetColumns();
 	else
 		m_pGPUList->GetView()->header()->restoreState(Columns);
 
@@ -102,6 +101,16 @@ CGPUView::~CGPUView()
 {
 	theConf->SetBlob(objectName() + "/GPUView_Columns", m_pGPUList->GetView()->header()->saveState());
 	theConf->SetValue(objectName() + "/GPUMultiView", m_pMultiGraph->isChecked());
+}
+
+void CGPUView::OnResetColumns()
+{
+	for (int i = 0; i < eCount; i++)
+		m_pGPUList->GetView()->setColumnHidden(i, false);
+
+	m_pGPUList->GetView()->setColumnHidden(eDriverVersion, true);
+	m_pGPUList->GetView()->setColumnHidden(eHwID, true);
+	m_pGPUList->GetView()->setColumnHidden(eDeviceInterface, true);
 }
 
 void CGPUView::OnMultiPlot(int State)

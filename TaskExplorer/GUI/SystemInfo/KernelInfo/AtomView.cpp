@@ -33,6 +33,10 @@ CAtomView::CAtomView(QWidget *parent)
 	m_pAtomList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pAtomList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
+	//m_pAtomList->setColumnReset(2);
+	//connect(m_pAtomList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	//connect(m_pAtomList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
 	//connect(m_pAtomList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnItemDoubleClicked(const QModelIndex&)));
 	m_pMainLayout->addWidget(m_pAtomList);
 	// 
@@ -45,7 +49,11 @@ CAtomView::CAtomView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pAtomList->restoreState(theConf->GetBlob(objectName() + "/AtomView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/AtomView_Columns");
+	if (Columns.isEmpty())
+		m_pAtomList->OnResetColumns();
+	else
+		m_pAtomList->restoreState(Columns);
 }
 
 CAtomView::~CAtomView()
@@ -60,7 +68,8 @@ void CAtomView::Refresh()
     if (!NT_SUCCESS(EnumAtomTable(&atomTable)))
         return;
 
-    QList<QVariantMap> List;
+	m_Atoms.clear();
+
     for (ULONG i = 0; i < atomTable->NumberOfAtoms; i++)
     {
 		QString Name;
@@ -93,12 +102,12 @@ void CAtomView::Refresh()
 		Values.insert(QString::number(eRefCount), FormatNumber(RefCount));
 
 		Item["Values"] = Values;
-		List.append(Item);
+		m_Atoms.append(Item);
     }
 
     PhFree(atomTable);
 
-	m_pAtomModel->Sync(List);
+	m_pAtomModel->Sync(m_Atoms);
 }
 
 void CAtomView::OnMenu(const QPoint &point)

@@ -29,7 +29,15 @@ protected:
 	virtual QTreeView*			GetView()	{ return m_pServiceList; }
 	virtual QAbstractItemModel* GetModel()	{ return m_pSortProxy; }
 
+	bool					m_bAll;
+
+	QMap<QString, CServicePtr> m_ServiceList;
+
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+	void					SyncModel();
+
 	void					OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
 
 	void					OnServiceAction();

@@ -43,6 +43,7 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 		bool State = false;
 		bool Changed = false;
 
+		CModulePtr pModule = pDriver->GetModuleInfo();
 #ifdef WIN32
 		CWinDriver* pWinDriver = qobject_cast<CWinDriver*>(pDriver.data());
 #endif
@@ -59,9 +60,9 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 #ifdef WIN32
 				case eImageBase:			Value = pWinDriver->GetImageBase(); break;
 				case eImageSize:			Value = pWinDriver->GetImageSize(); break;
-				case eDescription:			Value = pDriver->GetModuleInfo()->GetFileInfo("Description"); break;
-				case eCompanyName:			Value = pDriver->GetModuleInfo()->GetFileInfo("CompanyName"); break;
-				case eVersion:				Value = pDriver->GetModuleInfo()->GetFileInfo("FileVersion"); break;
+				case eDescription:			Value = pModule ? pModule->GetFileInfo("Description") : ""; break;
+				case eCompanyName:			Value = pModule ? pModule->GetFileInfo("CompanyName") : ""; break;
+				case eVersion:				Value = pModule ? pModule->GetFileInfo("FileVersion") : ""; break;
 #endif
 				case eBinaryPath:			Value = pDriver->GetBinaryPath(); break;
 			}

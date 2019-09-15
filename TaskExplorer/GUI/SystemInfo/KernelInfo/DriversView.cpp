@@ -35,7 +35,11 @@ CDriversView::CDriversView(QWidget *parent)
 	m_pDriverList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pDriverList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pDriverModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pDriverModel, SLOT(Clear()));
+
+	m_pDriverList->setColumnReset(2);
+	connect(m_pDriverList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pDriverList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMainLayout->addWidget(m_pDriverList);
 	// 
@@ -44,17 +48,7 @@ CDriversView::CDriversView(QWidget *parent)
 
 	QByteArray Columns = theConf->GetBlob(objectName() + "/DriversView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pDriverModel->columnCount(); i++)
-			m_pDriverList->SetColumnHidden(i, true);
-
-		m_pDriverList->SetColumnHidden(CDriverModel::eDriver, false);
-#ifdef WIN32
-		m_pDriverList->SetColumnHidden(CDriverModel::eDescription, false);
-#endif
-		m_pDriverList->SetColumnHidden(CDriverModel::eBinaryPath, false);
-
-	}
+		OnResetColumns();
 	else
 		m_pDriverList->restoreState(Columns);
 
@@ -70,6 +64,23 @@ CDriversView::~CDriversView()
 	theConf->SetBlob(objectName() + "/DriversView_Columns", m_pDriverList->saveState());
 }
 
+void CDriversView::OnResetColumns()
+{
+	for (int i = 0; i < m_pDriverModel->columnCount(); i++)
+		m_pDriverList->SetColumnHidden(i, true);
+
+	m_pDriverList->SetColumnHidden(CDriverModel::eDriver, false);
+#ifdef WIN32
+	m_pDriverList->SetColumnHidden(CDriverModel::eDescription, false);
+#endif
+	m_pDriverList->SetColumnHidden(CDriverModel::eBinaryPath, false);
+}
+
+void CDriversView::OnColumnsChanged()
+{
+	m_pDriverModel->Sync(m_DriverList);
+}
+
 void CDriversView::Refresh()
 {
 	QTimer::singleShot(0, theAPI, SLOT(UpdateDriverList()));
@@ -77,7 +88,7 @@ void CDriversView::Refresh()
 
 void CDriversView::OnDriverListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
 {
-	QMap<QString, CDriverPtr> DriverList = theAPI->GetDriverList();
+	m_DriverList = theAPI->GetDriverList();
 	
-	m_pDriverModel->Sync(DriverList);
+	m_pDriverModel->Sync(m_DriverList);
 }

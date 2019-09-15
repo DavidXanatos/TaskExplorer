@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt port of Firewall Monitor plugin
  *
  * Copyright (C) 2015-2017 dmex
@@ -556,9 +556,8 @@ void CFirewallMonitor::StopFwMonitor()
 
 /*void CFirewallMonitor::run()
 {
-#ifdef _DEBUG
-	SetThreadDescription(GetCurrentThread(), L"Firewall Monitor");
-#endif
+	//if(WindowsVersion >= WINDOWS_10_RS1)
+	//	SetThreadDescription(GetCurrentThread(), L"Firewall Monitor");
 
 	//exec();
 

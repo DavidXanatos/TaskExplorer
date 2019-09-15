@@ -36,7 +36,11 @@ CPoolView::CPoolView(QWidget *parent)
 	m_pPoolList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pPoolList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pPoolModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pPoolModel, SLOT(Clear()));
+
+	//m_pPoolList->setColumnReset(2);
+	//connect(m_pPoolList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pPoolList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMainLayout->addWidget(m_pPoolList);
 	// 
@@ -45,10 +49,7 @@ CPoolView::CPoolView(QWidget *parent)
 
 	QByteArray Columns = theConf->GetBlob(objectName() + "/PoolView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pPoolModel->columnCount(); i++)
-			m_pPoolList->SetColumnHidden(i, false);
-	}
+		m_pPoolList->OnResetColumns();
 	else
 		m_pPoolList->restoreState(Columns);
 
@@ -58,10 +59,14 @@ CPoolView::CPoolView(QWidget *parent)
 	connect(theAPI, SIGNAL(PoolListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnPoolListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 }
 
-
 CPoolView::~CPoolView()
 {
 	theConf->SetBlob(objectName() + "/PoolView_Columns", m_pPoolList->saveState());
+}
+
+void CPoolView::OnColumnsChanged()
+{
+	m_pPoolModel->Sync(m_PoolList);
 }
 
 void CPoolView::Refresh() 
@@ -71,7 +76,7 @@ void CPoolView::Refresh()
 
 void CPoolView::OnPoolListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
-	QMap<quint64, CPoolEntryPtr> PoolList = ((CWindowsAPI*)theAPI)->GetPoolTableList();
+	m_PoolList = ((CWindowsAPI*)theAPI)->GetPoolTableList();
 	
-	m_pPoolModel->Sync(PoolList);
+	m_pPoolModel->Sync(m_PoolList);
 }

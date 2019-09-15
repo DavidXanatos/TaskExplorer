@@ -16,6 +16,7 @@
 #include "WindowsView.h"
 #include "EnvironmentView.h"
 #include "../SystemInfo/ServicesView.h"
+#include "../SystemInfo/DnsCacheView.h"
 
 
 CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
@@ -79,6 +80,9 @@ void CTaskInfoView::InitializeTabs()
 	m_pGDIView = new CGDIView(this);
 	AddTab(m_pGDIView, tr("GDI"));
 #endif
+
+	//m_pDnsCacheView = new CDnsCacheView(false, this);
+	//AddTab(m_pDnsCacheView, tr("Dns Cache"));
 
 	m_pEnvironmentView = new CEnvironmentView(this);
 	AddTab(m_pEnvironmentView, tr("Environment"));

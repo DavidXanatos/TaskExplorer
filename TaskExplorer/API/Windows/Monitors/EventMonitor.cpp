@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt port of etwmon.c
  *
  * Copyright (C) 2010-2015 wj32
@@ -555,9 +555,8 @@ VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 
 void CEventMonitor::run()
 {
-#ifdef _DEBUG
-	SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
-#endif
+	//if(WindowsVersion >= WINDOWS_10_RS1)
+	//	SetThreadDescription(GetCurrentThread(), m_bRundownMode ? L"ETW Runndown" : L"ETW Monitor");
 
 	//exec();
 

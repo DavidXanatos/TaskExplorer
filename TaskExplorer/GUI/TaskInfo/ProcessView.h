@@ -19,10 +19,16 @@ public slots:
 	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 	void					Refresh();
 
+private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
 	//virtual QTreeView*			GetView()	{ return m_pStatsList; }
 	//virtual QAbstractItemModel* GetModel()	{ return m_pStatsList->model(); }
+
+	void					SyncModel();
 
 	QList<CProcessPtr>		m_Processes;
 

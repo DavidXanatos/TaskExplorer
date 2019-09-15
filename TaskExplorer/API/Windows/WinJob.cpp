@@ -208,7 +208,7 @@ bool CWinJob::UpdateDynamicData()
     {
         for (ULONG i = 0; i < processIdList->NumberOfProcessIdsInList; i++)
         {
-			CProcessPtr pProcess = theAPI->GetProcessByID(processIdList->ProcessIdList[i]);
+			CProcessPtr pProcess = theAPI->GetProcessByID(processIdList->ProcessIdList[i], true);
 			if (!pProcess.isNull())
 				m_Processes.insert(processIdList->ProcessIdList[i], pProcess);
         }

@@ -15,8 +15,8 @@
 
 struct STaskStatsEx : STaskStats
 {
-	SDelta32 		PageFaultsDelta;
-	SDelta32 		HardFaultsDelta;
+	SDelta32_64 		PageFaultsDelta;
+	SDelta32_64 		HardFaultsDelta;
 	SDelta64 		PrivateBytesDelta;
 };
 

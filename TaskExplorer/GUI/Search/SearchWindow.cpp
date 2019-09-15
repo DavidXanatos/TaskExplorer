@@ -53,6 +53,7 @@ CSearchWindow::CSearchWindow(QWidget *parent)
 	m_pResultCount = new QLabel();
 	statusBar()->addPermanentWidget(m_pResultCount);
 
+	restoreGeometry(theConf->GetBlob("SearchWindow/Window_Geometry"));
 
 	m_pFinder = NULL;
 }
@@ -61,6 +62,8 @@ CSearchWindow::~CSearchWindow()
 {
 	if (m_pFinder)
 		m_pFinder->Cancel();
+
+	theConf->SetBlob("SearchWindow/Window_Geometry",saveGeometry());
 }
 
 void CSearchWindow::closeEvent(QCloseEvent *e)

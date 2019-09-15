@@ -64,21 +64,6 @@ private:
 	QLabel*					m_pRAMKernelWS;
 	QLabel*					m_pRAMDriverWS;
 
-	/*
-	QWidget*				m_pPoolWidget;
-	QGridLayout*			m_pPoolLayout;
-
-	QGroupBox*				m_pPPoolBox;
-	QGridLayout*			m_pPPoolLayout;
-	QLabel*					m_pPPoolWS;
-	QLabel*					m_pPPoolVSize;
-	//QLabel*					m_pPPoolLimit;
-
-	QGroupBox*				m_pNPPoolBox;
-	QGridLayout*			m_pNPPoolLayout;
-	QLabel*					m_pNPPoolUsage;
-	//QLabel*					m_pNPPoolLimit;
-	*/
 
 	QWidget*				m_pPageWidget;
 	QGridLayout*			m_pPageLayout;
@@ -93,7 +78,7 @@ private:
 	QGroupBox*				m_pSwapBox;
 	QGridLayout*			m_pSwapLayout;
 
-	CPanelWidgetEx* m_pSwapList;
+	CPanelWidgetEx*			m_pSwapList;
 
 #ifdef WIN32
 	QWidget*				m_pListsWidget;

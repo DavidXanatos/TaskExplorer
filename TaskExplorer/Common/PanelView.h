@@ -7,6 +7,9 @@ public:
 	CPanelView(QWidget *parent = 0);
 	virtual ~CPanelView();
 
+	static void					SetSimpleFormat(bool bSimple) { m_SimpleFormat = bSimple; }
+	static void					SetMaxCellWidth(int iMaxWidth) { m_MaxCellWidth = iMaxWidth; }
+
 protected slots:
 	virtual void				OnMenu(const QPoint& Point);
 
@@ -28,17 +31,23 @@ protected slots:
 
 	virtual void				ForceColumn(int column, bool bSet = true) { if (bSet) m_ForcedColumns.insert(column); else m_ForcedColumns.remove(column); }
 
-	virtual void				RecursiveCopyPanel(const QModelIndex& ModelIndex, QStringList& Rows, int Level = 0);
+	virtual QStringList			CopyHeader();
+	virtual QStringList			CopyRow(const QModelIndex& ModelIndex, int Level = 0);
+	virtual void				RecursiveCopyPanel(const QModelIndex& ModelIndex, QList<QStringList>& Rows, int Level = 0);
 
 protected:
+	void						FormatAndCopy(QList<QStringList> Rows, bool Headder = true);
+
 	QMenu*						m_pMenu;
 
 	QAction*					m_pCopyCell;
 	QAction*					m_pCopyRow;
 	QAction*					m_pCopyPanel;
 
-	bool						m_CopyAll;
+	//bool						m_CopyAll;
 	QSet<int>					m_ForcedColumns;
+	static bool					m_SimpleFormat;
+	static int					m_MaxCellWidth;
 };
 
 template <class T>

@@ -63,7 +63,11 @@ CMemoryView::CMemoryView(QWidget *parent)
 
 	connect(m_pMemoryList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pMemoryModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pMemoryModel, SLOT(Clear()));
+
+	m_pMemoryList->setColumnReset(2);
+	connect(m_pMemoryList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pMemoryList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMainLayout->addWidget(m_pMemoryList);
 	// 
@@ -86,16 +90,7 @@ CMemoryView::CMemoryView(QWidget *parent)
 	setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/MemorysView_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pMemoryModel->columnCount(); i++)
-			m_pMemoryList->SetColumnHidden(i, true);
-
-		m_pMemoryList->SetColumnHidden(CMemoryModel::eBaseAddress, false);
-		m_pMemoryList->SetColumnHidden(CMemoryModel::eType, false);
-		m_pMemoryList->SetColumnHidden(CMemoryModel::eSize, false);
-		m_pMemoryList->SetColumnHidden(CMemoryModel::eProtection, false);
-		m_pMemoryList->SetColumnHidden(CMemoryModel::eUse, false);
-	}
+		OnResetColumns();
 	else
 		m_pMemoryList->restoreState(Columns);
 }
@@ -104,6 +99,23 @@ CMemoryView::CMemoryView(QWidget *parent)
 CMemoryView::~CMemoryView()
 {
 	theConf->SetBlob(objectName() + "/MemorysView_Columns", m_pMemoryList->saveState());
+}
+
+void CMemoryView::OnResetColumns()
+{
+	for (int i = 0; i < m_pMemoryModel->columnCount(); i++)
+		m_pMemoryList->SetColumnHidden(i, true);
+
+	m_pMemoryList->SetColumnHidden(CMemoryModel::eBaseAddress, false);
+	m_pMemoryList->SetColumnHidden(CMemoryModel::eType, false);
+	m_pMemoryList->SetColumnHidden(CMemoryModel::eSize, false);
+	m_pMemoryList->SetColumnHidden(CMemoryModel::eProtection, false);
+	m_pMemoryList->SetColumnHidden(CMemoryModel::eUse, false);
+}
+
+void CMemoryView::OnColumnsChanged()
+{
+	m_pMemoryModel->Sync(m_MemoryList);
 }
 
 void CMemoryView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -131,9 +143,9 @@ void CMemoryView::OnRefresh()
 	if (!m_pCurProcess)
 		return;
 
-	QMultiMap<quint64, CMemoryPtr> MemoryList = m_pCurProcess->GetMemoryMap();
+	m_MemoryList = m_pCurProcess->GetMemoryMap();
 
-	m_pMemoryModel->Sync(MemoryList);
+	m_pMemoryModel->Sync(m_MemoryList);
 }
 
 void CMemoryView::OnSearch()

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "NewService.h"
+#include "../Common/Settings.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/PhSvc.h"
 #endif
@@ -9,8 +10,8 @@ CNewService::CNewService(QWidget *parent)
 	: QMainWindow(parent)
 {
 	QWidget* centralWidget = new QWidget();
-	this->setCentralWidget(centralWidget);
 	ui.setupUi(centralWidget);
+	this->setCentralWidget(centralWidget);
 
 #ifdef WIN32
 	for (int i = 0; i < 10; i++)
@@ -28,6 +29,13 @@ CNewService::CNewService(QWidget *parent)
 	connect(ui.browseBtn, SIGNAL(pressed()), this, SLOT(OnBrowse()));
 	connect(ui.buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+
+	restoreGeometry(theConf->GetBlob("NewServiceWindow/Window_Geometry"));
+}
+
+CNewService::~CNewService()
+{
+	theConf->SetBlob("NewServiceWindow/Window_Geometry", saveGeometry());
 }
 
 void CNewService::closeEvent(QCloseEvent *e)

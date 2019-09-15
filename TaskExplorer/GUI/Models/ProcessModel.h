@@ -13,7 +13,7 @@ public:
 
 	void			SetUseDescr(bool bDescr)	{ m_bUseDescr = bDescr; }
 
-	void			Sync(QMap<quint64, CProcessPtr> ProcessList);
+	QSet<quint64>	Sync(QMap<quint64, CProcessPtr> ProcessList);
 
 	CProcessPtr		GetProcess(const QModelIndex &index) const;
 
@@ -31,6 +31,7 @@ public:
 #ifdef WIN32
 		eServices,
 #endif
+		eNetUsage,
 		eUpTime,
 		eStartTime,
 		eElevation,
@@ -171,7 +172,6 @@ public:
 
 		// Network IO
 		eNet_TotalRate,
-		eNetUsage,
 		eReceives,
 		eSends,
 		eReceiveBytes,

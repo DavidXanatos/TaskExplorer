@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "RunAsDialog.h"
+#include "../Common/Settings.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #endif
@@ -8,8 +9,8 @@ CRunAsDialog::CRunAsDialog(quint64 PID, QWidget *parent)
 	: QMainWindow(parent)
 {
 	QWidget* centralWidget = new QWidget();
-	this->setCentralWidget(centralWidget);
 	ui.setupUi(centralWidget);
+	this->setCentralWidget(centralWidget);
 
 	m_PID = PID;
 
@@ -43,6 +44,13 @@ CRunAsDialog::CRunAsDialog(quint64 PID, QWidget *parent)
 	connect(ui.browseBtn, SIGNAL(pressed()), this, SLOT(OnBrowse()));
 	connect(ui.buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+
+	restoreGeometry(theConf->GetBlob("RunAsWindow/Window_Geometry"));
+}
+
+CRunAsDialog::~CRunAsDialog()
+{
+	theConf->SetBlob("RunAsWindow/Window_Geometry",saveGeometry());
 }
 
 void CRunAsDialog::closeEvent(QCloseEvent *e)

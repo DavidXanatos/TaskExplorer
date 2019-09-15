@@ -40,7 +40,7 @@ CCPUView::CCPUView(QWidget *parent)
 	m_pScrollLayout->addWidget(m_pStackedWidget, 0, 0, 1, 3);
 
 	m_PlotLimit = theGUI->GetGraphLimit(true);
-	connect(theGUI, SIGNAL(ReloadAll()), this, SLOT(ReConfigurePlots()));
+	connect(theGUI, SIGNAL(ReloadPlots()), this, SLOT(ReConfigurePlots()));
 	QColor Back = theGUI->GetColor(CTaskExplorer::ePlotBack);
 	QColor Front = theGUI->GetColor(CTaskExplorer::ePlotFront);
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);

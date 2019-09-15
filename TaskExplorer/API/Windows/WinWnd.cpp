@@ -127,9 +127,8 @@ bool CWinWnd::UpdateDynamicData()
 	BYTE alpha;
 	ULONG flags;
     if (!GetLayeredWindowAttributes((HWND)m_hWnd, NULL, &alpha, &flags) || !(flags & LWA_ALPHA))
-    {
         alpha = 255;
-    }
+    
 	if (m_WindowAlpha != alpha)
 	{
 		modified = TRUE;

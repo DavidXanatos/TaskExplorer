@@ -33,6 +33,11 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	connect(m_pVariablesList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
 	connect(m_pVariablesList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnItemDoubleClicked(const QModelIndex&)));
+
+	//m_pVariablesList->setColumnReset(2);
+	//connect(m_pVariablesList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pVariablesList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
 	m_pMainLayout->addWidget(m_pVariablesList);
 	// 
 
@@ -46,12 +51,20 @@ CEnvironmentView::CEnvironmentView(QWidget *parent)
 	AddPanelItemsToMenu();
 
 	setObjectName(parent->objectName());
-	m_pVariablesList->restoreState(theConf->GetBlob(objectName() + "/EnvironmentView_Columns"));
+	QByteArray Columns = theConf->GetBlob(objectName() + "/EnvironmentView_Columns");
+	if (Columns.isEmpty())
+		m_pVariablesList->OnResetColumns();
+	else
+		m_pVariablesList->restoreState(Columns);
 }
 
 CEnvironmentView::~CEnvironmentView()
 {
 	theConf->SetBlob(objectName() + "/EnvironmentView_Columns", m_pVariablesList->saveState());
+}
+
+void CEnvironmentView::OnColumnsChanged()
+{
 }
 
 void CEnvironmentView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -79,7 +92,8 @@ void CEnvironmentView::Refresh()
 
 	QMap<QString, CProcessInfo::SEnvVar> EnvVars = m_pCurProcess->GetEnvVariables();
 
-	QList<QVariantMap> List;
+	m_Variables.clear();
+
 	foreach(const CProcessInfo::SEnvVar EnvVar, EnvVars)
 	{
 		QVariantMap Item;
@@ -91,9 +105,9 @@ void CEnvironmentView::Refresh()
 		Values.insert(QString::number(eValue), EnvVar.Value);
 
 		Item["Values"] = Values;
-		List.append(Item);
+		m_Variables.append(Item);
 	}
-	m_pVariablesModel->Sync(List);
+	m_pVariablesModel->Sync(m_Variables);
 }
 
 void CEnvironmentView::OnMenu(const QPoint &point)

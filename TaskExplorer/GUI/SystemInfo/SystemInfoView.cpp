@@ -13,6 +13,7 @@
 #include "DiskView.h"
 #include "NetworkView.h"
 #include "GPUView.h"
+#include "DnsCacheView.h"
 
 
 CSystemInfoView::CSystemInfoView(QWidget* patent) 
@@ -59,6 +60,9 @@ void CSystemInfoView::InitializeTabs()
 
 	m_pAllSocketsView = new CSocketsView(true, this);
 	AddTab(m_pAllSocketsView, tr("Open Sockets"));
+
+	m_pDnsCacheView = new CDnsCacheView(true, this);
+	AddTab(m_pDnsCacheView, tr("Dns Cache"));
 
 	m_pGPUView = new CGPUView(this);
 	AddTab(m_pGPUView, tr("GPU"));

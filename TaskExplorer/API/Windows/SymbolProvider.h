@@ -19,6 +19,8 @@ public:
 
 	void		GetSymbolFromAddress(quint64 ProcessId, quint64 Address, QObject *receiver, const char *member);
 
+	void		GetAddressFromSymbol(quint64 ProcessId, const QString& Symbol, QObject *receiver, const char *member);
+
 	quint64		GetStackTrace(quint64 ProcessId, quint64 ThreadId, QObject *receiver, const char *member);
 
 	void		CancelJob(quint64 JobID);
@@ -77,6 +79,24 @@ protected:
 
 signals:
 	void		SymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName);
+};
+
+class CAddressProviderJob : public CAbstractSymbolProviderJob
+{
+	Q_OBJECT
+
+protected:
+	friend class CSymbolProvider;
+
+	CAddressProviderJob(quint64 ProcessId, const QString& Symbol, QObject *parent = nullptr) : CAbstractSymbolProviderJob(ProcessId, parent) { m_Symbol = Symbol; }
+	virtual ~CAddressProviderJob() {}
+
+	virtual void Run(struct SSymbolProvider* m);
+
+	QString		m_Symbol;
+
+signals:
+	void		AddressFromSymbol(quint64 ProcessId, const QString& Symbol, quint64 Address);
 };
 
 class CStackProviderJob : public CAbstractSymbolProviderJob

@@ -413,9 +413,8 @@ void CFwEventMonitor::StopLogMonitor()
 
 /*void CFwEventMonitor::run()
 {
-#ifdef _DEBUG
-	SetThreadDescription(GetCurrentThread(), L"Firewall Monitor");
-#endif
+	//if(WindowsVersion >= WINDOWS_10_RS1)
+	//	SetThreadDescription(GetCurrentThread(), L"Firewall Monitor");
 
 	//exec();
 

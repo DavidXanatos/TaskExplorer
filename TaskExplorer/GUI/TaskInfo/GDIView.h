@@ -21,6 +21,9 @@ public slots:
 	void					Refresh();
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	//void					OnMenu(const QPoint &point);
 	//void					OnItemDoubleClicked(const QModelIndex& Index);
 

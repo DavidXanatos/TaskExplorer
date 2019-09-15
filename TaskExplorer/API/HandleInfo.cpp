@@ -24,7 +24,7 @@ QSharedPointer<QObject>	CHandleInfo::GetProcess() const
 	{
 		Locker.unlock();
 
-		((CHandleInfo*)this)->SetProcess(theAPI->GetProcessByID(m_ProcessId));
+		((CHandleInfo*)this)->SetProcess(theAPI->GetProcessByID(m_ProcessId, true));
 		
 		Locker.relock();
 	}

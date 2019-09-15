@@ -55,9 +55,10 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eThread))
 		{
 			CProcessPtr pProcess = pNode->pThread->GetProcess().objectCast<CProcessInfo>();
-			if (!pProcess.isNull())
+			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
+			if (pModule)
 			{
-				QPixmap Icon = pProcess->GetModuleInfo()->GetFileIcon();
+				QPixmap Icon = pModule->GetFileIcon();
 				if (!Icon.isNull()) {
 					Changed = 1; // set change for first column
 					pNode->Icon = Icon;
@@ -122,9 +123,8 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eUserTime:				Value = CpuStats.CpuUserDelta.Value;
 #ifdef WIN32
 				case eIdealProcessor:		Value = pWinThread->GetIdealProcessor(); break;
+				case eHasToken:				Value = pWinThread->HasToken(); break;
 				case eCritical:				Value = pWinThread->IsCriticalThread() ? tr("Critical") : ""; break;
-#endif
-#ifdef WIN32
 				case eAppDomain:			Value = pWinThread->GetAppDomain(); break;
 #endif
 			}
@@ -154,6 +154,9 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 					case eCyclesDelta:
 					case eContextSwitchesDelta:
 												ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
+#ifdef WIN32
+					case eHasToken:				ColValue.Formated = pWinThread->HasToken() ? tr("True") : ""; break;
+#endif
 				}
 			}
 
@@ -224,8 +227,7 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 #ifdef WIN32
 			case eIdealProcessor:		return tr("Ideal processor");
 			case eCritical:				return tr("Critical");
-#endif
-#ifdef WIN32
+			case eHasToken:				return tr("Impersonation Token");
 			case eAppDomain:			return tr("App Domain");
 #endif
 		}

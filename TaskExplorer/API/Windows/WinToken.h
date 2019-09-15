@@ -20,6 +20,7 @@ public:
 	static CWinToken* NewSystemToken();
 	static CWinToken* TokenFromProcess(void* QueryHandle);
 	static CWinToken* TokenFromHandle(quint64 ProcessId, quint64 HandleId);
+	static CWinToken* TokenFromThread(quint64 ThreadId);
 
 	virtual QString			GetUserName() const { QReadLocker Locker(&m_Mutex); return m_UserName; }
 	virtual QByteArray		GetUserSid() const { QReadLocker Locker(&m_Mutex); return m_UserSid; }
@@ -204,7 +205,8 @@ public:
 	{
 		eProcess = 0,
 		eLinked,
-		eHandle
+		eHandle,
+		eThread
 	};
 
 public slots:

@@ -15,6 +15,9 @@ public:
 	quint64		GetProcessId() const { return m_ProcessId; }
 
 private slots:
+	void					OnResetColumns();
+	void					OnColumnsChanged();
+
 	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
 protected:
@@ -29,7 +32,11 @@ protected:
 		e->ignore();
 	}
 
+	void					SyncModel();
+
 	quint64					m_ProcessId;
+
+	QMap<quint64, CProcessPtr> m_ProcessList;
 
 private:
 	QVBoxLayout*			m_pMainLayout;

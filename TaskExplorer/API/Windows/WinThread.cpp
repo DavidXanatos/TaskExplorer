@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions based on thrdprv.c
  *
  * Copyright (C) 2010-2016 wj32
@@ -268,6 +268,23 @@ bool CWinThread::UpdateExtendedData()
 				m_IsCritical = breakOnTermination;
 				modified = TRUE;
 			}
+		}
+	}
+
+	// update HasToken
+	{
+		BOOLEAN HasToken = FALSE;
+		HANDLE tokenHandle;
+        if (NT_SUCCESS(NtOpenThreadToken(m->ThreadHandle, TOKEN_QUERY, TRUE, &tokenHandle)))
+        {
+			HasToken = TRUE;
+            NtClose(tokenHandle);
+        }
+
+		if ((bool)HasToken != m_HasToken)
+		{
+			m_HasToken = HasToken;
+			modified = TRUE;
 		}
 	}
 

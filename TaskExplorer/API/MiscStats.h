@@ -2,6 +2,42 @@
 #include <qobject.h>
 #include "../Common/Common.h"
 
+template<class T>
+struct SDelta
+{
+	SDelta()
+	{
+		Initialized = false;
+		Value = 0;
+		Delta = 0;
+	}
+	
+	void Init(T New) {
+		Initialized = true;
+		Delta = 0;
+		Value = New;
+	}
+
+	virtual void Update(T New) {
+		if (!Initialized)
+			Initialized = true;
+		else if (New < Value) // some counters may reset...
+			Delta = 0;
+		else
+			Delta = New - Value;
+		Value = New;
+	}
+
+	T Value;
+	T Delta;
+
+private:
+	bool Initialized;
+};
+
+typedef SDelta<quint32>	SDelta32;
+typedef SDelta<quint64>	SDelta64;
+
 #define AVG_INTERVAL (3*1000)
 
 struct SRateCounter
@@ -322,29 +358,38 @@ struct SSysStats: SProcStats
 #endif
 };
 
-
 struct SUnOverflow
 {
 	SUnOverflow()
 	{
 		OverflowCount = 0;
-		Value = 0;
+		Value32 = 0;
 	}
 
 	quint64	FixValue(quint32 curValue)
 	{
-		if (curValue < Value)
+		if (curValue < Value32)
 			OverflowCount++;
-		Value = curValue;
+		Value32 = curValue;
 		return GetValue();
 	}
 
 	__inline quint64 GetValue()
 	{
-        return ((quint64)OverflowCount * 0xFFFFFFFFULL) + (quint64)Value;
+        return ((quint64)OverflowCount * 0xFFFFFFFFULL) + (quint64)Value32;
 	}
 
 
 	quint32	OverflowCount;
-	quint32 Value;
+	quint32 Value32;
+};
+
+struct SDelta32_64 : SDelta<quint64>, SUnOverflow
+{
+	virtual void Update(quint32 New) {
+		SDelta<quint64>::Update(FixValue(New));
+	}
+	virtual void Update64(quint64 New) {
+		SDelta<quint64>::Update(New);
+	}
 };

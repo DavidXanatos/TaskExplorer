@@ -151,14 +151,21 @@ QString FormatUnit(quint64 Size, int Precision)
 }
 
 
-QString FormatTime(quint64 Time)
+QString FormatTime(quint64 Time, bool ms)
 {
+	int miliseconds = 0;
+	if (ms) {
+		miliseconds = Time % 1000;
+		Time /= 1000;
+	}
 	int seconds = Time % 60;
 	Time /= 60;
 	int minutes = Time % 60;
 	Time /= 60;
 	int hours = Time % 24;
 	int days = Time / 24;
+	if(ms && (minutes == 0) && (hours == 0) && (days == 0))
+		return QString().sprintf("%02d.%04d", seconds, miliseconds);
 	if((hours == 0) && (days == 0))
 		return QString().sprintf("%02d:%02d", minutes, seconds);
 	if (days == 0)

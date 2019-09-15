@@ -17,9 +17,16 @@ CSocketInfo::~CSocketInfo()
 {
 }
 
-bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, bool bStrict)
+bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort, EMatchMode Mode)
 {
 	QReadLocker Locker(&m_Mutex); 
+
+#ifdef _DEBUG
+	QString m_LocalAddressStr = m_LocalAddress.toString();
+	QString m_RemoteAddressStr = m_RemoteAddress.toString();
+	QString LocalAddressStr = LocalAddress.toString();
+	QString RemoteAddressStr = RemoteAddress.toString();
+#endif
 
 	if (m_ProcessId != ProcessId)
 		return false;
@@ -34,14 +41,14 @@ bool CSocketInfo::Match(quint64 ProcessId, quint32 ProtocolType, const QHostAddr
 	}
 
 	// a socket may be bount to all adapters than it has a local null address
-	if (bStrict || m_LocalAddress != QHostAddress::AnyIPv4)
+	if (Mode == eStrict || m_LocalAddress != QHostAddress::AnyIPv4)
 	{
 		if(m_LocalAddress != LocalAddress)
 			return false;
 	}
 
 	// don't test the remote endpoint if this is a udp socket
-	if (bStrict || (m_ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0)
+	if (Mode == eStrict || (m_ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0)
 	{
 		if ((m_ProtocolType & (NET_TYPE_PROTOCOL_TCP | NET_TYPE_PROTOCOL_UDP)) != 0)
 		{

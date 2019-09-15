@@ -3,6 +3,7 @@
 #include "../Common/Common.h"
 #include "../Common/FlexError.h"
 #include "AbstractInfo.h"
+#include "MiscStats.h"
 
 struct STimeUsage
 {
@@ -40,7 +41,7 @@ struct STaskStats
 	SDelta64 		CpuKernelDelta;
 	SDelta64 		CpuUserDelta;
 	SDelta64 		CycleDelta;
-	SDelta32 		ContextSwitchesDelta;
+	SDelta32_64 		ContextSwitchesDelta;
 
 	float			CpuUsage; 
 	float			CpuKernelUsage;

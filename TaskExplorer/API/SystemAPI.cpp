@@ -87,7 +87,7 @@ QMap<quint64, CProcessPtr> CSystemAPI::GetProcessList()
 	return m_ProcessList;
 }
 
-CProcessPtr CSystemAPI::GetProcessByID(quint64 ProcessId)
+CProcessPtr CSystemAPI::GetProcessByID(quint64 ProcessId, bool bAddIfNew)
 {
 	QReadLocker Locker(&m_ProcessMutex);
 	return m_ProcessList.value(ProcessId);

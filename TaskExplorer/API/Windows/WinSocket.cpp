@@ -1,5 +1,5 @@
 /*
- * Process Hacker -
+ * Task Explorer -
  *   qt wrapper and support functions based on netprv.c
  *
  * Copyright (C) 2011 wj32
@@ -65,6 +65,8 @@ CWinSocket::CWinSocket(QObject *parent)
 
 	m_LastActivity = GetCurTick();
 
+	m_HasStaticDataEx = false;
+
 	m = new SWinSocket;
 }
 
@@ -99,6 +101,10 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 {
 	QWriteLocker Locker(&m_Mutex);
 
+	// Note: We set this here for ETW and FW event created sockets,
+	//	if this is wrong and we have the real value available, we will set it in InitStaticDataEx
+	m_CreateTimeStamp = GetTime() * 1000;
+
 	m_ProtocolType = ProtocolType;
 	m_LocalAddress = LocalAddress;
 	m_LocalPort = LocalPort;
@@ -118,11 +124,17 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 	}
 	else
 	{
-		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId);
-		m_pProcess = pProcess; // relember m_pProcess is a week pointer
+		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId, true); // Note: this will add the process and load some basic data if it does not already exist
+		if (pProcess)
+		{
+			m_ProcessName = pProcess->GetName();
 
-		ProcessSetNetworkFlag();
+			m_pProcess = pProcess; // relember m_pProcess is a week pointer
 
+			ProcessSetNetworkFlag();
+		}
+
+		/*
 		if (CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data()))
 		{
 			m_ProcessName = pWinProc->GetName();
@@ -143,10 +155,10 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 			// (for the process list) to identify the owner of every socket but now we need to make 4 system calls for every_last_socket totaling 400,000 system calls... great. (dmex)
 			if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)ProcessId)))
 			{
-				/*if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
+				if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
 				{
 					m_SubsystemProcess = !!basicInfo.IsSubsystemProcess;
-				}*/
+				}
 
 				if (NT_SUCCESS(PhGetProcessImageFileName(processHandle, &fileName)))
 				{
@@ -157,7 +169,7 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 
 				NtClose(processHandle);
 			}
-		}
+		}*/
 	}
 
 	// EtpUpdateFirewallStatus
@@ -179,24 +191,33 @@ bool CWinSocket::InitStaticDataEx(SSocket* connection, bool IsNew)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_CreateTimeStamp = connection->CreateTime;
+	m_HasStaticDataEx = true;
 
-	ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
-	memcpy(OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);
+	if (connection)
+	{
+		m_CreateTimeStamp = connection->CreateTime;
 
-	// PhpUpdateNetworkItemOwner
-    PVOID serviceTag = UlongToPtr(*(PULONG)OwnerInfo);
-    PPH_STRING serviceName = PhGetServiceNameFromTag((HANDLE)connection->ProcessId, serviceTag);
-	m_OwnerService = CastPhString(serviceName);
-	//
+		ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
+		memcpy(OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);
 
-	m->LocalScopeId = connection->LocalScopeId;
-	m->RemoteScopeId = connection->RemoteScopeId;
+		// PhpUpdateNetworkItemOwner
+		PVOID serviceTag = UlongToPtr(*(PULONG)OwnerInfo);
+		PPH_STRING serviceName = PhGetServiceNameFromTag((HANDLE)connection->ProcessId, serviceTag);
+		m_OwnerService = CastPhString(serviceName);
+		//
 
-	// Note: we may have seen thsi socket on ETW before we updated the DNS cache
-	//IsNew
+		m->LocalScopeId = connection->LocalScopeId;
+		m->RemoteScopeId = connection->RemoteScopeId;
+	}
+
+	m_RemoteHostName = ((CWindowsAPI*)theAPI)->GetDnsResolver()->GetHostName(m_RemoteAddress, this, SLOT(OnHostResolved(const QHostAddress&, const QString&)));
 
 	return true;
+}
+
+void CWinSocket::OnHostResolved(const QHostAddress& Address, const QString& HostName)
+{
+	m_RemoteHostName = HostName;
 }
 
 bool CWinSocket::UpdateDynamicData(SSocket* connection)
@@ -205,7 +226,7 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 
     BOOLEAN modified = FALSE;
 
-	if (m_pProcess.isNull())
+	/*if (m_pProcess.isNull())
 	{
 		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId);
 		if (!pProcess.isNull())
@@ -222,7 +243,7 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 				modified = TRUE;
 			}
 		}
-	}
+	}*/
 
 	if (m_State != connection->State)
     {
@@ -240,7 +261,7 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 
 void CWinSocket::ProcessSetNetworkFlag()
 {
-	// when calling this QWriteLocker Locker(&m_Mutex); must be set!
+	// when calling this QWriteLocker Locker(&m_Mutex); must be locked!
 	CProcessPtr pProcess = m_pProcess;
 	if (!pProcess)
 		return;

@@ -31,15 +31,19 @@ CProcessPicker::CProcessPicker(QWidget* parent)
 	m_pProcessList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pProcessList->setSortingEnabled(true);
 
-	m_pMainLayout->addWidget(m_pProcessList);
-
 	m_pProcessList->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_pProcessList, SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenu(const QPoint &)));
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pProcessModel, SLOT(Clear()));
 
 	//connect(m_pProcessList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
 	connect(m_pProcessList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
+
+	m_pProcessList->setColumnReset(2);
+	connect(m_pProcessList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
+	m_pMainLayout->addWidget(m_pProcessList);
 	// 
 
 	m_pButtonBox = new QDialogButtonBox();
@@ -49,10 +53,6 @@ CProcessPicker::CProcessPicker(QWidget* parent)
  
 	connect(m_pButtonBox,SIGNAL(accepted()),this,SLOT(accept()));
 	connect(m_pButtonBox,SIGNAL(rejected()),this,SLOT(reject()));
-
-	QMap<quint64, CProcessPtr> ProcessList = theAPI->GetProcessList();
-	m_pProcessModel->Sync(ProcessList);
-
 
 	for (int i = 0; i < m_pProcessModel->columnCount(); i++)
 	{
@@ -69,39 +69,51 @@ CProcessPicker::CProcessPicker(QWidget* parent)
 
 	QByteArray Columns = theConf->GetBlob("ProcessPicker/Process_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pProcessModel->columnCount(); i++)
-			m_pProcessList->SetColumnHidden(i, true);
-
-		m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eIO_TotalRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eStaus, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::ePrivateBytes, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::ePriorityClass, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eGDI_Handles, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eUSER_Handles, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eWND_Handles, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eStartTime, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_ReadRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_WriteRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_OtherRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eReceiveRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eSendRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eReadRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eWriteRate, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_ReadBytes, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_WriteBytes, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eIO_OtherBytes, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
-	}
+		OnResetColumns();
 	else
 		m_pProcessList->restoreState(Columns);
+
+	m_ProcessList = theAPI->GetProcessList();
+
+	SyncModel();
 }
 
 CProcessPicker::~CProcessPicker()
 {
 	theConf->SetBlob("ProcessPicker/Process_Columns", m_pProcessList->saveState());
+}
+
+void CProcessPicker::OnResetColumns()
+{
+	for (int i = 0; i < m_pProcessModel->columnCount(); i++)
+		m_pProcessList->SetColumnHidden(i, true);
+
+	m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eIO_TotalRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eStaus, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::ePrivateBytes, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::ePriorityClass, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eGDI_Handles, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eUSER_Handles, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eWND_Handles, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eStartTime, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eIO_ReadRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eIO_WriteRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eIO_OtherRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eReceiveRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eSendRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eReadRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eWriteRate, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eIO_ReadBytes, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eIO_WriteBytes, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eIO_OtherBytes, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
+}
+
+void CProcessPicker::OnColumnsChanged()
+{
+	SyncModel();
 }
 
 void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
@@ -110,4 +122,9 @@ void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIn
 
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 	m_ProcessId = pProcess->GetProcessId();
+}
+
+void CProcessPicker::SyncModel()
+{
+	m_pProcessModel->Sync(m_ProcessList);
 }

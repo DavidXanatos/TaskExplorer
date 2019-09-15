@@ -476,6 +476,18 @@
     <ClCompile Include="Common\SmartGridWidget.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\DnsResolver.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\DnsEntry.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\DnsModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\DnsCacheView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
     <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp">
       <Filter>API\Windows\Monitors</Filter>
     </ClCompile>
@@ -514,6 +526,18 @@
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\KernelInfo\PoolView.cpp">
       <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SecurityExplorer.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\KernelInfo\RunObjView.cpp">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\WsWatchDialog.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\WaitChainDialog.cpp">
+      <Filter>TaskExplorer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -948,6 +972,18 @@
     <QtMoc Include="Common\SmartGridWidget.h">
       <Filter>Common</Filter>
     </QtMoc>
+    <QtMoc Include="API\Windows\DnsResolver.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="API\DnsEntry.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\DnsModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\DnsCacheView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
     <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h">
       <Filter>API\Windows\Monitors</Filter>
     </QtMoc>
@@ -977,6 +1013,18 @@
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\KernelInfo\KernelView.h">
       <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SecurityExplorer.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\KernelInfo\RunObjView.h">
+      <Filter>TaskExplorer\SystemInfo\KernelInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\WsWatchDialog.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\WaitChainDialog.h">
+      <Filter>TaskExplorer</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
@@ -1029,6 +1077,9 @@
       <Filter>Forms</Filter>
     </QtUic>
     <QtUic Include="Forms\WinSvcWindow.ui">
+      <Filter>Forms</Filter>
+    </QtUic>
+    <QtUic Include="Forms\SecurityExplorer.ui">
       <Filter>Forms</Filter>
     </QtUic>
   </ItemGroup>

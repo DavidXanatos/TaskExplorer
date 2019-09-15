@@ -155,7 +155,11 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pProcessList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pProcessList->setSortingEnabled(true);
 
-	connect(theGUI, SIGNAL(ReloadAll()), m_pProcessModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), m_pProcessModel, SLOT(Clear()));
+
+	m_pProcessList->setColumnReset(2);
+	connect(m_pProcessList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
+	connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
 	m_pMultiProcLayout->addWidget(m_pProcessList);
 	///
@@ -193,21 +197,7 @@ CProcessView::CProcessView(QWidget *parent)
 	setObjectName(parent ? parent->objectName() : "InfoWindow");
 	QByteArray Columns = theConf->GetBlob(objectName() + "/Processes_Columns");
 	if (Columns.isEmpty())
-	{
-		for (int i = 0; i < m_pProcessModel->columnCount(); i++)
-			m_pProcessList->setColumnHidden(i, true);
-
-		m_pProcessList->SetColumnHidden(CProcessModel::eProcess, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
-		//m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eUserName, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eVersion, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eCompanyName, false);
-		m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
-		//current directory
-		m_pProcessList->SetColumnHidden(CProcessModel::eFileName, false);
-		// started by
-	}
+		OnResetColumns();
 	else
 		m_pProcessList->restoreState(Columns);
 }
@@ -216,6 +206,28 @@ CProcessView::CProcessView(QWidget *parent)
 CProcessView::~CProcessView()
 {
 	theConf->SetBlob(objectName() + "/Processes_Columns", m_pProcessList->saveState());
+}
+
+void CProcessView::OnResetColumns()
+{
+	for (int i = 0; i < m_pProcessModel->columnCount(); i++)
+		m_pProcessList->setColumnHidden(i, true);
+
+	m_pProcessList->SetColumnHidden(CProcessModel::eProcess, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
+	//m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eUserName, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eVersion, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eCompanyName, false);
+	m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
+	//current directory
+	m_pProcessList->SetColumnHidden(CProcessModel::eFileName, false);
+	// started by
+}
+
+void CProcessView::OnColumnsChanged()
+{
+	SyncModel();
 }
 
 void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -236,16 +248,26 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 				CModulePtr pModule = pProcess->GetModuleInfo();
 
-				QPixmap Icon = pModule->GetFileIcon(true);
+				QPixmap Icon;
+				QString Description;
+				if (pModule)
+				{
+					Icon = pModule->GetFileIcon(true);
+					Description = pModule->GetFileInfo("Description");
+					m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
+					m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
+				}
+				else
+				{
+					m_pCompanyName->setText("");
+					m_pProcessVersion->setText("");
+				}
+
 				m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
-				QString Description = pModule->GetFileInfo("Description");
 				if (!Description.isEmpty())
 					m_pProcessName->setText(Description + " (" + pProcess->GetName() + ")");
 				else
 					m_pProcessName->setText(pProcess->GetName());
-
-				m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
-				m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
 				m_pFilePath->setText(pProcess->GetFileName());
 
 				m_pCmdLine->setText(pProcess->GetCommandLineStr());
@@ -262,12 +284,15 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 #ifdef WIN32
 				CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
-				CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
 
-				if (pWinProc->IsWoW64())
+				CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
+				if (!pWinModule)
+					m_pPEBAddress->setText("");
+				else if (pWinProc->IsWoW64())
 					m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinModule->GetPebBaseAddress())).arg(FormatAddress(pWinModule->GetPebBaseAddress(true))));
 				else
 					m_pPEBAddress->setText(FormatAddress(pWinModule->GetPebBaseAddress()));
+
 				m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
 
 				m_pMitigation->setText(pWinProc->GetMitigationString());
@@ -286,15 +311,18 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	Refresh();
 }
 
+void CProcessView::SyncModel()
+{
+	QMap<quint64, CProcessPtr> ProcessList;
+	foreach(const CProcessPtr& pProcess, m_Processes)
+		ProcessList.insert(pProcess->GetProcessId(), pProcess);
+	m_pProcessModel->Sync(ProcessList);
+}
+
 void CProcessView::Refresh()
 {
 	if (m_Processes.count() > 1)
-	{
-		QMap<quint64, CProcessPtr> ProcessList;
-		foreach(const CProcessPtr& pProcess, m_Processes)
-			ProcessList.insert(pProcess->GetProcessId(), pProcess);
-		m_pProcessModel->Sync(ProcessList);
-	}
+		SyncModel();
 
 	m_pStatsView->ShowProcesses(m_Processes);
 }
