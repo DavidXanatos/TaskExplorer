@@ -40,7 +40,9 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pSystemName->setSizePolicy(QSizePolicy::Expanding, m_pSystemName->sizePolicy().verticalPolicy());
 	m_pSystemLayout->addWidget(m_pSystemName, row++, 1, 1, 2);
 	
-	m_pSystemLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row++, 1);
+	m_pSystemLayout->addWidget(new QLabel(tr("Type:")), row, 1);
+	m_pSystemType = new QLabel();
+	m_pSystemLayout->addWidget(m_pSystemType, row++, 2);
 
 	m_pSystemLayout->addWidget(new QLabel(tr("Version:")), row, 1);
 	m_pSystemVersion = new QLabel();
@@ -52,9 +54,9 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pSystemLayout->addWidget(m_pSystemBuild, row++, 2);
 
 
-	m_pSystemLayout->addWidget(new QLabel(tr("Up time:")), row, 0);
-	m_pUpTime = new QLabel();
-	m_pSystemLayout->addWidget(m_pUpTime, row++, 1, 1, 2);
+	//m_pSystemLayout->addWidget(new QLabel(tr("Up time:")), row, 0);
+	//m_pUpTime = new QLabel();
+	//m_pSystemLayout->addWidget(m_pUpTime, row++, 1, 1, 2);
 
 	m_pSystemLayout->addWidget(new QLabel(tr("Host name:")), row, 0);
 	m_pHostName = new QLabel();
@@ -69,6 +71,7 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pSystemDir->setReadOnly(true);
 	m_pSystemLayout->addWidget(m_pSystemDir, row++, 0, 1, 3);
 
+	m_pSystemLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row, 0);
 
 	m_pStatsView = new CStatsView(CStatsView::eSystem, this);
 	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
@@ -92,10 +95,11 @@ void CSystemView::Refresh()
 		m_pIcon->setPixmap(theAPI->GetSystemIcon().scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 
 	m_pSystemName->setText(theAPI->GetSystemName());
+	m_pSystemType->setText(theAPI->GetSystemType());
 	m_pSystemVersion->setText(theAPI->GetSystemVersion());
 	m_pSystemBuild->setText(theAPI->GetSystemBuild());
 
-	m_pUpTime->setText(FormatTime(theAPI->GetUpTime()));
+	//m_pUpTime->setText(FormatTime(theAPI->GetUpTime()));
 	m_pHostName->setText(theAPI->GetHostName());
 	m_pUserName->setText(theAPI->GetUserName());
 	m_pSystemDir->setText(theAPI->GetSystemDir());

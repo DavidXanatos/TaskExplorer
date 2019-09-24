@@ -10,8 +10,8 @@ CGraphBar::CGraphBar()
 {
 	m_Rows = 0;
 
-	this->setMinimumHeight(50);
-	//this->setMaximumHeight(200);
+	this->setMinimumHeight(50 * theGUI->GetDpiScale());
+	//this->setMaximumHeight(200 * theGUI->GetDpiScale());
 
 	m_pMainLayout = new QGridLayout();
 	this->setLayout(m_pMainLayout);

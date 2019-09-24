@@ -62,7 +62,7 @@ CKernelView::CKernelView(QWidget *parent)
 	//////////////////////////////////////////////////////////
 
 	m_pPPoolBox = new QGroupBox(tr("Paged pool"));
-	m_pPPoolBox->setMinimumWidth(150);
+	m_pPPoolBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pPPoolLayout = new QGridLayout();
 	m_pPPoolBox->setLayout(m_pPPoolLayout);
 	m_pInfoLayout1->addWidget(m_pPPoolBox, 0, 0);
@@ -92,7 +92,7 @@ CKernelView::CKernelView(QWidget *parent)
 	////////////////////////////////////////
 
 	m_pNPPoolBox = new QGroupBox(tr("Non-paged pool"));
-	m_pNPPoolBox->setMinimumWidth(150);
+	m_pNPPoolBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pNPPoolLayout = new QGridLayout();
 	m_pNPPoolBox->setLayout(m_pNPPoolLayout);
 	m_pInfoLayout2->addWidget(m_pNPPoolBox);
@@ -117,11 +117,9 @@ CKernelView::CKernelView(QWidget *parent)
 
 	//m_pPoolLayout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum), 0, 3);
 
-	m_MmSizeOfPagedPoolInBytes = 0;
-	m_MmMaximumNonPagedPoolInBytes = 0;
-
-	qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetAddressFromSymbol((quint64)SYSTEM_PROCESS_ID, "MmSizeOfPagedPoolInBytes", this, SLOT(AddressFromSymbol(quint64, const QString&, quint64)));
-	qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetAddressFromSymbol((quint64)SYSTEM_PROCESS_ID, "MmMaximumNonPagedPoolInBytes", this, SLOT(AddressFromSymbol(quint64, const QString&, quint64)));
+	m_MmAddressesInitialized = false;
+	m_MmSizeOfPagedPoolInBytes = -1;
+	m_MmMaximumNonPagedPoolInBytes = -1;
 
 	/*setObjectName(parent->objectName());
 	QByteArray Columns = theConf->GetBlob(objectName() + "/KernelView_Columns");
@@ -140,6 +138,13 @@ CKernelView::~CKernelView()
 
 void CKernelView::Refresh()
 {
+	if (!m_MmAddressesInitialized)
+	{
+		m_MmAddressesInitialized = true;
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetAddressFromSymbol((quint64)SYSTEM_PROCESS_ID, "MmSizeOfPagedPoolInBytes", this, SLOT(AddressFromSymbol(quint64, const QString&, quint64)));
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetAddressFromSymbol((quint64)SYSTEM_PROCESS_ID, "MmMaximumNonPagedPoolInBytes", this, SLOT(AddressFromSymbol(quint64, const QString&, quint64)));
+	}
+
 	//if(m_pTabs->currentWidget() == m_pPoolView)
 		m_pPoolView->Refresh(); // needed for the allocs on win 10
 	//else 
@@ -173,7 +178,9 @@ void CKernelView::Refresh()
     }
     else
     {
-		if (m_MmSizeOfPagedPoolInBytes)
+		if (m_MmSizeOfPagedPoolInBytes == -1)
+			pagedLimit = tr("resolving...");
+		else if (m_MmSizeOfPagedPoolInBytes)
 		{
 			SIZE_T paged = 0;
 			if (NT_SUCCESS(KphReadVirtualMemoryUnsafe(NtCurrentProcess(), (PVOID)m_MmSizeOfPagedPoolInBytes, &paged, sizeof(SIZE_T), NULL)))
@@ -184,7 +191,9 @@ void CKernelView::Refresh()
 		else
 			pagedLimit = tr("no symbols");
 
-		if (m_MmMaximumNonPagedPoolInBytes)
+		if (m_MmMaximumNonPagedPoolInBytes == -1)
+			nonPagedLimit = tr("resolving...");
+		else if (m_MmMaximumNonPagedPoolInBytes)
 		{
 			SIZE_T nonPaged = 0;
 			if (NT_SUCCESS(KphReadVirtualMemoryUnsafe(NtCurrentProcess(), (PVOID)m_MmMaximumNonPagedPoolInBytes, &nonPaged, sizeof(SIZE_T), NULL)))

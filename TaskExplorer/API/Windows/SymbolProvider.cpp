@@ -471,11 +471,13 @@ void CAddressProviderJob::Run(struct SSymbolProvider* m)
 {
 	this->m = m;
 
-	PH_SYMBOL_INFORMATION symbolInfo;
-	if (!PhGetSymbolFromName(m->SymbolProvider, (wchar_t*)m_Symbol.toStdWString().c_str(), &symbolInfo))
-		return;
+	quint64 Address = 0;
 
-	emit AddressFromSymbol(m_ProcessId, m_Symbol, (quint64)symbolInfo.Address);
+	PH_SYMBOL_INFORMATION symbolInfo;
+	if (PhGetSymbolFromName(m->SymbolProvider, (wchar_t*)m_Symbol.toStdWString().c_str(), &symbolInfo))
+		Address = (quint64)symbolInfo.Address;
+
+	emit AddressFromSymbol(m_ProcessId, m_Symbol, Address);
 }
 
 // thrdstk.c

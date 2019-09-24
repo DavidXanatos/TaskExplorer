@@ -35,10 +35,10 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 
 	SetupTree();
 
-	if (eView == eProcess || eView == eSystem)
+	if (/*eView == eProcess ||*/ eView == eSystem)
 		m_pStatsList->setAutoFitMax(800 * theGUI->GetDpiScale());
 	else
-		m_pStatsList->setMinimumHeight(50);
+		m_pStatsList->setMinimumHeight(50 * theGUI->GetDpiScale());
 
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu();
@@ -124,12 +124,16 @@ void CStatsView::SetupTree()
 		m_pMemory->addChild(m_pHardFaults);
 		m_pPrivateWS = new QTreeWidgetItem(tr("Private working set").split("|"));
 		m_pMemory->addChild(m_pPrivateWS);
+		m_pShareableWS = new QTreeWidgetItem(tr("Shareable working set").split("|"));
+		m_pMemory->addChild(m_pShareableWS);
 		m_pSharedWS = new QTreeWidgetItem(tr("Shared working set").split("|"));
 		m_pMemory->addChild(m_pSharedWS);
+#ifdef WIN32
 		m_pPagedPool = new QTreeWidgetItem(tr("Paged pool usage").split("|"));
 		m_pMemory->addChild(m_pPagedPool);
 		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool usage").split("|"));
 		m_pMemory->addChild(m_pNonPagedPool);
+#endif
 	}
 #ifdef WIN32
 	else if(m_eView == eJob)
@@ -170,6 +174,18 @@ void CStatsView::SetupTree()
 
 	m_pOther = new QTreeWidgetItem(tr("Other").split("|"));
 	m_pStatsList->addTopLevelItem(m_pOther);
+
+	if (m_eView == eSystem)
+	{
+		m_pUpTime = new QTreeWidgetItem(tr("Up time").split("|"));
+		m_pOther->addChild(m_pUpTime);
+	}
+	if (m_eView == eProcess)
+	{
+		m_pUpTime = new QTreeWidgetItem(tr("Start time").split("|"));
+		m_pOther->addChild(m_pUpTime);
+	}
+
 	if (m_eView == eSystem
 #ifdef WIN32
 		|| m_eView == eJob
@@ -194,8 +210,8 @@ void CStatsView::SetupTree()
 #ifdef WIN32
 	if (m_eView == eProcess)
 	{
-		m_pUpTime = new QTreeWidgetItem(tr("Running time").split("|"));
-		m_pOther->addChild(m_pUpTime);
+		m_pRunningTime = new QTreeWidgetItem(tr("Running time").split("|"));
+		m_pOther->addChild(m_pRunningTime);
 		m_pSuspendTime = new QTreeWidgetItem(tr("Suspended time").split("|"));
 		m_pOther->addChild(m_pSuspendTime);
 		m_pHangCount = new QTreeWidgetItem(tr("Hang count").split("|"));
@@ -295,13 +311,8 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 		AccStats[m_pPrivateWS].AddSumm(eSize, eFormatSize, pProcess->GetPrivateWorkingSetSize());
 
-		AccStats[m_pSharedWS].AddSumm(eSize, eFormatSize, pProcess->GetShareableWorkingSetSize());
-
-		AccStats[m_pPagedPool].AddSumm(eSize, eFormatSize, pProcess->GetPagedPool());
-		AccStats[m_pPagedPool].AddSumm(ePeak, eFormatSize, pProcess->GetPeakPagedPool());
-
-		AccStats[m_pNonPagedPool].AddSumm(eSize, eFormatSize, pProcess->GetNonPagedPool());
-		AccStats[m_pNonPagedPool].AddSumm(ePeak, eFormatSize, pProcess->GetPeakNonPagedPool());
+		AccStats[m_pShareableWS].AddSumm(eSize, eFormatSize, pProcess->GetShareableWorkingSetSize());
+		AccStats[m_pSharedWS].AddSumm(eSize, eFormatSize, pProcess->GetSharedWorkingSetSize());
 
 		// IO
 		SProcStats Stats = pProcess->GetStats();
@@ -353,6 +364,12 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 #ifdef WIN32
 		CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
+		AccStats[m_pPagedPool].AddSumm(eSize, eFormatSize, pWinProc->GetPagedPool());
+		AccStats[m_pPagedPool].AddSumm(ePeak, eFormatSize, pWinProc->GetPeakPagedPool());
+
+		AccStats[m_pNonPagedPool].AddSumm(eSize, eFormatSize, pWinProc->GetNonPagedPool());
+		AccStats[m_pNonPagedPool].AddSumm(ePeak, eFormatSize, pWinProc->GetPeakNonPagedPool());
+
 		AccStats[m_pGdiObjects].AddSumm(eCount, eFormatNumber, pWinProc->GetGdiHandles());
 
 		AccStats[m_pUserObjects].AddSumm(eCount, eFormatNumber, pWinProc->GetUserHandles());
@@ -360,7 +377,7 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 		AccStats[m_pWndObjects].AddSumm(eCount, eFormatNumber, pWinProc->GetWndHandles());
 
 
-		AccStats[m_pUpTime].AddSumm(eCount, eFormatTime, pWinProc->GetUpTime());
+		AccStats[m_pRunningTime].AddSumm(eCount, eFormatTime, pWinProc->GetUpTime());
 		AccStats[m_pSuspendTime].AddSumm(eCount, eFormatTime, pWinProc->GetSuspendTime());
 		AccStats[m_pHangCount].AddSumm(eCount, eFormatNumber, pWinProc->GetHangCount());
 		AccStats[m_pGhostCount].AddSumm(eCount, eFormatNumber, pWinProc->GetGhostCount());
@@ -377,6 +394,17 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 		case eFormatTime:	I.key()->setText(J.key(), FormatTime(J->Value)); break;
 		case eFormatNumber:	I.key()->setText(J.key(), FormatNumber(J->Value)); break;
 		}
+	}
+
+	if (Processes.count() == 1)
+	{
+		CProcessPtr pProcess = Processes.first();
+
+		m_pUpTime->setText(eCount, QDateTime::fromTime_t(pProcess->GetCreateTimeStamp() / 1000).toString("dd.MM.yyyy hh:mm:ss"));
+	}
+	else
+	{
+		m_pUpTime->setText(eCount, "");
 	}
 }
 
@@ -468,6 +496,8 @@ void CStatsView::ShowSystem()
 	m_pMMapIOWrites->setText(eDelta, FormatNumber(SysStats.MMapIo.WriteDelta.Delta));
 
 	// other
+	m_pUpTime->setText(eCount, FormatTime(theAPI->GetUpTime()));
+
 	m_pProcesses->setText(eCount, FormatNumber(theAPI->GetTotalProcesses()));
 
 	m_pThreads->setText(eCount, FormatNumber(theAPI->GetTotalThreads()));

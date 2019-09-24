@@ -44,8 +44,8 @@ CRAMView::CRAMView(QWidget *parent)
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pRAMPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pRAMPlot->setMinimumHeight(120);
-	m_pRAMPlot->setMinimumWidth(50);
+	m_pRAMPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pRAMPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pRAMPlot->SetupLegend(Front, tr("Memory Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pRAMPlot->SetLimit(m_PlotLimit);
 	m_pScrollLayout->addWidget(m_pRAMPlot, 0, 0, 1, 3);
@@ -71,7 +71,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pInfoTabs->addTab(m_pMemoryWidget, tr("Memory"));
 
 	m_pVMemBox = new QGroupBox(tr("Commit charge"));
-	m_pVMemBox->setMinimumWidth(150);
+	m_pVMemBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pVMemLayout = new QGridLayout();
 	m_pVMemBox->setLayout(m_pVMemLayout);
 	m_pMemoryLayout->addWidget(m_pVMemBox, 0, 0);
@@ -98,7 +98,7 @@ CRAMView::CRAMView(QWidget *parent)
 
 
 	m_pRAMBox = new QGroupBox(tr("Physical memory"));
-	m_pRAMBox->setMinimumWidth(150);
+	m_pRAMBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pRAMLayout = new QGridLayout();
 	m_pRAMBox->setLayout(m_pRAMLayout);
 	m_pMemoryLayout->addWidget(m_pRAMBox, 0, 1, 2, 1);
@@ -141,7 +141,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pInfoTabs->addTab(m_pPageWidget, tr("Paging"));
 
 	m_pPagingBox = new QGroupBox(tr("Paging"));
-	m_pPagingBox->setMinimumWidth(150);
+	m_pPagingBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pPagingLayout = new QGridLayout();
 	m_pPagingBox->setLayout(m_pPagingLayout);
 	m_pPageLayout->addWidget(m_pPagingBox, 0, 0);
@@ -174,11 +174,11 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pSwapList->GetTree()->setHeaderLabels(tr("File name|Usag|Peak usage|Total size").split("|"));
 	m_pSwapList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pSwapList->GetTree()->setSortingEnabled(true);
-	m_pSwapList->GetTree()->setMinimumHeight(60);
+	m_pSwapList->GetTree()->setMinimumHeight(60 * theGUI->GetDpiScale());
 	m_pSwapList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
 	m_pSwapBox = new QGroupBox(tr("Swap Files"));
-	m_pSwapBox->setMinimumWidth(150);
+	m_pSwapBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pSwapLayout = new QGridLayout();
 	m_pSwapBox->setLayout(m_pSwapLayout);
 	m_pPageLayout->addWidget(m_pSwapBox, 0, 1, 2, 1);
@@ -196,7 +196,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pInfoTabs->addTab(m_pListsWidget, tr("Memory lists"));
 
 	m_pListBox = new QGroupBox(tr("Paging"));
-	m_pListBox->setMinimumWidth(150);
+	m_pListBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pListLayout = new QGridLayout();
 	m_pListBox->setLayout(m_pListLayout);
 	m_pListsLayout->addWidget(m_pListBox, 0, 0);
@@ -225,7 +225,7 @@ CRAMView::CRAMView(QWidget *parent)
 
 
 	m_pStanbyBox = new QGroupBox(tr("Standby"));
-	m_pStanbyBox->setMinimumWidth(150);
+	m_pStanbyBox->setMinimumWidth(150 * theGUI->GetDpiScale());
 	m_pStanbyLayout = new QGridLayout();
 	m_pStanbyBox->setLayout(m_pStanbyLayout);
 	m_pListsLayout->addWidget(m_pStanbyBox, 0, 1);

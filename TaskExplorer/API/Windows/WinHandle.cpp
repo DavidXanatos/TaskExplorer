@@ -843,8 +843,6 @@ STATUS CWinHandle::Close(bool bForce)
 			if (WindowsVersion >= WINDOWS_10)
 			{
 				BOOLEAN breakOnTermination;
-				PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
-
 				if (NT_SUCCESS(PhGetProcessBreakOnTermination(processHandle, &breakOnTermination)))
 				{
 					if (breakOnTermination)
@@ -853,9 +851,9 @@ STATUS CWinHandle::Close(bool bForce)
 					}
 				}
 
+				PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
 				policyInfo.Policy = ProcessStrictHandleCheckPolicy;
 				policyInfo.StrictHandleCheckPolicy.Flags = 0;
-
 				if (NT_SUCCESS(NtQueryInformationProcess(processHandle, ProcessMitigationPolicy, &policyInfo, sizeof(PROCESS_MITIGATION_POLICY_INFORMATION), NULL)))
 				{
 					if (policyInfo.StrictHandleCheckPolicy.Flags != 0)
@@ -867,6 +865,7 @@ STATUS CWinHandle::Close(bool bForce)
 
 			if (critical && strict)
 			{
+				NtClose(processHandle);
 				return ERR(tr("You are about to close one or more handles for a critical process with strict handle checks enabled. This will shut down the operating system immediately!"), ERROR_CONFIRM);
 			}
 		}

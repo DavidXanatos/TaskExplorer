@@ -147,7 +147,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pGraphSplitter->setStretchFactor(1, 1);
 
 	m_pProcessTree = new CProcessTree(this);
-	//m_pProcessTree->setMinimumSize(200, 200);
+	//m_pProcessTree->setMinimumSize(200 * theGUI->GetDpiScale(), 200 * theGUI->GetDpiScale());
 	m_pMainSplitter->addWidget(m_pProcessTree);
 	m_pMainSplitter->setCollapsible(0, false);
 
@@ -156,15 +156,15 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMainSplitter->addWidget(m_pPanelSplitter);
 
 	m_pSystemInfo = new CSystemInfoView();
-	//m_pSystemInfo->setMinimumSize(200, 200);
+	//m_pSystemInfo->setMinimumSize(200 * theGUI->GetDpiScale(), 200 * theGUI->GetDpiScale());
 	m_pPanelSplitter->addWidget(m_pSystemInfo);
 
 	m_pTaskInfo = new CTaskInfoView();
-	//m_pTaskInfo->setMinimumSize(200, 200);
+	//m_pTaskInfo->setMinimumSize(200 * theGUI->GetDpiScale(), 200 * theGUI->GetDpiScale());
 	m_pPanelSplitter->addWidget(m_pTaskInfo);
 	m_pPanelSplitter->setCollapsible(1, false);
 
-	m_pPanelSplitter->setMinimumHeight(100);
+	m_pPanelSplitter->setMinimumHeight(100 * theGUI->GetDpiScale());
 
 	connect(m_pMainSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
 	connect(m_pPanelSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
@@ -1109,7 +1109,8 @@ void CTaskExplorer::ApplyOptions()
 	CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
 	CPanelView::SetSimpleFormat(theConf->GetBool("Options/PanelCopySimple", false));
-	CPanelView::SetMaxCellWidth(theConf->GetBool("Options/PanelCopyMaxCellWidth", 0));
+	CPanelView::SetMaxCellWidth(theConf->GetInt("Options/PanelCopyMaxCellWidth", 0));
+	CPanelView::SetCellSeparator(UnEscape(theConf->GetString("Options/PanelCopyCellSeparator", "\\t")));
 }
 
 void CTaskExplorer::UpdateOptions()

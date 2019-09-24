@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
+#include "ProcessHacker/pooltable.h"
+#include "ProcessHacker/syssccpu.h"
 #include "WinHandle.h"
 #include <lm.h>
 #include "Monitors/WinGpuMonitor.h"
@@ -672,6 +674,7 @@ bool CWindowsAPI::UpdateProcessList()
 			return false;
 	}
 
+	// Comment from: procprv.c
     // Add the fake processes to the PID list.
     //
     // On Windows 7 the two fake processes are merged into "Interrupts" since we can only get cycle
@@ -880,47 +883,6 @@ CProcessPtr CWindowsAPI::GetProcessByID(quint64 ProcessId, bool bAddIfNew)
 	return pProcess;
 }
 
-#if 0
-void EnumChildWindows(HWND hwnd, QMap<quint64, QMultiMap<quint64, quint64> >& WindowMap, quint32& WndCount)
-{
-    HWND childWindow = NULL;
-    ULONG i = 0;
-
-    // We use FindWindowEx because EnumWindows doesn't return Metro app windows.
-    // Set a reasonable limit to prevent infinite loops.
-    while (i < 0x800 && (childWindow = FindWindowEx(hwnd, childWindow, NULL, NULL)))
-    {
-		WndCount++;
-
-        ULONG processId;
-        ULONG threadId = GetWindowThreadProcessId(childWindow, &processId);
-
-		WindowMap[processId].insertMulti(threadId, (quint64)childWindow);
-
-		EnumChildWindows(childWindow, WindowMap, WndCount);
-
-        i++;
-    }
-}
-
-quint32 CWindowsAPI::EnumWindows()
-{
-	quint32 WndCount = 0;
-	QMap<quint64, QMultiMap<quint64, quint64> > WindowMap; // QMap<ProcessId, QMultiMap<ThreadId, HWND> > 
-
-	// Using FindWindowEx we have only very little ability to filter the results
-	// so to avoind going throuhgh the full list over and over agian we just cache ist in a double multi map
-	// this way we can asily look up all windows of a process or all all windows belinging to a given thread
-
-	EnumChildWindows(GetDesktopWindow(), WindowMap, WndCount);
-
-	QWriteLocker Locker(&m_WindowMutex);
-	m_WindowMap = WindowMap;
-
-	return WndCount;
-}
-#else
-
 struct CWindowsAPI__WndEnumStruct
 {
 	QMap<quint64, QPair<quint64, quint64> > OldWindows;
@@ -975,7 +937,6 @@ quint32 CWindowsAPI::EnumWindows()
 
 	return m_WindowRevMap.size();
 }
-#endif
 
 void CWindowsAPI::OnHardwareChanged()
 {
@@ -1286,6 +1247,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).objectCast<CWinHandle>();
 
 		bool WasReused = false;
+		// Comment from: hndlprv.c
 		// Also compare the object pointers to make sure a
         // different object wasn't re-opened with the same
         // handle value. This isn't 100% accurate as pool
@@ -1371,6 +1333,15 @@ bool CWindowsAPI::UpdateOpenFileList()
 	emit OpenFileListUpdated(Added, Changed, Removed);
 
 	return true;
+}
+
+VOID PhpWorkaroundWindows10ServiceTypeBug(_Inout_ LPENUM_SERVICE_STATUS_PROCESS ServieEntry)
+{
+    // https://github.com/processhacker2/processhacker/issues/120 (dmex)
+    if (ServieEntry->ServiceStatusProcess.dwServiceType == SERVICE_WIN32)
+        ServieEntry->ServiceStatusProcess.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
+    if (ServieEntry->ServiceStatusProcess.dwServiceType == (SERVICE_WIN32 | SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE))
+        ServieEntry->ServiceStatusProcess.dwServiceType = SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE;
 }
 
 bool CWindowsAPI::UpdateServiceList(bool bRefresh)
@@ -1620,14 +1591,15 @@ bool CWindowsAPI::UpdatePoolTable()
 
 bool CWindowsAPI::InitWindowsInfo()
 {
-	bool bServer = false;
+	//bool bServer = false;
 	QString ReleaseId;
 	HANDLE keyHandle;
 	static PH_STRINGREF currentVersion = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows NT\\CurrentVersion");
     if (NT_SUCCESS(PhOpenKey(&keyHandle, KEY_READ, PH_KEY_LOCAL_MACHINE, &currentVersion, 0)))
     {
 		m_SystemName = CastPhString(PhQueryRegistryString(keyHandle, L"ProductName"));
-		bServer = CastPhString(PhQueryRegistryString(keyHandle, L"InstallationType")) == "Server";
+		m_SystemType = CastPhString(PhQueryRegistryString(keyHandle, L"InstallationType"));
+		//bServer = m_SystemType == "Server";
 		ReleaseId = CastPhString(PhQueryRegistryString(keyHandle, L"ReleaseId"));
 
         NtClose(keyHandle);

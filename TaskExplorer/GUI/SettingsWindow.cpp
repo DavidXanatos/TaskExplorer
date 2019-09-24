@@ -66,6 +66,13 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	connect(ui.chkShowTray, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
 	//connect(ui.chkUseCycles, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
 
+	connect(ui.chkSimpleCopy, SIGNAL(stateChanged(int)), this, SLOT(OnChange()));
+
+	ui.chkSimpleCopy->setChecked(theConf->GetBool("Options/PanelCopySimple", false));
+	ui.maxCellWidth->setValue(theConf->GetInt("Options/PanelCopyMaxCellWidth", 0));
+	ui.cellSeparator->setText(theConf->GetString("Options/PanelCopyCellSeparator", "\\t"));
+
+
 	struct SColor
 	{
 		QString Name;
@@ -106,7 +113,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	Colors.append(SColor { "KernelServices", tr("Kernel Services (Driver)"), "#FFC880"});
 	Colors.append(SColor { "GuiThread", tr("Gui threads"), "#AACCFF"});
 	Colors.append(SColor { "IsInherited", tr("Inherited handles"), "#77FFFF"});
-	Colors.append(SColor { "IsProtected", tr("Protected handles"), "#FF77FF"});
+	Colors.append(SColor { "IsProtected", tr("Protected handles/Critical tasks"), "#FF77FF"});
 #endif
 
 	Colors.append(SColor { "Executable", tr("Executable memory"), "#FF90E0"});
@@ -198,6 +205,9 @@ void CSettingsWindow::apply()
 
 	//theConf->SetValue("Options/OpenFileGetPosition", ui.chkOpenFilePos->isChecked());
 
+	theConf->SetValue("Options/PanelCopySimple", ui.chkSimpleCopy->isChecked());
+	theConf->SetValue("Options/PanelCopyMaxCellWidth", ui.maxCellWidth->value());
+	theConf->SetValue("Options/PanelCopyCellSeparator", ui.cellSeparator->text());
 
 
 	for (int i = 0; i < ui.colorList->count(); i++)
@@ -245,4 +255,7 @@ void CSettingsWindow::OnChange()
 	//ui.chkLinuxStyle->setEnabled(!ui.chkUseCycles->isChecked());
 	ui.chkToTray->setEnabled(ui.chkShowTray->isChecked());
 	ui.trayMode->setEnabled(ui.chkShowTray->isChecked());
+
+	ui.cellSeparator->setEnabled(ui.chkSimpleCopy->isChecked());
+	ui.maxCellWidth->setEnabled(!ui.chkSimpleCopy->isChecked());
 }

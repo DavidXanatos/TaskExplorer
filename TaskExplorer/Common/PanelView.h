@@ -9,6 +9,7 @@ public:
 
 	static void					SetSimpleFormat(bool bSimple) { m_SimpleFormat = bSimple; }
 	static void					SetMaxCellWidth(int iMaxWidth) { m_MaxCellWidth = iMaxWidth; }
+	static void					SetCellSeparator(const QString& Sep) { m_CellSeparator = Sep; }
 
 protected slots:
 	virtual void				OnMenu(const QPoint& Point);
@@ -48,6 +49,7 @@ protected:
 	QSet<int>					m_ForcedColumns;
 	static bool					m_SimpleFormat;
 	static int					m_MaxCellWidth;
+	static QString				m_CellSeparator;
 };
 
 template <class T>

@@ -27,9 +27,6 @@ public:
 		eCPU_History,
 #ifdef WIN32
 		eStartAddress,
-#endif
-		ePriority,
-#ifdef WIN32
 		eService,
 		eName,
 		eType,
@@ -40,6 +37,7 @@ public:
 #endif
 		eContextSwitches,
 		eContextSwitchesDelta,
+		ePriority,
 		eBasePriority,
 		ePagePriority,
 		eIOPriority,

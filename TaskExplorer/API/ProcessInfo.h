@@ -53,23 +53,19 @@ public:
 	virtual quint32 GetNumberOfThreads() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfThreads; }
 	virtual quint32 GetNumberOfHandles() const			{ QReadLocker Locker(&m_Mutex); return m_NumberOfHandles; }
 
-	virtual quint64 GetWorkingSetPrivateSize() const	{ QReadLocker Locker(&m_Mutex); return m_WorkingSetPrivateSize; }
 	virtual quint32 GetPeakNumberOfThreads() const		{ QReadLocker Locker(&m_Mutex); return m_PeakNumberOfThreads; }
 	virtual quint32 GetPeakNumberOfHandles() const = 0;
 
-	virtual quint64 GetPeakPrivateBytes() const = 0;
-	virtual quint64 GetWorkingSetSize() const = 0;
-	virtual quint64 GetPeakWorkingSetSize() const = 0;
-	virtual quint64 GetPrivateWorkingSetSize() const = 0;
+	virtual quint64 GetPeakPrivateBytes() const			{ QReadLocker Locker(&m_Mutex); return m_PeakPagefileUsage; }
+	virtual quint64 GetWorkingSetSize() const			{ QReadLocker Locker(&m_Mutex); return m_WorkingSetSize; }
+	virtual quint64 GetPeakWorkingSetSize() const		{ QReadLocker Locker(&m_Mutex); return m_PeakWorkingSetSize; }
+	virtual quint64 GetPrivateWorkingSetSize() const	{ QReadLocker Locker(&m_Mutex); return m_WorkingSetPrivateSize; }
+	virtual quint64 GetVirtualSize() const				{ QReadLocker Locker(&m_Mutex); return m_VirtualSize; }
+	virtual quint64 GetPeakVirtualSize() const			{ QReadLocker Locker(&m_Mutex); return m_PeakVirtualSize; }
+	//quint32 GetPageFaultCount() const					{ QReadLocker Locker(&m_Mutex); return m_PageFaultCount; }
+
 	virtual quint64 GetSharedWorkingSetSize() const = 0;
 	virtual quint64 GetShareableWorkingSetSize() const = 0;
-	virtual quint64 GetVirtualSize() const = 0;
-	virtual quint64 GetPeakVirtualSize() const = 0;
-	//virtual quint32 GetPageFaultCount() const = 0;
-	virtual quint64 GetPagedPool() const = 0;
-	virtual quint64 GetPeakPagedPool() const = 0;
-	virtual quint64 GetNonPagedPool() const = 0;
-	virtual quint64 GetPeakNonPagedPool() const = 0;
 	virtual quint64 GetMinimumWS() const = 0;
 	virtual quint64 GetMaximumWS() const = 0;
 
@@ -185,8 +181,15 @@ protected:
 	quint32							m_NumberOfThreads;
 	quint32							m_NumberOfHandles;
 
-	quint64							m_WorkingSetPrivateSize;
 	quint32							m_PeakNumberOfThreads;
+
+	quint64							m_PeakPagefileUsage;
+	quint64							m_WorkingSetSize;
+	quint64							m_PeakWorkingSetSize;
+	quint64							m_WorkingSetPrivateSize;
+	quint64							m_VirtualSize;
+	quint64							m_PeakVirtualSize;
+	//quint32							m_PageFaultCount;
 
 	quint32							m_NetworkUsageFlags;
 

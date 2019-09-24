@@ -3,6 +3,7 @@
 
 bool CPanelView::m_SimpleFormat = false;
 int CPanelView::m_MaxCellWidth = 0;
+QString CPanelView::m_CellSeparator = "\t";
 
 CPanelView::CPanelView(QWidget *parent)
 	:QWidget(parent)
@@ -22,6 +23,9 @@ void CPanelView::AddPanelItemsToMenu(bool bAddSeparator)
 		m_pMenu->addSeparator();
 	m_pCopyCell = m_pMenu->addAction(tr("Copy Cell"), this, SLOT(OnCopyCell()));
 	m_pCopyRow = m_pMenu->addAction(tr("Copy Row"), this, SLOT(OnCopyRow()));
+	m_pCopyRow->setShortcut(QKeySequence::Copy);
+	m_pCopyRow->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	this->addAction(m_pCopyRow);
 	m_pCopyPanel = m_pMenu->addAction(tr("Copy Panel"), this, SLOT(OnCopyPanel()));
 }
 
@@ -161,7 +165,7 @@ void CPanelView::FormatAndCopy(QList<QStringList> Rows, bool Headder)
 	if (m_SimpleFormat || !Headder)
 	{
 		foreach(const QStringList& Row, Rows)
-			TextRows.append(Row.join("\t"));
+			TextRows.append(Row.join(m_CellSeparator));
 	}
 	else if(Rows.size() > (Headder ? 3 : 0))
 	{

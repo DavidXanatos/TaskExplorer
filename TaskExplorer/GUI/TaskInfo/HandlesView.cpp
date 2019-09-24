@@ -7,6 +7,7 @@
 #include "../../API/Windows/ProcessHacker.h"
 #include "../../API/Windows/WinMemIO.h"
 #include "../../API/Windows/WindowsAPI.h"
+#include "../../API/Windows/ProcessHacker/appsup.h"	
 #endif
 #include "TaskInfoWindow.h"
 #include "TokenView.h"
@@ -631,8 +632,8 @@ retry:
 
 				if (!pTask)
 					Status = ERR("Not Found");
-				if (sender() == m_pTerminate)
-					Status = pTask->Terminate();
+				else if (sender() == m_pTerminate)
+					Status = pTask->Terminate(Force == 1);
 				else if (sender() == m_pSuspend)
 					Status = pTask->Suspend();
 				else if (sender() == m_pResume)

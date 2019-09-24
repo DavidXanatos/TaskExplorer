@@ -56,6 +56,7 @@ private:
 
 	//QLabel*					m_pJobNameLabel;
 	QLineEdit*				m_pJobName;
+	QLabel*					m_pJobId;
 	QPushButton*			m_pTerminate;
 
 	QSplitter*				m_pSplitter;

@@ -539,6 +539,12 @@
     <ClCompile Include="GUI\WaitChainDialog.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\appsup.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\syssccpu.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -617,6 +623,12 @@
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\pooltable.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\appsup.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\syssccpu.h">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
   </ItemGroup>

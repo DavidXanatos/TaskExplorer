@@ -32,10 +32,11 @@ private:
 	QGridLayout*			m_pSystemLayout;
 	QLabel*					m_pIcon;
 	QLabel*					m_pSystemName;
+	QLabel*					m_pSystemType;
 	QLabel*					m_pSystemVersion;
 	QLabel*					m_pSystemBuild;
 
-	QLabel*					m_pUpTime;
+	//QLabel*					m_pUpTime;
 	QLabel*					m_pHostName;
 	QLabel*					m_pUserName;
 	QLineEdit*				m_pSystemDir;

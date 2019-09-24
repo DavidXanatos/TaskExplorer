@@ -27,7 +27,7 @@ public:
 
 	virtual STATUS SetAffinityMask(quint64 Value);
 
-	virtual STATUS Terminate();
+	virtual STATUS Terminate(bool bForce);
 
 	virtual bool IsSuspended() const;
 	virtual STATUS Suspend();
@@ -63,6 +63,7 @@ protected:
 	bool InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread);
 	bool UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime);
 	bool UpdateExtendedData();
+	quint64 GetCPUCycles();
 	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 

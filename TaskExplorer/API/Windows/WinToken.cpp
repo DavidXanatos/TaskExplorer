@@ -110,18 +110,19 @@ NTSTATUS NTAPI CWinToken__OpenProcessToken(_Out_ PHANDLE Handle, _In_ ACCESS_MAS
 void CWinToken::OnSidResolved(const QByteArray& SID, const QString& Name)
 {
 	QWriteLocker Locker(&m_Mutex);
+
 	if(SID == m_UserSid)
 		m_UserName = Name;
-	else if(SID == m_OwnerSid)
+
+	if(SID == m_OwnerSid)
 		m_OwnerName = Name;
-	else if(SID == m_GroupSid)
+
+	if(SID == m_GroupSid)
 		m_GroupName = Name;
-	else
-	{
-		QMap<QByteArray, SGroup>::iterator I = m_Groups.find(SID);
-		if (I != m_Groups.end())
-			I.value().Name = Name;
-	}
+	
+	QMap<QByteArray, SGroup>::iterator I = m_Groups.find(SID);
+	if (I != m_Groups.end())
+		I.value().Name = Name;
 }
 
 CWinToken* CWinToken::NewSystemToken()

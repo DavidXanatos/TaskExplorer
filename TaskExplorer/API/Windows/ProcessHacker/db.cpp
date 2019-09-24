@@ -23,6 +23,7 @@
 
 #include "stdafx.h"
 #include "../ProcessHacker.h"
+#include "pooltable.h"
 
 PPH_STRING PoolTrimString(
     _In_ PPH_STRING String

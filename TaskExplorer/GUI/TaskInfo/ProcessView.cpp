@@ -6,6 +6,7 @@
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
 #include "../../API/Windows/WinModule.h"
+#include "../../API/Windows/ProcessHacker.h"
 #endif
 
 
@@ -13,9 +14,10 @@ CProcessView::CProcessView(QWidget *parent)
 	:QWidget(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	//m_pMainLayout->setMargin(0);
 	this->setLayout(m_pMainLayout);
 
+	/*
 	m_pScrollArea = new QScrollArea();
 	m_pMainLayout->addWidget(m_pScrollArea);
 
@@ -29,11 +31,14 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pInfoLayout = new QVBoxLayout();
 	m_pInfoWidget->setLayout(m_pInfoLayout);
+	*/
 
 	m_pStackedWidget = new QWidget();
 	m_pStackedLayout = new QStackedLayout();
 	m_pStackedWidget->setLayout(m_pStackedLayout);
-	m_pInfoLayout->addWidget(m_pStackedWidget);
+	//m_pInfoLayout->addWidget(m_pStackedWidget);
+	m_pMainLayout->addWidget(m_pStackedWidget);
+	m_pStackedWidget->setMaximumHeight(120 * theGUI->GetDpiScale());
 
 	m_pOneProcWidget = new QWidget();
 	m_pOneProcLayout = new QVBoxLayout();
@@ -65,15 +70,24 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pProcessVersion = new QLabel();
 	m_pFileLayout->addWidget(m_pProcessVersion, row++, 1);
 
-	m_pFileLayout->addWidget(new QLabel(tr("Image file name:")), row++, 0, 1, 2);
+	m_pFileLayout->addWidget(new QLabel(tr("Image file name:")), row, 0, 1, 1);
+	m_pSubSystem = new QLabel(tr("Subsystem:"));
+	m_pSubSystem->setAlignment(Qt::AlignRight);
+	m_pFileLayout->addWidget(m_pSubSystem, row++, 1, 1, 1);
 	m_pFilePath = new QLineEdit();
 	m_pFilePath->setReadOnly(true);
 	m_pFileLayout->addWidget(m_pFilePath, row++, 0, 1, 2);
 
+	m_pFileLayout->addItem(new QSpacerItem(20, 30, QSizePolicy::Expanding, QSizePolicy::Expanding), row++, 1);
 
-	m_pProcessBox = new QGroupBox(tr("Process"));
+	m_pTabWidget = new QTabWidget();
+	m_pMainLayout->addWidget(m_pTabWidget);
+
+
+	//m_pProcessBox = new QGroupBox(tr("Process"));
+	m_pProcessBox = new QWidget();
 	//m_pProcessBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	m_pOneProcLayout->addWidget(m_pProcessBox);
+	//m_pOneProcLayout->addWidget(m_pProcessBox);
 
 	m_pProcessLayout = new QGridLayout();
 	m_pProcessLayout->setSpacing(2);
@@ -91,10 +105,20 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pCurDir->setReadOnly(true);
 	m_pProcessLayout->addWidget(m_pCurDir, row++, 1, 1, 2);
 
+#ifdef WIN32
+	m_pProcessLayout->addWidget(new QLabel(tr("Used Desktop:")), row, 0);
+	m_pDesktop = new QLineEdit();
+	m_pDesktop->setReadOnly(true);
+	m_pProcessLayout->addWidget(m_pDesktop, row, 1, 1, 1);
+	m_pDPIAware = new QLabel();
+	m_pDPIAware->setMinimumWidth(100 * theGUI->GetDpiScale());
+	m_pProcessLayout->addWidget(m_pDPIAware, row++, 2);
+#else
 	m_pProcessLayout->addWidget(new QLabel(tr("User name:")), row, 0);
 	m_pUserName = new QLineEdit();
 	m_pUserName->setReadOnly(true);
 	m_pProcessLayout->addWidget(m_pUserName, row++, 1, 1, 2);
+#endif
 
 	m_pProcessLayout->addWidget(new QLabel(tr("PID/Parent PID:")), row, 0);
 	m_pProcessId = new QLineEdit();
@@ -106,29 +130,91 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pStartedBy->setReadOnly(true);
 	m_pProcessLayout->addWidget(m_pStartedBy, row++, 1, 1, 2);
 
-
 #ifdef WIN32
 	m_pProcessLayout->addWidget(new QLabel(tr("PEB address:")), row, 0);
 	m_pPEBAddress = new QLineEdit();
 	m_pPEBAddress->setReadOnly(true);
 	m_pProcessLayout->addWidget(m_pPEBAddress, row, 1, 1, 1);
-	m_ImageType = new QLabel();
-	m_ImageType->setMinimumWidth(100);
+	m_ImageType = new QLabel(tr("Image type:"));
+	m_ImageType->setMinimumWidth(100 * theGUI->GetDpiScale());
 	m_pProcessLayout->addWidget(m_ImageType, row++, 2);
+#endif
 
-	m_pProcessLayout->addWidget(new QLabel(tr("Mitigation policies:")), row, 0);
-	m_pMitigation = new QLineEdit();
-	m_pMitigation->setReadOnly(true);
-	m_pProcessLayout->addWidget(m_pMitigation, row, 1, 1, 1);
+	m_pProcessLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row, 0);
+
+#ifdef WIN32
+	//m_pSecurityBox = new QGroupBox(tr("Security"));
+	m_pSecurityBox = new QWidget();
+	//m_pSecurityBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	//m_pOneProcLayout->addWidget(m_pSecurityBox);
+
+	m_pSecurityLayout = new QGridLayout();
+	m_pSecurityLayout->setSpacing(2);
+	m_pSecurityBox->setLayout(m_pSecurityLayout);
+	row = 0;
+
+
+	m_pSecurityLayout->addWidget(new QLabel(tr("Verification: ")), row, 0);
+	m_pVerification = new QLabel();
+	m_pVerification->setSizePolicy(QSizePolicy::Expanding, m_pVerification->sizePolicy().verticalPolicy());
+	m_pSecurityLayout->addWidget(m_pVerification, row++, 1);
+
+	m_pSecurityLayout->addWidget(new QLabel(tr("Signer: ")), row, 0);
+	m_pSigner = new QLabel();
+	m_pSecurityLayout->addWidget(m_pSigner, row++, 1);
+
+
+	QLabel* pMitigation = new QLabel(tr("Mitigation policies:"));
+	pMitigation->setFixedHeight(20);
+	m_pSecurityLayout->addWidget(pMitigation, row, 0);
+
 	m_Protecetion = new QLabel();
-	m_pProcessLayout->addWidget(m_Protecetion, row++, 2);
+	m_pSecurityLayout->addWidget(m_Protecetion, row++, 2);
+
+	m_pMitigation = new CPanelWidgetEx();
+	m_pMitigation->GetView()->setItemDelegate(theGUI->GetItemDelegate());
+	m_pMitigation->GetTree()->setHeaderLabels(tr("Name|Description").split("|"));
+
+	m_pMitigation->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_pMitigation->GetView()->setSortingEnabled(false);
+
+	//m_pMitigation->setMinimumHeight(100 * theGUI->GetDpiScale());
+	//m_pMitigation->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
+
+	m_pSecurityLayout->addWidget(m_pMitigation, row++, 0, 1, 3);
+
+
+	//m_pAppBox = new QGroupBox(tr("App"));
+	m_pAppBox = new QWidget();
+	//m_pAppBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	//m_pOneProcLayout->addWidget(m_pAppBox);
+
+	m_pAppLayout = new QGridLayout();
+	m_pAppLayout->setSpacing(2);
+	m_pAppBox->setLayout(m_pAppLayout);
+	row = 0;
+
+	m_pAppLayout->addWidget(new QLabel(tr("App ID:")), row, 0);
+	m_pAppID = new QLineEdit();
+	//m_pAppID->setSizePolicy(QSizePolicy::Expanding, m_pAppID->sizePolicy().verticalPolicy());
+	m_pAppID->setReadOnly(true);
+	m_pAppLayout->addWidget(m_pAppID, row++, 1, 1, 1);
+
+	m_pAppLayout->addWidget(new QLabel(tr("Package Name:")), row, 0);
+	m_pPackageName = new QLineEdit();
+	//m_pPackageName->setSizePolicy(QSizePolicy::Expanding, m_pPackageName->sizePolicy().verticalPolicy());
+	m_pPackageName->setReadOnly(true);
+	m_pAppLayout->addWidget(m_pPackageName, row++, 1, 1, 1);
+
+	m_pAppLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row, 0);
 #endif
 
 	m_pMultiProcWidget = new QWidget();
 	m_pMultiProcLayout = new QVBoxLayout();
 	m_pMultiProcLayout->setMargin(0);
 	m_pMultiProcWidget->setLayout(m_pMultiProcLayout);
-	m_pInfoLayout->addWidget(m_pMultiProcWidget);
+	//m_pInfoLayout->addWidget(m_pMultiProcWidget);
+	m_pMainLayout->addWidget(m_pMultiProcWidget);
 	//m_pMultiProcWidget->setVisible(false);
 	m_pStackedLayout->addWidget(m_pMultiProcWidget);
 
@@ -148,7 +234,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pProcessList = new QTreeViewEx();
 	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pProcessList->setMinimumHeight(50);
+	m_pProcessList->setMinimumHeight(50 * theGUI->GetDpiScale());
 
 	m_pProcessList->setModel(m_pSortProxy);
 
@@ -167,7 +253,13 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pStatsView = new CStatsView(CStatsView::eProcess, this);
 	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
-	m_pInfoLayout->addWidget(m_pStatsView);
+	//m_pInfoLayout->addWidget(m_pStatsView);
+
+
+	m_pTabWidget->addTab(m_pStatsView, "Statistics");
+	m_pTabWidget->addTab(m_pProcessBox, "Details");
+	m_pTabWidget->addTab(m_pSecurityBox, "Security");
+	m_pTabWidget->addTab(m_pAppBox, "App");
 
 	/*QWidget* pSpacer = new QWidget();
 	pSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -183,6 +275,7 @@ CProcessView::CProcessView(QWidget *parent)
 		 || (i >= CProcessModel::eCPU && i <= CProcessModel::eCyclesDelta)
 		 || (i >= CProcessModel::ePrivateBytes && i <= CProcessModel::ePrivateBytesDelta)
 		 || (i >= CProcessModel::eGPU_Usage && i <= CProcessModel::eGPU_Adapter)
+		 || (i >= CProcessModel::ePriorityClass && i <= CProcessModel::eIO_Priority)
 		 || (i >= CProcessModel::eHandles && i <= CProcessModel::ePeakThreads)
 		 || (i >= CProcessModel::eSubsystem && i <= CProcessModel::eSessionID)
 		 || (i >= CProcessModel::eIO_TotalRate && i <= CProcessModel::eIO_OtherRate)
@@ -200,12 +293,16 @@ CProcessView::CProcessView(QWidget *parent)
 		OnResetColumns();
 	else
 		m_pProcessList->restoreState(Columns);
+	m_pMitigation->GetTree()->header()->restoreState(theConf->GetBlob(objectName() + "/Mitigation_Columns"));
+	m_pTabWidget->setCurrentIndex(theConf->GetValue(objectName() + "/Process_Tabs").toInt());
 }
 
 
 CProcessView::~CProcessView()
 {
 	theConf->SetBlob(objectName() + "/Processes_Columns", m_pProcessList->saveState());
+	theConf->SetBlob(objectName() + "/Mitigation_Columns", m_pMitigation->GetTree()->header()->saveState());
+	theConf->SetValue(objectName() + "/Process_Tabs", m_pTabWidget->currentIndex());
 }
 
 void CProcessView::OnResetColumns()
@@ -241,6 +338,9 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			//m_pMultiProcWidget->setVisible(false);
 			//m_pOneProcWidget->setVisible(true);
 			m_pStackedLayout->setCurrentWidget(m_pOneProcWidget);
+			m_pProcessBox->setEnabled(true);
+			m_pSecurityBox->setEnabled(true);
+			m_pAppBox->setEnabled(true);
 
 			if (m_Processes.count() == 1)
 			{
@@ -273,8 +373,9 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 				m_pCmdLine->setText(pProcess->GetCommandLineStr());
 				m_pCurDir->setText(pProcess->GetWorkingDirectory());
 				m_pProcessId->setText(tr("%1/%2").arg(pProcess->GetProcessId()).arg(pProcess->GetParentId()));
+#ifndef WIN32
 				m_pUserName->setText(pProcess->GetUserName());
-
+#endif
 
 				CProcessPtr pParent = theAPI->GetProcessByID(pProcess->GetParentId());
 				if (!pProcess->ValidateParent(pParent.data()))
@@ -286,6 +387,20 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 				CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
 
 				CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
+
+				quint32 Subsystem = pWinProc->GetSubsystem();
+				bool bConsole = false;
+				if (pWinProc->GetOsContextVersion() != 0 && (Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI || (bConsole = (Subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI))))
+					m_pSubSystem->setText(tr("Subsystem: Windows %1%2").arg(pWinProc->GetOsContextString()).arg(bConsole ? tr(" console") : tr("")));
+				else
+					m_pSubSystem->setText(tr("Subsystem: %1").arg(pWinProc->GetSubsystemString()));
+
+				m_pVerification->setText(pWinModule ? pWinModule->GetVerifyResultString() : "");
+				m_pSigner->setText(pWinModule ? pWinModule->GetVerifySignerName() : "");
+
+				m_pDesktop->setText(pWinProc->GetUsedDesktop());
+				m_pDPIAware->setText(tr("DPI Scaling: %1").arg(pWinProc->GetDPIAwarenessString()));
+
 				if (!pWinModule)
 					m_pPEBAddress->setText("");
 				else if (pWinProc->IsWoW64())
@@ -295,8 +410,21 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 				m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
 
-				m_pMitigation->setText(pWinProc->GetMitigationString());
+				//m_pMitigation->setText(pWinProc->GetMitigationString());
 				m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
+
+				m_pMitigation->GetTree()->clear();
+				QList<QPair<QString, QString>> List = pWinProc->GetMitigationDetails();
+				for (int i = 0; i < List.count(); i++)
+				{
+					QTreeWidgetItem* pItem = new QTreeWidgetItem();
+					pItem->setText(0, List[i].first);
+					pItem->setText(1, List[i].second);
+					m_pMitigation->GetTree()->addTopLevelItem(pItem);
+				}
+
+				m_pAppID->setText(pWinProc->GetAppID());
+				m_pPackageName->setText(pWinProc->GetPackageName());
 #endif
 			}
 		}
@@ -305,6 +433,10 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			//m_pMultiProcWidget->setVisible(true);
 			//m_pOneProcWidget->setVisible(false);
 			m_pStackedLayout->setCurrentWidget(m_pMultiProcWidget);
+			m_pProcessBox->setEnabled(false);
+			m_pSecurityBox->setEnabled(false);
+			m_pAppBox->setEnabled(false);
+			m_pTabWidget->setCurrentIndex(0);
 		}
 	}
 

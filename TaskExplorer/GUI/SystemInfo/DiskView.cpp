@@ -48,8 +48,8 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pScrollLayout->addWidget(m_pGraphTabs, 0, 0, 1, 3);
 
 	m_pDiskPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pDiskPlot->setMinimumHeight(120);
-	m_pDiskPlot->setMinimumWidth(50);
+	m_pDiskPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pDiskPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pDiskPlot->SetupLegend(Front, tr("Disk Usage"), CIncrementalPlot::eDate);
 	m_pDiskPlot->SetRagne(100);
 	m_pDiskPlot->SetLimit(m_PlotLimit);
@@ -62,15 +62,15 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pGraphTabs->addTab(m_pWRPlotWidget, tr("Data Rates"));
 
 	m_pReadPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pReadPlot->setMinimumHeight(120);
-	m_pReadPlot->setMinimumWidth(50);
+	m_pReadPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pReadPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pReadPlot->SetupLegend(Front, tr("Read Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pReadPlot->SetLimit(m_PlotLimit);
 	m_pWRPlotLayout->addWidget(m_pReadPlot);
 
 	m_pWritePlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pWritePlot->setMinimumHeight(120);
-	m_pWritePlot->setMinimumWidth(50);
+	m_pWritePlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pWritePlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pWritePlot->SetupLegend(Front, tr("Write Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pWritePlot->SetLimit(m_PlotLimit);
 	m_pWRPlotLayout->addWidget(m_pWritePlot);
@@ -84,8 +84,8 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pGraphTabs->addTab(m_pIOPlotWidget, tr("IO Rates"));
 
 	m_pFileIOPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pFileIOPlot->setMinimumHeight(120);
-	m_pFileIOPlot->setMinimumWidth(50);
+	m_pFileIOPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pFileIOPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pFileIOPlot->SetupLegend(Front, tr("File IO"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pFileIOPlot->SetLimit(m_PlotLimit);
 	m_pIOPlotLayout->addWidget(m_pFileIOPlot);
@@ -95,8 +95,8 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pFileIOPlot->AddPlot("FileIO_Other", Qt::blue, Qt::SolidLine, false, tr("Other Rate"));
 
 	m_pMMapIOPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pMMapIOPlot->setMinimumHeight(120);
-	m_pMMapIOPlot->setMinimumWidth(50);
+	m_pMMapIOPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pMMapIOPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pMMapIOPlot->SetupLegend(Front, tr("MMap IO"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pMMapIOPlot->SetLimit(m_PlotLimit);
 	m_pIOPlotLayout->addWidget(m_pMMapIOPlot);
@@ -112,7 +112,7 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pDiskList->GetTree()->setHeaderLabels(tr("Disk Name|Usage|Latency|Queue|Read Rate|Bytes Read Delta|Bytes Read|Reads Delta|Reads|Write Rate|Bytes Writen Delta|Bytes Writen|Writes Delta|Writes|Device Path").split("|"));
 	m_pDiskList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pDiskList->GetTree()->setSortingEnabled(true);
-	m_pDiskList->GetTree()->setMinimumHeight(100);
+	m_pDiskList->GetTree()->setMinimumHeight(100 * theGUI->GetDpiScale());
 	m_pDiskList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
 	m_pDiskList->GetTree()->setColumnReset(2);

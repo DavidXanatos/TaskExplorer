@@ -113,7 +113,7 @@ public:
 protected:
 	friend class CWinProcess;
 	
-	bool InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, quint64 ProcessHandle, bool IsHandleValid, bool IsWow64);
+	bool InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, bool IsWow64);
 
     quint16						m_ImageSubsystem;
 	quint64						m_PebBaseAddress;

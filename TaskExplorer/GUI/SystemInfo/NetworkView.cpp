@@ -46,15 +46,15 @@ CNetworkView::CNetworkView(QWidget *parent)
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pDlPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pDlPlot->setMinimumHeight(120);
-	m_pDlPlot->setMinimumWidth(50);
+	m_pDlPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pDlPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pDlPlot->SetupLegend(Front, tr("Download Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pDlPlot->SetLimit(m_PlotLimit);
 	m_pScrollLayout->addWidget(m_pDlPlot, 0, 0, 1, 3);
 
 	m_pUlPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pUlPlot->setMinimumHeight(120);
-	m_pUlPlot->setMinimumWidth(50);
+	m_pUlPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pUlPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pUlPlot->SetupLegend(Front, tr("Upload Rate"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pUlPlot->SetLimit(m_PlotLimit);
 	m_pScrollLayout->addWidget(m_pUlPlot, 1, 0, 1, 3);
@@ -68,7 +68,7 @@ CNetworkView::CNetworkView(QWidget *parent)
 	m_pNICList->GetTree()->setHeaderLabels(tr("Adapter|State|Speed|Receive Rate|Bytes Receive Delta|Bytes Receive|Receives Delta|Receives|Send Rate|Bytes Sent Delta|Bytes Sent|Send Delta|Sent|Address|Gateway|DNS|Domain|Interface").split("|"));
 	m_pNICList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pNICList->GetTree()->setSortingEnabled(true);
-	m_pNICList->GetTree()->setMinimumHeight(100);
+	m_pNICList->GetTree()->setMinimumHeight(100 * theGUI->GetDpiScale());
 	m_pNICList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
 
 	m_pNICList->GetTree()->setColumnReset(2);

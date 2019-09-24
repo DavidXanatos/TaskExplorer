@@ -6,6 +6,7 @@
 #include "../../API/Windows/ProcessHacker/AssemblyEnum.h"
 #include "../../API/Windows/ProcessHacker.h"
 #include "../../API/Windows/ProcessHacker/DotNetCounters.h"
+#include "../../API/Windows/ProcessHacker/appsup.h"	
 
 
 CDotNetView::CDotNetView(QWidget *parent)

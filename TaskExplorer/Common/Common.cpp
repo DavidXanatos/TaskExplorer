@@ -55,6 +55,39 @@ quint64 GetCurTick()
 	return g_CurTick.Get();
 }
 
+QString UnEscape(QString Text)
+{
+	QString Value;
+	bool bEsc = false;
+	for(int i = 0; i < Text.size(); i++)
+	{
+		QChar Char = Text.at(i);
+		if(bEsc)
+		{
+			switch(Char.unicode())
+			{
+				case L'\\':	Value += L'\\';	break;
+				case L'\'':	Value += L'\'';	break;
+				case L'\"':	Value += L'\"';	break;
+				case L'a':	Value += L'\a';	break;
+				case L'b':	Value += L'\b';	break;
+				case L'f':	Value += L'\f';	break;
+				case L'n':	Value += L'\n';	break;
+				case L'r':	Value += L'\r';	break;
+				case L't':	Value += L'\t';	break;
+				case L'v':	Value += L'\v';	break;
+				default:	Value += Char.unicode();break;
+			}
+			bEsc = false;
+		}
+		else if(Char == L'\\')
+			bEsc = true;
+		else
+			Value += Char;
+	}	
+	return Value;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // Other Functions
 // 

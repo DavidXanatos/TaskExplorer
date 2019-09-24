@@ -139,6 +139,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		else if (pProcess->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
 		else if (pWinProc->TokenHasChanged())		RowColor = CTaskExplorer::eDangerous;
+		else if (pWinProc->IsCriticalProcess())		RowColor = CTaskExplorer::eIsProtected;
 #endif
 		else if (pProcess->IsServiceProcess())		RowColor = CTaskExplorer::eService;
 		else if (pProcess->IsSystemProcess())		RowColor = CTaskExplorer::eSystem;
@@ -208,7 +209,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eIO_History:			Value = qMax(Stats.Disk.ReadRate.Get(), Stats.Io.ReadRate.Get()) + qMax(Stats.Disk.WriteRate.Get(), Stats.Io.WriteRate.Get()) + Stats.Io.OtherRate.Get(); break;
 				case eIO_TotalRate:			Value = CurIntValue = Stats.Io.ReadRate.Get() + Stats.Io.WriteRate.Get() + Stats.Io.OtherRate.Get(); break;
 				case eStaus:				Value = pProcess->GetStatusString(); break;
-				case ePrivateBytes:			Value = CurIntValue = pProcess->GetWorkingSetPrivateSize(); break;
+				case ePrivateBytes:			Value = CurIntValue = CpuStats.PrivateBytesDelta.Value; break;
 				case eUserName:				Value = pProcess->GetUserName(); break;
 #ifdef WIN32
 				case eServices:				Value = pWinProc->GetServiceList().join(tr(", ")); break;
@@ -308,11 +309,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 #ifdef WIN32
 				case eOS_Context:			Value = (quint32)pWinProc->GetOsContextVersion(); break;
+				case ePagedPool:			Value = CurIntValue = pWinProc->GetPagedPool(); break;
+				case ePeakPagedPool:		Value = CurIntValue = pWinProc->GetPeakPagedPool(); break;
+				case eNonPagedPool:			Value = CurIntValue = pWinProc->GetNonPagedPool(); break;
+				case ePeakNonPagedPool:		Value = CurIntValue = pWinProc->GetPeakNonPagedPool(); break;
 #endif
-				case ePagedPool:			Value = CurIntValue = pProcess->GetPagedPool(); break;
-				case ePeakPagedPool:		Value = CurIntValue = pProcess->GetPeakPagedPool(); break;
-				case eNonPagedPool:			Value = CurIntValue = pProcess->GetNonPagedPool(); break;
-				case ePeakNonPagedPool:		Value = CurIntValue = pProcess->GetPeakNonPagedPool(); break;
 				case eMinimumWS:			Value = /*CurIntValue =*/ pProcess->GetMinimumWS(); break;
 				case eMaximumWS:			Value = /*CurIntValue =*/ pProcess->GetMaximumWS(); break;
 				case ePrivateBytesDelta:	Value = /*CurIntValue =*/ CpuStats.PrivateBytesDelta.Delta; break;
@@ -329,8 +330,8 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #ifdef WIN32
 				case eJobObjectID:			Value = pWinProc->GetJobObjectID(); break;
 				case eProtection:			Value = (int)pWinProc->GetProtection(); break;
-				case eDesktop:				Value = pWinProc->GetDesktopInfo(); break;
-				case eCritical:				Value = pWinProc->IsCriticalProcess() ? tr("Critical") : ""; break;
+				case eDesktop:				Value = pWinProc->GetUsedDesktop(); break;
+				case eCritical:				Value = pWinProc->IsCriticalProcess(); break;
 
 				case eRunningTime:			Value = pWinProc->GetUpTime(); break;
 				case eSuspendedTime:		Value = pWinProc->GetSuspendTime(); break;
@@ -432,10 +433,12 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eShareableWS:
 					case eVirtualSize:
 					case ePeakVirtualSize:
+#ifdef WIN32
 					case ePagedPool:
 					case ePeakPagedPool:
 					case eNonPagedPool:
 					case ePeakNonPagedPool:
+#endif
 					case eMinimumWS:
 					case eMaximumWS:
 
@@ -511,6 +514,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case ePriorityClass:	ColValue.Formated = pProcess->GetPriorityString(); break;
 #ifdef WIN32
 					case eIntegrity:		ColValue.Formated = pToken ? pToken->GetIntegrityString() : "";  break;
+					case eCritical:			ColValue.Formated = pWinProc->IsCriticalProcess() ? tr("Critical") : ""; break;
 #endif
 					case eSubsystem:		ColValue.Formated = pProcess->GetSubsystemString(); break;
 #ifdef WIN32
@@ -775,11 +779,11 @@ QString CProcessModel::GetColumHeader(int section) const
 
 #ifdef WIN32
 		case eOS_Context:			return tr("OS context");
-#endif
 		case ePagedPool:			return tr("Paged pool");
 		case ePeakPagedPool:		return tr("Peak paged pool");
 		case eNonPagedPool:			return tr("Non-paged pool");
 		case ePeakNonPagedPool:		return tr("Peak non-paged pool");
+#endif
 		case eMinimumWS:			return tr("Minimum working set");
 		case eMaximumWS:			return tr("Maximum working set");
 		case ePrivateBytesDelta:	return tr("Private bytes delta");
@@ -797,7 +801,7 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eJobObjectID:			return tr("Job Object ID");
 		case eProtection:			return tr("Protection");
 		case eDesktop:				return tr("Desktop");
-		case eCritical:				return tr("Critical");
+		case eCritical:				return tr("Critical Process");
 
 		case eRunningTime:			return tr("Running Time");
 		case eSuspendedTime:		return tr("Suspended Time");

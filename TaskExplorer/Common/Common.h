@@ -18,6 +18,7 @@ typedef QPair<QString,QString> StrPair;
 StrPair Split2(const QString& String, QString Separator = "=", bool Back = false);
 QStringList SplitStr(const QString& String, QString Separator);
 
+QString UnEscape(QString Text);
 
 QString FormatSize(quint64 Size, int Precision = 2);
 __inline QString FormatSizeEx(quint64 Size, bool bEx) { return bEx && (Size == 0) ? QString() : FormatSize(Size); }

@@ -26,6 +26,8 @@ CSystemInfoView::CSystemInfoView(QWidget* patent)
 	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
 	QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
 	RebuildTabs(ActiveTab, VisibleTabs);
+
+	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 
@@ -75,9 +77,6 @@ void CSystemInfoView::InitializeTabs()
 
 	m_pServicesView = new CServicesView(true, this);
 	AddTab(m_pServicesView, tr("Services"));
-
-
-	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 void CSystemInfoView::OnTab(int tabIndex)

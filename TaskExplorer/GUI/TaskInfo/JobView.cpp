@@ -17,21 +17,26 @@ CJobView::CJobView(QWidget *parent)
 	m_pJobName = new QLineEdit();
 	m_pJobName->setSizePolicy(QSizePolicy::Expanding, m_pJobName->sizePolicy().verticalPolicy());
 	m_pMainLayout->addWidget(m_pJobName, row, 1);
+
+	m_pMainLayout->addWidget(new QLabel(tr("Job object Id:")), row, 2);
+	m_pJobId = new QLabel();
+	m_pMainLayout->addWidget(m_pJobId, row, 3);
+
 	m_pTerminate = new QPushButton(tr("Terminate"));
 	connect(m_pTerminate, SIGNAL(pressed()), this, SLOT(OnTerminate()));
-	m_pMainLayout->addWidget(m_pTerminate, row++, 2);
+	m_pMainLayout->addWidget(m_pTerminate, row++, 4);
 
-	m_pMainLayout->addWidget(new QLabel(tr("Processes in job:")), row, 0, 1 , 2);
+	m_pMainLayout->addWidget(new QLabel(tr("Processes in job:")), row, 0, 1, 4);
 	//m_pPermissions = new QPushButton(tr("Permissions"));
 	//connect(m_pPermissions, SIGNAL(pressed()), this, SLOT(OnPermissions()));
 	//m_pMainLayout->addWidget(m_pPermissions, row++, 2);
 	m_pAddProcess = new QPushButton(tr("Add process"));
 	connect(m_pAddProcess, SIGNAL(pressed()), this, SLOT(OnAddProcess()));
-	m_pMainLayout->addWidget(m_pAddProcess, row++, 2);
+	m_pMainLayout->addWidget(m_pAddProcess, row++, 4);
 
 	m_pSplitter = new QSplitter();
 	m_pSplitter->setOrientation(Qt::Vertical);
-	m_pMainLayout->addWidget(m_pSplitter, row++, 0, 1, 3);
+	m_pMainLayout->addWidget(m_pSplitter, row++, 0, 1, 5);
 
 	// Process List
 	m_pProcessModel = new CProcessModel();
@@ -48,7 +53,7 @@ CJobView::CJobView(QWidget *parent)
 
 	m_pProcessList = new QTreeViewEx();
 	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pProcessList->setMinimumHeight(50);
+	m_pProcessList->setMinimumHeight(50 * theGUI->GetDpiScale());
 
 	m_pProcessList->setModel(m_pSortProxy);
 
@@ -103,7 +108,7 @@ CJobView::CJobView(QWidget *parent)
 
 	m_pPermissions = new QPushButton(tr("Permissions"));
 	connect(m_pPermissions, SIGNAL(pressed()), this, SLOT(OnPermissions()));
-	m_pMainLayout->addWidget(m_pPermissions, row++, 2);
+	m_pMainLayout->addWidget(m_pPermissions, row++, 4);
 
 	//m_pMenu = new QMenu();
 	
@@ -119,6 +124,7 @@ CJobView::CJobView(QWidget *parent)
 		 || (i >= CProcessModel::eCPU && i <= CProcessModel::eCyclesDelta)
 		 || (i >= CProcessModel::ePrivateBytes && i <= CProcessModel::ePrivateBytesDelta)
 		 || (i >= CProcessModel::eGPU_Usage && i <= CProcessModel::eGPU_Adapter)
+		 || (i >= CProcessModel::ePriorityClass && i <= CProcessModel::eIO_Priority)
 		 || (i >= CProcessModel::eHandles && i <= CProcessModel::ePeakThreads)
 		 || (i >= CProcessModel::eSubsystem && i <= CProcessModel::eSessionID && i != CProcessModel::eJobObjectID)
 		 || (i >= CProcessModel::eIO_TotalRate && i <= CProcessModel::eIO_OtherRate)
@@ -201,6 +207,8 @@ void CJobView::ShowJob(const CWinJobPtr& pJob)
 			return;
 
 		m_pJobName->setText(m_pCurJob->GetJobName());
+		if(m_pCurProcess)
+			m_pJobId->setText(QString::number(m_pCurProcess->GetJobObjectID()));
 	}
 
 	Refresh();

@@ -13,8 +13,15 @@ CProcessInfo::CProcessInfo(QObject *parent) : CAbstractTask(parent)
 	m_NumberOfThreads = 0;
 	m_NumberOfHandles = 0;
 
-	m_WorkingSetPrivateSize = 0;
 	m_PeakNumberOfThreads = 0;
+
+	m_PeakPagefileUsage = 0;
+	m_WorkingSetSize = 0;
+	m_PeakWorkingSetSize = 0;
+	m_WorkingSetPrivateSize = 0;
+	m_VirtualSize = 0;
+	m_PeakVirtualSize = 0;
+	//m_PageFaultCount = 0;
 
 	m_NetworkUsageFlags = 0;
 

@@ -31,14 +31,18 @@ struct SWinThread
 {
 	SWinThread()
 	{
+		UniqueThreadId = NULL;
 		ThreadHandle = NULL;
+		LastExtendedUpdate = GetCurTick();
 		StartAddressResolveLevel = PhsrlAddress;
 		memset(&idealProcessorNumber, 0, sizeof(PROCESSOR_NUMBER));
 
 		CreateTime.QuadPart = 0;
 	}
 
+	HANDLE UniqueThreadId;
 	HANDLE ThreadHandle;
+	quint64 LastExtendedUpdate;
 	PH_SYMBOL_RESOLVE_LEVEL StartAddressResolveLevel;
 
 	PROCESSOR_NUMBER idealProcessorNumber;
@@ -77,6 +81,7 @@ bool CWinThread::InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFOR
 	m_CreateTimeStamp = FILETIME2ms(m->CreateTime.QuadPart);
 
     // Try to open a handle to the thread.
+	m->UniqueThreadId = thread->ClientId.UniqueThread;
     if (!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION, thread->ClientId.UniqueThread)))
     {
         PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, thread->ClientId.UniqueThread);
@@ -101,15 +106,6 @@ bool CWinThread::InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFOR
 
     m_StartAddress = (ULONG64)startAddress;
 	m_StartAddressString = FormatAddress(m_StartAddress); // this will be replaced with the resolved symbol
-
-	if (WindowsVersion >= WINDOWS_10_RS1)
-    {
-        PPH_STRING threadName;
-        if (NT_SUCCESS(PhGetThreadName(m->ThreadHandle, &threadName)))
-        {
-            m_ThreadName = CastPhString(threadName);
-        }
-    }
 
 	return true;
 }
@@ -148,36 +144,20 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 
     // Update the context switch count.
     {
-        ULONG oldDelta;
-
-        oldDelta = m_CpuStats.ContextSwitchesDelta.Delta;
+        ULONG oldDelta = m_CpuStats.ContextSwitchesDelta.Delta;
         m_CpuStats.ContextSwitchesDelta.Update(thread->ContextSwitches);
-
         if (m_CpuStats.ContextSwitchesDelta.Delta != oldDelta)
-        {
             modified = TRUE;
-        }
     }
 
-    // Update the cycle count.
-	if(sysTotalTime == 0)
+	// Update the cycle count.
+	if (m->ThreadHandle)
 	{
-        ULONG64 cycles = 0;
-        ULONG64 oldDelta;
-
-        oldDelta = m_CpuStats.CycleDelta.Delta;
-
-
-		if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
-			PhGetThreadCycleTime(m->ThreadHandle, &cycles);
-		else
-			cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
-
-		m_CpuStats.CycleDelta.Update(cycles);
-
-        if (m_CpuStats.CycleDelta.Delta != oldDelta)
-            modified = TRUE;
-    }
+		ULONG64 oldDelta = m_CpuStats.CycleDelta.Delta;
+		m_CpuStats.CycleDelta.Update(GetCPUCycles());
+		if (m_CpuStats.CycleDelta.Delta != oldDelta)
+			modified = TRUE;
+	}
 
     // Update the CPU time deltas.
     m_CpuStats.CpuKernelDelta.Update(m_KernelTime);
@@ -185,7 +165,24 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 
 	m_CpuStats.UpdateStats(sysTotalTime);
 
+	// Note: dont keep the handle open for thereads we are not looking at.
+	if (m->ThreadHandle != NULL && GetCurTick() - m->LastExtendedUpdate > 5 * 1000)
+	{
+		NtClose(m->ThreadHandle);
+		m->ThreadHandle = NULL;
+	}
+
 	return modified;
+}
+
+quint64 CWinThread::GetCPUCycles()
+{
+	ULONG64 cycles = 0;
+	if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
+		PhGetThreadCycleTime(m->ThreadHandle, &cycles);
+	else
+		cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
+	return cycles;
 }
 
 void CWinThread::UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime)
@@ -199,6 +196,21 @@ bool CWinThread::UpdateExtendedData()
 {
 	QWriteLocker Locker(&m_Mutex);
 
+	m->LastExtendedUpdate = GetCurTick();
+	if (m->ThreadHandle == NULL)
+	{
+		// Try to open a handle to the thread.
+		if (!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION, m->UniqueThreadId)))
+		{
+			if(!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, m->UniqueThreadId)))
+				return false;
+		}
+
+		// without this we will get a cpu usage spike when starting to display this thread
+		QWriteLocker StatsLocker(&m_StatsMutex);
+		m_CpuStats.CycleDelta.Update(GetCPUCycles());
+	}
+
 	BOOLEAN modified = FALSE;
 
 	// Update the GUI thread status.
@@ -210,6 +222,16 @@ bool CWinThread::UpdateExtendedData()
 
         if (m_IsGuiThread != oldIsGuiThread)
             modified = TRUE;
+    }
+
+	// Thread debug name
+	if (WindowsVersion >= WINDOWS_10_RS1)
+    {
+        PPH_STRING threadName;
+        if (NT_SUCCESS(PhGetThreadName(m->ThreadHandle, &threadName)))
+        {
+            m_ThreadName = CastPhString(threadName);
+        }
     }
 
     // Update the base priority increment.
@@ -367,23 +389,12 @@ QString CWinThread::GetStateString() const
             State = tr("Waiting");
     }
 
-    /*if (threadItem->ThreadHandle)
+    if (m->ThreadHandle)
     {
 		ULONG suspendCount;
-        if (threadItem->WaitReason == Suspended && NT_SUCCESS(PhGetThreadSuspendCount(threadItem->ThreadHandle, &suspendCount)))
-        {
-            PH_FORMAT format[4];
-
-            PhInitFormatSR(&format[0], node->StateText->sr);
-            PhInitFormatS(&format[1], L" (");
-            PhInitFormatU(&format[2], suspendCount);
-            PhInitFormatS(&format[3], L")");
-
-            PhMoveReference(&node->StateText, PhFormat(format, 4, 30));
-        }
+        if (m_WaitReason == Suspended && NT_SUCCESS(PhGetThreadSuspendCount(m->ThreadHandle, &suspendCount)))
+			State.append(tr(" (%1)").arg(suspendCount));
     }
-
-    getCellText->Text = PhGetStringRef(node->StateText);*/
 
 	return State;
 }
@@ -535,14 +546,28 @@ STATUS CWinThread::SetAffinityMask(quint64 Value)
 	return OK;
 }
 
-STATUS CWinThread::Terminate()
+STATUS CWinThread::Terminate(bool bForce)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
     NTSTATUS status;
     HANDLE threadHandle;
-    if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_TERMINATE, (HANDLE)m_ThreadId)))
+    if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_QUERY_INFORMATION | THREAD_TERMINATE, (HANDLE)m_ThreadId)))
     {
+#ifndef SAFE_MODE // in safe mode always check and fail
+		if (!bForce)
+#endif
+		{
+			BOOLEAN breakOnTermination;
+			PhGetThreadBreakOnTermination(threadHandle, &breakOnTermination);
+
+			if (breakOnTermination /*m_IsCritical*/)
+			{
+				NtClose(threadHandle);
+				return ERR(tr("You are about to terminate one or more critical threads. This will shut down the operating system immediately."), ERROR_CONFIRM);
+			}
+		}
+
         status = NtTerminateThread(threadHandle, STATUS_SUCCESS);
         NtClose(threadHandle);
     }

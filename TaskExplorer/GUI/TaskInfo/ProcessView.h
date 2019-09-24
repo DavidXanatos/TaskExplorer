@@ -35,10 +35,10 @@ protected:
 private:
 	QVBoxLayout*			m_pMainLayout;
 
-	QScrollArea*			m_pScrollArea;
+	/*QScrollArea*			m_pScrollArea;
 
 	QWidget*				m_pInfoWidget;
-	QVBoxLayout*			m_pInfoLayout;
+	QVBoxLayout*			m_pInfoLayout;*/
 
 	QWidget*				m_pStackedWidget;
 	QStackedLayout*			m_pStackedLayout;
@@ -52,13 +52,22 @@ private:
 	QLabel*					m_pProcessName;
 	QLabel*					m_pCompanyName;
 	QLabel*					m_pProcessVersion;
+	QLabel*					m_pSubSystem;
 	QLineEdit*				m_pFilePath;
 
-	QGroupBox*				m_pProcessBox;
+	QTabWidget*				m_pTabWidget;
+
+	//QGroupBox*				m_pProcessBox;
+	QWidget*				m_pProcessBox;
 	QGridLayout*			m_pProcessLayout;
 	QLineEdit*				m_pCmdLine;
 	QLineEdit*				m_pCurDir;
+#ifdef WIN32
+	QLineEdit*				m_pDesktop;
+	QLabel*					m_pDPIAware;
+#else
 	QLineEdit*				m_pUserName;
+#endif
 	QLineEdit*				m_pProcessId;
 	QLineEdit*				m_pStartedBy;
 
@@ -73,9 +82,25 @@ private:
 #ifdef WIN32
 	QLineEdit*				m_pPEBAddress;
 	QLabel*					m_ImageType;
-	QLineEdit*				m_pMitigation;
+
+	//QGroupBox*				m_pSecurityBox;
+	QWidget*				m_pSecurityBox;
+	QGridLayout*			m_pSecurityLayout;
+
+	QLabel*					m_pVerification;
+	QLabel*					m_pSigner;
+
+	CPanelWidgetEx*			m_pMitigation;
 	QLabel*					m_Protecetion;
+
+	//QGroupBox*				m_pAppBox;
+	QWidget*				m_pAppBox;
+	QGridLayout*			m_pAppLayout;
+
+	QLineEdit*				m_pAppID;
+	QLineEdit*				m_pPackageName;
 #endif
+
 
 	CStatsView*				m_pStatsView;
 };

@@ -5,6 +5,7 @@
 #include "../../Common/Finder.h"
 #ifdef WIN32
 #include "../../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/ProcessHacker/appsup.h"	
 #endif
 
 CModulesView::CModulesView(bool bGlobal, QWidget *parent)

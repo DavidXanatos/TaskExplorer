@@ -35,6 +35,7 @@
 #include "WinModule.h"
 #include "WinWnd.h"
 #include "ProcessHacker/memprv.h"
+#include "ProcessHacker/appsup.h"
 #include "../Common/Common.h"
 #include "../Common/Settings.h"
 #include "../../SVC/TaskService.h"
@@ -57,8 +58,8 @@ struct SWinProcess
 		DepStatus = 0;
 		DpiAwareness = -1;
 
-		memset(&VmCounters, 0, sizeof(VM_COUNTERS_EX));
-		memset(&IoCounters, 0, sizeof(IO_COUNTERS));
+		//memset(&VmCounters, 0, sizeof(VM_COUNTERS_EX));
+		//memset(&IoCounters, 0, sizeof(IO_COUNTERS));
 		memset(&WsCounters, 0, sizeof(PH_PROCESS_WS_COUNTERS));
 		LastWsCountersUpdate = 0;
 		memset(&QuotaLimits, 0, sizeof(QUOTA_LIMITS));
@@ -88,7 +89,7 @@ struct SWinProcess
 			ULONG IsInJob : 1;
 			//ULONG IsInSignificantJob : 1;
 			ULONG IsPacked : 1;
-			ULONG IsHandleValid : 1;
+			ULONG IsHandleValid : 1; // if this is true we can querry handles
 			ULONG IsSuspended : 1;
 			ULONG IsWow64 : 1;
 			ULONG IsImmersive : 1;
@@ -110,8 +111,8 @@ struct SWinProcess
 	HANDLE ConsoleHostProcessId;
 
 	// Dynamic
-	VM_COUNTERS_EX VmCounters;
-	IO_COUNTERS IoCounters;
+	//VM_COUNTERS_EX VmCounters;
+	//IO_COUNTERS IoCounters;
     PH_PROCESS_WS_COUNTERS WsCounters;
 	volatile quint64 LastWsCountersUpdate;
 	QUOTA_LIMITS QuotaLimits;
@@ -128,8 +129,8 @@ struct SWinProcess
 	ULONG DpiAwareness;
 
 	// Signature, Packed
-	quint32 ImportFunctions;
-	quint32 ImportModules;
+	//quint32 ImportFunctions;
+	//quint32 ImportModules;
 
 	// OS Context
     GUID OsContextGuid;
@@ -147,6 +148,12 @@ struct SWinProcess
 CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 {
 	m_IsFullyInitialized = false;
+
+	// Dynamic
+	m_QuotaPagedPoolUsage = 0;
+	m_QuotaPeakPagedPoolUsage = 0;
+	m_QuotaNonPagedPoolUsage = 0;
+	m_QuotaPeakNonPagedPoolUsage = 0;
 
 	// GDI, USER handles
 	m_GdiHandles = 0;
@@ -434,33 +441,37 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
     }
 	// PhpProcessQueryStage1 End
 
-	// OS context
-	if (!m->IsSubsystemProcess && m->QueryHandle)
+	
+	if (!m->IsSubsystemProcess)
 	{	
-		if (NT_SUCCESS(PhGetProcessSwitchContext(m->QueryHandle, &m->OsContextGuid)))
+		HANDLE processHandle = NULL;
+		if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
 		{
-			if (IsEqualGUID(m->OsContextGuid, WIN10_CONTEXT_GUID))
-				m->OsContextVersion = WINDOWS_10;
-			else if (IsEqualGUID(m->OsContextGuid, WINBLUE_CONTEXT_GUID))
-				m->OsContextVersion = WINDOWS_8_1;
-			else if (IsEqualGUID(m->OsContextGuid, WIN8_CONTEXT_GUID))
-				m->OsContextVersion = WINDOWS_8;
-			else if (IsEqualGUID(m->OsContextGuid, WIN7_CONTEXT_GUID))
-				m->OsContextVersion = WINDOWS_7;
-			else if (IsEqualGUID(m->OsContextGuid, VISTA_CONTEXT_GUID))
-				m->OsContextVersion = WINDOWS_VISTA;
-			else if (IsEqualGUID(m->OsContextGuid, XP_CONTEXT_GUID))
-				m->OsContextVersion = WINDOWS_XP;
-		}
-	}
+			// OS context
+			if (NT_SUCCESS(PhGetProcessSwitchContext(processHandle, &m->OsContextGuid)))
+			{
+				if (IsEqualGUID(m->OsContextGuid, WIN10_CONTEXT_GUID))
+					m->OsContextVersion = WINDOWS_10;
+				else if (IsEqualGUID(m->OsContextGuid, WINBLUE_CONTEXT_GUID))
+					m->OsContextVersion = WINDOWS_8_1;
+				else if (IsEqualGUID(m->OsContextGuid, WIN8_CONTEXT_GUID))
+					m->OsContextVersion = WINDOWS_8;
+				else if (IsEqualGUID(m->OsContextGuid, WIN7_CONTEXT_GUID))
+					m->OsContextVersion = WINDOWS_7;
+				else if (IsEqualGUID(m->OsContextGuid, VISTA_CONTEXT_GUID))
+					m->OsContextVersion = WINDOWS_VISTA;
+				else if (IsEqualGUID(m->OsContextGuid, XP_CONTEXT_GUID))
+					m->OsContextVersion = WINDOWS_XP;
+			}
 
-	// desktop
-	if (m->IsHandleValid)
-	{
-		PPH_STRING desktopinfo;
-		if (NT_SUCCESS(PhGetProcessDesktopInfo(m->QueryHandle, &desktopinfo)))
-		{
-			m->DesktopInfo = CastPhString(desktopinfo);
+			// desktop
+			PPH_STRING desktopinfo;
+			if (NT_SUCCESS(PhGetProcessDesktopInfo(processHandle, &desktopinfo)))
+			{
+				m_UsedDesktop = CastPhString(desktopinfo);
+			}
+
+			NtClose(processHandle);
 		}
 	}
 
@@ -471,7 +482,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 	CWinMainModule* pModule = new CWinMainModule();
 	m_pModuleInfo = CModulePtr(pModule);
 	connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
-	pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, (quint64)m->QueryHandle, m->IsHandleValid, m->IsWow64);
+	pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
 	pModule->InitAsyncData(m->PackageFullName);
 
 	return true;
@@ -482,19 +493,15 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 	// Open a handle to the Process for later usage.
 	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
 	{
-		// Note: we need PROCESS_VM_READ for OS Context (DX)
-		if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
+		if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_INFORMATION, m->UniqueProcessId)))
 		{
 			m->IsHandleValid = TRUE;
 		}
-
-		if (!m->QueryHandle)
+		
+		if(!m->QueryHandle)
 		{
 			PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId);
 		}
-
-		if (!m->QueryHandle)
-			return false;
 	}
 
 	// Process flags
@@ -603,8 +610,8 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 void CWinProcess::OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules)
 {
 	m->IsPacked = IsPacked;
-	m->ImportFunctions = ImportFunctions;
-	m->ImportModules = ImportModules;
+	//m->ImportFunctions = ImportFunctions;
+	//m->ImportModules = ImportModules;
 	m->AsyncFinished = true;
 }
 
@@ -697,14 +704,25 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	m_UserTime = Process->UserTime.QuadPart;
 	m_NumberOfHandles = Process->HandleCount;
 	m_NumberOfThreads = Process->NumberOfThreads;
-	m_WorkingSetPrivateSize = Process->WorkingSetPrivateSize.QuadPart;
 	m_PeakNumberOfThreads = Process->NumberOfThreadsHighWatermark;
+	
+	m_PeakPagefileUsage = Process->PeakPagefileUsage;
+	m_WorkingSetSize = Process->WorkingSetSize;
+	m_PeakWorkingSetSize = Process->PeakWorkingSetSize;
+	m_WorkingSetPrivateSize = Process->WorkingSetPrivateSize.QuadPart;
+	m_VirtualSize = Process->VirtualSize;
+	m_PeakVirtualSize = Process->PeakVirtualSize;
+	//m_PageFaultCount = Process->PageFaultCount;
+	m_QuotaPagedPoolUsage = Process->QuotaPagedPoolUsage;
+	m_QuotaPeakPagedPoolUsage = Process->QuotaPeakPagedPoolUsage;
+	m_QuotaNonPagedPoolUsage = Process->QuotaNonPagedPoolUsage;
+	m_QuotaPeakNonPagedPoolUsage = Process->QuotaPeakNonPagedPoolUsage;
 
 	// todo: modifyed
 
 	// Update VM and I/O counters.
-	m->VmCounters = *(PVM_COUNTERS_EX)&Process->PeakVirtualSize;
-	m->IoCounters = *(PIO_COUNTERS)&Process->ReadOperationCount;
+	//m->VmCounters = *(PVM_COUNTERS_EX)&Process->PeakVirtualSize;
+	//m->IoCounters = *(PIO_COUNTERS)&Process->ReadOperationCount;
 	// PhpUpdateDynamicInfoProcessItem End
 
 
@@ -1175,20 +1193,30 @@ static BOOLEAN NTAPI EnumModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 
 bool CWinProcess::UpdateModules()
 {
-	QSet<quint64> Added;
-	QSet<quint64> Changed;
-	QSet<quint64> Removed;
+	HANDLE ProcessId = (HANDLE)GetProcessId();
+
+	HANDLE ProcessHandle = NULL;
+    // Try to get a handle with query information + vm read access.
+    if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, ProcessId)))
+    {
+        // Try to get a handle with query limited information + vm read access.
+        PhOpenProcess(&ProcessHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, ProcessId);
+    }
 
 	// If we didn't get a handle when we created the provider,
     // abort (unless this is the System process - in that case
     // we don't need a handle).
-    if (!m->QueryHandle && m->UniqueProcessId != SYSTEM_PROCESS_ID)
+    if (!ProcessHandle && ProcessId != SYSTEM_PROCESS_ID)
         return false;
+
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
 
 	PPH_LIST modules;
 	modules = PhCreateList(100);
 
-	NTSTATUS runSttus = PhEnumGenericModules(m->UniqueProcessId, m->QueryHandle, PH_ENUM_GENERIC_MAPPED_FILES | PH_ENUM_GENERIC_MAPPED_IMAGES, EnumModulesCallback, modules);
+	PhEnumGenericModules(ProcessId, ProcessHandle, PH_ENUM_GENERIC_MAPPED_FILES | PH_ENUM_GENERIC_MAPPED_IMAGES, EnumModulesCallback, modules);
 
 	QMap<quint64, CModulePtr> OldModules = GetModuleList();
 
@@ -1212,7 +1240,7 @@ bool CWinProcess::UpdateModules()
 		if (I == OldModules.end())
 		{
 			pModule = QSharedPointer<CWinModule>(new CWinModule(m_ProcessId, m->IsSubsystemProcess));
-			bAdd = pModule->InitStaticData(module, (quint64)m->QueryHandle);
+			bAdd = pModule->InitStaticData(module, (quint64)ProcessHandle);
 			
 			if (pModule->GetType() != PH_MODULE_TYPE_ELF_MAPPED_IMAGE)
 				pModule->InitAsyncData();
@@ -1282,7 +1310,7 @@ bool CWinProcess::UpdateModules()
 		QVariantList UnloadedDLLs;
 #ifdef _WIN64
 		BOOLEAN isWow64;
-		PhGetProcessIsWow64(m->QueryHandle, &isWow64);
+		PhGetProcessIsWow64(ProcessHandle, &isWow64);
 
 		if (isWow64)
 		{
@@ -1366,6 +1394,8 @@ bool CWinProcess::UpdateModules()
 			pModule->SetParentBaseAddress(FirstBaseAddress);
 	}*/
 	Locker.unlock();
+
+	NtClose(ProcessHandle);
 
 	emit ModulesUpdated(Added, Changed, Removed);
 
@@ -1549,10 +1579,12 @@ QString CWinProcess::GetWorkingDirectory() const
 {
 	QReadLocker Locker(&m_Mutex); 
 
-	// Note: this call is a bit slow updating it for all processes all the time is not nececery 
-	//		if we only show this in the process general tab
-	if (m->IsHandleValid)
+	HANDLE processHandle = NULL;
+	if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
 	{
+		// Note: this call is a bit slow updating it for all processes all the time is not nececery 
+		//		if we only show this in the process general tab
+
 		int pebOffset = PhpoCurrentDirectory;
 #ifdef _WIN64
 		// Tell the function to get the WOW64 current directory, because that's the one that
@@ -1562,8 +1594,10 @@ QString CWinProcess::GetWorkingDirectory() const
 #endif
 
 		PPH_STRING curDir = NULL;
-		PhGetProcessPebString(m->QueryHandle, (PH_PEB_OFFSET)pebOffset, &curDir);
+		PhGetProcessPebString(processHandle, (PH_PEB_OFFSET)pebOffset, &curDir);
 		return CastPhString(curDir);
+
+		NtClose(processHandle);
 	}
 	return QString();
 }
@@ -1623,15 +1657,17 @@ quint32 CWinProcess::GetOsContextVersion() const
 
 QString CWinProcess::GetOsContextString() const
 {
-    switch (GetOsContextVersion())
+	quint32 OsContext = GetOsContextVersion();
+    switch (OsContext)
     {
-    case WINDOWS_10:	return tr("Windows 10");
-    case WINDOWS_8_1:	return tr("Windows 8.1");
-    case WINDOWS_8:		return tr("Windows 8");
-    case WINDOWS_7:		return tr("Windows 7");
-    case WINDOWS_VISTA:	return tr("Windows Vista");
-    case WINDOWS_XP:	return tr("Windows XP");
-	default: return "";
+	case WINDOWS_ANCIENT:	return QString();
+    case WINDOWS_10:		return tr("10");
+    case WINDOWS_8_1:		return tr("8.1");
+    case WINDOWS_8:			return tr("8");
+    case WINDOWS_7:			return tr("7");
+    case WINDOWS_VISTA:		return tr("Vista");
+    case WINDOWS_XP:		return tr("XP");
+	default:				return QString::number(OsContext);
     }
 }
 
@@ -1806,12 +1842,14 @@ QString CWinProcess::GetStatusString() const
 
 	QReadLocker Locker(&m_Mutex); 
 
+    if (m_IsCritical)
+        Status.append(tr("Critical"));
     if (m->IsBeingDebugged)
         Status.append(tr("Debugged"));
     if (m->IsSuspended)
         Status.append(tr("Suspended"));
     if (m->IsProtectedHandle)
-        Status.append(tr("HandleFiltered"));
+        Status.append(tr("Handle Filtered"));
     if (m->IsElevated)
 	//if (m_pToken && m_pToken->IsElevated())
         Status.append(tr("Elevated"));
@@ -2090,83 +2128,76 @@ QString CWinProcess::GetProtectionString() const
 }
 
 
-QString CWinProcess::GetMitigationString() const
+QList<QPair<QString, QString>> CWinProcess::GetMitigationDetails() const
 {
-	QReadLocker Locker(&m_Mutex); 
-	if (!m->QueryHandle)
-		return tr("N/A");
+	QList<QPair<QString, QString>> List;
 
-	QString MitigationString;
-	
-	NTSTATUS status;
-	PH_PROCESS_MITIGATION_POLICY_ALL_INFORMATION information;
-	if (NT_SUCCESS(status = PhGetProcessMitigationPolicy(m->QueryHandle, &information)))
+	HANDLE ProcessId = (HANDLE)GetProcessId();
+
+	HANDLE processHandle = NULL;
+	if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
 	{
-		PH_STRING_BUILDER sb;
-        int policy;
-        PPH_STRING shortDescription;
+		if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION, ProcessId)))
+			return List;
+	}
 
-        PhInitializeStringBuilder(&sb, 100);
-
-        for (policy = 0; policy < MaxProcessMitigationPolicy; policy++)
+	PH_PROCESS_MITIGATION_POLICY_ALL_INFORMATION information;
+    if (NT_SUCCESS(PhGetProcessMitigationPolicy(processHandle, &information)))
+    {
+        for (int policy = 0; policy < MaxProcessMitigationPolicy; policy++)
         {
-            if (information.Pointers[policy] && PhDescribeProcessMitigationPolicy(
-                (PROCESS_MITIGATION_POLICY)policy,
-                information.Pointers[policy],
-                &shortDescription,
-                NULL
-                ))
+			PPH_STRING shortDescription;
+			PPH_STRING longDescription;
+            if (information.Pointers[policy] && PhDescribeProcessMitigationPolicy((PROCESS_MITIGATION_POLICY)policy, information.Pointers[policy], &shortDescription, &longDescription))
             {
-                PhAppendStringBuilder(&sb, &shortDescription->sr);
-                PhAppendStringBuilder2(&sb, L"; ");
-                PhDereferenceObject(shortDescription);
+				List.append(qMakePair(CastPhString(shortDescription), CastPhString(longDescription)));
+            }
+        }
+    }
+
+	PPS_SYSTEM_DLL_INIT_BLOCK systemDllInitBlock = NULL; // this requiers PROCESS_VM_READ
+    if (NT_SUCCESS(PhGetProcessSystemDllInitBlock(processHandle, &systemDllInitBlock)))
+    {
+		if (systemDllInitBlock && RTL_CONTAINS_FIELD(systemDllInitBlock, systemDllInitBlock->Size, MitigationOptionsMap))
+        {
+            if (systemDllInitBlock->MitigationOptionsMap.Map[0] & PROCESS_CREATION_MITIGATION_POLICY2_LOADER_INTEGRITY_CONTINUITY_ALWAYS_ON)
+            {
+				List.append(qMakePair(tr("Loader Integrity"),tr("OS signing levels for dependent module loads are enabled.")));
+            }
+
+            if (systemDllInitBlock->MitigationOptionsMap.Map[0] & PROCESS_CREATION_MITIGATION_POLICY2_MODULE_TAMPERING_PROTECTION_ALWAYS_ON)
+            {
+				List.append(qMakePair(tr("Module Tampering"),tr("Module Tampering protection is enabled.")));
+            }
+
+            if (systemDllInitBlock->MitigationOptionsMap.Map[0] & PROCESS_CREATION_MITIGATION_POLICY2_RESTRICT_INDIRECT_BRANCH_PREDICTION_ALWAYS_ON)
+            {
+				List.append(qMakePair(tr("Indirect branch prediction"),tr("Protects against sibling hardware threads (hyperthreads) from interfering with indirect branch predictions.")));
+            }
+
+            if (systemDllInitBlock->MitigationOptionsMap.Map[0] & PROCESS_CREATION_MITIGATION_POLICY2_ALLOW_DOWNGRADE_DYNAMIC_CODE_POLICY_ALWAYS_ON)
+            {
+				List.append(qMakePair(tr("Dynamic code (downgrade)"),tr("Allows a broker to downgrade the dynamic code policy for a process.")));
+            }
+
+            if (systemDllInitBlock->MitigationOptionsMap.Map[0] & PROCESS_CREATION_MITIGATION_POLICY2_SPECULATIVE_STORE_BYPASS_DISABLE_ALWAYS_ON)
+            {
+				List.append(qMakePair(tr("Speculative store bypass"),tr("Disables spectre mitigations for the process.")));
             }
         }
 
-        if (sb.String->Length != 0)
-        {
-            PhRemoveEndStringBuilder(&sb, 2);
-			MitigationString = QString::fromWCharArray(sb.String->Buffer, sb.String->Length / sizeof(wchar_t));
-        }
-        else
-        {
-            MitigationString = tr("None");
-        }
+		PhFree(systemDllInitBlock);
+    }
 
-        PhDeleteStringBuilder(&sb);
-	}
+    NtClose(processHandle);
 
-	return MitigationString;
+	return List;
 }
 
 quint64 CWinProcess::GetJobObjectID() const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->JobObjectId;
-}
-
-quint64 CWinProcess::GetPeakPrivateBytes() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.PeakPagefileUsage;
-}
-
-quint64 CWinProcess::GetWorkingSetSize() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.WorkingSetSize;
-}
-
-quint64 CWinProcess::GetPeakWorkingSetSize() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.PeakWorkingSetSize;
-}
-
-quint64 CWinProcess::GetPrivateWorkingSetSize() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m_WorkingSetPrivateSize;
 }
 
 void CWinProcess::UpdateWsCounters() const
@@ -2193,49 +2224,6 @@ quint64 CWinProcess::GetShareableWorkingSetSize() const
 	UpdateWsCounters();
 	QReadLocker Locker(&m_Mutex); 
 	return m->WsCounters.NumberOfShareablePages * PAGE_SIZE;
-}
-
-quint64 CWinProcess::GetVirtualSize() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.VirtualSize;
-}
-
-quint64 CWinProcess::GetPeakVirtualSize() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.PeakVirtualSize;
-}
-
-/*quint32 CWinProcess::GetPageFaultCount() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.PageFaultCount;
-}
-*/
-
-quint64 CWinProcess::GetPagedPool() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.QuotaPagedPoolUsage;
-}
-
-quint64 CWinProcess::GetPeakPagedPool() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.QuotaPeakPagedPoolUsage;
-}
-
-quint64 CWinProcess::GetNonPagedPool() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.QuotaNonPagedPoolUsage;
-}
-
-quint64 CWinProcess::GetPeakNonPagedPool() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->VmCounters.QuotaPeakNonPagedPoolUsage;
 }
 
 quint64 CWinProcess::GetMinimumWS() const
@@ -2278,12 +2266,6 @@ int CWinProcess::GetGhostCount() const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->UptimeInfo.GhostCount;
-}
-
-QString CWinProcess::GetDesktopInfo() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->DesktopInfo;
 }
 
 QString CWinProcess::GetPriorityString() const
@@ -2440,14 +2422,28 @@ STATUS CWinProcess::SetAffinityMask(quint64 Value)
 	return OK;
 }
 
-STATUS CWinProcess::Terminate()
+STATUS CWinProcess::Terminate(bool bForce)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
     NTSTATUS status;
     HANDLE processHandle;
-    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_TERMINATE, m->UniqueProcessId)))
+    if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, m->UniqueProcessId)))
     {
+#ifndef SAFE_MODE // in safe mode always check and fail
+		if (!bForce)
+#endif
+		{
+			BOOLEAN breakOnTermination;
+			PhGetProcessBreakOnTermination(processHandle, &breakOnTermination);
+
+			if (breakOnTermination /*m_IsCritical*/)
+			{
+				NtClose(processHandle);
+				return ERR(tr("You are about to terminate one or more critical processes. This will shut down the operating system immediately."), ERROR_CONFIRM);
+			}
+		}
+
         // An exit status of 1 is used here for compatibility reasons:
         // 1. Both Task Manager and Process Explorer use 1.
         // 2. winlogon tries to restart explorer.exe if the exit status is not 1.

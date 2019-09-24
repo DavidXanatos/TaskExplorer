@@ -81,6 +81,7 @@ private:
 	QTreeWidgetItem*		m_pCommitCharge;			//			###						###		###
 	QTreeWidgetItem*		m_pWorkingSet;				//			###
 	QTreeWidgetItem*		m_pPrivateWS;				//			###
+	QTreeWidgetItem*		m_pShareableWS;				//			###						
 	QTreeWidgetItem*		m_pSharedWS;				//			###						
 	QTreeWidgetItem*		m_pPagedPool;				//			###						###
 	QTreeWidgetItem*		m_pNonPagedPool;			//			###						###
@@ -109,6 +110,8 @@ private:
 	QTreeWidgetItem*		m_pWndObjects;				//	###
 	
 	QTreeWidgetItem*		m_pUpTime;					//	###
+
+	QTreeWidgetItem*		m_pRunningTime;				//	###
 	QTreeWidgetItem*		m_pSuspendTime;				//	###
 	QTreeWidgetItem*		m_pHangCount;				//	###
 	QTreeWidgetItem*		m_pGhostCount;				//	###

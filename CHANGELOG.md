@@ -4,6 +4,34 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [0.9.50] - 2019-09-24
+
+### Added
+- critical status added to processes state string
+- critical processes / threads have an own list color
+- trying to terminate a critical process or thread wil now display an additional confirmation mesage
+- ctrl+c now copys the selected rows
+- formating for copying panels can be set in settings
+- added additional mitigation informations
+- added additional informations to geneal process info
+-- details sub tab
+-- security sub tab
+-- app subtab
+- added job id to job tab
+- added app infos to process general tab
+
+### Changed
+- resolving symbols for pool limits is only triggered once the kernel objects tab gets opened
+- all priority settings have now an own groupe in the process tree
+- no longer keeping a handle open to all threads when thay were not used recently
+- mitigation informtions are not more verbose
+
+### Fixed
+- all unselected tabs are no longer unnececerly updated at startup
+- issue with private bytes displaying the wrong value
+- fixed crash bug in task menu action handling
+- fixed a minor issue with sid resolving
+
 
 
 ## [0.9.25] - 2019-09-15

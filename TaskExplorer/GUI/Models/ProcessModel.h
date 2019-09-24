@@ -47,8 +47,6 @@ public:
 
 		// CPU
 		eCPU,
-		ePriorityClass,
-		eBasePriority,
 		eTotalCPU_Time,
 		eKernelCPU_Time,
 		eUserCPU_Time,
@@ -60,22 +58,23 @@ public:
 		// Memory
 		ePrivateBytes,
 		ePeakPrivateBytes,
-		ePagePriority,
 		eWorkingSet,
 		ePeakWS,
 		ePrivateWS,
-		eSharedWS,
-		eShareableWS,
 		eVirtualSize,
 		ePeakVirtualSize,
 		ePageFaults,
 		ePageFaultsDelta,
 		eHardFaults,
 		eHardFaultsDelta,
+#ifdef WIN32
 		ePagedPool,
 		ePeakPagedPool,
 		eNonPagedPool,
 		ePeakNonPagedPool,
+#endif
+		eSharedWS,
+		eShareableWS,
 		eMinimumWS,
 		eMaximumWS,
 		ePrivateBytesDelta,
@@ -85,6 +84,12 @@ public:
 		eGPU_Shared,
 		eGPU_Dedicated,
 		eGPU_Adapter,
+
+		// Priority
+		ePriorityClass,
+		eBasePriority,
+		ePagePriority,
+		eIO_Priority,
 
 		// objects
 		eHandles,
@@ -111,7 +116,6 @@ public:
 
 		// IO
 		eIO_TotalRate,
-		eIO_Priority,
 		eIO_Reads,
 		eIO_Writes,
 		eIO_Other,

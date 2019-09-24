@@ -66,6 +66,7 @@ private:
 	QLabel*					m_pNPPoolFrees;
 
 
+	bool m_MmAddressesInitialized;
 	quint64 m_MmSizeOfPagedPoolInBytes;
 	quint64 m_MmMaximumNonPagedPoolInBytes;
 };

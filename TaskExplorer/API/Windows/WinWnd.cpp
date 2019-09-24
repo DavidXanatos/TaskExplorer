@@ -205,6 +205,43 @@ STATUS CWinWnd::BringToFront()
 	return OK;
 }
 
+VOID WeInvertWindowBorder(_In_ HWND hWnd)
+{
+    RECT rect;
+    HDC hdc;
+
+    GetWindowRect(hWnd, &rect);
+    hdc = GetWindowDC(hWnd);
+
+    if (hdc)
+    {
+        ULONG penWidth = GetSystemMetrics(SM_CXBORDER) * 3;
+        INT oldDc;
+        HPEN pen;
+        HBRUSH brush;
+
+        oldDc = SaveDC(hdc);
+
+        // Get an inversion effect.
+        SetROP2(hdc, R2_NOT);
+
+        pen = CreatePen(PS_INSIDEFRAME, penWidth, RGB(0x00, 0x00, 0x00));
+        SelectObject(hdc, pen);
+
+        brush = (HBRUSH)GetStockObject(NULL_BRUSH);
+        SelectObject(hdc, brush);
+
+        // Draw the rectangle.
+        Rectangle(hdc, 0, 0, rect.right - rect.left, rect.bottom - rect.top);
+
+        // Cleanup.
+        DeleteObject(pen);
+
+        RestoreDC(hdc, oldDc);
+        ReleaseDC(hWnd, hdc);
+    }
+}
+
 void WndHighlightFunc(HWND hWnd, int Counter) 
 {
 	WeInvertWindowBorder(hWnd);

@@ -1,3 +1,26 @@
+/*
+ * Task Explorer -
+ *   qt port of the NT Atom Table Plugin
+ *
+ * Copyright (C) 2015 dmex
+ * Copyright (C) 2019 David Xanatos
+ *
+ * This file is part of Task Explorer and contains Process Hacker code.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "stdafx.h"
 #include "../../TaskExplorer.h"
 #include "AtomView.h"
@@ -59,6 +82,40 @@ CAtomView::CAtomView(QWidget *parent)
 CAtomView::~CAtomView()
 {
 	theConf->SetBlob(objectName() + "/AtomView_Columns", m_pAtomList->saveState());
+}
+
+NTSTATUS EnumAtomTable(_Out_ PATOM_TABLE_INFORMATION* AtomTable)
+{
+    ULONG bufferSize = 0x1000;
+    PVOID buffer = PhAllocate(bufferSize);
+    memset(buffer, 0, bufferSize);
+
+    NTSTATUS status = NtQueryInformationAtom(RTL_ATOM_INVALID_ATOM, AtomTableInformation, buffer, bufferSize, &bufferSize);
+    if (!NT_SUCCESS(status))
+    {
+        PhFree(buffer);
+        return status;
+    }
+
+    *AtomTable = (PATOM_TABLE_INFORMATION)buffer;
+    return status;
+}
+
+NTSTATUS QueryAtomTableEntry(_In_ RTL_ATOM Atom, _Out_ PATOM_BASIC_INFORMATION* AtomInfo)
+{
+    ULONG bufferSize = 0x1000;
+    PVOID buffer = PhAllocate(bufferSize);
+    memset(buffer, 0, bufferSize);
+
+    NTSTATUS status = NtQueryInformationAtom(Atom, AtomBasicInformation, buffer, bufferSize, &bufferSize);
+    if (!NT_SUCCESS(status))
+    {
+        PhFree(buffer);
+        return status;
+    }
+
+    *AtomInfo = (PATOM_BASIC_INFORMATION)buffer;
+    return status;
 }
 
 void CAtomView::Refresh()

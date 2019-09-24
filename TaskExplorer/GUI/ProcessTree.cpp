@@ -9,6 +9,7 @@
 #include "../API/Windows/WinModule.h"
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker.h"
+#include "../API/Windows/ProcessHacker/appsup.h"
 #include "WsWatchDialog.h"
 #include "WaitChainDialog.h"
 #endif
@@ -254,6 +255,7 @@ void CProcessTree::OnHeaderMenu(const QPoint &point)
 		AddHeaderSubMenu(m_pHeaderMenu, tr("CPU"), CProcessModel::eCPU, CProcessModel::eCyclesDelta);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("Memory"), CProcessModel::ePrivateBytes, CProcessModel::ePrivateBytesDelta);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("GPU"), CProcessModel::eGPU_Usage, CProcessModel::eGPU_Adapter);
+		AddHeaderSubMenu(m_pHeaderMenu, tr("Priority"), CProcessModel::ePriorityClass, CProcessModel::eIO_Priority);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("Objects"), CProcessModel::eHandles, CProcessModel::ePeakThreads);
 		AddHeaderSubMenu(m_pHeaderMenu, tr("File Info"), CProcessModel::eFileName, CProcessModel::eFileSize);
 #ifdef WIN32

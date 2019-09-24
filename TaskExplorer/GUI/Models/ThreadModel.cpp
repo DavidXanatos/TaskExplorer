@@ -67,10 +67,11 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		}
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pThread->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pThread->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+		if (pThread->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pThread->IsNewlyCreated())			RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinThread->IsGuiThread())		RowColor = CTaskExplorer::eGuiThread;
+		else if (pWinThread->IsCriticalThread())	RowColor = CTaskExplorer::eIsProtected;
+		else if (pWinThread->IsGuiThread())			RowColor = CTaskExplorer::eGuiThread;
 #endif
 		
 		if (pNode->iColor != RowColor) {
@@ -100,9 +101,6 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eCPU:					Value = CpuStats.CpuUsage; break;
 #ifdef WIN32
 				case eStartAddress:			Value = pWinThread->GetStartAddressString(); break;
-#endif
-                case ePriority:				Value = (quint32)pThread->GetPriority(); break;
-#ifdef WIN32
 				case eService:				Value = pWinThread->GetServiceName(); break;
 				case eName:					Value = pWinThread->GetThreadName(); break;
 				case eType:					Value = pWinThread->IsMainThread() ? 2 : pWinThread->IsGuiThread() ? 1 : 0; break;
@@ -113,6 +111,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 #endif
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
 				case eContextSwitchesDelta:	Value = CpuStats.ContextSwitchesDelta.Delta; break;
+                case ePriority:				Value = (quint32)pThread->GetPriority(); break;
                 case eBasePriority:			Value = (quint32)pThread->GetBasePriority(); break;
                 case ePagePriority:			Value = (quint32)pThread->GetPagePriority(); break;
                 case eIOPriority:			Value = (quint32)pThread->GetIOPriority(); break;
@@ -204,9 +203,6 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 			case eCyclesDelta:			return tr("Cycles delta");
 #ifdef WIN32
 			case eStartAddress:			return tr("Start address");
-#endif
-			case ePriority:				return tr("Priority");
-#ifdef WIN32
 			case eService:				return tr("Service");
 			case eName:					return tr("Name");
 			case eType:					return tr("Type");
@@ -217,6 +213,7 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 #endif
 			case eContextSwitches:		return tr("Context switches");
 			case eContextSwitchesDelta:	return tr("Context switches delta");
+			case ePriority:				return tr("Priority");
 			case eBasePriority:			return tr("Base priority");
 			case ePagePriority:			return tr("Page priority");
 			case eIOPriority:			return tr("I/O priority");

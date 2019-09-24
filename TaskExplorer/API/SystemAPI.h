@@ -131,6 +131,7 @@ public:
 
 	virtual QPixmap GetSystemIcon() const			{ QReadLocker Locker(&m_Mutex); return m_SystemIcon; }
 	virtual QString GetSystemName() const			{ QReadLocker Locker(&m_Mutex); return m_SystemName; }
+	virtual QString GetSystemType() const			{ QReadLocker Locker(&m_Mutex); return m_SystemType; }
 	virtual QString GetSystemVersion() const		{ QReadLocker Locker(&m_Mutex); return m_SystemVersion; }
 	virtual QString GetSystemBuild() const			{ QReadLocker Locker(&m_Mutex); return m_SystemBuild; }
 	virtual quint64 GetUpTime() const = 0;
@@ -258,6 +259,7 @@ protected:
 	QString						m_CPU_String;
 	QPixmap						m_SystemIcon;
 	QString						m_SystemName;
+	QString						m_SystemType;
 	QString						m_SystemVersion;
 	QString						m_SystemBuild;
 	QString						m_HostName;

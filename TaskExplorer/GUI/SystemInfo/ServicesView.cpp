@@ -4,7 +4,8 @@
 #include "../../Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinService.h"	
-#include "../../API/Windows/ProcessHacker.h"	
+#include "../../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/ProcessHacker/appsup.h"	
 #include "WinSvcWindow.h"
 #include "../../API/Windows/WinProcess.h"
 #endif

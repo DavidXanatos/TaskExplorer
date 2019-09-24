@@ -73,7 +73,7 @@ public:
 	virtual quint64 GetAffinityMask() const				{ QReadLocker Locker(&m_Mutex); return m_AffinityMask; }
 	virtual STATUS SetAffinityMask(quint64 Value) = 0;
 
-	virtual STATUS Terminate() = 0;
+	virtual STATUS Terminate(bool bForce) = 0;
 
 	virtual bool IsSuspended() const = 0;
 	virtual STATUS Suspend() = 0;

@@ -29,6 +29,8 @@ CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
 	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
 	QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
 	RebuildTabs(ActiveTab, VisibleTabs);
+
+	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 
@@ -86,8 +88,6 @@ void CTaskInfoView::InitializeTabs()
 
 	m_pEnvironmentView = new CEnvironmentView(this);
 	AddTab(m_pEnvironmentView, tr("Environment"));
-
-	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
 
 /*void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)

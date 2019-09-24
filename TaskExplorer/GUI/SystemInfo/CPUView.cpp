@@ -46,8 +46,8 @@ CCPUView::CCPUView(QWidget *parent)
 	QColor Grid = theGUI->GetColor(CTaskExplorer::ePlotGrid);
 
 	m_pCPUPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pCPUPlot->setMinimumHeight(120);
-	m_pCPUPlot->setMinimumWidth(50);
+	m_pCPUPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
+	m_pCPUPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
 	m_pCPUPlot->SetupLegend(Front, tr("CPU Usage"), CIncrementalPlot::eDate);
 	m_pCPUPlot->SetRagne(100);
 	m_pCPUPlot->SetLimit(m_PlotLimit);
@@ -101,7 +101,7 @@ CCPUView::CCPUView(QWidget *parent)
 	////////////////////////////////////////
 
 	m_pCPUBox = new QGroupBox(tr("CPU Info"));
-	m_pCPUBox->setMinimumWidth(200);
+	m_pCPUBox->setMinimumWidth(200 * theGUI->GetDpiScale());
 	m_pCPULayout = new QGridLayout();
 	m_pCPUBox->setLayout(m_pCPULayout);
 	m_pInfoLayout1->addWidget(m_pCPUBox);
@@ -126,7 +126,7 @@ CCPUView::CCPUView(QWidget *parent)
 	////////////////////////////////////////
 
 	m_pOtherBox = new QGroupBox(tr("Other Info"));
-	m_pOtherBox->setMinimumWidth(200);
+	m_pOtherBox->setMinimumWidth(200 * theGUI->GetDpiScale());
 	m_pOtherLayout = new QGridLayout();
 	m_pOtherBox->setLayout(m_pOtherLayout);
 	m_pInfoLayout2->addWidget(m_pOtherBox);

@@ -31,19 +31,13 @@ public:
 	virtual bool IsSubsystemProcess() const;
 
 	// Dynamic
-	virtual quint64 GetPeakPrivateBytes() const;
-	virtual quint64 GetWorkingSetSize() const;
-	virtual quint64 GetPeakWorkingSetSize() const;
-	virtual quint64 GetPrivateWorkingSetSize() const;
+	virtual quint64 GetPagedPool() const			{ QReadLocker Locker(&m_Mutex); return m_QuotaPagedPoolUsage; }
+	virtual quint64 GetPeakPagedPool() const		{ QReadLocker Locker(&m_Mutex); return m_QuotaPeakPagedPoolUsage; }
+	virtual quint64 GetNonPagedPool() const			{ QReadLocker Locker(&m_Mutex); return m_QuotaNonPagedPoolUsage; }
+	virtual quint64 GetPeakNonPagedPool() const		{ QReadLocker Locker(&m_Mutex); return m_QuotaPeakNonPagedPoolUsage; }
+
 	virtual quint64 GetSharedWorkingSetSize() const;
 	virtual quint64 GetShareableWorkingSetSize() const;
-	virtual quint64 GetVirtualSize() const;
-	virtual quint64 GetPeakVirtualSize() const;
-	//virtual quint32 GetPageFaultCount() const;
-	virtual quint64 GetPagedPool() const;
-	virtual quint64 GetPeakPagedPool() const;
-	virtual quint64 GetNonPagedPool() const;
-	virtual quint64 GetPeakNonPagedPool() const;
 	virtual quint64 GetMinimumWS() const;
 	virtual quint64 GetMaximumWS() const;
 
@@ -62,7 +56,7 @@ public:
 
 	virtual STATUS SetAffinityMask(quint64 Value);
 
-	virtual STATUS Terminate();
+	virtual STATUS Terminate(bool bForce);
 
 	virtual bool IsSuspended() const;
 	virtual STATUS Suspend();
@@ -124,9 +118,10 @@ public:
 
 	virtual quint32 GetProtection() const;
 	virtual QString GetProtectionString() const;
-	virtual QString GetMitigationString() const;
+	virtual QList<QPair<QString, QString>> GetMitigationDetails() const;
 
-	virtual QString GetDesktopInfo() const;
+	virtual QString GetUsedDesktop() const {QReadLocker Locker(&m_Mutex); return m_UsedDesktop;}
+
 	virtual bool IsCriticalProcess() const;
 	virtual STATUS SetCriticalProcess(bool bSet, bool bForce = false);
 	virtual STATUS ReduceWS();
@@ -196,6 +191,10 @@ protected:
 	QList<QString>					m_ServiceList;
 
 	// Dynamic
+	quint64							m_QuotaPagedPoolUsage;
+	quint64							m_QuotaPeakPagedPoolUsage;
+	quint64							m_QuotaNonPagedPoolUsage;
+	quint64							m_QuotaPeakNonPagedPoolUsage;
 
 	// GDI, USER handles
     quint32							m_GdiHandles;
@@ -209,6 +208,7 @@ protected:
 
 	// MainWindow
 	CWndRef							m_pMainWnd;
+	QString							m_UsedDesktop;
 
 	bool							m_IsFullyInitialized;
 

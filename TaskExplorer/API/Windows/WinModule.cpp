@@ -553,7 +553,7 @@ STATUS CWinModule::Unload(bool bForce)
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // CWinMainModule 
 
-bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, quint64 ProcessHandle, bool IsHandleValid, bool IsWow64)
+bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, bool IsWow64)
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -567,21 +567,29 @@ bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, 
     {
         m_ImageSubsystem = IMAGE_SUBSYSTEM_POSIX_CUI;
     }
-    else if(ProcessHandle)
+    else
     {
-        PROCESS_BASIC_INFORMATION basicInfo;
-        if (NT_SUCCESS(PhGetProcessBasicInformation((HANDLE)ProcessHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
-        {
-			m_PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
-			if (IsWow64)
-			{
-				PVOID peb32;
-				PhGetProcessPeb32((HANDLE)ProcessHandle, &peb32);
-				m_PebBaseAddress32 = (quint64)peb32;
-			}
+		HANDLE ProcessHandle = NULL;
+		// Try to get a handle with query information + vm read access.
+		if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, (HANDLE)ProcessId)))
+		{
+			// Try to get a handle with query limited information + vm read access.
+			PhOpenProcess(&ProcessHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, (HANDLE)ProcessId);
+		}
 
-			if (IsHandleValid)
+		if(ProcessHandle)
+		{
+			PROCESS_BASIC_INFORMATION basicInfo;
+			if (NT_SUCCESS(PhGetProcessBasicInformation((HANDLE)ProcessHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
 			{
+				m_PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
+				if (IsWow64)
+				{
+					PVOID peb32;
+					PhGetProcessPeb32((HANDLE)ProcessHandle, &peb32);
+					m_PebBaseAddress32 = (quint64)peb32;
+				}
+
 				PVOID imageBaseAddress;
 				PH_REMOTE_MAPPED_IMAGE mappedImage;
                 if (NT_SUCCESS(NtReadVirtualMemory((HANDLE)ProcessHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL)))
@@ -606,6 +614,8 @@ bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, 
                     }
                 }
             }
+
+			NtClose(ProcessHandle);
         }
     }
 

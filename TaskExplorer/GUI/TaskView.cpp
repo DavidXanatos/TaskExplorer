@@ -183,18 +183,41 @@ void CTaskView::OnTaskAction()
 	QList<CTaskPtr>	Tasks = GetSellectedTasks();
 
 	QList<STATUS> Errors;
+	int Force = -1;
 	foreach(const CTaskPtr& pTask, Tasks)
 	{
 		STATUS Status = OK;
+retry:
 		if (sender() == m_pTerminate)
-			Status = pTask->Terminate();
+			Status = pTask->Terminate(Force == 1);
 		else if (sender() == m_pSuspend)
 			Status = pTask->Suspend();
 		else if (sender() == m_pResume)
 			Status = pTask->Resume();
 
-		if(Status.IsError())
-			Errors.append(Status);
+		if (Status.IsError())
+		{
+			if (Status.GetStatus() == ERROR_CONFIRM)
+			{
+				if (Force == -1)
+				{
+					switch (QMessageBox("TaskExplorer", Status.GetText(), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel | QMessageBox::Default | QMessageBox::Escape).exec())
+					{
+					case QMessageBox::Yes:
+						Force = 1;
+						goto retry;
+						break;
+					case QMessageBox::No:
+						Force = 0;
+						break;
+					case QMessageBox::Cancel:
+						return;
+					}
+				}
+			}
+			else
+				Errors.append(Status);
+		}
 	}
 
 	CTaskExplorer::CheckErrors(Errors);
