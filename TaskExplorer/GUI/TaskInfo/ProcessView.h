@@ -23,6 +23,8 @@ private slots:
 	void					OnResetColumns();
 	void					OnColumnsChanged();
 
+	void					OnCertificate(const QString& Link);
+
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
 	//virtual QTreeView*			GetView()	{ return m_pStatsList; }
@@ -57,6 +59,7 @@ private:
 
 	QTabWidget*				m_pTabWidget;
 
+	QScrollArea*			m_pProcessArea;
 	//QGroupBox*				m_pProcessBox;
 	QWidget*				m_pProcessBox;
 	QGridLayout*			m_pProcessLayout;
@@ -99,6 +102,7 @@ private:
 
 	QLineEdit*				m_pAppID;
 	QLineEdit*				m_pPackageName;
+	//QLineEdit*				m_pPackageDataDir;
 #endif
 
 

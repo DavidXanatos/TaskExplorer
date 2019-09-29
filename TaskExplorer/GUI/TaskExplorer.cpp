@@ -4,6 +4,7 @@
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "SecurityExplorer.h"
+#include "DriverWindow.h"
 #include "../API/Windows/WinAdmin.h"
 extern "C" {
 #include <winsta.h>
@@ -91,14 +92,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #ifdef WIN32
 	if (KphIsConnected())
 	{
-#ifdef _DEBUG
 		if(KphIsVerified())
-			appTitle.append(tr(" - [kPH full]"));
+			appTitle.append(tr(" - [kPH]")); // full
 		else
-			appTitle.append(tr(" - [kPH limited]"));
-#else
-		appTitle.append(tr(" - [kPH]"));
-#endif
+			appTitle.append(tr(" ~ [kPH]")); // limited
 	}
 #endif
 
@@ -248,6 +245,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuResetAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Reset"), tr("Reset all Panels"), this, SLOT(ResetAll()));
 		m_pMenuResetAll->setShortcut(QKeySequence::Refresh); // F5
 		m_pMenuExpandAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Expand"), tr("Expand Process Tree"), m_pProcessTree, SLOT(OnExpandAll()));
+		m_pMenuExpandAll->setShortcut(QKeySequence("Ctrl+E"));
 
 	m_pMenuFind = menuBar()->addMenu(tr("&Find"));
 		m_pMenuFindHandle = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindHandle"), tr("Find Handles"), this, SLOT(OnFindHandle()));
@@ -256,8 +254,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
 		m_pMenuSettings = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Settings"), tr("Settings"), this, SLOT(OnSettings()));
-
 #ifdef WIN32
+		m_pMenuDriverConf = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Driver"), tr("Driver Options"), this, SLOT(OnDriverConf()));
+		m_pMenuDriverConf->setEnabled(!PhIsExecutingInWow64());
+
         m_pMenuOptions->addSeparator();
         m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
         m_pMenuAutoRun->setCheckable(true);
@@ -977,8 +977,8 @@ void CTaskExplorer::UpdateUserMenu()
 		pMenu->setTitle(tr("%1: %2 (%3)").arg(User.SessionId).arg(User.UserName).arg(User.Status));
 	}
 
-	foreach(QMenu* pMenu, OldMenus)
-		delete pMenu;
+	foreach(int SessionId, OldMenus.keys())
+		delete m_UserMenus.take(SessionId);
 }
 
 void CTaskExplorer::OnUserAction()
@@ -1096,6 +1096,14 @@ void CTaskExplorer::OnSettings()
 	CSettingsWindow* pSettingsWindow = new CSettingsWindow();
 	connect(pSettingsWindow, SIGNAL(OptionsChanged()), this, SLOT(UpdateOptions()));
 	pSettingsWindow->show();
+}
+
+void CTaskExplorer::OnDriverConf()
+{
+#ifdef WIN32
+	CDriverWindow* pDriverWindow = new CDriverWindow();
+	pDriverWindow->show();
+#endif
 }
 
 void CTaskExplorer::ApplyOptions()

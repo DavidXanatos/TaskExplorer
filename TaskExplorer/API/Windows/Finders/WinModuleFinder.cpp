@@ -38,7 +38,7 @@ void CWinModuleFinder::run()
 			QMap<quint64, CModulePtr> Modules = I.value()->GetModuleList();
 			for (QMap<quint64, CModulePtr>::iterator J = Modules.begin(); J != Modules.end() && !m_bCancel; ++J)
 			{
-				if (!bIncludeMappedFiles && J.value().objectCast<CWinModule>()->GetType() == PH_MODULE_TYPE_MAPPED_FILE)
+				if (!bIncludeMappedFiles && J.value().staticCast<CWinModule>()->GetType() == PH_MODULE_TYPE_MAPPED_FILE)
 					continue;
 
 				if (!J.value()->GetFileName().contains(m_RegExp))

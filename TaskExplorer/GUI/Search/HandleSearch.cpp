@@ -72,7 +72,7 @@ void CHandleSearch::OnResults(QList<QSharedPointer<QObject>> List)
 {
 	foreach(const QSharedPointer<QObject>& pObject, List)
 	{
-		CHandlePtr pHandle = pObject.objectCast<CHandleInfo>();
+		CHandlePtr pHandle = pObject.staticCast<CHandleInfo>();
 		m_Handles.insert(pHandle->GetHandleId(), pHandle);
 	}
 

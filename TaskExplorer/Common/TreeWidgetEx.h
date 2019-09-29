@@ -6,6 +6,8 @@ class QTreeWidgetEx: public QTreeWidget
 public:
 	QTreeWidgetEx(QWidget *parent = 0) : QTreeWidget(parent) 
 	{
+		setUniformRowHeights(true);
+
 		m_AutoFitMax = 0;
 		m_ColumnReset = 1;
 

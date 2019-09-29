@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 #ifdef WIN32
 	if (!bSvc && !bWrk && !IsElevated())
 	{
-		if (SkipUacRun())
+		if (SkipUacRun()) // Warning: the started process will have lower priority!
 			return 0;
 	}
 #endif
@@ -83,6 +83,20 @@ int main(int argc, char *argv[])
 	else				new QApplication(argc, argv);
 
 	theConf = new CSettings("TaskExplorer");
+
+#ifndef _DEBUG
+    // Set the default priority.
+    {
+        PROCESS_PRIORITY_CLASS priorityClass;
+        priorityClass.Foreground = FALSE;
+        priorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_ABOVE_NORMAL;
+        PhSetProcessPriority(NtCurrentProcess(), priorityClass);
+
+		PhSetProcessPagePriority(NtCurrentProcess(), MEMORY_PRIORITY_NORMAL);
+		PhSetProcessIoPriority(NtCurrentProcess(), IoPriorityNormal);
+    }
+#endif
+
 
 	QThreadPool::globalInstance()->setMaxThreadCount(theConf->GetInt("Options/MaxThreadPool", 10));
 

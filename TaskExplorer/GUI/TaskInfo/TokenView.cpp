@@ -323,7 +323,7 @@ void CTokenView::ShowProcesses(const QList<CProcessPtr>& Processes)
 		pProcess = Processes.first();
 	}
 
-	m_pCurProcess = pProcess.objectCast<CWinProcess>();
+	m_pCurProcess = pProcess.staticCast<CWinProcess>();
 
 	if(m_pCurProcess)
 		ShowToken(m_pCurProcess->GetToken());

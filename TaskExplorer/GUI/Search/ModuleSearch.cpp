@@ -48,7 +48,7 @@ void CModuleSearch::OnResults(QList<QSharedPointer<QObject>> List)
 {
 	foreach(const QSharedPointer<QObject>& pObject, List)
 	{
-		CModulePtr pModule = pObject.objectCast<CModuleInfo>();
+		CModulePtr pModule = pObject.staticCast<CModuleInfo>();
 		m_Modules.insert(m_Modules.count(), pModule);
 	}
 

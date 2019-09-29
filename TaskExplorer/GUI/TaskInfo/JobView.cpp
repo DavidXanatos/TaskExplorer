@@ -189,7 +189,7 @@ void CJobView::ShowProcesses(const QList<CProcessPtr>& Processes)
 		return;
 	}
 	
-	m_pCurProcess = pProcess.objectCast<CWinProcess>();
+	m_pCurProcess = pProcess.staticCast<CWinProcess>();
 		
 	if(m_pCurProcess)
 		ShowJob(m_pCurProcess->GetJob());	

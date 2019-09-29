@@ -50,7 +50,7 @@ ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, 
 
 struct SWinSocket
 {
-	SWinSocket() : FwStatus (FirewallUnknownStatus) {}
+	SWinSocket() : FwStatus (FirewallMaximumStatus) {}
 
     ulong LocalScopeId; // Ipv6
     ulong RemoteScopeId; // Ipv6
@@ -172,18 +172,6 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 		}*/
 	}
 
-	// EtpUpdateFirewallStatus
-	WCHAR RemoteAddressString[INET6_ADDRSTRLEN + 1] = { 0 };
-	QString LocalAddressStr = LocalAddress.toString();
-	if (LocalAddressStr.length() < INET6_ADDRSTRLEN);
-		LocalAddressStr.toWCharArray(RemoteAddressString);
-	if (RemoteAddressString[0] != 0)
-	{
-		m->FwStatus = EtQueryFirewallStatus(m_ProcessName.toStdWString(), RemoteAddressString, htons(LocalPort), 
-			LocalAddress.protocol() == QAbstractSocket::IPv6Protocol, (ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0, (ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0);
-	}
-	//
-
 	return true;
 }
 
@@ -274,6 +262,28 @@ void CWinSocket::ProcessSetNetworkFlag()
 int CWinSocket::GetFirewallStatus()
 {
 	QReadLocker Locker(&m_Mutex); 
+	if (m->FwStatus == FirewallMaximumStatus) // is it not yet resolved
+	{
+		Locker.unlock();
+
+		QWriteLocker WriteLocker(&m_Mutex); 
+
+		// todo: this is slow and should be in a separate thread
+
+		// EtpUpdateFirewallStatus
+		WCHAR RemoteAddressString[INET6_ADDRSTRLEN + 1] = { 0 };
+		QString LocalAddressStr = m_LocalAddress.toString();
+		if (LocalAddressStr.length() < INET6_ADDRSTRLEN);
+		LocalAddressStr.toWCharArray(RemoteAddressString);
+		if (RemoteAddressString[0] != 0)
+		{
+			m->FwStatus = EtQueryFirewallStatus(m_ProcessName.toStdWString(), RemoteAddressString, htons(m_LocalPort),
+				m_LocalAddress.protocol() == QAbstractSocket::IPv6Protocol, (m_ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0, (m_ProtocolType & NET_TYPE_PROTOCOL_TCP) != 0);
+		}
+		//
+
+		return m->FwStatus;
+	}
 	return m->FwStatus;
 }
 

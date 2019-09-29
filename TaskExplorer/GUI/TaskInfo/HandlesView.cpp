@@ -300,11 +300,14 @@ void CHandlesView::OnResetColumns()
 
 void CHandlesView::OnColumnsChanged()
 {
-	// automatically set the setting based on wether the columns are checked or not
-	theConf->SetValue("Options/OpenFileGetPosition", 
-		m_pHandleModel->IsColumnEnabled(CHandleModel::ePosition) 
-	 || m_pHandleModel->IsColumnEnabled(CHandleModel::eSize)
-	);
+	if (m_ShowAllFiles == 1)
+	{
+		// automatically set the setting based on wether the columns are checked or not
+		theConf->SetValue("Options/OpenFileGetPosition",
+			m_pHandleModel->IsColumnEnabled(CHandleModel::ePosition)
+			|| m_pHandleModel->IsColumnEnabled(CHandleModel::eSize)
+		);
+	}
 
 	m_pHandleModel->Sync(m_Handles);
 }
@@ -541,7 +544,7 @@ void CHandlesView::OnMenu(const QPoint &point)
 	m_pClose->setEnabled(!pHandle.isNull());
 
 #ifdef WIN32
-	QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
+	QSharedPointer<CWinHandle> pWinHandle = pHandle.staticCast<CWinHandle>();
 
 	m_pProtect->setEnabled(!pHandle.isNull() && KphIsConnected());
 	m_pProtect->setChecked(pWinHandle && pWinHandle->IsProtected());
@@ -580,7 +583,7 @@ void CHandlesView::OnHandleAction()
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
 #ifdef WIN32
-		QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
+		QSharedPointer<CWinHandle> pWinHandle = pHandle.staticCast<CWinHandle>();
 #endif
 		if (!pHandle.isNull())
 		{
@@ -681,7 +684,7 @@ void CHandlesView::OnPermissions()
 	if (!pHandle)
 		return;
 
-	QSharedPointer<CWinHandle> pWinHandle = pHandle.objectCast<CWinHandle>();
+	QSharedPointer<CWinHandle> pWinHandle = pHandle.staticCast<CWinHandle>();
 	pWinHandle->OpenPermissions();
 #endif
 }
@@ -735,7 +738,7 @@ void CHandlesView::OnDoubleClicked()
 		}
 
 		CMemoryEditor* pEditor = new CMemoryEditor();
-		if(CProcessPtr pProcess = pHandle->GetProcess().objectCast<CProcessInfo>())
+		if(CProcessPtr pProcess = pHandle->GetProcess().staticCast<CProcessInfo>())
 			pEditor->setWindowTitle(tr("Memory Editor: %1 (%2)").arg(pProcess->GetName()).arg(pProcess->GetParentId()));
 		pEditor->setDevice(pDevice);
 		pEditor->show();

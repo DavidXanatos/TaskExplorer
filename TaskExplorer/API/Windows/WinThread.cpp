@@ -33,8 +33,9 @@ struct SWinThread
 	{
 		UniqueThreadId = NULL;
 		ThreadHandle = NULL;
-		LastExtendedUpdate = GetCurTick();
+		//LastExtendedUpdate = GetCurTick();
 		StartAddressResolveLevel = PhsrlAddress;
+		StartAddressResolvePending = false;
 		memset(&idealProcessorNumber, 0, sizeof(PROCESSOR_NUMBER));
 
 		CreateTime.QuadPart = 0;
@@ -42,8 +43,9 @@ struct SWinThread
 
 	HANDLE UniqueThreadId;
 	HANDLE ThreadHandle;
-	quint64 LastExtendedUpdate;
+	//quint64 LastExtendedUpdate;
 	PH_SYMBOL_RESOLVE_LEVEL StartAddressResolveLevel;
+	bool StartAddressResolvePending;
 
 	PROCESSOR_NUMBER idealProcessorNumber;
 
@@ -110,22 +112,17 @@ bool CWinThread::InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFOR
 	return true;
 }
 
-bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime)
+bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime, quint64 sysTotalCycleTime)
 {
 	QWriteLocker Locker(&m_Mutex);
 
 	BOOLEAN modified = FALSE;
-
-	//if (threadItem->JustResolved)
-	//	modified = TRUE;
-	//threadItem->JustResolved = FALSE;
 
 	m_KernelTime = thread->KernelTime.QuadPart;
 	m_UserTime = thread->UserTime.QuadPart;
 
 	m_Priority = thread->Priority;
 	m_BasePriority = thread->BasePriority;
-
 	
 	if (m_State != (KTHREAD_STATE)thread->ThreadState)
 	{
@@ -137,6 +134,18 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 	{
 		m_WaitReason = thread->WaitReason;
 		modified = TRUE;
+	}
+
+	bool HandleReOpened = false;
+	if (m->ThreadHandle == NULL)
+	{
+		// Try to re open a handle to the thread.
+		if (!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION, m->UniqueThreadId)))
+		{
+			PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, m->UniqueThreadId);
+		}
+
+		HandleReOpened = true;
 	}
 
 
@@ -154,7 +163,19 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 	if (m->ThreadHandle)
 	{
 		ULONG64 oldDelta = m_CpuStats.CycleDelta.Delta;
-		m_CpuStats.CycleDelta.Update(GetCPUCycles());
+
+		ULONG64 cycles = 0;
+		if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
+			PhGetThreadCycleTime(m->ThreadHandle, &cycles);
+		else
+			cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
+
+		m_CpuStats.CycleDelta.Update(cycles);
+
+		// without this we will get a cpu usage spike when starting to display this thread
+		if (HandleReOpened)
+			m_CpuStats.CycleDelta.Delta = 0;
+
 		if (m_CpuStats.CycleDelta.Delta != oldDelta)
 			modified = TRUE;
 	}
@@ -163,55 +184,10 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
     m_CpuStats.CpuKernelDelta.Update(m_KernelTime);
     m_CpuStats.CpuUserDelta.Update(m_UserTime);
 
-	m_CpuStats.UpdateStats(sysTotalTime);
-
-	// Note: dont keep the handle open for thereads we are not looking at.
-	if (m->ThreadHandle != NULL && GetCurTick() - m->LastExtendedUpdate > 5 * 1000)
-	{
-		NtClose(m->ThreadHandle);
-		m->ThreadHandle = NULL;
-	}
-
-	return modified;
-}
-
-quint64 CWinThread::GetCPUCycles()
-{
-	ULONG64 cycles = 0;
-	if (m_ProcessId != (quint64)SYSTEM_IDLE_PROCESS_ID)
-		PhGetThreadCycleTime(m->ThreadHandle, &cycles);
-	else
-		cycles = qobject_cast<CWindowsAPI*>(theAPI)->GetCpuIdleCycleTime(m_ThreadId);
-	return cycles;
-}
-
-void CWinThread::UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime)
-{
-	QWriteLocker StatsLocker(&m_StatsMutex);
 	// If the cycle time isn't available, we'll fall back to using the CPU time.
 	m_CpuStats.UpdateStats(sysTotalTime, (m_ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || m->ThreadHandle) ? sysTotalCycleTime : 0);
-}
 
-bool CWinThread::UpdateExtendedData()
-{
-	QWriteLocker Locker(&m_Mutex);
-
-	m->LastExtendedUpdate = GetCurTick();
-	if (m->ThreadHandle == NULL)
-	{
-		// Try to open a handle to the thread.
-		if (!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION, m->UniqueThreadId)))
-		{
-			if(!NT_SUCCESS(PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, m->UniqueThreadId)))
-				return false;
-		}
-
-		// without this we will get a cpu usage spike when starting to display this thread
-		QWriteLocker StatsLocker(&m_StatsMutex);
-		m_CpuStats.CycleDelta.Update(GetCPUCycles());
-	}
-
-	BOOLEAN modified = FALSE;
+	StatsLocker.unlock();
 
 	// Update the GUI thread status.
     {
@@ -223,6 +199,16 @@ bool CWinThread::UpdateExtendedData()
         if (m_IsGuiThread != oldIsGuiThread)
             modified = TRUE;
     }
+
+	if (m->StartAddressResolveLevel != PhsrlFunction && !m->StartAddressResolvePending)
+	{
+		m->StartAddressResolvePending = true;
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetSymbolFromAddress(m_ProcessId, m_StartAddress, this, SLOT(OnSymbolFromAddress(quint64, quint64, int, const QString&, const QString&, const QString&)));
+	}
+
+	// for all other values we need a handle
+	if (!m->ThreadHandle)
+		return modified;
 
 	// Thread debug name
 	if (WindowsVersion >= WINDOWS_10_RS1)
@@ -323,21 +309,18 @@ bool CWinThread::UpdateExtendedData()
 		}
 	}
 
-	if (m->StartAddressResolveLevel != PhsrlFunction)
-	{
-		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetSymbolFromAddress(m_ProcessId, m_StartAddress, this, SLOT(OnSymbolFromAddress(quint64, quint64, int, const QString&, const QString&, const QString&)));
-	}
-
 	return modified;
 }
 
 void CWinThread::OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName)
 {
+	m->StartAddressResolvePending = false;
+	m->StartAddressResolveLevel = (PH_SYMBOL_RESOLVE_LEVEL)ResolveLevel;
 	m_StartAddressString = StartAddressString;
 	m_StartAddressFileName = FileName;
 }
 
-void CWinThread::UnInit()
+void CWinThread::CloseHandle()
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -345,6 +328,11 @@ void CWinThread::UnInit()
 		NtClose(m->ThreadHandle);
 		m->ThreadHandle = NULL;
 	}
+}
+
+void CWinThread::UnInit()
+{
+	CloseHandle();
 
 	QWriteLocker StatsLocker(&m_StatsMutex);
 
@@ -362,7 +350,7 @@ quint64 CWinThread::TraceStack()
 
 QString CWinThread::GetName() const
 {
-	CProcessPtr pProcess = GetProcess().objectCast<CProcessInfo>();
+	CProcessPtr pProcess = GetProcess().staticCast<CProcessInfo>();
 	if (pProcess)
 		return pProcess->GetName();
 	return tr("Unknown process");
@@ -438,6 +426,21 @@ QString CWinThread::GetPriorityString() const
     default:
 		return QString::number(m_BasePriorityIncrement);
     }
+}
+
+QString CWinThread::GetBasePriorityString() const	
+{ 
+	// The process priority class and thread priority level are combined to form the base priority of each thread.
+	// https://docs.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities
+	return QString::number(GetBasePriority());
+}
+QString CWinThread::GetPagePriorityString() const	
+{ 
+	return CWinProcess::GetPagePriorityString(GetPagePriority()); 
+}
+QString CWinThread::GetIOPriorityString() const		
+{ 
+	return CWinProcess::GetIOPriorityString(GetIOPriority()); 
 }
 
 STATUS CWinThread::SetPriority(long Value)

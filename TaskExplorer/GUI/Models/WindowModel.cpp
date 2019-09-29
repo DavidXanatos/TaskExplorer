@@ -61,7 +61,8 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 
 		QModelIndex Index;
 		
-		SWindowNode* pNode = static_cast<SWindowNode*>(Old.value(ID));
+		QHash<QVariant, STreeNode*>::iterator I = Old.find(ID);
+		SWindowNode* pNode = I != Old.end() ? static_cast<SWindowNode*>(I.value()) : NULL;
 		if(!pNode || (m_bTree ? !TestWndPath(pNode->Path, pWindow, WindowList) : !pNode->Path.isEmpty()))
 		{
 			pNode = static_cast<SWindowNode*>(MkNode(ID));
@@ -74,7 +75,7 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Index = Find(m_Root, pNode);
 		}
 

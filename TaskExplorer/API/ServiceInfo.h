@@ -21,7 +21,7 @@ public:
 
 
 	virtual bool IsStopped() const = 0;
-	virtual bool IsRunning() const = 0;
+	virtual bool IsRunning(bool bStrict = false) const = 0;
 	virtual bool IsPaused() const = 0;
 	virtual QString GetStateString() const = 0;
 

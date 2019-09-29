@@ -292,10 +292,10 @@ bool CWinService::IsStopped() const
 	return m_State == SERVICE_STOPPED;
 }
 
-bool CWinService::IsRunning() const
+bool CWinService::IsRunning(bool bStrict) const
 {
 	QReadLocker Locker(&m_Mutex); // is it [still] running or about to start?
-	return m_State == SERVICE_RUNNING || m_State == SERVICE_STOP_PENDING || m_State == SERVICE_START_PENDING;
+	return m_State == SERVICE_RUNNING || (!bStrict && (m_State == SERVICE_STOP_PENDING || m_State == SERVICE_START_PENDING));
 }
 
 bool CWinService::IsPaused() const

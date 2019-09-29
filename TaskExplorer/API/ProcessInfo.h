@@ -15,9 +15,17 @@
 
 struct STaskStatsEx : STaskStats
 {
-	SDelta32_64 		PageFaultsDelta;
-	SDelta32_64 		HardFaultsDelta;
+	SDelta32_64 	PageFaultsDelta;
+	SDelta32_64 	HardFaultsDelta;
 	SDelta64 		PrivateBytesDelta;
+};
+
+struct SGpuStats
+{
+	STimeUsage	GpuTimeUsage;
+	quint64		GpuDedicatedUsage;
+	quint64		GpuSharedUsage;
+	QString		GpuAdapter;
 };
 
 class CProcessInfo: public CAbstractTask
@@ -70,17 +78,7 @@ public:
 	virtual quint64 GetMaximumWS() const = 0;
 
 	virtual STaskStatsEx GetCpuStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats; }
-
-	virtual void SetGpuMemoryUsage(quint64 DedicatedUsage, quint64 SharedUsage) { QWriteLocker Locker(&m_StatsMutex); m_GpuDedicatedUsage = DedicatedUsage; m_GpuSharedUsage = SharedUsage; }
-	virtual quint64 GetGpuDedicatedUsage() const		{ QReadLocker Locker(&m_StatsMutex); return m_GpuDedicatedUsage; }
-	virtual quint64 GetGpuSharedUsage() const			{ QReadLocker Locker(&m_StatsMutex); return m_GpuSharedUsage; }
-
-	virtual void UpdateGpuTimeDelta(quint64 totalRunningTime) { QWriteLocker Locker(&m_StatsMutex); return m_GpuTimeUsage.Delta.Update(totalRunningTime); }
-	virtual void UpdateGpuTimeUsage(quint64 totalTime)	{ QWriteLocker Locker(&m_StatsMutex); return m_GpuTimeUsage.Calculate(totalTime); }
-	virtual float GetGpuUsage() const					{ QReadLocker Locker(&m_StatsMutex); return m_GpuTimeUsage.Usage; }
-	
-	virtual void SetGpuAdapter(const QString& GpuAdapter) { QWriteLocker Locker(&m_StatsMutex); m_GpuAdapter = GpuAdapter; }
-	virtual QString GetGpuAdapter() const				{ QReadLocker Locker(&m_StatsMutex); return m_GpuAdapter; }
+	virtual SGpuStats GetGpuStats() const				{ QReadLocker Locker(&m_StatsMutex); m_GpuUpdateCounter = 0; return m_GpuStats; }
 
 	virtual QString GetStatusString() const = 0;
 
@@ -197,11 +195,9 @@ protected:
 	mutable QReadWriteLock			m_StatsMutex;
 	SProcStats						m_Stats;
 	STaskStatsEx					m_CpuStats;
-	
-	STimeUsage						m_GpuTimeUsage;
-	quint64							m_GpuDedicatedUsage;
-	quint64							m_GpuSharedUsage;
-	QString							m_GpuAdapter;
+	SGpuStats						m_GpuStats;
+	volatile mutable quint32		m_GpuUpdateCounter;
+
 
 	// module info
 	CModulePtr						m_pModuleInfo;

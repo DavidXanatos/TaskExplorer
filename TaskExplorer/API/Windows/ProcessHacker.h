@@ -76,12 +76,14 @@ time_t FILETIME2time(quint64 fileTime);
 // Missing phlib definitions
 extern "C" {
 	VERIFY_RESULT NTAPI PhVerifyFileCached(_In_ PPH_STRING FileName, _In_opt_ PPH_STRING PackageFullName, _Out_opt_ PPH_STRING *SignerName, _In_ BOOLEAN CachedOnly);
+
+	VERIFY_RESULT NTAPI PhVerifyFileWithAdditionalCatalog(_In_ PPH_VERIFY_FILE_INFO Information, _In_opt_ PPH_STRING PackageFullName, _Out_opt_ PPH_STRING *SignerName);
 }
 
 // initialization call
 int InitPH(bool bSvc = false);
 
-STATUS InitKPH(QString DeviceName = QString(), QString FileName = QString(), bool bPrivilegeCheck = true);
+STATUS InitKPH(QString DeviceName, QString FileName, int SecurityLevel);
 
 void PhShowAbout(QWidget* parent);
 

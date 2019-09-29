@@ -24,10 +24,6 @@ CProcessInfo::CProcessInfo(QObject *parent) : CAbstractTask(parent)
 	//m_PageFaultCount = 0;
 
 	m_NetworkUsageFlags = 0;
-
-	m_GpuDedicatedUsage = 0;
-	m_GpuSharedUsage = 0;
-
 }
 
 CProcessInfo::~CProcessInfo()

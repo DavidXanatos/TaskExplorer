@@ -2,6 +2,96 @@
 #include <qobject.h>
 #include "../Common/Common.h"
 
+template <class T>
+struct SRingBuffer
+{
+	SRingBuffer(size_t grow = 10)
+	{
+		Head = 0;
+		Tail = 0;
+		Size = 0;
+		Grow = grow;
+		Length = 0;
+	}
+
+	size_t size() const	{ return Size; }
+	size_t free_size() const { return (Length - Size); }
+	bool is_empty() const { return Size == 0; }
+	bool is_full() const { return (free_size() <= 0); }
+
+	void clear()
+	{
+		Head = Tail = Size = 0;
+#ifdef _DEBUG
+		Buffer.clear();
+		Buffer.resize(Length);
+#endif
+	}
+
+	T& at(size_t pos)
+	{
+		size_t idx = (Head + pos) % Length;
+		return Buffer[idx];
+	}
+
+	T& front()
+	{
+		return Buffer[Head];
+	}
+
+	T& back()
+	{
+		return Buffer[Tail];
+	}
+
+	void pop_front()
+	{
+		if (is_empty())
+			return;
+#ifdef _DEBUG
+		Buffer[Head] = T();
+#endif
+		Head = (Head + 1) % Length;
+		Size--;
+		if (Size == 0)
+			Tail = Head;
+	}
+
+	void push_back(const T& value)
+	{
+		if (is_full())
+			expand();
+		if(Size > 0)
+			Tail = (Tail + 1) % Length;
+		Buffer[Tail] = value;
+		Size++;
+	}
+
+	void expand()
+	{
+		vector<T> NewBuffer;
+		NewBuffer.resize(Length + Grow);
+		size_t togo = size();
+		if (togo)
+		{
+			for (int i = 0; i < togo; i++)
+				NewBuffer[i] = at(i);
+			Head = 0;
+			Tail = togo - 1;
+		}
+		Length = NewBuffer.size();
+		Buffer = NewBuffer;
+	}
+
+protected:
+	vector<T>	Buffer;
+	size_t		Head;
+	size_t		Tail;
+	size_t		Size;
+	size_t		Grow;
+	size_t		Length;
+};
+
 template<class T>
 struct SDelta
 {
@@ -49,10 +139,8 @@ struct SRateCounter
 		TotalTime = 0;
 	}
 
-	virtual void Update(quint64 Interval, quint64 AddDelta)
+	/*virtual void Update(quint64 Interval, quint64 AddDelta)
 	{
-		// ToDo: instead of pushing and popping use a ring buffer
-
 		while(TotalTime > AVG_INTERVAL && !RateStat.empty())
 		{
 			TotalTime -= RateStat.front().Interval;
@@ -69,6 +157,28 @@ struct SRateCounter
 			totalTime = AVG_INTERVAL;
 		ByteRate = TotalBytes*1000/totalTime;
 		ASSERT(ByteRate >= 0);
+	}*/
+
+	virtual void Update(quint64 Interval, quint64 AddDelta)
+	{
+		while(TotalTime > AVG_INTERVAL && !RateStat.is_empty())
+		{
+			SStat &Front = RateStat.front();
+			TotalTime -= Front.Interval;
+			TotalBytes -= Front.Bytes;
+			RateStat.pop_front();
+		}
+
+		SStat Back = SStat(Interval, AddDelta);
+		TotalTime += Back.Interval;
+		TotalBytes += Back.Bytes;
+		RateStat.push_back(Back);
+
+		quint64 totalTime = TotalTime ? TotalTime : Interval;
+		if(totalTime < AVG_INTERVAL/2)
+			totalTime = AVG_INTERVAL;
+		ByteRate = TotalBytes*1000/totalTime;
+		ASSERT(ByteRate >= 0);
 	}
 
 	__inline quint64	Get() const			{return ByteRate;}
@@ -79,16 +189,17 @@ protected:
 
 	struct SStat
 	{
-		SStat(quint64 i, quint64 b) {Interval = i; Bytes = b;}
+		SStat(quint64 i = 0, quint64 b = 0) {Interval = i; Bytes = b;}
 		quint64 Interval;
 		quint64 Bytes;
 	};
-	list<SStat>			RateStat;
+	//list<SStat>			RateStat;
+	SRingBuffer<SStat>	RateStat;
 	quint64				TotalBytes;
 	quint64				TotalTime;
 };
 
-struct SRateCounter2 : SRateCounter
+/*struct SRateCounter2 : SRateCounter
 {
 	SRateCounter2()
 	{
@@ -113,9 +224,10 @@ struct SRateCounter2 : SRateCounter
 	__inline void		Clear() { ByteRate = 0; Smooth.clear(); TotalRate = 0; }
 
 protected:
-	list<quint64>		Smooth;
+	//list<quint64>		Smooth;
+	SRingBuffer<quint64>Smooth;
 	quint64				TotalRate;
-};
+};*/
 
 struct SSmoother
 {
@@ -191,8 +303,8 @@ struct SNetStats
     SDelta64		SendDelta;
     SDelta64		SendRawDelta;
 
-	SRateCounter2	ReceiveRate;
-	SRateCounter2	SendRate;
+	SRateCounter	ReceiveRate;
+	SRateCounter	SendRate;
 };
 
 struct SIOStats

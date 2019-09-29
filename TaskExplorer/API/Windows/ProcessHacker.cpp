@@ -338,7 +338,7 @@ int InitPH(bool bSvc)
 	return 0;
 }
 
-STATUS InitKPH(QString DeviceName, QString FileName, bool bPrivilegeCheck)
+STATUS InitKPH(QString DeviceName, QString FileName, int SecurityLevel)
 {
 	if (DeviceName.isEmpty())
 		DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
@@ -354,7 +354,7 @@ STATUS InitKPH(QString DeviceName, QString FileName, bool bPrivilegeCheck)
 		return ERR(QObject::tr("The Process Hacker kernel driver '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
 
 	KPH_PARAMETERS parameters;
-    parameters.SecurityLevel = bPrivilegeCheck ? KphSecurityPrivilegeCheck : KphSecurityNone;
+    parameters.SecurityLevel = (KPH_SECURITY_LEVEL)SecurityLevel;
     parameters.CreateDynamicConfiguration = TRUE;
 	NTSTATUS status = KphConnect2Ex((wchar_t*)DeviceName.toStdWString().c_str(), (wchar_t*)FileName.toStdWString().c_str(), &parameters);
     if (!NT_SUCCESS(status))

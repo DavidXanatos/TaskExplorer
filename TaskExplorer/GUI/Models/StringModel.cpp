@@ -19,13 +19,14 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 	QList<SListNode*> New;
 	QHash<QVariant, SListNode*> Old = m_Map;
 
-	for (QMap<quint64, CStringInfoPtr>::const_iterator I = StringList.begin(); I != StringList.end(); ++I)
+	for (QMap<quint64, CStringInfoPtr>::const_iterator J = StringList.begin(); J != StringList.end(); ++J)
 	{
-		const CStringInfoPtr& pString = I.value();
-		QVariant ID = I.key();
+		const CStringInfoPtr& pString = J.value();
+		QVariant ID = J.key();
 
 		int Row = -1;
-		SStringNode* pNode = static_cast<SStringNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SStringNode* pNode = I != Old.end() ? static_cast<SStringNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SStringNode*>(MkNode(ID));
@@ -35,7 +36,7 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 

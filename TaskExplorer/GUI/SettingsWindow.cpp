@@ -9,6 +9,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	QWidget* centralWidget = new QWidget();
 	ui.setupUi(centralWidget);
 	this->setCentralWidget(centralWidget);
+	this->setWindowTitle("Task Explorer - Settings");
 
 	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", true));
 	ui.chkLinuxStyle->setTristate(true);
@@ -45,11 +46,6 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.trayMode->setCurrentIndex(ui.trayMode->findData(theConf->GetString("SysTray/GraphMode", "CpuMem")));
 
 	ui.chkToTray->setChecked(theConf->GetBool("SysTray/CloseToTray", true));
-
-	ui.useDriver->addItem(tr("No"));
-	ui.useDriver->addItem(tr("Yes (when elevated)"));
-	ui.useDriver->addItem(tr("Yes (always, unsecure)"));
-	ui.useDriver->setCurrentIndex(theConf->GetInt("Options/UseDriver", 1));
 
 	ui.chkSoftForce->setCheckState((Qt::CheckState)theConf->GetInt("Options/UseSoftForce", 2));
 
@@ -192,8 +188,6 @@ void CSettingsWindow::apply()
 	theConf->SetValue("SysTray/GraphMode", ui.trayMode->currentData());
 
 	theConf->SetValue("SysTray/CloseToTray", ui.chkToTray->isChecked());
-
-	theConf->SetValue("Options/UseDriver", ui.useDriver->currentIndex());
 
 	theConf->SetValue("Options/UseSoftForce", (int)ui.chkSoftForce->checkState());
 

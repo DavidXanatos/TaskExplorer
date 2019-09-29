@@ -54,14 +54,15 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 	QMap<QList<QVariant>, QList<STreeNode*> > New;
 	QHash<QVariant, STreeNode*> Old = m_Map;
 
-	for (QMap<quint64, CModulePtr>::const_iterator I = ModuleList.begin(); I != ModuleList.end(); ++I)
+	for (QMap<quint64, CModulePtr>::const_iterator J = ModuleList.begin(); J != ModuleList.end(); ++J)
 	{
-		const CModulePtr& pModule = I.value();
-		quint64 ID = I.key();
+		const CModulePtr& pModule = J.value();
+		quint64 ID = J.key();
 
 		QModelIndex Index;
 		
-		SModuleNode* pNode = static_cast<SModuleNode*>(Old.value(ID));
+		QHash<QVariant, STreeNode*>::iterator I = Old.find(ID);
+		SModuleNode* pNode = I != Old.end() ? static_cast<SModuleNode*>(I.value()) : NULL;
 		if(!pNode || (m_bTree ? !TestModPath(pNode->Path, pModule, ModuleList) : !pNode->Path.isEmpty()))
 		{
 			pNode = static_cast<SModuleNode*>(MkNode(ID));
@@ -75,7 +76,7 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Index = Find(m_Root, pNode);
 		}
 
@@ -86,7 +87,7 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 		bool State = false;
 		int Changed = 0;
 
-		CProcessPtr pProcess = (!m_bTree) ? pModule->GetProcess().objectCast<CProcessInfo>() : NULL;
+		CProcessPtr pProcess = (!m_bTree) ? pModule->GetProcess().staticCast<CProcessInfo>() : NULL;
 
 		// Note: icons are loaded asynchroniusly
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eModule))

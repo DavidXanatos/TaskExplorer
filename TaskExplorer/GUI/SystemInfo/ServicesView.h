@@ -20,7 +20,7 @@ public:
 	//void					OnMenu(const QPoint &point);
 
 public slots:
-	void					Refresh() {}
+	void					Refresh();
 
 	void					ShowProcesses(const QList<CProcessPtr>& Processes);
 
@@ -36,7 +36,6 @@ protected:
 private slots:
 	void					OnResetColumns();
 	void					OnColumnsChanged();
-	void					SyncModel();
 
 	void					OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
 

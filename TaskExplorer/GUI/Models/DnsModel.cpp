@@ -67,7 +67,8 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 	QVariant ID = (quint64)pEntry.data();
 
 	int Row = -1;
-	SDnsNode* pNode = static_cast<SDnsNode*>(Old[ID]);
+	QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+	SDnsNode* pNode = I != Old.end() ? static_cast<SDnsNode*>(I.value()) : NULL;
 	if(!pNode)
 	{
 		pNode = static_cast<SDnsNode*>(MkNode(ID));
@@ -77,7 +78,7 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 	}
 	else
 	{
-		Old[ID] = NULL;
+		I.value() = NULL;
 		Row = GetRow(pNode);
 	}
 

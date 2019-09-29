@@ -28,7 +28,8 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		QVariant ID = pThread->GetThreadId();
 
 		int Row = -1;
-		SThreadNode* pNode = static_cast<SThreadNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SThreadNode* pNode = I != Old.end() ? static_cast<SThreadNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SThreadNode*>(MkNode(ID));
@@ -39,7 +40,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 
@@ -54,7 +55,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		// Note: icons are loaded asynchroniusly
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eThread))
 		{
-			CProcessPtr pProcess = pNode->pThread->GetProcess().objectCast<CProcessInfo>();
+			CProcessPtr pProcess = pNode->pThread->GetProcess().staticCast<CProcessInfo>();
 			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
 			if (pModule)
 			{
@@ -143,7 +144,12 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 												break;
 					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId()); break;
 					case eCPU:					ColValue.Formated = (!bClearZeros || CpuStats.CpuUsage > 0.00004) ? QString::number(CpuStats.CpuUsage*100, 10, 2) + "%" : ""; break;
+
 					case ePriority:				ColValue.Formated = pThread->GetPriorityString(); break;
+					case eBasePriority:			ColValue.Formated = pThread->GetBasePriorityString(); break;
+					case ePagePriority:			ColValue.Formated = pThread->GetPagePriorityString(); break;
+					case eIOPriority:			ColValue.Formated = pThread->GetIOPriorityString(); break;
+
 					case eCreated:				ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 					case eType:					ColValue.Formated = pWinThread->GetTypeString(); break;
 					case eState:				ColValue.Formated = pThread->GetStateString(); break;

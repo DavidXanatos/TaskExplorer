@@ -157,7 +157,7 @@ void CServiceListWidget::OnItemSellected(QTreeWidgetItem* item)
 	}
 
 #ifdef WIN32
-	m_pDescription->setText(pService.objectCast<CWinService>()->GetDescription());
+	m_pDescription->setText(pService.staticCast<CWinService>()->GetDescription());
 #endif
 }
 

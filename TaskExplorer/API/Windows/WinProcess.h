@@ -4,6 +4,7 @@
 #include "WinToken.h"
 #include "WinGDI.h"
 
+
 class CWinProcess : public CProcessInfo
 {
 	Q_OBJECT
@@ -26,6 +27,7 @@ public:
 	virtual QString GetSubsystemString() const;
 	virtual quint64 GetRawCreateTime() const;
 	virtual QString GetWorkingDirectory() const;
+	//virtual QString GetAppDataDirectory() const;
 
 	// Flags
 	virtual bool IsSubsystemProcess() const;
@@ -47,8 +49,14 @@ public:
 	virtual int		GetHangCount() const;
 	virtual int		GetGhostCount() const;
 
-	virtual QString GetPriorityString() const;
+	virtual QString GetPriorityString() const		{ return GetPriorityString(GetPriority()); }
+	virtual QString GetBasePriorityString() const	{ return GetBasePriorityString(GetBasePriority()); }
+	virtual QString GetPagePriorityString() const	{ return GetPagePriorityString(GetPagePriority()); }
+	virtual QString GetIOPriorityString() const		{ return GetIOPriorityString(GetIOPriority()); }
 	static QString GetPriorityString(quint32 value);
+	static QString GetBasePriorityString(quint32 value);
+	static QString GetPagePriorityString(quint32 value);
+	static QString GetIOPriorityString(quint32 value);
 	virtual STATUS SetPriority(long Value);
 	virtual STATUS SetBasePriority(long Value)		{ return ERR(); }
 	virtual STATUS SetPagePriority(long Value);
@@ -103,7 +111,6 @@ public:
 	virtual bool TokenHasChanged() const;
 	//virtual bool IsJobProcess() const;
 	virtual bool IsInJob() const;
-	virtual bool IsPicoProcess() const;
 	virtual bool IsImmersiveProcess() const;
 	virtual bool IsNetProcess() const;
 	virtual quint64 GetConsoleHostId() const;
@@ -173,15 +180,15 @@ private slots:
 
 protected:
 	friend class CWindowsAPI;
+	friend class CWinGpuMonitor;
 
 	bool InitStaticData(quint64 ProcessId);
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo);
 	bool InitStaticData(bool bLoadFileName = true); // *NOT Thread Safe* internal function to be called by other InitStaticData's
 	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
-	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
+	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	bool UpdateTokenData(bool MonitorChange);
 	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
-	void UpdateThreadCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 
 	void AddNetworkIO(int Type, quint32 TransferSize);
@@ -210,14 +217,14 @@ protected:
 	CWndRef							m_pMainWnd;
 	QString							m_UsedDesktop;
 
-	bool							m_IsFullyInitialized;
-
 private:
 	//volatile quint64 m_lastExtUpdate;
 	//void	UpdateExtDataIfNeeded() const;
 	void UpdateWsCounters() const;
 
-	quint64 m_LastUpdateHandles;
+	bool							m_IsFullyInitialized;
+	quint64							m_LastUpdateThreads;
+	quint64							m_LastUpdateHandles;
 
 	struct SWinProcess* m;
 };

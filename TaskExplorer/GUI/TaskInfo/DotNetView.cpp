@@ -192,7 +192,7 @@ void CDotNetView::Refresh()
 
 	if (m_pSplitter->sizes()[1] > 0)
 	{
-		UpdateDotNetStatTree(m_pCurProcess.objectCast<CWinProcess>().data(), m_PerfCounters);
+		UpdateDotNetStatTree(m_pCurProcess.staticCast<CWinProcess>().data(), m_PerfCounters);
 	}
 }
 

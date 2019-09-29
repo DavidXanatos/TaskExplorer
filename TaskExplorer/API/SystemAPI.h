@@ -209,7 +209,7 @@ protected:
 	QMap<QString, CDriverPtr>	m_DriverList;
 
 	// Guard it with m_ProcessMutex
-	QMap<quint64, CThreadRef>	m_ThreadMap;
+	QHash<quint64, CThreadRef>	m_ThreadMap;
 
 	mutable QReadWriteLock		m_Mutex;
 

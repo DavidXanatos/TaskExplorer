@@ -22,7 +22,8 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 		QVariant ID = (quint32)pGDI->GetHandleId();
 
 		int Row = -1;
-		SGDINode* pNode = static_cast<SGDINode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SGDINode* pNode = I != Old.end() ? static_cast<SGDINode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SGDINode*>(MkNode(ID));
@@ -32,7 +33,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 

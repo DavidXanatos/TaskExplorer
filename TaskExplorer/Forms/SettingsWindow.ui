@@ -45,7 +45,7 @@
         <enum>QTabWidget::North</enum>
        </property>
        <property name="currentIndex">
-        <number>0</number>
+        <number>2</number>
        </property>
        <widget class="QWidget" name="tab">
         <attribute name="title">
@@ -401,40 +401,14 @@
         <layout class="QGridLayout" name="gridLayout_6">
          <item row="0" column="0">
           <layout class="QGridLayout" name="gridLayout_5">
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_14">
-             <property name="text">
-              <string>Use Kernel Driver:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
            <item row="1" column="1">
-            <widget class="QComboBox" name="useDriver">
-             <property name="minimumSize">
-              <size>
-               <width>150</width>
-               <height>0</height>
-              </size>
+            <widget class="QCheckBox" name="chkUndecorate">
+             <property name="text">
+              <string>Undecorate symbols</string>
              </property>
             </widget>
            </item>
            <item row="0" column="0">
-            <widget class="QLabel" name="label_15">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Driver Options</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
             <widget class="QLabel" name="label_6">
              <property name="font">
               <font>
@@ -447,21 +421,7 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="1">
-            <widget class="QCheckBox" name="chkUndecorate">
-             <property name="text">
-              <string>Undecorate symbols</string>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="0">
-            <widget class="QCheckBox" name="chkSymbolPath">
-             <property name="text">
-              <string>Download Symbols:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="0">
+           <item row="3" column="0">
             <widget class="QLabel" name="label_7">
              <property name="font">
               <font>
@@ -474,60 +434,14 @@
              </property>
             </widget>
            </item>
-           <item row="12" column="1">
-            <spacer name="verticalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="12" column="0">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="12" column="2">
-            <spacer name="horizontalSpacer_5">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="6" column="1">
-            <widget class="QCheckBox" name="chkTraceDLLs">
-             <property name="text">
-              <string>Trace unloaded modules</string>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="1">
+           <item row="5" column="1">
             <widget class="QCheckBox" name="chkGetRefServices">
              <property name="text">
               <string>Resolce refering services</string>
              </property>
             </widget>
            </item>
-           <item row="8" column="0">
+           <item row="6" column="0">
             <widget class="QLabel" name="label_17">
              <property name="font">
               <font>
@@ -540,7 +454,7 @@
              </property>
             </widget>
            </item>
-           <item row="9" column="0">
+           <item row="7" column="0">
             <widget class="QLabel" name="label_16">
              <property name="text">
               <string>Forced Shutdown/Reboot:</string>
@@ -550,15 +464,68 @@
              </property>
             </widget>
            </item>
-           <item row="9" column="1" colspan="2">
+           <item row="10" column="2">
+            <spacer name="horizontalSpacer_5">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="10" column="1">
+            <spacer name="verticalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="4" column="1">
+            <widget class="QCheckBox" name="chkTraceDLLs">
+             <property name="text">
+              <string>Trace unloaded modules</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1" colspan="2">
             <widget class="QCheckBox" name="chkSoftForce">
              <property name="text">
               <string>Use soft force, hold CTRL to use hard force</string>
              </property>
             </widget>
            </item>
-           <item row="4" column="1" colspan="2">
+           <item row="2" column="0">
+            <widget class="QCheckBox" name="chkSymbolPath">
+             <property name="text">
+              <string>Download Symbols:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1" colspan="2">
             <widget class="QLineEdit" name="symbolPath"/>
+           </item>
+           <item row="10" column="0">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
            </item>
           </layout>
          </item>

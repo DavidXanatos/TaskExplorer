@@ -344,21 +344,19 @@ bool CWaitChainDialog::Refresh()
 	}
 	else
     {
-        NTSTATUS status;
-        HANDLE threadHandle;
-        HANDLE newThreadHandle;
-        THREAD_BASIC_INFORMATION basicInfo;
-
-        status = NtGetNextThread(m->QueryHandle, NULL, ThreadQueryAccess, 0, 0, &threadHandle);
+		HANDLE threadHandle;
+        NTSTATUS status = NtGetNextThread(m->QueryHandle, NULL, ThreadQueryAccess, 0, 0, &threadHandle);
 
         while (NT_SUCCESS(status))
         {
+			THREAD_BASIC_INFORMATION basicInfo;
 			if (NT_SUCCESS(PhGetThreadBasicInformation(threadHandle, &basicInfo)))
 			{
 				ThreadIds.append((quint64)basicInfo.ClientId.UniqueThread);
 				//UpdateThread(basicInfo.ClientId.UniqueThread, OldNodes);
 			}
 
+			HANDLE newThreadHandle;
             status = NtGetNextThread(m->QueryHandle, threadHandle, ThreadQueryAccess, 0, 0, &newThreadHandle);
 
             NtClose(threadHandle);

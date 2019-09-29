@@ -294,7 +294,7 @@ void CTaskView::OnPriority()
 		case ePage:		Status = pTask->SetPagePriority(Priority.Value); break;
 		}
 
-		if(Errors.isEmpty())
+		if(Status.IsError())
 			Errors.append(Status);
 	}
 

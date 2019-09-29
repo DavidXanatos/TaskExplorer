@@ -22,6 +22,11 @@ struct SWindowsAPI
 {
 	SWindowsAPI()
 	{
+		Processes = NULL;
+		bFullProcessInfo = false;
+		sysTotalTime = 0;
+		sysTotalCycleTime = 0;
+
 		PowerInformation = NULL;
 		InterruptInformation = NULL;
 		CurrentPerformanceDistribution = NULL;
@@ -47,6 +52,9 @@ struct SWindowsAPI
 
 	~SWindowsAPI()
 	{
+		if (Processes)
+			PhFree(Processes);
+
 		delete[] PowerInformation;
 		delete[] InterruptInformation;
 		if (CurrentPerformanceDistribution)
@@ -58,6 +66,12 @@ struct SWindowsAPI
 
 		delete[] CpuSystemCycleTime;
 	}
+
+	QReadWriteLock ProcLocker;
+	PVOID Processes;
+	bool bFullProcessInfo;
+	quint64 sysTotalTime;
+	quint64 sysTotalCycleTime;
 
 	PPROCESSOR_POWER_INFORMATION PowerInformation;
 	PSYSTEM_INTERRUPT_INFORMATION InterruptInformation;
@@ -128,7 +142,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_pDnsResolver = NULL;
 
 	m_bTestSigning = false;
-	m_bDriverFailed = false;
+	m_uDriverStatus = 0;
 
 	m = new SWindowsAPI();
 }
@@ -143,42 +157,17 @@ bool CWindowsAPI::Init()
 	SYSTEM_CODEINTEGRITY_INFORMATION sci = {sizeof(SYSTEM_CODEINTEGRITY_INFORMATION)};
 	if(NT_SUCCESS(NtQuerySystemInformation(SystemCodeIntegrityInformation, &sci, sizeof(sci), NULL)))
 	{
-		bool bCoseIntegrityEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_ENABLED*/ 0x1);
+		bool bCodeIntegrityEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_ENABLED*/ 0x1);
 		bool bTestSigningEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_TESTSIGN*/ 0x2);
 
-		m_bTestSigning = (!bCoseIntegrityEnabled || bTestSigningEnabled);
+		m_bTestSigning = (!bCodeIntegrityEnabled || bTestSigningEnabled);
 	}
-
-	int iUseDriver = theConf->GetInt("Options/UseDriver", 1);
-	if (!PhIsExecutingInWow64() && iUseDriver != 0)
+	
+	if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseDriver", true))
 	{
-		m_DriverFileName = theConf->GetString("Options/DriverFile");
-		QString DeviceName;
-		if (!m_DriverFileName.isEmpty())
-			DeviceName = theConf->GetString("Options/DriverDevice");
-		else
-		{
-			if (QFile::exists(QApplication::applicationDirPath() + "/xprocesshacker.sys"))
-			{
-				DeviceName = "XProcessHacker3";
-				m_DriverFileName = "xprocesshacker.sys";
-			}
-			else
-			{
-				DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
-				m_DriverFileName = "kprocesshacker.sys";
-			}
-		}
-
-		STATUS Status = InitKPH(DeviceName, m_DriverFileName, iUseDriver == 1);
-
-		if (Status.IsError())
-		{
-			qDebug() << Status.GetText();
-			m_bDriverFailed = true;
-		}
-		else
-			qDebug() << tr("Process Hacker kernel driver connected.");
+		QPair<QString, QString> Driver = SellectDriver();
+		int SecurityLevel = theConf->GetInt("Options/DriverSecurityLevel", KphSecurityPrivilegeCheck);
+		InitDriver(Driver.first, Driver.second, SecurityLevel);
 	}
 
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
@@ -190,7 +179,6 @@ bool CWindowsAPI::Init()
 		UNICODE_STRING EtwRegistrationTypeName = RTL_CONSTANT_STRING(L"EtwRegistration");
         g_EtwRegistrationTypeIndex = PhGetObjectTypeNumber(&EtwRegistrationTypeName);
 		
-
         PhEndInitOnce(&initOnce);
     }
 
@@ -269,6 +257,89 @@ bool CWindowsAPI::Init()
 	return true;
 }
 
+QPair<QString, QString> CWindowsAPI::SellectDriver()
+{
+	QString DeviceName;
+	QString FileName = theConf->GetString("Options/DriverFile");
+	if (!FileName.isEmpty())
+		DeviceName = theConf->GetString("Options/DriverDevice");
+	else
+	{
+		if (QFile::exists(QApplication::applicationDirPath() + "/xprocesshacker.sys"))
+		{
+			DeviceName = "XProcessHacker3";
+			FileName = "xprocesshacker.sys";
+		}
+		else
+		{
+			DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
+			FileName = "kprocesshacker.sys";
+		}
+	}
+	return qMakePair(DeviceName, FileName);
+}
+
+STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName, int SecurityLevel)
+{
+	if (KphIsConnected())
+		return OK;
+
+	m_DriverFileName = FileName;
+	m_DriverDeviceName = DeviceName;
+
+	STATUS Status = InitKPH(DeviceName, FileName, SecurityLevel);
+	if (!Status.IsError())
+	{
+		CLIENT_ID clientId;
+
+		clientId.UniqueProcess = NtCurrentProcessId();
+		clientId.UniqueThread = NULL;
+
+		// Note: when KphSecuritySignatureCheck is enabled the connection does not fail only the later atempt to use teh driver,
+		//			hence we have to test if the driver is usable and if not disconnect.
+		HANDLE ProcessHandle = NULL;
+		NTSTATUS status = KphOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION, &clientId);
+		if (NT_SUCCESS(status))
+			NtClose(ProcessHandle);
+		else
+		{
+			Status = ERR(QObject::tr("Unable to access the kernel driver, Error: %1").arg(CastPhString(PhGetNtMessage(status))), status);
+
+			KphDisconnect();
+		}
+	}
+
+	m_uDriverStatus = Status.GetStatus();
+	if (Status.IsError())
+		qDebug() << Status.GetText();
+
+	return Status;
+}
+
+CWindowsAPI::~CWindowsAPI()
+{
+	delete m_pEventMonitor;
+	delete m_pFirewallMonitor;
+
+	delete m_pGpuMonitor;
+	delete m_pNetMonitor;
+	delete m_pDiskMonitor;
+
+	delete m_pSymbolProvider;
+	delete m_pSidResolver;
+	delete m_pDnsResolver;
+
+	FreePoolTagDatabase(&m->PoolTableDB);
+
+	delete m;
+}
+
+bool CWindowsAPI::RootAvaiable()
+{
+	return PhGetOwnTokenAttributes().Elevated;
+}
+
+
 void CWindowsAPI::MonitorETW(bool bEnable)
 {
 	if (bEnable == (m_pEventMonitor != NULL))
@@ -310,29 +381,6 @@ void CWindowsAPI::MonitorFW(bool bEnable)
 
 	delete m_pFirewallMonitor;
 	m_pFirewallMonitor = NULL;
-}
-
-CWindowsAPI::~CWindowsAPI()
-{
-	delete m_pEventMonitor;
-	delete m_pFirewallMonitor;
-
-	delete m_pGpuMonitor;
-	delete m_pNetMonitor;
-	delete m_pDiskMonitor;
-
-	delete m_pSymbolProvider;
-	delete m_pSidResolver;
-	delete m_pDnsResolver;
-
-	FreePoolTagDatabase(&m->PoolTableDB);
-
-	delete m;
-}
-
-bool CWindowsAPI::RootAvaiable()
-{
-	return PhGetOwnTokenAttributes().Elevated;
 }
 
 // PhpUpdateCpuInformation
@@ -723,7 +771,7 @@ bool CWindowsAPI::UpdateProcessList()
 		quint64 ProcessID = (quint64)process->UniqueProcessId;
 
 		// take all running processes out of the copyed map
-		QSharedPointer<CWinProcess> pProcess = OldProcesses.take(ProcessID).objectCast<CWinProcess>();
+		QSharedPointer<CWinProcess> pProcess = OldProcesses.take(ProcessID).staticCast<CWinProcess>();
 		bool bAdd = false;
 		if (pProcess.isNull())
 		{
@@ -745,7 +793,7 @@ bool CWindowsAPI::UpdateProcessList()
 		if (EnableCycleCpuUsage)
 			sysTotalCycleTime += pProcess->GetCpuStats().CycleDelta.Delta;
 
-		pProcess->UpdateThreadData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime)); // a thread can ever only use one CPU to use linux style ylways
+		//pProcess->UpdateThreadData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime)); // a thread can ever only use one CPU to use linux style ylways
 
 		pProcess->UpdateTokenData(MonitorTokenChange);
 
@@ -809,9 +857,7 @@ bool CWindowsAPI::UpdateProcessList()
 			if (pProcess->IsMarkedForRemoval())
 				continue;
 
-			pProcess.objectCast<CWinProcess>()->UpdateCPUCycles(iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU == 1 ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
-
-			pProcess.objectCast<CWinProcess>()->UpdateThreadCPUCycles(iLinuxStyleCPU ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
+			pProcess.staticCast<CWinProcess>()->UpdateCPUCycles(iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime, iLinuxStyleCPU == 1 ? sysTotalCycleTimePerCPU : sysTotalCycleTime);
 		}
 
 		UpdateCPUCycles(sysTotalCycleTime, sysIdleCycleTime);
@@ -822,7 +868,7 @@ bool CWindowsAPI::UpdateProcessList()
 	QWriteLocker Locker(&m_ProcessMutex);
 	foreach(quint64 ProcessID, OldProcesses.keys())
 	{
-		QSharedPointer<CWinProcess> pProcess = m_ProcessList.value(ProcessID).objectCast<CWinProcess>();
+		QSharedPointer<CWinProcess> pProcess = m_ProcessList.value(ProcessID).staticCast<CWinProcess>();
 		if (pProcess->CanBeRemoved())
 		{
 			m_ProcessList.remove(ProcessID);
@@ -837,7 +883,17 @@ bool CWindowsAPI::UpdateProcessList()
 	}
 	Locker.unlock();
 
-	PhFree(processes);
+	// Cache processes for later use when updating threads
+	QWriteLocker ProcLocker(&m->ProcLocker);
+	if (m->Processes)
+		PhFree(m->Processes);
+	m->Processes = processes;
+	m->bFullProcessInfo = bFullProcessInfo;
+	m->sysTotalTime = sysTotalTime;
+	m->sysTotalCycleTime = sysTotalCycleTime;
+	ProcLocker.unlock();
+
+	// PhFree(processes);
 
 	emit ProcessListUpdated(Added, Changed, Removed);
 
@@ -864,13 +920,28 @@ bool CWindowsAPI::UpdateProcessList()
 	return true;
 }
 
+bool CWindowsAPI::UpdateThreads(CWinProcess* pProcess)
+{
+	HANDLE ProcessId = (HANDLE)pProcess->GetProcessId();
+
+	QReadLocker Locker(&m->ProcLocker);
+	PSYSTEM_PROCESS_INFORMATION process = m->Processes ? PhFindProcessInformation(m->Processes, ProcessId) : NULL;
+	if (process == NULL)
+		return false;
+
+	bool EnableCycleCpuUsage = theConf->GetBool("Options/EnableCycleCpuUsage", true);
+	int iLinuxStyleCPU = theConf->GetInt("Options/LinuxStyleCPU", 2);
+
+	return pProcess->UpdateThreadData(process, m->bFullProcessInfo, iLinuxStyleCPU ? (m->sysTotalTime / m_CpuCount) : m->sysTotalTime, EnableCycleCpuUsage ? (iLinuxStyleCPU ? (m->sysTotalCycleTime / m_CpuCount) : m->sysTotalCycleTime) : 0);
+}
+
 CProcessPtr CWindowsAPI::GetProcessByID(quint64 ProcessId, bool bAddIfNew)
 {
-	QSharedPointer<CWinProcess> pProcess = CSystemAPI::GetProcessByID(ProcessId, false).objectCast<CWinProcess>();
+	QSharedPointer<CWinProcess> pProcess = CSystemAPI::GetProcessByID(ProcessId, false).staticCast<CWinProcess>();
 	if (!pProcess && bAddIfNew)
 	{
 		QWriteLocker Locker(&m_ProcessMutex);
-		pProcess = m_ProcessList.value(ProcessId).objectCast<CWinProcess>();
+		pProcess = m_ProcessList.value(ProcessId).staticCast<CWinProcess>();
 		if(pProcess) // just in case between CSystemAPI::GetProcessByID and QWriteLocker something happened
 			return pProcess;
 
@@ -885,19 +956,18 @@ CProcessPtr CWindowsAPI::GetProcessByID(quint64 ProcessId, bool bAddIfNew)
 
 struct CWindowsAPI__WndEnumStruct
 {
-	QMap<quint64, QPair<quint64, quint64> > OldWindows;
+	QHash<quint64, QPair<quint64, quint64> > OldWindows; // QMap<HWND, QPair<PID, TID> >
 
 	QReadWriteLock* pWindowMutex;
-	QMap<quint64, QMultiMap<quint64, quint64> >* pWindowMap;
-	QMap<quint64, QPair<quint64, quint64> >* pWindowRevMap;
+	QHash<quint64, QMultiMap<quint64, quint64> >* pWindowMap; // QMap<PID, HWND>
+	QHash<quint64, QPair<quint64, quint64> >* pWindowRevMap; // QMap<HWND, QPair<PID, TID> >
 };
 
 void CWindowsAPI__WndEnumProc(quint64 hWnd, /*quint64 hParent,*/ void* Param)
 {
 	CWindowsAPI__WndEnumStruct* pContext = (CWindowsAPI__WndEnumStruct*)Param;
 
-	QMap<quint64, QPair<quint64, quint64> >::iterator I = pContext->OldWindows.find(hWnd);
-	if (I == pContext->OldWindows.end())
+	if (!pContext->OldWindows.remove(hWnd))
 	{
 		ULONG processId;
 		ULONG threadId = GetWindowThreadProcessId((HWND)hWnd, &processId);
@@ -906,8 +976,6 @@ void CWindowsAPI__WndEnumProc(quint64 hWnd, /*quint64 hParent,*/ void* Param)
 		pContext->pWindowMap->operator[](processId).insertMulti(threadId, hWnd);
 		pContext->pWindowRevMap->insert(hWnd, qMakePair((quint64)processId, (quint64)threadId));
 	}
-	else
-		pContext->OldWindows.erase(I);
 }
 
 quint32 CWindowsAPI::EnumWindows()
@@ -922,16 +990,17 @@ quint32 CWindowsAPI::EnumWindows()
 	CWinWnd::EnumAllWindows(CWindowsAPI__WndEnumProc, &Context);
 
 	QWriteLocker Locker(Context.pWindowMutex);
-	foreach(quint64 hWnd, Context.OldWindows.keys())
+	for (QHash<quint64, QPair<quint64, quint64> >::iterator I = Context.OldWindows.begin(); I != Context.OldWindows.end(); ++I)
 	{
+		quint64 hWnd = I.key();
 		QPair<quint64, quint64> PidTid = Context.pWindowRevMap->take(hWnd);
 
-		QMap<quint64, QMultiMap<quint64, quint64> >::iterator I = Context.pWindowMap->find(PidTid.first);
-		if (I != Context.pWindowMap->end())
+		QHash<quint64, QMultiMap<quint64, quint64> >::iterator J = Context.pWindowMap->find(PidTid.first);
+		if (J != Context.pWindowMap->end())
 		{
-			I->remove(PidTid.second, hWnd);
-			if (I->isEmpty())
-				Context.pWindowMap->erase(I);
+			J->remove(PidTid.second, hWnd);
+			if (J->isEmpty())
+				Context.pWindowMap->erase(J);
 		}
 	}
 
@@ -965,7 +1034,7 @@ QMultiMap<quint64, CSocketPtr>::iterator FindSocketEntry(QMultiMap<quint64, CSoc
 
 	for (QMultiMap<quint64, CSocketPtr>::iterator I = Sockets.find(HashID); I != Sockets.end() && I.key() == HashID; I++)
 	{
-		if (I.value().objectCast<CWinSocket>()->Match(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode))
+		if (I.value().staticCast<CWinSocket>()->Match(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode))
 			return I;
 	}
 
@@ -1015,7 +1084,7 @@ bool CWindowsAPI::UpdateSocketList()
 		}
 		else
 		{
-			pSocket = I.value().objectCast<CWinSocket>();
+			pSocket = I.value().staticCast<CWinSocket>();
 			OldSockets.erase(I);
 		}
 
@@ -1036,7 +1105,7 @@ bool CWindowsAPI::UpdateSocketList()
 	// For UDP Traffic keep the pseudo connections listed for a while
 	for (QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); )
 	{
-		QSharedPointer<CWinSocket> pSocket = I.value().objectCast<CWinSocket>();
+		QSharedPointer<CWinSocket> pSocket = I.value().staticCast<CWinSocket>();
 		bool bIsUDPPseudoCon = (pSocket->GetProtocolType() & NET_TYPE_PROTOCOL_UDP) != 0 && pSocket->GetRemotePort() != 0;
 
 		if (!pSocket->HasStaticDataEx())
@@ -1064,7 +1133,7 @@ bool CWindowsAPI::UpdateSocketList()
 	// purge all sockets left as thay are not longer running
 	for(QMultiMap<quint64, CSocketPtr>::iterator I = OldSockets.begin(); I != OldSockets.end(); ++I)
 	{
-		QSharedPointer<CWinSocket> pSocket = I.value().objectCast<CWinSocket>();
+		QSharedPointer<CWinSocket> pSocket = I.value().staticCast<CWinSocket>();
 		if (pSocket->CanBeRemoved())
 		{
 			m_SocketList.remove(I.key(), I.value());
@@ -1128,7 +1197,7 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 	if ((ProtocolType & NET_TYPE_PROTOCOL_UDP) != 0 && theConf->GetBool("Options/UseUDPPseudoConnectins", false))
 		Mode = CSocketInfo::eStrict;
 
-	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode).objectCast<CWinSocket>();
+	QSharedPointer<CWinSocket> pSocket = FindSocket(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort, Mode).staticCast<CWinSocket>();
 	bool bAdd = false;
 	if (pSocket.isNull())
 	{
@@ -1142,7 +1211,7 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 		m_SocketList.insertMulti(pSocket->m_HashID, pSocket);
 	}
 
-	QSharedPointer<CWinProcess> pProcess = pSocket->GetProcess().objectCast<CWinProcess>();
+	QSharedPointer<CWinProcess> pProcess = pSocket->GetProcess().staticCast<CWinProcess>();
     if (!pProcess.isNull())
 		pProcess->AddNetworkIO(Type, TransferSize);
 
@@ -1190,9 +1259,9 @@ void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 
 	QSharedPointer<CWinProcess> pProcess;
 	if (ProcessId != -1)
-		pProcess = GetProcessByID(ProcessId).objectCast<CWinProcess>();
+		pProcess = GetProcessByID(ProcessId).staticCast<CWinProcess>();
 	else
-		pProcess = GetProcessByThreadID(ThreadId).objectCast<CWinProcess>();
+		pProcess = GetProcessByThreadID(ThreadId).staticCast<CWinProcess>();
 
 	if (!pProcess.isNull())
 		pProcess->AddDiskIO(Type, TransferSize);
@@ -1244,7 +1313,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 
 		quint64 HandleID = CWinHandle::MakeID(handle->HandleValue, handle->UniqueProcessId);
 
-		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).objectCast<CWinHandle>();
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).staticCast<CWinHandle>();
 
 		bool WasReused = false;
 		// Comment from: hndlprv.c
@@ -1315,7 +1384,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 HandleID, OldHandles.keys())
 	{
-		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).objectCast<CWinHandle>();
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).staticCast<CWinHandle>();
 		if (pWinHandle->CanBeRemoved())
 		{
 			//m_HandleByObject.remove(pWinHandle->GetObject(), pWinHandle);
@@ -1374,7 +1443,7 @@ bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 
 		QString Name = QString::fromWCharArray(service->lpServiceName).toLower(); // its not case sensitive
 
-		QSharedPointer<CWinService> pService = OldService.take(Name).objectCast<CWinService>();
+		QSharedPointer<CWinService> pService = OldService.take(Name).staticCast<CWinService>();
 
 		bool bAdd = false;
 		if (pService.isNull())
@@ -1392,15 +1461,23 @@ bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 		{
 			quint64 uServicePID = pService->GetPID();
 			QWriteLocker Locker(&m_ServiceMutex);
-			if(uServicePID != 0)
-				m_ServiceByPID.insertMulti(uServicePID, Name);
+			QList<QString>* pList = &m_ServiceByPID[uServicePID];
+			if (uServicePID != 0)
+			{
+				if (!pList->contains(Name))
+					pList->append(Name);
+			}
 			else
-				m_ServiceByPID.remove(uServicePID, Name);
+			{
+				pList->removeAll(Name);
+				if (pList->isEmpty())
+					m_ServiceByPID.remove(uServicePID);
+			}
 			Locker.unlock();
 			// if the pid just changed we couldn't have set it on the process, so do it now
 			if (uServicePID)
 			{
-				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uServicePID, true).objectCast<CWinProcess>();
+				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uServicePID, true).staticCast<CWinProcess>();
 				if(pProcess)
 					pProcess->AddService(Name);
 			}
@@ -1417,7 +1494,7 @@ bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 	QWriteLocker Locker(&m_ServiceMutex);
 	foreach(const QString& Name, OldService.keys())
 	{
-		QSharedPointer<CWinService> pService = m_ServiceList.value(Name).objectCast<CWinService>();
+		QSharedPointer<CWinService> pService = m_ServiceList.value(Name).staticCast<CWinService>();
 		pService->UnInit();
 		if (pService->CanBeRemoved())
 		{
@@ -1464,7 +1541,7 @@ bool CWindowsAPI::UpdateDriverList()
 		PRTL_PROCESS_MODULE_INFORMATION Module = &ModuleInfo->Modules[i];
 		QString BinaryPath = (char*)Module->FullPathName;
 
-		QSharedPointer<CWinDriver> pWinDriver = OldDrivers.take(BinaryPath).objectCast<CWinDriver>();
+		QSharedPointer<CWinDriver> pWinDriver = OldDrivers.take(BinaryPath).staticCast<CWinDriver>();
 
 		bool bAdd = false;
 		if (pWinDriver.isNull())
@@ -1488,7 +1565,7 @@ bool CWindowsAPI::UpdateDriverList()
 	QWriteLocker Locker(&m_DriverMutex);
 	foreach(const QString& Name, OldDrivers.keys())
 	{
-		QSharedPointer<CWinDriver> pDriver = m_DriverList.value(Name).objectCast<CWinDriver>();
+		QSharedPointer<CWinDriver> pDriver = m_DriverList.value(Name).staticCast<CWinDriver>();
 		if (pDriver->CanBeRemoved())
 		{
 			m_DriverList.remove(Name);

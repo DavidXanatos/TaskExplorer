@@ -83,6 +83,9 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 	bool IsMonitoringETW = ((CWindowsAPI*)theAPI)->IsMonitoringETW();
 #endif
 
+	bool bGpuStats = m_Columns.contains(eGPU_History) || m_Columns.contains(eVMEM_History)
+		|| m_Columns.contains(eGPU_Usage) || m_Columns.contains(eGPU_Shared) || m_Columns.contains(eGPU_Dedicated) || m_Columns.contains(eGPU_Adapter);
+
 	QVector<QList<QPair<quint64, SProcessNode*> > > Highlights;
 	if(iHighlightMax > 0)
 		Highlights.resize(columnCount());
@@ -93,7 +96,8 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 		QModelIndex Index;
 		
-		SProcessNode* pNode = static_cast<SProcessNode*>(Old.value(ID));
+		QHash<QVariant, STreeNode*>::iterator I = Old.find(ID);
+		SProcessNode* pNode = I != Old.end() ? static_cast<SProcessNode*>(I.value()) : NULL;
 		if(!pNode || (m_bTree ? !TestProcPath(pNode->Path, pProcess, ProcessList) : !pNode->Path.isEmpty()))
 		{
 			pNode = static_cast<SProcessNode*>(MkNode(ID));
@@ -106,7 +110,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Index = Find(m_Root, pNode);
 		}
 
@@ -114,10 +118,10 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		//	emit dataChanged(createIndex(Index.row(), 0, pNode), createIndex(Index.row(), columnCount()-1, pNode));
 		
 #ifdef WIN32
-		QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
+		QSharedPointer<CWinProcess> pWinProc = pProcess.staticCast<CWinProcess>();
 		CWinTokenPtr pToken = pWinProc->GetToken();
 		CModulePtr pModule = pProcess->GetModuleInfo();
-		QSharedPointer<CWinModule> pWinModule = pModule.objectCast<CWinModule>();
+		QSharedPointer<CWinModule> pWinModule = pModule.staticCast<CWinModule>();
 #endif
 
 		int Col = 0;
@@ -145,7 +149,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		else if (pProcess->IsSystemProcess())		RowColor = CTaskExplorer::eSystem;
 		else if (pProcess->IsElevated())			RowColor = CTaskExplorer::eElevated;
 #ifdef WIN32
-		else if (pWinProc->IsPicoProcess())			RowColor = CTaskExplorer::ePico;
+		else if (pWinProc->IsSubsystemProcess())	RowColor = CTaskExplorer::ePico;
 		else if (pWinProc->IsImmersiveProcess())	RowColor = CTaskExplorer::eImmersive;
 		else if (pWinProc->IsNetProcess())			RowColor = CTaskExplorer::eDotNet;
 #endif
@@ -169,8 +173,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 		pNode->Bold.clear();
 
-		SProcStats Stats = pProcess->GetStats();
+		SProcStats IoStats = pProcess->GetStats();
 		STaskStatsEx CpuStats = pProcess->GetCpuStats();
+		SGpuStats GpuStats;
+		if (bGpuStats) // Note: GetGpuStats marks gpu stats to be keept updated, hence don't get it when its not needed
+			GpuStats = pProcess->GetGpuStats();
 
 		for(int section = 0; section < columnCount(); section++)
 		{
@@ -206,8 +213,8 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case ePID:					Value = (qint64)pProcess->GetProcessId(); break;
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; CurIntValue = 10000 * Value.toDouble(); break;
-				case eIO_History:			Value = qMax(Stats.Disk.ReadRate.Get(), Stats.Io.ReadRate.Get()) + qMax(Stats.Disk.WriteRate.Get(), Stats.Io.WriteRate.Get()) + Stats.Io.OtherRate.Get(); break;
-				case eIO_TotalRate:			Value = CurIntValue = Stats.Io.ReadRate.Get() + Stats.Io.WriteRate.Get() + Stats.Io.OtherRate.Get(); break;
+				case eIO_History:			Value = qMax(IoStats.Disk.ReadRate.Get(), IoStats.Io.ReadRate.Get()) + qMax(IoStats.Disk.WriteRate.Get(), IoStats.Io.WriteRate.Get()) + IoStats.Io.OtherRate.Get(); break;
+				case eIO_TotalRate:			Value = CurIntValue = IoStats.Io.ReadRate.Get() + IoStats.Io.WriteRate.Get() + IoStats.Io.OtherRate.Get(); break;
 				case eStaus:				Value = pProcess->GetStatusString(); break;
 				case ePrivateBytes:			Value = CurIntValue = CpuStats.PrivateBytesDelta.Value; break;
 				case eUserName:				Value = pProcess->GetUserName(); break;
@@ -218,13 +225,13 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eVersion:				Value = pModule ? pModule->GetFileInfo("FileVersion") : ""; break;
 #endif
 
-				case eGPU_History:			Value = pProcess->GetGpuUsage(); break;
-				case eVMEM_History:			Value = qMax(pProcess->GetGpuDedicatedUsage(),pProcess->GetGpuSharedUsage()); break;
+				case eGPU_History:			Value = GpuStats.GpuTimeUsage.Usage; break;
+				case eVMEM_History:			Value = qMax(GpuStats.GpuDedicatedUsage,GpuStats.GpuSharedUsage); break;
 
-				case eGPU_Usage:			Value = pProcess->GetGpuUsage(); CurIntValue = 10000 * Value.toDouble(); break;
-				case eGPU_Shared:			Value = CurIntValue = pProcess->GetGpuSharedUsage(); break;
-				case eGPU_Dedicated:		Value = CurIntValue = pProcess->GetGpuDedicatedUsage(); break;
-				case eGPU_Adapter:			Value = pProcess->GetGpuAdapter(); break;
+				case eGPU_Usage:			Value = GpuStats.GpuTimeUsage.Usage; CurIntValue = 10000 * Value.toDouble(); break;
+				case eGPU_Shared:			Value = CurIntValue = GpuStats.GpuSharedUsage; break;
+				case eGPU_Dedicated:		Value = CurIntValue = GpuStats.GpuDedicatedUsage; break;
+				case eGPU_Adapter:			Value = GpuStats.GpuAdapter; break;
 
 				case eFileName:				Value = pProcess->GetFileName(); break;
 				case eCommandLine:			Value = pProcess->GetCommandLineStr(); break;
@@ -287,24 +294,24 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eHardFaultsDelta:		Value = CurIntValue = CpuStats.HardFaultsDelta.Delta; break;
 
 				// IO
-				case eIO_Reads:				Value = CurIntValue = Stats.Io.ReadCount; break;
-				case eIO_Writes:			Value = CurIntValue = Stats.Io.WriteCount; break;
-				case eIO_Other:				Value = CurIntValue = Stats.Io.OtherCount; break;
-				case eIO_ReadBytes:			Value = CurIntValue = Stats.Io.ReadRaw; break;
-				case eIO_WriteBytes:		Value = CurIntValue = Stats.Io.WriteRaw; break;
-				case eIO_OtherBytes:		Value = CurIntValue = Stats.Io.OtherRaw; break;
+				case eIO_Reads:				Value = CurIntValue = IoStats.Io.ReadCount; break;
+				case eIO_Writes:			Value = CurIntValue = IoStats.Io.WriteCount; break;
+				case eIO_Other:				Value = CurIntValue = IoStats.Io.OtherCount; break;
+				case eIO_ReadBytes:			Value = CurIntValue = IoStats.Io.ReadRaw; break;
+				case eIO_WriteBytes:		Value = CurIntValue = IoStats.Io.WriteRaw; break;
+				case eIO_OtherBytes:		Value = CurIntValue = IoStats.Io.OtherRaw; break;
 				//case eIO_TotalBytes:		Value = CurIntValue = ; break;
-				case eIO_ReadsDelta:		Value = CurIntValue = Stats.Io.ReadDelta.Delta; break;
-				case eIO_WritesDelta:		Value = CurIntValue = Stats.Io.WriteDelta.Delta; break;
-				case eIO_OtherDelta:		Value = CurIntValue = Stats.Io.OtherDelta.Delta; break;
+				case eIO_ReadsDelta:		Value = CurIntValue = IoStats.Io.ReadDelta.Delta; break;
+				case eIO_WritesDelta:		Value = CurIntValue = IoStats.Io.WriteDelta.Delta; break;
+				case eIO_OtherDelta:		Value = CurIntValue = IoStats.Io.OtherDelta.Delta; break;
 				//case eIO_TotalDelta:		Value = CurIntValue = ; break;
-				case eIO_ReadBytesDelta:	Value = CurIntValue = Stats.Io.ReadRawDelta.Delta; break;
-				case eIO_WriteBytesDelta:	Value = CurIntValue = Stats.Io.WriteRawDelta.Delta; break;
-				case eIO_OtherBytesDelta:	Value = CurIntValue = Stats.Io.OtherRawDelta.Delta; break;
+				case eIO_ReadBytesDelta:	Value = CurIntValue = IoStats.Io.ReadRawDelta.Delta; break;
+				case eIO_WriteBytesDelta:	Value = CurIntValue = IoStats.Io.WriteRawDelta.Delta; break;
+				case eIO_OtherBytesDelta:	Value = CurIntValue = IoStats.Io.OtherRawDelta.Delta; break;
 				//case eIO_TotalBytesDelta:	Value = CurIntValue = ; break;
-				case eIO_ReadRate:			Value = CurIntValue = Stats.Io.ReadRate.Get(); break;
-				case eIO_WriteRate:			Value = CurIntValue = Stats.Io.WriteRate.Get(); break;
-				case eIO_OtherRate:			Value = CurIntValue = Stats.Io.OtherRate.Get(); break;
+				case eIO_ReadRate:			Value = CurIntValue = IoStats.Io.ReadRate.Get(); break;
+				case eIO_WriteRate:			Value = CurIntValue = IoStats.Io.WriteRate.Get(); break;
+				case eIO_OtherRate:			Value = CurIntValue = IoStats.Io.OtherRate.Get(); break;
 				//case eIO_TotalRate:		Value = CurIntValue = ; break;
 
 #ifdef WIN32
@@ -341,35 +348,35 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 				// Network IO
 				case eNET_History:
-				case eNet_TotalRate:		Value = CurIntValue = Stats.Net.ReceiveRate.Get() + Stats.Net.SendRate.Get(); break; 
+				case eNet_TotalRate:		Value = CurIntValue = IoStats.Net.ReceiveRate.Get() + IoStats.Net.SendRate.Get(); break; 
 				case eNetUsage:				Value = pProcess->GetNetworkUsageFlags(); break;
-				case eReceives:				Value = CurIntValue = Stats.Net.ReceiveCount; break; 
-				case eSends:				Value = CurIntValue = Stats.Net.SendCount; break; 
-				case eReceiveBytes:			Value = CurIntValue = Stats.Net.ReceiveRaw; break; 
-				case eSendBytes:			Value = CurIntValue = Stats.Net.SendRaw; break; 
+				case eReceives:				Value = CurIntValue = IoStats.Net.ReceiveCount; break; 
+				case eSends:				Value = CurIntValue = IoStats.Net.SendCount; break; 
+				case eReceiveBytes:			Value = CurIntValue = IoStats.Net.ReceiveRaw; break; 
+				case eSendBytes:			Value = CurIntValue = IoStats.Net.SendRaw; break; 
 				//case eTotalBytes:			Value = CurIntValue = ; break; 
-				case eReceivesDelta:		Value = CurIntValue = Stats.Net.ReceiveDelta.Delta; break; 
-				case eSendsDelta:			Value = CurIntValue = Stats.Net.SendDelta.Delta; break; 
-				case eReceiveBytesDelta:	Value = CurIntValue = Stats.Net.ReceiveRawDelta.Delta; break; 
-				case eSendBytesDelta:		Value = CurIntValue = Stats.Net.SendRawDelta.Delta; break; 
+				case eReceivesDelta:		Value = CurIntValue = IoStats.Net.ReceiveDelta.Delta; break; 
+				case eSendsDelta:			Value = CurIntValue = IoStats.Net.SendDelta.Delta; break; 
+				case eReceiveBytesDelta:	Value = CurIntValue = IoStats.Net.ReceiveRawDelta.Delta; break; 
+				case eSendBytesDelta:		Value = CurIntValue = IoStats.Net.SendRawDelta.Delta; break; 
 				//case eTotalBytesDelta:	Value = CurIntValue = ; break; 
-				case eReceiveRate:			Value = CurIntValue = Stats.Net.ReceiveRate.Get(); break; 
-				case eSendRate:				Value = CurIntValue = Stats.Net.SendRate.Get(); break; 
+				case eReceiveRate:			Value = CurIntValue = IoStats.Net.ReceiveRate.Get(); break; 
+				case eSendRate:				Value = CurIntValue = IoStats.Net.SendRate.Get(); break; 
 
 				// Disk IO
-				case eDisk_TotalRate:		Value = CurIntValue = Stats.Disk.ReadRate.Get() + Stats.Disk.WriteRate.Get(); break; 
-				case eReads:				Value = CurIntValue = Stats.Disk.ReadCount; break;
-				case eWrites:				Value = CurIntValue = Stats.Disk.WriteCount; break;
-				case eReadBytes:			Value = CurIntValue = Stats.Disk.ReadRaw; break;
-				case eWriteBytes:			Value = CurIntValue = Stats.Disk.WriteRaw; break;
+				case eDisk_TotalRate:		Value = CurIntValue = IoStats.Disk.ReadRate.Get() + IoStats.Disk.WriteRate.Get(); break; 
+				case eReads:				Value = CurIntValue = IoStats.Disk.ReadCount; break;
+				case eWrites:				Value = CurIntValue = IoStats.Disk.WriteCount; break;
+				case eReadBytes:			Value = CurIntValue = IoStats.Disk.ReadRaw; break;
+				case eWriteBytes:			Value = CurIntValue = IoStats.Disk.WriteRaw; break;
 				//case eTotalBytes:			Value = CurIntValue = ; break;
-				case eReadsDelta:			Value = CurIntValue = Stats.Disk.ReadDelta.Delta; break;
-				case eWritesDelta:			Value = CurIntValue = Stats.Disk.WriteDelta.Delta; break;
-				case eReadBytesDelta:		Value = CurIntValue = Stats.Disk.ReadRawDelta.Delta; break;
-				case eWriteBytesDelta:		Value = CurIntValue = Stats.Disk.WriteRawDelta.Delta; break;
+				case eReadsDelta:			Value = CurIntValue = IoStats.Disk.ReadDelta.Delta; break;
+				case eWritesDelta:			Value = CurIntValue = IoStats.Disk.WriteDelta.Delta; break;
+				case eReadBytesDelta:		Value = CurIntValue = IoStats.Disk.ReadRawDelta.Delta; break;
+				case eWriteBytesDelta:		Value = CurIntValue = IoStats.Disk.WriteRawDelta.Delta; break;
 				//case eTotalBytesDelta:	Value = CurIntValue = ; break;
-				case eReadRate:				Value = CurIntValue = Stats.Disk.ReadRate.Get(); break;
-				case eWriteRate:			Value = CurIntValue = Stats.Disk.WriteRate.Get(); break;
+				case eReadRate:				Value = CurIntValue = IoStats.Disk.ReadRate.Get(); break;
+				case eWriteRate:			Value = CurIntValue = IoStats.Disk.WriteRate.Get(); break;
 			}
 
 			SProcessNode::SValue& ColValue = pNode->Values[section];
@@ -422,7 +429,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 					case eCPU:
 					case eGPU_Usage:
-											ColValue.Formated = (!bClearZeros || CpuStats.CpuUsage > 0.00004) ? QString::number(CpuStats.CpuUsage*100, 10, 2) + "%" : ""; break;
+											ColValue.Formated = (!bClearZeros || Value.toDouble() > 0.00004) ? QString::number(Value.toDouble()*100, 10, 2) + "%" : ""; break;
 
 					case ePrivateBytes:		
 					case ePeakPrivateBytes:
@@ -511,7 +518,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eKernelCPU_Time:
 					case eUserCPU_Time:
 											ColValue.Formated = FormatTime(Value.toULongLong()); break;
+
 					case ePriorityClass:	ColValue.Formated = pProcess->GetPriorityString(); break;
+					case eBasePriority:		ColValue.Formated = pProcess->GetBasePriorityString(); break;
+					case ePagePriority:		ColValue.Formated = pProcess->GetPagePriorityString(); break;
+					case eIO_Priority:		ColValue.Formated = pProcess->GetIOPriorityString(); break;
 #ifdef WIN32
 					case eIntegrity:		ColValue.Formated = pToken ? pToken->GetIntegrityString() : "";  break;
 					case eCritical:			ColValue.Formated = pWinProc->IsCriticalProcess() ? tr("Critical") : ""; break;
@@ -597,7 +608,6 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		}
 		if(State && Index.isValid())
 			emit dataChanged(createIndex(Index.row(), Col, pNode), createIndex(Index.row(), columnCount()-1, pNode));
-
 	}
 
 	if (!Highlights.isEmpty())

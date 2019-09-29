@@ -64,10 +64,13 @@ public:
 	virtual QString GetPriorityString() const = 0;
 	virtual STATUS SetPriority(long Value) = 0;
 	virtual long GetBasePriority()	const			{ QReadLocker Locker(&m_Mutex); return m_BasePriority; }
+	virtual QString GetBasePriorityString() const = 0;
 	virtual STATUS SetBasePriority(long Value) = 0;
 	virtual long GetPagePriority() const			{ QReadLocker Locker(&m_Mutex); return m_PagePriority; }
+	virtual QString GetPagePriorityString() const = 0;
 	virtual STATUS SetPagePriority(long Value) = 0;
 	virtual long GetIOPriority() const				{ QReadLocker Locker(&m_Mutex); return m_IOPriority; }
+	virtual QString GetIOPriorityString() const = 0;
 	virtual STATUS SetIOPriority(long Value) = 0;
 
 	virtual quint64 GetAffinityMask() const				{ QReadLocker Locker(&m_Mutex); return m_AffinityMask; }

@@ -14,7 +14,7 @@ public:
 	virtual quint64 GetProcessId() const			{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 
 	virtual quint64 GetBaseAddress() const			{ QReadLocker Locker(&m_Mutex); return m_BaseAddress; }
-	virtual quint64 GetAllocationBase() const		{ QReadLocker Locker(&m_Mutex); return m_AllocationBaseItem.isNull() ? 0 : m_AllocationBaseItem.objectCast<CMemoryInfo>()->GetBaseAddress(); }
+	virtual quint64 GetAllocationBase() const		{ QReadLocker Locker(&m_Mutex); return m_AllocationBaseItem.isNull() ? 0 : m_AllocationBaseItem.staticCast<CMemoryInfo>()->GetBaseAddress(); }
 	virtual bool IsAllocationBase() const;
 	virtual QString GetTypeString() const = 0;
 	virtual quint64 GetRegionSize() const			{ QReadLocker Locker(&m_Mutex); return m_RegionSize; }

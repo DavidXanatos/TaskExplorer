@@ -173,14 +173,14 @@ void CProcessTree::OnColumnsChanged()
 {
 	// automatically set the setting based on wether the columns are checked or not
 
-	theConf->SetValue("Options/GPUStatsGetPerProcess", 
+	/*theConf->SetValue("Options/GPUStatsGetPerProcess", 
 		m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_History)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVMEM_History)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Usage)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Shared)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Dedicated)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eGPU_Adapter)
-	);
+	);*/
 
 	theConf->SetValue("Options/MonitorTokenChange", 
 		m_pProcessModel->IsColumnEnabled(CProcessModel::eElevation)
@@ -364,8 +364,8 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 	InfoLines.append(tr("    %1").arg(pProcess->GetFileName()));
 
 #ifdef WIN32
-	QSharedPointer<CWinProcess> pWinProc = pProcess.objectCast<CWinProcess>();
-	QSharedPointer<CWinModule> pWinModule = pProcess->GetModuleInfo().objectCast<CWinModule>();
+	QSharedPointer<CWinProcess> pWinProcess = pProcess.staticCast<CWinProcess>();
+	QSharedPointer<CWinModule> pWinModule = pProcess->GetModuleInfo().staticCast<CWinModule>();
 
 	if (pWinModule)
 	{
@@ -434,7 +434,7 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 	}
 
 	// Services
-	QStringList ServiceList = pWinProc->GetServiceList();
+	QStringList ServiceList = pWinProcess->GetServiceList();
     if (!ServiceList.isEmpty())
     {
 		InfoLines.append(tr("Services:"));
@@ -454,7 +454,7 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
     {
 		case TaskHostProcessType:
         {
-			QList<CWinProcess::STask> Tasks = pWinProc->GetTasks();
+			QList<CWinProcess::STask> Tasks = pWinProcess->GetTasks();
 			if (!Tasks.isEmpty())
 			{
 				InfoLines.append(tr("Tasks:"));
@@ -465,7 +465,7 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
         break;
 		case UmdfHostProcessType:
         {
-			QList<CWinProcess::SDriver> Drivers = pWinProc->GetUmdfDrivers();
+			QList<CWinProcess::SDriver> Drivers = pWinProcess->GetUmdfDrivers();
 			if (!Drivers.isEmpty())
 			{
 				InfoLines.append(tr("Drivers:"));
@@ -476,7 +476,7 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
         break;
 		case EdgeProcessType:
         {
-			CWinTokenPtr pToken = pWinProc->GetToken();
+			CWinTokenPtr pToken = pWinProcess->GetToken();
 			if (!pToken)
 				break;
 			
@@ -507,7 +507,7 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
         break;
 		case WmiProviderHostType:
         {
-			QList<CWinProcess::SWmiProvider> Providers = pWinProc->QueryWmiProviders();
+			QList<CWinProcess::SWmiProvider> Providers = pWinProcess->QueryWmiProviders();
 			if (!Providers.isEmpty())
 			{
 				InfoLines.append(tr("WMI Providers:"));
@@ -546,7 +546,7 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 			}
 		}
 
-		quint64 ConsoleHostProcessId = pWinProc->GetConsoleHostId();
+		quint64 ConsoleHostProcessId = pWinProcess->GetConsoleHostId();
         if (ConsoleHostProcessId & ~3)
         {
             QString Description = tr("Console host");
@@ -557,19 +557,19 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 			Notes.append(tr("    %1: %2 (%3)").arg(Description).arg(pHostProcess ? pHostProcess->GetName() : tr("Non-existent process")).arg(PID));
         }
 
-		QString PackageFullName = pWinProc->GetPackageName();
+		QString PackageFullName = pWinProcess->GetPackageName();
         if (!PackageFullName.isEmpty())
 			Notes.append(tr("    Package name: %1").arg(PackageFullName));
 
-        if (pWinProc->IsNetProcess())
+        if (pWinProcess->IsNetProcess())
             Notes.append(tr("    Process is managed (.NET)."));
-        if (pWinProc->IsElevated())
+        if (pWinProcess->IsElevated())
             Notes.append(tr("    Process is elevated."));
-        if (pWinProc->IsImmersiveProcess())
+        if (pWinProcess->IsImmersiveProcess())
             Notes.append(tr("    Process is a Modern UI app."));
-        if (pWinProc->IsInJob())
+        if (pWinProcess->IsInJob())
             Notes.append(tr("    Process is in a job."));
-        if (pWinProc->IsWoW64())
+        if (pWinProcess->IsWoW64())
             Notes.append(tr("    Process is 32-bit (WOW64)."));
 
         if (!Notes.isEmpty())
@@ -592,7 +592,7 @@ void CProcessTree::OnMenu(const QPoint &point)
 	QModelIndexList selectedRows = m_pProcessList->selectedRows();
 
 	QList<CWndPtr> Windows;
-	if (selectedRows.count() > 1)
+	if (selectedRows.count() >= 1)
 		Windows = pProcess->GetWindows();
 
 	m_pShowProperties->setEnabled(selectedRows.count() > 0);
@@ -606,7 +606,7 @@ void CProcessTree::OnMenu(const QPoint &point)
 	m_pDebug->setChecked(pProcess && pProcess->HasDebugger());
 
 #ifdef WIN32
-	QSharedPointer<CWinProcess> pWinProcess = pProcess.objectCast<CWinProcess>();
+	QSharedPointer<CWinProcess> pWinProcess = pProcess.staticCast<CWinProcess>();
 
 	//CWinTokenPtr pToken = pWinProcess ? pWinProcess->GetToken() : NULL;
 	//m_pVirtualization->setEnabled(pToken && pToken->IsVirtualizationAllowed());
@@ -664,7 +664,7 @@ void CProcessTree::OnProcessAction()
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-		QSharedPointer<CWinProcess> pWinProcess = pProcess.objectCast<CWinProcess>();
+		QSharedPointer<CWinProcess> pWinProcess = pProcess.staticCast<CWinProcess>();
 		if (!pWinProcess.isNull())
 		{
 		retry:
@@ -693,7 +693,7 @@ void CProcessTree::OnProcessAction()
 				QList<CWndPtr> Windows = pProcess->GetWindows();
 				foreach(const CWndPtr& pWnd, Windows)
 				{
-					if (QSharedPointer<CWinWnd> pWinWnd = pWnd.objectCast<CWinWnd>())
+					if (QSharedPointer<CWinWnd> pWinWnd = pWnd.staticCast<CWinWnd>())
 						pWinWnd->PostWndMessage(sender() == m_pQuit ? WM_QUIT : WM_CLOSE);
 				}
 			}
@@ -788,7 +788,7 @@ void CProcessTree::OnPermissions()
 	if (Tasks.count() != 1)
 		return;
 
-	if (QSharedPointer<CWinProcess> pWinProcess = Tasks.first().objectCast<CWinProcess>())
+	if (QSharedPointer<CWinProcess> pWinProcess = Tasks.first().staticCast<CWinProcess>())
 	{
 		pWinProcess->OpenPermissions();
 	}
@@ -846,10 +846,10 @@ void CProcessTree::OnUpdateHistory()
 				m_CPU_Graphs.insert(PID, pGraph);
 			}
 
-			STaskStats Stats = pProcess->GetCpuStats();
+			STaskStats CpuStats = pProcess->GetCpuStats();
 
-			pGraph->SetValue(0, Stats.CpuUsage / Div);
-			pGraph->SetValue(1, Stats.CpuKernelUsage / Div);
+			pGraph->SetValue(0, CpuStats.CpuUsage / Div);
+			pGraph->SetValue(1, CpuStats.CpuKernelUsage / Div);
 			pGraph->Update(CellHeight, CellWidth);
 		}
 		foreach(quint64 TID, Old.keys())
@@ -875,7 +875,9 @@ void CProcessTree::OnUpdateHistory()
 				m_GPU_Graphs.insert(PID, pGraph);
 			}
 
-			pGraph->SetValue(0, pProcess->GetGpuUsage());
+			SGpuStats GpuStats = pProcess->GetGpuStats();
+
+			pGraph->SetValue(0, GpuStats.GpuTimeUsage.Usage);
 			pGraph->Update(CellHeight, CellWidth);
 		}
 		foreach(quint64 TID, Old.keys())
@@ -941,8 +943,10 @@ void CProcessTree::OnUpdateHistory()
 				m_VMEM_Graphs.insert(PID, pGraph);
 			}
 
-			float DedicatedMemory = TotalDedicated ? (float)pProcess->GetGpuDedicatedUsage() / TotalDedicated : 0;
-			float SharedMemory = TotalShared ? (float)pProcess->GetGpuSharedUsage() / TotalShared : 0;
+			SGpuStats GpuStats = pProcess->GetGpuStats();
+
+			float DedicatedMemory = TotalDedicated ? (float)GpuStats.GpuDedicatedUsage / TotalDedicated : 0;
+			float SharedMemory = TotalShared ? (float)GpuStats.GpuSharedUsage / TotalShared : 0;
 
 			pGraph->SetValue(0, qMax(DedicatedMemory, SharedMemory));
 			pGraph->Update(CellHeight, CellWidth);
@@ -979,11 +983,11 @@ void CProcessTree::OnUpdateHistory()
 				m_IO_Graphs.insert(PID, pGraph);
 			}
 
-			SProcStats Stats = pProcess->GetStats();
+			SProcStats IoStats = pProcess->GetStats();
 
-			pGraph->SetValue(0, TotalDisk ? (float)qMax(Stats.Disk.ReadRate.Get(), Stats.Io.ReadRate.Get()) / TotalDisk : 0);
-			pGraph->SetValue(1, TotalDisk ? (float)qMax(Stats.Disk.WriteRate.Get(), Stats.Io.WriteRate.Get()) / TotalDisk : 0);
-			pGraph->SetValue(2, TotalIO ? (float)Stats.Io.OtherRate.Get() / TotalIO : 0);
+			pGraph->SetValue(0, TotalDisk ? (float)qMax(IoStats.Disk.ReadRate.Get(), IoStats.Io.ReadRate.Get()) / TotalDisk : 0);
+			pGraph->SetValue(1, TotalDisk ? (float)qMax(IoStats.Disk.WriteRate.Get(), IoStats.Io.WriteRate.Get()) / TotalDisk : 0);
+			pGraph->SetValue(2, TotalIO ? (float)IoStats.Io.OtherRate.Get() / TotalIO : 0);
 			pGraph->Update(CellHeight, CellWidth);
 		}
 		foreach(quint64 TID, Old.keys())
@@ -1012,10 +1016,10 @@ void CProcessTree::OnUpdateHistory()
 				m_NET_Graphs.insert(PID, pGraph);
 			}
 
-			SProcStats Stats = pProcess->GetStats();
+			SProcStats IoStats = pProcess->GetStats();
 
-			pGraph->SetValue(0, TotalNet ? (float)Stats.Net.ReceiveRate.Get() / TotalNet : 0);
-			pGraph->SetValue(1, TotalNet ? (float)Stats.Net.SendRate.Get() / TotalNet : 0);
+			pGraph->SetValue(0, TotalNet ? (float)IoStats.Net.ReceiveRate.Get() / TotalNet : 0);
+			pGraph->SetValue(1, TotalNet ? (float)IoStats.Net.SendRate.Get() / TotalNet : 0);
 			pGraph->Update(CellHeight, CellWidth);
 		}
 		foreach(quint64 TID, Old.keys())

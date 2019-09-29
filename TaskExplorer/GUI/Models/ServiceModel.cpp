@@ -36,7 +36,8 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 		QVariant ID = pService->GetName();
 
 		int Row = -1;
-		SServiceNode* pNode = static_cast<SServiceNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SServiceNode* pNode = I != Old.end() ? static_cast<SServiceNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SServiceNode*>(MkNode(ID));
@@ -46,7 +47,7 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 

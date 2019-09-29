@@ -47,6 +47,9 @@ public:
 
 	virtual bool Init();
 
+	virtual QPair<QString, QString> SellectDriver();
+	virtual STATUS InitDriver(QString DeviceName, QString FileName, int SecurityLevel = 0);
+
 	virtual bool RootAvaiable();
 
 	virtual CProcessPtr GetProcessByID(quint64 ProcessId, bool bAddIfNew = false);
@@ -82,7 +85,7 @@ public:
 
 	virtual QMultiMap<quint64, quint64> GetWindowByPID(quint64 ProcessId) const  { QReadLocker Locker(&m_WindowMutex); return m_WindowMap[ProcessId]; }
 
-	virtual QList<QString> GetServicesByPID(quint64 ProcessId) const			 { QReadLocker Locker(&m_ServiceMutex); return m_ServiceByPID.values(ProcessId); }
+	virtual QList<QString> GetServicesByPID(quint64 ProcessId) const			 { QReadLocker Locker(&m_ServiceMutex); return m_ServiceByPID.value(ProcessId); }
 
 	virtual quint64 GetUpTime() const;
 
@@ -93,8 +96,10 @@ public:
 	virtual bool IsMonitoringFW() const					{ return m_pFirewallMonitor != NULL; }
 
 	virtual bool IsTestSigning() const					{ QReadLocker Locker(&m_Mutex); return m_bTestSigning; }
-	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_bDriverFailed; }
+	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_uDriverStatus != 0; }
+	virtual quint32 GetDriverStatus() const				{ QReadLocker Locker(&m_Mutex); return m_uDriverStatus; }
 	virtual QString GetDriverFileName() const			{ QReadLocker Locker(&m_Mutex); return m_DriverFileName; }
+	virtual QString GetDriverDeviceName() const			{ QReadLocker Locker(&m_Mutex); return m_DriverDeviceName; }
 
 	//__inline bool UseDiskCounters() const				{ return m_UseDiskCounters != eDontUse; }
 	__inline bool UseDiskCounters() const				{ return m_UseDiskCounters; }
@@ -102,6 +107,8 @@ public:
 	virtual QMultiMap<QString, CDnsEntryPtr> GetDnsEntryList() const;
 
 	virtual QMap<quint64, CPoolEntryPtr> GetPoolTableList() const { QReadLocker Locker(&m_PoolTableMutex); return m_PoolTableList; }
+
+	virtual bool UpdateThreads(CWinProcess* pProcess);
 
 signals:
 	void		PoolListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
@@ -139,7 +146,7 @@ protected:
 	//QMultiMap<quint64, CHandleRef> m_HandleByObject;
 
 	// Guard it with m_ServiceMutex
-	QMultiMap<quint64, QString>	m_ServiceByPID;
+	QMap<quint64, QList<QString> > m_ServiceByPID;
 
 	CSymbolProvider*		m_pSymbolProvider;
 
@@ -164,8 +171,8 @@ protected:
 	volatile bool			m_UseDiskCounters;
 
 	mutable QReadWriteLock	m_WindowMutex;
-	QMap<quint64, QMultiMap<quint64, quint64> > m_WindowMap;
-	QMap<quint64, QPair<quint64, quint64> > m_WindowRevMap;
+	QHash<quint64, QMultiMap<quint64, quint64> > m_WindowMap;
+	QHash<quint64, QPair<quint64, quint64> > m_WindowRevMap;
 
 	mutable QReadWriteLock		m_PoolTableMutex;
 	QMap<quint64, CPoolEntryPtr>m_PoolTableList;
@@ -181,8 +188,9 @@ private:
 	QString GetFileNameByID(quint64 FileId) const;
 
 	bool m_bTestSigning;
-	bool m_bDriverFailed;
+	quint32 m_uDriverStatus;
 	QString m_DriverFileName;
+	QString m_DriverDeviceName;
 
 	struct SWindowsAPI* m;
 };

@@ -135,14 +135,12 @@ void CSocketsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 
 void CSocketsView::Refresh()
 {
-	// noting
+	m_pSocketModel->Sync(m_SocketList);
 }
 
 void CSocketsView::OnSocketListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
 {
 	m_SocketList = theAPI->GetSocketList();
-
-	m_pSocketModel->Sync(m_SocketList);
 }
 
 void CSocketsView::OnMenu(const QPoint &point)

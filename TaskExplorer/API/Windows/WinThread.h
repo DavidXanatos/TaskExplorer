@@ -20,6 +20,9 @@ public:
 
 	virtual QString GetStateString() const;
 	virtual QString GetPriorityString() const;
+	virtual QString GetBasePriorityString() const;
+	virtual QString GetPagePriorityString() const;
+	virtual QString GetIOPriorityString() const;
 	virtual STATUS SetPriority(long Value);
 	virtual STATUS SetBasePriority(long Value) { return ERR(); }
 	virtual STATUS SetPagePriority(long Value);
@@ -61,10 +64,8 @@ protected:
 	friend class CWinProcess;
 
 	bool InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFORMATION* thread);
-	bool UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime);
-	bool UpdateExtendedData();
-	quint64 GetCPUCycles();
-	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	bool UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, quint64 sysTotalTime, quint64 sysTotalCycleTime);
+	void CloseHandle();
 	void UnInit();
 
 	virtual void SetAppDomain(const QString& AppDomain) { QWriteLocker Locker(&m_Mutex); m_AppDomain = AppDomain; }

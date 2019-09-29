@@ -16,7 +16,7 @@ public:
 	virtual quint32 GetFlags() const				{ QReadLocker Locker(&m_Mutex); return m_Flags; }	
 
 	virtual bool IsStopped() const;
-	virtual bool IsRunning() const;
+	virtual bool IsRunning(bool bStrict = false) const;
 	virtual bool IsPaused() const;
 	virtual QString GetStateString() const;
 

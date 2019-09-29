@@ -133,7 +133,6 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
-      <CallingConvention>StdCall</CallingConvention>
       <OmitFramePointers>false</OmitFramePointers>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -176,7 +175,6 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
-      <CallingConvention>Cdecl</CallingConvention>
       <OmitFramePointers>false</OmitFramePointers>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -258,6 +256,9 @@
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <TreatWarningAsError>true</TreatWarningAsError>
+      <Optimization>Disabled</Optimization>
+      <OmitFramePointers>false</OmitFramePointers>
+      <StringPooling>true</StringPooling>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -454,6 +455,7 @@
     <ClCompile Include="Common\TabPanel.cpp" />
     <ClCompile Include="Common\TreeItemModel.cpp" />
     <ClCompile Include="GUI\AffinityDialog.cpp" />
+    <ClCompile Include="GUI\DriverWindow.cpp" />
     <ClCompile Include="GUI\GraphBar.cpp" />
     <ClCompile Include="GUI\MemoryEditor.cpp" />
     <ClCompile Include="GUI\Models\DnsModel.cpp" />
@@ -1173,6 +1175,7 @@
     <QtMoc Include="GUI\Models\DnsModel.h" />
     <QtMoc Include="GUI\Models\PoolModel.h" />
     <QtMoc Include="GUI\Models\NtObjectModel.h" />
+    <QtMoc Include="GUI\DriverWindow.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -1284,9 +1287,7 @@
     <None Include="..\CHANGELOG.md" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\TODO.md" />
-  </ItemGroup>
-  <ItemGroup>
+    <QtUic Include="Forms\DriverWindow.ui" />
     <QtUic Include="Forms\NewService.ui" />
     <QtUic Include="Forms\RunAsDialog.ui" />
     <QtUic Include="Forms\SecurityExplorer.ui" />

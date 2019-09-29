@@ -97,12 +97,17 @@ struct SWinProcess
 			ULONG IsPartiallySuspended : 1;
 			ULONG IsProtectedHandle : 1;
 			ULONG IsProtectedProcess : 1;
+			//ULONG IsProcessDeleting : 1;
+			ULONG IsCrossSessionCreate : 1;
+			ULONG IsFrozen : 1;
+			ULONG IsBackground : 1;
+			ULONG IsStronglyNamed : 1;
 			ULONG IsSecureProcess : 1;
 			ULONG IsSubsystemProcess : 1;
 			ULONG IsControlFlowGuardEnabled : 1;
 			ULONG IsOrWasRunning : 1;
 			ULONG TokenHasChanged : 1;
-			ULONG Spare : 14;
+			ULONG Spare : 10;
 		};
 	};
 	bool AsyncFinished;
@@ -148,6 +153,8 @@ struct SWinProcess
 CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 {
 	m_IsFullyInitialized = false;
+	m_LastUpdateThreads = -1; // -1 never
+	m_LastUpdateHandles = 0;
 
 	// Dynamic
 	m_QuotaPagedPoolUsage = 0;
@@ -161,8 +168,6 @@ CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 	m_WndHandles = 0;
 
 	m_IsCritical = false;
-
-	m_LastUpdateHandles = 0;
 
 	//m_lastExtUpdate = 0;
 
@@ -512,6 +517,11 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 		if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(m->QueryHandle, &basicInfo)))
 		{
 			m->IsProtectedProcess = basicInfo.IsProtectedProcess;
+			//m->IsProcessDeleting = basicInfo.IsProcessDeleting;
+			m->IsCrossSessionCreate = basicInfo.IsCrossSessionCreate;
+			m->IsFrozen = basicInfo.IsFrozen;
+			m->IsBackground = basicInfo.IsBackground;
+			m->IsStronglyNamed = basicInfo.IsStronglyNamed;
 			m->IsSecureProcess = basicInfo.IsSecureProcess;
 			m->IsSubsystemProcess = basicInfo.IsSubsystemProcess;
 			m->IsWow64 = basicInfo.IsWow64Process;
@@ -816,7 +826,7 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		//if(PH_IS_REAL_PROCESS_ID(m->UniqueProcessId)) // WARNING: querying WsCounters causes very high CPU load !!!
 		//	PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters); 
 
-		PhGetProcessQuotaLimits(m->QueryHandle, &m->QuotaLimits);
+		//PhGetProcessQuotaLimits(m->QueryHandle, &m->QuotaLimits); // this is by far not as cpu intensive but lets handle it the same
 
 		PhGetProcessHandleCount(m->QueryHandle, &m->HandleInfo);
 
@@ -828,6 +838,15 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
         m_GdiHandles = 0;
         m_UserHandles = 0;
     }
+
+	// Note: dont keep the handle open for thereads we are not looking at.
+	if (m_LastUpdateThreads != -1 && GetCurTick() - m_LastUpdateThreads > 5*1000)
+	{
+		m_LastUpdateThreads = -1; // means no handle open
+
+		foreach(const CThreadPtr& pThread, GetThreadList())
+			pThread.staticCast<CWinThread>()->CloseHandle();
+	}
 
 	QWriteLocker StatsLocker(&m_StatsMutex);
 
@@ -879,12 +898,6 @@ void CWinProcess::UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTim
 	m_CpuStats.UpdateStats(sysTotalTime, sysTotalCycleTime);
 }
 
-void CWinProcess::UpdateThreadCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime)
-{
-	foreach(const CThreadPtr& pThread, GetThreadList())
-		pThread.objectCast<CWinThread>()->UpdateCPUCycles(sysTotalTime, sysTotalCycleTime);
-}
-
 /*bool CWinProcess::UpdateDynamicDataExt()
 {
 	m_lastExtUpdate = GetCurTick();
@@ -905,8 +918,12 @@ void CWinProcess::UpdateExtDataIfNeeded() const
 	QMetaObject::invokeMethod(((CWinProcess*)this), "UpdateDynamicDataExt", Qt::BlockingQueuedConnection);
 }*/
 
-bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, bool bFullProcessInfo, quint64 sysTotalTime)
+bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime)
 {
+	QSet<quint64> Added;
+	QSet<quint64> Changed;
+	QSet<quint64> Removed;
+
     // System Idle Process has one thread per CPU. They all have a TID of 0. We can't have duplicate
     // TIDs, so we'll assign unique TIDs.
     if (Process->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID)
@@ -930,12 +947,13 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 		_SYSTEM_THREAD_INFORMATION* Thread = bFullProcessInfo ? &((PSYSTEM_EXTENDED_THREAD_INFORMATION)Process->Threads)[i].ThreadInfo : &Process->Threads[i];
 
 		quint64 ThreadID = (quint64)Thread->ClientId.UniqueThread;
-
-		QSharedPointer<CWinThread> pWinThread = OldThreads.take(ThreadID).objectCast<CWinThread>();
+		
+		QSharedPointer<CWinThread> pWinThread = OldThreads.take(ThreadID).staticCast<CWinThread>();
+		bool bAdd = false;
 		if (pWinThread.isNull())
 		{
 			pWinThread = QSharedPointer<CWinThread>(new CWinThread());
-			pWinThread->InitStaticData(m->QueryHandle, Thread);
+			bAdd = pWinThread->InitStaticData(m->QueryHandle, Thread);
 			theAPI->AddThread(pWinThread);
 			if (!HaveFirst)
 			{
@@ -951,49 +969,47 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 			m_ThreadList.insert(ThreadID, pWinThread);
 		}
 
-		pWinThread->UpdateDynamicData(Thread, sysTotalTime);
+		bool bChanged = pWinThread->UpdateDynamicData(Thread, sysTotalTime, sysTotalCycleTime);
+
+		if (bAdd)
+			Added.insert(ThreadID);
+		else if (bChanged)
+			Changed.insert(ThreadID);
 	}
 
 	//if (!HaveFirst)
 	//	qDebug() << "No Main ThreadIn:" << m_ProcessName;
 
-	QWriteLocker Locker(&m_HandleMutex);
+	QWriteLocker Locker(&m_ThreadMutex);
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 ThreadID, OldThreads.keys())
 	{
-		QSharedPointer<CWinThread> pWinThread = m_ThreadList.value(ThreadID).objectCast<CWinThread>();
+		QSharedPointer<CWinThread> pWinThread = m_ThreadList.value(ThreadID).staticCast<CWinThread>();
 		if (pWinThread->CanBeRemoved())
 		{
 			m_ThreadList.remove(ThreadID);
-			//Removed.insert(ThreadID); 
+			Removed.insert(ThreadID); 
 		}
 		else if (!pWinThread->IsMarkedForRemoval())
 		{
 			pWinThread->MarkForRemoval();
 			pWinThread->UnInit();
-			//Changed.insert(ThreadID); 
+			Changed.insert(ThreadID); 
 		}
 	}
+	Locker.unlock();
+
+	m_LastUpdateThreads = GetCurTick();
+
+	emit ThreadsUpdated(Added, Changed, Removed);
 
 	return true;
 }
 
 bool CWinProcess::UpdateThreads()
 {
-	QSet<quint64> Added;
-	QSet<quint64> Changed;
-	QSet<quint64> Removed;
-
-	QMap<quint64, CThreadPtr> Threads = GetThreadList();
-	foreach(const CThreadPtr& pThread, Threads)
-	{
-		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
-		pWinThread->UpdateExtendedData();
-	}
-
-	emit ThreadsUpdated(Added, Changed, Removed);
-
-	return true;
+	// The API calls the Above function with cached process info data to perform the update
+	return ((CWindowsAPI*)theAPI)->UpdateThreads(this);
 }
 
 void CWinProcess::UnInit()
@@ -1091,7 +1107,7 @@ bool CWinProcess::UpdateHandles()
 
 		quint64 HandleID = CWinHandle::MakeID(handle->HandleValue, handle->UniqueProcessId);
 
-		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).objectCast<CWinHandle>();
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).staticCast<CWinHandle>();
 
 		bool WasReused = false;
 		// Also compare the object pointers to make sure a
@@ -1143,7 +1159,7 @@ bool CWinProcess::UpdateHandles()
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 HandleID, OldHandles.keys())
 	{
-		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).objectCast<CWinHandle>();
+		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).staticCast<CWinHandle>();
 		if (pWinHandle->CanBeRemoved())
 		{
 			m_HandleList.remove(HandleID);
@@ -1183,7 +1199,7 @@ static BOOLEAN NTAPI EnumModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 {
 	for (QMultiMap<QString, CModulePtr>::iterator I = Modules.find(FileName); I != Modules.end() && I.key() == FileName; I++)
 	{
-		if (I.value().objectCast<CWinModule>()->GetBaseAddress() == BaseAddress)
+		if (I.value().staticCast<CWinModule>()->GetBaseAddress() == BaseAddress)
 			return I;
 	}
 
@@ -1277,7 +1293,7 @@ bool CWinProcess::UpdateModules()
 		}
 		else
 		{
-			pModule = I.value().objectCast<CWinModule>();
+			pModule = I.value().staticCast<CWinModule>();
 			OldModules.erase(I);
 		}
 
@@ -1362,7 +1378,7 @@ bool CWinProcess::UpdateModules()
 			}
 			else
 			{
-				pModule = I.value().objectCast<CWinModule>();
+				pModule = I.value().staticCast<CWinModule>();
 				OldModules.erase(I);
 
 				if (pModule->IsLoaded())
@@ -1453,7 +1469,7 @@ bool CWinProcess::UpdateWindows()
 	for (QMultiMap<quint64, quint64>::iterator I = Windows.begin(); I != Windows.end(); I++)
 	{
 		quint64 ThreadID = I.key();
-		QSharedPointer<CWinWnd> pWinWnd = OldWindows.take(I.value()).objectCast<CWinWnd>();
+		QSharedPointer<CWinWnd> pWinWnd = OldWindows.take(I.value()).staticCast<CWinWnd>();
 
 		bool bAdd = false;
 		if (pWinWnd.isNull())
@@ -1539,7 +1555,7 @@ quint64 CWinProcess::GetSessionID() const
 quint16 CWinProcess::GetSubsystem() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	QSharedPointer<CWinMainModule> pModule = m_pModuleInfo.objectCast<CWinMainModule>();
+	QSharedPointer<CWinMainModule> pModule = m_pModuleInfo.staticCast<CWinMainModule>();
 	return pModule ? pModule->GetImageSubsystem() : 0;
 }
 
@@ -1602,6 +1618,20 @@ QString CWinProcess::GetWorkingDirectory() const
 	return QString();
 }
 
+/*QString CWinProcess::GetAppDataDirectory() const
+{
+	QReadLocker Locker(&m_Mutex); 
+
+	PPH_STRING dataPath = PhGetPackageAppDataPath(m->QueryHandle);
+	if (dataPath)
+	{
+		PPH_STRING fullDataPath = PhExpandEnvironmentStrings(&dataPath->sr);
+		PhDereferenceObject(dataPath);
+		return CastPhString(fullDataPath);
+	}
+	return QString();
+}*/
+
 bool CWinProcess::ValidateParent(CProcessInfo* pParent) const
 { 
 	QReadLocker Locker(&m_Mutex); 
@@ -1633,7 +1663,7 @@ bool CWinProcess::ValidateParent(CProcessInfo* pParent) const
 bool CWinProcess::IsSubsystemProcess() const
 {
 	QReadLocker Locker(&m_Mutex);
-	return (int)m->IsSecureProcess;
+	return (int)m->IsSubsystemProcess;
 }
 
 QString CWinProcess::GetWindowTitle() const
@@ -1853,8 +1883,18 @@ QString CWinProcess::GetStatusString() const
     if (m->IsElevated)
 	//if (m_pToken && m_pToken->IsElevated())
         Status.append(tr("Elevated"));
-    if (m->IsSubsystemProcess)
+    if (m->IsSubsystemProcess) // Set when the type of the process subsystem is other than Win32 (like *NIX, such as Ubuntu.)
         Status.append(tr("Pico"));
+	if (m->IsCrossSessionCreate) // Process was created across terminal sessions. Ex: Read CreateProcessAsUser for details.
+		Status.append(tr("Cross Session"));
+	if (m->IsFrozen) // Immersive process is suspended (applies only to UWP processes.)
+		Status.append(tr("Frozen"));
+	if (m->IsBackground) // Immersive process is in the Background task mode. UWP process may temporarily switch into performing a background task
+		Status.append(tr("Background"));
+	if (m->IsStronglyNamed) // UWP Strongly named process. The UWP package is digitally signed. Any modifications to files inside the package can be tracked.
+		Status.append(tr("Strongly Named"));
+	if (m->IsSecureProcess) // Isolated User Mode process -- new security mode in Windows 10, with more stringent restrictions on what can "tap" into this process
+		Status.append(tr("Secure"));
     if (m->IsImmersive)
         Status.append(tr("Immersive"));
     if (m->IsDotNet)
@@ -2038,12 +2078,6 @@ bool CWinProcess::IsInJob() const
 	return m->IsInJob;
 }
 
-bool CWinProcess::IsPicoProcess() const
-{
-	QReadLocker Locker(&m_Mutex); 
-	return m->IsSubsystemProcess;
-}
-
 bool CWinProcess::IsImmersiveProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -2210,6 +2244,8 @@ void CWinProcess::UpdateWsCounters() const
 
 	if(PH_IS_REAL_PROCESS_ID(m->UniqueProcessId)) // WARNING: querying WsCounters causes very high CPU load !!!
 		PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters); 
+
+	PhGetProcessQuotaLimits(m->QueryHandle, &m->QuotaLimits);
 }
 
 quint64 CWinProcess::GetSharedWorkingSetSize() const
@@ -2228,12 +2264,14 @@ quint64 CWinProcess::GetShareableWorkingSetSize() const
 
 quint64 CWinProcess::GetMinimumWS() const
 {
+	UpdateWsCounters();
 	QReadLocker Locker(&m_Mutex); 
 	return m->QuotaLimits.MinimumWorkingSetSize;
 }
 
 quint64 CWinProcess::GetMaximumWS() const
 {
+	UpdateWsCounters();
 	QReadLocker Locker(&m_Mutex); 
 	return m->QuotaLimits.MaximumWorkingSetSize;
 }
@@ -2268,13 +2306,6 @@ int CWinProcess::GetGhostCount() const
 	return m->UptimeInfo.GhostCount;
 }
 
-QString CWinProcess::GetPriorityString() const
-{
-	QReadLocker Locker(&m_Mutex); 
-
-	return GetPriorityString(m_Priority);
-}
-
 QString CWinProcess::GetPriorityString(quint32 value)
 {
 	switch (value)
@@ -2286,6 +2317,38 @@ QString CWinProcess::GetPriorityString(quint32 value)
 	case PROCESS_PRIORITY_CLASS_BELOW_NORMAL:	return tr("Below normal");
     case PROCESS_PRIORITY_CLASS_IDLE:			return tr("Idle");
 	default:									return tr("Unknown");
+    }
+}
+
+QString CWinProcess::GetBasePriorityString(quint32 value)
+{
+	return QString::number(value);
+}
+
+QString CWinProcess::GetPagePriorityString(quint32 value)
+{
+	switch (value)
+    {
+	case MEMORY_PRIORITY_NORMAL:		return tr("Normal");
+    case MEMORY_PRIORITY_BELOW_NORMAL:	return tr("Below normal");
+    case MEMORY_PRIORITY_MEDIUM:		return tr("Medium");
+    case MEMORY_PRIORITY_LOW:			return tr("Low");
+	case MEMORY_PRIORITY_VERY_LOW:		return tr("Very low");
+    case MEMORY_PRIORITY_LOWEST:		return tr("Lowest");
+	default:							return tr("Unknown");
+    }
+}
+
+QString CWinProcess::GetIOPriorityString(quint32 value)
+{
+	switch (value)
+    {
+	case IoPriorityCritical:	return tr("Critical");
+    case IoPriorityHigh:		return tr("High");
+    case IoPriorityNormal:		return tr("Normal");
+    case IoPriorityLow:			return tr("Low");
+	case IoPriorityVeryLow:		return tr("Very low");
+	default:					return tr("Unknown");
     }
 }
 
@@ -2780,7 +2843,7 @@ CWndPtr	CWinProcess::GetMainWindow() const
 	// m_pMainWnd gets invalidated on each proces enumeration so no need to update here anything
 	/*if (!pMainWnd.isNull())
 	{
-		QSharedPointer<CWinWnd> pWinWnd = pMainWnd.objectCast<CWinWnd>();
+		QSharedPointer<CWinWnd> pWinWnd = pMainWnd.staticCast<CWinWnd>();
 		if (pWinWnd->IsWindowValid())
 			pWinWnd->UpdateDynamicData();
 		else

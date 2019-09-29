@@ -89,7 +89,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	if (bAll)
 	{
 		m_pMenu->addSeparator();
-		m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"), this, SLOT(SyncModel()));
+		m_pMenuKernelServices = m_pMenu->addAction(tr("Show Kernel Services"), this, SLOT(Refresh()));
 		m_pMenuKernelServices->setCheckable(true);
 		m_pMenuKernelServices->setChecked(theConf->GetValue(objectName() + "/ShowKernelServices", true).toBool());
 	}
@@ -135,17 +135,15 @@ void CServicesView::OnResetColumns()
 
 void CServicesView::OnColumnsChanged()
 {
-	SyncModel();
+	Refresh();
 }
 
 void CServicesView::OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed)
 {
 	m_ServiceList = theAPI->GetServiceList();
-
-	SyncModel();
 }
 
-void CServicesView::SyncModel()
+void CServicesView::Refresh()
 {
 #ifdef WIN32
 	if (m_pMenuKernelServices)
@@ -165,7 +163,7 @@ void CServicesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
 	foreach(const CProcessPtr& pProcess, Processes)
 	{
-		foreach(const QString& ServiceName, pProcess.objectCast<CWinProcess>()->GetServiceList())
+		foreach(const QString& ServiceName, pProcess.staticCast<CWinProcess>()->GetServiceList())
 		{
 			CServicePtr pService = AllServices[ServiceName.toLower()];
 			if (!pService)
@@ -190,7 +188,7 @@ void CServicesView::OnMenu(const QPoint &point)
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 #ifdef WIN32
-		QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).objectCast<CWinService>();
+		QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).staticCast<CWinService>();
 		if (pService.isNull())
 			continue;
 
@@ -298,7 +296,7 @@ void CServicesView::OnDoubleClicked(const QModelIndex& Index)
 {
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 #ifdef WIN32
-	QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).objectCast<CWinService>();
+	QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).staticCast<CWinService>();
 
 	CWinSvcWindow* pWnd = new CWinSvcWindow(pService);
 	connect(pWnd, SIGNAL(ServicesChanged()), theGUI, SLOT(OnReloadService()));

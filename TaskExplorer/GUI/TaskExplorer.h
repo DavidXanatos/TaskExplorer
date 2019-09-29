@@ -10,7 +10,7 @@
 
 #define VERSION_MJR		0
 #define VERSION_MIN 	9
-#define VERSION_REV 	50
+#define VERSION_REV 	75
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -124,6 +124,7 @@ private slots:
 	void				OnFindMemory();
 
 	void				OnSettings();
+	void				OnDriverConf();
 	void				OnAutoRun();
 	void				OnSkipUAC();
 
@@ -219,8 +220,9 @@ private:
 
 	QMenu*				m_pMenuOptions;
 	QAction*			m_pMenuSettings;
-	QAction*			m_pMenuAutoRun;
 #ifdef WIN32
+	QAction*			m_pMenuDriverConf;
+	QAction*			m_pMenuAutoRun;
 	QAction*			m_pMenuUAC;
 #endif
 

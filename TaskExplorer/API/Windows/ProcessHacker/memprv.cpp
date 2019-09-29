@@ -41,7 +41,7 @@ QMap<quint64, CMemoryPtr>::iterator PhLookupMemoryItemList(
     
     if (I != MemoryMap.end())
     {
-		QSharedPointer<CWinMemory> memoryItem = I.value().objectCast<CWinMemory>();
+		QSharedPointer<CWinMemory> memoryItem = I.value().staticCast<CWinMemory>();
 
         if ((ULONG_PTR)Address < (ULONG_PTR)memoryItem->m_BaseAddress + memoryItem->m_RegionSize)
             return I;
@@ -62,10 +62,10 @@ QSharedPointer<CWinMemory> PhpSetMemoryRegionType(
     if (I == MemoryMap.end())
         return NULL;
 
-	QSharedPointer<CWinMemory> memoryItem = I.value().objectCast<CWinMemory>();
+	QSharedPointer<CWinMemory> memoryItem = I.value().staticCast<CWinMemory>();
 
     if (GoToAllocationBase && memoryItem->m_AllocationBaseItem)
-        memoryItem = memoryItem->m_AllocationBaseItem.objectCast<CWinMemory>();
+        memoryItem = memoryItem->m_AllocationBaseItem.staticCast<CWinMemory>();
 
     if (memoryItem->m_RegionType != UnknownRegion)
         return NULL;
@@ -284,7 +284,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
     // Mapped file, heap segment, unusable
     for(QMap<quint64, CMemoryPtr>::iterator I = MemoryMap.begin(); I != MemoryMap.end(); ++I)
     {
-		memoryItem = I.value().objectCast<CWinMemory>();
+		memoryItem = I.value().staticCast<CWinMemory>();
 
         if (memoryItem->m_RegionType != UnknownRegion)
             continue;
@@ -330,7 +330,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
 
 					if (I != MemoryMap.end())
 					{
-						heapMemoryItem = I.value().objectCast<CWinMemory>();
+						heapMemoryItem = I.value().staticCast<CWinMemory>();
 						if (heapMemoryItem->m_BaseAddress == (quint64)candidateHeap &&
 							heapMemoryItem->m_RegionType == HeapRegion)
 						{
@@ -346,7 +346,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
 
 					if (I != MemoryMap.end())
 					{
-						heapMemoryItem = I.value().objectCast<CWinMemory>();
+						heapMemoryItem = I.value().staticCast<CWinMemory>();
 						if (heapMemoryItem->m_BaseAddress == candidateHeap32 &&
 							heapMemoryItem->m_RegionType == Heap32Region)
 						{
@@ -409,12 +409,12 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
 			{
 				QMap<quint64, CMemoryPtr>::iterator memoryItem = cfgBitmapMemoryItem;
 
-				while (memoryItem != MemoryMap.end() && memoryItem.value().objectCast<CWinMemory>()->m_AllocationBaseItem == cfgBitmapMemoryItem.value())
+				while (memoryItem != MemoryMap.end() && memoryItem.value().staticCast<CWinMemory>()->m_AllocationBaseItem == cfgBitmapMemoryItem.value())
 				{
 					// lucasg: We could do a finer tagging since each MEM_COMMIT memory
 					// map is the CFG bitmap of a loaded module. However that might be
 					// brittle to changes made by Windows dev teams.
-					memoryItem.value().objectCast<CWinMemory>()->m_RegionType = CfgBitmapRegion;
+					memoryItem.value().staticCast<CWinMemory>()->m_RegionType = CfgBitmapRegion;
 
 					memoryItem++;
 				}
@@ -430,9 +430,9 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
 			{
 				QMap<quint64, CMemoryPtr>::iterator memoryItem = cfgBitmapMemoryItem;
 
-				while (memoryItem != MemoryMap.end() && memoryItem.value().objectCast<CWinMemory>()->m_AllocationBaseItem == cfgBitmapMemoryItem.value())
+				while (memoryItem != MemoryMap.end() && memoryItem.value().staticCast<CWinMemory>()->m_AllocationBaseItem == cfgBitmapMemoryItem.value())
 				{
-					memoryItem.value().objectCast<CWinMemory>()->m_RegionType = CfgBitmap32Region;
+					memoryItem.value().staticCast<CWinMemory>()->m_RegionType = CfgBitmap32Region;
 
 					memoryItem++;
 				}
@@ -461,7 +461,7 @@ NTSTATUS PhpUpdateMemoryWsCounters(
 
 	for(QMap<quint64, CMemoryPtr>::iterator I = MemoryMap.begin(); I != MemoryMap.end(); ++I)
     {
-		QSharedPointer<CWinMemory> memoryItem = I.value().objectCast<CWinMemory>();
+		QSharedPointer<CWinMemory> memoryItem = I.value().staticCast<CWinMemory>();
         ULONG_PTR virtualAddress;
         SIZE_T remainingPages;
         SIZE_T requestPages;

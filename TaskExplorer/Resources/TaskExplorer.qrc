@@ -66,6 +66,7 @@
         <file alias="Flush">Actions/flush.png</file>
         <file alias="Reset">Actions/reset.png</file>
         <file alias="Expand">Actions/expand.png</file>
+        <file alias="Driver">Actions/driver.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

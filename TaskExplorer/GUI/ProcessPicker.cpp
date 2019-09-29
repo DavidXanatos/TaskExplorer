@@ -75,7 +75,7 @@ CProcessPicker::CProcessPicker(QWidget* parent)
 
 	m_ProcessList = theAPI->GetProcessList();
 
-	SyncModel();
+	Refresh();
 }
 
 CProcessPicker::~CProcessPicker()
@@ -113,7 +113,7 @@ void CProcessPicker::OnResetColumns()
 
 void CProcessPicker::OnColumnsChanged()
 {
-	SyncModel();
+	Refresh();
 }
 
 void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
@@ -124,7 +124,7 @@ void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIn
 	m_ProcessId = pProcess->GetProcessId();
 }
 
-void CProcessPicker::SyncModel()
+void CProcessPicker::Refresh()
 {
 	m_pProcessModel->Sync(m_ProcessList);
 }

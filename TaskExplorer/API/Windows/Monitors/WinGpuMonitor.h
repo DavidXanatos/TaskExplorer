@@ -31,10 +31,9 @@ protected:
 
 	struct SGpuAdapter*	AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKMT_HANDLE*/quint32 AdapterHandle, /*LUID**/struct _LUID* AdapterLuid, quint32 NumberOfSegments, quint32 NumberOfNodes);
 
-	void				UpdateProcessSegmentInformation(const CProcessPtr& pProcess);
-	void				UpdateSystemSegmentInformation();
-	void				UpdateProcessNodeInformation(const CProcessPtr& pProcess);
-	void				UpdateSystemNodeInformation();
+	void				UpdateSystemStats();
+	void				UpdateProcessStats(const CProcessPtr& pProcess, quint64 elapsedTime);
+	
 
 	
 	//quint32				m_GpuTotalNodeCount;

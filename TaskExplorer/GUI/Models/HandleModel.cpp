@@ -28,7 +28,8 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		QVariant ID = (quint64)pHandle.data();
 
 		int Row = -1;
-		SHandleNode* pNode = static_cast<SHandleNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SHandleNode* pNode = I != Old.end() ? static_cast<SHandleNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SHandleNode*>(MkNode(ID));
@@ -38,7 +39,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 
@@ -50,7 +51,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		bool State = false;
 		int Changed = 0;
 
-		CProcessPtr pProcess = pNode->pHandle->GetProcess().objectCast<CProcessInfo>();
+		CProcessPtr pProcess = pNode->pHandle->GetProcess().staticCast<CProcessInfo>();
 
 		// Note: icons are loaded asynchroniusly
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))

@@ -356,7 +356,7 @@ void CWindowsView::OnItemSelected(const QModelIndex &current)
 	pDetails->clear();
 
 #ifdef WIN32
-	CWinWnd::SWndInfo WndInfo = pWindow.objectCast<CWinWnd>()->GetWndInfo();
+	CWinWnd::SWndInfo WndInfo = pWindow.staticCast<CWinWnd>()->GetWndInfo();
 
 	QTreeWidgetItem* pGeneral = new QTreeWidgetItem(QStringList(tr("General")));
 	pDetails->addTopLevelItem(pGeneral);

@@ -545,6 +545,9 @@
     <ClCompile Include="API\Windows\ProcessHacker\syssccpu.cpp">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
+    <ClCompile Include="GUI\DriverWindow.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -1038,6 +1041,9 @@
     <QtMoc Include="GUI\WaitChainDialog.h">
       <Filter>TaskExplorer</Filter>
     </QtMoc>
+    <QtMoc Include="GUI\DriverWindow.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -1070,9 +1076,6 @@
     <None Include="..\CHANGELOG.md" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\TODO.md" />
-  </ItemGroup>
-  <ItemGroup>
     <QtUic Include="Forms\NewService.ui">
       <Filter>Forms</Filter>
     </QtUic>
@@ -1092,6 +1095,9 @@
       <Filter>Forms</Filter>
     </QtUic>
     <QtUic Include="Forms\SecurityExplorer.ui">
+      <Filter>Forms</Filter>
+    </QtUic>
+    <QtUic Include="Forms\DriverWindow.ui">
       <Filter>Forms</Filter>
     </QtUic>
   </ItemGroup>

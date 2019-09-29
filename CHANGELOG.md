@@ -4,6 +4,40 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+
+
+## [0.9.75] - 2019-09-29
+
+### Added
+- priority columns now show text instead of numbers (except base priority)
+- added cert display to process security sub tab
+- ctrl+e now expands all process tree items
+- added driver config window
+- added verbose error's dialog
+- added more status informations
+
+### Changed
+- reduced cpu usage of models
+- reduced cpu usage of rate counters
+- moved firewall status resolution to separate threa
+- reworked thread enumeration to save cpu usage
+- service and socket tabs are not longer updated when thay are not visible
+- gpu per proces stat update is now performed on a as needed basis
+- massivly reduced treeview cpu usage by adaping configuration
+
+### Fixed
+- fixed an issue when on successfuly changing priority still an error was reported
+- when starting using UAC bypass the process ended up with lower priority,
+-- fixed by now always settign higher priority on startup
+- fixed bug with gpu usage column display
+- fixed issue "bring in front" was always disable din the process tree
+- fixed issue where thread start adresses were resolved multiple times unnececerly
+- fixed crash issue when logging out users
+- fixed service window not closing when ok was pressed
+- fixed issue with service to process association
+- fixed crash bug in reverse dns lookups on win 7
+
+
 ## [0.9.50] - 2019-09-24
 
 ### Added

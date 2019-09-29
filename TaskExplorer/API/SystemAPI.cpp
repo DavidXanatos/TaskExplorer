@@ -114,7 +114,7 @@ QMap<QString, CServicePtr> CSystemAPI::GetServiceList()
 CServicePtr CSystemAPI::GetService(const QString& Name)
 {
 	QReadLocker Locker(&m_ServiceMutex);
-	return m_ServiceList.value(Name);
+	return m_ServiceList.value(Name.toLower());
 }
 
 QMap<QString, CDriverPtr> CSystemAPI::GetDriverList()

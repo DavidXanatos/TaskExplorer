@@ -586,6 +586,9 @@ void CDnsResolver::run()
 
 		for (PDNS_RECORD addressResults = addressResultsRoot; addressResults != NULL; addressResults = addressResults->pNext)
 		{
+			if (addressResults->wType != DNS_TYPE_PTR)
+				continue;
+
 			QString ResolvedString = QString::fromWCharArray(addressResults->Data.PTR.pNameHost);
 			QHostAddress Address = RevDnsHost2Address(AddressReverse);
 

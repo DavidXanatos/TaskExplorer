@@ -41,7 +41,8 @@ void CMemoryModel::Sync(const QMap<quint64, CMemoryPtr>& ModuleList)
 		if(m_bTree)
 			Path = MakeMemPath(pMemory, ModuleList);
 		
-		SMemoryNode* pNode = static_cast<SMemoryNode*>(Old.value(ID));
+		QHash<QVariant, STreeNode*>::iterator I = Old.find(ID);
+		SMemoryNode* pNode = I != Old.end() ? static_cast<SMemoryNode*>(I.value()) : NULL;
 		if(!pNode || pNode->Path != Path)
 		{
 			pNode = static_cast<SMemoryNode*>(MkNode(ID));
@@ -52,7 +53,7 @@ void CMemoryModel::Sync(const QMap<quint64, CMemoryPtr>& ModuleList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Index = Find(m_Root, pNode);
 		}
 

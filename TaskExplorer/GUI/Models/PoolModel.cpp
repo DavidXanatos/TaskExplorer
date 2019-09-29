@@ -24,7 +24,8 @@ void CPoolModel::Sync(QMap<quint64, CPoolEntryPtr> PoolEntryList)
 		QVariant ID = (quint64)pPoolEntry.data();
 
 		int Row = -1;
-		SPoolEntryNode* pNode = static_cast<SPoolEntryNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SPoolEntryNode* pNode = I != Old.end() ? static_cast<SPoolEntryNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SPoolEntryNode*>(MkNode(ID));
@@ -34,7 +35,7 @@ void CPoolModel::Sync(QMap<quint64, CPoolEntryPtr> PoolEntryList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 

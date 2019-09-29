@@ -32,7 +32,7 @@ protected:
 		e->ignore();
 	}
 
-	void					SyncModel();
+	void					Refresh();
 
 	quint64					m_ProcessId;
 

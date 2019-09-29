@@ -20,7 +20,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 	this->setLayout(m_pMainLayout);
 
 	//m_pFilterWidget = new QWidget();
-	//m_pFilterWidget->setMinimumHeight(32);
+	//m_pFilterWidget->setMinimumHeight(32 * theGUI->GetDpiScale());
 	//m_pMainLayout->addWidget(m_pFilterWidget);
 
 	m_pSplitter = new QSplitter();
@@ -300,7 +300,7 @@ void CThreadsView::OnMenu(const QPoint &point)
 	QModelIndexList selectedRows = m_pThreadList->selectedRows();
 
 #ifdef WIN32
-	QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
+	QSharedPointer<CWinThread> pWinThread = pThread.staticCast<CWinThread>();
 
 	m_pCancelIO->setEnabled(!pThread.isNull());
 
@@ -330,7 +330,7 @@ void CThreadsView::OnThreadAction()
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 		CThreadPtr pThread = m_pThreadModel->GetThread(ModelIndex);
-		QSharedPointer<CWinThread> pWinThread = pThread.objectCast<CWinThread>();
+		QSharedPointer<CWinThread> pWinThread = pThread.staticCast<CWinThread>();
 		if (!pWinThread.isNull())
 		{
 		retry:
@@ -434,7 +434,7 @@ void CThreadsView::OnThreadToken()
 	if (Tasks.count() != 1)
 		return;
 
-	QSharedPointer<CWinThread> pWinThread = Tasks.first().objectCast<CWinThread>();
+	QSharedPointer<CWinThread> pWinThread = Tasks.first().staticCast<CWinThread>();
 	if (!pWinThread)
 		return;
 
@@ -456,7 +456,7 @@ void CThreadsView::OnPermissions()
 	if (Tasks.count() != 1)
 		return;
 
-	if (QSharedPointer<CWinThread> pWinThread = Tasks.first().objectCast<CWinThread>())
+	if (QSharedPointer<CWinThread> pWinThread = Tasks.first().staticCast<CWinThread>())
 	{
 		pWinThread->OpenPermissions();
 	}

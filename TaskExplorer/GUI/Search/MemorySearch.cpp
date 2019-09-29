@@ -126,7 +126,7 @@ void CMemorySearch::OnResults(QList<QSharedPointer<QObject>> List)
 {
 	foreach(const QSharedPointer<QObject>& pObject, List)
 	{
-		CStringInfoPtr pModule = pObject.objectCast<CStringInfo>();
+		CStringInfoPtr pModule = pObject.staticCast<CStringInfo>();
 		m_Strings.insert(m_Strings.count(), pModule);
 	}
 

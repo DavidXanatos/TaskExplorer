@@ -36,7 +36,8 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		QVariant ID = (quint64)pSocket.data();
 
 		int Row = -1;
-		SSocketNode* pNode = static_cast<SSocketNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SSocketNode* pNode = I != Old.end() ? static_cast<SSocketNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SSocketNode*>(MkNode(ID));
@@ -46,7 +47,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 

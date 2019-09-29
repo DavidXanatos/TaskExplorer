@@ -89,6 +89,17 @@ CProcessView::CProcessView(QWidget *parent)
 	//m_pProcessBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	//m_pOneProcLayout->addWidget(m_pProcessBox);
 
+
+	m_pProcessArea = new QScrollArea();
+
+	m_pProcessArea->setFrameShape(QFrame::NoFrame);
+	m_pProcessArea->setWidgetResizable(true);
+	m_pProcessArea->setWidget(m_pProcessBox);
+	QPalette pal = m_pProcessArea->palette();
+	pal.setColor(QPalette::Background, Qt::transparent);
+	m_pProcessArea->setPalette(pal);
+
+
 	m_pProcessLayout = new QGridLayout();
 	m_pProcessLayout->setSpacing(2);
 	m_pProcessBox->setLayout(m_pProcessLayout);
@@ -161,6 +172,8 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pSecurityLayout->addWidget(new QLabel(tr("Signer: ")), row, 0);
 	m_pSigner = new QLabel();
+	m_pSigner->setTextInteractionFlags(Qt::TextBrowserInteraction);
+	connect(m_pSigner, SIGNAL(linkActivated(const QString&)), this, SLOT(OnCertificate(const QString&)));
 	m_pSecurityLayout->addWidget(m_pSigner, row++, 1);
 
 
@@ -184,29 +197,36 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pSecurityLayout->addWidget(m_pMitigation, row++, 0, 1, 3);
 
 
-	//m_pAppBox = new QGroupBox(tr("App"));
-	m_pAppBox = new QWidget();
-	//m_pAppBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	//m_pOneProcLayout->addWidget(m_pAppBox);
+	if (WindowsVersion >= WINDOWS_8)
+	{
+		//m_pAppBox = new QGroupBox(tr("App"));
+		m_pAppBox = new QWidget();
+		//m_pOneProcLayout->addWidget(m_pAppBox);
 
-	m_pAppLayout = new QGridLayout();
-	m_pAppLayout->setSpacing(2);
-	m_pAppBox->setLayout(m_pAppLayout);
-	row = 0;
+		m_pAppLayout = new QGridLayout();
+		m_pAppLayout->setSpacing(2);
+		m_pAppBox->setLayout(m_pAppLayout);
+		row = 0;
 
-	m_pAppLayout->addWidget(new QLabel(tr("App ID:")), row, 0);
-	m_pAppID = new QLineEdit();
-	//m_pAppID->setSizePolicy(QSizePolicy::Expanding, m_pAppID->sizePolicy().verticalPolicy());
-	m_pAppID->setReadOnly(true);
-	m_pAppLayout->addWidget(m_pAppID, row++, 1, 1, 1);
+		m_pAppLayout->addWidget(new QLabel(tr("App ID:")), row, 0);
+		m_pAppID = new QLineEdit();
+		m_pAppID->setReadOnly(true);
+		m_pAppLayout->addWidget(m_pAppID, row++, 1, 1, 1);
 
-	m_pAppLayout->addWidget(new QLabel(tr("Package Name:")), row, 0);
-	m_pPackageName = new QLineEdit();
-	//m_pPackageName->setSizePolicy(QSizePolicy::Expanding, m_pPackageName->sizePolicy().verticalPolicy());
-	m_pPackageName->setReadOnly(true);
-	m_pAppLayout->addWidget(m_pPackageName, row++, 1, 1, 1);
+		m_pAppLayout->addWidget(new QLabel(tr("Package Name:")), row, 0);
+		m_pPackageName = new QLineEdit();
+		m_pPackageName->setReadOnly(true);
+		m_pAppLayout->addWidget(m_pPackageName, row++, 1, 1, 1);
 
-	m_pAppLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row, 0);
+		/*m_pAppLayout->addWidget(new QLabel(tr("Data Directory:")), row, 0);
+		m_pPackageDataDir = new QLineEdit();
+		m_pPackageDataDir->setReadOnly(true);
+		m_pAppLayout->addWidget(m_pPackageDataDir, row++, 1, 1, 1);*/
+
+		m_pAppLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding), row, 0);
+	}
+	else
+		m_pAppBox = NULL;
 #endif
 
 	m_pMultiProcWidget = new QWidget();
@@ -257,9 +277,13 @@ CProcessView::CProcessView(QWidget *parent)
 
 
 	m_pTabWidget->addTab(m_pStatsView, "Statistics");
-	m_pTabWidget->addTab(m_pProcessBox, "Details");
+	//m_pTabWidget->addTab(m_pProcessBox, "Details");
+	m_pTabWidget->addTab(m_pProcessArea, "Details");
+#ifdef WIN32
 	m_pTabWidget->addTab(m_pSecurityBox, "Security");
-	m_pTabWidget->addTab(m_pAppBox, "App");
+	if(m_pAppBox)
+		m_pTabWidget->addTab(m_pAppBox, "App");
+#endif
 
 	/*QWidget* pSpacer = new QWidget();
 	pSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -339,8 +363,11 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			//m_pOneProcWidget->setVisible(true);
 			m_pStackedLayout->setCurrentWidget(m_pOneProcWidget);
 			m_pProcessBox->setEnabled(true);
+#ifdef WIN32
 			m_pSecurityBox->setEnabled(true);
-			m_pAppBox->setEnabled(true);
+			if(m_pAppBox)
+				m_pAppBox->setEnabled(true);
+#endif
 
 			if (m_Processes.count() == 1)
 			{
@@ -396,7 +423,7 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 					m_pSubSystem->setText(tr("Subsystem: %1").arg(pWinProc->GetSubsystemString()));
 
 				m_pVerification->setText(pWinModule ? pWinModule->GetVerifyResultString() : "");
-				m_pSigner->setText(pWinModule ? pWinModule->GetVerifySignerName() : "");
+				m_pSigner->setText(QString("<a href=\"%1\">%2</a>").arg(pProcess->GetFileName()).arg((pWinModule ? pWinModule->GetVerifySignerName() : "")));
 
 				m_pDesktop->setText(pWinProc->GetUsedDesktop());
 				m_pDPIAware->setText(tr("DPI Scaling: %1").arg(pWinProc->GetDPIAwarenessString()));
@@ -423,8 +450,12 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 					m_pMitigation->GetTree()->addTopLevelItem(pItem);
 				}
 
-				m_pAppID->setText(pWinProc->GetAppID());
-				m_pPackageName->setText(pWinProc->GetPackageName());
+				if (m_pAppBox)
+				{
+					m_pAppID->setText(pWinProc->GetAppID());
+					m_pPackageName->setText(pWinProc->GetPackageName());
+					//m_pPackageDataDir->setText(pWinProc->GetAppDataDirectory());
+				}
 #endif
 			}
 		}
@@ -434,8 +465,11 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			//m_pOneProcWidget->setVisible(false);
 			m_pStackedLayout->setCurrentWidget(m_pMultiProcWidget);
 			m_pProcessBox->setEnabled(false);
+#ifdef WIN32
 			m_pSecurityBox->setEnabled(false);
-			m_pAppBox->setEnabled(false);
+			if(m_pAppBox)
+				m_pAppBox->setEnabled(false);
+#endif
 			m_pTabWidget->setCurrentIndex(0);
 		}
 	}
@@ -457,4 +491,23 @@ void CProcessView::Refresh()
 		SyncModel();
 
 	m_pStatsView->ShowProcesses(m_Processes);
+}
+
+void CProcessView::OnCertificate(const QString& Link)
+{
+#ifdef WIN32
+	wstring fileName = Link.toStdWString();
+
+	PH_VERIFY_FILE_INFO info;
+    memset(&info, 0, sizeof(PH_VERIFY_FILE_INFO));
+    info.FileName = (wchar_t*)fileName.c_str();
+    info.Flags = PH_VERIFY_VIEW_PROPERTIES;
+    info.hWnd = NULL;
+
+	PPH_STRING packageFullName = m_Processes.isEmpty() ? NULL : CastQString(m_Processes.first().staticCast<CWinProcess>()->GetPackageName());
+
+    PhVerifyFileWithAdditionalCatalog(&info, packageFullName, NULL);
+
+	PhDereferenceObject(packageFullName);
+#endif
 }

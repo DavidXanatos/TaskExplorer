@@ -104,6 +104,8 @@ class QTreeViewEx: public QTreeView
 public:
 	QTreeViewEx(QWidget *parent = 0) : QTreeView(parent) 
 	{
+		setUniformRowHeights(true);
+
 		m_ColumnReset = 1;
 
 		header()->setContextMenuPolicy(Qt::CustomContextMenu);

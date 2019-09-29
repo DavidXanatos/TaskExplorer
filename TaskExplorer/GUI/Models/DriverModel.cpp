@@ -25,7 +25,8 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 		QVariant ID = pDriver->GetBinaryPath();
 
 		int Row = -1;
-		SDriverNode* pNode = static_cast<SDriverNode*>(Old[ID]);
+		QHash<QVariant, SListNode*>::iterator I = Old.find(ID);
+		SDriverNode* pNode = I != Old.end() ? static_cast<SDriverNode*>(I.value()) : NULL;
 		if(!pNode)
 		{
 			pNode = static_cast<SDriverNode*>(MkNode(ID));
@@ -35,7 +36,7 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 		}
 		else
 		{
-			Old[ID] = NULL;
+			I.value() = NULL;
 			Row = GetRow(pNode);
 		}
 
