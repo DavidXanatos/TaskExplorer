@@ -161,8 +161,10 @@ qint64 CWinMemIO::readData(char *data, qint64 maxlen)
 	if (m->MemPosition + maxlen > m->RegionSize)
 		maxlen = m->RegionSize - m->MemPosition;
 
-	NTSTATUS status;
-	if (!NT_SUCCESS(status = NtReadVirtualMemory(m->ProcessHandle, PTR_ADD_OFFSET((PVOID)m->BaseAddress, m->MemPosition), data, maxlen, NULL))) {
+	NTSTATUS status = NtReadVirtualMemory(m->ProcessHandle, PTR_ADD_OFFSET((PVOID)m->BaseAddress, m->MemPosition), data, maxlen, NULL);
+	/*if (status == STATUS_PARTIAL_COPY) 
+		status = KphReadVirtualMemoryUnsafe(m->ProcessHandle, PTR_ADD_OFFSET((PVOID)m->BaseAddress, m->MemPosition), data, maxlen, NULL);*/
+	if (!NT_SUCCESS(status)) {
 		qDebug() << QString("CWinMemIO::readData failed: 0x%1").arg((quint32)status, 8, 16, QChar('0'));
 		return -1;
 	}
@@ -174,8 +176,8 @@ qint64 CWinMemIO::readData(char *data, qint64 maxlen)
 
 qint64 CWinMemIO::writeData(const char *data, qint64 len)
 {
-	NTSTATUS status;
-	if (!NT_SUCCESS(status = NtWriteVirtualMemory(m->ProcessHandle, PTR_ADD_OFFSET((PVOID)m->BaseAddress, m->MemPosition), (char*)data, len, NULL))) {
+	NTSTATUS status = NtWriteVirtualMemory(m->ProcessHandle, PTR_ADD_OFFSET((PVOID)m->BaseAddress, m->MemPosition), (char*)data, len, NULL);
+	if (!NT_SUCCESS(status)) {
 		qDebug() << QString("CWinMemIO::writeData failed: 0x%1").arg((quint32)status, 8, 16, QChar('0'));
 		return -1;
 	}

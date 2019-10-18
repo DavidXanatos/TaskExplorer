@@ -2,7 +2,8 @@
 #include "../SystemAPI.h"
 #include "WinProcess.h"
 #include "WinSocket.h"
-#include "Monitors/EventMonitor.h"
+//#include "Monitors/EventMonitor.h"
+#include "Monitors/EtwEventMonitor.h"
 #include "Monitors/FwEventMonitor.h"
 //#include "Monitors/FirewallMonitor.h"
 #include "SidResolver.h"
@@ -98,13 +99,14 @@ public:
 	virtual bool IsTestSigning() const					{ QReadLocker Locker(&m_Mutex); return m_bTestSigning; }
 	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_uDriverStatus != 0; }
 	virtual quint32 GetDriverStatus() const				{ QReadLocker Locker(&m_Mutex); return m_uDriverStatus; }
+	virtual quint32 GetDriverFeatures() const			{ QReadLocker Locker(&m_Mutex); return m_uDriverFeatures; }
 	virtual QString GetDriverFileName() const			{ QReadLocker Locker(&m_Mutex); return m_DriverFileName; }
 	virtual QString GetDriverDeviceName() const			{ QReadLocker Locker(&m_Mutex); return m_DriverDeviceName; }
 
 	//__inline bool UseDiskCounters() const				{ return m_UseDiskCounters != eDontUse; }
 	__inline bool UseDiskCounters() const				{ return m_UseDiskCounters; }
 
-	virtual QMultiMap<QString, CDnsEntryPtr> GetDnsEntryList() const;
+	virtual QMultiMap<QString, CDnsCacheEntryPtr> GetDnsEntryList() const;
 
 	virtual QMap<quint64, CPoolEntryPtr> GetPoolTableList() const { QReadLocker Locker(&m_PoolTableMutex); return m_PoolTableList; }
 
@@ -118,6 +120,7 @@ public slots:
 	void		MonitorFW(bool bEnable);
 	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, quint32 ProtocolType, quint32 TransferSize,
 								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort);
+	void		OnDnsResEvent(quint64 ProcessId, quint64 ThreadId, const QString& HostName, const QStringList& Result);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
 
@@ -133,7 +136,8 @@ protected:
 
 	bool		InitWindowsInfo();
 
-	CEventMonitor*			m_pEventMonitor;
+	//CEventMonitor*			m_pEventMonitor;
+	CEtwEventMonitor*			m_pEventMonitor;
 	CFwEventMonitor*		m_pFirewallMonitor;
 	//CFirewallMonitor*		m_pFirewallMonitor;
 
@@ -189,6 +193,7 @@ private:
 
 	bool m_bTestSigning;
 	quint32 m_uDriverStatus;
+	quint32 m_uDriverFeatures;
 	QString m_DriverFileName;
 	QString m_DriverDeviceName;
 

@@ -8,6 +8,8 @@
 #include "AbstractTask.h"
 #include "MiscStats.h"
 #include "MemoryInfo.h"
+#include "SocketInfo.h"
+#include "DnsEntry.h"
 
 #ifdef WIN32
 #undef GetUserName
@@ -95,22 +97,30 @@ public:
 	virtual int GetNetworkUsageFlags() const				{ QReadLocker Locker(&m_StatsMutex); return m_NetworkUsageFlags; }
 	virtual QString GetNetworkUsageString() const;
 
+	virtual void UpdateDns(const QString& HostName, const QList<QHostAddress>& Addresses);
+	virtual QString GetHostName(const QHostAddress& Address);
+
 	virtual SProcStats	GetStats() const					{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
 	virtual CModulePtr GetModuleInfo() const				{ QReadLocker Locker(&m_Mutex); return m_pModuleInfo; }
 
 	// Threads
-	virtual QMap<quint64, CThreadPtr> GetThreadList() const	{ QReadLocker Locker(&m_ThreadMutex); return m_ThreadList; }
+	virtual QMap<quint64, CThreadPtr>	GetThreadList() const	{ QReadLocker Locker(&m_ThreadMutex); return m_ThreadList; }
 
 	// Handles
-	virtual QMap<quint64, CHandlePtr> GetHandleList() const	{ QReadLocker Locker(&m_HandleMutex); return m_HandleList; }
+	virtual QMap<quint64, CHandlePtr>	GetHandleList() const	{ QReadLocker Locker(&m_HandleMutex); return m_HandleList; }
 	
 	// Modules
-	virtual QMap<quint64, CModulePtr> GetModuleList() const	{ QReadLocker Locker(&m_ModuleMutex); return m_ModuleList; }
+	virtual QMap<quint64, CModulePtr>	GetModuleList() const	{ QReadLocker Locker(&m_ModuleMutex); return m_ModuleList; }
 
 	// Windows
-	virtual QMap<quint64, CWndPtr>	  GetWindowList() const	{ QReadLocker Locker(&m_WindowMutex); return m_WindowList; }
-	virtual CWndPtr					GetWindowByHwnd(quint64 hwnd) const { QReadLocker Locker(&m_WindowMutex); return m_WindowList.value(hwnd); }
+	virtual QMap<quint64, CWndPtr>		GetWindowList() const	{ QReadLocker Locker(&m_WindowMutex); return m_WindowList; }
+	virtual CWndPtr						GetWindowByHwnd(quint64 hwnd) const { QReadLocker Locker(&m_WindowMutex); return m_WindowList.value(hwnd); }
+
+	// Sockets
+	virtual void						AddSocket(const CSocketPtr& pSocket) { QWriteLocker Locker(&m_SocketMutex); m_SocketList.insert((quint64)pSocket.data(), pSocket.toWeakRef()); }
+	virtual void						RemoveSocket(const CSocketPtr& pSocket) { QWriteLocker Locker(&m_SocketMutex); m_SocketList.remove((quint64)pSocket.data()); }
+	virtual QMap<quint64, CSocketRef>	GetSocketList() const	{ QReadLocker Locker(&m_SocketMutex); return m_SocketList; }
 
 	struct SEnvVar
 	{
@@ -218,6 +228,14 @@ protected:
 	mutable QReadWriteLock			m_WindowMutex;
 	QMap<quint64, CWndPtr>			m_WindowList;
 
+	// Sockets
+	mutable QReadWriteLock			m_SocketMutex;
+	QMap<quint64, CSocketRef>		m_SocketList;
+
+	// Dns Log
+	mutable QReadWriteLock			m_DnsMutex;
+	QMap<QString, CDnsLogEntryPtr>		m_DnsLog;
+	QMultiMap<QHostAddress, QString>	m_DnsRevLog;
 };
 
 typedef QSharedPointer<CProcessInfo> CProcessPtr;

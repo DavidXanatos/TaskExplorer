@@ -17,11 +17,15 @@ public:
 
 public slots:
 	void					ShowProcesses(const QList<CProcessPtr>& Processes);
+	void					ShowProcess(const CProcessPtr pProcess);
 	void					Refresh();
 
 private slots:
 	void					OnResetColumns();
 	void					OnColumnsChanged();
+
+	//void					OnClicked(const QModelIndex& Index);
+	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
 	void					OnCertificate(const QString& Link);
 

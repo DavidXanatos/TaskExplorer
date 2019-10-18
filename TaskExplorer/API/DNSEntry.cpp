@@ -1,16 +1,35 @@
 #include "stdafx.h"
 #include "DnsEntry.h"
 
-#ifndef DNS_TYPE_A
-#define DNS_TYPE_A          0x0001      //  1
-#define DNS_TYPE_AAAA       0x001c      //  28
-#define DNS_TYPE_PTR        0x000c      //  12
-#define DNS_TYPE_CNAME      0x0005      //  5
-#define DNS_TYPE_SRV        0x0021      //  33
-#define DNS_TYPE_MX         0x000f      //  15
-#endif
+CDnsLogEntry::CDnsLogEntry(const QString& HostName, const QList<QHostAddress>& Addresses)
+{
+	m_HostName = HostName;
+	m_Addresses = Addresses;
+}
 
-CDnsEntry::CDnsEntry(const QString& HostName, quint16 Type, const QHostAddress& Address, const QString& ResolvedString, QObject *parent) : CAbstractInfoEx(parent)
+QList<QHostAddress> CDnsLogEntry::UpdateAddresses(const QList<QHostAddress>& Addresses)
+{
+	QWriteLocker Locker(&m_Mutex);
+
+	QList<QHostAddress> NewAddresses;
+	if (m_Addresses == Addresses)
+		return NewAddresses;
+
+	foreach(const QHostAddress& Address, Addresses)
+	{
+		if (m_Addresses.contains(Address))
+			continue;
+		m_Addresses.append(Address);
+		NewAddresses.append(Address);
+	}
+
+	return NewAddresses;
+}
+
+/////////////////////////////////
+//
+
+CDnsCacheEntry::CDnsCacheEntry(const QString& HostName, quint16 Type, const QHostAddress& Address, const QString& ResolvedString, QObject *parent) : CAbstractInfoEx(parent)
 {
 	m_CreateTimeStamp = GetTime() * 1000;
 
@@ -23,11 +42,16 @@ CDnsEntry::CDnsEntry(const QString& HostName, quint16 Type, const QHostAddress& 
 	m_QueryCounter = 0;
 }
 
-CDnsEntry::~CDnsEntry()
-{
-}
+#ifndef DNS_TYPE_A
+#define DNS_TYPE_A          0x0001      //  1
+#define DNS_TYPE_AAAA       0x001c      //  28
+#define DNS_TYPE_PTR        0x000c      //  12
+#define DNS_TYPE_CNAME      0x0005      //  5
+#define DNS_TYPE_SRV        0x0021      //  33
+#define DNS_TYPE_MX         0x000f      //  15
+#endif
 
-QString CDnsEntry::GetTypeString() const
+QString CDnsCacheEntry::GetTypeString() const
 {
 	switch (GetType())
 	{
@@ -41,7 +65,7 @@ QString CDnsEntry::GetTypeString() const
 	}
 }
 
-void CDnsEntry::SetTTL(quint64 TTL)
+void CDnsCacheEntry::SetTTL(quint64 TTL)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -54,7 +78,7 @@ void CDnsEntry::SetTTL(quint64 TTL)
 	m_TTL = TTL; 
 }
 
-void CDnsEntry::SubtractTTL(quint64 Delta)
+void CDnsCacheEntry::SubtractTTL(quint64 Delta)
 { 
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -65,7 +89,7 @@ void CDnsEntry::SubtractTTL(quint64 Delta)
 }
 
 /*
-void CDnsEntry::RecordProcess(const QString& ProcessName, quint64 ProcessId, const QWeakPointer<QObject>& pProcess, bool bUpdate)
+void CDnsCacheEntry::RecordProcess(const QString& ProcessName, quint64 ProcessId, const QWeakPointer<QObject>& pProcess, bool bUpdate)
 {
 	QWriteLocker Locker(&m_Mutex); 
 

@@ -13,12 +13,12 @@ CDnsModel::~CDnsModel()
 {
 }
 
-void CDnsModel::Sync(QMultiMap<QString, CDnsEntryPtr> List)
+void CDnsModel::Sync(QMultiMap<QString, CDnsCacheEntryPtr> List)
 {
 	QList<SListNode*> New;
 	QHash<QVariant, SListNode*> Old = m_Map;
 
-	foreach (const CDnsEntryPtr& pEntry, List)
+	foreach (const CDnsCacheEntryPtr& pEntry, List)
 	{
 		SyncEntry(New, Old, pEntry);
 
@@ -39,7 +39,7 @@ void CDnsModel::Sync(QMultiMap<QString, CDnsEntryPtr> List)
 	CListItemModel::Sync(New, Old);
 }
 
-void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old, const CDnsEntryPtr& pEntry/*, const CDnsProcRecordPtr& pRecord*/)
+void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old, const CDnsCacheEntryPtr& pEntry/*, const CDnsProcRecordPtr& pRecord*/)
 {
 	// todo-later: make this prettier
 	/*if (m_ProcessFilter)
@@ -89,7 +89,7 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 	// Note: icons are loaded asynchroniusly
 	/*if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess) && pRecord)
 	{
-		CProcessPtr pProcess = pRecord->GetProcess().toStrongRef().objectCast<CProcessInfo>();
+		CProcessPtr pProcess = pRecord->GetProcess().toStrongRef().staticCast<CProcessInfo>();
 		CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
 		if (pModule)
 		{
@@ -173,10 +173,10 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 		emit dataChanged(createIndex(Row, Col, pNode), createIndex(Row, columnCount()-1, pNode));
 }
 
-CDnsEntryPtr CDnsModel::GetDnsEntry(const QModelIndex &index) const
+CDnsCacheEntryPtr CDnsModel::GetDnsEntry(const QModelIndex &index) const
 {
 	if (!index.isValid())
-        return CDnsEntryPtr();
+        return CDnsCacheEntryPtr();
 
 	SDnsNode* pNode = static_cast<SDnsNode*>(index.internalPointer());
 	return pNode->pEntry;

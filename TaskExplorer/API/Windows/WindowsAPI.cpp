@@ -143,6 +143,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 
 	m_bTestSigning = false;
 	m_uDriverStatus = 0;
+	m_uDriverFeatures = 0;
 
 	m = new SWindowsAPI();
 }
@@ -312,6 +313,12 @@ STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName, int Securit
 	m_uDriverStatus = Status.GetStatus();
 	if (Status.IsError())
 		qDebug() << Status.GetText();
+	else
+	{
+		ULONG Features = 0;
+		KphGetFeatures(&Features);
+		m_uDriverFeatures = Features;
+	}
 
 	return Status;
 }
@@ -345,11 +352,17 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 	if (bEnable == (m_pEventMonitor != NULL))
 		return;
 
+	if (!RootAvaiable())
+		return;
+
 	if (bEnable)
 	{
-		m_pEventMonitor = new CEventMonitor();
+		//m_pEventMonitor = new CEventMonitor();
+		m_pEventMonitor = new CEtwEventMonitor();
 
 		connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, quint32, quint32, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, quint32, quint32, QHostAddress, quint16, QHostAddress, quint16)));
+		connect(m_pEventMonitor, SIGNAL(DnsResEvent(quint64, quint64, const QString&, const QStringList&)), this, SLOT(OnDnsResEvent(quint64, quint64, const QString&, const QStringList&)));
+
 		connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
 		connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, quint32, quint32, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, quint32, quint32, quint64)));
 
@@ -1053,7 +1066,8 @@ bool CWindowsAPI::UpdateSocketList()
     }
 
 	// Note: Important; first we must update the DNS cache to be able to properly assign DNS entries to the sockets!!!
-	UpdateDnsCache();
+	if(theConf->GetBool("Options/SmartHostNameResolution", false))
+		UpdateDnsCache();
 
 
 	QSet<quint64> Added;
@@ -1079,6 +1093,14 @@ bool CWindowsAPI::UpdateSocketList()
 			pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
 			bAdd = pSocket->InitStaticData((quint64)connections[i].ProcessId, (quint64)connections[i].ProtocolType, 
 				connections[i].LocalEndpoint.Address, connections[i].LocalEndpoint.Port, connections[i].RemoteEndpoint.Address, connections[i].RemoteEndpoint.Port);
+
+			if ((quint64)connections[i].ProcessId)
+			{
+				CProcessPtr pProcess = theAPI->GetProcessByID((quint64)connections[i].ProcessId, true); // Note: this will add the process and load some basic data if it does not already exist
+				pSocket->LinkProcess(pProcess);
+				pProcess->AddSocket(pSocket);
+			}
+
 			QWriteLocker Locker(&m_SocketMutex);
 			m_SocketList.insertMulti(pSocket->m_HashID, pSocket);
 		}
@@ -1136,6 +1158,8 @@ bool CWindowsAPI::UpdateSocketList()
 		QSharedPointer<CWinSocket> pSocket = I.value().staticCast<CWinSocket>();
 		if (pSocket->CanBeRemoved())
 		{
+			if(CProcessPtr pProcess = pSocket->GetProcess().toStrongRef().staticCast<CProcessInfo>())
+				pProcess->RemoveSocket(pSocket);
 			m_SocketList.remove(I.key(), I.value());
 			Removed.insert(I.key());
 		}
@@ -1205,17 +1229,59 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
 
 		pSocket = QSharedPointer<CWinSocket>(new CWinSocket());
 		bAdd = pSocket->InitStaticData(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
+
+		if (ProcessId)
+		{
+			CProcessPtr pProcess = theAPI->GetProcessByID(ProcessId, true); // Note: this will add the process and load some basic data if it does not already exist
+			pSocket->LinkProcess(pProcess);
+			pProcess->AddSocket(pSocket);
+		}
+
 		if (Type == EvlFirewallBlocked)
 			pSocket->SetBlocked();
 		QWriteLocker Locker(&m_SocketMutex);
 		m_SocketList.insertMulti(pSocket->m_HashID, pSocket);
 	}
 
-	QSharedPointer<CWinProcess> pProcess = pSocket->GetProcess().staticCast<CWinProcess>();
+	QSharedPointer<CWinProcess> pProcess = pSocket->GetProcess().toStrongRef().staticCast<CWinProcess>();
     if (!pProcess.isNull())
 		pProcess->AddNetworkIO(Type, TransferSize);
 
 	pSocket->AddNetworkIO(Type, TransferSize);
+}
+
+void CWindowsAPI::OnDnsResEvent(quint64 ProcessId, quint64 ThreadId, const QString& HostName, const QStringList& Results)
+{
+	if (Results.size() == 1 && Results.first() == HostName)
+		return;
+	/*
+	"192.168.163.1" "192.168.163.1;"
+	"localhost" "[::1]:8307;127.0.0.1:8307;" <- wtf is this why is there a port?!
+	"DESKTOP" "fe80::189a:f1c3:3e87:be81%12;192.168.10.12;"
+	"telemetry.malwarebytes.com" "54.149.69.204;54.200.191.52;54.70.191.27;54.149.66.105;54.244.17.248;54.148.98.86;"
+	"web.whatsapp.com" "31.13.84.51;"
+	*/
+	//qDebug() << HostName << Results.join(";");
+
+	QList<QHostAddress> Addresses;
+	foreach(const QString& Result, Results)
+	{
+		QHostAddress Address(Result);
+		if (Address.isNull())
+		{
+			QUrl url("bla://" + Result);
+			Address = QHostAddress(url.host());
+		}
+
+		if (!Address.isNull())
+			Addresses.append(Address);
+	}
+	if (Addresses.isEmpty())
+		return;
+
+	CProcessPtr pProcess = theAPI->GetProcessByID(ProcessId, true); // Note: this will add the process and load some basic data if it does not already exist
+	if (!pProcess.isNull())
+		pProcess->UpdateDns(HostName, Addresses);
 }
 
 void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName)
@@ -1775,7 +1841,7 @@ bool CWindowsAPI::HasExtProcInfo() const
 	return (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64());
 }
 
-QMultiMap<QString, CDnsEntryPtr> CWindowsAPI::GetDnsEntryList() const
+QMultiMap<QString, CDnsCacheEntryPtr> CWindowsAPI::GetDnsEntryList() const
 {
 	return m_pDnsResolver->GetEntryList();
 }

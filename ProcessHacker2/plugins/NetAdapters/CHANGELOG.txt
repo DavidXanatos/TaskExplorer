@@ -1,5 +1,0 @@
-1.1
- * Added native driver statistics support
-
-1.0
- * Initial release

@@ -13,9 +13,9 @@ public:
 
 	//void			SetProcessFilter(const QList<QSharedPointer<QObject> >& Processes) { m_ProcessFilter = true; m_Processes = Processes; }
 
-	void			Sync(QMultiMap<QString, CDnsEntryPtr> List);
+	void			Sync(QMultiMap<QString, CDnsCacheEntryPtr> List);
 	
-	CDnsEntryPtr	GetDnsEntry(const QModelIndex &index) const;
+	CDnsCacheEntryPtr	GetDnsEntry(const QModelIndex &index) const;
 
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
@@ -40,12 +40,12 @@ protected:
 	{
 		SDnsNode(const QVariant& Id) : SListNode(Id), iColor(0) {}
 
-		CDnsEntryPtr		pEntry;
+		CDnsCacheEntryPtr		pEntry;
 
 		int					iColor;
 	};
 
-	virtual void SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old, const CDnsEntryPtr& pEntry/*, const CDnsProcRecordPtr& pRecord = CDnsProcRecordPtr()*/);
+	virtual void SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& Old, const CDnsCacheEntryPtr& pEntry/*, const CDnsProcRecordPtr& pRecord = CDnsProcRecordPtr()*/);
 
 	virtual SListNode* MkNode(const QVariant& Id) { return new SDnsNode(Id); }
 

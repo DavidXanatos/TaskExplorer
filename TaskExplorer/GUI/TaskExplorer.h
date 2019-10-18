@@ -8,9 +8,9 @@
 #include "Common/Settings.h"
 #include "Common/FlexError.h"
 
-#define VERSION_MJR		0
-#define VERSION_MIN 	9
-#define VERSION_REV 	75
+#define VERSION_MJR		1
+#define VERSION_MIN 	0
+#define VERSION_REV 	0
 #define VERSION_UPD 	0
 
 class CGraphBar;

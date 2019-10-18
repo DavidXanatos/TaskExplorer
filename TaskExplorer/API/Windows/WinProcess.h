@@ -123,8 +123,9 @@ public:
 
 	virtual quint64 GetJobObjectID() const;
 
-	virtual quint32 GetProtection() const;
+	virtual quint8 GetProtection() const;
 	virtual QString GetProtectionString() const;
+	virtual STATUS SetProtectionFlag(quint8 Flag, bool bForce = false);
 	virtual QList<QPair<QString, QString>> GetMitigationDetails() const;
 
 	virtual QString GetUsedDesktop() const {QReadLocker Locker(&m_Mutex); return m_UsedDesktop;}
@@ -143,6 +144,8 @@ public:
 
 	virtual QList<CWndPtr> GetWindows() const;
 	virtual CWndPtr	GetMainWindow() const;
+
+	virtual void UpdateDns(const QString& HostName, const QList<QHostAddress>& Addresses);
 
 	struct STask
 	{

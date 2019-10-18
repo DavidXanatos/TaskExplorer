@@ -10,7 +10,6 @@ CSocketInfo::CSocketInfo(QObject *parent) : CAbstractInfoEx(parent)
 	m_RemotePort = 0;
 	m_State = 0;
 	m_ProcessId = -1;
-
 }
 
 CSocketInfo::~CSocketInfo()

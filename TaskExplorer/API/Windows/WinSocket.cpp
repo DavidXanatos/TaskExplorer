@@ -67,6 +67,8 @@ CWinSocket::CWinSocket(QObject *parent)
 
 	m_HasStaticDataEx = false;
 
+	m_HasDnsHostName = false;
+
 	m = new SWinSocket;
 }
 
@@ -115,64 +117,23 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 	//}
 	m_ProcessId = ProcessId;
 
+	if(m_ProcessId == 0)
+		m_ProcessName = tr("Waiting connections");
+	else
+		m_ProcessName = tr("Unknown process PID: %1").arg(m_ProcessId);
+
 	// generate a somewhat unique id to optimize map search
 	m_HashID = CSocketInfo::MkHash(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
 
-	if (m_ProcessId == 0)
-	{
-		m_ProcessName = tr("Waiting connections");
-	}
-	else
-	{
-		CProcessPtr pProcess = theAPI->GetProcessByID(m_ProcessId, true); // Note: this will add the process and load some basic data if it does not already exist
-		if (pProcess)
-		{
-			m_ProcessName = pProcess->GetName();
-
-			m_pProcess = pProcess; // relember m_pProcess is a week pointer
-
-			ProcessSetNetworkFlag();
-		}
-
-		/*
-		if (CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data()))
-		{
-			m_ProcessName = pWinProc->GetName();
-			//m_SubsystemProcess = pWinProc->IsSubsystemProcess();
-
-			// PhpUpdateNetworkItemOwner(networkItem, processItem);
-		}
-		else // Note: we may arrive here from a ETW event so we need to get the process name ourselvs
-		{
-			HANDLE processHandle;
-			PPH_STRING fileName;
-			PROCESS_EXTENDED_BASIC_INFORMATION basicInfo;
-
-			// HACK HACK HACK
-			// WSL subsystem processes (e.g. apache/nginx) create sockets, clone/fork themselves, duplicate the socket into the child process and then terminate.
-			// The socket handle remains valid and in-use by the child process BUT the socket continues returning the PID of the exited process???
-			// Fixing this causes a major performance problem; If we have 100,000 sockets then on previous versions of Windows we would only need 2 system calls maximum
-			// (for the process list) to identify the owner of every socket but now we need to make 4 system calls for every_last_socket totaling 400,000 system calls... great. (dmex)
-			if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)ProcessId)))
-			{
-				if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
-				{
-					m_SubsystemProcess = !!basicInfo.IsSubsystemProcess;
-				}
-
-				if (NT_SUCCESS(PhGetProcessImageFileName(processHandle, &fileName)))
-				{
-					QString FileName = CastPhString(fileName);
-					int pos = FileName.lastIndexOf("\\");
-					m_ProcessName = FileName.mid(pos+1);
-				}
-
-				NtClose(processHandle);
-			}
-		}*/
-	}
-
 	return true;
+}
+
+void CWinSocket::LinkProcess(QSharedPointer<QObject> pProcess)
+{
+	m_ProcessName = pProcess.staticCast<CProcessInfo>()->GetName();
+	m_pProcess = pProcess; // relember m_pProcess is a week pointer
+
+	ProcessSetNetworkFlag();
 }
 
 bool CWinSocket::InitStaticDataEx(SSocket* connection, bool IsNew)
@@ -185,27 +146,58 @@ bool CWinSocket::InitStaticDataEx(SSocket* connection, bool IsNew)
 	{
 		m_CreateTimeStamp = connection->CreateTime;
 
-		ULONGLONG OwnerInfo[PH_NETWORK_OWNER_INFO_SIZE];
-		memcpy(OwnerInfo, connection->OwnerInfo, sizeof(ULONGLONG) * PH_NETWORK_OWNER_INFO_SIZE);
-
-		// PhpUpdateNetworkItemOwner
-		PVOID serviceTag = UlongToPtr(*(PULONG)OwnerInfo);
+		PVOID serviceTag = UlongToPtr(*(PULONG)connection->OwnerInfo);
 		PPH_STRING serviceName = PhGetServiceNameFromTag((HANDLE)connection->ProcessId, serviceTag);
 		m_OwnerService = CastPhString(serviceName);
-		//
 
 		m->LocalScopeId = connection->LocalScopeId;
 		m->RemoteScopeId = connection->RemoteScopeId;
 	}
 
+	// DNS host name handling
 	m_RemoteHostName = ((CWindowsAPI*)theAPI)->GetDnsResolver()->GetHostName(m_RemoteAddress, this, SLOT(OnHostResolved(const QHostAddress&, const QString&)));
+
+	CProcessPtr pProcess = m_pProcess.toStrongRef().staticCast<CProcessInfo>();
+	if (!pProcess.isNull())
+	{
+		QString CapturedHostName = pProcess->GetHostName(m_RemoteAddress);
+		if (!CapturedHostName.isEmpty())
+		{
+			m_HasDnsHostName = true;
+			CombineRemoteHostName(CapturedHostName, m_RemoteHostName);
+		}
+	}
+	//
 
 	return true;
 }
 
 void CWinSocket::OnHostResolved(const QHostAddress& Address, const QString& HostName)
 {
-	m_RemoteHostName = HostName;
+	QWriteLocker Locker(&m_Mutex); 
+	CombineRemoteHostName(m_RemoteHostName, HostName);
+}
+
+void CWinSocket::SetDnsHostName(const QString& DnsHostName) 
+{ 
+	QWriteLocker Locker(&m_Mutex); 
+	CombineRemoteHostName(DnsHostName, m_RemoteHostName);
+	m_HasDnsHostName = true;
+}
+
+void CWinSocket::CombineRemoteHostName(QString CapturedHostName, QString ResolvedHostName)
+{
+	if (!CapturedHostName.isEmpty() && !ResolvedHostName.isNull())
+	{
+		if(ResolvedHostName.left(CapturedHostName.length()) != CapturedHostName)
+			m_RemoteHostName = CapturedHostName + " {" + ResolvedHostName + "}";
+		else
+			m_RemoteHostName = ResolvedHostName;
+	}
+	else if(!CapturedHostName.isEmpty())
+		m_RemoteHostName = CapturedHostName;
+	else if(!ResolvedHostName.isEmpty())
+		m_RemoteHostName = ResolvedHostName;
 }
 
 bool CWinSocket::UpdateDynamicData(SSocket* connection)
@@ -250,7 +242,7 @@ bool CWinSocket::UpdateDynamicData(SSocket* connection)
 void CWinSocket::ProcessSetNetworkFlag()
 {
 	// when calling this QWriteLocker Locker(&m_Mutex); must be locked!
-	CProcessPtr pProcess = m_pProcess;
+	CProcessPtr pProcess = m_pProcess.toStrongRef().staticCast<CProcessInfo>();
 	if (!pProcess)
 		return;
 

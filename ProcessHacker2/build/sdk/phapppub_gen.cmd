@@ -1,1 +1,0 @@
-..\..\tools\GenerateHeader\GenerateHeader\bin\Release\GenerateHeader.exe phapppub_options.txt

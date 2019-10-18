@@ -31,6 +31,14 @@ __inline QString FormatNumberEx(quint64 Number, bool bEx) { return bEx && (Numbe
 QString	FormatAddress(quint64 Address, int length = 16);
 
 
+inline bool operator < (const QHostAddress &key1, const QHostAddress &key2)
+{
+	// Note: toIPv6Address also works for IPv4 addresses
+	Q_IPV6ADDR ip1 = key1.toIPv6Address();
+	Q_IPV6ADDR ip2 = key2.toIPv6Address();
+    return memcmp(&ip1, &ip2, sizeof(Q_IPV6ADDR)) < 0;
+}
+
 template <typename T>
 QVariantList toVariantList( const QList<T> &list )
 {

@@ -3,6 +3,22 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.0.0] - 2019-10-18
+
+### Added
+- xprocesshacker.sys can not unprotect and re protect protected processes (light)
+- using ETW Events to monitor what domains individual processes querry 
+--	enabled more accurate remote hostname column display
+
+### Changed
+- cleaned up PH directory
+- improved process display for the case when multiple processes are sellected
+- now using https://github.com/microsoft/krabsetw to monitor ETW events
+- reworked socket process association
+- when opening finder the search term ist selected such it can be replaced quickly
+
+### Fixed
+- no longer trying to do reverse dns on adresses that returned no results
 
 
 

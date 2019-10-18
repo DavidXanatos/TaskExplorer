@@ -42,7 +42,7 @@ protected:
 
 	EView					m_ViewMode;*/
 
-	QMultiMap<QString, CDnsEntryPtr> m_DnsCacheList;
+	QMultiMap<QString, CDnsCacheEntryPtr> m_DnsCacheList;
 
 private slots:
 	void					OnDnsCacheUpdated();

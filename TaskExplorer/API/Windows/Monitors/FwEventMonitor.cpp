@@ -366,7 +366,7 @@ bool CFwEventMonitor::StartLogMonitor()
 	// Note: 
 	//			Alowed connections LayerRTID == 48 
 	//			Blocked connections LayerRTID == 44
-	//			Opening a TCP port for licening LayerRTID == 38 and 36 // Resource allocation
+	//			Opening a TCP port for listening LayerRTID == 38 and 36 // Resource allocation
 	//			Opening a UDP port LayerRTID == 38 and 36 // Resource allocation
 	quint32 LayerRTID = 44;
 	QString Query = QString("*[System[(Level=4 or Level=0) and (EventID=" STR(WIN_LOG_EVENT_FW_BLOCKED) " or EventID=" STR(WIN_LOG_EVENT_FW_ALLOWED) ")]] and *[EventData[Data[@Name='LayerRTID']>='%1']]").arg(LayerRTID);

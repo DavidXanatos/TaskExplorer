@@ -386,9 +386,9 @@
     <ClCompile Include="API\Windows\Finders\WinStringFinder.cpp" />
     <ClCompile Include="API\Windows\Finders\WinModuleFinder.cpp" />
     <ClCompile Include="API\Windows\DnsResolver.cpp" />
-    <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp" />
+    <ClCompile Include="API\Windows\Monitors\EtwEventMonitor.cpp" />
+    <ClCompile Include="API\Windows\Monitors\Etw\krabs.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinDiskMonitor.cpp" />
-    <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinGpuMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\FwEventMonitor.cpp" />
     <ClCompile Include="API\Windows\Monitors\WinNetMonitor.cpp" />
@@ -472,6 +472,7 @@
     <ClCompile Include="GUI\Models\StringModel.cpp" />
     <ClCompile Include="GUI\Models\ThreadModel.cpp" />
     <ClCompile Include="GUI\Models\WindowModel.cpp" />
+    <ClCompile Include="GUI\MultiErrorDialog.cpp" />
     <ClCompile Include="GUI\NewService.cpp" />
     <ClCompile Include="GUI\Search\HandleSearch.cpp" />
     <ClCompile Include="GUI\Search\MemorySearch.cpp" />
@@ -716,12 +717,36 @@
     <QtMoc Include="API\Windows\Finders\WinModuleFinder.h" />
     <QtMoc Include="API\StringInfo.h" />
     <QtMoc Include="API\Windows\Monitors\WinDiskMonitor.h" />
-    <QtMoc Include="API\Windows\Monitors\EventMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\WinGpuMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\WinNetMonitor.h" />
     <QtMoc Include="API\Windows\DnsResolver.h" />
-    <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h" />
+    <QtMoc Include="API\Windows\Monitors\EtwEventMonitor.h" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\client.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\collection_view.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\compiler_check.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\errors.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\comparers.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\event_filter.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\predicates.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\view_adapters.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\guid.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\kernel_guids.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\kernel_providers.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\kt.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\lock.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\nightmare.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\parser.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\parse_types.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\property.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\provider.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\schema.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\schema_locator.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\size_provider.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\tdh_helpers.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\trace.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\ut.hpp" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\version_helpers.hpp" />
     <ClInclude Include="API\Windows\ProcessHacker.h" />
     <QtMoc Include="Common\TreeWidgetEx.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../Common/%(Filename)%(Extension)</ForceInclude>
@@ -1176,6 +1201,7 @@
     <QtMoc Include="GUI\Models\PoolModel.h" />
     <QtMoc Include="GUI\Models\NtObjectModel.h" />
     <QtMoc Include="GUI\DriverWindow.h" />
+    <QtMoc Include="GUI\MultiErrorDialog.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>

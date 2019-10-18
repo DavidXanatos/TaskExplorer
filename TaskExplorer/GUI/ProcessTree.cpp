@@ -98,8 +98,11 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pWCT = m_pMiscMenu->addAction(tr("Wait Chain Traversal"), this, SLOT(OnWCT()));
 	//m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
 	//m_pVirtualization->setCheckable(true);
+	m_pMiscMenu->addSeparator();
 	m_pCritical = m_pMiscMenu->addAction(tr("Critical Process Flag"), this, SLOT(OnProcessAction()));
 	m_pCritical->setCheckable(true);
+	m_pProtected = m_pMiscMenu->addAction(tr("Protected Process"), this, SLOT(OnProcessAction()));
+	m_pProtected->setCheckable(true);
 
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
@@ -615,6 +618,9 @@ void CProcessTree::OnMenu(const QPoint &point)
 	m_pCritical->setEnabled(selectedRows.count() > 0);
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
 
+	m_pProtected->setEnabled(selectedRows.count() > 0);
+	m_pProtected->setChecked(pWinProcess && pWinProcess->GetProtection());
+
 	m_pReduceWS->setEnabled(selectedRows.count() > 0);
 	m_pWatchWS->setEnabled(selectedRows.count() == 1);
 	m_pWCT->setEnabled(selectedRows.count() == 1);
@@ -679,6 +685,8 @@ void CProcessTree::OnProcessAction()
 			}
 			else*/ if (sender() == m_pCritical)
 				Status = pWinProcess->SetCriticalProcess(m_pCritical->isChecked(), Force == 1);
+			else if (sender() == m_pProtected)
+				Status = pWinProcess->SetProtectionFlag(m_pProtected->isChecked() ? -1 : 0, Force == 1);
 			else if (sender() == m_pReduceWS)
 				Status = pWinProcess->ReduceWS();
 			else if (sender() == m_pDebug)

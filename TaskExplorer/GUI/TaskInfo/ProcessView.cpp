@@ -263,6 +263,9 @@ CProcessView::CProcessView(QWidget *parent)
 
 	connect(theGUI, SIGNAL(ReloadPanels()), m_pProcessModel, SLOT(Clear()));
 
+	//connect(m_pProcessList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
+	connect(m_pProcessList->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex,QModelIndex)));
+
 	m_pProcessList->setColumnReset(2);
 	connect(m_pProcessList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
 	connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
@@ -362,101 +365,12 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			//m_pMultiProcWidget->setVisible(false);
 			//m_pOneProcWidget->setVisible(true);
 			m_pStackedLayout->setCurrentWidget(m_pOneProcWidget);
-			m_pProcessBox->setEnabled(true);
-#ifdef WIN32
-			m_pSecurityBox->setEnabled(true);
-			if(m_pAppBox)
-				m_pAppBox->setEnabled(true);
-#endif
 
 			if (m_Processes.count() == 1)
 			{
 				CProcessPtr pProcess = m_Processes.first();
 
-				CModulePtr pModule = pProcess->GetModuleInfo();
-
-				QPixmap Icon;
-				QString Description;
-				if (pModule)
-				{
-					Icon = pModule->GetFileIcon(true);
-					Description = pModule->GetFileInfo("Description");
-					m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
-					m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
-				}
-				else
-				{
-					m_pCompanyName->setText("");
-					m_pProcessVersion->setText("");
-				}
-
-				m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
-				if (!Description.isEmpty())
-					m_pProcessName->setText(Description + " (" + pProcess->GetName() + ")");
-				else
-					m_pProcessName->setText(pProcess->GetName());
-				m_pFilePath->setText(pProcess->GetFileName());
-
-				m_pCmdLine->setText(pProcess->GetCommandLineStr());
-				m_pCurDir->setText(pProcess->GetWorkingDirectory());
-				m_pProcessId->setText(tr("%1/%2").arg(pProcess->GetProcessId()).arg(pProcess->GetParentId()));
-#ifndef WIN32
-				m_pUserName->setText(pProcess->GetUserName());
-#endif
-
-				CProcessPtr pParent = theAPI->GetProcessByID(pProcess->GetParentId());
-				if (!pProcess->ValidateParent(pParent.data()))
-					pParent.clear();
-				m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName());
-
-
-#ifdef WIN32
-				CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
-
-				CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
-
-				quint32 Subsystem = pWinProc->GetSubsystem();
-				bool bConsole = false;
-				if (pWinProc->GetOsContextVersion() != 0 && (Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI || (bConsole = (Subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI))))
-					m_pSubSystem->setText(tr("Subsystem: Windows %1%2").arg(pWinProc->GetOsContextString()).arg(bConsole ? tr(" console") : tr("")));
-				else
-					m_pSubSystem->setText(tr("Subsystem: %1").arg(pWinProc->GetSubsystemString()));
-
-				m_pVerification->setText(pWinModule ? pWinModule->GetVerifyResultString() : "");
-				m_pSigner->setText(QString("<a href=\"%1\">%2</a>").arg(pProcess->GetFileName()).arg((pWinModule ? pWinModule->GetVerifySignerName() : "")));
-
-				m_pDesktop->setText(pWinProc->GetUsedDesktop());
-				m_pDPIAware->setText(tr("DPI Scaling: %1").arg(pWinProc->GetDPIAwarenessString()));
-
-				if (!pWinModule)
-					m_pPEBAddress->setText("");
-				else if (pWinProc->IsWoW64())
-					m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinModule->GetPebBaseAddress())).arg(FormatAddress(pWinModule->GetPebBaseAddress(true))));
-				else
-					m_pPEBAddress->setText(FormatAddress(pWinModule->GetPebBaseAddress()));
-
-				m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
-
-				//m_pMitigation->setText(pWinProc->GetMitigationString());
-				m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
-
-				m_pMitigation->GetTree()->clear();
-				QList<QPair<QString, QString>> List = pWinProc->GetMitigationDetails();
-				for (int i = 0; i < List.count(); i++)
-				{
-					QTreeWidgetItem* pItem = new QTreeWidgetItem();
-					pItem->setText(0, List[i].first);
-					pItem->setText(1, List[i].second);
-					m_pMitigation->GetTree()->addTopLevelItem(pItem);
-				}
-
-				if (m_pAppBox)
-				{
-					m_pAppID->setText(pWinProc->GetAppID());
-					m_pPackageName->setText(pWinProc->GetPackageName());
-					//m_pPackageDataDir->setText(pWinProc->GetAppDataDirectory());
-				}
-#endif
+				ShowProcess(pProcess);
 			}
 		}
 		else
@@ -464,17 +378,100 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 			//m_pMultiProcWidget->setVisible(true);
 			//m_pOneProcWidget->setVisible(false);
 			m_pStackedLayout->setCurrentWidget(m_pMultiProcWidget);
-			m_pProcessBox->setEnabled(false);
-#ifdef WIN32
-			m_pSecurityBox->setEnabled(false);
-			if(m_pAppBox)
-				m_pAppBox->setEnabled(false);
-#endif
+
 			m_pTabWidget->setCurrentIndex(0);
 		}
 	}
 
 	Refresh();
+}
+
+void CProcessView::ShowProcess(const CProcessPtr pProcess)
+{
+	CModulePtr pModule = pProcess->GetModuleInfo();
+
+	QPixmap Icon;
+	QString Description;
+	if (pModule)
+	{
+		Icon = pModule->GetFileIcon(true);
+		Description = pModule->GetFileInfo("Description");
+		m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
+		m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));
+	}
+	else
+	{
+		m_pCompanyName->setText("");
+		m_pProcessVersion->setText("");
+	}
+
+	m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
+	if (!Description.isEmpty())
+		m_pProcessName->setText(Description + " (" + pProcess->GetName() + ")");
+	else
+		m_pProcessName->setText(pProcess->GetName());
+	m_pFilePath->setText(pProcess->GetFileName());
+
+	m_pCmdLine->setText(pProcess->GetCommandLineStr());
+	m_pCurDir->setText(pProcess->GetWorkingDirectory());
+	m_pProcessId->setText(tr("%1/%2").arg(pProcess->GetProcessId()).arg(pProcess->GetParentId()));
+#ifndef WIN32
+	m_pUserName->setText(pProcess->GetUserName());
+#endif
+
+	CProcessPtr pParent = theAPI->GetProcessByID(pProcess->GetParentId());
+	if (!pProcess->ValidateParent(pParent.data()))
+		pParent.clear();
+	m_pStartedBy->setText(pParent.isNull() ? tr("N/A") : pParent->GetFileName());
+
+
+#ifdef WIN32
+	CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+
+	CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
+
+	quint32 Subsystem = pWinProc->GetSubsystem();
+	bool bConsole = false;
+	if (pWinProc->GetOsContextVersion() != 0 && (Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI || (bConsole = (Subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI))))
+		m_pSubSystem->setText(tr("Subsystem: Windows %1%2").arg(pWinProc->GetOsContextString()).arg(bConsole ? tr(" console") : tr("")));
+	else
+		m_pSubSystem->setText(tr("Subsystem: %1").arg(pWinProc->GetSubsystemString()));
+
+	m_pVerification->setText(pWinModule ? pWinModule->GetVerifyResultString() : "");
+	m_pSigner->setText(QString("<a href=\"%1\">%2</a>").arg(pProcess->GetFileName()).arg((pWinModule ? pWinModule->GetVerifySignerName() : "")));
+
+	m_pDesktop->setText(pWinProc->GetUsedDesktop());
+	m_pDPIAware->setText(tr("DPI Scaling: %1").arg(pWinProc->GetDPIAwarenessString()));
+
+	if (!pWinModule)
+		m_pPEBAddress->setText("");
+	else if (pWinProc->IsWoW64())
+		m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinModule->GetPebBaseAddress())).arg(FormatAddress(pWinModule->GetPebBaseAddress(true))));
+	else
+		m_pPEBAddress->setText(FormatAddress(pWinModule->GetPebBaseAddress()));
+
+	m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
+
+	//m_pMitigation->setText(pWinProc->GetMitigationString());
+	m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
+
+	m_pMitigation->GetTree()->clear();
+	QList<QPair<QString, QString>> List = pWinProc->GetMitigationDetails();
+	for (int i = 0; i < List.count(); i++)
+	{
+		QTreeWidgetItem* pItem = new QTreeWidgetItem();
+		pItem->setText(0, List[i].first);
+		pItem->setText(1, List[i].second);
+		m_pMitigation->GetTree()->addTopLevelItem(pItem);
+	}
+
+	if (m_pAppBox)
+	{
+		m_pAppID->setText(pWinProc->GetAppID());
+		m_pPackageName->setText(pWinProc->GetPackageName());
+		//m_pPackageDataDir->setText(pWinProc->GetAppDataDirectory());
+	}
+#endif
 }
 
 void CProcessView::SyncModel()
@@ -491,6 +488,13 @@ void CProcessView::Refresh()
 		SyncModel();
 
 	m_pStatsView->ShowProcesses(m_Processes);
+}
+
+void CProcessView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
+	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+	ShowProcess(pProcess);
 }
 
 void CProcessView::OnCertificate(const QString& Link)

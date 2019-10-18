@@ -2,6 +2,7 @@
 #include <qwidget.h>
 #include "Common/ListItemModel.h"
 #include "../../API/SocketInfo.h"
+#include "../../API/ProcessInfo.h"
 
 class CSocketModel : public CListItemModel
 {

@@ -98,6 +98,12 @@ PhGetPackagePath(
     _In_ PPH_STRING PackageFullName
     );
 
+PPH_STRING
+NTAPI
+PhGetPackageAppDataPath(
+    _In_ HANDLE ProcessHandle
+    );
+
 PPH_LIST 
 NTAPI
 PhGetPackageAssetsFromResourceFile(

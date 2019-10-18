@@ -23,6 +23,7 @@ extern "C" {
 #include "Search/MemorySearch.h"
 #include "SystemInfo/SystemInfoWindow.h"
 #include "../Common/CheckableMessageBox.h"
+#include "MultiErrorDialog.h"
 
 
 QIcon g_ExeIcon;
@@ -823,9 +824,8 @@ void CTaskExplorer::CheckErrors(QList<STATUS> Errors)
 	if (Errors.isEmpty())
 		return;
 
-	// todo: xxx show window with error list
-
-	QMessageBox::warning(NULL, "TaskExplorer", tr("Operation failed for %1 item(s).").arg(Errors.size()));
+	CMultiErrorDialog Dialog(tr("Operation failed for %1 item(s).").arg(Errors.size()), Errors);
+	Dialog.exec();
 }
 
 void CTaskExplorer::OnRun()

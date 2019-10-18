@@ -1,8 +1,9 @@
 #pragma once
 #include <qobject.h>
-#include "ProcessInfo.h"
 #include "../Common/Common.h"
+#include "../Common/FlexError.h"
 #include "AbstractInfo.h"
+#include "MiscStats.h"
 
 #define NET_TYPE_NETWORK_IPV4		0x1
 #define NET_TYPE_NETWORK_IPV6		0x2
@@ -46,7 +47,7 @@ public:
 	virtual QString				GetRemoteHostName() const	{ QReadLocker Locker(&m_Mutex); return m_RemoteHostName; }
 
 	virtual QString				GetProcessName() const		{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
-	virtual CProcessPtr			GetProcess() const			{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
+	virtual QWeakPointer<QObject> GetProcess() const		{ QReadLocker Locker(&m_Mutex); return m_pProcess; }
 	
 	virtual SSockStats			GetStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
@@ -76,7 +77,7 @@ protected:
 	quint64						m_ProcessId;
 
 	QString						m_ProcessName;
-	CProcessRef					m_pProcess;
+	QWeakPointer<QObject>		m_pProcess;
 
 	QString						m_RemoteHostName;
 

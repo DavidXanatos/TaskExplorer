@@ -102,6 +102,7 @@ void CFinder::Open()
 
 	show();
 	m_pSearch->setFocus(Qt::OtherFocusReason);
+	m_pSearch->selectAll();
 	OnUpdate();
 }
 

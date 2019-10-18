@@ -130,6 +130,7 @@ private:
 #ifdef WIN32
 	//QAction*				m_pVirtualization; // []
 	QAction*				m_pCritical; // []
+	QAction*				m_pProtected; // []
 	QAction*				m_pReduceWS;
 	QAction*				m_pWatchWS;
 	QAction*				m_pWCT;

@@ -163,7 +163,7 @@ public:
 
 	virtual void NotifyHardwareChanged();
 
-	virtual QMultiMap<QString, CDnsEntryPtr> GetDnsEntryList() const = 0;
+	virtual QMultiMap<QString, CDnsCacheEntryPtr> GetDnsEntryList() const = 0;
 
 public slots:
 	virtual bool UpdateSysStats() = 0;

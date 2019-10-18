@@ -28,6 +28,12 @@ HANDLE PhKphHandle = NULL;
 BOOLEAN PhKphVerified = FALSE;
 KPH_KEY PhKphL1Key = 0;
 
+BOOL HasMasterKey()
+{
+    return PhKphL1Key == -1; // LOL "Master"-key
+}
+
+
 NTSTATUS KphConnect(
     _In_opt_ PWSTR DeviceName
     )
@@ -556,7 +562,7 @@ NTSTATUS KphOpenProcess(
 {
     KPH_OPEN_PROCESS_INPUT input = { ProcessHandle, DesiredAccess, ClientId, 0 };
 
-    if ((DesiredAccess & KPH_PROCESS_READ_ACCESS) == DesiredAccess)
+    if ((DesiredAccess & KPH_PROCESS_READ_ACCESS) == DesiredAccess || HasMasterKey())
     {
         KphpGetL1Key(&input.Key);
         return KphpDeviceIoControl(
@@ -579,7 +585,7 @@ NTSTATUS KphOpenProcessToken(
 {
     KPH_OPEN_PROCESS_TOKEN_INPUT input = { ProcessHandle, DesiredAccess, TokenHandle, 0 };
 
-    if ((DesiredAccess & KPH_TOKEN_READ_ACCESS) == DesiredAccess)
+    if ((DesiredAccess & KPH_TOKEN_READ_ACCESS) == DesiredAccess || HasMasterKey())
     {
         KphpGetL1Key(&input.Key);
         return KphpDeviceIoControl(
@@ -622,8 +628,19 @@ NTSTATUS KphTerminateProcess(
     NTSTATUS status;
     KPH_TERMINATE_PROCESS_INPUT input = { ProcessHandle, ExitStatus, 0 };
 
-    status = KphpWithKey(KphKeyLevel2, KphpTerminateProcessContinuation, &input);
-
+    if (HasMasterKey())
+    {
+        KphpGetL1Key(&input.Key);
+        status = KphpDeviceIoControl(
+            KPH_TERMINATEPROCESS,
+            &input,
+            sizeof(input)
+            );
+    }
+    else
+    {
+        status = KphpWithKey(KphKeyLevel2, KphpTerminateProcessContinuation, &input);
+    }
     // Check if we're trying to terminate the current process, because kernel-mode can't do it.
     if (status == STATUS_CANT_TERMINATE_SELF)
     {
@@ -643,7 +660,19 @@ NTSTATUS KphReadVirtualMemoryUnsafe(
 {
     KPH_READ_VIRTUAL_MEMORY_UNSAFE_INPUT input = { ProcessHandle, BaseAddress, Buffer, BufferSize, NumberOfBytesRead, 0 };
 
-    return KphpWithKey(KphKeyLevel2, KphpReadVirtualMemoryUnsafeContinuation, &input);
+    if (HasMasterKey())
+    {
+        KphpGetL1Key(&input.Key);
+        return KphpDeviceIoControl(
+            KPH_READVIRTUALMEMORYUNSAFE,
+            &input,
+            sizeof(input)
+            );
+    }
+    else
+    {
+        return KphpWithKey(KphKeyLevel2, KphpReadVirtualMemoryUnsafeContinuation, &input);
+    }
 }
 
 NTSTATUS KphQueryInformationProcess(
@@ -700,7 +729,7 @@ NTSTATUS KphOpenThread(
 {
     KPH_OPEN_THREAD_INPUT input = { ThreadHandle, DesiredAccess, ClientId, 0 };
 
-    if ((DesiredAccess & KPH_THREAD_READ_ACCESS) == DesiredAccess)
+    if ((DesiredAccess & KPH_THREAD_READ_ACCESS) == DesiredAccess || HasMasterKey())
     {
         KphpGetL1Key(&input.Key);
         return KphpDeviceIoControl(

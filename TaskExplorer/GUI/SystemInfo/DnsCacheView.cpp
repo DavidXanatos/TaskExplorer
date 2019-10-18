@@ -135,5 +135,7 @@ void CDnsCacheView::OnDnsCacheUpdated()
 
 void CDnsCacheView::Refresh()
 {
-	// nothing
+	// Note: if SmartHostNameResolution is enabled the cache is always updated
+	if(!theConf->GetBool("Options/SmartHostNameResolution", false))
+		theAPI->UpdateDnsCache();
 }

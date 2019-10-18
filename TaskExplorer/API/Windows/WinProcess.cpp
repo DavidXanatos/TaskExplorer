@@ -27,6 +27,9 @@
 #include "ProcessHacker/ProcMtgn.h"
 #include <lsasup.h>
 #include <userenv.h>
+extern "C" {
+#include <kphuserp.h>
+}
 
 #include "WindowsAPI.h"
 #include "WinProcess.h"
@@ -582,12 +585,7 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 	{
 		if (WindowsVersion >= WINDOWS_8_1)
 		{
-			PS_PROTECTION protection;
-
-			if (NT_SUCCESS(PhGetProcessProtection(m->QueryHandle, &protection)))
-			{
-				m->Protection.Level = protection.Level;
-			}
+			// Note for WINDOWS_8_1 and above this is updated dynamically
 		}
 		else
 		{
@@ -817,6 +815,18 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		ULONG depStatus = 0;
 		if (NT_SUCCESS(PhGetProcessDepStatus(m->QueryHandle, &depStatus)))
 			m->DepStatus = depStatus;
+
+		// Protection
+		if (WindowsVersion >= WINDOWS_8_1)
+		{
+			// Note: the protection state of a process shouldn't be able to change, but with the right kernel driver it can.
+			PS_PROTECTION protection;
+			if (NT_SUCCESS(PhGetProcessProtection(m->QueryHandle, &protection)))
+			{
+				m->Protection.Level = protection.Level;
+				m->IsProtectedProcess = m->Protection.Level != 0;
+			}
+		}
 
 		// update critical flag
 		BOOLEAN breakOnTermination;
@@ -2126,7 +2136,7 @@ QString CWinProcess::GetDPIAwarenessString() const
 	return "";
 }
 
-quint32 CWinProcess::GetProtection() const 
+quint8 CWinProcess::GetProtection() const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->Protection.Level;
@@ -2161,6 +2171,45 @@ QString CWinProcess::GetProtectionString() const
     return tr("N/A");
 }
 
+STATUS CWinProcess::SetProtectionFlag(quint8 Flag, bool bForce)
+{
+	if ((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 31)) == 0)
+		return ERR(tr("The loaded driver does not support this feature."), STATUS_NOT_SUPPORTED);
+
+	if (!KphIsVerified())
+		return ERR(tr("The client must be verifyed by the driver in order to unlock this feature."), STATUS_ACCESS_DENIED);
+
+	if (!bForce)
+		return ERR(tr("Changing Process Protection Flags may impact system stability!"), ERROR_CONFIRM);
+
+	if (Flag == (quint8)-1)
+	{
+		PS_PROTECTION Protection;
+		Protection.Level = 0;
+		Protection.Type = PsProtectedTypeProtected;
+		Protection.Signer = 6; // WinTcb
+		Flag = Protection.Level;
+	}
+
+	struct
+	{
+		HANDLE UniqueProcessId;
+		UCHAR Flag;
+		KPH_KEY Key;
+	} input = { m->UniqueProcessId, Flag , 0};
+
+	//NTSTATUS status = KphpWithKey(KphKeyLevel2, KphpSetProcessProtectionContinuation, &input);
+	KphpGetL1Key(&input.Key);
+	NTSTATUS status = KphpDeviceIoControl(
+		XPH_SETPROCESSPROTECTION,
+		&input,
+		sizeof(input)
+	);
+
+	if (!NT_SUCCESS(status))
+		return ERR(tr("Failed to Clear Process Protection flag"), status);
+	return OK;
+}
 
 QList<QPair<QString, QString>> CWinProcess::GetMitigationDetails() const
 {
@@ -2860,6 +2909,20 @@ CWndPtr	CWinProcess::GetMainWindow() const
 		((CWinProcess*)this)->m_pMainWnd = pMainWnd;
 	}
 	return pMainWnd;
+}
+
+void CWinProcess::UpdateDns(const QString& HostName, const QList<QHostAddress>& Addresses)
+{
+	CProcessInfo::UpdateDns(HostName, Addresses);
+
+	foreach(const CSocketPtr& pSocket, GetSocketList())
+	{
+		QSharedPointer<CWinSocket> pWinSocket = pSocket.staticCast<CWinSocket>();
+		if (pWinSocket->HasDnsHostName())
+			continue;
+		if (Addresses.contains(pWinSocket->GetRemoteAddress()))
+			pWinSocket->SetDnsHostName(HostName);
+	}
 }
 
 #include <taskschd.h>

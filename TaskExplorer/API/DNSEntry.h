@@ -2,6 +2,27 @@
 #include <qobject.h>
 #include "AbstractInfo.h"
 
+class CDnsLogEntry: public CAbstractInfoEx
+{
+	Q_OBJECT
+
+public:
+	CDnsLogEntry(const QString& HostName, const QList<QHostAddress>& Addresses);
+	virtual ~CDnsLogEntry() {}
+
+	virtual QList<QHostAddress> UpdateAddresses(const QList<QHostAddress>& Addresses);
+
+	virtual QString GetHostName() const							{ QReadLocker Locker(&m_Mutex); return m_HostName; }
+	virtual QList<QHostAddress> GetAddresses() const			{ QReadLocker Locker(&m_Mutex); return m_Addresses; }
+
+protected:
+	QString					m_HostName;
+	QList<QHostAddress>		m_Addresses;
+};
+
+typedef QSharedPointer<CDnsLogEntry> CDnsLogEntryPtr;
+typedef QWeakPointer<CDnsLogEntry> CDnsLogEntryRef;
+
 /*
 class CDnsProcRecord : public QObject
 {
@@ -48,13 +69,13 @@ protected:
 typedef QSharedPointer<CDnsProcRecord> CDnsProcRecordPtr;
 */
 
-class CDnsEntry: public CAbstractInfoEx
+class CDnsCacheEntry: public CAbstractInfoEx
 {
 	Q_OBJECT
 
 public:
-	CDnsEntry(const QString& HostName, quint16 Type, const QHostAddress& Address, const QString& ResolvedString = QString(), QObject *parent = nullptr);
-	virtual ~CDnsEntry();
+	CDnsCacheEntry(const QString& HostName, quint16 Type, const QHostAddress& Address, const QString& ResolvedString = QString(), QObject *parent = nullptr);
+	virtual ~CDnsCacheEntry() {}
 
 	virtual QString GetHostName() const				{ QReadLocker Locker(&m_Mutex); return m_HostName; }
 	virtual QString GetResolvedString() const		{ QReadLocker Locker(&m_Mutex); return m_ResolvedString; }
@@ -85,5 +106,5 @@ protected:
 	//QMap<QPair<QString, quint64>, CDnsProcRecordPtr>	m_ProcessRecords;
 };
 
-typedef QSharedPointer<CDnsEntry> CDnsEntryPtr;
-typedef QWeakPointer<CDnsEntry> CDnsEntryRef;
+typedef QSharedPointer<CDnsCacheEntry> CDnsCacheEntryPtr;
+typedef QWeakPointer<CDnsCacheEntry> CDnsCacheEntryRef;

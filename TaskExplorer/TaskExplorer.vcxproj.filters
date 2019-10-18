@@ -78,6 +78,15 @@
     <Filter Include="TaskExplorer\SystemInfo\KernelInfo">
       <UniqueIdentifier>{e7b5f9f5-6348-4501-af57-cba7740d091d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="API\Windows\Monitors\Etw">
+      <UniqueIdentifier>{1c4c7a65-beb5-40d2-90ad-cb9c50fb562c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\Monitors\Etw\krabs">
+      <UniqueIdentifier>{0b952ebb-9b5c-4aae-949d-5cd605279462}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\Monitors\Etw\krabs\filtering">
+      <UniqueIdentifier>{50af5051-6b8e-4ed2-926c-0b57d7e362ce}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -464,9 +473,6 @@
     <ClCompile Include="API\Monitors\NetMonitor.cpp">
       <Filter>API\Monitors</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp">
-      <Filter>API\Windows\Monitors</Filter>
-    </ClCompile>
     <ClCompile Include="Common\FlowLayout.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -487,9 +493,6 @@
     </ClCompile>
     <ClCompile Include="GUI\SystemInfo\DnsCacheView.cpp">
       <Filter>TaskExplorer\SystemInfo</Filter>
-    </ClCompile>
-    <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp">
-      <Filter>API\Windows\Monitors</Filter>
     </ClCompile>
     <ClCompile Include="API\Windows\ProcessHacker\fw.cpp">
       <Filter>API\Windows\ProcessHacker</Filter>
@@ -547,6 +550,15 @@
     </ClCompile>
     <ClCompile Include="GUI\DriverWindow.cpp">
       <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\MultiErrorDialog.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\Etw\krabs.cpp">
+      <Filter>API\Windows\Monitors\Etw</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\EtwEventMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -633,6 +645,81 @@
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\syssccpu.h">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\client.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\collection_view.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\compiler_check.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\errors.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\guid.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\kernel_guids.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\kernel_providers.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\kt.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\lock.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\nightmare.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\parse_types.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\parser.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\property.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\provider.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\schema.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\schema_locator.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\size_provider.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\tdh_helpers.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\trace.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\ut.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\version_helpers.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\comparers.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs\filtering</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\event_filter.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs\filtering</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\predicates.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs\filtering</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\view_adapters.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs\filtering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -975,9 +1062,6 @@
     <QtMoc Include="API\Monitors\NetMonitor.h">
       <Filter>API\Monitors</Filter>
     </QtMoc>
-    <QtMoc Include="API\Windows\Monitors\EventMonitor.h">
-      <Filter>API\Windows\Monitors</Filter>
-    </QtMoc>
     <QtMoc Include="GUI\Models\GDIModel.h">
       <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
@@ -998,9 +1082,6 @@
     </QtMoc>
     <QtMoc Include="GUI\SystemInfo\DnsCacheView.h">
       <Filter>TaskExplorer\SystemInfo</Filter>
-    </QtMoc>
-    <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h">
-      <Filter>API\Windows\Monitors</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h">
       <Filter>API\Windows\Monitors</Filter>
@@ -1043,6 +1124,12 @@
     </QtMoc>
     <QtMoc Include="GUI\DriverWindow.h">
       <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\MultiErrorDialog.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\EtwEventMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

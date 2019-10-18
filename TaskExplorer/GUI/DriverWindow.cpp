@@ -171,12 +171,9 @@ void CDriverWindow::Refresh()
 		ui.connection->setText(tr("Connected"));
 
 		ui.verification->setText(KphIsVerified() ? tr("Verified") : tr("NOT Verified"));
-
-		ULONG Features = 0;
-		if (NT_SUCCESS(KphGetFeatures(&Features)))
-			ui.features->setText(tr("0x%1").arg(Features, 8, 16, QChar('0')));
-		else
-			ui.features->setText(tr("N/A"));
+		
+		//ui.features->setText(tr("0x%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 8, 16, QChar('0')));
+		ui.features->setText(tr("%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 32, 2, QChar('0')));
 	}
 	else
 	{

@@ -29,7 +29,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 	{
 		if (m_ProcessFilter)
 		{
-			if (!m_Processes.contains(pSocket->GetProcess()))
+			if (!m_Processes.contains(pSocket->GetProcess().toStrongRef().staticCast<CProcessInfo>()))
 				continue;
 		}
 
@@ -62,7 +62,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		// Note: icons are loaded asynchroniusly
 		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
 		{
-			CProcessPtr pProcess = pNode->pSocket->GetProcess();
+			CProcessPtr pProcess = pNode->pSocket->GetProcess().toStrongRef().staticCast<CProcessInfo>();
 			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
 			if (pModule)
 			{

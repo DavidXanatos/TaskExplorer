@@ -1,17 +1,8 @@
 #pragma once
 #include "../DnsEntry.h"
+#include "../../Common/Common.h"
 
 class CDnsResolverJob;
-
-
-inline bool operator < (const QHostAddress &key1, const QHostAddress &key2)
-{
-	// Note: toIPv6Address also works for IPv4 addresses
-	Q_IPV6ADDR ip1 = key1.toIPv6Address();
-	Q_IPV6ADDR ip2 = key2.toIPv6Address();
-    return memcmp(&ip1, &ip2, sizeof(Q_IPV6ADDR)) < 0;
-}
-
 
 class CDnsResolver: public QThread
 {
@@ -24,7 +15,7 @@ public:
 
 	virtual QString GetHostName(const QHostAddress& Address, QObject *receiver = NULL, const char *member = NULL);
 
-	virtual QMultiMap<QString, CDnsEntryPtr> GetEntryList() const { QReadLocker Locker(&m_Mutex);  return m_DnsCache; }
+	virtual QMultiMap<QString, CDnsCacheEntryPtr> GetEntryList() const { QReadLocker Locker(&m_Mutex);  return m_DnsCache; }
 
 signals:
 	void DnsCacheUpdated();
@@ -42,8 +33,8 @@ protected:
 
 	virtual void run();
 
-	virtual QString GetHostNameImpl(const QHostAddress& Address);
-	virtual QString GetHostNamesImpl(const QString& HostName, int Limit = 10);
+	virtual QString GetHostNameSmart(const QHostAddress& Address, const QStringList& RevHostNames);
+	virtual QString GetHostNamesSmart(const QString& HostName, int Limit = 10);
 
 	bool m_bRunning;
 
@@ -51,11 +42,12 @@ protected:
 	QMap<QHostAddress, CDnsResolverJob*>	m_JobQueue;
 
 	mutable QReadWriteLock					m_Mutex;
-	QMultiMap<QString, CDnsEntryPtr>		m_DnsCache; // HostName -> Entry
+	QMultiMap<QString, CDnsCacheEntryPtr>		m_DnsCache; // HostName -> Entry
 	quint64									m_LastCacheTraverse;
-	QMultiMap<QHostAddress, CDnsEntryPtr>	m_AddressCache;
-	QMultiMap<QString, CDnsEntryPtr>		m_RedirectionCache;
-	
+	QMultiMap<QHostAddress, CDnsCacheEntryPtr>	m_AddressCache;
+	QMultiMap<QString, CDnsCacheEntryPtr>		m_RedirectionCache;
+
+	QMap<QHostAddress, quint64>					m_NoResultBlackList;
 
 private:
 	struct SDnsResolver* m;

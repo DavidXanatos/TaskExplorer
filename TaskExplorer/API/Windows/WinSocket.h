@@ -23,6 +23,9 @@ public:
 
 	virtual bool			HasStaticDataEx() const { QReadLocker Locker(&m_Mutex); return m_HasStaticDataEx; }
 
+	virtual bool			HasDnsHostName() const		{ QReadLocker Locker(&m_Mutex); return m_HasDnsHostName; }
+	virtual void			SetDnsHostName(const QString& RemoteHostName);
+
 	virtual STATUS			Close();
 
 	struct SSocket
@@ -54,6 +57,8 @@ protected:
 	bool InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 		const QHostAddress& LocalAddress, quint16 LocalPort, const QHostAddress& RemoteAddress, quint16 RemotePort);
 
+	void LinkProcess(QSharedPointer<QObject> pProcess);
+
 	bool InitStaticDataEx(SSocket* connection, bool IsNew);
 
 	bool UpdateDynamicData(SSocket* connection);
@@ -62,12 +67,16 @@ protected:
 
 	void			ProcessSetNetworkFlag();
 
+	void			CombineRemoteHostName(QString CapturedHostName, QString ResolvedHostName); // *NOT Thread Safe* internal function
+
 	QString			m_OwnerService;
 	//bool			m_SubsystemProcess;
 
 	quint64			m_LastActivity;
 
 	bool			m_HasStaticDataEx;
+
+	bool			m_HasDnsHostName;
 
 private:
 	struct SWinSocket* m;

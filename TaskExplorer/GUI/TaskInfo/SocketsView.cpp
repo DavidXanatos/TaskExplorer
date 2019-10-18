@@ -32,8 +32,8 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 	m_pSocketList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pSocketList->setSortingEnabled(true);
 
-	if (!bAll)
-		m_pSocketModel->SetProcessFilter(QList<CProcessPtr>());
+	//if (!bAll)
+	//	m_pSocketModel->SetProcessFilter(QList<CProcessPtr>());
 	m_pSocketModel->SetUseIcons(true);
 
 	m_pSocketList->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -50,8 +50,8 @@ CSocketsView::CSocketsView(bool bAll, QWidget *parent)
 
 	m_pMainLayout->addWidget(new CFinder(m_pSortProxy, this));
 
-
-	connect(theAPI, SIGNAL(SocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnSocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	if(bAll)
+		connect(theAPI, SIGNAL(SocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(OnSocketListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
 
 	//m_pMenu = new QMenu();
 	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnClose()));
@@ -126,15 +126,33 @@ void CSocketsView::OnColumnsChanged()
 
 void CSocketsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
+	m_Processes = Processes;
+
 	SwitchView(Processes.size() > 1 ? eMulti : eSingle);
 
-	m_pSocketModel->SetProcessFilter(Processes);
+	//m_pSocketModel->SetProcessFilter(Processes);
 
-	OnSocketListUpdated(QSet<quint64>(),QSet<quint64>(),QSet<quint64>());
+	//OnSocketListUpdated(QSet<quint64>(),QSet<quint64>(),QSet<quint64>());
+
+	Refresh();
 }
 
 void CSocketsView::Refresh()
 {
+	if (!m_Processes.isEmpty())
+	{
+		m_SocketList.clear();
+		foreach(const CProcessPtr& pProcess, m_Processes)
+		{
+			foreach(const CSocketPtr& pSocket, pProcess->GetSocketList())
+			{
+				if (pSocket.isNull()) // Note: GetSocketList contains weak refs
+					continue;
+				m_SocketList.insert((quint64)pSocket.data(), pSocket);
+			}
+		}
+	}
+
 	m_pSocketModel->Sync(m_SocketList);
 }
 

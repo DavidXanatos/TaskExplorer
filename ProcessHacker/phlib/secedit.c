@@ -1106,24 +1106,24 @@ _Callback_ NTSTATUS PhStdGetObjectSecurity(
         PhEqualString2(this->ObjectType, L"SamUser", TRUE)
         )
     {
-        //PSECURITY_DESCRIPTOR securityDescriptor;
-        //
-        //status = SamQuerySecurityObject(
-        //    handle,
-        //    SecurityInformation,
-        //    &securityDescriptor
-        //    );
-        //
-        //if (NT_SUCCESS(status))
-        //{
-        //    *SecurityDescriptor = PhAllocateCopy(
-        //        securityDescriptor,
-        //        RtlLengthSecurityDescriptor(securityDescriptor)
-        //        );
-        //    SamFreeMemory(securityDescriptor);
-        //}
-        //
-        //SamCloseHandle(handle);
+        PSECURITY_DESCRIPTOR securityDescriptor;
+        
+        status = SamQuerySecurityObject(
+            handle,
+            SecurityInformation,
+            &securityDescriptor
+            );
+        
+        if (NT_SUCCESS(status))
+        {
+            *SecurityDescriptor = PhAllocateCopy(
+                securityDescriptor,
+                RtlLengthSecurityDescriptor(securityDescriptor)
+                );
+            SamFreeMemory(securityDescriptor);
+        }
+        
+        SamCloseHandle(handle);
     }
     else if (PhEqualString2(this->ObjectType, L"TokenDefault", TRUE))
     {

@@ -47,6 +47,7 @@ protected:
 
 	EView					m_ViewMode;
 
+	QList<CProcessPtr>		m_Processes;
 	QMultiMap<quint64, CSocketPtr> m_SocketList;
 
 private:

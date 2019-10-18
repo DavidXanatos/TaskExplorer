@@ -206,7 +206,7 @@ bool CWinDiskMonitor::UpdateDisks()
 			{
 				PPH_STRING diskMountPoints;
 
-				diskMountPoints = PH_AUTO_T(PH_STRING, DiskDriveQueryDosMountPoints(diskIndex));
+				diskMountPoints = PH_AUTO_T(PH_STRING, DiskDriveQueryDosMountPoints(diskIndex)); // warning: this sometimes locks for a few sec
 
 				diskEntry->DeviceIndex = diskIndex;
 				diskEntry->DevicePresent = true;
