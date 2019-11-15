@@ -296,7 +296,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuMonitorETW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorETW"), tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
 		m_pMenuMonitorETW->setCheckable(true);
 		m_pMenuMonitorETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
-		//m_pMenuMonitorETW->setEnabled(theAPI->RootAvaiable());
+		m_pMenuMonitorETW->setEnabled(theAPI->RootAvaiable());
 		m_pMenuMonitorFW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorFW"), tr("Monitor Windows Firewall"), this, SLOT(OnMonitorFW()));
 		m_pMenuMonitorFW->setCheckable(true);
 		m_pMenuMonitorFW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringFW());

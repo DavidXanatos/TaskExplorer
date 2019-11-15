@@ -3,7 +3,20 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [1.0.0] - 2019-10-18
+
+## [1.0.1] - 2019-11-15
+
+### Changed
+- improved file handle info retrival
+- ewt monitoring button is now disabled when running without admin rights
+
+### Fixed
+- memory leak occuring when updating per process handle list
+- fixed issue with service to process association
+
+
+
+## [1.0] - 2019-10-18
 
 ### Added
 - xprocesshacker.sys can not unprotect and re protect protected processes (light)

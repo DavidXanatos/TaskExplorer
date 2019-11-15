@@ -105,7 +105,7 @@ bool CWinService::UpdatePID(struct _ENUM_SERVICE_STATUS_PROCESSW* service)
 	//bool IsActive = service->ServiceStatusProcess.dwCurrentState == SERVICE_RUNNING || service->ServiceStatusProcess.dwCurrentState == SERVICE_PAUSED;
 
 	if (m_ProcessId == service->ServiceStatusProcess.dwProcessId)
-		return true;
+		return false;
 	
 	m_ProcessId = service->ServiceStatusProcess.dwProcessId;
 

@@ -128,6 +128,97 @@ bool CWinHandle::InitExtDataAsync(CWinHandle* This, struct _SYSTEM_HANDLE_TABLE_
 	return This->InitExtData(handle, ProcessHandle, false);
 }
 
+bool CWinHandle__UpdateFileData(HANDLE ProcessHandle, HANDLE HandleId, QString& SubTypeName, quint64& FileSize, quint64& FilePosition, quint32* FileMode = NULL, int* FileType = NULL)
+{
+	HANDLE fileHandle;
+	NTSTATUS status = NtDuplicateObject(ProcessHandle, HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0);
+
+    if (NT_SUCCESS(status))
+    {
+        BOOLEAN isFileOrDirectory = FALSE;
+        BOOLEAN isConsoleHandle = FALSE;
+		BOOLEAN isPipeHandle = FALSE;
+        BOOLEAN isNetworkHandle = FALSE;
+
+		IO_STATUS_BLOCK isb;
+        FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
+        if (NT_SUCCESS(NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation)))
+        {
+            switch (fileDeviceInfo.DeviceType)
+            {
+            case FILE_DEVICE_NAMED_PIPE:
+				isPipeHandle = TRUE;
+				SubTypeName = "Pipe";
+                break;
+            case FILE_DEVICE_NETWORK:
+                isNetworkHandle = TRUE;
+				SubTypeName = "Network";
+				break;
+            case FILE_DEVICE_CD_ROM:
+            case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
+            case FILE_DEVICE_CONTROLLER:
+            case FILE_DEVICE_DATALINK:
+            case FILE_DEVICE_DFS:
+            case FILE_DEVICE_DISK:
+            case FILE_DEVICE_DISK_FILE_SYSTEM:
+            case FILE_DEVICE_VIRTUAL_DISK:
+                isFileOrDirectory = TRUE;
+                SubTypeName = "File or directory";
+                break;
+            case FILE_DEVICE_CONSOLE:
+                isConsoleHandle = TRUE;
+                SubTypeName = "Console";
+                break;
+            default:
+                SubTypeName = "Other";
+                break;
+            }
+        }
+
+		if (FileMode)
+		{
+			// Note: These devices deadlock without a timeout (dmex)
+            // 1) Named pipes
+            // 2) \Device\ConDrv\CurrentIn
+            // 3) \Device\VolMgrControl
+
+			FILE_MODE_INFORMATION fileModeInfo;
+			if (NT_SUCCESS(status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION))))
+			{
+				*FileMode = fileModeInfo.Mode;
+			}
+		}
+
+		// NOTE: NtQueryInformationFile can hang on windows 7 at \Device\VolMgrControl (DX)
+        if (isFileOrDirectory)
+		// if(!isConsoleHandle)
+        {
+			FILE_STANDARD_INFORMATION fileStandardInfo;
+            //if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
+            if (NT_SUCCESS(status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION))))
+            {
+				if (FileType)
+					*FileType = fileStandardInfo.Directory ? 2 : 1;
+
+				SubTypeName = fileStandardInfo.Directory ? "Directory" : "File";
+
+				FileSize = fileStandardInfo.EndOfFile.QuadPart;
+            }
+
+			FILE_POSITION_INFORMATION filePositionInfo;
+			//if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
+            if (NT_SUCCESS(status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION))))
+			{
+				FilePosition = filePositionInfo.CurrentByteOffset.QuadPart;
+			}
+        }
+
+        NtClose(fileHandle);
+    }
+
+	return true;
+}
+
 bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle)
 {
 	QWriteLocker Locker(&m_Mutex);
@@ -142,87 +233,27 @@ bool CWinHandle::UpdateDynamicData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* ha
 
 	if (m_TypeName == "File")
     {
-        HANDLE fileHandle;
-		NTSTATUS status = NtDuplicateObject((HANDLE)ProcessHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0);
+		QString SubTypeName;
+		quint64 FileSize = 0;
+		quint64 FilePosition = 0;
 
-        if (NT_SUCCESS(status))
-        {
-			QString SubTypeName;
-			quint64 FileSize = 0;
-			quint64 FilePosition = 0;
+		CWinHandle__UpdateFileData((HANDLE)ProcessHandle, (HANDLE)m_HandleId, SubTypeName, FileSize, FilePosition);
 
-            BOOLEAN isFileOrDirectory = FALSE;
-            BOOLEAN isConsoleHandle = FALSE;
-			BOOLEAN isPipeHandle = FALSE;
-            FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
-            FILE_STANDARD_INFORMATION fileStandardInfo;
-            FILE_POSITION_INFORMATION filePositionInfo;
-            IO_STATUS_BLOCK isb;
-
-            if (NT_SUCCESS(NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation)))
-            {
-                switch (fileDeviceInfo.DeviceType)
-                {
-                case FILE_DEVICE_NAMED_PIPE:
-					isPipeHandle = TRUE;
-					SubTypeName = "Pipe";
-                    break;
-                case FILE_DEVICE_CD_ROM:
-                case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-                case FILE_DEVICE_CONTROLLER:
-                case FILE_DEVICE_DATALINK:
-                case FILE_DEVICE_DFS:
-                case FILE_DEVICE_DISK:
-                case FILE_DEVICE_DISK_FILE_SYSTEM:
-                case FILE_DEVICE_VIRTUAL_DISK:
-                    isFileOrDirectory = TRUE;
-                    SubTypeName = "File or directory";
-                    break;
-                case FILE_DEVICE_CONSOLE:
-                    isConsoleHandle = TRUE;
-                    SubTypeName = "Console";
-                    break;
-                default:
-                    SubTypeName = "Other";
-                    break;
-                }
-            }
-
-			// NOTE: NtQueryInformationFile may hang on no file types see commetn in GetHandleInfo()
-            if (isFileOrDirectory)
-            {
-                if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
-                {
-					SubTypeName = fileStandardInfo.Directory ? "Directory" : "File";
-
-					FileSize = fileStandardInfo.EndOfFile.QuadPart;
-                }
-
-				if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
-				{
-					FilePosition = filePositionInfo.CurrentByteOffset.QuadPart;
-				}
-            }
-
-
-			if (m_SubTypeName != SubTypeName)
-			{
-				m_SubTypeName = SubTypeName;
-				modified = TRUE;
-			}
-			if (m_Size != FileSize)
-			{
-				m_Size = FileSize;
-				modified = TRUE;
-			}
-			if (m_Position != FilePosition)
-			{
-				m_Position = FilePosition;
-				modified = TRUE;
-			}
-
-            NtClose(fileHandle);
-        }
+		if (m_SubTypeName != SubTypeName)
+		{
+			m_SubTypeName = SubTypeName;
+			modified = TRUE;
+		}
+		if (m_Size != FileSize)
+		{
+			m_Size = FileSize;
+			modified = TRUE;
+		}
+		if (m_Position != FilePosition)
+		{
+			m_Position = FilePosition;
+			modified = TRUE;
+		}
     }
 	else if(m_TypeName == "Section")
 	{
@@ -554,80 +585,21 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 	}
 	else if(m_TypeName == "File")
 	{
-		HANDLE fileHandle;
-		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0)))
+		QString SubTypeName;
+		quint64 FileSize = 0;
+		quint64 FilePosition = 0;
+		quint32 FileMode = 0;
+		int FileType = 0;
+
+		CWinHandle__UpdateFileData(processHandle, (HANDLE)m_HandleId, SubTypeName, FileSize, FilePosition, &FileMode, &FileType);
+		
+		HandleInfo.File.Mode = FileMode;
+
+		if (FileType != 0)
 		{
-			BOOLEAN isFileOrDirectory = FALSE;
-			BOOLEAN isConsoleHandle = FALSE;
-			BOOLEAN isPipeHandle = FALSE;
-			FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
-			FILE_MODE_INFORMATION fileModeInfo;
-			FILE_STANDARD_INFORMATION fileStandardInfo;
-			FILE_POSITION_INFORMATION filePositionInfo;
-			IO_STATUS_BLOCK isb;
-
-			if (NT_SUCCESS(NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation)))
-			{
-				switch (fileDeviceInfo.DeviceType)
-				{
-				case FILE_DEVICE_NAMED_PIPE:
-					isPipeHandle = TRUE;
-					//"Pipe";
-					break;
-				case FILE_DEVICE_CD_ROM:
-				case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-				case FILE_DEVICE_CONTROLLER:
-				case FILE_DEVICE_DATALINK:
-				case FILE_DEVICE_DFS:
-				case FILE_DEVICE_DISK:
-				case FILE_DEVICE_DISK_FILE_SYSTEM:
-				case FILE_DEVICE_VIRTUAL_DISK:
-					isFileOrDirectory = TRUE;
-					//"File or directory";
-					break;
-				case FILE_DEVICE_CONSOLE:
-					isConsoleHandle = TRUE;
-					//"Other";
-					break;
-				default:
-					break;
-				}
-			}
-
-			NTSTATUS status;
-			if (isPipeHandle || isConsoleHandle)
-			{
-				// NOTE: NtQueryInformationFile for '\Device\ConDrv\CurrentIn' causes a deadlock but
-				// we can query other '\Device\ConDrv' console handles. NtQueryInformationFile also
-				// causes a deadlock for some types of named pipes and only on Win10 (dmex)
-				status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION));
-			}
-			else
-			{
-				status = NtQueryInformationFile(fileHandle, &isb, &fileModeInfo, sizeof(FILE_MODE_INFORMATION), FileModeInformation);
-			}
-
-			if (NT_SUCCESS(status))
-			{
-				HandleInfo.File.Mode = fileModeInfo.Mode;
-			}
-
-			// NOTE: NtQueryInformationFile can hand on windows 7 at \Device\VolMgrControl 
-			if (isFileOrDirectory)
-			{
-				if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
-				{
-					HandleInfo.File.IsDir = fileStandardInfo.Directory;
-					HandleInfo.File.Size = fileStandardInfo.EndOfFile.QuadPart;
-				}
-
-				if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
-				{
-					HandleInfo.File.Position = filePositionInfo.CurrentByteOffset.QuadPart;
-				}
-			}
-
-			NtClose(fileHandle);
+			HandleInfo.File.IsDir = FileType == 2;
+			HandleInfo.File.Size = FileSize;
+			HandleInfo.File.Position = FilePosition;
 		}
 	}
 	else if(m_TypeName == "Section")

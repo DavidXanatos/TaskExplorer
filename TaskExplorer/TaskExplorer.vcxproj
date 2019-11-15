@@ -722,6 +722,7 @@
     <QtMoc Include="API\Windows\DnsResolver.h" />
     <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\EtwEventMonitor.h" />
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs.hpp" />
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\client.hpp" />
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\collection_view.hpp" />
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\compiler_check.hpp" />

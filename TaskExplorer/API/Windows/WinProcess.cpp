@@ -1165,6 +1165,9 @@ bool CWinProcess::UpdateHandles()
 		pWatcher->deleteLater();
 	}
 
+	// we have to wait with free untill all async updates finished
+	PhFree(handleInfo);
+
 	QWriteLocker Locker(&m_HandleMutex);
 	// purle all handles left as thay are not longer valid
 	foreach(quint64 HandleID, OldHandles.keys())

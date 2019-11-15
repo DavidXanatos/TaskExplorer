@@ -721,6 +721,9 @@
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\filtering\view_adapters.hpp">
       <Filter>API\Windows\Monitors\Etw\krabs\filtering</Filter>
     </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs.hpp">
+      <Filter>API\Windows\Monitors\Etw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="API\SystemAPI.h">

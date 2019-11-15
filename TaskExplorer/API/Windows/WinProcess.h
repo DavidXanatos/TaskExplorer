@@ -71,6 +71,7 @@ public:
 	virtual STATUS Resume();
 
 	virtual void AddService(const QString& Name)	{ QWriteLocker Locker(&m_Mutex); if(!m_ServiceList.contains(Name)) m_ServiceList.append(Name); }
+	virtual void RemoveService(const QString& Name)	{ QWriteLocker Locker(&m_Mutex); m_ServiceList.removeAll(Name); }
 	virtual QStringList GetServiceList() const		{ QReadLocker Locker(&m_Mutex); return m_ServiceList; }
 
 	// GDI, USER handles

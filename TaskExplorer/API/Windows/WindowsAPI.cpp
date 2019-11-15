@@ -1523,24 +1523,34 @@ bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 
 		bool bChanged = false;
 
-		if (pService->UpdatePID(service))
+		quint64 uOldServicePID = pService->GetPID();
+		if (pService->UpdatePID(service)) // true if changed
 		{
-			quint64 uServicePID = pService->GetPID();
 			QWriteLocker Locker(&m_ServiceMutex);
-			QList<QString>* pList = &m_ServiceByPID[uServicePID];
-			if (uServicePID != 0)
+			if (uOldServicePID != 0)
 			{
-				if (!pList->contains(Name))
-					pList->append(Name);
-			}
-			else
-			{
+				QList<QString>* pList = &m_ServiceByPID[uOldServicePID];
 				pList->removeAll(Name);
 				if (pList->isEmpty())
-					m_ServiceByPID.remove(uServicePID);
+					m_ServiceByPID.remove(uOldServicePID);
+			}
+
+			quint64 uServicePID = pService->GetPID();
+			if (uServicePID != 0)
+			{
+				QList<QString>* pList = &m_ServiceByPID[uServicePID];
+				if (!pList->contains(Name)) // just in case
+					pList->append(Name);
 			}
 			Locker.unlock();
-			// if the pid just changed we couldn't have set it on the process, so do it now
+
+			if (uOldServicePID)
+			{
+				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uOldServicePID, false).staticCast<CWinProcess>();
+				if(pProcess)
+					pProcess->RemoveService(Name);
+			}
+
 			if (uServicePID)
 			{
 				QSharedPointer<CWinProcess> pProcess = GetProcessByID(uServicePID, true).staticCast<CWinProcess>();

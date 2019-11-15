@@ -6,7 +6,7 @@ typedef NTSTATUS (NTAPI *PKPHP_WITH_KEY_CONTINUATION)(
     _In_ PVOID Context
     );
 
-NTSTATUS KphpDeviceIoControl(
+NTSTATUS NTAPI KphpDeviceIoControl(
     _In_ ULONG KphControlCode,
     _In_ PVOID InBuffer,
     _In_ ULONG InBufferLength
@@ -39,12 +39,12 @@ typedef struct _KPHP_GET_L1_KEY_CONTEXT
     PKPH_KEY Key;
 } KPHP_GET_L1_KEY_CONTEXT, *PKPHP_GET_L1_KEY_CONTEXT;
 
-NTSTATUS KphpGetL1KeyContinuation(
+NTSTATUS NTAPI KphpGetL1KeyContinuation(
     _In_ KPH_KEY Key,
     _In_ PVOID Context
     );
 
-NTSTATUS KphpGetL1Key(
+NTSTATUS NTAPI KphpGetL1Key(
     _Out_ PKPH_KEY Key
     );
 
