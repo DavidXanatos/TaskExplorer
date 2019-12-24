@@ -37,7 +37,7 @@ VOID PhInitializeWindowsVersion(
 PHLIBAPI PVOID PhInstanceHandle = NULL;
 PHLIBAPI PWSTR PhApplicationName = NULL;
 PHLIBAPI ULONG PhGlobalDpi = 96;
-PHLIBAPI PVOID PhHeapHandle = NULL;
+PVOID PhHeapHandle = NULL;
 PHLIBAPI RTL_OSVERSIONINFOEXW PhOsVersion = { 0 };
 PHLIBAPI SYSTEM_BASIC_INFORMATION PhSystemBasicInformation = { 0 };
 PHLIBAPI ULONG WindowsVersion = WINDOWS_NEW;
@@ -153,9 +153,10 @@ VOID PhInitializeWindowsVersion(
     ULONG minorVersion;
     ULONG buildVersion;
 
+    memset(&versionInfo, 0, sizeof(RTL_OSVERSIONINFOEXW));
     versionInfo.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOEXW);
 
-    if (!NT_SUCCESS(RtlGetVersion((PRTL_OSVERSIONINFOW)&versionInfo)))
+    if (!NT_SUCCESS(RtlGetVersion(&versionInfo)))
     {
         WindowsVersion = WINDOWS_NEW;
         return;
@@ -184,35 +185,45 @@ VOID PhInitializeWindowsVersion(
     // Windows 10, Windows Server 2016
     else if (majorVersion == 10 && minorVersion == 0)
     {
-        switch (buildVersion)
+        if (buildVersion >= 18363)
         {
-        case 10240:
-            WindowsVersion = WINDOWS_10;
-            break;
-        case 10586:
-            WindowsVersion = WINDOWS_10_TH2;
-            break;
-        case 14393:
-            WindowsVersion = WINDOWS_10_RS1;
-            break;
-        case 15063:
-            WindowsVersion = WINDOWS_10_RS2;
-            break;
-        case 16299:
-            WindowsVersion = WINDOWS_10_RS3;
-            break;
-        case 17134:
-            WindowsVersion = WINDOWS_10_RS4;
-            break;
-        case 17763:
+            WindowsVersion = WINDOWS_10_19H2;
+        }
+        else if (buildVersion >= 18362)
+        {
+            WindowsVersion = WINDOWS_10_19H1;
+        }
+        else if (buildVersion >= 17763)
+        {
             WindowsVersion = WINDOWS_10_RS5;
-            break;
-        case 18362:
-            WindowsVersion = WINDOWS_10_RS6;
-            break;
-        default:
+        }
+        else if (buildVersion >= 17134)
+        {
+            WindowsVersion = WINDOWS_10_RS4;
+        }
+        else if (buildVersion >= 16299)
+        {
+            WindowsVersion = WINDOWS_10_RS3;
+        }
+        else if (buildVersion >= 15063)
+        {
+            WindowsVersion = WINDOWS_10_RS2;
+        }
+        else if (buildVersion >= 14393)
+        {
+            WindowsVersion = WINDOWS_10_RS1;
+        }
+        else if (buildVersion >= 10586)
+        {
+            WindowsVersion = WINDOWS_10_TH2;
+        }
+        else if (buildVersion >= 10240)
+        {
             WindowsVersion = WINDOWS_10;
-            break;
+        }
+        else
+        {
+            WindowsVersion = WINDOWS_10;
         }
     }
     else

@@ -58,7 +58,7 @@ BOOLEAN PhGetWslDistributionFromPath(
         PPH_LIST distributionGuidList;
 
         distributionGuidList = PhCreateList(1);
-        PhEnumerateKey(keyHandle, PhpWslDistributionNamesCallback, distributionGuidList);
+        PhEnumerateKey(keyHandle, KeyBasicInformation, PhpWslDistributionNamesCallback, distributionGuidList);
 
         for (i = 0; i < distributionGuidList->Count; i++)
         {
@@ -170,6 +170,11 @@ BOOLEAN PhInitializeLxssImageVersionInfo(
         return FALSE;
     }
 
+    if (PhEqualString2(lxssFileName, L"/init", FALSE))
+    {
+        PhMoveReference(&lxssFileName, PhCreateString(L"init"));
+    }
+
     PhMoveReference(&lxssCommandLine, PhFormatString(
         L"rpm -qf %s --queryformat \"%%{VERSION}|%%{VENDOR}|%%{SUMMARY}\"",
         lxssFileName->Buffer
@@ -203,6 +208,7 @@ BOOLEAN PhInitializeLxssImageVersionInfo(
     {
         PhDereferenceObject(lxssCommandLine);
         PhDereferenceObject(lxssDistroName);
+        PhDereferenceObject(lxssDistroPath);
         PhDereferenceObject(lxssFileName);
         return FALSE;
     }
@@ -223,6 +229,7 @@ BOOLEAN PhInitializeLxssImageVersionInfo(
     {
         PhDereferenceObject(lxssCommandLine);
         PhDereferenceObject(lxssDistroName);
+        PhDereferenceObject(lxssDistroPath);
         PhDereferenceObject(lxssFileName);
         return FALSE;
     }
@@ -243,6 +250,7 @@ BOOLEAN PhInitializeLxssImageVersionInfo(
     {
         PhDereferenceObject(lxssCommandLine);
         PhDereferenceObject(lxssDistroName);
+        PhDereferenceObject(lxssDistroPath);
         PhDereferenceObject(lxssFileName);
         return FALSE;
     }
@@ -276,6 +284,7 @@ ParseResult:
     if (lxssCommandLine) PhDereferenceObject(lxssCommandLine);
     if (lxssPackageName) PhDereferenceObject(lxssPackageName);
     if (lxssDistroName) PhDereferenceObject(lxssDistroName);
+    if (lxssDistroPath) PhDereferenceObject(lxssDistroPath);
     if (lxssFileName) PhDereferenceObject(lxssFileName);
 
     return TRUE;

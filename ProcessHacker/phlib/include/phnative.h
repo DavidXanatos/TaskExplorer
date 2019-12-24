@@ -155,6 +155,14 @@ PhGetSecurityDescriptorAsString(
     );
 
 PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetObjectSecurityDescriptorAsString(
+    _In_ HANDLE Handle,
+    _Out_ PPH_STRING* SecurityDescriptorString
+    );
+
+PHLIBAPI
 NTSTATUS
 NTAPI
 PhTerminateProcess(
@@ -275,6 +283,7 @@ typedef struct _PH_ENVIRONMENT_VARIABLE
 } PH_ENVIRONMENT_VARIABLE, *PPH_ENVIRONMENT_VARIABLE;
 
 PHLIBAPI
+_Success_(return)
 BOOLEAN
 NTAPI
 PhEnumProcessEnvironmentVariables(
@@ -454,14 +463,6 @@ PhGetAppContainerNamedObjectPath(
     _In_opt_ PSID AppContainerSid,
     _In_ BOOLEAN RelativePath,
     _Out_ PPH_STRING* ObjectPath
-    );
-
-PHLIBAPI
-BOOLEAN
-NTAPI
-PhGetTokenSecurityDescriptorAsString(
-    _In_ HANDLE TokenHandle,
-    _Out_ PPH_STRING* SecurityDescriptorString
     );
 
 PHLIBAPI
@@ -950,7 +951,9 @@ PhGetProcessIsDotNet(
 #define PH_CLR_VERSION_1_1 0x2
 #define PH_CLR_VERSION_2_0 0x4
 #define PH_CLR_VERSION_4_ABOVE 0x8
-#define PH_CLR_VERSION_MASK 0xf
+#define PH_CLR_CORE_3_0_ABOVE 0x10
+#define PH_CLR_VERSION_MASK 0x20
+
 #define PH_CLR_MSCORLIB_PRESENT 0x10000
 #define PH_CLR_JIT_PRESENT 0x20000
 #define PH_CLR_PROCESS_IS_WOW64 0x100000
@@ -1246,7 +1249,7 @@ PhQueryValueKey(
 
 typedef BOOLEAN (NTAPI *PPH_ENUM_KEY_CALLBACK)(
     _In_ HANDLE RootDirectory,
-    _In_ PKEY_BASIC_INFORMATION Information,
+    _In_ PVOID Information,
     _In_opt_ PVOID Context
     );
 
@@ -1254,6 +1257,16 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhEnumerateKey(
+    _In_ HANDLE KeyHandle,
+    _In_ KEY_INFORMATION_CLASS InformationClass,
+    _In_ PPH_ENUM_KEY_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhEnumerateValueKey(
     _In_ HANDLE KeyHandle,
     _In_ PPH_ENUM_KEY_CALLBACK Callback,
     _In_opt_ PVOID Context
@@ -1323,6 +1336,13 @@ NTAPI
 PhQueryAttributesFileWin32(
     _In_ PWSTR FileName,
     _Out_ PFILE_BASIC_INFORMATION FileInformation
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhDoesFileExistsWin32(
+    _In_ PWSTR FileName
     );
 
 PHLIBAPI

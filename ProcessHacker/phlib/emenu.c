@@ -3,6 +3,7 @@
  *   extended menus
  *
  * Copyright (C) 2010-2011 wj32
+ * Copyright (C) 2019 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -97,7 +98,7 @@ VOID PhpDestroyEMenuItem(
     if ((Item->Flags & PH_EMENU_TEXT_OWNED) && Item->Text)
         PhFree(Item->Text);
     if ((Item->Flags & PH_EMENU_BITMAP_OWNED) && Item->Bitmap)
-        DeleteObject(Item->Bitmap);
+        DeleteBitmap(Item->Bitmap);
 
     if (Item->Items)
     {
@@ -173,8 +174,8 @@ PPH_EMENU_ITEM PhFindEMenuItemEx(
     _In_ ULONG Flags,
     _In_opt_ PWSTR Text,
     _In_opt_ ULONG Id,
-    _Out_opt_ PPH_EMENU_ITEM *FoundParent,
-    _Out_opt_ PULONG FoundIndex
+    _Inout_opt_ PPH_EMENU_ITEM *FoundParent,
+    _Inout_opt_ PULONG FoundIndex
     )
 {
     PH_STRINGREF searchText;
@@ -223,9 +224,9 @@ PPH_EMENU_ITEM PhFindEMenuItemEx(
 
         if (Flags & PH_EMENU_FIND_DESCEND)
         {
-            PPH_EMENU_ITEM foundItem;
-            PPH_EMENU_ITEM foundParent;
-            ULONG foundIndex;
+            PPH_EMENU_ITEM foundItem = NULL;
+            PPH_EMENU_ITEM foundParent = NULL;
+            ULONG foundIndex = 0;
 
             foundItem = PhFindEMenuItemEx(item, Flags, Text, Id, &foundParent, &foundIndex);
 
@@ -444,10 +445,16 @@ HMENU PhEMenuToHMenu(
 {
     HMENU menuHandle;
 
-    menuHandle = CreatePopupMenu();
-
-    if (!menuHandle)
-        return NULL;
+    if ((Menu->Flags & PH_EMENU_MAINMENU) == PH_EMENU_MAINMENU)
+    {
+        if (!(menuHandle = CreateMenu()))
+            return NULL;
+    }
+    else
+    {
+        if (!(menuHandle = CreatePopupMenu()))
+            return NULL;
+    }
 
     PhEMenuToHMenu2(menuHandle, Menu, Flags, Data);
 
@@ -462,8 +469,8 @@ HMENU PhEMenuToHMenu(
 
         if (PhGetIntegerSetting(L"EnableThemeSupport"))
         {
-            menuInfo.fMask |= MIM_BACKGROUND;
-            menuInfo.hbrBack = PhMenuBackgroundBrush;
+            menuInfo.fMask |= MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
+            menuInfo.hbrBack = CreateSolidBrush(RGB(28, 28, 28)); // LEAK (dmex)
         }
 
         SetMenuInfo(menuHandle, &menuInfo);
@@ -579,19 +586,12 @@ VOID PhEMenuToHMenu2(
             menuItemInfo.hSubMenu = PhEMenuToHMenu(item, Flags, Data);
         }
 
-        // Theme
+        // Themes
 
         if (PhGetIntegerSetting(L"EnableThemeSupport")) // HACK
         {
-            switch (PhGetIntegerSetting(L"GraphColorMode"))
-            {
-            case 0: // New colors
-                menuItemInfo.fType |= MFT_OWNERDRAW;
-                break;
-            case 1: // Old colors
-                menuItemInfo.fType |= MFT_OWNERDRAW;
-                break;
-            }
+            menuItemInfo.fType |= MFT_OWNERDRAW;
+            //    break;
         }
 
         InsertMenuItem(MenuHandle, MAXINT, TRUE, &menuItemInfo);
@@ -680,7 +680,7 @@ VOID PhLoadResourceEMenuItem(
     HMENU menu;
     HMENU realMenu;
 
-    menu = LoadMenu(InstanceHandle, Resource);
+    menu = PhLoadMenu(InstanceHandle, Resource);
 
     if (SubMenuIndex != ULONG_MAX)
         realMenu = GetSubMenu(menu, SubMenuIndex);
@@ -856,7 +856,7 @@ VOID PhModifyEMenuItem(
     if (ModifyFlags & PH_EMENU_MODIFY_BITMAP)
     {
         if ((Item->Flags & PH_EMENU_BITMAP_OWNED) && Item->Bitmap)
-            DeleteObject(Item->Bitmap);
+            DeleteBitmap(Item->Bitmap);
 
         Item->Bitmap = Bitmap;
         Item->Flags &= ~PH_EMENU_BITMAP_OWNED;

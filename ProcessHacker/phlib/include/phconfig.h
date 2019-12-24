@@ -10,7 +10,7 @@ extern "C" {
 PHLIBAPI extern _User_set_ PVOID PhInstanceHandle;
 PHLIBAPI extern _User_set_ PWSTR PhApplicationName;
 PHLIBAPI extern _User_set_ ULONG PhGlobalDpi;
-PHLIBAPI extern PVOID PhHeapHandle;
+extern PVOID PhHeapHandle;
 PHLIBAPI extern RTL_OSVERSIONINFOEXW PhOsVersion;
 PHLIBAPI extern SYSTEM_BASIC_INFORMATION PhSystemBasicInformation;
 PHLIBAPI extern ULONG WindowsVersion;
@@ -34,10 +34,9 @@ PHLIBAPI extern ACCESS_MASK ThreadAllAccess;
 #define WINDOWS_10_RS3 104
 #define WINDOWS_10_RS4 105
 #define WINDOWS_10_RS5 106
-#define WINDOWS_10_RS6 107
+#define WINDOWS_10_19H1 107
+#define WINDOWS_10_19H2 108
 #define WINDOWS_NEW ULONG_MAX
-
-#define WINDOWS_HAS_IMMERSIVE (WindowsVersion >= WINDOWS_8)
 
 // Debugging
 

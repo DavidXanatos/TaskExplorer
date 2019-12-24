@@ -86,12 +86,12 @@ NTSTATUS PhInitializeMappedImage(
         PhpMappedImageProbe(
             MappedImage,
             MappedImage->NtHeaders,
-            FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader)
+            UFIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader)
             );
         PhpMappedImageProbe(
             MappedImage,
             MappedImage->NtHeaders,
-            FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader) +
+            UFIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader) +
             MappedImage->NtHeaders->FileHeader.SizeOfOptionalHeader +
             MappedImage->NtHeaders->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER)
             );
@@ -364,11 +364,15 @@ PVOID PhMappedImageRvaToVa(
     if (Section)
         *Section = section;
 
-    return PTR_ADD_OFFSET(
-        MappedImage->ViewBase, 
-        (Rva - section->VirtualAddress) +
+    return PTR_ADD_OFFSET(MappedImage->ViewBase, PTR_ADD_OFFSET(
+        PTR_SUB_OFFSET(Rva, section->VirtualAddress),
         section->PointerToRawData
-        );
+        ));
+    //return PTR_ADD_OFFSET(
+    //    MappedImage->ViewBase, 
+    //    (Rva - section->VirtualAddress) +
+    //    section->PointerToRawData
+    //    );
 }
 
 PVOID PhMappedImageVaToVa(

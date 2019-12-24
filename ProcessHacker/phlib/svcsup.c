@@ -3,6 +3,7 @@
  *   service support functions
  *
  * Copyright (C) 2010-2012 wj32
+ * Copyright (C) 2019 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -21,12 +22,11 @@
  */
 
 #include <ph.h>
-
 #include <subprocesstag.h>
-
 #include <svcsup.h>
 
-#define SIP(String, Integer) { (String), (PVOID)(Integer) }
+#define SIP(String, Integer) \
+    { (String), (PVOID)(Integer) }
 
 static PH_KEY_VALUE_PAIR PhpServiceStatePairs[] =
 {
@@ -70,12 +70,36 @@ static PH_KEY_VALUE_PAIR PhpServiceErrorControlPairs[] =
     SIP(L"Critical", SERVICE_ERROR_CRITICAL)
 };
 
-WCHAR *PhServiceTypeStrings[10] = { L"Driver", L"FS driver", L"Own process", L"Share process",
-    L"Own interactive process", L"Share interactive process", L"User own process", L"User own process (instance)",
-    L"User share process", L"User share process (instance)" };
-WCHAR *PhServiceStartTypeStrings[5] = { L"Disabled", L"Boot start", L"System start",
-    L"Auto start", L"Demand start" };
-WCHAR *PhServiceErrorControlStrings[4] = { L"Ignore", L"Normal", L"Severe", L"Critical" };
+PWSTR PhServiceTypeStrings[10] =
+{
+    L"Driver",
+    L"FS driver",
+    L"Own process",
+    L"Share process",
+    L"Own interactive process",
+    L"Share interactive process",
+    L"User own process",
+    L"User own process (instance)",
+    L"User share process",
+    L"User share process (instance)"
+};
+
+PWSTR PhServiceStartTypeStrings[5] =
+{
+    L"Disabled",
+    L"Boot start",
+    L"System start",
+    L"Auto start",
+    L"Demand start"
+};
+
+PWSTR PhServiceErrorControlStrings[4] =
+{
+    L"Ignore",
+    L"Normal",
+    L"Severe",
+    L"Critical"
+};
 
 PVOID PhEnumServices(
     _In_ SC_HANDLE ScManagerHandle,
@@ -123,7 +147,7 @@ PVOID PhEnumServices(
         SC_ENUM_PROCESS_INFO,
         Type,
         State,
-        buffer,
+        (PBYTE)buffer,
         bufferSize,
         &returnLength,
         &servicesReturned,
@@ -142,7 +166,7 @@ PVOID PhEnumServices(
                 SC_ENUM_PROCESS_INFO,
                 Type,
                 State,
-                buffer,
+                (PBYTE)buffer,
                 bufferSize,
                 &returnLength,
                 &servicesReturned,
@@ -181,6 +205,51 @@ SC_HANDLE PhOpenService(
     CloseServiceHandle(scManagerHandle);
 
     return serviceHandle;
+}
+
+NTSTATUS PhOpenServiceEx(
+    _In_ PWSTR ServiceName,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ SC_HANDLE ScManagerHandle,
+    _Out_ SC_HANDLE* ServiceHandle
+    )
+{
+    SC_HANDLE serviceHandle;
+
+    if (ScManagerHandle)
+    {
+        if (serviceHandle = OpenService(ScManagerHandle, ServiceName, DesiredAccess))
+        {
+            *ServiceHandle = serviceHandle;
+            return STATUS_SUCCESS;
+        }
+
+        return PhGetLastWin32ErrorAsNtStatus();
+    }
+    else
+    {
+        NTSTATUS status;
+        SC_HANDLE scManagerHandle;
+
+        if (!(scManagerHandle = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT)))
+        {
+            return PhGetLastWin32ErrorAsNtStatus();
+        }
+
+        if (serviceHandle = OpenService(ScManagerHandle, ServiceName, DesiredAccess))
+        {
+            *ServiceHandle = serviceHandle;
+            status = STATUS_SUCCESS;
+        }
+        else
+        {
+            status = PhGetLastWin32ErrorAsNtStatus();
+        }
+        
+        CloseServiceHandle(scManagerHandle);
+
+        return status;
+    }
 }
 
 PVOID PhGetServiceConfig(

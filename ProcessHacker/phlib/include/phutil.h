@@ -142,6 +142,13 @@ PhCenterWindow(
     _In_opt_ HWND ParentWindowHandle
     );
 
+PHLIBAPI
+LANGID
+NTAPI
+PhGetUserDefaultLangID(
+    VOID
+    );
+
 FORCEINLINE
 VOID
 PhLargeIntegerToSystemTime(
@@ -278,6 +285,7 @@ PhShowConfirmMessage(
     );
 
 PHLIBAPI
+_Success_(return)
 BOOLEAN
 NTAPI
 PhFindIntegerSiKeyValuePairs(
@@ -288,6 +296,7 @@ PhFindIntegerSiKeyValuePairs(
     );
 
 PHLIBAPI
+_Success_(return)
 BOOLEAN
 NTAPI
 PhFindStringSiKeyValuePairs(
@@ -526,6 +535,7 @@ typedef struct _PH_IMAGE_VERSION_INFO
 } PH_IMAGE_VERSION_INFO, *PPH_IMAGE_VERSION_INFO;
 
 PHLIBAPI
+_Success_(return)
 BOOLEAN
 NTAPI
 PhInitializeImageVersionInfo(
@@ -551,6 +561,7 @@ PhFormatImageVersionInfo(
     );
 
 PHLIBAPI
+_Success_(return)
 BOOLEAN
 NTAPI
 PhInitializeImageVersionInfoCached(
@@ -801,6 +812,7 @@ PhShellExecute(
 #define PH_SHELL_EXECUTE_NOZONECHECKS 0x4
 
 PHLIBAPI
+_Success_(return)
 BOOLEAN
 NTAPI
 PhShellExecuteEx(
@@ -1155,6 +1167,14 @@ PhLoadResource(
     );
 
 PHLIBAPI
+HMENU
+NTAPI
+PhLoadMenu(
+    _In_ PVOID DllBase,
+    _In_ PWSTR MenuName
+    );
+
+PHLIBAPI
 PPH_STRING
 NTAPI
 PhLoadIndirectString(
@@ -1237,11 +1257,11 @@ PhGetLoaderEntryImageDirectory(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhGetLoaderEntryImageSection(
+PhGetLoaderEntryImageVaToSection(
     _In_ PVOID BaseAddress,
     _In_ PIMAGE_NT_HEADERS ImageNtHeader,
-    _In_ PVOID ImageDirectory,
-    _Out_ PIMAGE_SECTION_HEADER *ImageSection,
+    _In_ PVOID ImageDirectoryAddress,
+    _Out_ PVOID *ImageSectionAddress,
     _Out_ SIZE_T *ImageSectionLength
     );
 

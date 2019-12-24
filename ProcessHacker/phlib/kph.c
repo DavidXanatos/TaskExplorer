@@ -33,7 +33,6 @@ BOOL HasMasterKey()
     return PhKphL1Key == -1; // LOL "Master"-key
 }
 
-
 NTSTATUS KphConnect(
     _In_opt_ PWSTR DeviceName
     )
@@ -158,7 +157,7 @@ NTSTATUS KphConnect2Ex(
         CloseServiceHandle(scmHandle);
     }
 
-    if (!started && RtlDoesFileExists_U(FileName))
+    if (!started && PhDoesFileExistsWin32(FileName))
     {
         // Try to create the service.
 
@@ -286,35 +285,53 @@ NTSTATUS KphSetParameters(
 {
     NTSTATUS status;
     HANDLE parametersKeyHandle = NULL;
-    PPH_STRING parametersKeyName;
     ULONG disposition;
     UNICODE_STRING valueName;
+    SIZE_T returnLength;
+    PH_STRINGREF parametersKeyNameSr;
+    PH_FORMAT format[3];
+    WCHAR parametersKeyName[MAX_PATH];
 
-    if (!DeviceName)
-        DeviceName = KPH_DEVICE_SHORT_NAME;
+    PhInitFormatS(&format[0], L"System\\CurrentControlSet\\Services\\");
+    PhInitFormatS(&format[1], DeviceName ? DeviceName : KPH_DEVICE_SHORT_NAME);
+    PhInitFormatS(&format[2], L"\\Parameters");
 
-    parametersKeyName = PhConcatStrings(
-        3,
-        L"System\\CurrentControlSet\\Services\\",
-        DeviceName,
-        L"\\Parameters"
-        );
+    if (!PhFormatToBuffer(
+        format,
+        RTL_NUMBER_OF(format),
+        parametersKeyName,
+        sizeof(parametersKeyName),
+        &returnLength
+        ))
+    {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    parametersKeyNameSr.Buffer = parametersKeyName;
+    parametersKeyNameSr.Length = returnLength - sizeof(UNICODE_NULL);
+
     status = PhCreateKey(
         &parametersKeyHandle,
         KEY_WRITE | DELETE,
         PH_KEY_LOCAL_MACHINE,
-        &parametersKeyName->sr,
+        &parametersKeyNameSr,
         0,
         0,
         &disposition
         );
-    PhDereferenceObject(parametersKeyName);
 
     if (!NT_SUCCESS(status))
         return status;
 
     RtlInitUnicodeString(&valueName, L"SecurityLevel");
-    status = NtSetValueKey(parametersKeyHandle, &valueName, 0, REG_DWORD, &Parameters->SecurityLevel, sizeof(ULONG));
+    status = NtSetValueKey(
+        parametersKeyHandle,
+        &valueName,
+        0,
+        REG_DWORD,
+        &Parameters->SecurityLevel,
+        sizeof(ULONG)
+        );
 
     if (!NT_SUCCESS(status))
         goto SetValuesEnd;
@@ -323,14 +340,20 @@ NTSTATUS KphSetParameters(
     {
         KPH_DYN_CONFIGURATION configuration;
 
-        RtlInitUnicodeString(&valueName, L"DynamicConfiguration");
-
         configuration.Version = KPH_DYN_CONFIGURATION_VERSION;
         configuration.NumberOfPackages = 1;
 
         if (NT_SUCCESS(KphInitializeDynamicPackage(&configuration.Packages[0])))
         {
-            status = NtSetValueKey(parametersKeyHandle, &valueName, 0, REG_BINARY, &configuration, sizeof(KPH_DYN_CONFIGURATION));
+            RtlInitUnicodeString(&valueName, L"DynamicConfiguration");
+            status = NtSetValueKey(
+                parametersKeyHandle,
+                &valueName,
+                0,
+                REG_BINARY,
+                &configuration,
+                sizeof(KPH_DYN_CONFIGURATION)
+                );
 
             if (!NT_SUCCESS(status))
                 goto SetValuesEnd;
@@ -348,6 +371,64 @@ SetValuesEnd:
     }
 
     NtClose(parametersKeyHandle);
+
+    return status;
+}
+
+NTSTATUS KphResetParameters(
+    _In_opt_ PWSTR DeviceName
+    )
+{
+    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    HANDLE parametersKeyHandle = NULL;
+    PH_STRINGREF parametersKeyNameSr;
+    PH_FORMAT format[3];
+    SIZE_T returnLength;
+    WCHAR parametersKeyName[MAX_PATH];
+
+    PhInitFormatS(&format[0], L"System\\CurrentControlSet\\Services\\");
+    PhInitFormatS(&format[1], DeviceName ? DeviceName : KPH_DEVICE_SHORT_NAME);
+    PhInitFormatS(&format[2], L"\\Parameters");
+
+    if (!PhFormatToBuffer(
+        format,
+        RTL_NUMBER_OF(format),
+        parametersKeyName,
+        sizeof(parametersKeyName),
+        &returnLength
+        ))
+    {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    parametersKeyNameSr.Buffer = parametersKeyName;
+    parametersKeyNameSr.Length = returnLength - sizeof(UNICODE_NULL);
+
+    status = KphUninstall(DeviceName);
+    status = WIN32_FROM_NTSTATUS(status);
+
+    if (status == ERROR_SERVICE_DOES_NOT_EXIST)
+        status = STATUS_SUCCESS;
+
+    if (NT_SUCCESS(status))
+    {
+        status = PhOpenKey(
+            &parametersKeyHandle,
+            DELETE,
+            PH_KEY_LOCAL_MACHINE,
+            &parametersKeyNameSr,
+            0
+            );
+    }
+
+    if (NT_SUCCESS(status) && parametersKeyHandle)
+        status = NtDeleteKey(parametersKeyHandle);
+
+    if (status == STATUS_OBJECT_NAME_NOT_FOUND)
+        status = STATUS_SUCCESS;
+
+    if (parametersKeyHandle)
+        NtClose(parametersKeyHandle);
 
     return status;
 }
@@ -482,15 +563,12 @@ NTSTATUS KphUninstall(
     SC_HANDLE scmHandle;
     SC_HANDLE serviceHandle;
 
-    if (!DeviceName)
-        DeviceName = KPH_DEVICE_SHORT_NAME;
-
     scmHandle = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
 
     if (!scmHandle)
         return PhGetLastWin32ErrorAsNtStatus();
 
-    serviceHandle = OpenService(scmHandle, DeviceName, SERVICE_STOP | DELETE);
+    serviceHandle = OpenService(scmHandle, DeviceName ? DeviceName : KPH_DEVICE_SHORT_NAME, SERVICE_STOP | DELETE);
 
     if (serviceHandle)
     {
@@ -514,7 +592,7 @@ NTSTATUS KphUninstall(
 }
 
 NTSTATUS KphGetFeatures(
-    _Out_ PULONG Features
+    _Inout_ PULONG Features
     )
 {
     struct
@@ -555,7 +633,7 @@ NTSTATUS KphVerifyClient(
 }
 
 NTSTATUS KphOpenProcess(
-    _Out_ PHANDLE ProcessHandle,
+    _Inout_ PHANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ PCLIENT_ID ClientId
     )
@@ -580,7 +658,7 @@ NTSTATUS KphOpenProcess(
 NTSTATUS KphOpenProcessToken(
     _In_ HANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _Out_ PHANDLE TokenHandle
+    _Inout_ PHANDLE TokenHandle
     )
 {
     KPH_OPEN_PROCESS_TOKEN_INPUT input = { ProcessHandle, DesiredAccess, TokenHandle, 0 };
@@ -603,7 +681,7 @@ NTSTATUS KphOpenProcessToken(
 NTSTATUS KphOpenProcessJob(
     _In_ HANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _Out_ PHANDLE JobHandle
+    _Inout_ PHANDLE JobHandle
     )
 {
     struct
@@ -655,7 +733,7 @@ NTSTATUS KphReadVirtualMemoryUnsafe(
     _In_ PVOID BaseAddress,
     _Out_writes_bytes_(BufferSize) PVOID Buffer,
     _In_ SIZE_T BufferSize,
-    _Out_opt_ PSIZE_T NumberOfBytesRead
+    _Inout_opt_ PSIZE_T NumberOfBytesRead
     )
 {
     KPH_READ_VIRTUAL_MEMORY_UNSAFE_INPUT input = { ProcessHandle, BaseAddress, Buffer, BufferSize, NumberOfBytesRead, 0 };
@@ -680,7 +758,7 @@ NTSTATUS KphQueryInformationProcess(
     _In_ KPH_PROCESS_INFORMATION_CLASS ProcessInformationClass,
     _Out_writes_bytes_(ProcessInformationLength) PVOID ProcessInformation,
     _In_ ULONG ProcessInformationLength,
-    _Out_opt_ PULONG ReturnLength
+    _Inout_opt_ PULONG ReturnLength
     )
 {
     struct
@@ -722,7 +800,7 @@ NTSTATUS KphSetInformationProcess(
 }
 
 NTSTATUS KphOpenThread(
-    _Out_ PHANDLE ThreadHandle,
+    _Inout_ PHANDLE ThreadHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ PCLIENT_ID ClientId
     )
@@ -747,7 +825,7 @@ NTSTATUS KphOpenThread(
 NTSTATUS KphOpenThreadProcess(
     _In_ HANDLE ThreadHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _Out_ PHANDLE ProcessHandle
+    _Inout_ PHANDLE ProcessHandle
     )
 {
     struct
@@ -769,8 +847,8 @@ NTSTATUS KphCaptureStackBackTraceThread(
     _In_ ULONG FramesToSkip,
     _In_ ULONG FramesToCapture,
     _Out_writes_(FramesToCapture) PVOID *BackTrace,
-    _Out_opt_ PULONG CapturedFrames,
-    _Out_opt_ PULONG BackTraceHash
+    _Inout_opt_ PULONG CapturedFrames,
+    _Inout_opt_ PULONG BackTraceHash
     )
 {
     struct
@@ -795,7 +873,7 @@ NTSTATUS KphQueryInformationThread(
     _In_ KPH_THREAD_INFORMATION_CLASS ThreadInformationClass,
     _Out_writes_bytes_(ThreadInformationLength) PVOID ThreadInformation,
     _In_ ULONG ThreadInformationLength,
-    _Out_opt_ PULONG ReturnLength
+    _Inout_opt_ PULONG ReturnLength
     )
 {
     struct
@@ -840,7 +918,7 @@ NTSTATUS KphEnumerateProcessHandles(
     _In_ HANDLE ProcessHandle,
     _Out_writes_bytes_(BufferLength) PVOID Buffer,
     _In_opt_ ULONG BufferLength,
-    _Out_opt_ PULONG ReturnLength
+    _Inout_opt_ PULONG ReturnLength
     )
 {
     struct
@@ -906,7 +984,7 @@ NTSTATUS KphQueryInformationObject(
     _In_ KPH_OBJECT_INFORMATION_CLASS ObjectInformationClass,
     _Out_writes_bytes_(ObjectInformationLength) PVOID ObjectInformation,
     _In_ ULONG ObjectInformationLength,
-    _Out_opt_ PULONG ReturnLength
+    _Inout_opt_ PULONG ReturnLength
     )
 {
     struct
@@ -951,7 +1029,7 @@ NTSTATUS KphSetInformationObject(
 }
 
 NTSTATUS KphOpenDriver(
-    _Out_ PHANDLE DriverHandle,
+    _Inout_ PHANDLE DriverHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ POBJECT_ATTRIBUTES ObjectAttributes
     )
@@ -975,7 +1053,7 @@ NTSTATUS KphQueryInformationDriver(
     _In_ DRIVER_INFORMATION_CLASS DriverInformationClass,
     _Out_writes_bytes_(DriverInformationLength) PVOID DriverInformation,
     _In_ ULONG DriverInformationLength,
-    _Out_opt_ PULONG ReturnLength
+    _Inout_opt_ PULONG ReturnLength
     )
 {
     struct
@@ -1092,7 +1170,7 @@ NTSTATUS KphpGetL1KeyContinuation(
 }
 
 NTSTATUS KphpGetL1Key(
-    _Out_ PKPH_KEY Key
+    _Inout_ PKPH_KEY Key
     )
 {
     KPHP_GET_L1_KEY_CONTEXT context;
