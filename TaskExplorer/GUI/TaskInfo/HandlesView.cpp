@@ -40,8 +40,13 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 		m_pShowType = new QComboBox();
 		m_pFilterLayout->addWidget(m_pShowType);
 
+		QStandardItemModel* model = new QStandardItemModel(this);
+
 		//m_pShowType->addItem(tr("All"), "");
-		m_pShowType->addItem(tr("All"), -1);
+		//m_pShowType->addItem(tr("All"), -1);
+		auto itemAll = new QStandardItem(tr("All"));
+		itemAll->setData(-1, Qt::UserRole);
+		model->appendRow(itemAll);
 
 		POBJECT_TYPES_INFORMATION objectTypes;
 		if (NT_SUCCESS(PhEnumObjectTypes(&objectTypes)))
@@ -59,12 +64,20 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 				else
 					objectIndex = i + 2;
 
-				m_pShowType->addItem(Type, objectIndex);
+				//m_pShowType->addItem(Type, objectIndex);
+				auto item = new QStandardItem(Type);
+				item->setData(objectIndex, Qt::UserRole);
+				model->appendRow(item);
 
 				objectType = (POBJECT_TYPE_INFORMATION)PH_NEXT_OBJECT_TYPE(objectType);
 			}
 			PhFree(objectTypes);
 		}
+
+		auto proxy1 = new QSortFilterProxyModel();
+		proxy1->setSourceModel(model);
+		proxy1->sort(0);
+		m_pShowType->setModel(proxy1);
 
 		//m_pShowType->setEditable(true); // just in case we forgot a type
 

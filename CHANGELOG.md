@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - most "unknown" values now shows teh numeric value encountered
 - updated PHlib to version 3.0.2812
+- handle types are now sorted alphabetically
 
 ### Fixed
 - an issue with the DNS cache monitoring
