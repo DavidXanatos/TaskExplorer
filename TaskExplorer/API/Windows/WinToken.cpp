@@ -323,7 +323,7 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
 		m_SessionId = sessionId;
 
 
-    if (WINDOWS_HAS_IMMERSIVE)
+    if (WindowsVersion >= WINDOWS_8)
     {
 		PTOKEN_APPCONTAINER_INFORMATION appContainerInfo;
 		PPH_STRING appContainerName = NULL;
@@ -1007,7 +1007,7 @@ CWinToken::SAdvancedInfo CWinToken::GetAdvancedInfo()
 		AdvancedInfo.tokenNamedObjectPath = CastPhString(tokenNamedObjectPathString);
 
 	PPH_STRING tokenSecurityDescriptorString = NULL;
-    if(NT_SUCCESS(PhGetTokenSecurityDescriptorAsString(tokenHandle, &tokenSecurityDescriptorString)))
+    if(NT_SUCCESS(PhGetObjectSecurityDescriptorAsString(tokenHandle, &tokenSecurityDescriptorString)))
 		AdvancedInfo.tokenSecurityDescriptor = CastPhString(tokenSecurityDescriptorString);
 
 	PPH_STRING tokenTrustLevelSidString = NULL;

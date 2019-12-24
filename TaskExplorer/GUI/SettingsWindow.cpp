@@ -30,7 +30,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.graphLength->setValue(theConf->GetInt("Options/GraphLength", 300));
 
 	ui.chkUdpCons->setChecked(theConf->GetBool("Options/UseUDPPseudoConnectins", false));
-	ui.chkSmartDns->setChecked(theConf->GetBool("Options/SmartHostNameResolution", false));
+	ui.chkSmartDns->setChecked(theConf->GetBool("Options/MonitorDnsCache", false));
+	ui.chkReverseDns->setChecked(theConf->GetBool("Options/UserReverseDns", false));
 
 	ui.chkUndecorate->setChecked(theConf->GetBool("Options/DbgHelpUndecorate", true));
 	ui.symbolPath->setText(theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols"));
@@ -178,7 +179,8 @@ void CSettingsWindow::apply()
 	theConf->SetValue("Options/GraphLength", ui.graphLength->value());
 
 	theConf->SetValue("Options/UseUDPPseudoConnectins", ui.chkUdpCons->isChecked());
-	theConf->SetValue("Options/SmartHostNameResolution", ui.chkSmartDns->isChecked());
+	theConf->SetValue("Options/MonitorDnsCache", ui.chkSmartDns->isChecked());
+	theConf->SetValue("Options/UserReverseDns", ui.chkReverseDns->isChecked());
 
 
 	theConf->SetValue("Options/DbgHelpUndecorate", ui.chkUndecorate->isChecked());

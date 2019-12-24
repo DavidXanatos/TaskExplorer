@@ -431,7 +431,7 @@ QString CWaitChainDialog::GetWCTObjType(int ObjectType)
     case WctSmbIoType:				return tr("SMB I/O");
     case WctUnknownType:
     case WctMaxType:
-    default:						return tr("Unknown");
+    default:						return tr("Unknown %1").arg(ObjectType);
     }
 }
 
@@ -450,6 +450,6 @@ QString CWaitChainDialog::GetWCTObjStatus(int ObjectStatus)
     case WctStatusError:		return tr("Error");
     case WctStatusUnknown:
     case WctStatusMax:
-    default:					return tr("Unknown");
+    default:					return tr("Unknown %1").arg(ObjectStatus);
     }
 }

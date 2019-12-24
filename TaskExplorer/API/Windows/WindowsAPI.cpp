@@ -1066,7 +1066,7 @@ bool CWindowsAPI::UpdateSocketList()
     }
 
 	// Note: Important; first we must update the DNS cache to be able to properly assign DNS entries to the sockets!!!
-	if(theConf->GetBool("Options/SmartHostNameResolution", false))
+	if(theConf->GetBool("Options/MonitorDnsCache", false))
 		UpdateDnsCache();
 
 

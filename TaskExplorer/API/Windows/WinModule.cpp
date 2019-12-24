@@ -404,7 +404,7 @@ QString CWinModule::GetTypeString() const
     case PH_MODULE_TYPE_KERNEL_MODULE:
         return tr("Kernel module");
     default:	
-		return tr("Unknown");
+		return tr("Unknown %1").arg(m_Type);
     }
 }
 
@@ -465,7 +465,7 @@ QString CWinModule::GetLoadReasonString() const
         case LoadReasonEnclaveDependency:			return tr("Enclave dependency");
         default:
 			if (WindowsVersion >= WINDOWS_8)
-				return tr("Unknown");
+				return tr("Unknown %1").arg(m_LoadReason);
 			else
 				return tr("N/A");
         }

@@ -82,6 +82,7 @@ public:
 	virtual QHostAddress GetAddress() const			{ QReadLocker Locker(&m_Mutex); return m_Address; }
 	virtual quint16 GetType() const					{ QReadLocker Locker(&m_Mutex); return m_Type; }
 	virtual QString GetTypeString() const;
+	static QString GetTypeString(quint16 Type);
 
 	virtual quint64 GetTTL() const					{ QReadLocker Locker(&m_Mutex); return m_TTL > 0 ? m_TTL : 0; }
 	virtual quint64 GetDeadTime() const				{ QReadLocker Locker(&m_Mutex); return m_TTL < 0 ? -m_TTL : 0; }

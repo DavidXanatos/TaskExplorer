@@ -326,7 +326,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
 	{
 		// Immersive
-		if (m->QueryHandle && WINDOWS_HAS_IMMERSIVE && !m->IsSubsystemProcess)
+		if (m->QueryHandle && WindowsVersion >= WINDOWS_8 && !m->IsSubsystemProcess)
 			m->IsImmersive = !!::IsImmersiveProcess(m->QueryHandle);
 
 		if (bFullProcessInfo && WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64())
@@ -357,7 +357,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 		else
 		{
 			// Package full name
-			if (m->QueryHandle && WINDOWS_HAS_IMMERSIVE && m->IsImmersive)
+			if (m->QueryHandle && WindowsVersion >= WINDOWS_8 && m->IsImmersive)
 				m->PackageFullName = CastPhString(PhGetProcessPackageFullName(m->QueryHandle));
 
 			// App ID
@@ -951,6 +951,9 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 
 	bool HaveFirst = OldThreads.count() > 0;
 
+	HANDLE processHandle = NULL;
+	NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)); // PROCESS_VM_READ needed to resolve service tag
+
 	// handle threads
 	for (int i = 0; i < Process->NumberOfThreads; i++)
 	{
@@ -963,7 +966,7 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 		if (pWinThread.isNull())
 		{
 			pWinThread = QSharedPointer<CWinThread>(new CWinThread());
-			bAdd = pWinThread->InitStaticData(m->QueryHandle, Thread);
+			bAdd = pWinThread->InitStaticData(processHandle, Thread);
 			theAPI->AddThread(pWinThread);
 			if (!HaveFirst)
 			{
@@ -986,6 +989,9 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 		else if (bChanged)
 			Changed.insert(ThreadID);
 	}
+
+	if(processHandle != NULL)
+		NtClose(processHandle);
 
 	//if (!HaveFirst)
 	//	qDebug() << "No Main ThreadIn:" << m_ProcessName;
@@ -2368,7 +2374,7 @@ QString CWinProcess::GetPriorityString(quint32 value)
     case PROCESS_PRIORITY_CLASS_NORMAL:			return tr("Normal");
 	case PROCESS_PRIORITY_CLASS_BELOW_NORMAL:	return tr("Below normal");
     case PROCESS_PRIORITY_CLASS_IDLE:			return tr("Idle");
-	default:									return tr("Unknown");
+	default:									return tr("Unknown %1").arg(value);
     }
 }
 
@@ -2387,7 +2393,7 @@ QString CWinProcess::GetPagePriorityString(quint32 value)
     case MEMORY_PRIORITY_LOW:			return tr("Low");
 	case MEMORY_PRIORITY_VERY_LOW:		return tr("Very low");
     case MEMORY_PRIORITY_LOWEST:		return tr("Lowest");
-	default:							return tr("Unknown");
+	default:							return tr("Unknown %1").arg(value);
     }
 }
 
@@ -2400,7 +2406,7 @@ QString CWinProcess::GetIOPriorityString(quint32 value)
     case IoPriorityNormal:		return tr("Normal");
     case IoPriorityLow:			return tr("Low");
 	case IoPriorityVeryLow:		return tr("Very low");
-	default:					return tr("Unknown");
+	default:					return tr("Unknown %1").arg(value);
     }
 }
 

@@ -155,6 +155,6 @@ QString CSocketInfo::GetStateString()
     case MIB_TCP_STATE_TIME_WAIT:	return tr("Time wait");
     case MIB_TCP_STATE_DELETE_TCB:	return tr("Delete TCB");
 	case -1:						return tr("Blocked");
-    default:						return tr("Unknown");
+    default:						return tr("Unknown %1").arg(m_State);
     }
 }

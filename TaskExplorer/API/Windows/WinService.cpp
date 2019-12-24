@@ -282,7 +282,7 @@ QString CWinService::GetTypeString() const
 		case SERVICE_USER_SHARE_PROCESS:		return tr("User share process");
 		case (SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE):
 												return tr("User share process (instance)");
-		default: return tr("Unknown");
+		default: return tr("Unknown %1").arg(m_Type);
 	}
 }
 
@@ -317,7 +317,7 @@ QString CWinService::GetStateString() const
 		case SERVICE_CONTINUE_PENDING:		return tr("Continue pending");
 		case SERVICE_PAUSE_PENDING:			return tr("Pause pending");
 		case SERVICE_PAUSED:				return tr("Paused");
-		default: return tr("Unknown");
+		default: return tr("Unknown %1").arg(m_State);
 	}
 }
 
@@ -332,7 +332,7 @@ QString CWinService::GetStartTypeString() const
 		case SERVICE_SYSTEM_START:			return tr("System start");
 		case SERVICE_AUTO_START:			return tr("Auto start");
 		case SERVICE_DEMAND_START:			return tr("Demand start");
-		default: return tr("Unknown");
+		default: return tr("Unknown %1").arg(m_StartType);
 	}
 }
 
@@ -346,7 +346,7 @@ QString CWinService::GetErrorControlString() const
 		case SERVICE_ERROR_NORMAL:			return tr("Normal");
 		case SERVICE_ERROR_SEVERE:			return tr("Severe");
 		case SERVICE_ERROR_CRITICAL:		return tr("Critical");
-		default: return tr("Unknown");
+		default: return tr("Unknown %1").arg(m_ErrorControl);
 	}
 }
 

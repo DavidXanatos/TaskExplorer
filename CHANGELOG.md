@@ -3,6 +3,21 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.0.2] - 2019-12-24
+
+### Added
+- settign for reverse DNS to disable it when desired
+- when flushing dns cache the dns cache retention is reset as well
+
+### Changed
+- most "unknown" values now shows teh numeric value encountered
+- updated PHlib to version 3.0.2812
+
+### Fixed
+- an issue with the DNS cache monitoring
+- fixed issue with etw event tracking for UDP traffic
+- fixed issue with thread service tag not being resolved properly
+
 
 ## [1.0.1] - 2019-11-15
 

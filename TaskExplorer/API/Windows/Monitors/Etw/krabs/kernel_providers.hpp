@@ -142,6 +142,14 @@ namespace krabs { namespace kernel {
         krabs::guids::tcp_ip);
 
     /**
+     * <summary>A provider that enables network udp/ip events.</summary>
+     */
+    CREATE_CONVENIENCE_KERNEL_PROVIDER(
+        network_udpip_provider,
+        EVENT_TRACE_FLAG_NETWORK_TCPIP,
+        krabs::guids::udp_ip);
+
+    /**
      * <summary>A provider that enables process events.</summary>
      */
     CREATE_CONVENIENCE_KERNEL_PROVIDER(

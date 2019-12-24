@@ -53,7 +53,12 @@ CDnsCacheEntry::CDnsCacheEntry(const QString& HostName, quint16 Type, const QHos
 
 QString CDnsCacheEntry::GetTypeString() const
 {
-	switch (GetType())
+	return GetTypeString(GetType());
+}
+
+QString CDnsCacheEntry::GetTypeString(quint16 Type)
+{
+	switch (Type)
 	{
 		case DNS_TYPE_A:	return "A";
 		case DNS_TYPE_AAAA:	return "AAAA";
@@ -61,7 +66,7 @@ QString CDnsCacheEntry::GetTypeString() const
 		case DNS_TYPE_CNAME:return "CNAME";
 		case DNS_TYPE_SRV:	return "SRV";
 		case DNS_TYPE_MX:	return "MX";
-		default:			return "UNKNOWN";
+		default:			return QString("UNKNOWN (%1)").arg(Type);
 	}
 }
 

@@ -105,7 +105,7 @@ struct SEtwEventMonitor
 		});
 		kernel_trace.enable(file_provider);*/
 
-		net_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
+		auto net_callback = [](CEtwEventMonitor* This, const EVENT_RECORD &record) {
 			//qDebug() << "net event";
 
 			// TcpIp/UdpIp
@@ -212,8 +212,13 @@ struct SEtwEventMonitor
 
 			//EtProcessNetworkEvent(&networkEvent);
 			emit This->NetworkEvent(Type, ProcessId, -1, ProtocolType, TransferSize, LocalAddress, LocalPort, RemoteAddress, RemotePort);
-		});
-		kernel_trace.enable(net_provider);
+		};
+
+		tcp_provider.add_on_event_callback([This, net_callback](const EVENT_RECORD &record) { net_callback(This, record); });
+		udp_provider.add_on_event_callback([This, net_callback](const EVENT_RECORD &record) { net_callback(This, record); });
+
+		kernel_trace.enable(tcp_provider);
+		kernel_trace.enable(udp_provider);
 
 
 		// user_trace providers typically have any and all flags, whose meanings are
@@ -262,7 +267,8 @@ struct SEtwEventMonitor
 
 	krabs::kernel::disk_io_provider disk_provider;
 	//krabs::kernel::file_io_provider file_provider;
-	krabs::kernel::network_tcpip_provider net_provider;
+	krabs::kernel::network_tcpip_provider tcp_provider;
+	krabs::kernel::network_udpip_provider udp_provider;
 
 	std::thread* kernel_thread = NULL;
 

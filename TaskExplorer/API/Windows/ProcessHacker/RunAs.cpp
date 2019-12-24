@@ -1373,3 +1373,46 @@ void AddProgramsToComboBox(QComboBox* pComboBox)
 
     FreeMRUList_I(listHandle);
 }
+
+// fromguisup.c
+BOOLEAN NTAPI PhShowRunFileDialog(
+    _In_ HWND WindowHandle,
+    _In_opt_ HICON WindowIcon,
+    _In_opt_ PWSTR WorkingDirectory,
+    _In_opt_ PWSTR WindowTitle,
+    _In_opt_ PWSTR WindowDescription,
+    _In_ ULONG Flags
+    )
+{
+    typedef BOOL (WINAPI *RunFileDlg_I)(
+        _In_ HWND hwndOwner,
+        _In_opt_ HICON hIcon,
+        _In_opt_ LPCWSTR lpszDirectory,
+        _In_opt_ LPCWSTR lpszTitle,
+        _In_opt_ LPCWSTR lpszDescription,
+        _In_ ULONG uFlags
+        );
+
+	RunFileDlg_I dialog;
+    BOOLEAN result = FALSE;
+    HMODULE shell32Handle;
+
+    if (shell32Handle = LoadLibrary(L"shell32.dll"))
+    {
+        if (dialog = (RunFileDlg_I)PhGetDllBaseProcedureAddress(shell32Handle, NULL, 61))
+        {
+            result = !!dialog(
+                WindowHandle,
+                WindowIcon,
+                WorkingDirectory,
+                WindowTitle,
+                WindowDescription,
+                Flags
+                );
+        }
+
+        FreeLibrary(shell32Handle);
+    }
+
+    return result;
+}

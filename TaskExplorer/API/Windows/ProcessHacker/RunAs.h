@@ -79,3 +79,16 @@ VOID SetDefaultDesktopEntry(QComboBox* pComboBox);
 
 void AddProgramsToComboBox(QComboBox* pComboBox);
 VOID PhpAddRunMRUListEntry(_In_ PPH_STRING CommandLine);
+
+// from guisup.h
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhShowRunFileDialog(
+    _In_ HWND WindowHandle,
+    _In_opt_ HICON WindowIcon,
+    _In_opt_ PWSTR WorkingDirectory,
+    _In_opt_ PWSTR WindowTitle,
+    _In_opt_ PWSTR WindowDescription,
+    _In_ ULONG Flags
+    );

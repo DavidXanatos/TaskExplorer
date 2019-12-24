@@ -173,14 +173,14 @@ PDNS_RECORD TraverseDnsCacheTable(SDnsResolver* m)
     if (!m->DnsGetCacheDataTable_I(&dnsCacheDataTable))
         goto CleanupExit;
 
-	PDNS_RECORD root
-	while (PDNS_CACHE_ENTRY tablePtr = dnsCacheDataTable; tablePtr; tablePtr = tablePtr->Next)
+	PDNS_RECORD root = NULL;
+	for (PDNS_CACHE_ENTRY tablePtr = dnsCacheDataTable; tablePtr; tablePtr = tablePtr->Next)
 	{
         for (USHORT i = 0; i < ARRSIZE(typeList); i++)
         {
             PDNS_RECORD dnsQueryResultPtr;
-            if (DnsQuery(tablePtr->Name, typeList[i], DNS_QUERY_NO_WIRE_QUERY | DNS_QUERY_APPEND_MULTILABEL, NULL, &dnsQueryResultPtr, NULL) == ERROR_SUCCESS)
-			//if (DnsQuery(tablePtr->Name, tablePtr->Type, DNS_QUERY_NO_WIRE_QUERY | DNS_QUERY_APPEND_MULTILABEL, NULL, &dnsQueryResultPtr, NULL) == ERROR_SUCCESS)
+            if (DnsQuery(tablePtr->Name, typeList[i], DNS_QUERY_NO_WIRE_QUERY | 32768 /*Undocumented flags*/, NULL, &dnsQueryResultPtr, NULL) == ERROR_SUCCESS)
+			//if (DnsQuery(tablePtr->Name, tablePtr->Type, DNS_QUERY_NO_WIRE_QUERY | 32768 /*Undocumented flags*/, NULL, &dnsQueryResultPtr, NULL) == ERROR_SUCCESS)
             {
                 for (PDNS_RECORD dnsRecordPtr = dnsQueryResultPtr; dnsRecordPtr; dnsRecordPtr = dnsRecordPtr->pNext)
                 {
@@ -209,12 +209,14 @@ CleanupExit:
 bool CDnsResolver::UpdateDnsCache()
 {
 #ifdef DNS_SCRAPE
-	PDNS_RECORD dnsRecordRootPtr = TraverseDnsCacheTable(m, NULL); 
+	PDNS_RECORD dnsRecordRootPtr = TraverseDnsCacheTable(m); 
 #else
     PDNS_CACHE_ENTRY dnsCacheDataTable = NULL;
 	if (!m->DnsGetCacheDataTable_I(&dnsCacheDataTable))
 		return false;
 #endif
+
+//#define DUMP_DNS
 
 	// Copy the emtry map Map
 	QMultiMap<QString, CDnsCacheEntryPtr> OldEntries = GetEntryList();
@@ -228,12 +230,22 @@ bool CDnsResolver::UpdateDnsCache()
 		//QString HostName_ = QString::fromWCharArray(tablePtr->Name);
 		//quint16 Type_ = tablePtr->Type;
 
+#ifdef DUMP_DNS
+		qDebug() << "Dns Table Entry:" << QString::fromWCharArray(tablePtr->Name) << "Type:" << CDnsCacheEntry::GetTypeString(tablePtr->Type);
+#endif
+
 		PDNS_RECORD dnsQueryResultPtr;
-		if (DnsQuery(tablePtr->Name, tablePtr->Type, DNS_QUERY_NO_WIRE_QUERY | DNS_QUERY_APPEND_MULTILABEL, NULL, &dnsQueryResultPtr, NULL) != ERROR_SUCCESS)
+
+		DNS_STATUS ret = DnsQuery(tablePtr->Name, tablePtr->Type, DNS_QUERY_NO_WIRE_QUERY | 32768 /*Undocumented flags*/, NULL, &dnsQueryResultPtr, NULL);
+		if (ret != ERROR_SUCCESS)
 			continue;
 
 		for (PDNS_RECORD dnsRecordPtr = dnsQueryResultPtr; dnsRecordPtr; dnsRecordPtr = dnsRecordPtr->pNext)
 		{
+
+#ifdef DUMP_DNS
+			qDebug() << "Dns Query Result:" << QString::fromWCharArray(dnsRecordPtr->pName) << "Type:" << CDnsCacheEntry::GetTypeString(dnsRecordPtr->wType);
+#endif
 #endif	
 			QString HostName = QString::fromWCharArray(dnsRecordPtr->pName);
 			quint16 Type = dnsRecordPtr->wType;
@@ -243,31 +255,11 @@ bool CDnsResolver::UpdateDnsCache()
 			QMultiMap<QString, CDnsCacheEntryPtr>::iterator I;
 			if (Type == DNS_TYPE_A || Type == DNS_TYPE_AAAA)
 			{
-				//WCHAR ipAddrString[INET6_ADDRSTRLEN] = L"";
 				switch (Type)
 				{
-					case DNS_TYPE_A:
-					{
-						Address = QHostAddress(ntohl(dnsRecordPtr->Data.A.IpAddress));
-
-						/*IN_ADDR ipv4Address = { 0 };
-						ipv4Address.s_addr = dnsRecordPtr->Data.A.IpAddress;
-
-						RtlIpv4AddressToString(&ipv4Address, ipAddrString);*/
-						break;
-					}
-					case DNS_TYPE_AAAA:
-					{
-						Address = QHostAddress(dnsRecordPtr->Data.AAAA.Ip6Address.IP6Byte);
-
-						/*IN6_ADDR ipv6Address = { 0 };
-						memcpy_s(ipv6Address.s6_addr, sizeof(ipv6Address.s6_addr), dnsRecordPtr->Data.AAAA.Ip6Address.IP6Byte, sizeof(dnsRecordPtr->Data.AAAA.Ip6Address.IP6Byte));
-
-						RtlIpv6AddressToString(&ipv6Address, ipAddrString);*/
-						break;
-					}
+					case DNS_TYPE_A:	Address = QHostAddress(ntohl(dnsRecordPtr->Data.A.IpAddress)); break;
+					case DNS_TYPE_AAAA:	Address = QHostAddress(dnsRecordPtr->Data.AAAA.Ip6Address.IP6Byte); break;
 				}
-				//ResolvedString = QString::fromWCharArray(ipAddrString);
 				ResolvedString = Address.toString();
 
 				if (Address == QHostAddress::LocalHost || Address == QHostAddress::LocalHostIPv6)
@@ -288,6 +280,10 @@ bool CDnsResolver::UpdateDnsCache()
 				switch (Type)
 				{
 				case DNS_TYPE_PTR:		ResolvedString = QString::fromWCharArray(dnsRecordPtr->Data.PTR.pNameHost);	break;
+										Address = RevDnsHost2Address(HostName);
+										// we don't care for entries without a valid address
+										if (Address.isNull())
+											continue;
 				//case DNS_TYPE_DNAME:	ResolvedString = QString::fromWCharArray(dnsRecordPtr->Data.DNAME.pNameHost); break; // entire zone
 				case DNS_TYPE_CNAME:	ResolvedString = QString::fromWCharArray(dnsRecordPtr->Data.CNAME.pNameHost); break; // one host
 				case DNS_TYPE_SRV:		ResolvedString = QString("%1:%2").arg(QString::fromWCharArray(dnsRecordPtr->Data.SRV.pNameTarget)).arg((quint16)dnsRecordPtr->Data.SRV.wPort); break;
@@ -307,18 +303,13 @@ bool CDnsResolver::UpdateDnsCache()
 				}
 			}
 
+#ifdef DUMP_DNS
+			//qDebug() << "Dns Query Result:" << HostName << "Type:" << CDnsCacheEntry::GetTypeString(Type) << ResolvedString;
+#endif
+
 			CDnsCacheEntryPtr pEntry;
 			if (I == OldEntries.end())
 			{
-				if (Type == DNS_TYPE_PTR)
-				{
-					Address = RevDnsHost2Address(HostName);
-
-					// we don't care for entries without a valid address
-					if (Address.isNull())
-						continue;
-				}
-
 				pEntry = CDnsCacheEntryPtr(new CDnsCacheEntry(HostName, Type, Address, ResolvedString));
 				QWriteLocker Locker(&m_Mutex);
 				m_DnsCache.insertMulti(HostName, pEntry);
@@ -395,6 +386,10 @@ void CDnsResolver::FlushDnsCache()
 {
     if (m->DnsFlushResolverCache_I)
         m->DnsFlushResolverCache_I();
+
+	m_DnsCache.clear();
+	m_AddressCache.clear();
+	m_RedirectionCache.clear();
 }
 
 QString CDnsResolver::GetHostName(const QHostAddress& Address, QObject *receiver, const char *member)
@@ -438,7 +433,7 @@ QString CDnsResolver::GetHostName(const QHostAddress& Address, QObject *receiver
 
 	// if we dont have a valid entry start a lookup job and finisch asynchroniously
 	//if (ValidReverseEntries == 0)
-	if(RevHostNames.size() == 0)
+	if(RevHostNames.size() == 0 && theConf->GetBool("Options/UserReverseDns", false))
 	{
 		QMutexLocker Locker(&m_JobMutex);
 
@@ -504,7 +499,7 @@ QString CDnsResolver::GetHostNameSmart(const QHostAddress& Address, const QStrin
 #endif
 
 	QMultiMap<quint64, CDnsCacheEntryPtr> Entries;
-	if (theConf->GetBool("Options/SmartHostNameResolution", false))
+	if (theConf->GetBool("Options/MonitorDnsCache", false))
 	{
 		QReadLocker Locker(&m_Mutex);
 
