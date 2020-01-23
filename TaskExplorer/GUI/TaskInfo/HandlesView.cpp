@@ -15,6 +15,24 @@
 #include "../MemoryEditor.h"
 #include "../../Common/Finder.h"
 
+class CHandleSortModel: public QSortFilterProxyModel
+{
+public:
+    CHandleSortModel(QObject *parent = NULL) : QSortFilterProxyModel(parent) {}
+
+protected:
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const
+    {
+        QString leftData = sourceModel()->data(left).toString();
+        QString rightData = sourceModel()->data(right).toString();
+        
+		if ((leftData.mid(0, 1) == "[") != (rightData.mid(0, 1) == "["))
+			return leftData.mid(0, 1) == "[";
+
+        return QString::localeAwareCompare(leftData, rightData) < 0;
+    }
+};
+
 CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	:CPanelView(parent)
 {
@@ -27,7 +45,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	this->setLayout(m_pMainLayout);
 
 #ifdef WIN32
-	if (iAll == 0)
+	if (m_ShowAllFiles == 0)
 	{
 		m_pFilterWidget = new QWidget();
 		m_pMainLayout->addWidget(m_pFilterWidget);
@@ -44,7 +62,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 
 		//m_pShowType->addItem(tr("All"), "");
 		//m_pShowType->addItem(tr("All"), -1);
-		auto itemAll = new QStandardItem(tr("All"));
+		auto itemAll = new QStandardItem(tr("[All]"));
 		itemAll->setData(-1, Qt::UserRole);
 		model->appendRow(itemAll);
 
@@ -74,7 +92,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 			PhFree(objectTypes);
 		}
 
-		auto proxy1 = new QSortFilterProxyModel();
+		auto proxy1 = new CHandleSortModel();
 		proxy1->setSourceModel(model);
 		proxy1->sort(0);
 		m_pShowType->setModel(proxy1);
@@ -136,7 +154,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 
 	connect(theGUI, SIGNAL(ReloadPanels()), m_pHandleModel, SLOT(Clear()));
 
-	if (iAll == 0)
+	if (m_ShowAllFiles == 0)
 		UpdateFilter();
 	m_pHandleModel->SetUseIcons(true);
 
@@ -152,11 +170,15 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_pSplitter->setCollapsible(0, false);
 	// 
 
-	if (iAll == 1)
+	if (m_ShowAllFiles == 1)
 	{
 		m_pHandleDetails = NULL;
 
 		connect(theAPI, SIGNAL(OpenFileListUpdated(QSet<quint64>, QSet<quint64>, QSet<quint64>)), this, SLOT(ShowOpenFiles(QSet<quint64>, QSet<quint64>, QSet<quint64>)));
+	}
+	else if (m_ShowAllFiles == 3)
+	{
+		m_pHandleDetails = NULL;
 	}
 	else
 	{
@@ -178,16 +200,17 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 		//
 
 		m_pHandleDetails->GetView()->header()->restoreState(theConf->GetBlob(objectName() + "/HandlesDetail_Columns"));
+		m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Splitter"));
 	}
 
-	//if (iAll != 0)
-	if (iAll == 2)
+	//if (m_ShowAllFiles != 0)
+	if (m_ShowAllFiles == 2)
 	{
 		m_pHandleList->SetColumnHidden(CHandleModel::ePosition, true, true);
 		m_pHandleList->SetColumnHidden(CHandleModel::eSize, true, true);
 	}
 
-	if (iAll == 1)
+	if (m_ShowAllFiles == 1 || m_ShowAllFiles == 3)
 	{
 		m_pHandleList->SetColumnHidden(CHandleModel::eType, true, true);
 #ifdef WIN32
@@ -200,8 +223,6 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_ViewMode = eNone;
 	setObjectName(parent->objectName());
 	SwitchView(eSingle);
-
-	m_pSplitter->restoreState(theConf->GetBlob(objectName() + "/HandlesView_Splitter"));
 
 	OnColumnsChanged();
 
@@ -259,17 +280,27 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 CHandlesView::~CHandlesView()
 {
 	SwitchView(eNone);
-	theConf->SetBlob(objectName() + "/HandlesView_Splitter",m_pSplitter->saveState());
-	if(m_pHandleDetails)
+	if (m_pHandleDetails)
+	{
+		theConf->SetBlob(objectName() + "/HandlesView_Splitter",m_pSplitter->saveState());
 		theConf->SetBlob(objectName() + "/HandlesDetail_Columns", m_pHandleDetails->GetView()->header()->saveState());
+	}
 }
 
 void CHandlesView::SwitchView(EView ViewMode)
 {
+	QString Name = "Handles";
+	if (m_ShowAllFiles == 1)
+		Name = "AllFiles";
+	else if (m_ShowAllFiles == 2)
+		Name = "HandleSearch";
+	else if (m_ShowAllFiles == 3)
+		Name = "Files";
+
 	switch (m_ViewMode)
 	{
-		case eSingle:	theConf->SetBlob(objectName() + "/HandlesView_Columns", m_pHandleList->saveState()); break;
-		case eMulti:	theConf->SetBlob(objectName() + "/HandlesMultiView_Columns", m_pHandleList->saveState()); break;
+		case eSingle:	theConf->SetBlob(objectName() + "/" + Name + "View_Columns", m_pHandleList->saveState()); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/" + Name + "MultiView_Columns", m_pHandleList->saveState()); break;
 	}
 
 	m_ViewMode = ViewMode;
@@ -277,8 +308,8 @@ void CHandlesView::SwitchView(EView ViewMode)
 	QByteArray Columns;
 	switch (m_ViewMode)
 	{
-		case eSingle:	Columns = theConf->GetBlob(objectName() + "/HandlesView_Columns"); break;
-		case eMulti:	Columns = theConf->GetBlob(objectName() + "/HandlesMultiView_Columns"); break;
+		case eSingle:	Columns = theConf->GetBlob(objectName() + "/" + Name + "View_Columns"); break;
+		case eMulti:	Columns = theConf->GetBlob(objectName() + "/" + Name + "MultiView_Columns"); break;
 		default:
 			return;
 	}
@@ -299,7 +330,7 @@ void CHandlesView::OnResetColumns()
 	m_pHandleList->SetColumnHidden(CHandleModel::eHandle, false);
 	m_pHandleList->SetColumnHidden(CHandleModel::eType, false);
 	m_pHandleList->SetColumnHidden(CHandleModel::eName, false);
-	if (!m_ShowAllFiles)
+	if (m_ShowAllFiles == 0 || m_ShowAllFiles == 3)
 	{
 		m_pHandleList->SetColumnHidden(CHandleModel::ePosition, false);
 		m_pHandleList->SetColumnHidden(CHandleModel::eSize, false);
@@ -327,7 +358,7 @@ void CHandlesView::OnColumnsChanged()
 
 void CHandlesView::ShowProcesses(const QList<CProcessPtr>& Processes)
 {
-	if (m_ShowAllFiles) {
+	if (m_ShowAllFiles != 0 && m_ShowAllFiles != 3) {
 		ASSERT(0);
 		return;
 	}
@@ -381,9 +412,16 @@ void CHandlesView::ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 		if (--m_PendingUpdates != 0)
 			return;
 
-		int ShowType = m_pShowType->currentData().toInt();
-		bool HideUnnamed = m_pHideUnnamed->isChecked();
-		bool HideETW = m_pHideETW->isChecked();
+		int ShowType = g_fileObjectTypeIndex;
+		bool HideUnnamed = true;
+		bool HideETW = true;
+
+		if (m_ShowAllFiles == 0)
+		{
+			ShowType = m_pShowType->currentData().toInt();
+			HideUnnamed = m_pHideUnnamed->isChecked();
+			HideETW = m_pHideETW->isChecked();
+		}
 
 		QMap<quint64, CHandlePtr> AllHandles;
 		foreach(const CProcessPtr& pProcess, m_Processes) {

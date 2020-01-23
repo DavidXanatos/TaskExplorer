@@ -86,6 +86,12 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 {
 	theGUI = this;
 
+	m_DefaultStyle = QApplication::style()->objectName();
+	m_DefaultPalett = QApplication::palette();
+
+	if(theConf->GetBool("MainWindow/DarkTheme", false))
+		SetDarkTheme(true);
+
 	CSystemAPI::InitAPI();
 
 	QString appTitle = tr("TaskExplorer v%1").arg(GetVersion());
@@ -145,7 +151,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pGraphSplitter->setStretchFactor(1, 1);
 
 	m_pProcessTree = new CProcessTree(this);
-	//m_pProcessTree->setMinimumSize(200 * theGUI->GetDpiScale(), 200 * theGUI->GetDpiScale());
+	//m_pProcessTree->setMinimumSize(200, 200);
 	m_pMainSplitter->addWidget(m_pProcessTree);
 	m_pMainSplitter->setCollapsible(0, false);
 
@@ -154,15 +160,15 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMainSplitter->addWidget(m_pPanelSplitter);
 
 	m_pSystemInfo = new CSystemInfoView();
-	//m_pSystemInfo->setMinimumSize(200 * theGUI->GetDpiScale(), 200 * theGUI->GetDpiScale());
+	//m_pSystemInfo->setMinimumSize(200, 200);
 	m_pPanelSplitter->addWidget(m_pSystemInfo);
 
 	m_pTaskInfo = new CTaskInfoView();
-	//m_pTaskInfo->setMinimumSize(200 * theGUI->GetDpiScale(), 200 * theGUI->GetDpiScale());
+	//m_pTaskInfo->setMinimumSize(200, 200);
 	m_pPanelSplitter->addWidget(m_pTaskInfo);
 	m_pPanelSplitter->setCollapsible(1, false);
 
-	m_pPanelSplitter->setMinimumHeight(100 * theGUI->GetDpiScale());
+	m_pPanelSplitter->setMinimumHeight(100);
 
 	connect(m_pMainSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
 	connect(m_pPanelSplitter, SIGNAL(splitterMoved(int,int)), this, SLOT(OnSplitterMoved()));
@@ -249,6 +255,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuExpandAll->setShortcut(QKeySequence("Ctrl+E"));
 
 	m_pMenuFind = menuBar()->addMenu(tr("&Find"));
+		m_pMenuFindProcess = m_pMenuFind->addAction(MakeActionIcon(":/Actions/Eye"), tr("Find Hidden Processes"), this, SLOT(OnFindProcess()));
+		m_pMenuFind->addSeparator();
 		m_pMenuFindHandle = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindHandle"), tr("Find Handles"), this, SLOT(OnFindHandle()));
 		m_pMenuFindDll = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindDLL"), tr("Find Module (dll)"), this, SLOT(OnFindDll()));
 		m_pMenuFindMemory = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindString"), tr("Find String in Memory"), this, SLOT(OnFindMemory()));
@@ -362,12 +370,22 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addWidget(m_pHoldButton);
 
 	m_pToolBar->addSeparator();
+	m_pTreeButton = new QToolButton();
+	m_pTreeButton->setIcon(MakeActionIcon(":/Actions/Tree"));
+	m_pTreeButton->setToolTip(tr("Tree/List"));
+	m_pTreeButton->setCheckable(true);
+	QObject::connect(m_pTreeButton, SIGNAL(pressed()), this, SLOT(OnTreeButton()));
+	m_pToolBar->addWidget(m_pTreeButton);
+
+	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuMonitorETW);
 	m_pToolBar->addAction(m_pMenuMonitorFW);
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuSystemInfo);
 	m_pToolBar->addSeparator();
 	
+	//m_pToolBar->addAction(m_pMenuFindProcess);
+
 	m_pFindButton = new QToolButton();
 	m_pFindButton->setIcon(MakeActionIcon(":/Actions/Find"));
 	m_pFindButton->setToolTip(tr("Search..."));
@@ -515,6 +533,37 @@ CTaskExplorer::~CTaskExplorer()
 	theGUI = NULL;
 }
 
+void CTaskExplorer::SetDarkTheme(bool bDark)
+{
+	if (bDark)
+	{
+		QApplication::setStyle(QStyleFactory::create("Fusion"));
+		QPalette palette;
+		palette.setColor(QPalette::Window, QColor(53, 53, 53));
+		palette.setColor(QPalette::WindowText, Qt::white);
+		palette.setColor(QPalette::Base, QColor(25, 25, 25));
+		palette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
+		palette.setColor(QPalette::ToolTipBase, Qt::white);
+		palette.setColor(QPalette::ToolTipText, Qt::white);
+		palette.setColor(QPalette::Text, Qt::white);
+		palette.setColor(QPalette::Button, QColor(53, 53, 53));
+		palette.setColor(QPalette::ButtonText, Qt::white);
+		palette.setColor(QPalette::BrightText, Qt::red);
+		palette.setColor(QPalette::Link, QColor(218, 130, 42));
+		palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
+		palette.setColor(QPalette::HighlightedText, Qt::black);
+		QApplication::setPalette(palette);
+	}
+	else
+	{
+		QApplication::setStyle(QStyleFactory::create(m_DefaultStyle));
+		QApplication::setPalette(m_DefaultPalett);
+	}
+
+	CTreeItemModel::SetDarkMode(bDark);
+	CListItemModel::SetDarkMode(bDark);
+}
+
 void CTaskExplorer::OnGraphsResized(int Size)
 {
 	QList<int> Sizes = m_pGraphSplitter->sizes();
@@ -541,6 +590,11 @@ void CTaskExplorer::OnStaticPersistence()
 		CAbstractInfoEx::SetPersistenceTime(theConf->GetUInt64("Options/PersistenceTime", 5000));
 	else 
 		OnChangePersistence(m_pHoldAction);
+}
+
+void CTaskExplorer::OnTreeButton()
+{
+	m_pProcessTree->SetTree(!m_pTreeButton->isChecked());
 }
 
 void CTaskExplorer::OnChangePersistence(QAction* pAction)
@@ -586,6 +640,7 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 
 	UpdateUserMenu();
 
+	m_pTreeButton->setChecked(m_pProcessTree->IsTree());
 	m_pMenuExpandAll->setEnabled(m_pProcessTree->IsTree());
 
 	foreach(QAction* pAction, m_pRefreshGroup->actions())
@@ -1125,6 +1180,8 @@ void CTaskExplorer::UpdateOptions()
 {
 	ApplyOptions();
 
+	SetDarkTheme(theConf->GetBool("MainWindow/DarkTheme", false));
+
 	if(theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->show();
 	else
@@ -1246,6 +1303,20 @@ void CTaskExplorer::OnFreeMemory()
 #endif
 }
 
+void CTaskExplorer::OnFindProcess()
+{
+	/*m_pHoldButton->setChecked(true);
+	CAbstractInfoEx::SetPersistenceTime(60*60*1000);*/
+
+#ifdef WIN32
+	int count = ((CWindowsAPI*)theAPI)->FindHiddenProcesses();
+	if(count > 0)
+		QMessageBox::warning(NULL, "TaskExplorer", tr("Found %1 hidden processes and added them to the process list.").arg(count));
+	else
+		QMessageBox::information(NULL, "TaskExplorer", tr("No hidden processes found."));
+#endif
+}
+
 void CTaskExplorer::OnFindHandle()
 {
 	CHandleSearch* pHandleSearch = new CHandleSearch();
@@ -1305,17 +1376,17 @@ QStyledItemDelegate* CTaskExplorer::GetItemDelegate()
 	return m_pCustomItemDelegate; 
 }
 
-float CTaskExplorer::GetDpiScale()
+/*float CTaskExplorer::GetDpiScale()
 {
 	return QGuiApplication::primaryScreen()->logicalDotsPerInch() / 96.0;// *100.0;
-}
+}*/
 
 int CTaskExplorer::GetCellHeight()
 {
 	QFontMetrics fontMetrics(QApplication::font());
 	int fontHeight = fontMetrics.height();
 	
-	return (fontHeight + 3) * GetDpiScale();
+	return (fontHeight + 3);// *GetDpiScale();
 }
 
 void CTaskExplorer::LoadDefaultIcons()

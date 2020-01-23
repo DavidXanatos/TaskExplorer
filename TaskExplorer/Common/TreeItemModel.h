@@ -12,6 +12,7 @@ public:
 	void			SetTree(bool bTree)				{ m_bTree = bTree; }
 	bool			IsTree() const					{ return m_bTree; }
 	void			SetUseIcons(bool bUseIcons)		{ m_bUseIcons = bUseIcons; }
+	static void		SetDarkMode(bool bDark)			{ m_DarkMode = bDark;}
 
 	//void			CountItems();
 	QModelIndex		FindIndex(const QVariant& ID);
@@ -91,6 +92,8 @@ protected:
 	QHash<QVariant, STreeNode*>			m_Map;
 	bool								m_bTree;
 	bool								m_bUseIcons;
+
+	static bool							m_DarkMode;
 };
 
 class CSimpleTreeModel : public CTreeItemModel

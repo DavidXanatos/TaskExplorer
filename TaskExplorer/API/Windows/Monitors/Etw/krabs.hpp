@@ -46,12 +46,12 @@
 #include "krabs/tdh_helpers.hpp"
 #include "krabs/kernel_providers.hpp"
 
-#include "krabs/testing/proxy.hpp"
+/*#include "krabs/testing/proxy.hpp"
 #include "krabs/testing/filler.hpp"
 #include "krabs/testing/synth_record.hpp"
 #include "krabs/testing/record_builder.hpp"
 #include "krabs/testing/event_filter_proxy.hpp"
-#include "krabs/testing/record_property_thunk.hpp"
+#include "krabs/testing/record_property_thunk.hpp"*/
 
 #include "krabs/filtering/view_adapters.hpp"
 #include "krabs/filtering/comparers.hpp"

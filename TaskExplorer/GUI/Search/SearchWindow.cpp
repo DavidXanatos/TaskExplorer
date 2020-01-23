@@ -27,8 +27,8 @@ CSearchWindow::CSearchWindow(QWidget *parent)
 
 
 	m_pSearch = new QLineEdit();
-	m_pSearch->setMinimumWidth(150 * theGUI->GetDpiScale());
-	m_pSearch->setMaximumWidth(350 * theGUI->GetDpiScale());
+	m_pSearch->setMinimumWidth(150);
+	m_pSearch->setMaximumWidth(350);
 	m_pFinderLayout->addWidget(m_pSearch);
 	//QObject::connect(m_pSearch, SIGNAL(textChanged(QString)), this, SLOT(OnUpdate()));
 	connect(m_pSearch, SIGNAL(returnPressed()), this, SLOT(OnFind()));
@@ -45,7 +45,7 @@ CSearchWindow::CSearchWindow(QWidget *parent)
 
 
 	m_pProgress = new QProgressBar();
-	m_pProgress->setMaximumHeight(14 * theGUI->GetDpiScale());
+	m_pProgress->setMaximumHeight(14);
 	//m_pProgress->setTextVisible(false);
 	statusBar()->addPermanentWidget(m_pProgress);
 	m_pProgress->hide();

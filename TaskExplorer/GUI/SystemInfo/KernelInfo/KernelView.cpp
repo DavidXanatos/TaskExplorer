@@ -62,7 +62,7 @@ CKernelView::CKernelView(QWidget *parent)
 	//////////////////////////////////////////////////////////
 
 	m_pPPoolBox = new QGroupBox(tr("Paged pool"));
-	m_pPPoolBox->setMinimumWidth(150 * theGUI->GetDpiScale());
+	m_pPPoolBox->setMinimumWidth(150);
 	m_pPPoolLayout = new QGridLayout();
 	m_pPPoolBox->setLayout(m_pPPoolLayout);
 	m_pInfoLayout1->addWidget(m_pPPoolBox, 0, 0);
@@ -92,7 +92,7 @@ CKernelView::CKernelView(QWidget *parent)
 	////////////////////////////////////////
 
 	m_pNPPoolBox = new QGroupBox(tr("Non-paged pool"));
-	m_pNPPoolBox->setMinimumWidth(150 * theGUI->GetDpiScale());
+	m_pNPPoolBox->setMinimumWidth(150);
 	m_pNPPoolLayout = new QGridLayout();
 	m_pNPPoolBox->setLayout(m_pNPPoolLayout);
 	m_pInfoLayout2->addWidget(m_pNPPoolBox);

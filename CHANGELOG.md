@@ -3,6 +3,30 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+
+## [1.1.0] - 2020-23-01
+
+### Added
+- added Dark Theme Support
+- added ETW monitoring of the processProvider
+-- allows to capture all process cration events henc elisting of very short lived processes
+-- using ETW data to set image path and command line when the process closed before we could inspect it
+- added option to keep processes listed indefinetly as long as thay have still running children.
+- added functionality to find some types of hidden processes, also usefull to find some already terminated processes
+- added tool bar button to switch between the tree view and a list view more convinient as the last choose list sort column is remembered
+
+### Changed
+- the handle tab is now present twice once as it was and once providing only an open file list
+
+### Fixed
+- handle types are now sorted properly i.e. "[All]" is first
+- fixed bug where in the unifyed list view switching to tree view was not possible
+- fixed issue with some values not being initialized in CWinMainModule
+- fixed High DPI scaling issues
+
+
+
 ## [1.0.2] - 2019-12-24
 
 ### Added

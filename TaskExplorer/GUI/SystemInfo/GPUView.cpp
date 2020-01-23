@@ -52,8 +52,8 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pGraphTabs->addTab(m_pPlotWidget, tr("GPU Usage"));
 
 	m_pGPUPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pGPUPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
-	m_pGPUPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
+	m_pGPUPlot->setMinimumHeight(120);
+	m_pGPUPlot->setMinimumWidth(50);
 	m_pGPUPlot->SetupLegend(Front, tr("GPU Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eAU);
 	m_pGPUPlot->SetRagne(100);
 	m_pGPUPlot->SetLimit(m_PlotLimit);
@@ -61,8 +61,8 @@ CGPUView::CGPUView(QWidget *parent)
 	
 
 	m_pVRAMPlot = new CIncrementalPlot(Back, Front, Grid);
-	m_pVRAMPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
-	m_pVRAMPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
+	m_pVRAMPlot->setMinimumHeight(120);
+	m_pVRAMPlot->setMinimumWidth(50);
 	m_pVRAMPlot->SetupLegend(Front, tr("VRAM Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eBytes);
 	m_pVRAMPlot->SetLimit(m_PlotLimit);
 	m_pPlotLayout->addWidget(m_pVRAMPlot);
@@ -78,8 +78,8 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pGPUList->GetTree()->setHeaderLabels(tr("Model|Location|Driver Version|HwID|Dedicated Usage|Dedicated Limit|Shared Usage|Shared Limit|Device Interface").split("|"));
 	m_pGPUList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pGPUList->GetTree()->setSortingEnabled(true);
-	m_pGPUList->GetTree()->setMinimumHeight(100 * theGUI->GetDpiScale());
-	m_pGPUList->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
+	m_pGPUList->GetTree()->setMinimumHeight(100);
+	m_pGPUList->GetTree()->setAutoFitMax(200);
 
 	m_pGPUList->GetTree()->setColumnReset(2);
 	connect(m_pGPUList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
@@ -222,8 +222,8 @@ void CGPUView::UpdateGraphs()
 			m_pGraphTabs->addTab(NodePlots.pStackedWidget, GpuInfo.Description);
 
 			NodePlots.pPlot = new CIncrementalPlot(Back, Front, Grid);
-			NodePlots.pPlot->setMinimumHeight(120 * theGUI->GetDpiScale());
-			NodePlots.pPlot->setMinimumWidth(50 * theGUI->GetDpiScale());
+			NodePlots.pPlot->setMinimumHeight(120);
+			NodePlots.pPlot->setMinimumWidth(50);
 			NodePlots.pPlot->SetRagne(100);
 			NodePlots.pPlot->SetupLegend(Front, tr("Node Usage"), CIncrementalPlot::eDate, CIncrementalPlot::eAU);
 			NodePlots.pPlot->SetLimit(m_PlotLimit);

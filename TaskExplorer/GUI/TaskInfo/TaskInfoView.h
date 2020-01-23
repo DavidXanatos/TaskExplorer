@@ -40,6 +40,7 @@ protected:
 
 private:
 	CProcessView*		m_pProcessView;
+	CHandlesView*		m_pFilesView;
 	CHandlesView*		m_pHandlesView;
 	CSocketsView*		m_pSocketsView;
 	CThreadsView*		m_pThreadsView;

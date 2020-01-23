@@ -48,7 +48,10 @@ void CTaskInfoView::InitializeTabs()
 	m_pProcessView = new CProcessView(this);
 	AddTab(m_pProcessView, tr("General"));
 
-	m_pHandlesView = new CHandlesView(false, this);
+	m_pFilesView = new CHandlesView(3, this);
+	AddTab(m_pFilesView, tr("Files"));
+
+	m_pHandlesView = new CHandlesView(0, this);
 	AddTab(m_pHandlesView, tr("Handles"));
 
 	m_pSocketsView = new CSocketsView(false, this);

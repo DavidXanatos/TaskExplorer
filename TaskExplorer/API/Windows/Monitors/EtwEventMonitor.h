@@ -16,6 +16,7 @@ signals:
 	void		DnsResEvent(quint64 ProcessId, quint64 ThreadId, const QString& HostName, const QStringList& Results);
 	void		FileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		DiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
+	void		ProcessEvent(int Type, quint32 ProcessId, QString CommandLine, QString FileName, quint32 ParentId, quint64 TimeStamp);
 
 protected:
 

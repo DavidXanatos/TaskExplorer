@@ -30,6 +30,10 @@ enum MISC_WIN_EVENT_TYPE
 	EtwNetworkReceiveType,
 	EtwNetworkSendType,
 
+	// Process Events
+	EtwProcessStarted,
+	EtwProcessStopped,
+
 	// EventLog Firewall events
 	EvlFirewallAllowed,
 	EvlFirewallBlocked,
@@ -58,6 +62,8 @@ public:
 	virtual bool UpdateSysStats();
 
 	virtual bool UpdateProcessList();
+
+	virtual int FindHiddenProcesses();
 
 	virtual bool UpdateSocketList();
 
@@ -123,6 +129,7 @@ public slots:
 	void		OnDnsResEvent(quint64 ProcessId, quint64 ThreadId, const QString& HostName, const QStringList& Result);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
+	void		OnProcessEvent(int Type, quint32 ProcessId, QString CommandLine, QString FileName, quint32 ParentId, quint64 TimeStamp);
 
 	bool		UpdatePoolTable();
 
@@ -204,3 +211,8 @@ extern quint32 g_fileObjectTypeIndex;
 extern quint32 g_EtwRegistrationTypeIndex;
 
 #define CPU_TIME_DIVIDER (10 * 1000 * 1000) // the clock resolution is 100ns we need 1sec
+
+quint64 FILETIME2ms(quint64 fileTime);
+time_t FILETIME2time(quint64 fileTime);
+
+QString GetPathFromCmd(QString commandLine, quint32 processID, QString imageName/*, DateTime timeStamp*/, quint32 parentID = 0);

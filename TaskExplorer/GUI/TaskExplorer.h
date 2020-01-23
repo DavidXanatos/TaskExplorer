@@ -9,8 +9,8 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		1
-#define VERSION_MIN 	0
-#define VERSION_REV 	2
+#define VERSION_MIN 	1
+#define VERSION_REV 	0
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -24,6 +24,8 @@ class CTaskExplorer : public QMainWindow
 public:
 	CTaskExplorer(QWidget *parent = Q_NULLPTR);
 	virtual ~CTaskExplorer();
+
+	void SetDarkTheme(bool bDark);
 
 	QStyledItemDelegate*	GetItemDelegate();
 	int						GetCellHeight();
@@ -93,6 +95,9 @@ protected:
 	int					m_uTimerID;
 	quint64				m_LastTimer;
 
+	QString				m_DefaultStyle;
+	QPalette			m_DefaultPalett;
+
 private slots:	
 	void				ApplyOptions();
 
@@ -117,8 +122,10 @@ private slots:
 	void				OnChangeInterval(QAction* pAction);
 	void				OnChangePersistence(QAction* pAction);
 	void				OnStaticPersistence();
+	void				OnTreeButton();
 	void				ResetAll();
 
+	void				OnFindProcess();
 	void				OnFindHandle();
 	void				OnFindDll();
 	void				OnFindMemory();
@@ -214,6 +221,7 @@ private:
 	QAction*			m_pMenuExpandAll;
 
 	QMenu*				m_pMenuFind;
+	QAction*			m_pMenuFindProcess;
 	QAction*			m_pMenuFindHandle;
 	QAction*			m_pMenuFindDll;
 	QAction*			m_pMenuFindMemory;
@@ -266,6 +274,8 @@ private:
 	QToolButton*		m_pHoldButton;
 	QActionGroup*		m_pHoldGroup;
 	QAction*			m_pHoldAction;
+
+	QToolButton*		m_pTreeButton;
 
 	QSystemTrayIcon*	m_pTrayIcon;
 	QMenu*				m_pTrayMenu;

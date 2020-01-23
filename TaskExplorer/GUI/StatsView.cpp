@@ -36,9 +36,9 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	SetupTree();
 
 	if (/*eView == eProcess ||*/ eView == eSystem)
-		m_pStatsList->setAutoFitMax(800 * theGUI->GetDpiScale());
+		m_pStatsList->setAutoFitMax(800);
 	else
-		m_pStatsList->setMinimumHeight(50 * theGUI->GetDpiScale());
+		m_pStatsList->setMinimumHeight(50);
 
 	//m_pMenu = new QMenu();
 	AddPanelItemsToMenu();

@@ -79,8 +79,18 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE; // 1
 	}
 
-	if (bSvc || bWrk)	new QCoreApplication(argc, argv);
-	else				new QApplication(argc, argv);
+	if (bSvc || bWrk)	
+		new QCoreApplication(argc, argv);
+	else {
+#ifdef Q_OS_WIN
+		SetProcessDPIAware();
+#endif // Q_OS_WIN 
+
+		//QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); 
+		//QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+
+		new QApplication(argc, argv);
+	}
 
 	theConf = new CSettings("TaskExplorer");
 

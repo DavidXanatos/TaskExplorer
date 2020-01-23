@@ -15,6 +15,12 @@ public:
 
 	virtual bool ValidateParent(CProcessInfo* pParent) const;
 
+	virtual void SetParentId(quint64 PID)				{ QWriteLocker Locker(&m_Mutex); m_ParentProcessId = PID; }
+	virtual void SetName(const QString& Name)			{ QWriteLocker Locker(&m_Mutex); m_ProcessName = Name; }
+	virtual void SetFileName(const QString& FileName);
+	virtual void SetCommandLineStr(const QString& CommandLine)	{ QWriteLocker Locker(&m_Mutex); m_CommandLine = CommandLine; }
+	virtual void MarkAsHidden();
+
 	virtual bool IsFullyInitialized() const			{ QReadLocker Locker(&m_Mutex); return m_IsFullyInitialized; }
 
 	// Basic
@@ -25,6 +31,7 @@ public:
 	virtual CWinTokenPtr GetToken() const			{ QReadLocker Locker(&m_Mutex); return m_pToken; }
 	virtual quint16 GetSubsystem() const;
 	virtual QString GetSubsystemString() const;
+	virtual void SetRawCreateTime(quint64 TimeStamp);
 	virtual quint64 GetRawCreateTime() const;
 	virtual QString GetWorkingDirectory() const;
 	//virtual QString GetAppDataDirectory() const;
@@ -110,6 +117,8 @@ public:
 	virtual bool IsUserProcess() const;
 	virtual bool IsElevated() const;
 	virtual bool TokenHasChanged() const;
+	virtual bool IsHiddenProcess() const;
+	virtual bool CheckIsRunning() const;
 	//virtual bool IsJobProcess() const;
 	virtual bool IsInJob() const;
 	virtual bool IsImmersiveProcess() const;
@@ -189,6 +198,7 @@ protected:
 	bool InitStaticData(quint64 ProcessId);
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo);
 	bool InitStaticData(bool bLoadFileName = true); // *NOT Thread Safe* internal function to be called by other InitStaticData's
+	bool IsHandleValid();
 	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
 	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	bool UpdateTokenData(bool MonitorChange);

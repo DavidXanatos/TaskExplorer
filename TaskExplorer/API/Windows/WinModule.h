@@ -103,7 +103,7 @@ class CWinMainModule : public CWinModule
 {
 	Q_OBJECT
 public:
-	CWinMainModule(QObject *parent = nullptr) : CWinModule(-1, false, parent) {}
+	CWinMainModule(QObject *parent = nullptr);
 	virtual ~CWinMainModule() {}
 	
 	virtual quint16 GetImageSubsystem() const 				{ QReadLocker Locker(&m_Mutex); return m_ImageSubsystem; }

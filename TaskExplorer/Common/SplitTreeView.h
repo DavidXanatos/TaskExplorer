@@ -22,6 +22,7 @@ public:
 	QTreeView*			GetView() { return m_pList; }
 	QTreeView*			GetTree() { return m_pTree; }
 
+	void				SetTree(bool bSet);
 	bool				IsTree() const { return m_bTreeEnabled; }
 
 	void				SetTreeWidth(int Width);

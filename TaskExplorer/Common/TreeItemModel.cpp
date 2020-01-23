@@ -1,9 +1,9 @@
 #include "stdafx.h"
 #include "TreeItemModel.h"
 
-
 #define FIRST_COLUMN 0
 
+bool CTreeItemModel::m_DarkMode = false;
 
 CTreeItemModel::CTreeItemModel(QObject *parent)
 : QAbstractItemModelEx(parent)
@@ -392,12 +392,15 @@ QVariant CTreeItemModel::NodeData(STreeNode* pNode, int role, int section) const
 		}
 		case Qt::BackgroundRole:
 		{
-			return pNode->Color.isValid() ? pNode->Color : QVariant();
+			if(!m_DarkMode)
+				return pNode->Color.isValid() ? pNode->Color : QVariant();
 			break;
 		}
 		case Qt::ForegroundRole:
 		{
-			if (pNode->IsGray)
+			if(m_DarkMode)
+				return pNode->Color.isValid() ? pNode->Color : QVariant();
+			else if (pNode->IsGray)
 			{
 				QColor Color = Qt::darkGray;
 				return QBrush(Color);

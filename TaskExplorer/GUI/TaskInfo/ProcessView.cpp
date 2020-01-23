@@ -38,7 +38,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pStackedWidget->setLayout(m_pStackedLayout);
 	//m_pInfoLayout->addWidget(m_pStackedWidget);
 	m_pMainLayout->addWidget(m_pStackedWidget);
-	m_pStackedWidget->setMaximumHeight(120 * theGUI->GetDpiScale());
+	m_pStackedWidget->setMaximumHeight(120);
 
 	m_pOneProcWidget = new QWidget();
 	m_pOneProcLayout = new QVBoxLayout();
@@ -122,7 +122,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pDesktop->setReadOnly(true);
 	m_pProcessLayout->addWidget(m_pDesktop, row, 1, 1, 1);
 	m_pDPIAware = new QLabel();
-	m_pDPIAware->setMinimumWidth(100 * theGUI->GetDpiScale());
+	m_pDPIAware->setMinimumWidth(100);
 	m_pProcessLayout->addWidget(m_pDPIAware, row++, 2);
 #else
 	m_pProcessLayout->addWidget(new QLabel(tr("User name:")), row, 0);
@@ -147,7 +147,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pPEBAddress->setReadOnly(true);
 	m_pProcessLayout->addWidget(m_pPEBAddress, row, 1, 1, 1);
 	m_ImageType = new QLabel(tr("Image type:"));
-	m_ImageType->setMinimumWidth(100 * theGUI->GetDpiScale());
+	m_ImageType->setMinimumWidth(100);
 	m_pProcessLayout->addWidget(m_ImageType, row++, 2);
 #endif
 
@@ -191,8 +191,8 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pMitigation->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pMitigation->GetView()->setSortingEnabled(false);
 
-	//m_pMitigation->setMinimumHeight(100 * theGUI->GetDpiScale());
-	//m_pMitigation->GetTree()->setAutoFitMax(200 * theGUI->GetDpiScale());
+	//m_pMitigation->setMinimumHeight(100);
+	//m_pMitigation->GetTree()->setAutoFitMax(200);
 
 	m_pSecurityLayout->addWidget(m_pMitigation, row++, 0, 1, 3);
 
@@ -254,7 +254,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pProcessList = new QTreeViewEx();
 	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pProcessList->setMinimumHeight(50 * theGUI->GetDpiScale());
+	m_pProcessList->setMinimumHeight(50);
 
 	m_pProcessList->setModel(m_pSortProxy);
 

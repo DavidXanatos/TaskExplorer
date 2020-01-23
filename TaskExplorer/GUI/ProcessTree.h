@@ -23,6 +23,7 @@ signals:
 
 public slots:
 	void					OnExpandAll();
+	void					SetTree(bool bSet);
 
 private slots:
 	void					OnTreeEnabled(bool bEnabled);

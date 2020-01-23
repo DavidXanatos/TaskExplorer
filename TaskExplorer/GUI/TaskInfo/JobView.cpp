@@ -53,7 +53,7 @@ CJobView::CJobView(QWidget *parent)
 
 	m_pProcessList = new QTreeViewEx();
 	m_pProcessList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pProcessList->setMinimumHeight(50 * theGUI->GetDpiScale());
+	m_pProcessList->setMinimumHeight(50);
 
 	m_pProcessList->setModel(m_pSortProxy);
 

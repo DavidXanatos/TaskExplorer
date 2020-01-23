@@ -57,9 +57,8 @@ struct SWinProcess
 
 		Flags = NULL;
 		AsyncFinished = false;
-		OsContextVersion = 0;
-		DepStatus = 0;
-		DpiAwareness = -1;
+
+		ConsoleHostProcessId = NULL;
 
 		//memset(&VmCounters, 0, sizeof(VM_COUNTERS_EX));
 		//memset(&IoCounters, 0, sizeof(IO_COUNTERS));
@@ -68,6 +67,23 @@ struct SWinProcess
 		memset(&QuotaLimits, 0, sizeof(QUOTA_LIMITS));
 		memset(&HandleInfo, 0, sizeof(PROCESS_HANDLE_INFORMATION));
 		memset(&UptimeInfo, 0, sizeof(PROCESS_UPTIME_INFORMATION));
+
+		// Other Fields
+		Protection.Level = 0;
+		ProcessSequenceNumber = -1;
+		JobObjectId = 0;
+		DpiAwareness = -1;
+
+		// Signature, Packed
+		//ImportFunctions;
+		//ImportModules;
+
+		// OS Context
+		memset(&OsContextGuid, 0, sizeof(GUID));
+		OsContextVersion = 0;
+
+		// Misc.
+		DepStatus = 0;
 	}
 
 	
@@ -100,7 +116,7 @@ struct SWinProcess
 			ULONG IsPartiallySuspended : 1;
 			ULONG IsProtectedHandle : 1;
 			ULONG IsProtectedProcess : 1;
-			//ULONG IsProcessDeleting : 1;
+			ULONG IsProcessDeleting : 1;
 			ULONG IsCrossSessionCreate : 1;
 			ULONG IsFrozen : 1;
 			ULONG IsBackground : 1;
@@ -110,7 +126,8 @@ struct SWinProcess
 			ULONG IsControlFlowGuardEnabled : 1;
 			ULONG IsOrWasRunning : 1;
 			ULONG TokenHasChanged : 1;
-			ULONG Spare : 10;
+			ULONG IsHiddenProcess : 1;
+			ULONG Spare : 8;
 		};
 	};
 	bool AsyncFinished;
@@ -254,75 +271,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 	}
 	// PhpFillProcessItem End
 
-	// PhpFillProcessItemExtension is done in UpdateDynamicData which is to be called right after InitStaticData
-
-    // Add service names to the process item.
-	m_ServiceList = ((CWindowsAPI*)theAPI)->GetServicesByPID(m_ProcessId);
-
-	// Note: on the first listing ProcessHacker does this asynchroniusly, on subsequent listings synchroniusly
-
-	// PhpProcessQueryStage1 Begin
-	NTSTATUS status;
-
-    // Command line, .NET
-    if (m->QueryHandle && !m->IsSubsystemProcess)
-    {
-        BOOLEAN isDotNet = FALSE;
-        HANDLE processHandle = NULL;
-        ULONG processQueryFlags = 0;
-
-        if (WindowsVersion >= WINDOWS_8_1)
-        {
-            processHandle = m->QueryHandle;
-            processQueryFlags |= PH_CLR_USE_SECTION_CHECK;
-            status = STATUS_SUCCESS;
-        }
-        else
-        {
-            status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId);
-        }
-
-        if (NT_SUCCESS(status))
-        {
-            PPH_STRING commandLine;
-
-            if (NT_SUCCESS(PhGetProcessCommandLine(processHandle, &commandLine)))
-            {
-                // Some command lines (e.g. from taskeng.exe) have nulls in them. Since Windows
-                // can't display them, we'll replace them with spaces.
-                for (ULONG i = 0; i < (ULONG)commandLine->Length / sizeof(WCHAR); i++)
-                {
-                    if (commandLine->Buffer[i] == UNICODE_NULL)
-                        commandLine->Buffer[i] = ' ';
-                }
-
-                m_CommandLine = CastPhString(commandLine);
-            }
-        }
-
-        if (NT_SUCCESS(status))
-        {
-            PhGetProcessIsDotNetEx(m->UniqueProcessId, processHandle,
-#ifdef _WIN64
-                processQueryFlags | PH_CLR_NO_WOW64_CHECK | (m->IsWow64 ? PH_CLR_KNOWN_IS_WOW64 : 0),
-#else
-                processQueryFlags,
-#endif
-                &isDotNet, NULL);
-            m->IsDotNet = isDotNet;
-        }
-
-        if (!(processQueryFlags & PH_CLR_USE_SECTION_CHECK) && processHandle)
-            NtClose(processHandle);
-    }
-
-    // Job
-    // Note: this is done during dynamic update
-
-    // Console host process
-    if (m->QueryHandle)
-        PhGetProcessConsoleHostProcessId(m->QueryHandle, &m->ConsoleHostProcessId);
-
+	// UWP
 	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
 	{
 		// Immersive
@@ -435,6 +384,200 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 
 		m->DpiAwareness = GetProcessDpiAwareness(m->QueryHandle);
 	}
+	//
+
+	return true;
+}
+
+bool CWinProcess::InitStaticData(bool bLoadFileName)
+{
+	// Open a handle to the Process for later usage.
+	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
+	{
+		if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_INFORMATION, m->UniqueProcessId)))
+		{
+			m->IsHandleValid = TRUE;
+		}
+
+		if (!m->QueryHandle)
+		{
+			PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId);
+		}
+
+		if (!m->QueryHandle)
+			qDebug() << "failed to open QueryHandle for" << m_ProcessId;
+	}
+
+	// Process flags
+	if (m->QueryHandle)
+	{
+		PROCESS_EXTENDED_BASIC_INFORMATION basicInfo;
+
+		if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(m->QueryHandle, &basicInfo)))
+		{
+			m->IsProtectedProcess = basicInfo.IsProtectedProcess;
+			m->IsProcessDeleting = basicInfo.IsProcessDeleting;
+			m->IsCrossSessionCreate = basicInfo.IsCrossSessionCreate;
+			m->IsFrozen = basicInfo.IsFrozen;
+			m->IsBackground = basicInfo.IsBackground;
+			m->IsStronglyNamed = basicInfo.IsStronglyNamed;
+			m->IsSecureProcess = basicInfo.IsSecureProcess;
+			m->IsSubsystemProcess = basicInfo.IsSubsystemProcess;
+			m->IsWow64 = basicInfo.IsWow64Process;
+			m->IsWow64Valid = TRUE;
+		}
+	}
+
+	// Process information
+
+	// If we're dealing with System (PID 4), we need to get the
+	// kernel file name. Otherwise, get the Module file name. (wj32)
+	if (m->UniqueProcessId == SYSTEM_PROCESS_ID)
+	{
+		PPH_STRING fileName = PhGetKernelFileName();
+		if (fileName)
+		{
+			m_FileName = CastPhString(PhGetFileName(fileName));
+			PhDereferenceObject(fileName);
+		}
+	}
+	else if (bLoadFileName)
+	{
+		NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+		PPH_STRING fileName;
+		if (m->QueryHandle && !m->IsSubsystemProcess)
+		{
+			status = PhGetProcessImageFileNameWin32(m->QueryHandle, &fileName);
+		}
+
+		if (!NT_SUCCESS(status))
+		{
+			status = PhGetProcessImageFileNameByProcessId(m->UniqueProcessId, &fileName);
+		}
+
+		if (NT_SUCCESS(status))
+		{
+			m_FileName = CastPhString(PhGetFileName(fileName));
+			PhDereferenceObject(fileName);
+		}
+	}
+
+	// Token information
+	if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == SYSTEM_PROCESS_ID)
+	{
+		m_pToken = CWinTokenPtr(CWinToken::NewSystemToken()); // System token can't be opened (dmex)
+	}
+	// Note: See comment in UpdateDynamicData
+	else if (m->QueryHandle)
+	{
+		m_pToken = CWinTokenPtr(CWinToken::TokenFromProcess(m->QueryHandle));
+
+		//m->IsElevated = m_pToken->IsElevated(); // (m_pToken->GetElevationType() == TokenElevationTypeFull);
+	}
+
+	// Protection
+	if (m->QueryHandle)
+	{
+		if (WindowsVersion >= WINDOWS_8_1)
+		{
+			// Note for WINDOWS_8_1 and above this is updated dynamically
+		}
+		else
+		{
+			// HACK: 'emulate' the PS_PROTECTION info for older OSes. (ge0rdi)
+			if (m->IsProtectedProcess)
+				m->Protection.Type = PsProtectedTypeProtected;
+		}
+	}
+	else
+	{
+		// Signalize that we weren't able to get protection info with a special value.
+		// Note: We use this value to determine if we should show protection information. (ge0rdi)
+		m->Protection.Level = UCHAR_MAX;
+	}
+
+	// Control Flow Guard
+	if (WindowsVersion >= WINDOWS_8_1 && m->QueryHandle)
+	{
+		BOOLEAN cfguardEnabled;
+
+		if (NT_SUCCESS(PhGetProcessIsCFGuardEnabled(m->QueryHandle, &cfguardEnabled)))
+		{
+			m->IsControlFlowGuardEnabled = cfguardEnabled;
+		}
+	}
+
+	// PhpFillProcessItemExtension is done in UpdateDynamicData which is to be called right after InitStaticData
+
+    // Add service names to the process item.
+	m_ServiceList = ((CWindowsAPI*)theAPI)->GetServicesByPID(m_ProcessId);
+
+	// Note: on the first listing ProcessHacker does this asynchroniusly, on subsequent listings synchroniusly
+
+	// PhpProcessQueryStage1 Begin
+	NTSTATUS status;
+
+    // Command line, .NET
+    if (m->QueryHandle && !m->IsSubsystemProcess)
+    {
+        BOOLEAN isDotNet = FALSE;
+        HANDLE processHandle = NULL;
+        ULONG processQueryFlags = 0;
+
+        if (WindowsVersion >= WINDOWS_8_1)
+        {
+            processHandle = m->QueryHandle;
+            processQueryFlags |= PH_CLR_USE_SECTION_CHECK;
+            status = STATUS_SUCCESS;
+        }
+        else
+        {
+            status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId);
+        }
+
+        if (NT_SUCCESS(status))
+        {
+            PPH_STRING commandLine;
+
+            if (NT_SUCCESS(PhGetProcessCommandLine(processHandle, &commandLine)))
+            {
+                // Some command lines (e.g. from taskeng.exe) have nulls in them. Since Windows
+                // can't display them, we'll replace them with spaces.
+                for (ULONG i = 0; i < (ULONG)commandLine->Length / sizeof(WCHAR); i++)
+                {
+                    if (commandLine->Buffer[i] == UNICODE_NULL)
+                        commandLine->Buffer[i] = ' ';
+                }
+
+                m_CommandLine = CastPhString(commandLine);
+            }
+        }
+
+        if (NT_SUCCESS(status))
+        {
+            PhGetProcessIsDotNetEx(m->UniqueProcessId, processHandle,
+#ifdef _WIN64
+                processQueryFlags | PH_CLR_NO_WOW64_CHECK | (m->IsWow64 ? PH_CLR_KNOWN_IS_WOW64 : 0),
+#else
+                processQueryFlags,
+#endif
+                &isDotNet, NULL);
+            m->IsDotNet = isDotNet;
+        }
+
+        if (!(processQueryFlags & PH_CLR_USE_SECTION_CHECK) && processHandle)
+            NtClose(processHandle);
+    }
+
+    // Job
+    // Note: this is done during dynamic update
+
+    // Console host process
+    if (m->QueryHandle)
+        PhGetProcessConsoleHostProcessId(m->QueryHandle, &m->ConsoleHostProcessId);
+
+	// UWP...
 
     if (m->QueryHandle && m->IsHandleValid)
     {
@@ -486,133 +629,38 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 	if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == DPCS_PROCESS_ID || m->UniqueProcessId == INTERRUPTS_PROCESS_ID)
 		return true;
 
+	if (!m_FileName.isEmpty() || IsHandleValid()) // Without the process still being running or a valid path this is pointless...
+	{
+		CWinMainModule* pModule = new CWinMainModule();
+		m_pModuleInfo = CModulePtr(pModule);
+		connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
+		pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
+		pModule->InitAsyncData(m->PackageFullName);
+	}
 
-	CWinMainModule* pModule = new CWinMainModule();
-	m_pModuleInfo = CModulePtr(pModule);
-	connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
-	pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
-	pModule->InitAsyncData(m->PackageFullName);
-
-	return true;
+	return IsHandleValid();
 }
 
-bool CWinProcess::InitStaticData(bool bLoadFileName)
+void CWinProcess::SetFileName(const QString& FileName)
+{ 
+	QWriteLocker Locker(&m_Mutex); 
+	m_FileName = FileName; 
+
+	if (m_pModuleInfo.isNull())
+	{
+		CWinMainModule* pModule = new CWinMainModule();
+		m_pModuleInfo = CModulePtr(pModule);
+		connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
+		pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
+		pModule->InitAsyncData(m->PackageFullName);
+	}
+}
+
+bool CWinProcess::IsHandleValid()
 {
-	// Open a handle to the Process for later usage.
-	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
-	{
-		if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_INFORMATION, m->UniqueProcessId)))
-		{
-			m->IsHandleValid = TRUE;
-		}
-		
-		if(!m->QueryHandle)
-		{
-			PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId);
-		}
-	}
-
-	// Process flags
-	if (m->QueryHandle)
-	{
-		PROCESS_EXTENDED_BASIC_INFORMATION basicInfo;
-
-		if (NT_SUCCESS(PhGetProcessExtendedBasicInformation(m->QueryHandle, &basicInfo)))
-		{
-			m->IsProtectedProcess = basicInfo.IsProtectedProcess;
-			//m->IsProcessDeleting = basicInfo.IsProcessDeleting;
-			m->IsCrossSessionCreate = basicInfo.IsCrossSessionCreate;
-			m->IsFrozen = basicInfo.IsFrozen;
-			m->IsBackground = basicInfo.IsBackground;
-			m->IsStronglyNamed = basicInfo.IsStronglyNamed;
-			m->IsSecureProcess = basicInfo.IsSecureProcess;
-			m->IsSubsystemProcess = basicInfo.IsSubsystemProcess;
-			m->IsWow64 = basicInfo.IsWow64Process;
-			m->IsWow64Valid = TRUE;
-		}
-	}
-
-	// Process information
-	
-	// If we're dealing with System (PID 4), we need to get the
-	// kernel file name. Otherwise, get the Module file name. (wj32)
-	if (m->UniqueProcessId == SYSTEM_PROCESS_ID)
-	{
-		PPH_STRING fileName = PhGetKernelFileName();
-		if (fileName)
-		{
-			m_FileName = CastPhString(PhGetFileName(fileName));
-			PhDereferenceObject(fileName);
-		}
-	}
-	else if(bLoadFileName)
-	{
-		NTSTATUS status = STATUS_UNSUCCESSFUL;
-
-		PPH_STRING fileName;
-		if (m->QueryHandle && !m->IsSubsystemProcess)
-		{
-			status = PhGetProcessImageFileNameWin32(m->QueryHandle, &fileName);
-		}
-
-		if (!NT_SUCCESS(status))
-		{
-			status = PhGetProcessImageFileNameByProcessId(m->UniqueProcessId, &fileName);
-		}
-
-		if (NT_SUCCESS(status))
-		{
-			m_FileName = CastPhString(PhGetFileName(fileName));
-			PhDereferenceObject(fileName);
-		}
-	}
-
-	// Token information
 	if (m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == SYSTEM_PROCESS_ID) 
-	{
-		m_pToken = CWinTokenPtr(CWinToken::NewSystemToken()); // System token can't be opened (dmex)
-	}
-	// Note: See comment in UpdateDynamicData
-	else if (m->QueryHandle) 
-	{
-		m_pToken = CWinTokenPtr(CWinToken::TokenFromProcess(m->QueryHandle));
-
-		//m->IsElevated = m_pToken->IsElevated(); // (m_pToken->GetElevationType() == TokenElevationTypeFull);
-	}
-
-	// Protection
-	if (m->QueryHandle)
-	{
-		if (WindowsVersion >= WINDOWS_8_1)
-		{
-			// Note for WINDOWS_8_1 and above this is updated dynamically
-		}
-		else
-		{
-			// HACK: 'emulate' the PS_PROTECTION info for older OSes. (ge0rdi)
-			if (m->IsProtectedProcess)
-				m->Protection.Type = PsProtectedTypeProtected;
-		}
-	}
-	else
-	{
-		// Signalize that we weren't able to get protection info with a special value.
-		// Note: We use this value to determine if we should show protection information. (ge0rdi)
-		m->Protection.Level = UCHAR_MAX;
-	}
-
-	// Control Flow Guard
-	if (WindowsVersion >= WINDOWS_8_1 && m->QueryHandle)
-	{
-		BOOLEAN cfguardEnabled;
-
-		if (NT_SUCCESS(PhGetProcessIsCFGuardEnabled(m->QueryHandle, &cfguardEnabled)))
-		{
-			m->IsControlFlowGuardEnabled = cfguardEnabled;
-		}
-	}
-
-	return true;
+		return true;
+	return m->QueryHandle != NULL;
 }
 
 void CWinProcess::OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules)
@@ -1604,6 +1652,13 @@ quint64 CWinProcess::GetProcessSequenceNumber() const
 	return m->ProcessSequenceNumber; 
 }
 
+void CWinProcess::SetRawCreateTime(quint64 TimeStamp)
+{
+	QWriteLocker Locker(&m_Mutex); 
+	m->CreateTime.QuadPart = TimeStamp;
+	m_CreateTimeStamp = FILETIME2ms(m->CreateTime.QuadPart);
+}
+
 quint64 CWinProcess::GetRawCreateTime() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -1665,20 +1720,30 @@ bool CWinProcess::ValidateParent(CProcessInfo* pParent) const
 	{
 		// We make sure that the process item we found is actually the parent process - its sequence number
 		// must not be higher than the supplied sequence.
-		if (qobject_cast<CWinProcess*>(pParent)->GetProcessSequenceNumber() <= m->ProcessSequenceNumber)
-			return true;
+		quint64 uParentSN = qobject_cast<CWinProcess*>(pParent)->GetProcessSequenceNumber();
+		if (uParentSN != -1 && m->ProcessSequenceNumber != -1)
+		{
+			if (uParentSN <= m->ProcessSequenceNumber)
+				return true;
+			return false;
+		}
 	}
-	else
-	{
-		// We make sure that the process item we found is actually the parent process - its start time
-		// must not be larger than the supplied time.
-		if (qobject_cast<CWinProcess*>(pParent)->GetRawCreateTime() <= m->CreateTime.QuadPart)
-			return true;
-	}
+	
+	// We make sure that the process item we found is actually the parent process - its start time
+	// must not be larger than the supplied time.
+	quint64 uParentCreationTime = qobject_cast<CWinProcess*>(pParent)->GetRawCreateTime();
+	if (uParentCreationTime <= m->CreateTime.QuadPart)
+		return true;
 	return false;
 }
 
 // Flags
+void  CWinProcess::MarkAsHidden()
+{
+	QWriteLocker Locker(&m_Mutex);
+	m->IsHiddenProcess = true;
+}
+
 bool CWinProcess::IsSubsystemProcess() const
 {
 	QReadLocker Locker(&m_Mutex);
@@ -1889,6 +1954,11 @@ QString CWinProcess::GetStatusString() const
 {
 	QStringList Status;
 
+	if(IsHiddenProcess())
+		Status.append(tr("Hidden (!)"));
+	else if(m_RemoveTimeStamp != 0)
+		Status.append(tr("Terminated"));
+
 	QReadLocker Locker(&m_Mutex); 
 
     if (m_IsCritical)
@@ -2083,6 +2153,24 @@ bool CWinProcess::TokenHasChanged() const
 {
 	QReadLocker Locker(&m_Mutex); 
 	return m->TokenHasChanged;
+}
+
+bool CWinProcess::IsHiddenProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsHiddenProcess;
+}
+
+bool CWinProcess::CheckIsRunning() const
+{
+	QReadLocker Locker(&m_Mutex); 
+
+	PROCESS_EXTENDED_BASIC_INFORMATION basicInfo;
+	if (m->QueryHandle && NT_SUCCESS(PhGetProcessExtendedBasicInformation(m->QueryHandle, &basicInfo)))
+	{
+		return !basicInfo.IsProcessDeleting;
+	}
+	return false;
 }
 
 /*bool CWinProcess::IsJobProcess() const

@@ -10,6 +10,7 @@ public:
 	virtual ~CListItemModel();
 	
 	void			SetUseIcons(bool bUseIcons)		{ m_bUseIcons = bUseIcons; }
+	static void		SetDarkMode(bool bDark)			{ m_DarkMode = bDark;}
 
 	QModelIndex		FindIndex(const QVariant& ID);
 
@@ -69,7 +70,9 @@ protected:
 	QList<SListNode*>			m_List;
 	QHash<void*, int>			m_RevList;
 	QHash<QVariant, SListNode*>	m_Map;
-	bool								m_bUseIcons;
+	bool						m_bUseIcons;
+
+	static bool					m_DarkMode;
 };
 
 class CSimpleListModel : public CListItemModel

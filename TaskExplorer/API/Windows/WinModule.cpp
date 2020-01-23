@@ -553,6 +553,14 @@ STATUS CWinModule::Unload(bool bForce)
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // CWinMainModule 
 
+CWinMainModule::CWinMainModule(QObject *parent) 
+	: CWinModule(-1, false, parent) 
+{
+	m_ImageSubsystem = 0;
+	m_PebBaseAddress = 0;
+	m_PebBaseAddress32 = 0;
+}
+
 bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, bool IsWow64)
 {
 	QWriteLocker Locker(&m_Mutex);

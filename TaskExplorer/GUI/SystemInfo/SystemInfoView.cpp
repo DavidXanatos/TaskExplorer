@@ -54,14 +54,14 @@ void CSystemInfoView::InitializeTabs()
 	m_pDiskView = new CDiskView(this);
 	AddTab(m_pDiskView, tr("Disk/IO"));
 
-	m_pAllFilesView = new CHandlesView(true, this);
-	AddTab(m_pAllFilesView, tr("Open Files"));
+	m_pAllFilesView = new CHandlesView(1, this);
+	AddTab(m_pAllFilesView, tr("Files"));
 
 	m_pNetworkView = new CNetworkView(this);
 	AddTab(m_pNetworkView, tr("Network"));
 
 	m_pAllSocketsView = new CSocketsView(true, this);
-	AddTab(m_pAllSocketsView, tr("Open Sockets"));
+	AddTab(m_pAllSocketsView, tr("Sockets"));
 
 	m_pDnsCacheView = new CDnsCacheView(true, this);
 	AddTab(m_pDnsCacheView, tr("Dns Cache"));

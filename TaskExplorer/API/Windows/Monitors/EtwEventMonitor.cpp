@@ -105,6 +105,37 @@ struct SEtwEventMonitor
 		});
 		kernel_trace.enable(file_provider);*/
 
+		proc_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
+			//qDebug() << "process event";
+			krabs::schema schema(record);
+
+			if (schema.event_id() != 0)
+				return;
+
+			int Type = EventTypeUnknow;
+			switch (schema.event_opcode())
+			{
+				case 1: Type = EtwProcessStarted; break;
+				case 2: Type = EtwProcessStopped; break;
+				default: // we dont care for other event types
+					return;
+			}
+
+			krabs::parser parser(schema);
+
+			quint32 ProcessId = parser.parse<uint32_t>(L"ProcessId");
+			QString CommandLine = QString::fromStdWString(parser.parse<wstring>(L"CommandLine"));
+			QString FileName = QString::fromStdString(parser.parse<string>(L"ImageFileName"));
+			quint32 ParentId = parser.parse<uint32_t>(L"ParentId");
+
+			//qDebug() << FILETIME2time(schema.timestamp().QuadPart) << GetTime();
+
+			emit This->ProcessEvent(Type, ProcessId, CommandLine, FileName, ParentId, schema.timestamp().QuadPart);
+
+		});
+		kernel_trace.enable(proc_provider);
+
+
 		auto net_callback = [](CEtwEventMonitor* This, const EVENT_RECORD &record) {
 			//qDebug() << "net event";
 
@@ -267,6 +298,7 @@ struct SEtwEventMonitor
 
 	krabs::kernel::disk_io_provider disk_provider;
 	//krabs::kernel::file_io_provider file_provider;
+	krabs::kernel::process_provider proc_provider;
 	krabs::kernel::network_tcpip_provider tcp_provider;
 	krabs::kernel::network_udpip_provider udp_provider;
 

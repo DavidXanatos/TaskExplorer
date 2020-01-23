@@ -293,24 +293,28 @@ QModelIndexList CSplitTreeView::selectedRows() const
 	return IndexList;
 }
 
+void CSplitTreeView::SetTree(bool bSet)
+{
+	m_bTreeEnabled = bSet;
+	emit TreeEnabled(m_bTreeEnabled);
+}
+
 void CSplitTreeView::OnTreeCustomSortByColumn(int column)
 {
 	Qt::SortOrder order = m_pTree->header()->sortIndicatorOrder();
 	if (order == Qt::AscendingOrder)
-	{
-		m_bTreeEnabled = !m_bTreeEnabled;
-		emit TreeEnabled(m_bTreeEnabled);
-	}
+		SetTree(!m_bTreeEnabled);
 	m_pList->sortByColumn(column, order);
 	m_pTree->header()->setSortIndicatorShown(true);
 }
 
 void CSplitTreeView::OnListCustomSortByColumn(int column)
 {
-	//Qt::SortOrder order = m_pTree->header()->sortIndicatorOrder();
-	//m_pTree->sortByColumn(column, order);
-	m_bTreeEnabled = false;
-	emit TreeEnabled(m_bTreeEnabled);
+	Qt::SortOrder order = m_pList->header()->sortIndicatorOrder();
+	if (column == 0)
+		SetTree(!m_bTreeEnabled);
+	else if (m_bTreeEnabled)
+		SetTree(false);
 	m_pTree->header()->setSortIndicatorShown(false);
 }
 

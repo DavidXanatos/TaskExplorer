@@ -325,6 +325,11 @@ void CProcessTree::OnExpandAll()
 	m_pProcessList->expandAll();
 }
 
+void CProcessTree::SetTree(bool bSet)
+{
+	m_pProcessList->SetTree(bSet);
+}
+
 void CProcessTree::OnShowProperties()
 {
 	CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(GetSellectedProcesses<CProcessPtr>());

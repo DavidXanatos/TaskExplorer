@@ -67,6 +67,9 @@
         <file alias="Reset">Actions/reset.png</file>
         <file alias="Expand">Actions/expand.png</file>
         <file alias="Driver">Actions/driver.png</file>
+        <file alias="Eye">Actions/eye.png</file>
+        <file alias="Glasses">Actions/glasses.png</file>
+        <file alias="Tree">Actions/tree.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

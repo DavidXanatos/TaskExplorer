@@ -70,9 +70,6 @@
 QString CastPhString(PPH_STRING phString, bool bDeRef = true);
 PPH_STRING CastQString(const QString& qString);
 
-quint64 FILETIME2ms(quint64 fileTime);
-time_t FILETIME2time(quint64 fileTime);
-
 // Missing phlib definitions
 extern "C" {
 	VERIFY_RESULT NTAPI PhVerifyFileCached(_In_ PPH_STRING FileName, _In_opt_ PPH_STRING PackageFullName, _Out_opt_ PPH_STRING *SignerName, _In_ BOOLEAN CachedOnly);
@@ -86,6 +83,3 @@ int InitPH(bool bSvc = false);
 STATUS InitKPH(QString DeviceName, QString FileName, int SecurityLevel);
 
 void PhShowAbout(QWidget* parent);
-
-
-

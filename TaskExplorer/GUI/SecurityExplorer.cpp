@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "SecurityExplorer.h"
 #include "../API/Windows/ProcessHacker.h"
+#include "../API/Windows/WindowsAPI.h"
 #include "../Common/Settings.h"
 #include <wincred.h>
 #include <wincrypt.h>

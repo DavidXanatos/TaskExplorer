@@ -110,9 +110,6 @@
     <ClCompile Include="GUI\TaskInfo\EnvironmentView.cpp">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\TaskInfo\HandlesView.cpp">
-      <Filter>TaskExplorer\TaskInfo</Filter>
-    </ClCompile>
     <ClCompile Include="GUI\TaskInfo\MemoryView.cpp">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
@@ -559,6 +556,12 @@
     </ClCompile>
     <ClCompile Include="API\Windows\Monitors\EtwEventMonitor.cpp">
       <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\HandlesView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WindowsHelpers.cpp">
+      <Filter>API\Windows</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

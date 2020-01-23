@@ -419,6 +419,7 @@
     <ClCompile Include="API\Windows\SymbolProvider.cpp" />
     <ClCompile Include="API\Windows\WinAdmin.cpp" />
     <ClCompile Include="API\Windows\WindowsAPI.cpp" />
+    <ClCompile Include="API\Windows\WindowsHelpers.cpp" />
     <ClCompile Include="API\Windows\WinDriver.cpp" />
     <ClCompile Include="API\Windows\WinDumper.cpp" />
     <ClCompile Include="API\Windows\WinGDI.cpp" />
@@ -528,7 +529,20 @@
     <ClCompile Include="GUI\TaskInfo\DotNetView.cpp" />
     <ClCompile Include="GUI\TaskInfo\EnvironmentView.cpp" />
     <ClCompile Include="GUI\TaskInfo\GDIView.cpp" />
-    <ClCompile Include="GUI\TaskInfo\HandlesView.cpp" />
+    <ClCompile Include="GUI\TaskInfo\HandlesView.cpp">
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">input</DynamicSource>
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">input</DynamicSource>
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">input</DynamicSource>
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Release|x64'">input</DynamicSource>
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Test|Win32'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Test|Win32'">input</DynamicSource>
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Test|x64'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Test|x64'">input</DynamicSource>
+    </ClCompile>
     <ClCompile Include="GUI\TaskInfo\JobView.cpp" />
     <ClCompile Include="GUI\TaskInfo\MemoryView.cpp" />
     <ClCompile Include="GUI\TaskInfo\ModulesView.cpp" />

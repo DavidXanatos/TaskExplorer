@@ -20,7 +20,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 	this->setLayout(m_pMainLayout);
 
 	//m_pFilterWidget = new QWidget();
-	//m_pFilterWidget->setMinimumHeight(32 * theGUI->GetDpiScale());
+	//m_pFilterWidget->setMinimumHeight(32);
 	//m_pMainLayout->addWidget(m_pFilterWidget);
 
 	m_pSplitter = new QSplitter();

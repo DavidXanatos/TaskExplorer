@@ -366,6 +366,8 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 		connect(m_pEventMonitor, SIGNAL(FileEvent(int, quint64, quint64, quint64, const QString&)), this, SLOT(OnFileEvent(int, quint64, quint64, quint64, const QString&)));
 		connect(m_pEventMonitor, SIGNAL(DiskEvent(int, quint64, quint64, quint64, quint32, quint32, quint64)), this, SLOT(OnDiskEvent(int, quint64, quint64, quint64, quint32, quint32, quint64)));
 
+		connect(m_pEventMonitor, SIGNAL(ProcessEvent(int, quint32, QString, QString, quint32, quint64)), this, SLOT(OnProcessEvent(int, quint32, QString, QString, quint32, quint64)));
+
 		if (m_pEventMonitor->Init())
 			return;
 	}
@@ -861,11 +863,13 @@ bool CWindowsAPI::UpdateProcessList()
         }
 	}
 
+	QMap<quint64, CProcessPtr>	Processes = GetProcessList();
+
 	if (EnableCycleCpuUsage)
 	{
 		quint64 sysTotalCycleTimePerCPU = sysTotalCycleTime / m_CpuCount;
 
-		foreach(const CProcessPtr& pProcess, GetProcessList())
+		foreach(const CProcessPtr& pProcess, Processes)
 		{
 			if (pProcess->IsMarkedForRemoval())
 				continue;
@@ -876,19 +880,33 @@ bool CWindowsAPI::UpdateProcessList()
 		UpdateCPUCycles(sysTotalCycleTime, sysIdleCycleTime);
 	}
 
+	// parent retention
+	QMap<quint64, int> ChildCount;
+	if (theConf->GetBool("Options/EnableParrentRetention", true))
+	{
+		foreach(const CProcessPtr& pProcess, Processes) {
+			CProcessPtr pParent = Processes.value(pProcess->GetParentId());
+			if (!pParent.isNull() && pProcess->ValidateParent(pParent.data()))
+				ChildCount[pProcess->GetParentId()]++;
+		}
+	}
+
 	// purle all processes left as thay are not longer running
 
 	QWriteLocker Locker(&m_ProcessMutex);
 	foreach(quint64 ProcessID, OldProcesses.keys())
 	{
 		QSharedPointer<CWinProcess> pProcess = m_ProcessList.value(ProcessID).staticCast<CWinProcess>();
-		if (pProcess->CanBeRemoved())
+		if (pProcess->CanBeRemoved() && !ChildCount.contains(ProcessID))
 		{
 			m_ProcessList.remove(ProcessID);
 			Removed.insert(ProcessID);
 		}
 		else if (!pProcess->IsMarkedForRemoval())
 		{
+			if (pProcess->IsHiddenProcess() && pProcess->CheckIsRunning())
+				continue;
+
 			pProcess->MarkForRemoval();
 			pProcess->UnInit();
 			Changed.insert(ProcessID);
@@ -931,6 +949,69 @@ bool CWindowsAPI::UpdateProcessList()
 	}
 
 	return true;
+}
+
+int CWindowsAPI::FindHiddenProcesses()
+{
+	int count = 0;
+
+	PVOID processes; // get the most up do date list
+	if (!NT_SUCCESS(PhEnumProcesses(&processes)))
+		return count; 
+
+	HANDLE processHandle = NULL;
+	for (;;)
+	{
+		HANDLE enumProcessHandle;
+		if (!NT_SUCCESS(NtGetNextProcess(processHandle, PROCESS_QUERY_LIMITED_INFORMATION, 0, 0, &enumProcessHandle)))
+			break;
+		if(processHandle != NULL)
+			NtClose(processHandle);
+		processHandle = enumProcessHandle;
+
+		PROCESS_EXTENDED_BASIC_INFORMATION basicInfo;
+		if (!NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInfo)))
+			continue; // wa cant do anythign with this one
+		
+		if (PhFindProcessInformation(processes, basicInfo.BasicInfo.UniqueProcessId))
+			continue; // already known
+			
+		QSharedPointer<CWinProcess> pProcess = GetProcessByID((quint64)basicInfo.BasicInfo.UniqueProcessId, true).staticCast<CWinProcess>();
+		if (!pProcess)
+			continue; // should not happen but in case
+		
+		if (!basicInfo.IsProcessDeleting) {
+			pProcess->MarkAsHidden();
+			count++;
+		}
+
+		if (!pProcess->IsFullyInitialized())
+		{
+			pProcess->SetParentId((quint64)basicInfo.BasicInfo.InheritedFromUniqueProcessId);
+
+			KERNEL_USER_TIMES times;
+			if (NT_SUCCESS(PhGetProcessTimes(processHandle, &times)))
+				pProcess->SetRawCreateTime(times.CreateTime.QuadPart);
+
+			if (!pProcess->IsHandleValid())
+			{
+				PPH_STRING fileName;
+				if (NT_SUCCESS(PhGetProcessImageFileName(processHandle, &fileName)))
+				{
+					QString FileName = CastPhString(fileName);
+					int pos = FileName.lastIndexOf("\\");
+					pProcess->SetName(FileName.mid(pos + 1));
+					pProcess->SetFileName(FileName);
+				}
+			}
+		}
+	}
+	if(processHandle != NULL)
+		NtClose(processHandle);
+
+    PhFree(processes);
+
+	return count;
 }
 
 bool CWindowsAPI::UpdateThreads(CWinProcess* pProcess)
@@ -1340,6 +1421,35 @@ void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 
 }
 
+void CWindowsAPI::OnProcessEvent(int Type, quint32 ProcessId, QString CommandLine, QString FileName, quint32 ParentId, quint64 TimeStamp)
+{
+	if (Type != EtwProcessStarted)
+		return;
+
+	QSharedPointer<CWinProcess> pProcess = GetProcessByID(ProcessId, true).staticCast<CWinProcess>();
+	if (pProcess)
+	{
+		// Note: the etw mechanism is a bit slow so the process may be terminates already 
+		//			so try at list to fill in what little we know from the event metadata.
+		if (!pProcess->IsFullyInitialized())
+		{
+			pProcess->SetParentId(ParentId);
+			pProcess->SetRawCreateTime(TimeStamp);
+
+			if (!pProcess->IsHandleValid()) // check if we failed to pen the process (as it already terminated)
+			{
+				pProcess->SetName(FileName);
+				
+				QString FilePath = GetPathFromCmd(CommandLine, ProcessId, FileName, ParentId);
+				if (!FilePath.isEmpty())
+					pProcess->SetFileName(FilePath);
+			}
+		}
+
+		if(pProcess->GetCommandLineStr().isEmpty())
+			pProcess->SetCommandLineStr(CommandLine);
+	}
+}
 
 bool CWindowsAPI::UpdateOpenFileList()
 {
@@ -1966,4 +2076,19 @@ bool CWindowsAPI::InitCpuCount()
 
 	return m_CoreCount > 0 && m_CpuCount > 0;
 }
+
+// MSDN: FILETIME Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
+
+quint64 FILETIME2ms(quint64 fileTime)
+{
+	if (fileTime < 116444736000000000ULL)
+		return 0;
+	return (fileTime - 116444736000000000ULL) / 10000ULL;
+}
+
+time_t FILETIME2time(quint64 fileTime)
+{
+	return FILETIME2ms(fileTime) / 1000ULL;
+}
+
 

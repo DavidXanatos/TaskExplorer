@@ -29,7 +29,6 @@ extern "C" {
 #include <kphuserp.h>
 }
 
-
 QString CastPhString(PPH_STRING phString, bool bDeRef)
 {
 	QString qString;
@@ -48,20 +47,6 @@ PPH_STRING CastQString(const QString& qString)
 	UNICODE_STRING ustr;
 	RtlInitUnicodeString(&ustr, (wchar_t*)wstr.c_str());
 	return PhCreateStringFromUnicodeString(&ustr);
-}
-
-// MSDN: FILETIME Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
-
-quint64 FILETIME2ms(quint64 fileTime)
-{
-	if (fileTime < 116444736000000000ULL)
-		return 0;
-	return (fileTime - 116444736000000000ULL) / 10000ULL;
-}
-
-time_t FILETIME2time(quint64 fileTime)
-{
-	return FILETIME2ms(fileTime) / 1000ULL;
 }
 
 /*

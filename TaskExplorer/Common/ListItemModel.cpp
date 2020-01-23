@@ -3,6 +3,8 @@
 
 #define FIRST_COLUMN 0
 
+bool CListItemModel::m_DarkMode = false;
+
 CListItemModel::CListItemModel(QObject *parent)
 : QAbstractItemModelEx(parent)
 {
@@ -225,12 +227,15 @@ QVariant CListItemModel::Data(const QModelIndex &index, int role, int section) c
 		}
 		case Qt::BackgroundRole:
 		{
-			return pNode->Color.isValid() ? pNode->Color : QVariant();
+			if(!m_DarkMode)
+				return pNode->Color.isValid() ? pNode->Color : QVariant();
 			break;
 		}
 		case Qt::ForegroundRole:
 		{
-			if (pNode->IsGray)
+			if(m_DarkMode)
+				return pNode->Color.isValid() ? pNode->Color : QVariant();
+			else if (pNode->IsGray)
 			{
 				QColor Color = Qt::darkGray;
 				return QBrush(Color);

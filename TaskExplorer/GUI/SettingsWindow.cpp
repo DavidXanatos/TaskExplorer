@@ -24,6 +24,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkShow32->setChecked(theConf->GetBool("Options/Show32", true));
 
+	ui.chkDarkTheme->setChecked(theConf->GetBool("MainWindow/DarkTheme", false));
+
 	ui.highlightCount->setValue(theConf->GetInt("Options/HighLoadHighlightCount", 5));
 
 	ui.refreshInterval->setValue(theConf->GetInt("Options/RefreshInterval", 1000));
@@ -54,6 +56,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.highlightTime->setValue(theConf->GetUInt64("Options/HighlightTime", 2500));
 	ui.persistenceTime->setValue(theConf->GetUInt64("Options/PersistenceTime", 5000));
 
+	ui.chkParents->setChecked(theConf->GetBool("Options/EnableParrentRetention", true));
 	ui.chkGetRefServices->setChecked(theConf->GetBool("Options/GetServicesRefModule", true));
 	ui.chkTraceDLLs->setChecked(theConf->GetBool("Options/TraceUnloadedModules", false));
 
@@ -173,6 +176,8 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/Show32", ui.chkShow32->isChecked());
 
+	theConf->SetValue("MainWindow/DarkTheme", ui.chkDarkTheme->isChecked());
+
 	theConf->SetValue("Options/HighLoadHighlightCount", ui.highlightCount->value());
 
 	theConf->SetValue("Options/RefreshInterval", ui.refreshInterval->value());
@@ -198,6 +203,7 @@ void CSettingsWindow::apply()
 	theConf->SetValue("Options/HighlightTime", ui.highlightTime->value());
 	theConf->SetValue("Options/PersistenceTime", ui.persistenceTime->value());
 	
+	theConf->SetValue("Options/EnableParrentRetention", ui.chkParents->isChecked());
 	theConf->SetValue("Options/GetServicesRefModule", ui.chkGetRefServices->isChecked());
 	theConf->SetValue("Options/TraceUnloadedModules", ui.chkTraceDLLs->isChecked());
 

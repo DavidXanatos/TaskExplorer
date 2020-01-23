@@ -16,7 +16,7 @@ CStackView::CStackView(QWidget *parent)
 	m_pStackList = new QTreeWidgetEx();
 	m_pStackList->setItemDelegate(theGUI->GetItemDelegate());
 	m_pStackList->setHeaderLabels(tr("#|Symbol|Stack address|Frame address|Control address|Return address|Stack parameters|File info").split("|"));
-	m_pStackList->setMinimumHeight(50 * theGUI->GetDpiScale());
+	m_pStackList->setMinimumHeight(50);
 
 	m_pStackList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pStackList->setSortingEnabled(false);
