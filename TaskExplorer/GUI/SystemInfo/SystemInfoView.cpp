@@ -4,7 +4,9 @@
 
 #include "SystemView.h"
 //#include "DriversView.h"
+#ifdef WIN32
 #include "KernelInfo/KernelView.h"
+#endif
 #include "../TaskInfo/HandlesView.h"
 #include "../TaskInfo/SocketsView.h"
 #include "ServicesView.h"
@@ -72,8 +74,10 @@ void CSystemInfoView::InitializeTabs()
 	//m_pDriversView = new CDriversView(this);
 	//AddTab(m_pDriversView, tr("Drivers"));
 	
+#ifdef WIN32
 	m_pKernelView = new CKernelView(this);
 	AddTab(m_pKernelView, tr("Kernel Objects"));
+#endif
 
 	m_pServicesView = new CServicesView(true, this);
 	AddTab(m_pServicesView, tr("Services"));

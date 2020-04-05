@@ -332,8 +332,8 @@ bool CTaskService::TaskAction(quint64 ProcessId, quint64 ThreadId, const QString
 
 long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data)
 {
-	NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
 #ifdef WIN32
+    NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
 	HANDLE processHandle = NULL;
 	if (Action == "Terminate")
 	{
@@ -395,14 +395,16 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, cons
 	}
 	if(processHandle)
 		NtClose(processHandle);
+    return status;
+#else
+    return 0;
 #endif
-	return status;
 }
 
 long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
 {
-	NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
 #ifdef WIN32
+    NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
 	HANDLE threadHandle = NULL;
 	if (Action == "Terminate")
 	{
@@ -449,8 +451,10 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QSt
 	}
 	if(threadHandle)
 		NtClose(threadHandle);
+    return status;
+#else
+    return 0;
 #endif
-	return status;
 }
 
 bool CTaskService::ServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
@@ -478,8 +482,8 @@ bool CTaskService::ServiceAction(const QString& Name, const QString& Action, con
 
 long CTaskService::ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
 {
-	NTSTATUS status = 0;
 #ifdef WIN32
+    NTSTATUS status = 0;
 	wstring SvcName = Name.toStdWString();
 	SC_HANDLE serviceHandle = NULL;
 	if (Action == "Start")
@@ -534,8 +538,10 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 		status = STATUS_INVALID_PARAMETER;
 	if(serviceHandle)
 		CloseServiceHandle(serviceHandle);
+    return status;
+#else
+    return 0;
 #endif
-	return status;
 }
 
 QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Command, int timeout)

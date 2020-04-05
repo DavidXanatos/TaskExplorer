@@ -43,9 +43,7 @@ public:
 		ePlotGrid,
 
 		eAdded,
-#ifdef WIN32
 		eDangerous,
-#endif
 		eToBeRemoved,
 		eSystem,
 		eUser,

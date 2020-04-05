@@ -9,7 +9,7 @@
 #include "MiscStats.h"
 #include "MemoryInfo.h"
 #include "SocketInfo.h"
-#include "DnsEntry.h"
+#include "DNSEntry.h"
 
 #ifdef WIN32
 #undef GetUserName

@@ -188,7 +188,9 @@ void CProcessTree::OnColumnsChanged()
 	theConf->SetValue("Options/MonitorTokenChange", 
 		m_pProcessModel->IsColumnEnabled(CProcessModel::eElevation)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVirtualized)
+#ifdef WIN32
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eIntegrity)
+#endif
 	);
 
 	QuickRefresh();

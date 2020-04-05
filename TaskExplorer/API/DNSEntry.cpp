@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "DnsEntry.h"
+#include "DNSEntry.h"
 
 CDnsLogEntry::CDnsLogEntry(const QString& HostName, const QList<QHostAddress>& Addresses)
 {

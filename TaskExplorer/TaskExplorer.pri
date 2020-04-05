@@ -15,6 +15,7 @@ HEADERS += ./stdafx.h \
     ./GUI/AffinityDialog.h \
     ./GUI/MemoryEditor.h \
     ./GUI/SettingsWindow.h \
+    ./GUI/MultiErrorDialog.h \
     ./GUI/RunAsDialog.h \
     ./GUI/TaskInfo/EnvironmentView.h \
     ./GUI/TaskInfo/HandlesView.h \
@@ -27,11 +28,17 @@ HEADERS += ./stdafx.h \
     ./GUI/TaskInfo/WindowsView.h \
     ./GUI/TaskInfo/StackView.h \
     ./GUI/TaskInfo/TaskInfoWindow.h \
-    ./GUI/SystemInfo/DriversView.h \
     ./GUI/SystemInfo/ServicesView.h \
     ./GUI/SystemInfo/SystemInfoView.h \
     ./GUI/SystemInfo/SystemView.h \
     ./GUI/SystemInfo/ServiceListWidget.h \
+    ./GUI/SystemInfo/SystemInfoWindow.h \
+    ./GUI/SystemInfo/CPUView.h \
+    ./GUI/SystemInfo/DiskView.h \
+    ./GUI/SystemInfo/GPUView.h \
+    ./GUI/SystemInfo/NetworkView.h \
+    ./GUI/SystemInfo/RAMView.h \
+    ./GUI/SystemInfo/DnsCacheView.h \
     ./GUI/Models/ProcessModel.h \
     ./GUI/Models/SocketModel.h \
     ./GUI/Models/HandleModel.h \
@@ -42,6 +49,7 @@ HEADERS += ./stdafx.h \
     ./GUI/Models/DriverModel.h \
     ./GUI/Models/MemoryModel.h \
     ./GUI/Models/StringModel.h \
+    ./GUI/Models/DnsModel.h \
     ./GUI/Search/HandleSearch.h \
     ./GUI/Search/ModuleSearch.h \
     ./GUI/Search/MemorySearch.h \
@@ -58,17 +66,22 @@ HEADERS += ./stdafx.h \
     ./API/ModuleInfo.h \
     ./API/AbstractTask.h \
     ./API/DriverInfo.h \
+    ./API/DnsEntry.h \
     ./API/AbstractInfo.h \
     ./API/MemDumper.h \
     ./API/MemoryInfo.h \
     ./API/StringInfo.h \
     ./API/WndInfo.h \
     ./API/Finders/AbstractFinder.h \
+    ./API/Monitors/DiskMonitor.h \
+    ./API/Monitors/GpuMonitor.h \
+    ./API/Monitors/NetMonitor.h \
     ./API/Linux/LinuxAPI.h \
     ./Common/Common.h \
     ./Common/DebugHelpers.h \
     ./Common/ExitDialog.h \
     ./Common/FlexError.h \
+    ./Common/FlowLayout.h \
     ./Common/HistoryGraph.h \
     ./Common/qzlib.h \
     ./Common/TreeWidgetEx.h \
@@ -88,6 +101,7 @@ HEADERS += ./stdafx.h \
     ./Common/MultiLineInputDialog.h \
     ./Common/ProgressDialog.h \
     ./Common/ItemChooser.h \
+    ./Common/SmartGridWidget.h \
     ./Common/SortFilterProxyModel.h \
     ./SVC/TaskService.h
     
@@ -96,6 +110,7 @@ SOURCES += ./main.cpp \
     ./GUI/AffinityDialog.cpp \
     ./GUI/GraphBar.cpp \
     ./GUI/MemoryEditor.cpp \
+    ./GUI/MultiErrorDialog.cpp \
     ./GUI/NewService.cpp \
     ./GUI/SettingsWindow.cpp \
     ./GUI/ProcessPicker.cpp \
@@ -115,11 +130,18 @@ SOURCES += ./main.cpp \
     ./GUI/TaskInfo/ProcessView.cpp \
     ./GUI/TaskInfo/ThreadsView.cpp \
     ./GUI/TaskInfo/WindowsView.cpp \
-    ./GUI/SystemInfo/DriversView.cpp \
+    ./GUI/SystemInfo/CPUView.cpp \
+    ./GUI/SystemInfo/DiskView.cpp \
+    ./GUI/SystemInfo/DnsCacheView.cpp \
+    ./GUI/SystemInfo/GPUView.cpp \
+    ./GUI/SystemInfo/NetworkView.cpp \
+    ./GUI/SystemInfo/RAMView.cpp \
     ./GUI/SystemInfo/ServiceListWidget.cpp \
     ./GUI/SystemInfo/ServicesView.cpp \
     ./GUI/SystemInfo/SystemInfoView.cpp \
+    ./GUI/SystemInfo/SystemInfoWindow.cpp \
     ./GUI/SystemInfo/SystemView.cpp \
+    ./GUI/Models/DnsModel.cpp \
     ./GUI/Models/DriverModel.cpp \
     ./GUI/Models/HandleModel.cpp \
     ./GUI/Models/MemoryModel.cpp \
@@ -138,6 +160,7 @@ SOURCES += ./main.cpp \
     ./API/AbstractTask.cpp \
     ./API/DriverInfo.cpp \
     ./API/HandleInfo.cpp \
+    ./API/DnsEntry.cpp \
     ./API/MemDumper.cpp \
     ./API/MemoryInfo.cpp \
     ./API/ModuleInfo.cpp \
@@ -150,17 +173,22 @@ SOURCES += ./main.cpp \
     ./API/ThreadInfo.cpp \
     ./API/WndInfo.cpp \
     ./API/Finders/AbstractFinder.cpp \
+    ./API/Monitors/DiskMonitor.cpp \
+    ./API/Monitors/GpuMonitor.cpp \
+    ./API/Monitors/NetMonitor.cpp \
     ./API/Linux/LinuxAPI.cpp \
     ./Common/CheckableMessageBox.cpp \
     ./Common/ComboInputDialog.cpp \
     ./Common/Common.cpp \
     ./Common/DebugHelpers.cpp \
     ./Common/Finder.cpp \
+    ./Common/FlowLayout.cpp \
     ./Common/IncrementalPlot.cpp \
     ./Common/ItemChooser.cpp \
     ./Common/KeyValueInputDialog.cpp \
     ./Common/ListItemModel.cpp \
     ./Common/MultiLineInputDialog.cpp \
+    ./Common/SmartGridWidget.cpp \
     ./Common/PanelView.cpp \
     ./Common/qzlib.cpp \
     ./Common/Settings.cpp \

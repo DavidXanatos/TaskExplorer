@@ -11,7 +11,7 @@
 #include "Monitors/GpuMonitor.h"
 #include "Monitors/NetMonitor.h"
 #include "Monitors/DiskMonitor.h"
-#include "DnsEntry.h"
+#include "DNSEntry.h"
 
 struct SCpuStats
 {

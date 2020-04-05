@@ -109,8 +109,10 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 CServicesView::~CServicesView()
 {
 	theConf->SetBlob(objectName() + "/ServicesView_Columns", m_pServiceList->saveState());
+#ifdef WIN32
 	if (m_pMenuKernelServices)
 		theConf->SetValue(objectName() + "/ShowKernelServices", m_pMenuKernelServices->isChecked());
+#endif
 }
 
 void CServicesView::OnResetColumns()

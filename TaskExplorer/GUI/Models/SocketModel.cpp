@@ -22,7 +22,9 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 	QList<SListNode*> New;
 	QHash<QVariant, SListNode*> Old = m_Map;
 	
+#ifdef WIN32
 	bool IsMonitoringETW = ((CWindowsAPI*)theAPI)->IsMonitoringETW();
+#endif
 	bool bClearZeros = theConf->GetBool("Options/ClearZeros", true);
 
 	foreach (const CSocketPtr& pSocket, SocketList)

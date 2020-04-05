@@ -412,7 +412,11 @@ void CHandlesView::ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 		if (--m_PendingUpdates != 0)
 			return;
 
+#ifdef WIN32
 		int ShowType = g_fileObjectTypeIndex;
+#else
+        int ShowType = 0;
+#endif
 		bool HideUnnamed = true;
 		bool HideETW = true;
 

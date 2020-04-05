@@ -246,7 +246,7 @@ void CIncrementalPlot::RemovePlot(const QString& Name)
 	if(!m_Curves.contains(Name))
 		return;
 
-	SCurve& Curve = m_Curves.take(Name);
+    SCurve Curve = m_Curves.take(Name);
 	
 	delete Curve.pPlot;
 	free(Curve.xData);

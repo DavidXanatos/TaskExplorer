@@ -320,7 +320,9 @@ CProcessView::CProcessView(QWidget *parent)
 		OnResetColumns();
 	else
 		m_pProcessList->restoreState(Columns);
+#ifdef WIN32
 	m_pMitigation->GetTree()->header()->restoreState(theConf->GetBlob(objectName() + "/Mitigation_Columns"));
+#endif
 	m_pTabWidget->setCurrentIndex(theConf->GetValue(objectName() + "/Process_Tabs").toInt());
 }
 
@@ -328,7 +330,9 @@ CProcessView::CProcessView(QWidget *parent)
 CProcessView::~CProcessView()
 {
 	theConf->SetBlob(objectName() + "/Processes_Columns", m_pProcessList->saveState());
+#ifdef WIN32
 	theConf->SetBlob(objectName() + "/Mitigation_Columns", m_pMitigation->GetTree()->header()->saveState());
+#endif
 	theConf->SetValue(objectName() + "/Process_Tabs", m_pTabWidget->currentIndex());
 }
 
@@ -341,8 +345,10 @@ void CProcessView::OnResetColumns()
 	m_pProcessList->SetColumnHidden(CProcessModel::ePID, false);
 	//m_pProcessList->SetColumnHidden(CProcessModel::eCPU, false);
 	m_pProcessList->SetColumnHidden(CProcessModel::eUserName, false);
+#ifdef WIN32
 	m_pProcessList->SetColumnHidden(CProcessModel::eVersion, false);
 	m_pProcessList->SetColumnHidden(CProcessModel::eCompanyName, false);
+#endif
 	m_pProcessList->SetColumnHidden(CProcessModel::eCommandLine, false);
 	//current directory
 	m_pProcessList->SetColumnHidden(CProcessModel::eFileName, false);

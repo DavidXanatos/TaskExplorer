@@ -244,7 +244,11 @@ void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelInde
 
 	if (m_CurStackTraceJob)
 	{
+#ifdef WIN32
 		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->CancelJob(m_CurStackTraceJob);
+#else
+        // todo
+#endif
 		m_CurStackTraceJob = 0;
 	}
 

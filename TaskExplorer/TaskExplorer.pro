@@ -21,8 +21,8 @@ INCLUDEPATH += ./GeneratedFiles \
 LIBS += -L$$OUT_PWD/../x64/Debug/
 LIBS += \
     -lqwt \
-    -lqtservice\
     -lqhexedit \
+    -lqtservice\
     -lz
     
 CONFIG += precompile_header

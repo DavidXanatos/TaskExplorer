@@ -5,6 +5,8 @@
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WindowsAPI.h"
+#else
+#include "../API/Linux/LinuxAPI.h"
 #endif
 
 

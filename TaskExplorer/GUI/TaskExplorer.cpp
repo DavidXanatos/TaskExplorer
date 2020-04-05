@@ -378,9 +378,11 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addWidget(m_pTreeButton);
 
 	m_pToolBar->addSeparator();
+#ifdef WIN32
 	m_pToolBar->addAction(m_pMenuMonitorETW);
 	m_pToolBar->addAction(m_pMenuMonitorFW);
 	m_pToolBar->addSeparator();
+#endif
 	m_pToolBar->addAction(m_pMenuSystemInfo);
 	m_pToolBar->addSeparator();
 	
@@ -396,6 +398,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addWidget(m_pFindButton);
 	m_pToolBar->addSeparator();
 
+#ifdef WIN32
 	m_pFreeButton = new QToolButton();
 	m_pFreeButton->setIcon(MakeActionIcon(":/Actions/FreeMem"));
 	m_pFreeButton->setToolTip(tr("Free memory"));
@@ -405,7 +408,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	QObject::connect(m_pFreeButton, SIGNAL(pressed()), this, SLOT(OnFreeMemory()));
 	m_pToolBar->addWidget(m_pFreeButton);
 	m_pToolBar->addSeparator();
-	
+#endif
+
 	m_pComputerButton = new QToolButton();
 	m_pComputerButton->setIcon(MakeActionIcon(":/Actions/Shutdown"));
 	m_pComputerButton->setToolTip(tr("Lock, Shutdown/Reboot, etc..."));
@@ -1469,9 +1473,7 @@ QColor CTaskExplorer::GetListColor(int Color)
 	case eToBeRemoved:	ColorStr = theConf->GetString("Colors/ToBeRemoved", "#F08080"); break;
 	case eAdded:		ColorStr = theConf->GetString("Colors/NewlyCreated", "#00FF7F"); break;
 	
-#ifdef WIN32
 	case eDangerous:	ColorStr = theConf->GetString("Colors/DangerousProcess", "#FF0000"); break;
-#endif
 	case eSystem:		ColorStr = theConf->GetString("Colors/SystemProcess", "#AACCFF"); break;
 	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFF80"); break;
 	case eService:		ColorStr = theConf->GetString("Colors/ServiceProcess", "#80FFFF"); break;

@@ -7,7 +7,9 @@ class CHandlesView;
 class CSocketsView;
 class CServicesView;
 //class CDriversView;
+#ifdef WIN32
 class CKernelView;
+#endif
 class CDnsCacheView;
 class CCPUView;
 class CRAMView;
@@ -37,7 +39,9 @@ private:
 	CDnsCacheView*		m_pDnsCacheView;
 	CServicesView*		m_pServicesView;
 	//CDriversView*		m_pDriversView;
+#ifdef WIN32
 	CKernelView*		m_pKernelView;
+#endif
 	CCPUView*			m_pCPUView;
 	CRAMView*			m_pRAMView;
 	CDiskView*			m_pDiskView;

@@ -7,6 +7,8 @@
 #include "../../API/Windows/WinToken.h"
 #include "../../API/Windows/WinModule.h"
 #include "../../API/Windows/WindowsAPI.h"
+#else
+#include "../../API/Linux/LinuxAPI.h"
 #endif
 
 
@@ -117,10 +119,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		//if(Index.isValid()) // this is to slow, be more precise
 		//	emit dataChanged(createIndex(Index.row(), 0, pNode), createIndex(Index.row(), columnCount()-1, pNode));
 		
+        CModulePtr pModule;
 #ifdef WIN32
 		QSharedPointer<CWinProcess> pWinProc = pProcess.staticCast<CWinProcess>();
 		CWinTokenPtr pToken = pWinProc->GetToken();
-		CModulePtr pModule = pProcess->GetModuleInfo();
+        pModule = pProcess->GetModuleInfo();
 		QSharedPointer<CWinModule> pWinModule = pModule.staticCast<CWinModule>();
 #endif
 
@@ -137,6 +140,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				pNode->Icon = Icon;
 			}
 		}
+
 
 		int RowColor = CTaskExplorer::eNone;
 		if (pProcess->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
@@ -484,12 +488,14 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eWrites:
 										ColValue.Formated = FormatNumber(Value.toULongLong()); break;
 
+#ifdef WIN32
 					// since not all programs use GUI resources, make this value clearable
 					case eWND_Handles:
 					case eGDI_Handles:
 					case eUSER_Handles:
 					case eHangCount:
 					case eGhostCount:
+#endif
 
 					case eCyclesDelta:
 					case eContextSwitchesDelta:
@@ -510,9 +516,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #endif
 					case eFileModifiedTime:
 											if (Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
-					case eUpTime:			
+                    case eUpTime:
+#ifdef WIN32
 					case eRunningTime:			
 					case eSuspendedTime:
+#endif
 											ColValue.Formated = (Value.toULongLong() == 0) ? QString() : FormatTime(Value.toULongLong()); break;
 					case eTotalCPU_Time:
 					case eKernelCPU_Time:

@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 
 	theConf = new CSettings("TaskExplorer");
 
+#ifdef Q_OS_WIN
 #ifndef _DEBUG
     // Set the default priority.
     {
@@ -106,7 +107,7 @@ int main(int argc, char *argv[])
 		PhSetProcessIoPriority(NtCurrentProcess(), IoPriorityNormal);
     }
 #endif
-
+#endif // Q_OS_WIN
 
 	QThreadPool::globalInstance()->setMaxThreadCount(theConf->GetInt("Options/MaxThreadPool", 10));
 
