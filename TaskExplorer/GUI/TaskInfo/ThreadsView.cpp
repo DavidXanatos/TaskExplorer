@@ -72,6 +72,8 @@ CThreadsView::CThreadsView(QWidget *parent)
 	//m_pMenu = new QMenu();
 	AddTaskItemsToMenu();
 
+	m_pMenu->addSeparator();
+
 	AddPriorityItemsToMenu(eThread);
 
 #ifdef WIN32
@@ -239,6 +241,12 @@ void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 
 void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
+	if (theConf->GetInt("Options/DbgHelpSearch", 2) == 2) 
+	{
+		bool Ret = QMessageBox("TaskExplorer", tr("Do you want to download debug symbols of the internet?\nYou can change this option later on in the settings."), QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes;
+		theConf->SetValue("Options/DbgHelpSearch", Ret ? 1 : 0);
+	}
+
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
 	m_pCurThread = m_pThreadModel->GetThread(ModelIndex);
 

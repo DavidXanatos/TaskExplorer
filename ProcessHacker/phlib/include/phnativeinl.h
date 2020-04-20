@@ -385,6 +385,51 @@ PhSetProcessPagePriority(
         );
 }
 
+FORCEINLINE
+NTSTATUS
+PhGetProcessPriorityBoost(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PBOOLEAN PriorityBoost
+    )
+{
+    NTSTATUS status;
+    ULONG priorityBoost;
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessPriorityBoost,
+        &priorityBoost,
+        sizeof(ULONG),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *PriorityBoost = !!priorityBoost;
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhSetProcessPriorityBoost(
+    _In_ HANDLE ProcessHandle,
+    _In_ BOOLEAN PriorityBoost
+    )
+{
+    ULONG priorityBoost;
+
+    priorityBoost = PriorityBoost ? 1 : 0;
+
+    return NtSetInformationProcess(
+        ProcessHandle,
+        ProcessPriorityBoost,
+        &priorityBoost,
+        sizeof(ULONG)
+        );
+}
+
 /**
  * Gets a process' cycle count.
  *
@@ -803,6 +848,51 @@ PhSetThreadPagePriority(
         ThreadPagePriority,
         &pagePriorityInfo,
         sizeof(PAGE_PRIORITY_INFORMATION)
+        );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetThreadPriorityBoost(
+    _In_ HANDLE ThreadHandle,
+    _Out_ PBOOLEAN PriorityBoost
+    )
+{
+    NTSTATUS status;
+    ULONG priorityBoost;
+
+    status = NtQueryInformationThread(
+        ThreadHandle,
+        ThreadPriorityBoost,
+        &priorityBoost,
+        sizeof(ULONG),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *PriorityBoost = !!priorityBoost;
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhSetThreadPriorityBoost(
+    _In_ HANDLE ThreadHandle,
+    _In_ BOOLEAN PriorityBoost
+    )
+{
+    ULONG priorityBoost;
+
+    priorityBoost = PriorityBoost ? 1 : 0;
+
+    return NtSetInformationThread(
+        ThreadHandle,
+        ThreadPriorityBoost,
+        &priorityBoost,
+        sizeof(ULONG)
         );
 }
 

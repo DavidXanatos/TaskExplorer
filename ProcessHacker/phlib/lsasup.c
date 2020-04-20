@@ -110,6 +110,7 @@ LSA_HANDLE PhGetLookupPolicyHandle(
  * \param PrivilegeName A variable which receives a pointer to a string containing the privilege
  * name. You must free the string using PhDereferenceObject() when you no longer need it.
  */
+_Success_(return)
 BOOLEAN PhLookupPrivilegeName(
     _In_ PLUID PrivilegeValue,
     _Out_ PPH_STRING *PrivilegeName
@@ -141,6 +142,7 @@ BOOLEAN PhLookupPrivilegeName(
  * privilege's display name. You must free the string using PhDereferenceObject() when you no longer
  * need it.
  */
+_Success_(return)
 BOOLEAN PhLookupPrivilegeDisplayName(
     _In_ PPH_STRINGREF PrivilegeName,
     _Out_ PPH_STRING *PrivilegeDisplayName
@@ -176,6 +178,7 @@ BOOLEAN PhLookupPrivilegeDisplayName(
  * \param PrivilegeName The name of a privilege.
  * \param PrivilegeValue A variable which receives the LUID of the privilege.
  */
+_Success_(return)
 BOOLEAN PhLookupPrivilegeValue(
     _In_ PPH_STRINGREF PrivilegeName,
     _Out_ PLUID PrivilegeValue
@@ -673,7 +676,7 @@ VOID PhInitializeCapabilitySidCache(
         capabilityListFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"capslist.txt");
         PhDereferenceObject(applicationDirectory);
 
-        capabilityListString = PhFileReadAllText(capabilityListFileName->Buffer);
+        capabilityListString = PhFileReadAllText(capabilityListFileName->Buffer, TRUE);
         PhDereferenceObject(capabilityListFileName);      
     }
 
@@ -685,7 +688,7 @@ VOID PhInitializeCapabilitySidCache(
 
     while (remainingPart.Length != 0)
     {
-        PhSplitStringRefAtChar(&remainingPart, '\n', &namePart, &remainingPart);
+        PhSplitStringRefAtChar(&remainingPart, L'\n', &namePart, &remainingPart);
 
         if (namePart.Length != 0)
         {

@@ -169,6 +169,7 @@ INT PhFindListViewItemByParam(
     return ListView_FindItem(ListViewHandle, StartIndex, &findInfo);
 }
 
+_Success_(return)
 BOOLEAN PhGetListViewItemImageIndex(
     _In_ HWND ListViewHandle,
     _In_ INT Index,
@@ -189,6 +190,7 @@ BOOLEAN PhGetListViewItemImageIndex(
     return TRUE;
 }
 
+_Success_(return)
 BOOLEAN PhGetListViewItemParam(
     _In_ HWND ListViewHandle,
     _In_ INT Index,
@@ -588,7 +590,7 @@ VOID PhGetSelectedListViewItemParams(
     )
 {
     PH_ARRAY array;
-    ULONG index;
+    INT index;
     PVOID param;
 
     PhInitializeArray(&array, sizeof(PVOID), 2);
@@ -873,6 +875,7 @@ HICON PhGetFileShellIcon(
 
     iconFlag = LargeIcon ? SHGFI_LARGEICON : SHGFI_SMALLICON;
     icon = NULL;
+    memset(&fileInfo, 0, sizeof(SHFILEINFO));
 
     if (FileName && SHGetFileInfo(
         FileName,
@@ -887,6 +890,8 @@ HICON PhGetFileShellIcon(
 
     if (!icon && DefaultExtension)
     {
+        memset(&fileInfo, 0, sizeof(SHFILEINFO));
+
         if (SHGetFileInfo(
             DefaultExtension,
             FILE_ATTRIBUTE_NORMAL,
@@ -1421,16 +1426,18 @@ VOID PhEnumChildWindows(
     _In_opt_ PVOID Context
     )
 {
-    HWND childWindow = NULL;
-    ULONG i = 0;
+    EnumChildWindows(WindowHandle, (WNDENUMPROC)Callback, (LPARAM)Context);
 
-    while (i < Limit && (childWindow = FindWindowEx(WindowHandle, childWindow, NULL, NULL)))
-    {
-        if (!Callback(childWindow, Context))
-            return;
-
-        i++;
-    }
+    //HWND childWindow = NULL;
+    //ULONG i = 0;
+    //
+    //while (i < Limit && (childWindow = FindWindowEx(WindowHandle, childWindow, NULL, NULL)))
+    //{
+    //    if (!Callback(childWindow, Context))
+    //        return;
+    //
+    //    i++;
+    //}
 }
 
 typedef struct _GET_PROCESS_MAIN_WINDOW_CONTEXT
@@ -1451,6 +1458,8 @@ BOOL CALLBACK PhpGetProcessMainWindowEnumWindowsProc(
     ULONG processId;
     WINDOWINFO windowInfo;
 
+    if (!context)
+        return TRUE;
     if (context->SkipInvisible && !IsWindowVisible(WindowHandle))
         return TRUE;
 

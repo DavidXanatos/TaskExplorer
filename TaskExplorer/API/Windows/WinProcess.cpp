@@ -127,7 +127,8 @@ struct SWinProcess
 			ULONG IsOrWasRunning : 1;
 			ULONG TokenHasChanged : 1;
 			ULONG IsHiddenProcess : 1;
-			ULONG Spare : 8;
+			ULONG IsSandBoxed : 1;
+			ULONG Spare : 7;
 		};
 	};
 	bool AsyncFinished;
@@ -592,7 +593,9 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
     }
 	// PhpProcessQueryStage1 End
 
-	
+	CSandboxieAPI* pSandboxieAPI = ((CWindowsAPI*)theAPI)->GetSandboxieAPI();
+	m->IsSandBoxed = pSandboxieAPI ? pSandboxieAPI->IsSandBoxed(m_ProcessId) : false;
+
 	if (!m->IsSubsystemProcess)
 	{	
 		HANDLE processHandle = NULL;
@@ -630,15 +633,20 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 		return true;
 
 	if (!m_FileName.isEmpty() || IsHandleValid()) // Without the process still being running or a valid path this is pointless...
-	{
-		CWinMainModule* pModule = new CWinMainModule();
-		m_pModuleInfo = CModulePtr(pModule);
-		connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
-		pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
-		pModule->InitAsyncData(m->PackageFullName);
-	}
+		UpdateModuleInfo();
+
+	InitPresets();
 
 	return IsHandleValid();
+}
+
+void CWinProcess::UpdateModuleInfo()
+{
+	CWinMainModule* pModule = new CWinMainModule();
+	m_pModuleInfo = CModulePtr(pModule);
+	connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
+	pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
+	pModule->InitAsyncData(m->PackageFullName);
 }
 
 void CWinProcess::SetFileName(const QString& FileName)
@@ -647,13 +655,7 @@ void CWinProcess::SetFileName(const QString& FileName)
 	m_FileName = FileName; 
 
 	if (m_pModuleInfo.isNull())
-	{
-		CWinMainModule* pModule = new CWinMainModule();
-		m_pModuleInfo = CModulePtr(pModule);
-		connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
-		pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
-		pModule->InitAsyncData(m->PackageFullName);
-	}
+		UpdateModuleInfo();
 }
 
 bool CWinProcess::IsHandleValid()
@@ -731,29 +733,50 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 
 	if (m->QueryHandle)
 	{
+		bool PriorityChanged = false;
+
 		PROCESS_PRIORITY_CLASS PriorityClass;
-		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &PriorityClass)))
+		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &PriorityClass)) && m_Priority != PriorityClass.PriorityClass)
+		{
+			PriorityChanged = true;
 			m_Priority = PriorityClass.PriorityClass;
+		}
 
 		IO_PRIORITY_HINT IoPriority;
-		if (NT_SUCCESS(PhGetProcessIoPriority(m->QueryHandle, &IoPriority)))
+		if (NT_SUCCESS(PhGetProcessIoPriority(m->QueryHandle, &IoPriority)) && m_IOPriority != IoPriority)
+		{
+			PriorityChanged = true;
 			m_IOPriority = IoPriority;
+		}
                 
 		ULONG PagePriority;
-		if (NT_SUCCESS(PhGetProcessPagePriority(m->QueryHandle, &PagePriority)))
+		if (NT_SUCCESS(PhGetProcessPagePriority(m->QueryHandle, &PagePriority)) && m_PagePriority != PagePriority)
+		{
+			PriorityChanged = true;
 			m_PagePriority = PagePriority;
+		}
 
         PROCESS_BASIC_INFORMATION basicInfo;
-		if (NT_SUCCESS(PhGetProcessBasicInformation(m->QueryHandle, &basicInfo)))
+		if (NT_SUCCESS(PhGetProcessBasicInformation(m->QueryHandle, &basicInfo)) && m_AffinityMask != basicInfo.AffinityMask)
+		{
+			PriorityChanged = true;
 			m_AffinityMask = basicInfo.AffinityMask;
+		}
 
-		// todo: modifyed
+		if (PriorityChanged)
+		{
+			modified = TRUE;
+
+			if (!m_PersistentPreset.isNull())
+				QTimer::singleShot(0, this, SLOT(ApplyPresets()));
+		}
 	}
 	else
 	{
 		m_Priority = 0;
 		m_IOPriority = 0;
 		m_PagePriority = 0;
+		m_AffinityMask = 0;
 	}
 
 	m_KernelTime = Process->KernelTime.QuadPart;
@@ -1963,6 +1986,8 @@ QString CWinProcess::GetStatusString() const
 
     if (m_IsCritical)
         Status.append(tr("Critical"));
+	if (m->IsSandBoxed)
+        Status.append(tr("Sandboxed"));
     if (m->IsBeingDebugged)
         Status.append(tr("Debugged"));
     if (m->IsSuspended)
@@ -2182,7 +2207,7 @@ bool CWinProcess::CheckIsRunning() const
 bool CWinProcess::IsInJob() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return m->IsInJob;
+	return m->IsInJob && !m->IsSandBoxed; // Note: sandboxie uses the job mechanism to drop process rights
 }
 
 bool CWinProcess::IsImmersiveProcess() const
@@ -2502,6 +2527,10 @@ STATUS CWinProcess::SetPriority(long Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
+	CPersistentPresetPtr PersistentPreset = m_PersistentPreset;
+	if (!PersistentPreset.isNull())
+		PersistentPreset->SetPriority(Value);
+
 	NTSTATUS status;
     HANDLE processHandle;
     if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
@@ -2525,7 +2554,9 @@ STATUS CWinProcess::SetPriority(long Value)
         NtClose(processHandle);
     }
 
-    if (!NT_SUCCESS(status))
+	if (NT_SUCCESS(status))
+		m_Priority = Value;
+	else
     {
 		if(CTaskService::CheckStatus(status))
 		{
@@ -2541,6 +2572,10 @@ STATUS CWinProcess::SetPriority(long Value)
 STATUS CWinProcess::SetPagePriority(long Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
+
+	CPersistentPresetPtr PersistentPreset = m_PersistentPreset;
+	if (!PersistentPreset.isNull())
+		PersistentPreset->SetPagePriority(Value);
 
 	NTSTATUS status;
     HANDLE processHandle;
@@ -2559,7 +2594,9 @@ STATUS CWinProcess::SetPagePriority(long Value)
         NtClose(processHandle);
     }
 
-    if (!NT_SUCCESS(status))
+    if (NT_SUCCESS(status))
+		m_PagePriority = Value;
+	else
     {
 		if(CTaskService::CheckStatus(status))
 		{
@@ -2575,6 +2612,10 @@ STATUS CWinProcess::SetPagePriority(long Value)
 STATUS CWinProcess::SetIOPriority(long Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
+
+	CPersistentPresetPtr PersistentPreset = m_PersistentPreset;
+	if (!PersistentPreset.isNull())
+		PersistentPreset->SetIOPriority(Value);
 
 	NTSTATUS status;
     HANDLE processHandle;
@@ -2593,7 +2634,9 @@ STATUS CWinProcess::SetIOPriority(long Value)
         NtClose(processHandle);
     }
 
-    if (!NT_SUCCESS(status))
+    if (NT_SUCCESS(status))
+		m_IOPriority = Value;
+	else
     {
 		if(CTaskService::CheckStatus(status))
 		{
@@ -2610,6 +2653,10 @@ STATUS CWinProcess::SetAffinityMask(quint64 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
+	CPersistentPresetPtr PersistentPreset = m_PersistentPreset;
+	if (!PersistentPreset.isNull())
+		PersistentPreset->SetAffinityMask(Value);
+
 	NTSTATUS status;
 	HANDLE processHandle;
     if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
@@ -2618,7 +2665,9 @@ STATUS CWinProcess::SetAffinityMask(quint64 Value)
         NtClose(processHandle);
     }
 
-    if (!NT_SUCCESS(status))
+	if (NT_SUCCESS(status))
+		m_AffinityMask = Value;
+	else
     {
 		if(CTaskService::CheckStatus(status))
 		{
@@ -2807,6 +2856,18 @@ STATUS CWinProcess::ReduceWS()
     }
 
 	return OK;
+}
+
+bool CWinProcess::IsSandBoxed() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsSandBoxed;
+}
+
+QString CWinProcess::GetSandBoxName() const
+{
+	CSandboxieAPI* pSandboxieAPI = ((CWindowsAPI*)theAPI)->GetSandboxieAPI();
+	return pSandboxieAPI ? pSandboxieAPI->GetSandBoxName(GetProcessId()) : QString();
 }
 
 STATUS CWinProcess::LoadModule(const QString& Path)

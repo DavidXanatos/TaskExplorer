@@ -12,6 +12,7 @@
 #include "Monitors/NetMonitor.h"
 #include "Monitors/DiskMonitor.h"
 #include "DNSEntry.h"
+#include "PersistentPreset.h"
 
 struct SCpuStats
 {
@@ -165,6 +166,15 @@ public:
 
 	virtual QMultiMap<QString, CDnsCacheEntryPtr> GetDnsEntryList() const = 0;
 
+	virtual void LoadPersistentPresets();
+	virtual void StorePersistentPresets();
+
+	virtual void SetPersistentPresets(const QList<CPersistentPresetDataPtr>& PersistentPreset);
+	virtual QList<CPersistentPresetDataPtr> GetPersistentPresets() const;
+	virtual CPersistentPresetPtr FindPersistentPreset(const QString& FileName, const QString& CommandLine = QString());
+	virtual bool AddPersistentPreset(const QString& FileName);
+	virtual bool RemovePersistentPreset(const QString& FileName);
+
 public slots:
 	virtual bool UpdateSysStats() = 0;
 	virtual bool UpdateProcessList() = 0;
@@ -173,8 +183,12 @@ public slots:
 	virtual bool UpdateServiceList(bool bRefresh = false) = 0;
 	virtual bool UpdateDriverList() = 0;
 
+	virtual void ClearPersistence() = 0;
+
 	virtual bool UpdateDnsCache() = 0;
 	virtual void FlushDnsCache() = 0;
+
+	virtual void ApplyPersistentPresets();
 
 private slots:
 	virtual bool Init() = 0;
@@ -270,6 +284,9 @@ protected:
 
 	static bool					UpdateOpenFileListAsync(CSystemAPI* This);
 	QFutureWatcher<bool>*		m_FileListUpdateWatcher;
+
+	QMap<QString, CPersistentPresetPtr>	m_PersistentPresets;
+	mutable QReadWriteLock		m_PersistentMutex;
 };
 
 extern CSystemAPI*		theAPI;

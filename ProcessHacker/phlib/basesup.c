@@ -252,7 +252,7 @@ HANDLE PhCreateThread(
         &threadHandle,
         NULL
         );
-    
+
     // NOTE: PhCreateThread previously used CreateThread with callers using GetLastError()
     // for checking errors. We need to preserve this behavior for compatibility -dmex
     // TODO: Migrate code over to PhCreateThreadEx and remove this function.
@@ -425,6 +425,24 @@ VOID PhLocalTimeToSystemTime(
     SystemTime->QuadPart = LocalTime->QuadPart + timeZoneBias.QuadPart;
 }
 
+NTSTATUS PhDelayExecution(
+    _In_ LONGLONG Interval
+    )
+{
+    if (Interval == INFINITE) // HACK (dmex)
+    {
+        return NtDelayExecution(FALSE, NULL);
+    }
+    else
+    {
+        LARGE_INTEGER interval;
+
+        interval.QuadPart = -(LONGLONG)UInt32x32To64(Interval, PH_TIMEOUT_MS);
+
+        return NtDelayExecution(FALSE, &interval);
+    }
+}
+
 /**
  * Allocates a block of memory.
  *
@@ -538,6 +556,7 @@ PVOID PhReAllocateSafe(
  */
 _Check_return_
 _Ret_maybenull_
+_Success_(return != NULL)
 PVOID PhAllocatePage(
     _In_ SIZE_T Size,
     _Out_opt_ PSIZE_T NewSize
@@ -597,6 +616,7 @@ SIZE_T PhCountStringZ(
     _In_ PWSTR String
     )
 {
+#ifndef _ARM64_
     if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
     {
         PWSTR p;
@@ -635,6 +655,7 @@ SIZE_T PhCountStringZ(
         }
     }
     else
+#endif
     {
         return wcslen(String);
     }
@@ -1278,6 +1299,7 @@ BOOLEAN PhEqualStringRef(
     s1 = String1->Buffer;
     s2 = String2->Buffer;
 
+#ifndef _ARM64_
     if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
     {
         length = l1 / 16;
@@ -1317,6 +1339,7 @@ BOOLEAN PhEqualStringRef(
         l1 = (l1 & 15) / sizeof(WCHAR);
     }
     else
+#endif
     {
         length = l1 / sizeof(ULONG_PTR);
 
@@ -1414,6 +1437,7 @@ ULONG_PTR PhFindCharInStringRef(
 
     if (!IgnoreCase)
     {
+#ifndef _ARM64_
         if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
         {
             SIZE_T length16;
@@ -1442,6 +1466,12 @@ ULONG_PTR PhFindCharInStringRef(
                     buffer += 16 / sizeof(WCHAR);
                 } while (--length16 != 0);
             }
+        }
+        else
+#endif
+        {
+            if (buffer)
+                wcschr(buffer, Character);
         }
 
         if (length != 0)
@@ -1500,6 +1530,7 @@ ULONG_PTR PhFindLastCharInStringRef(
 
     if (!IgnoreCase)
     {
+#ifndef _ARM64_
         if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
         {
             SIZE_T length16;
@@ -1531,6 +1562,12 @@ ULONG_PTR PhFindLastCharInStringRef(
 
                 buffer += 16 / sizeof(WCHAR);
             }
+        }
+        else
+#endif
+        {
+            if (buffer)
+                wcsrchr(buffer, Character);
         }
 
         if (length != 0)
@@ -3778,7 +3815,7 @@ VOID PhAppendFormatStringBuilder_V(
     _In_ va_list ArgPtr
     )
 {
-    int length;
+    INT length;
     SIZE_T lengthInBytes;
 
     length = _vscwprintf(Format, ArgPtr);
@@ -4778,7 +4815,7 @@ PPH_HASHTABLE PhCreateHashtable(
     hashtable->Entries = PhAllocate(PH_HASHTABLE_ENTRY_SIZE(EntrySize) * hashtable->AllocatedEntries);
 
     hashtable->Count = 0;
-    hashtable->FreeEntry = -1;
+    hashtable->FreeEntry = ULONG_MAX;
     hashtable->NextEntry = 0;
 
     return hashtable;
@@ -4969,7 +5006,7 @@ VOID PhClearHashtable(
     {
         memset(Hashtable->Buckets, 0xff, sizeof(ULONG) * Hashtable->AllocatedBuckets);
         Hashtable->Count = 0;
-        Hashtable->FreeEntry = -1;
+        Hashtable->FreeEntry = ULONG_MAX;
         Hashtable->NextEntry = 0;
     }
 }
@@ -6044,6 +6081,15 @@ VOID PhFillMemoryUlong(
     _In_ SIZE_T Count
     )
 {
+#ifdef _ARM64_
+    if (Count != 0)
+    {
+        do
+        {
+            *Memory++ = Value;
+        } while (--Count != 0);
+    }
+#else
     __m128i pattern;
     SIZE_T count;
 
@@ -6112,6 +6158,7 @@ VOID PhFillMemoryUlong(
         *Memory++ = Value;
         break;
     }
+#endif
 }
 
 /**
@@ -6127,6 +6174,10 @@ VOID PhDivideSinglesBySingle(
     _In_ SIZE_T Count
     )
 {
+#ifdef _ARM64_
+    while (Count--)
+        *A++ /= B;
+#else
     PFLOAT endA;
     __m128 b;
 
@@ -6196,4 +6247,5 @@ VOID PhDivideSinglesBySingle(
         *A++ /= B;
         break;
     }
+#endif
 }

@@ -238,6 +238,15 @@ PhGetProcessCommandLine(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetProcessCurrentDirectory(
+    _In_ HANDLE ProcessHandle,
+    _In_ BOOLEAN IsWow64,
+    _Out_ PPH_STRING* CurrentDirectory
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetProcessDesktopInfo(
     _In_ HANDLE ProcessHandle,
     _Out_ PPH_STRING *DesktopInfo
@@ -305,6 +314,15 @@ PhQueryEnvironmentVariable(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhSetEnvironmentVariable(
+    _In_opt_ PVOID Environment,
+    _In_ PPH_STRINGREF Name,
+    _In_opt_ PPH_STRINGREF Value
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetProcessMappedFileName(
     _In_ HANDLE ProcessHandle,
     _In_ PVOID BaseAddress,
@@ -361,6 +379,17 @@ PhGetProcessUnloadedDlls(
     _Out_ PVOID *EventTrace,
     _Out_ ULONG *EventTraceSize,
     _Out_ ULONG *EventTraceCount
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhTraceControl(
+    _In_ TRACE_CONTROL_INFORMATION_CLASS TraceInformationClass,
+    _In_reads_bytes_opt_(InputBufferLength) PVOID InputBuffer,
+    _In_ ULONG InputBufferLength,
+    _Out_opt_ PVOID* TraceInformation,
+    _Out_opt_ PULONG TraceInformationLength
     );
 
 PHLIBAPI
@@ -558,6 +587,22 @@ PhSetFileSize(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetFilePosition(
+    _In_ HANDLE FileHandle,
+    _Out_ PLARGE_INTEGER Position
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetFilePosition(
+    _In_ HANDLE FileHandle,
+    _In_ PLARGE_INTEGER Position
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhDeleteFile(
     _In_ HANDLE FileHandle
     );
@@ -594,6 +639,7 @@ PhGetProcessIdsUsingFile(
     _Out_ PFILE_PROCESS_IDS_USING_FILE_INFORMATION *ProcessIdsUsingFile
     );
 
+_Success_(return == STATUS_SUCCESS)
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -920,10 +966,29 @@ PhEnumHandlesEx2(
     NULL \
     )
 
+#define PH_FIRST_PAGEFILE_EX(Pagefiles) ( \
+    ((PSYSTEM_PAGEFILE_INFORMATION_EX)(Pagefiles))->TotalSize ? \
+    (PSYSTEM_PAGEFILE_INFORMATION_EX)(Pagefiles) : \
+    NULL \
+    )
+#define PH_NEXT_PAGEFILE_EX(Pagefile) ( \
+    ((PSYSTEM_PAGEFILE_INFORMATION_EX)(Pagefile))->NextEntryOffset ? \
+    (PSYSTEM_PAGEFILE_INFORMATION_EX)PTR_ADD_OFFSET((Pagefile), \
+    ((PSYSTEM_PAGEFILE_INFORMATION_EX)(Pagefile))->NextEntryOffset) : \
+    NULL \
+    )
+
 PHLIBAPI
 NTSTATUS
 NTAPI
 PhEnumPagefiles(
+    _Out_ PVOID *Pagefiles
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhEnumPagefilesEx(
     _Out_ PVOID *Pagefiles
     );
 
@@ -1049,6 +1114,15 @@ PhEnumFileExtendedAttributes(
     ((PFILE_STREAM_INFORMATION)(Stream))->NextEntryOffset)) : \
     NULL \
     )
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetFileExtendedAttributes(
+    _In_ HANDLE FileHandle,
+    _In_ PPH_BYTESREF Name,
+    _In_opt_ PPH_BYTESREF Value
+    );
 
 PHLIBAPI
 NTSTATUS
@@ -1302,6 +1376,19 @@ PhCreateFileWin32Ex(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhCreateFile(
+    _Out_ PHANDLE FileHandle,
+    _In_ PWSTR FileName,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_opt_ ULONG FileAttributes,
+    _In_ ULONG ShareAccess,
+    _In_ ULONG CreateDisposition,
+    _In_ ULONG CreateOptions
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhOpenFileWin32(
     _Out_ PHANDLE FileHandle,
     _In_ PWSTR FileName,
@@ -1342,6 +1429,27 @@ PHLIBAPI
 BOOLEAN
 NTAPI
 PhDoesFileExistsWin32(
+    _In_ PWSTR FileName
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhDoesFileExists(
+    _In_ PWSTR FileName
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhDoesDirectoryExistsWin32(
+    _In_ PWSTR FileName
+    );
+
+PHLIBAPI
+RTL_PATH_TYPE
+NTAPI
+PhDetermineDosPathNameType(
     _In_ PWSTR FileName
     );
 

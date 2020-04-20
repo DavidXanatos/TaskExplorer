@@ -70,6 +70,7 @@
         <file alias="Eye">Actions/eye.png</file>
         <file alias="Glasses">Actions/glasses.png</file>
         <file alias="Tree">Actions/tree.png</file>
+        <file alias="Persistence">Actions/aufgabe.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

@@ -27,6 +27,7 @@
 extern "C" {
 #endif
 
+_Success_(return)
 BOOLEAN 
 NTAPI
 PhAppResolverGetAppIdForProcess(
@@ -34,6 +35,7 @@ PhAppResolverGetAppIdForProcess(
     _Out_ PPH_STRING *ApplicationUserModelId
     );
 
+_Success_(return)
 BOOLEAN 
 NTAPI
 PhAppResolverGetAppIdForWindow(

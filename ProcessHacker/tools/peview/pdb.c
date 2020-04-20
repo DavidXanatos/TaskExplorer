@@ -25,6 +25,7 @@
 #include <symprv.h>
 #include <pdb.h>
 #include <uxtheme.h>
+#include <malloc.h>
 
 typedef BOOL (WINAPI *_SymInitializeW)(
     _In_ HANDLE hProcess,
@@ -307,6 +308,7 @@ BOOLEAN PdbGetSymbolArrayType(
     return TRUE;
 }
 
+_Success_(return)
 BOOLEAN SymbolInfo_DumpUDT(
     _In_ ULONG64 BaseAddress,
     _In_ ULONG Index,
@@ -709,6 +711,7 @@ BOOLEAN PdbGetSymbolData(
     return TRUE;
 }
 
+_Success_(return)
 BOOLEAN SymbolInfo_DumpType(
     _In_ ULONG64 BaseAddress,
     _In_ ULONG Index,
@@ -971,7 +974,7 @@ BOOLEAN PdbGetSymbolChildren(
         return TRUE;
 
     length = sizeof(TI_FINDCHILDREN_PARAMS) + symbolCount * sizeof(ULONG);
-    symbols = _alloca(length);
+    symbols = _malloca(length);
     memset(symbols, 0, length);
 
     symbols->Count = symbolCount;
@@ -994,7 +997,7 @@ BOOLEAN PdbGetSymbolUdtVariables(
     )
 {
     ULONG childrenLength = 0;
-    TI_FINDCHILDREN_PARAMS* symbolParams;
+    TI_FINDCHILDREN_PARAMS* symbolParams = NULL;
 
     if (!PdbCheckTagType(BaseAddress, Index, SymTagUDT))
         return FALSE;
@@ -1020,6 +1023,8 @@ BOOLEAN PdbGetSymbolUdtVariables(
         }
     }
 
+    _freea(symbolParams);
+
     return TRUE;
 }
 
@@ -1032,7 +1037,7 @@ BOOLEAN PdbGetSymbolUdtFunctions(
     )
 {
     ULONG childrenLength = 0;
-    TI_FINDCHILDREN_PARAMS* symbolParams;
+    TI_FINDCHILDREN_PARAMS* symbolParams = NULL;
 
     if (!PdbCheckTagType(BaseAddress, Index, SymTagUDT))
         return FALSE;
@@ -1070,7 +1075,7 @@ BOOLEAN PdbGetSymbolUdtBaseClasses(
     )
 {
     ULONG childrenLength = 0;
-    TI_FINDCHILDREN_PARAMS* symbolParams;
+    TI_FINDCHILDREN_PARAMS* symbolParams = NULL;
 
     if (!PdbCheckTagType(BaseAddress, Index, SymTagUDT))
         return FALSE;
@@ -1096,6 +1101,8 @@ BOOLEAN PdbGetSymbolUdtBaseClasses(
         }
     }
 
+    _freea(symbolParams);
+
     return TRUE;
 }
 
@@ -1108,7 +1115,7 @@ BOOLEAN PdbGetSymbolUdtUnionMembers(
     )
 {
     ULONG childrenLength = 0;
-    TI_FINDCHILDREN_PARAMS* symbolParams;
+    TI_FINDCHILDREN_PARAMS* symbolParams = NULL;
 
     if (!PdbCheckTagType(BaseAddress, Index, SymTagUDT))
         return FALSE;
@@ -1134,6 +1141,8 @@ BOOLEAN PdbGetSymbolUdtUnionMembers(
         }
     }
 
+    _freea(symbolParams);
+
     return TRUE;
 }
 
@@ -1146,7 +1155,7 @@ BOOLEAN PdbGetSymbolFunctionArguments(
     )
 {
     ULONG childrenLength = 0;
-    TI_FINDCHILDREN_PARAMS* symbolParams;
+    TI_FINDCHILDREN_PARAMS* symbolParams = NULL;
 
     if (!PdbCheckTagType(BaseAddress, Index, SymTagFunctionType))
         return FALSE;
@@ -1172,6 +1181,8 @@ BOOLEAN PdbGetSymbolFunctionArguments(
         }
     }
 
+    _freea(symbolParams);
+
     return TRUE;
 }
 
@@ -1184,7 +1195,7 @@ BOOLEAN PdbGetSymbolEnumerations(
     )
 {
     ULONG childrenLength = 0;
-    TI_FINDCHILDREN_PARAMS* symbolParams;
+    TI_FINDCHILDREN_PARAMS* symbolParams = NULL;
 
     if (!PdbCheckTagType(BaseAddress, Index, SymTagEnum))
         return FALSE;
@@ -1209,6 +1220,8 @@ BOOLEAN PdbGetSymbolEnumerations(
                 break;
         }
     }
+
+    _freea(symbolParams);
 
     return TRUE;
 }

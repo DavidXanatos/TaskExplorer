@@ -6,6 +6,7 @@
 #include "Monitors/EtwEventMonitor.h"
 #include "Monitors/FwEventMonitor.h"
 //#include "Monitors/FirewallMonitor.h"
+#include "SandboxieAPI.h"
 #include "SidResolver.h"
 #include "SymbolProvider.h"
 #include "DnsResolver.h"
@@ -75,11 +76,15 @@ public:
 
 	virtual bool UpdateDriverList();
 
+	virtual void ClearPersistence();
+
 	virtual CSymbolProvider* GetSymbolProvider()		{ return m_pSymbolProvider; }
 
 	virtual CSidResolver* GetSidResolver()				{ return m_pSidResolver; }
 
 	virtual CDnsResolver* GetDnsResolver()				{ return m_pDnsResolver; }
+
+	virtual CSandboxieAPI* GetSandboxieAPI()			{ return m_pSandboxieAPI; }
 
 	virtual bool UpdateDnsCache();
 	virtual void FlushDnsCache();
@@ -147,6 +152,8 @@ protected:
 	CEtwEventMonitor*			m_pEventMonitor;
 	CFwEventMonitor*		m_pFirewallMonitor;
 	//CFirewallMonitor*		m_pFirewallMonitor;
+
+	CSandboxieAPI*			m_pSandboxieAPI;
 
 
 	//mutable QReadWriteLock	m_FileNameMutex;
@@ -216,3 +223,5 @@ quint64 FILETIME2ms(quint64 fileTime);
 time_t FILETIME2time(quint64 fileTime);
 
 QString GetPathFromCmd(QString commandLine, quint32 processID, QString imageName/*, DateTime timeStamp*/, quint32 parentID = 0);
+
+QString expandEnvStrings(const QString &command);

@@ -37,7 +37,18 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkUndecorate->setChecked(theConf->GetBool("Options/DbgHelpUndecorate", true));
 	ui.symbolPath->setText(theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols"));
-	ui.chkSymbolPath->setChecked(theConf->GetBool("Options/DbgHelpSearch", true));
+
+	int DbgHelpSearch = theConf->GetInt("Options/DbgHelpSearch", 2);
+	if (DbgHelpSearch == 2) {
+		ui.chkSymbolPath->setTristate(true);
+		ui.chkSymbolPath->setCheckState(Qt::PartiallyChecked);
+	} else
+		ui.chkSymbolPath->setChecked(DbgHelpSearch == 1);
+
+	ui.onClose->addItem(tr("Close to Tray"), "ToTray");
+	ui.onClose->addItem(tr("Prompt before Close"), "Prompt");
+	ui.onClose->addItem(tr("Close"), "Close");
+	ui.onClose->setCurrentIndex(ui.onClose->findData(theConf->GetString("Options/OnClose", "ToTray")));
 
 
 	ui.chkShowTray->setChecked(theConf->GetBool("SysTray/Show", true));
@@ -49,12 +60,15 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.trayMode->addItem(tr("CPU plot and RAM+Swap bars"), "CpuMem2");
 	ui.trayMode->setCurrentIndex(ui.trayMode->findData(theConf->GetString("SysTray/GraphMode", "CpuMem")));
 
-	ui.chkToTray->setChecked(theConf->GetBool("SysTray/CloseToTray", true));
-
 	ui.chkSoftForce->setCheckState((Qt::CheckState)theConf->GetInt("Options/UseSoftForce", 2));
 
 	ui.highlightTime->setValue(theConf->GetUInt64("Options/HighlightTime", 2500));
 	ui.persistenceTime->setValue(theConf->GetUInt64("Options/PersistenceTime", 5000));
+
+	ui.processName->addItem(tr("Description (Binary name)"), 1);
+	ui.processName->addItem(tr("Binary name (Description)"), 2);
+	ui.processName->addItem(tr("Binary name only"), 0);
+	ui.processName->setCurrentIndex(ui.processName->findData(theConf->GetInt("Options/ShowProcessDescr", 1)));
 
 	ui.chkParents->setChecked(theConf->GetBool("Options/EnableParrentRetention", true));
 	ui.chkGetRefServices->setChecked(theConf->GetBool("Options/GetServicesRefModule", true));
@@ -104,6 +118,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	Colors.append(SColor { "UserProcess", tr("Current user processes"), "#FFFF80"});
 	Colors.append(SColor { "ServiceProcess", tr("Service processes"), "#80FFFF"});
 #ifdef WIN32
+	Colors.append(SColor { "SandBoxed", tr("Sandboxed processes"), "#FFFF00"});
 	Colors.append(SColor { "JobProcess", tr("Job processes"), "#D49C5C"});
 	Colors.append(SColor { "PicoProcess", tr("Pico processes"), "#42A0FF"});
 	Colors.append(SColor { "ImmersiveProcess", tr("Immersive processes"), "#FFE6FF"});
@@ -190,19 +205,22 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/DbgHelpUndecorate", ui.chkUndecorate->isChecked());
 	theConf->SetValue("Options/DbgHelpSearchPath", ui.symbolPath->text());
-	theConf->SetValue("Options/DbgHelpSearch", ui.chkSymbolPath->isChecked());
+	if(ui.chkSymbolPath->checkState() != Qt::PartiallyChecked)
+		theConf->SetValue("Options/DbgHelpSearch", ui.chkSymbolPath->isChecked() ? 1 : 0);
+
+	theConf->SetValue("SysTray/OnClose", ui.onClose->currentData());
 
 	theConf->SetValue("SysTray/Show", ui.chkShowTray->isChecked());
 
 	theConf->SetValue("SysTray/GraphMode", ui.trayMode->currentData());
-
-	theConf->SetValue("SysTray/CloseToTray", ui.chkToTray->isChecked());
 
 	theConf->SetValue("Options/UseSoftForce", (int)ui.chkSoftForce->checkState());
 
 	theConf->SetValue("Options/HighlightTime", ui.highlightTime->value());
 	theConf->SetValue("Options/PersistenceTime", ui.persistenceTime->value());
 	
+	theConf->SetValue("Options/ShowProcessDescr", ui.processName->currentData());
+
 	theConf->SetValue("Options/EnableParrentRetention", ui.chkParents->isChecked());
 	theConf->SetValue("Options/GetServicesRefModule", ui.chkGetRefServices->isChecked());
 	theConf->SetValue("Options/TraceUnloadedModules", ui.chkTraceDLLs->isChecked());
@@ -257,7 +275,11 @@ void CSettingsWindow::OnChangeColor(QListWidgetItem* pItem)
 void CSettingsWindow::OnChange()
 {
 	//ui.chkLinuxStyle->setEnabled(!ui.chkUseCycles->isChecked());
-	ui.chkToTray->setEnabled(ui.chkShowTray->isChecked());
+
+	QStandardItemModel *model = qobject_cast<QStandardItemModel *>(ui.onClose->model());
+	QStandardItem *item = model->item(0);
+	item->setFlags((!ui.chkShowTray->isChecked()) ? item->flags() & ~Qt::ItemIsEnabled : item->flags() | Qt::ItemIsEnabled);
+
 	ui.trayMode->setEnabled(ui.chkShowTray->isChecked());
 
 	ui.cellSeparator->setEnabled(ui.chkSimpleCopy->isChecked());

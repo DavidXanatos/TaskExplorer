@@ -28,6 +28,8 @@ public slots:
 private slots:
 	void					OnTreeEnabled(bool bEnabled);
 
+	void					OnClear();
+
 	void					OnProcessListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 	void					OnUpdateHistory();
@@ -51,6 +53,8 @@ private slots:
 	void					OnToolTipCallback(const QVariant& ID, QString& ToolTip);
 
 	//void					OnMenu(const QPoint& Point);
+
+	void					OnPresetAction();
 
 	void					OnCrashDump();
 	void					OnProcessAction();
@@ -122,7 +126,9 @@ private:
 	QAction*				m_pBringInFront;
 	QAction*				m_pShowProperties;
 	QAction*				m_pOpenPath;
+	QAction*				m_pViewPE;
 	QAction*				m_pClose;
+	QAction*				m_pPreset;
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pQuit;
 	QAction*				m_pRunAsThis;

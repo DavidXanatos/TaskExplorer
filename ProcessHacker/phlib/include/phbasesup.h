@@ -89,26 +89,12 @@ PhLocalTimeToSystemTime(
     _Out_ PLARGE_INTEGER SystemTime
     );
 
-FORCEINLINE
+PHLIBAPI
 NTSTATUS
 NTAPI
 PhDelayExecution(
     _In_ LONGLONG Interval
-    )
-{
-    if (Interval == INFINITE)
-    {
-        return NtDelayExecution(FALSE, NULL);
-    }
-    else
-    {
-        LARGE_INTEGER interval;
-
-        interval.QuadPart = -(LONGLONG)UInt32x32To64(Interval, PH_TIMEOUT_MS);
-
-        return NtDelayExecution(FALSE, &interval);
-    }
-}
+    );
 
 // Heap
 
@@ -165,6 +151,7 @@ PhReAllocateSafe(
 
 _Check_return_
 _Ret_maybenull_
+_Success_(return != NULL)
 PHLIBAPI
 PVOID
 NTAPI

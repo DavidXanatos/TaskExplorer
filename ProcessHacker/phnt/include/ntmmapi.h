@@ -242,6 +242,18 @@ typedef struct _MEMORY_ENCLAVE_IMAGE_INFORMATION
 #define MMPFNLIST_ACTIVE 6
 #define MMPFNLIST_TRANSITION 7
 
+//typedef enum _MMLISTS
+//{
+//    ZeroedPageList = 0,
+//    FreePageList = 1,
+//    StandbyPageList = 2,
+//    ModifiedPageList = 3,
+//    ModifiedNoWritePageList = 4,
+//    BadPageList = 5,
+//    ActiveAndValid = 6,
+//    TransitionPage = 7
+//} MMLISTS;
+
 #define MMPFNUSE_PROCESSPRIVATE 0
 #define MMPFNUSE_FILE 1
 #define MMPFNUSE_PAGEFILEMAPPED 2
@@ -254,6 +266,22 @@ typedef struct _MEMORY_ENCLAVE_IMAGE_INFORMATION
 #define MMPFNUSE_AWEPAGE 9
 #define MMPFNUSE_DRIVERLOCKPAGE 10
 #define MMPFNUSE_KERNELSTACK 11
+
+//typedef enum _MMPFNUSE
+//{
+//    ProcessPrivatePage,
+//    MemoryMappedFilePage,
+//    PageFileMappedPage,
+//    PageTablePage,
+//    PagedPoolPage,
+//    NonPagedPoolPage,
+//    SystemPTEPage,
+//    SessionPrivatePage,
+//    MetafilePage,
+//    AWEPage,
+//    DriverLockedPage,
+//    KernelStackPage
+//} MMPFNUSE;
 
 // private
 typedef struct _MEMORY_FRAME_INFORMATION
@@ -601,7 +629,7 @@ NtCreateSectionEx(
     _In_ ULONG SectionPageProtection,
     _In_ ULONG AllocationAttributes,
     _In_opt_ HANDLE FileHandle,
-    _In_ PMEM_EXTENDED_PARAMETER ExtendedParameters,
+    _Inout_updates_opt_(ExtendedParameterCount) PMEM_EXTENDED_PARAMETER ExtendedParameters,
     _In_ ULONG ExtendedParameterCount
     );
 #endif
@@ -860,23 +888,6 @@ NtFreeUserPhysicalPages(
     _Inout_ PULONG_PTR NumberOfPages,
     _In_reads_(*NumberOfPages) PULONG_PTR UserPfnArray
     );
-
-#endif
-
-// Sessions
-
-#if (PHNT_MODE != PHNT_MODE_KERNEL)
-
-#if (PHNT_VERSION >= PHNT_VISTA)
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtOpenSession(
-    _Out_ PHANDLE SessionHandle,
-    _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes
-    );
-#endif
 
 #endif
 

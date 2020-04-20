@@ -18,6 +18,7 @@
 #include "TaskInfo/TaskInfoWindow.h"
 #include "RunAsDialog.h"
 #include "../Common/Finder.h"
+#include "PersistenceConfig.h"
 
 CProcessTree::CProcessTree(QWidget *parent)
 	: CTaskView(parent)
@@ -33,6 +34,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	this->setLayout(m_pMainLayout);
 
 	m_pProcessModel = new CProcessModel();
+	m_pProcessModel->SetUseDescr(theConf->GetInt("Options/ShowProcessDescr", 1));
 	//connect(m_pProcessModel, SIGNAL(CheckChanged(quint64, bool)), this, SLOT(OnCheckChanged(quint64, bool)));
 	//connect(m_pProcessModel, SIGNAL(Updated()), this, SLOT(OnUpdated()));
 
@@ -58,7 +60,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 
 	connect(m_pProcessModel, SIGNAL(ToolTipCallback(const QVariant&, QString&)), this, SLOT(OnToolTipCallback(const QVariant&, QString&)), Qt::DirectConnection);
 
-	connect(theGUI, SIGNAL(ReloadPanels()), m_pProcessModel, SLOT(Clear()));
+	connect(theGUI, SIGNAL(ReloadPanels()), this, SLOT(OnClear()));
 
 	m_pMainLayout->addWidget(m_pProcessList);
 	// 
@@ -74,6 +76,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	//m_pMenu = new QMenu();
 	m_pShowProperties = m_pMenu->addAction(tr("Properties"), this, SLOT(OnShowProperties()));
 	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
+	m_pViewPE = m_pMenu->addAction(tr("View PE info"), this, SLOT(OnProcessAction()));
 	m_pBringInFront = m_pMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
 	m_pMenu->addSeparator();
 
@@ -82,7 +85,12 @@ CProcessTree::CProcessTree(QWidget *parent)
 	AddTaskItemsToMenu();
 	//QAction*				m_pTerminateTree;
 	
-	AddPriorityItemsToMenu(eProcess, m_pMenu);
+	m_pMenu->addSeparator();
+
+	m_pPreset = m_pMenu->addAction(tr("Persistent Preset"), this, SLOT(OnPresetAction()));
+	m_pPreset->setCheckable(true);
+
+	AddPriorityItemsToMenu(eProcess);
 
 
 	m_pMenu->addSeparator();
@@ -220,6 +228,12 @@ void CProcessTree::OnTreeEnabled(bool bEnable)
 		if (bEnable)
 			m_ExpandAll = true;
 	}
+}
+
+void CProcessTree::OnClear()
+{
+	m_pProcessModel->SetUseDescr(theConf->GetInt("Options/ShowProcessDescr", 1));
+	m_pProcessModel->Clear();
 }
 
 void CProcessTree::AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, int from, int to)
@@ -532,6 +546,10 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
     {
 		QStringList Notes;
 
+		QString SandBoxName = pWinProcess->GetSandBoxName();
+        if (!SandBoxName.isEmpty())
+			Notes.append(tr("    Sandboxed in: %1").arg(SandBoxName));
+
 		if (pWinModule)
 		{
 			switch (pWinModule->GetVerifyResult())
@@ -605,9 +623,19 @@ void CProcessTree::OnMenu(const QPoint &point)
 	if (selectedRows.count() >= 1)
 		Windows = pProcess->GetWindows();
 
+	/*foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+
+	}*/
+
 	m_pShowProperties->setEnabled(selectedRows.count() > 0);
 	m_pBringInFront->setEnabled(selectedRows.count() == 1 && !Windows.isEmpty());
 	m_pClose->setEnabled(!Windows.isEmpty());
+
+	m_pPreset->setEnabled(selectedRows.count() == 1);
+	m_pPreset->setChecked(!pProcess->GetPresets().isNull());
 
 	m_pQuit->setEnabled(!Windows.isEmpty());
 	m_pRunAsThis->setEnabled(selectedRows.count() == 1);
@@ -724,6 +752,10 @@ void CProcessTree::OnProcessAction()
 				PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
 				PhDereferenceObject(phFileName);
 			}
+			else if (sender() == m_pViewPE)
+			{
+				QProcess::startDetached(QApplication::applicationDirPath() + "/peview.exe", QStringList(pWinProcess->GetFileName()));
+			}
 			
 
 			if (Status.IsError())
@@ -756,17 +788,37 @@ void CProcessTree::OnProcessAction()
 #endif
 }
 
+void CProcessTree::OnPresetAction()
+{
+	QModelIndex Index = m_pProcessList->currentIndex();
+	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+	if (!pProcess)
+		return;
+	
+	if (pProcess->GetPresets().isNull())
+	{
+		theAPI->AddPersistentPreset(pProcess->GetFileName());
+	}
+	else if(!theAPI->RemovePersistentPreset(pProcess->GetFileName()))
+	{
+		// remove fails for wildcard entries, hence show the dialog
+		CPersistenceConfig dialog;
+		dialog.exec();
+	}
+}
+
 void CProcessTree::OnWsWatch()
 {
 #ifdef _WIN32
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-	if (pProcess)
-	{
-		CWsWatchDialog* pWnd = new CWsWatchDialog(pProcess);
-		pWnd->show();
-	}
+	if (!pProcess)
+		return;
+	
+	CWsWatchDialog* pWnd = new CWsWatchDialog(pProcess);
+	pWnd->show();
 #endif
 }
 
@@ -776,11 +828,11 @@ void CProcessTree::OnWCT()
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-	if (pProcess)
-	{
-		CWaitChainDialog* pWnd = new CWaitChainDialog(pProcess);
-		pWnd->show();
-	}
+	if (!pProcess)
+		return;
+	
+	CWaitChainDialog* pWnd = new CWaitChainDialog(pProcess);
+	pWnd->show();
 #endif
 }
 
@@ -789,11 +841,11 @@ void CProcessTree::OnRunAsThis()
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
-	if (pProcess)
-	{
-		CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetProcessId());
-		pWnd->show();
-	}
+	if (!pProcess)
+		return;
+		
+	CRunAsDialog* pWnd = new CRunAsDialog(pProcess->GetProcessId());
+	pWnd->show();
 }
 
 void CProcessTree::OnPermissions()
@@ -804,9 +856,7 @@ void CProcessTree::OnPermissions()
 		return;
 
 	if (QSharedPointer<CWinProcess> pWinProcess = Tasks.first().staticCast<CWinProcess>())
-	{
 		pWinProcess->OpenPermissions();
-	}
 #endif
 }
 

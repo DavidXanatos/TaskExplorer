@@ -45,7 +45,7 @@ VOID PhpEscapeStringForCsv(
     {
         switch (String->Buffer[i])
         {
-        case '\"':
+        case L'\"':
             if (runStart)
             {
                 PhAppendStringBuilderEx(StringBuilder, runStart, runLength * sizeof(WCHAR));
@@ -183,7 +183,7 @@ PPH_LIST PhaFormatTextTable(
                         k = tabCount[j] + 1;
                     }
 
-                    PhAppendCharStringBuilder2(&stringBuilder, '\t', k);
+                    PhAppendCharStringBuilder2(&stringBuilder, L'\t', k);
                 }
             }
             break;
@@ -205,7 +205,7 @@ PPH_LIST PhaFormatTextTable(
                         k = (tabCount[j] + 1) * TAB_SIZE;
                     }
 
-                    PhAppendCharStringBuilder2(&stringBuilder, ' ', k);
+                    PhAppendCharStringBuilder2(&stringBuilder, L' ', k);
                 }
             }
             break;
@@ -213,17 +213,17 @@ PPH_LIST PhaFormatTextTable(
             {
                 for (j = 0; j < Columns; j++)
                 {
-                    PhAppendCharStringBuilder(&stringBuilder, '\"');
+                    PhAppendCharStringBuilder(&stringBuilder, L'\"');
 
                     if (Table[i][j])
                     {
                         PhpEscapeStringForCsv(&stringBuilder, Table[i][j]);
                     }
 
-                    PhAppendCharStringBuilder(&stringBuilder, '\"');
+                    PhAppendCharStringBuilder(&stringBuilder, L'\"');
 
                     if (j != Columns - 1)
-                        PhAppendCharStringBuilder(&stringBuilder, ',');
+                        PhAppendCharStringBuilder(&stringBuilder, L',');
                 }
             }
             break;
@@ -449,7 +449,7 @@ VOID PhaMapDisplayIndexListView(
     *NumberOfColumns = count;
 }
 
-PPH_STRING PhaGetListViewItemText(
+PPH_STRING PhGetListViewItemText(
     _In_ HWND ListViewHandle,
     _In_ INT Index,
     _In_ INT SubItemIndex
@@ -484,9 +484,26 @@ PPH_STRING PhaGetListViewItemText(
     }
 
     PhTrimToNullTerminatorString(buffer);
-    PH_AUTO(buffer);
 
     return buffer;
+}
+
+PPH_STRING PhaGetListViewItemText(
+    _In_ HWND ListViewHandle,
+    _In_ INT Index,
+    _In_ INT SubItemIndex
+    )
+{
+    PPH_STRING value;
+
+    if (value = PhGetListViewItemText(ListViewHandle, Index, SubItemIndex))
+    {
+        PH_AUTO(value);
+
+        return value;
+    }
+
+    return NULL;
 }
 
 PPH_STRING PhGetListViewText(

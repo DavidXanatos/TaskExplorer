@@ -376,6 +376,7 @@
     <ClCompile Include="API\Monitors\DiskMonitor.cpp" />
     <ClCompile Include="API\Monitors\GpuMonitor.cpp" />
     <ClCompile Include="API\Monitors\NetMonitor.cpp" />
+    <ClCompile Include="API\PersistentPreset.cpp" />
     <ClCompile Include="API\ProcessInfo.cpp" />
     <ClCompile Include="API\ServiceInfo.cpp" />
     <ClCompile Include="API\SocketInfo.cpp" />
@@ -415,6 +416,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="API\Windows\SandboxieAPI.cpp" />
     <ClCompile Include="API\Windows\SidResolver.cpp" />
     <ClCompile Include="API\Windows\SymbolProvider.cpp" />
     <ClCompile Include="API\Windows\WinAdmin.cpp" />
@@ -455,6 +457,7 @@
     <ClCompile Include="Common\SplitTreeView.cpp" />
     <ClCompile Include="Common\TabPanel.cpp" />
     <ClCompile Include="Common\TreeItemModel.cpp" />
+    <ClCompile Include="Common\Xml.cpp" />
     <ClCompile Include="GUI\AffinityDialog.cpp" />
     <ClCompile Include="GUI\DriverWindow.cpp" />
     <ClCompile Include="GUI\GraphBar.cpp" />
@@ -475,6 +478,7 @@
     <ClCompile Include="GUI\Models\WindowModel.cpp" />
     <ClCompile Include="GUI\MultiErrorDialog.cpp" />
     <ClCompile Include="GUI\NewService.cpp" />
+    <ClCompile Include="GUI\PersistenceConfig.cpp" />
     <ClCompile Include="GUI\Search\HandleSearch.cpp" />
     <ClCompile Include="GUI\Search\MemorySearch.cpp" />
     <ClCompile Include="GUI\Search\ModuleSearch.cpp" />
@@ -725,6 +729,7 @@
     <QtMoc Include="API\Monitors\DiskMonitor.h" />
     <QtMoc Include="API\Monitors\GpuMonitor.h" />
     <QtMoc Include="API\Monitors\NetMonitor.h" />
+    <QtMoc Include="API\PersistentPreset.h" />
     <ClInclude Include="API\StackTrace.h" />
     <QtMoc Include="API\Windows\Finders\WinHandleFinder.h" />
     <QtMoc Include="API\Windows\Finders\WinStringFinder.h" />
@@ -875,6 +880,7 @@
     <QtMoc Include="API\Windows\SidResolver.h" />
     <ClInclude Include="API\Windows\ProcessHacker\syssccpu.h" />
     <ClInclude Include="API\Windows\ProcessHacker\wf.h" />
+    <QtMoc Include="API\Windows\SandboxieAPI.h" />
     <ClInclude Include="API\Windows\WinAdmin.h" />
     <QtMoc Include="API\Windows\WinDumper.h" />
     <QtMoc Include="API\Windows\WinMemory.h" />
@@ -1209,6 +1215,7 @@
     <QtMoc Include="GUI\Models\MemoryModel.h" />
     <QtMoc Include="GUI\MemoryEditor.h" />
     <QtMoc Include="GUI\SettingsWindow.h" />
+    <ClInclude Include="Common\Xml.h" />
     <ClInclude Include="GUI\CustomItemDelegate.h" />
     <QtMoc Include="GUI\Models\StringModel.h" />
     <QtMoc Include="GUI\Models\GDIModel.h" />
@@ -1217,6 +1224,7 @@
     <QtMoc Include="GUI\Models\NtObjectModel.h" />
     <QtMoc Include="GUI\DriverWindow.h" />
     <QtMoc Include="GUI\MultiErrorDialog.h" />
+    <QtMoc Include="GUI\PersistenceConfig.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -1281,6 +1289,7 @@
     <QtMoc Include="GUI\WsWatchDialog.h" />
     <QtMoc Include="GUI\SystemInfo\KernelInfo\RunObjView.h" />
     <QtMoc Include="GUI\WaitChainDialog.h" />
+    <ClInclude Include="Resources\resource.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>

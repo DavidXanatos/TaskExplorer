@@ -382,6 +382,12 @@ bool CDnsResolver::UpdateDnsCache()
 	return true;
 }
 
+void CDnsResolver::ClearPersistence()
+{
+	foreach(const CDnsCacheEntryPtr& pEntry, GetEntryList())
+		pEntry->ClearPersistence();
+}
+
 void CDnsResolver::FlushDnsCache()
 {
     if (m->DnsFlushResolverCache_I)

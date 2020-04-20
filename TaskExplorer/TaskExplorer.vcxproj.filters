@@ -87,6 +87,9 @@
     <Filter Include="API\Windows\Monitors\Etw\krabs\filtering">
       <UniqueIdentifier>{50af5051-6b8e-4ed2-926c-0b57d7e362ce}</UniqueIdentifier>
     </Filter>
+    <Filter Include="API\Windows\Sandboxie">
+      <UniqueIdentifier>{7d330ee5-51d0-4046-8b70-5a9564d1cefa}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -563,6 +566,18 @@
     <ClCompile Include="API\Windows\WindowsHelpers.cpp">
       <Filter>API\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\SandboxieAPI.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\PersistenceConfig.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Xml.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="API\PersistentPreset.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -726,6 +741,12 @@
     </ClInclude>
     <ClInclude Include="API\Windows\Monitors\Etw\krabs.hpp">
       <Filter>API\Windows\Monitors\Etw</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\resource.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Xml.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1137,6 +1158,15 @@
     <QtMoc Include="API\Windows\Monitors\EtwEventMonitor.h">
       <Filter>API\Windows\Monitors</Filter>
     </QtMoc>
+    <QtMoc Include="API\Windows\SandboxieAPI.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\PersistenceConfig.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="API\PersistentPreset.h">
+      <Filter>API</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -1175,9 +1205,6 @@
     <QtUic Include="Forms\RunAsDialog.ui">
       <Filter>Forms</Filter>
     </QtUic>
-    <QtUic Include="Forms\SettingsWindow.ui">
-      <Filter>Forms</Filter>
-    </QtUic>
     <QtUic Include="Forms\WinSvcShutdown.ui">
       <Filter>Forms</Filter>
     </QtUic>
@@ -1191,6 +1218,9 @@
       <Filter>Forms</Filter>
     </QtUic>
     <QtUic Include="Forms\DriverWindow.ui">
+      <Filter>Forms</Filter>
+    </QtUic>
+    <QtUic Include="Forms\SettingsWindow.ui">
       <Filter>Forms</Filter>
     </QtUic>
   </ItemGroup>

@@ -119,10 +119,10 @@ VOID __stdcall SymbolProviderEventCallbackHandler(
                 statusMessage = PhFormatString(L"Loaded symbols from %s...", PhGetStringOrEmpty(fileName));
                 break;
             case CBA_DEFERRED_SYMBOL_LOAD_FAILURE:
-                statusMessage = PhFormatString(L"Failed to load %s...", PhGetStringOrEmpty(fileName));
+                statusMessage = PhFormatString(L"Failed to load symbols from %s...", PhGetStringOrEmpty(fileName));
                 break;
             case CBA_SYMBOLS_UNLOADED:
-                statusMessage = PhFormatString(L"Unloading %s...", PhGetStringOrEmpty(fileName));
+                statusMessage = PhFormatString(L"Unloading symbols from %s...", PhGetStringOrEmpty(fileName));
                 break;
             }
 
@@ -384,7 +384,7 @@ VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider)
 	bool DbgHelpUndecorate = theConf->GetBool("Options/DbgHelpUndecorate", true);
 	PhSetOptionsSymbolProvider(SYMOPT_UNDNAME, DbgHelpUndecorate ? SYMOPT_UNDNAME : 0);
 
-	bool DbgHelpSearch = theConf->GetBool("Options/DbgHelpSearch", true);
+	bool DbgHelpSearch = theConf->GetInt("Options/DbgHelpSearch", 2) == 1;
 	QString DbgHelpSearchPath = theConf->GetString("Options/DbgHelpSearchPath", "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
 	if (DbgHelpSearch && DbgHelpSearchPath.length() > 0)
 		PhSetSearchPathSymbolProvider(SymbolProvider, (wchar_t*)DbgHelpSearchPath.toStdWString().c_str());

@@ -24,8 +24,6 @@
 #include <ph.h>
 #include <kphuser.h>
 
-#ifdef _WIN64
-
 ULONG KphpGetKernelRevisionNumber(
     VOID
     )
@@ -49,6 +47,8 @@ ULONG KphpGetKernelRevisionNumber(
 
     return result;
 }
+
+#ifdef _WIN64
 
 NTSTATUS KphInitializeDynamicPackage(
     _Out_ PKPH_DYN_PACKAGE Package
@@ -129,6 +129,8 @@ NTSTATUS KphInitializeDynamicPackage(
     // Windows 10, Windows Server 2016
     else if (majorVersion == 10 && minorVersion == 0)
     {
+        ULONG revisionNumber = KphpGetKernelRevisionNumber();
+
         switch (buildNumber)
         {
         case 10240:
@@ -171,7 +173,7 @@ NTSTATUS KphInitializeDynamicPackage(
             return STATUS_NOT_SUPPORTED;
         }
 
-        Package->StructData.EgeGuid = 0x18;
+        Package->StructData.EgeGuid = revisionNumber >= 693 ? 0x28 : 0x18;
         Package->StructData.EpObjectTable = 0x418;
         Package->StructData.EreGuidEntry = 0x20;
         Package->StructData.HtHandleContentionEvent = 0x30;
@@ -275,6 +277,8 @@ NTSTATUS KphInitializeDynamicPackage(
     // Windows 10
     else if (majorVersion == 10 && minorVersion == 0)
     {
+        ULONG revisionNumber = KphpGetKernelRevisionNumber();
+
         switch (buildNumber)
         {
         case 10240:
@@ -317,7 +321,7 @@ NTSTATUS KphInitializeDynamicPackage(
             return STATUS_NOT_SUPPORTED;
         }
 
-        Package->StructData.EgeGuid = 0xc;
+        Package->StructData.EgeGuid = revisionNumber >= 693 ? 0x14 : 0xc;
         Package->StructData.EpObjectTable = 0x154;
         Package->StructData.EreGuidEntry = 0x10;
         Package->StructData.OtName = 0x8;

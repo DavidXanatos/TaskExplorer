@@ -174,8 +174,8 @@ PPH_EMENU_ITEM PhFindEMenuItemEx(
     _In_ ULONG Flags,
     _In_opt_ PWSTR Text,
     _In_opt_ ULONG Id,
-    _Inout_opt_ PPH_EMENU_ITEM *FoundParent,
-    _Inout_opt_ PULONG FoundIndex
+    _Out_opt_ PPH_EMENU_ITEM *FoundParent,
+    _Out_opt_ PULONG FoundIndex
     )
 {
     PH_STRINGREF searchText;
@@ -467,7 +467,7 @@ HMENU PhEMenuToHMenu(
         menuInfo.fMask = MIM_STYLE;
         menuInfo.dwStyle = MNS_CHECKORBMP;
 
-        if (PhGetIntegerSetting(L"EnableThemeSupport"))
+        if (WindowsVersion < WINDOWS_10_19H2 && PhGetIntegerSetting(L"EnableThemeSupport"))
         {
             menuInfo.fMask |= MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
             menuInfo.hbrBack = CreateSolidBrush(RGB(28, 28, 28)); // LEAK (dmex)
@@ -534,10 +534,17 @@ VOID PhEMenuToHMenu2(
 
         if (item->Bitmap)
         {
-            if (!PhGetIntegerSetting(L"EnableThemeSupport"))
-                menuItemInfo.fMask |= MIIM_BITMAP; // HACK
-
             menuItemInfo.hbmpItem = item->Bitmap;
+
+            if (WindowsVersion < WINDOWS_10_19H2)
+            {
+                if (!PhGetIntegerSetting(L"EnableThemeSupport"))
+                    menuItemInfo.fMask |= MIIM_BITMAP;
+            }
+            else
+            {
+                menuItemInfo.fMask |= MIIM_BITMAP;
+            }
         }
 
         // Id
@@ -587,11 +594,22 @@ VOID PhEMenuToHMenu2(
         }
 
         // Themes
-
-        if (PhGetIntegerSetting(L"EnableThemeSupport")) // HACK
+        if (WindowsVersion < WINDOWS_10_19H2)
         {
-            menuItemInfo.fType |= MFT_OWNERDRAW;
-            //    break;
+            if (PhGetIntegerSetting(L"EnableThemeSupport"))
+            {
+                menuItemInfo.fType |= MFT_OWNERDRAW;
+            }
+        }
+        else
+        {
+            if (item->Flags & PH_EMENU_MAINMENU)
+            {
+                if (PhGetIntegerSetting(L"EnableThemeSupport"))
+                {
+                    menuItemInfo.fType |= MFT_OWNERDRAW;
+                }
+            }
         }
 
         InsertMenuItem(MenuHandle, MAXINT, TRUE, &menuItemInfo);

@@ -17,6 +17,8 @@ public:
 
 	virtual QMultiMap<QString, CDnsCacheEntryPtr> GetEntryList() const { QReadLocker Locker(&m_Mutex);  return m_DnsCache; }
 
+	virtual void ClearPersistence();
+
 signals:
 	void DnsCacheUpdated();
 

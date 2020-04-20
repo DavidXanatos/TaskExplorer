@@ -62,11 +62,8 @@ void CTaskView::AddPriority(EPriorityType Type, const QString& Name, int Value)
 	m_pPriorityLevels.insert(pAction, SPriority(Type, Value));
 }
 
-void CTaskView::AddPriorityItemsToMenu(EPriorityType Style, bool bAddSeparator)
+void CTaskView::AddPriorityItemsToMenu(EPriorityType Style)
 {
-	if(bAddSeparator)
-		m_pMenu->addSeparator();
-
 	m_pAffinity = m_pMenu->addAction(tr("Affinity"), this, SLOT(OnAffinity()));
 
 	m_pPriority = m_pMenu->addMenu(tr("Priority"));

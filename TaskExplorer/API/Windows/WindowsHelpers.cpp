@@ -2,7 +2,7 @@
 #include "WindowsAPI.h"
 #include <Shlwapi.h>
 
-static QString expandEnvStrings(const QString &command)
+QString expandEnvStrings(const QString &command)
 {
     wchar_t commandValue[2 * MAX_PATH] = {0};
     DWORD returnValue = ExpandEnvironmentStringsW(command.toStdWString().c_str(), commandValue, 2 * MAX_PATH - 1);

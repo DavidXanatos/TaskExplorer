@@ -2,7 +2,7 @@
  * Process Hacker -
  *   PE viewer
  *
- * Copyright (C) 2019 dmex
+ * Copyright (C) 2019-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -66,12 +66,12 @@ VOID PvpPeEnumerateProcessIds(
 
                 PhPrintUInt32(number, ++count);
                 lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, number, NULL);
-
                 PhPrintUInt32(number, HandleToUlong(processId));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, number);
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, PhGetStringOrEmpty(fileName));
 
-                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, fileName->Buffer);
-                PhDereferenceObject(fileName);
+                if (fileName)
+                    PhDereferenceObject(fileName);
             }
 
             PhFree(processIds);
@@ -138,6 +138,11 @@ INT_PTR CALLBACK PvpPeProcessesDlgProc(
     case WM_NOTIFY:
         {
             PvHandleListViewNotifyForCopy(lParam, GetDlgItem(hwndDlg, IDC_LIST));
+        }
+        break;
+    case WM_CONTEXTMENU:
+        {
+            PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, GetDlgItem(hwndDlg, IDC_LIST));
         }
         break;
     }

@@ -24,6 +24,7 @@ extern "C" {
 #include "SystemInfo/SystemInfoWindow.h"
 #include "../Common/CheckableMessageBox.h"
 #include "MultiErrorDialog.h"
+#include "PersistenceConfig.h"
 
 
 QIcon g_ExeIcon;
@@ -293,7 +294,9 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			m_pMenuFree->addSeparator();
 			m_pMenuCombinePages = m_pMenuFree->addAction(tr("Combine Pages"), this, SLOT(OnFreeMemory()));
 #endif
-			
+		
+		m_pMenuPersistence = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Persistence"), tr("Persistence Options"), this, SLOT(OnPersistenceOptions()));
+
 		m_pMenuFlushDns = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Flush"), tr("Flush Dns Cache"), theAPI, SLOT(FlushDnsCache()));
 #ifdef _WIN32
 		m_pMenuSecurityExplorer = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Security"), tr("Security Explorer"), this, SLOT(OnSecurityExplorer()));
@@ -332,7 +335,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	//m_pToolBar->addAction(m_pMenuRefreshNow);
 	m_pRefreshButton = new QToolButton();
 	m_pRefreshButton->setIcon(MakeActionIcon(":/Actions/Refresh"));
-	m_pRefreshButton->setToolTip(tr("Refresh Now"));
+	m_pRefreshButton->setToolTip(tr("Refresh Now/Reset Hold"));
 	m_pRefreshButton->setPopupMode(QToolButton::MenuButtonPopup);
 	QMenu* pRefreshMenu = new QMenu(m_pRefreshButton);
 	m_pRefreshGroup = new QActionGroup(pRefreshMenu);
@@ -346,7 +349,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	connect(m_pRefreshGroup, SIGNAL(triggered(QAction*)), this, SLOT(OnChangeInterval(QAction*)));
     m_pRefreshButton->setMenu(pRefreshMenu);
 	//QObject::connect(m_pRefreshButton, SIGNAL(triggered(QAction*)), , SLOT());
-	QObject::connect(m_pRefreshButton, SIGNAL(pressed()), this, SLOT(UpdateAll()));
+	QObject::connect(m_pRefreshButton, SIGNAL(pressed()), this, SLOT(RefreshAll()));
 	m_pToolBar->addWidget(m_pRefreshButton);
 
 	//m_pToolBar->addAction(m_pMenuHoldAll);
@@ -612,14 +615,15 @@ void CTaskExplorer::closeEvent(QCloseEvent *e)
 {
 	if (!m_bExit)
 	{
-		if (m_pTrayIcon->isVisible() && theConf->GetBool("SysTray/CloseToTray", true))
+		QString OnClose = theConf->GetString("Options/OnClose", "ToTray");
+		if (m_pTrayIcon->isVisible() && OnClose.compare("ToTray", Qt::CaseInsensitive) == 0)
 		{
 			hide();
 
 			e->ignore();
 			return;
 		}
-		else
+		else if(OnClose.compare("Prompt", Qt::CaseInsensitive) == 0)
 		{
 			CExitDialog ExitDialog(tr("Do you want to close TaskExplorer?"));
 			if (!ExitDialog.exec())
@@ -686,6 +690,14 @@ void CTaskExplorer::UpdateAll()
 
 	if (m_pMainSplitter->sizes()[1] > 0 && m_pPanelSplitter->sizes()[0] > 0)
 		m_pSystemInfo->Refresh();
+}
+
+void CTaskExplorer::RefreshAll()
+{
+	if(m_pHoldButton->isChecked())
+		QTimer::singleShot(0, theAPI, SLOT(ClearPersistence()));
+
+	UpdateAll();
 }
 
 void CTaskExplorer::UpdateStatus()
@@ -1103,15 +1115,16 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 			show();
 		case QSystemTrayIcon::Trigger:
 #ifdef WIN32
-		{
-			WINDOWPLACEMENT placement = { sizeof(placement) };
-			GetWindowPlacement(PhMainWndHandle, &placement);
+			if (isVisible())
+			{
+				WINDOWPLACEMENT placement = { sizeof(placement) };
+				GetWindowPlacement(PhMainWndHandle, &placement);
 
-			if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
-				ShowWindowAsync(PhMainWndHandle, SW_RESTORE);
-			else
-				SetForegroundWindow(PhMainWndHandle);
-		}
+				if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
+					ShowWindowAsync(PhMainWndHandle, SW_RESTORE);
+				else
+					SetForegroundWindow(PhMainWndHandle);
+			}
 #endif
 			break;
 	}
@@ -1195,6 +1208,7 @@ void CTaskExplorer::UpdateOptions()
 	m_uTimerID = startTimer(theConf->GetInt("Options/RefreshInterval", 1000));
 
 	emit ReloadPlots();
+
 	ResetAll();
 }
 
@@ -1248,6 +1262,12 @@ void CTaskExplorer::OnSCMPermissions()
 #ifdef WIN32
 	PhEditSecurity(NULL, L"Service Control Manager", L"SCManager", CTaskExplorer_OpenServiceControlManager, NULL, NULL);
 #endif
+}
+
+void CTaskExplorer::OnPersistenceOptions()
+{
+	CPersistenceConfig dialog;
+	dialog.exec();
 }
 
 void CTaskExplorer::OnSecurityExplorer()
@@ -1475,10 +1495,11 @@ QColor CTaskExplorer::GetListColor(int Color)
 	
 	case eDangerous:	ColorStr = theConf->GetString("Colors/DangerousProcess", "#FF0000"); break;
 	case eSystem:		ColorStr = theConf->GetString("Colors/SystemProcess", "#AACCFF"); break;
-	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFF80"); break;
+	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFFC4"); break;
 	case eService:		ColorStr = theConf->GetString("Colors/ServiceProcess", "#80FFFF"); break;
 #ifdef WIN32
-	case eJob:			ColorStr = theConf->GetString("Colors/JobProcess", "#D49C5C"); break;
+	case eSandBoxed:	ColorStr = theConf->GetString("Colors/SandBoxed", "#FFFF00"); break;
+	case eJob:			ColorStr = theConf->GetString("Colors/JobProcess", "#C4FFC4"); break;
 	case ePico:			ColorStr = theConf->GetString("Colors/PicoProcess", "#42A0FF"); break;
 	case eImmersive:	ColorStr = theConf->GetString("Colors/ImmersiveProcess", "#FFE6FF"); break;
 	case eDotNet:		ColorStr = theConf->GetString("Colors/NetProcess", "#DCFF00"); break;
@@ -1546,7 +1567,7 @@ void CTaskExplorer::OnAbout()
 			"<h3>About TaskExplorer</h3>"
 			"<p>Version %1</p>"
 			"<p>by DavidXanatos</p>"
-			"<p>Copyright (c) 2019</p>"
+			"<p>Copyright (c) 2019-2020</p>"
 		).arg(GetVersion());
 		QString AboutText = tr(
 			"<p>TaskExplorer is a powerfull multi-purpose Task Manager that helps you monitor system resources, debug software and detect malware.</p>"

@@ -9,7 +9,7 @@
 #include "Common/FlexError.h"
 
 #define VERSION_MJR		1
-#define VERSION_MIN 	1
+#define VERSION_MIN 	2
 #define VERSION_REV 	0
 #define VERSION_UPD 	0
 
@@ -49,6 +49,7 @@ public:
 		eUser,
 		eService, // daemon
 #ifdef WIN32
+		eSandBoxed,
 		eJob,
 		ePico,
 		eImmersive,
@@ -79,6 +80,8 @@ signals:
 
 public slots:
 	void				UpdateAll();
+
+	void				RefreshAll();
 
 	void				UpdateStatus();
 
@@ -136,6 +139,7 @@ private slots:
 	void				OnCreateService();
 	void				OnReloadService();
 	void				OnSCMPermissions();
+	void				OnPersistenceOptions();
 	void				OnSecurityExplorer();
 	void				OnFreeMemory();
 	void				OnMonitorETW();
@@ -245,6 +249,7 @@ private:
 	QAction*			m_pMenuFreePriority0;
 	QAction*			m_pMenuCombinePages;
 #endif
+	QAction*			m_pMenuPersistence;
 	QAction*			m_pMenuFlushDns;
 #ifdef _WIN32
 	QAction*			m_pMenuSecurityExplorer;

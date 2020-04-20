@@ -11,7 +11,7 @@ public:
     CProcessModel(QObject *parent = 0);
 	~CProcessModel();
 
-	void			SetUseDescr(bool bDescr)	{ m_bUseDescr = bDescr; }
+	void			SetUseDescr(int iDescr)	{ m_iUseDescr = iDescr; }
 
 	QSet<quint64>	Sync(QMap<quint64, CProcessPtr> ProcessList);
 
@@ -226,7 +226,7 @@ protected:
 	QList<QVariant>			MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
 	bool					TestProcPath(const QList<QVariant>& Path, const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList, int Index = 0);
 	
-	bool					m_bUseDescr;
+	int						m_iUseDescr;
 
 	virtual QVariant GetDefaultIcon() const;
 };

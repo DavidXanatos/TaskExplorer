@@ -62,8 +62,8 @@ static PH_STRINGREF PhpSizeUnitNamesCounted[7] =
 };
 
 static PH_INITONCE PhpFormatInitOnce = PH_INITONCE_INIT;
-static WCHAR PhpFormatDecimalSeparator = '.';
-static WCHAR PhpFormatThousandSeparator = ',';
+static WCHAR PhpFormatDecimalSeparator = L'.';
+static WCHAR PhpFormatThousandSeparator = L',';
 static _locale_t PhpFormatUserLocale = NULL;
 
 #if (_MSC_VER >= 1900)
@@ -267,9 +267,9 @@ BOOLEAN PhFormatToBuffer(
     // Write the null-terminator.
     ENSURE_BUFFER(sizeof(WCHAR));
     if (OK_BUFFER)
-        *buffer = 0;
+        *buffer = UNICODE_NULL;
     else if (Buffer && BufferLength != 0) // try to null-terminate even if this function fails
-        *Buffer = 0;
+        *Buffer = UNICODE_NULL;
     ADVANCE_BUFFER(sizeof(WCHAR));
 
     if (ReturnLength)

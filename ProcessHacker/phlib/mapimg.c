@@ -1385,7 +1385,7 @@ NTSTATUS PhGetMappedImageCfg64(
         return STATUS_INVALID_VIEW_SIZE;
 
     CfgConfig->MappedImage = MappedImage;
-    CfgConfig->EntrySize = sizeof(FIELD_OFFSET(IMAGE_CFG_ENTRY, Rva)) +
+    CfgConfig->EntrySize = RTL_FIELD_SIZE(IMAGE_CFG_ENTRY, Rva) +
         (ULONG)((config64->GuardFlags & IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_MASK) >> IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_SHIFT);
     CfgConfig->CfgInstrumented = !!(config64->GuardFlags & IMAGE_GUARD_CF_INSTRUMENTED);
     CfgConfig->WriteIntegrityChecks = !!(config64->GuardFlags & IMAGE_GUARD_CFW_INSTRUMENTED);
@@ -1497,7 +1497,7 @@ NTSTATUS PhGetMappedImageCfg32(
         return STATUS_INVALID_VIEW_SIZE;
 
     CfgConfig->MappedImage = MappedImage;
-    CfgConfig->EntrySize = sizeof(FIELD_OFFSET(IMAGE_CFG_ENTRY, Rva)) +
+    CfgConfig->EntrySize = RTL_FIELD_SIZE(IMAGE_CFG_ENTRY, Rva) +
         (ULONG)((config32->GuardFlags & IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_MASK) >> IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_SHIFT);
     CfgConfig->CfgInstrumented = !!(config32->GuardFlags & IMAGE_GUARD_CF_INSTRUMENTED);
     CfgConfig->WriteIntegrityChecks = !!(config32->GuardFlags & IMAGE_GUARD_CFW_INSTRUMENTED);
@@ -1651,7 +1651,7 @@ NTSTATUS PhGetMappedImageCfgEntry(
     Entry->Rva = cfgMappedEntry->Rva;
 
     // Optional header after the rva entry
-    if (CfgConfig->EntrySize > sizeof(FIELD_OFFSET(IMAGE_CFG_ENTRY, Rva)))
+    if (CfgConfig->EntrySize > RTL_FIELD_SIZE(IMAGE_CFG_ENTRY, Rva))
     {
         Entry->SuppressedCall = cfgMappedEntry->SuppressedCall;
         Entry->Reserved = cfgMappedEntry->Reserved;
@@ -1829,7 +1829,7 @@ NTSTATUS PhGetMappedImageTlsCallbackDirectory32(
 
     __try
     {
-        PhpMappedImageProbe(MappedImage, tlsDirectory, sizeof(PIMAGE_TLS_DIRECTORY32));
+        PhpMappedImageProbe(MappedImage, tlsDirectory, sizeof(IMAGE_TLS_DIRECTORY32));
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
@@ -1843,7 +1843,7 @@ NTSTATUS PhGetMappedImageTlsCallbackDirectory32(
     else
         tlsCallbacksOffset = 0;
 
-    TlsCallbacks->CallbackIndexes = PhMappedImageRvaToVa(MappedImage, PtrToUlong(PTR_SUB_OFFSET(tlsDirectory->AddressOfIndex, tlsCallbacksOffset)), NULL);
+    //TlsCallbacks->CallbackIndexes = PhMappedImageRvaToVa(MappedImage, PtrToUlong(PTR_SUB_OFFSET(tlsDirectory->AddressOfIndex, tlsCallbacksOffset)), NULL);
     TlsCallbacks->CallbackAddress = PhMappedImageRvaToVa(MappedImage, PtrToUlong(PTR_SUB_OFFSET(tlsDirectory->AddressOfCallBacks, tlsCallbacksOffset)), NULL);
 
     if (TlsCallbacks->CallbackAddress)
@@ -1883,7 +1883,7 @@ NTSTATUS PhGetMappedImageTlsCallbackDirectory64(
 
     __try
     {
-        PhpMappedImageProbe(MappedImage, tlsDirectory, sizeof(PIMAGE_TLS_DIRECTORY64));
+        PhpMappedImageProbe(MappedImage, tlsDirectory, sizeof(IMAGE_TLS_DIRECTORY64));
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
@@ -1897,7 +1897,7 @@ NTSTATUS PhGetMappedImageTlsCallbackDirectory64(
     else
         tlsCallbacksOffset = 0;
 
-    TlsCallbacks->CallbackIndexes = PhMappedImageRvaToVa(MappedImage, PtrToUlong(PTR_SUB_OFFSET(tlsDirectory->AddressOfIndex, tlsCallbacksOffset)), NULL);
+    //TlsCallbacks->CallbackIndexes = PhMappedImageRvaToVa(MappedImage, PtrToUlong(PTR_SUB_OFFSET(tlsDirectory->AddressOfIndex, tlsCallbacksOffset)), NULL);
     TlsCallbacks->CallbackAddress = PhMappedImageRvaToVa(MappedImage, PtrToUlong(PTR_SUB_OFFSET(tlsDirectory->AddressOfCallBacks, tlsCallbacksOffset)), NULL);
 
     if (TlsCallbacks->CallbackAddress)
@@ -1973,6 +1973,331 @@ NTSTATUS PhGetMappedImageTlsCallbacks(
         {
             TlsCallbacks->Entries[i].Address = array[i];
         }
+    }
+
+    return status;
+}
+
+NTSTATUS PhGetMappedImageProdIdHeader(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_PRODID ProdIdHeader
+    )
+{
+    PIMAGE_DOS_HEADER imageDosHeader = NULL;
+    PIMAGE_NT_HEADERS imageNtHeader = NULL;
+    PPRODITEM richHeaderStart = NULL; // PTR_ADD_OFFSET(imageDosHeader, 0x80)
+    PPRODITEM richHeaderEnd = NULL; // PTR_SUB_OFFSET(imageNtHeader, 0x0);
+    PPRODITEM richHeaderChecksum = NULL; // PTR_SUB_OFFSET(imageNtHeader, 0x10);
+    ULONG ntHeadersOffset = ULONG_MAX;
+    ULONG richHeaderKey = ULONG_MAX;
+    ULONG richHeaderValue = ULONG_MAX;
+    ULONG richStartSignature = ULONG_MAX;
+    ULONG richEndSignature = ULONG_MAX;
+    ULONG richHeaderStartOffset = ULONG_MAX;
+    ULONG richHeaderEndOffset = ULONG_MAX;
+    ULONG richHeaderLength = ULONG_MAX;
+
+    imageDosHeader = (PIMAGE_DOS_HEADER)MappedImage->ViewBase;
+
+    if (imageDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+        return STATUS_INVALID_IMAGE_NOT_MZ;
+
+    ntHeadersOffset = (ULONG)imageDosHeader->e_lfanew;
+
+    if (ntHeadersOffset == 0 || ntHeadersOffset >= LONG_MAX)
+        return STATUS_INVALID_IMAGE_FORMAT;
+
+    imageNtHeader = PTR_ADD_OFFSET(MappedImage->ViewBase, ntHeadersOffset);
+
+    if (imageNtHeader->Signature == IMAGE_NT_SIGNATURE)
+    {
+        PBYTE startHeaderAddress = PTR_ADD_OFFSET(MappedImage->ViewBase, ntHeadersOffset);
+        PBYTE endHeaderAddress = PTR_ADD_OFFSET(MappedImage->ViewBase, sizeof(IMAGE_DOS_HEADER));
+
+        for (PBYTE i = startHeaderAddress; i >= endHeaderAddress; i -= sizeof(ULONG))
+        {
+            __try
+            {
+                if (*(PULONG)i == ProdIdTagStart)
+                {
+                    richHeaderEndOffset = PtrToUlong(PTR_SUB_OFFSET(i, MappedImage->ViewBase));
+                    break;
+                }
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                return GetExceptionCode();
+            }
+        }
+    }
+
+    if (richHeaderEndOffset == ULONG_MAX)
+        return STATUS_FAIL_CHECK;
+
+    richHeaderChecksum = PTR_ADD_OFFSET(MappedImage->ViewBase, richHeaderEndOffset);
+
+    __try
+    {
+        PhpMappedImageProbe(MappedImage, richHeaderChecksum, sizeof(PRODITEM));
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return GetExceptionCode();
+    }
+
+    richHeaderKey = richHeaderChecksum->dwCount;
+    richStartSignature = richHeaderChecksum->dwProdid;
+
+    if (richHeaderKey && richStartSignature)
+    {
+        PBYTE startHeaderAddress = PTR_ADD_OFFSET(MappedImage->ViewBase, ntHeadersOffset);
+        PBYTE endHeaderAddress = PTR_ADD_OFFSET(MappedImage->ViewBase, sizeof(IMAGE_DOS_HEADER));
+
+        for (PBYTE i = startHeaderAddress; i >= endHeaderAddress; i -= sizeof(ULONG))
+        {
+            __try
+            {
+                if ((*(PULONG)i ^ richHeaderKey) == ProdIdTagEnd)
+                {
+                    richHeaderStartOffset = PtrToUlong(PTR_SUB_OFFSET(i, MappedImage->ViewBase));
+                    break;
+                }
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                return GetExceptionCode();
+            }
+        }
+    }
+
+    if (richHeaderStartOffset == ULONG_MAX)
+        return STATUS_FAIL_CHECK;
+
+    richHeaderValue = richHeaderStartOffset;
+    richHeaderStart = PTR_ADD_OFFSET(MappedImage->ViewBase, richHeaderStartOffset);
+
+    __try
+    {
+        PhpMappedImageProbe(MappedImage, richHeaderStart, sizeof(PRODITEM));
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return GetExceptionCode();
+    }
+
+    richHeaderEnd = PTR_ADD_OFFSET(MappedImage->ViewBase, richHeaderEndOffset + sizeof(PRODITEM));
+
+    __try
+    {
+        PhpMappedImageProbe(MappedImage, richHeaderEnd, sizeof(PRODITEM));
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return GetExceptionCode();
+    }
+
+    richHeaderLength = PtrToUlong(PTR_SUB_OFFSET(richHeaderEnd, richHeaderStart));
+    richEndSignature = richHeaderStart->dwProdid ^ richHeaderKey;
+
+    if (richStartSignature == ProdIdTagStart && richEndSignature == ProdIdTagEnd)
+    {
+        PPH_STRING hashString = NULL;
+        ULONG currentCount = 0;
+        PBYTE currentAddress;
+        PBYTE currentEnd;
+        PBYTE offset;
+
+        currentAddress = PTR_ADD_OFFSET(richHeaderStart, 0);
+        currentEnd = PTR_SUB_OFFSET(richHeaderEnd, 0);
+
+        __try
+        {
+            PH_HASH_CONTEXT hashContext;
+            UCHAR hash[32];
+
+            PhInitializeHash(&hashContext, Md5HashAlgorithm);
+            PhUpdateHash(&hashContext, richHeaderStart, richHeaderLength);
+
+            if (PhFinalHash(&hashContext, hash, 16, NULL))
+            {
+                hashString = PhBufferToHexString(hash, 16);
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            return GetExceptionCode();
+        }
+
+        if (PhIsNullOrEmptyString(hashString))
+            return STATUS_FAIL_CHECK;
+        
+        // Do a scan to determine how many enries there are.
+        for (offset = currentAddress; offset < currentEnd; offset += sizeof(PRODITEM))
+        {
+            currentCount++;
+        }
+
+        // Compute the DOS header and DOS stub checksums.
+        for (ULONG i = 0; i < richHeaderStartOffset; i++)
+        {
+            BYTE value;
+
+            // Skip the e_lfanew field.
+            if (i >= UFIELD_OFFSET(IMAGE_DOS_HEADER, e_lfanew) &&
+                i <= UFIELD_OFFSET(IMAGE_DOS_HEADER, e_lfanew) + RTL_FIELD_SIZE(IMAGE_DOS_HEADER, e_lfanew) - sizeof(BYTE))
+            {
+                continue;
+            }
+
+            __try
+            {
+                value = *(PBYTE)PTR_ADD_OFFSET(imageDosHeader, i * sizeof(BYTE));
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                continue;
+            }
+
+            richHeaderValue += _rotl(value, i);
+        }
+
+        // Compute each of the RICH entry value checksums.
+        for (ULONG i = 0; i < currentCount; i++)
+        {
+            PPRODITEM entry;
+            ULONG prodid;
+            ULONG count;
+
+            entry = PTR_ADD_OFFSET(currentAddress, i * sizeof(PRODITEM));
+
+            __try
+            {
+                PhpMappedImageProbe(MappedImage, entry, sizeof(PRODITEM));
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                continue;
+            }
+
+            prodid = entry->dwProdid ^ richHeaderKey;
+            count = entry->dwCount ^ richHeaderKey;
+
+            if (count > 0 && count != richHeaderKey)
+            {
+                richHeaderValue += _rotl((ProdidFromDwProdid(prodid) << 16 | WBuildFromDwProdid(prodid)), count & 0x1F);
+            }
+        }
+
+        //PhPrintPointer(ProdIdHeader->Key, UlongToPtr(richHeaderKey));
+        ProdIdHeader->Valid = richHeaderKey == richHeaderValue;
+        ProdIdHeader->Key = PhFormatString(L"%lx", richHeaderKey);
+        ProdIdHeader->Hash = hashString;
+        ProdIdHeader->NumberOfEntries = currentCount;
+        ProdIdHeader->ProdIdEntries = PhAllocate(sizeof(PH_MAPPED_IMAGE_PRODID_ENTRY) * currentCount);
+        memset(ProdIdHeader->ProdIdEntries, 0, sizeof(PH_MAPPED_IMAGE_PRODID_ENTRY) * currentCount);
+
+        for (ULONG i = 0; i < currentCount; i++)
+        {
+            PPRODITEM entry = PTR_ADD_OFFSET(currentAddress, i * sizeof(PRODITEM));
+
+            __try
+            {
+                PhpMappedImageProbe(MappedImage, entry, sizeof(PRODITEM));
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                //return GetExceptionCode();
+                continue;
+            }
+
+            // The prodid header can include 3 extra checksum values. Ignore these for now (dmex) 
+            if ((entry->dwCount ^ richHeaderKey) != richHeaderKey)
+            {
+                ProdIdHeader->ProdIdEntries[i].ProductId = ProdidFromDwProdid(entry->dwProdid ^ richHeaderKey);
+                ProdIdHeader->ProdIdEntries[i].ProductBuild = WBuildFromDwProdid(entry->dwProdid ^ richHeaderKey);
+                ProdIdHeader->ProdIdEntries[i].ProductCount = entry->dwCount ^ richHeaderKey;
+            }
+        }
+
+        //for (offset = currentAddress; offset < currentEnd; offset += sizeof(PRODITEM))
+        //{
+        //    PPRODITEM entry = (PPRODITEM)offset;
+        //    ULONG prodid = ProdidFromDwProdid(entry->dwProdid ^ richHeaderKey);
+        //    ULONG build = WBuildFromDwProdid(entry->dwProdid ^ richHeaderKey);
+        //    ULONG count = entry->dwCount ^ richHeaderKey;
+        //    dprintf("%x %x %x\n", prodid, build, count);
+        //}
+
+        return STATUS_SUCCESS;
+    }
+
+    return STATUS_FAIL_CHECK;
+}
+
+NTSTATUS PhGetMappedImageDebug(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_DEBUG Debug
+    )
+{
+    NTSTATUS status;
+    PIMAGE_DEBUG_DIRECTORY debugDirectory;
+    ULONG currentCount;
+
+    status = PhGetMappedImageDataEntry(
+        MappedImage,
+        IMAGE_DIRECTORY_ENTRY_DEBUG,
+        &Debug->DataDirectory
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    debugDirectory = PhMappedImageRvaToVa(
+        MappedImage,
+        Debug->DataDirectory->VirtualAddress,
+        NULL
+        );
+
+    if (!debugDirectory)
+        return STATUS_INVALID_PARAMETER;
+
+    __try
+    {
+        PhpMappedImageProbe(MappedImage, debugDirectory, sizeof(IMAGE_DEBUG_DIRECTORY));
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {   
+        return GetExceptionCode();
+    }
+
+    currentCount = Debug->DataDirectory->Size / sizeof(IMAGE_DEBUG_DIRECTORY);
+
+    Debug->DebugDirectory = debugDirectory;
+    Debug->NumberOfEntries = currentCount;
+    Debug->DebugEntries = PhAllocate(sizeof(PH_IMAGE_DEBUG_ENTRY) * currentCount);
+    memset(Debug->DebugEntries, 0, sizeof(PH_IMAGE_DEBUG_ENTRY) * currentCount);
+
+    for (ULONG i = 0; i < currentCount; i++)
+    {
+        PIMAGE_DEBUG_DIRECTORY entry = PTR_ADD_OFFSET(debugDirectory, i * sizeof(IMAGE_DEBUG_DIRECTORY));
+
+        __try
+        {
+            PhpMappedImageProbe(MappedImage, entry, sizeof(IMAGE_DEBUG_DIRECTORY));
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            break;
+        }
+
+        Debug->DebugEntries[i].Characteristics = entry->Characteristics;
+        Debug->DebugEntries[i].TimeDateStamp = entry->TimeDateStamp;
+        Debug->DebugEntries[i].MajorVersion = entry->MajorVersion;
+        Debug->DebugEntries[i].MinorVersion = entry->MinorVersion;
+        Debug->DebugEntries[i].Type = entry->Type;
+        Debug->DebugEntries[i].SizeOfData = entry->SizeOfData;
+        Debug->DebugEntries[i].AddressOfRawData = entry->AddressOfRawData;
+        Debug->DebugEntries[i].PointerToRawData = entry->PointerToRawData;
     }
 
     return status;

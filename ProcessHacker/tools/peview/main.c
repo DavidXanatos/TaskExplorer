@@ -22,6 +22,7 @@
  */
 
 #include <peview.h>
+#pragma comment(lib, "Samlib.lib")
 
 PPH_STRING PvFileName = NULL;
 
@@ -49,8 +50,6 @@ INT WINAPI wWinMain(
         { 0, L"h", NoArgumentType }
     };
     PPH_STRING commandLine;
-
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     if (!NT_SUCCESS(PhInitializePhLibEx(L"PE Viewer", ULONG_MAX, hInstance, 0, 0)))
         return 1;
@@ -128,19 +127,47 @@ INT WINAPI wWinMain(
         };
         PVOID fileDialog;
 
+        if (!SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
+            return 1;
+
         fileDialog = PhCreateOpenFileDialog();
         PhSetFileDialogOptions(fileDialog, PH_FILEDIALOG_NOPATHVALIDATE);
         PhSetFileDialogFilter(fileDialog, filters, RTL_NUMBER_OF(filters));
 
         if (PhShowFileDialog(NULL, fileDialog))
         {
-            PvFileName = PhGetFileDialogFileName(fileDialog);
+            if (PvFileName = PhGetFileDialogFileName(fileDialog))
+            {
+#ifndef DEBUG
+                PPH_STRING applicationFileName;
+
+                if (applicationFileName = PhGetApplicationFileName())
+                {
+                    PhMoveReference(&PvFileName, PhConcatStrings(3, L"\"", PvFileName->Buffer, L"\""));
+
+                    if (PhShellExecuteEx(
+                        NULL,
+                        PhGetString(applicationFileName),
+                        PvFileName->Buffer,
+                        SW_SHOWDEFAULT,
+                        PH_SHELL_EXECUTE_NOZONECHECKS,
+                        0,
+                        NULL
+                        ))
+                    {
+                        RtlExitUserProcess(STATUS_SUCCESS);
+                    }
+
+                    PhDereferenceObject(applicationFileName);
+                }
+#endif
+            }
         }
 
         PhFreeFileDialog(fileDialog);
     }
 
-    if (!PvFileName)
+    if (PhIsNullOrEmptyString(PvFileName))
         return 1;
 
     if (PhEndsWithString2(PvFileName, L".lnk", TRUE))

@@ -18,7 +18,7 @@ CProcessModel::CProcessModel(QObject *parent)
 	m_Root = MkNode(QVariant());
 
 	m_bUseIcons = true;
-	m_bUseDescr = true;
+	m_iUseDescr = 1;
 
 	m_Columns.insert(eProcess);
 }
@@ -148,6 +148,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #ifdef WIN32
 		else if (pWinProc->TokenHasChanged())		RowColor = CTaskExplorer::eDangerous;
 		else if (pWinProc->IsCriticalProcess())		RowColor = CTaskExplorer::eIsProtected;
+		else if (pWinProc->IsSandBoxed())			RowColor = CTaskExplorer::eSandBoxed;
 #endif
 		else if (pProcess->IsServiceProcess())		RowColor = CTaskExplorer::eService;
 		else if (pProcess->IsSystemProcess())		RowColor = CTaskExplorer::eSystem;
@@ -157,11 +158,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		else if (pWinProc->IsImmersiveProcess())	RowColor = CTaskExplorer::eImmersive;
 		else if (pWinProc->IsNetProcess())			RowColor = CTaskExplorer::eDotNet;
 #endif
-		else if (pProcess->IsUserProcess())			RowColor = CTaskExplorer::eUser;
 #ifdef WIN32
 		//else if (pWinProc->IsJobProcess())			RowColor = CTaskExplorer::eJob;
 		else if (pWinProc->IsInJob())				RowColor = CTaskExplorer::eJob;
 #endif
+		else if (pProcess->IsUserProcess())			RowColor = CTaskExplorer::eUser;
 		
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
@@ -193,27 +194,27 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 			QVariant Value;
 			switch(section)
 			{
-				case eProcess:		
-					if (m_bUseDescr && pModule)
+				case eProcess:
+				{
+					QString Name = pProcess->GetName();
+#ifdef WIN32
+					Name += bShow32 && pWinProc->IsWoW64() ? " *32" : "";
+#endif
+					if (m_iUseDescr && pModule)
 					{
 						QString Descr = pModule->GetFileInfo("Description");
+
 						if (!Descr.isEmpty())
 						{
-							Value =  Descr + " (" + pProcess->GetName() + 
-#ifdef WIN32
-								(bShow32 && pWinProc->IsWoW64() ? " *32" : "") + 
-#endif
-								")";
+							if (m_iUseDescr == 1)
+								Value = Descr + " (" + Name + ")";
+							else
+								Value = Name + " (" + Descr + ")";
 							break;
 						}
 					}
-#ifdef WIN32
-					if (bShow32 && pWinProc->IsWoW64()) {
-						Value = pProcess->GetName() + " *32";
-						break;
-					}
-#endif
-											Value = pProcess->GetName(); break;
+											Value = Name; break;
+				}
 				case ePID:					Value = (qint64)pProcess->GetProcessId(); break;
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; CurIntValue = 10000 * Value.toDouble(); break;

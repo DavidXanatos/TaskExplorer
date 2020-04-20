@@ -377,7 +377,7 @@ void PhShowAbout(QWidget* parent)
 		QString AboutCaption = QString(
 			"<h3>Process Hacker</h3>"
 			"<p>Licensed under the GNU GPL, v3.</p>"
-			"<p>Copyright (c) 2008-2019</p>"
+			"<p>Copyright (c) 2008-2020</p>"
 		).arg("3.0.2450");
 		QString AboutText = QString(
                 "<p>Thanks to:<br>"

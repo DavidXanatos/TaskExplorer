@@ -31,6 +31,7 @@ VOID PhAddDefaultSettings(
 {
     PhpAddIntegerSetting(L"FirstRun", L"1");
     PhpAddStringSetting(L"Font", L""); // null
+    PhpAddStringSetting(L"DbgHelpSearchPath", L"SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
     PhpAddIntegerSetting(L"EnableSecurityAdvancedDialog", L"1");
     PhpAddIntegerSetting(L"EnableThemeSupport", L"0");
     PhpAddIntegerSetting(L"GraphColorMode", L"1");
@@ -40,6 +41,8 @@ VOID PhAddDefaultSettings(
     PhpAddIntegerPairSetting(L"MainWindowPosition", L"150,150");
     PhpAddScalableIntegerPairSetting(L"MainWindowSize", L"@96|550,580");
     PhpAddStringSetting(L"ImageGeneralListViewColumns", L"");
+    PhpAddStringSetting(L"ImageGeneralListViewSort", L"");
+    PhpAddStringSetting(L"ImageDirectoryListViewColumns", L"");
     PhpAddStringSetting(L"ImageLoadCfgListViewColumns", L"");
     PhpAddStringSetting(L"ImageExportsListViewColumns", L"");
     PhpAddStringSetting(L"ImageImportsListViewColumns", L"");
@@ -51,6 +54,8 @@ VOID PhAddDefaultSettings(
     PhpAddStringSetting(L"ImageHardLinksListViewColumns", L"");
     PhpAddStringSetting(L"ImagePidsListViewColumns", L"");
     PhpAddStringSetting(L"ImageTlsListViewColumns", L"");
+    PhpAddStringSetting(L"ImageProdIdListViewColumns", L"");
+    PhpAddStringSetting(L"ImageDebugListViewColumns", L"");
     PhpAddStringSetting(L"LibListViewColumns", L"");
     PhpAddStringSetting(L"PdbTreeListColumns", L"");
 
@@ -75,13 +80,13 @@ VOID PeInitializeSettings(
     )
 {
     static PH_STRINGREF settingsPath = PH_STRINGREF_INIT(L"%APPDATA%\\Process Hacker\\peview.xml");
-    static PH_STRINGREF settingsSuffix = PH_STRINGREF_INIT(L".peview.xml");
+    static PH_STRINGREF settingsSuffix = PH_STRINGREF_INIT(L".settings.xml");
     NTSTATUS status;
     PPH_STRING appFileName;
     PPH_STRING tempFileName;  
 
     // There are three possible locations for the settings file:
-    // 1. A file named peview.exe.peview.xml in the program directory. (This changes
+    // 1. A file named peview.exe.settings.xml in the program directory. (This changes
     //    based on the executable file name.)
     // 2. The default location.
 
@@ -91,7 +96,7 @@ VOID PeInitializeSettings(
     tempFileName = PhConcatStringRef2(&appFileName->sr, &settingsSuffix);
     PhDereferenceObject(appFileName);
 
-    if (RtlDoesFileExists_U(tempFileName->Buffer))
+    if (PhDoesFileExistsWin32(tempFileName->Buffer))
     {
         PeSettingsFileName = tempFileName;
     }

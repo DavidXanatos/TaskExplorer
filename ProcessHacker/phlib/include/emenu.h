@@ -77,8 +77,8 @@ PPH_EMENU_ITEM PhFindEMenuItemEx(
     _In_ ULONG Flags,
     _In_opt_ PWSTR Text,
     _In_opt_ ULONG Id,
-    _Inout_opt_ PPH_EMENU_ITEM *FoundParent,
-    _Inout_opt_ PULONG FoundIndex
+    _Out_opt_ PPH_EMENU_ITEM *FoundParent,
+    _Out_opt_ PULONG FoundIndex
     );
 
 PHLIBAPI
@@ -228,6 +228,18 @@ VOID PhSetDisabledEMenuItem(
     )
 {
     Item->Flags |= PH_EMENU_DISABLED;
+}
+
+FORCEINLINE
+VOID PhSetEnabledEMenuItem(
+    _In_ PPH_EMENU_ITEM Item,
+    _In_ BOOLEAN Enable
+    )
+{
+    if (Enable)
+        Item->Flags &= ~PH_EMENU_DISABLED;
+    else
+        Item->Flags |= PH_EMENU_DISABLED;
 }
 
 #ifdef __cplusplus

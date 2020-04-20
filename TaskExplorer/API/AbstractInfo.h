@@ -33,6 +33,7 @@ public:
 	virtual void				MarkForRemoval()					{ QWriteLocker Locker(&m_Mutex); m_RemoveTimeStamp = GetCurTick(); }
 	virtual bool				IsMarkedForRemoval() const			{ QReadLocker Locker(&m_Mutex); return m_RemoveTimeStamp != 0; }
 	virtual bool				CanBeRemoved() const;
+	virtual void				ClearPersistence();
 
 protected:
 	volatile mutable bool		m_NewlyCreated;

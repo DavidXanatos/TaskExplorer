@@ -34,7 +34,7 @@ protected:
 		ePage
 	};
 
-	virtual void			AddPriorityItemsToMenu(EPriorityType Style, bool bAddSeparator = true);
+	virtual void			AddPriorityItemsToMenu(EPriorityType Style);
 
 	// Task Items
 	QAction*				m_pTerminate;

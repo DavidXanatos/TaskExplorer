@@ -41,7 +41,7 @@ struct STaskStats
 	SDelta64 		CpuKernelDelta;
 	SDelta64 		CpuUserDelta;
 	SDelta64 		CycleDelta;
-	SDelta32_64 		ContextSwitchesDelta;
+	SDelta32_64 	ContextSwitchesDelta;
 
 	float			CpuUsage; 
 	float			CpuKernelUsage;

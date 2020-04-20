@@ -144,6 +144,9 @@ public:
 	virtual STATUS SetCriticalProcess(bool bSet, bool bForce = false);
 	virtual STATUS ReduceWS();
 
+	virtual bool IsSandBoxed() const;
+	virtual QString GetSandBoxName() const;
+
 	virtual STATUS LoadModule(const QString& Path);
 
 	virtual void OpenPermissions();
@@ -198,6 +201,7 @@ protected:
 	bool InitStaticData(quint64 ProcessId);
 	bool InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo);
 	bool InitStaticData(bool bLoadFileName = true); // *NOT Thread Safe* internal function to be called by other InitStaticData's
+	void UpdateModuleInfo(); // *NOT Thread Safe* internal function
 	bool IsHandleValid();
 	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
 	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);

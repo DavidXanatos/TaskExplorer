@@ -142,6 +142,8 @@ PhCenterWindow(
     _In_opt_ HWND ParentWindowHandle
     );
 
+// NLS
+
 PHLIBAPI
 LANGID
 NTAPI
@@ -149,44 +151,36 @@ PhGetUserDefaultLangID(
     VOID
     );
 
-FORCEINLINE
-VOID
-PhLargeIntegerToSystemTime(
-    _Out_ PSYSTEMTIME SystemTime,
-    _In_ PLARGE_INTEGER LargeInteger
-    )
-{
-    FILETIME fileTime;
-
-    fileTime.dwLowDateTime = LargeInteger->LowPart;
-    fileTime.dwHighDateTime = LargeInteger->HighPart;
-    FileTimeToSystemTime(&fileTime, SystemTime);
-}
-
-FORCEINLINE
-VOID
-PhLargeIntegerToLocalSystemTime(
-    _Out_ PSYSTEMTIME SystemTime,
-    _In_ PLARGE_INTEGER LargeInteger
-    )
-{
-    FILETIME fileTime;
-    FILETIME newFileTime;
-
-    fileTime.dwLowDateTime = LargeInteger->LowPart;
-    fileTime.dwHighDateTime = LargeInteger->HighPart;
-    FileTimeToLocalFileTime(&fileTime, &newFileTime);
-    FileTimeToSystemTime(&newFileTime, SystemTime);
-}
-
-// NLS
-
-LCID PhGetSystemDefaultLCID(
+PHLIBAPI
+LCID
+NTAPI
+PhGetSystemDefaultLCID(
     VOID
     );
 
-LCID PhGetUserDefaultLCID(
+PHLIBAPI
+LCID
+NTAPI
+PhGetUserDefaultLCID(
     VOID
+    );
+
+// Time
+
+PHLIBAPI
+VOID
+NTAPI
+PhLargeIntegerToSystemTime(
+    _Out_ PSYSTEMTIME SystemTime,
+    _In_ PLARGE_INTEGER LargeInteger
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhLargeIntegerToLocalSystemTime(
+    _Out_ PSYSTEMTIME SystemTime,
+    _In_ PLARGE_INTEGER LargeInteger
     );
 
 // Error messages
@@ -632,32 +626,6 @@ PhGetSystemRoot(
 PHLIBAPI
 PPH_STRING
 NTAPI
-PhGetDllFileName(
-    _In_ PVOID DllBase,
-    _Out_opt_ PULONG IndexOfFileName
-    );
-
-PHLIBAPI
-PVOID
-NTAPI
-PhGetDllBaseProcedureAddress(
-    _In_ PVOID DllBase,
-    _In_opt_ PSTR ProcedureName,
-    _In_opt_ USHORT ProcedureNumber
-    );
-
-PHLIBAPI
-PVOID
-NTAPI
-PhGetDllProcedureAddress(
-    _In_ PWSTR DllEntryName,
-    _In_opt_ PSTR ProcedureName,
-    _In_opt_ USHORT ProcedureNumber
-    );
-
-PHLIBAPI
-PPH_STRING
-NTAPI
 PhGetApplicationFileName(
     VOID
     );
@@ -802,7 +770,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhShellExecute(
-    _In_ HWND hWnd,
+    _In_opt_ HWND hWnd,
     _In_ PWSTR FileName,
     _In_opt_ PWSTR Parameters
     );
@@ -1155,6 +1123,7 @@ PhGetNamespaceHandle(
     VOID
     );
 
+_Success_(return)
 PHLIBAPI
 BOOLEAN
 NTAPI
@@ -1190,6 +1159,7 @@ PhExtractIcon(
     _Out_opt_ HICON *IconSmall
     );
 
+_Success_(return)
 PHLIBAPI
 BOOLEAN
 NTAPI
@@ -1201,12 +1171,34 @@ PhExtractIconEx(
     );
 
 PHLIBAPI
+HWND
+NTAPI
+PhHungWindowFromGhostWindow(
+    _In_ HWND WindowHandle
+    );
+
+PHLIBAPI
 PLDR_DATA_TABLE_ENTRY
 NTAPI
 PhFindLoaderEntry(
     _In_opt_ PVOID DllBase,
     _In_opt_ PPH_STRINGREF FullDllName,
     _In_opt_ PPH_STRINGREF BaseDllName
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhGetDllFileName(
+    _In_ PVOID DllBase,
+    _Out_opt_ PULONG IndexOfFileName
+    );
+
+PHLIBAPI
+PVOID
+NTAPI
+PhGetLoaderEntryDllBase(
+    _In_ PWSTR DllName
     );
 
 PHLIBAPI
@@ -1225,13 +1217,6 @@ PhGetDllProcedureAddress(
     _In_ PWSTR DllName,
     _In_opt_ PSTR ProcedureName,
     _In_opt_ USHORT ProcedureNumber
-    );
-
-PHLIBAPI
-PVOID
-NTAPI
-PhGetLoaderEntryDllBase(
-    _In_ PWSTR DllName
     );
 
 PHLIBAPI
@@ -1321,17 +1306,30 @@ PhLoadAllImportsForDll(
     );
 
 PHLIBAPI
-PPH_STRING
+PVOID
 NTAPI
 PhGetFileText(
-    _In_ HANDLE FileHandle
+    _In_ HANDLE FileHandle,
+    _In_ BOOLEAN Unicode
     );
 
 PHLIBAPI
-PPH_STRING
+PVOID
 NTAPI
 PhFileReadAllText(
-    _In_ PWSTR FileName
+    _In_ PWSTR FileName,
+    _In_ BOOLEAN Unicode
+    );
+
+_Success_(return == S_OK)
+PHLIBAPI
+HRESULT
+NTAPI
+PhGetClassObject(
+    _In_ PWSTR DllName,
+    _In_ REFCLSID Rclsid,
+    _In_ REFIID Riid,
+    _Out_ PVOID* Ppv
     );
 
 #ifdef __cplusplus

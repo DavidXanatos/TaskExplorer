@@ -10,6 +10,7 @@
 #include "MemoryInfo.h"
 #include "SocketInfo.h"
 #include "DNSEntry.h"
+#include "PersistentPreset.h"
 
 #ifdef WIN32
 #undef GetUserName
@@ -100,6 +101,8 @@ public:
 	virtual void UpdateDns(const QString& HostName, const QList<QHostAddress>& Addresses);
 	virtual QString GetHostName(const QHostAddress& Address);
 
+	virtual void UpdatePresets();
+
 	virtual SProcStats	GetStats() const					{ QReadLocker Locker(&m_StatsMutex); return m_Stats; }
 
 	virtual CModulePtr GetModuleInfo() const				{ QReadLocker Locker(&m_Mutex); return m_pModuleInfo; }
@@ -159,6 +162,10 @@ public:
 
 	virtual STATUS LoadModule(const QString& Path) = 0;
 
+	virtual void ClearPersistence();
+
+	virtual CPersistentPresetPtr GetPresets() const;
+
 signals:
 	void			ThreadsUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void			HandlesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
@@ -171,7 +178,11 @@ public slots:
 	virtual bool	UpdateModules() = 0;
 	virtual bool	UpdateWindows() = 0;
 
+	virtual void	ApplyPresets();
+
 protected:
+	void InitPresets(); // *NOT Thread Safe* internal function
+
 	// Basic
 	quint64							m_ProcessId;
 	quint64							m_ParentProcessId;
@@ -236,6 +247,9 @@ protected:
 	mutable QReadWriteLock			m_DnsMutex;
 	QMap<QString, CDnsLogEntryPtr>		m_DnsLog;
 	QMultiMap<QHostAddress, QString>	m_DnsRevLog;
+
+	
+	CPersistentPresetRef			m_PersistentPreset;
 };
 
 typedef QSharedPointer<CProcessInfo> CProcessPtr;

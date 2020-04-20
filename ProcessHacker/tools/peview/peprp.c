@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2018 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -52,8 +52,6 @@ HICON PvImageLargeIcon = NULL;
 PH_IMAGE_VERSION_INFO PvImageVersionInfo;
 static VERIFY_RESULT PvImageVerifyResult;
 static PPH_STRING PvImageSignerName;
-static HWND ResetButton;
-static WNDPROC OldWndProc;
 
 VOID PvPeProperties(
     VOID
@@ -116,6 +114,14 @@ VOID PvPeProperties(
                 );
             PvAddPropPage(propContext, newPage);
         }
+
+        // Directories page
+        newPage = PvCreatePropPageContext(
+            MAKEINTRESOURCE(IDD_PEDIRECTORY),
+            PvpPeDirectoryDlgProc,
+            NULL
+            );
+        PvAddPropPage(propContext, newPage);
 
         // Imports page
         if ((NT_SUCCESS(PhGetMappedImageImports(&imports, &PvMappedImage)) && imports.NumberOfDlls != 0) ||
@@ -256,8 +262,42 @@ VOID PvPeProperties(
             PvAddPropPage(propContext, newPage);
         }
 
-        // Symbols page
+        // RICH header page
+        {
+            // .NET executables don't include a RICH header.
+            if (!(NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, &entry)) && entry->VirtualAddress))
+            {
+                newPage = PvCreatePropPageContext(
+                    MAKEINTRESOURCE(IDD_PEPRODID),
+                    PvpPeProdIdDlgProc,
+                    NULL
+                    );
+                PvAddPropPage(propContext, newPage);
+            }
+        }
+
+        // Debug page
         if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_DEBUG, &entry)) && entry->VirtualAddress)
+        {
+            newPage = PvCreatePropPageContext(
+                MAKEINTRESOURCE(IDD_PEDEBUG),
+                PvpPeDebugDlgProc,
+                NULL
+                );
+            PvAddPropPage(propContext, newPage);
+        }
+
+        // Text preview page
+        {
+            newPage = PvCreatePropPageContext(
+                MAKEINTRESOURCE(IDD_PEPREVIEW),
+                PvpPePreviewDlgProc,
+                NULL
+                );
+            PvAddPropPage(propContext, newPage);
+        }
+
+        // Symbols page
         {
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_PESYMBOLS),
@@ -453,7 +493,7 @@ FORCEINLINE PPH_STRING PvpGetSectionCharacteristics(
     if (PhEndsWithString2(stringBuilder.String, L", ", FALSE))
         PhRemoveEndStringBuilder(&stringBuilder, 2);
 
-    PhPrintPointer(pointer, (PVOID)(ULONG_PTR)Characteristics);
+    PhPrintPointer(pointer, UlongToPtr(Characteristics));
     PhAppendFormatStringBuilder(&stringBuilder, L" (%s)", pointer);
 
     return PhFinalStringBuilderString(&stringBuilder);
@@ -529,9 +569,25 @@ VOID PvpSetPeImageTimeStamp(
     RtlSecondsSince1970ToTime(PvMappedImage.NtHeaders->FileHeader.TimeDateStamp, &time);
     PhLargeIntegerToLocalSystemTime(&systemTime, &time);
 
-    string = PhFormatDateTime(&systemTime);
-    PhSetDialogItemText(WindowHandle, IDC_TIMESTAMP, string->Buffer);
-    PhDereferenceObject(string);
+    if (WindowsVersion >= WINDOWS_10)
+    {
+        // "the timestamp to be a hash of the resulting binary"
+        // https://devblogs.microsoft.com/oldnewthing/20180103-00/?p=97705
+        string = PhFormatDateTime(&systemTime);
+        PhSwapReference(&string, PhFormatString(
+            L"%s (%lx)",
+            string->Buffer,
+            PvMappedImage.NtHeaders->FileHeader.TimeDateStamp
+            ));
+        PhSetDialogItemText(WindowHandle, IDC_TIMESTAMP, string->Buffer);
+        PhDereferenceObject(string);
+    }
+    else
+    {
+        string = PhFormatDateTime(&systemTime);
+        PhSetDialogItemText(WindowHandle, IDC_TIMESTAMP, string->Buffer);
+        PhDereferenceObject(string);
+    }
 }
 
 VOID PvpSetPeImageBaseAddress(
@@ -546,6 +602,75 @@ VOID PvpSetPeImageBaseAddress(
         string = PhFormatString(L"0x%I64x", ((PIMAGE_OPTIONAL_HEADER64)&PvMappedImage.NtHeaders->OptionalHeader)->ImageBase);
 
     PhSetDialogItemText(WindowHandle, IDC_IMAGEBASE, string->Buffer);
+    PhDereferenceObject(string);
+}
+
+VOID PvpSetPeImageSize(
+    _In_ HWND WindowHandle
+    )
+{
+    PPH_STRING string;
+    ULONG lastRawDataAddress = 0;
+    ULONG64 lastRawDataOffset = 0;
+    ULONG64 lastRawDataAddressSize = 0;
+
+    // https://reverseengineering.stackexchange.com/questions/2014/how-can-one-extract-the-appended-data-of-a-portable-executable/2015#2015
+
+    for (ULONG i = 0; i < PvMappedImage.NumberOfSections; i++)
+    {
+        if (PvMappedImage.Sections[i].PointerToRawData > lastRawDataAddress)
+        {
+            lastRawDataAddress = PvMappedImage.Sections[i].PointerToRawData;
+            lastRawDataOffset = (ULONG64)PTR_ADD_OFFSET(lastRawDataAddress, PvMappedImage.Sections[i].SizeOfRawData);
+        }
+    }
+
+    if (PvMappedImage.Size != lastRawDataOffset)
+    {
+        BOOLEAN success = FALSE;
+        PIMAGE_DATA_DIRECTORY dataDirectory;
+
+        if (NT_SUCCESS(PhGetMappedImageDataEntry(
+            &PvMappedImage,
+            IMAGE_DIRECTORY_ENTRY_SECURITY,
+            &dataDirectory
+            )))
+        {
+            if (
+                dataDirectory->VirtualAddress &&
+                (lastRawDataOffset + dataDirectory->Size == PvMappedImage.Size) &&
+                (lastRawDataOffset == dataDirectory->VirtualAddress)
+                )
+            {
+                success = TRUE;
+            }
+        }
+
+        if (success)
+        {
+            string = PhFormatString(L"%s (correct)", PhaFormatSize(PvMappedImage.Size, ULONG_MAX)->Buffer);
+        }
+        else
+        {
+            WCHAR pointer[PH_PTR_STR_LEN_1];
+
+            PhPrintPointer(pointer, UlongToPtr(lastRawDataAddress));
+
+            string = PhFormatString(
+                L"%s (incorrect, %s) (%s - %s)",
+                PhaFormatSize(lastRawDataOffset, ULONG_MAX)->Buffer,
+                PhaFormatSize(PvMappedImage.Size, ULONG_MAX)->Buffer,
+                pointer,
+                PhaFormatSize(PvMappedImage.Size - lastRawDataOffset, ULONG_MAX)->Buffer
+                );
+        }
+    }
+    else
+    {
+        string = PhFormatString(L"%s (correct)", PhaFormatSize(PvMappedImage.Size, ULONG_MAX)->Buffer);
+    }
+
+    PhSetDialogItemText(WindowHandle, IDC_IMAGESIZE, string->Buffer);
     PhDereferenceObject(string);
 }
 
@@ -570,7 +695,7 @@ VOID PvpSetPeImageCheckSum(
 {
     PPH_STRING string;
 
-    string = PhFormatString(L"0x%Ix (verifying...)", PvMappedImage.NtHeaders->OptionalHeader.CheckSum); // same for 32-bit and 64-bit images
+    string = PhFormatString(L"0x%I32x (verifying...)", PvMappedImage.NtHeaders->OptionalHeader.CheckSum); // same for 32-bit and 64-bit images
 
     PhSetDialogItemText(WindowHandle, IDC_CHECKSUM, string->Buffer);
 
@@ -685,7 +810,7 @@ VOID PvpSetPeImageCharacteristics(
     if (PhEndsWithString2(stringBuilder.String, L", ", FALSE))
         PhRemoveEndStringBuilder(&stringBuilder, 2);
 
-    PhSetDialogItemText(WindowHandle, IDC_CHARACTERISTICS, stringBuilder.String->Buffer);
+    PhSetDialogItemText(WindowHandle, IDC_CHARACTERISTICS, PhFinalStringBuilderString(&stringBuilder)->Buffer);
     PhDeleteStringBuilder(&stringBuilder);
 }
 
@@ -693,43 +818,71 @@ VOID PvpSetPeImageSections(
     _In_ HWND ListViewHandle
     )
 {
+    ExtendedListView_SetRedraw(ListViewHandle, FALSE); 
+    ListView_DeleteAllItems(ListViewHandle);
+
     for (ULONG i = 0; i < PvMappedImage.NumberOfSections; i++)
     {
         INT lvItemIndex;
         WCHAR sectionName[IMAGE_SIZEOF_SHORT_NAME + 1];
         WCHAR pointer[PH_PTR_STR_LEN_1];
 
-        if (PhGetMappedImageSectionName(&PvMappedImage.Sections[i], sectionName, ARRAYSIZE(sectionName), NULL))
+        if (PhGetMappedImageSectionName(
+            &PvMappedImage.Sections[i],
+            sectionName,
+            RTL_NUMBER_OF(sectionName),
+            NULL
+            ))
         {
             PhPrintPointer(pointer, UlongToPtr(PvMappedImage.Sections[i].VirtualAddress));
 
-            lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, sectionName, NULL);
+            lvItemIndex = PhAddListViewItem(
+                ListViewHandle,
+                MAXINT,
+                sectionName,
+                &PvMappedImage.Sections[i]
+                );
             PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, pointer);
             PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, PhaFormatSize(PvMappedImage.Sections[i].SizeOfRawData, ULONG_MAX)->Buffer);
             PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3, PH_AUTO_T(PH_STRING, PvpGetSectionCharacteristics(PvMappedImage.Sections[i].Characteristics))->Buffer);
 
             if (PvMappedImage.Sections[i].VirtualAddress && PvMappedImage.Sections[i].SizeOfRawData)
             {
-                PVOID imageSectionData;
-                PH_HASH_CONTEXT hashContext;
-                PPH_STRING hashString;
-                UCHAR hash[32];
-
-                if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, PvMappedImage.Sections[i].VirtualAddress, NULL))
+                __try
                 {
-                    PhInitializeHash(&hashContext, Md5HashAlgorithm); // PhGetIntegerSetting(L"HashAlgorithm")
-                    PhUpdateHash(&hashContext, imageSectionData, PvMappedImage.Sections[i].SizeOfRawData);
+                    PVOID imageSectionData;
+                    PH_HASH_CONTEXT hashContext;
+                    PPH_STRING hashString;
+                    UCHAR hash[32];
 
-                    if (PhFinalHash(&hashContext, hash, 16, NULL))
+                    if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, PvMappedImage.Sections[i].VirtualAddress, NULL))
                     {
-                        hashString = PhBufferToHexString(hash, 16);
-                        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 4, hashString->Buffer);
-                        PhDereferenceObject(hashString);
+                        PhInitializeHash(&hashContext, Md5HashAlgorithm); // PhGetIntegerSetting(L"HashAlgorithm")
+                        PhUpdateHash(&hashContext, imageSectionData, PvMappedImage.Sections[i].SizeOfRawData);
+
+                        if (PhFinalHash(&hashContext, hash, 16, NULL))
+                        {
+                            hashString = PhBufferToHexString(hash, 16);
+                            PhSetListViewSubItem(ListViewHandle, lvItemIndex, 4, hashString->Buffer);
+                            PhDereferenceObject(hashString);
+                        }
                     }
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    PPH_STRING message;
+
+                    //message = PH_AUTO(PhGetNtMessage(GetExceptionCode()));
+                    message = PH_AUTO(PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode()))); // WIN32_FROM_NTSTATUS
+
+                    PhSetListViewSubItem(ListViewHandle, lvItemIndex, 4, PhGetStringOrEmpty(message));
                 }
             }
         }
     }
+
+    ExtendedListView_SortItems(ListViewHandle);
+    ExtendedListView_SetRedraw(ListViewHandle, TRUE);
 }
 
 NTSTATUS PhpOpenFileSecurity(
@@ -787,72 +940,76 @@ NTSTATUS PhpOpenFileSecurity(
     return status;
 }
 
-LRESULT CALLBACK PhpOptionsWndProc(
-    _In_ HWND hwndDlg,
-    _In_ UINT uMsg,
-    _In_ WPARAM wParam,
-    _In_ LPARAM lParam
+static COLORREF NTAPI PvpPeCharacteristicsColorFunction(
+    _In_ INT Index,
+    _In_ PVOID Param,
+    _In_opt_ PVOID Context
     )
 {
-    switch (uMsg)
+    PIMAGE_SECTION_HEADER imageSection = Param;
+
+    if (imageSection->Characteristics & IMAGE_SCN_MEM_WRITE)
     {
-    case WM_COMMAND:
-        {
-            if (GET_WM_COMMAND_HWND(wParam, lParam) == ResetButton)
-            {
-                PhEditSecurity(
-                    hwndDlg,
-                    PhGetString(PvFileName),
-                    L"FileObject",
-                    PhpOpenFileSecurity,
-                    NULL,
-                    NULL
-                    );
-            }
-        }
-        break;
+        return RGB(0xf0, 0xa0, 0xa0);
+    }
+    if (imageSection->Characteristics & IMAGE_SCN_MEM_EXECUTE)
+    {
+        return RGB(0xf0, 0xb0, 0xb0);
+    }
+    if (imageSection->Characteristics & IMAGE_SCN_CNT_CODE)
+    {
+        return RGB(0xe0, 0xf0, 0xe0);
+    }
+    if (imageSection->Characteristics & IMAGE_SCN_MEM_READ)
+    {
+        return RGB(0xc0, 0xf0, 0xc0);
     }
 
-    return CallWindowProc(OldWndProc, hwndDlg, uMsg, wParam, lParam);
+    return RGB(0xff, 0xff, 0xff);
 }
 
-static HWND PvpCreateSecurityButton(
-    _In_ HWND hwndDlg
+static INT NTAPI PvpPeVirtualAddressCompareFunction(
+    _In_ PVOID Item1,
+    _In_ PVOID Item2,
+    _In_opt_ PVOID Context
     )
 {
-    if (!ResetButton)
-    {
-        HWND optionsWindow;
-        RECT clientRect;
-        RECT rect;
+    PIMAGE_SECTION_HEADER entry1 = Item1;
+    PIMAGE_SECTION_HEADER entry2 = Item2;
 
-        optionsWindow = GetParent(hwndDlg);
-        OldWndProc = (WNDPROC)GetWindowLongPtr(optionsWindow, GWLP_WNDPROC);
-        SetWindowLongPtr(optionsWindow, GWLP_WNDPROC, (LONG_PTR)PhpOptionsWndProc);
-
-        // Create the Reset button.
-        GetClientRect(optionsWindow, &clientRect);
-        GetWindowRect(GetDlgItem(optionsWindow, IDCANCEL), &rect);
-        MapWindowPoints(NULL, optionsWindow, (POINT*)&rect, 2);
-        ResetButton = CreateWindowEx(
-            WS_EX_NOPARENTNOTIFY,
-            WC_BUTTON,
-            L"Security",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-            clientRect.right - rect.right,
-            rect.top,
-            rect.right - rect.left,
-            rect.bottom - rect.top,
-            optionsWindow,
-            NULL,
-            PhInstanceHandle,
-            NULL
-            );
-        SendMessage(ResetButton, WM_SETFONT, SendMessage(GetDlgItem(optionsWindow, IDCANCEL), WM_GETFONT, 0, 0), TRUE);
-    }
-
-    return ResetButton;
+    return uintcmp(entry1->VirtualAddress, entry2->VirtualAddress);
 }
+
+static INT NTAPI PvpPeSizeOfRawDataCompareFunction(
+    _In_ PVOID Item1,
+    _In_ PVOID Item2,
+    _In_opt_ PVOID Context
+    )
+{
+    PIMAGE_SECTION_HEADER entry1 = Item1;
+    PIMAGE_SECTION_HEADER entry2 = Item2;
+
+    return uintcmp(entry1->SizeOfRawData, entry2->SizeOfRawData);
+}
+
+static INT NTAPI PvpPeCharacteristicsCompareFunction(
+    _In_ PVOID Item1,
+    _In_ PVOID Item2,
+    _In_opt_ PVOID Context
+    )
+{
+    PIMAGE_SECTION_HEADER entry1 = Item1;
+    PIMAGE_SECTION_HEADER entry2 = Item2;
+
+    return uintcmp(entry1->Characteristics, entry2->Characteristics);
+}
+
+typedef struct _PVP_PE_GENERAL_CONTEXT
+{
+    HWND WindowHandle;
+    HWND ListViewHandle;
+    HIMAGELIST ListViewImageList;
+} PVP_PE_GENERAL_CONTEXT, *PPVP_PE_GENERAL_CONTEXT;
 
 INT_PTR CALLBACK PvpPeGeneralDlgProc(
     _In_ HWND hwndDlg,
@@ -863,25 +1020,44 @@ INT_PTR CALLBACK PvpPeGeneralDlgProc(
 {
     LPPROPSHEETPAGE propSheetPage;
     PPV_PROPPAGECONTEXT propPageContext;
+    PPVP_PE_GENERAL_CONTEXT context;
 
     if (!PvPropPageDlgProcHeader(hwndDlg, uMsg, lParam, &propSheetPage, &propPageContext))
         return FALSE;
+
+    if (uMsg == WM_INITDIALOG)
+    {
+        context = propPageContext->Context = PhAllocate(sizeof(PVP_PE_GENERAL_CONTEXT));
+        memset(context, 0, sizeof(PVP_PE_GENERAL_CONTEXT));
+    }
+    else
+    {
+        context = propPageContext->Context;
+    }
 
     switch (uMsg)
     {
     case WM_INITDIALOG:
         {
-            HWND lvHandle;
+            context->ListViewHandle = GetDlgItem(hwndDlg, IDC_LIST);
 
-            lvHandle = GetDlgItem(hwndDlg, IDC_LIST);
-            PhSetListViewStyle(lvHandle, TRUE, TRUE);
-            PhSetControlTheme(lvHandle, L"explorer");
-            PhAddListViewColumn(lvHandle, 0, 0, 0, LVCFMT_LEFT, 80, L"Name");
-            PhAddListViewColumn(lvHandle, 1, 1, 1, LVCFMT_LEFT, 80, L"VA");
-            PhAddListViewColumn(lvHandle, 2, 2, 2, LVCFMT_LEFT, 80, L"Size");
-            PhAddListViewColumn(lvHandle, 3, 3, 3, LVCFMT_LEFT, 250, L"Characteristics");
-            PhAddListViewColumn(lvHandle, 4, 4, 4, LVCFMT_LEFT, 80, L"Hash");
-            PhLoadListViewColumnsFromSetting(L"ImageGeneralListViewColumns", lvHandle);
+            PhSetExtendedListView(context->ListViewHandle);
+            PhSetListViewStyle(context->ListViewHandle, FALSE, TRUE);
+            PhSetControlTheme(context->ListViewHandle, L"explorer");
+            PhAddListViewColumn(context->ListViewHandle, 0, 0, 0, LVCFMT_LEFT, 80, L"Name");
+            PhAddListViewColumn(context->ListViewHandle, 1, 1, 1, LVCFMT_LEFT, 80, L"VA");
+            PhAddListViewColumn(context->ListViewHandle, 2, 2, 2, LVCFMT_LEFT, 80, L"Size");
+            PhAddListViewColumn(context->ListViewHandle, 3, 3, 3, LVCFMT_LEFT, 250, L"Characteristics");
+            PhAddListViewColumn(context->ListViewHandle, 4, 4, 4, LVCFMT_LEFT, 80, L"Hash");
+            //ExtendedListView_SetItemColorFunction(context->ListViewHandle, PvpPeCharacteristicsColorFunction);
+            ExtendedListView_SetCompareFunction(context->ListViewHandle, 1, PvpPeVirtualAddressCompareFunction);
+            ExtendedListView_SetCompareFunction(context->ListViewHandle, 2, PvpPeSizeOfRawDataCompareFunction);
+            ExtendedListView_SetCompareFunction(context->ListViewHandle, 3, PvpPeCharacteristicsCompareFunction);
+            PhLoadListViewColumnsFromSetting(L"ImageGeneralListViewColumns", context->ListViewHandle);
+            PhLoadListViewSortColumnsFromSetting(L"ImageGeneralListViewSort", context->ListViewHandle);
+
+            if (context->ListViewImageList = ImageList_Create(2, 20, ILC_COLOR, 1, 1))
+                ListView_SetImageList(context->ListViewHandle, context->ListViewImageList, LVSIL_SMALL);
 
             // File version information
             PvpSetPeImageVersionInfo(hwndDlg);
@@ -890,17 +1066,24 @@ INT_PTR CALLBACK PvpPeGeneralDlgProc(
             PvpSetPeImageMachineType(hwndDlg);
             PvpSetPeImageTimeStamp(hwndDlg);
             PvpSetPeImageBaseAddress(hwndDlg);
+            PvpSetPeImageSize(hwndDlg);
             PvpSetPeImageEntryPoint(hwndDlg);
             PvpSetPeImageCheckSum(hwndDlg);
             PvpSetPeImageSubsystem(hwndDlg);
             PvpSetPeImageCharacteristics(hwndDlg);
 
-            PvpSetPeImageSections(lvHandle);
+            PvpSetPeImageSections(context->ListViewHandle);
         }
         break;
     case WM_DESTROY:
         {
-            PhSaveListViewColumnsToSetting(L"ImageGeneralListViewColumns", GetDlgItem(hwndDlg, IDC_LIST));
+            PhSaveListViewSortColumnsToSetting(L"ImageGeneralListViewSort", context->ListViewHandle);
+            PhSaveListViewColumnsToSetting(L"ImageGeneralListViewColumns", context->ListViewHandle);
+
+            if (context->ListViewImageList)
+                ImageList_Destroy(context->ListViewImageList);
+
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
@@ -914,8 +1097,6 @@ INT_PTR CALLBACK PvpPeGeneralDlgProc(
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_NAME), dialogItem, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_CHARACTERISTICS), dialogItem, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_LIST), dialogItem, PH_ANCHOR_ALL);
-
-                PvAddPropPageLayoutItem(hwndDlg, PvpCreateSecurityButton(hwndDlg), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_BOTTOM);
 
                 PvDoPropPageLayout(hwndDlg);
 
@@ -937,19 +1118,19 @@ INT_PTR CALLBACK PvpPeGeneralDlgProc(
             if (headerCheckSum == 0)
             {
                 // Some executables, like .NET ones, don't have a check sum.
-                string = PhFormatString(L"0x0 (real 0x%Ix) (%s)", realCheckSum, PhGetStringOrDefault(importTableHash, L"N/A"));
+                string = PhFormatString(L"0x0 (real 0x%I32x) (%s)", realCheckSum, PhGetStringOrDefault(importTableHash, L"N/A"));
                 PhSetDialogItemText(hwndDlg, IDC_CHECKSUM, string->Buffer);
                 PhDereferenceObject(string);
             }
             else if (headerCheckSum == realCheckSum)
             {
-                string = PhFormatString(L"0x%Ix (correct) (%s)", headerCheckSum, PhGetStringOrDefault(importTableHash, L"N/A"));
+                string = PhFormatString(L"0x%I32x (correct) (%s)", headerCheckSum, PhGetStringOrDefault(importTableHash, L"N/A"));
                 PhSetDialogItemText(hwndDlg, IDC_CHECKSUM, string->Buffer);
                 PhDereferenceObject(string);
             }
             else
             {
-                string = PhFormatString(L"0x%Ix (incorrect, real 0x%Ix) (%s)", headerCheckSum, realCheckSum, PhGetStringOrDefault(importTableHash, L"N/A"));
+                string = PhFormatString(L"0x%I32x (incorrect, real 0x%I32x) (%s)", headerCheckSum, realCheckSum, PhGetStringOrDefault(importTableHash, L"N/A"));
                 PhSetDialogItemText(hwndDlg, IDC_CHECKSUM, string->Buffer);
                 PhDereferenceObject(string);
             }
@@ -1010,15 +1191,17 @@ INT_PTR CALLBACK PvpPeGeneralDlgProc(
                 break;
             }
 
-            PvHandleListViewNotifyForCopy(lParam, GetDlgItem(hwndDlg, IDC_LIST));
+            PvHandleListViewNotifyForCopy(lParam, context->ListViewHandle);
         }
         break;
     case WM_CONTEXTMENU:
         {
-            PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, GetDlgItem(hwndDlg, IDC_LIST));
+            PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, context->ListViewHandle);
         }
         break;
     }
+
+    REFLECT_MESSAGE_DLG(hwndDlg, context->ListViewHandle, uMsg, wParam, lParam);
 
     return FALSE;
 }
@@ -1027,28 +1210,22 @@ BOOLEAN PvpLoadDbgHelp(
     _Inout_ PPH_SYMBOL_PROVIDER *SymbolProvider
     )
 {
-    static UNICODE_STRING symbolPathVarName = RTL_CONSTANT_STRING(L"_NT_SYMBOL_PATH");
-    PPH_STRING symbolSearchPath;
+    static PH_STRINGREF symbolPathVarName = PH_STRINGREF_INIT(L"_NT_SYMBOL_PATH");
+    PPH_STRING symbolSearchPath = NULL;
     PPH_SYMBOL_PROVIDER symbolProvider;
-    UNICODE_STRING symbolPathUs;
-    WCHAR buffer[512];
 
-    // Load symbol path from _NT_SYMBOL_PATH if configured by the user.
-    RtlInitEmptyUnicodeString(&symbolPathUs, buffer, sizeof(buffer));
-
-    if (NT_SUCCESS(RtlQueryEnvironmentVariable_U(NULL, &symbolPathVarName, &symbolPathUs)))
+    if (!NT_SUCCESS(PhQueryEnvironmentVariable(NULL, &symbolPathVarName, &symbolSearchPath)))
     {
-        symbolSearchPath = PhCreateStringFromUnicodeString(&symbolPathUs);
-    }
-    else
-    {
-        // Set the default path (C:\\Symbols is the default hard-coded path for livekd). 
         symbolSearchPath = PhCreateString(L"SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
     }
 
     symbolProvider = PhCreateSymbolProvider(NULL);
-    PhSetSearchPathSymbolProvider(symbolProvider, symbolSearchPath->Buffer);
-    PhDereferenceObject(symbolSearchPath);
+
+    if (symbolSearchPath)
+    {
+        PhSetSearchPathSymbolProvider(symbolProvider, symbolSearchPath->Buffer);
+        PhDereferenceObject(symbolSearchPath);
+    }
 
     *SymbolProvider = symbolProvider;
     return TRUE;

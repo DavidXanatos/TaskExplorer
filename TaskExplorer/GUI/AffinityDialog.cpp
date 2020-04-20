@@ -21,7 +21,7 @@ CAffinityDialog::CAffinityDialog(int CPUCount, QWidget* parent)
 		}
 	}
 
-	m_pSelectAll = new QPushButton(tr("Sselect all"));
+	m_pSelectAll = new QPushButton(tr("Select all"));
 	connect(m_pSelectAll, SIGNAL(pressed()), this, SLOT(OnSelectAll()));
 	m_pMainLayout->addWidget(m_pSelectAll, 17, 0);
 

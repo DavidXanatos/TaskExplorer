@@ -89,6 +89,7 @@ _MiniDumpWriteDump MiniDumpWriteDump_I = NULL;
 _SymbolServerGetOptions SymbolServerGetOptions = NULL;
 _SymbolServerSetOptions SymbolServerSetOptions = NULL;
 _UnDecorateSymbolNameW UnDecorateSymbolNameW_I = NULL;
+_SymGetDiaSession SymGetDiaSession_I = NULL;
 
 PPH_SYMBOL_PROVIDER PhCreateSymbolProvider(
     _In_opt_ HANDLE ProcessId
@@ -308,6 +309,7 @@ VOID PhpSymbolProviderCompleteInitialization(
         StackWalk64_I = PhGetDllBaseProcedureAddress(dbghelpHandle, "StackWalk64", 0);
         MiniDumpWriteDump_I = PhGetDllBaseProcedureAddress(dbghelpHandle, "MiniDumpWriteDump", 0);
         UnDecorateSymbolNameW_I = PhGetDllBaseProcedureAddress(dbghelpHandle, "UnDecorateSymbolNameW", 0);
+        SymGetDiaSession_I = PhGetDllBaseProcedureAddress(dbghelpHandle, "SymGetDiaSession", 0);
     }
 
     if (symsrvHandle)
@@ -385,6 +387,7 @@ static LONG NTAPI PhpSymbolModuleCompareFunction(
     return uint64cmp(symbolModule1->BaseAddress, symbolModule2->BaseAddress);
 }
 
+_Success_(return)
 BOOLEAN PhGetLineFromAddress(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
     _In_ ULONG64 Address,
@@ -665,7 +668,7 @@ PPH_STRING PhGetSymbolFromAddress(
         PH_FORMAT format[3];
 
         PhInitFormatSR(&format[0], modBaseName->sr);
-        PhInitFormatC(&format[1], '!');
+        PhInitFormatC(&format[1], L'!');
         PhInitFormatSR(&format[2], symbolName->sr);
 
         symbol = PhFormat(format, 3, modBaseName->Length + 2 + symbolName->Length);
@@ -675,7 +678,7 @@ PPH_STRING PhGetSymbolFromAddress(
         PH_FORMAT format[5];
 
         PhInitFormatSR(&format[0], modBaseName->sr);
-        PhInitFormatC(&format[1], '!');
+        PhInitFormatC(&format[1], L'!');
         PhInitFormatSR(&format[2], symbolName->sr);
         PhInitFormatS(&format[3], L"+0x");
         PhInitFormatIX(&format[4], (ULONG_PTR)displacement);
@@ -702,6 +705,7 @@ CleanupExit:
     return symbol;
 }
 
+_Success_(return)
 BOOLEAN PhGetSymbolFromName(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
     _In_ PWSTR Name,
@@ -1017,7 +1021,11 @@ PRUNTIME_FUNCTION PhpLookupFunctionEntry(
 
             if (RelativeControlPc < Functions[i].BeginAddress)
                 high = i - 1;
+#ifdef _ARM64_
+            else if (RelativeControlPc >= (Functions[i].BeginAddress + Functions[i].FunctionLength))
+#else
             else if (RelativeControlPc >= Functions[i].EndAddress)
+#endif
                 low = i + 1;
             else
                 return &Functions[i];
@@ -1027,7 +1035,13 @@ PRUNTIME_FUNCTION PhpLookupFunctionEntry(
     {
         for (i = 0; i < NumberOfFunctions; i++)
         {
-            if (RelativeControlPc >= Functions[i].BeginAddress && RelativeControlPc < Functions[i].EndAddress)
+#ifdef _ARM64_
+            if (RelativeControlPc >= Functions[i].BeginAddress &&
+                RelativeControlPc < (Functions[i].BeginAddress + Functions[i].FunctionLength))
+#else
+            if (RelativeControlPc >= Functions[i].BeginAddress &&
+                RelativeControlPc < Functions[i].EndAddress)
+#endif
                 return &Functions[i];
         }
     }
@@ -1491,7 +1505,7 @@ NTSTATUS PhWalkThreadStack(
     if ((Flags & PH_WALK_KERNEL_STACK) && KphIsConnected())
     {
         PVOID stack[256 - 2]; // See MAX_STACK_DEPTH
-        ULONG capturedFrames;
+        ULONG capturedFrames = 0;
         ULONG i;
 
         if (NT_SUCCESS(KphCaptureStackBackTraceThread(
@@ -1533,12 +1547,23 @@ NTSTATUS PhWalkThreadStack(
             goto SkipAmd64Stack;
 
         memset(&stackFrame, 0, sizeof(STACKFRAME64));
+
+        // Program counter, Stack pointer, Frame pointer
+#ifdef _ARM64_
+        stackFrame.AddrPC.Mode = AddrModeFlat;
+        stackFrame.AddrPC.Offset = context.Pc;
+        stackFrame.AddrStack.Mode = AddrModeFlat;
+        stackFrame.AddrStack.Offset = context.Sp;
+        stackFrame.AddrFrame.Mode = AddrModeFlat;
+        stackFrame.AddrFrame.Offset = context.Fp;
+#else
         stackFrame.AddrPC.Mode = AddrModeFlat;
         stackFrame.AddrPC.Offset = context.Rip;
         stackFrame.AddrStack.Mode = AddrModeFlat;
         stackFrame.AddrStack.Offset = context.Rsp;
         stackFrame.AddrFrame.Mode = AddrModeFlat;
         stackFrame.AddrFrame.Offset = context.Rbp;
+#endif
 
         while (TRUE)
         {

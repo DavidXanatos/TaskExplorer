@@ -409,6 +409,7 @@ BOOLEAN PdbGetSymbolArrayType(
     _Inout_ ArrayTypeInfo* Info
     );
 
+_Success_(return)
 BOOLEAN SymbolInfo_DumpUDT(_In_ ULONG64 BaseAddress, _In_ ULONG Index, TypeInfo* Info);
 
 BOOLEAN PdbGetSymbolUDTClass(
@@ -447,8 +448,20 @@ BOOLEAN PdbGetSymbolData(
     _Inout_ DataInfo *Info
     );
 
-BOOLEAN SymbolInfo_DumpType(_In_ ULONG64 BaseAddress, _In_ ULONG Index, TypeInfo* Info);
-BOOLEAN SymbolInfo_DumpSymbolType(_Inout_ PPDB_SYMBOL_CONTEXT Context, _In_ ULONG Index, TypeInfo* Info, ULONG* TypeIndex);
+_Success_(return)
+BOOLEAN
+SymbolInfo_DumpType(
+    _In_ ULONG64 BaseAddress,
+    _In_ ULONG Index,
+    TypeInfo* Info);
+
+_Success_(return)
+BOOLEAN
+SymbolInfo_DumpSymbolType(
+    _Inout_ PPDB_SYMBOL_CONTEXT Context,
+    _In_ ULONG Index,
+    TypeInfo* Info,
+    ULONG* TypeIndex);
 
 BOOLEAN PdbCheckTagType(
     _In_ ULONG64 BaseAddress, 
@@ -547,9 +560,9 @@ PPH_STRING SymbolInfo_GetTypeName(
     _In_ ULONG Index,
     _In_ PWSTR VarName
     );
-PWSTR SymbolInfo_TagStr(enum SymTagEnum Tag);
-PWSTR SymbolInfo_BaseTypeStr(BasicType Type, ULONG64 Length);
-PWSTR SymbolInfo_CallConvStr(CV_call_e CallConv);
+PWSTR SymbolInfo_TagStr(_In_ enum SymTagEnum Tag);
+PWSTR SymbolInfo_BaseTypeStr(_In_ BasicType Type, _In_ ULONG64 Length);
+PWSTR SymbolInfo_CallConvStr(_In_ CV_call_e CallConv);
 PWSTR SymbolInfo_DataKindFromSymbolInfo(_In_ PSYMBOL_INFOW rSymbol);
 PWSTR SymbolInfo_DataKindStr(DataKind dataKind);
 VOID SymbolInfo_SymbolLocationStr(PSYMBOL_INFOW rSymbol, PWSTR pBuffer);

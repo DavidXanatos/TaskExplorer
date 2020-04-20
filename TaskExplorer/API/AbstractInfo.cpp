@@ -26,6 +26,13 @@ bool CAbstractInfoEx::CanBeRemoved() const
 	return GetCurTick() - m_RemoveTimeStamp > m_PersistenceTime;
 }
 
+void CAbstractInfoEx::ClearPersistence()
+{
+	QReadLocker Locker(&m_Mutex); 
+	if (m_RemoveTimeStamp != 0)
+		m_RemoveTimeStamp = GetCurTick() - m_PersistenceTime;
+}
+
 bool CAbstractInfoEx::IsNewlyCreated() const
 {
 	QReadLocker Locker(&m_Mutex);

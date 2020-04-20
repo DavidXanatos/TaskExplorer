@@ -3,7 +3,7 @@
  *   procedure import module
  *
  * Copyright (C) 2015 wj32
- * Copyright (C) 2019 dmex
+ * Copyright (C) 2019-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -26,7 +26,6 @@
 
 PVOID PhpImportProcedure(
     _Inout_ PVOID *Cache,
-    _Inout_ PBOOLEAN CacheValid,
     _Inout_ PULONG Cookie,
     _In_ PWSTR ModuleName,
     _In_ PSTR ProcedureName
@@ -34,35 +33,49 @@ PVOID PhpImportProcedure(
 {
     PVOID module;
     PVOID procedure;
+    ULONG cookie;
 
-    if (*CacheValid)
-        return (PVOID)((ULONG_PTR)*Cache ^ (ULONG_PTR)*Cookie);
+    cookie = InterlockedCompareExchange(Cookie, 0, 0);
 
-    if (!(module = PhGetLoaderEntryDllBase(ModuleName)))
-        module = LoadLibrary(ModuleName);
+    if (!cookie)
+    {
+        ULONG newcookie = NtGetTickCount();
 
-    if (!module)
-        return NULL;
+        if (!(cookie = InterlockedCompareExchange(Cookie, newcookie, 0)))
+            cookie = newcookie;
+    }
 
-    procedure = PhGetDllBaseProcedureAddress(module, ProcedureName, 0);
+    procedure = InterlockedCompareExchangePointer(Cache, NULL, NULL);
+ 
+    if (!procedure)
+    {
+        if (!(module = LoadLibrary(ModuleName)))
+            return NULL;
 
-    if (*Cookie == 0) *Cookie = NtGetTickCount();
-    *Cache = (PVOID)((ULONG_PTR)procedure ^ (ULONG_PTR)*Cookie);
+        if (!(procedure = PhGetDllBaseProcedureAddress(module, ProcedureName, 0)))
+        {
+            FreeLibrary(module);
+            return NULL;
+        }
 
-    MemoryBarrier();
-    *CacheValid = TRUE;
+        procedure = (PVOID)((ULONG_PTR)procedure ^ (ULONG_PTR)cookie);
 
-    return procedure;
+        if (InterlockedCompareExchangePointer(Cache, procedure, NULL))
+        {
+            FreeLibrary(module);
+        }
+    }
+
+    return (PVOID)((ULONG_PTR)procedure ^ (ULONG_PTR)cookie);
 }
 
 #define PH_DEFINE_IMPORT(Module, Name) \
 _##Name Name##_Import(VOID) \
 { \
     static PVOID cache = NULL; \
-    static BOOLEAN cacheValid = FALSE; \
     static ULONG cookie = 0; \
 \
-    return (_##Name)PhpImportProcedure(&cache, &cacheValid, &cookie, Module, #Name); \
+    return (_##Name)PhpImportProcedure(&cache, &cookie, Module, #Name); \
 }
 
 PH_DEFINE_IMPORT(L"ntdll.dll", NtQueryInformationEnlistment);
@@ -71,6 +84,8 @@ PH_DEFINE_IMPORT(L"ntdll.dll", NtQueryInformationTransaction);
 PH_DEFINE_IMPORT(L"ntdll.dll", NtQueryInformationTransactionManager);
 PH_DEFINE_IMPORT(L"ntdll.dll", NtQueryDefaultLocale);
 PH_DEFINE_IMPORT(L"ntdll.dll", NtQueryDefaultUILanguage);
+PH_DEFINE_IMPORT(L"ntdll.dll", NtTraceControl);
+PH_DEFINE_IMPORT(L"ntdll.dll", NtQueryOpenSubKeysEx);
 
 PH_DEFINE_IMPORT(L"ntdll.dll", RtlDefaultNpAcl);
 PH_DEFINE_IMPORT(L"ntdll.dll", RtlGetTokenNamedObjectPath);
@@ -81,7 +96,7 @@ PH_DEFINE_IMPORT(L"ntdll.dll", RtlDeriveCapabilitySidsFromName);
 
 PH_DEFINE_IMPORT(L"advapi32.dll", ConvertSecurityDescriptorToStringSecurityDescriptorW);
 
-PH_DEFINE_IMPORT(L"dnsapi.dll", DnsQuery);
+PH_DEFINE_IMPORT(L"dnsapi.dll", DnsQuery_W);
 PH_DEFINE_IMPORT(L"dnsapi.dll", DnsExtractRecordsFromMessage_W);
 PH_DEFINE_IMPORT(L"dnsapi.dll", DnsWriteQuestionToBuffer_W);
 PH_DEFINE_IMPORT(L"dnsapi.dll", DnsFree);
