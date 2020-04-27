@@ -143,7 +143,7 @@ protected:
 
 	quint32		EnumWindows();
 
-	void		AddNetworkIO(int Type, quint32 TransferSize);
+	void		AddNetworkIO(int Type, quint32 TransferSize, bool bLAN);
 	void		AddDiskIO(int Type, quint32 TransferSize);
 
 	bool		InitWindowsInfo();

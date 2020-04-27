@@ -186,6 +186,8 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 	case eNetworkPlot:
 		pPlot->AddPlot("Recv", Qt::green, Qt::SolidLine);
 		pPlot->AddPlot("Send", Qt::red, Qt::SolidLine);
+		pPlot->AddPlot("RecvL", Qt::blue, Qt::SolidLine);
+		pPlot->AddPlot("SendL", Qt::yellow, Qt::SolidLine);
 		break;
 	case eGpuPlot:
 		pPlot->SetRagne(100);
@@ -466,6 +468,21 @@ void CGraphBar::UpdateGraphs()
 			Texts.append(FormatSize(NetRates.SendRate, 0));
 			pPlot->AddPlotPoint("Send", NetRates.SendRate);
 
+#ifdef WIN32
+			if (((CWindowsAPI*)theAPI)->IsMonitoringETW() && theConf->GetBool("Options/ShowLanPlot", false))
+			{
+				Texts.append(FormatSize(SysStats.Lan.ReceiveRate.Get(), 0));
+				pPlot->AddPlotPoint("RecvL", SysStats.Lan.ReceiveRate.Get());
+
+				Texts.append(FormatSize(SysStats.Lan.SendRate.Get(), 0));
+				pPlot->AddPlotPoint("SendL", SysStats.Lan.SendRate.Get());
+			}
+			else 
+			{
+				pPlot->AddPlotPoint("RecvL", 0);
+				pPlot->AddPlotPoint("SendL", 0);
+			}
+#endif
 			break;
 		}
 		case eGpuPlot:
@@ -752,6 +769,13 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		TextLines.append(tr("TCP/IP Traffic:"));
 		TextLines.append(tr("    Receive rate: %1").arg(FormatSize(NetRates.ReceiveRate)));
 		TextLines.append(tr("    Send rate: %1").arg(FormatSize(NetRates.SendRate)));
+#ifdef WIN32
+		if (((CWindowsAPI*)theAPI)->IsMonitoringETW() && theConf->GetBool("Options/ShowLanPlot", false))
+		{
+			TextLines.append(tr("    LAN Receive rate: %1").arg(FormatSize(SysStats.Lan.ReceiveRate.Get())));
+			TextLines.append(tr("    LAN Send rate: %1").arg(FormatSize(SysStats.Lan.SendRate.Get())));
+		}
+#endif
 		break;
 	}
 	case eGpuPlot:

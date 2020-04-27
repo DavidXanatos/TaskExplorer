@@ -10,7 +10,7 @@
 
 #define VERSION_MJR		1
 #define VERSION_MIN 	2
-#define VERSION_REV 	0
+#define VERSION_REV 	1
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -42,6 +42,9 @@ public:
 		ePlotFront,
 		ePlotGrid,
 
+		eGridColor,
+		eBackground,
+
 		eAdded,
 		eDangerous,
 		eToBeRemoved,
@@ -65,8 +68,32 @@ public:
 		eExecutable,
 		eColorCount
 	};
-	static QColor		GetColor(int Color);
+
+	struct SColor
+	{
+		SColor() : Enabled(false) {}
+		SColor(const QString& name, const QString& description, const QString& default)
+		{
+			Name = name;
+			Description = description;
+			Default = default;
+			Value = QColor(default);
+			Enabled = false;
+		}
+
+		QString Name;
+		QString Description;
+		QString Default;
+		QColor	Value;
+		bool	Enabled;
+	};
+
+	QColor				GetColor(int Color);
 	static QColor		GetListColor(int Color);
+	static bool			UseListColor(int Color);
+	void				InitColors();
+	void				ReloadColors();
+	QList<SColor>		GetAllColors() { return m_Colors.values(); }
 
 	static int			GetGraphLimit(bool bLong = false);
 
@@ -98,6 +125,8 @@ protected:
 
 	QString				m_DefaultStyle;
 	QPalette			m_DefaultPalett;
+
+	QMap<EColor, SColor> m_Colors;
 
 private slots:	
 	void				ApplyOptions();
@@ -220,6 +249,7 @@ private:
 	QAction*			m_pMenuPauseRefresh;
 	QAction*			m_pMenuRefreshNow;
 	QAction*			m_pMenuResetAll;
+	QAction*			m_pMenuShowTree;
 	QAction*			m_pMenuExpandAll;
 
 	QMenu*				m_pMenuFind;
@@ -277,8 +307,6 @@ private:
 	QToolButton*		m_pHoldButton;
 	QActionGroup*		m_pHoldGroup;
 	QAction*			m_pHoldAction;
-
-	QToolButton*		m_pTreeButton;
 
 	QSystemTrayIcon*	m_pTrayIcon;
 	QMenu*				m_pTrayMenu;

@@ -364,7 +364,8 @@ QVariant CTreeItemModel::NodeData(STreeNode* pNode, int role, int section) const
 		}
 		case Qt::EditRole: // sort role
 		{
-			return pNode->Values[section].Raw;
+			STreeNode::SValue& value = pNode->Values[section];
+			return value.SortKey.isValid() ? value.SortKey : value.Raw;
 		}
 		case Qt::ToolTipRole:
 		{

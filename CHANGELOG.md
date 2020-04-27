@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [1.2.1] - 2020-04-27
+
+### Added
+- the TCP/IP traffic graph now show additional plots with LAN traffic based on ETW data
+- services can now be stoped from the process tree contect menu
+
+### Changed
+- statis column now sorts not alphabetically but by list color
+- reorganized the tool bar a bit and added a few shortcuts
+- switched back to the custom installer due to "compatybility" issues
+
+### Fixed
+- cpu affinity was not properly loaded from file
+- fixed more tray opening issues
+- fixed issue displaying .NET assembly informations
+- fixed issues with list coloring when not allcolors were enabled
+
 
 ## [1.2.0] - 2020-04-20
 

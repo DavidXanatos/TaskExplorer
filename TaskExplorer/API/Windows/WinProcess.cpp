@@ -1600,7 +1600,7 @@ void CWinProcess::AddNetworkIO(int Type, quint32 TransferSize)
 
 	switch (Type)
 	{
-	case EtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
+	case EtwNetworkReceiveType:		m_Stats.Net.AddReceive(TransferSize); break;
 	case EtwNetworkSendType:		m_Stats.Net.AddSend(TransferSize); break;
 	}
 }
@@ -1612,7 +1612,7 @@ void CWinProcess::AddDiskIO(int Type, quint32 TransferSize)
 	switch (Type)
 	{
 	case EtwDiskReadType:			m_Stats.Disk.AddRead(TransferSize); break;
-	case EtwDiskWriteType:		m_Stats.Disk.AddWrite(TransferSize); break;
+	case EtwDiskWriteType:			m_Stats.Disk.AddWrite(TransferSize); break;
 	}
 }
 

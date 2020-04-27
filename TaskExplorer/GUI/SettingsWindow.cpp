@@ -32,6 +32,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.graphLength->setValue(theConf->GetInt("Options/GraphLength", 300));
 
 	ui.chkUdpCons->setChecked(theConf->GetBool("Options/UseUDPPseudoConnectins", false));
+	ui.chkLanPlot->setChecked(theConf->GetBool("Options/ShowLanPlot", false));
 	ui.chkSmartDns->setChecked(theConf->GetBool("Options/MonitorDnsCache", false));
 	ui.chkReverseDns->setChecked(theConf->GetBool("Options/UserReverseDns", false));
 
@@ -88,54 +89,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.cellSeparator->setText(theConf->GetString("Options/PanelCopyCellSeparator", "\\t"));
 
 
-	struct SColor
-	{
-		QString Name;
-		QString Description;
-		QString Default;
-	};
-
-	QList<SColor> Colors;
-	// plot colors:
-	Colors.append(SColor { "GraphBack", tr("Graph background"), "#808080"});
-	Colors.append(SColor { "GraphFront", tr("Graph text"), "#FFFFFF"});
-
-	Colors.append(SColor { "PlotBack", tr("Plot background"), "#EFEFEF"});
-	Colors.append(SColor { "PlotFront", tr("Plot text"), "#505050"});
-	Colors.append(SColor { "PlotGrid", tr("Plot grid"), "#C7C7C7"});
-
-	Colors.append(SColor { "GridColor", tr("List grid color"), "#808080"});
-	Colors.append(SColor { "Background", tr("Default background"), "#FFFFFF"});
-	
-	// list colors:
-#ifdef WIN32
-	Colors.append(SColor { "DangerousProcess", tr("Dangerous process"), "#FF0000"});
-#endif
-	Colors.append(SColor { "NewlyCreated", tr("New items"), "#00FF7F"});
-	Colors.append(SColor { "ToBeRemoved", tr("Removed items"), "#F08080"});
-	
-	Colors.append(SColor { "SystemProcess", tr("System processes"), "#AACCFF"});
-	Colors.append(SColor { "UserProcess", tr("Current user processes"), "#FFFF80"});
-	Colors.append(SColor { "ServiceProcess", tr("Service processes"), "#80FFFF"});
-#ifdef WIN32
-	Colors.append(SColor { "SandBoxed", tr("Sandboxed processes"), "#FFFF00"});
-	Colors.append(SColor { "JobProcess", tr("Job processes"), "#D49C5C"});
-	Colors.append(SColor { "PicoProcess", tr("Pico processes"), "#42A0FF"});
-	Colors.append(SColor { "ImmersiveProcess", tr("Immersive processes"), "#FFE6FF"});
-	Colors.append(SColor { "NetProcess", tr(".NET processes"), "#DCFF00"});
-#endif
-	Colors.append(SColor { "ElevatedProcess", tr("Elevated processes"), "#FFBB30"});
-#ifdef WIN32
-	Colors.append(SColor { "KernelServices", tr("Kernel Services (Driver)"), "#FFC880"});
-	Colors.append(SColor { "GuiThread", tr("Gui threads"), "#AACCFF"});
-	Colors.append(SColor { "IsInherited", tr("Inherited handles"), "#77FFFF"});
-	Colors.append(SColor { "IsProtected", tr("Protected handles/Critical tasks"), "#FF77FF"});
-#endif
-
-	Colors.append(SColor { "Executable", tr("Executable memory"), "#FF90E0"});
-	//
-
-	foreach(const SColor& Color, Colors)
+	foreach(const CTaskExplorer::SColor& Color, theGUI->GetAllColors())
 	{
 		QListWidgetItem* pItem = new QListWidgetItem(Color.Description);
 
@@ -199,6 +153,7 @@ void CSettingsWindow::apply()
 	theConf->SetValue("Options/GraphLength", ui.graphLength->value());
 
 	theConf->SetValue("Options/UseUDPPseudoConnectins", ui.chkUdpCons->isChecked());
+	theConf->SetValue("Options/ShowLanPlot", ui.chkLanPlot->isChecked());
 	theConf->SetValue("Options/MonitorDnsCache", ui.chkSmartDns->isChecked());
 	theConf->SetValue("Options/UserReverseDns", ui.chkReverseDns->isChecked());
 

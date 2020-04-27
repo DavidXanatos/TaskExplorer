@@ -25,6 +25,7 @@
 #include "stdafx.h"
 #include "WinGpuMonitor.h"
 #include "../ProcessHacker.h"
+#include "../ProcessHacker/GpuCounters.h"
 #include "../WinProcess.h"
 #include "../WindowsAPI.h"
 #include "../../../Common/Settings.h"
@@ -65,6 +66,8 @@ struct SGpuAdapter
 CWinGpuMonitor::CWinGpuMonitor(QObject *parent)
 	: CGpuMonitor(parent)
 {
+	m_UseCounters = false;
+
 	//m_GpuTotalNodeCount = 0;
 	//m_GpuTotalSegmentCount = 0;
 	//m_GpuNextNodeIndex = 0;
@@ -670,90 +673,106 @@ void CWinGpuMonitor::UpdateProcessStats(const CProcessPtr& pProcess, quint64 ela
 {
 	QSharedPointer<CWinProcess> pWinProcess = pProcess.staticCast<CWinProcess>();
 
-	if (pWinProcess->m_GpuUpdateCounter > 10)
-        return; // if we did not use the GPU stats for 10 update cycles stop updating them untill thay are needed
-
-	HANDLE QueryHandle = pWinProcess->GetQueryHandle();
-    if (!QueryHandle)
-        return;
-
-	QWriteLocker AdapterLocker(&m_StatsMutex);
-
     ULONG64 dedicatedUsage = 0;
     ULONG64 sharedUsage = 0;
+	ULONG64 commitUsage = 0;
 
 	QStringList CurrentAdapter;
 	ULONG64 totalRunningTime = 0;
 
-	foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
-    {
-        for (ULONG j = 0; j < gpuAdapter->SegmentCount; j++)
-        {
-			D3DKMT_QUERYSTATISTICS queryStatistics;
-            memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
-            queryStatistics.Type = D3DKMT_QUERYSTATISTICS_PROCESS_SEGMENT;
-            queryStatistics.AdapterLuid = gpuAdapter->AdapterLuid;
-            queryStatistics.ProcessHandle = QueryHandle;
-            queryStatistics.QueryProcessSegment.SegmentId = j;
+	if (m_UseCounters && WindowsVersion >= WINDOWS_10_RS5)
+	{
+		HANDLE ProcessId = (HANDLE)pWinProcess->GetProcessId();
 
-            if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
-            {
-                ULONG64 bytesCommitted;
+        dedicatedUsage = EtLookupProcessGpuDedicated(ProcessId);
+        sharedUsage = EtLookupProcessGpuSharedUsage(ProcessId);
+        //commitUsage = EtLookupProcessGpuCommitUsage(ProcessId);
 
-                if (WindowsVersion >= WINDOWS_8)
-                    bytesCommitted = queryStatistics.QueryResult.ProcessSegmentInformation.BytesCommitted;
-                else
-                    bytesCommitted = queryStatistics.QueryResult.ProcessSegmentInformation.BytesCommitted;
+		totalRunningTime = EtLookupProcessGpuEngineUtilization(ProcessId);
+	}
+	else
+	{
+		if (pWinProcess->m_GpuUpdateCounter > 10)
+			return; // if we did not use the GPU stats for 10 update cycles stop updating them untill thay are needed
 
-                if (RtlCheckBit(&gpuAdapter->ApertureBitMap, j))
-                    sharedUsage += bytesCommitted;
-                else
-                    dedicatedUsage += bytesCommitted;
-            }
-        }
+		HANDLE QueryHandle = pWinProcess->GetQueryHandle();
+		if (!QueryHandle)
+			return;
 
-		ULONG64 adapterRunningTime = 0;
-        for (ULONG j = 0; j < gpuAdapter->NodeCount; j++)
-        {
-			D3DKMT_QUERYSTATISTICS queryStatistics;
-            memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
-            queryStatistics.Type = D3DKMT_QUERYSTATISTICS_PROCESS_NODE;
-            queryStatistics.AdapterLuid = gpuAdapter->AdapterLuid;
-            queryStatistics.ProcessHandle = QueryHandle;
-            queryStatistics.QueryProcessNode.NodeId = j;
+		QReadLocker AdapterLocker(&m_StatsMutex);
 
-            if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
-            {
-                //ULONG64 runningTime;
-                //runningTime = queryStatistics.QueryResult.ProcessNodeInformation.RunningTime.QuadPart;
-                //PhUpdateDelta(&Block->GpuTotalRunningTimeDelta[j], runningTime);
+		foreach(SGpuAdapter* gpuAdapter, m_GpuAdapterList)
+		{
+			for (ULONG j = 0; j < gpuAdapter->SegmentCount; j++)
+			{
+				D3DKMT_QUERYSTATISTICS queryStatistics;
+				memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
+				queryStatistics.Type = D3DKMT_QUERYSTATISTICS_PROCESS_SEGMENT;
+				queryStatistics.AdapterLuid = gpuAdapter->AdapterLuid;
+				queryStatistics.ProcessHandle = QueryHandle;
+				queryStatistics.QueryProcessSegment.SegmentId = j;
 
-				adapterRunningTime += queryStatistics.QueryResult.ProcessNodeInformation.RunningTime.QuadPart;
-                totalRunningTime += queryStatistics.QueryResult.ProcessNodeInformation.RunningTime.QuadPart;
-            }
-        }
+				if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
+				{
+					ULONG64 bytesCommitted;
 
-		if (adapterRunningTime > 0)
-			CurrentAdapter.append(gpuAdapter->Info.Description);
-    
-		/*D3DKMT_QUERYSTATISTICS queryStatistics;
-        memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
-        queryStatistics.Type = D3DKMT_QUERYSTATISTICS_PROCESS;
-        queryStatistics.AdapterLuid = gpuAdapter->AdapterLuid;
-        queryStatistics.ProcessHandle = QueryHandle;
+					if (WindowsVersion >= WINDOWS_8)
+						bytesCommitted = queryStatistics.QueryResult.ProcessSegmentInformation.BytesCommitted;
+					else
+						bytesCommitted = queryStatistics.QueryResult.ProcessSegmentInformation.BytesCommitted;
 
-        if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
-        {
-            Statistics->BytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.BytesAllocated;
-            Statistics->BytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.BytesReserved;
-            Statistics->WriteCombinedBytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.WriteCombinedBytesAllocated;
-            Statistics->WriteCombinedBytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.WriteCombinedBytesReserved;
-            Statistics->CachedBytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.CachedBytesAllocated;
-            Statistics->CachedBytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.CachedBytesReserved;
-            Statistics->SectionBytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.SectionBytesAllocated;
-            Statistics->SectionBytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.SectionBytesReserved;
-        }*/
-    }
+					if (RtlCheckBit(&gpuAdapter->ApertureBitMap, j))
+						sharedUsage += bytesCommitted;
+					else
+						dedicatedUsage += bytesCommitted;
+				}
+			}
+
+			ULONG64 adapterRunningTime = 0;
+			for (ULONG j = 0; j < gpuAdapter->NodeCount; j++)
+			{
+				D3DKMT_QUERYSTATISTICS queryStatistics;
+				memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
+				queryStatistics.Type = D3DKMT_QUERYSTATISTICS_PROCESS_NODE;
+				queryStatistics.AdapterLuid = gpuAdapter->AdapterLuid;
+				queryStatistics.ProcessHandle = QueryHandle;
+				queryStatistics.QueryProcessNode.NodeId = j;
+
+				if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
+				{
+					//ULONG64 runningTime;
+					//runningTime = queryStatistics.QueryResult.ProcessNodeInformation.RunningTime.QuadPart;
+					//PhUpdateDelta(&Block->GpuTotalRunningTimeDelta[j], runningTime);
+
+					adapterRunningTime += queryStatistics.QueryResult.ProcessNodeInformation.RunningTime.QuadPart;
+					totalRunningTime += queryStatistics.QueryResult.ProcessNodeInformation.RunningTime.QuadPart;
+					//totalContextSwitches += queryStatistics.QueryResult.ProcessNodeInformation.ContextSwitch;
+				}
+			}
+
+			if (adapterRunningTime > 0)
+				CurrentAdapter.append(gpuAdapter->Info.Description);
+
+			/*D3DKMT_QUERYSTATISTICS queryStatistics;
+			memset(&queryStatistics, 0, sizeof(D3DKMT_QUERYSTATISTICS));
+			queryStatistics.Type = D3DKMT_QUERYSTATISTICS_PROCESS;
+			queryStatistics.AdapterLuid = gpuAdapter->AdapterLuid;
+			queryStatistics.ProcessHandle = QueryHandle;
+
+			if (NT_SUCCESS(D3DKMTQueryStatistics(&queryStatistics)))
+			{
+				//commitUsage += queryStatistics.QueryResult.ProcessInformation.SystemMemory.BytesAllocated;
+				Statistics->BytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.BytesAllocated;
+				Statistics->BytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.BytesReserved;
+				Statistics->WriteCombinedBytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.WriteCombinedBytesAllocated;
+				Statistics->WriteCombinedBytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.WriteCombinedBytesReserved;
+				Statistics->CachedBytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.CachedBytesAllocated;
+				Statistics->CachedBytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.CachedBytesReserved;
+				Statistics->SectionBytesAllocated += queryStatistics.QueryResult.ProcessInformation.SystemMemory.SectionBytesAllocated;
+				Statistics->SectionBytesReserved += queryStatistics.QueryResult.ProcessInformation.SystemMemory.SectionBytesReserved;
+			}*/
+		}
+	}
 
 	QWriteLocker StatsLocker(&pWinProcess->m_StatsMutex);
 

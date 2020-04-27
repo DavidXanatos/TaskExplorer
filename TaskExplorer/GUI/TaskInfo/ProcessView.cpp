@@ -278,10 +278,9 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
 	//m_pInfoLayout->addWidget(m_pStatsView);
 
-
+	m_pTabWidget->addTab(m_pProcessArea, "Details");
 	m_pTabWidget->addTab(m_pStatsView, "Statistics");
 	//m_pTabWidget->addTab(m_pProcessBox, "Details");
-	m_pTabWidget->addTab(m_pProcessArea, "Details");
 #ifdef WIN32
 	m_pTabWidget->addTab(m_pSecurityBox, "Security");
 	if(m_pAppBox)

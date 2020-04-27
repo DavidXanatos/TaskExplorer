@@ -68,11 +68,11 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		}
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pThread->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pThread->IsNewlyCreated())			RowColor = CTaskExplorer::eAdded;
+		if (pThread->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))			RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pThread->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))				RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinThread->IsCriticalThread())	RowColor = CTaskExplorer::eIsProtected;
-		else if (pWinThread->IsGuiThread())			RowColor = CTaskExplorer::eGuiThread;
+		else if (pWinThread->IsCriticalThread() && CTaskExplorer::UseListColor(CTaskExplorer::eIsProtected))	RowColor = CTaskExplorer::eIsProtected;
+		else if (pWinThread->IsGuiThread() && CTaskExplorer::UseListColor(CTaskExplorer::eGuiThread))			RowColor = CTaskExplorer::eGuiThread;
 #endif
 		
 		if (pNode->iColor != RowColor) {

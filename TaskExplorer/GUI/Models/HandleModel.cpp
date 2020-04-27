@@ -68,11 +68,11 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		}
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pHandle->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pHandle->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+		if (pHandle->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pHandle->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))			RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinHandle->IsInherited())		RowColor = CTaskExplorer::eIsInherited;
-		else if (pWinHandle->IsProtected())		RowColor = CTaskExplorer::eIsProtected;
+		else if (pWinHandle->IsInherited() && CTaskExplorer::UseListColor(CTaskExplorer::eIsInherited))		RowColor = CTaskExplorer::eIsInherited;
+		else if (pWinHandle->IsProtected() && CTaskExplorer::UseListColor(CTaskExplorer::eIsProtected))		RowColor = CTaskExplorer::eIsProtected;
 #endif
 
 		if (pNode->iColor != RowColor) {

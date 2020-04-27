@@ -90,13 +90,13 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 
 	int RowColor = CTaskExplorer::eNone;
-	if (pMemory->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
-	else if (pMemory->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
-	else if (pMemory->IsExecutable())		RowColor = CTaskExplorer::eExecutable;
+	if (pMemory->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))		RowColor = CTaskExplorer::eToBeRemoved;
+	else if (pMemory->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))			RowColor = CTaskExplorer::eAdded;
+	else if (pMemory->IsExecutable() && CTaskExplorer::UseListColor(CTaskExplorer::eExecutable))		RowColor = CTaskExplorer::eExecutable;
 #ifdef WIN32
-	else if (pWinMemory->IsBitmapRegion())	RowColor = CTaskExplorer::eElevated;
+	else if (pWinMemory->IsBitmapRegion() && CTaskExplorer::UseListColor(CTaskExplorer::eElevated))		RowColor = CTaskExplorer::eElevated;
 #endif
-	else if (pMemory->IsPrivate())			RowColor = CTaskExplorer::eUser;
+	else if (pMemory->IsPrivate() && CTaskExplorer::UseListColor(CTaskExplorer::eUser))					RowColor = CTaskExplorer::eUser;
 
 	if (pNode->iColor != RowColor) {
 		pNode->iColor = RowColor;

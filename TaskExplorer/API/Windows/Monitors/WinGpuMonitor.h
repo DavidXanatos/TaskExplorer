@@ -34,6 +34,7 @@ protected:
 	void				UpdateSystemStats();
 	void				UpdateProcessStats(const CProcessPtr& pProcess, quint64 elapsedTime);
 	
+	bool				m_UseCounters;
 
 	
 	//quint32				m_GpuTotalNodeCount;

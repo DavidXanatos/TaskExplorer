@@ -143,27 +143,31 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pProcess->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pProcess->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinProc->TokenHasChanged())		RowColor = CTaskExplorer::eDangerous;
-		else if (pWinProc->IsCriticalProcess())		RowColor = CTaskExplorer::eIsProtected;
-		else if (pWinProc->IsSandBoxed())			RowColor = CTaskExplorer::eSandBoxed;
+		if (pWinProc->TokenHasChanged() && CTaskExplorer::UseListColor(CTaskExplorer::eDangerous))				RowColor = CTaskExplorer::eDangerous;
+		else if (pWinProc->IsCriticalProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eIsProtected))		RowColor = CTaskExplorer::eIsProtected;
+		else if (pWinProc->IsSandBoxed() && CTaskExplorer::UseListColor(CTaskExplorer::eSandBoxed))				RowColor = CTaskExplorer::eSandBoxed;
+		else
 #endif
-		else if (pProcess->IsServiceProcess())		RowColor = CTaskExplorer::eService;
-		else if (pProcess->IsSystemProcess())		RowColor = CTaskExplorer::eSystem;
-		else if (pProcess->IsElevated())			RowColor = CTaskExplorer::eElevated;
+			 if (pProcess->IsServiceProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eService))			RowColor = CTaskExplorer::eService;
+		else if (pProcess->IsSystemProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eSystem))			RowColor = CTaskExplorer::eSystem;
+		else if (pProcess->IsElevated() && CTaskExplorer::UseListColor(CTaskExplorer::eElevated))				RowColor = CTaskExplorer::eElevated;
 #ifdef WIN32
-		else if (pWinProc->IsSubsystemProcess())	RowColor = CTaskExplorer::ePico;
-		else if (pWinProc->IsImmersiveProcess())	RowColor = CTaskExplorer::eImmersive;
-		else if (pWinProc->IsNetProcess())			RowColor = CTaskExplorer::eDotNet;
+		else if (pWinProc->IsSubsystemProcess() && CTaskExplorer::UseListColor(CTaskExplorer::ePico))			RowColor = CTaskExplorer::ePico;
+		else if (pWinProc->IsImmersiveProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eImmersive))		RowColor = CTaskExplorer::eImmersive;
+		else if (pWinProc->IsNetProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eDotNet))				RowColor = CTaskExplorer::eDotNet;
 #endif
 #ifdef WIN32
-		//else if (pWinProc->IsJobProcess())			RowColor = CTaskExplorer::eJob;
-		else if (pWinProc->IsInJob())				RowColor = CTaskExplorer::eJob;
+		//else if (pWinProc->IsJobProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eJob))				RowColor = CTaskExplorer::eJob;
+		else if (pWinProc->IsInJob() && CTaskExplorer::UseListColor(CTaskExplorer::eJob))						RowColor = CTaskExplorer::eJob;
 #endif
-		else if (pProcess->IsUserProcess())			RowColor = CTaskExplorer::eUser;
+		else if (pProcess->IsUserProcess() && CTaskExplorer::UseListColor(CTaskExplorer::eUser))				RowColor = CTaskExplorer::eUser;
 		
+		int SortKey = RowColor; // all but he new/removed
+
+		if (pProcess->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))			RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pProcess->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))				RowColor = CTaskExplorer::eAdded;
+
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;
 			pNode->Color = CTaskExplorer::GetListColor(RowColor);
@@ -435,6 +439,8 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eCPU:
 					case eGPU_Usage:
 											ColValue.Formated = (!bClearZeros || Value.toDouble() > 0.00004) ? QString::number(Value.toDouble()*100, 10, 2) + "%" : ""; break;
+
+					case eStaus:			ColValue.SortKey = SortKey;	break;
 
 					case ePrivateBytes:		
 					case ePeakPrivateBytes:

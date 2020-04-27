@@ -77,9 +77,9 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		}
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pSocket->WasBlocked())				RowColor = CTaskExplorer::eDangerous;
-		else if (pSocket->IsMarkedForRemoval())	RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pSocket->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+		if (pSocket->WasBlocked() && CTaskExplorer::UseListColor(CTaskExplorer::eDangerous))					RowColor = CTaskExplorer::eDangerous;
+		else if (pSocket->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pSocket->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))				RowColor = CTaskExplorer::eAdded;
 		
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;

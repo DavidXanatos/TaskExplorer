@@ -40,7 +40,7 @@ bool CPersistentPreset::Load(const QVariantMap& Map)
 	m_Data->sPattern = Map["Pattern"].toString();
 	m_Data->bTerminate = Map["Terminate"].toBool();
 	if (m_Data->bPriority = Map.contains("CpuPriority"))		m_Data->iPriority = Map["CpuPriority"].toInt();
-	if (m_Data->bAffinity = Map.contains("CpuAffinity"))		m_Data->uAffinity = Map["CpuAffinity"].toInt();
+	if (m_Data->bAffinity = Map.contains("CpuAffinity"))		m_Data->uAffinity = Map["CpuAffinity"].toULongLong();
 	if (m_Data->bIOPriority = Map.contains("IoPriority"))		m_Data->iIOPriority = Map["IoPriority"].toInt();
 	if (m_Data->bPagePriority = Map.contains("PagePriority"))	m_Data->iPagePriority = Map["PagePriority"].toInt();
 

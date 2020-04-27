@@ -128,6 +128,7 @@ private:
 	QAction*				m_pOpenPath;
 	QAction*				m_pViewPE;
 	QAction*				m_pClose;
+	QAction*				m_pStop;
 	QAction*				m_pPreset;
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pQuit;

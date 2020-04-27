@@ -1275,14 +1275,22 @@ CSocketPtr CWindowsAPI::FindSocket(quint64 ProcessId, quint32 ProtocolType,
 	return I.value();
 }
 
-void CWindowsAPI::AddNetworkIO(int Type, quint32 TransferSize)
+void CWindowsAPI::AddNetworkIO(int Type, quint32 TransferSize, bool bLAN)
 {
 	QWriteLocker Locker(&m_StatsMutex);
 
 	switch (Type)
 	{
-	case EtwNetworkReceiveType:	m_Stats.Net.AddReceive(TransferSize); break;
-	case EtwNetworkSendType:	m_Stats.Net.AddSend(TransferSize); break;
+	case EtwNetworkReceiveType:	
+		m_Stats.Net.AddReceive(TransferSize); 
+		if(bLAN) 
+			m_Stats.Lan.AddReceive(TransferSize); 
+		break;
+	case EtwNetworkSendType:	
+		m_Stats.Net.AddSend(TransferSize); 
+		if(bLAN) 
+			m_Stats.Lan.AddSend(TransferSize); 
+		break;
 	}
 }
 
@@ -1303,7 +1311,11 @@ void CWindowsAPI::OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, 
     // Note: there is always the possibility of us receiving the event too early,
     // before the process item or network item is created. 
 
-	AddNetworkIO(Type, TransferSize);
+	bool bLAN = false;
+	if (theConf->GetBool("Options/ShowLanPlot", false))
+		bLAN = m_pNetMonitor->IsLanIP(RemoteAddress);
+
+	AddNetworkIO(Type, TransferSize, bLAN);
 
 	CSocketInfo::EMatchMode Mode = CSocketInfo::eFuzzy;
 

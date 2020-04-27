@@ -127,6 +127,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pCustomItemDelegate = new CCustomItemDelegate(GetCellHeight() + 1, this);
 
 	LoadDefaultIcons();
+	InitColors();
 
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
@@ -185,12 +186,15 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pMenuProcess = menuBar()->addMenu(tr("&Tasks"));
 		m_pMenuRun = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/Run"), tr("Run..."), this, SLOT(OnRun()));
+		m_pMenuRun->setShortcut(QKeySequence("Ctrl+R"));
 		m_pMenuRunAs = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunAs"), tr("Run as..."), this, SLOT(OnRunAs()));
+		m_pMenuRunAs->setShortcut(QKeySequence("Alt+R"));
 		// this can be done with the normal run command anyways
 		//m_pMenuRunAsUser = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunUser"), tr("Run as Limited User..."), this, SLOT(OnRunUser()));
 		//m_pMenuRunAsAdmin = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunRoot"), tr("Run as Administrator..."), this, SLOT(OnRunAdmin()));
 #ifdef WIN32
 		m_pMenuRunSys = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunTI"), tr("Run as TrustedInstaller..."), this, SLOT(OnRunSys()));
+		m_pMenuRunSys->setShortcut(QKeySequence("Ctrl+Alt+R"));
 #endif
 		m_pMenuProcess->addSeparator();
 		m_pMenuComputer = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Shutdown"), tr("Computer"));
@@ -246,12 +250,16 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 		m_pMenuView->addSeparator();
 		m_pMenuSystemInfo = m_pMenuView->addAction(MakeActionIcon(":/Actions/SysInfo"), tr("System Info"), this, SLOT(OnSystemInfo()));
+		m_pMenuSystemInfo->setShortcut(QKeySequence("Ctrl+S"));
 		m_pMenuView->addSeparator();
 		m_pMenuPauseRefresh = m_pMenuView->addAction(MakeActionIcon(":/Actions/Pause"), tr("Pause Refresh"));
 		m_pMenuPauseRefresh->setCheckable(true);
 		m_pMenuRefreshNow = m_pMenuView->addAction(MakeActionIcon(":/Actions/Refresh"), tr("Refresh Now"), this, SLOT(UpdateAll()));
 		m_pMenuResetAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Reset"), tr("Reset all Panels"), this, SLOT(ResetAll()));
 		m_pMenuResetAll->setShortcut(QKeySequence::Refresh); // F5
+		m_pMenuShowTree = m_pMenuView->addAction(MakeActionIcon(":/Actions/Tree"), tr("Tree/List"), this, SLOT(OnTreeButton()));
+		m_pMenuShowTree->setCheckable(true);
+		m_pMenuShowTree->setShortcut(QKeySequence("Ctrl+T"));
 		m_pMenuExpandAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Expand"), tr("Expand Process Tree"), m_pProcessTree, SLOT(OnExpandAll()));
 		m_pMenuExpandAll->setShortcut(QKeySequence("Ctrl+E"));
 
@@ -259,6 +267,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuFindProcess = m_pMenuFind->addAction(MakeActionIcon(":/Actions/Eye"), tr("Find Hidden Processes"), this, SLOT(OnFindProcess()));
 		m_pMenuFind->addSeparator();
 		m_pMenuFindHandle = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindHandle"), tr("Find Handles"), this, SLOT(OnFindHandle()));
+		m_pMenuFindHandle->setShortcut(QKeySequence("Ctrl+H"));
 		m_pMenuFindDll = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindDLL"), tr("Find Module (dll)"), this, SLOT(OnFindDll()));
 		m_pMenuFindMemory = m_pMenuFind->addAction(MakeActionIcon(":/Actions/FindString"), tr("Find String in Memory"), this, SLOT(OnFindMemory()));
 
@@ -296,6 +305,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #endif
 		
 		m_pMenuPersistence = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Persistence"), tr("Persistence Options"), this, SLOT(OnPersistenceOptions()));
+		m_pMenuPersistence->setShortcut(QKeySequence("Ctrl+P"));
 
 		m_pMenuFlushDns = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Flush"), tr("Flush Dns Cache"), theAPI, SLOT(FlushDnsCache()));
 #ifdef _WIN32
@@ -373,12 +383,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addWidget(m_pHoldButton);
 
 	m_pToolBar->addSeparator();
-	m_pTreeButton = new QToolButton();
-	m_pTreeButton->setIcon(MakeActionIcon(":/Actions/Tree"));
-	m_pTreeButton->setToolTip(tr("Tree/List"));
-	m_pTreeButton->setCheckable(true);
-	QObject::connect(m_pTreeButton, SIGNAL(pressed()), this, SLOT(OnTreeButton()));
-	m_pToolBar->addWidget(m_pTreeButton);
+	m_pToolBar->addAction(m_pMenuShowTree);
 
 	m_pToolBar->addSeparator();
 #ifdef WIN32
@@ -401,6 +406,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pToolBar->addWidget(m_pFindButton);
 	m_pToolBar->addSeparator();
 
+	/*
 #ifdef WIN32
 	m_pFreeButton = new QToolButton();
 	m_pFreeButton->setIcon(MakeActionIcon(":/Actions/FreeMem"));
@@ -424,6 +430,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #endif
 	m_pToolBar->addWidget(m_pComputerButton);
 	m_pToolBar->addSeparator();
+	*/
+
+	m_pToolBar->addAction(m_pMenuPersistence);
+	//m_pToolBar->addSeparator();
 
 	QWidget* pSpacer = new QWidget();
 	pSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -601,7 +611,7 @@ void CTaskExplorer::OnStaticPersistence()
 
 void CTaskExplorer::OnTreeButton()
 {
-	m_pProcessTree->SetTree(!m_pTreeButton->isChecked());
+	m_pProcessTree->SetTree(m_pMenuShowTree->isChecked());
 }
 
 void CTaskExplorer::OnChangePersistence(QAction* pAction)
@@ -648,7 +658,7 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 
 	UpdateUserMenu();
 
-	m_pTreeButton->setChecked(m_pProcessTree->IsTree());
+	m_pMenuShowTree->setChecked(m_pProcessTree->IsTree());
 	m_pMenuExpandAll->setEnabled(m_pProcessTree->IsTree());
 
 	foreach(QAction* pAction, m_pRefreshGroup->actions())
@@ -1100,6 +1110,8 @@ void CTaskExplorer::OnUserAction()
 
 void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 {
+	static bool TriggerSet = false;
+	static bool NullifyTrigger = false;
 	switch(Reason)
 	{
 		case QSystemTrayIcon::Context:
@@ -1108,22 +1120,30 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 		case QSystemTrayIcon::DoubleClick:
 			if (isVisible())
 			{
+				if(TriggerSet)
+					NullifyTrigger = true;
 				hide();
 				break;
 			}
-			
 			show();
 		case QSystemTrayIcon::Trigger:
 #ifdef WIN32
-			if (isVisible())
+			if (isVisible() && !TriggerSet)
 			{
-				WINDOWPLACEMENT placement = { sizeof(placement) };
-				GetWindowPlacement(PhMainWndHandle, &placement);
-
-				if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
-					ShowWindowAsync(PhMainWndHandle, SW_RESTORE);
-				else
+				TriggerSet = true;
+				QTimer::singleShot(100, [this]() { 
+					TriggerSet = false;
+					if (NullifyTrigger) {
+						NullifyTrigger = false;
+						return;
+					}
+					setWindowState(Qt::WindowActive);
+					//WINDOWPLACEMENT placement = { sizeof(placement) };
+					//GetWindowPlacement(PhMainWndHandle, &placement);
+					//if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
+					//	ShowWindowAsync(PhMainWndHandle, SW_RESTORE);
 					SetForegroundWindow(PhMainWndHandle);
+				} );
 			}
 #endif
 			break;
@@ -1196,6 +1216,8 @@ void CTaskExplorer::ApplyOptions()
 void CTaskExplorer::UpdateOptions()
 {
 	ApplyOptions();
+
+	ReloadColors();
 
 	SetDarkTheme(theConf->GetBool("MainWindow/DarkTheme", false));
 
@@ -1469,58 +1491,81 @@ QVector<QColor> CTaskExplorer::GetPlotColors()
 
 QColor CTaskExplorer::GetColor(int Color)
 {
-	QString ColorStr;
-	switch (Color)
-	{
-	case eGraphBack:	ColorStr = theConf->GetString("Colors/GraphBack", "#808080"); break;
-	case eGraphFront:	ColorStr = theConf->GetString("Colors/GraphFront", "#FFFFFF"); break;
-
-	case ePlotBack:		ColorStr = theConf->GetString("Colors/PlotBack", "#EFEFEF"); break; // QColor(0, 0, 64);
-	case ePlotFront:	ColorStr = theConf->GetString("Colors/PlotFront", "#505050"); break; // QColor(187, 206, 239);
-	case ePlotGrid:		ColorStr = theConf->GetString("Colors/PlotGrid", "#C7C7C7"); break; // QColor(46, 44, 119);
-	}
-	if (!ColorStr.isNull())
-		return QColor(ColorStr);
-
-	return GetListColor(Color);
+	return m_Colors.value((EColor)Color).Value;
 }
 
 QColor CTaskExplorer::GetListColor(int Color)
 {
-	QString ColorStr;
-	switch (Color)
-	{
-	case eToBeRemoved:	ColorStr = theConf->GetString("Colors/ToBeRemoved", "#F08080"); break;
-	case eAdded:		ColorStr = theConf->GetString("Colors/NewlyCreated", "#00FF7F"); break;
-	
-	case eDangerous:	ColorStr = theConf->GetString("Colors/DangerousProcess", "#FF0000"); break;
-	case eSystem:		ColorStr = theConf->GetString("Colors/SystemProcess", "#AACCFF"); break;
-	case eUser:			ColorStr = theConf->GetString("Colors/UserProcess", "#FFFFC4"); break;
-	case eService:		ColorStr = theConf->GetString("Colors/ServiceProcess", "#80FFFF"); break;
-#ifdef WIN32
-	case eSandBoxed:	ColorStr = theConf->GetString("Colors/SandBoxed", "#FFFF00"); break;
-	case eJob:			ColorStr = theConf->GetString("Colors/JobProcess", "#C4FFC4"); break;
-	case ePico:			ColorStr = theConf->GetString("Colors/PicoProcess", "#42A0FF"); break;
-	case eImmersive:	ColorStr = theConf->GetString("Colors/ImmersiveProcess", "#FFE6FF"); break;
-	case eDotNet:		ColorStr = theConf->GetString("Colors/NetProcess", "#DCFF00"); break;
-#endif
-	case eElevated:		ColorStr = theConf->GetString("Colors/ElevatedProcess", "#FFBB30"); break;
-#ifdef WIN32
-	case eDriver:		ColorStr = theConf->GetString("Colors/KernelServices", "#FFC880"); break;
-	case eGuiThread:	ColorStr = theConf->GetString("Colors/GuiThread", "#AACCFF"); break;
-	case eIsInherited:	ColorStr = theConf->GetString("Colors/IsInherited", "#77FFFF"); break;
-	case eIsProtected:	ColorStr = theConf->GetString("Colors/IsProtected", "#FF77FF"); break;
-#endif
-	case eExecutable:	ColorStr = theConf->GetString("Colors/Executable", "#FF90E0"); break;
-	}
-
-	StrPair ColorUse = Split2(ColorStr, ";");
-	if (ColorUse.second.isEmpty() || ColorUse.second.compare("true", Qt::CaseInsensitive) == 0 || ColorUse.second.toInt() != 0)
-		return QColor(ColorUse.first);
-
-	return QColor(theConf->GetString("Colors/Background", "#FFFFFF"));
+	return theGUI->m_Colors.value((EColor)Color).Value;
 }
 
+bool CTaskExplorer::UseListColor(int Color)
+{
+	return theGUI->m_Colors.value((EColor)Color).Enabled;
+}
+
+void CTaskExplorer::InitColors()
+{
+	// plot colors:
+	m_Colors.insert(eGraphBack, SColor("GraphBack", tr("Graph background"), "#808080"));
+	m_Colors.insert(eGraphFront, SColor("GraphFront", tr("Graph text"), "#FFFFFF"));
+
+	m_Colors.insert(ePlotBack, SColor("PlotBack", tr("Plot background"), "#EFEFEF"));
+	m_Colors.insert(ePlotFront, SColor("PlotFront", tr("Plot text"), "#505050"));
+	m_Colors.insert(ePlotGrid, SColor("PlotGrid", tr("Plot grid"), "#C7C7C7"));
+
+	m_Colors.insert(eGridColor, SColor("GridColor", tr("List grid color"), "#808080"));
+	m_Colors.insert(eBackground, SColor("Background", tr("Default background"), "#FFFFFF"));
+
+	// list colors:
+	m_Colors.insert(eAdded, SColor("NewlyCreated", tr("New items"), "#00FF7F"));
+	m_Colors.insert(eToBeRemoved, SColor("ToBeRemoved", tr("Removed items"), "#F08080"));
+
+#ifdef WIN32
+	m_Colors.insert(eDangerous, SColor("DangerousProcess", tr("Dangerous process"), "#FF0000"));
+#endif
+	m_Colors.insert(eSystem, SColor("SystemProcess", tr("System processes"), "#AACCFF"));
+	m_Colors.insert(eUser, SColor("UserProcess", tr("Current user processes"), "#FFFF80"));
+	m_Colors.insert(eService, SColor("ServiceProcess", tr("Service processes"), "#80FFFF"));
+#ifdef WIN32
+	m_Colors.insert(eSandBoxed, SColor("SandBoxed", tr("Sandboxed processes"), "#FFFF00"));
+	m_Colors.insert(eJob, SColor("JobProcess", tr("Job processes"), "#D49C5C"));
+	m_Colors.insert(ePico, SColor("PicoProcess", tr("Pico processes"), "#42A0FF"));
+	m_Colors.insert(eImmersive, SColor("ImmersiveProcess", tr("Immersive processes"), "#FFE6FF"));
+	m_Colors.insert(eDotNet, SColor("NetProcess", tr(".NET processes"), "#DCFF00"));
+#endif
+	m_Colors.insert(eElevated, SColor("ElevatedProcess", tr("Elevated processes"), "#FFBB30"));
+#ifdef WIN32
+	m_Colors.insert(eDriver, SColor("KernelServices", tr("Kernel Services (Driver)"), "#FFC880"));
+	m_Colors.insert(eGuiThread, SColor("GuiThread", tr("Gui threads"), "#AACCFF"));
+	m_Colors.insert(eIsInherited, SColor("IsInherited", tr("Inherited handles"), "#77FFFF"));
+	m_Colors.insert(eIsProtected, SColor("IsProtected", tr("Protected handles/Critical tasks"), "#FF77FF"));
+#endif
+
+	m_Colors.insert(eExecutable, SColor("Executable", tr("Executable memory"), "#FF90E0"));
+	//
+
+	ReloadColors();
+}
+
+void CTaskExplorer::ReloadColors()
+{
+	for(QMap<EColor, SColor>::iterator I = m_Colors.begin(); I!= m_Colors.end(); ++I)
+	{
+		CTaskExplorer::SColor& Color = I.value();
+
+		StrPair ColorUse = Split2(theConf->GetString("Colors/" + Color.Name, Color.Default), ";");
+
+		if (Color.Name != "Background"
+ 		 && Color.Name != "GraphBack" && Color.Name != "GraphFront"
+		 && Color.Name != "PlotBack" && Color.Name != "PlotFront" && Color.Name != "PlotGrid")
+			Color.Enabled = ColorUse.second.isEmpty() || ColorUse.second.compare("true", Qt::CaseInsensitive) == 0 || ColorUse.second.toInt() != 0;
+		else
+			Color.Enabled = true;
+
+		Color.Value = QColor(ColorUse.first);
+	}
+}
 
 int CTaskExplorer::GetGraphLimit(bool bLong)
 {

@@ -81,6 +81,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pMenu->addSeparator();
 
 	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnProcessAction()));
+	m_pStop = m_pMenu->addAction(tr("Stop"), this, SLOT(OnProcessAction()));
 
 	AddTaskItemsToMenu();
 	//QAction*				m_pTerminateTree;
@@ -620,19 +621,26 @@ void CProcessTree::OnMenu(const QPoint &point)
 	QModelIndexList selectedRows = m_pProcessList->selectedRows();
 
 	QList<CWndPtr> Windows;
-	if (selectedRows.count() >= 1)
-		Windows = pProcess->GetWindows();
+	bool HasService = false;
 
-	/*foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
+	foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+		CProcessPtr pCurProcess = m_pProcessModel->GetProcess(ModelIndex);
 
-	}*/
+		Windows.append(pCurProcess->GetWindows());
+		if (pCurProcess->IsServiceProcess())
+			HasService = true;
+	}
 
 	m_pShowProperties->setEnabled(selectedRows.count() > 0);
 	m_pBringInFront->setEnabled(selectedRows.count() == 1 && !Windows.isEmpty());
+	
+	m_pStop->setVisible(HasService);
+
+	m_pClose->setVisible(!HasService);
 	m_pClose->setEnabled(!Windows.isEmpty());
+	
 
 	m_pPreset->setEnabled(selectedRows.count() == 1);
 	m_pPreset->setChecked(!pProcess->GetPresets().isNull());
@@ -730,6 +738,17 @@ void CProcessTree::OnProcessAction()
 					pWinProcess->AttachDebugger();
 				else
 					pWinProcess->DetachDebugger();
+			}
+			else if (sender() == m_pStop)
+			{
+				QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
+				foreach(const QString& ServiceName, pWinProcess->GetServiceList())
+				{
+					CServicePtr pService = AllServices[ServiceName.toLower()];
+					if (!pService)
+						pService = CServicePtr(new CWinService(ServiceName));
+					pService->Stop();
+				}
 			}
 			else if (sender() == m_pClose || sender() == m_pQuit)
 			{

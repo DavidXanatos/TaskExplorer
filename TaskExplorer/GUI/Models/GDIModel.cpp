@@ -42,8 +42,8 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 		int Changed = 0;
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pGDI->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pGDI->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+		if (pGDI->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pGDI->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))			RowColor = CTaskExplorer::eAdded;
 
 		if (pNode->iColor != RowColor) {
 			pNode->iColor = RowColor;

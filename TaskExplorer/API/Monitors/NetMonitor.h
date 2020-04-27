@@ -65,6 +65,7 @@ public:
 	virtual QMap<QString, SNicInfo>	GetAllNicList() const { QReadLocker Locker(&m_StatsMutex); return m_NicList; }
 	virtual QMap<QString, SNicInfo>	GetNicList(bool bFilterDisconnected = true) const;
 	virtual SNicInfo GetNicInfo(const QString& DeviceInterface) const { QReadLocker Locker(&m_StatsMutex); return m_NicList.value(DeviceInterface); }
+	virtual bool IsLanIP(const QHostAddress& Address) const;
 
 	struct SDataRates
 	{

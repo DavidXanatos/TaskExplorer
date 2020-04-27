@@ -102,8 +102,8 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 	}*/
 
 	int RowColor = CTaskExplorer::eNone;
-	if (pEntry->IsMarkedForRemoval())		RowColor = CTaskExplorer::eToBeRemoved;
-	else if (pEntry->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+	if (pEntry->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))		RowColor = CTaskExplorer::eToBeRemoved;
+	else if (pEntry->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))			RowColor = CTaskExplorer::eAdded;
 
 	if (pNode->iColor != RowColor) {
 		pNode->iColor = RowColor;

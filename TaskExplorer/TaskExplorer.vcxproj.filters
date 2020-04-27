@@ -578,6 +578,9 @@
     <ClCompile Include="API\PersistentPreset.cpp">
       <Filter>API</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\GpuCounters.cpp">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -747,6 +750,9 @@
     </ClInclude>
     <ClInclude Include="Common\Xml.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\GpuCounters.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

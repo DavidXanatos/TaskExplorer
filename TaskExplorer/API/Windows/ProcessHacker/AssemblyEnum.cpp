@@ -827,11 +827,10 @@ void CAssemblyEnum::run()
     context->NodeList = PhCreateList(64);
     context->NodeRootList = PhCreateList(2);
 
-	BOOLEAN isDotNet;
-    PhGetProcessIsDotNetEx(context->ProcessId, NULL, 0, &isDotNet, &context->ClrVersions);
-
-	if (isDotNet)
+	//if (isDotNet)
 	{
+		PhGetProcessIsDotNetEx(context->ProcessId, NULL, 0, NULL, &context->ClrVersions);
+
 		// DotNetTraceQueryThreadStart
 		LARGE_INTEGER timeout;
 		//PASMPAGE_QUERY_CONTEXT context = ;

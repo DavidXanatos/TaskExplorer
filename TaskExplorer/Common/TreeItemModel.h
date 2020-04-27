@@ -71,6 +71,7 @@ protected:
 		struct SValue
 		{
 			QVariant Raw;
+			QVariant SortKey;
 			QVariant Formated;
 		};
 		QVector<SValue>		Values;

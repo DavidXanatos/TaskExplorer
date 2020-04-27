@@ -429,6 +429,7 @@ struct SProcStats
 		LastStatUpdate = curTick;
 
 		Net.UpdateStats(time_ms);
+		Lan.UpdateStats(time_ms);
 		Disk.UpdateStats(time_ms);
 		Io.UpdateStats(time_ms);
 
@@ -438,6 +439,7 @@ struct SProcStats
 	quint64		LastStatUpdate;
 
 	SNetStats	Net;
+	SNetStats	Lan;
 	SIOStats	Disk;
 	SIOStatsEx	Io;
 };

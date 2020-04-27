@@ -400,6 +400,7 @@
     <ClCompile Include="API\Windows\ProcessHacker\db.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\fw.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\GpuCounters.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp" />
@@ -863,6 +864,7 @@
     <ClInclude Include="API\Windows\ProcessHacker\d3dkmt.h" />
     <ClInclude Include="API\Windows\ProcessHacker\devices.h" />
     <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h" />
+    <ClInclude Include="API\Windows\ProcessHacker\GpuCounters.h" />
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h" />
     <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h" />
     <ClInclude Include="API\Windows\ProcessHacker\pooltable.h" />

@@ -145,8 +145,10 @@ void CDotNetView::OnRefresh()
 {
 	QObject::disconnect(this, SLOT(OnAssemblies(const CAssemblyListPtr&)));
 
-	if (!m_pCurProcess)
+	if (!m_pCurProcess || !m_pCurProcess.staticCast<CWinProcess>().data()->IsNetProcess()) {
+		m_Assemblies.clear();
 		return;
+	}
 
 	CAssemblyEnum* pEnum = new CAssemblyEnum(m_pCurProcess->GetProcessId(), this);
 	

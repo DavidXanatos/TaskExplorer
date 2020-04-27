@@ -407,16 +407,20 @@
         <layout class="QGridLayout" name="gridLayout_6">
          <item row="0" column="0">
           <layout class="QGridLayout" name="gridLayout_5">
-           <item row="8" column="0">
-            <widget class="QLabel" name="label_17">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
+           <item row="9" column="1" colspan="2">
+            <widget class="QCheckBox" name="chkSoftForce">
              <property name="text">
-              <string>Other Options</string>
+              <string>Use soft force, hold CTRL to use hard force</string>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="0">
+            <widget class="QLabel" name="label_16">
+             <property name="text">
+              <string>Forced Shutdown/Reboot:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -424,30 +428,6 @@
             <widget class="QCheckBox" name="chkTraceDLLs">
              <property name="text">
               <string>Trace unloaded modules</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QCheckBox" name="chkSymbolPath">
-             <property name="text">
-              <string>Download Symbols:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="11" column="1">
-            <widget class="QCheckBox" name="chkUdpCons">
-             <property name="text">
-              <string>Show Pseudo UDP Connections</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1" colspan="2">
-            <widget class="QLineEdit" name="symbolPath"/>
-           </item>
-           <item row="9" column="1" colspan="2">
-            <widget class="QCheckBox" name="chkSoftForce">
-             <property name="text">
-              <string>Use soft force, hold CTRL to use hard force</string>
              </property>
             </widget>
            </item>
@@ -464,28 +444,52 @@
              </property>
             </widget>
            </item>
-           <item row="9" column="0">
-            <widget class="QLabel" name="label_16">
+           <item row="2" column="1" colspan="2">
+            <widget class="QLineEdit" name="symbolPath"/>
+           </item>
+           <item row="2" column="0">
+            <widget class="QCheckBox" name="chkSymbolPath">
              <property name="text">
-              <string>Forced Shutdown/Reboot:</string>
+              <string>Download Symbols:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_17">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Other Options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="11" column="1">
+            <widget class="QCheckBox" name="chkUdpCons">
+             <property name="text">
+              <string>Show Pseudo UDP Connections (ETW)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="14" column="1" colspan="2">
+            <widget class="QCheckBox" name="chkSmartDns">
+             <property name="text">
+              <string>Use DNS cache for remote host name resolution</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_14">
+             <property name="text">
+              <string>Process name</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
-           </item>
-           <item row="14" column="0">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
            </item>
            <item row="5" column="1">
             <widget class="QCheckBox" name="chkParents">
@@ -494,20 +498,7 @@
              </property>
             </widget>
            </item>
-           <item row="10" column="0">
-            <widget class="QLabel" name="label_41">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Network Options</string>
-             </property>
-            </widget>
-           </item>
-           <item row="14" column="2">
+           <item row="15" column="2">
             <spacer name="horizontalSpacer_5">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -520,10 +511,46 @@
              </property>
             </spacer>
            </item>
-           <item row="13" column="1" colspan="2">
-            <widget class="QCheckBox" name="chkSmartDns">
+           <item row="4" column="1">
+            <widget class="QComboBox" name="processName"/>
+           </item>
+           <item row="15" column="0">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="15" column="1">
+            <spacer name="verticalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="1" column="1">
+            <widget class="QCheckBox" name="chkUndecorate">
              <property name="text">
-              <string>Use DNS cache for remote host name resolution</string>
+              <string>Undecorate symbols</string>
+             </property>
+            </widget>
+           </item>
+           <item row="13" column="1">
+            <widget class="QCheckBox" name="chkReverseDns">
+             <property name="text">
+              <string>Use Reverse DNS for remote host name resolution</string>
              </property>
             </widget>
            </item>
@@ -540,10 +567,16 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="1">
-            <widget class="QCheckBox" name="chkUndecorate">
+           <item row="10" column="0">
+            <widget class="QLabel" name="label_41">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
              <property name="text">
-              <string>Undecorate symbols</string>
+              <string>Network Options</string>
              </property>
             </widget>
            </item>
@@ -555,35 +588,9 @@
             </widget>
            </item>
            <item row="12" column="1">
-            <widget class="QCheckBox" name="chkReverseDns">
+            <widget class="QCheckBox" name="chkLanPlot">
              <property name="text">
-              <string>Use Reverse DNS for remote host name resolution</string>
-             </property>
-            </widget>
-           </item>
-           <item row="14" column="1">
-            <spacer name="verticalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="4" column="1">
-            <widget class="QComboBox" name="processName"/>
-           </item>
-           <item row="4" column="0">
-            <widget class="QLabel" name="label_14">
-             <property name="text">
-              <string>Process name</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              <string>Show LAN only TCP/IP Traffic (ETW)</string>
              </property>
             </widget>
            </item>

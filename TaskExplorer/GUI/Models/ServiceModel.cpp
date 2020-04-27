@@ -75,10 +75,10 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 #endif
 
 		int RowColor = CTaskExplorer::eNone;
-		if (pService->IsMarkedForRemoval())			RowColor = CTaskExplorer::eToBeRemoved;
-		else if (pService->IsNewlyCreated())		RowColor = CTaskExplorer::eAdded;
+		if (pService->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))		RowColor = CTaskExplorer::eToBeRemoved;
+		else if (pService->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))			RowColor = CTaskExplorer::eAdded;
 #ifdef WIN32
-		else if (pWinService->IsDriver())			RowColor = CTaskExplorer::eDriver;
+		else if (pWinService->IsDriver() && CTaskExplorer::UseListColor(CTaskExplorer::eDriver))			RowColor = CTaskExplorer::eDriver;
 #endif
 
 		if (pNode->iColor != RowColor) {
