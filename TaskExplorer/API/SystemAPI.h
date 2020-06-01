@@ -7,7 +7,7 @@
 #include "ServiceInfo.h"
 #include "DriverInfo.h"
 #include "WndInfo.h"
-#include "../Common/Common.h"
+#include "../../MiscHelpers/Common/Common.h"
 #include "Monitors/GpuMonitor.h"
 #include "Monitors/NetMonitor.h"
 #include "Monitors/DiskMonitor.h"

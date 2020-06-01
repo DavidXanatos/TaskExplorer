@@ -1,11 +1,11 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TreeViewEx.h"
-#include "../../Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
 #include "../../API/ProcessInfo.h"
 #include "../../API/SocketInfo.h"
 #include "../Models/StringModel.h"
-#include "../../Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 
 class CStringView : public CPanelView
 {

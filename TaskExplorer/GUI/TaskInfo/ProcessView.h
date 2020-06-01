@@ -1,12 +1,14 @@
 #pragma once
 #include <qwidget.h>
 #include "../../API/ProcessInfo.h"
-#include "../../Common/PanelView.h"
-#include "../../Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
 #include "../StatsView.h"
 
 class CProcessModel;
 class QSortFilterProxyModel;
+class CServicesView;
+class CEnvironmentView;
 
 class CProcessView : public QWidget //CPanelView
 {
@@ -17,7 +19,7 @@ public:
 
 public slots:
 	void					ShowProcesses(const QList<CProcessPtr>& Processes);
-	void					ShowProcess(const CProcessPtr pProcess);
+	void					ShowProcess(const CProcessPtr& pProcess);
 	void					Refresh();
 
 private slots:
@@ -107,7 +109,10 @@ private:
 	QLineEdit*				m_pAppID;
 	QLineEdit*				m_pPackageName;
 	//QLineEdit*				m_pPackageDataDir;
+
+	CServicesView*			m_pServiceView;
 #endif
+	CEnvironmentView*		m_pEnvironmentView;
 
 
 	CStatsView*				m_pStatsView;

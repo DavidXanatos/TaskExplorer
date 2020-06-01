@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.2.5] - 2020-06-01
+
+### Added
+- Added debug view tab to see the debug output of individual process, when debug monitor is enabled
+- Added kernel debug log option to xprocesshacker3 driver
+
+### Changed
+- Sandboxie support needs to be enabled in the settings, as having it always on interfears with updating sandboxie
+- moved services tab to the general tab as a sub tab
+- moved environment tab to the general tab as a sub tab
+- merged system info tab kernel objects and main system tab
+- moved a lot of usefull generic code to MiscHelpers.dll
+
+### Fixed
+- fixed tab menu checks
+- fixed issue with system and task info window tabs
+- fixed issue process name label forcing panel size
+- fixed soem more minor ui glitches
 
 
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "../../API/StringInfo.h"
-#include "../../Common/ListItemModel.h"
+#include "../../../MiscHelpers/Common/ListItemModel.h"
 
 
 class CStringModel : public CListItemModel

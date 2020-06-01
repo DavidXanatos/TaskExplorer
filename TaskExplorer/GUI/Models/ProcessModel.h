@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
 #include "../../API/ProcessInfo.h"
-#include "../../Common/TreeItemModel.h"
+#include "../../../MiscHelpers/Common/TreeItemModel.h"
 
 class CProcessModel : public CTreeItemModel
 {
@@ -171,6 +171,8 @@ public:
 		eHangCount,
 		eGhostCount,
 #endif
+		eDebugTotal,
+		//eDebugDelte,
 		eSessionID,
 
 

@@ -1,9 +1,9 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
 #include "ProcessTree.h"
-#include "../Common/Common.h"
+#include "../../MiscHelpers/Common/Common.h"
 #include "Models/ProcessModel.h"
-#include "../Common/SortFilterProxyModel.h"
+#include "../../MiscHelpers/Common/SortFilterProxyModel.h"
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WinModule.h"
@@ -14,11 +14,12 @@
 #include "WaitChainDialog.h"
 #endif
 #include "../API/MemDumper.h"
-#include "../Common/ProgressDialog.h"
+#include "../../MiscHelpers/Common/ProgressDialog.h"
 #include "TaskInfo/TaskInfoWindow.h"
 #include "RunAsDialog.h"
-#include "../Common/Finder.h"
+#include "../../MiscHelpers/Common/Finder.h"
 #include "PersistenceConfig.h"
+#include "../../MiscHelpers/Common/qzlib.h"
 
 CProcessTree::CProcessTree(QWidget *parent)
 	: CTaskView(parent)
@@ -151,7 +152,20 @@ CProcessTree::~CProcessTree()
 
 void CProcessTree::OnResetColumns()
 {
-	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+	QByteArray PackedDefault = 
+		"eNrt19dOVGEUhuHZKmIDlGajo1hQsXfsBTsgTcGCLnvvvXAtXoiHHnpk9BK8AE91fEdfdMdIlEQjRid5_P4hAfbs9c0aOdjRdSOTySSZTME"
+		"7Mpv5_EiUn_tnIPXFAhSiApUowiTcwm2MwWTkYSymYBRGoxglKEUZyjEV0zAdM3K_EBMxE-NQhfGoRg0moBZ1qMcszEYD5mAu5mE-GrEAC7"
+		"EITViMJViKZViJVViNNViLdViPZmzARmzCFmzFNmzHDuxEC3ZhN_ZgL_ZhPw6gFW1ox0F0oBNd6EYPDuEwetGHIziKYziOfpzASQRO4TTO4"
+		"CzO4Tw2Yzku4CIu4TKu4Cqu4TpyQ7-JFbiDu7iH-3iAh3iEx3iCp9_0oMg5T3D-Bc6v0lnVOcP81PzHOttCe_GjPlTYpzx7UOPsf8Xcl_va"
+		"L9jb4fRg8D6P9D78zPxv-T4bP5we5L3Ivsxmiz5kebzPPs8m_oJFXkyTOdecZ843G81Z5myzwZxj1pi1Zp03ut7nfeYR86h5zOwxD5mHzV6"
+		"zw-w0u8xus9VsM9vN3NCeOdhwuOGAwyGHRQjLEBYiLEVYnPA1hQUKSxSWLSxbp4ULSxcOJxxQOKRwUOEww4GGQw0HGxYgLEG3BQiLEpYlLE"
+		"xYmrBYYbnCgoUdCAsYljB8w0TKKfO0ecbsN0-Yg-WuMCu951U-r_aeTfP5dLPULDPLzanmFLPYLDELzSI7PM7nE03KX_LGRRbuwnyXW7gsw"
+		"oURLo1wcYSLJVwu4YIJl1G4kMJlFS6scGmFiytcbuGCI2fmFu9AknxazF8ekXt3prZ2entnvIj0N3zv6y2pc3PqvDV1bhvi5wx1bk2dr3w9"
+		"J-XD_Dkj4fwqde77C6__d5_bh5j7utR5feq84f99-1fOSc-_-9o_fYj84WsY_XbwQqr9uy_5_F_1JPep-zrJfXr4V-BHg7SxPA";
+
+	m_pProcessList->restoreState(Unpack(QByteArray::fromBase64(PackedDefault.replace("-","+").replace("_","/"))));
+
+	/*for (int i = 1; i < m_pProcessModel->columnCount(); i++)
 		m_pProcessList->GetView()->setColumnHidden(i, true);
 
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePID, false);
@@ -174,7 +188,7 @@ void CProcessTree::OnResetColumns()
 	//m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNet_TotalRate, false);
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eDisk_TotalRate, false);
-	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);*/
 
 	m_pProcessModel->SetColumnEnabled(0, true);
 	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
@@ -829,7 +843,7 @@ void CProcessTree::OnPresetAction()
 
 void CProcessTree::OnWsWatch()
 {
-#ifdef _WIN32
+#ifdef WIN32
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
@@ -843,7 +857,7 @@ void CProcessTree::OnWsWatch()
 
 void CProcessTree::OnWCT()
 {
-#ifdef _WIN32
+#ifdef WIN32
 	QModelIndex Index = m_pProcessList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);

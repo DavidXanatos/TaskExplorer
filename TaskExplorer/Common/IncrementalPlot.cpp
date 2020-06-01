@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "IncrementalPlot.h"
-#include "Common.h"
+#include "../MiscHelpers/Common/Common.h"
 
 class CDateScale : public QwtScaleDraw
 {

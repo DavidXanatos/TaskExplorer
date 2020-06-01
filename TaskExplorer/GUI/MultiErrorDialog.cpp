@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #include "MultiErrorDialog.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker.h"

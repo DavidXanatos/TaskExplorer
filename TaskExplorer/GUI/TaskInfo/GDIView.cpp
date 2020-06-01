@@ -1,8 +1,8 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "GDIView.h"
-#include "../../Common/KeyValueInputDialog.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/KeyValueInputDialog.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 #include "../../API/Windows/WinProcess.h"
 #include "../../API/Windows/ProcessHacker.h"
 

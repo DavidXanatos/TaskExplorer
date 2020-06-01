@@ -1,10 +1,10 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TreeViewEx.h"
-#include "../../Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
 #include "../../API/ProcessInfo.h"
 #include "../Models/ModuleModel.h"
-#include "../../Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 
 class CModulesView : public CPanelView
 {

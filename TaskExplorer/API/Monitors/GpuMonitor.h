@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #include "../ProcessInfo.h"
 
 class CGpuMonitor : public QObject

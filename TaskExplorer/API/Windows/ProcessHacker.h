@@ -46,7 +46,7 @@
 #include <ntgdi.h>
 
 
-#include "../../Common/FlexError.h"
+#include "../../../MiscHelpers/Common/FlexError.h"
 
 // begin_phapppub
 #define DPCS_PROCESS_ID ((HANDLE)(LONG_PTR)-2)

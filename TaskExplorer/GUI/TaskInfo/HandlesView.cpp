@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "HandlesView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinHandle.h"
 #include "../../API/Windows/ProcessHacker.h"
@@ -13,7 +13,7 @@
 #include "TokenView.h"
 #include "JobView.h"
 #include "../MemoryEditor.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 
 class CHandleSortModel: public QSortFilterProxyModel
 {

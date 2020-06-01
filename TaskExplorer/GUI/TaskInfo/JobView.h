@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/PanelView.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
 #include "../StatsView.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"

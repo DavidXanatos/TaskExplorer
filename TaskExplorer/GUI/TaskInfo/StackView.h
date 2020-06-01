@@ -1,8 +1,8 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TreeViewEx.h"
-#include "../../Common/TreeWidgetEx.h"
-#include "../../Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
 #include "../../API/ProcessInfo.h"
 
 class CFinder;

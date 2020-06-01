@@ -2,7 +2,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include "../API/Windows/WinProcess.h"
-#include "../Common/PanelView.h"
+#include "../../MiscHelpers/Common/PanelView.h"
 
 class CWaitChainDialog : public QMainWindow
 {

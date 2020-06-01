@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "HandleModel.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinHandle.h"
 #endif

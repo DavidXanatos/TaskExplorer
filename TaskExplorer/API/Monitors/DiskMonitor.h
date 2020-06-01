@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #include "../MiscStats.h"
 
 class CDiskMonitor : public QObject

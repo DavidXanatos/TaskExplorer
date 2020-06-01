@@ -53,6 +53,10 @@ NTSTATUS FindSignatureLevelOffsets(
     );
 //
 
+// Dbg Support
+extern KSPIN_LOCK DebugLogLock;
+//
+
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, DriverEntry)
 #pragma alloc_text(PAGE, DriverUnload)
@@ -128,9 +132,15 @@ NTSTATUS DriverEntry(
             else
                 dprintf("PPL Supported enabled, offset: %u\n", PsProtectionOffset);
 
-            KphFeatures |= (1 << 31); // since weare a mod lets start from the top
+            KphFeatures |= (1 << 31); // ppl support
         }
     }
+    //
+
+    // dbg support
+    KphFeatures |= (1 << 30);
+
+    KeInitializeSpinLock(&DebugLogLock);
     //
 
     // Create the device.
@@ -265,6 +275,8 @@ NTSTATUS KphDispatchClose(
     {
         ExFreePoolWithTag(client, 'ChpK');
     }
+
+    KpiSetDebugLog(FALSE, KernelMode); // dbg Support
 
     Irp->IoStatus.Status = status;
     Irp->IoStatus.Information = 0;

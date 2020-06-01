@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "GDIModel.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 
 CGDIModel::CGDIModel(QObject *parent)
 :CListItemModel(parent)

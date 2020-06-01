@@ -2,7 +2,7 @@
 #include "ProcessInfo.h"
 #include "SocketInfo.h"
 #include "SystemAPI.h"
-
+#include "../../MiscHelpers/Common/Settings.h"
 
 CProcessInfo::CProcessInfo(QObject *parent) : CAbstractTask(parent)
 {
@@ -25,6 +25,8 @@ CProcessInfo::CProcessInfo(QObject *parent) : CAbstractTask(parent)
 	//m_PageFaultCount = 0;
 
 	m_NetworkUsageFlags = 0;
+
+	m_DebugMessageCount = 0;
 }
 
 CProcessInfo::~CProcessInfo()
@@ -119,4 +121,52 @@ void CProcessInfo::ApplyPresets()
 		SetIOPriority(Preset->iIOPriority);
 	if (Preset->bPagePriority)
 		SetPagePriority(Preset->iPagePriority);
+}
+
+void CProcessInfo::AddDebugMessage(const QString& Text, const QDateTime& TimeStamp)
+{
+	QWriteLocker Locker(&m_DebugMutex);
+
+	int AddedCount = 0;
+
+	QStringList Texts = Text.split("\n");
+
+	if (m_DebugMessages.count() > 0)
+	{
+		SDebugMessage& Message = m_DebugMessages.last();
+		if (Message.Text.right(1) != '\n')
+		{
+			Message.Text += Texts.takeFirst();
+			if (!Texts.isEmpty())
+				Message.Text += "\n";
+		}
+	}
+	
+	for(int i=0; i < Texts.count();)
+	{
+		QString Text = Texts[i++];
+		bool Last = i >= Texts.count();
+		if (Last && Text.isEmpty())
+			break;
+
+		SDebugMessage Message = { TimeStamp, Text };
+		if (!Last)
+			Message.Text += "\n";
+		m_DebugMessages.append(Message);
+		AddedCount++;
+	}
+
+	while (m_DebugMessages.count() > theConf->GetInt("Options/MaxDebugLog", 1000))
+		m_DebugMessages.removeFirst();
+
+	m_DebugMessageCount += AddedCount;
+}
+
+
+QList<CProcessInfo::SDebugMessage> CProcessInfo::GetDebugMessages(quint32* pDebugMessageCount) const 
+{ 
+	QReadLocker Locker(&m_DebugMutex);  
+	if (pDebugMessageCount)
+		*pDebugMessageCount = m_DebugMessageCount;
+	return m_DebugMessages; 
 }

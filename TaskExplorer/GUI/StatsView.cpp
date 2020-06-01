@@ -1,10 +1,11 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
 #include "StatsView.h"
-#include "../Common/Common.h"
+#include "../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WindowsAPI.h"
+#include "../API/Windows/ProcessHacker.h"
 #else
 #include "../API/Linux/LinuxAPI.h"
 #endif
@@ -33,13 +34,19 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	m_pMainLayout->addWidget(CFinder::AddFinder(m_pStatsList, this, true));
 	// 
 
+#ifdef WIN32
 	m_MonitorsETW = false;
+
+	/*m_MmAddressesInitialized = false;
+	m_MmSizeOfPagedPoolInBytes = -1;
+	m_MmMaximumNonPagedPoolInBytes = -1;*/
+#endif
 
 	SetupTree();
 
-	if (/*eView == eProcess ||*/ eView == eSystem)
+	/*if (eView == eProcess || eView == eSystem)
 		m_pStatsList->setAutoFitMax(800);
-	else
+	else*/
 		m_pStatsList->setMinimumHeight(50);
 
 	//m_pMenu = new QMenu();
@@ -98,18 +105,28 @@ void CStatsView::SetupTree()
 
 	m_pMemory = new QTreeWidgetItem(tr("Memory").split("|"));
 	m_pStatsList->addTopLevelItem(m_pMemory);
-	/*if (m_eView == eSystem)
+	if (m_eView == eSystem)
 	{
 		m_pCommitCharge = new QTreeWidgetItem(tr("Commit Charge").split("|"));
 		m_pMemory->addChild(m_pCommitCharge);
+
 		m_pVirtualSize = new QTreeWidgetItem(tr("Paged pool virtual size").split("|"));
 		m_pMemory->addChild(m_pVirtualSize);
 		m_pWorkingSet = new QTreeWidgetItem(tr("Paged pool working set").split("|"));
 		m_pMemory->addChild(m_pWorkingSet);
+		m_pPagedPoolAllocs = new QTreeWidgetItem(tr("Paged pool Allocs").split("|"));
+		m_pMemory->addChild(m_pPagedPoolAllocs);
+		m_pPagedPoolFrees = new QTreeWidgetItem(tr("Paged pool Frees").split("|"));
+		m_pMemory->addChild(m_pPagedPoolFrees);
+ 
 		m_pNonPagedPool = new QTreeWidgetItem(tr("Non-Paged pool usage").split("|"));
 		m_pMemory->addChild(m_pNonPagedPool);
-	}*/
-	if (m_eView == eProcess) 
+		m_pNonPagedPoolAllocs = new QTreeWidgetItem(tr("Non-Paged pool Allocs").split("|"));
+		m_pMemory->addChild(m_pNonPagedPoolAllocs);
+		m_pNonPagedPoolFrees = new QTreeWidgetItem(tr("Non-Paged pool Frees").split("|"));
+		m_pMemory->addChild(m_pNonPagedPoolFrees);
+	}
+	else if (m_eView == eProcess) 
 	{
 		m_pPrivateBytes = new QTreeWidgetItem(tr("Private bytes").split("|"));
 		m_pMemory->addChild(m_pPrivateBytes);
@@ -410,7 +427,7 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	}
 }
 
-void CStatsView::ShowIoStats(const SProcStats& Stats)
+void CStatsView::ShowIoStats(const SSysStats& Stats)
 {
 	m_pIOReads->setText(eCount, FormatNumber(Stats.Io.ReadDelta.Value));
 	m_pIOReads->setText(eSize, FormatSize(Stats.Io.ReadRawDelta.Value));
@@ -453,6 +470,15 @@ void CStatsView::ShowIoStats(const SProcStats& Stats)
 
 void CStatsView::ShowSystem()
 {
+#ifdef WIN32
+	/*if (!m_MmAddressesInitialized)
+	{
+		m_MmAddressesInitialized = true;
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetAddressFromSymbol((quint64)SYSTEM_PROCESS_ID, "MmSizeOfPagedPoolInBytes", this, SLOT(AddressFromSymbol(quint64, const QString&, quint64)));
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetAddressFromSymbol((quint64)SYSTEM_PROCESS_ID, "MmMaximumNonPagedPoolInBytes", this, SLOT(AddressFromSymbol(quint64, const QString&, quint64)));
+	}*/
+#endif
+
 	SCpuStatsEx CpuStats = theAPI->GetCpuStats();
 
 	// CPU
@@ -470,15 +496,63 @@ void CStatsView::ShowSystem()
 
 
 	// Memory
-	/*m_pCommitCharge->setText(eSize, FormatSize(theAPI->GetCommitedMemory()));
+	m_pCommitCharge->setText(eSize, FormatSize(theAPI->GetCommitedMemory()));
 	m_pCommitCharge->setText(ePeak, FormatSize(theAPI->GetCommitedMemoryPeak()));
 	//m_pCommitCharge->setText(eLimit, FormatSize(theAPI->GetMemoryLimit()));
 
-	m_pVirtualSize->setText(eSize, FormatSize(theAPI->GetPagedPool()));
-
 	m_pWorkingSet->setText(eSize, FormatSize(theAPI->GetPersistentPagedPool()));
+	//m_pWorkingSet->setText(eLimit
+	m_pVirtualSize->setText(eSize, FormatSize(theAPI->GetPagedPool()));
+	m_pPagedPoolAllocs->setText(eCount, FormatNumber(CpuStats.PagedAllocsDelta.Value));
+	m_pPagedPoolAllocs->setText(eDelta, FormatNumber(CpuStats.PagedAllocsDelta.Delta));
+	m_pPagedPoolFrees->setText(eCount, FormatNumber(CpuStats.PagedFreesDelta.Value));
+	m_pPagedPoolFrees->setText(eDelta, FormatNumber(CpuStats.PagedFreesDelta.Delta));
 
-	m_pNonPagedPool->setText(eSize, FormatSize(theAPI->GetNonPagedPool()));*/
+	m_pNonPagedPool->setText(eSize, FormatSize(theAPI->GetNonPagedPool()));
+	//m_pNonPagedPool->setText(eLimit
+	m_pNonPagedPoolAllocs->setText(eCount, FormatNumber(CpuStats.NonPagedAllocsDelta.Value));
+	m_pNonPagedPoolAllocs->setText(eDelta, FormatNumber(CpuStats.NonPagedAllocsDelta.Delta));
+	m_pNonPagedPoolFrees->setText(eCount, FormatNumber(CpuStats.NonPagedFreesDelta.Value));
+	m_pNonPagedPoolFrees->setText(eDelta, FormatNumber(CpuStats.NonPagedFreesDelta.Delta));
+
+#ifdef WIN32
+    /*QString pagedLimit;
+    QString nonPagedLimit;
+	if (!KphIsConnected())
+    {
+        pagedLimit = nonPagedLimit = tr("no driver");
+    }
+    else
+    {
+		if (m_MmSizeOfPagedPoolInBytes == -1)
+			pagedLimit = tr("resolving...");
+		else if (m_MmSizeOfPagedPoolInBytes)
+		{
+			SIZE_T paged = 0;
+			if (NT_SUCCESS(KphReadVirtualMemoryUnsafe(NtCurrentProcess(), (PVOID)m_MmSizeOfPagedPoolInBytes, &paged, sizeof(SIZE_T), NULL)))
+				pagedLimit = FormatSize(paged);
+			else
+				pagedLimit = tr("N/A");
+		}
+		else
+			pagedLimit = tr("no symbols");
+
+		if (m_MmMaximumNonPagedPoolInBytes == -1)
+			nonPagedLimit = tr("resolving...");
+		else if (m_MmMaximumNonPagedPoolInBytes)
+		{
+			SIZE_T nonPaged = 0;
+			if (NT_SUCCESS(KphReadVirtualMemoryUnsafe(NtCurrentProcess(), (PVOID)m_MmMaximumNonPagedPoolInBytes, &nonPaged, sizeof(SIZE_T), NULL)))
+				nonPagedLimit = FormatSize(nonPaged);
+			else
+				nonPagedLimit = tr("N/A");
+		}
+		else
+			nonPagedLimit = tr("no symbols");
+    }
+	m_pWorkingSet->setText(eLimit, pagedLimit);
+	m_pNonPagedPool->setText(eLimit, nonPagedLimit);*/
+#endif
 
 	m_pPageFaults->setText(eCount, FormatNumber(CpuStats.PageFaultsDelta.Value));
 	m_pPageFaults->setText(eDelta, FormatNumber(CpuStats.PageFaultsDelta.Delta));
@@ -561,4 +635,12 @@ void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 void CStatsView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
 {
 	CPanelWidgetEx::ApplyFilter(m_pStatsList, Exp/*, bHighLight, Col*/);
+}
+
+void CStatsView::AddressFromSymbol(quint64 ProcessId, const QString& Symbol, quint64 Address)
+{
+	/*if(Symbol == "MmSizeOfPagedPoolInBytes")
+		m_MmSizeOfPagedPoolInBytes = Address;
+	else if(Symbol == "MmMaximumNonPagedPoolInBytes")
+		m_MmMaximumNonPagedPoolInBytes = Address;*/
 }

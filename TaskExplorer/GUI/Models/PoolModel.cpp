@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "PoolModel.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 
 CPoolModel::CPoolModel(QObject *parent)
 :CListItemModel(parent)

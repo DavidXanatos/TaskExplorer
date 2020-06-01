@@ -2,7 +2,7 @@
 #include "WinModule.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
-#include "../../Common/Settings.h"
+#include "../../../MiscHelpers/Common/Settings.h"
 
 #include <QtWin>
 

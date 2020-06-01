@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
 #include "ProcessPicker.h"
-#include "../Common/SortFilterProxyModel.h"
+#include "../../MiscHelpers/Common/SortFilterProxyModel.h"
 #include "Models/ProcessModel.h"
 
 CProcessPicker::CProcessPicker(QWidget* parent)

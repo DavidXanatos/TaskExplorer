@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "Common/ListItemModel.h"
+#include "../MiscHelpers/Common/ListItemModel.h"
 #include "../../API/ThreadInfo.h"
 
 class CThreadModel : public CListItemModel

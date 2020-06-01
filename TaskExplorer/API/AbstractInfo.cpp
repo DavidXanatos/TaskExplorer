@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "AbstractInfo.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 
 
 volatile quint64 CAbstractInfoEx::m_PersistenceTime = 5000;

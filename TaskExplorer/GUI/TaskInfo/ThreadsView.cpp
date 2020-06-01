@@ -1,12 +1,12 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "ThreadsView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinThread.h"
 #include "../../API/Windows/WindowsAPI.h"
 #endif
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 #include "TaskInfoWindow.h"
 #include "TokenView.h"
 

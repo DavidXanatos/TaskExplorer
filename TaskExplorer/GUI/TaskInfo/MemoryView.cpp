@@ -1,12 +1,12 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "MemoryView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinMemory.h"
 #endif
 #include "../MemoryEditor.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 #include "../Search/MemorySearch.h"
 
 CMemoryView::CMemoryView(QWidget *parent)

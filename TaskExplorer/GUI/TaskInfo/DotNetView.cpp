@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "DotNetView.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 #include "../TaskExplorer.h"
 #include "../../API/Windows/WindowsAPI.h"
 #include "../../API/Windows/ProcessHacker/AssemblyEnum.h"

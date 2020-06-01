@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
-#include "../../../Common/TreeViewEx.h"
-#include "../../../Common/PanelView.h"
+#include "../../../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../../../MiscHelpers/Common/PanelView.h"
 #include "../../../API/ProcessInfo.h"
 #include "../../../API/Windows/WinPoolEntry.h"
 #include "../../Models/PoolModel.h"

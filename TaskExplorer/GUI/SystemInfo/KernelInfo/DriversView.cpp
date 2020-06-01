@@ -1,12 +1,12 @@
 #include "stdafx.h"
 #include "../../TaskExplorer.h"
 #include "DriversView.h"
-#include "../../../Common/Common.h"
+#include "../../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../../API/Windows/WinDriver.h"		
 #endif
-#include "../../../Common/SortFilterProxyModel.h"
-#include "../../../Common/Finder.h"
+#include "../../../../MiscHelpers/Common/SortFilterProxyModel.h"
+#include "../../../../MiscHelpers/Common/Finder.h"
 
 CDriversView::CDriversView(QWidget *parent)
 	:CPanelView(parent)

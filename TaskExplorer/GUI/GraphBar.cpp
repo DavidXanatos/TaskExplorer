@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "GraphBar.h"
 #include "TaskExplorer.h"
-#include "../Common/ItemChooser.h"
+#include "../../MiscHelpers/Common/ItemChooser.h"
 #ifdef WIN32
 #include "../API/Windows/WindowsAPI.h"
 #endif

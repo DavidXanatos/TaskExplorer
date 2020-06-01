@@ -90,7 +90,7 @@ QString CSandboxieAPI::FindSbieDll()
 	return dllPath;
 }
 
-CSandboxieAPI::CSandboxieAPI(const QString& dllPath, QObject* parent)
+CSandboxieAPI::CSandboxieAPI(QObject* parent)
  : QObject(parent)
 {
 	m = new SSandboxieAPI();
@@ -104,8 +104,8 @@ CSandboxieAPI::CSandboxieAPI(const QString& dllPath, QObject* parent)
 	IO_STATUS_BLOCK IoStatusBlock;
     NTSTATUS status = NtOpenFile(&m->SbieApiHandle, FILE_GENERIC_READ, &objattrs, &IoStatusBlock, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0);
 
-    if (status == STATUS_OBJECT_NAME_NOT_FOUND || status == STATUS_NO_SUCH_DEVICE)
-        status = STATUS_SERVER_DISABLED;
+    //if (status == STATUS_OBJECT_NAME_NOT_FOUND || status == STATUS_NO_SUCH_DEVICE)
+    //    status = STATUS_SERVER_DISABLED;
 
 	if (status != STATUS_SUCCESS) 
 		m->SbieApiHandle = INVALID_HANDLE_VALUE;
@@ -185,7 +185,12 @@ CSandboxieAPI::~CSandboxieAPI()
 	return true;
 }*/
 
-QString CSandboxieAPI::GetSandBoxName(quint64 ProcessId)
+bool CSandboxieAPI::IsConnected() const
+{
+	return m->SbieApiHandle != INVALID_HANDLE_VALUE;
+}
+
+QString CSandboxieAPI::GetSandBoxName(quint64 ProcessId) const
 {
 	/*QReadLocker Locker(&m_Mutex);
 
@@ -198,7 +203,7 @@ QString CSandboxieAPI::GetSandBoxName(quint64 ProcessId)
 	return QString::fromWCharArray(boxName);
 }
 
-bool CSandboxieAPI::IsSandBoxed(quint64 ProcessId)
+bool CSandboxieAPI::IsSandBoxed(quint64 ProcessId) const
 {
 	ULONG session_id = 0;
 	if (!NT_SUCCESS(m->SbieApiQueryProcess((HANDLE)ProcessId, 0, NULL, NULL, NULL, &session_id, NULL)))

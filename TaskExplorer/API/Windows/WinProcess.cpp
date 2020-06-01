@@ -39,8 +39,8 @@ extern "C" {
 #include "WinWnd.h"
 #include "ProcessHacker/memprv.h"
 #include "ProcessHacker/appsup.h"
-#include "../Common/Common.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Common.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #include "../../SVC/TaskService.h"
 
  // CWinProcess private members

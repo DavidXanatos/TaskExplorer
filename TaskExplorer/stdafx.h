@@ -128,7 +128,7 @@ using namespace std;
 #define SAFE_MODE
 #endif
 
-#include "Common/DebugHelpers.h"
+#include "../MiscHelpers/Common/DebugHelpers.h"
 
 #define USE_QEXTWIDGETS
 

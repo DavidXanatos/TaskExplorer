@@ -2,7 +2,7 @@
 #include "../TaskExplorer.h"
 #include "JobView.h"
 #include "../ProcessPicker.h"
-#include "../../Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 #include "../Models/ProcessModel.h"
 
 CJobView::CJobView(QWidget *parent)

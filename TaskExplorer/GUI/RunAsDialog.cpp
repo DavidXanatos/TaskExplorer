@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "RunAsDialog.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #endif

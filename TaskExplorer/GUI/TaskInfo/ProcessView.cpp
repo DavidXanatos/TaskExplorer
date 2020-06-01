@@ -1,13 +1,15 @@
 #include "stdafx.h"
 #include "ProcessView.h"
 #include "../TaskExplorer.h"
-#include "../../Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 #include "../Models/ProcessModel.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
 #include "../../API/Windows/WinModule.h"
 #include "../../API/Windows/ProcessHacker.h"
+#include "../SystemInfo/ServicesView.h"
 #endif
+#include "EnvironmentView.h"
 
 
 CProcessView::CProcessView(QWidget *parent)
@@ -57,26 +59,27 @@ CProcessView::CProcessView(QWidget *parent)
 	int row = 0;
 
 	m_pIcon = new QLabel();
+	m_pIcon->setPixmap(g_ExeIcon.pixmap(32));
 	m_pFileLayout->addWidget(m_pIcon, 0, 0, 2, 1);
 
 	m_pProcessName = new QLabel();
-	m_pProcessName->setSizePolicy(QSizePolicy::Expanding, m_pProcessName->sizePolicy().verticalPolicy());
-	m_pFileLayout->addWidget(m_pProcessName, row++, 1);
+	m_pProcessName->setSizePolicy(QSizePolicy::Ignored, m_pProcessName->sizePolicy().verticalPolicy());
+	m_pFileLayout->addWidget(m_pProcessName, row++, 1, 1, 2);
 
 	m_pCompanyName = new QLabel();
-	m_pFileLayout->addWidget(m_pCompanyName, row++, 1);
+	m_pFileLayout->addWidget(m_pCompanyName, row++, 1, 1, 2);
 	
 	m_pFileLayout->addWidget(new QLabel(tr("Version:")), row, 0);
 	m_pProcessVersion = new QLabel();
-	m_pFileLayout->addWidget(m_pProcessVersion, row++, 1);
+	m_pFileLayout->addWidget(m_pProcessVersion, row++, 1, 1, 2);
 
-	m_pFileLayout->addWidget(new QLabel(tr("Image file name:")), row, 0, 1, 1);
+	m_pFileLayout->addWidget(new QLabel(tr("Image file name:")), row, 0, 1, 2);
 	m_pSubSystem = new QLabel(tr("Subsystem:"));
 	m_pSubSystem->setAlignment(Qt::AlignRight);
-	m_pFileLayout->addWidget(m_pSubSystem, row++, 1, 1, 1);
+	m_pFileLayout->addWidget(m_pSubSystem, row++, 2, 1, 1);
 	m_pFilePath = new QLineEdit();
 	m_pFilePath->setReadOnly(true);
-	m_pFileLayout->addWidget(m_pFilePath, row++, 0, 1, 2);
+	m_pFileLayout->addWidget(m_pFilePath, row++, 0, 1, 3);
 
 	m_pFileLayout->addItem(new QSpacerItem(20, 30, QSizePolicy::Expanding, QSizePolicy::Expanding), row++, 1);
 
@@ -278,14 +281,18 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pStatsView->setSizePolicy(m_pStatsView->sizePolicy().horizontalPolicy(), QSizePolicy::Expanding);
 	//m_pInfoLayout->addWidget(m_pStatsView);
 
-	m_pTabWidget->addTab(m_pProcessArea, "Details");
-	m_pTabWidget->addTab(m_pStatsView, "Statistics");
-	//m_pTabWidget->addTab(m_pProcessBox, "Details");
+	m_pTabWidget->addTab(m_pProcessArea, tr("Details"));
+	m_pTabWidget->addTab(m_pStatsView, tr("Statistics"));
+	//m_pTabWidget->addTab(m_pProcessBox, tr("Details"));
 #ifdef WIN32
-	m_pTabWidget->addTab(m_pSecurityBox, "Security");
+	m_pTabWidget->addTab(m_pSecurityBox, tr("Security"));
 	if(m_pAppBox)
-		m_pTabWidget->addTab(m_pAppBox, "App");
+		m_pTabWidget->addTab(m_pAppBox, tr("App"));
+	m_pServiceView = new CServicesView(false, parent);
+	m_pTabWidget->addTab(m_pServiceView, tr("Service"));
 #endif
+	m_pEnvironmentView = new CEnvironmentView(parent);
+	m_pTabWidget->addTab(m_pEnvironmentView, tr("Environment"));
 
 	/*QWidget* pSpacer = new QWidget();
 	pSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -391,7 +398,7 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	Refresh();
 }
 
-void CProcessView::ShowProcess(const CProcessPtr pProcess)
+void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 {
 	CModulePtr pModule = pProcess->GetModuleInfo();
 
@@ -411,10 +418,14 @@ void CProcessView::ShowProcess(const CProcessPtr pProcess)
 	}
 
 	m_pIcon->setPixmap(Icon.isNull() ? g_ExeIcon.pixmap(32) : Icon);
+
 	if (!Description.isEmpty())
 		m_pProcessName->setText(Description + " (" + pProcess->GetName() + ")");
 	else
 		m_pProcessName->setText(pProcess->GetName());
+	// just in case its to long but we want to see it al
+	m_pProcessName->setToolTip(m_pProcessName->text().length() > 50 ? m_pProcessName->text() : ""); 
+
 	m_pFilePath->setText(pProcess->GetFileName());
 
 	m_pCmdLine->setText(pProcess->GetCommandLineStr());
@@ -477,6 +488,8 @@ void CProcessView::ShowProcess(const CProcessPtr pProcess)
 		//m_pPackageDataDir->setText(pWinProc->GetAppDataDirectory());
 	}
 #endif
+
+	m_pEnvironmentView->ShowProcesses(QList<CProcessPtr>() << pProcess);
 }
 
 void CProcessView::SyncModel()
@@ -493,6 +506,9 @@ void CProcessView::Refresh()
 		SyncModel();
 
 	m_pStatsView->ShowProcesses(m_Processes);
+#ifdef WIN32
+	m_pServiceView->ShowProcesses(m_Processes);
+#endif
 }
 
 void CProcessView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)

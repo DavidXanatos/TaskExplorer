@@ -28,7 +28,7 @@
 #include "../ProcessHacker/GpuCounters.h"
 #include "../WinProcess.h"
 #include "../WindowsAPI.h"
-#include "../../../Common/Settings.h"
+#include "../../../../MiscHelpers/Common/Settings.h"
 
 #define D3D11_NO_HELPERS
 #include <d3d11.h>

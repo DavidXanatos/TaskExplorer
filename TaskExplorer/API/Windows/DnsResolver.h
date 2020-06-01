@@ -1,6 +1,6 @@
 #pragma once
 #include "../DnsEntry.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 
 class CDnsResolverJob;
 

@@ -29,7 +29,7 @@
 #include "WinSvcTrigger.h"
 #include "WinSvcShutdown.h"
 #include "ServiceListWidget.h"
-#include "../Common/ComboInputDialog.h"
+#include "../../MiscHelpers/Common/ComboInputDialog.h"
 #include "../../SVC/TaskService.h"
 
 CWinSvcWindow::CWinSvcWindow(QSharedPointer<CWinService> pService, QWidget *parent)

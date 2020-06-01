@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "WinHandleFinder.h"
 #include "../ProcessHacker.h"
-#include "../../../Common/Common.h"
+#include "../../../../MiscHelpers/Common/Common.h"
 #include "../WinHandle.h"
 #include "../WindowsAPI.h"
 

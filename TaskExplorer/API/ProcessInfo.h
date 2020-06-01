@@ -125,6 +125,17 @@ public:
 	virtual void						RemoveSocket(const CSocketPtr& pSocket) { QWriteLocker Locker(&m_SocketMutex); m_SocketList.remove((quint64)pSocket.data()); }
 	virtual QMap<quint64, CSocketRef>	GetSocketList() const	{ QReadLocker Locker(&m_SocketMutex); return m_SocketList; }
 
+	// Debug Output
+	virtual void						AddDebugMessage(const QString& Text, const QDateTime& TimeStamp);
+	struct SDebugMessage
+	{
+		QDateTime TimeStamp;
+		QString Text;
+	};
+	virtual QList<SDebugMessage>		GetDebugMessages(quint32* pDebugMessageCount = NULL) const;
+	virtual quint32						GetDebugMessageCount() const {QReadLocker Locker(&m_DebugMutex);  return m_DebugMessageCount; }
+
+
 	struct SEnvVar
 	{
 		enum EType
@@ -248,6 +259,10 @@ protected:
 	QMap<QString, CDnsLogEntryPtr>		m_DnsLog;
 	QMultiMap<QHostAddress, QString>	m_DnsRevLog;
 
+	// Debug Messages
+	mutable QReadWriteLock			m_DebugMutex;
+	QList<SDebugMessage>			m_DebugMessages;
+	quint32							m_DebugMessageCount;
 	
 	CPersistentPresetRef			m_PersistentPreset;
 };

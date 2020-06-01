@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "ServicesView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinService.h"	
 #include "../../API/Windows/ProcessHacker.h"
@@ -9,8 +9,8 @@
 #include "WinSvcWindow.h"
 #include "../../API/Windows/WinProcess.h"
 #endif
-#include "../../Common/SortFilterProxyModel.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 
 CServicesView::CServicesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)

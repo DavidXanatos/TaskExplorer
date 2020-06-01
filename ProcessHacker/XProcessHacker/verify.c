@@ -37,6 +37,8 @@ static UCHAR KphpTrustedPublicKey[] =
     0x14, 0xF5, 0x19, 0xAA, 0x2D, 0xEE, 0x50, 0x10
 };
 
+//#define NO_SECURITY // For testing
+
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, KphHashFile)
 #pragma alloc_text(PAGE, KphVerifyFile)
@@ -284,9 +286,12 @@ VOID KphVerifyClient(
         goto CleanupExit;
     }
 
+#ifdef NO_SECURITY
+    status = STATUS_SUCCESS;
+#else
     status = KphVerifyFile(processFileName, Signature, SignatureSize); 
-	//status = STATUS_SUCCESS; // screw it!!!
-	
+#endif
+
 CleanupExit:
     if (mappedFileName)
         ExFreePoolWithTag(mappedFileName, 'ThpK');
@@ -452,10 +457,10 @@ NTSTATUS KphValidateKey(
     if (AccessMode == KernelMode)
         return STATUS_SUCCESS;
 
-    // just screw it!!!
-    //if(Key == -1)
-    //    return STATUS_SUCCESS;
-    // !!!
+#ifdef NO_SECURITY
+    if(Key == -1)
+        return STATUS_SUCCESS;
+#endif
 
     if (Key && Client->VerificationSucceeded && Client->KeysGenerated)
     {

@@ -6,6 +6,11 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F5692F12-00F8-4E5B-911C-4260D95C599C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaskExplorer", "TaskExplorer\TaskExplorer.vcxproj", "{B12702AD-ABFB-343A-A199-8E24837244A3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7AB8215A-59A4-4B8B-8090-16C87A860429} = {7AB8215A-59A4-4B8B-8090-16C87A860429}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MiscHelpers", "MiscHelpers\MiscHelpers.vcxproj", "{7AB8215A-59A4-4B8B-8090-16C87A860429}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -35,6 +40,22 @@ Global
 		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x64.Build.0 = Test|x64
 		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x86.ActiveCfg = Test|Win32
 		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x86.Build.0 = Test|Win32
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x64.ActiveCfg = Debug|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x64.Build.0 = Debug|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x86.ActiveCfg = Debug|Win32
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x86.Build.0 = Debug|Win32
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Release|x64.ActiveCfg = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Release|x64.Build.0 = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Release|x86.ActiveCfg = Release|Win32
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Release|x86.Build.0 = Release|Win32
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Template|x64.ActiveCfg = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Template|x64.Build.0 = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Template|x86.ActiveCfg = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Template|x86.Build.0 = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Test|x64.ActiveCfg = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Test|x64.Build.0 = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Test|x86.ActiveCfg = Release|x64
+		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Test|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

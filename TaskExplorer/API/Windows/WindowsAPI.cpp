@@ -9,7 +9,7 @@
 #include "Monitors/WinNetMonitor.h"
 #include "Monitors/WinDiskMonitor.h"
 #include "../SVC/TaskService.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 
 extern "C" {
 #include <winsta.h>
@@ -135,6 +135,7 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_ReservedMemory = 0;
 
 	m_pEventMonitor = NULL;
+	m_pDebugMonitor = NULL;
 	m_pFirewallMonitor = NULL;
 	m_pGpuMonitor = NULL;
 	m_pSymbolProvider = NULL;
@@ -237,6 +238,9 @@ bool CWindowsAPI::Init()
 	if (theConf->GetBool("Options/MonitorFirewall", false))
 		MonitorFW(true);
 
+	//if (int DbgMode = theConf->GetInt("Options/MonitorDbg", 0))
+	//	MonitorDbg((CWinDbgMonitor::EModes)DbgMode);
+
 	m_pGpuMonitor = new CWinGpuMonitor();
 	m_pGpuMonitor->Init();
 
@@ -256,9 +260,15 @@ bool CWindowsAPI::Init()
 	connect(m_pDnsResolver, SIGNAL(DnsCacheUpdated()), this, SIGNAL(DnsCacheUpdated()));
 	m_pDnsResolver->Init();
 
-	QString SbieDll = CSandboxieAPI::FindSbieDll();
-	if (!SbieDll.isEmpty())
-		m_pSandboxieAPI = new CSandboxieAPI(SbieDll);
+	if (theConf->GetBool("Options/UseSandboxie", false))
+	{
+		m_pSandboxieAPI = new CSandboxieAPI();
+		if (!m_pSandboxieAPI->IsConnected())
+		{
+			m_pSandboxieAPI->deleteLater();
+			m_pSandboxieAPI = NULL;
+		}
+	}
 
 	return true;
 }
@@ -332,6 +342,7 @@ CWindowsAPI::~CWindowsAPI()
 {
 	delete m_pEventMonitor;
 	delete m_pFirewallMonitor;
+	delete m_pDebugMonitor;
 
 	delete m_pGpuMonitor;
 	delete m_pNetMonitor;
@@ -401,6 +412,33 @@ void CWindowsAPI::MonitorFW(bool bEnable)
 
 	delete m_pFirewallMonitor;
 	m_pFirewallMonitor = NULL;
+}
+
+STATUS CWindowsAPI::MonitorDbg(CWinDbgMonitor::EModes Mode)
+{
+	if (Mode == GetDbgMonitor())
+		return OK;
+
+	if (Mode != CWinDbgMonitor::eNone)
+	{
+		if (!m_pDebugMonitor)
+		{
+			m_pDebugMonitor = new CWinDbgMonitor();
+			connect(m_pDebugMonitor, SIGNAL(DebugMessage(quint64, const QString&, const QDateTime&)), this, SLOT(OnDebugMessage(quint64, const QString&, const QDateTime&)));
+		}
+
+		return m_pDebugMonitor->SetMonitor(Mode);
+	}
+	
+	delete m_pDebugMonitor;
+	m_pDebugMonitor = NULL;
+	return OK;
+}
+
+void CWindowsAPI::OnDebugMessage(quint64 PID, const QString& Message, const QDateTime& TimeStamp)
+{
+	CProcessPtr pProcess = GetProcessByID(PID, true);
+	pProcess->AddDebugMessage(Message, TimeStamp);
 }
 
 // PhpUpdateCpuInformation

@@ -1,8 +1,8 @@
 
 #include "stdafx.h"
 #include "FwEventMonitor.h"
-#include "../../../Common/Common.h"
-#include "../../../Common/Settings.h"
+#include "../../../../MiscHelpers/Common/Common.h"
+#include "../../../../MiscHelpers/Common/Settings.h"
 #include "../WindowsAPI.h"
 
 #include <windows.h>

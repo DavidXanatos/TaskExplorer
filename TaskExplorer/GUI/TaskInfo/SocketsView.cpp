@@ -1,11 +1,11 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "SocketsView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinSocket.h"		
 #endif
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 
 
 CSocketsView::CSocketsView(bool bAll, QWidget *parent)

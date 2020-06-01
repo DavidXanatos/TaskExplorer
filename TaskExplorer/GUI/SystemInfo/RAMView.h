@@ -1,8 +1,8 @@
 #pragma once
 #include <qwidget.h>
 #include "../../API/ProcessInfo.h"
-#include "../../Common/PanelView.h"
-#include "../../Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
 #include "../../Common/IncrementalPlot.h"
 
 class CRAMView : public QWidget //CPanelView

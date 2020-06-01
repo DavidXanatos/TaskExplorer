@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "NewService.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/PhSvc.h"
 #endif

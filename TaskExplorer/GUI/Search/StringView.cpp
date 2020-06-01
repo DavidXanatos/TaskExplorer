@@ -1,10 +1,10 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "StringView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #include "../../API/MemoryInfo.h"
 #include "../MemoryEditor.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 #ifdef WIN32
 #include "../../API/Windows/WinMemIO.h"
 #endif

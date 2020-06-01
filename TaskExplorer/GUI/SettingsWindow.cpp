@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "SettingsWindow.h"
 #include "TaskExplorer.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 
 CSettingsWindow::CSettingsWindow(QWidget *parent)
 	: QMainWindow(parent)

@@ -3,7 +3,7 @@
 #include <QtWidgets/QMainWindow>
 #include "ui_DriverWindow.h"
 #include "../API/Windows/WinProcess.h"
-#include "../Common/PanelView.h"
+#include "../../MiscHelpers/Common/PanelView.h"
 
 class CDriverWindow : public QMainWindow
 {

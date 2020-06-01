@@ -1,9 +1,9 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TreeWidgetEx.h"
-#include "../../Common/TreeViewEx.h"
-#include "../../Common/PanelView.h"
-#include "../../Common/SettingsWidgets.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
+#include "../../../MiscHelpers/Common/SettingsWidgets.h"
 #include "../../API/WndInfo.h"
 #include "../../API/ProcessInfo.h"
 

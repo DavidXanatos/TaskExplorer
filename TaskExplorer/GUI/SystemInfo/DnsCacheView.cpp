@@ -1,10 +1,10 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "DnsCacheView.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #include "../../API/SystemAPI.h"
-#include "../../Common/SortFilterProxyModel.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 
 CDnsCacheView::CDnsCacheView(bool bAll, QWidget *parent)
 	:CPanelView(parent)

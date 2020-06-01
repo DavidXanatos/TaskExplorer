@@ -1,8 +1,8 @@
 #pragma once
 #include <qwidget.h>
-#include "../Common/TreeViewEx.h"
-#include "../Common/TreeWidgetEx.h"
-#include "../Common/PanelView.h"
+#include "../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../MiscHelpers/Common/TreeWidgetEx.h"
+#include "../../MiscHelpers/Common/PanelView.h"
 #include "../API/ProcessInfo.h"
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
@@ -34,16 +34,25 @@ public slots:
 private slots:
 	void					SetFilter(const QRegExp& Exp, bool bHighLight = false, int Col = -1); // -1 = any
 
+	void					AddressFromSymbol(quint64 ProcessId, const QString& Symbol, quint64 Address);
+
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView()	{ return m_pStatsList; }
 	virtual QAbstractItemModel* GetModel()	{ return m_pStatsList->model(); }
 
-	void					ShowIoStats(const SProcStats& Stats);
+	void					ShowIoStats(const SSysStats& Stats);
 
 private:
-	bool					m_MonitorsETW;
 	EView					m_eView;
+
+#ifdef WIN32
+	bool					m_MonitorsETW;
+
+	/*bool					m_MmAddressesInitialized;
+	quint64					m_MmSizeOfPagedPoolInBytes;
+	quint64					m_MmMaximumNonPagedPoolInBytes;*/
+#endif
 
 	void					SetupTree();
 
@@ -84,8 +93,11 @@ private:
 	QTreeWidgetItem*		m_pShareableWS;				//			###						
 	QTreeWidgetItem*		m_pSharedWS;				//			###						
 	QTreeWidgetItem*		m_pPagedPool;				//			###						###
+	QTreeWidgetItem*		m_pPagedPoolAllocs;			//	###						###
+	QTreeWidgetItem*		m_pPagedPoolFrees;			//	###						###
 	QTreeWidgetItem*		m_pNonPagedPool;			//			###						###
-
+	QTreeWidgetItem*		m_pNonPagedPoolAllocs;		//	###						###
+	QTreeWidgetItem*		m_pNonPagedPoolFrees;		//	###						###
 
 
 
@@ -118,5 +130,4 @@ private:
 	
 
 	//QMenu*					m_pMenu;
-
 };

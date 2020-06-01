@@ -26,7 +26,7 @@
 #include "WinHandle.h"
 #include "ProcessHacker.h"
 #include "WindowsAPI.h"
-#include "../../Common/Settings.h"
+#include "../../../MiscHelpers/Common/Settings.h"
 
 CWinHandle::CWinHandle(QObject *parent) 
 	: CHandleInfo(parent) 

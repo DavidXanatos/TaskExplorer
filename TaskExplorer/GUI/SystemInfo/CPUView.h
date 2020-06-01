@@ -1,10 +1,10 @@
 #pragma once
 #include <qwidget.h>
 #include "../../API/ProcessInfo.h"
-#include "../../Common/PanelView.h"
-#include "../../Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/SmartGridWidget.h"
 #include "../../Common/IncrementalPlot.h"
-#include "../../Common/SmartGridWidget.h"
 
 class CCPUView : public QWidget //CPanelView
 {

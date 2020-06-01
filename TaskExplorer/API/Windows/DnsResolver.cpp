@@ -25,7 +25,7 @@
 #include "stdafx.h"
 #include "DnsResolver.h"
 #include "ProcessHacker.h"
-#include "../../Common/Settings.h"
+#include "../../../MiscHelpers/Common/Settings.h"
 
 #pragma comment(lib, "dnsapi.lib")
 

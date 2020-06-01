@@ -11,7 +11,7 @@ CSystemInfoWindow::CSystemInfoWindow(QWidget *parent)
 	m_pMainWidget->setLayout(m_pMainLayout);
 	this->setCentralWidget(m_pMainWidget);
 
-	CSystemInfoView* pSystemInfo = new CSystemInfoView();
+	CSystemInfoView* pSystemInfo = new CSystemInfoView(true);
 	m_pMainLayout->addWidget(pSystemInfo);
 	m_pSystemInfo = pSystemInfo;
 

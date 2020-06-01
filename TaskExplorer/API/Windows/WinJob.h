@@ -1,6 +1,6 @@
 #pragma once
 #include <qobject.h>
-#include "../../Common/FlexError.h"
+#include "../../../MiscHelpers/Common/FlexError.h"
 #include "../ProcessInfo.h"
 #include "../AbstractInfo.h"
 

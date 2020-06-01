@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../Common/PanelView.h"
+#include "../../MiscHelpers/Common/PanelView.h"
 
 #include "../API/AbstractTask.h"
 

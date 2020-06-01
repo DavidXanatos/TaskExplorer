@@ -1004,7 +1004,7 @@ enum EPerfCounters
     DOTNET_INDEX_MAXIMUM
 };
 
-#include "../../Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
 
 void QTreeWidget__AddListViewGroup(QTreeWidgetEx* pTree, QMap<int, QTreeWidgetItem*>& Items, int ID, const wchar_t* pLabel)
 {

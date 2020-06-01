@@ -1,8 +1,8 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "StackView.h"
-#include "../../Common/Common.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Common.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 
 
 CStackView::CStackView(QWidget *parent)

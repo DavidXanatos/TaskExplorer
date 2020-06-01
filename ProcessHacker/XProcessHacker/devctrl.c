@@ -574,6 +574,43 @@ NTSTATUS KphDispatchDeviceControl(
                 );
         }
         break;
+    // DBG Support
+    case XPH_DBG_SET:
+    {
+        struct
+        {
+            ULONG Enable;
+        } *input = capturedInputPointer;
+
+        VERIFY_INPUT_LENGTH;
+
+        status = KpiSetDebugLog(
+            input->Enable,
+            accessMode);
+    }
+    break;
+    case XPH_DBG_READ:
+    {
+        struct
+        {
+            PULONG SeqNumber;
+            PVOID Buffer;
+            SIZE_T BufferLength;
+            PSIZE_T ReturnLength;
+        } *input = capturedInputPointer;
+
+        VERIFY_INPUT_LENGTH;
+
+        status = KpiReadDebugLog(
+            input->SeqNumber,
+            input->Buffer,
+            input->BufferLength,
+            input->ReturnLength,
+            accessMode
+        );
+    }
+    break;
+    //
     default:
         status = STATUS_INVALID_DEVICE_REQUEST;
         break;

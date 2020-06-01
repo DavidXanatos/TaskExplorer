@@ -1,8 +1,8 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "ModulesView.h"
-#include "../../Common/Common.h"
-#include "../../Common/Finder.h"
+#include "../../../MiscHelpers/Common/Common.h"
+#include "../../../MiscHelpers/Common/Finder.h"
 #ifdef WIN32
 #include "../../API/Windows/ProcessHacker.h"
 #include "../../API/Windows/ProcessHacker/appsup.h"	

@@ -1072,6 +1072,46 @@ NTSTATUS KphQueryInformationDriver(
         );
 }
 
+// dbg support
+NTSTATUS KphSetDebugLog(
+    _In_ ULONG Enable
+    )
+{
+    struct
+    {
+        ULONG Enable;
+    } input = { Enable };
+
+    return KphpDeviceIoControl(
+        XPH_DBG_SET,
+        &input,
+        sizeof(input)
+    );
+}
+
+NTSTATUS KphReadDebugLog(
+    _Inout_ PULONG SeqNumber,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferLength,
+    _Out_ PSIZE_T ReturnLength
+    )
+{
+    struct
+    {
+        PULONG SeqNumber;
+        PVOID Buffer;
+        SIZE_T BufferLength;
+        PSIZE_T ReturnLength;
+    } input = { SeqNumber, Buffer, BufferLength, ReturnLength };
+
+    return KphpDeviceIoControl(
+        XPH_DBG_READ,
+        &input,
+        sizeof(input)
+    );
+}
+//
+
 NTSTATUS KphpDeviceIoControl(
     _In_ ULONG KphControlCode,
     _In_ PVOID InBuffer,

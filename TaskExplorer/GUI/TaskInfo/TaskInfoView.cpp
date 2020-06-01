@@ -14,21 +14,27 @@
 #include "GDIView.h"
 #endif
 #include "WindowsView.h"
-#include "EnvironmentView.h"
-#include "../SystemInfo/ServicesView.h"
-#include "../SystemInfo/DnsCacheView.h"
+#include "DebugView.h"
+//#include "EnvironmentView.h"
+//#include "../SystemInfo/ServicesView.h"
+//#include "../SystemInfo/DnsCacheView.h"
 
 
 CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
 : CTabPanel(patent)
 {
-	setObjectName(bAsWindow ? "TaskWindow" : "TaskPanel");
+	m_bAsWindow = bAsWindow;
+
+	setObjectName(m_bAsWindow ? "TaskWindow" : "TaskPanel");
 
 	InitializeTabs();
 
-	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
-	QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
-	RebuildTabs(ActiveTab, VisibleTabs);
+	if (!m_bAsWindow)
+	{
+		int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
+		QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
+		RebuildTabs(ActiveTab, VisibleTabs);
+	}
 
 	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
@@ -36,11 +42,14 @@ CTaskInfoView::CTaskInfoView(bool bAsWindow, QWidget* patent)
 
 CTaskInfoView::~CTaskInfoView()
 {
-	int ActiveTab = 0;
-	QStringList VisibleTabs;
-	SaveTabs(ActiveTab, VisibleTabs);
-	theConf->SetValue(objectName() + "/Tabs_Active", ActiveTab);
-	theConf->SetValue(objectName() + "/Tabs_Visible", VisibleTabs);
+	if (!m_bAsWindow)
+	{
+		int ActiveTab = 0;
+		QStringList VisibleTabs;
+		SaveTabs(ActiveTab, VisibleTabs);
+		theConf->SetValue(objectName() + "/Tabs_Active", ActiveTab);
+		theConf->SetValue(objectName() + "/Tabs_Visible", VisibleTabs);
+	}
 }
 
 void CTaskInfoView::InitializeTabs()
@@ -76,8 +85,8 @@ void CTaskInfoView::InitializeTabs()
 	m_pJobView = new CJobView(this);
 	AddTab(m_pJobView, tr("Job"));
 
-	m_pServiceView = new CServicesView(false, this);
-	AddTab(m_pServiceView, tr("Service"));
+	//m_pServiceView = new CServicesView(false, this);
+	//AddTab(m_pServiceView, tr("Service"));
 
 	m_pDotNetView = new CDotNetView(this);
 	AddTab(m_pDotNetView, tr(".NET"));
@@ -89,8 +98,11 @@ void CTaskInfoView::InitializeTabs()
 	//m_pDnsCacheView = new CDnsCacheView(false, this);
 	//AddTab(m_pDnsCacheView, tr("Dns Cache"));
 
-	m_pEnvironmentView = new CEnvironmentView(this);
-	AddTab(m_pEnvironmentView, tr("Environment"));
+	m_pDebugView = new CDebugView(this);
+	AddTab(m_pDebugView, tr("Debug"));
+
+	//m_pEnvironmentView = new CEnvironmentView(this);
+	//AddTab(m_pEnvironmentView, tr("Environment"));
 }
 
 /*void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)

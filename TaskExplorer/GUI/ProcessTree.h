@@ -1,7 +1,7 @@
 #pragma once
 #include <qwidget.h>
-#include "../Common/SplitTreeView.h"
-#include "../Common/HistoryGraph.h"
+#include "../../MiscHelpers/Common/SplitTreeView.h"
+#include "../../MiscHelpers/Common/HistoryGraph.h"
 #include "../API/ProcessInfo.h"
 #include "TaskView.h"
 

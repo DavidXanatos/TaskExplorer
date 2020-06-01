@@ -1,6 +1,6 @@
 #pragma once
 #include "../../Finders/AbstractFinder.h"
-#include "../../../Common/FlexError.h"
+#include "../../../../MiscHelpers/Common/FlexError.h"
 
 class CWinStringFinder : public CAbstractFinder
 {

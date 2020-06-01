@@ -26,10 +26,10 @@
 #include "SymbolProvider.h"
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #include "./ProcessHacker/clrsup.h"
 #include "../../SVC/TaskService.h"
-#include "../../Common/Settings.h"
+#include "../../../MiscHelpers/Common/Settings.h"
 
 #include <dbghelp.h>
 

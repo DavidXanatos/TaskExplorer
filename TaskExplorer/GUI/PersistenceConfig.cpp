@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #include "PersistenceConfig.h"
 #include <QStyledItemDelegate>
 #ifdef WIN32

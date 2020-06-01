@@ -6,6 +6,7 @@
 #include "Monitors/EtwEventMonitor.h"
 #include "Monitors/FwEventMonitor.h"
 //#include "Monitors/FirewallMonitor.h"
+#include "Monitors/WinDbgMonitor.h"
 #include "SandboxieAPI.h"
 #include "SidResolver.h"
 #include "SymbolProvider.h"
@@ -104,8 +105,17 @@ public:
 	virtual QList<SUser> GetUsers() const;
 
 	virtual bool HasExtProcInfo() const;
+
+	virtual void MonitorETW(bool bEnable);
 	virtual bool IsMonitoringETW() const				{ return m_pEventMonitor != NULL; }
+
+	virtual void MonitorFW(bool bEnable);
 	virtual bool IsMonitoringFW() const					{ return m_pFirewallMonitor != NULL; }
+
+	virtual STATUS MonitorDbg(CWinDbgMonitor::EModes Mode);
+	virtual CWinDbgMonitor::EModes GetDbgMonitor() const{ return m_pDebugMonitor ? m_pDebugMonitor->GetMode() : CWinDbgMonitor::eNone; }
+
+	
 
 	virtual bool IsTestSigning() const					{ QReadLocker Locker(&m_Mutex); return m_bTestSigning; }
 	virtual bool HasDriverFailed() const				{ QReadLocker Locker(&m_Mutex); return m_uDriverStatus != 0; }
@@ -127,14 +137,14 @@ signals:
 	void		PoolListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 public slots:
-	void		MonitorETW(bool bEnable);
-	void		MonitorFW(bool bEnable);
 	void		OnNetworkEvent(int Type, quint64 ProcessId, quint64 ThreadId, quint32 ProtocolType, quint32 TransferSize,
 								QHostAddress LocalAddress, quint16 LocalPort, QHostAddress RemoteAddress, quint16 RemotePort);
 	void		OnDnsResEvent(quint64 ProcessId, quint64 ThreadId, const QString& HostName, const QStringList& Result);
 	void		OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, const QString& FileName);
 	void		OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime);
 	void		OnProcessEvent(int Type, quint32 ProcessId, QString CommandLine, QString FileName, quint32 ParentId, quint64 TimeStamp);
+
+	void		OnDebugMessage(quint64 PID, const QString& Message, const QDateTime& TimeStamp);
 
 	bool		UpdatePoolTable();
 
@@ -152,6 +162,7 @@ protected:
 	CEtwEventMonitor*			m_pEventMonitor;
 	CFwEventMonitor*		m_pFirewallMonitor;
 	//CFirewallMonitor*		m_pFirewallMonitor;
+	CWinDbgMonitor*			m_pDebugMonitor;
 
 	CSandboxieAPI*			m_pSandboxieAPI;
 

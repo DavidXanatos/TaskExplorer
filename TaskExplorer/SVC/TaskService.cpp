@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "TaskService.h"
-#include "../Common/Common.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Common.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #include "../API/SystemAPI.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"

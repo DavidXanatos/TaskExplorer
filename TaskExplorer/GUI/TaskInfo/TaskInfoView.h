@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TabPanel.h"
+#include "../../../MiscHelpers/Common/TabPanel.h"
 #include "../../API/ProcessInfo.h"
 
 class CProcessView;
@@ -12,11 +12,12 @@ class CWindowsView;
 class CMemoryView;
 class CTokenView;
 class CJobView;
-class CServicesView;
+//class CServicesView;
 class CDotNetView;
 class CGDIView;
 //class CDnsCacheView;
-class CEnvironmentView;
+class CDebugView;
+//class CEnvironmentView;
 
 
 class CTaskInfoView : public CTabPanel
@@ -25,6 +26,27 @@ class CTaskInfoView : public CTabPanel
 public:
 	CTaskInfoView(bool bAsWindow = false, QWidget* patent = 0);
 	virtual ~CTaskInfoView();
+
+	enum ETabs
+	{
+		eProcessView = 0, 
+		eFilesView, 
+		eHandlesView, 
+		eSocketsView, 
+		eThreadsView, 
+		eModulesView, 
+		eWindowsView, 
+		eMemoryView, 
+		eTokenView, 
+		eJobView, 
+		//eServiceView,
+		eDotNetView, 
+		eGDIView, 
+		//eDnsCacheView, 
+		eDebugView, 
+		//eEnvironmentView,
+		eTabCount
+	};
 
 public slots:
 	void				OnTab(int tabIndex);
@@ -37,6 +59,7 @@ protected:
 	virtual void		InitializeTabs();
 
 	QList<CProcessPtr>  m_Processes;
+	bool				m_bAsWindow;
 
 private:
 	CProcessView*		m_pProcessView;
@@ -50,11 +73,12 @@ private:
 #ifdef WIN32
 	CTokenView*			m_pTokenView;
 	CJobView*			m_pJobView;
-	CServicesView*		m_pServiceView;
+	//CServicesView*		m_pServiceView;
 	CDotNetView*		m_pDotNetView;
 	CGDIView*			m_pGDIView;
 #endif
 	//CDnsCacheView*		m_pDnsCacheView;
-	CEnvironmentView*	m_pEnvironmentView;
+	CDebugView*			m_pDebugView;
+	//CEnvironmentView*	m_pEnvironmentView;
 };
 

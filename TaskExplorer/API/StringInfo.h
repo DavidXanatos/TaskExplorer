@@ -1,7 +1,7 @@
 #pragma once
 #include <qobject.h>
 #include "AbstractInfo.h"
-#include "../Common/FlexError.h"
+#include "../../MiscHelpers/Common/FlexError.h"
 #include "ProcessInfo.h"
 
 class CStringInfo : public QObject

@@ -4,9 +4,6 @@
 
 #include "SystemView.h"
 //#include "DriversView.h"
-#ifdef WIN32
-#include "KernelInfo/KernelView.h"
-#endif
 #include "../TaskInfo/HandlesView.h"
 #include "../TaskInfo/SocketsView.h"
 #include "ServicesView.h"
@@ -18,16 +15,21 @@
 #include "DnsCacheView.h"
 
 
-CSystemInfoView::CSystemInfoView(QWidget* patent) 
+CSystemInfoView::CSystemInfoView(bool bAsWindow, QWidget* patent) 
 	: CTabPanel(patent)
 {
-	setObjectName("SystemPanel");
+	m_bAsWindow = bAsWindow;
+
+	setObjectName(m_bAsWindow ? "SystemWindow" : "SystemPanel");
 
 	InitializeTabs();
 
-	int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
-	QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
-	RebuildTabs(ActiveTab, VisibleTabs);
+	if (!m_bAsWindow)
+	{
+		int ActiveTab = theConf->GetValue(objectName() + "/Tabs_Active").toInt();
+		QStringList VisibleTabs = theConf->GetStringList(objectName() + "/Tabs_Visible");
+		RebuildTabs(ActiveTab, VisibleTabs);
+	}
 
 	connect(m_pTabs, SIGNAL(currentChanged(int)), this, SLOT(OnTab(int)));
 }
@@ -35,11 +37,14 @@ CSystemInfoView::CSystemInfoView(QWidget* patent)
 
 CSystemInfoView::~CSystemInfoView()
 {
-	int ActiveTab = 0;
-	QStringList VisibleTabs;
-	SaveTabs(ActiveTab, VisibleTabs);
-	theConf->SetValue(objectName() + "/Tabs_Active", ActiveTab);
-	theConf->SetValue(objectName() + "/Tabs_Visible", VisibleTabs);
+	if (!m_bAsWindow)
+	{
+		int ActiveTab = 0;
+		QStringList VisibleTabs;
+		SaveTabs(ActiveTab, VisibleTabs);
+		theConf->SetValue(objectName() + "/Tabs_Active", ActiveTab);
+		theConf->SetValue(objectName() + "/Tabs_Visible", VisibleTabs);
+	}
 }
 
 void CSystemInfoView::InitializeTabs()
@@ -53,8 +58,11 @@ void CSystemInfoView::InitializeTabs()
 	m_pRAMView = new CRAMView(this);
 	AddTab(m_pRAMView, tr("Memory"));
 
+	m_pGPUView = new CGPUView(this);
+	AddTab(m_pGPUView, tr("GPU"));
+
 	m_pDiskView = new CDiskView(this);
-	AddTab(m_pDiskView, tr("Disk/IO"));
+	AddTab(m_pDiskView, tr("Disk"));
 
 	m_pAllFilesView = new CHandlesView(1, this);
 	AddTab(m_pAllFilesView, tr("Files"));
@@ -68,16 +76,8 @@ void CSystemInfoView::InitializeTabs()
 	m_pDnsCacheView = new CDnsCacheView(true, this);
 	AddTab(m_pDnsCacheView, tr("Dns Cache"));
 
-	m_pGPUView = new CGPUView(this);
-	AddTab(m_pGPUView, tr("GPU"));
-
 	//m_pDriversView = new CDriversView(this);
 	//AddTab(m_pDriversView, tr("Drivers"));
-	
-#ifdef WIN32
-	m_pKernelView = new CKernelView(this);
-	AddTab(m_pKernelView, tr("Kernel Objects"));
-#endif
 
 	m_pServicesView = new CServicesView(true, this);
 	AddTab(m_pServicesView, tr("Services"));

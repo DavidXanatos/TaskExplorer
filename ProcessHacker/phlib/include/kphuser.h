@@ -298,6 +298,25 @@ KphQueryInformationDriver(
     _Inout_opt_ PULONG ReturnLength
     );
 
+// dbg support
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphSetDebugLog(
+    _In_ ULONG Enable
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphReadDebugLog(
+    _Inout_ PULONG SeqNumber,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferLength,
+    _Out_ PSIZE_T ReturnLength
+    );
+//
+
 // kphdata
 
 PHLIBAPI

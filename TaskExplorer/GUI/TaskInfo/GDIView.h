@@ -1,11 +1,11 @@
 #pragma once
 #include <qwidget.h>
-#include "../../Common/TreeViewEx.h"
-#include "../../Common/TreeWidgetEx.h"
-#include "../../Common/PanelView.h"
+#include "../../../MiscHelpers/Common/TreeViewEx.h"
+#include "../../../MiscHelpers/Common/TreeWidgetEx.h"
+#include "../../../MiscHelpers/Common/PanelView.h"
 #include "../../API/ProcessInfo.h"
 #include "../Models/GDIModel.h"
-#include "../../Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 
 // Note: CGDIView is a windows only class don't include it on a unix build
 

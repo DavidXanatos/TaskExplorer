@@ -5,12 +5,12 @@
 #include "SystemInfo/SystemInfoView.h"
 #include "TaskInfo/TaskInfoView.h"
 #include "API/SystemAPI.h"
-#include "Common/Settings.h"
-#include "Common/FlexError.h"
+#include "../MiscHelpers/Common/Settings.h"
+#include "../MiscHelpers/Common/FlexError.h"
 
 #define VERSION_MJR		1
 #define VERSION_MIN 	2
-#define VERSION_REV 	1
+#define VERSION_REV 	5
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -173,9 +173,9 @@ private slots:
 	void				OnFreeMemory();
 	void				OnMonitorETW();
 	void				OnMonitorFW();
+	void				OnMonitorDbg();
 
 	void				OnSysTray(QSystemTrayIcon::ActivationReason Reason);
-	void				OnShowHide();
 
 	void				OnAbout();
 
@@ -281,13 +281,18 @@ private:
 #endif
 	QAction*			m_pMenuPersistence;
 	QAction*			m_pMenuFlushDns;
-#ifdef _WIN32
+#ifdef WIN32
 	QAction*			m_pMenuSecurityExplorer;
 #endif
 
 #ifdef WIN32
 	QAction*			m_pMenuMonitorETW;
 	QAction*			m_pMenuMonitorFW;
+	QMenu*				m_pMenuMonitorDbgMenu;
+	QToolButton*		m_pMenuMonitorDbgButton;
+	QAction*			m_pMenuMonitorDbgLocal;
+	QAction*			m_pMenuMonitorDbgGlobal;
+	QAction*			m_pMenuMonitorDbgKernel;
 #endif
 
 	QMenu*				m_pMenuHelp;

@@ -1,7 +1,7 @@
 #pragma once
 #include <qobject.h>
-#include "../Common/Common.h"
-#include "../Common/FlexError.h"
+#include "../../MiscHelpers/Common/Common.h"
+#include "../../MiscHelpers/Common/FlexError.h"
 #include "AbstractInfo.h"
 #include "MiscStats.h"
 

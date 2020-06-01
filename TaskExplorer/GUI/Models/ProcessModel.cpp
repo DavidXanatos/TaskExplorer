@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
 #include "ProcessModel.h"
-#include "../../Common/Common.h"
+#include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
 #include "../../API/Windows/WinToken.h"
@@ -119,11 +119,10 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		//if(Index.isValid()) // this is to slow, be more precise
 		//	emit dataChanged(createIndex(Index.row(), 0, pNode), createIndex(Index.row(), columnCount()-1, pNode));
 		
-        CModulePtr pModule;
+        CModulePtr pModule = pProcess->GetModuleInfo();
 #ifdef WIN32
 		QSharedPointer<CWinProcess> pWinProc = pProcess.staticCast<CWinProcess>();
 		CWinTokenPtr pToken = pWinProc->GetToken();
-        pModule = pProcess->GetModuleInfo();
 		QSharedPointer<CWinModule> pWinModule = pModule.staticCast<CWinModule>();
 #endif
 
@@ -254,6 +253,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eVirtualSize:			Value = CurIntValue = pProcess->GetVirtualSize(); break;
 				case ePeakVirtualSize:		Value = CurIntValue = pProcess->GetPeakVirtualSize(); break;
 				case eSessionID:			Value = pProcess->GetSessionID(); break;
+				case eDebugTotal:			Value = pProcess->GetDebugMessageCount(); break;
 				case ePriorityClass:		Value = (quint32)pProcess->GetPriority(); break;
 				case eBasePriority:			Value = (quint32)pProcess->GetBasePriority(); break;
 
@@ -724,6 +724,8 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eShareableWS:			return tr("Shareable WS (slow)");
 		case eVirtualSize:			return tr("Virtual size");
 		case ePeakVirtualSize:		return tr("Peak virtual size");
+		case eDebugTotal:			return tr("Debug Messages");
+		//case eDebugDelte:			return tr("Debug Message Delta");
 		case eSessionID:			return tr("Session ID");
 		case ePriorityClass:		return tr("Priority class");
 		case eBasePriority:			return tr("Base priority");

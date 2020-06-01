@@ -24,7 +24,7 @@
 
 #include "stdafx.h"
 #include "WsWatchDialog.h"
-#include "../Common/Settings.h"
+#include "../../MiscHelpers/Common/Settings.h"
 #include "../API/Windows/ProcessHacker.h"
 #include "../API/Windows/WindowsAPI.h"
 

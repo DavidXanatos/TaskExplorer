@@ -381,4 +381,19 @@ NTSTATUS KpiReadVirtualMemoryUnsafe(
     _In_ KPROCESSOR_MODE AccessMode
     );
 
+// dbg suppoer
+NTSTATUS KpiSetDebugLog(
+    _In_ ULONG Enable,
+    _In_ KPROCESSOR_MODE AccessMode
+    );
+
+NTSTATUS KpiReadDebugLog(
+    _Inout_ PULONG SeqNumber,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferLength,
+    _Out_ PSIZE_T ReturnLength,
+    _In_ KPROCESSOR_MODE AccessMode
+    );
+//
+
 #endif

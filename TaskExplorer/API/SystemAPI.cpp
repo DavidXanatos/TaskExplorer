@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "SystemAPI.h"
-#include "../Common/Settings.h"
-#include "../Common/Xml.h"
+#include "../../MiscHelpers/Common/Settings.h"
+#include "../../MiscHelpers/Common/Xml.h"
 #ifdef WIN32
 #include "Windows/WindowsAPI.h"
 #else

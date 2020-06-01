@@ -10,8 +10,8 @@ extern "C" {
 #include <winsta.h>
 }
 #endif
-#include "../Common/ExitDialog.h"
-#include "../Common/HistoryGraph.h"
+#include "../../MiscHelpers/Common/ExitDialog.h"
+#include "../../MiscHelpers/Common/HistoryGraph.h"
 #include "NewService.h"
 #include "RunAsDialog.h"
 #include "../SVC/TaskService.h"
@@ -22,7 +22,7 @@ extern "C" {
 #include "Search/ModuleSearch.h"
 #include "Search/MemorySearch.h"
 #include "SystemInfo/SystemInfoWindow.h"
-#include "../Common/CheckableMessageBox.h"
+#include "../../MiscHelpers/Common/CheckableMessageBox.h"
 #include "MultiErrorDialog.h"
 #include "PersistenceConfig.h"
 
@@ -308,7 +308,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuPersistence->setShortcut(QKeySequence("Ctrl+P"));
 
 		m_pMenuFlushDns = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Flush"), tr("Flush Dns Cache"), theAPI, SLOT(FlushDnsCache()));
-#ifdef _WIN32
+#ifdef WIN32
 		m_pMenuSecurityExplorer = m_pMenuTools->addAction(MakeActionIcon(":/Actions/Security"), tr("Security Explorer"), this, SLOT(OnSecurityExplorer()));
 #endif
 
@@ -318,10 +318,28 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuMonitorETW->setCheckable(true);
 		m_pMenuMonitorETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
 		m_pMenuMonitorETW->setEnabled(theAPI->RootAvaiable());
+
 		m_pMenuMonitorFW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorFW"), tr("Monitor Windows Firewall"), this, SLOT(OnMonitorFW()));
 		m_pMenuMonitorFW->setCheckable(true);
 		m_pMenuMonitorFW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringFW());
 		//m_pMenuMonitorFW->setEnabled(theAPI->RootAvaiable());
+
+		int DbgMode = ((CWindowsAPI*)theAPI)->GetDbgMonitor();
+		m_pMenuMonitorDbgMenu = m_pMenuTools->addMenu(MakeActionIcon(":/Actions/MonitorDbg"), tr("Monitor Debug Output"));
+		m_pMenuMonitorDbgLocal = m_pMenuMonitorDbgMenu->addAction("Local", this, SLOT(OnMonitorDbg()));
+		m_pMenuMonitorDbgLocal->setCheckable(true);
+		m_pMenuMonitorDbgLocal->setChecked((DbgMode & CWinDbgMonitor::eLocal) != 0);
+		m_pMenuMonitorDbgLocal->setProperty("Mode", (int)CWinDbgMonitor::eLocal);
+		m_pMenuMonitorDbgGlobal = m_pMenuMonitorDbgMenu->addAction("Global", this, SLOT(OnMonitorDbg()));
+		m_pMenuMonitorDbgGlobal->setCheckable(true);
+		m_pMenuMonitorDbgGlobal->setChecked((DbgMode & CWinDbgMonitor::eGlobal) != 0);
+		m_pMenuMonitorDbgGlobal->setProperty("Mode", (int)CWinDbgMonitor::eGlobal);
+		m_pMenuMonitorDbgGlobal->setEnabled(theAPI->RootAvaiable());
+		m_pMenuMonitorDbgKernel = m_pMenuMonitorDbgMenu->addAction("Kernel", this, SLOT(OnMonitorDbg()));
+		m_pMenuMonitorDbgKernel->setCheckable(true);
+		m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
+		m_pMenuMonitorDbgKernel->setProperty("Mode", (int)CWinDbgMonitor::eKernel);
+		m_pMenuMonitorDbgKernel->setEnabled((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0);
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
@@ -389,6 +407,18 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #ifdef WIN32
 	m_pToolBar->addAction(m_pMenuMonitorETW);
 	m_pToolBar->addAction(m_pMenuMonitorFW);
+
+	m_pMenuMonitorDbgButton = new QToolButton();
+	m_pMenuMonitorDbgButton->setIcon(MakeActionIcon(":/Actions/MonitorDbg"));
+	m_pMenuMonitorDbgButton->setToolTip(tr("Monitor Debug Output"));
+	m_pMenuMonitorDbgButton->setPopupMode(QToolButton::MenuButtonPopup);
+    m_pMenuMonitorDbgButton->setMenu(m_pMenuMonitorDbgMenu);
+	//QObject::connect(m_pMenuMonitorDbgButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pMenuMonitorDbgButton, SIGNAL(pressed()), this, SLOT(OnMonitorDbg()));
+	m_pMenuMonitorDbgButton->setCheckable(true);
+	m_pMenuMonitorDbgButton->setChecked((DbgMode & CWinDbgMonitor::eAll) != 0);
+	m_pToolBar->addWidget(m_pMenuMonitorDbgButton);
+
 	m_pToolBar->addSeparator();
 #endif
 	m_pToolBar->addAction(m_pMenuSystemInfo);
@@ -1150,11 +1180,6 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 	}
 }
 
-void CTaskExplorer::OnShowHide()
-{
-	OnSysTray(QSystemTrayIcon::DoubleClick);
-}
-
 void CTaskExplorer::OnSysTab()
 {
 	QAction* pAction = (QAction*)sender();
@@ -1294,7 +1319,7 @@ void CTaskExplorer::OnPersistenceOptions()
 
 void CTaskExplorer::OnSecurityExplorer()
 {
-#ifdef _WIN32
+#ifdef WIN32
 	CSecurityExplorer* pWnd = new CSecurityExplorer();
 	pWnd->show();
 #endif
@@ -1401,11 +1426,59 @@ void CTaskExplorer::OnMonitorFW()
 	if (m_pMenuMonitorFW->isChecked())
 	{
 		((CWindowsAPI*)theAPI)->MonitorFW(true);
-		m_pMenuMonitorFW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
+		m_pMenuMonitorFW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringFW());
 	}
 	else
 		((CWindowsAPI*)theAPI)->MonitorFW(false);
 	theConf->SetValue("Options/MonitorFirewall", m_pMenuMonitorFW->isChecked());
+#endif
+}
+
+void CTaskExplorer::OnMonitorDbg()
+{
+#ifdef WIN32
+	bool bChecked = false;
+	int Mode = CWinDbgMonitor::eAll;
+	if (sender() == m_pMenuMonitorDbgButton)
+	{
+		bChecked = !m_pMenuMonitorDbgButton->isChecked();
+		if (bChecked)
+		{
+			Mode = CWinDbgMonitor::eLocal;
+			if (theAPI->RootAvaiable())
+				Mode |= CWinDbgMonitor::eGlobal;
+			if ((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0)
+				Mode |= CWinDbgMonitor::eKernel;
+		}
+	}
+	else
+	{
+		QAction* pAction = (QAction*)sender();
+		bChecked = pAction->isChecked();
+		Mode = pAction->property("Mode").toInt();
+	}
+
+	int NewMode = ((CWindowsAPI*)theAPI)->GetDbgMonitor();
+	if (bChecked)
+		NewMode |= Mode;
+	else
+		NewMode &= ~Mode;
+
+	STATUS Status = ((CWindowsAPI*)theAPI)->MonitorDbg((CWinDbgMonitor::EModes)NewMode);
+	if(Status.IsError())
+		CTaskExplorer::CheckErrors(QList<STATUS>() << Status);
+
+	int DbgMode = ((CWindowsAPI*)theAPI)->GetDbgMonitor();
+	if (sender() != m_pMenuMonitorDbgButton)
+		m_pMenuMonitorDbgButton->setChecked((DbgMode & CWinDbgMonitor::eAll) != 0);
+	m_pMenuMonitorDbgLocal->setChecked((DbgMode & CWinDbgMonitor::eLocal) != 0);
+	m_pMenuMonitorDbgGlobal->setChecked((DbgMode & CWinDbgMonitor::eGlobal) != 0);
+	m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
+
+	m_Act2Tab.key(CTaskInfoView::eDebugView)->setChecked(DbgMode != CWinDbgMonitor::eNone);
+	m_pTaskInfo->ShowTab(CTaskInfoView::eDebugView, DbgMode != CWinDbgMonitor::eNone);
+
+	theConf->SetValue("Options/MonitorDbg", DbgMode);
 #endif
 }
 

@@ -1,9 +1,9 @@
 #include "stdafx.h"
 #include "../../TaskExplorer.h"
 #include "NtObjectView.h"
-#include "../../../Common/Common.h"
-#include "../../../Common/SortFilterProxyModel.h"
-#include "../../../Common/Finder.h"
+#include "../../../../MiscHelpers/Common/Common.h"
+#include "../../../../MiscHelpers/Common/SortFilterProxyModel.h"
+#include "../../../../MiscHelpers/Common/Finder.h"
 #ifdef WIN32
 #include "../../../API/Windows/WindowsAPI.h"		
 #endif
