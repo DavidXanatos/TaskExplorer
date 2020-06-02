@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.2.6] - 2020-06-02
+
+### Added
+- Support for translations using the QtLinguist tool
+
+
 ## [1.2.5] - 2020-06-01
 
 ### Added

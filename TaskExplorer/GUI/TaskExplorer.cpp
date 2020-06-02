@@ -90,6 +90,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_DefaultStyle = QApplication::style()->objectName();
 	m_DefaultPalett = QApplication::palette();
 
+	LoadLanguage();
 	if(theConf->GetBool("MainWindow/DarkTheme", false))
 		SetDarkTheme(true);
 
@@ -1729,4 +1730,29 @@ void CTaskExplorer::OnAbout()
 		QMessageBox::aboutQt(this);
 	else
 		QDesktopServices::openUrl(QUrl("https://www.patreon.com/DavidXanatos"));
+}
+
+void CTaskExplorer::LoadLanguage()
+{
+	qApp->removeTranslator(&m_Translator);
+	m_Translation.clear();
+
+	QString Lang = theConf->GetString("General/Language");
+	if(!Lang.isEmpty())
+	{
+		QString LangAux = Lang; // Short version as fallback
+		LangAux.truncate(LangAux.lastIndexOf('_'));
+
+		QString LangPath = QApplication::applicationDirPath() + "/translations/taskexplorer_";
+		bool bAux = false;
+		if(QFile::exists(LangPath + Lang + ".qm") || (bAux = QFile::exists(LangPath + LangAux + ".qm")))
+		{
+			QFile File(LangPath + (bAux ? LangAux : Lang) + ".qm");
+			File.open(QFile::ReadOnly);
+			m_Translation = File.readAll();
+		}
+
+		if(!m_Translation.isEmpty() && m_Translator.load((const uchar*)m_Translation.data(), m_Translation.size()))
+			qApp->installTranslator(&m_Translator);
+	}
 }

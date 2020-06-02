@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>541</width>
-    <height>437</height>
+    <height>451</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -54,27 +54,7 @@
         <layout class="QGridLayout" name="gridLayout_4">
          <item row="1" column="0">
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="7" column="1">
-            <widget class="QCheckBox" name="chkShow32">
-             <property name="text">
-              <string>Append &quot;*32&quot; to WoW64 processes</string>
-             </property>
-            </widget>
-           </item>
-           <item row="15" column="1">
-            <spacer name="verticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="15" column="0">
+           <item row="16" column="0">
             <spacer name="horizontalSpacer_3">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -87,21 +67,54 @@
              </property>
             </spacer>
            </item>
-           <item row="3" column="1">
+           <item row="16" column="1">
+            <spacer name="verticalSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="1" column="1">
+            <widget class="QComboBox" name="uiLang"/>
+           </item>
+           <item row="4" column="1">
             <widget class="QCheckBox" name="chkClearZeros">
              <property name="text">
               <string>Show empty cells instead of zero</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="2">
+           <item row="8" column="1">
+            <widget class="QCheckBox" name="chkShow32">
+             <property name="text">
+              <string>Append &quot;*32&quot; to WoW64 processes</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="2">
             <widget class="QLabel" name="label_12">
              <property name="text">
               <string>milliseconds</string>
              </property>
             </widget>
            </item>
-           <item row="4" column="0">
+           <item row="6" column="1">
+            <widget class="QSpinBox" name="refreshInterval">
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="singleStep">
+              <number>250</number>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
             <widget class="QLabel" name="label_18">
              <property name="text">
               <string>Highlight high load cells</string>
@@ -111,13 +124,13 @@
              </property>
             </widget>
            </item>
-           <item row="5" column="1">
-            <widget class="QSpinBox" name="refreshInterval">
-             <property name="maximum">
-              <number>10000</number>
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_8">
+             <property name="text">
+              <string>Graph length:</string>
              </property>
-             <property name="singleStep">
-              <number>250</number>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -134,31 +147,38 @@
              </property>
             </widget>
            </item>
-           <item row="6" column="2">
-            <widget class="QLabel" name="label_11">
-             <property name="text">
-              <string>seconds</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
+           <item row="2" column="1">
             <widget class="QCheckBox" name="chkUseCycles">
              <property name="text">
               <string>Use cycle count to calculate CPU Usage</string>
              </property>
             </widget>
            </item>
-           <item row="6" column="0">
-            <widget class="QLabel" name="label_8">
+           <item row="7" column="2">
+            <widget class="QLabel" name="label_11">
              <property name="text">
-              <string>Graph length:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              <string>seconds</string>
              </property>
             </widget>
            </item>
-           <item row="9" column="0">
+           <item row="3" column="1">
+            <widget class="QCheckBox" name="chkLinuxStyle">
+             <property name="text">
+              <string>Show CPU Usage like on Linux</string>
+             </property>
+             <property name="tristate">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="11" column="1">
+            <widget class="QCheckBox" name="chkShowTray">
+             <property name="text">
+              <string>Show Sys-Tray</string>
+             </property>
+            </widget>
+           </item>
+           <item row="10" column="0">
             <widget class="QLabel" name="label_5">
              <property name="font">
               <font>
@@ -171,14 +191,7 @@
              </property>
             </widget>
            </item>
-           <item row="10" column="1">
-            <widget class="QCheckBox" name="chkShowTray">
-             <property name="text">
-              <string>Show Sys-Tray</string>
-             </property>
-            </widget>
-           </item>
-           <item row="6" column="1">
+           <item row="7" column="1">
             <widget class="QSpinBox" name="graphLength">
              <property name="maximum">
               <number>1800</number>
@@ -188,27 +201,7 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="1">
-            <widget class="QCheckBox" name="chkLinuxStyle">
-             <property name="text">
-              <string>Show CPU Usage like on Linux</string>
-             </property>
-             <property name="tristate">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="1">
-            <widget class="QCheckBox" name="chkDarkTheme">
-             <property name="text">
-              <string>Use Dark Theme</string>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="1">
-            <widget class="QSpinBox" name="highlightCount"/>
-           </item>
-           <item row="5" column="0">
+           <item row="6" column="0">
             <widget class="QLabel" name="label_9">
              <property name="text">
               <string>Refresh interval:</string>
@@ -218,10 +211,7 @@
              </property>
             </widget>
            </item>
-           <item row="11" column="1">
-            <widget class="QComboBox" name="trayMode"/>
-           </item>
-           <item row="15" column="2">
+           <item row="16" column="2">
             <spacer name="horizontalSpacer_2">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -234,7 +224,17 @@
              </property>
             </spacer>
            </item>
-           <item row="11" column="0">
+           <item row="9" column="1">
+            <widget class="QCheckBox" name="chkDarkTheme">
+             <property name="text">
+              <string>Use Dark Theme</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QSpinBox" name="highlightCount"/>
+           </item>
+           <item row="12" column="0">
             <widget class="QLabel" name="label_10">
              <property name="text">
               <string>Infos in tray:</string>
@@ -244,7 +244,7 @@
              </property>
             </widget>
            </item>
-           <item row="12" column="0">
+           <item row="13" column="0">
             <widget class="QLabel" name="label_15">
              <property name="text">
               <string>On main window close:</string>
@@ -255,7 +255,30 @@
             </widget>
            </item>
            <item row="12" column="1">
+            <widget class="QComboBox" name="trayMode"/>
+           </item>
+           <item row="13" column="1">
             <widget class="QComboBox" name="onClose"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_23">
+             <property name="text">
+              <string>Interface language:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="label_24">
+             <property name="text">
+              <string>Restart required (!)</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>

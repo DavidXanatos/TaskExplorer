@@ -10,7 +10,7 @@
 
 #define VERSION_MJR		1
 #define VERSION_MIN 	2
-#define VERSION_REV 	5
+#define VERSION_REV 	7
 #define VERSION_UPD 	0
 
 class CGraphBar;
@@ -330,6 +330,10 @@ private:
 	CHistoryGraph*		m_pTrayGraph;
 
 	CCustomItemDelegate* m_pCustomItemDelegate;
+
+	void				LoadLanguage();
+	QTranslator			m_Translator;
+	QByteArray			m_Translation;
 };
 
 extern CTaskExplorer*	theGUI;

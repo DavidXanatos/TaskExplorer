@@ -9,7 +9,18 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	QWidget* centralWidget = new QWidget();
 	ui.setupUi(centralWidget);
 	this->setCentralWidget(centralWidget);
-	this->setWindowTitle("Task Explorer - Settings");
+	this->setWindowTitle(tr("Task Explorer - Settings"));
+
+	ui.uiLang->addItem("International Englisch", "");
+	QDir langDir(QApplication::applicationDirPath() + "/translations/");
+	foreach(const QString& langFile, langDir.entryList(QStringList("taskexplorer_*.qm"), QDir::Files))
+	{
+		QString Code = langFile.mid(13, langFile.length() - 13 - 3);
+		QLocale Locale(Code);
+		QString Lang = Locale.nativeLanguageName();
+		ui.uiLang->addItem(Lang, Code);
+	}
+	ui.uiLang->setCurrentIndex(ui.uiLang->findData(theConf->GetString("General/Language")));
 
 	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", true));
 	ui.chkLinuxStyle->setTristate(true);
@@ -134,6 +145,8 @@ void CSettingsWindow::closeEvent(QCloseEvent *e)
 
 void CSettingsWindow::apply()
 {
+	theConf->SetValue("General/Language", ui.uiLang->currentData());
+
 	theConf->SetValue("Options/EnableCycleCpuUsage", ui.chkUseCycles->isChecked());
 	switch (ui.chkLinuxStyle->checkState())
 	{
