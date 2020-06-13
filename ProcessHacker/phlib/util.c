@@ -3012,7 +3012,7 @@ NTSTATUS PhCreateProcessAsUser(
         if (useWithLogon)
         {
             PPH_STRING commandLine;
-            PROCESS_INFORMATION processInfo;
+            PROCESS_INFORMATION processInfo = {0};
             ULONG newFlags;
 
             if (Information->CommandLine) // duplicate because CreateProcess modifies the string

@@ -1,29 +1,28 @@
 #pragma once
 
 #include <QtWidgets/QMainWindow>
-#include "ui_RunAsDialog.h"
+#include "ui_RunDialog.h"
 
-class CRunAsDialog : public QMainWindow
+class CRunDialog : public QMainWindow
 {
 	Q_OBJECT
 
 public:
-	CRunAsDialog(quint64 PID = 0, QWidget *parent = Q_NULLPTR);
-	~CRunAsDialog();
+	CRunDialog(QWidget *parent = Q_NULLPTR);
+	~CRunDialog();
 
 public slots:
 	void accept();
 	void reject();
 
 	void OnBrowse();
-	void OnUserName(const QString& userName);
+	void OnInjectDll();
+	void OnDllPath();
 
 protected:
 	void closeEvent(QCloseEvent *e);
 	bool event(QEvent* event);
 
-	quint64			m_PID;
-
 private:
-	Ui::RunAsDialog ui;
+	Ui::RunDialog ui;
 };

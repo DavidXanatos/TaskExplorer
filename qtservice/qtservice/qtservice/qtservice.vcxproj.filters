@@ -55,35 +55,17 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\qtservice.cpp">
+    <QtMoc Include="..\..\src\qtservice.cpp">
       <Filter>Source Dateien</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\qtservice_win.cpp">
+    </QtMoc>
+    <QtMoc Include="..\..\src\qtservice_win.cpp">
       <Filter>Source Dateien</Filter>
-    </ClCompile>
+    </QtMoc>
     <ClCompile Include="..\..\src2\adminauthorization.cpp">
       <Filter>Source Dateien</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src2\adminauthorization_win.cpp">
       <Filter>Source Dateien</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_adminauthorization.cpp">
-      <Filter>Generierte Dateien\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_adminauthorization.cpp">
-      <Filter>Generierte Dateien\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_adminauthorization.cpp">
-      <Filter>Generierte Dateien\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_adminauthorization.cpp">
-      <Filter>Generierte Dateien\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Template\moc_adminauthorization.cpp">
-      <Filter>Generierte Dateien\Template_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Template\moc_adminauthorization.cpp">
-      <Filter>Generierte Dateien\Template_x64</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -93,44 +75,8 @@
     <CustomBuild Include="..\..\src\qtservice_p.h">
       <Filter>Header Dateien</Filter>
     </CustomBuild>
-    <CustomBuild Include="Win32\GeneratedFiles\Debug\qtservice_win.moc">
-      <Filter>Generierte Dateien\Debug_Win32</Filter>
-    </CustomBuild>
-    <CustomBuild Include="Win32\GeneratedFiles\Release\qtservice_win.moc">
-      <Filter>Generierte Dateien\Release_Win32</Filter>
-    </CustomBuild>
-    <CustomBuild Include="Win32\GeneratedFiles\Template\qtservice_win.moc">
-      <Filter>Generierte Dateien\Template_Win32</Filter>
-    </CustomBuild>
-    <CustomBuild Include="x64\GeneratedFiles\Debug\qtservice_win.moc">
-      <Filter>Generierte Dateien\Debug_x64</Filter>
-    </CustomBuild>
-    <CustomBuild Include="x64\GeneratedFiles\Release\qtservice_win.moc">
-      <Filter>Generierte Dateien\Release_x64</Filter>
-    </CustomBuild>
-    <CustomBuild Include="x64\GeneratedFiles\Template\qtservice_win.moc">
-      <Filter>Generierte Dateien\Template_x64</Filter>
-    </CustomBuild>
-    <CustomBuild Include="Win32\GeneratedFiles\Debug\qtservice.moc">
-      <Filter>Generierte Dateien\Debug_Win32</Filter>
-    </CustomBuild>
-    <CustomBuild Include="Win32\GeneratedFiles\Release\qtservice.moc">
-      <Filter>Generierte Dateien\Release_Win32</Filter>
-    </CustomBuild>
-    <CustomBuild Include="Win32\GeneratedFiles\Template\qtservice.moc">
-      <Filter>Generierte Dateien\Template_Win32</Filter>
-    </CustomBuild>
-    <CustomBuild Include="x64\GeneratedFiles\Debug\qtservice.moc">
-      <Filter>Generierte Dateien\Debug_x64</Filter>
-    </CustomBuild>
-    <CustomBuild Include="x64\GeneratedFiles\Release\qtservice.moc">
-      <Filter>Generierte Dateien\Release_x64</Filter>
-    </CustomBuild>
-    <CustomBuild Include="x64\GeneratedFiles\Template\qtservice.moc">
-      <Filter>Generierte Dateien\Template_x64</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\..\src2\adminauthorization.h">
+    <QtMoc Include="..\..\src2\adminauthorization.h">
       <Filter>Header Dateien</Filter>
-    </CustomBuild>
+    </QtMoc>
   </ItemGroup>
 </Project>

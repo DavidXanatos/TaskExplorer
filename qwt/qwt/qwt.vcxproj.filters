@@ -330,428 +330,204 @@
     <ClCompile Include="..\src\qwt_widget_overlay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_wheel.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_wheel.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_wheel.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_wheel.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_thermo.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_thermo.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_thermo.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_thermo.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_text_label.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_text_label.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_text_label.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_text_label.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_slider.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_slider.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_slider.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_slider.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_scale_widget.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_scale_widget.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_scale_widget.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_scale_widget.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_sampling_thread.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_sampling_thread.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_sampling_thread.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_sampling_thread.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_zoomer.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_zoomer.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_zoomer.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_zoomer.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_renderer.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_renderer.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_renderer.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_renderer.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_picker.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_picker.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_picker.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_picker.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_panner.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_panner.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_panner.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_panner.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_magnifier.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_magnifier.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_magnifier.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_magnifier.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_glcanvas.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_glcanvas.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_glcanvas.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_glcanvas.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot_canvas.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot_canvas.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot_canvas.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot_canvas.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_plot.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_plot.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_plot.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_plot.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_picker.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_picker.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_picker.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_picker.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_panner.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_panner.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_panner.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_panner.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_magnifier.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_magnifier.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_magnifier.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_magnifier.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_legend_label.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_legend_label.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_legend_label.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_legend_label.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_legend.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_legend.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_legend.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_legend.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_knob.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_knob.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_knob.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_knob.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_dyngrid_layout.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_dyngrid_layout.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_dyngrid_layout.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_dyngrid_layout.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_dial.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_dial.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_dial.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_dial.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_counter.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_counter.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_counter.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_counter.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_compass.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_compass.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_compass.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_compass.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_analog_clock.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_analog_clock.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_analog_clock.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_analog_clock.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_abstract_slider.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_abstract_slider.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_abstract_slider.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_abstract_slider.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_abstract_scale.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_abstract_scale.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_abstract_scale.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_abstract_scale.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Debug\moc_qwt_abstract_legend.cpp">
-      <Filter>Generated Files\Debug_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\GeneratedFiles\Release\moc_qwt_abstract_legend.cpp">
-      <Filter>Generated Files\Release_Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Debug\moc_qwt_abstract_legend.cpp">
-      <Filter>Generated Files\Debug_x64</Filter>
-    </ClCompile>
-    <ClCompile Include="x64\GeneratedFiles\Release\moc_qwt_abstract_legend.cpp">
-      <Filter>Generated Files\Release_x64</Filter>
-    </ClCompile>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\src\qwt_abstract_legend.h">
+    <QtMoc Include="..\src\qwt_abstract_legend.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_abstract_scale.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_abstract_scale.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_abstract_slider.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_abstract_slider.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_analog_clock.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_analog_clock.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_compass.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_compass.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_counter.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_counter.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_dial.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_dial.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_dyngrid_layout.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_dyngrid_layout.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_knob.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_knob.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_legend.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_legend.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_legend_label.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_legend_label.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_magnifier.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_magnifier.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_panner.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_panner.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_picker.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_picker.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_canvas.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_canvas.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_glcanvas.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_glcanvas.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_magnifier.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_magnifier.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_panner.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_panner.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_picker.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_picker.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_renderer.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_renderer.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_plot_zoomer.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_plot_zoomer.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_sampling_thread.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_sampling_thread.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_scale_widget.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_scale_widget.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_slider.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_slider.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_text_label.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_text_label.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_thermo.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_thermo.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\qwt_wheel.h">
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_wheel.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
+    </QtMoc>
     <CustomBuild Include="..\src\qwt.h">
       <Filter>Header Files</Filter>
     </CustomBuild>

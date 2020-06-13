@@ -112,6 +112,8 @@ public:
 	virtual STATUS AttachDebugger();
 	virtual STATUS DetachDebugger();
 
+	virtual int GetKnownProcessType() const;
+	virtual bool IsWindowsProcess() const;
 	virtual bool IsSystemProcess() const;
 	virtual bool IsServiceProcess() const;
 	virtual bool IsUserProcess() const;

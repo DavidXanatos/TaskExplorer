@@ -13,6 +13,7 @@ extern "C" {
 #include "../../MiscHelpers/Common/ExitDialog.h"
 #include "../../MiscHelpers/Common/HistoryGraph.h"
 #include "NewService.h"
+#include "RunDialog.h"
 #include "RunAsDialog.h"
 #include "../SVC/TaskService.h"
 #include "GraphBar.h"
@@ -25,6 +26,7 @@ extern "C" {
 #include "../../MiscHelpers/Common/CheckableMessageBox.h"
 #include "MultiErrorDialog.h"
 #include "PersistenceConfig.h"
+#include "Filters/ProcessFilterModel.h"
 
 
 QIcon g_ExeIcon;
@@ -190,9 +192,6 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuRun->setShortcut(QKeySequence("Ctrl+R"));
 		m_pMenuRunAs = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunAs"), tr("Run as..."), this, SLOT(OnRunAs()));
 		m_pMenuRunAs->setShortcut(QKeySequence("Alt+R"));
-		// this can be done with the normal run command anyways
-		//m_pMenuRunAsUser = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunUser"), tr("Run as Limited User..."), this, SLOT(OnRunUser()));
-		//m_pMenuRunAsAdmin = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunRoot"), tr("Run as Administrator..."), this, SLOT(OnRunAdmin()));
 #ifdef WIN32
 		m_pMenuRunSys = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/RunTI"), tr("Run as TrustedInstaller..."), this, SLOT(OnRunSys()));
 		m_pMenuRunSys->setShortcut(QKeySequence("Ctrl+Alt+R"));
@@ -263,6 +262,22 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuShowTree->setShortcut(QKeySequence("Ctrl+T"));
 		m_pMenuExpandAll = m_pMenuView->addAction(MakeActionIcon(":/Actions/Expand"), tr("Expand Process Tree"), m_pProcessTree, SLOT(OnExpandAll()));
 		m_pMenuExpandAll->setShortcut(QKeySequence("Ctrl+E"));
+		m_pMenuView->addSeparator();
+		m_pMenuFilter = m_pMenuView->addAction(MakeActionIcon(":/Actions/Filter"), tr("Filter Processes"), this, SLOT(OnViewFilter()));
+		m_pMenuFilter->setCheckable(true);
+		m_pMenuFilterMenu = m_pMenuView->addMenu(MakeActionIcon(":/Actions/Filter2"), tr("Select Filters"));
+			m_pMenuFilterWindows = MakeActionCheck(m_pMenuFilterMenu, tr("Windows Processes"), QVariant(), true);
+			connect(m_pMenuFilterWindows, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
+			m_pMenuFilterSystem = MakeActionCheck(m_pMenuFilterMenu, tr("System Processes"), QVariant(), true);
+			connect(m_pMenuFilterSystem, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
+			m_pMenuFilterService = MakeActionCheck(m_pMenuFilterMenu, tr("Service Processes"), QVariant(), true);
+			connect(m_pMenuFilterService, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
+			m_pMenuFilterOther = MakeActionCheck(m_pMenuFilterMenu, tr("Processes of Other Logged-In Users"), QVariant(), true);
+			connect(m_pMenuFilterOther, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
+			m_pMenuFilterOwn = MakeActionCheck(m_pMenuFilterMenu, tr("Processes ot the Current User"), QVariant(), true);
+			connect(m_pMenuFilterOwn, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
+
+
 
 	m_pMenuFind = menuBar()->addMenu(tr("&Find"));
 		m_pMenuFindProcess = m_pMenuFind->addAction(MakeActionIcon(":/Actions/Eye"), tr("Find Hidden Processes"), this, SLOT(OnFindProcess()));
@@ -403,6 +418,17 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuShowTree);
+
+	m_pMenuFilterButton = new QToolButton();
+	m_pMenuFilterButton->setIcon(MakeActionIcon(":/Actions/Filter"));
+	m_pMenuFilterButton->setToolTip(tr("Filter Processes"));
+	m_pMenuFilterButton->setPopupMode(QToolButton::MenuButtonPopup);
+    m_pMenuFilterButton->setMenu(m_pMenuFilterMenu);
+	//QObject::connect(m_pMenuFilterButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pMenuFilterButton, SIGNAL(pressed()), this, SLOT(OnViewFilter()));
+	m_pMenuFilterButton->setCheckable(true);
+	//m_pMenuFilterButton->setChecked();
+	m_pToolBar->addWidget(m_pMenuFilterButton);
 
 	m_pToolBar->addSeparator();
 #ifdef WIN32
@@ -741,6 +767,42 @@ void CTaskExplorer::RefreshAll()
 	UpdateAll();
 }
 
+void CTaskExplorer::OnViewFilter()
+{
+	CProcessFilterModel* pFilter = (CProcessFilterModel*)m_pProcessTree->GetModel();
+
+	int Value = 0;
+
+	if(sender() == m_pMenuFilter)
+		pFilter->SetEnabled(m_pMenuFilter->isChecked());
+	else if(sender() == m_pMenuFilterButton)
+		pFilter->SetEnabled(!m_pMenuFilterButton->isChecked());
+	else
+	{
+		QCheckBox* pCheck = qobject_cast<QCheckBox*>(((QWidgetAction*)sender())->defaultWidget());
+		Value = pCheck->checkState();
+
+		if(sender() == m_pMenuFilterWindows)
+			pFilter->SetFilterWindows(Value);
+		else if(sender() == m_pMenuFilterSystem)
+			pFilter->SetFilterSystem(Value);
+		else if(sender() == m_pMenuFilterService)
+			pFilter->SetFilterService(Value);
+		else if(sender() == m_pMenuFilterOther)
+			pFilter->SetFilterOther(Value);
+		else if(sender() == m_pMenuFilterOwn)
+			pFilter->SetFilterOwn(Value);
+	}
+
+	if(sender() != m_pMenuFilterButton)
+	{
+		if(Value != 0) // if one was enabled enable
+			pFilter->SetEnabled(true);
+		m_pMenuFilterButton->setChecked(pFilter->IsEnabled());
+	}
+	m_pMenuFilter->setChecked(pFilter->IsEnabled());
+}
+
 void CTaskExplorer::UpdateStatus()
 {
 	m_pStausCPU->setText(tr("CPU: %1%    ").arg(int(100 * theAPI->GetCpuUsage())));
@@ -940,6 +1002,7 @@ void CTaskExplorer::CheckErrors(QList<STATUS> Errors)
 	Dialog.exec();
 }
 
+/*
 void CTaskExplorer::OnRun()
 {
 #ifdef WIN32
@@ -962,6 +1025,13 @@ void CTaskExplorer::OnRunUser()
     SelectedRunAsMode = RUNAS_MODE_LIMITED;
     PhShowRunFileDialog(PhMainWndHandle, NULL, NULL, NULL, L"Type the name of a program that will be opened under standard user privileges.", 0);
 #endif
+}
+*/
+
+void CTaskExplorer::OnRun()
+{
+	CRunDialog* pWnd = new CRunDialog();
+	pWnd->show();
 }
 
 void CTaskExplorer::OnRunAs()
@@ -1063,6 +1133,7 @@ void CTaskExplorer::OnComputerAction()
 void CTaskExplorer::UpdateUserMenu()
 {
 	QList<CSystemAPI::SUser> Users = theAPI->GetUsers();
+	QSet<QString> UserNames;
 
 	m_pMenuUsers->setTitle(tr("Users (%1)").arg(Users.size()));
 
@@ -1070,6 +1141,8 @@ void CTaskExplorer::UpdateUserMenu()
 	
 	foreach(const CSystemAPI::SUser& User, Users)
 	{
+		UserNames.insert(User.UserName);
+
 		QMenu* pMenu = OldMenus.take(User.SessionId);
 		if (!pMenu)
 		{
@@ -1091,6 +1164,9 @@ void CTaskExplorer::UpdateUserMenu()
 
 	foreach(int SessionId, OldMenus.keys())
 		delete m_UserMenus.take(SessionId);
+
+	CProcessFilterModel* pFilter = (CProcessFilterModel*)m_pProcessTree->GetModel();
+	pFilter->UpdateUsers(UserNames);
 }
 
 void CTaskExplorer::OnUserAction()
@@ -1110,7 +1186,7 @@ void CTaskExplorer::OnUserAction()
 				bSuccess = true;
 			else
 			{
-				QString Password = QInputDialog::getText(this, "TaskExplorer", tr("Connect to session, enter Password:"));
+				QString Password = QInputDialog::getText(this, "TaskExplorer", tr("Connect to session, enter Password:"), QLineEdit::Password);
 				if (!Password.isEmpty())
 					bSuccess = WinStationConnectW(NULL, SessionId, LOGONID_CURRENT, (wchar_t*)Password.toStdWString().c_str(), TRUE);
 			}
@@ -1169,10 +1245,6 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 						return;
 					}
 					setWindowState(Qt::WindowActive);
-					//WINDOWPLACEMENT placement = { sizeof(placement) };
-					//GetWindowPlacement(PhMainWndHandle, &placement);
-					//if (placement.showCmd == SW_MINIMIZE || placement.showCmd == SW_SHOWMINIMIZED)
-					//	ShowWindowAsync(PhMainWndHandle, SW_RESTORE);
 					SetForegroundWindow(PhMainWndHandle);
 				} );
 			}
@@ -1222,6 +1294,17 @@ void CTaskExplorer::OnDriverConf()
 	CDriverWindow* pDriverWindow = new CDriverWindow();
 	pDriverWindow->show();
 #endif
+}
+
+void CTaskExplorer::OnMessage(const QString& Message)
+{
+	if (Message == "ShowWnd")
+	{
+		if (!isVisible())
+			show();
+		setWindowState(Qt::WindowActive);
+		SetForegroundWindow(PhMainWndHandle);
+	}
 }
 
 void CTaskExplorer::ApplyOptions()

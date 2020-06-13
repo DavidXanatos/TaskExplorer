@@ -129,13 +129,13 @@ protected:
 	QMap<EColor, SColor> m_Colors;
 
 private slots:	
+	void				OnMessage(const QString&);
+
 	void				ApplyOptions();
 
 	void				OnStatusMessage(const QString& Message);
 
 	void				OnRun();
-	void				OnRunAdmin();
-	void				OnRunUser();
 	void				OnRunAs();
 	void				OnRunSys();
 	void				OnComputerAction();
@@ -174,6 +174,8 @@ private slots:
 	void				OnMonitorETW();
 	void				OnMonitorFW();
 	void				OnMonitorDbg();
+
+	void				OnViewFilter();
 
 	void				OnSysTray(QSystemTrayIcon::ActivationReason Reason);
 
@@ -284,6 +286,16 @@ private:
 #ifdef WIN32
 	QAction*			m_pMenuSecurityExplorer;
 #endif
+
+	QAction*			m_pMenuFilter;
+	QMenu*				m_pMenuFilterMenu;
+	QToolButton*		m_pMenuFilterButton;
+	QAction*			m_pMenuFilterWindows;
+	QAction*			m_pMenuFilterSystem;
+	QAction*			m_pMenuFilterService;
+	QAction*			m_pMenuFilterOther;
+	QAction*			m_pMenuFilterOwn;
+
 
 #ifdef WIN32
 	QAction*			m_pMenuMonitorETW;

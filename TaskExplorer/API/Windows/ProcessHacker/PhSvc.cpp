@@ -799,7 +799,7 @@ PH_KEY_VALUE_PAIR ServiceActionPairs[] =
 */
 
 /*
-#include "../../Common/FlexError.h"
+#include "../../../MiscHelpers/Common/FlexError.h"
 
 static PH_STRINGREF servicesKeyName = PH_STRINGREF_INIT(L"System\\CurrentControlSet\\Services\\");
 static PH_STRINGREF fileExtName = PH_STRINGREF_INIT(L".phservicebackup");

@@ -6,7 +6,7 @@
 #include "TaskView.h"
 
 class CProcessModel;
-class QSortFilterProxyModel;
+class CProcessFilterModel;
 
 class CProcessTree : public CTaskView
 {
@@ -15,7 +15,13 @@ public:
 	CProcessTree(QWidget *parent = 0);
 	virtual ~CProcessTree();
 
-	bool					IsTree() const { return m_pProcessList->IsTree(); }
+	virtual bool			IsTree() const { return m_pProcessList->IsTree(); }
+
+	virtual void			OnMenu(const QPoint& Point);
+	virtual QTreeView*		GetView() 				{ return m_pProcessList->GetView(); }
+	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
+	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
+	//virtual QModelIndex	MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
 signals:
 	void					ProcessClicked(const CProcessPtr& pProcess);
@@ -81,12 +87,6 @@ protected:
 	virtual QList<CTaskPtr>		GetSellectedTasks();
 
 	void						UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History);
-
-	virtual void				OnMenu(const QPoint& Point);
-	virtual QTreeView*			GetView() 				{ return m_pProcessList->GetView(); }
-	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
-	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
-	//virtual QModelIndex			MapToSource(const QModelIndex& Model) { return m_pSortProxy->mapToSource(Model); }
 
 	QMap<quint64, CProcessPtr> m_Processes;
 

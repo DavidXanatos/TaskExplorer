@@ -24,6 +24,9 @@ public slots:
 	void				OnUpdate();
 	void				Close();
 
+protected:
+	bool event(QEvent* event);
+
 private:
 
 	QHBoxLayout*		m_pSearchLayout;

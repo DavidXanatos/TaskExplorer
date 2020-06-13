@@ -36,7 +36,7 @@ PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(quint64 ProcessId, const QString& 
 	BOOLEAN isWow64 = FALSE;
 #endif
 
-	if (ProcessId == (quint64)SYSTEM_PROCESS_ID || ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID)
+	if (ProcessId == (quint64)SYSTEM_PROCESS_ID || ProcessId == (quint64)SYSTEM_IDLE_PROCESS_ID || PH_IS_FAKE_PROCESS_ID((HANDLE)ProcessId) || FileName == "Registry")
 		return SystemProcessType;
 
 	if (FileName.isEmpty())
@@ -89,6 +89,16 @@ PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(quint64 ProcessId, const QString& 
 				knownProcessType = WindowsLogonProcessType;
 			else if (PhEqualStringRef2(&name, L"\\svchost.exe", TRUE))
 				knownProcessType = ServiceHostProcessType;
+			else if (PhEqualStringRef2(&name, L"\\fontdrvhost.exe", TRUE))
+				knownProcessType = WindowsOtherType;
+			else if (PhEqualStringRef2(&name, L"\\dwm.exe", TRUE))
+				knownProcessType = WindowsOtherType;
+			else if (PhEqualStringRef2(&name, L"\\dasHost.exe", TRUE))
+				knownProcessType = WindowsOtherType;
+			else if (PhEqualStringRef2(&name, L"\\spoolsv.exe", TRUE))
+				knownProcessType = WindowsOtherType;
+			else if (PhEqualStringRef2(&name, L"\\wlanext.exe", TRUE))
+				knownProcessType = WindowsOtherType;
 			else if (PhEqualStringRef2(&name, L"\\rundll32.exe", TRUE))
 				knownProcessType = RunDllAsAppProcessType;
 			else if (PhEqualStringRef2(&name, L"\\dllhost.exe", TRUE))

@@ -56,6 +56,7 @@ VOID PhSetDesktopWinStaAccess(VOID);
 
 long SvcApiInvokeRunAsService(const QVariantMap& Parameters);
 
+NTSTATUS RunAsLimitedUser(PWSTR CommandLine);
 NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine);
 
 BOOLEAN PhMwpOnNotify(_In_ NMHDR *Header, _Out_ LRESULT *Result);
@@ -78,7 +79,7 @@ VOID SetDefaultSessionEntry(QComboBox* pComboBox);
 VOID SetDefaultDesktopEntry(QComboBox* pComboBox);
 
 void AddProgramsToComboBox(QComboBox* pComboBox);
-VOID PhpAddRunMRUListEntry(_In_ PPH_STRING CommandLine);
+VOID PhpAddRunMRUListEntry(_In_ PH_STRINGREF CommandLine);
 
 // from guisup.h
 PHLIBAPI

@@ -58,6 +58,18 @@ void CRunAsDialog::closeEvent(QCloseEvent *e)
 	this->deleteLater();
 }
 
+bool CRunAsDialog::event(QEvent* event)
+{
+	if (event->type() == QEvent::KeyPress) {
+		QKeyEvent* key = static_cast<QKeyEvent*>(event);
+		if ((key->key() == Qt::Key_Enter) || (key->key() == Qt::Key_Return)) {
+			accept();
+			return true;
+		}
+	}
+	return QMainWindow::event(event);
+}
+
 void CRunAsDialog::accept()
 {
 #ifdef WIN32
@@ -180,11 +192,14 @@ void CRunAsDialog::accept()
 	if (!NT_SUCCESS(status))
 	{
 		if (status != STATUS_CANCELLED)
-			QMessageBox::warning(NULL, "TaskExplorer", tr("Unable to start the program, Error: %1").arg(status));
+		{
+			PPH_STRING statusMessage = PhGetStatusMessage(status, 0);
+			QMessageBox::warning(NULL, "TaskExplorer", tr("Unable to start the program, Error: %1").arg(CastPhString(statusMessage)));
+		}
 	}
 	else if (status != STATUS_TIMEOUT)
 	{
-		PhpAddRunMRUListEntry(program);
+		PhpAddRunMRUListEntry(program->sr);
 		this->close();
 	}
 

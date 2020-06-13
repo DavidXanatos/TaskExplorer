@@ -395,6 +395,99 @@ NTSTATUS PhExecuteRunAsCommand2(
     return PhExecuteRunAsCommand3(hWnd, Program, UserName, Password, LogonType, ProcessIdWithToken, SessionId, DesktopName, UseLinkedToken, FALSE);
 }
 
+NTSTATUS RunAsLimitedUser(PWSTR CommandLine)
+{
+	NTSTATUS status = STATUS_NOT_IMPLEMENTED;
+
+	PVOID WdcLibraryHandle;
+    ULONG (WINAPI* WdcRunTaskAsInteractiveUser_I)(
+        _In_ PCWSTR CommandLine,
+        _In_ PCWSTR CurrentDirectory,
+        _In_ ULONG Reserved
+        );
+
+    // dmex: Task Manager uses RFF_OPTRUNAS and RFN_LIMITEDRUNAS to show the 'Create this task with administrative privileges' checkbox
+    // on the RunFileDlg when the current process is elevated. Task Manager also uses the WdcRunTaskAsInteractiveUser function to launch processes
+    // as the interactive user from an elevated token. The WdcRunTaskAsInteractiveUser function
+    // invokes the "\Microsoft\Windows\Task Manager\Interactive" Task Scheduler task for launching the process but 
+    // doesn't return error information and we need to perform some sanity checks before invoking the task. 
+    // Ideally, we should use our own task but for now just re-use the existing task and do what Task Manager does...
+
+    if (WdcLibraryHandle = LoadLibrary(L"wdc.dll"))
+    {
+        if (WdcRunTaskAsInteractiveUser_I = (ULONG (WINAPI* )(_In_ PCWSTR CommandLine, _In_ PCWSTR CurrentDirectory, _In_ ULONG Reserved)) PhGetDllBaseProcedureAddress(WdcLibraryHandle, "WdcRunTaskAsInteractiveUser", 0))
+        {
+            PH_STRINGREF string;
+            PPH_STRING commandlineString;
+            PPH_STRING executeString = NULL;
+            INT cmdlineArgCount;
+            PWSTR* cmdlineArgList;
+
+            PhInitializeStringRefLongHint(&string,CommandLine);
+            commandlineString = PhCreateString2(&string);
+
+            // Extract the filename.
+            if (cmdlineArgList = CommandLineToArgvW(commandlineString->Buffer, &cmdlineArgCount))
+            {
+                PPH_STRING fileName = PhCreateString(cmdlineArgList[0]);
+
+                if (fileName && !RtlDoesFileExists_U(fileName->Buffer))
+                {
+                    PPH_STRING filePathString;
+
+                    // The user typed a name without a path so attempt to locate the executable.
+                    if (filePathString = PhSearchFilePath(fileName->Buffer, L".exe"))
+                        PhMoveReference((PVOID*)&fileName, filePathString);
+                    else
+                        PhClearReference((PVOID*)&fileName);
+                }
+
+                if (fileName)
+                {
+                    // Escape the filename.
+                    PhMoveReference((PVOID*)&fileName, PhConcatStrings(3, L"\"", fileName->Buffer, L"\""));
+
+                    if (cmdlineArgCount == 2)
+                    {
+                        PPH_STRING fileArgs = PhCreateString(cmdlineArgList[1]);
+
+                        // Escape the parameters.
+                        PhMoveReference((PVOID*)&fileArgs, PhConcatStrings(3, L"\"", fileArgs->Buffer, L"\""));
+
+                        // Create the escaped execute string.
+                        PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, fileName->Buffer, L" ", fileArgs->Buffer));
+
+                        // Cleanup.
+                        PhDereferenceObject(fileArgs);
+                    }
+                    else
+                    {
+                        // Create the escaped execute string.
+                        executeString = (PPH_STRING)PhReferenceObject(fileName);
+                    }
+
+                    PhDereferenceObject(fileName);
+                }
+
+                LocalFree(cmdlineArgList);
+            }
+
+            if (PhIsNullOrEmptyString(executeString))
+				status = STATUS_UNSUCCESSFUL;
+			else
+				status = WdcRunTaskAsInteractiveUser_I(executeString->Buffer, NULL, 0);
+            
+            if (executeString)
+                PhDereferenceObject(executeString);
+            PhDereferenceObject(commandlineString);
+        }
+
+        FreeLibrary((HMODULE)WdcLibraryHandle);
+    }
+
+	return status;
+}
+
 NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -639,99 +732,11 @@ BOOLEAN PhMwpOnNotify(
     else if (Header->code == RFN_LIMITEDRUNAS)
     {
         LPNMRUNFILEDLG runFileDlg = (LPNMRUNFILEDLG)Header;
-        PVOID WdcLibraryHandle;
-        ULONG (WINAPI* WdcRunTaskAsInteractiveUser_I)(
-            _In_ PCWSTR CommandLine,
-            _In_ PCWSTR CurrentDirectory,
-            _In_ ULONG Reserved
-            );
 
-
-        // dmex: Task Manager uses RFF_OPTRUNAS and RFN_LIMITEDRUNAS to show the 'Create this task with administrative privileges' checkbox
-        // on the RunFileDlg when the current process is elevated. Task Manager also uses the WdcRunTaskAsInteractiveUser function to launch processes
-        // as the interactive user from an elevated token. The WdcRunTaskAsInteractiveUser function
-        // invokes the "\Microsoft\Windows\Task Manager\Interactive" Task Scheduler task for launching the process but 
-        // doesn't return error information and we need to perform some sanity checks before invoking the task. 
-        // Ideally, we should use our own task but for now just re-use the existing task and do what Task Manager does...
-
-        if (WdcLibraryHandle = LoadLibrary(L"wdc.dll"))
-        {
-            if (WdcRunTaskAsInteractiveUser_I = (ULONG (WINAPI* )(_In_ PCWSTR CommandLine, _In_ PCWSTR CurrentDirectory, _In_ ULONG Reserved)) PhGetDllBaseProcedureAddress(WdcLibraryHandle, "WdcRunTaskAsInteractiveUser", 0))
-            {
-                PH_STRINGREF string;
-                PPH_STRING commandlineString;
-                PPH_STRING executeString = NULL;
-                INT cmdlineArgCount;
-                PWSTR* cmdlineArgList;
-
-                PhInitializeStringRefLongHint(&string, (PWSTR)runFileDlg->lpszFile);
-                commandlineString = PhCreateString2(&string);
-
-                // Extract the filename.
-                if (cmdlineArgList = CommandLineToArgvW(commandlineString->Buffer, &cmdlineArgCount))
-                {
-                    PPH_STRING fileName = PhCreateString(cmdlineArgList[0]);
-
-                    if (fileName && !RtlDoesFileExists_U(fileName->Buffer))
-                    {
-                        PPH_STRING filePathString;
-
-                        // The user typed a name without a path so attempt to locate the executable.
-                        if (filePathString = PhSearchFilePath(fileName->Buffer, L".exe"))
-                            PhMoveReference((PVOID*)&fileName, filePathString);
-                        else
-                            PhClearReference((PVOID*)&fileName);
-                    }
-
-                    if (fileName)
-                    {
-                        // Escape the filename.
-                        PhMoveReference((PVOID*)&fileName, PhConcatStrings(3, L"\"", fileName->Buffer, L"\""));
-
-                        if (cmdlineArgCount == 2)
-                        {
-                            PPH_STRING fileArgs = PhCreateString(cmdlineArgList[1]);
-
-                            // Escape the parameters.
-                            PhMoveReference((PVOID*)&fileArgs, PhConcatStrings(3, L"\"", fileArgs->Buffer, L"\""));
-
-                            // Create the escaped execute string.
-                            PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, fileName->Buffer, L" ", fileArgs->Buffer));
-
-                            // Cleanup.
-                            PhDereferenceObject(fileArgs);
-                        }
-                        else
-                        {
-                            // Create the escaped execute string.
-                            executeString = (PPH_STRING)PhReferenceObject(fileName);
-                        }
-
-                        PhDereferenceObject(fileName);
-                    }
-
-                    LocalFree(cmdlineArgList);
-                }
-
-                if (!PhIsNullOrEmptyString(executeString))
-                {
-                    if (WdcRunTaskAsInteractiveUser_I(executeString->Buffer, NULL, 0) == 0)
-                        *Result = RF_CANCEL;
-                    else
-                        *Result = RF_RETRY;
-                }
-                else
-                {
-                    *Result = RF_RETRY;
-                }
-
-                if (executeString)
-                    PhDereferenceObject(executeString);
-                PhDereferenceObject(commandlineString);
-            }
-
-            FreeLibrary((HMODULE)WdcLibraryHandle);
-        }
+		if(NT_SUCCESS(RunAsLimitedUser(runFileDlg->lpszFile)))
+			*Result = RF_CANCEL;
+        else
+	        *Result = RF_RETRY;
         return TRUE;
     }
 
@@ -1306,7 +1311,7 @@ HANDLE PhpCreateRunMRUList(
 }
 
 VOID PhpAddRunMRUListEntry(
-    _In_ PPH_STRING CommandLine
+    _In_ PH_STRINGREF CommandLine
     )
 {
     static PH_STRINGREF prefixSr = PH_STRINGREF_INIT(L"\\1");
@@ -1316,7 +1321,7 @@ VOID PhpAddRunMRUListEntry(
     if (!(listHandle = PhpCreateRunMRUList()))
         return;
 
-    commandString = PhConcatStringRef2(&CommandLine->sr, &prefixSr);
+    commandString = PhConcatStringRef2(&CommandLine, &prefixSr);
     AddMRUString_I(listHandle, commandString->Buffer);
     PhDereferenceObject(commandString);
 

@@ -23,9 +23,10 @@ public:
 	static CWinToken* TokenFromThread(quint64 ThreadId);
 
 	virtual QString			GetUserName() const { QReadLocker Locker(&m_Mutex); return m_UserName; }
-	virtual QByteArray		GetUserSid() const { QReadLocker Locker(&m_Mutex); return m_UserSid; }
+	virtual QString			GetContainerName() const { QReadLocker Locker(&m_Mutex); return m_ContainerName; }
+	virtual QByteArray		GetUserSid(bool bReal = false) const { QReadLocker Locker(&m_Mutex); if(bReal && m_IsAppContainer == 2) return m_OwnerSid; return m_UserSid; }
 	virtual QString			GetSidString() const { QReadLocker Locker(&m_Mutex); return m_SidString; }
-	virtual bool			IsAppContainer() const { QReadLocker Locker(&m_Mutex); return m_IsAppContainer; }
+	virtual bool			IsAppContainer() const { QReadLocker Locker(&m_Mutex); return m_IsAppContainer != 0; }
 	virtual quint32			GetSessionId() const { QReadLocker Locker(&m_Mutex); return m_SessionId; }
 	virtual QString			GetOwnerName() const { QReadLocker Locker(&m_Mutex); return m_OwnerName; }
 	virtual QByteArray		GetOwnerSid() const { QReadLocker Locker(&m_Mutex); return m_OwnerSid; }
@@ -221,9 +222,10 @@ protected:
 	bool UpdateExtendedData();
 
 	QString		m_UserName;
+	QString		m_ContainerName;
 	QByteArray	m_UserSid;
 	QString		m_SidString;
-	bool		m_IsAppContainer;
+	int			m_IsAppContainer;
 	QString		m_OwnerName;
 	QByteArray	m_OwnerSid;
 	QString		m_GroupName;

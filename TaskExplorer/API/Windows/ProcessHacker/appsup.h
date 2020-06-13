@@ -14,13 +14,16 @@ typedef enum _PH_KNOWN_PROCESS_TYPE
 	LocalSessionManagerProcessType, // lsm
 	WindowsLogonProcessType, // winlogon
 	ServiceHostProcessType, // svchost
+	UmdfHostProcessType, // wudfhost
+	WmiProviderHostType,
+	WindowsOtherType,
+
 	RunDllAsAppProcessType, // rundll32
 	ComSurrogateProcessType, // dllhost
 	TaskHostProcessType, // taskeng, taskhost, taskhostex
 	ExplorerProcessType, // explorer
-	UmdfHostProcessType, // wudfhost
 	EdgeProcessType, // Microsoft Edge
-	WmiProviderHostType,
+
 	MaximumProcessType,
 	KnownProcessTypeMask = 0xffff,
 

@@ -3,7 +3,6 @@
 #include "ProcessTree.h"
 #include "../../MiscHelpers/Common/Common.h"
 #include "Models/ProcessModel.h"
-#include "../../MiscHelpers/Common/SortFilterProxyModel.h"
 #ifdef WIN32
 #include "../API/Windows/WinProcess.h"
 #include "../API/Windows/WinModule.h"
@@ -20,6 +19,7 @@
 #include "../../MiscHelpers/Common/Finder.h"
 #include "PersistenceConfig.h"
 #include "../../MiscHelpers/Common/qzlib.h"
+#include "Filters/ProcessFilterModel.h"
 
 CProcessTree::CProcessTree(QWidget *parent)
 	: CTaskView(parent)
@@ -39,7 +39,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	//connect(m_pProcessModel, SIGNAL(CheckChanged(quint64, bool)), this, SLOT(OnCheckChanged(quint64, bool)));
 	//connect(m_pProcessModel, SIGNAL(Updated()), this, SLOT(OnUpdated()));
 
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CProcessFilterModel(false, this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pProcessModel);
 	m_pSortProxy->setDynamicSortFilter(true);
@@ -412,7 +412,8 @@ void CProcessTree::OnToolTipCallback(const QVariant& ID, QString& ToolTip)
 		InfoLines.append(tr("    %1").arg(pWinModule->GetFileInfo("CompanyName")));
 	}
 
-	PH_KNOWN_PROCESS_TYPE KnownProcessType = PhGetProcessKnownTypeEx(pProcess->GetProcessId(), pProcess->GetFileName());
+	//PH_KNOWN_PROCESS_TYPE KnownProcessType = PhGetProcessKnownTypeEx(pProcess->GetProcessId(), pProcess->GetFileName());
+	PH_KNOWN_PROCESS_TYPE KnownProcessType = (PH_KNOWN_PROCESS_TYPE)pWinProcess->GetKnownProcessType();
 
 	// Known command line information
     PH_KNOWN_PROCESS_COMMAND_LINE knownCommandLine;

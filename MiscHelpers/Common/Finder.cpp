@@ -89,6 +89,17 @@ CFinder::~CFinder()
 {
 }
 
+bool CFinder::event(QEvent* event)
+{
+	if (event->type() == QEvent::KeyPress) {
+		QKeyEvent* key = static_cast<QKeyEvent*>(event);
+		if (key->key() == Qt::Key_Escape) {
+			Close();
+			return true;
+		}
+	}
+	return QWidget::event(event);
+}
 
 void CFinder::Open()
 {

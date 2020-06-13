@@ -8,6 +8,7 @@
 #include "API/Windows/ProcessHacker.h"
 #include "API/Windows/WinAdmin.h"
 #include <codecvt>
+#include "../QtSingleApp/src/qtsingleapplication.h"
 
 bool SkipUacRun(bool test_only = false);
 #endif
@@ -79,6 +80,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE; // 1
 	}
 
+	QtSingleApplication* pApp = NULL;
 	if (bSvc || bWrk)	
 		new QCoreApplication(argc, argv);
 	else {
@@ -89,10 +91,14 @@ int main(int argc, char *argv[])
 		//QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); 
 		//QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
 
-		new QApplication(argc, argv);
+		//new QApplication(argc, argv);
+		QtSingleApplication* pApp = new QtSingleApplication(argc, argv);
 	}
 
 	theConf = new CSettings("TaskExplorer");
+
+	if (pApp && !theConf->GetBool("Options/AllowMultipleInstances", false) && pApp->sendMessage("ShowWnd"))
+		return 0;
 
 #ifdef Q_OS_WIN
 #ifndef _DEBUG
@@ -174,6 +180,7 @@ int main(int argc, char *argv[])
 #endif
 
 		new CTaskExplorer();
+		QObject::connect(QtSingleApplication::instance(), SIGNAL(messageReceived(const QString&)), theGUI, SLOT(OnMessage(const QString&)));
 		
 		ret = QApplication::exec();
 

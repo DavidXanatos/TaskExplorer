@@ -87,6 +87,15 @@
     <Filter Include="API\Windows\Monitors\Etw\krabs\filtering">
       <UniqueIdentifier>{50af5051-6b8e-4ed2-926c-0b57d7e362ce}</UniqueIdentifier>
     </Filter>
+    <Filter Include="API\Windows\WinHelpers">
+      <UniqueIdentifier>{3c45ec8c-8f01-4144-b235-3d8ef72624a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\WinHelpers\InjectDll">
+      <UniqueIdentifier>{99af3be8-d19a-4e8e-a574-639195d5250d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TaskExplorer\Filters">
+      <UniqueIdentifier>{d048a725-d5a4-4ff2-84a2-f9f8da01c68b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -524,6 +533,24 @@
     <ClCompile Include="GUI\TaskInfo\DebugView.cpp">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </ClCompile>
+    <ClCompile Include="GUI\RunDialog.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\InjectDll\injdll32.c">
+      <Filter>API\Windows\WinHelpers\InjectDll</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\InjectDll\injdll32_32.c">
+      <Filter>API\Windows\WinHelpers\InjectDll</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\InjectDll\injdll32_64.c">
+      <Filter>API\Windows\WinHelpers\InjectDll</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\InjectDll\injdll64.c">
+      <Filter>API\Windows\WinHelpers\InjectDll</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Filters\ProcessFilterModel.cpp">
+      <Filter>TaskExplorer\Filters</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -672,6 +699,12 @@
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\GpuCounters.h">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinHelpers\InjectDll\injdll.h">
+      <Filter>API\Windows\WinHelpers\InjectDll</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\Filters\ProcessFilterModel.h">
+      <Filter>TaskExplorer\Filters</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1041,6 +1074,9 @@
     <QtMoc Include="GUI\TaskInfo\DebugView.h">
       <Filter>TaskExplorer\TaskInfo</Filter>
     </QtMoc>
+    <QtMoc Include="GUI\RunDialog.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -1071,6 +1107,18 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CHANGELOG.md" />
+    <None Include="taskexplorer_de.ts">
+      <Filter>Translation Files</Filter>
+    </None>
+    <None Include="taskexplorer_pl.ts">
+      <Filter>Translation Files</Filter>
+    </None>
+    <None Include="taskexplorer_it.ts">
+      <Filter>Translation Files</Filter>
+    </None>
+    <None Include="taskexplorer_en.ts">
+      <Filter>Translation Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="Forms\NewService.ui">
@@ -1097,5 +1145,13 @@
     <QtUic Include="Forms\SettingsWindow.ui">
       <Filter>Forms</Filter>
     </QtUic>
+    <QtUic Include="Forms\RunDialog.ui">
+      <Filter>Forms</Filter>
+    </QtUic>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="Resources\TaskExplorer.manifest">
+      <Filter>Resource Files</Filter>
+    </Manifest>
   </ItemGroup>
 </Project>

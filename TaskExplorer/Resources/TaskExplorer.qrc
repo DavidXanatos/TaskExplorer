@@ -72,6 +72,8 @@
         <file alias="Tree">Actions/tree.png</file>
         <file alias="Persistence">Actions/aufgabe.png</file>
         <file alias="MonitorDbg">Actions/bug.png</file>
+        <file alias="Filter">Actions/filter.png</file>
+        <file alias="Filter2">Actions/filter2.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>
