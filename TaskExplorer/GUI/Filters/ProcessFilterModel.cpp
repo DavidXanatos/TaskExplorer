@@ -57,3 +57,12 @@ bool CProcessFilterModel::filterAcceptsRow(int source_row, const QModelIndex & s
 	// default behavioure
 	return CSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
 }
+
+void CProcessFilterModel::UpdateUsers(const QSet<QString>& Users)
+{
+	if (m_Users != Users) 
+	{
+		m_Users = Users; 
+		invalidate(); 
+	}
+}

@@ -195,6 +195,7 @@
     <ClCompile Include="Common\ListItemModel.cpp" />
     <ClCompile Include="Common\MultiLineInputDialog.cpp" />
     <ClCompile Include="Common\PanelView.cpp" />
+    <ClCompile Include="Common\qRC4.cpp" />
     <ClCompile Include="Common\qzlib.cpp" />
     <ClCompile Include="Common\Settings.cpp" />
     <ClCompile Include="Common\SettingsWidgets.cpp" />
@@ -237,6 +238,7 @@
     <QtMoc Include="Common\TreeViewEx.h" />
     <QtMoc Include="Common\TreeWidgetEx.h" />
     <ClInclude Include="Common\IconExtreactor.h" />
+    <ClInclude Include="Common\qRC4.h" />
     <ClInclude Include="Common\qzlib.h" />
     <ClInclude Include="Common\Xml.h" />
     <ClInclude Include="MiscHelpers.h" />

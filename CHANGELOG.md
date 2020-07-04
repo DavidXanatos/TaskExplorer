@@ -2,6 +2,21 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.2.8] - 2020-07-04
+
+### Added
+- "Original Token" button to inspect the original process tocken of sandboxed processes 
+-- SbieDrv driver 5.42 or higher required
+- added commandline option to start multiple instances
+- added driver file obfuscation and driver instalation dialog
+
+### Changed
+- reorganized settings pages
+- impoved sandboxie support implementation
+
+### fixed
+- fixed excesive CPU usage in new process filter
+- fixed outdated data showen in tokan panel when no token coudl be obtained
 
 
 

@@ -61,6 +61,8 @@ CWinThread::CWinThread(QObject *parent)
 
 	m_IsGuiThread = false;
 	m_IsCritical = false;
+	m_HasToken = false;
+
 
 	m = new SWinThread();
 }

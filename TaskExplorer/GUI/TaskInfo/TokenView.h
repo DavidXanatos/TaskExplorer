@@ -22,6 +22,7 @@ private slots:
 
 	void					OnTokenAction();
 
+	void					OnOriginalToken();
 	void					OnDefaultToken();
 	void					OnPermissions();
 	void					OnChangeIntegrity();
@@ -80,6 +81,7 @@ private:
 
 	CFinder*				m_pFinder;
 
+	QPushButton*			m_pOriginalToken;
 	QPushButton*			m_pDefaultToken;
 	QPushButton*			m_pPermissions;
 	QComboBox*				m_pIntegrity;

@@ -80,13 +80,12 @@ CThreadsView::CThreadsView(QWidget *parent)
 	m_pMenu->addSeparator();
 
 	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
-	m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
-	//m_pAnalyze;
-	m_pCritical = m_pMiscMenu->addAction(tr("Critical Thread Flag"), this, SLOT(OnThreadAction()));
-	m_pCritical->setCheckable(true);
-	m_pToken = m_pMiscMenu->addAction(tr("Impersonation Token"), this, SLOT(OnThreadToken()));
+		m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
+		//m_pAnalyze;
+		m_pCritical = m_pMiscMenu->addAction(tr("Critical Thread Flag"), this, SLOT(OnThreadAction()));
+		m_pCritical->setCheckable(true);
 
-	//m_pToken;
+	m_pToken = m_pMenu->addAction(tr("Impersonation Token"), this, SLOT(OnThreadToken()));
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
 

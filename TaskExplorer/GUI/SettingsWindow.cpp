@@ -72,6 +72,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.trayMode->addItem(tr("CPU plot and RAM+Swap bars"), "CpuMem2");
 	ui.trayMode->setCurrentIndex(ui.trayMode->findData(theConf->GetString("SysTray/GraphMode", "CpuMem")));
 
+	ui.chkSandboxie->setChecked(theConf->GetBool("Options/UseSandboxie", false));
+
 	ui.chkSoftForce->setCheckState((Qt::CheckState)theConf->GetInt("Options/UseSoftForce", 2));
 
 	ui.highlightTime->setValue(theConf->GetUInt64("Options/HighlightTime", 2500));
@@ -181,6 +183,8 @@ void CSettingsWindow::apply()
 	theConf->SetValue("SysTray/Show", ui.chkShowTray->isChecked());
 
 	theConf->SetValue("SysTray/GraphMode", ui.trayMode->currentData());
+
+	theConf->SetValue("Options/UseSandboxie", ui.chkSandboxie->isChecked());
 
 	theConf->SetValue("Options/UseSoftForce", (int)ui.chkSoftForce->checkState());
 

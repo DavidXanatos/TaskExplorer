@@ -22,20 +22,20 @@ API_ARGS_FIELD(ULONG *,session_id)
 API_ARGS_FIELD(ULONG64 *,create_time)
 API_ARGS_CLOSE(API_QUERY_PROCESS_ARGS)
 
+API_ARGS_BEGIN(API_QUERY_PROCESS_INFO_ARGS)
+API_ARGS_FIELD(HANDLE, process_id)
+API_ARGS_FIELD(ULONG, info_type)
+API_ARGS_FIELD(ULONG64 *, info_data)
+API_ARGS_CLOSE(API_QUERY_PROCESS_INFO_ARGS)
+
 struct SSandboxieAPI
 {
 	SSandboxieAPI()
 	{
-		SbieApiHandle = INVALID_HANDLE_VALUE;
 	}
-
-	HANDLE SbieApiHandle = INVALID_HANDLE_VALUE;
 
 	LONG SbieApiQueryProcess(HANDLE ProcessId, ULONG image_name_len_in_wchars, WCHAR *out_box_name_wchar34, WCHAR *out_image_name_wcharXXX, WCHAR *out_sid_wchar96, ULONG *out_session_id, ULONG64 *out_create_time)
 	{
-		if (SbieApiHandle == INVALID_HANDLE_VALUE)
-			return STATUS_SYSTEM_DEVICE_NOT_FOUND;
-
 		__declspec(align(8)) UNICODE_STRING64 BoxName;
 		__declspec(align(8)) UNICODE_STRING64 ImageName;
 		__declspec(align(8)) UNICODE_STRING64 SidString;
@@ -76,46 +76,64 @@ struct SSandboxieAPI
 			args->create_time.val64 = (ULONG64)(ULONG_PTR)out_create_time;
 
 		IO_STATUS_BLOCK IoStatusBlock;
-		NTSTATUS status = NtDeviceIoControlFile(SbieApiHandle, NULL, NULL, NULL, &IoStatusBlock, SBIE_SBIEDRV_CTLCODE, parms, sizeof(ULONG64) * 8, NULL, 0);
+		NTSTATUS status = IoControl(parms);
+
+		return status;
+	}
+
+	ULONG64 QueryProcessInfo(HANDLE ProcessId, ULONG info_type)
+	{
+		__declspec(align(8)) ULONG64 ResultValue;
+		__declspec(align(8)) ULONG64 parms[SBIE_API_NUM_ARGS];
+		API_QUERY_PROCESS_INFO_ARGS *args = (API_QUERY_PROCESS_INFO_ARGS *)parms;
+
+		memset(parms, 0, sizeof(parms));
+		args->func_code = 0x1234002C; // API_QUERY_PROCESS_INFO;
+
+		args->process_id.val64 = (ULONG64)(ULONG_PTR)ProcessId;
+		args->info_type.val64 = (ULONG64)(ULONG_PTR)info_type;
+		args->info_data.val64 = (ULONG64)(ULONG_PTR)&ResultValue;
+
+		NTSTATUS status = IoControl(parms);
+		if (!NT_SUCCESS(status))
+			ResultValue = 0;
+
+		return ResultValue;
+	}
+
+	NTSTATUS IoControl(ULONG64 *parms)
+	{
+		NTSTATUS status;
+		IO_STATUS_BLOCK IoStatusBlock;
+
+		UNICODE_STRING uni;
+		RtlInitUnicodeString(&uni, SBIE_DEVICE_NAME);
+
+		OBJECT_ATTRIBUTES objattrs;
+		InitializeObjectAttributes(&objattrs, &uni, OBJ_CASE_INSENSITIVE, NULL, NULL);
+
+		HANDLE SbieApiHandle = INVALID_HANDLE_VALUE;
+		status = NtOpenFile(&SbieApiHandle, FILE_GENERIC_READ, &objattrs, &IoStatusBlock, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0);
+		if (!NT_SUCCESS(status))
+			return status;
+
+		status = NtDeviceIoControlFile(SbieApiHandle, NULL, NULL, NULL, &IoStatusBlock, SBIE_SBIEDRV_CTLCODE, parms, sizeof(ULONG64) * SBIE_API_NUM_ARGS, NULL, 0);
+
+		NtClose(SbieApiHandle);
 
 		return status;
 	}
 };
 
-QString CSandboxieAPI::FindSbieDll()
-{
-	QString dllPath = expandEnvStrings(theConf->GetString("Sandboxie/SbieDll", "%ProgramFiles%\\Sandboxie\\SbieDll.dll"));
-	if (!QFile::exists(dllPath))
-		return QString();
-	return dllPath;
-}
-
 CSandboxieAPI::CSandboxieAPI(QObject* parent)
  : QObject(parent)
 {
 	m = new SSandboxieAPI();
-
-	UNICODE_STRING uni;
-	RtlInitUnicodeString(&uni, SBIE_DEVICE_NAME);
-
-	OBJECT_ATTRIBUTES objattrs;
-    InitializeObjectAttributes(&objattrs, &uni, OBJ_CASE_INSENSITIVE, NULL, NULL);
-
-	IO_STATUS_BLOCK IoStatusBlock;
-    NTSTATUS status = NtOpenFile(&m->SbieApiHandle, FILE_GENERIC_READ, &objattrs, &IoStatusBlock, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0);
-
-    //if (status == STATUS_OBJECT_NAME_NOT_FOUND || status == STATUS_NO_SUCH_DEVICE)
-    //    status = STATUS_SERVER_DISABLED;
-
-	if (status != STATUS_SUCCESS) 
-		m->SbieApiHandle = INVALID_HANDLE_VALUE;
 }
 
 CSandboxieAPI::~CSandboxieAPI()
 {
-	if (m->SbieApiHandle) {
-		NtClose(m->SbieApiHandle);
-	}
+	delete m;
 }
 
 /*bool CSandboxieAPI::UpdateSandboxes()
@@ -185,11 +203,6 @@ CSandboxieAPI::~CSandboxieAPI()
 	return true;
 }*/
 
-bool CSandboxieAPI::IsConnected() const
-{
-	return m->SbieApiHandle != INVALID_HANDLE_VALUE;
-}
-
 QString CSandboxieAPI::GetSandBoxName(quint64 ProcessId) const
 {
 	/*QReadLocker Locker(&m_Mutex);
@@ -209,4 +222,9 @@ bool CSandboxieAPI::IsSandBoxed(quint64 ProcessId) const
 	if (!NT_SUCCESS(m->SbieApiQueryProcess((HANDLE)ProcessId, 0, NULL, NULL, NULL, &session_id, NULL)))
 		return false;
 	return session_id != 0;
+}
+
+quint64 CSandboxieAPI::OpenOriginalHandle(quint64 ProcessId) const
+{
+	return m->QueryProcessInfo((HANDLE)ProcessId, 'ptok');
 }

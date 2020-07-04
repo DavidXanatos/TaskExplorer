@@ -66,7 +66,7 @@ CWinToken::CWinToken(QObject *parent)
 
 CWinToken::~CWinToken()
 {
-	if (m->Type != eProcess)
+	if (m->Type != eProcess && m->Type != eOriginal)
 		NtClose(m->QueryHandle);
 	delete m;
 }
@@ -86,6 +86,13 @@ NTSTATUS NTAPI CWinToken__OpenProcessToken(_Out_ PHANDLE Handle, _In_ ACCESS_MAS
 	else if (m->Type == CWinToken::eThread)
 	{
 		status = NtOpenThreadToken(m->QueryHandle, DesiredAccess, TRUE, Handle);
+	}
+	else if (m->Type == CWinToken::eOriginal)
+	{
+		CSandboxieAPI* pSandboxieAPI = ((CWindowsAPI*)theAPI)->GetSandboxieAPI();
+		*Handle = pSandboxieAPI ? (HANDLE)pSandboxieAPI->OpenOriginalHandle((quint64)m->QueryHandle) : NULL;
+		if (Handle != NULL)
+			status = STATUS_SUCCESS;
 	}
 	else
 	{
@@ -167,6 +174,15 @@ CWinToken* CWinToken::TokenFromProcess(void* QueryHandle)
 	pToken->m->QueryHandle = QueryHandle;
 	pToken->InitStaticData();
 	return pToken;
+}
+
+CWinToken* CWinToken::OriginalToken(quint64 ProcessId)
+{
+	CWinToken* pOriginalToken = new CWinToken();
+	pOriginalToken->m->Type = eOriginal;
+	pOriginalToken->m->QueryHandle = (HANDLE)ProcessId;
+	pOriginalToken->InitStaticData();
+	return pOriginalToken;
 }
 
 bool CWinToken::InitStaticData()

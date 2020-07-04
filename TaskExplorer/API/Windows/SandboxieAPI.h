@@ -6,18 +6,16 @@ class CSandboxieAPI : public QObject
 {
 	Q_OBJECT
 public:
-	static QString FindSbieDll();
-
 	CSandboxieAPI(QObject* parent = NULL);
 	virtual ~CSandboxieAPI();
-
-	bool IsConnected() const;
 
 	//bool UpdateSandboxes();
 
 	QString GetSandBoxName(quint64 ProcessId) const;
 
 	bool IsSandBoxed(quint64 ProcessId) const;
+
+	quint64 OpenOriginalHandle(quint64 ProcessId) const;
 
 protected:
 	/*struct SBoxedProcess

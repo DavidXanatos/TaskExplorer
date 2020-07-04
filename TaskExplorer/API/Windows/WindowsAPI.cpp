@@ -261,14 +261,7 @@ bool CWindowsAPI::Init()
 	m_pDnsResolver->Init();
 
 	if (theConf->GetBool("Options/UseSandboxie", false))
-	{
 		m_pSandboxieAPI = new CSandboxieAPI();
-		if (!m_pSandboxieAPI->IsConnected())
-		{
-			m_pSandboxieAPI->deleteLater();
-			m_pSandboxieAPI = NULL;
-		}
-	}
 
 	return true;
 }

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>541</width>
+    <width>573</width>
     <height>451</height>
    </rect>
   </property>
@@ -49,12 +49,15 @@
        </property>
        <widget class="QWidget" name="tab">
         <attribute name="title">
-         <string>Options</string>
+         <string>UI Options</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_4">
          <item row="1" column="0">
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="16" column="0">
+           <item row="5" column="1">
+            <widget class="QSpinBox" name="highlightCount"/>
+           </item>
+           <item row="13" column="0">
             <spacer name="horizontalSpacer_3">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -67,7 +70,7 @@
              </property>
             </spacer>
            </item>
-           <item row="16" column="1">
+           <item row="13" column="1">
             <spacer name="verticalSpacer">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -80,9 +83,6 @@
              </property>
             </spacer>
            </item>
-           <item row="1" column="1">
-            <widget class="QComboBox" name="uiLang"/>
-           </item>
            <item row="4" column="1">
             <widget class="QCheckBox" name="chkClearZeros">
              <property name="text">
@@ -90,12 +90,8 @@
              </property>
             </widget>
            </item>
-           <item row="8" column="1">
-            <widget class="QCheckBox" name="chkShow32">
-             <property name="text">
-              <string>Append &quot;*32&quot; to WoW64 processes</string>
-             </property>
-            </widget>
+           <item row="1" column="1">
+            <widget class="QComboBox" name="uiLang"/>
            </item>
            <item row="6" column="2">
             <widget class="QLabel" name="label_12">
@@ -124,16 +120,6 @@
              </property>
             </widget>
            </item>
-           <item row="7" column="0">
-            <widget class="QLabel" name="label_8">
-             <property name="text">
-              <string>Graph length:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
            <item row="0" column="0">
             <widget class="QLabel" name="label_4">
              <property name="font">
@@ -144,6 +130,16 @@
              </property>
              <property name="text">
               <string>General options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_8">
+             <property name="text">
+              <string>Graph length:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -161,36 +157,6 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="1">
-            <widget class="QCheckBox" name="chkLinuxStyle">
-             <property name="text">
-              <string>Show CPU Usage like on Linux</string>
-             </property>
-             <property name="tristate">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="11" column="1">
-            <widget class="QCheckBox" name="chkShowTray">
-             <property name="text">
-              <string>Show Sys-Tray</string>
-             </property>
-            </widget>
-           </item>
-           <item row="10" column="0">
-            <widget class="QLabel" name="label_5">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Tray options</string>
-             </property>
-            </widget>
-           </item>
            <item row="7" column="1">
             <widget class="QSpinBox" name="graphLength">
              <property name="maximum">
@@ -198,6 +164,16 @@
              </property>
              <property name="singleStep">
               <number>60</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QCheckBox" name="chkLinuxStyle">
+             <property name="text">
+              <string>Show CPU Usage like on Linux</string>
+             </property>
+             <property name="tristate">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -211,7 +187,7 @@
              </property>
             </widget>
            </item>
-           <item row="16" column="2">
+           <item row="13" column="2">
             <spacer name="horizontalSpacer_2">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -224,49 +200,10 @@
              </property>
             </spacer>
            </item>
-           <item row="9" column="1">
-            <widget class="QCheckBox" name="chkDarkTheme">
-             <property name="text">
-              <string>Use Dark Theme</string>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="1">
-            <widget class="QSpinBox" name="highlightCount"/>
-           </item>
-           <item row="12" column="0">
-            <widget class="QLabel" name="label_10">
-             <property name="text">
-              <string>Infos in tray:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="13" column="0">
-            <widget class="QLabel" name="label_15">
-             <property name="text">
-              <string>On main window close:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
            <item row="12" column="1">
-            <widget class="QComboBox" name="trayMode"/>
-           </item>
-           <item row="13" column="1">
-            <widget class="QComboBox" name="onClose"/>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_23">
+            <widget class="QCheckBox" name="chkParents">
              <property name="text">
-              <string>Interface language:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              <string>Retain parrent processes</string>
              </property>
             </widget>
            </item>
@@ -279,6 +216,193 @@
               <set>Qt::AlignCenter</set>
              </property>
             </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_23">
+             <property name="text">
+              <string>Interface language:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="1">
+            <widget class="QCheckBox" name="chkDarkTheme">
+             <property name="text">
+              <string>Use Dark Theme</string>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="0">
+            <widget class="QLabel" name="label_7">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Process options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="10" column="1">
+            <widget class="QComboBox" name="processName"/>
+           </item>
+           <item row="11" column="1">
+            <widget class="QCheckBox" name="chkShow32">
+             <property name="text">
+              <string>Append &quot;*32&quot; to WoW64 processes</string>
+             </property>
+            </widget>
+           </item>
+           <item row="10" column="0">
+            <widget class="QLabel" name="label_14">
+             <property name="text">
+              <string>Process name</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="tab_4">
+        <attribute name="title">
+         <string>Misc Options</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout_9">
+         <item row="0" column="0">
+          <layout class="QGridLayout" name="gridLayout_8">
+           <item row="9" column="1">
+            <spacer name="verticalSpacer_4">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="9" column="0">
+            <spacer name="horizontalSpacer_9">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="3" column="1">
+            <widget class="QCheckBox" name="chkReverseDns">
+             <property name="text">
+              <string>Use Reverse DNS for remote host name resolution</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_43">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Network Options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QCheckBox" name="chkLanPlot">
+             <property name="text">
+              <string>Show LAN only TCP/IP Traffic (ETW)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1" colspan="2">
+            <widget class="QCheckBox" name="chkSmartDns">
+             <property name="text">
+              <string>Use DNS cache for remote host name resolution</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QCheckBox" name="chkUdpCons">
+             <property name="text">
+              <string>Show Pseudo UDP Connections (ETW)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Tray options</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QCheckBox" name="chkShowTray">
+             <property name="text">
+              <string>Show Sys-Tray</string>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="2">
+            <spacer name="horizontalSpacer_8">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="7" column="1">
+            <widget class="QComboBox" name="trayMode"/>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_10">
+             <property name="text">
+              <string>Infos in tray:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_15">
+             <property name="text">
+              <string>On main window close:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="1">
+            <widget class="QComboBox" name="onClose"/>
            </item>
           </layout>
          </item>
@@ -430,30 +554,6 @@
         <layout class="QGridLayout" name="gridLayout_6">
          <item row="0" column="0">
           <layout class="QGridLayout" name="gridLayout_5">
-           <item row="9" column="1" colspan="2">
-            <widget class="QCheckBox" name="chkSoftForce">
-             <property name="text">
-              <string>Use soft force, hold CTRL to use hard force</string>
-             </property>
-            </widget>
-           </item>
-           <item row="9" column="0">
-            <widget class="QLabel" name="label_16">
-             <property name="text">
-              <string>Forced Shutdown/Reboot:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="6" column="1">
-            <widget class="QCheckBox" name="chkTraceDLLs">
-             <property name="text">
-              <string>Trace unloaded modules</string>
-             </property>
-            </widget>
-           </item>
            <item row="0" column="0">
             <widget class="QLabel" name="label_6">
              <property name="font">
@@ -467,8 +567,19 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="1" colspan="2">
-            <widget class="QLineEdit" name="symbolPath"/>
+           <item row="8" column="1" colspan="2">
+            <widget class="QCheckBox" name="chkSoftForce">
+             <property name="text">
+              <string>Use soft force, hold CTRL to use hard force</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QCheckBox" name="chkTraceDLLs">
+             <property name="text">
+              <string>Trace unloaded modules</string>
+             </property>
+            </widget>
            </item>
            <item row="2" column="0">
             <widget class="QCheckBox" name="chkSymbolPath">
@@ -477,7 +588,10 @@
              </property>
             </widget>
            </item>
-           <item row="8" column="0">
+           <item row="2" column="1" colspan="2">
+            <widget class="QLineEdit" name="symbolPath"/>
+           </item>
+           <item row="6" column="0">
             <widget class="QLabel" name="label_17">
              <property name="font">
               <font>
@@ -490,38 +604,7 @@
              </property>
             </widget>
            </item>
-           <item row="11" column="1">
-            <widget class="QCheckBox" name="chkUdpCons">
-             <property name="text">
-              <string>Show Pseudo UDP Connections (ETW)</string>
-             </property>
-            </widget>
-           </item>
-           <item row="14" column="1" colspan="2">
-            <widget class="QCheckBox" name="chkSmartDns">
-             <property name="text">
-              <string>Use DNS cache for remote host name resolution</string>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="0">
-            <widget class="QLabel" name="label_14">
-             <property name="text">
-              <string>Process name</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="1">
-            <widget class="QCheckBox" name="chkParents">
-             <property name="text">
-              <string>Retain parrent processes</string>
-             </property>
-            </widget>
-           </item>
-           <item row="15" column="2">
+           <item row="9" column="2">
             <spacer name="horizontalSpacer_5">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -534,23 +617,7 @@
              </property>
             </spacer>
            </item>
-           <item row="4" column="1">
-            <widget class="QComboBox" name="processName"/>
-           </item>
-           <item row="15" column="0">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="15" column="1">
+           <item row="9" column="1">
             <spacer name="verticalSpacer_2">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -563,6 +630,19 @@
              </property>
             </spacer>
            </item>
+           <item row="9" column="0">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
            <item row="1" column="1">
             <widget class="QCheckBox" name="chkUndecorate">
              <property name="text">
@@ -570,15 +650,15 @@
              </property>
             </widget>
            </item>
-           <item row="13" column="1">
-            <widget class="QCheckBox" name="chkReverseDns">
+           <item row="5" column="1">
+            <widget class="QCheckBox" name="chkGetRefServices">
              <property name="text">
-              <string>Use Reverse DNS for remote host name resolution</string>
+              <string>Resolve refering services</string>
              </property>
             </widget>
            </item>
            <item row="3" column="0">
-            <widget class="QLabel" name="label_7">
+            <widget class="QLabel" name="label_30">
              <property name="font">
               <font>
                <weight>75</weight>
@@ -586,34 +666,44 @@
               </font>
              </property>
              <property name="text">
-              <string>Process options</string>
+              <string>Dll Options</string>
              </property>
             </widget>
            </item>
-           <item row="10" column="0">
-            <widget class="QLabel" name="label_41">
-             <property name="font">
-              <font>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_16">
              <property name="text">
-              <string>Network Options</string>
+              <string>Forced Shutdown/Reboot:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_31">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
            <item row="7" column="1">
-            <widget class="QCheckBox" name="chkGetRefServices">
+            <widget class="QCheckBox" name="chkSandboxie">
              <property name="text">
-              <string>Resolce refering services</string>
+              <string>Support Sandboxie</string>
              </property>
             </widget>
            </item>
-           <item row="12" column="1">
-            <widget class="QCheckBox" name="chkLanPlot">
+           <item row="7" column="2">
+            <widget class="QLabel" name="label_25">
              <property name="text">
-              <string>Show LAN only TCP/IP Traffic (ETW)</string>
+              <string>Restart required (!)</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
              </property>
             </widget>
            </item>

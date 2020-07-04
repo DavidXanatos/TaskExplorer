@@ -21,6 +21,7 @@ public:
 	static CWinToken* TokenFromProcess(void* QueryHandle);
 	static CWinToken* TokenFromHandle(quint64 ProcessId, quint64 HandleId);
 	static CWinToken* TokenFromThread(quint64 ThreadId);
+	static CWinToken* OriginalToken(quint64 ProcessId);
 
 	virtual QString			GetUserName() const { QReadLocker Locker(&m_Mutex); return m_UserName; }
 	virtual QString			GetContainerName() const { QReadLocker Locker(&m_Mutex); return m_ContainerName; }
@@ -206,6 +207,7 @@ public:
 	{
 		eProcess = 0,
 		eLinked,
+		eOriginal,
 		eHandle,
 		eThread
 	};

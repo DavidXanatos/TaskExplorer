@@ -262,6 +262,12 @@ CTokenView::CTokenView(QWidget *parent)
     horizontalLayout->addItem(new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 	m_pMainLayout->addLayout(horizontalLayout);
 
+	m_pOriginalToken = new QPushButton();
+	m_pOriginalToken->setText(tr("Original token"));
+    horizontalLayout->addWidget(m_pOriginalToken);
+	connect(m_pOriginalToken, SIGNAL(pressed()), this, SLOT(OnOriginalToken()));
+	m_pOriginalToken->setVisible(false);
+
     m_pDefaultToken = new QPushButton();
 	m_pDefaultToken->setText(tr("Default token"));
     horizontalLayout->addWidget(m_pDefaultToken);
@@ -352,10 +358,11 @@ void CTokenView__SetRowColor(QTreeWidgetItem* pItem, bool bEnabled, bool bModifi
 
 void CTokenView::ShowToken(const CWinTokenPtr& pToken)
 {
-	if (m_pCurToken != pToken)
-	{
-		m_pCurToken = pToken;
-	}
+	if (m_pCurToken == pToken)
+		return;
+	
+	m_pCurToken = pToken;
+	setEnabled(!m_pCurToken.isNull());
 
 	Refresh();
 
@@ -406,6 +413,8 @@ void CTokenView::UpdateGeneral()
 
 	CTokenView__SetTextIfChanged(m_pOwner, m_pCurToken->GetOwnerName()); // note: this is being resolved asynchroniusly
 	CTokenView__SetTextIfChanged(m_pGroup, m_pCurToken->GetGroupName()); // note: this is being resolved asynchroniusly
+
+	m_pOriginalToken->setVisible(m_pCurProcess && m_pCurProcess->IsSandBoxed());
 
 	quint32 integrityLevelRID = m_pCurToken->GetIntegrityLevel();
 	int InegrityIndex = m_pIntegrity->findData(integrityLevelRID);
@@ -866,6 +875,21 @@ retry:
 	CTaskExplorer::CheckErrors(Errors);
 }
 
+void CTokenView::OnOriginalToken()
+{
+	if (!m_pCurToken)
+		return;
+
+	CWinToken* pToken = CWinToken::OriginalToken(m_pCurProcess->GetProcessId());
+	if (pToken)
+	{
+		CTokenView* pTokenView = new CTokenView();
+		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pTokenView, tr("Original Token"));
+		pTokenView->ShowToken(CWinTokenPtr(pToken));
+		pTaskInfoWindow->show();
+	}
+}
+
 void CTokenView::OnDefaultToken()
 {
 	if (m_pCurToken)
@@ -916,7 +940,7 @@ void CTokenView::OnLinkedToken()
 	if (pLinkedToken)
 	{
 		CTokenView* pTokenView = new CTokenView();
-		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pTokenView, tr("Token"));
+		CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(pTokenView, tr("Linked Token"));
 		pTokenView->ShowToken(pLinkedToken);
 		pTaskInfoWindow->show();
 	}

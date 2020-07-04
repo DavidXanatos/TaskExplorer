@@ -18,7 +18,7 @@ public:
 	virtual void SetFilterOther(int iSet)		{m_iFilterOther = iSet; invalidate(); }
 	virtual void SetFilterOwn(int iSet)			{m_iFilterOwn = iSet; invalidate(); }
 
-	virtual void UpdateUsers(const QSet<QString>& Users) {m_Users = Users; invalidate(); }
+	virtual void UpdateUsers(const QSet<QString>& Users);
 
 protected:
 	bool m_bEnabled;
