@@ -266,7 +266,7 @@ VOID PvpSetWslImageBase(
 
     if (PvMappedImage.Header->e_ident[EI_CLASS] == ELFCLASS32)
     {
-        string = PhFormatString(L"0x%I32x", PhGetMappedWslImageBaseAddress(&PvMappedImage));
+        string = PhFormatString(L"0x%I32x", (ULONG)PhGetMappedWslImageBaseAddress(&PvMappedImage));
         PhSetDialogItemText(hwndDlg, IDC_IMAGEBASE, string->Buffer);
         PhDereferenceObject(string);
     }
@@ -410,8 +410,11 @@ VOID PvpLoadWslSections(
             lvItemIndex = PhAddListViewItem(LvHandle, MAXINT, imageSections[i].Name, NULL);
             PhSetListViewSubItem(LvHandle, lvItemIndex, 1, PvpGetWslImageSectionTypeName(imageSections[i].Type));
 
-            PhPrintPointer(pointer, (PVOID)imageSections[i].Address);
-            PhSetListViewSubItem(LvHandle, lvItemIndex, 2, pointer);
+            if (imageSections[i].Address)
+            {
+                PhPrintPointer(pointer, (PVOID)imageSections[i].Address);
+                PhSetListViewSubItem(LvHandle, lvItemIndex, 2, pointer);
+            }
 
             PhPrintPointer(pointer, (PVOID)imageSections[i].Offset);
             PhSetListViewSubItem(LvHandle, lvItemIndex, 3, pointer);
@@ -444,7 +447,7 @@ INT_PTR CALLBACK PvpExlfGeneralDlgProc(
             HWND lvHandle;
 
             lvHandle = GetDlgItem(hwndDlg, IDC_LIST);
-            PhSetListViewStyle(lvHandle, FALSE, TRUE);
+            PhSetListViewStyle(lvHandle, TRUE, TRUE);
             PhSetControlTheme(lvHandle, L"explorer");
             PhAddListViewColumn(lvHandle, 0, 0, 0, LVCFMT_LEFT, 80, L"Name");
             PhAddListViewColumn(lvHandle, 1, 1, 1, LVCFMT_LEFT, 80, L"Type");
@@ -463,7 +466,7 @@ INT_PTR CALLBACK PvpExlfGeneralDlgProc(
 
             PvpLoadWslSections(lvHandle);
 
-            EnableThemeDialogTexture(hwndDlg, ETDT_ENABLETAB);
+            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
         }
         break;
     case WM_DESTROY:
@@ -482,7 +485,6 @@ INT_PTR CALLBACK PvpExlfGeneralDlgProc(
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_NAME), dialogItem, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_COMPANYNAME), dialogItem, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_LIST), dialogItem, PH_ANCHOR_ALL);
-
                 PvDoPropPageLayout(hwndDlg);
 
                 propPageContext->LayoutInitialized = TRUE;

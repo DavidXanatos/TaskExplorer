@@ -710,7 +710,6 @@
     <ClInclude Include="API\Windows\ProcessHacker\appsup.h" />
     <ClInclude Include="API\Windows\ProcessHacker\clretw.h" />
     <ClInclude Include="API\Windows\ProcessHacker\clrsup.h" />
-    <ClInclude Include="API\Windows\ProcessHacker\d3dkmt.h" />
     <ClInclude Include="API\Windows\ProcessHacker\devices.h" />
     <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h" />
     <ClInclude Include="API\Windows\ProcessHacker\GpuCounters.h" />

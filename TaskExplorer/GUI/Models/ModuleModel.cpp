@@ -138,9 +138,8 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 				case eLoadCount:			Value = pWinModule->GetLoadCount(); break;
 				case eVerificationStatus:	Value = pWinModule->GetVerifyResultString(); break;
 				case eVerifiedSigner:		Value = pWinModule->GetVerifySignerName(); break;
-				case eASLR:					Value = pWinModule->GetASLRString(); break;
+				case eMitigations:			Value = pWinModule->GetMitigationsString(); break;
 				case eTimeStamp:			Value = pWinModule->GetTimeStamp(); break;
-				case eCFGuard:				Value = pWinModule->GetCFGuardString(); break;
 				case eLoadTime:				Value = pWinModule->GetLoadTime(); break;
 				case eLoadReason:			Value = pWinModule->GetLoadReasonString(); break;
 #endif
@@ -238,9 +237,8 @@ QVariant CModuleModel::headerData(int section, Qt::Orientation orientation, int 
 			case eLoadCount:			return tr("Load count");
 			case eVerificationStatus:	return tr("Verification status");
 			case eVerifiedSigner:		return tr("Verified signer");
-			case eASLR:					return tr("ASLR");
+			case eMitigations:			return tr("Mitigations");
 			case eTimeStamp:			return tr("Time stamp");
-			case eCFGuard:				return tr("CF Guard");
 			case eLoadTime:				return tr("Load time");
 			case eLoadReason:			return tr("Load reason");
 #endif

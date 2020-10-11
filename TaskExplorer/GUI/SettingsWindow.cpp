@@ -33,6 +33,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	}
 	ui.chkClearZeros->setChecked(theConf->GetBool("Options/ClearZeros", true));
 
+	ui.chkMaxThread->setChecked(theConf->GetBool("Options/ShowMaxThread", false));
+
 	ui.chkShow32->setChecked(theConf->GetBool("Options/Show32", true));
 
 	ui.chkDarkTheme->setChecked(theConf->GetBool("MainWindow/DarkTheme", false));
@@ -157,6 +159,8 @@ void CSettingsWindow::apply()
 	case Qt::PartiallyChecked:theConf->GetInt("Options/LinuxStyleCPU", 2); break;
 	}
 	theConf->SetValue("Options/ClearZeros", ui.chkClearZeros->isChecked());
+
+	theConf->SetValue("Options/ShowMaxThread", ui.chkMaxThread->isChecked());
 
 	theConf->SetValue("Options/Show32", ui.chkShow32->isChecked());
 

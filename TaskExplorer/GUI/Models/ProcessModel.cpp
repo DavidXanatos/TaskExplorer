@@ -77,6 +77,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 	bool bShow32 = theConf->GetBool("Options/Show32", true);
 	bool bClearZeros = theConf->GetBool("Options/ClearZeros", true);
+	bool bShowMaxThread = theConf->GetBool("Options/ShowMaxThread", false);
 	int iHighlightMax = theConf->GetInt("Options/HighLoadHighlightCount", 5);
 	time_t curTime = GetTime();
 
@@ -183,6 +184,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 		SProcStats IoStats = pProcess->GetStats();
 		STaskStatsEx CpuStats = pProcess->GetCpuStats();
+		STaskStats CpuStats2 = pProcess->GetCpuStats2();
 		SGpuStats GpuStats;
 		if (bGpuStats) // Note: GetGpuStats marks gpu stats to be keept updated, hence don't get it when its not needed
 			GpuStats = pProcess->GetGpuStats();
@@ -286,7 +288,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #ifdef WIN32
 				case eVerificationStatus:	Value = pWinModule ? pWinModule->GetVerifyResultString() : ""; break;
 				case eVerifiedSigner:		Value = pWinModule ? pWinModule->GetVerifySignerName() : ""; break;
-				case eASLR:					Value = pWinModule ? pWinModule->GetASLRString() : ""; break;
+				case eMitigations:			Value = pWinProc->GetMitigationsString(); break;
 #endif
 				case eUpTime:				Value = pProcess->GetCreateTimeStamp() != 0 ? (curTime - pProcess->GetCreateTimeStamp() / 1000) : 0; break; // we must update the value to refresh the display
 				case eArch:					Value = pProcess->GetArchString(); break;
@@ -302,7 +304,6 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eCycles:				Value = CurIntValue = CpuStats.CycleDelta.Value; break;
 				case eCyclesDelta:			Value = CurIntValue = CpuStats.CycleDelta.Delta; break;
 #ifdef WIN32
-				case eDEP:					Value = pWinProc->GetDEPStatusString(); break;
 				case eVirtualized:			Value = pToken ? pToken->GetVirtualizationString() : ""; break;
 #endif
 				case eContextSwitches:		Value = CurIntValue = CpuStats.ContextSwitchesDelta.Value; break;
@@ -348,7 +349,6 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case ePackageName:			Value = pWinProc->GetPackageName(); break;
 				case eAppID:				Value = pWinProc->GetAppID();  break;
 				case eDPI_Awareness:		Value = (int)pWinProc->GetDPIAwareness(); break;
-				case eCF_Guard:				Value = pWinProc->GetCFGuardString(); break;
 				case eTimeStamp:			Value = pWinModule ? pWinModule->GetTimeStamp() : 0; break;
 #endif
 				case eFileModifiedTime:		Value = pModule ? pModule->GetModificationTime() : 0; break;
@@ -447,6 +447,18 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case ePID:				if (Value.toLongLong() < 0) ColValue.Formated = ""; break;
 
 					case eCPU:
+											if(!bClearZeros || Value.toDouble() > 0.00004)
+											{
+												QString ValueStr = QString::number(Value.toDouble()*100, 10, 2) + "%"; 
+												if(bShowMaxThread)
+													ValueStr += " / " + QString::number(CpuStats2.CpuUsage*100, 10, 2) + "%"; 
+												ColValue.Formated = ValueStr;
+											}
+											else
+												ColValue.Formated = "";
+											break;
+
+
 					case eGPU_Usage:
 											ColValue.Formated = (!bClearZeros || Value.toDouble() > 0.00004) ? QString::number(Value.toDouble()*100, 10, 2) + "%" : ""; break;
 
@@ -764,7 +776,6 @@ QString CProcessModel::GetColumHeader(int section) const
 #ifdef WIN32
 		case eVerificationStatus:	return tr("Verification status");
 		case eVerifiedSigner:		return tr("Verified signer");
-		case eASLR:					return tr("ASLR");
 #endif
 		case eUpTime:				return tr("Up Time");
 		case eArch:					return tr("CPU Arch.");
@@ -783,7 +794,7 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eVMEM_History:			return tr("V. Mem. graph");
 
 #ifdef WIN32
-		case eDEP:					return tr("DEP");
+		case eMitigations:			return tr("Mitigations");
 		case eVirtualized:			return tr("Virtualized");
 #endif
 		case eContextSwitches:		return tr("Context switches");
@@ -829,7 +840,6 @@ QString CProcessModel::GetColumHeader(int section) const
 		case ePackageName:			return tr("Package name");
 		case eAppID:				return tr("App ID");
 		case eDPI_Awareness:		return tr("DPI awareness");
-		case eCF_Guard:				return tr("CF Guard");
 #endif
 		case eTimeStamp:			return tr("Time stamp");
 		case eFileModifiedTime:		return tr("File modified time");

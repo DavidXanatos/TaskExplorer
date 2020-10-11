@@ -99,8 +99,6 @@ PhDelayExecution(
 // Heap
 
 _May_raise_
-_Check_return_
-_Ret_notnull_
 _Post_writable_byte_size_(Size)
 PHLIBAPI
 PVOID
@@ -109,6 +107,9 @@ PhAllocate(
     _In_ SIZE_T Size
     );
 
+_Must_inspect_result_
+_Ret_maybenull_
+_Post_writable_byte_size_(Size)
 PHLIBAPI
 PVOID
 NTAPI
@@ -116,6 +117,9 @@ PhAllocateSafe(
     _In_ SIZE_T Size
     );
 
+_Must_inspect_result_
+_Ret_maybenull_
+_Post_writable_byte_size_(Size)
 PHLIBAPI
 PVOID
 NTAPI
@@ -164,7 +168,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhFreePage(
-    _Post_invalid_ PVOID Memory
+    _In_ _Post_invalid_ PVOID Memory
     );
 
 FORCEINLINE
@@ -1248,7 +1252,7 @@ PhGetStringOrEmpty(
     if (String)
         return String->Buffer;
     else
-        return L"";
+        return (PWSTR)TEXT("");
 }
 
 /**
@@ -1278,14 +1282,19 @@ PhGetStringOrDefault(
  *
  * \param String A pointer to a string object.
  */
-FORCEINLINE
-BOOLEAN
-PhIsNullOrEmptyString(
-    _In_opt_ PPH_STRING String
-    )
-{
-    return !String || String->Length == 0;
-}
+//FORCEINLINE
+//BOOLEAN
+//PhIsNullOrEmptyString(
+//    _In_opt_ PPH_STRING String
+//    )
+//{
+//    return !String || String->Length == 0;
+//}
+
+// VS2019 can't parse the inline bool check for the above PhIsNullOrEmptyString
+// inline function creating invalid C6387 warnings using the input string (dmex)
+#define PhIsNullOrEmptyString(string) \
+    (!(string) || (string)->Length == 0)
 
 /**
  * Duplicates a string.
@@ -1744,6 +1753,16 @@ PhCreateBytes2(
 {
     return PhCreateBytesEx(Bytes->Buffer, Bytes->Length);
 }
+
+PPH_BYTES PhFormatBytes_V(
+    _In_ _Printf_format_string_ PSTR Format,
+    _In_ va_list ArgPtr
+    );
+
+PPH_BYTES PhFormatBytes(
+    _In_ _Printf_format_string_ PSTR Format,
+    ...
+    );
 
 // Unicode
 
@@ -2856,13 +2875,9 @@ typedef struct _PH_HASHTABLE
     ULONG NextEntry;
 } PH_HASHTABLE, *PPH_HASHTABLE;
 
-#define PH_HASHTABLE_ENTRY_SIZE(InnerSize) (UFIELD_OFFSET(PH_HASHTABLE_ENTRY, Body) + (InnerSize))
-#define PH_HASHTABLE_GET_ENTRY(Hashtable, Index) \
-    ((PPH_HASHTABLE_ENTRY)PTR_ADD_OFFSET((Hashtable)->Entries, \
-    PH_HASHTABLE_ENTRY_SIZE((Hashtable)->EntrySize) * (Index)))
-#define PH_HASHTABLE_GET_ENTRY_INDEX(Hashtable, Entry) \
-    ((ULONG)(PTR_ADD_OFFSET(Entry, -(Hashtable)->Entries) / \
-    PH_HASHTABLE_ENTRY_SIZE((Hashtable)->EntrySize)))
+#define PH_HASHTABLE_ENTRY_SIZE(InnerSize) (UInt32Add32To64(UFIELD_OFFSET(PH_HASHTABLE_ENTRY, Body), (InnerSize)))
+#define PH_HASHTABLE_GET_ENTRY(Hashtable, Index) ((PPH_HASHTABLE_ENTRY)PTR_ADD_OFFSET((Hashtable)->Entries, UInt32Mul32To64(PH_HASHTABLE_ENTRY_SIZE((Hashtable)->EntrySize), (Index))))
+#define PH_HASHTABLE_GET_ENTRY_INDEX(Hashtable, Entry) ((ULONG)(PTR_ADD_OFFSET(Entry, -(Hashtable)->Entries) / PH_HASHTABLE_ENTRY_SIZE((Hashtable)->EntrySize)))
 
 PHLIBAPI
 PPH_HASHTABLE
@@ -3276,10 +3291,12 @@ PhHexStringToBuffer(
     );
 
 PHLIBAPI
-PPH_STRING
+BOOLEAN
 NTAPI
 PhHexStringToBufferEx(
-    _In_ PPH_STRINGREF String
+    _In_ PPH_STRINGREF String,
+    _In_ ULONG BufferLength,
+    _Out_writes_bytes_(BufferLength) PVOID Buffer
     );
 
 PHLIBAPI
@@ -3332,6 +3349,7 @@ PhIntegerToString64(
 #define PH_TIMESPAN_HMS 0
 #define PH_TIMESPAN_HMSM 1
 #define PH_TIMESPAN_DHMS 2
+#define PH_TIMESPAN_DHMSM 3
 
 PHLIBAPI
 VOID
@@ -3340,6 +3358,17 @@ PhPrintTimeSpan(
     _Out_writes_(PH_TIMESPAN_STR_LEN_1) PWSTR Destination,
     _In_ ULONG64 Ticks,
     _In_opt_ ULONG Mode
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhPrintTimeSpanToBuffer(
+    _In_ ULONG64 Ticks,
+    _In_opt_ ULONG Mode,
+    _Out_writes_bytes_(BufferLength) PWSTR Buffer,
+    _In_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
     );
 
 PHLIBAPI
@@ -3599,6 +3628,7 @@ typedef struct _PH_FORMAT
 #define PhInitFormatI64D(f, v) do { (f)->Type = Int64FormatType; (f)->u.Int64 = (v); } while (0)
 #define PhInitFormatI64U(f, v) do { (f)->Type = UInt64FormatType; (f)->u.UInt64 = (v); } while (0)
 #define PhInitFormatI64UGroupDigits(f, v) do { (f)->Type = (PH_FORMAT_TYPE)(UInt64FormatType | FormatGroupDigits); (f)->u.UInt64 = (v); } while (0)
+#define PhInitFormatI64UWithWidth(f, v, w) do { (f)->Type = (PH_FORMAT_TYPE)(UInt64FormatType | FormatPadZeros); (f)->u.UInt64 = (v); (f)->Width = (w); } while (0)
 #define PhInitFormatI64X(f, v) do { (f)->Type = (PH_FORMAT_TYPE)(UInt64FormatType | FormatUseRadix); (f)->u.UInt64 = (v); (f)->Radix = 16; } while (0)
 #define PhInitFormatIU(f, v) do { (f)->Type = UIntPtrFormatType; (f)->u.UIntPtr = (v); } while (0)
 #define PhInitFormatIX(f, v) do { (f)->Type = (PH_FORMAT_TYPE)(UIntPtrFormatType | FormatUseRadix); (f)->u.UIntPtr = (v); (f)->Radix = 16; } while (0)
@@ -3606,6 +3636,7 @@ typedef struct _PH_FORMAT
 #define PhInitFormatE(f, v, p) do { (f)->Type = (PH_FORMAT_TYPE)(DoubleFormatType | FormatStandardForm | FormatUsePrecision); (f)->u.Double = (v); (f)->Precision = (p); } while (0)
 #define PhInitFormatA(f, v, p) do { (f)->Type = (PH_FORMAT_TYPE)(DoubleFormatType | FormatHexadecimalForm | FormatUsePrecision); (f)->u.Double = (v); (f)->Precision = (p); } while (0)
 #define PhInitFormatSize(f, v) do { (f)->Type = SizeFormatType; (f)->u.Size = (v); } while (0)
+#define PhInitFormatSizeWithPrecision(f, v, p) do { (f)->Type = (PH_FORMAT_TYPE)(SizeFormatType | FormatUsePrecision); (f)->u.Size = (v); (f)->Precision = (p); } while (0)
 
 PHLIBAPI
 PPH_STRING
@@ -3623,6 +3654,19 @@ PhFormatToBuffer(
     _In_reads_(Count) PPH_FORMAT Format,
     _In_ ULONG Count,
     _Out_writes_bytes_opt_(BufferLength) PWSTR Buffer,
+    _In_opt_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
+    );
+
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhFormatDoubleToUtf8(
+    _In_ DOUBLE Value,
+    _In_ ULONG Type,
+    _In_ ULONG Precision,
+    _Out_writes_bytes_opt_(BufferLength) PSTR Buffer,
     _In_opt_ SIZE_T BufferLength,
     _Out_opt_ PSIZE_T ReturnLength
     );

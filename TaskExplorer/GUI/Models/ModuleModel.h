@@ -36,9 +36,8 @@ public:
 		eLoadCount,
 		eVerificationStatus,
 		eVerifiedSigner,
-		eASLR,
+		eMitigations,
 		eTimeStamp,
-		eCFGuard,
 		eLoadTime,
 		eLoadReason,
 #endif

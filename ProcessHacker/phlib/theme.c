@@ -95,9 +95,19 @@ LRESULT CALLBACK PhpThemeWindowStatusbarWndSubclassProc(
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     );
+LRESULT CALLBACK PhpThemeWindowRebarToolbarSubclassProc(
+    _In_ HWND WindowHandle,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
 
 // Win10-RS5 (uxtheme.dll ordinal 132)
 BOOL (WINAPI *ShouldAppsUseDarkMode_I)(
+    VOID
+    ) = NULL;
+// Win10-RS5 (uxtheme.dll ordinal 138)
+BOOL (WINAPI *ShouldSystemUseDarkMode_I)(
     VOID
     ) = NULL;
 // Win10-RS5 (uxtheme.dll ordinal 133)
@@ -122,6 +132,11 @@ BOOL (WINAPI* SetPreferredAppMode_I)(
 
 // Win10-RS5 (uxtheme.dll ordinal 137)
 BOOL (WINAPI *IsDarkModeAllowedForWindow_I)(
+    _In_ HWND WindowHandle
+    ) = NULL;
+
+// Win10-RS5 (uxtheme.dll ordinal 139)
+BOOL (WINAPI *IsDarkModeAllowedForApp_I)(
     _In_ HWND WindowHandle
     ) = NULL;
 
@@ -471,6 +486,35 @@ VOID PhInitializeThemeWindowEditControl(
 
     InvalidateRect(EditControlHandle, NULL, FALSE);
     //SetWindowPos(EditControlHandle, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_DRAWFRAME);
+}
+
+VOID PhInitializeWindowThemeRebar(
+    _In_ HWND HeaderWindow
+    )
+{
+    PPHP_THEME_WINDOW_HEADER_CONTEXT context;
+
+    context = PhAllocateZero(sizeof(PHP_THEME_WINDOW_HEADER_CONTEXT));
+    context->DefaultWindowProc = (WNDPROC)GetWindowLongPtr(HeaderWindow, GWLP_WNDPROC);
+
+    PhSetWindowContext(HeaderWindow, SHRT_MAX, context);
+    SetWindowLongPtr(HeaderWindow, GWLP_WNDPROC, (LONG_PTR)PhpThemeWindowRebarToolbarSubclassProc);
+
+    InvalidateRect(HeaderWindow, NULL, FALSE);
+}
+
+VOID PhInitializeWindowThemeMainMenu(
+    _In_ HMENU MenuHandle
+    )
+{
+    MENUINFO menuInfo;
+
+    memset(&menuInfo, 0, sizeof(MENUINFO));
+    menuInfo.cbSize = sizeof(MENUINFO);
+    menuInfo.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
+    menuInfo.hbrBack = CreateSolidBrush(PhpThemeWindowForegroundColor);
+
+    SetMenuInfo(MenuHandle, &menuInfo);
 }
 
 BOOLEAN CALLBACK PhpThemeWindowEnumChildWindows(
@@ -2682,4 +2726,51 @@ LRESULT CALLBACK PhpThemeWindowStatusbarWndSubclassProc(
 
 DefaultWndProc:
     return DefWindowProc(WindowHandle, uMsg, wParam, lParam);
+}
+
+LRESULT CALLBACK PhpThemeWindowRebarToolbarSubclassProc(
+    _In_ HWND WindowHandle,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    )
+{
+    PPHP_THEME_WINDOW_HEADER_CONTEXT context;
+    WNDPROC oldWndProc;
+
+    if (!(context = PhGetWindowContext(WindowHandle, SHRT_MAX)))
+        return FALSE;
+
+    oldWndProc = context->DefaultWindowProc;
+
+    switch (uMsg)
+    {
+    case WM_NCDESTROY:
+        {
+            PhRemoveWindowContext(WindowHandle, SHRT_MAX);
+            SetWindowLongPtr(WindowHandle, GWLP_WNDPROC, (LONG_PTR)oldWndProc);
+
+            PhFree(context);
+        }
+        break;
+    case WM_CTLCOLOREDIT:
+        {
+            SetBkMode((HDC)wParam, TRANSPARENT);
+
+            switch (PhpThemeColorMode)
+            {
+            case 0: // New colors
+                SetTextColor((HDC)wParam, RGB(0x0, 0x0, 0x0));
+                SetDCBrushColor((HDC)wParam, PhpThemeWindowTextColor);
+                return (INT_PTR)GetStockBrush(DC_BRUSH);
+            case 1: // Old colors
+                SetTextColor((HDC)wParam, PhpThemeWindowTextColor);
+                SetDCBrushColor((HDC)wParam, RGB(60, 60, 60));
+                return (INT_PTR)GetStockBrush(DC_BRUSH);
+            }
+        }
+        break;
+    }
+
+    return CallWindowProc(oldWndProc, WindowHandle, uMsg, wParam, lParam);
 }

@@ -7,19 +7,13 @@ extern "C" {
 
 #define _User_set_
 
-PHLIBAPI extern _User_set_ PVOID PhInstanceHandle;
+extern _User_set_ PVOID PhInstanceHandle;
 PHLIBAPI extern _User_set_ PWSTR PhApplicationName;
 PHLIBAPI extern _User_set_ ULONG PhGlobalDpi;
 extern PVOID PhHeapHandle;
 PHLIBAPI extern RTL_OSVERSIONINFOEXW PhOsVersion;
 PHLIBAPI extern SYSTEM_BASIC_INFORMATION PhSystemBasicInformation;
 PHLIBAPI extern ULONG WindowsVersion;
-
-PHLIBAPI extern ACCESS_MASK ProcessQueryAccess;
-PHLIBAPI extern ACCESS_MASK ProcessAllAccess;
-PHLIBAPI extern ACCESS_MASK ThreadQueryAccess;
-PHLIBAPI extern ACCESS_MASK ThreadSetAccess;
-PHLIBAPI extern ACCESS_MASK ThreadAllAccess;
 
 #define WINDOWS_ANCIENT 0
 #define WINDOWS_XP 51
@@ -36,6 +30,8 @@ PHLIBAPI extern ACCESS_MASK ThreadAllAccess;
 #define WINDOWS_10_RS5 106
 #define WINDOWS_10_19H1 107
 #define WINDOWS_10_19H2 108
+#define WINDOWS_10_20H1 109
+#define WINDOWS_10_20H2 110
 #define WINDOWS_NEW ULONG_MAX
 
 // Debugging
@@ -86,6 +82,21 @@ NTAPI
 PhIsExecutingInWow64(
     VOID
     );
+
+// 
+DECLSPEC_NORETURN
+FORCEINLINE
+VOID
+PhExitApplication(
+    _In_opt_ NTSTATUS Status
+    )
+{
+#if (PHNT_VERSION >= PHNT_WIN7)
+    RtlExitUserProcess(Status);
+#else
+    ExitProcess(Status);
+#endif
+}
 
 #ifdef __cplusplus
 }

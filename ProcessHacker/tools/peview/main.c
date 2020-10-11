@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010 wj32
- * Copyright (C) 2017-2019 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -23,6 +23,8 @@
 
 #include <peview.h>
 #pragma comment(lib, "Samlib.lib")
+#pragma comment(lib, "Crypt32.lib")
+#pragma comment(lib, "Cryptui.lib")
 
 PPH_STRING PvFileName = NULL;
 
@@ -91,11 +93,12 @@ INT WINAPI wWinMain(
     {
         PhShowWarning(
             NULL,
+            L"%s",
             L"You are attempting to run the 32-bit version of PE Viewer on 64-bit Windows. "
             L"Most features will not work correctly.\n\n"
             L"Please run the 64-bit version of PE Viewer instead."
             );
-        RtlExitUserProcess(STATUS_IMAGE_SUBSYSTEM_NOT_PRESENT);
+        PhExitApplication(STATUS_IMAGE_SUBSYSTEM_NOT_PRESENT);
     }
 #endif
 
@@ -155,7 +158,7 @@ INT WINAPI wWinMain(
                         NULL
                         ))
                     {
-                        RtlExitUserProcess(STATUS_SUCCESS);
+                        PhExitApplication(STATUS_SUCCESS);
                     }
 
                     PhDereferenceObject(applicationFileName);
@@ -191,7 +194,7 @@ INT WINAPI wWinMain(
 
         status = PhCreateFileWin32(
             &fileHandle,
-            PvFileName->Buffer,
+            PhGetString(PvFileName),
             FILE_READ_ATTRIBUTES | FILE_READ_DATA | SYNCHRONIZE,
             FILE_ATTRIBUTE_NORMAL,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -199,10 +202,30 @@ INT WINAPI wWinMain(
             FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
             );
 
+        if (status == STATUS_IO_REPARSE_TAG_NOT_HANDLED)
+        {
+            PPH_STRING targetFileName;
+
+            if (targetFileName = PvResolveReparsePointTarget(PvFileName))
+            {
+                PhMoveReference(&PvFileName, targetFileName);
+            }
+
+            status = PhCreateFileWin32(
+                &fileHandle,
+                PhGetString(PvFileName),
+                FILE_READ_ATTRIBUTES | FILE_READ_DATA | SYNCHRONIZE,
+                FILE_ATTRIBUTE_NORMAL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                FILE_OPEN,
+                FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+                );
+        }
+
         if (NT_SUCCESS(status))
         {
             status = PhLoadMappedImageEx(
-                PvFileName->Buffer,
+                PhGetString(PvFileName),
                 fileHandle,
                 TRUE,
                 &PvMappedImage
@@ -230,7 +253,12 @@ INT WINAPI wWinMain(
         }
 
         if (!NT_SUCCESS(status))
-            PhShowStatus(NULL, L"Unable to load the file.", status, 0);
+        {
+            if (status == STATUS_IMAGE_SUBSYSTEM_NOT_PRESENT)
+                PhShowError2(NULL, L"Unable to load the file.", L"%s", L"PE Viewer does not support this image type.");
+            else
+                PhShowStatus(NULL, L"Unable to load the file.", status, 0);
+        }
     }
 
     PeSaveSettings();

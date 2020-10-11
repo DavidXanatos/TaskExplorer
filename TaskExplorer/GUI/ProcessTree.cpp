@@ -141,6 +141,10 @@ CProcessTree::CProcessTree(QWidget *parent)
 			m_pProcessModel->SetColumnEnabled(i, !m_pProcessList->GetView()->isColumnHidden(i));
 	}
 
+	m_PlotBackground = Qt::white;
+	if(theConf->GetBool("MainWindow/DarkTheme", false))
+		m_PlotBackground = Qt::black;
+
 	//connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 	OnColumnsChanged();
 }
@@ -249,6 +253,40 @@ void CProcessTree::OnClear()
 {
 	m_pProcessModel->SetUseDescr(theConf->GetInt("Options/ShowProcessDescr", 1));
 	m_pProcessModel->Clear();
+
+
+	QColor PlotBackground = Qt::white;
+	if(theConf->GetBool("MainWindow/DarkTheme", false))
+		PlotBackground = Qt::black;
+
+	if(m_PlotBackground != PlotBackground)
+	{
+		m_PlotBackground = PlotBackground;
+
+		foreach(CHistoryGraph* pGraph, m_CPU_Graphs)
+			pGraph->deleteLater();
+		m_CPU_Graphs.clear();
+
+		foreach(CHistoryGraph* pGraph, m_MEM_Graphs)
+			pGraph->deleteLater();
+		m_MEM_Graphs.clear();
+
+		foreach(CHistoryGraph* pGraph, m_IO_Graphs)
+			pGraph->deleteLater();
+		m_IO_Graphs.clear();
+
+		foreach(CHistoryGraph* pGraph, m_NET_Graphs)
+			pGraph->deleteLater();
+		m_NET_Graphs.clear();
+
+		foreach(CHistoryGraph* pGraph, m_GPU_Graphs)
+			pGraph->deleteLater();
+		m_GPU_Graphs.clear();
+
+		foreach(CHistoryGraph* pGraph, m_VMEM_Graphs)
+			pGraph->deleteLater();
+		m_VMEM_Graphs.clear();
+	}
 }
 
 void CProcessTree::AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, int from, int to)
@@ -939,7 +977,7 @@ void CProcessTree::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, m_PlotBackground, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
 				m_CPU_Graphs.insert(PID, pGraph);
@@ -969,7 +1007,7 @@ void CProcessTree::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, m_PlotBackground, this);
 				pGraph->AddValue(0, Qt::green);
 				m_GPU_Graphs.insert(PID, pGraph);
 			}
@@ -999,7 +1037,7 @@ void CProcessTree::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, m_PlotBackground, this);
 				pGraph->AddValue(0, QColor("#CCFF33"));
 				m_MEM_Graphs.insert(PID, pGraph);
 			}
@@ -1037,7 +1075,7 @@ void CProcessTree::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, m_PlotBackground, this);
 				pGraph->AddValue(0, QColor("#CCFF33"));
 				m_VMEM_Graphs.insert(PID, pGraph);
 			}
@@ -1075,7 +1113,7 @@ void CProcessTree::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, m_PlotBackground, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
 				pGraph->AddValue(2, Qt::blue);
@@ -1109,7 +1147,7 @@ void CProcessTree::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, m_PlotBackground, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
 				m_NET_Graphs.insert(PID, pGraph);

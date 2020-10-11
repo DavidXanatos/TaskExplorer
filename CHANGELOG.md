@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+
+
+## [1.2.9] - 2020-10-11
+
+### Added
+- added highest thread CPU percentage to the CPU column
+
+### Changed
+- tree graph background in dark mode is also dark now
+- updated PHlib to version 3.0.3476
+- merged ASLR, DEP, CFG, CET columns into a joined mitigations column
+
+
+
 ## [1.2.8] - 2020-07-04
 
 ### Added
@@ -14,7 +28,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - reorganized settings pages
 - improved sandboxie support implementation
 
-### fixed
+### Fixed
 - fixed excessive CPU usage in new process filter
 - fixed outdated data shown in token panel when no token could be obtained
 

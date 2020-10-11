@@ -20,9 +20,10 @@ public:
 	virtual quint64 GetTimeStamp() const 					{ QReadLocker Locker(&m_Mutex); return m_ImageTimeStamp; }
 
 	virtual void ClearControlFlowGuardEnabled();
+	virtual void ClearCetEnabled();
 
-	virtual QString GetASLRString() const;
-	virtual QString GetCFGuardString() const;
+	virtual QString GetMitigationsString() const;
+
 	virtual QString GetLoadReasonString() const;
 
 	enum EVerifyResult
@@ -79,6 +80,7 @@ protected:
 	quint64						m_ImageTimeStamp;
 	quint16						m_ImageCharacteristics;
 	quint16						m_ImageDllCharacteristics;
+	quint16						m_ImageDllCharacteristicsEx;
 
 	// Signature
 	EVerifyResult				m_VerifyResult;

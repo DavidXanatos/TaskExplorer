@@ -35,6 +35,10 @@ PPH_STRING PvpGetPeGuardFlagsText(
     )
 {
     PH_STRING_BUILDER stringBuilder;
+    WCHAR pointer[PH_PTR_STR_LEN_1];
+
+    if (GuardFlags == 0)
+        return PhCreateString(L"0x0");
 
     PhInitializeStringBuilder(&stringBuilder, 10);
 
@@ -58,9 +62,70 @@ PPH_STRING PvpGetPeGuardFlagsText(
         PhAppendStringBuilder2(&stringBuilder, L"Longjump table, ");
     if (GuardFlags & IMAGE_GUARD_RETPOLINE_PRESENT)
         PhAppendStringBuilder2(&stringBuilder, L"Retpoline present, ");
+    if (GuardFlags & IMAGE_GUARD_EH_CONTINUATION_TABLE_PRESENT_V1 || GuardFlags & IMAGE_GUARD_EH_CONTINUATION_TABLE_PRESENT_V2)
+        PhAppendStringBuilder2(&stringBuilder, L"EH continuation table, ");
+    if (GuardFlags & IMAGE_GUARD_XFG_ENABLED)
+        PhAppendStringBuilder2(&stringBuilder, L"XFG, ");
 
     if (PhEndsWithString2(stringBuilder.String, L", ", FALSE))
         PhRemoveEndStringBuilder(&stringBuilder, 2);
+
+    PhPrintPointer(pointer, UlongToPtr(GuardFlags));
+    PhAppendFormatStringBuilder(&stringBuilder, L" (%s)", pointer);
+
+    return PhFinalStringBuilderString(&stringBuilder);
+}
+
+PPH_STRING PvpGetPeDependentLoadFlagsText(
+    _In_ ULONG DependentLoadFlags
+    )
+{
+    PH_STRING_BUILDER stringBuilder;
+    WCHAR pointer[PH_PTR_STR_LEN_1];
+
+    if (DependentLoadFlags == 0)
+        return PhCreateString(L"0x0");
+
+    PhInitializeStringBuilder(&stringBuilder, 10);
+
+    if (DependentLoadFlags & DONT_RESOLVE_DLL_REFERENCES)
+        PhAppendStringBuilder2(&stringBuilder, L"Ignore dll references, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_AS_DATAFILE)
+        PhAppendStringBuilder2(&stringBuilder, L"Datafile, ");
+    if (DependentLoadFlags & 0x00000004) // LOAD_PACKAGED_LIBRARY
+        PhAppendStringBuilder2(&stringBuilder, L"Packaged_library, ");
+    if (DependentLoadFlags & LOAD_WITH_ALTERED_SEARCH_PATH)
+        PhAppendStringBuilder2(&stringBuilder, L"Altered search path, ");
+    if (DependentLoadFlags & LOAD_IGNORE_CODE_AUTHZ_LEVEL)
+        PhAppendStringBuilder2(&stringBuilder, L"Ignore authz level, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_AS_IMAGE_RESOURCE)
+        PhAppendStringBuilder2(&stringBuilder, L"Image resource, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE)
+        PhAppendStringBuilder2(&stringBuilder, L"Datafile (Exclusive), ");
+    if (DependentLoadFlags & LOAD_LIBRARY_REQUIRE_SIGNED_TARGET)
+        PhAppendStringBuilder2(&stringBuilder, L"Signed target required, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+        PhAppendStringBuilder2(&stringBuilder, L"Search DLL load directory, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SEARCH_APPLICATION_DIR)
+        PhAppendStringBuilder2(&stringBuilder, L"Search application directory, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SEARCH_USER_DIRS)
+        PhAppendStringBuilder2(&stringBuilder, L"Search user directory, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SEARCH_SYSTEM32)
+        PhAppendStringBuilder2(&stringBuilder, L"Search system32, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SEARCH_DEFAULT_DIRS)
+        PhAppendStringBuilder2(&stringBuilder, L"Search default directory, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SAFE_CURRENT_DIRS)
+        PhAppendStringBuilder2(&stringBuilder, L"Search safe current directory, ");
+    if (DependentLoadFlags & LOAD_LIBRARY_SEARCH_SYSTEM32_NO_FORWARDER)
+        PhAppendStringBuilder2(&stringBuilder, L"Search system32 (No forwarders), ");
+    if (DependentLoadFlags & LOAD_LIBRARY_OS_INTEGRITY_CONTINUITY)
+        PhAppendStringBuilder2(&stringBuilder, L"OS integrity continuity, ");
+
+    if (PhEndsWithString2(stringBuilder.String, L", ", FALSE))
+        PhRemoveEndStringBuilder(&stringBuilder, 2);
+
+    PhPrintPointer(pointer, UlongToPtr(DependentLoadFlags));
+    PhAppendFormatStringBuilder(&stringBuilder, L" (%s)", pointer);
 
     return PhFinalStringBuilderString(&stringBuilder);
 }
@@ -89,7 +154,7 @@ PPH_STRING PvpGetPeEnclaveImportsText(
         {
             PSTR importName;
 
-            if (enclaveImports->ImportName == USHRT_MAX)
+            if (!enclaveImports || enclaveImports->ImportName == USHRT_MAX)
                 break;
 
             if (importName = PhMappedImageRvaToVa(
@@ -119,7 +184,7 @@ PPH_STRING PvpGetPeEnclaveImportsText(
         {
             PSTR importName;
 
-            if (enclaveImports->ImportName == USHRT_MAX)
+            if (!enclaveImports || enclaveImports->ImportName == USHRT_MAX)
                 break;
 
             if (importName = PhMappedImageRvaToVa(
@@ -248,13 +313,13 @@ INT_PTR CALLBACK PvpPeLoadConfigDlgProc(
                 ADD_VALUE(L"Critical section default timeout", PhaFormatUInt64((Config)->CriticalSectionDefaultTimeout, TRUE)->Buffer); \
                 ADD_VALUE(L"De-commit free block threshold", PhaFormatUInt64((Config)->DeCommitFreeBlockThreshold, TRUE)->Buffer); \
                 ADD_VALUE(L"De-commit total free threshold", PhaFormatUInt64((Config)->DeCommitTotalFreeThreshold, TRUE)->Buffer); \
-                ADD_VALUE(L"LOCK prefix table", PhaFormatString(L"0x%Ix", (Config)->LockPrefixTable)->Buffer); \
+                ADD_VALUE(L"Lock prefix table", PhaFormatString(L"0x%x", (Config)->LockPrefixTable)->Buffer); \
                 ADD_VALUE(L"Maximum allocation size", PhaFormatString(L"0x%Ix", (Config)->MaximumAllocationSize)->Buffer); \
                 ADD_VALUE(L"Virtual memory threshold", PhaFormatString(L"0x%Ix", (Config)->VirtualMemoryThreshold)->Buffer); \
-                ADD_VALUE(L"Process affinity mask", PhaFormatString(L"0x%Ix", (Config)->ProcessAffinityMask)->Buffer); \
                 ADD_VALUE(L"Process heap flags", PhaFormatString(L"0x%Ix", (Config)->ProcessHeapFlags)->Buffer); \
+                ADD_VALUE(L"Process affinity mask", PhaFormatString(L"0x%Ix", (Config)->ProcessAffinityMask)->Buffer); \
                 ADD_VALUE(L"CSD version", PhaFormatString(L"%u", (Config)->CSDVersion)->Buffer); \
-                ADD_VALUE(L"Dependent load flags", PhaFormatString(L"0x%x", (Config)->DependentLoadFlags)->Buffer); \
+                ADD_VALUE(L"Dependent load flags", PH_AUTO_T(PH_STRING, PvpGetPeDependentLoadFlagsText((Config)->DependentLoadFlags))->Buffer); \
                 ADD_VALUE(L"Edit list", PhaFormatString(L"0x%Ix", (Config)->EditList)->Buffer); \
                 ADD_VALUE(L"Security cookie", PhaFormatString(L"0x%Ix", (Config)->SecurityCookie)->Buffer); \
                 ADD_VALUE(L"SEH handler table", PhaFormatString(L"0x%Ix", (Config)->SEHandlerTable)->Buffer); \
@@ -262,11 +327,11 @@ INT_PTR CALLBACK PvpPeLoadConfigDlgProc(
                 \
                 if (RTL_CONTAINS_FIELD((Config), (Config)->Size, GuardCFCheckFunctionPointer)) \
                 { \
-                    ADD_VALUE(L"CFG GuardFlags", PhaFormatString(L"%s (0x%x)", PH_AUTO_T(PH_STRING, PvpGetPeGuardFlagsText((Config)->GuardFlags))->Buffer, (Config)->GuardFlags)->Buffer); \
-                    ADD_VALUE(L"CFG Check Function pointer", PhaFormatString(L"0x%Ix", (Config)->GuardCFCheckFunctionPointer)->Buffer); \
-                    ADD_VALUE(L"CFG Check Dispatch pointer", PhaFormatString(L"0x%Ix", (Config)->GuardCFDispatchFunctionPointer)->Buffer); \
-                    ADD_VALUE(L"CFG Function table", PhaFormatString(L"0x%Ix", (Config)->GuardCFFunctionTable)->Buffer); \
-                    ADD_VALUE(L"CFG Function table entry count", PhaFormatUInt64((Config)->GuardCFFunctionCount, TRUE)->Buffer); \
+                    ADD_VALUE(L"CFG guard flags", PH_AUTO_T(PH_STRING, PvpGetPeGuardFlagsText((Config)->GuardFlags))->Buffer); \
+                    ADD_VALUE(L"CFG check-function pointer", PhaFormatString(L"0x%Ix", (Config)->GuardCFCheckFunctionPointer)->Buffer); \
+                    ADD_VALUE(L"CFG check-function pointer", PhaFormatString(L"0x%Ix", (Config)->GuardCFDispatchFunctionPointer)->Buffer); \
+                    ADD_VALUE(L"CFG function table", PhaFormatString(L"0x%Ix", (Config)->GuardCFFunctionTable)->Buffer); \
+                    ADD_VALUE(L"CFG function table count", PhaFormatUInt64((Config)->GuardCFFunctionCount, TRUE)->Buffer); \
                     if (RTL_CONTAINS_FIELD((Config), (Config)->Size, GuardAddressTakenIatEntryTable)) \
                     { \
                         ADD_VALUE(L"CFG IatEntry table", PhaFormatString(L"0x%Ix", (Config)->GuardAddressTakenIatEntryTable)->Buffer); \
@@ -288,24 +353,34 @@ INT_PTR CALLBACK PvpPeLoadConfigDlgProc(
                 \
                 if (RTL_CONTAINS_FIELD((Config), (Config)->Size, DynamicValueRelocTable)) \
                 { \
-                    ADD_VALUE(L"DynamicValueRelocTable", PhaFormatString(L"0x%Ix", (Config)->DynamicValueRelocTable)->Buffer); \
-                    ADD_VALUE(L"CHPEMetadataPointer", PhaFormatString(L"0x%Ix", (Config)->CHPEMetadataPointer)->Buffer); \
-                    ADD_VALUE(L"GuardRFFailureRoutine", PhaFormatString(L"0x%Ix", (Config)->GuardRFFailureRoutine)->Buffer); \
-                    ADD_VALUE(L"GuardRFFailureRoutineFunctionPointer", PhaFormatString(L"0x%Ix", (Config)->GuardRFFailureRoutineFunctionPointer)->Buffer); \
+                    ADD_VALUE(L"Dynamic value relocation table", PhaFormatString(L"0x%Ix", (Config)->DynamicValueRelocTable)->Buffer); \
+                    ADD_VALUE(L"Hybrid metadata pointer", PhaFormatString(L"0x%Ix", (Config)->CHPEMetadataPointer)->Buffer); \
+                    ADD_VALUE(L"GuardRF failure-function routine", PhaFormatString(L"0x%Ix", (Config)->GuardRFFailureRoutine)->Buffer); \
+                    ADD_VALUE(L"GuardRF failure-function pointer", PhaFormatString(L"0x%Ix", (Config)->GuardRFFailureRoutineFunctionPointer)->Buffer); \
                 } \
                 \
                 if (RTL_CONTAINS_FIELD((Config), (Config)->Size, DynamicValueRelocTableOffset)) \
                 { \
-                    ADD_VALUE(L"DynamicValueRelocTableOffset", PhaFormatString(L"0x%Ix", (Config)->DynamicValueRelocTableOffset)->Buffer); \
-                    ADD_VALUE(L"DynamicValueRelocTableSection", PhaFormatString(L"0x%Ix", (Config)->DynamicValueRelocTableSection)->Buffer); \
-                    ADD_VALUE(L"GuardRFVerifyStackPointerFunctionPointer", PhaFormatString(L"0x%Ix", (Config)->GuardRFVerifyStackPointerFunctionPointer)->Buffer); \
-                    ADD_VALUE(L"HotPatchTableOffset", PhaFormatString(L"0x%Ix", (Config)->HotPatchTableOffset)->Buffer); \
-                    ADD_VALUE(L"EnclaveConfigurationPointer", PhaFormatString(L"0x%Ix", (Config)->EnclaveConfigurationPointer)->Buffer); \
+                    ADD_VALUE(L"DynamicValue relocation table offset", PhaFormatString(L"0x%Ix", (Config)->DynamicValueRelocTableOffset)->Buffer); \
+                    ADD_VALUE(L"DynamicValue relocation section", PhaFormatString(L"0x%Ix", (Config)->DynamicValueRelocTableSection)->Buffer); \
+                    ADD_VALUE(L"GuardRF verify-stack pointer", PhaFormatString(L"0x%Ix", (Config)->GuardRFVerifyStackPointerFunctionPointer)->Buffer); \
+                    ADD_VALUE(L"Hot patching table offset", PhaFormatString(L"0x%Ix", (Config)->HotPatchTableOffset)->Buffer); \
+                    ADD_VALUE(L"Enclave configuration pointer", PhaFormatString(L"0x%Ix", (Config)->EnclaveConfigurationPointer)->Buffer); \
                 } \
                 \
                 if (RTL_CONTAINS_FIELD((Config), (Config)->Size, VolatileMetadataPointer)) \
                 { \
-                    ADD_VALUE(L"VolatileMetadataPointer", PhaFormatString(L"0x%Ix", (Config)->VolatileMetadataPointer)->Buffer); \
+                    ADD_VALUE(L"Volatile metadata pointer", PhaFormatString(L"0x%Ix", (Config)->VolatileMetadataPointer)->Buffer); \
+                } \
+                /*if (RTL_CONTAINS_FIELD((Config), (Config)->Size, GuardEHContinuationTable)) \ // todo: xxx
+                { \
+                    ADD_VALUE(L"Guard EH Continuation table", PhaFormatString(L"0x%Ix", (Config)->GuardEHContinuationTable)->Buffer); \
+                    ADD_VALUE(L"Guard EH Continuation table entry count", PhaFormatUInt64((Config)->GuardEHContinuationCount, TRUE)->Buffer); \
+                }*/ \
+                if ((Config)->Size >= RTL_SIZEOF_THROUGH_FIELD(Type, VolatileMetadataPointer) + 2* RTL_FIELD_SIZE(Type, VolatileMetadataPointer)) \
+                { \
+                    ADD_VALUE(L"Guard EH Continuation table", PhaFormatString(L"0x%Ix", (&(Config)->VolatileMetadataPointer)[1])->Buffer); \
+                    ADD_VALUE(L"Guard EH Continuation table entry count", PhaFormatUInt64((&(Config)->VolatileMetadataPointer)[2], TRUE)->Buffer); \
                 } \
             }
 
@@ -326,7 +401,7 @@ INT_PTR CALLBACK PvpPeLoadConfigDlgProc(
                 }
             }
 
-            EnableThemeDialogTexture(hwndDlg, ETDT_ENABLETAB);
+            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
         }
         break;
     case WM_DESTROY:

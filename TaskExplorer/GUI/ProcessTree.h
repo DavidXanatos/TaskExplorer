@@ -144,4 +144,6 @@ private:
 	QAction*				m_pWCT;
 	QAction*				m_pPermissions;
 #endif
+
+	QColor					m_PlotBackground;
 };

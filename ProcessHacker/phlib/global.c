@@ -3,7 +3,7 @@
  *   global variables and initialization functions
  *
  * Copyright (C) 2010-2013 wj32
- * Copyright (C) 2017-2018 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -22,9 +22,7 @@
  */
 
 #include <ph.h>
-#include <filestream.h>
 #include <phintrnl.h>
-#include <symprv.h>
 
 VOID PhInitializeSystemInformation(
     VOID
@@ -34,7 +32,12 @@ VOID PhInitializeWindowsVersion(
     VOID
     );
 
-PHLIBAPI PVOID PhInstanceHandle = NULL;
+BOOLEAN PhHeapInitialization(
+    _In_opt_ SIZE_T HeapReserveSize,
+    _In_opt_ SIZE_T HeapCommitSize
+    );
+
+PVOID PhInstanceHandle = NULL;
 PHLIBAPI PWSTR PhApplicationName = NULL;
 PHLIBAPI ULONG PhGlobalDpi = 96;
 PVOID PhHeapHandle = NULL;
@@ -42,11 +45,6 @@ PHLIBAPI RTL_OSVERSIONINFOEXW PhOsVersion = { 0 };
 PHLIBAPI SYSTEM_BASIC_INFORMATION PhSystemBasicInformation = { 0 };
 PHLIBAPI ULONG WindowsVersion = WINDOWS_NEW;
 
-PHLIBAPI ACCESS_MASK ProcessQueryAccess = PROCESS_QUERY_LIMITED_INFORMATION;
-PHLIBAPI ACCESS_MASK ProcessAllAccess = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1fff;
-PHLIBAPI ACCESS_MASK ThreadQueryAccess = THREAD_QUERY_LIMITED_INFORMATION;
-PHLIBAPI ACCESS_MASK ThreadSetAccess = THREAD_SET_LIMITED_INFORMATION;
-PHLIBAPI ACCESS_MASK ThreadAllAccess = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xfff;
 
 // Internal data
 #ifdef DEBUG
@@ -77,32 +75,16 @@ NTSTATUS PhInitializePhLibEx(
     PhApplicationName = ApplicationName;
     PhInstanceHandle = ImageBaseAddress;
 
-    PhHeapHandle = RtlCreateHeap(
-        HEAP_GROWABLE | HEAP_CLASS_1,
-        NULL,
-        HeapReserveSize ? HeapReserveSize : 2 * 1024 * 1024, // 2 MB
-        HeapCommitSize ? HeapCommitSize : 1024 * 1024, // 1 MB
-        NULL,
-        NULL
-        );
-
-    if (!PhHeapHandle)
-        return STATUS_INSUFFICIENT_RESOURCES;
-
-    RtlSetHeapInformation(
-        PhHeapHandle,
-        HeapCompatibilityInformation,
-        &(ULONG){ HEAP_COMPATIBILITY_LFH },
-        sizeof(ULONG)
-        );
-
     PhInitializeWindowsVersion();
     PhInitializeSystemInformation();
+
+    if (!PhHeapInitialization(HeapReserveSize, HeapCommitSize))
+        return STATUS_UNSUCCESSFUL;
 
     if (!PhQueuedLockInitialization())
         return STATUS_UNSUCCESSFUL;
 
-    if (!NT_SUCCESS(PhRefInitialization()))
+    if (!PhRefInitialization())
         return STATUS_UNSUCCESSFUL;
 
     if (!PhBaseInitialization())
@@ -185,7 +167,15 @@ VOID PhInitializeWindowsVersion(
     // Windows 10, Windows Server 2016
     else if (majorVersion == 10 && minorVersion == 0)
     {
-        if (buildVersion >= 18363)
+        if (buildVersion >= 19042)
+        {
+            WindowsVersion = WINDOWS_10_20H2;
+        }
+        else if (buildVersion >= 19041)
+        {
+            WindowsVersion = WINDOWS_10_20H1;
+        }
+        else if (buildVersion >= 18363)
         {
             WindowsVersion = WINDOWS_10_19H2;
         }
@@ -230,4 +220,49 @@ VOID PhInitializeWindowsVersion(
     {
         WindowsVersion = WINDOWS_NEW;
     }
+}
+
+BOOLEAN PhHeapInitialization(
+    _In_opt_ SIZE_T HeapReserveSize,
+    _In_opt_ SIZE_T HeapCommitSize
+    )
+{
+    if (WindowsVersion >= WINDOWS_8)
+    {
+        PhHeapHandle = RtlCreateHeap(
+            HEAP_GROWABLE | HEAP_CREATE_SEGMENT_HEAP | HEAP_CLASS_1,
+            NULL,
+            0,
+            0,
+            NULL,
+            NULL
+            );
+    }
+
+    if (!PhHeapHandle)
+    {
+        PhHeapHandle = RtlCreateHeap(
+            HEAP_GROWABLE | HEAP_CLASS_1,
+            NULL,
+            HeapReserveSize ? HeapReserveSize : 2 * 1024 * 1024, // 2 MB
+            HeapCommitSize ? HeapCommitSize : 1024 * 1024, // 1 MB
+            NULL,
+            NULL
+            );
+
+        if (!PhHeapHandle)
+            return FALSE;
+
+        if (WindowsVersion >= WINDOWS_VISTA)
+        {
+            RtlSetHeapInformation(
+                PhHeapHandle,
+                HeapCompatibilityInformation,
+                &(ULONG){ HEAP_COMPATIBILITY_LFH },
+                sizeof(ULONG)
+                );
+        }
+    }
+
+    return TRUE;
 }

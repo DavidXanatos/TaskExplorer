@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define __WINDOT11_H__ // temporary preprocessor workaround (dmex)
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <ws2ipdef.h>
@@ -365,6 +367,22 @@ PhHttpDnsQuery(
     _In_opt_ PWSTR DnsServerAddress,
     _In_ PWSTR DnsQueryMessage,
     _In_ USHORT DnsQueryMessageType
+    );
+
+PHLIBAPI
+PDNS_RECORD
+NTAPI
+PhDnsQuery(
+    _In_opt_ PWSTR DnsServerAddress,
+    _In_ PWSTR DnsQueryMessage,
+    _In_ USHORT DnsQueryMessageType
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhDnsFree(
+    _In_ PDNS_RECORD DnsRecordList
     );
 
 #ifdef __cplusplus

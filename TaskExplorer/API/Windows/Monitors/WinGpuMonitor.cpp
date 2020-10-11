@@ -32,9 +32,6 @@
 
 #define D3D11_NO_HELPERS
 #include <d3d11.h>
-extern "C" {
-#include "../ProcessHacker/d3dkmt.h"
-}
 
 #include <cfgmgr32.h>
 #include <ntddvdeo.h>
@@ -235,10 +232,10 @@ bool CWinGpuMonitor::QueryDeviceProperties(wchar_t* DeviceInterface, QString* De
 
 QString CWinGpuMonitor::GetNodeEngineTypeString(/*D3DKMT_NODEMETADATA**/struct _D3DKMT_NODEMETADATA* NodeMetaData)
 {
-    switch (NodeMetaData->EngineType)
+    switch (NodeMetaData->NodeData.EngineType)
     {
     case DXGK_ENGINE_TYPE_OTHER:
-        return QString::fromWCharArray(NodeMetaData->FriendlyName);
+        return QString::fromWCharArray(NodeMetaData->NodeData.FriendlyName);
     case DXGK_ENGINE_TYPE_3D:
         return tr("3D");
     case DXGK_ENGINE_TYPE_VIDEO_DECODE:
@@ -256,7 +253,7 @@ QString CWinGpuMonitor::GetNodeEngineTypeString(/*D3DKMT_NODEMETADATA**/struct _
     case DXGK_ENGINE_TYPE_CRYPTO:
         return tr("Crypto");
     }
-    return tr("ERROR (%1)").arg(NodeMetaData->EngineType);
+    return tr("ERROR (%1)").arg(NodeMetaData->NodeData.EngineType);
 }
 
 D3D_FEATURE_LEVEL EtQueryAdapterFeatureLevel(_In_ LUID AdapterLuid)
@@ -462,7 +459,7 @@ SGpuAdapter* CWinGpuMonitor::AddDisplayAdapter(wchar_t* DeviceInterface, /*D3DKM
         {
             D3DKMT_NODEMETADATA metaDataInfo;
             memset(&metaDataInfo, 0, sizeof(D3DKMT_NODEMETADATA));
-            metaDataInfo.NodeOrdinal = i;
+            metaDataInfo.NodeOrdinalAndAdapterIndex = i;
 			if (NT_SUCCESS(EtQueryAdapterInformation(AdapterHandle, KMTQAITYPE_NODEMETADATA, &metaDataInfo, sizeof(D3DKMT_NODEMETADATA))))
 				adapter->Info.Nodes.append(SGpuNode(GetNodeEngineTypeString(&metaDataInfo)));
 			else

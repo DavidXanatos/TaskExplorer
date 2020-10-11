@@ -5,11 +5,12 @@
 extern "C" {
 #endif
 
-extern WCHAR *PhServiceTypeStrings[10];
+extern WCHAR *PhServiceTypeStrings[12];
 extern WCHAR *PhServiceStartTypeStrings[5];
 extern WCHAR *PhServiceErrorControlStrings[4];
 
 PHLIBAPI
+_Success_(return != NULL)
 PVOID
 NTAPI
 PhEnumServices(

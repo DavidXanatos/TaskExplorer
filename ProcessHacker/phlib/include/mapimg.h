@@ -96,6 +96,7 @@ PhMappedImageRvaToSection(
     );
 
 PHLIBAPI
+_Success_(return != NULL)
 PVOID
 NTAPI
 PhMappedImageRvaToVa(
@@ -105,6 +106,7 @@ PhMappedImageRvaToVa(
     );
 
 PHLIBAPI
+_Success_(return != NULL)
 PVOID
 NTAPI
 PhMappedImageVaToVa(
@@ -151,8 +153,11 @@ PhGetMappedImageLoadConfig64(
 typedef struct _PH_REMOTE_MAPPED_IMAGE
 {
     PVOID ViewBase;
-
-    PIMAGE_NT_HEADERS NtHeaders;
+    union
+    {
+        PIMAGE_NT_HEADERS32 NtHeaders32;
+        PIMAGE_NT_HEADERS NtHeaders;
+    };
     ULONG NumberOfSections;
     PIMAGE_SECTION_HEADER Sections;
     USHORT Magic;
@@ -187,6 +192,52 @@ NTSTATUS
 NTAPI
 PhUnloadRemoteMappedImage(
     _Inout_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage
+    );
+
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhGetRemoteMappedImageDebugEntryByType(
+    _In_ HANDLE ProcessHandle,
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _In_ ULONG Type,
+    _Out_opt_ ULONG* EntryLength,
+    _Out_ PVOID* EntryBuffer
+    );
+
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhGetRemoteMappedImageDebugEntryByTypeEx(
+    _In_ HANDLE ProcessHandle,
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _In_ ULONG Type,
+    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
+    _Out_opt_ ULONG* EntryLength,
+    _Out_ PVOID* EntryBuffer
+    );
+
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhGetRemoteMappedImageGuardFlags(
+    _In_ HANDLE ProcessHandle,
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _Out_ PULONG GuardFlags
+    );
+
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhGetRemoteMappedImageGuardFlagsEx(
+    _In_ HANDLE ProcessHandle,
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
+    _Out_ PULONG GuardFlags
     );
 
 typedef struct _PH_MAPPED_IMAGE_EXPORTS
@@ -272,8 +323,8 @@ typedef struct _PH_MAPPED_IMAGE_IMPORT_DLL
 {
     PPH_MAPPED_IMAGE MappedImage;
     ULONG Flags;
-    PSTR Name;
     ULONG NumberOfEntries;
+    PSTR Name;
 
     union
     {
@@ -348,7 +399,10 @@ typedef struct _IMAGE_CFG_ENTRY
     struct
     {
         BOOLEAN SuppressedCall : 1;
-        BOOLEAN Reserved : 7;
+        BOOLEAN ExportSuppressed : 1;
+        BOOLEAN LangExcptHandler : 1;
+        BOOLEAN Xfg : 1;
+        BOOLEAN Reserved : 4;
     };
 } IMAGE_CFG_ENTRY, *PIMAGE_CFG_ENTRY;
 
@@ -516,12 +570,50 @@ typedef struct _PH_MAPPED_IMAGE_DEBUG
     PPH_IMAGE_DEBUG_ENTRY DebugEntries;
 } PH_MAPPED_IMAGE_DEBUG, *PPH_MAPPED_IMAGE_DEBUG;
 
+// Note: Remove once they've been added to the Windows SDK. (dmex)
+#ifndef IMAGE_DEBUG_TYPE_EMBEDDEDPORTABLEPDB
+#define IMAGE_DEBUG_TYPE_EMBEDDEDPORTABLEPDB 17
+#endif
+
+#ifndef IMAGE_DEBUG_TYPE_PDBCHECKSUM
+#define IMAGE_DEBUG_TYPE_PDBCHECKSUM 19
+#endif
+
+#ifndef _IMAGE_DEBUG_DIRECTORY_CODEVIEW
+typedef struct _IMAGE_DEBUG_DIRECTORY_CODEVIEW
+{
+    ULONG format;
+    GUID PdbSignature;
+    ULONG PdbDbiAge;
+    CHAR ImageName[256];
+} IMAGE_DEBUG_DIRECTORY_CODEVIEW, *PIMAGE_DEBUG_DIRECTORY_CODEVIEW;
+#endif
+
+#ifndef IMAGE_GUARD_XFG_ENABLED
+#define IMAGE_GUARD_XFG_ENABLED 0x00800000 // Module was built with xfg
+#endif
+
+// IMAGE_GUARD_EH_CONTINUATION_TABLE_PRESENT, Windows 20H1 and 21H1 have different values
+#define IMAGE_GUARD_EH_CONTINUATION_TABLE_PRESENT_V1 0x00200000
+#define IMAGE_GUARD_EH_CONTINUATION_TABLE_PRESENT_V2 0x00400000
+
 PHLIBAPI
 NTSTATUS
 NTAPI
 PhGetMappedImageDebug(
     _In_ PPH_MAPPED_IMAGE MappedImage,
     _Out_ PPH_MAPPED_IMAGE_DEBUG Debug
+    );
+
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhGetMappedImageDebugEntryByType(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ ULONG Type,
+    _Out_opt_ ULONG* EntryLength,
+    _Out_ PVOID* EntryBuffer
     );
 
 // maplib
@@ -623,6 +715,88 @@ NTAPI
 PhGetMappedArchiveImportEntry(
     _In_ PPH_MAPPED_ARCHIVE_MEMBER Member,
     _Out_ PPH_MAPPED_ARCHIVE_IMPORT_ENTRY Entry
+    );
+
+typedef struct _PH_MAPPED_IMAGE_EH_CONT
+{
+    PULONGLONG EhContTable;
+    ULONGLONG NumberOfEhContEntries;
+    ULONG EntrySize;
+} PH_MAPPED_IMAGE_EH_CONT, * PPH_MAPPED_IMAGE_EH_CONT;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageEhCont(
+    _Out_ PPH_MAPPED_IMAGE_EH_CONT EhContConfig,
+    _In_ PPH_MAPPED_IMAGE MappedImage
+    );
+
+typedef struct _IMAGE_DEBUG_POGO_ENTRY
+{
+    ULONG Rva;
+    ULONG Size;
+    CHAR Name[1];
+} IMAGE_DEBUG_POGO_ENTRY, *PIMAGE_DEBUG_POGO_ENTRY;
+
+typedef struct _IMAGE_DEBUG_POGO_SIGNATURE
+{
+    ULONG Signature;
+} IMAGE_DEBUG_POGO_SIGNATURE, *PIMAGE_DEBUG_POGO_SIGNATURE;
+
+#define IMAGE_DEBUG_POGO_SIGNATURE_LTCG 'LTCG' // coffgrp LTCG (0x4C544347)
+#define IMAGE_DEBUG_POGO_SIGNATURE_PGU 'PGU\0' // coffgrp PGU (0x50475500)
+
+typedef struct _PH_IMAGE_DEBUG_POGO_ENTRY
+{
+    ULONG Rva;
+    ULONG Size;
+    PVOID Data;
+    WCHAR Name[0x100];
+} PH_IMAGE_DEBUG_POGO_ENTRY, *PPH_IMAGE_DEBUG_POGO_ENTRY;
+
+typedef struct _PH_MAPPED_IMAGE_DEBUG_POGO
+{
+    PPH_MAPPED_IMAGE MappedImage;
+    PIMAGE_DEBUG_POGO_SIGNATURE PogoDirectory;
+
+    ULONG NumberOfEntries;
+    PPH_IMAGE_DEBUG_POGO_ENTRY PogoEntries;
+} PH_MAPPED_IMAGE_DEBUG_POGO, *PPH_MAPPED_IMAGE_DEBUG_POGO;
+
+NTSTATUS PhGetMappedImagePogo(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_DEBUG_POGO PogoDebug
+    );
+
+typedef struct _IMAGE_BASE_RELOCATION_ENTRY
+{
+    USHORT Offset : 12;
+    USHORT Type : 4;
+} IMAGE_BASE_RELOCATION_ENTRY, *PIMAGE_BASE_RELOCATION_ENTRY;
+
+typedef struct _PH_IMAGE_RELOC_ENTRY
+{
+    ULONG BlockIndex;
+    ULONG BlockRva;
+    ULONG Type;
+    ULONG Offset;
+    PVOID Value;
+} PH_IMAGE_RELOC_ENTRY, *PPH_IMAGE_RELOC_ENTRY;
+
+typedef struct _PH_MAPPED_IMAGE_RELOC
+{
+    PPH_MAPPED_IMAGE MappedImage;
+    PIMAGE_DATA_DIRECTORY DataDirectory;
+    PIMAGE_BASE_RELOCATION RelocationDirectory;
+
+    ULONG NumberOfEntries;
+    PPH_IMAGE_RELOC_ENTRY RelocationEntries;
+} PH_MAPPED_IMAGE_RELOC, *PPH_MAPPED_IMAGE_RELOC;
+
+NTSTATUS PhGetMappedImageRelocations(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_RELOC Relocations
     );
 
 // ELF binary support

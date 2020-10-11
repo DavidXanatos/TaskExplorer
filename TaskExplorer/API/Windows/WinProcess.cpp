@@ -130,7 +130,8 @@ struct SWinProcess
 			ULONG TokenHasChanged : 1;
 			ULONG IsHiddenProcess : 1;
 			ULONG IsSandBoxed : 1;
-			ULONG Spare : 7;
+			ULONG IsCetEnabled : 1;
+			ULONG Spare : 6;
 		};
 	};
 	bool AsyncFinished;
@@ -513,6 +514,17 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 		}
 	}
 
+    // CET
+    if (WindowsVersion >= WINDOWS_10_20H1 && m->QueryHandle)
+    {
+        BOOLEAN cetEnabled;
+
+        if (NT_SUCCESS(PhGetProcessIsCetEnabled(m->QueryHandle, &cetEnabled)))
+        {
+            m->IsCetEnabled = cetEnabled;
+        }
+    }
+
 	// PhpFillProcessItemExtension is done in UpdateDynamicData which is to be called right after InitStaticData
 
     // Add service names to the process item.
@@ -682,7 +694,7 @@ void CWinProcess::OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint3
 	m->AsyncFinished = true;
 }
 
-bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process, bool bFullProcessInfo, quint64 sysTotalTime)
+bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalTimePerCPU)
 {
 	PSYSTEM_PROCESS_INFORMATION_EXTENSION processExtension = NULL;
 	if (WindowsVersion >= WINDOWS_10_RS3 && !PhIsExecutingInWow64() && PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
@@ -704,6 +716,8 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	BOOLEAN isPartiallySuspended = FALSE;
 	ULONG contextSwitches = 0;
 
+	_SYSTEM_THREAD_INFORMATION* max_Thread = NULL;
+
 	// HACK: Minimal/Reflected processes don't have threads (TO-DO: Use PhGetProcessIsSuspended instead).
 	if (Process->NumberOfThreads == 0)
 		isSuspended = FALSE;
@@ -718,6 +732,9 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 
 		if (processExtension == NULL)
 			contextSwitches += Thread->ContextSwitches;
+
+		if(max_Thread == NULL || (max_Thread->KernelTime.QuadPart + max_Thread->UserTime.QuadPart) < (Thread->KernelTime.QuadPart + Thread->UserTime.QuadPart))
+			max_Thread = Thread;
 	}
 	if (processExtension != NULL)
 		contextSwitches = processExtension->ContextSwitches;
@@ -951,6 +968,15 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	m_CpuStats.PrivateBytesDelta.Update(Process->PagefileUsage);
 
 	m_CpuStats.UpdateStats(sysTotalTime);
+
+	if(max_Thread)
+	{
+		m_CpuStats2.CpuKernelDelta.Update(max_Thread->KernelTime.QuadPart);
+		m_CpuStats2.CpuUserDelta.Update(max_Thread->UserTime.QuadPart);
+		//m_CpuStats2.CycleDelta.Update(); // todo
+
+		m_CpuStats2.UpdateStats(sysTotalTimePerCPU);
+	}
 
 	m_Stats.Io.SetRead(Process->ReadTransferCount.QuadPart, Process->ReadOperationCount.QuadPart);
 	m_Stats.Io.SetWrite(Process->WriteTransferCount.QuadPart, Process->WriteOperationCount.QuadPart);
@@ -1367,6 +1393,9 @@ bool CWinProcess::UpdateModules()
 			// remove CF Guard flag if CFG mitigation is not enabled for the process
 			if (!m->IsControlFlowGuardEnabled)
 				pModule->ClearControlFlowGuardEnabled();
+
+			if (!m->IsCetEnabled)
+				pModule->ClearCetEnabled();
 
 			if (!HaveFirst)
 			{
@@ -1817,25 +1846,29 @@ QString CWinProcess::GetOsContextString() const
     }
 }
 
-QString CWinProcess::GetDEPStatusString() const
+QString CWinProcess::GetMitigationsString() const
 {
-	QReadLocker Locker(&m_Mutex);
-    if (m->DepStatus & PH_PROCESS_DEP_ENABLED)
-    {
-        if (m->DepStatus & PH_PROCESS_DEP_PERMANENT)
-            return tr("DEP (permanent)");
-        else
-            return tr("DEP");
-    }
-	return "";
-}
+	QStringList Strs; // todo: cache this
+	if(m_pModuleInfo)
+	{
+		QReadLocker Locker(&m_pModuleInfo->m_Mutex);
+		if(m_pModuleInfo.objectCast<CWinModule>()->m_ImageDllCharacteristics & IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE)
+			Strs.append(tr("ASLR"));
+	}
 
-QString CWinProcess::GetCFGuardString() const
-{
 	QReadLocker Locker(&m_Mutex);
+	if (m->DepStatus & PH_PROCESS_DEP_ENABLED)
+	{
+        //if (m->DepStatus & PH_PROCESS_DEP_PERMANENT)
+        //    Strs.append(tr("DEP (permanent)"));
+        //else
+            Strs.append(tr("DEP"));
+	}
 	if (m->IsControlFlowGuardEnabled)
-		return tr("CF Guard");
-	return "";
+		Strs.append(tr("CFG"));
+	if (m->IsCetEnabled)
+		Strs.append(tr("CET"));
+	return Strs.join(", ");
 }
 
 QMap<QString, CWinProcess::SEnvVar>	CWinProcess::GetEnvVariables() const
@@ -1984,7 +2017,7 @@ STATUS CWinProcess::EditEnvVariable(const QString& Name, const QString& Value)
 
 QString CWinProcess::GetStatusString() const
 {
-	QStringList Status;
+	QStringList Status; // todo: cache this
 
 	if(IsHiddenProcess())
 		Status.append(tr("Hidden (!)"));

@@ -53,11 +53,12 @@ FORCEINLINE PWSTR PvpGetStringOrNa(
     _In_ PPH_STRING String
     )
 {
-    if (!PhIsNullOrEmptyString(String))
-        return String->Buffer;
-    else
-        return L"N/A";
+    return PhGetStringOrDefault(String, L"N/A");
 }
+
+BOOLEAN PvpLoadDbgHelp(
+    _Inout_ PPH_SYMBOL_PROVIDER* SymbolProvider
+    );
 
 // peprp
 
@@ -87,6 +88,10 @@ VOID PvExlfProperties(
 
 PPH_STRING PvResolveShortcutTarget(
     _In_ PPH_STRING ShortcutFileName
+    );
+
+PPH_STRING PvResolveReparsePointTarget(
+    _In_ PPH_STRING FileName
     );
 
 VOID PvCopyListView(
@@ -121,6 +126,8 @@ VOID PvHandleListViewCommandCopy(
     );
 
 // settings
+
+extern BOOLEAN PeEnableThemeSupport;
 
 VOID PeInitializeSettings(
     VOID
@@ -176,8 +183,9 @@ typedef struct _PV_SYMBOL_NODE
 {
     PH_TREENEW_NODE Node;
 
+    ULONG UniqueId;
     PV_SYMBOL_TYPE Type;
-    ULONG Size;
+    ULONG64 Size;
     ULONG64 Address;    
     PPH_STRING Name;
     PPH_STRING Data;
@@ -296,6 +304,8 @@ typedef struct _PDB_SYMBOL_CONTEXT
     PH_TN_FILTER_SUPPORT FilterSupport;
     PPH_HASHTABLE NodeHashtable;
     PPH_LIST NodeList;
+
+    PVOID IDiaSession;
 } PDB_SYMBOL_CONTEXT, *PPDB_SYMBOL_CONTEXT;
 
 INT_PTR CALLBACK PvpSymbolsDlgProc(
@@ -311,7 +321,13 @@ NTSTATUS PeDumpFileSymbols(
 
 VOID PdbDumpAddress(
     _In_ PPDB_SYMBOL_CONTEXT Context,
-    _In_ ULONG64 Address
+    _In_ ULONG Rva
+    );
+
+PPH_STRING PdbGetSymbolDetails(
+    _In_ PPDB_SYMBOL_CONTEXT Context,
+    _In_opt_ PPH_STRING Name,
+    _In_opt_ ULONG Rva
     );
 
 VOID PvPdbProperties(
@@ -323,7 +339,21 @@ VOID PvSymbolAddTreeNode(
     _In_ PPV_SYMBOL_NODE Entry
     );
 
-// 
+//
+
+INT_PTR CALLBACK PvOptionsWndProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvPeSectionsDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
 
 INT_PTR CALLBACK PvpPeImportsDlgProc(
     _In_ HWND hwndDlg,
@@ -430,7 +460,35 @@ INT_PTR CALLBACK PvpPeProdIdDlgProc(
     _In_ LPARAM lParam
     );
 
+INT_PTR CALLBACK PvpPeSecurityDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
 INT_PTR CALLBACK PvpPeDebugDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvpPeEhContDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvpPeDebugPogoDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvpPeDebugCrtDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,

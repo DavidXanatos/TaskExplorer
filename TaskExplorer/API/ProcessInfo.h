@@ -81,6 +81,7 @@ public:
 	virtual quint64 GetMaximumWS() const = 0;
 
 	virtual STaskStatsEx GetCpuStats() const			{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats; }
+	virtual STaskStats GetCpuStats2() const				{ QReadLocker Locker(&m_StatsMutex); return m_CpuStats2; }
 	virtual SGpuStats GetGpuStats() const				{ QReadLocker Locker(&m_StatsMutex); m_GpuUpdateCounter = 0; return m_GpuStats; }
 
 	virtual QString GetStatusString() const = 0;
@@ -227,6 +228,7 @@ protected:
 	mutable QReadWriteLock			m_StatsMutex;
 	SProcStats						m_Stats;
 	STaskStatsEx					m_CpuStats;
+	STaskStats						m_CpuStats2;
 	SGpuStats						m_GpuStats;
 	volatile mutable quint32		m_GpuUpdateCounter;
 

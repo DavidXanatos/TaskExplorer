@@ -33,7 +33,7 @@ VOID PvpPeEnumerateHeaderDirectory(
     PIMAGE_SECTION_HEADER section = NULL;
     WCHAR value[PH_INT64_STR_LEN_1];
 
-    PhPrintUInt32(value, Index);
+    PhPrintUInt32(value, Index + 1);
     lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, value, NULL);
     PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, Name);
 
@@ -144,7 +144,7 @@ INT_PTR CALLBACK PvpPeDirectoryDlgProc(
         {
             context->ListViewHandle = GetDlgItem(hwndDlg, IDC_LIST);
 
-            PhSetListViewStyle(context->ListViewHandle, FALSE, TRUE);
+            PhSetListViewStyle(context->ListViewHandle, TRUE, TRUE);
             PhSetControlTheme(context->ListViewHandle, L"explorer");
             PhAddListViewColumn(context->ListViewHandle, 0, 0, 0, LVCFMT_LEFT, 40, L"#");
             PhAddListViewColumn(context->ListViewHandle, 1, 1, 1, LVCFMT_LEFT, 130, L"Name");
@@ -176,7 +176,7 @@ INT_PTR CALLBACK PvpPeDirectoryDlgProc(
             PvpPeEnumerateHeaderDirectory(context->ListViewHandle, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, L"Delay load imports");
             PvpPeEnumerateHeaderDirectory(context->ListViewHandle, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, L"CLR");
 
-            EnableThemeDialogTexture(hwndDlg, ETDT_ENABLETAB);
+            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
         }
         break;
     case WM_DESTROY:

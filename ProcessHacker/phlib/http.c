@@ -88,7 +88,7 @@ BOOLEAN PhHttpSocketCreate(
         WinHttpSetOption(
             httpContext->SessionHandle,
             WINHTTP_OPTION_SECURE_PROTOCOLS,
-            &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 },
+            &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 /*| WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3*/ },
             sizeof(ULONG)
             );
 
@@ -138,19 +138,7 @@ BOOLEAN PhHttpSocketConnect(
     _In_ USHORT ServerPort
     )
 {
-    //PDNS_RECORD dnsRecordList = NULL;
-    //
-    //if (!(dnsRecordList = PhHttpDnsQuery(ServerName, DNS_TYPE_A)))
-    //{
-    //    DnsQuery(
-    //        ServerName,
-    //        DNS_TYPE_A,
-    //        DNS_QUERY_NO_HOSTS_FILE,
-    //        NULL,
-    //        &dnsRecordList,
-    //        NULL
-    //        );
-    //}
+    //PDNS_RECORD dnsRecordList = PhDnsQuery(ServerName, DNS_TYPE_A);
     //
     //if (dnsRecordList)
     //{
@@ -781,7 +769,7 @@ HINTERNET PhpCreateDohConnectionHandle(
                 WinHttpSetOption(
                     httpSessionHandle,
                     WINHTTP_OPTION_SECURE_PROTOCOLS,
-                    &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 },
+                    &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 /*| WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3*/ },
                     sizeof(ULONG)
                     );
 
@@ -1102,4 +1090,43 @@ CleanupExit:
         PhFree(dnsSendBuffer);
 
     return dnsRecordList;
+}
+
+PDNS_RECORD PhDnsQuery(
+    _In_opt_ PWSTR DnsServerAddress,
+    _In_ PWSTR DnsQueryMessage,
+    _In_ USHORT DnsQueryMessageType
+    )
+{
+    PDNS_RECORD dnsRecordList;
+
+    dnsRecordList = PhHttpDnsQuery(
+        DnsServerAddress,
+        DnsQueryMessage,
+        DnsQueryMessageType
+        );
+
+    if (!dnsRecordList && DnsQuery_W_Import())
+    {
+        DnsQuery_W_Import()(
+            DnsQueryMessage,
+            DnsQueryMessageType,
+            DNS_QUERY_BYPASS_CACHE | DNS_QUERY_NO_HOSTS_FILE,
+            NULL,
+            &dnsRecordList,
+            NULL
+            );
+    }
+
+    return dnsRecordList;
+}
+
+VOID PhDnsFree(
+    _In_ PDNS_RECORD DnsRecordList
+    )
+{
+    if (DnsFree_Import())
+    {
+        DnsFree_Import()(DnsRecordList, DnsFreeRecordList);
+    }
 }

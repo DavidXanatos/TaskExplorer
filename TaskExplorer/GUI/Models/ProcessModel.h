@@ -107,9 +107,7 @@ public:
 		eIntegrity,
 		eVerificationStatus,
 		eVerifiedSigner,
-		eASLR,
-		eDEP,
-		eCF_Guard,
+		eMitigations,
 		eProtection,
 		eCritical,
 #endif

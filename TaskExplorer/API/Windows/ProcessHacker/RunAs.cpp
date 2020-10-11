@@ -558,7 +558,7 @@ NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine)
         goto CleanupExit;
     }
 
-    if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, ProcessQueryAccess, UlongToHandle(serviceStatus.dwProcessId))))
+    if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, UlongToHandle(serviceStatus.dwProcessId))))
         goto CleanupExit;
 
     if (!NT_SUCCESS(status = NtOpenProcessToken(processHandle, TOKEN_QUERY, &tokenHandle)))

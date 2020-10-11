@@ -1,8 +1,6 @@
 #ifndef _PH_PHNATINL_H
 #define _PH_PHNATINL_H
 
-#pragma once
-
 // This file contains inlined native API wrapper functions. These functions were previously
 // exported, but are now inlined because they are extremely simple wrappers around equivalent native
 // API functions.
@@ -455,10 +453,10 @@ PhGetProcessCycleTime(
         NULL
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *CycleTime = cycleTimeInfo.AccumulatedCycles;
+    if (NT_SUCCESS(status))
+    {
+        *CycleTime = cycleTimeInfo.AccumulatedCycles;
+    }
 
     return status;
 }
@@ -481,10 +479,10 @@ PhGetProcessUptime(
         NULL
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *Uptime = uptimeInfo;
+    if (NT_SUCCESS(status))
+    {
+        *Uptime = uptimeInfo;
+    }
 
     return status;
 }
@@ -507,10 +505,10 @@ PhGetProcessConsoleHostProcessId(
         NULL
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *ConsoleHostProcessId = (HANDLE)consoleHostProcess;
+    if (NT_SUCCESS(status))
+    {
+        *ConsoleHostProcessId = (HANDLE)consoleHostProcess;
+    }
 
     return status;
 }
@@ -603,10 +601,10 @@ PhGetProcessIsCFGuardEnabled(
         NULL
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *IsControlFlowGuardEnabled = !!policyInfo.ControlFlowGuardPolicy.EnableControlFlowGuard;
+    if (NT_SUCCESS(status))
+    {
+        *IsControlFlowGuardEnabled = !!policyInfo.ControlFlowGuardPolicy.EnableControlFlowGuard;
+    }
 
     return status;
 }
@@ -921,10 +919,10 @@ PhGetThreadCycleTime(
         NULL
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *CycleTime = cycleTimeInfo.AccumulatedCycles;
+    if (NT_SUCCESS(status))
+    {
+        *CycleTime = cycleTimeInfo.AccumulatedCycles;
+    }
 
     return status;
 }
@@ -1354,10 +1352,10 @@ PhGetTokenLinkedToken(
         &returnLength
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *LinkedTokenHandle = linkedToken.LinkedToken;
+    if (NT_SUCCESS(status))
+    {
+        *LinkedTokenHandle = linkedToken.LinkedToken;
+    }
 
     return status;
 }
@@ -1381,10 +1379,10 @@ PhGetTokenIsRestricted(
         &returnLength
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *IsRestricted = !!restricted;
+    if (NT_SUCCESS(status))
+    {
+        *IsRestricted = !!restricted;
+    }
 
     return status;
 }
@@ -1415,10 +1413,10 @@ PhGetTokenIsVirtualizationAllowed(
         &returnLength
         );
 
-    if (!NT_SUCCESS(status))
-        return status;
-
-    *IsVirtualizationAllowed = !!virtualizationAllowed;
+    if (NT_SUCCESS(status))
+    {
+        *IsVirtualizationAllowed = !!virtualizationAllowed;
+    }
 
     return status;
 }
@@ -1757,6 +1755,34 @@ PhSetDebugKillProcessOnExit(
         sizeof(ULONG),
         NULL
         );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetProcessIsCetEnabled(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PBOOLEAN IsCetEnabled
+    )
+{
+    NTSTATUS status;
+    PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
+
+    policyInfo.Policy = (PROCESS_MITIGATION_POLICY)15; //ProcessUserShadowStackPolicy;
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessMitigationPolicy,
+        &policyInfo,
+        sizeof(PROCESS_MITIGATION_POLICY_INFORMATION),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *IsCetEnabled = !!policyInfo.UserShadowStackPolicy.EnableUserShadowStack;
+    }
+
+    return status;
 }
 
 #endif

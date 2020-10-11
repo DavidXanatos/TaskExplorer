@@ -53,6 +53,7 @@ typedef enum _MANDATORY_LEVEL_RID {
     MandatoryUntrustedRID = SECURITY_MANDATORY_UNTRUSTED_RID,
     MandatoryLowRID = SECURITY_MANDATORY_LOW_RID,
     MandatoryMediumRID = SECURITY_MANDATORY_MEDIUM_RID,
+    //MandatoryMediumPlusRID = SECURITY_MANDATORY_MEDIUM_PLUS_RID,
     MandatoryHighRID = SECURITY_MANDATORY_HIGH_RID,
     MandatorySystemRID = SECURITY_MANDATORY_SYSTEM_RID,
     MandatorySecureProcessRID = SECURITY_MANDATORY_PROTECTED_PROCESS_RID
@@ -71,7 +72,7 @@ NTAPI
 PhOpenProcess(
     _Out_ PHANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ HANDLE ProcessId
+    _In_opt_ HANDLE ProcessId
     );
 
 PHLIBAPI
@@ -154,6 +155,7 @@ PhGetSecurityDescriptorAsString(
     _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
     );
 
+_Success_(return)
 PHLIBAPI
 BOOLEAN
 NTAPI
@@ -200,6 +202,14 @@ NTAPI
 PhGetProcessIsBeingDebugged(
     _In_ HANDLE ProcessHandle,
     _Out_ PBOOLEAN IsBeingDebugged
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessDeviceMap(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PULONG DeviceMap
     );
 
 /** Specifies a PEB string. */
@@ -571,6 +581,22 @@ PhGetTokenProcessTrustLevelRID(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetFileBasicInformation(
+    _In_ HANDLE FileHandle,
+    _Out_ PFILE_BASIC_INFORMATION BasicInfo
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetFileStandardInformation(
+    _In_ HANDLE FileHandle,
+    _Out_ PFILE_STANDARD_INFORMATION StandardInfo
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetFileSize(
     _In_ HANDLE FileHandle,
     _Out_ PLARGE_INTEGER Size
@@ -639,7 +665,6 @@ PhGetProcessIdsUsingFile(
     _Out_ PFILE_PROCESS_IDS_USING_FILE_INFORMATION *ProcessIdsUsingFile
     );
 
-_Success_(return == STATUS_SUCCESS)
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -996,7 +1021,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhGetProcessImageFileNameByProcessId(
-    _In_ HANDLE ProcessId,
+    _In_opt_ HANDLE ProcessId,
     _Out_ PPH_STRING *FileName
     );
 
@@ -1321,6 +1346,25 @@ PhQueryValueKey(
     _Out_ PVOID *Buffer
     );
 
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetValueKey(
+    _In_ HANDLE KeyHandle,
+    _In_opt_ PPH_STRINGREF ValueName,
+    _In_ ULONG ValueType,
+    _In_ PVOID Buffer,
+    _In_ ULONG BufferLength
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhDeleteValueKey(
+    _In_ HANDLE KeyHandle,
+    _In_opt_ PPH_STRINGREF ValueName
+    );
+
 typedef BOOLEAN (NTAPI *PPH_ENUM_KEY_CALLBACK)(
     _In_ HANDLE RootDirectory,
     _In_ PVOID Information,
@@ -1342,6 +1386,7 @@ NTSTATUS
 NTAPI
 PhEnumerateValueKey(
     _In_ HANDLE KeyHandle,
+    _In_ KEY_VALUE_INFORMATION_CLASS InformationClass,
     _In_ PPH_ENUM_KEY_CALLBACK Callback,
     _In_opt_ PVOID Context
     );
@@ -1581,6 +1626,48 @@ NTSTATUS
 NTAPI
 PhRevertImpersonationToken(
     _In_ HANDLE ThreadHandle
+    );
+
+typedef struct _PH_PROCESS_DEBUG_HEAP_ENTRY
+{
+    ULONG Flags;
+    ULONG Signature;
+    ULONG NumberOfEntries;
+    PVOID BaseAddress;
+    SIZE_T BytesAllocated;
+    SIZE_T BytesCommitted;
+} PH_PROCESS_DEBUG_HEAP_ENTRY, *PPH_PROCESS_DEBUG_HEAP_ENTRY;
+
+typedef struct _PH_PROCESS_DEBUG_HEAP_ENTRY32
+{
+    ULONG Flags;
+    ULONG Signature;
+    ULONG NumberOfEntries;
+    ULONG BaseAddress;
+    ULONG BytesAllocated;
+    ULONG BytesCommitted;
+} PH_PROCESS_DEBUG_HEAP_ENTRY32, *PPH_PROCESS_DEBUG_HEAP_ENTRY32;
+
+typedef struct _PH_PROCESS_DEBUG_HEAP_INFORMATION
+{
+    ULONG NumberOfHeaps;
+    PVOID DefaultHeap;
+    PH_PROCESS_DEBUG_HEAP_ENTRY Heaps[1];
+} PH_PROCESS_DEBUG_HEAP_INFORMATION, *PPH_PROCESS_DEBUG_HEAP_INFORMATION;
+
+typedef struct _PH_PROCESS_DEBUG_HEAP_INFORMATION32
+{
+    ULONG NumberOfHeaps;
+    ULONG DefaultHeap;
+    PH_PROCESS_DEBUG_HEAP_ENTRY32 Heaps[1];
+} PH_PROCESS_DEBUG_HEAP_INFORMATION32, *PPH_PROCESS_DEBUG_HEAP_INFORMATION32;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhQueryProcessHeapInformation(
+    _In_ HANDLE ProcessId,
+    _Out_ PPH_PROCESS_DEBUG_HEAP_INFORMATION* HeapInformation
     );
 
 #ifdef __cplusplus

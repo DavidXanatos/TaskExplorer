@@ -94,9 +94,7 @@ public:
 	virtual quint32 GetOsContextVersion() const;
 	virtual QString GetOsContextString() const;
 
-	virtual QString GetDEPStatusString() const;
-
-	virtual QString GetCFGuardString() const;
+	virtual QString GetMitigationsString() const;
 
 	// Other Fields
 	virtual QString GetUserName() const;
@@ -205,7 +203,7 @@ protected:
 	bool InitStaticData(bool bLoadFileName = true); // *NOT Thread Safe* internal function to be called by other InitStaticData's
 	void UpdateModuleInfo(); // *NOT Thread Safe* internal function
 	bool IsHandleValid();
-	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime);
+	bool UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalTimePerCPU);
 	bool UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* process, bool bFullProcessInfo, quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	bool UpdateTokenData(bool MonitorChange);
 	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);

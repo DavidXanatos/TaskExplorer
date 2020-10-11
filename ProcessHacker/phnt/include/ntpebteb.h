@@ -1,3 +1,23 @@
+/*
+ * Process Hacker -
+ *   Process and Thread Environment Block support functions
+ *
+ * This file is part of Process Hacker.
+ *
+ * Process Hacker is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Process Hacker is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef _NTPEBTEB_H
 #define _NTPEBTEB_H
 
@@ -84,8 +104,9 @@ typedef struct _PEB
     PVOID SubSystemData;
     PVOID ProcessHeap;
     PRTL_CRITICAL_SECTION FastPebLock;
-    PVOID IFEOKey;
     PSLIST_HEADER AtlThunkSListPtr;
+    PVOID IFEOKey;
+
     union
     {
         ULONG CrossProcessFlags;
@@ -278,7 +299,9 @@ typedef struct _TEB
 #endif
     
     CHAR PlaceholderCompatibilityMode;
-    CHAR PlaceholderReserved[11];
+    BOOLEAN PlaceholderHydrationAlwaysExplicit;
+    CHAR PlaceholderReserved[10];
+
     ULONG ProxiedProcessId;
     ACTIVATION_CONTEXT_STACK ActivationStack;
     
@@ -294,6 +317,7 @@ typedef struct _TEB
 #endif
 
     BOOLEAN InstrumentationCallbackDisabled;
+    BOOLEAN UnalignedLoadStoreExceptions;
 #ifndef _WIN64
     UCHAR SpareBytes[23];
     ULONG TxFsContext;
@@ -369,8 +393,7 @@ typedef struct _TEB
     ULONG IsImpersonating;
     PVOID NlsCache;
     PVOID pShimData;
-    USHORT HeapVirtualAffinity;
-    USHORT LowFragHeapDataSlot;
+    ULONG HeapData;
     HANDLE CurrentTransactionHandle;
     PTEB_ACTIVE_FRAME ActiveFrame;
     PVOID FlsData;

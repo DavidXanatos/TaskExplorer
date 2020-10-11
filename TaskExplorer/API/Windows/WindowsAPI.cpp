@@ -176,10 +176,10 @@ bool CWindowsAPI::Init()
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
 	if (PhBeginInitOnce(&initOnce))
     {
-        UNICODE_STRING fileTypeName = RTL_CONSTANT_STRING(L"File");
+        static PH_STRINGREF fileTypeName = PH_STRINGREF_INIT(L"File");
         g_fileObjectTypeIndex = PhGetObjectTypeNumber(&fileTypeName);
 
-		UNICODE_STRING EtwRegistrationTypeName = RTL_CONSTANT_STRING(L"EtwRegistration");
+		static PH_STRINGREF EtwRegistrationTypeName = PH_STRINGREF_INIT(L"EtwRegistration");
         g_EtwRegistrationTypeIndex = PhGetObjectTypeNumber(&EtwRegistrationTypeName);
 		
         PhEndInitOnce(&initOnce);
@@ -842,7 +842,7 @@ bool CWindowsAPI::UpdateProcessList()
 		}
 
 		bool bChanged = false;
-		bChanged = pProcess->UpdateDynamicData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime));
+		bChanged = pProcess->UpdateDynamicData(process, bFullProcessInfo, EnableCycleCpuUsage ? 0 : (iLinuxStyleCPU == 1 ? sysTotalTimePerCPU : sysTotalTime), sysTotalTimePerCPU);
 
 		if (EnableCycleCpuUsage)
 			sysTotalCycleTime += pProcess->GetCpuStats().CycleDelta.Delta;

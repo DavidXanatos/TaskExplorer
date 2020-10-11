@@ -580,9 +580,6 @@
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
-    <ClInclude Include="API\Windows\ProcessHacker\d3dkmt.h">
-      <Filter>API\Windows\ProcessHacker</Filter>
-    </ClInclude>
     <ClInclude Include="GUI\CustomItemDelegate.h">
       <Filter>TaskExplorer</Filter>
     </ClInclude>

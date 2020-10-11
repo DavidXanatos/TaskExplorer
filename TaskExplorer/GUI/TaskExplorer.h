@@ -10,7 +10,7 @@
 
 #define VERSION_MJR		1
 #define VERSION_MIN 	2
-#define VERSION_REV 	8
+#define VERSION_REV 	9
 #define VERSION_UPD 	0
 
 class CGraphBar;

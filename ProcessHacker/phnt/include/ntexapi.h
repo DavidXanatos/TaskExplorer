@@ -294,6 +294,14 @@ NtFilterBootOption(
 #define EVENT_QUERY_STATE 0x0001
 #endif
 
+#ifndef EVENT_MODIFY_STATE
+#define EVENT_MODIFY_STATE 0x0002
+#endif
+
+#ifndef EVENT_ALL_ACCESS
+#define EVENT_ALL_ACCESS (EVENT_QUERY_STATE|EVENT_MODIFY_STATE|STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE)
+#endif
+
 typedef enum _EVENT_INFORMATION_CLASS
 {
     EventBasicInformation
@@ -1264,11 +1272,11 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemPoolTagInformation, // q: SYSTEM_POOLTAG_INFORMATION
     SystemInterruptInformation, // q: SYSTEM_INTERRUPT_INFORMATION
     SystemDpcBehaviorInformation, // q: SYSTEM_DPC_BEHAVIOR_INFORMATION; s: SYSTEM_DPC_BEHAVIOR_INFORMATION (requires SeLoadDriverPrivilege)
-    SystemFullMemoryInformation, // not implemented
+    SystemFullMemoryInformation, // not implemented // SYSTEM_MEMORY_USAGE_INFORMATION
     SystemLoadGdiDriverInformation, // s (kernel-mode only)
     SystemUnloadGdiDriverInformation, // s (kernel-mode only)
     SystemTimeAdjustmentInformation, // q: SYSTEM_QUERY_TIME_ADJUST_INFORMATION; s: SYSTEM_SET_TIME_ADJUST_INFORMATION (requires SeSystemtimePrivilege)
-    SystemSummaryMemoryInformation, // not implemented
+    SystemSummaryMemoryInformation, // not implemented // SYSTEM_MEMORY_USAGE_INFORMATION
     SystemMirrorMemoryInformation, // s (requires license value "Kernel-MemoryMirroringSupported") (requires SeShutdownPrivilege) // 30
     SystemPerformanceTraceInformation, // q; s: (type depends on EVENT_TRACE_INFORMATION_CLASS)
     SystemObsolete0, // not implemented
@@ -1285,7 +1293,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemLegacyDriverInformation, // q: SYSTEM_LEGACY_DRIVER_INFORMATION
     SystemCurrentTimeZoneInformation, // q; s: RTL_TIME_ZONE_INFORMATION
     SystemLookasideInformation, // q: SYSTEM_LOOKASIDE_INFORMATION
-    SystemTimeSlipNotification, // s (requires SeSystemtimePrivilege)
+    SystemTimeSlipNotification, // s: HANDLE (NtCreateEvent) (requires SeSystemtimePrivilege)
     SystemSessionCreate, // not implemented
     SystemSessionDetach, // not implemented
     SystemSessionInformation, // not implemented (SYSTEM_SESSION_INFORMATION)
@@ -1373,7 +1381,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemEntropyInterruptTimingInformation,
     SystemConsoleInformation, // q: SYSTEM_CONSOLE_INFORMATION
     SystemPlatformBinaryInformation, // q: SYSTEM_PLATFORM_BINARY_INFORMATION
-    SystemPolicyInformation, // SYSTEM_POLICY_INFORMATION
+    SystemPolicyInformation, // q: SYSTEM_POLICY_INFORMATION
     SystemHypervisorProcessorCountInformation, // q: SYSTEM_HYPERVISOR_PROCESSOR_COUNT_INFORMATION
     SystemDeviceDataInformation, // q: SYSTEM_DEVICE_DATA_INFORMATION
     SystemDeviceDataEnumerationInformation, // q: SYSTEM_DEVICE_DATA_INFORMATION
@@ -1420,7 +1428,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemSecureKernelProfileInformation, // q: SYSTEM_SECURE_KERNEL_HYPERGUARD_PROFILE_INFORMATION
     SystemCodeIntegrityPlatformManifestInformation, // q: SYSTEM_SECUREBOOT_PLATFORM_MANIFEST_INFORMATION // since REDSTONE
     SystemInterruptSteeringInformation, // SYSTEM_INTERRUPT_STEERING_INFORMATION_INPUT // 180
-    SystemSupportedProcessorArchitectures,
+    SystemSupportedProcessorArchitectures, // in: HANDLE, out: ULONG[3] // NtQuerySystemInformationEx
     SystemMemoryUsageInformation, // q: SYSTEM_MEMORY_USAGE_INFORMATION
     SystemCodeIntegrityCertificateInformation, // q: SYSTEM_CODEINTEGRITY_CERTIFICATE_INFORMATION
     SystemPhysicalMemoryInformation, // q: SYSTEM_PHYSICAL_MEMORY_INFORMATION // since REDSTONE2
@@ -1450,9 +1458,22 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemSecurityModelInformation, // SYSTEM_SECURITY_MODEL_INFORMATION // since 19H1
     SystemCodeIntegritySyntheticCacheInformation,
     SystemFeatureConfigurationInformation, // SYSTEM_FEATURE_CONFIGURATION_INFORMATION // since 20H1 // 210
-    SystemFeatureConfigurationSectionInformation,
+    SystemFeatureConfigurationSectionInformation, // SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION
     SystemFeatureUsageSubscriptionInformation,
-    SystemSecureSpeculationControlInformation,
+    SystemSecureSpeculationControlInformation, // SECURE_SPECULATION_CONTROL_INFORMATION
+    // SystemSpacesBootInformation = 214,
+    // SystemFwRamdiskInformation = 215,
+    // SystemWheaIpmiHardwareInformation = 216,
+    // SystemDifSetRuleClassInformation = 217,
+    // SystemDifClearRuleClassInformation = 218,
+    // SystemDifApplyPluginVerificationOnDriver = 219,
+    // SystemDifRemovePluginVerificationOnDriver = 220,
+    // SystemShadowStackInformation = 221, // SYSTEM_SHADOW_STACK_INFORMATION
+    // SystemBuildVersionInformation = 222, // SYSTEM_BUILD_VERSION_INFORMATION
+    // SystemPoolLimitInformation = 233,
+    // SystemCodeIntegrityAddDynamicStore = 234,
+    // SystemCodeIntegrityClearDynamicStores = 235.
+    // SystemDifPoolTrackingInformation = 236
     MaxSystemInfoClass
 } SYSTEM_INFORMATION_CLASS;
 
@@ -2496,6 +2517,7 @@ typedef struct _SYSTEM_BOOT_ENVIRONMENT_INFORMATION
             ULONGLONG DbgMeasuredLaunchCapable : 1; // 19H1
             ULONGLONG DbgSystemHiveReplace : 1;
             ULONGLONG DbgMeasuredLaunchSmmProtections : 1;
+            ULONGLONG DbgMeasuredLaunchSmmLevel : 7; // 20H1
         };
     };
 } SYSTEM_BOOT_ENVIRONMENT_INFORMATION, *PSYSTEM_BOOT_ENVIRONMENT_INFORMATION;
@@ -3061,7 +3083,7 @@ typedef union _ENERGY_STATE_DURATION
 
 typedef struct _PROCESS_ENERGY_VALUES
 {
-    ULONGLONG Cycles[4][2];
+    ULONGLONG Cycles[2][4];
     ULONGLONG DiskEnergy;
     ULONGLONG NetworkTailEnergy;
     ULONGLONG MBBTailEnergy;
@@ -3237,7 +3259,7 @@ typedef struct _SYSTEM_HYPERVISOR_DETAIL_INFORMATION
 // private
 typedef struct _SYSTEM_PROCESSOR_CYCLE_STATS_INFORMATION
 {
-    ULONGLONG Cycles[4][2];
+    ULONGLONG Cycles[2][4];
 } SYSTEM_PROCESSOR_CYCLE_STATS_INFORMATION, *PSYSTEM_PROCESSOR_CYCLE_STATS_INFORMATION;
 
 // private
@@ -3252,12 +3274,13 @@ typedef struct _SYSTEM_VSM_PROTECTION_INFORMATION
     BOOLEAN DmaProtectionsAvailable;
     BOOLEAN DmaProtectionsInUse;
     BOOLEAN HardwareMbecAvailable; // REDSTONE4 (CVE-2018-3639)
+    BOOLEAN ApicVirtualizationAvailable; // 20H1
 } SYSTEM_VSM_PROTECTION_INFORMATION, *PSYSTEM_VSM_PROTECTION_INFORMATION;
 
 // private
 typedef struct _SYSTEM_KERNEL_DEBUGGER_FLAGS
 {
-    UCHAR KernelDebuggerIgnoreUmExceptions;
+    BOOLEAN KernelDebuggerIgnoreUmExceptions;
 } SYSTEM_KERNEL_DEBUGGER_FLAGS, *PSYSTEM_KERNEL_DEBUGGER_FLAGS;
 
 // private
@@ -3471,7 +3494,7 @@ typedef struct _SYSTEM_KERNEL_VA_SHADOW_INFORMATION
 {
     union
     {
-        ULONG Flags;
+        ULONG KvaShadowFlags;
         struct
         {
             ULONG KvaShadowEnabled : 1;
@@ -3583,24 +3606,37 @@ typedef struct _SYSTEM_SECURITY_MODEL_INFORMATION
 } SYSTEM_SECURITY_MODEL_INFORMATION, *PSYSTEM_SECURITY_MODEL_INFORMATION;
 
 // private
-typedef struct _RTL_FEATURE_CONFIGURATION
-{
-    ULONG FeatureId;
-    ULONG Priority : 4;
-    ULONG EnabledState : 2;
-    ULONG IsWexpConfiguration : 1;
-    ULONG HasSubscriptions : 1;
-    ULONG Variant : 6;
-    ULONG VariantPayloadKind : 2;
-    ULONG VariantPayload;
-} RTL_FEATURE_CONFIGURATION, *PRTL_FEATURE_CONFIGURATION;
-
-// private
 typedef struct _SYSTEM_FEATURE_CONFIGURATION_INFORMATION
 {
     ULONGLONG ChangeStamp;
-    RTL_FEATURE_CONFIGURATION Configuration;
+    struct _RTL_FEATURE_CONFIGURATION* Configuration; // see ntrtl.h for types
 } SYSTEM_FEATURE_CONFIGURATION_INFORMATION, *PSYSTEM_FEATURE_CONFIGURATION_INFORMATION;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY
+{
+    ULONGLONG ChangeStamp;
+    PVOID Section;
+    ULONGLONG Size;
+} SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY, *PSYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION
+{
+    ULONGLONG OverallChangeStamp;
+    SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY Descriptors[3];
+} SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION, *PSYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION;
+
+// private
+typedef union _SECURE_SPECULATION_CONTROL_INFORMATION
+{
+    ULONG KvaShadowSupported : 1;
+    ULONG KvaShadowEnabled : 1;
+    ULONG KvaShadowUserGlobal : 1;
+    ULONG KvaShadowPcid : 1;
+    ULONG MbClearEnabled : 1;
+    ULONG Reserved : 27;
+} SECURE_SPECULATION_CONTROL_INFORMATION, *PSECURE_SPECULATION_CONTROL_INFORMATION;
 
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
 
@@ -3966,17 +4002,33 @@ typedef struct _KUSER_SHARED_DATA
 
     ULONGLONG TestRetInstruction;
     LONGLONG QpcFrequency;
+
     ULONG SystemCall;
-    ULONG SystemCallPad0;
+
+    union
+    {
+        ULONG AllFlags;
+        struct
+        {
+            ULONG Win32Process : 1;
+            ULONG Sgx2Enclave : 1;
+            ULONG VbsBasicEnclave : 1;
+            ULONG SpareBits : 29;
+        };
+    } UserCetAvailableEnvironments;
+
     ULONGLONG SystemCallPad[2];
 
     union
     {
         volatile KSYSTEM_TIME TickCount;
         volatile ULONG64 TickCountQuad;
-        ULONG ReservedTickCountOverlay[3];
+        struct
+        {
+            ULONG ReservedTickCountOverlay[3];
+            ULONG TickCountPad[1];
+        };
     };
-    ULONG TickCountPad[1];
 
     ULONG Cookie;
     ULONG CookiePad[1];
@@ -4011,7 +4063,7 @@ typedef struct _KUSER_SHARED_DATA
         USHORT QpcData;
         struct
         {
-            UCHAR QpcBypassEnabled : 1;
+            volatile UCHAR QpcBypassEnabled : 1;
             UCHAR QpcShift : 1;
         };
     };
@@ -4019,6 +4071,8 @@ typedef struct _KUSER_SHARED_DATA
     LARGE_INTEGER TimeZoneBiasEffectiveStart;
     LARGE_INTEGER TimeZoneBiasEffectiveEnd;
     XSTATE_CONFIGURATION XState;
+    KSYSTEM_TIME FeatureConfigurationChangeStamp;
+    ULONG Spare;
 } KUSER_SHARED_DATA, *PKUSER_SHARED_DATA;
 #include <poppack.h>
 
@@ -4038,7 +4092,7 @@ C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, SafeBootMode) == 0x2ec);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, TickCount) == 0x320);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, TickCountQuad) == 0x320);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, XState) == 0x3d8);
-//C_ASSERT(sizeof(KUSER_SHARED_DATA) == 0x70C); // VS2017 has some weird issue with this.
+//C_ASSERT(sizeof(KUSER_SHARED_DATA) == 0x70C); // VS2019 has some weird issue with this.
 
 #define USER_SHARED_DATA ((KUSER_SHARED_DATA * const)0x7ffe0000)
 
@@ -4096,6 +4150,18 @@ FORCEINLINE ULONG NtGetTickCount()
         UInt32x32To64((tickCount.HighPart << 8) & 0xffffffff, USER_SHARED_DATA->TickCountMultiplier));
 
 #endif
+}
+
+#else
+
+FORCEINLINE ULONGLONG NtGetTickCount64()
+{
+    return GetTickCount(); // pre PHNT_WS03 (dmex)
+}
+
+FORCEINLINE ULONG NtGetTickCount()
+{
+    return GetTickCount();
 }
 
 #endif

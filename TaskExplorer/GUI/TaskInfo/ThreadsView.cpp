@@ -383,6 +383,10 @@ void CThreadsView::OnThreadAction()
 
 void CThreadsView::OnUpdateHistory()
 {
+	QColor PlotBackground = Qt::white;
+	if(theConf->GetBool("MainWindow/DarkTheme", false))
+		PlotBackground = Qt::black;
+
 	if (!m_pThreadList->isColumnHidden(CThreadModel::eCPU_History))
 	{
 		int HistoryColumn = CThreadModel::eCPU_History;
@@ -396,7 +400,7 @@ void CThreadsView::OnUpdateHistory()
 			CHistoryGraph* pGraph = Old.take(TID);
 			if (!pGraph)
 			{
-				pGraph = new CHistoryGraph(true, Qt::white, this);
+				pGraph = new CHistoryGraph(true, PlotBackground, this);
 				pGraph->AddValue(0, Qt::green);
 				pGraph->AddValue(1, Qt::red);
 				m_CPU_Graphs.insert(TID, pGraph);

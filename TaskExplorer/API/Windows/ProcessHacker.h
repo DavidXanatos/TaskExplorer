@@ -14,6 +14,9 @@
 #endif
 #endif
 
+#define CINTERFACE
+#define COBJMACROS
+
 #if !defined(_PHAPP_)
 #define PHAPPAPI __declspec(dllimport)
 #else

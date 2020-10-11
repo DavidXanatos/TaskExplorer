@@ -2,7 +2,7 @@
  * Process Hacker -
  *   Appmodel support functions
  *
- * Copyright (C) 2017-2018 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -23,10 +23,7 @@
 #include <ph.h>
 #include <lsasup.h>
 
-#include <minappmodel.h>
 #include <appmodel.h>
-#include <combaseapi.h>
-#include <propsys.h>
 #include <shobjidl.h>
 
 #include <appresolverp.h>
@@ -90,17 +87,12 @@ static BOOLEAN PhpKernelAppCoreInitialized(
                 AppContainerDeriveSidFromMoniker_I = PhGetDllBaseProcedureAddress(kernelBaseModuleHandle, "AppContainerDeriveSidFromMoniker", 0);
                 AppContainerLookupMoniker_I = PhGetDllBaseProcedureAddress(kernelBaseModuleHandle, "AppContainerLookupMoniker", 0);
                 AppContainerFreeMemory_I = PhGetDllBaseProcedureAddress(kernelBaseModuleHandle, "AppContainerFreeMemory", 0);
-                AppContainerRegisterSid_I = PhGetDllBaseProcedureAddress(kernelBaseModuleHandle, "AppContainerRegisterSid", 0);
-                AppContainerUnregisterSid_I = PhGetDllBaseProcedureAddress(kernelBaseModuleHandle, "AppContainerUnregisterSid", 0);
-                AppPolicyGetWindowingModel_I = PhGetDllBaseProcedureAddress(kernelBaseModuleHandle, "AppPolicyGetWindowingModel", 0);
             }
 
             if (
                 AppContainerDeriveSidFromMoniker_I &&
                 AppContainerLookupMoniker_I && 
-                AppContainerFreeMemory_I && 
-                AppContainerRegisterSid_I && 
-                AppContainerUnregisterSid_I
+                AppContainerFreeMemory_I
                 )
             {
                 kernelAppCoreInitialized = TRUE;
@@ -128,22 +120,22 @@ BOOLEAN PhAppResolverGetAppIdForProcess(
     if (WindowsVersion < WINDOWS_8)
     {
         IApplicationResolver_GetAppIDForProcess(
-            (IApplicationResolver61*)resolverInterface, 
-            HandleToUlong(ProcessId), 
-            &appIdText, 
-            NULL, 
-            NULL, 
+            (IApplicationResolver61*)resolverInterface,
+            HandleToUlong(ProcessId),
+            &appIdText,
+            NULL,
+            NULL,
             NULL
             );
     }
     else
     {
         IApplicationResolver2_GetAppIDForProcess(
-            (IApplicationResolver62*)resolverInterface, 
-            HandleToUlong(ProcessId), 
-            &appIdText, 
-            NULL, 
-            NULL, 
+            (IApplicationResolver62*)resolverInterface,
+            HandleToUlong(ProcessId),
+            &appIdText,
+            NULL,
+            NULL,
             NULL
             );
     }
@@ -208,7 +200,7 @@ HRESULT PhAppResolverActivateAppId(
     )
 {
     HRESULT status;
-    ULONG processId = 0;
+    ULONG processId = ULONG_MAX;
     IApplicationActivationManager* applicationActivationManager;
 
     status = PhGetClassObject(
@@ -220,7 +212,7 @@ HRESULT PhAppResolverActivateAppId(
 
     if (SUCCEEDED(status))
     {
-        CoAllowSetForegroundWindow((IUnknown*)applicationActivationManager, NULL);
+        //CoAllowSetForegroundWindow((IUnknown*)applicationActivationManager, NULL);
 
         status = IApplicationActivationManager_ActivateApplication(
             applicationActivationManager,
@@ -241,6 +233,118 @@ HRESULT PhAppResolverActivateAppId(
     return status;
 }
 
+HRESULT PhAppResolverEnablePackageDebug(
+    _In_ PPH_STRING PackageFullName
+    )
+{
+    HRESULT status;
+    PPH_LIST packageTasks = NULL;
+    IPackageDebugSettings* packageDebugSettings;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_PackageDebugSettings,
+        &IID_IPackageDebugSettings,
+        &packageDebugSettings
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IPackageDebugSettings_EnableDebugging(
+            packageDebugSettings,
+            PhGetString(PackageFullName),
+            NULL,
+            NULL
+            );
+
+        IPackageDebugSettings_Release(packageDebugSettings);
+    }
+
+    return status;
+}
+
+HRESULT PhAppResolverDisablePackageDebug(
+    _In_ PPH_STRING PackageFullName
+    )
+{
+    HRESULT status;
+    PPH_LIST packageTasks = NULL;
+    IPackageDebugSettings* packageDebugSettings;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_PackageDebugSettings,
+        &IID_IPackageDebugSettings,
+        &packageDebugSettings
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IPackageDebugSettings_DisableDebugging(
+            packageDebugSettings,
+            PhGetString(PackageFullName)
+            );
+
+        IPackageDebugSettings_Release(packageDebugSettings);
+    }
+
+    return status;
+}
+
+HRESULT PhAppResolverPackageSuspend(
+    _In_ PPH_STRING PackageFullName
+    )
+{
+    HRESULT status;
+    IPackageDebugSettings* packageDebugSettings;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_PackageDebugSettings,
+        &IID_IPackageDebugSettings,
+        &packageDebugSettings
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IPackageDebugSettings_Suspend(
+            packageDebugSettings,
+            PhGetString(PackageFullName)
+            );
+
+        IPackageDebugSettings_Release(packageDebugSettings);
+    }
+
+    return status;
+}
+
+HRESULT PhAppResolverPackageResume(
+    _In_ PPH_STRING PackageFullName
+    )
+{
+    HRESULT status;
+    IPackageDebugSettings* packageDebugSettings;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_PackageDebugSettings,
+        &IID_IPackageDebugSettings,
+        &packageDebugSettings
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IPackageDebugSettings_Resume(
+            packageDebugSettings,
+            PhGetString(PackageFullName)
+            );
+
+        IPackageDebugSettings_Release(packageDebugSettings);
+    }
+
+    return status;
+}
+
 PPH_LIST PhAppResolverEnumeratePackageBackgroundTasks(
     _In_ PPH_STRING PackageFullName
     )
@@ -250,7 +354,7 @@ PPH_LIST PhAppResolverEnumeratePackageBackgroundTasks(
     IPackageDebugSettings* packageDebugSettings;
 
     status = PhGetClassObject(
-        L"twinui.appcore.dll",
+        L"twinapi.appcore.dll",
         &CLSID_PackageDebugSettings,
         &IID_IPackageDebugSettings,
         &packageDebugSettings
@@ -418,7 +522,7 @@ PPH_STRING PhGetPackageAppDataPath(
     _In_ HANDLE ProcessHandle
     )
 {
-    static UNICODE_STRING attributeNameUs = RTL_CONSTANT_STRING(L"WIN://SYSAPPID");
+    static PH_STRINGREF attributeName = PH_STRINGREF_INIT(L"WIN://SYSAPPID");
     static PH_STRINGREF appdataPackages = PH_STRINGREF_INIT(L"%APPDATALOCAL%\\Packages\\");
     HANDLE tokenHandle;
     PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
@@ -438,7 +542,11 @@ PPH_STRING PhGetPackageAppDataPath(
 
                 if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
                 {
-                    if (RtlEqualUnicodeString(&attribute->Name, &attributeNameUs, FALSE))
+                    PH_STRINGREF attributeNameSr;
+
+                    PhUnicodeStringToStringRef(&attribute->Name, &attributeNameSr);
+
+                    if (PhEqualStringRef(&attributeNameSr, &attributeName, FALSE))
                     {
                         PPH_STRING attributeValue;
                         PPH_STRING attributePath;
@@ -472,7 +580,7 @@ PPH_STRING PhGetProcessPackageFullName(
     _In_ HANDLE ProcessHandle
     )
 {
-    static UNICODE_STRING attributeNameUs = RTL_CONSTANT_STRING(L"WIN://SYSAPPID");
+    static PH_STRINGREF attributeName = PH_STRINGREF_INIT(L"WIN://SYSAPPID");
     HANDLE tokenHandle;
     PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
     PPH_STRING packageName = NULL;
@@ -492,7 +600,11 @@ PPH_STRING PhGetProcessPackageFullName(
 
                 if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
                 {
-                    if (RtlEqualUnicodeString(&attribute->Name, &attributeNameUs, FALSE))
+                    PH_STRINGREF attributeNameSr;
+
+                    PhUnicodeStringToStringRef(&attribute->Name, &attributeNameSr);
+
+                    if (PhEqualStringRef(&attributeNameSr, &attributeName, FALSE))
                     {
                         packageName = PhCreateStringFromUnicodeString(&attribute->Values.pString[0]);
                         break;

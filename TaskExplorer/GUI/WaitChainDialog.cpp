@@ -345,7 +345,7 @@ bool CWaitChainDialog::Refresh()
 	else
     {
 		HANDLE threadHandle;
-        NTSTATUS status = NtGetNextThread(m->QueryHandle, NULL, ThreadQueryAccess, 0, 0, &threadHandle);
+        NTSTATUS status = NtGetNextThread(m->QueryHandle, NULL, THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &threadHandle);
 
         while (NT_SUCCESS(status))
         {
@@ -357,7 +357,7 @@ bool CWaitChainDialog::Refresh()
 			}
 
 			HANDLE newThreadHandle;
-            status = NtGetNextThread(m->QueryHandle, threadHandle, ThreadQueryAccess, 0, 0, &newThreadHandle);
+            status = NtGetNextThread(m->QueryHandle, threadHandle, THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &newThreadHandle);
 
             NtClose(threadHandle);
 

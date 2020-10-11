@@ -53,7 +53,7 @@ PPH_STRING PvpQueryModuleOrdinalName(
                         {
                             exportName = PhZeroExtendToUtf16(exportEntry.Name);
 
-                            if (exportName->Buffer[0] == '?')
+                            if (exportName->Buffer[0] == L'?')
                             {
                                 PPH_STRING undecoratedName;
 
@@ -69,7 +69,7 @@ PPH_STRING PvpQueryModuleOrdinalName(
 
                                 forwardName = PhZeroExtendToUtf16(exportFunction.ForwardedName);
 
-                                if (forwardName->Buffer[0] == '?')
+                                if (forwardName->Buffer[0] == L'?')
                                 {
                                     PPH_STRING undecoratedName;
 
@@ -265,7 +265,7 @@ VOID PvpProcessImports(
 
                         importName = PhZeroExtendToUtf16(importEntry.Name);
 
-                        if (importName->Buffer[0] == '?')
+                        if (importName->Buffer[0] == L'?')
                         {
                             PPH_STRING undecoratedName;
 
@@ -367,7 +367,7 @@ INT_PTR CALLBACK PvpPeImportsDlgProc(
             ExtendedListView_SortItems(lvHandle);
             ExtendedListView_SetRedraw(lvHandle, TRUE);
 
-            EnableThemeDialogTexture(hwndDlg, ETDT_ENABLETAB);
+            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
         }
         break;
     case WM_DESTROY:

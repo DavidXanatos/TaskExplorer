@@ -20,6 +20,7 @@ CWinModule::CWinModule(quint64 ProcessId, bool IsSubsystemProcess, QObject *pare
 	m_ImageTimeStamp = 0;
 	m_ImageCharacteristics = 0;
 	m_ImageDllCharacteristics = 0;
+	m_ImageDllCharacteristicsEx = 0;
 
 	m_VerifyResult = VrUnknown;
 
@@ -120,6 +121,28 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 
             if (entryPoint != 0)
                 m_EntryPoint = (quint64)PTR_ADD_OFFSET(m_BaseAddress, entryPoint);
+
+            ULONG debugEntryLength;
+            PVOID debugEntry;
+            if (/*->CetEnabled &&*/ PhGetRemoteMappedImageDebugEntryByTypeEx(
+                (HANDLE)ProcessHandle,
+                &remoteMappedImage,
+                IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS,
+                readVirtualMemoryCallback,
+                &debugEntryLength,
+                &debugEntry
+                ))
+            {
+                ULONG characteristics = ULONG_MAX;
+
+                if (debugEntryLength == sizeof(ULONG))
+                    characteristics = *(ULONG*)debugEntry;
+
+                if (characteristics != ULONG_MAX)
+                    m_ImageDllCharacteristicsEx = characteristics;
+
+                PhFree(debugEntry);
+            }
 
             PhUnloadRemoteMappedImage(&remoteMappedImage);
         }
@@ -225,6 +248,12 @@ void CWinModule::ClearControlFlowGuardEnabled()
 	m_ImageDllCharacteristics &= ~IMAGE_DLLCHARACTERISTICS_GUARD_CF;
 }
 
+void CWinModule::ClearCetEnabled()
+{
+	QReadLocker Locker(&m_Mutex);
+	m_ImageDllCharacteristicsEx &= IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT;
+}
+
 bool CWinModule::UpdateDynamicData(struct _PH_MODULE_INFO* module)
 {
 	QReadLocker Locker(&m_Mutex);
@@ -305,7 +334,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 
 		// Version info.
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
-		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, FALSE);
+		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, FALSE, theConf->GetBool("Options/EnableVersionSupport", true));
 	}
 	// PhpProcessQueryStage1 End
 
@@ -342,7 +371,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	if (/*PhEnableLinuxSubsystemSupport &&*/ FileName && IsSubsystemProcess)
 	{
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
-		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, TRUE);
+		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, TRUE, theConf->GetBool("Options/EnableVersionSupport", true));
 	}
 	// PhpProcessQueryStage2 End
 
@@ -424,22 +453,17 @@ QString CWinModule::GetVerifyResultString() const
 	}
 }
 
-QString CWinModule::GetASLRString() const
+QString CWinModule::GetMitigationsString() const
 {
-	QReadLocker Locker(&m_Mutex);
-
+	QStringList Strs; // todo: cache this
+	QReadLocker Locker(&m_Mutex); 
 	if (m_ImageDllCharacteristics & IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE)
-		return tr("ASLR");
-	return QString();
-}
-
-QString CWinModule::GetCFGuardString() const
-{
-	QReadLocker Locker(&m_Mutex);
-
+		Strs.append(tr("ASLR"));
 	if (m_ImageDllCharacteristics & IMAGE_DLLCHARACTERISTICS_GUARD_CF)
-		return tr("CF Guard");
-	return QString();
+		Strs.append(tr("CFG"));
+	if (m_ImageDllCharacteristicsEx & IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT)
+		Strs.append(tr("CET"));
+	return Strs.join(", ");
 }
 
 QString CWinModule::GetLoadReasonString() const

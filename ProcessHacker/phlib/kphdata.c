@@ -3,7 +3,7 @@
  *   KProcessHacker dynamic data definitions
  *
  * Copyright (C) 2011-2016 wj32
- * Copyright (C) 2017 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -28,22 +28,28 @@ ULONG KphpGetKernelRevisionNumber(
     VOID
     )
 {
-    ULONG result;
+    ULONG result = 0;
     PPH_STRING kernelFileName;
     PVOID versionInfo;
-    VS_FIXEDFILEINFO *rootBlock;
-    ULONG rootBlockLength;
 
-    result = 0;
-    kernelFileName = PhGetKernelFileName();
-    PhMoveReference(&kernelFileName, PhGetFileName(kernelFileName));
-    versionInfo = PhGetFileVersionInfo(kernelFileName->Buffer);
-    PhDereferenceObject(kernelFileName);
+    if (kernelFileName = PhGetKernelFileName())
+    {
+        PhMoveReference(&kernelFileName, PhGetFileName(kernelFileName));
 
-    if (versionInfo && VerQueryValue(versionInfo, L"\\", &rootBlock, &rootBlockLength) && rootBlockLength != 0)
-        result = LOWORD(rootBlock->dwFileVersionLS);
+        if (versionInfo = PhGetFileVersionInfo(kernelFileName->Buffer))
+        {
+            VS_FIXEDFILEINFO* rootBlock;
 
-    PhFree(versionInfo);
+            if (rootBlock = PhGetFileVersionFixedInfo(versionInfo))
+            {
+                result = LOWORD(rootBlock->dwFileVersionLS);
+            }
+
+            PhFree(versionInfo);
+        }
+
+        PhDereferenceObject(kernelFileName);
+    }
 
     return result;
 }
@@ -54,15 +60,12 @@ NTSTATUS KphInitializeDynamicPackage(
     _Out_ PKPH_DYN_PACKAGE Package
     )
 {
-    ULONG majorVersion, minorVersion, servicePack, buildNumber;
-
-    majorVersion = PhOsVersion.dwMajorVersion;
-    minorVersion = PhOsVersion.dwMinorVersion;
-    servicePack = PhOsVersion.wServicePackMajor;
-    buildNumber = PhOsVersion.dwBuildNumber;
+    ULONG majorVersion = PhOsVersion.dwMajorVersion;
+    ULONG minorVersion = PhOsVersion.dwMinorVersion;
+    ULONG servicePack = PhOsVersion.wServicePackMajor;
+    ULONG buildNumber = PhOsVersion.dwBuildNumber;
 
     memset(&Package->StructData, -1, sizeof(KPH_DYN_STRUCT_DATA));
-
     Package->MajorVersion = (USHORT)majorVersion;
     Package->MinorVersion = (USHORT)minorVersion;
     Package->ServicePackMajor = (USHORT)servicePack;
@@ -169,11 +172,25 @@ NTSTATUS KphInitializeDynamicPackage(
             Package->BuildNumber = 18363;
             Package->ResultingNtVersion = PHNT_19H2;
             break;
+        case 19041:
+            Package->BuildNumber = 19041;
+            Package->ResultingNtVersion = PHNT_20H1;
+            break;
+        case 19042:
+            Package->BuildNumber = 19042;
+            Package->ResultingNtVersion = PHNT_20H2;
+            break;
         default:
             return STATUS_NOT_SUPPORTED;
         }
 
-        Package->StructData.EgeGuid = revisionNumber >= 693 ? 0x28 : 0x18;
+        if (buildNumber >= 19041)
+            Package->StructData.EgeGuid = 0x28;
+        else if (buildNumber >= 18363)
+            Package->StructData.EgeGuid = revisionNumber >= 693 ? 0x28 : 0x18;
+        else
+            Package->StructData.EgeGuid = 0x18;
+
         Package->StructData.EpObjectTable = 0x418;
         Package->StructData.EreGuidEntry = 0x20;
         Package->StructData.HtHandleContentionEvent = 0x30;
@@ -317,11 +334,25 @@ NTSTATUS KphInitializeDynamicPackage(
             Package->BuildNumber = 18363;
             Package->ResultingNtVersion = PHNT_19H2;
             break;
+        case 19041:
+            Package->BuildNumber = 19041;
+            Package->ResultingNtVersion = PHNT_20H1;
+            break;
+        case 19042:
+            Package->BuildNumber = 19042;
+            Package->ResultingNtVersion = PHNT_20H2;
+            break;
         default:
             return STATUS_NOT_SUPPORTED;
         }
 
-        Package->StructData.EgeGuid = revisionNumber >= 693 ? 0x14 : 0xc;
+        if (buildNumber >= 19041)
+            Package->StructData.EgeGuid = 0x14;
+        else if (buildNumber >= 18363)
+            Package->StructData.EgeGuid = revisionNumber >= 693 ? 0x14 : 0xC;
+        else
+            Package->StructData.EgeGuid = 0xC;
+
         Package->StructData.EpObjectTable = 0x154;
         Package->StructData.EreGuidEntry = 0x10;
         Package->StructData.OtName = 0x8;

@@ -62,8 +62,110 @@ static PWSTR PvpGetResourceTypeString(
         return L"RT_MANIFEST";
     }
 
-    // TODO: Some binaries include undocumented resource types.
-    return PhaFormatString(L"%lu", Type)->Buffer;
+    return PhaFormatString(L"%lu", (ULONG)Type)->Buffer;
+}
+
+PPH_STRING PvpPeResourceDumpFileName(
+    _In_ HWND ParentWindow
+    )
+{
+    static PH_FILETYPE_FILTER filters[] =
+    {
+        { L"Resouce data (*.data)", L"*.data" },
+        { L"All files (*.*)", L"*.*" }
+    };
+    PPH_STRING fileName = NULL;
+    PVOID fileDialog;
+
+    if (fileDialog = PhCreateSaveFileDialog())
+    {
+        PhSetFileDialogFilter(fileDialog, filters, RTL_NUMBER_OF(filters));
+        //PhSetFileDialogFileName(fileDialog, L"file.data");
+
+        if (PhShowFileDialog(ParentWindow, fileDialog))
+        {
+            fileName = PhGetFileDialogFileName(fileDialog);
+        }
+
+        PhFreeFileDialog(fileDialog);
+    }
+
+    return fileName;
+}
+
+VOID PvpPeResourceSaveToFile(
+    _In_ HWND WindowHandle,
+    _In_ PVOID ListViewParam
+    )
+{
+    PH_MAPPED_IMAGE_RESOURCES resources;
+    PH_IMAGE_RESOURCE_ENTRY entry;
+    PPH_STRING fileName;
+
+    if (!(fileName = PvpPeResourceDumpFileName(WindowHandle)))
+        return;
+
+    if (NT_SUCCESS(PhGetMappedImageResources(&resources, &PvMappedImage)))
+    {
+        for (ULONG i = 0; i < resources.NumberOfEntries; i++)
+        {
+            if (i != PtrToUlong(ListViewParam))
+                continue;
+
+            entry = resources.ResourceEntries[i];
+
+            if (entry.Data && entry.Size)
+            {
+                NTSTATUS status;
+                HANDLE fileHandle;
+
+                status = PhCreateFileWin32(
+                    &fileHandle,
+                    PhGetString(fileName),
+                    FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+                    FILE_ATTRIBUTE_NORMAL,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    FILE_OVERWRITE_IF,
+                    FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE
+                    );
+
+                if (NT_SUCCESS(status))
+                {
+                    IO_STATUS_BLOCK isb;
+
+                    __try
+                    {
+                        status = NtWriteFile(
+                            fileHandle,
+                            NULL,
+                            NULL,
+                            NULL,
+                            &isb,
+                            entry.Data,
+                            entry.Size,
+                            NULL,
+                            NULL
+                            );
+                    }
+                    __except (EXCEPTION_EXECUTE_HANDLER)
+                    {
+                        status = GetExceptionCode();    
+                    }
+
+                    NtClose(fileHandle);
+                }
+
+                if (!NT_SUCCESS(status))
+                {
+                    PhShowStatus(WindowHandle, L"Unable to save resource.", status, 0);
+                }
+            }
+        }
+
+        PhFree(resources.ResourceEntries);
+    }
+
+    PhDereferenceObject(fileName);
 }
 
 typedef enum _PVE_RESOURCES_COLUMN_INDEX
@@ -122,7 +224,7 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
                     entry = resources.ResourceEntries[i];
 
                     PhPrintUInt32(number, ++count);
-                    lvItemIndex = PhAddListViewItem(lvHandle, MAXINT, number, NULL);
+                    lvItemIndex = PhAddListViewItem(lvHandle, MAXINT, number, UlongToPtr(i));
 
                     if (IS_INTRESOURCE(entry.Type))
                     {
@@ -133,7 +235,6 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
                         PIMAGE_RESOURCE_DIR_STRING_U resourceString = (PIMAGE_RESOURCE_DIR_STRING_U)entry.Type;
 
                         string = PhCreateStringEx(resourceString->NameString, resourceString->Length * sizeof(WCHAR));
-
                         PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_TYPE, string->Buffer);
                         PhDereferenceObject(string);
                     }
@@ -148,34 +249,38 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
                         PIMAGE_RESOURCE_DIR_STRING_U resourceString = (PIMAGE_RESOURCE_DIR_STRING_U)entry.Name;
 
                         string = PhCreateStringEx(resourceString->NameString, resourceString->Length * sizeof(WCHAR));
-
                         PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_NAME, string->Buffer);
                         PhDereferenceObject(string);
                     }
 
                     if (IS_INTRESOURCE(entry.Language))
                     {
-                        NTSTATUS status;
-                        UNICODE_STRING localeNameUs;
-                        WCHAR localeName[LOCALE_NAME_MAX_LENGTH];
-
-                        RtlInitEmptyUnicodeString(&localeNameUs, localeName, sizeof(localeName));
-
-                        // Note: Win32 defaults to the current user locale when zero is specified (e.g. LCIDToLocaleName).
                         if ((ULONG)entry.Language)
-                            status = RtlLcidToLocaleName((ULONG)entry.Language, &localeNameUs, 0, FALSE);
-                        else
-                            status = RtlLcidToLocaleName(PhGetUserDefaultLCID(), &localeNameUs, 0, FALSE);
+                        {
+#if (PHNT_VERSION >= PHNT_WIN7)
+                            UNICODE_STRING localeNameUs;
+                            WCHAR localeName[LOCALE_NAME_MAX_LENGTH] = { UNICODE_NULL };
 
-                        if (NT_SUCCESS(status))
-                        {
-                            PhPrintUInt32(number, (ULONG)entry.Language);
-                            PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_LCID, PhaFormatString(L"%s (%s)", number, localeName)->Buffer);
-                        }
-                        else
-                        {
+                            RtlInitEmptyUnicodeString(&localeNameUs, localeName, sizeof(localeName));
+
+                            if (NT_SUCCESS(RtlLcidToLocaleName((ULONG)entry.Language, &localeNameUs, 0, FALSE)))
+                            {
+                                PhPrintUInt32(number, (ULONG)entry.Language);
+                                PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_LCID, PhaFormatString(L"%s (%s)", number, localeName)->Buffer);
+                            }
+                            else
+                            {
+                                PhPrintUInt32(number, (ULONG)entry.Language);
+                                PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_LCID, number);
+                            }
+#else
                             PhPrintUInt32(number, (ULONG)entry.Language);
                             PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_LCID, number);
+#endif
+                        }
+                        else // LOCALE_NEUTRAL
+                        {
+                            PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_LCID, L"Neutral");
                         }
                     }
                     else
@@ -183,7 +288,6 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
                         PIMAGE_RESOURCE_DIR_STRING_U resourceString = (PIMAGE_RESOURCE_DIR_STRING_U)entry.Language;
 
                         string = PhCreateStringEx(resourceString->NameString, resourceString->Length * sizeof(WCHAR));
-
                         PhSetListViewSubItem(lvHandle, lvItemIndex, PVE_RESOURCES_COLUMN_INDEX_LCID, string->Buffer);
                         PhDereferenceObject(string);
                     }
@@ -227,7 +331,7 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
 
             ExtendedListView_SortItems(lvHandle);
             
-            EnableThemeDialogTexture(hwndDlg, ETDT_ENABLETAB);
+            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
         }
         break;
     case WM_DESTROY:
@@ -243,7 +347,6 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
 
                 dialogItem = PvAddPropPageLayoutItem(hwndDlg, hwndDlg, PH_PROP_PAGE_TAB_CONTROL_PARENT, PH_ANCHOR_ALL);
                 PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_LIST), dialogItem, PH_ANCHOR_ALL);
-
                 PvDoPropPageLayout(hwndDlg);
 
                 propPageContext->LayoutInitialized = TRUE;
@@ -257,7 +360,60 @@ INT_PTR CALLBACK PvpPeResourcesDlgProc(
         break;
     case WM_CONTEXTMENU:
         {
-            PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, GetDlgItem(hwndDlg, IDC_LIST));
+            if ((HWND)wParam == GetDlgItem(hwndDlg, IDC_LIST))
+            {
+                POINT point;
+                PPH_EMENU menu;
+                PPH_EMENU item;
+                PVOID* listviewItems;
+                ULONG numberOfItems;
+
+                point.x = GET_X_LPARAM(lParam);
+                point.y = GET_Y_LPARAM(lParam);
+
+                if (point.x == -1 && point.y == -1)
+                    PvGetListViewContextMenuPoint((HWND)wParam, &point);
+
+                PhGetSelectedListViewItemParams((HWND)wParam, &listviewItems, &numberOfItems);
+
+                if (numberOfItems != 0)
+                {
+                    menu = PhCreateEMenu();
+                    PhInsertEMenuItem(menu, PhCreateEMenuItem(0, 1, L"Save resource", NULL, NULL), ULONG_MAX);
+                    PhInsertEMenuItem(menu, PhCreateEMenuSeparator(), ULONG_MAX);
+                    PhInsertEMenuItem(menu, PhCreateEMenuItem(0, USHRT_MAX, L"&Copy", NULL, NULL), ULONG_MAX);
+                    PvInsertCopyListViewEMenuItem(menu, USHRT_MAX, (HWND)wParam);
+
+                    item = PhShowEMenu(
+                        menu,
+                        hwndDlg,
+                        PH_EMENU_SHOW_SEND_COMMAND | PH_EMENU_SHOW_LEFTRIGHT,
+                        PH_ALIGN_LEFT | PH_ALIGN_TOP,
+                        point.x,
+                        point.y
+                        );
+
+                    if (item)
+                    {
+                        if (!PvHandleCopyListViewEMenuItem(item))
+                        {
+                            switch (item->Id)
+                            {
+                            case 1:
+                                PvpPeResourceSaveToFile(hwndDlg, listviewItems[0]);
+                                break;
+                            case USHRT_MAX:
+                                PvCopyListView((HWND)wParam);
+                                break;
+                            }
+                        }
+                    }
+
+                    PhDestroyEMenu(menu);
+                }
+
+                PhFree(listviewItems);
+            }
         }
         break;
     }

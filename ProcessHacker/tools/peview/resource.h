@@ -31,6 +31,11 @@
 #define IDD_EXCEPTION                   128
 #define IDD_PEPRODID                    129
 #define IDD_PEDEBUG                     131
+#define IDD_PESECTIONS                  132
+#define IDD_PESECURITY                  133
+#define IDD_PEEHCONT                    134
+#define IDD_PEDEBUGPOGO                 135
+#define IDD_PEDEBUGCRT                  136
 #define IDC_TARGETMACHINE               1003
 #define IDC_CHECKSUM                    1004
 #define IDC_SUBSYSTEM                   1005
@@ -58,6 +63,8 @@
 #define IDC_PRODCHECKSUM                1025
 #define IDC_PRODHASH                    1026
 #define IDC_FONT                        1079
+#define IDC_GOTO                        1079
+#define IDC_RESET                       1086
 #define IDC_SEARCHENGINE                1143
 #define IDC_MAXSIZEUNIT                 1144
 #define IDC_DBGHELPSEARCHPATH           1218
@@ -67,7 +74,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        132
+#define _APS_NEXT_RESOURCE_VALUE        136
 #define _APS_NEXT_COMMAND_VALUE         40001
 #define _APS_NEXT_CONTROL_VALUE         1027
 #define _APS_NEXT_SYMED_VALUE           115

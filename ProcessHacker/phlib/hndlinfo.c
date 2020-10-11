@@ -24,7 +24,6 @@
 #include <ph.h>
 #include <hndlinfo.h>
 #include <json.h>
-
 #include <kphuser.h>
 #include <lsasup.h>
 
@@ -462,7 +461,6 @@ VOID PhInitializeEtwTraceGuidCache(
         PVOID jsonArrayObject;
         PPH_STRING guidString;
         PPH_STRING guidName;
-        UNICODE_STRING guidStringUs;
         GUID guid;
         PH_ETW_TRACEGUID_ENTRY result;
 
@@ -473,17 +471,7 @@ VOID PhInitializeEtwTraceGuidCache(
         guidName = PhGetJsonValueAsString(jsonArrayObject, "name");
         //guidGroup = PhGetJsonValueAsString(jsonArrayObject, "group");
 
-        if (!PhStringRefToUnicodeString(&guidString->sr, &guidStringUs))
-        {
-            PhDereferenceObject(guidName);
-            PhDereferenceObject(guidString);
-            continue;
-        }
-
-        if (!NT_SUCCESS(RtlGUIDFromString(
-            &guidStringUs,
-            &guid
-            )))
+        if (!NT_SUCCESS(PhStringToGuid(&guidString->sr, &guid)))
         {
             PhDereferenceObject(guidName);
             PhDereferenceObject(guidString);
@@ -720,7 +708,6 @@ _Callback_ PPH_STRING PhStdGetClientIdName(
     PSYSTEM_PROCESS_INFORMATION processInfo;
 
     // Get a new process list only if 2 seconds have passed since the last update.
-
     tickCount = NtGetTickCount64();
 
     if (tickCount - lastProcessesTickCount >= 2000)
@@ -875,66 +862,64 @@ NTSTATUS PhpGetBestObjectName(
             }
         }
     }
-    // Note: Uncomment below code if we want to return job names identical to Process Explorer.
-    // Todo: Should we remove since it's not the actual job name? -dmex
-    //else if (PhEqualString2(TypeName, L"Job", TRUE))
-    //{
-    //    HANDLE dupHandle;
-    //    PJOBOBJECT_BASIC_PROCESS_ID_LIST processIdList;
-    //
-    //    // dmex: Don't do anything when we already have a valid job object name.
-    //    if (!PhIsNullOrEmptyString(ObjectName))
-    //        goto CleanupExit;
-    //
-    //    status = NtDuplicateObject(
-    //        ProcessHandle,
-    //        Handle,
-    //        NtCurrentProcess(),
-    //        &dupHandle,
-    //        JOB_OBJECT_QUERY,
-    //        0,
-    //        0
-    //        );
-    //
-    //    if (!NT_SUCCESS(status))
-    //        goto CleanupExit;
-    //
-    //    if (handleGetClientIdName && NT_SUCCESS(PhGetJobProcessIdList(dupHandle, &processIdList)))
-    //    {
-    //        PH_STRING_BUILDER sb;
-    //        ULONG i;
-    //        CLIENT_ID clientId;
-    //        PPH_STRING name;
-    //
-    //        PhInitializeStringBuilder(&sb, 40);
-    //        clientId.UniqueThread = NULL;
-    //
-    //        for (i = 0; i < processIdList->NumberOfProcessIdsInList; i++)
-    //        {
-    //            clientId.UniqueProcess = (HANDLE)processIdList->ProcessIdList[i];
-    //            name = handleGetClientIdName(&clientId);
-    //
-    //            if (name)
-    //            {
-    //                PhAppendStringBuilder(&sb, &name->sr);
-    //                PhAppendStringBuilder2(&sb, L"; ");
-    //                PhDereferenceObject(name);
-    //            }
-    //        }
-    //
-    //        PhFree(processIdList);
-    //
-    //        if (sb.String->Length != 0)
-    //            PhRemoveEndStringBuilder(&sb, 2);
-    //
-    //        if (sb.String->Length == 0)
-    //            PhAppendStringBuilder2(&sb, L"(No processes)");
-    //
-    //        bestObjectName = PhFinalStringBuilderString(&sb);
-    //    }
-    //
-    //    NtClose(dupHandle);
-    //}
+    else if (PhEqualString2(TypeName, L"Job", TRUE))
+    {
+        HANDLE dupHandle;
+        PJOBOBJECT_BASIC_PROCESS_ID_LIST processIdList;
+    
+        // Skip when we already have a valid job object name. (dmex)
+        if (!PhIsNullOrEmptyString(ObjectName))
+            goto CleanupExit;
+    
+        status = NtDuplicateObject(
+            ProcessHandle,
+            Handle,
+            NtCurrentProcess(),
+            &dupHandle,
+            JOB_OBJECT_QUERY,
+            0,
+            0
+            );
+    
+        if (!NT_SUCCESS(status))
+            goto CleanupExit;
+
+        if (handleGetClientIdName && NT_SUCCESS(PhGetJobProcessIdList(dupHandle, &processIdList)))
+        {
+            PH_STRING_BUILDER sb;
+            ULONG i;
+            CLIENT_ID clientId;
+            PPH_STRING name;
+    
+            PhInitializeStringBuilder(&sb, 40);
+            clientId.UniqueThread = NULL;
+    
+            for (i = 0; i < processIdList->NumberOfProcessIdsInList; i++)
+            {
+                clientId.UniqueProcess = (HANDLE)processIdList->ProcessIdList[i];
+                name = handleGetClientIdName(&clientId);
+    
+                if (name)
+                {
+                    PhAppendStringBuilder(&sb, &name->sr);
+                    PhAppendStringBuilder2(&sb, L"; ");
+                    PhDereferenceObject(name);
+                }
+            }
+    
+            PhFree(processIdList);
+    
+            if (sb.String->Length != 0)
+                PhRemoveEndStringBuilder(&sb, 2);
+
+            if (sb.String->Length == 0)
+                PhAppendStringBuilder2(&sb, L"(No processes)");
+
+            bestObjectName = PhFinalStringBuilderString(&sb);
+        }
+    
+        NtClose(dupHandle);
+    }
     else if (PhEqualString2(TypeName, L"Key", TRUE))
     {
         bestObjectName = PhFormatNativeKeyName(ObjectName);
@@ -1618,7 +1603,7 @@ NTSTATUS PhEnumObjectTypes(
 }
 
 ULONG PhGetObjectTypeNumber(
-    _In_ PUNICODE_STRING TypeName
+    _In_ PPH_STRINGREF TypeName
     )
 {
     POBJECT_TYPES_INFORMATION objectTypes;
@@ -1632,7 +1617,11 @@ ULONG PhGetObjectTypeNumber(
 
         for (i = 0; i < objectTypes->NumberOfTypes; i++)
         {
-            if (RtlEqualUnicodeString(&objectType->TypeName, TypeName, TRUE))
+            PH_STRINGREF typeNameSr;
+
+            PhUnicodeStringToStringRef(&objectType->TypeName, &typeNameSr);
+
+            if (PhEqualStringRef(&typeNameSr, TypeName, TRUE))
             {
                 if (WindowsVersion >= WINDOWS_8_1)
                 {

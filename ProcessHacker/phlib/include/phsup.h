@@ -44,8 +44,8 @@
 
 // Math
 
-#define UInt32Add32To64(a, b)  ((unsigned __int64)((unsigned __int64)(a) + ((unsigned __int64)(b)))) // Avoids warning C26451 (dmex)
-#define UInt32Mul32To64(a, b)  ((unsigned __int64)((unsigned __int64)(a) * ((unsigned __int64)(b))))
+#define UInt32Add32To64(a, b) ((unsigned __int64)((unsigned __int64)(a) + ((unsigned __int64)(b)))) // Avoids warning C26451 (dmex)
+#define UInt32Mul32To64(a, b) ((unsigned __int64)((unsigned __int64)(a) * ((unsigned __int64)(b))))
 
 // Time
 
@@ -56,6 +56,7 @@
 #define PH_TICKS_PER_HOUR (PH_TICKS_PER_MIN * 60)
 #define PH_TICKS_PER_DAY (PH_TICKS_PER_HOUR * 24)
 
+#define PH_TICKS_PARTIAL_NS(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_NS) % 1000000)
 #define PH_TICKS_PARTIAL_MS(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_MS) % 1000)
 #define PH_TICKS_PARTIAL_SEC(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_SEC) % 60)
 #define PH_TICKS_PARTIAL_MIN(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_MIN) % 60)
