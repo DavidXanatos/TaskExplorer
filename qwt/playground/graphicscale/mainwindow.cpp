@@ -57,7 +57,7 @@ MainWindow::MainWindow()
     path.addRect( QRectF( 1.0, 1.0, 2.0, 2.0 ) );
     loadPath( path );
 #endif
-};
+}
 
 MainWindow::~MainWindow()
 {

@@ -43,12 +43,13 @@ struct SWinService
         BOOLEAN BitFlags;
         struct
         {
-            BOOLEAN DelayedStart : 1;
-            BOOLEAN HasTriggers : 1;
-            BOOLEAN PendingProcess : 1;
-            BOOLEAN NeedsConfigUpdate : 1;
-            BOOLEAN JustProcessed : 1;
-            BOOLEAN Spare : 3;
+			BOOLEAN
+            DelayedStart : 1,
+            HasTriggers : 1,
+            PendingProcess : 1,
+            NeedsConfigUpdate : 1,
+            JustProcessed : 1,
+            Spare : 3;
         };
     };
 };

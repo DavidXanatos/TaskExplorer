@@ -537,6 +537,13 @@ PhGetFileVersionInfo(
     );
 
 PHLIBAPI
+PVOID
+NTAPI
+PhGetFileVersionInfoEx(
+    _In_ PPH_STRING FileName
+    );
+
+PHLIBAPI
 VS_FIXEDFILEINFO*
 NTAPI
 PhGetFileVersionFixedInfo(
@@ -594,9 +601,10 @@ PHLIBAPI
 _Success_(return)
 BOOLEAN
 NTAPI
-PhInitializeImageVersionInfo2(
+PhInitializeImageVersionInfoEx(
     _Out_ PPH_IMAGE_VERSION_INFO ImageVersionInfo,
-    _In_ PWSTR FileName
+    _In_ PPH_STRING FileName,
+    _In_ BOOLEAN ExtendedVersionInfo
     );
 
 PHLIBAPI
@@ -736,6 +744,7 @@ typedef struct _PH_CREATE_PROCESS_INFO
 #define PH_CREATE_PROCESS_DEBUG 0x20
 #define PH_CREATE_PROCESS_DEBUG_ONLY_THIS_PROCESS 0x40
 #define PH_CREATE_PROCESS_EXTENDED_STARTUPINFO 0x80
+#define PH_CREATE_PROCESS_DEFAULT_ERROR_MODE 0x100
 
 PHLIBAPI
 NTSTATUS
@@ -1035,10 +1044,65 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhIsExecutablePacked(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRING FileName,
     _Out_ PBOOLEAN IsPacked,
     _Out_opt_ PULONG NumberOfModules,
     _Out_opt_ PULONG NumberOfFunctions
+    );
+
+/**
+* Image Coherency Scan Type
+*/
+typedef enum _PH_IMGCOHERENCY_SCAN_TYPE
+{
+    /**
+    * Quick scan of the image coherency
+    * - Image header information
+    * - A few pages of each executable section
+    * - Scans a few pages at entry point if it exists and was missed due to previous note
+    * - .NET manifests if appropriate
+    */
+    PhImageCoherencyQuick,
+
+    /**
+    * Normal scan of the image coherency
+    * - Image header information
+    * - Up to 40Mib of each executable section 
+    * - Scans a few pages at entry point if it exists and was missed due to previous note
+    * - .NET manifests if appropriate
+    */
+    PhImageCoherencyNormal,
+
+    /**
+    * Full scan of the image coherency
+    * - Image header information
+    * - Complete scan of all executable sections, this will include the entry point
+    * - .NET manifests if appropriate
+    */
+    PhImageCoherencyFull
+
+} PH_IMAGE_COHERENCY_SCAN_TYPE;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessImageCoherency(
+    _In_ PPH_STRING FileName,
+    _In_ HANDLE ProcessId,
+    _In_ PH_IMAGE_COHERENCY_SCAN_TYPE Type,
+    _Out_ PFLOAT ImageCoherency
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessModuleImageCoherency(
+    _In_ PPH_STRING FileName,
+    _In_ HANDLE ProcessHandle,
+    _In_ PVOID ImageBaseAddress,
+    _In_ BOOLEAN IsKernelModule,
+    _In_ PH_IMAGE_COHERENCY_SCAN_TYPE Type,
+    _Out_ PFLOAT ImageCoherency
     );
 
 PHLIBAPI
@@ -1196,7 +1260,19 @@ PhLoadResource(
     _In_ PCWSTR Name,
     _In_ PCWSTR Type,
     _Out_opt_ ULONG *ResourceLength,
-    _Out_ PVOID *ResourceBuffer
+    _Out_opt_ PVOID *ResourceBuffer
+    );
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhLoadResourceCopy(
+    _In_ PVOID DllBase,
+    _In_ PCWSTR Name,
+    _In_ PCWSTR Type,
+    _Out_opt_ ULONG * ResourceLength,
+    _Out_opt_ PVOID * ResourceBuffer
     );
 
 PHLIBAPI
@@ -1373,7 +1449,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoaderEntryLoadDll(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRING FileName,
     _Out_ PVOID* BaseAddress
     );
 
@@ -1421,6 +1497,29 @@ PhGetClassObject(
     _In_ REFCLSID Rclsid,
     _In_ REFIID Riid,
     _Out_ PVOID* Ppv
+    );
+
+PHLIBAPI
+_Ret_maybenull_
+PVOID
+NTAPI
+PhLoadLibrarySafe(
+    _In_ PCWSTR LibFileName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhLoadLibraryAsImageResource(
+    _In_ PPH_STRING FileName,
+    _Out_opt_ PVOID *BaseAddress
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhFreeLibraryAsImageResource(
+    _In_ PVOID BaseAddress
     );
 
 #ifdef __cplusplus

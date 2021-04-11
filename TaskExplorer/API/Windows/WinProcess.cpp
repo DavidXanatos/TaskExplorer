@@ -103,35 +103,36 @@ struct SWinProcess
 		ULONG Flags;
 		struct
 		{
-			//ULONG UpdateIsDotNet : 1;
-			ULONG IsBeingDebugged : 1;
-			ULONG IsDotNet : 1;
-			ULONG IsElevated : 1;
-			ULONG IsInJob : 1;
-			//ULONG IsInSignificantJob : 1;
-			ULONG IsPacked : 1;
-			ULONG IsHandleValid : 1; // if this is true we can querry handles
-			ULONG IsSuspended : 1;
-			ULONG IsWow64 : 1;
-			ULONG IsImmersive : 1;
-			ULONG IsWow64Valid : 1;
-			ULONG IsPartiallySuspended : 1;
-			ULONG IsProtectedHandle : 1;
-			ULONG IsProtectedProcess : 1;
-			ULONG IsProcessDeleting : 1;
-			ULONG IsCrossSessionCreate : 1;
-			ULONG IsFrozen : 1;
-			ULONG IsBackground : 1;
-			ULONG IsStronglyNamed : 1;
-			ULONG IsSecureProcess : 1;
-			ULONG IsSubsystemProcess : 1;
-			ULONG IsControlFlowGuardEnabled : 1;
-			ULONG IsOrWasRunning : 1;
-			ULONG TokenHasChanged : 1;
-			ULONG IsHiddenProcess : 1;
-			ULONG IsSandBoxed : 1;
-			ULONG IsCetEnabled : 1;
-			ULONG Spare : 6;
+			ULONG
+			//UpdateIsDotNet : 1,
+			IsBeingDebugged : 1,
+			IsDotNet : 1,
+			IsElevated : 1,
+			IsInJob : 1,
+			//IsInSignificantJob : 1,
+			IsPacked : 1,
+			IsHandleValid : 1, // if this is true we can querry handles
+			IsSuspended : 1,
+			IsWow64 : 1,
+			IsImmersive : 1,
+			IsWow64Valid : 1,
+			IsPartiallySuspended : 1,
+			IsProtectedHandle : 1,
+			IsProtectedProcess : 1,
+			IsProcessDeleting : 1,
+			IsCrossSessionCreate : 1,
+			IsFrozen : 1,
+			IsBackground : 1,
+			IsStronglyNamed : 1,
+			IsSecureProcess : 1,
+			IsSubsystemProcess : 1,
+			IsControlFlowGuardEnabled : 1,
+			IsOrWasRunning : 1,
+			TokenHasChanged : 1,
+			IsHiddenProcess : 1,
+			IsSandBoxed : 1,
+			IsCetEnabled : 1,
+			Spare : 6;
 		};
 	};
 	bool AsyncFinished;
@@ -2966,7 +2967,7 @@ NTSTATUS CWinProcess__LoadModule(HANDLE ProcessHandle, const QString& Path)
 
 	if (isWow64)
 	{
-		if (!NT_SUCCESS(status = PhLoadMappedImage((wchar_t*)FileName.c_str(), NULL, TRUE, &mappedImage)))
+		if (!NT_SUCCESS(status = PhLoadMappedImage((wchar_t*)FileName.c_str(), NULL, &mappedImage)))
 			goto FreeExit;
 
 		isModule32 = mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC;

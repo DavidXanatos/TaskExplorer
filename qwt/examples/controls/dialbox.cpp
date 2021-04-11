@@ -20,7 +20,7 @@ DialBox::DialBox( QWidget *parent, int type ):
     layout->addWidget( d_dial, 10 );
     layout->addWidget( d_label );
 
-    connect( d_dial, SIGNAL( valueChanged( double ) ), 
+    connect( d_dial, SIGNAL( valueChanged( double ) ),
         this, SLOT( setNum( double ) ) );
 
     setNum( d_dial->value() );
@@ -59,7 +59,7 @@ QwtDial *DialBox::createDial( int type ) const
 
             QwtRoundScaleDraw *scaleDraw = new QwtRoundScaleDraw();
             scaleDraw->setSpacing( 8 );
-            scaleDraw->enableComponent( 
+            scaleDraw->enableComponent(
                 QwtAbstractScaleDraw::Backbone, false );
             scaleDraw->setTickLength( QwtScaleDiv::MinorTick, 2 );
             scaleDraw->setTickLength( QwtScaleDiv::MediumTick, 4 );
@@ -78,17 +78,17 @@ QwtDial *DialBox::createDial( int type ) const
             dial->setScaleEngine( scaleEngine );
 
             QList< double > ticks[ QwtScaleDiv::NTickTypes ];
-            ticks[ QwtScaleDiv::MajorTick ] << 0 << 4 
+            ticks[ QwtScaleDiv::MajorTick ] << 0 << 4
                 << 16 << 32 << 64 << 96 << 128;
             ticks[ QwtScaleDiv::MediumTick ] << 24 << 48 << 80 << 112;
-            ticks[ QwtScaleDiv::MinorTick ] 
-                << 0.5 << 1 << 2 
+            ticks[ QwtScaleDiv::MinorTick ]
+                << 0.5 << 1 << 2
                 << 7 << 10 << 13
-                << 20 << 28 
-                << 40 << 56 
-                << 72 << 88 
-                << 104 << 120; 
- 
+                << 20 << 28
+                << 40 << 56
+                << 72 << 88
+                << 104 << 120;
+
             dial->setScale( QwtScaleDiv( 0, 128, ticks ) );
             break;
         }
@@ -132,7 +132,7 @@ QwtDial *DialBox::createDial( int type ) const
 
     QwtDialSimpleNeedle *needle = new QwtDialSimpleNeedle(
         QwtDialSimpleNeedle::Arrow, true, needleColor,
-        QColor( Qt::gray ).light( 130 ) );
+        QColor( Qt::gray ).lighter( 130 ) );
     dial->setNeedle( needle );
 
     //const QColor base( QColor( "DimGray" ) );
@@ -140,12 +140,12 @@ QwtDial *DialBox::createDial( int type ) const
 
     QPalette palette;
     palette.setColor( QPalette::Base, base );
-    palette.setColor( QPalette::Window, base.dark( 150 ) );
-    palette.setColor( QPalette::Mid, base.dark( 110 ) );
-    palette.setColor( QPalette::Light, base.light( 170 ) );
-    palette.setColor( QPalette::Dark, base.dark( 170 ) );
-    palette.setColor( QPalette::Text, base.dark( 200 ).light( 800 ) );
-    palette.setColor( QPalette::WindowText, base.dark( 200 ) );
+    palette.setColor( QPalette::Window, base.darker( 150 ) );
+    palette.setColor( QPalette::Mid, base.darker( 110 ) );
+    palette.setColor( QPalette::Light, base.lighter( 170 ) );
+    palette.setColor( QPalette::Dark, base.darker( 170 ) );
+    palette.setColor( QPalette::Text, base.darker( 200 ).lighter( 800 ) );
+    palette.setColor( QPalette::WindowText, base.darker( 200 ) );
 
     dial->setPalette( palette );
     dial->setLineWidth( 4 );

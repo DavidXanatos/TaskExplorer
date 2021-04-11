@@ -1,3 +1,6 @@
+#ifndef MAIN_WINDOW_H
+#define MAIN_WINDOW_H
+
 #include <qmainwindow.h>
 
 class Canvas;
@@ -20,3 +23,5 @@ private:
 
     Canvas *d_canvas[2];
 };
+
+#endif

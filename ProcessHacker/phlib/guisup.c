@@ -960,7 +960,7 @@ HWND PhCreateDialogFromTemplate(
     PDLGTEMPLATEEX dialogTemplate;
     HWND dialogHandle;
 
-    if (!PhLoadResource(Instance, Template, RT_DIALOG, NULL, &dialogTemplate))
+    if (!PhLoadResourceCopy(Instance, Template, RT_DIALOG, NULL, &dialogTemplate))
         return NULL;
 
     if (dialogTemplate->signature == USHRT_MAX)
@@ -981,6 +981,31 @@ HWND PhCreateDialogFromTemplate(
         );
 
     PhFree(dialogTemplate);
+
+    return dialogHandle;
+}
+
+HWND PhCreateDialog(
+    _In_ PVOID Instance,
+    _In_ PWSTR Template,
+    _In_ HWND ParentWindow,
+    _In_ DLGPROC DialogProc,
+    _In_opt_ PVOID Parameter
+    )
+{
+    PDLGTEMPLATEEX dialogTemplate;
+    HWND dialogHandle;
+
+    if (!PhLoadResource(Instance, Template, RT_DIALOG, NULL, &dialogTemplate))
+        return NULL;
+
+    dialogHandle = CreateDialogIndirectParam(
+        Instance,
+        (LPDLGTEMPLATE)dialogTemplate,
+        ParentWindow,
+        DialogProc, 
+        (LPARAM)Parameter
+        );
 
     return dialogHandle;
 }
@@ -1520,7 +1545,7 @@ HWND PhGetProcessMainWindowEx(
         PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, ProcessId);
 
     if (processHandle && WindowsVersion >= WINDOWS_8 && IsImmersiveProcess)
-        context.IsImmersive = IsImmersiveProcess(processHandle);
+        context.IsImmersive = !!IsImmersiveProcess(processHandle);
 
     PhEnumWindows(PhpGetProcessMainWindowEnumWindowsProc, &context);
     //PhEnumChildWindows(NULL, 0x800, PhpGetProcessMainWindowEnumWindowsProc, &context);
@@ -1715,7 +1740,7 @@ HICON PhGetInternalWindowIcon(
     {
         PVOID shell32Handle;
 
-        if (shell32Handle = LoadLibrary(L"shell32.dll"))
+        if (shell32Handle = PhLoadLibrarySafe(L"shell32.dll"))
         {
             InternalGetWindowIcon_I = PhGetDllBaseProcedureAddress(shell32Handle, "InternalGetWindowIcon", 0);
         }

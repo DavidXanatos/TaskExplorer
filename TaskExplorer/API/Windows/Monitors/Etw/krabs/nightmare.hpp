@@ -336,9 +336,10 @@ namespace krabs { namespace details {
             throw start_trace_failure();
         }
 
-        ::FILETIME now;
-        GetSystemTimeAsFileTime(&now);
-        ULONG status = ProcessTrace(&trace_.sessionHandle_, 1, &now, NULL);
+		// for kernel rundown to work we need not to restrict the start time!
+        //::FILETIME now;
+        //GetSystemTimeAsFileTime(&now);
+		ULONG status = ProcessTrace(&trace_.sessionHandle_, 1, NULL, NULL); // &now, NULL);
         error_check_common_conditions(status);
     }
 

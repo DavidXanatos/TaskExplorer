@@ -201,7 +201,7 @@ void MainWindow::enableZoomMode( bool on )
 
 void MainWindow::showInfo( QString text )
 {
-    if ( text == QString::null )
+    if ( text.isEmpty() )
     {
         if ( d_picker->rubberBand() )
             text = "Cursor Pos: Press left mouse button in plot region";

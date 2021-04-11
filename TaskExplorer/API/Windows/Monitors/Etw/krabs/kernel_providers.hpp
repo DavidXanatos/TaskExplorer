@@ -221,6 +221,6 @@ namespace krabs { namespace kernel {
     //     EVENT_TRACE_FLAG_VIRTUAL_ALLOC,
     //     krabs::guid::random_guid());
 
-#undef CREATE_CONVENIENCE_KERNEL_PROVIDER
+//#undef CREATE_CONVENIENCE_KERNEL_PROVIDER
 
 } /* namespace kernel */ } /* namespace krabs */

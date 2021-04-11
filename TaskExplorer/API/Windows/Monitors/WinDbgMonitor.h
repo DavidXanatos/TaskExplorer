@@ -15,7 +15,8 @@ public:
 		eLocal = 1,
 		eGlobal = 2,
 		eKernel = 4,
-		eAll = eLocal | eGlobal | eKernel
+		eAll = eLocal | eGlobal | eKernel,
+		eUser = eLocal | eGlobal
 	};
 
 	virtual STATUS		SetMonitor(EModes Mode);

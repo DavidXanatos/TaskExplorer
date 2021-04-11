@@ -200,6 +200,23 @@ PhAllocateZero(
     return buffer;
 }
 
+FORCEINLINE
+PVOID
+PhAllocateZeroSafe(
+    _In_ SIZE_T Size
+    )
+{
+    PVOID buffer;
+
+    if (buffer = PhAllocateSafe(Size))
+    {
+        memset(buffer, 0, Size);
+        return buffer;
+    }
+
+    return NULL;
+}
+
 // Event
 
 #define PH_EVENT_SET 0x1
@@ -1252,7 +1269,7 @@ PhGetStringOrEmpty(
     if (String)
         return String->Buffer;
     else
-        return (PWSTR)TEXT("");
+        return (PWSTR)TEXT(""); // HACK fixes VS2019 conformance mode warning (dmex)
 }
 
 /**
@@ -1567,10 +1584,10 @@ PhFindCharInString(
         PhSkipStringRef(&sr, StartIndex * sizeof(WCHAR));
         r = PhFindCharInStringRef(&sr, Char, FALSE);
 
-        if (r != -1)
+        if (r != SIZE_MAX)
             return r + StartIndex;
         else
-            return -1;
+            return SIZE_MAX;
     }
     else
     {
@@ -1605,10 +1622,10 @@ PhFindLastCharInString(
         PhSkipStringRef(&sr, StartIndex * sizeof(WCHAR));
         r = PhFindLastCharInStringRef(&sr, Char, FALSE);
 
-        if (r != -1)
+        if (r != SIZE_MAX)
             return r + StartIndex;
         else
-            return -1;
+            return SIZE_MAX;
     }
     else
     {
@@ -1647,10 +1664,10 @@ PhFindStringInString(
         PhSkipStringRef(&sr1, StartIndex * sizeof(WCHAR));
         r = PhFindStringInStringRef(&sr1, &sr2, FALSE);
 
-        if (r != -1)
+        if (r != SIZE_MAX)
             return r + StartIndex;
         else
-            return -1;
+            return SIZE_MAX;
     }
     else
     {
@@ -2357,6 +2374,17 @@ typedef struct _PH_LIST
     /** The array of list items. */
     PVOID *Items;
 } PH_LIST, *PPH_LIST;
+
+
+FORCEINLINE
+PVOID
+PhItemList(
+    _In_ PPH_LIST List,
+    _In_ ULONG Index
+    )
+{
+    return List->Items[Index];
+}
 
 PHLIBAPI
 PPH_LIST
@@ -3455,6 +3483,20 @@ PhaFormatString(
     va_start(argptr, Format);
 
     return PH_AUTO_T(PH_STRING, PhFormatString_V(Format, argptr));
+}
+
+FORCEINLINE
+PPH_STRING
+PhLowerString(
+    _In_ PPH_STRING String
+    )
+{
+    PPH_STRING newString;
+
+    newString = PhDuplicateString(String);
+    _wcslwr(newString->Buffer);
+
+    return newString;
 }
 
 FORCEINLINE

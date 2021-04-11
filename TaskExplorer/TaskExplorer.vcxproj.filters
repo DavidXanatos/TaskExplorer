@@ -551,6 +551,12 @@
     <ClCompile Include="GUI\Filters\ProcessFilterModel.cpp">
       <Filter>TaskExplorer\Filters</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\EventMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp">
+      <Filter>API\Windows\Monitors</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -1073,6 +1079,12 @@
     </QtMoc>
     <QtMoc Include="GUI\RunDialog.h">
       <Filter>TaskExplorer</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\EventMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h">
+      <Filter>API\Windows\Monitors</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

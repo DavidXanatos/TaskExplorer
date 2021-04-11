@@ -21,7 +21,6 @@
  */
 
 #include <peview.h>
-#include <cpysave.h>
 #include <symprv.h>
 #include <uxtheme.h>
 
@@ -1242,7 +1241,6 @@ NTSTATUS PeDumpFileSymbols(
             status = PhMapViewOfEntireFile(
                 PhGetString(PvFileName),
                 fileHandle,
-                TRUE,
                 &viewBase,
                 &size
                 );
@@ -1272,6 +1270,7 @@ NTSTATUS PeDumpFileSymbols(
 
     if (baseOfDll == ULLONG_MAX)
     {
+        PostMessage(Context->DialogHandle, WM_PV_SEARCH_FINISHED, 0, 0);
         PhShowStatus(NULL, L"Unable to load the file.", STATUS_UNSUCCESSFUL, 0);
         return STATUS_UNSUCCESSFUL;
     }
@@ -1282,6 +1281,7 @@ NTSTATUS PeDumpFileSymbols(
         &idiaSession
         ))
     {
+        PostMessage(Context->DialogHandle, WM_PV_SEARCH_FINISHED, 0, 0);
         return STATUS_UNSUCCESSFUL;
     }
 

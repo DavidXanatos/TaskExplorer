@@ -70,6 +70,7 @@ CComboInputDialog::CComboInputDialog(QWidget *parent) :
 {
     setModal(true);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    d->combo->setFocus();
     connect(d->buttonBox, SIGNAL(accepted()), SLOT(accept()));
     connect(d->buttonBox, SIGNAL(rejected()), SLOT(reject()));
     connect(d->buttonBox, SIGNAL(clicked(QAbstractButton*)),
@@ -132,6 +133,11 @@ void CComboInputDialog::setValue(const QString &t)
 		d->combo->setCurrentIndex(idx);
 }
 
+int CComboInputDialog::findValue(const QString &t) const
+{
+	return d->combo->findText(t);
+}
+
 QVariant CComboInputDialog::data() const
 {
 	return d->combo->currentData();
@@ -140,6 +146,11 @@ QVariant CComboInputDialog::data() const
 void CComboInputDialog::setData(const QVariant & v)
 {
 	d->combo->setCurrentIndex(d->combo->findData(v));
+}
+
+int CComboInputDialog::findData(const QVariant & v) const
+{
+	return d->combo->findData(v);
 }
 
 QPixmap CComboInputDialog::iconPixmap() const

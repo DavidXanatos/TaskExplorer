@@ -584,13 +584,13 @@ LdrGetFailureData(
 // private
 typedef struct _PS_MITIGATION_OPTIONS_MAP
 {
-    ULONG_PTR Map[2];
+    ULONG_PTR Map[3]; // 2 < 20H1
 } PS_MITIGATION_OPTIONS_MAP, *PPS_MITIGATION_OPTIONS_MAP;
 
 // private
 typedef struct _PS_MITIGATION_AUDIT_OPTIONS_MAP
 {
-    ULONG_PTR Map[2];
+    ULONG_PTR Map[3]; // 2 < 20H1
 } PS_MITIGATION_AUDIT_OPTIONS_MAP, *PPS_MITIGATION_AUDIT_OPTIONS_MAP;
 
 // private
@@ -700,6 +700,17 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 LdrFindResource_U(
+    _In_ PVOID DllHandle,
+    _In_ PLDR_RESOURCE_INFO ResourceInfo,
+    _In_ ULONG Level,
+    _Out_ PIMAGE_RESOURCE_DATA_ENTRY *ResourceDataEntry
+    );
+
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrFindResourceEx_U(
+    _In_ ULONG Flags,
     _In_ PVOID DllHandle,
     _In_ PLDR_RESOURCE_INFO ResourceInfo,
     _In_ ULONG Level,

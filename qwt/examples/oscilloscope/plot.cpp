@@ -128,13 +128,13 @@ void Plot::start()
 
 void Plot::replot()
 {
-    CurveData *data = static_cast<CurveData *>( d_curve->data() );
-    data->values().lock();
+    CurveData *curveData = static_cast<CurveData *>( d_curve->data() );
+    curveData->values().lock();
 
     QwtPlot::replot();
-    d_paintedPoints = data->size();
+    d_paintedPoints = curveData->size();
 
-    data->values().unlock();
+    curveData->values().unlock();
 }
 
 void Plot::setIntervalLength( double interval )
@@ -151,10 +151,10 @@ void Plot::setIntervalLength( double interval )
 
 void Plot::updateCurve()
 {
-    CurveData *data = static_cast<CurveData *>( d_curve->data() );
-    data->values().lock();
+    CurveData *curveData = static_cast<CurveData *>( d_curve->data() );
+    curveData->values().lock();
 
-    const int numPoints = data->size();
+    const int numPoints = curveData->size();
     if ( numPoints > d_paintedPoints )
     {
         const bool doClip = !canvas()->testAttribute( Qt::WA_PaintOnScreen );
@@ -170,7 +170,7 @@ void Plot::updateCurve()
             const QwtScaleMap xMap = canvasMap( d_curve->xAxis() );
             const QwtScaleMap yMap = canvasMap( d_curve->yAxis() );
 
-            QRectF br = qwtBoundingRect( *data,
+            QRectF br = qwtBoundingRect( *curveData,
                 d_paintedPoints - 1, numPoints - 1 );
 
             const QRect clipRect = QwtScaleMap::transform( xMap, yMap, br ).toRect();
@@ -182,7 +182,7 @@ void Plot::updateCurve()
         d_paintedPoints = numPoints;
     }
 
-    data->values().unlock();
+    curveData->values().unlock();
 }
 
 void Plot::incrementInterval()
@@ -190,8 +190,8 @@ void Plot::incrementInterval()
     d_interval = QwtInterval( d_interval.maxValue(),
         d_interval.maxValue() + d_interval.width() );
 
-    CurveData *data = static_cast<CurveData *>( d_curve->data() );
-    data->values().clearStaleValues( d_interval.minValue() );
+    CurveData *curveData = static_cast<CurveData *>( d_curve->data() );
+    curveData->values().clearStaleValues( d_interval.minValue() );
 
     // To avoid, that the grid is jumping, we disable
     // the autocalculation of the ticks and shift them
@@ -244,7 +244,7 @@ void Plot::showEvent( QShowEvent * )
 
 bool Plot::eventFilter( QObject *object, QEvent *event )
 {
-    if ( object == canvas() && 
+    if ( object == canvas() &&
         event->type() == QEvent::PaletteChange )
     {
         d_curve->setPen( canvas()->palette().color( QPalette::WindowText ) );

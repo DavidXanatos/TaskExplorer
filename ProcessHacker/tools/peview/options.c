@@ -22,7 +22,6 @@
 
 #include <peview.h>
 
-
 typedef enum _PHP_OPTIONS_INDEX
 {
    // PHP_OPTIONS_INDEX_ENABLE_WARNINGS,
@@ -100,22 +99,31 @@ BOOLEAN PvShellExecuteRestart(
     _In_opt_ HWND WindowHandle
     )
 {
+    static PH_STRINGREF seperator = PH_STRINGREF_INIT(L"\"");
     BOOLEAN result;
     PPH_STRING filename;
+    PPH_STRING parameters;
 
     if (!(filename = PhGetApplicationFileName()))
         return FALSE;
 
+    parameters = PhConcatStringRef3(
+        &seperator,
+        &PvFileName->sr,
+        &seperator
+        );
+
     result = PhShellExecuteEx(
         WindowHandle,
         PhGetString(filename),
-        PhGetString(PvFileName),
+        PhGetString(parameters),
         SW_SHOW,
         0,
         0,
         NULL
         );
 
+    PhDereferenceObject(parameters);
     PhDereferenceObject(filename);
 
     return result;
@@ -152,10 +160,16 @@ static VOID PhpGeneralPageSave(
 
     //PhSetStringSetting2(L"SearchEngine", &PhaGetDlgItemText(WindowHandle, IDC_SEARCHENGINE)->sr);
 
+    if (ComboBox_GetCurSel(GetDlgItem(WindowHandle, IDC_MAXSIZEUNIT)) != PhGetIntegerSetting(L"MaxSizeUnit"))
+    {
+        PhSetIntegerSetting(L"MaxSizeUnit", ComboBox_GetCurSel(GetDlgItem(WindowHandle, IDC_MAXSIZEUNIT)));
+        RestartRequired = TRUE;
+    }
+
     if (!PhEqualString(PhaGetDlgItemText(WindowHandle, IDC_DBGHELPSEARCHPATH), PhaGetStringSetting(L"DbgHelpSearchPath"), TRUE))
     {
         PhSetStringSetting2(L"DbgHelpSearchPath", &(PhaGetDlgItemText(WindowHandle, IDC_DBGHELPSEARCHPATH)->sr));
-        //RestartRequired = TRUE;
+        RestartRequired = TRUE;
     }
 
     //SetSettingForLvItemCheck(listViewHandle, PHP_OPTIONS_INDEX_ENABLE_WARNINGS, L"EnableWarnings");
@@ -192,20 +206,37 @@ INT_PTR CALLBACK PvOptionsWndProc(
     _In_ LPARAM lParam
     )
 {
+    static PH_LAYOUT_MANAGER LayoutManager;
+
     switch (uMsg)
     {
     case WM_INITDIALOG:
         {
             HWND comboBoxHandle;
+            HWND listViewHandle;
+            HICON smallIcon;
+            HICON largeIcon;
 
-            SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)PvImageSmallIcon);
-            SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)PvImageLargeIcon);
+            PhGetStockApplicationIcon(&smallIcon, &largeIcon);
+            SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);
+            SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)largeIcon);
+            //SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)PvImageSmallIcon);
+            //SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)PvImageLargeIcon);
 
             comboBoxHandle = GetDlgItem(hwndDlg, IDC_MAXSIZEUNIT);
-
+            listViewHandle = GetDlgItem(hwndDlg, IDC_SETTINGS);
             PhCenterWindow(hwndDlg, GetParent(hwndDlg));
 
             PvLoadGeneralPage(hwndDlg);
+
+            PhInitializeLayoutManager(&LayoutManager, hwndDlg);
+            PhAddLayoutItem(&LayoutManager, GetDlgItem(hwndDlg, IDC_DBGHELPSEARCHPATH), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
+            PhAddLayoutItem(&LayoutManager, listViewHandle, NULL, PH_ANCHOR_ALL);
+            PhAddLayoutItem(&LayoutManager, GetDlgItem(hwndDlg, IDOK), NULL, PH_ANCHOR_RIGHT | PH_ANCHOR_BOTTOM);
+            PhAddLayoutItem(&LayoutManager, GetDlgItem(hwndDlg, IDCANCEL), NULL, PH_ANCHOR_RIGHT | PH_ANCHOR_BOTTOM);
+
+            PhSetListViewStyle(listViewHandle, FALSE, TRUE);
+            PhSetControlTheme(listViewHandle, L"explorer");
 
             for (ULONG i = 0; i < RTL_NUMBER_OF(PhSizeUnitNames); i++)
                 ComboBox_AddString(comboBoxHandle, PhSizeUnitNames[i]);
@@ -233,6 +264,11 @@ INT_PTR CALLBACK PvOptionsWndProc(
                 }
                 break;
             }
+        }
+        break;
+    case WM_SIZE:
+        {
+            PhLayoutManagerLayout(&LayoutManager);
         }
         break;
     }

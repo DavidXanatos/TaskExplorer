@@ -1,3 +1,6 @@
+#ifndef MAIN_WINDOW_H
+#define MAIN_WINDOW_H
+
 #include <qmainwindow.h>
 
 class Plot;
@@ -14,3 +17,5 @@ private:
     Plot *d_plot;
     TransformPlot *d_transformPlot;
 };
+
+#endif

@@ -9,6 +9,7 @@
 
 #include "qwt_null_paintdevice.h"
 #include <qpaintengine.h>
+#include <qpainterpath.h>
 #include <qpixmap.h>
 
 class QwtNullPaintDevice::PrivateData
@@ -50,21 +51,21 @@ public:
     virtual void drawPolygon(const QPointF *, int , PolygonDrawMode );
     virtual void drawPolygon(const QPoint *, int , PolygonDrawMode );
 
-    virtual void drawPixmap(const QRectF &, 
+    virtual void drawPixmap(const QRectF &,
         const QPixmap &, const QRectF &);
 
     virtual void drawTextItem(const QPointF &, const QTextItem &);
 
-    virtual void drawTiledPixmap(const QRectF &, 
+    virtual void drawTiledPixmap(const QRectF &,
         const QPixmap &, const QPointF &s);
 
-    virtual void drawImage(const QRectF &, 
+    virtual void drawImage(const QRectF &,
         const QImage &, const QRectF &, Qt::ImageConversionFlags );
 
 private:
     QwtNullPaintDevice *nullDevice();
 };
-    
+
 QwtNullPaintDevice::PaintEngine::PaintEngine():
     QPaintEngine( QPaintEngine::AllFeatures )
 {
@@ -282,7 +283,7 @@ void QwtNullPaintDevice::PaintEngine::drawPolygon(
     device->drawPolygon( points, pointCount, mode );
 }
 
-void QwtNullPaintDevice::PaintEngine::drawPixmap( 
+void QwtNullPaintDevice::PaintEngine::drawPixmap(
     const QRectF &rect, const QPixmap &pm, const QRectF &subRect )
 {
     QwtNullPaintDevice *device = nullDevice();
@@ -309,7 +310,7 @@ void QwtNullPaintDevice::PaintEngine::drawTextItem(
 }
 
 void QwtNullPaintDevice::PaintEngine::drawTiledPixmap(
-    const QRectF &rect, const QPixmap &pixmap, 
+    const QRectF &rect, const QPixmap &pixmap,
     const QPointF &subRect)
 {
     QwtNullPaintDevice *device = nullDevice();
@@ -320,13 +321,13 @@ void QwtNullPaintDevice::PaintEngine::drawTiledPixmap(
     {
         QPaintEngine::drawTiledPixmap( rect, pixmap, subRect );
         return;
-    }   
+    }
 
     device->drawTiledPixmap( rect, pixmap, subRect );
 }
 
 void QwtNullPaintDevice::PaintEngine::drawImage(
-    const QRectF &rect, const QImage &image, 
+    const QRectF &rect, const QImage &image,
     const QRectF &subRect, Qt::ImageConversionFlags flags)
 {
     QwtNullPaintDevice *device = nullDevice();
@@ -337,13 +338,13 @@ void QwtNullPaintDevice::PaintEngine::drawImage(
 }
 
 void QwtNullPaintDevice::PaintEngine::updateState(
-    const QPaintEngineState &state)
+    const QPaintEngineState &engineState)
 {
     QwtNullPaintDevice *device = nullDevice();
     if ( device == NULL )
         return;
 
-    device->updateState( state );
+    device->updateState( engineState );
 }
 
 inline QwtNullPaintDevice *QwtNullPaintDevice::PaintEngine::nullDevice()
@@ -379,7 +380,7 @@ void QwtNullPaintDevice::setMode( Mode mode )
     d_data->mode = mode;
 }
 
-/*! 
+/*!
     \return Render mode
     \sa setMode()
 */
@@ -393,7 +394,7 @@ QPaintEngine *QwtNullPaintDevice::paintEngine() const
 {
     if ( d_engine == NULL )
     {
-        QwtNullPaintDevice *that = 
+        QwtNullPaintDevice *that =
             const_cast< QwtNullPaintDevice * >( this );
 
         that->d_engine = new PaintEngine();
@@ -402,7 +403,7 @@ QPaintEngine *QwtNullPaintDevice::paintEngine() const
     return d_engine;
 }
 
-/*! 
+/*!
     See QPaintDevice::metric()
 
     \param deviceMetric Type of metric
@@ -414,7 +415,7 @@ int QwtNullPaintDevice::metric( PaintDeviceMetric deviceMetric ) const
 {
     int value;
 
-    switch ( deviceMetric ) 
+    switch ( deviceMetric )
     {
         case PdmWidth:
         {
@@ -529,7 +530,7 @@ void QwtNullPaintDevice::drawPoints(
 
 //! See QPaintEngine::drawPolygon()
 void QwtNullPaintDevice::drawPolygon(
-    const QPointF *points, int pointCount, 
+    const QPointF *points, int pointCount,
     QPaintEngine::PolygonDrawMode mode)
 {
     Q_UNUSED(points);
@@ -539,7 +540,7 @@ void QwtNullPaintDevice::drawPolygon(
 
 //! See QPaintEngine::drawPolygon()
 void QwtNullPaintDevice::drawPolygon(
-    const QPoint *points, int pointCount, 
+    const QPoint *points, int pointCount,
     QPaintEngine::PolygonDrawMode mode)
 {
     Q_UNUSED(points);
@@ -548,7 +549,7 @@ void QwtNullPaintDevice::drawPolygon(
 }
 
 //! See QPaintEngine::drawPixmap()
-void QwtNullPaintDevice::drawPixmap( const QRectF &rect, 
+void QwtNullPaintDevice::drawPixmap( const QRectF &rect,
     const QPixmap &pm, const QRectF &subRect )
 {
     Q_UNUSED(rect);
@@ -566,7 +567,7 @@ void QwtNullPaintDevice::drawTextItem(
 
 //! See QPaintEngine::drawTiledPixmap()
 void QwtNullPaintDevice::drawTiledPixmap(
-    const QRectF &rect, const QPixmap &pixmap, 
+    const QRectF &rect, const QPixmap &pixmap,
     const QPointF &subRect)
 {
     Q_UNUSED(rect);
@@ -576,7 +577,7 @@ void QwtNullPaintDevice::drawTiledPixmap(
 
 //! See QPaintEngine::drawImage()
 void QwtNullPaintDevice::drawImage(
-    const QRectF &rect, const QImage &image, 
+    const QRectF &rect, const QImage &image,
     const QRectF &subRect, Qt::ImageConversionFlags flags)
 {
     Q_UNUSED(rect);
@@ -586,7 +587,7 @@ void QwtNullPaintDevice::drawImage(
 }
 
 //! See QPaintEngine::updateState()
-void QwtNullPaintDevice::updateState( 
+void QwtNullPaintDevice::updateState(
     const QPaintEngineState &state )
 {
     Q_UNUSED(state);

@@ -170,3 +170,10 @@ QList<CProcessInfo::SDebugMessage> CProcessInfo::GetDebugMessages(quint32* pDebu
 		*pDebugMessageCount = m_DebugMessageCount;
 	return m_DebugMessages; 
 }
+
+void CProcessInfo::ClearDebugMessages()
+{
+	QReadLocker Locker(&m_DebugMutex);  
+	m_DebugMessages.clear();
+	m_DebugMessageCount = 0;
+}

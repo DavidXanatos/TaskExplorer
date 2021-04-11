@@ -626,6 +626,10 @@ void CTaskExplorer::SetDarkTheme(bool bDark)
 		palette.setColor(QPalette::Link, QColor(218, 130, 42));
 		palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
 		palette.setColor(QPalette::HighlightedText, Qt::black);
+		palette.setColor(QPalette::Disabled, QPalette::WindowText, Qt::darkGray);
+		palette.setColor(QPalette::Disabled, QPalette::Text, Qt::darkGray);
+		palette.setColor(QPalette::Disabled, QPalette::Light, Qt::black);
+		palette.setColor(QPalette::Disabled, QPalette::ButtonText, Qt::darkGray);
 		QApplication::setPalette(palette);
 	}
 	else

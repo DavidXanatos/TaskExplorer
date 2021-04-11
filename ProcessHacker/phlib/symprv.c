@@ -275,21 +275,23 @@ VOID PhpSymbolProviderCompleteInitialization(
         PPH_STRING dbghelpName;
         PPH_STRING symsrvName;
 
-#ifdef _WIN64
+#if defined(_M_AMD64)
         PhMoveReference(&winsdkPath, PhConcatStringRefZ(&winsdkPath->sr, L"\\Debuggers\\x64\\"));
+#elif defined(_M_ARM64)
+        PhMoveReference(&winsdkPath, PhConcatStringRefZ(&winsdkPath->sr, L"\\Debuggers\\arm64\\"));
 #else
         PhMoveReference(&winsdkPath, PhConcatStringRefZ(&winsdkPath->sr, L"\\Debuggers\\x86\\"));
 #endif
 
         if (dbghelpName = PhConcatStringRef2(&winsdkPath->sr, &dbghelpFileName))
         {
-            dbghelpHandle = LoadLibrary(dbghelpName->Buffer);
+            dbghelpHandle = PhLoadLibrarySafe(dbghelpName->Buffer);
             PhDereferenceObject(dbghelpName);
         }
 
         if (symsrvName = PhConcatStringRef2(&winsdkPath->sr, &symsrvFileName))
         {
-            symsrvHandle = LoadLibrary(symsrvName->Buffer);
+            symsrvHandle = PhLoadLibrarySafe(symsrvName->Buffer);
             PhDereferenceObject(symsrvName);
         }
 
@@ -297,10 +299,10 @@ VOID PhpSymbolProviderCompleteInitialization(
     }
 
     if (!dbghelpHandle)
-        dbghelpHandle = LoadLibrary(L"dbghelp.dll");
+        dbghelpHandle = PhLoadLibrarySafe(L"dbghelp.dll");
 
     if (!symsrvHandle)
-        symsrvHandle = LoadLibrary(L"symsrv.dll");
+        symsrvHandle = PhLoadLibrarySafe(L"symsrv.dll");
 
     if (dbghelpHandle)
     {
@@ -857,7 +859,7 @@ static BOOLEAN NTAPI PhpSymbolProviderEnumModulesCallback(
         )
         return TRUE;
 
-    PhLoadModuleSymbolProvider(context->SymbolProvider, Module->FileName->Buffer,
+    PhLoadModuleSymbolProvider(context->SymbolProvider, Module->FileNameWin32->Buffer,
         (ULONG64)Module->BaseAddress, Module->Size);
 
     return TRUE;

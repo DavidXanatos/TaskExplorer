@@ -8,36 +8,36 @@ extern "C" {
 #define _User_set_
 
 extern _User_set_ PVOID PhInstanceHandle;
-PHLIBAPI extern _User_set_ PWSTR PhApplicationName;
+extern _User_set_ PWSTR PhApplicationName;
 PHLIBAPI extern _User_set_ ULONG PhGlobalDpi;
 extern PVOID PhHeapHandle;
-PHLIBAPI extern RTL_OSVERSIONINFOEXW PhOsVersion;
+extern RTL_OSVERSIONINFOEXW PhOsVersion;
 PHLIBAPI extern SYSTEM_BASIC_INFORMATION PhSystemBasicInformation;
-PHLIBAPI extern ULONG WindowsVersion;
+extern ULONG WindowsVersion;
 
 #define WINDOWS_ANCIENT 0
-#define WINDOWS_XP 51
-#define WINDOWS_VISTA 60
-#define WINDOWS_7 61
-#define WINDOWS_8 62
-#define WINDOWS_8_1 63
-#define WINDOWS_10 100 // TH1
-#define WINDOWS_10_TH2 101
-#define WINDOWS_10_RS1 102
-#define WINDOWS_10_RS2 103
-#define WINDOWS_10_RS3 104
-#define WINDOWS_10_RS4 105
-#define WINDOWS_10_RS5 106
-#define WINDOWS_10_19H1 107
-#define WINDOWS_10_19H2 108
-#define WINDOWS_10_20H1 109
-#define WINDOWS_10_20H2 110
+#define WINDOWS_XP 51 // August, 2001
+#define WINDOWS_VISTA 60 // November, 2006
+#define WINDOWS_7 61 // July, 2009
+#define WINDOWS_8 62 // August, 2012
+#define WINDOWS_8_1 63 // August, 2013
+#define WINDOWS_10 100 // TH1 // July, 2015
+#define WINDOWS_10_TH2 101 // November, 2015
+#define WINDOWS_10_RS1 102 // August, 2016
+#define WINDOWS_10_RS2 103 // April, 2017
+#define WINDOWS_10_RS3 104 // October, 2017
+#define WINDOWS_10_RS4 105 // April, 2018
+#define WINDOWS_10_RS5 106 // November, 2018
+#define WINDOWS_10_19H1 107 // May, 2019
+#define WINDOWS_10_19H2 108 // November, 2019
+#define WINDOWS_10_20H1 109 // May, 2020
+#define WINDOWS_10_20H2 110 // October, 2020
 #define WINDOWS_NEW ULONG_MAX
 
 // Debugging
 
 #ifdef DEBUG
-#define dprintf(format, ...) DbgPrint(format, __VA_ARGS__)
+#define dprintf(format, ...) DbgPrint(format, ##__VA_ARGS__)
 #else
 #define dprintf(format, ...)
 #endif

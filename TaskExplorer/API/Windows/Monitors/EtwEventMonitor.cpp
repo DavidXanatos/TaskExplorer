@@ -3,10 +3,27 @@
 #include "..\WindowsAPI.h"
 #include ".\etw\krabs.hpp"
 
+#ifdef USE_ETW_FILE_IO
+namespace krabs { namespace kernel {
+CREATE_CONVENIENCE_KERNEL_PROVIDER(
+	disk_file_io_provider ,
+	EVENT_TRACE_FLAG_DISK_FILE_IO,
+	krabs::guids::file_io);
+
+CREATE_CONVENIENCE_KERNEL_PROVIDER(
+	disk_file_io_provider_rd ,
+	0,
+	krabs::guids::file_io);
+} }
+#endif
+
 struct SEtwEventMonitor
 {
 	SEtwEventMonitor(CEtwEventMonitor* This)
 	 : kernel_trace(L"TaskExp_EtKernelLogger")
+#ifdef USE_ETW_FILE_IO
+	 , kernel_rundown(L"TaskExp_EtKernelRundown")
+#endif
 	 , user_trace(L"TaskExp_EtUserLogger")
 		// A trace can have any number of providers, which are identified by GUID. These
 		// GUIDs are defined by the components that emit events, and their GUIDs can
@@ -64,46 +81,98 @@ struct SEtwEventMonitor
 		});
 		kernel_trace.enable(disk_provider);
 
-		/*file_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
+#ifdef USE_ETW_FILE_IO
+		auto file_callback = [](CEtwEventMonitor* This, const EVENT_RECORD &record) {
 			//qDebug() << "file event";
 			krabs::schema schema(record);
-
-			std::wcout << L"EventId: " << schema.event_id() << std::endl;
-			std::wcout << L"EventOpcode: " << schema.event_opcode() << std::endl;
-			std::wcout << L"ProcessId: " << schema.process_id() << std::endl;
-			std::wcout << L"ThreadId: " << schema.thread_id() << std::endl;
-			std::wcout << L"EventName: " << schema.event_name() << std::endl;
-			std::wcout << L"ProviderName: " << schema.provider_name() << std::endl;
-
-			std::wcout << std::endl;
+			/*
+			qDebug() << QString("EventId: %1").arg(schema.event_id());
+			qDebug() << QString("EventOpcode: %1").arg(schema.event_opcode());
+			qDebug() << QString("ProcessId: %1").arg(schema.process_id());
+			qDebug() << QString("ThreadId: %1").arg(schema.thread_id());
+			qDebug() << QString("EventName: %1").arg(schema.event_name());
+			qDebug() << QString("ProviderName: %1").arg(schema.provider_name());
+	
 
 			krabs::parser parser(schema);
 			krabs::property_iterator PI = parser.properties();
 			for (std::vector<krabs::property>::iterator I = PI.begin(); I != PI.end(); ++I)
 			{
-				std::wcout << L"\t" << I->name() << ": ";
+				QString Info = QString("\t %1:").arg(I->name());
+
 				bool bOk = false;
 			
-				try { std::wcout << parser.parse<std::wstring>(I->name());	bOk = true; }
+				try { Info += QString::fromStdWString(parser.parse<std::wstring>(I->name()));	bOk = true; }
 				catch (...) {}
 			
-				if(!bOk) try { std::wcout << parser.parse<uint64_t>(I->name());	bOk = true; }
+				if(!bOk) try { Info += QString::number(parser.parse<uint64_t>(I->name()));	bOk = true; }
 				catch (...) {}
 
-				if (!bOk) try { std::wcout << parser.parse<uint32_t>(I->name());	bOk = true; }
+				if (!bOk) try { Info += QString::number(parser.parse<uint32_t>(I->name()));	bOk = true; }
 				catch (...) {}
 
-				if (!bOk) try { std::wcout << parser.parse<ULONG_PTR>(I->name());	bOk = true; }
+				if (!bOk) try { Info += QString::number(parser.parse<ULONG_PTR>(I->name()));	bOk = true; }
 				catch (...) {}
 
-				if (!bOk) std::wcout << L"Type:" << I->type();
+				if (!bOk) try { Info += QString::number((ULONG_PTR)parser.parse<void*>(I->name()));	bOk = true; }
+				catch (...) {}
 
-				std::wcout << std::endl;
+
+				if (!bOk) Info += QString("Type: %1").arg(I->type());
+
+				qDebug() << Info;
 			}
 
-			std::wcout << std::endl;
-		});
-		kernel_trace.enable(file_provider);*/
+			qDebug() << "";*/
+
+			int Type = EventTypeUnknow;
+
+			switch (record.EventHeader.EventDescriptor.Opcode)
+			{
+			case 0: // Name
+				Type = EtwFileNameType;
+				break;
+			case 32: // FileCreate
+				Type = EtwFileCreateType;
+				break;
+			case 36: // FileRundown
+				Type = EtwFileRundownType;
+				break;
+			case 35: // FileDelete
+				Type = EtwFileDeleteType;
+				break;
+			}
+
+			if (Type != EventTypeUnknow)
+			{
+				krabs::parser parser(schema);
+
+				quint64 FileId = (quint64)parser.parse<void*>(L"FileObject");
+				QString FileName = QString::fromStdWString(parser.parse<wstring>(L"FileName"));
+
+				quint64 ProcessId = -1;
+				quint64 ThreadId = -1;
+
+				// Since Windows 8, we no longer get the correct process/thread IDs in the
+				// event headers for file events. 
+				//if (WindowsVersion >= WINDOWS_8)
+				if (schema.process_id() != ULONG_MAX)
+				{
+					ProcessId = schema.process_id();
+					ThreadId = schema.thread_id();
+				}
+
+				//EtDiskProcessFileEvent(&fileEvent);
+				emit This->FileEvent(Type, FileId, ThreadId, ThreadId, FileName);
+			}
+		};
+
+		file_provider.add_on_event_callback([This, file_callback](const EVENT_RECORD &record) { file_callback(This, record); });
+		kernel_trace.enable(file_provider);
+
+		file_provider_rd.add_on_event_callback([This, file_callback](const EVENT_RECORD &record) { file_callback(This, record); });
+		kernel_rundown.enable(file_provider_rd);
+#endif
 
 		proc_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
 			//qDebug() << "process event";
@@ -276,11 +345,19 @@ struct SEtwEventMonitor
 		user_trace.enable(dns_res_provider);
 
 
-		krabs::kernel_trace* _kernel_trace = &kernel_trace;
-		kernel_thread = new std::thread([&_kernel_trace]() { _kernel_trace->start(); });
+		kernel_thread = new std::thread([&]() { 
+			kernel_trace.start();
+		});
 
-		krabs::user_trace* _user_trace = &user_trace;
-		user_thread = new std::thread([&_user_trace]() { _user_trace->start(); });
+#ifdef USE_ETW_FILE_IO
+		kernel_thread_rd = new std::thread([&]() { 
+			kernel_rundown.start();
+		});
+#endif
+
+		user_thread = new std::thread([&]() { 
+			user_trace.start(); 
+		});
 	}
 
 	~SEtwEventMonitor()
@@ -289,26 +366,35 @@ struct SEtwEventMonitor
 		kernel_thread->join();
 		delete kernel_thread;
 
+#ifdef USE_ETW_FILE_IO
+		kernel_rundown.stop();
+		kernel_thread_rd->join();
+		delete kernel_thread_rd;
+#endif
+
 		user_trace.stop();
 		user_thread->join();
 		delete user_thread;
 	}
 
 	krabs::kernel_trace kernel_trace;
-
 	krabs::kernel::disk_io_provider disk_provider;
-	//krabs::kernel::file_io_provider file_provider;
+#ifdef USE_ETW_FILE_IO
+	krabs::kernel::disk_file_io_provider file_provider;
+#endif
 	krabs::kernel::process_provider proc_provider;
 	krabs::kernel::network_tcpip_provider tcp_provider;
 	krabs::kernel::network_udpip_provider udp_provider;
-
 	std::thread* kernel_thread = NULL;
 
+#ifdef USE_ETW_FILE_IO
+	krabs::kernel_trace kernel_rundown;
+	krabs::kernel::disk_file_io_provider_rd file_provider_rd;
+	std::thread* kernel_thread_rd = NULL;
+#endif
 
 	krabs::user_trace user_trace;
-
 	krabs::provider<> dns_res_provider;
-
 	std::thread* user_thread = NULL;
 };
 

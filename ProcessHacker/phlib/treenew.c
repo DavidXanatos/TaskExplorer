@@ -3,7 +3,7 @@
  *   tree new (tree list control)
  *
  * Copyright (C) 2011-2016 wj32
- * Copyright (C) 2017-2018 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -48,6 +48,7 @@
 #include <uxtheme.h>
 #include <vssym32.h>
 
+#include <apiimport.h>
 #include <guisup.h>
 #include <treenewp.h>
 
@@ -2005,6 +2006,12 @@ ULONG_PTR PhTnpOnUserMessage(
         return !Context->SuspendUpdateStructure;
     case TNM_THEMESUPPORT:
         Context->ThemeSupport = !!WParam;
+        return TRUE;
+    case TNM_SETIMAGELIST:
+        {
+            Context->ImageListSupport = !!WParam;
+            Context->ImageListHandle = (HIMAGELIST)WParam;
+        }
         return TRUE;
     }
 
@@ -4538,7 +4545,10 @@ VOID PhTnpProcessSearchKey(
         // The search string has become too long. Fail the search.
         if (!Context->SearchFailed)
         {
-            MessageBeep(0);
+            if (MessageBeep_Import())
+            {
+                MessageBeep_Import()(MB_OK);
+            }
             Context->SearchFailed = TRUE;
             return;
         }
@@ -4601,9 +4611,12 @@ VOID PhTnpProcessSearchKey(
         // No search result. Beep to indicate an error, and set the flag so we don't beep again. But
         // don't beep if the first character was a space, because that's used for other purposes
         // elsewhere (see PhTnpProcessNodeKey).
-        if (searchEvent.String.Buffer[0] != ' ')
+        if (searchEvent.String.Buffer[0] != L' ')
         {
-            MessageBeep(0);
+            if (MessageBeep_Import())
+            {
+                MessageBeep_Import()(MB_OK);
+            }
         }
 
         Context->SearchFailed = TRUE;
@@ -5506,8 +5519,8 @@ VOID PhTnpDrawCell(
 
     if (Column == Context->FirstColumn)
     {
-        BOOLEAN needsClip;
-        HRGN oldClipRegion;
+        BOOLEAN needsClip = FALSE;
+        HRGN oldClipRegion = NULL;
 
         textRect.left += Node->Level * SmallIconWidth;
 
@@ -5583,7 +5596,25 @@ VOID PhTnpDrawCell(
         }
 
         // Draw the icon.
-        if (Node->Icon)
+
+        if (Context->ImageListSupport)
+        {
+            ImageList_DrawEx(
+                Context->ImageListHandle,
+                (ULONG)(ULONG_PTR)Node->Icon, // HACK (dmex)
+                hdc,
+                textRect.left,
+                textRect.top,
+                SmallIconWidth,
+                SmallIconHeight,
+                CLR_DEFAULT,
+                CLR_NONE,
+                ILD_NORMAL | ILD_TRANSPARENT
+                );
+
+            textRect.left += SmallIconWidth + TNP_ICON_RIGHT_PADDING;
+        }
+        else if (Node->Icon)
         {
             DrawIconEx(
                 hdc,
@@ -5600,10 +5631,12 @@ VOID PhTnpDrawCell(
             textRect.left += SmallIconWidth + TNP_ICON_RIGHT_PADDING;
         }
 
-        if (needsClip && oldClipRegion)
+        if (needsClip)
         {
             SelectClipRgn(hdc, oldClipRegion);
-            DeleteRgn(oldClipRegion);
+
+            if (oldClipRegion)
+                DeleteRgn(oldClipRegion);
         }
 
         if (textRect.left > textRect.right)

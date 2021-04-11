@@ -60,6 +60,13 @@ FORCEINLINE LONG_PTR PhGetWindowStyle(
     return GetWindowLongPtr(WindowHandle, GWL_STYLE);
 }
 
+FORCEINLINE LONG_PTR PhGetWindowStyleEx(
+    _In_ HWND WindowHandle
+    )
+{
+    return GetWindowLongPtr(WindowHandle, GWL_EXSTYLE);
+}
+
 FORCEINLINE VOID PhSetWindowStyle(
     _In_ HWND Handle,
     _In_ LONG_PTR Mask,
@@ -413,6 +420,17 @@ HWND PhCreateDialogFromTemplate(
     _In_ PWSTR Template,
     _In_ DLGPROC DialogProc,
     _In_ PVOID Parameter
+    );
+
+PHLIBAPI
+HWND
+NTAPI
+PhCreateDialog(
+    _In_ PVOID Instance,
+    _In_ PWSTR Template,
+    _In_ HWND ParentWindow,
+    _In_ DLGPROC DialogProc,
+    _In_opt_ PVOID Parameter
     );
 
 PHLIBAPI

@@ -24,7 +24,7 @@ CMemorySearch::CMemorySearch(const CProcessPtr& pProcess, QWidget *parent)
 	m_pStringLayout = new QHBoxLayout();
 	m_pStringLayout->setMargin(3);
 	m_pStringWidget->setLayout(m_pStringLayout);
-	m_pMainLayout->insertWidget(0, m_pStringWidget);
+	m_pMainLayout->insertWidget(1, m_pStringWidget);
 
 	m_pStringLayout->addWidget(new QLabel(tr("Minimum length:")));
 	m_pMinLength = new QSpinBox();
@@ -38,16 +38,22 @@ CMemorySearch::CMemorySearch(const CProcessPtr& pProcess, QWidget *parent)
 	m_pExtUnicode = new QCheckBox(tr("Extended Unicode"));
 	m_pStringLayout->addWidget(m_pExtUnicode);
 
-	m_pStringLayout->addWidget(new QLabel(tr("Regions:")));
+	m_pStringLayout->addWidget(m_pRegExp); // move reg exp checkbox from the generic search widget to the string sidget
+
+	// add region options to the search widget
+	int pos = m_pFinderLayout->count() - 1;
+
+	m_pFinderLayout->insertWidget(pos++, new QLabel(tr("Regions:")));
 
 	m_pPrivate = new QCheckBox(tr("Private"));
-	m_pStringLayout->addWidget(m_pPrivate);
+	m_pFinderLayout->insertWidget(pos++, m_pPrivate);
 
 	m_pImage = new QCheckBox(tr("Image"));
-	m_pStringLayout->addWidget(m_pImage);
+	m_pFinderLayout->insertWidget(pos++, m_pImage);
 
 	m_pMapped = new QCheckBox(tr("Mapped"));
-	m_pStringLayout->addWidget(m_pMapped);
+	m_pFinderLayout->insertWidget(pos++, m_pMapped);
+	//
 
 	m_pStringLayout->addItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
@@ -65,6 +71,8 @@ CMemorySearch::CMemorySearch(const CProcessPtr& pProcess, QWidget *parent)
 	m_pMapped->setChecked(theConf->GetBool("MemorySearch/Mapped", false));
 
 	m_pType->setCurrentIndex(m_pType->findText(theConf->GetString("MemorySearch/Type", "")));
+	if(m_pType->currentIndex() == -1)
+		m_pType->setCurrentIndex(0);
 
 	restoreGeometry(theConf->GetBlob("MemorySearch/Window_Geometry"));
 }
@@ -86,7 +94,6 @@ CMemorySearch::~CMemorySearch()
 
 void CMemorySearch::OnType()
 {
-	m_pRegExp->setEnabled(m_pType->currentData().toInt() != 1);
 	m_pStringWidget->setEnabled(m_pType->currentData().toInt() != 1);
 }
 

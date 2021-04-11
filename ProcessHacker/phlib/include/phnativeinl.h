@@ -670,6 +670,33 @@ PhSetProcessBreakOnTermination(
         );
 }
 
+FORCEINLINE
+NTSTATUS
+PhGetProcessAppMemoryInformation(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PPROCESS_JOB_MEMORY_INFO JobMemoryInfo
+    )
+{
+    NTSTATUS status;
+    PROCESS_JOB_MEMORY_INFO jobMemoryInfo;
+
+    // Win32 called this ProcessAppMemoryInfo with APP_MEMORY_INFORMATION struct (dmex)
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessJobMemoryInformation,
+        &jobMemoryInfo,
+        sizeof(PROCESS_JOB_MEMORY_INFO),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *JobMemoryInfo = jobMemoryInfo;
+    }
+
+    return status;
+}
+
 /**
  * Gets basic information for a thread.
  *
@@ -1130,70 +1157,6 @@ PhSetThreadAffinityMask(
         ThreadAffinityMask,
         &AffinityMask,
         sizeof(ULONG_PTR)
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetJobBasicAndIoAccounting(
-    _In_ HANDLE JobHandle,
-    _Out_ PJOBOBJECT_BASIC_AND_IO_ACCOUNTING_INFORMATION BasicAndIoAccounting
-    )
-{
-    return NtQueryInformationJobObject(
-        JobHandle,
-        (JOBOBJECTINFOCLASS)JobObjectBasicAndIoAccountingInformation,
-        BasicAndIoAccounting,
-        sizeof(JOBOBJECT_BASIC_AND_IO_ACCOUNTING_INFORMATION),
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetJobBasicLimits(
-    _In_ HANDLE JobHandle,
-    _Out_ PJOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimits
-    )
-{
-    return NtQueryInformationJobObject(
-        JobHandle,
-        (JOBOBJECTINFOCLASS)JobObjectBasicLimitInformation,
-        BasicLimits,
-        sizeof(JOBOBJECT_BASIC_LIMIT_INFORMATION),
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetJobExtendedLimits(
-    _In_ HANDLE JobHandle,
-    _Out_ PJOBOBJECT_EXTENDED_LIMIT_INFORMATION ExtendedLimits
-    )
-{
-    return NtQueryInformationJobObject(
-        JobHandle,
-        (JOBOBJECTINFOCLASS)JobObjectExtendedLimitInformation,
-        ExtendedLimits,
-        sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION),
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetJobBasicUiRestrictions(
-    _In_ HANDLE JobHandle,
-    _Out_ PJOBOBJECT_BASIC_UI_RESTRICTIONS BasicUiRestrictions
-    )
-{
-    return NtQueryInformationJobObject(
-        JobHandle,
-        (JOBOBJECTINFOCLASS)JobObjectBasicUIRestrictions,
-        BasicUiRestrictions,
-        sizeof(JOBOBJECT_BASIC_UI_RESTRICTIONS),
-        NULL
         );
 }
 

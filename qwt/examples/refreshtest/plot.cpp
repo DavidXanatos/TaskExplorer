@@ -52,7 +52,7 @@ protected:
         if ( plot )
             plot->drawCanvas( &painter );
 
-        painter.setPen( palette().foreground().color() );
+        painter.setPen( palette().windowText().color() );
 #if QT_VERSION >= 0x050000
         painter.drawRect( rect().adjusted( 1, 1, 0, 0 ) );
 #else

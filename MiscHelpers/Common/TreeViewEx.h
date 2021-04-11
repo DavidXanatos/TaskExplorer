@@ -240,8 +240,10 @@ public slots:
 	void OnResetColumns()
 	{
 		QAbstractItemModel* pModel = model();
-		for (int i = 0; i < pModel->columnCount(); i++)
+		for (int i = 0; i < pModel->columnCount(); i++) {
 			SetColumnHidden(i, false);
+			QTreeView::resizeColumnToContents(i);
+		}
 	}
 
 private slots:

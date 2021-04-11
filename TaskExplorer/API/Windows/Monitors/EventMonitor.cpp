@@ -83,13 +83,14 @@ static GUID DiskIoGuid_I = { 0x3d6fa8d4, 0xfe05, 0x11d0, { 0x9d, 0xda, 0x00, 0xc
 static GUID FileIoGuid_I = { 0x90cbdc39, 0x4a3e, 0x11d1, { 0x84, 0xf4, 0x00, 0x00, 0xf8, 0x04, 0x64, 0xe3 } };
 static GUID TcpIpGuid_I = { 0x9a280ac0, 0xc8e0, 0x11d1, { 0x84, 0xe2, 0x00, 0xc0, 0x4f, 0xb9, 0x98, 0xa2 } };
 static GUID UdpIpGuid_I = { 0xbf3a50c5, 0xa9c9, 0x4988, { 0xa0, 0x05, 0x2d, 0xf0, 0xb7, 0xc8, 0x0f, 0x80 } };
+static GUID ProcessGuid_I = { 0x3d6fa8d0, 0xfe05, 0x11d0, { 0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c } }; // 3d6fa8d0-fe05-11d0-9dda-00c04fd7ba7c
 
 // ETW tracing layer
 
 static UNICODE_STRING EtpSharedKernelLoggerName = RTL_CONSTANT_STRING(KERNEL_LOGGER_NAME);
-static UNICODE_STRING EtpPrivateKernelLoggerName = RTL_CONSTANT_STRING(L"PhEtKernelLogger");
+static UNICODE_STRING EtpPrivateKernelLoggerName = RTL_CONSTANT_STRING(L"TeEtKernelLogger");
 // rundown
-static UNICODE_STRING EtpRundownLoggerName = RTL_CONSTANT_STRING(L"PhEtRundownLogger");
+static UNICODE_STRING EtpRundownLoggerName = RTL_CONSTANT_STRING(L"TeEtRundownLogger");
 
 
 struct SEventMonitor
@@ -177,6 +178,10 @@ bool CEventMonitor::StartSession()
 	{
 		m->ActualKernelLoggerName = &EtpPrivateKernelLoggerName;
 		m->ActualSessionGuid = &ProcessHackerGuid;
+
+		/*static GUID tmpGuid;
+        CoCreateGuid(&tmpGuid);
+        m->ActualSessionGuid = &tmpGuid;*/
 	}
 	else
 	{
@@ -205,7 +210,7 @@ bool CEventMonitor::StartSession()
 	if (!m_bRundownMode)
 	{
 		m->TraceProperties->Wnode.Guid = *m->ActualSessionGuid;
-		m->TraceProperties->EnableFlags = EVENT_TRACE_FLAG_DISK_IO | EVENT_TRACE_FLAG_DISK_FILE_IO | EVENT_TRACE_FLAG_NETWORK_TCPIP;
+		m->TraceProperties->EnableFlags = EVENT_TRACE_FLAG_DISK_IO | EVENT_TRACE_FLAG_DISK_FILE_IO | EVENT_TRACE_FLAG_NETWORK_TCPIP | EVENT_TRACE_FLAG_PROCESS;
 
 		if (WindowsVersion >= WINDOWS_8)
 			m->TraceProperties->LogFileMode |= EVENT_TRACE_SYSTEM_LOGGER_MODE;
@@ -482,6 +487,16 @@ VOID NTAPI EtpEtwEventCallback(_In_ PEVENT_RECORD EventRecord)
 			emit This->NetworkEvent(Type, ProcessId, -1, ProtocolType, TransferSize, LocalAddress, LocalPort, RemoteAddress, RemotePort);
         }
     }
+	else if (IsEqualGUID(EventRecord->EventHeader.ProviderId, ProcessGuid_I))
+	{
+		qDebug() << "process event";
+		// todo <<<<<<<<<<<<<<< xxxxxxxxxxxxxxxxxx
+		// emit This->ProcessEvent(int Type, quint32 ProcessId, QString CommandLine, QString FileName, quint32 ParentId, quint64 TimeStamp);
+	}
+	else
+	{
+		qDebug() << "other event";
+	}
 }
 
 VOID NTAPI EtpRundownEtwEventCallback(_In_ PEVENT_RECORD EventRecord)

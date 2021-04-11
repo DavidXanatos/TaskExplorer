@@ -3,7 +3,7 @@
  *   handle information
  *
  * Copyright (C) 2010-2015 wj32
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -26,6 +26,8 @@
 #include <json.h>
 #include <kphuser.h>
 #include <lsasup.h>
+#include <devquery.h>
+#include <devpkey.h>
 
 #define PH_QUERY_HACK_MAX_THREADS 20
 
@@ -575,6 +577,141 @@ PPH_STRING PhGetEtwPublisherName(
     }
 }
 
+PPH_STRING PhGetPnPDeviceName(
+    _In_ PPH_STRING ObjectName
+    )
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static HRESULT (WINAPI* DevGetObjects_I)(
+        _In_ DEV_OBJECT_TYPE ObjectType,
+        _In_ ULONG QueryFlags,
+        _In_ ULONG cRequestedProperties,
+        _In_reads_opt_(cRequestedProperties) const DEVPROPCOMPKEY *pRequestedProperties,
+        _In_ ULONG cFilterExpressionCount,
+        _In_reads_opt_(cFilterExpressionCount) const DEVPROP_FILTER_EXPRESSION *pFilter,
+        _Out_ PULONG pcObjectCount,
+        _Outptr_result_buffer_maybenull_(*pcObjectCount) const DEV_OBJECT **ppObjects) = NULL;
+    static HRESULT (WINAPI* DevFreeObjects_I)(
+        _In_ ULONG cObjectCount,
+        _In_reads_(cObjectCount) const DEV_OBJECT *pObjects) = NULL;
+
+    PPH_STRING objectPnPDeviceName = NULL;
+    ULONG deviceCount = 0;
+    PDEV_OBJECT deviceObjects = NULL;
+    DEVPROPCOMPKEY deviceProperties[2];
+    DEVPROP_FILTER_EXPRESSION deviceFilter[1];
+    DEVPROPERTY deviceFilterProperty;
+    DEVPROPCOMPKEY deviceFilterCompoundProp;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        PVOID cfgmgr32;
+
+        if (cfgmgr32 = PhLoadLibrarySafe(L"cfgmgr32.dll"))
+        {
+            DevGetObjects_I = PhGetDllBaseProcedureAddress(cfgmgr32, "DevGetObjects", 0);
+            DevFreeObjects_I = PhGetDllBaseProcedureAddress(cfgmgr32, "DevFreeObjects", 0);
+        }
+
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (!(DevGetObjects_I && DevFreeObjects_I))
+        return NULL;
+
+    memset(deviceProperties, 0, sizeof(deviceProperties));
+    deviceProperties[0].Key = DEVPKEY_NAME;
+    deviceProperties[0].Store = DEVPROP_STORE_SYSTEM;
+    deviceProperties[1].Key = DEVPKEY_Device_BusReportedDeviceDesc;
+    deviceProperties[1].Store = DEVPROP_STORE_SYSTEM;
+
+    memset(&deviceFilterCompoundProp, 0, sizeof(deviceFilterCompoundProp));
+    deviceFilterCompoundProp.Key = DEVPKEY_Device_PDOName;
+    deviceFilterCompoundProp.Store = DEVPROP_STORE_SYSTEM;
+    deviceFilterCompoundProp.LocaleName = NULL;
+
+    memset(&deviceFilterProperty, 0, sizeof(deviceFilterProperty));
+    deviceFilterProperty.CompKey = deviceFilterCompoundProp;
+    deviceFilterProperty.Type = DEVPROP_TYPE_STRING;
+    deviceFilterProperty.BufferSize = (ULONG)ObjectName->Length + sizeof(UNICODE_NULL);
+    deviceFilterProperty.Buffer = ObjectName->Buffer;
+
+    memset(deviceFilter, 0, sizeof(deviceFilter));
+    deviceFilter[0].Operator = DEVPROP_OPERATOR_EQUALS_IGNORE_CASE;
+    deviceFilter[0].Property = deviceFilterProperty;
+
+    if (SUCCEEDED(DevGetObjects_I(
+        DevObjectTypeDevice,
+        DevQueryFlagNone,
+        RTL_NUMBER_OF(deviceProperties),
+        deviceProperties,
+        RTL_NUMBER_OF(deviceFilter),
+        deviceFilter,
+        &deviceCount,
+        &deviceObjects
+        )))
+    {
+        // Note: We can get a success with 0 results.
+        if (deviceCount > 0)
+        {
+            DEV_OBJECT device = deviceObjects[0];
+            PPH_STRING deviceName;
+            PPH_STRING deviceDesc;
+            PH_STRINGREF displayName;
+            PH_STRINGREF displayDesc;
+            PH_STRINGREF firstPart;
+            PH_STRINGREF secondPart;
+
+            displayName.Length = device.pProperties[0].BufferSize;
+            displayName.Buffer = device.pProperties[0].Buffer;
+            displayDesc.Length = device.pProperties[1].BufferSize;
+            displayDesc.Buffer = device.pProperties[1].Buffer;
+
+            if (PhSplitStringRefAtLastChar(&displayName, L';', &firstPart, &secondPart))
+                deviceName = PhCreateString2(&secondPart);
+            else
+                deviceName = PhCreateString2(&displayName);
+
+            if (PhSplitStringRefAtLastChar(&displayDesc, L';', &firstPart, &secondPart))
+                deviceDesc = PhCreateString2(&secondPart);
+            else
+                deviceDesc = PhCreateString2(&displayDesc);
+
+            if (!PhIsNullOrEmptyString(deviceDesc))
+            {
+                PH_FORMAT format[4];
+
+                PhInitFormatSR(&format[0], deviceDesc->sr);
+                PhInitFormatS(&format[1], L"(PDO: ");
+                PhInitFormatSR(&format[2], ObjectName->sr);
+                PhInitFormatC(&format[3], ')');
+
+                PhSetReference(&objectPnPDeviceName, PhFormat(format, 4, 0x50));
+            }
+            else if (!PhIsNullOrEmptyString(deviceName))
+            {
+                PH_FORMAT format[4];
+
+                PhInitFormatSR(&format[0], deviceName->sr);
+                PhInitFormatS(&format[1], L"(PDO: ");
+                PhInitFormatSR(&format[2], ObjectName->sr);
+                PhInitFormatC(&format[3], ')');
+
+                PhSetReference(&objectPnPDeviceName, PhFormat(format, 4, 0x50));
+            }
+
+            if (deviceDesc)
+                PhDereferenceObject(deviceDesc);
+            if (deviceName)
+                PhDereferenceObject(deviceName);
+        }
+
+        DevFreeObjects_I(deviceCount, deviceObjects);
+    }
+
+    return objectPnPDeviceName;
+}
+
 PPH_STRING PhFormatNativeKeyName(
     _In_ PPH_STRING Name
     )
@@ -695,99 +832,115 @@ NTSTATUS PhGetSectionFileName(
     return status;
 }
 
+PPH_STRING PhStdGetClientIdNameEx(
+    _In_ PCLIENT_ID ClientId,
+    _In_opt_ PPH_STRING ProcessName
+    )
+{
+    PPH_STRING result;
+    PPH_STRING processName = NULL;
+    PPH_STRING threadName = NULL;
+    PH_STRINGREF processNameRef;
+    PH_STRINGREF threadNameRef;
+    HANDLE processHandle;
+    HANDLE threadHandle;
+    ULONG isProcessTerminated = FALSE;
+    BOOLEAN isThreadTerminated = FALSE;
+
+    if (ProcessName)
+    {
+        // Use the supplied name
+        processNameRef.Length = ProcessName->Length;
+        processNameRef.Buffer = ProcessName->Buffer;
+    }
+    else
+    {
+        // Determine the name of the process ourselves
+        if (NT_SUCCESS(PhGetProcessImageFileNameById(
+            ClientId->UniqueProcess,
+            NULL,
+            &processName
+            )))
+        {
+            processNameRef.Length = processName->Length;
+            processNameRef.Buffer = processName->Buffer;
+        }
+        else
+        {
+            PhInitializeStringRef(&processNameRef, L"Unknown process");
+        }
+    }
+
+    // Check if the process is alive, but only if we didn't get its name
+    if (!ProcessName && NT_SUCCESS(PhOpenProcess(
+        &processHandle,
+        SYNCHRONIZE,
+        ClientId->UniqueProcess
+        )))
+    {
+        LARGE_INTEGER timeout = { 0 };
+
+        // Waiting with zero timeout checks for termination
+        if (NtWaitForSingleObject(processHandle, FALSE, &timeout) == STATUS_WAIT_0)
+            isProcessTerminated = TRUE;
+
+        NtClose(processHandle);
+    }
+
+    PhInitializeStringRef(&threadNameRef, L"unnamed thread");
+
+    if (ClientId->UniqueThread)
+    {
+        if (NT_SUCCESS(PhOpenThread(
+            &threadHandle,
+            THREAD_QUERY_LIMITED_INFORMATION,
+            ClientId->UniqueThread
+            )))
+        {
+            // Check if the thread is alive
+            PhGetThreadIsTerminated(
+                threadHandle,
+                &isThreadTerminated
+                );
+
+            // Use the name of the thread if available
+            if (NT_SUCCESS(PhGetThreadName(threadHandle, &threadName)) && threadName->Length)
+            {
+                threadNameRef.Length = threadName->Length;
+                threadNameRef.Buffer = threadName->Buffer;
+            }
+
+            NtClose(threadHandle);
+        }
+    }
+
+    // Combine everything
+    result = PhFormatString(
+        ClientId->UniqueThread ? L"%s%.*s (%lu): %s%.*s (%lu)" : L"%s%.*s (%lu)",
+        isProcessTerminated ? L"Terminated " : L"",
+        processNameRef.Length / sizeof(WCHAR),
+        processNameRef.Buffer,
+        HandleToUlong(ClientId->UniqueProcess),
+        isThreadTerminated ? L"terminated " : L"",
+        threadNameRef.Length / sizeof(WCHAR),
+        threadNameRef.Buffer,
+        HandleToUlong(ClientId->UniqueThread)
+        );
+
+    if (processName)
+        PhDereferenceObject(processName);
+
+    if (threadName)
+        PhDereferenceObject(threadName);
+
+    return result;
+}
+
 _Callback_ PPH_STRING PhStdGetClientIdName(
     _In_ PCLIENT_ID ClientId
     )
 {
-    static PH_QUEUED_LOCK cachedProcessesLock = PH_QUEUED_LOCK_INIT;
-    static PVOID processes = NULL;
-    static ULONG64 lastProcessesTickCount = 0;
-
-    PPH_STRING name;
-    ULONG64 tickCount;
-    PSYSTEM_PROCESS_INFORMATION processInfo;
-
-    // Get a new process list only if 2 seconds have passed since the last update.
-    tickCount = NtGetTickCount64();
-
-    if (tickCount - lastProcessesTickCount >= 2000)
-    {
-        PhAcquireQueuedLockExclusive(&cachedProcessesLock);
-
-        // Re-check the tick count.
-        if (tickCount - lastProcessesTickCount >= 2000)
-        {
-            if (processes)
-            {
-                PhFree(processes);
-                processes = NULL;
-            }
-
-            if (!NT_SUCCESS(PhEnumProcesses(&processes)))
-            {
-                PhReleaseQueuedLockExclusive(&cachedProcessesLock);
-                return PhCreateString(L"(Error querying processes)");
-            }
-
-            lastProcessesTickCount = tickCount;
-        }
-
-        PhReleaseQueuedLockExclusive(&cachedProcessesLock);
-    }
-
-    // Get a lock on the process list and get a name for the client ID.
-
-    PhAcquireQueuedLockShared(&cachedProcessesLock);
-
-    if (!processes)
-    {
-        PhReleaseQueuedLockShared(&cachedProcessesLock);
-        return NULL;
-    }
-
-    processInfo = PhFindProcessInformation(processes, ClientId->UniqueProcess);
-
-    if (ClientId->UniqueThread)
-    {
-        if (processInfo)
-        {
-            name = PhFormatString(
-                L"%.*s (%lu): %lu",
-                processInfo->ImageName.Length / sizeof(WCHAR),
-                processInfo->ImageName.Buffer,
-                HandleToUlong(ClientId->UniqueProcess),
-                HandleToUlong(ClientId->UniqueThread)
-                );
-        }
-        else
-        {
-            name = PhFormatString(
-                L"Non-existent process (%lu): %lu",
-                HandleToUlong(ClientId->UniqueProcess),
-                HandleToUlong(ClientId->UniqueThread)
-                );
-        }
-    }
-    else
-    {
-        if (processInfo)
-        {
-            name = PhFormatString(
-                L"%.*s (%lu)",
-                processInfo->ImageName.Length / sizeof(WCHAR),
-                processInfo->ImageName.Buffer,
-                HandleToUlong(ClientId->UniqueProcess)
-                );
-        }
-        else
-        {
-            name = PhFormatString(L"Non-existent process (%lu)", HandleToUlong(ClientId->UniqueProcess));
-        }
-    }
-
-    PhReleaseQueuedLockShared(&cachedProcessesLock);
-
-    return name;
+    return PhStdGetClientIdNameEx(ClientId, NULL);
 }
 
 NTSTATUS PhpGetBestObjectName(
@@ -830,8 +983,17 @@ NTSTATUS PhpGetBestObjectName(
 
         if (!bestObjectName)
         {
-            // The file doesn't have a DOS name.
-            PhSetReference(&bestObjectName, ObjectName);
+            if (PhStartsWithString2(ObjectName, L"\\Device\\", TRUE))
+            {
+                // The device might be a PDO... Query the PnP manager for the friendy name of the device.
+                bestObjectName = PhGetPnPDeviceName(ObjectName);
+            }
+
+            if (!bestObjectName)
+            {
+                // The file doesn't have a DOS filename and doesn't have a PnP friendy name.
+                PhSetReference(&bestObjectName, ObjectName);
+            }
         }
 
         if (PhIsNullOrEmptyString(bestObjectName) && KphIsConnected())
@@ -1409,7 +1571,7 @@ NTSTATUS PhGetHandleInformationEx(
     PPH_STRING objectName = NULL;
     PPH_STRING bestObjectName = NULL;
 
-    if (Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
+    if (ProcessHandle == NULL || Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
         return STATUS_INVALID_HANDLE;
     if (ObjectTypeNumber != ULONG_MAX && ObjectTypeNumber >= MAX_OBJECT_TYPE_NUMBER)
         return STATUS_INVALID_PARAMETER_3;

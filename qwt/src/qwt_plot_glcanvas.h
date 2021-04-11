@@ -13,12 +13,13 @@
 #include "qwt_global.h"
 #include <qframe.h>
 #include <qgl.h>
+#include <qpainterpath.h>
 
 class QwtPlot;
 
 /*!
   \brief An alternative canvas for a QwtPlot derived from QGLWidget
-  
+
   QwtPlotGLCanvas implements the very basics to act as canvas
   inside of a QwtPlot widget. It might be extended to a full
   featured alternative to QwtPlotCanvas in a future version of Qwt.
@@ -30,7 +31,7 @@ class QwtPlot;
   \sa QwtPlot::setCanvas(), QwtPlotCanvas
 
   \note With Qt4 you might want to use the QPaintEngine::OpenGL paint engine
-        ( see QGL::setPreferredPaintEngine() ). On a Linux test system 
+        ( see QGL::setPreferredPaintEngine() ). On a Linux test system
         QPaintEngine::OpenGL2 shows very basic problems like translated
         geometries.
 */
@@ -76,7 +77,7 @@ public:
         The following enum is made for the designer only. It is safe
         to use QFrame::Shadow instead.
 
-        \note QFrame::StyledPanel and QFrame::WinPanel are unsuported 
+        \note QFrame::StyledPanel and QFrame::WinPanel are unsupported
               and will be displayed as QFrame::Panel.
      */
     enum Shape

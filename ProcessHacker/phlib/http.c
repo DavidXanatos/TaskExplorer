@@ -2,7 +2,7 @@
  * Process Hacker -
  *   http/http2/dns wrappers
  *
- * Copyright (C) 2017-2019 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -88,7 +88,7 @@ BOOLEAN PhHttpSocketCreate(
         WinHttpSetOption(
             httpContext->SessionHandle,
             WINHTTP_OPTION_SECURE_PROTOCOLS,
-            &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 /*| WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3*/ },
+            &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3 },
             sizeof(ULONG)
             );
 
@@ -530,8 +530,7 @@ BOOLEAN PhHttpSocketReadDataToBuffer(
     _Out_ ULONG *BufferLength
     )
 {
-    PSTR data = NULL;
-    PVOID result = NULL;
+    PSTR data;
     ULONG allocatedLength;
     ULONG dataLength;
     ULONG returnLength;
@@ -590,7 +589,7 @@ PVOID PhHttpSocketDownloadString(
     _In_ BOOLEAN Unicode
     )
 {
-    PVOID result = NULL;
+    PVOID result;
     PVOID buffer;
     ULONG bufferLength;
 
@@ -611,6 +610,148 @@ PVOID PhHttpSocketDownloadString(
     PhFree(buffer);
 
     return result;
+}
+
+NTSTATUS PhHttpSocketDownloadToFile(
+    _In_ PPH_HTTP_CONTEXT HttpContext,
+    _In_ PWSTR FileName,
+    _In_ PPH_HTTPDOWNLOAD_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    )
+{
+    static PH_STRINGREF tempFilePath = PH_STRINGREF_INIT(L"%TEMP%\\");
+    NTSTATUS status;
+    HANDLE fileHandle;
+    LARGE_INTEGER allocationSize;
+    ULONG numberOfBytesTotal = 0;
+    ULONG numberOfBytesRead = 0;
+    ULONG64 numberOfBytesReadTotal = 0;
+    ULONG64 timeTicks;
+    LARGE_INTEGER timeNow;
+    LARGE_INTEGER timeStart;
+    PPH_STRING tempDirectory;
+    PPH_STRING tempFileName;
+    PH_HTTPDOWNLOAD_CONTEXT context;
+    IO_STATUS_BLOCK isb;
+    WCHAR alphaString[32] = L"";
+    BYTE buffer[PAGE_SIZE];
+
+    PhQuerySystemTime(&timeStart);
+
+    if (!PhHttpSocketQueryHeaderUlong(HttpContext, PH_HTTP_QUERY_CONTENT_LENGTH, &numberOfBytesTotal))
+        return PhGetLastWin32ErrorAsNtStatus();
+
+    if (numberOfBytesTotal == 0)
+        return STATUS_UNSUCCESSFUL;
+
+    tempDirectory = PhExpandEnvironmentStrings(&tempFilePath);
+    PhGenerateRandomAlphaString(alphaString, RTL_NUMBER_OF(alphaString));
+    tempFileName = PhConcatStrings2(PhGetString(tempDirectory), alphaString);
+
+    allocationSize.QuadPart = numberOfBytesTotal;
+    status = PhCreateFileWin32Ex(
+        &fileHandle,
+        PhGetString(tempFileName),
+        FILE_GENERIC_WRITE,
+        &allocationSize,
+        FILE_ATTRIBUTE_NORMAL,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        FILE_CREATE,
+        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+        NULL
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        PhDereferenceObject(tempFileName);
+        PhDereferenceObject(tempDirectory);
+        return status;
+    }
+
+    while (PhHttpSocketReadData(HttpContext, buffer, PAGE_SIZE, &numberOfBytesRead))
+    {
+        if (numberOfBytesRead == 0)
+            break;
+
+        status = NtWriteFile(
+            fileHandle,
+            NULL,
+            NULL,
+            NULL,
+            &isb,
+            buffer,
+            numberOfBytesRead,
+            NULL,
+            NULL
+            );
+
+        if (!NT_SUCCESS(status))
+            break;
+
+        if (numberOfBytesRead != isb.Information)
+        {
+            status = STATUS_UNSUCCESSFUL;
+            break;
+        }
+
+        if (Callback)
+        {
+            PhQuerySystemTime(&timeNow);
+            timeTicks = (timeNow.QuadPart - timeStart.QuadPart) / PH_TICKS_PER_SEC;
+
+            numberOfBytesReadTotal += isb.Information;
+            context.ReadLength = numberOfBytesReadTotal;
+            context.TotalLength = numberOfBytesTotal;
+            context.BitsPerSecond = numberOfBytesReadTotal / __max(timeTicks, 1);
+            context.Percent = (((DOUBLE)numberOfBytesReadTotal / numberOfBytesTotal) * 100);
+
+            if (!Callback(&context, Context))
+                break;
+        }
+    }
+
+    if (numberOfBytesReadTotal != numberOfBytesTotal)
+    {
+        status = STATUS_UNSUCCESSFUL;
+    }
+
+    if (status != STATUS_SUCCESS)
+    {
+        PhDeleteFile(fileHandle);
+    }
+
+    NtClose(fileHandle);
+
+    if (NT_SUCCESS(status))
+    {
+        ULONG indexOfFileName;
+        PPH_STRING fullPath;
+        PPH_STRING directoryName;
+
+        if (fullPath = PhGetFullPath(FileName, &indexOfFileName))
+        {
+            if (indexOfFileName != ULONG_MAX)
+            {
+                directoryName = PhSubstring(fullPath, 0, indexOfFileName);
+
+                status = PhCreateDirectory(directoryName);
+
+                PhDereferenceObject(directoryName);
+            }
+
+            PhDereferenceObject(fullPath);
+        }
+
+        if (NT_SUCCESS(status))
+        {
+            status = PhMoveFileWin32(PhGetString(tempFileName), FileName);
+        }
+    }
+
+    PhDereferenceObject(tempFileName);
+    PhDereferenceObject(tempDirectory);
+
+    return status;
 }
 
 BOOLEAN PhHttpSocketSetFeature(
@@ -727,7 +868,7 @@ BOOLEAN PhHttpSocketSetCredentials(
     _In_ PCWSTR Value
     )
 {
-    return WinHttpSetCredentials(
+    return !!WinHttpSetCredentials(
         HttpContext->RequestHandle, 
         WINHTTP_AUTH_TARGET_SERVER, 
         WINHTTP_AUTH_SCHEME_BASIC, 
@@ -769,7 +910,7 @@ HINTERNET PhpCreateDohConnectionHandle(
                 WinHttpSetOption(
                     httpSessionHandle,
                     WINHTTP_OPTION_SECURE_PROTOCOLS,
-                    &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 /*| WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3*/ },
+                    &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3 },
                     sizeof(ULONG)
                     );
 
@@ -1119,6 +1260,30 @@ PDNS_RECORD PhDnsQuery(
     }
 
     return dnsRecordList;
+}
+
+PDNS_RECORD PhDnsQuery2(
+    _In_opt_ PWSTR DnsServerAddress,
+    _In_ PWSTR DnsQueryMessage,
+    _In_ USHORT DnsQueryMessageType,
+    _In_ USHORT DnsQueryMessageOptions
+    )
+{
+    PDNS_RECORD dnsQueryRecords = NULL;
+
+    if (DnsQuery_W_Import())
+    {
+        DnsQuery_W_Import()(
+            DnsQueryMessage,
+            DnsQueryMessageType,
+            DnsQueryMessageOptions,
+            NULL,
+            &dnsQueryRecords,
+            NULL
+            );
+    }
+
+    return dnsQueryRecords;
 }
 
 VOID PhDnsFree(

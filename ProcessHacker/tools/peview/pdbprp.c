@@ -24,6 +24,9 @@
 #include <emenu.h>
 #include "colmgr.h"
 
+static PH_STRINGREF EmptySymbolsText = PH_STRINGREF_INIT(L"There are no symbols to display.");
+static PH_STRINGREF LoadingSymbolsText = PH_STRINGREF_INIT(L"Loading symbols from image...");
+
 BOOLEAN SymbolNodeHashtableCompareFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
@@ -33,6 +36,17 @@ ULONG SymbolNodeHashtableHashFunction(
     );
 VOID PvDestroySymbolNode(
     _In_ PPV_SYMBOL_NODE Node
+    );
+
+BOOLEAN PhInsertCopyCellEMenuItem(
+    _In_ struct _PH_EMENU_ITEM* Menu,
+    _In_ ULONG InsertAfterId,
+    _In_ HWND TreeNewHandle,
+    _In_ PPH_TREENEW_COLUMN Column
+    );
+
+BOOLEAN PhHandleCopyCellEMenuItem(
+    _In_ struct _PH_EMENU_ITEM* SelectedItem
     );
 
 VOID PvDeleteSymbolTree(
@@ -452,6 +466,8 @@ VOID PvInitializeSymbolTree(
     _In_ HWND TreeNewHandle
     )
 {
+    PPH_STRING settings;
+
     Context->NodeHashtable = PhCreateHashtable(
         sizeof(PPV_SYMBOL_NODE),
         SymbolNodeHashtableCompareFunction,
@@ -474,9 +490,9 @@ VOID PvInitializeSymbolTree(
 
     TreeNew_SetSort(TreeNewHandle, TREE_COLUMN_ITEM_VA, AscendingSortOrder);
 
-    //PPH_STRING settings = PhGetStringSetting(L"PdbTreeListColumns");
-    //PhCmLoadSettings(TreeNewHandle, &settings->sr);
-    //PhDereferenceObject(settings);
+    settings = PhGetStringSetting(L"PdbTreeListColumns");
+    PhCmLoadSettings(TreeNewHandle, &settings->sr);
+    PhDereferenceObject(settings);
 
     PhInitializeTreeNewFilterSupport(&Context->FilterSupport, TreeNewHandle, Context->NodeList);
 }
@@ -677,6 +693,8 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             SearchResults = PhCreateList(0x1000);
             context->UdtList = PhCreateList(0x100);
 
+            TreeNew_SetEmptyText(context->TreeNewHandle, &LoadingSymbolsText, 0);
+
             PhCreateThread2(PeDumpFileSymbols, context);
 
             RtlCreateTimer(
@@ -745,6 +763,18 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             }
         }
         break;
+    case WM_NOTIFY:
+        {
+            LPNMHDR header = (LPNMHDR)lParam;
+
+            switch (header->code)
+            {
+            case PSN_QUERYINITIALFOCUS:
+                SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, (LONG_PTR)context->TreeNewHandle);
+                return TRUE;
+            }
+        }
+        break;
     case WM_PV_SEARCH_FINISHED:
         {
             if (context->UpdateTimerHandle)
@@ -754,6 +784,8 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             }
 
             PvAddPendingSymbolNodes(context);
+
+            TreeNew_SetEmptyText(context->TreeNewHandle, &EmptySymbolsText, 0);
         }
         break;
     case WM_PV_SEARCH_SHOWMENU:
@@ -769,8 +801,8 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             if (numberOfSymbolNodes != 0)
             {
                 menu = PhCreateEMenu();
-                //PhInsertEMenuItem(menu, PhCreateEMenuItem(0, ID_SYMBOL_COPY, L"Copy", NULL, NULL), ULONG_MAX);
-                //PhInsertCopyCellEMenuItem(menu, ID_SYMBOL_COPY, context->TreeNewHandle, contextMenuEvent->Column);
+                PhInsertEMenuItem(menu, PhCreateEMenuItem(0, 1, L"Copy", NULL, NULL), ULONG_MAX);
+                PhInsertCopyCellEMenuItem(menu, 1, context->TreeNewHandle, contextMenuEvent->Column);
 
                 selectedItem = PhShowEMenu(
                     menu,
@@ -783,18 +815,18 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
 
                 if (selectedItem && selectedItem->Id != ULONG_MAX)
                 {
-                    //BOOLEAN handled = FALSE;
+                    BOOLEAN handled = FALSE;
 
-                    //handled = PhHandleCopyCellEMenuItem(selectedItem);
+                    handled = PhHandleCopyCellEMenuItem(selectedItem);
 
-                    //if (!handled && selectedItem->Id == ID_SYMBOL_COPY)
-                    //{
-                    //    PPH_STRING text;
+                    if (!handled && selectedItem->Id == 1)
+                    {
+                        PPH_STRING text;
 
-                    //    text = PhGetTreeNewText(context->TreeNewHandle, 0);
-                    //    PhSetClipboardString(context->TreeNewHandle, &text->sr);
-                    //    PhDereferenceObject(text);
-                    //}
+                        text = PhGetTreeNewText(context->TreeNewHandle, 0);
+                        PhSetClipboardString(context->TreeNewHandle, &text->sr);
+                        PhDereferenceObject(text);
+                    }
                 }
 
                 PhDestroyEMenu(menu);

@@ -24,7 +24,7 @@ CurveTracker::CurveTracker( QWidget *canvas ):
 QRect CurveTracker::trackerRect( const QFont &font ) const
 {
     QRect r = QwtPlotPicker::trackerRect( font );
-    
+
     // align r to the first curve
 
     const QwtPlotItemList curves = plot()->itemList( QwtPlotItem::Rtti_PlotCurve );
@@ -32,7 +32,7 @@ QRect CurveTracker::trackerRect( const QFont &font ) const
     {
         QPointF pos = invTransform( trackerPosition() );
 
-        const QLineF line = curveLineAt(    
+        const QLineF line = curveLineAt(
             static_cast<const QwtPlotCurve *>( curves[0] ), pos.x() );
         if ( !line.isNull() )
         {
@@ -62,12 +62,12 @@ QwtText CurveTracker::trackerTextF( const QPointF &pos ) const
 
     QString info;
 
-    const QwtPlotItemList curves = 
+    const QwtPlotItemList curves =
         plot()->itemList( QwtPlotItem::Rtti_PlotCurve );
 
     for ( int i = 0; i < curves.size(); i++ )
     {
-        const QString curveInfo = curveInfoAt( 
+        const QString curveInfo = curveInfoAt(
             static_cast<const QwtPlotCurve *>( curves[i] ), pos );
 
         if ( !curveInfo.isEmpty() )
@@ -83,21 +83,21 @@ QwtText CurveTracker::trackerTextF( const QPointF &pos ) const
     return trackerText;
 }
 
-QString CurveTracker::curveInfoAt( 
+QString CurveTracker::curveInfoAt(
     const QwtPlotCurve *curve, const QPointF &pos ) const
 {
     const QLineF line = curveLineAt( curve, pos.x() );
     if ( line.isNull() )
-        return QString::null;
+        return QString();
 
-    const double y = line.pointAt( 
+    const double y = line.pointAt(
         ( pos.x() - line.p1().x() ) / line.dx() ).y();
 
     QString info( "<font color=""%1"">%2</font>" );
     return info.arg( curve->pen().color().name() ).arg( y );
 }
 
-QLineF CurveTracker::curveLineAt( 
+QLineF CurveTracker::curveLineAt(
     const QwtPlotCurve *curve, double x ) const
 {
     QLineF line;
@@ -107,10 +107,10 @@ QLineF CurveTracker::curveLineAt(
         const QRectF br = curve->boundingRect();
         if ( ( br.width() > 0 ) && ( x >= br.left() ) && ( x <= br.right() ) )
         {
-            int index = qwtUpperSampleIndex<QPointF>( 
+            int index = qwtUpperSampleIndex<QPointF>(
                 *curve->data(), x, compareX() );
 
-            if ( index == -1 && 
+            if ( index == -1 &&
                 x == curve->sample( curve->dataSize() - 1 ).x() )
             {
                 // the last sample is excluded from qwtUpperSampleIndex
@@ -124,6 +124,6 @@ QLineF CurveTracker::curveLineAt(
             }
         }
     }
-    
+
     return line;
 }

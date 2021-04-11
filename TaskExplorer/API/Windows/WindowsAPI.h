@@ -1,9 +1,16 @@
 #pragma once
+
+#define USE_KRABS
+//#define USE_ETW_FILE_IO
+
 #include "../SystemAPI.h"
 #include "WinProcess.h"
 #include "WinSocket.h"
-//#include "Monitors/EventMonitor.h"
+#ifdef USE_KRABS
 #include "Monitors/EtwEventMonitor.h"
+#else
+#include "Monitors/EventMonitor.h"
+#endif
 #include "Monitors/FwEventMonitor.h"
 //#include "Monitors/FirewallMonitor.h"
 #include "Monitors/WinDbgMonitor.h"
@@ -158,18 +165,25 @@ protected:
 
 	bool		InitWindowsInfo();
 
-	//CEventMonitor*			m_pEventMonitor;
-	CEtwEventMonitor*			m_pEventMonitor;
+#ifdef USE_ETW_FILE_IO
+	QString		GetFileNameByID(quint64 FileId) const;
+#endif
+
+#ifdef USE_KRABS
+	CEtwEventMonitor*		m_pEventMonitor;
+#else
+	CEventMonitor*			m_pEventMonitor;
+#endif
 	CFwEventMonitor*		m_pFirewallMonitor;
 	//CFirewallMonitor*		m_pFirewallMonitor;
 	CWinDbgMonitor*			m_pDebugMonitor;
 
 	CSandboxieAPI*			m_pSandboxieAPI;
 
-
-	//mutable QReadWriteLock	m_FileNameMutex;
-	//QMap<quint64, QString>	m_FileNames;
-
+#ifdef USE_ETW_FILE_IO
+	mutable QReadWriteLock	m_FileNameMutex;
+	QMap<quint64, QString>	m_FileNames;
+#endif
 
 	// Guard it with		m_OpenFilesMutex
 	//QMultiMap<quint64, CHandleRef> m_HandleByObject;
@@ -213,8 +227,6 @@ private:
 	quint64 UpdateCpuCycleStats();
 	void UpdateCPUCycles(quint64 TotalCycleTime, quint64 IdleCycleTime);
 	bool InitCpuCount();
-
-	QString GetFileNameByID(quint64 FileId) const;
 
 	bool m_bTestSigning;
 	quint32 m_uDriverStatus;

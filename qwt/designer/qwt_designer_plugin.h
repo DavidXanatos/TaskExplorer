@@ -10,7 +10,14 @@
 #ifndef QWT_DESIGNER_PLUGIN_H
 #define QWT_DESIGNER_PLUGIN_H
 
+#include <qglobal.h>
+
+#if QT_VERSION >= 0x050600
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
+#else
 #include <QDesignerCustomWidgetInterface>
+#endif
+
 #include <QDesignerTaskMenuExtension>
 #include <QExtensionFactory>
 
@@ -243,6 +250,6 @@ namespace QwtDesignerPlugin
         QWidget *d_widget;
     };
 
-};
+}
 
 #endif

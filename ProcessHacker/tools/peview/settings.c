@@ -47,10 +47,15 @@ VOID PhAddDefaultSettings(
     PhpAddStringSetting(L"ImageLoadCfgListViewColumns", L"");
     PhpAddStringSetting(L"ImageExportsListViewColumns", L"");
     PhpAddStringSetting(L"ImageImportsListViewColumns", L"");
+    PhpAddStringSetting(L"ImageExceptions32ListViewColumns", L"");
+    PhpAddStringSetting(L"ImageExceptions64ListViewColumns", L"");
+    PhpAddStringSetting(L"ImageLayoutTreeColumns", L"");
     PhpAddStringSetting(L"ImageCfgListViewColumns", L"");
+    PhpAddStringSetting(L"ImageClrListViewColumns", L"");
     PhpAddStringSetting(L"ImageResourcesListViewColumns", L"");
     PhpAddStringSetting(L"ImageAttributesListViewColumns", L"");
     PhpAddStringSetting(L"ImagePropertiesListViewColumns", L"");
+    PhpAddStringSetting(L"ImageRelocationsListViewColumns", L"");
     PhpAddStringSetting(L"ImageSecurityListViewColumns", L"");
     PhpAddStringSetting(L"ImageSecurityListViewSort", L"");
     PhpAddStringSetting(L"ImageSecurityTreeColumns", L"");
@@ -59,6 +64,7 @@ VOID PhAddDefaultSettings(
     PhpAddScalableIntegerPairSetting(L"ImageSecurityCertWindowSize", L"@96|0,0");
     PhpAddStringSetting(L"ImageStreamsListViewColumns", L"");
     PhpAddStringSetting(L"ImageHardLinksListViewColumns", L"");
+    PhpAddStringSetting(L"ImageHashesListViewColumns", L"");
     PhpAddStringSetting(L"ImagePidsListViewColumns", L"");
     PhpAddStringSetting(L"ImageSectionsListViewColumns", L"");
     PhpAddStringSetting(L"ImageSectionsListViewSort", L"");
@@ -148,7 +154,7 @@ VOID PeInitializeSettings(
                     &fileHandle,
                     PeSettingsFileName->Buffer,
                     FILE_GENERIC_WRITE,
-                    0,
+                    FILE_ATTRIBUTE_NORMAL,
                     FILE_SHARE_READ | FILE_SHARE_DELETE,
                     FILE_OVERWRITE,
                     FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT

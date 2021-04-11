@@ -53,8 +53,10 @@ signals:
 public slots:
 	void OnResetColumns()
 	{
-		for (int i = 0; i < columnCount(); i++)
+		for (int i = 0; i < columnCount(); i++) {
 			setColumnHidden(i, false);
+			QTreeView::resizeColumnToContents(i);
+		}
 	}
 
 private slots:

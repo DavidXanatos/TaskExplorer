@@ -1,3 +1,6 @@
+#ifndef MAIN_WINDOW_H
+#define MAIN_WINDOW_H
+
 #include <qmainwindow.h>
 
 class Plot;
@@ -18,3 +21,5 @@ private:
     Plot *d_plot;
     Panel *d_panel;
 };
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef PLOT_H
+#define PLOT_H
+
 #include <qwt_plot.h>
 #include <qrect.h>
 
@@ -24,3 +27,5 @@ private:
     QwtPlotSvgItem *d_mapItem;
     const QRectF d_mapRect;
 };
+
+#endif

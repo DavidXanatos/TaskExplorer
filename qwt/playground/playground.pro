@@ -17,7 +17,6 @@ contains(QWT_CONFIG, QwtPlot) {
         plotmatrix \
         timescale \
         scaleengine \
-        graphicscale \
         rescaler \
         shapes \
         curvetracker \
@@ -26,7 +25,8 @@ contains(QWT_CONFIG, QwtPlot) {
     contains(QWT_CONFIG, QwtSvg) {
 
         SUBDIRS += \
-            svgmap
+            svgmap \
+            graphicscale
     }
 
 }

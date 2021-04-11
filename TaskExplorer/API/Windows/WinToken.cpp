@@ -448,6 +448,7 @@ bool CWinToken::UpdateExtendedData()
 	//
 
     //PhpUpdateTokenPrivileges
+	m_Privileges.clear();
 	PTOKEN_PRIVILEGES privileges = NULL;
 	if (NT_SUCCESS(PhGetTokenPrivileges(tokenHandle, &privileges)))
 	{

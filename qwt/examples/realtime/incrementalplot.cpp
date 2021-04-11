@@ -65,8 +65,8 @@ IncrementalPlot::~IncrementalPlot()
 
 void IncrementalPlot::appendPoint( const QPointF &point )
 {
-    CurveData *data = static_cast<CurveData *>( d_curve->data() );
-    data->append( point );
+    CurveData *curveData = static_cast<CurveData *>( d_curve->data() );
+    curveData->append( point );
 
     const bool doClip = !canvas()->testAttribute( Qt::WA_PaintOnScreen );
     if ( doClip )
@@ -94,13 +94,13 @@ void IncrementalPlot::appendPoint( const QPointF &point )
     }
 
     d_directPainter->drawSeries( d_curve,
-        data->size() - 1, data->size() - 1 );
+        curveData->size() - 1, curveData->size() - 1 );
 }
 
 void IncrementalPlot::clearPoints()
 {
-    CurveData *data = static_cast<CurveData *>( d_curve->data() );
-    data->clear();
+    CurveData *curveData = static_cast<CurveData *>( d_curve->data() );
+    curveData->clear();
 
     replot();
 }

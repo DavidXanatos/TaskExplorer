@@ -27,6 +27,21 @@ CONFIG( debug_and_release ) {
     CONFIG += release
 }
 
+contains(QWT_CONFIG, QwtDesigner ) {
+    
+    greaterThan(QT_MAJOR_VERSION, 4) {
+
+        !qtHaveModule(designer) QWT_CONFIG -= QwtDesigner
+    } else {
+
+        !exists( $(QTDIR)/include/QtDesigner ) QWT_CONFIG -= QwtDesigner
+    }
+
+    !contains(QWT_CONFIG, QwtDesigner ) {
+        warning("QwtDesigner is enabled in qwtconfig.pri, but Qt has not been built with designer support")
+    }
+}
+
 contains(QWT_CONFIG, QwtDesigner) {
 
     CONFIG    += qt plugin 
@@ -88,9 +103,7 @@ contains(QWT_CONFIG, QwtDesigner) {
 
         contains(QWT_CONFIG, QwtDll) {
 
-            win32 {
-                DEFINES += QT_DLL QWT_DLL
-            }
+            DEFINES += QT_DLL QWT_DLL
         }
     }
 

@@ -2,6 +2,7 @@
 #include "ProcessView.h"
 #include "../TaskExplorer.h"
 #include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
+#include "../../../MiscHelpers/Common/CollapsibleGroupBox.h"
 #include "../Models/ProcessModel.h"
 #ifdef WIN32
 #include "../../API/Windows/WinProcess.h"
@@ -51,6 +52,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 
 	m_pFileBox = new QGroupBox(tr("File"));
+	//m_pFileBox = new CCollapsibleGroupBox(this);
 	m_pOneProcLayout->addWidget(m_pFileBox);
 
 	m_pFileLayout = new QGridLayout();

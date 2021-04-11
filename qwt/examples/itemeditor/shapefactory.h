@@ -16,6 +16,6 @@ namespace ShapeFactory
     };
 
     QPainterPath path( Shape, const QPointF &, const QSizeF & );
-};
+}
 
 #endif

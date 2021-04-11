@@ -35,6 +35,7 @@ void CPanelView::OnMenu(const QPoint& Point)
 	
 	m_pCopyCell->setEnabled(Index.isValid());
 	m_pCopyRow->setEnabled(Index.isValid());
+	m_pCopyPanel->setEnabled(true);
 
 	m_pMenu->popup(QCursor::pos());	
 }

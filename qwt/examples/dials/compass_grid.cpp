@@ -42,7 +42,7 @@ QwtCompass *CompassGrid::createCompass( int pos )
     }
 
     palette0.setColor( QPalette::Base,
-        palette().color( backgroundRole() ).light( 120 ) );
+        palette().color( backgroundRole() ).lighter( 120 ) );
     palette0.setColor( QPalette::WindowText,
         palette0.color( QPalette::Base ) );
 
@@ -97,7 +97,7 @@ QwtCompass *CompassGrid::createCompass( int pos )
 
             palette0.setColor( QPalette::Base, Qt::darkBlue );
             palette0.setColor( QPalette::WindowText,
-                               QColor( Qt::darkBlue ).dark( 120 ) );
+                               QColor( Qt::darkBlue ).darker( 120 ) );
             palette0.setColor( QPalette::Text, Qt::white );
 
             QwtCompassScaleDraw *scaleDraw = new QwtCompassScaleDraw();
@@ -139,7 +139,7 @@ QwtCompass *CompassGrid::createCompass( int pos )
                 map.insert( d, label );
             }
 
-            QwtCompassScaleDraw *scaleDraw = 
+            QwtCompassScaleDraw *scaleDraw =
                 new QwtCompassScaleDraw( map );
             scaleDraw->enableComponent( QwtAbstractScaleDraw::Ticks, true );
             scaleDraw->enableComponent( QwtAbstractScaleDraw::Labels, true );
@@ -209,11 +209,11 @@ QwtCompass *CompassGrid::createCompass( int pos )
             static_cast<QPalette::ColorGroup>( i );
 
         const QColor light =
-            newPalette.color( colorGroup, QPalette::Base ).light( 170 );
-        const QColor dark = newPalette.color( colorGroup, QPalette::Base ).dark( 170 );
+            newPalette.color( colorGroup, QPalette::Base ).lighter( 170 );
+        const QColor dark = newPalette.color( colorGroup, QPalette::Base ).darker( 170 );
         const QColor mid = compass->frameShadow() == QwtDial::Raised
-            ? newPalette.color( colorGroup, QPalette::Base ).dark( 110 )
-            : newPalette.color( colorGroup, QPalette::Base ).light( 110 );
+            ? newPalette.color( colorGroup, QPalette::Base ).darker( 110 )
+            : newPalette.color( colorGroup, QPalette::Base ).lighter( 110 );
 
         newPalette.setColor( colorGroup, QPalette::Dark, dark );
         newPalette.setColor( colorGroup, QPalette::Mid, mid );

@@ -2,7 +2,7 @@
  * Process Hacker -
  *   PE viewer
  *
- * Copyright (C) 2020 dmex
+ * Copyright (C) 2020-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -132,6 +132,11 @@ BOOLEAN PhHandleCopyCellEMenuItem(
     _In_ struct _PH_EMENU_ITEM* SelectedItem
     );
 
+VOID PvpPeEnumerateNestedSignatures(
+    _In_ PPV_PE_CERTIFICATE_CONTEXT Context,
+    _In_ PCMSG_SIGNER_INFO SignerInfo
+    );
+
 static BOOLEAN WordMatchStringRef(
     _In_ PPV_PE_CERTIFICATE_CONTEXT Context,
     _In_ PPH_STRINGREF Text
@@ -144,11 +149,11 @@ static BOOLEAN WordMatchStringRef(
 
     while (remainingPart.Length)
     {
-        PhSplitStringRefAtChar(&remainingPart, '|', &part, &remainingPart);
+        PhSplitStringRefAtChar(&remainingPart, L'|', &part, &remainingPart);
 
         if (part.Length)
         {
-            if (PhFindStringInStringRef(Text, &part, TRUE) != -1)
+            if (PhFindStringInStringRef(Text, &part, TRUE) != SIZE_MAX)
                 return TRUE;
         }
     }
@@ -773,8 +778,11 @@ VOID PvGetSelectedCertificateNodes(
         }
     }
 
-    *Windows = PhAllocateCopy(list->Items, sizeof(PVOID) * list->Count);
-    *NumberOfWindows = list->Count;
+    if (list->Count)
+    {
+        *Windows = PhAllocateCopy(list->Items, sizeof(PVOID) * list->Count);
+        *NumberOfWindows = list->Count;
+    }
 
     PhDereferenceObject(list);
 }
@@ -892,7 +900,7 @@ PPH_STRING PvpPeGetRelativeTimeString(
     PhLargeIntegerToLocalSystemTime(&timeFields, &time);
     timeString = PH_AUTO(PvpPeFormatDateTime(&timeFields));
 
-    return PhFormatString(L"%s ago (%s)", timeRelativeString->Buffer, timeString->Buffer);
+    return PhFormatString(L"%s (%s ago)", timeString->Buffer, timeRelativeString->Buffer);
 }
 
 typedef BOOLEAN (CALLBACK* PH_CERT_ENUM_CALLBACK)(
@@ -957,15 +965,37 @@ BOOLEAN PvpPeFillNodeCertificateInfo(
     )
 {
     ULONG dataLength;
-    SYSTEMTIME systemTime;
+    LARGE_INTEGER currentTime;
+    LARGE_INTEGER time;
+    PPH_STRING timeString;
 
     CertificateNode->TimeFrom.LowPart = CertificateContext->pCertInfo->NotBefore.dwLowDateTime;
     CertificateNode->TimeFrom.HighPart = CertificateContext->pCertInfo->NotBefore.dwHighDateTime;
     CertificateNode->TimeTo.LowPart = CertificateContext->pCertInfo->NotAfter.dwLowDateTime;
     CertificateNode->TimeTo.HighPart = CertificateContext->pCertInfo->NotAfter.dwHighDateTime;
-    PhLargeIntegerToLocalSystemTime(&systemTime, &CertificateNode->TimeTo);
+
+    PhQuerySystemTime(&currentTime);
+    time.QuadPart = CertificateNode->TimeTo.QuadPart - currentTime.QuadPart;
+
+    if (time.QuadPart > 0)
+    {
+        SYSTEMTIME timeFields;
+        PPH_STRING timeRelativeString;
+
+        timeRelativeString = PH_AUTO(PhFormatTimeSpanRelative(time.QuadPart));
+        PhLargeIntegerToLocalSystemTime(&timeFields, &CertificateNode->TimeTo);
+        timeString = PH_AUTO(PvpPeFormatDateTime(&timeFields));
+        timeString = PhFormatString(L"%s (%s)", timeString->Buffer, timeRelativeString->Buffer);
+    }
+    else
+    {
+        SYSTEMTIME timeFields;
+        PhLargeIntegerToLocalSystemTime(&timeFields, &CertificateNode->TimeTo);
+        timeString = PvpPeFormatDateTime(&timeFields);
+    }
+
     CertificateNode->DateFrom = PvpPeGetRelativeTimeString(&CertificateNode->TimeFrom);
-    CertificateNode->DateTo = PvpPeFormatDateTime(&systemTime);
+    CertificateNode->DateTo = timeString;
     CertificateNode->Size = CertificateContext->cbCertEncoded;
 
     if (CertType != PV_CERTIFICATE_NODE_TYPE_IMAGE)
@@ -1130,6 +1160,78 @@ BOOLEAN CALLBACK PvpPeEnumSecurityCallback(
     return FALSE;
 }
 
+VOID PvpPeEnumerateCounterSignSignatures(
+    _In_ PPV_PE_CERTIFICATE_CONTEXT Context,
+    _In_ PCMSG_SIGNER_INFO SignerInfo
+    )
+{
+    HCERTSTORE cryptStoreHandle = NULL;
+    HCRYPTMSG cryptMessageHandle = NULL;
+    PCCERT_CONTEXT certificateContext = NULL;
+    PCMSG_SIGNER_INFO cryptMessageSignerInfo = NULL;
+    ULONG certificateEncoding;
+    ULONG certificateContentType;
+    ULONG certificateFormatType;
+    ULONG index = ULONG_MAX;
+
+    for (ULONG i = 0; i < SignerInfo->UnauthAttrs.cAttr; i++)
+    {
+        // Do we need to support szOID_RSA_counterSign?
+        if (PhEqualBytesZ(SignerInfo->UnauthAttrs.rgAttr[i].pszObjId, szOID_RFC3161_counterSign, FALSE))
+        {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == ULONG_MAX)
+        return;
+
+    if (CryptQueryObject(
+        CERT_QUERY_OBJECT_BLOB,
+        SignerInfo->UnauthAttrs.rgAttr[index].rgValue,
+        CERT_QUERY_CONTENT_FLAG_ALL,
+        CERT_QUERY_FORMAT_FLAG_ALL,
+        0,
+        &certificateEncoding,
+        &certificateContentType,
+        &certificateFormatType,
+        &cryptStoreHandle,
+        &cryptMessageHandle,
+        NULL
+        ))
+    {
+        ULONG signerCount = 0;
+        ULONG signerLength = sizeof(ULONG);
+
+        while (certificateContext = CertEnumCertificatesInStore(cryptStoreHandle, certificateContext))
+        {
+            PV_CERT_ENUM_CONTEXT enumContext;
+
+            enumContext.RootNode = PvAddChildCertificateNode(Context, NULL, PV_CERTIFICATE_NODE_TYPE_NESTED, certificateContext);
+            enumContext.RootNodeType = PV_CERTIFICATE_NODE_TYPE_NESTEDARRAY;
+            enumContext.WindowContext = Context;
+
+            PhEnumImageCertificates(Context, PvpPeEnumSecurityCallback, certificateContext, &enumContext);
+        }
+
+        if (CryptMsgGetParam(cryptMessageHandle, CMSG_SIGNER_COUNT_PARAM, 0, &signerCount, &signerLength))
+        {
+            for (ULONG i = 0; i < signerCount; i++)
+            {
+                if (cryptMessageSignerInfo = PvpPeGetSignerInfoIndex(cryptMessageHandle, i))
+                {
+                    PvpPeEnumerateNestedSignatures(Context, cryptMessageSignerInfo);
+
+                    PvpPeEnumerateCounterSignSignatures(Context, cryptMessageSignerInfo);
+
+                    PhFree(cryptMessageSignerInfo);
+                }
+            }
+        }
+    }
+}
+
 VOID PvpPeEnumerateNestedSignatures(
     _In_ PPV_PE_CERTIFICATE_CONTEXT Context,
     _In_ PCMSG_SIGNER_INFO SignerInfo
@@ -1191,6 +1293,8 @@ VOID PvpPeEnumerateNestedSignatures(
                 if (cryptMessageSignerInfo = PvpPeGetSignerInfoIndex(cryptMessageHandle, i))
                 {
                     PvpPeEnumerateNestedSignatures(Context, cryptMessageSignerInfo);
+
+                    PvpPeEnumerateCounterSignSignatures(Context, cryptMessageSignerInfo);
 
                     PhFree(cryptMessageSignerInfo);
                 }
@@ -1288,6 +1392,8 @@ VOID PvpPeEnumerateFileCertificates(
                 if (cryptMessageSignerInfo = PvpPeGetSignerInfoIndex(cryptMessageHandle, i))
                 {
                     PvpPeEnumerateNestedSignatures(Context, cryptMessageSignerInfo);
+
+                    PvpPeEnumerateCounterSignSignatures(Context, cryptMessageSignerInfo);
 
                     PhFree(cryptMessageSignerInfo);
                 }
@@ -1523,35 +1629,11 @@ INT_PTR CALLBACK PvpPeSecurityDlgProc(
                     PhFree(nodes);
                 }
                 break;
-            case IDC_GOTO:
-                {
-                    RECT rect;
-                    PPH_EMENU menu;
-                    PPH_EMENU_ITEM selectedItem;
-
-                    GetWindowRect(GetDlgItem(hwndDlg, IDC_GOTO), &rect);
-
-                    menu = PhCreateEMenu();
-                    selectedItem = PhShowEMenu(
-                        menu,
-                        hwndDlg,
-                        PH_EMENU_SHOW_LEFTRIGHT,
-                        PH_ALIGN_LEFT | PH_ALIGN_TOP,
-                        rect.left,
-                        rect.bottom
-                        );
-
-                    if (selectedItem && selectedItem->Id)
-                    {
-
-                    }
-
-                    PhDestroyEMenu(menu);
-                }
-                break;
             case IDC_RESET:
                 {
                     PvClearCertificateTree(context);
+                    context->TotalSize = 0;
+                    context->TotalCount = 0;
                     PvpPeEnumerateFileCertificates(context);
                 }
                 break;
@@ -1566,7 +1648,7 @@ INT_PTR CALLBACK PvpPeSecurityDlgProc(
              switch (pageNotify->hdr.code)
              {
              case PSN_QUERYINITIALFOCUS:
-                 SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, (LPARAM)GetDlgItem(hwndDlg, IDC_GOTO));
+                 SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, (LPARAM)context->TreeNewHandle);
                  return TRUE;
              }
          }

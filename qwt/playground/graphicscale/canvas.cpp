@@ -21,14 +21,14 @@ Canvas::~Canvas()
         delete d_graphic;
 }
 
-void Canvas::setSvg( const QByteArray &data )
+void Canvas::setSvg( const QByteArray &svgData )
 {
     if ( d_mode == VectorGraphic )
     {
         d_graphic->reset();
 
         QSvgRenderer renderer;
-        renderer.load( data );
+        renderer.load( svgData );
 
         QPainter p( d_graphic );
         renderer.render( &p, renderer.viewBoxF() );
@@ -36,7 +36,7 @@ void Canvas::setSvg( const QByteArray &data )
     }
     else
     {
-        d_renderer->load( data );
+        d_renderer->load( svgData );
     }
 
     update();

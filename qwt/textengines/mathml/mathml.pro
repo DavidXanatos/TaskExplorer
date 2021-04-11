@@ -7,8 +7,8 @@
 # modify it under the terms of the Qwt License, Version 1.0
 ################################################################
 
-message(The qwtmathml library contains code of the MML Widget from the Qt solutions package.)
-message(Beside the Qwt license you also have to take care of its license. )
+message("The qwtmathml library contains code of the MML Widget from the Qt solutions package.")
+message("Beside the Qwt license you also have to take care of its license.")
 
 include( $${PWD}/../textengines.pri )
 

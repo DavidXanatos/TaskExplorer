@@ -25,7 +25,7 @@ private Q_SLOTS:
     void enableZoomMode( bool );
 
 private:
-    void showInfo( QString text = QString::null );
+    void showInfo( QString text = QString() );
 
     Plot *d_plot;
 

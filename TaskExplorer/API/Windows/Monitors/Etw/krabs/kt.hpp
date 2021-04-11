@@ -112,9 +112,22 @@ namespace krabs { namespace details {
     }
 
     inline void kt::enable_providers(
-        const krabs::trace<krabs::details::kt> &)
+        const krabs::trace<krabs::details::kt> &trace)
     {
-        return;
+		unsigned long flags = 0;
+        for (auto &provider : trace.providers_) 
+		{
+			flags |= provider.get().flags();
+        }
+
+		// check if this is a rundown provider, i.e. no flags set of any kind
+		if(flags == 0)
+		{
+			static GUID KernelRundownGuid_I = { 0x3b9c9951, 0x3480, 0x4220, { 0x93, 0x77, 0x9c, 0x8e, 0x51, 0x84, 0xf5, 0xcd } };
+
+			ULONG status = EnableTraceEx(&KernelRundownGuid_I, NULL, trace.registrationHandle_, 1, 0, 0x10, 0, 0, NULL);
+			error_check_common_conditions(status);
+		}
     }
 
     inline void kt::forward_events(

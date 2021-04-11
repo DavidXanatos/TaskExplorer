@@ -75,9 +75,15 @@ typedef ULONG GDI_HANDLE_BUFFER[GDI_HANDLE_BUFFER_SIZE];
 typedef ULONG GDI_HANDLE_BUFFER32[GDI_HANDLE_BUFFER_SIZE32];
 typedef ULONG GDI_HANDLE_BUFFER64[GDI_HANDLE_BUFFER_SIZE64];
 
-//#define FLS_MAXIMUM_AVAILABLE 128
+#ifndef FLS_MAXIMUM_AVAILABLE
+#define FLS_MAXIMUM_AVAILABLE 128
+#endif
+#ifndef TLS_MINIMUM_AVAILABLE
 #define TLS_MINIMUM_AVAILABLE 64
+#endif
+#ifndef TLS_EXPANSION_SLOTS
 #define TLS_EXPANSION_SLOTS 1024
+#endif
 
 // symbols
 typedef struct _PEB_LDR_DATA
@@ -217,6 +223,7 @@ typedef enum _PROCESSINFOCLASS
     ProcessFreeFiberShadowStackAllocation, // PROCESS_FREE_FIBER_SHADOW_STACK_ALLOCATION_INFORMATION
     ProcessAltSystemCallInformation, // qs: BOOLEAN (kernel-mode only) // since 20H1 // 100
     ProcessDynamicEHContinuationTargets, // PROCESS_DYNAMIC_EH_CONTINUATION_TARGETS_INFORMATION
+    ProcessDynamicEnforcedCetCompatibleRanges, // PROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGE_INFORMATION // since 20H2
     MaxProcessInfoClass
 } PROCESSINFOCLASS;
 #endif
@@ -949,6 +956,23 @@ typedef struct _PROCESS_FREE_FIBER_SHADOW_STACK_ALLOCATION_INFORMATION
     PVOID Ssp;
 } PROCESS_FREE_FIBER_SHADOW_STACK_ALLOCATION_INFORMATION, *PPROCESS_FREE_FIBER_SHADOW_STACK_ALLOCATION_INFORMATION;
 
+//// private
+//typedef struct _PROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGE
+//{
+//    ULONG_PTR BaseAddress;
+//    SIZE_T Size;
+//    ULONG Flags;
+//} PROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGE, *PPROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGE;
+//
+//// private
+//typedef struct _PROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGES_INFORMATION
+//{
+//    USHORT NumberOfRanges;
+//    USHORT Reserved;
+//    ULONG Reserved2;
+//    PPROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGE Ranges;
+//} PROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGES_INFORMATION, *PPROCESS_DYNAMIC_ENFORCED_ADDRESS_RANGES_INFORMATION;
+
 // end_private
 
 #endif
@@ -1191,9 +1215,10 @@ NtResumeProcess(
 #define NtCurrentPeb() (NtCurrentTeb()->ProcessEnvironmentBlock)
 
 // Windows 8 and above
-#define NtCurrentProcessToken() ((HANDLE)(LONG_PTR)-4)
-#define NtCurrentThreadToken() ((HANDLE)(LONG_PTR)-5)
-#define NtCurrentThreadEffectiveToken() ((HANDLE)(LONG_PTR)-6)
+#define NtCurrentProcessToken() ((HANDLE)(LONG_PTR)-4) // NtOpenProcessToken(NtCurrentProcess())
+#define NtCurrentThreadToken() ((HANDLE)(LONG_PTR)-5) // NtOpenThreadToken(NtCurrentThread())
+#define NtCurrentThreadEffectiveToken() ((HANDLE)(LONG_PTR)-6) // NtOpenThreadToken(NtCurrentThread()) + NtOpenProcessToken(NtCurrentProcess())
+
 #define NtCurrentSilo() ((HANDLE)(LONG_PTR)-1)
 
 // Not NT, but useful.
@@ -1798,6 +1823,7 @@ NtCreateUserProcess(
 #define THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER 0x00000004
 #define THREAD_CREATE_FLAGS_HAS_SECURITY_DESCRIPTOR 0x00000010 // ?
 #define THREAD_CREATE_FLAGS_ACCESS_CHECK_IN_TARGET 0x00000020 // ?
+#define THREAD_CREATE_FLAGS_SKIP_THREAD_SUSPEND 0x00000040 // ?
 #define THREAD_CREATE_FLAGS_INITIAL_THREAD 0x00000080
 // end_rev
 

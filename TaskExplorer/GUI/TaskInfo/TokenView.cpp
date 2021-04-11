@@ -55,7 +55,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pSession ->setSizePolicy(QSizePolicy::Expanding, m_pSession->sizePolicy().verticalPolicy());
 	m_pGeneralLayout->addWidget(m_pSession, row, 1, 1, 1);
 
-	m_pGeneralLayout->addWidget(new QLabel(tr("Elevanted:")), row, 2, 1, 1);
+	m_pGeneralLayout->addWidget(new QLabel(tr("Elevated:")), row, 2, 1, 1);
 	m_pElevated = new QLabel(tr("No"));
 	m_pElevated ->setSizePolicy(QSizePolicy::Expanding, m_pElevated->sizePolicy().verticalPolicy());
 	m_pGeneralLayout->addWidget(m_pElevated, row, 3, 1, 1);

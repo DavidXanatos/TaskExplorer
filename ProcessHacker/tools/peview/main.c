@@ -22,9 +22,6 @@
  */
 
 #include <peview.h>
-#pragma comment(lib, "Samlib.lib")
-#pragma comment(lib, "Crypt32.lib")
-#pragma comment(lib, "Cryptui.lib")
 
 PPH_STRING PvFileName = NULL;
 
@@ -225,9 +222,8 @@ INT WINAPI wWinMain(
         if (NT_SUCCESS(status))
         {
             status = PhLoadMappedImageEx(
-                PhGetString(PvFileName),
+                NULL,
                 fileHandle,
-                TRUE,
                 &PvMappedImage
                 );
             NtClose(fileHandle);

@@ -55,7 +55,6 @@ NTAPI
 PhLoadMappedImage(
     _In_opt_ PWSTR FileName,
     _In_opt_ HANDLE FileHandle,
-    _In_ BOOLEAN ReadOnly,
     _Out_ PPH_MAPPED_IMAGE MappedImage
     );
 
@@ -63,9 +62,8 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoadMappedImageEx(
-    _In_opt_ PWSTR FileName,
+    _In_opt_ PPH_STRING FileName,
     _In_opt_ HANDLE FileHandle,
-    _In_ BOOLEAN ReadOnly,
     _Out_ PPH_MAPPED_IMAGE MappedImage
     );
 
@@ -82,8 +80,17 @@ NTAPI
 PhMapViewOfEntireFile(
     _In_opt_ PWSTR FileName,
     _In_opt_ HANDLE FileHandle,
-    _In_ BOOLEAN ReadOnly,
     _Out_ PVOID *ViewBase,
+    _Out_ PSIZE_T Size
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhMapViewOfEntireFileEx(
+    _In_opt_ PPH_STRING FileName,
+    _In_opt_ HANDLE FileHandle,
+    _Out_ PVOID* ViewBase,
     _Out_ PSIZE_T Size
     );
 
@@ -96,7 +103,8 @@ PhMappedImageRvaToSection(
     );
 
 PHLIBAPI
-_Success_(return != NULL)
+_Must_inspect_result_
+_Ret_maybenull_
 PVOID
 NTAPI
 PhMappedImageRvaToVa(
@@ -106,7 +114,8 @@ PhMappedImageRvaToVa(
     );
 
 PHLIBAPI
-_Success_(return != NULL)
+_Must_inspect_result_
+_Ret_maybenull_
 PVOID
 NTAPI
 PhMappedImageVaToVa(
@@ -469,7 +478,9 @@ typedef struct _PH_IMAGE_RESOURCE_ENTRY
     ULONG_PTR Type;
     ULONG_PTR Name;
     ULONG_PTR Language;
+    ULONG Offset;
     ULONG Size;
+    ULONG CodePage;
     PVOID Data;
 } PH_IMAGE_RESOURCE_ENTRY, *PPH_IMAGE_RESOURCE_ENTRY;
 
@@ -535,6 +546,7 @@ typedef struct _PH_MAPPED_IMAGE_PRODID
     //WCHAR Key[PH_PTR_STR_LEN_1];
     BOOLEAN Valid;
     PPH_STRING Key;
+    PPH_STRING RawHash;
     PPH_STRING Hash;
     ULONG NumberOfEntries;
     PPH_MAPPED_IMAGE_PRODID_ENTRY ProdIdEntries;
@@ -579,15 +591,30 @@ typedef struct _PH_MAPPED_IMAGE_DEBUG
 #define IMAGE_DEBUG_TYPE_PDBCHECKSUM 19
 #endif
 
-#ifndef _IMAGE_DEBUG_DIRECTORY_CODEVIEW
-typedef struct _IMAGE_DEBUG_DIRECTORY_CODEVIEW
+#define CODEVIEW_SIGNATURE_NB10 '01BN'
+#define CODEVIEW_SIGNATURE_RSDS 'SDSR'
+
+typedef struct _CODEVIEW_HEADER
 {
-    ULONG format;
-    GUID PdbSignature;
-    ULONG PdbDbiAge;
-    CHAR ImageName[256];
-} IMAGE_DEBUG_DIRECTORY_CODEVIEW, *PIMAGE_DEBUG_DIRECTORY_CODEVIEW;
-#endif
+    ULONG Signature;
+    LONG Offset;
+} CODEVIEW_HEADER, *PCODEVIEW_HEADER;
+
+typedef struct _CODEVIEW_INFO_PDB20
+{
+    CODEVIEW_HEADER Header;
+    ULONG Timestamp; // seconds since 1970
+    ULONG Age;
+    CHAR PdbFileName[1];
+} CODEVIEW_INFO_PDB20, *PCODEVIEW_INFO_PDB20;
+
+typedef struct _CODEVIEW_INFO_PDB70
+{
+    ULONG Signature;
+    GUID PdbGuid;
+    ULONG PdbAge;
+    CHAR ImageName[1];
+} CODEVIEW_INFO_PDB70, *PCODEVIEW_INFO_PDB70;
 
 #ifndef IMAGE_GUARD_XFG_ENABLED
 #define IMAGE_GUARD_XFG_ENABLED 0x00800000 // Module was built with xfg
@@ -606,8 +633,7 @@ PhGetMappedImageDebug(
     );
 
 PHLIBAPI
-_Success_(return)
-BOOLEAN
+NTSTATUS
 NTAPI
 PhGetMappedImageDebugEntryByType(
     _In_ PPH_MAPPED_IMAGE MappedImage,
@@ -683,7 +709,6 @@ NTAPI
 PhLoadMappedArchive(
     _In_opt_ PWSTR FileName,
     _In_opt_ HANDLE FileHandle,
-    _In_ BOOLEAN ReadOnly,
     _Out_ PPH_MAPPED_ARCHIVE MappedArchive
     );
 
@@ -764,7 +789,10 @@ typedef struct _PH_MAPPED_IMAGE_DEBUG_POGO
     PPH_IMAGE_DEBUG_POGO_ENTRY PogoEntries;
 } PH_MAPPED_IMAGE_DEBUG_POGO, *PPH_MAPPED_IMAGE_DEBUG_POGO;
 
-NTSTATUS PhGetMappedImagePogo(
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImagePogo(
     _In_ PPH_MAPPED_IMAGE MappedImage,
     _Out_ PPH_MAPPED_IMAGE_DEBUG_POGO PogoDebug
     );
@@ -781,22 +809,50 @@ typedef struct _PH_IMAGE_RELOC_ENTRY
     ULONG BlockRva;
     ULONG Type;
     ULONG Offset;
-    PVOID Value;
+    PVOID ImageBaseVa;
+    PVOID MappedImageVa;
 } PH_IMAGE_RELOC_ENTRY, *PPH_IMAGE_RELOC_ENTRY;
 
 typedef struct _PH_MAPPED_IMAGE_RELOC
 {
     PPH_MAPPED_IMAGE MappedImage;
     PIMAGE_DATA_DIRECTORY DataDirectory;
-    PIMAGE_BASE_RELOCATION RelocationDirectory;
+    PIMAGE_BASE_RELOCATION FirstRelocationDirectory;
 
     ULONG NumberOfEntries;
     PPH_IMAGE_RELOC_ENTRY RelocationEntries;
 } PH_MAPPED_IMAGE_RELOC, *PPH_MAPPED_IMAGE_RELOC;
 
-NTSTATUS PhGetMappedImageRelocations(
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageRelocations(
     _In_ PPH_MAPPED_IMAGE MappedImage,
     _Out_ PPH_MAPPED_IMAGE_RELOC Relocations
+    );
+PHLIBAPI
+VOID
+NTAPI
+PhFreeMappedImageRelocations(
+    _In_ PPH_MAPPED_IMAGE_RELOC Relocations
+    );
+
+typedef struct _PH_MAPPED_IMAGE_EXCEPTIONS
+{
+    PPH_MAPPED_IMAGE MappedImage;
+    PIMAGE_DATA_DIRECTORY DataDirectory;
+    PVOID ExceptionDirectory;
+
+    ULONG NumberOfEntries;
+    PVOID ExceptionEntries;
+} PH_MAPPED_IMAGE_EXCEPTIONS, *PPH_MAPPED_IMAGE_EXCEPTIONS;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageExceptions(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_EXCEPTIONS Exceptions
     );
 
 // ELF binary support

@@ -135,7 +135,7 @@ public:
 	};
 	virtual QList<SDebugMessage>		GetDebugMessages(quint32* pDebugMessageCount = NULL) const;
 	virtual quint32						GetDebugMessageCount() const {QReadLocker Locker(&m_DebugMutex);  return m_DebugMessageCount; }
-
+	virtual void						ClearDebugMessages();
 
 	struct SEnvVar
 	{

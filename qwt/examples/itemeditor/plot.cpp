@@ -9,9 +9,9 @@
 class Legend: public QwtLegend
 {
 protected:
-    virtual QWidget *createWidget( const QwtLegendData &data ) const
+    virtual QWidget *createWidget( const QwtLegendData &legendData ) const
     {
-        QWidget *w = QwtLegend::createWidget( data );
+        QWidget *w = QwtLegend::createWidget( legendData );
         if ( w )
         {
             w->setStyleSheet(
@@ -70,23 +70,23 @@ Plot::Plot( QWidget *parent ):
 
 void Plot::populate()
 {
-    addShape( "Rectangle", ShapeFactory::Rect, "RoyalBlue", 
+    addShape( "Rectangle", ShapeFactory::Rect, "RoyalBlue",
         QPointF( 30.0, 50.0 ), QSizeF( 40.0, 50.0 ) );
-    addShape( "Ellipse", ShapeFactory::Ellipse, "IndianRed", 
+    addShape( "Ellipse", ShapeFactory::Ellipse, "IndianRed",
         QPointF( 80.0, 130.0 ), QSizeF( 50.0, 40.0 ) );
-    addShape( "Ring", ShapeFactory::Ring, "DarkOliveGreen", 
+    addShape( "Ring", ShapeFactory::Ring, "DarkOliveGreen",
         QPointF( 30.0, 165.0 ), QSizeF( 40.0, 40.0 ) );
-    addShape( "Triangle", ShapeFactory::Triangle, "SandyBrown", 
+    addShape( "Triangle", ShapeFactory::Triangle, "SandyBrown",
         QPointF( 165.0, 165.0 ), QSizeF( 60.0, 40.0 ) );
-    addShape( "Star", ShapeFactory::Star, "DarkViolet", 
+    addShape( "Star", ShapeFactory::Star, "DarkViolet",
         QPointF( 165.0, 50.0 ), QSizeF( 40.0, 50.0 ) );
-    addShape( "Hexagon", ShapeFactory::Hexagon, "DarkSlateGray", 
+    addShape( "Hexagon", ShapeFactory::Hexagon, "DarkSlateGray",
         QPointF( 120.0, 70.0 ), QSizeF( 50.0, 50.0 ) );
 
 }
 
 void Plot::addShape( const QString &title,
-    ShapeFactory::Shape shape, const QColor &color, 
+    ShapeFactory::Shape shape, const QColor &color,
     const QPointF &pos, const QSizeF &size )
 {
     QwtPlotShapeItem *item = new QwtPlotShapeItem( title );

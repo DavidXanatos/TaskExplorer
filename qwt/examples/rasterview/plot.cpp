@@ -104,8 +104,8 @@ void Plot::exportPlot()
 
 void Plot::setResampleMode( int mode )
 {
-    RasterData *data = static_cast<RasterData *>( d_spectrogram->data() );
-    data->setResampleMode(
+    RasterData *rasterData = static_cast<RasterData *>( d_spectrogram->data() );
+    rasterData->setResampleMode(
         static_cast<QwtMatrixRasterData::ResampleMode>( mode ) );
 
     replot();

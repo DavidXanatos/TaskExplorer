@@ -351,7 +351,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 		BOOLEAN IsPacked;
 		ulong ImportFunctions;
 		ulong ImportModules;
-		status = PhIsExecutablePacked(FileName->Buffer, &IsPacked, &ImportModules, &ImportFunctions);
+		status = PhIsExecutablePacked(FileName, &IsPacked, &ImportModules, &ImportFunctions);
 
 		// If we got an Module-related error, the Module is packed.
 		if (status == STATUS_INVALID_IMAGE_NOT_MZ || status == STATUS_INVALID_IMAGE_FORMAT || status == STATUS_ACCESS_VIOLATION)

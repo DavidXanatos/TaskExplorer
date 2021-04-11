@@ -39,7 +39,7 @@
 #include <shlobj.h>
 #include <uxtheme.h>
 
-#include "resource.h"
+#include "..\resource.h"
 
 extern PPH_STRING PvFileName;
 extern PH_MAPPED_IMAGE PvMappedImage;
@@ -53,7 +53,7 @@ FORCEINLINE PWSTR PvpGetStringOrNa(
     _In_ PPH_STRING String
     )
 {
-    return PhGetStringOrDefault(String, L"N/A");
+    return PhGetStringOrDefault(String, (PWSTR)L"N/A");
 }
 
 BOOLEAN PvpLoadDbgHelp(
@@ -70,6 +70,16 @@ NTSTATUS PhpOpenFileSecurity(
     _Out_ PHANDLE Handle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_opt_ PVOID Context
+    );
+
+DOUBLE PvCalculateEntropyBuffer(
+    _In_ PBYTE Buffer,
+    _In_ SIZE_T BufferLength
+    );
+
+PPH_STRING PvFormatDoubleCropZero(
+    _In_ DOUBLE Value,
+    _In_ USHORT Precision
     );
 
 // libprp
@@ -92,6 +102,17 @@ PPH_STRING PvResolveShortcutTarget(
 
 PPH_STRING PvResolveReparsePointTarget(
     _In_ PPH_STRING FileName
+    );
+
+typedef NTSTATUS (NTAPI* PV_FILE_ALLOCATION_CALLBACK)(
+    _In_ PFILE_ALLOCATED_RANGE_BUFFER Entry,
+    _In_ PVOID Context
+    );
+
+NTSTATUS PvGetFileAllocatedRanges(
+    _In_ HANDLE FileHandle,
+    _In_ PV_FILE_ALLOCATION_CALLBACK Callback,
+    _In_ PVOID Context
     );
 
 VOID PvCopyListView(
@@ -425,6 +446,13 @@ INT_PTR CALLBACK PvpPeStreamsDlgProc(
     _In_ LPARAM lParam
     );
 
+INT_PTR CALLBACK PvpPeLayoutDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
 INT_PTR CALLBACK PvpPeLinksDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -460,6 +488,20 @@ INT_PTR CALLBACK PvpPeProdIdDlgProc(
     _In_ LPARAM lParam
     );
 
+INT_PTR CALLBACK PvpPeExceptionDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvpPeRelocationDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
 INT_PTR CALLBACK PvpPeSecurityDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -489,6 +531,13 @@ INT_PTR CALLBACK PvpPeDebugPogoDlgProc(
     );
 
 INT_PTR CALLBACK PvpPeDebugCrtDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvpPeHashesDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,

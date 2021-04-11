@@ -1,14 +1,3 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
- * Qwt Widget Library
- * Copyright (C) 1997   Josef Wilgen
- * Copyright (C) 2002   Uwe Rathmann
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the Qwt License, Version 1.0
- *****************************************************************************/
-
-// vim: expandtab
-
 #include <qlayout.h>
 #include <qpen.h>
 #include <qwt_plot.h>
@@ -85,6 +74,7 @@ PlotMatrix::PlotMatrix( int numRows, int numColumns, QWidget *parent ):
         for ( int col = 0; col < numColumns; col++ )
         {
             QwtPlot *plot = new Plot( this );
+
             layout->addWidget( plot, row, col );
 
             for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
@@ -375,54 +365,54 @@ void PlotMatrix::alignScaleBorder( int rowOrColumn, int axis )
 
     if ( axis == QwtPlot::yLeft )
     {
-        QwtPlot *p = plotAt( rowOrColumn, 0 );
-        if ( p )
-            p->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+        QwtPlot *plot = plotAt( rowOrColumn, 0 );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
 
         for ( int col = 1; col < numColumns(); col++ )
         {
-            QwtPlot *p = plotAt( rowOrColumn, col );
-            if ( p )
-                p->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+            plot = plotAt( rowOrColumn, col );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
         }
     }
     else if ( axis == QwtPlot::yRight )
     {
-        QwtPlot *p = plotAt( rowOrColumn, numColumns() - 1 );
-        if ( p )
-            p->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+        QwtPlot *plot = plotAt( rowOrColumn, numColumns() - 1 );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
 
         for ( int col = 0; col < numColumns() - 1; col++ )
         {
-            QwtPlot *p = plotAt( rowOrColumn, col );
-            if ( p )
-                p->axisWidget( axis )->setMinBorderDist( startDist, endDist );
-        }       
+            plot = plotAt( rowOrColumn, col );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+        }
     }
     if ( axis == QwtPlot::xTop )
     {
-        QwtPlot *p = plotAt( rowOrColumn, 0 );
-        if ( p )
-            p->axisWidget( axis )->getBorderDistHint( startDist, endDist );
-    
+        QwtPlot *plot = plotAt( rowOrColumn, 0 );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+
         for ( int row = 1; row < numRows(); row++ )
         {
-            QwtPlot *p = plotAt( row, rowOrColumn );
-            if ( p )
-                p->axisWidget( axis )->setMinBorderDist( startDist, endDist );
-        }   
-    }   
+            plot = plotAt( row, rowOrColumn );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+        }
+    }
     else if ( axis == QwtPlot::xBottom )
-    {       
-        QwtPlot *p = plotAt( numRows() - 1, rowOrColumn );
-        if ( p )
-            p->axisWidget( axis )->getBorderDistHint( startDist, endDist );
-    
+    {
+        QwtPlot *plot = plotAt( numRows() - 1, rowOrColumn );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+
         for ( int row = 0; row < numRows() - 1; row++ )
         {
-            QwtPlot *p = plotAt( row, rowOrColumn );
-            if ( p )
-                p->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+            plot = plotAt( row, rowOrColumn );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
         }
     }
 }

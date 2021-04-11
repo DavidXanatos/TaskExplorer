@@ -104,8 +104,7 @@ QToolBar *MainWindow::toolBar()
     d_symbolType = new QCheckBox( "Symbols", hBox );
     d_symbolType->setChecked( true );
 
-    d_randomCount =
-        new Counter( hBox, "Points", QString::null, 1, 100000, 100 );
+    d_randomCount = new Counter( hBox, "Points", QString(), 1, 100000, 100 );
     d_randomCount->setValue( 1000 );
 
     d_timerCount = new Counter( hBox, "Delay", "ms", 0, 100000, 100 );

@@ -33,6 +33,9 @@ static inline QRectF qwtBoundingRect( const QwtIntervalSample &sample )
 
 static inline QRectF qwtBoundingRect( const QwtSetSample &sample )
 {
+    if ( sample.set.empty() )
+        return QRectF( sample.value, 0.0, 0.0, -1.0 );
+
     double minY = sample.set[0];
     double maxY = sample.set[0];
 
@@ -40,14 +43,12 @@ static inline QRectF qwtBoundingRect( const QwtSetSample &sample )
     {
         if ( sample.set[i] < minY )
             minY = sample.set[i];
+
         if ( sample.set[i] > maxY )
             maxY = sample.set[i];
     }
 
-    double minX = sample.value;
-    double maxX = sample.value;
-
-    return QRectF( minX, minY, maxX - minX, maxY - minY );
+    return QRectF( sample.value, minY, 0.0, maxY - minY );
 }
 
 static inline QRectF qwtBoundingRect( const QwtOHLCSample &sample )

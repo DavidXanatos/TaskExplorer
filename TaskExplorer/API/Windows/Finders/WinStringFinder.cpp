@@ -201,7 +201,7 @@ STATUS CWinStringFinder::FindStrings(const CProcessPtr& pProcess)
 						break;
 
 					QString DisplayStr = QString::fromLatin1(temp.mid(pos, qMin(128, (int)(readSize - pos))));
-					CStringInfo* pString = new CStringInfo((quint64)(PTR_ADD_OFFSET(baseAddress, i - lengthInBytes)), lengthInBytes, (quint64)basicInfo.BaseAddress, (quint64)basicInfo.RegionSize, DisplayStr, pProcess);
+					CStringInfo* pString = new CStringInfo((quint64)(PTR_ADD_OFFSET(baseAddress, pos)), lengthInBytes, (quint64)basicInfo.BaseAddress, (quint64)basicInfo.RegionSize, DisplayStr, pProcess);
 					List.append(CStringInfoPtr(pString));
 
 					i += pos + lengthInBytes;

@@ -192,7 +192,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation3_Release(
     _In_ ISecurityInformation3 *This
     );
 
-BOOL STDMETHODCALLTYPE PhSecurityInformation3_GetFullResourceName(
+HRESULT STDMETHODCALLTYPE PhSecurityInformation3_GetFullResourceName(
     _In_ ISecurityInformation3 *This,
     _Outptr_ PWSTR *ppszResourceName
     );
@@ -293,6 +293,36 @@ HRESULT STDMETHODCALLTYPE PhSecurityObjectTypeInfo_GetInheritSource(
     _In_ SECURITY_INFORMATION SecurityInfo,
     _In_ PACL Acl,
     _Out_ PINHERITED_FROM *InheritArray
+    );
+
+// Power policy (Todo: Move to better location) (dmex)
+
+NTSTATUS PhpGetPowerPolicySecurityDescriptor(
+    _Out_ PPH_STRING* StringSecurityDescriptor
+    );
+
+NTSTATUS PhpSetPowerPolicySecurityDescriptor(
+    _In_ PPH_STRING StringSecurityDescriptor
+    );
+
+// Terminal server policy (Todo: Move to better location) (dmex)
+
+NTSTATUS PhpGetRemoteDesktopSecurityDescriptor(
+    _Out_ PSECURITY_DESCRIPTOR* SecurityDescriptor
+    );
+
+NTSTATUS PhpSetRemoteDesktopSecurityDescriptor(
+    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
+    );
+
+// Wbem namespace policy (Todo: Move to better location) (dmex)
+
+NTSTATUS PhGetWmiNamespaceSecurityDescriptor(
+    _Out_ PSECURITY_DESCRIPTOR* SecurityDescriptor
+    );
+
+NTSTATUS PhSetWmiNamespaceSecurityDescriptor(
+    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
     );
 
 #endif

@@ -35,7 +35,11 @@ CDotNetView::CDotNetView(QWidget *parent)
 
 	// Assembly List
 	m_pAssemblyModel = new CSimpleTreeModel();
-	m_pAssemblyModel->setHeaderLabels(tr("Structure|FileName|Flags|ID|NativePath").split("|"));
+	m_pAssemblyModel->AddColumn(tr("Structure"), "Structure");
+	m_pAssemblyModel->AddColumn(tr("File Name"), "FileName");
+	m_pAssemblyModel->AddColumn(tr("Flags"), "Flags");
+	m_pAssemblyModel->AddColumn(tr("ID"), "ID");
+	m_pAssemblyModel->AddColumn(tr("Native Path"), "NativePath");
 
 	m_pSortProxy = new CSortFilterProxyModel(false, this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
@@ -170,13 +174,11 @@ void CDotNetView::OnAssemblies(const CAssemblyListPtr& Assemblies)
 		Item["ID"] = Assembly.ID;
 		Item["ParentID"] = Assembly.ParrentID;
 
-		QVariantMap Values;
-		Values.insert(QString::number(eStructure), Assembly.Structure);
-		Values.insert(QString::number(eFileName), Assembly.FileName);
-		Values.insert(QString::number(eFlags), Assembly.Flags);
-		Values.insert(QString::number(eID), Assembly.ID);
-		Values.insert(QString::number(eNativePath), Assembly.NativePath);
-		Item["Values"] = Values;
+		Item["Structure"] = Assembly.Structure;
+		Item["FileName"] = Assembly.FileName;
+		Item["Flags"] = Assembly.Flags;
+		Item["ID"] = Assembly.ID;
+		Item["NativePath"] = Assembly.NativePath;
 
 		ASSERT(!m_Assemblies.contains(Assembly.ID));
 		m_Assemblies.insert(Assembly.ID, Item);

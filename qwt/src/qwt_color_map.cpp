@@ -46,8 +46,8 @@ private:
             b = qBlue( rgb );
             a = qAlpha( rgb );
 
-            /* 
-                when mapping a value to rgb we will have to calcualate: 
+            /*
+                when mapping a value to rgb we will have to calcualate:
                    - const int v = int( ( s1.v0 + ratio * s1.vStep ) + 0.5 );
 
                 Thus adding 0.5 ( for rounding ) can be done in advance
@@ -345,7 +345,7 @@ QVector<double> QwtLinearColorMap::colorStops() const
 */
 QColor QwtLinearColorMap::color1() const
 {
-    return QColor( d_data->colorStops.rgb( d_data->mode, 0.0 ) );
+    return QColor::fromRgba( d_data->colorStops.rgb( d_data->mode, 0.0 ) );
 }
 
 /*!
@@ -354,7 +354,7 @@ QColor QwtLinearColorMap::color1() const
 */
 QColor QwtLinearColorMap::color2() const
 {
-    return QColor( d_data->colorStops.rgb( d_data->mode, 1.0 ) );
+    return QColor::fromRgba( d_data->colorStops.rgb( d_data->mode, 1.0 ) );
 }
 
 /*!

@@ -3,6 +3,22 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.3.0] - 2021-04-12
+
+### Changed
+- changed memory search window layout
+- on debug log start stop the lists are now reset
+- updated MiscHelpers
+- updated PHlib to version 3.0.3972
+- updated QWT to version 6.1.6
+- updated to use Visual studio 2019
+
+### Fixed
+- fixed issues with hex string memory search
+- fixed issue with updating token privileges
+- fixed issues with disabled items in dark mode
+- fixed race condition in etw initialization
+
 
 ## [1.2.9] - 2020-10-11
 

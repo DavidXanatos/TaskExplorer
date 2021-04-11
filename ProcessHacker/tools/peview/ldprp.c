@@ -372,15 +372,10 @@ INT_PTR CALLBACK PvpPeLoadConfigDlgProc(
                 { \
                     ADD_VALUE(L"Volatile metadata pointer", PhaFormatString(L"0x%Ix", (Config)->VolatileMetadataPointer)->Buffer); \
                 } \
-                /*if (RTL_CONTAINS_FIELD((Config), (Config)->Size, GuardEHContinuationTable)) \ // todo: xxx
+                if (RTL_CONTAINS_FIELD((Config), (Config)->Size, GuardEHContinuationTable)) \
                 { \
                     ADD_VALUE(L"Guard EH Continuation table", PhaFormatString(L"0x%Ix", (Config)->GuardEHContinuationTable)->Buffer); \
                     ADD_VALUE(L"Guard EH Continuation table entry count", PhaFormatUInt64((Config)->GuardEHContinuationCount, TRUE)->Buffer); \
-                }*/ \
-                if ((Config)->Size >= RTL_SIZEOF_THROUGH_FIELD(Type, VolatileMetadataPointer) + 2* RTL_FIELD_SIZE(Type, VolatileMetadataPointer)) \
-                { \
-                    ADD_VALUE(L"Guard EH Continuation table", PhaFormatString(L"0x%Ix", (&(Config)->VolatileMetadataPointer)[1])->Buffer); \
-                    ADD_VALUE(L"Guard EH Continuation table entry count", PhaFormatUInt64((&(Config)->VolatileMetadataPointer)[2], TRUE)->Buffer); \
                 } \
             }
 

@@ -17,7 +17,7 @@ CPathEdit::CPathEdit(bool bDirs, QWidget *parent)
 	pLayout->addWidget(m_pEdit);
 	QPushButton* pButton = new QPushButton("...");
 	pButton->setMaximumWidth(25);
-	connect(pButton, SIGNAL(pressed()), this, SLOT(Browse()));
+	connect(pButton, SIGNAL(clicked(bool)), this, SLOT(Browse()));
 	pLayout->addWidget(pButton);
 }
 
@@ -26,7 +26,10 @@ void CPathEdit::Browse()
 	QString FilePath = m_bDirs
 		? QFileDialog::getExistingDirectory(this, tr("Select Directory"))
 		: QFileDialog::getOpenFileName(0, tr("Browse"), "", QString("Any File (*.*)"));
-	if(!FilePath.isEmpty())
+	if (FilePath.isEmpty())
+		return;
+	if (m_bWinPath)
+		FilePath.replace("/", "\\");
 		SetText(FilePath);
 }
 

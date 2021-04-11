@@ -13,6 +13,7 @@
 #include "qwt_painter.h"
 #include <qapplication.h>
 #include <qpainter.h>
+#include <qpainterpath.h>
 
 #if QT_VERSION < 0x040601
 #define qFastSin(x) qSin(x)
@@ -66,7 +67,7 @@ static void qwtDrawStyle2Needle( QPainter *painter,
     painter->drawPath( path2 );
 }
 
-static void qwtDrawShadedPointer( QPainter *painter, 
+static void qwtDrawShadedPointer( QPainter *painter,
     const QColor &lightColor, const QColor &darkColor,
     double length, double width )
 {
@@ -170,10 +171,10 @@ static void qwtDrawTriangleNeedle( QPainter *painter,
     const QColor lightColor = palette.color( colorGroup, QPalette::Light );
 
     QColor color[4];
-    color[0] = darkColor.light( 100 + colorOffset );
-    color[1] = darkColor.dark( 100 + colorOffset );
-    color[2] = lightColor.light( 100 + colorOffset );
-    color[3] = lightColor.dark( 100 + colorOffset );
+    color[0] = darkColor.lighter( 100 + colorOffset );
+    color[1] = darkColor.darker( 100 + colorOffset );
+    color[2] = lightColor.lighter( 100 + colorOffset );
+    color[3] = lightColor.darker( 100 + colorOffset );
 
     painter->setPen( Qt::NoPen );
 
@@ -222,8 +223,8 @@ const QPalette &QwtDialNeedle::palette() const
   \param direction Direction of the needle, in degrees counter clockwise
   \param colorGroup Color group, used for painting
 */
-void QwtDialNeedle::draw( QPainter *painter, 
-    const QPointF &center, double length, double direction, 
+void QwtDialNeedle::draw( QPainter *painter,
+    const QPointF &center, double length, double direction,
     QPalette::ColorGroup colorGroup ) const
 {
     painter->save();
@@ -315,7 +316,7 @@ double QwtDialSimpleNeedle::width() const
  \param length Length of the needle
  \param colorGroup Color group, used for painting
 */
-void QwtDialSimpleNeedle::drawNeedle( QPainter *painter, 
+void QwtDialSimpleNeedle::drawNeedle( QPainter *painter,
     double length, QPalette::ColorGroup colorGroup ) const
 {
     double knobWidth = 0.0;
@@ -326,7 +327,7 @@ void QwtDialSimpleNeedle::drawNeedle( QPainter *painter,
         if ( width <= 0.0 )
             width = qMax(length * 0.06, 6.0);
 
-        qwtDrawArrowNeedle( painter, 
+        qwtDrawArrowNeedle( painter,
             palette(), colorGroup, length, width );
 
         knobWidth = qMin( width * 2.0, 0.2 * length );
@@ -335,10 +336,10 @@ void QwtDialSimpleNeedle::drawNeedle( QPainter *painter,
     {
         if ( width <= 0.0 )
             width = 5.0;
-        
+
         QPen pen ( palette().brush( colorGroup, QPalette::Mid ), width );
         pen.setCapStyle( Qt::FlatCap );
-    
+
         painter->setPen( pen );
         painter->drawLine( QPointF( 0.0, 0.0 ), QPointF( length, 0.0 ) );
 
@@ -372,7 +373,7 @@ QwtCompassMagnetNeedle::QwtCompassMagnetNeedle( Style style,
     \param length Length of the needle
     \param colorGroup Color group, used for painting
 */
-void QwtCompassMagnetNeedle::drawNeedle( QPainter *painter, 
+void QwtCompassMagnetNeedle::drawNeedle( QPainter *painter,
     double length, QPalette::ColorGroup colorGroup ) const
 {
     if ( d_style == ThinStyle )
@@ -385,17 +386,17 @@ void QwtCompassMagnetNeedle::drawNeedle( QPainter *painter,
         const QColor dark = palette().color( colorGroup, QPalette::Dark );
 
         qwtDrawShadedPointer( painter,
-            dark.light( 100 + colorOffset ),
-            dark.dark( 100 + colorOffset ),
+            dark.lighter( 100 + colorOffset ),
+            dark.darker( 100 + colorOffset ),
             length, width );
-        
+
         painter->rotate( 180.0 );
-    
+
         qwtDrawShadedPointer( painter,
-            light.light( 100 + colorOffset ),
-            light.dark( 100 + colorOffset ),
+            light.lighter( 100 + colorOffset ),
+            light.darker( 100 + colorOffset ),
             length, width );
-        
+
         const QBrush baseBrush = palette().brush( colorGroup, QPalette::Base );
         drawKnob( painter, width, baseBrush, true );
     }
@@ -430,7 +431,7 @@ QwtCompassWindArrow::QwtCompassWindArrow( Style style,
  \param length Length of the needle
  \param colorGroup Color group, used for painting
 */
-void QwtCompassWindArrow::drawNeedle( QPainter *painter, 
+void QwtCompassWindArrow::drawNeedle( QPainter *painter,
     double length, QPalette::ColorGroup colorGroup ) const
 {
     if ( d_style == Style1 )

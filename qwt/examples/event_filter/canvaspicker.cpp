@@ -33,8 +33,8 @@ CanvasPicker::CanvasPicker( QwtPlot *plot ):
         "or with these keys:\n\n"
         "- Up:\t\tSelect next curve\n"
         "- Down:\t\tSelect previous curve\n"
-        "- Left, ´-´:\tSelect next point\n"
-        "- Right, ´+´:\tSelect previous point\n"
+        "- Left, '-':\tSelect next point\n"
+        "- Right, '+':\tSelect previous point\n"
         "- 7, 8, 9, 4, 6, 1, 2, 3:\tMove selected point";
     canvas->setWhatsThis( text );
 
@@ -277,7 +277,7 @@ void CanvasPicker::move( const QPoint &pos )
        Enable QwtPlotCanvas::ImmediatePaint, so that the canvas has been
        updated before we paint the cursor on it.
      */
-    QwtPlotCanvas *plotCanvas = 
+    QwtPlotCanvas *plotCanvas =
         qobject_cast<QwtPlotCanvas *>( plot()->canvas() );
 
     plotCanvas->setPaintAttribute( QwtPlotCanvas::ImmediatePaint, true );
@@ -297,7 +297,7 @@ void CanvasPicker::showCursor( bool showIt )
 
     const QBrush brush = symbol->brush();
     if ( showIt )
-        symbol->setBrush( symbol->brush().color().dark( 180 ) );
+        symbol->setBrush( symbol->brush().color().darker( 180 ) );
 
     QwtPlotDirectPainter directPainter;
     directPainter.drawSeries( d_selectedCurve, d_selectedPoint, d_selectedPoint );

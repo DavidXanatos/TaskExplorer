@@ -3,7 +3,7 @@
  *   base support functions
  *
  * Copyright (C) 2009-2016 wj32
- * Copyright (C) 2019 dmex
+ * Copyright (C) 2019-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -497,6 +497,7 @@ PVOID PhAllocateExSafe(
     _In_ ULONG Flags
     )
 {
+    assert(Size);
     return RtlAllocateHeap(PhHeapHandle, Flags, Size);
 }
 
@@ -530,6 +531,7 @@ PVOID PhReAllocate(
     _In_ SIZE_T Size
     )
 {
+    assert(Size);
     return RtlReAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Memory, Size);
 }
 
@@ -547,6 +549,7 @@ PVOID PhReAllocateSafe(
     _In_ SIZE_T Size
     )
 {
+    assert(Size);
     return RtlReAllocateHeap(PhHeapHandle, 0, Memory, Size);
 }
 
@@ -770,7 +773,7 @@ BOOLEAN PhCopyBytesZ(
 
     // Determine the length of the input string.
     
-    if (InputCount != -1)
+    if (InputCount != SIZE_MAX)
     {
         i = 0;
 
@@ -833,7 +836,7 @@ BOOLEAN PhCopyStringZ(
 
     // Determine the length of the input string.
 
-    if (InputCount != -1)
+    if (InputCount != SIZE_MAX)
     {
         i = 0;
 
@@ -896,7 +899,7 @@ BOOLEAN PhCopyStringZFromBytes(
 
     // Determine the length of the input string.
 
-    if (InputCount != -1)
+    if (InputCount != SIZE_MAX)
     {
         i = 0;
 
@@ -961,7 +964,7 @@ BOOLEAN PhCopyStringZFromMultiByte(
 
     // Determine the length of the input string.
 
-    if (InputCount != -1)
+    if (InputCount != SIZE_MAX)
     {
         i = 0;
 
@@ -984,7 +987,7 @@ BOOLEAN PhCopyStringZFromMultiByte(
     if (!NT_SUCCESS(status))
     {
         if (ReturnCount)
-            *ReturnCount = -1;
+            *ReturnCount = SIZE_MAX;
 
         return FALSE;
     }
@@ -1233,7 +1236,7 @@ LONG PhCompareStringRef(
     s1 = String1->Buffer;
     s2 = String2->Buffer;
 
-    end = (PWCHAR)PTR_ADD_OFFSET(s1, l1 <= l2 ? l1 : l2);
+    end = PTR_ADD_OFFSET(s1, l1 <= l2 ? l1 : l2);
 
     if (!IgnoreCase)
     {
@@ -1509,7 +1512,7 @@ ULONG_PTR PhFindCharInStringRef(
         }
     }
 
-    return -1;
+    return SIZE_MAX;
 }
 
 /**
@@ -1531,7 +1534,7 @@ ULONG_PTR PhFindLastCharInStringRef(
     PWCHAR buffer;
     SIZE_T length;
 
-    buffer = (PWCHAR)PTR_ADD_OFFSET(String->Buffer, String->Length);
+    buffer = PTR_ADD_OFFSET(String->Buffer, String->Length);
     length = String->Length / sizeof(WCHAR);
 
     if (!IgnoreCase)
@@ -1608,7 +1611,7 @@ ULONG_PTR PhFindLastCharInStringRef(
         }
     }
 
-    return -1;
+    return SIZE_MAX;
 }
 
 /**
@@ -1639,7 +1642,7 @@ ULONG_PTR PhFindStringInStringRef(
 
     // Can't be a substring if it's bigger than the first string.
     if (length2 > length1)
-        return -1;
+        return SIZE_MAX;
     // We always get a match if the substring is zero-length.
     if (length2 == 0)
         return 0;
@@ -1674,7 +1677,7 @@ ULONG_PTR PhFindStringInStringRef(
         }
     }
 
-    return -1;
+    return SIZE_MAX;
 FoundUString:
     return (ULONG_PTR)(sr1.Buffer - String->Buffer - 1);
 }
@@ -1706,7 +1709,7 @@ BOOLEAN PhSplitStringRefAtChar(
     input = *Input; // get a copy of the input because FirstPart/SecondPart may alias Input
     index = PhFindCharInStringRef(Input, Separator, FALSE);
 
-    if (index == -1)
+    if (index == SIZE_MAX)
     {
         // The separator was not found.
 
@@ -1720,8 +1723,8 @@ BOOLEAN PhSplitStringRefAtChar(
 
     FirstPart->Buffer = input.Buffer;
     FirstPart->Length = index * sizeof(WCHAR);
-    SecondPart->Buffer = (PWCHAR)PTR_ADD_OFFSET(input.Buffer, index * sizeof(WCHAR) + sizeof(WCHAR));
-    SecondPart->Length = input.Length - index * sizeof(WCHAR) - sizeof(WCHAR);
+    SecondPart->Buffer = PTR_ADD_OFFSET(input.Buffer, index * sizeof(WCHAR) + sizeof(UNICODE_NULL));
+    SecondPart->Length = input.Length - index * sizeof(WCHAR) - sizeof(UNICODE_NULL);
 
     return TRUE;
 }
@@ -1753,7 +1756,7 @@ BOOLEAN PhSplitStringRefAtLastChar(
     input = *Input; // get a copy of the input because FirstPart/SecondPart may alias Input
     index = PhFindLastCharInStringRef(Input, Separator, FALSE);
 
-    if (index == -1)
+    if (index == SIZE_MAX)
     {
         // The separator was not found.
 
@@ -1767,8 +1770,8 @@ BOOLEAN PhSplitStringRefAtLastChar(
 
     FirstPart->Buffer = input.Buffer;
     FirstPart->Length = index * sizeof(WCHAR);
-    SecondPart->Buffer = (PWCHAR)PTR_ADD_OFFSET(input.Buffer, index * sizeof(WCHAR) + sizeof(WCHAR));
-    SecondPart->Length = input.Length - index * sizeof(WCHAR) - sizeof(WCHAR);
+    SecondPart->Buffer = PTR_ADD_OFFSET(input.Buffer, index * sizeof(WCHAR) + sizeof(UNICODE_NULL));
+    SecondPart->Length = input.Length - index * sizeof(WCHAR) - sizeof(UNICODE_NULL);
 
     return TRUE;
 }
@@ -1802,7 +1805,7 @@ BOOLEAN PhSplitStringRefAtString(
     input = *Input; // get a copy of the input because FirstPart/SecondPart may alias Input
     index = PhFindStringInStringRef(Input, Separator, IgnoreCase);
 
-    if (index == -1)
+    if (index == SIZE_MAX)
     {
         // The separator was not found.
 
@@ -1816,7 +1819,7 @@ BOOLEAN PhSplitStringRefAtString(
 
     FirstPart->Buffer = input.Buffer;
     FirstPart->Length = index * sizeof(WCHAR);
-    SecondPart->Buffer = (PWCHAR)PTR_ADD_OFFSET(input.Buffer, index * sizeof(WCHAR) + Separator->Length);
+    SecondPart->Buffer = PTR_ADD_OFFSET(input.Buffer, index * sizeof(WCHAR) + Separator->Length);
     SecondPart->Length = input.Length - index * sizeof(WCHAR) - Separator->Length;
 
     return TRUE;
@@ -1881,7 +1884,7 @@ BOOLEAN PhSplitStringRefEx(
         separatorIndex = (SIZE_T)Separator->Buffer;
         separatorLength = Separator->Length;
 
-        if (separatorIndex == -1)
+        if (separatorIndex == SIZE_MAX)
             goto SeparatorNotFound;
 
         goto SeparatorFound;
@@ -1896,7 +1899,7 @@ BOOLEAN PhSplitStringRefEx(
 
         separatorIndex = PhFindStringInStringRef(Input, Separator, !!(Flags & PH_SPLIT_CASE_INSENSITIVE));
 
-        if (separatorIndex == -1)
+        if (separatorIndex == SIZE_MAX)
             goto SeparatorNotFound;
 
         separatorLength = Separator->Length;
@@ -1911,7 +1914,7 @@ BOOLEAN PhSplitStringRefEx(
         else
             separatorIndex = PhFindLastCharInStringRef(Input, Separator->Buffer[0], !!(Flags & PH_SPLIT_CASE_INSENSITIVE));
 
-        if (separatorIndex == -1)
+        if (separatorIndex == SIZE_MAX)
             goto SeparatorNotFound;
 
         separatorLength = sizeof(WCHAR);
@@ -1953,7 +1956,7 @@ BOOLEAN PhSplitStringRefEx(
     }
     else
     {
-        s = (PWCHAR)PTR_ADD_OFFSET(input.Buffer, input.Length - sizeof(WCHAR));
+        s = PTR_ADD_OFFSET(input.Buffer, input.Length - sizeof(WCHAR));
         direction = -1;
     }
 
@@ -2043,7 +2046,7 @@ CharFound:
 SeparatorFound:
     FirstPart->Buffer = input.Buffer;
     FirstPart->Length = separatorIndex * sizeof(WCHAR);
-    SecondPart->Buffer = (PWCHAR)PTR_ADD_OFFSET(input.Buffer, separatorIndex * sizeof(WCHAR) + separatorLength);
+    SecondPart->Buffer = PTR_ADD_OFFSET(input.Buffer, separatorIndex * sizeof(WCHAR) + separatorLength);
     SecondPart->Length = input.Length - separatorIndex * sizeof(WCHAR) - separatorLength;
 
     if (SeparatorPart)
@@ -2114,7 +2117,7 @@ VOID PhTrimStringRef(
         {
             trimCount = 0;
             count = String->Length / sizeof(WCHAR);
-            s = (PWCHAR)PTR_ADD_OFFSET(String->Buffer, String->Length - sizeof(WCHAR));
+            s = PTR_ADD_OFFSET(String->Buffer, String->Length - sizeof(WCHAR));
 
             while (count-- != 0)
             {
@@ -2183,7 +2186,7 @@ CharFound:
     {
         trimCount = 0;
         count = String->Length / sizeof(WCHAR);
-        s = (PWCHAR)PTR_ADD_OFFSET(String->Buffer, String->Length - sizeof(WCHAR));
+        s = PTR_ADD_OFFSET(String->Buffer, String->Length - sizeof(WCHAR));
 
         while (count-- != 0)
         {
@@ -3221,7 +3224,7 @@ BOOLEAN PhConvertUtf8ToUtf16Size(
     _In_ SIZE_T BytesInUtf8String
     )
 {
-#if (PHNT_VERSION >= PHNT_WIN7)
+#if (NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf16String = 0;
 
     if (NT_SUCCESS(RtlUTF8ToUnicodeN(
@@ -3283,7 +3286,7 @@ BOOLEAN PhConvertUtf8ToUtf16Buffer(
     _In_ SIZE_T BytesInUtf8String
     )
 {
-#if (PHNT_VERSION >= PHNT_WIN7)
+#if (NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf16String = 0;
 
     if (NT_SUCCESS(RtlUTF8ToUnicodeN(
@@ -3411,7 +3414,7 @@ BOOLEAN PhConvertUtf16ToUtf8Size(
     _In_ SIZE_T BytesInUtf16String
     )
 {
-#if (PHNT_VERSION >= PHNT_WIN7)
+#if (NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf8String = 0;
 
     if (NT_SUCCESS(RtlUnicodeToUTF8N(
@@ -3473,7 +3476,7 @@ BOOLEAN PhConvertUtf16ToUtf8Buffer(
     _In_ SIZE_T BytesInUtf16String
     )
 {
-#if (PHNT_VERSION >= PHNT_WIN7)
+#if (NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf8String = 0;
 
     if (NT_SUCCESS(RtlUnicodeToUTF8N(
@@ -4595,7 +4598,7 @@ PPH_POINTER_LIST PhCreatePointerList(
 
     pointerList->Count = 0;
     pointerList->AllocatedCount = InitialCapacity;
-    pointerList->FreeEntry = -1;
+    pointerList->FreeEntry = ULONG_MAX;
     pointerList->NextEntry = 0;
     pointerList->Items = PhAllocate(pointerList->AllocatedCount * sizeof(PVOID));
 
@@ -4667,7 +4670,7 @@ HANDLE PhAddItemPointerList(
     assert(PH_IS_LIST_POINTER_VALID(Pointer));
 
     // Use a free entry if possible.
-    if (PointerList->FreeEntry != -1)
+    if (PointerList->FreeEntry != ULONG_MAX)
     {
         PVOID oldPointer;
 
@@ -4781,7 +4784,7 @@ FORCEINLINE ULONG PhpValidateHash(
 {
     // No point in using a full hash when we're going to AND with size minus one anyway.
 #if defined(PH_HASHTABLE_FULL_HASH) && !defined(PH_HASHTABLE_POWER_OF_TWO_SIZE)
-    if (Hash != -1)
+    if (Hash != ULONG_MAX)
         return Hash;
     else
         return 0;

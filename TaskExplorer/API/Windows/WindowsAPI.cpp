@@ -207,7 +207,7 @@ bool CWindowsAPI::Init()
 	m_ReservedMemory = m_InstalledMemory - UInt32x32To64(PhSystemBasicInformation.NumberOfPhysicalPages, PAGE_SIZE);
 
 	m->PowerInformation =  new PROCESSOR_POWER_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
-	if (!NT_SUCCESS(NtPowerInformation(ProcessorInformation, NULL, 0, m->PowerInformation, sizeof(PROCESSOR_POWER_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors)))
+	if (!NT_SUCCESS(NtPowerInformation((POWER_INFORMATION_LEVEL)ProcessorInformation, NULL, 0, m->PowerInformation, sizeof(PROCESSOR_POWER_INFORMATION) * PhSystemBasicInformation.NumberOfProcessors)))
 		memset(m->PowerInformation, 0, sizeof(PROCESSOR_POWER_INFORMATION)*PhSystemBasicInformation.NumberOfProcessors);
 
 	m->InterruptInformation = new SYSTEM_INTERRUPT_INFORMATION[PhSystemBasicInformation.NumberOfProcessors];
@@ -366,8 +366,11 @@ void CWindowsAPI::MonitorETW(bool bEnable)
 
 	if (bEnable)
 	{
-		//m_pEventMonitor = new CEventMonitor();
+#ifdef USE_KRABS
 		m_pEventMonitor = new CEtwEventMonitor();
+#else
+		m_pEventMonitor = new CEventMonitor();
+#endif
 
 		connect(m_pEventMonitor, SIGNAL(NetworkEvent(int, quint64, quint64, quint32, quint32, const QHostAddress&, quint16, const QHostAddress&, quint16)), this, SLOT(OnNetworkEvent(int, quint64, quint64, quint32, quint32, QHostAddress, quint16, QHostAddress, quint16)));
 		connect(m_pEventMonitor, SIGNAL(DnsResEvent(quint64, quint64, const QString&, const QStringList&)), this, SLOT(OnDnsResEvent(quint64, quint64, const QString&, const QStringList&)));
@@ -420,7 +423,16 @@ STATUS CWindowsAPI::MonitorDbg(CWinDbgMonitor::EModes Mode)
 			connect(m_pDebugMonitor, SIGNAL(DebugMessage(quint64, const QString&, const QDateTime&)), this, SLOT(OnDebugMessage(quint64, const QString&, const QDateTime&)));
 		}
 
-		return m_pDebugMonitor->SetMonitor(Mode);
+		STATUS status = m_pDebugMonitor->SetMonitor(Mode);
+
+		foreach(const CProcessPtr& pProcess, m_ProcessList)
+		{
+			bool bSystem = (pProcess->GetProcessId() == (quint64)SYSTEM_PROCESS_ID);
+			if((bSystem ? (Mode & CWinDbgMonitor::eKernel) : (Mode & CWinDbgMonitor::eUser)) == 0)
+				pProcess->ClearDebugMessages();
+		}
+
+		return status;
 	}
 	
 	delete m_pDebugMonitor;
@@ -1421,7 +1433,7 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	// Since Windows 8, we no longer get the correct process/thread IDs in the
 	// event headers for file events. 
 
-	/*
+#ifdef USE_ETW_FILE_IO
 	QWriteLocker Locker(&m_FileNameMutex);
 
 	switch (Type)
@@ -1435,17 +1447,28 @@ void CWindowsAPI::OnFileEvent(int Type, quint64 FileId, quint64 ProcessId, quint
     case EtwFileDeleteType: // FileDelete
 		m_FileNames.remove(FileId);
         break;
-    }*/
+    }
+#endif
 }
 
-/*QString CWindowsAPI::GetFileNameByID(quint64 FileId) const
+#ifdef USE_ETW_FILE_IO
+QString CWindowsAPI::GetFileNameByID(quint64 FileId) const
 {
 	QReadLocker Locker(&m_FileNameMutex);
 	return m_FileNames.value(FileId, tr("Unknown file name"));;
-}*/
+}
+#endif
 
 void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint64 ThreadId, quint32 IrpFlags, quint32 TransferSize, quint64 HighResResponseTime)
 {
+	// todo: FileName ist often unknown and FileId doesn't seam to have relations to open handled
+	//			we want to be able to show for eadch open file the i/o that must be doable somehow...
+
+#ifdef USE_ETW_FILE_IO
+	QString FileName = GetFileNameByID(FileId);
+	qDebug() << "FileName:" << FileName;
+#endif
+
 	//if (m_UseDiskCounters == eUseForSystem)
 	if (m_UseDiskCounters)
 		return;
@@ -1464,10 +1487,6 @@ void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	if (!pProcess.isNull())
 		pProcess->AddDiskIO(Type, TransferSize);
 
-	// todo: FileName ist often unknown and FileId doesn't seam to have relations to open handled
-	//			we want to be able to show for eadch open file the i/o that must be doable somehow...
-
-	//QString FileName = GetFileNameByID(FileId);
 	//pHandle->AddDiskIO(Type, TransferSize);
 
 }

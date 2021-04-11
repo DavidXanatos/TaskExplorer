@@ -3,7 +3,7 @@
  *   KProcessHacker dynamic data definitions
  *
  * Copyright (C) 2011-2016 wj32
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -34,9 +34,7 @@ ULONG KphpGetKernelRevisionNumber(
 
     if (kernelFileName = PhGetKernelFileName())
     {
-        PhMoveReference(&kernelFileName, PhGetFileName(kernelFileName));
-
-        if (versionInfo = PhGetFileVersionInfo(kernelFileName->Buffer))
+        if (versionInfo = PhGetFileVersionInfoEx(kernelFileName))
         {
             VS_FIXEDFILEINFO* rootBlock;
 
@@ -191,7 +189,11 @@ NTSTATUS KphInitializeDynamicPackage(
         else
             Package->StructData.EgeGuid = 0x18;
 
-        Package->StructData.EpObjectTable = 0x418;
+        if (buildNumber >= 19042)
+            Package->StructData.EpObjectTable = 0x570;
+        else
+            Package->StructData.EpObjectTable = 0x418;
+
         Package->StructData.EreGuidEntry = 0x20;
         Package->StructData.HtHandleContentionEvent = 0x30;
         Package->StructData.OtName = 0x10;
@@ -353,7 +355,13 @@ NTSTATUS KphInitializeDynamicPackage(
         else
             Package->StructData.EgeGuid = 0xC;
 
-        Package->StructData.EpObjectTable = 0x154;
+        if (buildNumber >= 19041)
+            Package->StructData.EpObjectTable = 0x18c;
+        else if (buildNumber >= 15063)
+            Package->StructData.EpObjectTable = 0x15c;
+        else
+            Package->StructData.EpObjectTable = 0x154;
+
         Package->StructData.EreGuidEntry = 0x10;
         Package->StructData.OtName = 0x8;
         Package->StructData.OtIndex = 0x14;

@@ -23,7 +23,7 @@
 
 #include "stdafx.h"
 #include "FirewallMonitor.h"
-#include "../../../Common/Common.h"
+#include "../../../../MiscHelpers/Common/Common.h"
 #include "../ProcessHacker.h"
 #include <fwpmu.h>
 #include <fwpsu.h>

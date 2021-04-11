@@ -36,10 +36,10 @@ Global
 		{B12702AD-ABFB-343A-A199-8E24837244A3}.Template|x64.Build.0 = Debug|x64
 		{B12702AD-ABFB-343A-A199-8E24837244A3}.Template|x86.ActiveCfg = Release|Win32
 		{B12702AD-ABFB-343A-A199-8E24837244A3}.Template|x86.Build.0 = Release|Win32
-		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x64.ActiveCfg = Test|x64
-		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x64.Build.0 = Test|x64
-		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x86.ActiveCfg = Test|Win32
-		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x86.Build.0 = Test|Win32
+		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x64.ActiveCfg = Release|x64
+		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x64.Build.0 = Release|x64
+		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x86.ActiveCfg = Release|Win32
+		{B12702AD-ABFB-343A-A199-8E24837244A3}.Test|x86.Build.0 = Release|Win32
 		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x64.ActiveCfg = Debug|x64
 		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x64.Build.0 = Debug|x64
 		{7AB8215A-59A4-4B8B-8090-16C87A860429}.Debug|x86.ActiveCfg = Debug|Win32
@@ -62,5 +62,8 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {86D52BD5-2C96-42CC-8A92-362C17ADA44D}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal

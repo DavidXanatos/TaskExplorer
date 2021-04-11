@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2019 dmex
+ * Copyright (C) 2017-2020 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -44,8 +44,8 @@ typedef struct _STORAGESIGNATURE
 
 typedef struct _STORAGEHEADER
 {
-    BYTE Flags;     // STGHDR_xxx flags.
-    BYTE Reserved;
+    UCHAR Flags;     // STGHDR_xxx flags.
+    UCHAR Reserved;
     USHORT Streams; // How many streams are there.
 } STORAGEHEADER, *PSTORAGEHEADER;
 
@@ -55,6 +55,17 @@ typedef struct _STORAGESTREAM
     ULONG Size;    // Size of the file.
     CHAR Name[32]; // Start of name, null terminated.
 } STORAGESTREAM, *PSTORAGESTREAM;
+
+typedef struct _MDSTREAMHEADER
+{
+    ULONG Reserved;
+    UCHAR Major;
+    UCHAR Minor;
+    UCHAR Heaps;
+    UCHAR Rid;
+    ULONGLONG MaskValid;
+    ULONGLONG Sorted;
+} MDSTREAMHEADER, *PMDSTREAMHEADER;
 #include <poppack.h>
 
 PSTORAGESIGNATURE PvpPeGetClrMetaDataHeader(
@@ -175,6 +186,7 @@ VOID PvpPeClrEnumSections(
 {
     PSTORAGEHEADER storageHeader;
     PSTORAGESTREAM streamHeader;
+    ULONG count = 0;
     USHORT i;
 
     storageHeader = PTR_ADD_OFFSET(ClrMetaData, sizeof(STORAGESIGNATURE) + ClrMetaData->VersionLength);
@@ -184,7 +196,10 @@ VOID PvpPeClrEnumSections(
     {
         INT lvItemIndex;
         WCHAR sectionName[65];
-        WCHAR pointer[PH_PTR_STR_LEN_1];
+        WCHAR value[PH_INT64_STR_LEN_1];
+
+        PhPrintUInt32(value, ++count);
+        lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, value, NULL);
 
         if (PhCopyStringZFromBytes(
             streamHeader->Name,
@@ -194,14 +209,46 @@ VOID PvpPeClrEnumSections(
             NULL
             ))
         {
-            lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, sectionName, NULL);
-            PhPrintPointer(pointer, UlongToPtr(streamHeader->Offset));
-            PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, pointer);
-            PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, PhaFormatSize(streamHeader->Size, ULONG_MAX)->Buffer);
+            PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, sectionName);
         }
 
-        // Stream headers don't have fixed sizes...
-        // The size is aligned up based on a variable length string at the end.
+        PhPrintPointer(value, UlongToPtr(streamHeader->Offset));
+        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, value);
+        PhPrintPointer(value, PTR_ADD_OFFSET(streamHeader->Offset, streamHeader->Size));
+        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3, value);
+        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 4, PhaFormatSize(streamHeader->Size, ULONG_MAX)->Buffer);
+
+        if (streamHeader->Offset && streamHeader->Size)
+        {
+            __try
+            {
+                PH_HASH_CONTEXT hashContext;
+                PPH_STRING hashString;
+                UCHAR hash[32];
+
+                PhInitializeHash(&hashContext, Md5HashAlgorithm); // PhGetIntegerSetting(L"HashAlgorithm")
+                PhUpdateHash(&hashContext, PTR_ADD_OFFSET(ClrMetaData, streamHeader->Offset), streamHeader->Size);
+
+                if (PhFinalHash(&hashContext, hash, 16, NULL))
+                {
+                    hashString = PhBufferToHexString(hash, 16);
+                    PhSetListViewSubItem(ListViewHandle, lvItemIndex, 5, hashString->Buffer);
+                    PhDereferenceObject(hashString);
+                }
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                PPH_STRING message;
+
+                //message = PH_AUTO(PhGetNtMessage(GetExceptionCode()));
+                message = PH_AUTO(PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode()))); // WIN32_FROM_NTSTATUS
+
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 5, PhGetStringOrEmpty(message));
+            }
+        }
+
+        // CLR stream headers don't have fixed sizes.
+        // The size is aligned up based on a variable length string at the end. (dmex)
         streamHeader = PTR_ADD_OFFSET(streamHeader, ALIGN_UP(UFIELD_OFFSET(STORAGESTREAM, Name) + strlen(streamHeader->Name) + 1, ULONG));
     }
 }
@@ -223,7 +270,7 @@ VOID PvpGetClrStrongNameToken(
     ULONG size = MAX_PATH;
     WCHAR version[MAX_PATH] = L"";
 
-    if (mscoreeHandle = LoadLibrary(L"mscoree.dll"))
+    if (mscoreeHandle = PhLoadLibrarySafe(L"mscoree.dll"))
     {
         if (CLRCreateInstance_I = PhGetDllBaseProcedureAddress(mscoreeHandle, "CLRCreateInstance", 0))
         {
@@ -321,7 +368,16 @@ CleanupExit:
         ICLRRuntimeInfo_Release(clrRuntimInfo);
     if (clrMetaHost)
         ICLRMetaHost_Release(clrMetaHost);
+    if (mscoreeHandle)
+        FreeLibrary(mscoreeHandle);
 }
+
+typedef struct _PVP_PE_CLR_CONTEXT
+{
+    HWND WindowHandle;
+    HWND ListViewHandle;
+    HIMAGELIST ListViewImageList;
+} PVP_PE_CLR_CONTEXT, *PPVP_PE_CLR_CONTEXT;
 
 INT_PTR CALLBACK PvpPeClrDlgProc(
     _In_ HWND hwndDlg,
@@ -332,23 +388,43 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
 {
     LPPROPSHEETPAGE propSheetPage;
     PPV_PROPPAGECONTEXT propPageContext;
+    PPVP_PE_CLR_CONTEXT context;
 
     if (!PvPropPageDlgProcHeader(hwndDlg, uMsg, lParam, &propSheetPage, &propPageContext))
         return FALSE;
+
+    if (uMsg == WM_INITDIALOG)
+    {
+        context = propPageContext->Context = PhAllocate(sizeof(PVP_PE_CLR_CONTEXT));
+        memset(context, 0, sizeof(PVP_PE_CLR_CONTEXT));
+    }
+    else
+    {
+        context = propPageContext->Context;
+    }
 
     switch (uMsg)
     {
     case WM_INITDIALOG:
         {
-            HWND lvHandle;
             PSTORAGESIGNATURE clrMetaData;
 
-            lvHandle = GetDlgItem(hwndDlg, IDC_LIST);
-            PhSetListViewStyle(lvHandle, TRUE, TRUE);
-            PhSetControlTheme(lvHandle, L"explorer");
-            PhAddListViewColumn(lvHandle, 0, 0, 0, LVCFMT_LEFT, 80, L"Name");
-            PhAddListViewColumn(lvHandle, 1, 1, 1, LVCFMT_LEFT, 80, L"VA");
-            PhAddListViewColumn(lvHandle, 2, 2, 2, LVCFMT_LEFT, 80, L"Size");
+            context->WindowHandle = hwndDlg;
+            context->ListViewHandle = GetDlgItem(hwndDlg, IDC_LIST);
+
+            PhSetListViewStyle(context->ListViewHandle, TRUE, TRUE);
+            PhSetControlTheme(context->ListViewHandle, L"explorer");
+            PhAddListViewColumn(context->ListViewHandle, 0, 0, 0, LVCFMT_LEFT, 40, L"#");
+            PhAddListViewColumn(context->ListViewHandle, 1, 1, 1, LVCFMT_LEFT, 80, L"Name");
+            PhAddListViewColumn(context->ListViewHandle, 2, 2, 2, LVCFMT_LEFT, 100, L"RVA (start)");
+            PhAddListViewColumn(context->ListViewHandle, 3, 3, 3, LVCFMT_LEFT, 100, L"RVA (end)");
+            PhAddListViewColumn(context->ListViewHandle, 4, 4, 4, LVCFMT_LEFT, 100, L"Size");
+            PhAddListViewColumn(context->ListViewHandle, 5, 5, 5, LVCFMT_LEFT, 80, L"Hash");
+            PhSetExtendedListView(context->ListViewHandle);
+            PhLoadListViewColumnsFromSetting(L"ImageClrListViewColumns", context->ListViewHandle);
+
+            if (context->ListViewImageList = ImageList_Create(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
+                ListView_SetImageList(context->ListViewHandle, context->ListViewImageList, LVSIL_SMALL);
 
             PhSetDialogItemText(hwndDlg, IDC_RUNTIMEVERSION, PH_AUTO_T(PH_STRING, PvpPeGetClrVersionText())->Buffer);
             PhSetDialogItemText(hwndDlg, IDC_FLAGS, PH_AUTO_T(PH_STRING, PvpPeGetClrFlagsText())->Buffer);
@@ -360,10 +436,20 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
 
                 PvpGetClrStrongNameToken(hwndDlg);
 
-                PvpPeClrEnumSections(clrMetaData, lvHandle);
+                PvpPeClrEnumSections(clrMetaData, context->ListViewHandle);
             }
 
             PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+        }
+        break;
+    case WM_DESTROY:
+        {
+            PhSaveListViewColumnsToSetting(L"ImageClrListViewColumns", context->ListViewHandle);
+
+            if (context->ListViewImageList)
+                ImageList_Destroy(context->ListViewImageList);
+
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
@@ -373,7 +459,7 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
                 PPH_LAYOUT_ITEM dialogItem;
 
                 dialogItem = PvAddPropPageLayoutItem(hwndDlg, hwndDlg, PH_PROP_PAGE_TAB_CONTROL_PARENT, PH_ANCHOR_ALL);
-                PvAddPropPageLayoutItem(hwndDlg, GetDlgItem(hwndDlg, IDC_LIST), dialogItem, PH_ANCHOR_ALL);
+                PvAddPropPageLayoutItem(hwndDlg, context->ListViewHandle, dialogItem, PH_ANCHOR_ALL);
                 PvDoPropPageLayout(hwndDlg);
 
                 propPageContext->LayoutInitialized = TRUE;
@@ -393,12 +479,12 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
                 return TRUE;
             }
 
-            PvHandleListViewNotifyForCopy(lParam, GetDlgItem(hwndDlg, IDC_LIST));
+            PvHandleListViewNotifyForCopy(lParam, context->ListViewHandle);
         }
         break;
     case WM_CONTEXTMENU:
         {
-            PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, GetDlgItem(hwndDlg, IDC_LIST));
+            PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, context->ListViewHandle);
         }
         break;
     }

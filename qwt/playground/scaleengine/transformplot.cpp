@@ -60,7 +60,7 @@ TransformPlot::TransformPlot( QWidget *parent ):
         this, SLOT( legendChecked( const QVariant &, bool ) ) );
 }
 
-void TransformPlot::insertTransformation( 
+void TransformPlot::insertTransformation(
     const QString &title, const QColor &color, QwtTransform *transform )
 {
     QwtPlotCurve *curve = new QwtPlotCurve( title );
@@ -79,9 +79,9 @@ void TransformPlot::legendChecked( const QVariant &itemInfo, bool on )
     if ( on && plotItem->rtti() == QwtPlotItem::Rtti_PlotCurve )
     {
         QwtPlotCurve *curve = static_cast<QwtPlotCurve *>( plotItem );
-        TransformData *data = static_cast<TransformData *>( curve->data() );
+        TransformData *curveData = static_cast<TransformData *>( curve->data() );
 
-        Q_EMIT selected( data->transform()->copy() );
+        Q_EMIT selected( curveData->transform()->copy() );
     }
 }
 
@@ -95,7 +95,7 @@ void TransformPlot::setLegendChecked( QwtPlotItem *plotItem )
         {
             QwtLegend *lgd = qobject_cast<QwtLegend *>( legend() );
 
-            QwtLegendLabel *label = qobject_cast< QwtLegendLabel *>( 
+            QwtLegendLabel *label = qobject_cast< QwtLegendLabel *>(
                 lgd->legendWidget( itemToInfo( item ) ) );
             if ( label )
             {

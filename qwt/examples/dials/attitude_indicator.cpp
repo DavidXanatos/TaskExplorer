@@ -4,6 +4,7 @@
 #include <qevent.h>
 #include <qpainter.h>
 #include <qpolygon.h>
+#include <qpainterpath.h>
 
 AttitudeIndicatorNeedle::AttitudeIndicatorNeedle( const QColor &color )
 {
@@ -69,7 +70,7 @@ void AttitudeIndicator::setGradient( double gradient )
     }
 }
 
-void AttitudeIndicator::drawScale( QPainter *painter, 
+void AttitudeIndicator::drawScale( QPainter *painter,
     const QPointF &center, double radius ) const
 {
     const double offset = 4.0;

@@ -1,3 +1,6 @@
+#ifndef CANVAS_H
+#define CANVAS_H
+
 #include <qwidget.h>
 
 class QByteArray;
@@ -31,3 +34,5 @@ private:
         QwtGraphic *d_graphic;
     };
 };
+
+#endif

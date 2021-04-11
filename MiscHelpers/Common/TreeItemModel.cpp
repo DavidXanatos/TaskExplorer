@@ -95,7 +95,7 @@ void CSimpleTreeModel::Sync(const QMap<QVariant, QVariantMap>& List)
 			if (!m_Columns.contains(section))
 				continue; // ignore columns which are hidden
 
-			QVariant Value = Values[QString::number(section)];
+			QVariant Value = Cur[m_ColumnKeys.at(section).second];
 
 			STreeNode::SValue& ColValue = pNode->Values[section];
 
@@ -486,17 +486,27 @@ int CTreeItemModel::rowCount(const QModelIndex &parent) const
 	return pNode->Children.count();
 }
 
+QVariant CSimpleTreeModel::GetItemID(const QModelIndex &index) const
+{
+	if (!index.isValid())
+		return QVariant();
+
+	STreeNode* pNode = static_cast<STreeNode*>(index.internalPointer());
+
+	return pNode->ID;
+}
+
 int CSimpleTreeModel::columnCount(const QModelIndex &parent) const
 {
-	return m_Headers.count();
+	return m_ColumnKeys.count();
 }
 
 QVariant CSimpleTreeModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
 	{
-		if (section < m_Headers.size())
-			return m_Headers.at(section);
+		if (section < m_ColumnKeys.size())
+			return m_ColumnKeys.at(section).first;
 	}
     return QVariant();
 }

@@ -23,7 +23,7 @@ SpeedoMeter::SpeedoMeter( QWidget *parent ):
 
     QwtDialSimpleNeedle *needle = new QwtDialSimpleNeedle(
         QwtDialSimpleNeedle::Arrow, true, Qt::red,
-        QColor( Qt::gray ).light( 130 ) );
+        QColor( Qt::gray ).lighter( 130 ) );
     setNeedle( needle );
 }
 

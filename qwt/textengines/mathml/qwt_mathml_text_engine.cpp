@@ -7,8 +7,6 @@
  * modify it under the terms of the Qwt License, Version 1.0
  *****************************************************************************/
 
-// vim: expandtab
-
 #include <qstring.h>
 #include <qpainter.h>
 #include "qwt_mathml_text_engine.h"
@@ -35,8 +33,9 @@ QwtMathMLTextEngine::~QwtMathMLTextEngine()
    \return Calculated height
 */
 double QwtMathMLTextEngine::heightForWidth( const QFont& font, int flags,
-        const QString& text, double ) const
+        const QString& text, double width ) const
 {
+    Q_UNUSED( width )
     return textSize( font, flags, text ).height();
 }
 

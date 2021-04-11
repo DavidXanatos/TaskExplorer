@@ -267,21 +267,16 @@ bool NotifyCert()
 		"<h3>Important Notie</h3>"
 	);
 	QString Text = QObject::tr(
-		"<p>TaskExplorer requires a driver to operate (xprocesshacker.sys), Windows however denies loading a driver file that has not been digitally signed using an expensive <b>EV-Code Signing Certificate</b>. "
-		"Such certificates cost upwards of 1000$ per year!</p>"
+		"<p>TaskExplorer requires a driver to operate (xprocesshacker.sys), Windows however denies loading a driver file that has not been digitally signed.</p>"
 		"<p>Luckily brave hackers have Leaked a few of these Certificates over the years, one of them was found by the author of this software and put to good use.</p>"
 		"<p>Unfortunately, such certificates have been abused by malware authors resulting in many Anti Malware Fools being Lazy and flagging Everything signed with them Wrongfully as Malware. "
-		"This Prejudice is Damaging the Open Source Ecosystem as most nonprofit developers can't afford to waste this kind of money every year only to pay that <u>Windows Kernel \"Tax\"</u>.</p>"
+		"This Prejudice is Damaging the Open Source Ecosystem.</p>"
 		"<p>Therefore, the required driver is provided in an obfuscated form and before use must be unpacked. "
-		"<font color='red'>When doing so said said Anti Viruses will complain and attempt to destroy the freshly created file.</font> "
-		"Please be aware that this is a <u>false positive</u> caused by the necessary use of a compromitted certificate. "
-		"If this happens you will be notified and offered the option to repeat the unpacking operation, for the operation to succeed you will need to <u>configure an aproproate exemption</u>.</p>"
+		"<font color='red'>When doing so said Anti Viruses will complain and attempt to destroy the freshly created file.</font> "
+		"Please be aware that this is a <u>false positive</u> caused by the necessary use of a compromised certificate. "
+		"If this happens you will be notified and offered the option to repeat the unpacking operation, for the operation to succeed you will need to <u>configure an appropriate exemption</u>.</p>"
 
-		"<p></p>"
-		"<p><b>If you want the project to obtain a genuine EV-Code Signing Certificate please visit the <a href=\"https://xanasoft.com/\">Homepage</a> <font color='red'>and please donate</font></b>.</p>"
-		"<p></p>"
-
-		"<p>If you want to proceed with the unpacking of the driver pres YES.</p>"
+		"<p>If you want to proceed with the unpacking of the driver press YES.</p>"
 	);
 	QMessageBox *msgBox = new QMessageBox(NULL);
 	msgBox->setAttribute(Qt::WA_DeleteOnClose);

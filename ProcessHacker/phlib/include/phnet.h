@@ -109,16 +109,18 @@ FORCEINLINE BOOLEAN PhIsNullIpAddress(
     }
     else if (Address->Type == PH_IPV4_NETWORK_TYPE)
     {
-        return Address->Ipv4 == 0;
+        return IN4_IS_ADDR_UNSPECIFIED(&Address->InAddr);
+        //return Address->Ipv4 == 0;
     }
     else if (Address->Type == PH_IPV6_NETWORK_TYPE)
     {
-#ifdef _WIN64
-        return (*(PULONG64)(Address->Ipv6) | *(PULONG64)(Address->Ipv6 + 8)) == 0;
-#else
-        return (*(PULONG)(Address->Ipv6) | *(PULONG)(Address->Ipv6 + 4) |
-            *(PULONG)(Address->Ipv6 + 8) | *(PULONG)(Address->Ipv6 + 12)) == 0;
-#endif
+        return IN6_IS_ADDR_UNSPECIFIED(&Address->In6Addr);
+//#ifdef _WIN64
+//        return (*(PULONG64)(Address->Ipv6) | *(PULONG64)(Address->Ipv6 + 8)) == 0;
+//#else
+//        return (*(PULONG)(Address->Ipv6) | *(PULONG)(Address->Ipv6 + 4) |
+//            *(PULONG)(Address->Ipv6 + 8) | *(PULONG)(Address->Ipv6 + 12)) == 0;
+//#endif
     }
     else
     {
@@ -308,6 +310,29 @@ PhHttpSocketDownloadString(
     _In_ BOOLEAN Unicode
     );
 
+typedef struct _PH_HTTPDOWNLOAD_CONTEXT
+{
+    ULONG64 ReadLength;
+    ULONG64 TotalLength;
+    ULONG64 BitsPerSecond;
+    DOUBLE Percent;
+} PH_HTTPDOWNLOAD_CONTEXT, *PPH_HTTPDOWNLOAD_CONTEXT;
+
+typedef BOOLEAN (NTAPI *PPH_HTTPDOWNLOAD_CALLBACK)(
+    _In_opt_ PPH_HTTPDOWNLOAD_CONTEXT Parameter,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhHttpSocketDownloadToFile(
+    _In_ PPH_HTTP_CONTEXT HttpContext,
+    _In_ PWSTR FileName,
+    _In_ PPH_HTTPDOWNLOAD_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
 #define PH_HTTP_FEATURE_REDIRECTS 0x1
 #define PH_HTTP_FEATURE_KEEP_ALIVE 0x2
 
@@ -376,6 +401,16 @@ PhDnsQuery(
     _In_opt_ PWSTR DnsServerAddress,
     _In_ PWSTR DnsQueryMessage,
     _In_ USHORT DnsQueryMessageType
+    );
+
+PHLIBAPI
+PDNS_RECORD
+NTAPI
+PhDnsQuery2(
+    _In_opt_ PWSTR DnsServerAddress,
+    _In_ PWSTR DnsQueryMessage,
+    _In_ USHORT DnsQueryMessageType,
+    _In_ USHORT DnsQueryMessageOptions
     );
 
 PHLIBAPI
