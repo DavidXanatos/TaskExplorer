@@ -863,7 +863,7 @@ void CAssemblyEnum::run()
 			}
 		}
 
-		if ((context->ClrVersions & PH_CLR_VERSION_4_ABOVE) || (context->ClrVersions & PH_CLR_JIT_PRESENT)) // PH_CLR_JIT_PRESENT CoreCLR support. (dmex)
+		if ((context->ClrVersions & PH_CLR_VERSION_4_ABOVE) || (context->ClrVersions & PH_CLR_CORELIB_PRESENT)) // PH_CLR_JIT_PRESENT CoreCLR support. (dmex)
 		{
 			result = UpdateDotNetTraceInfoWithTimeout(context, FALSE, &timeout);
 

@@ -62,6 +62,8 @@ CWinThread::CWinThread(QObject *parent)
 	m_IsGuiThread = false;
 	m_IsCritical = false;
 	m_HasToken = false;
+	m_HasToken2 = false;
+	m_IsSandboxed = false;
 
 
 	m = new SWinThread();
@@ -294,6 +296,19 @@ bool CWinThread::UpdateDynamicData(struct _SYSTEM_THREAD_INFORMATION* thread, qu
 		if ((bool)HasToken != m_HasToken)
 		{
 			m_HasToken = HasToken;
+			modified = TRUE;
+		}
+	}
+
+
+	if(m_IsSandboxed){
+		BOOLEAN HasToken2 = FALSE;
+
+		CSandboxieAPI* pSandboxieAPI = ((CWindowsAPI*)theAPI)->GetSandboxieAPI();
+		HasToken2 = pSandboxieAPI && pSandboxieAPI->TestOriginalToken(m_ProcessId, m_ThreadId);
+		if ((bool)HasToken2 != m_HasToken2)
+		{
+			m_HasToken2 = HasToken2;
 			modified = TRUE;
 		}
 	}

@@ -31,6 +31,8 @@ private slots:
 
 	void					OnPermissions();
 	void					OnTerminate();
+	void					OnFreeze();
+	void					OnUnFreeze();
 	void					OnAddProcess();
 
 protected:
@@ -57,7 +59,8 @@ private:
 	//QLabel*					m_pJobNameLabel;
 	QLineEdit*				m_pJobName;
 	QLabel*					m_pJobId;
-	QPushButton*			m_pTerminate;
+	//QPushButton*			m_pTerminate;
+	QToolButton*			m_pTerminate;
 
 	QSplitter*				m_pSplitter;
 
@@ -70,7 +73,8 @@ private:
 	QWidget*				m_pSubWidget;
 	QGridLayout*			m_pSubLayout;
 
-	QPushButton*			m_pAddProcess;
+	//QPushButton*			m_pAddProcess;
+	QToolButton*			m_pAddProcess;
 
 	QTabWidget*				m_pAdvancedTabs;
 

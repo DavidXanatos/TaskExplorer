@@ -124,7 +124,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 
             ULONG debugEntryLength;
             PVOID debugEntry;
-            if (/*->CetEnabled &&*/ PhGetRemoteMappedImageDebugEntryByTypeEx(
+            /*if (/->CetEnabled &&/ PhGetRemoteMappedImageDebugEntryByTypeEx(
                 (HANDLE)ProcessHandle,
                 &remoteMappedImage,
                 IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS,
@@ -143,6 +143,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 
                 PhFree(debugEntry);
             }
+			*/
 
             PhUnloadRemoteMappedImage(&remoteMappedImage);
         }
@@ -302,6 +303,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	QVariantMap Result;
 
 	PPH_STRING FileName = CastQString(Params["FileName"].toString());
+	PPH_STRING FileNameWin32 = CastQString("\\??\\" + Params["FileName"].toString());
 	PPH_STRING PackageFullName = CastQString(Params["PackageFullName"].toString());
 	BOOLEAN IsSubsystemProcess = Params["IsSubsystemProcess"].toBool();
 
@@ -310,7 +312,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	// PhpProcessQueryStage1 Begin
 	NTSTATUS status;
 
-	if (FileName && !IsSubsystemProcess)
+	if (!IsSubsystemProcess)
 	{
 		HICON SmallIcon;
 		HICON LargeIcon;
@@ -334,12 +336,12 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 
 		// Version info.
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
-		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, FALSE, theConf->GetBool("Options/EnableVersionSupport", true));
+		PhInitializeImageVersionInfoCached(&VersionInfo, FileNameWin32, FALSE, theConf->GetBool("Options/EnableVersionSupport", true));
 	}
 	// PhpProcessQueryStage1 End
 
 	// PhpProcessQueryStage2 Begin
-	if (FileName && !IsSubsystemProcess)
+	if (!IsSubsystemProcess)
 	{
 		NTSTATUS status;
 
@@ -368,10 +370,10 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 		Result["ImportModules"] = (quint32)ImportModules;
 	}
 
-	if (/*PhEnableLinuxSubsystemSupport &&*/ FileName && IsSubsystemProcess)
+	if (/*PhEnableLinuxSubsystemSupport &&*/ IsSubsystemProcess)
 	{
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
-		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, TRUE, theConf->GetBool("Options/EnableVersionSupport", true));
+		PhInitializeImageVersionInfoCached(&VersionInfo, FileNameWin32, TRUE, theConf->GetBool("Options/EnableVersionSupport", true));
 	}
 	// PhpProcessQueryStage2 End
 
@@ -384,6 +386,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	Result["Infos"] = Infos;
 
 	PhDereferenceObject(FileName);
+	PhDereferenceObject(FileNameWin32);
 	PhDereferenceObject(PackageFullName);
 
 	return Result;

@@ -835,6 +835,26 @@ BOOLEAN PhFindStringSiKeyValuePairs(
     return FALSE;
 }
 
+_Success_(return)
+BOOLEAN PhFindIntegerSiKeyValuePairsStringRef(
+    _In_ PPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ ULONG SizeOfKeyValuePairs,
+    _In_ PPH_STRINGREF String,
+    _Out_ PULONG Integer
+    )
+{
+    for (ULONG i = 0; i < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR); i++)
+    {
+        if (PhEqualStringRef(KeyValuePairs[i].Key, String, TRUE))
+        {
+            *Integer = PtrToUlong(KeyValuePairs[i].Value);
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 /**
  * Creates a random (type 4) UUID.
  *
@@ -3412,7 +3432,7 @@ NTSTATUS PhCreateProcessAsUser(
         if (useWithLogon)
         {
             PPH_STRING commandLine;
-            PROCESS_INFORMATION processInfo = {0};
+            PROCESS_INFORMATION processInfo;
             ULONG newFlags;
 
             if (Information->CommandLine) // duplicate because CreateProcess modifies the string
@@ -4188,16 +4208,27 @@ ULONG PhQueryRegistryUlong(
     _In_opt_ PWSTR ValueName
     )
 {
+    if (ValueName)
+    {
+        PH_STRINGREF valueName;
+
+        PhInitializeStringRef(&valueName, ValueName);
+
+        return PhQueryRegistryUlongEx(KeyHandle, &valueName);
+    }
+
+    return PhQueryRegistryUlongEx(KeyHandle, NULL);
+}
+
+ULONG PhQueryRegistryUlongEx(
+    _In_ HANDLE KeyHandle,
+    _In_opt_ PPH_STRINGREF ValueName
+    )
+{
     ULONG ulong = ULONG_MAX;
-    PH_STRINGREF valueName;
     PKEY_VALUE_PARTIAL_INFORMATION buffer;
 
-    if (ValueName)
-        PhInitializeStringRef(&valueName, ValueName);
-    else
-        PhInitializeEmptyStringRef(&valueName);
-
-    if (NT_SUCCESS(PhQueryValueKey(KeyHandle, &valueName, KeyValuePartialInformation, &buffer)))
+    if (NT_SUCCESS(PhQueryValueKey(KeyHandle, ValueName, KeyValuePartialInformation, &buffer)))
     {
         if (buffer->Type == REG_DWORD)
         {
@@ -5243,7 +5274,7 @@ PPH_STRING PhParseCommandLinePart(
     // * 2n + 1 backslashes and a quotation mark produces n and a quotation mark (literal).
     // * n backslashes and no quotation mark produces n backslashes.
 
-    PhInitializeStringBuilder(&stringBuilder, 10);
+    PhInitializeStringBuilder(&stringBuilder, 0x80);
     numberOfBackslashes = 0;
     inQuote = FALSE;
     endOfValue = FALSE;
@@ -5973,7 +6004,7 @@ HANDLE PhGetNamespaceHandle(
         InitializeObjectAttributes(
             &objectAttributes,
             &namespacePathUs,
-            OBJ_OPENIF,
+            OBJ_OPENIF | (WindowsVersion < WINDOWS_10 ? 0 : OBJ_DONT_REPARSE),
             NULL,
             securityDescriptor
             );
@@ -6229,68 +6260,6 @@ PPH_STRING PhLoadIndirectString(
     return indirectString;
 }
 
-// rev from ExtractIconExW
-BOOLEAN PhExtractIcon(
-    _In_ PWSTR FileName, 
-    _Out_opt_ HICON *IconLarge,
-    _Out_opt_ HICON *IconSmall
-    )
-{
-    return PhExtractIconEx(FileName, 0, IconLarge, IconSmall);
-}
-
-_Success_(return)
-BOOLEAN PhExtractIconEx(
-    _In_ PWSTR FileName,
-    _In_ INT IconIndex,
-    _Out_opt_ HICON *IconLarge,
-    _Out_opt_ HICON *IconSmall
-    )
-{
-    static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static INT (WINAPI *PrivateExtractIconExW)(
-        _In_ PCWSTR FileName,
-        _In_ INT IconIndex,
-        _Out_opt_ HICON* IconLarge,
-        _Out_opt_ HICON* IconSmall,
-        _In_ INT IconCount
-        ) = NULL;
-    HICON iconLarge = NULL;
-    HICON iconSmall = NULL;
-
-    if (PhBeginInitOnce(&initOnce))
-    {
-        PrivateExtractIconExW = PhGetDllProcedureAddress(L"user32.dll", "PrivateExtractIconExW", 0);
-        PhEndInitOnce(&initOnce);
-    }
-
-    if (!PrivateExtractIconExW)
-        return FALSE;
-
-    if (PrivateExtractIconExW(
-        FileName,
-        IconIndex,
-        IconLarge ? &iconLarge : NULL,
-        IconSmall ? &iconSmall : NULL,
-        1
-        ) > 0)
-    {
-        if (IconLarge)
-            *IconLarge = iconLarge;
-        if (IconSmall)
-            *IconSmall = iconSmall;
-
-        return TRUE;
-    }
-
-    if (iconLarge)
-        DestroyIcon(iconLarge);
-    if (iconSmall)
-        DestroyIcon(iconSmall);
-
-    return FALSE;
-}
-
 HWND PhHungWindowFromGhostWindow(
     _In_ HWND WindowHandle
     )
@@ -6361,6 +6330,30 @@ PLDR_DATA_TABLE_ENTRY PhFindLoaderEntry(
     }
 
     return result;
+}
+
+PLDR_DATA_TABLE_ENTRY PhFindLoaderEntryNameHash(
+    _In_ ULONG BaseNameHash
+    )
+{
+    PLDR_DATA_TABLE_ENTRY entry;
+    PLIST_ENTRY listHead;
+    PLIST_ENTRY listEntry;
+
+    listHead = &NtCurrentPeb()->Ldr->InLoadOrderModuleList;
+    listEntry = listHead->Flink;
+
+    while (listEntry != listHead)
+    {
+        entry = CONTAINING_RECORD(listEntry, LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
+
+        if (entry->BaseNameHashValue == BaseNameHash)
+            return entry;
+
+        listEntry = listEntry->Flink;
+    }
+    
+    return NULL;
 }
 
 /**
@@ -6483,7 +6476,6 @@ PVOID PhGetDllBaseProcedureAddress(
 
     return PhGetLoaderEntryImageExportFunction(
         DllBase,
-        imageNtHeader,
         dataDirectory,
         exportDirectory, 
         ProcedureName, 
@@ -6698,7 +6690,6 @@ NTSTATUS PhLoaderEntryImageRvaToVa(
 
 PVOID PhGetLoaderEntryImageExportFunction(
     _In_ PVOID BaseAddress,
-    _In_ PIMAGE_NT_HEADERS ImageNtHeader,
     _In_ PIMAGE_DATA_DIRECTORY DataDirectory,
     _In_ PIMAGE_EXPORT_DIRECTORY ExportDirectory, 
     _In_opt_ PSTR ExportName,
@@ -7594,7 +7585,7 @@ NTSTATUS PhLoadPluginImage(
     //    );
 
     if (!NT_SUCCESS(status))
-        goto CleanupExit;
+        return status;
 
     status = PhGetLoaderEntryImageNtHeaders(
         imageBaseAddress, 
@@ -7939,7 +7930,7 @@ NTSTATUS PhLoadLibraryAsImageResource(
         NULL,
         &imageBaseSize,
         ViewShare,
-        WindowsVersion < WINDOWS_10 ? 0 : MEM_MAPPED,
+        WindowsVersion < WINDOWS_10_RS2 ? 0 : MEM_MAPPED,
         PAGE_READONLY
         );
 
@@ -7950,7 +7941,7 @@ NTSTATUS PhLoadLibraryAsImageResource(
         // Windows returns the address with bitwise OR|2 for use with LDR_IS_IMAGEMAPPING (dmex)
         if (BaseAddress)
         {
-            *BaseAddress = (PVOID)((ULONG_PTR)imageBaseAddress | 2);
+            *BaseAddress = LDR_MAPPEDVIEW_TO_IMAGEMAPPING(imageBaseAddress);
         }
     }
 
@@ -7961,5 +7952,58 @@ NTSTATUS PhFreeLibraryAsImageResource(
     _In_ PVOID BaseAddress
     )
 {
-    return NtUnmapViewOfSection(NtCurrentProcess(), BaseAddress);
+    return NtUnmapViewOfSection(NtCurrentProcess(), LDR_IMAGEMAPPING_TO_MAPPEDVIEW(BaseAddress));
+}
+
+NTSTATUS PhDelayExecutionEx(
+    _In_ BOOLEAN Alertable,
+    _In_opt_ PLARGE_INTEGER DelayInterval
+    )
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static NTSTATUS (NTAPI* RtlDelayExecution_I)(
+        _In_ BOOLEAN Alertable,
+        _In_opt_ PLARGE_INTEGER DelayInterval
+        ) = NULL;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        PVOID ntdll;
+
+        if (ntdll = PhGetLoaderEntryDllBase(L"ntdll.dll"))
+        {
+            RtlDelayExecution_I = PhGetDllBaseProcedureAddress(ntdll, "RtlDelayExecution", 0);
+        }
+
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (RtlDelayExecution_I)
+    {
+        return RtlDelayExecution_I(Alertable, DelayInterval);
+    }
+
+    return NtDelayExecution(Alertable, DelayInterval);
+}
+
+NTSTATUS PhDelayExecution(
+    _In_ ULONG Milliseconds
+    )
+{
+    if (Milliseconds == INFINITE)
+    {
+        LARGE_INTEGER interval;
+
+        interval.QuadPart = LLONG_MIN;
+
+        return PhDelayExecutionEx(FALSE, &interval);
+    }
+    else
+    {
+        LARGE_INTEGER interval;
+
+        interval.QuadPart = -(LONGLONG)UInt32x32To64(Milliseconds, PH_TIMEOUT_MS);
+
+        return PhDelayExecutionEx(FALSE, &interval);
+    }
 }

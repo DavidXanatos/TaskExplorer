@@ -3,7 +3,7 @@
  *   GUI support functions
  *
  * Copyright (C) 2009-2016 wj32
- * Copyright (C) 2017-2018 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -24,11 +24,14 @@
 #include <ph.h>
 #include <apiimport.h>
 #include <guisup.h>
+#include <mapimg.h>
 #include <settings.h>
+#include <fastlock.h>
+#include <guisupp.h>
+
+#include <commoncontrols.h>
 #include <shellapi.h>
 #include <uxtheme.h>
-
-#include <guisupp.h>
 
 #define SCALE_DPI(Value) PhMultiplyDivide(Value, PhGlobalDpi, 96)
 
@@ -58,6 +61,7 @@ HFONT PhApplicationFont = NULL;
 HFONT PhTreeWindowFont = NULL;
 PH_INTEGER_PAIR PhSmallIconSize = { 16, 16 };
 PH_INTEGER_PAIR PhLargeIconSize = { 32, 32 };
+_IsImmersiveProcess IsImmersiveProcess_I = NULL;
 
 static PH_INITONCE SharedIconCacheInitOnce = PH_INITONCE_INIT;
 static PPH_HASHTABLE SharedIconCacheHashtable;
@@ -96,6 +100,11 @@ VOID PhGuiSupportInitialization(
     {
         PhGlobalDpi = GetDeviceCaps(hdc, LOGPIXELSY);
         ReleaseDC(NULL, hdc);
+    }
+
+    if (WindowsVersion >= WINDOWS_8)
+    {
+        IsImmersiveProcess_I = PhGetDllProcedureAddress(L"user32.dll", "IsImmersiveProcess", 0);
     }
 }
 
@@ -624,7 +633,7 @@ VOID PhSetImageListBitmap(
 
     if (bitmap)
     {
-        ImageList_Replace(ImageList, Index, bitmap, NULL);
+        PhImageListReplace(ImageList, Index, bitmap, NULL);
         DeleteBitmap(bitmap);
     }
 }
@@ -676,7 +685,7 @@ static ULONG SharedIconCacheHashtableHashFunction(
 }
 
 HICON PhLoadIcon(
-    _In_opt_ HINSTANCE InstanceHandle,
+    _In_opt_ PVOID ImageBaseAddress,
     _In_ PWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ ULONG Width,
@@ -698,7 +707,7 @@ HICON PhLoadIcon(
     {
         PhAcquireQueuedLockExclusive(&SharedIconCacheLock);
 
-        entry.InstanceHandle = InstanceHandle;
+        entry.InstanceHandle = ImageBaseAddress;
         entry.Name = Name;
         entry.Width = PhpGetIconEntrySize(Width, Flags);
         entry.Height = PhpGetIconEntrySize(Height, Flags);
@@ -714,45 +723,48 @@ HICON PhLoadIcon(
 
     if (Flags & (PH_LOAD_ICON_SIZE_SMALL | PH_LOAD_ICON_SIZE_LARGE))
     {
-        if (LoadIconMetric)
-            LoadIconMetric(InstanceHandle, Name, (Flags & PH_LOAD_ICON_SIZE_SMALL) ? LIM_SMALL : LIM_LARGE, &icon);
+        INT width;
+        INT height;
+
+        if (Flags & PH_LOAD_ICON_SIZE_SMALL)
+        {
+            width = PhSmallIconSize.X;
+            height = PhSmallIconSize.Y;
+        }
+        else
+        {
+            width = PhLargeIconSize.X;
+            height = PhLargeIconSize.Y;
+        }
+
+        if (LoadIconWithScaleDown)
+            LoadIconWithScaleDown(ImageBaseAddress, Name, width, height, &icon);
+        //if (LoadIconMetric)
+        //    LoadIconMetric(ImageBaseAddress, Name, (Flags & PH_LOAD_ICON_SIZE_SMALL) ? LIM_SMALL : LIM_LARGE, &icon);
     }
     else
     {
         if (LoadIconWithScaleDown)
-            LoadIconWithScaleDown(InstanceHandle, Name, Width, Height, &icon);
+            LoadIconWithScaleDown(ImageBaseAddress, Name, Width, Height, &icon);
     }
 
     if (!icon && !(Flags & PH_LOAD_ICON_STRICT))
     {
+        INT width;
+        INT height;
+
         if (Flags & PH_LOAD_ICON_SIZE_SMALL)
         {
-            static ULONG smallWidth = 0;
-            static ULONG smallHeight = 0;
-
-            if (!smallWidth)
-                smallWidth = GetSystemMetrics(SM_CXSMICON);
-            if (!smallHeight)
-                smallHeight = GetSystemMetrics(SM_CYSMICON);
-
-            Width = smallWidth;
-            Height = smallHeight;
+            width = PhSmallIconSize.X;
+            height = PhSmallIconSize.Y;
         }
-        else if (Flags & PH_LOAD_ICON_SIZE_LARGE)
+        else
         {
-            static ULONG largeWidth = 0;
-            static ULONG largeHeight = 0;
-
-            if (!largeWidth)
-                largeWidth = GetSystemMetrics(SM_CXICON);
-            if (!largeHeight)
-                largeHeight = GetSystemMetrics(SM_CYICON);
-
-            Width = largeWidth;
-            Height = largeHeight;
+            width = PhLargeIconSize.X;
+            height = PhLargeIconSize.Y;
         }
 
-        icon = LoadImage(InstanceHandle, Name, IMAGE_ICON, Width, Height, 0);
+        icon = LoadImage(ImageBaseAddress, Name, IMAGE_ICON, width, height, 0);
     }
 
     if (Flags & PH_LOAD_ICON_SHARED)
@@ -988,7 +1000,7 @@ HWND PhCreateDialogFromTemplate(
 HWND PhCreateDialog(
     _In_ PVOID Instance,
     _In_ PWSTR Template,
-    _In_ HWND ParentWindow,
+    _In_opt_ HWND ParentWindow,
     _In_ DLGPROC DialogProc,
     _In_opt_ PVOID Parameter
     )
@@ -1544,8 +1556,8 @@ HWND PhGetProcessMainWindowEx(
     else
         PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, ProcessId);
 
-    if (processHandle && WindowsVersion >= WINDOWS_8 && IsImmersiveProcess)
-        context.IsImmersive = !!IsImmersiveProcess(processHandle);
+    if (processHandle && WindowsVersion >= WINDOWS_8 && IsImmersiveProcess_I)
+        context.IsImmersive = !!IsImmersiveProcess_I(processHandle);
 
     PhEnumWindows(PhpGetProcessMainWindowEnumWindowsProc, &context);
     //PhEnumChildWindows(NULL, 0x800, PhpGetProcessMainWindowEnumWindowsProc, &context);
@@ -1769,4 +1781,771 @@ HANDLE PhGetGlobalTimerQueue(
     }
 
     return PhTimerQueueHandle;
+}
+
+// rev from ExtractIconExW
+_Success_(return)
+BOOLEAN PhExtractIcon(
+    _In_ PWSTR FileName, 
+    _Out_opt_ HICON *IconLarge,
+    _Out_opt_ HICON *IconSmall
+    )
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static INT (WINAPI *PrivateExtractIconExW)(
+        _In_ PCWSTR FileName,
+        _In_ INT IconIndex,
+        _Out_opt_ HICON* IconLarge,
+        _Out_opt_ HICON* IconSmall,
+        _In_ INT IconCount
+        ) = NULL;
+    HICON iconLarge = NULL;
+    HICON iconSmall = NULL;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        PrivateExtractIconExW = PhGetDllProcedureAddress(L"user32.dll", "PrivateExtractIconExW", 0);
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (!PrivateExtractIconExW)
+        return FALSE;
+
+    if (PrivateExtractIconExW(
+        FileName,
+        0,
+        IconLarge ? &iconLarge : NULL,
+        IconSmall ? &iconSmall : NULL,
+        1
+        ) > 0)
+    {
+        if (IconLarge)
+            *IconLarge = iconLarge;
+        if (IconSmall)
+            *IconSmall = iconSmall;
+
+        return TRUE;
+    }
+
+    if (iconLarge)
+        DestroyIcon(iconLarge);
+    if (iconSmall)
+        DestroyIcon(iconSmall);
+
+    return FALSE;
+}
+
+_Success_(return)
+BOOLEAN PhLoadIconFromResourceDirectory(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PIMAGE_RESOURCE_DIRECTORY ResourceDirectory,
+    _In_ INT32 ResourceIndex,
+    _In_ PCWSTR ResourceType,
+    _Out_opt_ ULONG* ResourceLength,
+    _Out_opt_ PVOID* ResourceBuffer
+    )
+{
+    ULONG resourceIndex;
+    ULONG resourceCount;
+    PVOID resourceBuffer;
+    PIMAGE_RESOURCE_DIRECTORY nameDirectory;
+    PIMAGE_RESOURCE_DIRECTORY languageDirectory;
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY resourceType;
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY resourceName;
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY resourceLanguage;
+    PIMAGE_RESOURCE_DATA_ENTRY resourceData;
+
+    // Find the type
+    resourceCount = ResourceDirectory->NumberOfIdEntries + ResourceDirectory->NumberOfNamedEntries;
+    resourceType = PTR_ADD_OFFSET(ResourceDirectory, sizeof(IMAGE_RESOURCE_DIRECTORY));
+
+    for (resourceIndex = 0; resourceIndex < resourceCount; resourceIndex++)
+    {
+        if (resourceType[resourceIndex].NameIsString)
+            continue;
+        if (resourceType[resourceIndex].Name == PtrToUlong(ResourceType))
+            break;
+    }
+
+    if (resourceIndex == resourceCount)
+        return FALSE;
+    if (!resourceType[resourceIndex].DataIsDirectory)
+        return FALSE;
+
+    // Find the name
+    nameDirectory = PTR_ADD_OFFSET(ResourceDirectory, resourceType[resourceIndex].OffsetToDirectory);
+    resourceCount = nameDirectory->NumberOfIdEntries + nameDirectory->NumberOfNamedEntries;
+    resourceName = PTR_ADD_OFFSET(nameDirectory, sizeof(IMAGE_RESOURCE_DIRECTORY));
+
+    if (ResourceIndex < 0) // RT_ICON and DEVPKEY_DeviceClass_IconPath
+    {
+        for (resourceIndex = 0; resourceIndex < resourceCount; resourceIndex++)
+        {
+            if (resourceName[resourceIndex].NameIsString)
+                continue;
+            if (resourceName[resourceIndex].Name == (ULONG)-ResourceIndex)
+                break;
+        }
+    }
+    else // RT_GROUP_ICON
+    {
+        resourceIndex = ResourceIndex;
+    }
+
+    if (resourceIndex >= resourceCount)
+        return FALSE;
+    if (!resourceName[resourceIndex].DataIsDirectory)
+        return FALSE;
+
+    // Find the language
+    languageDirectory = PTR_ADD_OFFSET(ResourceDirectory, resourceName[resourceIndex].OffsetToDirectory);
+    //resourceCount = languageDirectory->NumberOfIdEntries + languageDirectory->NumberOfNamedEntries;
+    resourceLanguage = PTR_ADD_OFFSET(languageDirectory, sizeof(IMAGE_RESOURCE_DIRECTORY));
+    resourceIndex = 0; // use the first entry
+
+    if (resourceLanguage[resourceIndex].DataIsDirectory)
+        return FALSE;
+
+    resourceData = PTR_ADD_OFFSET(ResourceDirectory, resourceLanguage[resourceIndex].OffsetToData);
+
+    if (!resourceData)
+        return FALSE;
+
+    resourceBuffer = PhMappedImageRvaToVa(MappedImage, resourceData->OffsetToData, NULL);
+
+    if (!resourceBuffer)
+        return FALSE;
+
+    if (ResourceLength)
+        *ResourceLength = resourceData->Size;
+    if (ResourceBuffer)
+        *ResourceBuffer = resourceBuffer;
+
+    // if (LDR_IS_IMAGEMAPPING(ImageBaseAddress))
+    // PhLoaderEntryImageRvaToVa(ImageBaseAddress, resourceData->OffsetToData, resourceBuffer);
+    // PhLoadResource(ImageBaseAddress, MAKEINTRESOURCE(ResourceIndex), ResourceType, &resourceLength, &resourceBuffer);
+
+    return TRUE;
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/menurc/newheader
+// One or more RESDIR structures immediately follow the NEWHEADER structure.
+typedef struct _NEWHEADER
+{
+    USHORT Reserved;
+    USHORT ResourceType;
+    USHORT ResourceCount;
+} NEWHEADER, *PNEWHEADER;
+
+HICON PhCreateIconFromResourceDirectory(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PVOID ResourceDirectory,
+    _In_ PVOID IconDirectory,
+    _In_ INT32 Width,
+    _In_ INT32 Height,
+    _In_ UINT32 Flags
+    )
+{
+    INT32 iconResourceId;
+    ULONG iconResourceLength;
+    PVOID iconResourceBuffer;
+
+    if (!(iconResourceId = LookupIconIdFromDirectoryEx(
+        IconDirectory,
+        TRUE,
+        Width,
+        Height,
+        Flags
+        )))
+    {
+        return NULL;
+    }
+
+    if (!PhLoadIconFromResourceDirectory(
+        MappedImage,
+        ResourceDirectory,
+        -iconResourceId,
+        RT_ICON,
+        &iconResourceLength,
+        &iconResourceBuffer
+        ))
+    {
+        return NULL;
+    }
+
+    if (
+        ((PBITMAPINFOHEADER)iconResourceBuffer)->biSize != sizeof(BITMAPINFOHEADER) &&
+        ((PBITMAPCOREHEADER)iconResourceBuffer)->bcSize != sizeof(BITMAPCOREHEADER) &&
+        ((PBITMAPCOREHEADER)iconResourceBuffer)->bcSize != MAKEFOURCC(137, 'P', 'N', 'G') &&
+        ((PBITMAPCOREHEADER)iconResourceBuffer)->bcSize != MAKEFOURCC('J', 'P', 'E', 'G')
+        )
+    {
+        // CreateIconFromResourceEx seems to know what formats are supported so these
+        // size/format checks are probably redundant and not required?
+        return NULL;
+    }
+
+    return CreateIconFromResourceEx(
+        iconResourceBuffer,
+        iconResourceLength,
+        TRUE,
+        0x30000,
+        Width,
+        Height,
+        Flags
+        );
+}
+
+PPH_STRING PhpGetImageMunResourcePath(
+    _In_ PPH_STRING FileName,
+    _In_ BOOLEAN NativeFileName
+    )
+{
+    static PH_STRINGREF systemResourcePathSr = PH_STRINGREF_INIT(L"\\SystemResources\\");
+    static PH_STRINGREF systemResourceExtensionSr = PH_STRINGREF_INIT(L".mun");
+    PPH_STRING filePath = NULL;
+    PPH_STRING directory;
+    PPH_STRING fileName;
+
+    if (WindowsVersion < WINDOWS_10_19H1)
+    {
+        PhReferenceObject(FileName);
+        return FileName;
+    }
+
+    if (PhDetermineDosPathNameType(PhGetString(FileName)) == RtlPathTypeUncAbsolute)
+    {
+        PhReferenceObject(FileName);
+        return FileName;
+    }
+
+    // 19H1 and above relocated binary resources into the \SystemResources\ directory.
+    // This is implemented as a hook inside EnumResouceNamesExW:
+    // PrivateExtractIconExW -> EnumResouceNamesExW -> GetMunResourceModuleForEnumIfExist.
+    //
+    // GetMunResourceModuleForEnumIfExist trims the path and inserts '\SystemResources\' and '.mun'
+    // to locate the binary with the icon resources. For example:
+    // From: C:\Windows\system32\notepad.exe
+    // To: C:\Windows\SystemResources\notepad.exe.mun
+    //
+    // It doesn't currently hard-code the \SystemResources\ path and ends up accessing other directories:
+    // From: C:\Windows\explorer.exe
+    // To: C:\SystemResources\explorer.exe.mun
+    //
+    // The below code has the same logic and semantics. (dmex)
+
+    directory = PhGetBaseDirectory(FileName);
+    fileName = PhGetBaseName(FileName);
+
+    if (directory)
+    {
+        PhMoveReference(&directory, PhGetBaseDirectory(directory));
+    }
+
+    if (directory && fileName)
+    {
+        PhMoveReference(&fileName, PhConcatStringRef3(&directory->sr, &systemResourcePathSr, &fileName->sr));
+        PhMoveReference(&fileName, PhConcatStringRef2(&fileName->sr, &systemResourceExtensionSr));
+
+        if (NativeFileName)
+        {
+            if (PhDoesFileExists(fileName))
+                PhMoveReference(&filePath, fileName);
+            else
+                PhDereferenceObject(fileName);
+        }
+        else
+        {
+            if (PhDoesFileExistsWin32(PhGetString(fileName)))
+                PhMoveReference(&filePath, fileName);
+            else
+                PhDereferenceObject(fileName);
+        }
+    }
+
+    if (PhIsNullOrEmptyString(filePath))
+    {
+        PhSetReference(&filePath, FileName);
+    }
+
+    PhClearReference(&directory);
+
+    return filePath;
+}
+
+// rev from PrivateExtractIconExW with changes
+// for using SEC_COMMIT instead of SEC_IMAGE. (dmex)
+_Success_(return)
+BOOLEAN PhExtractIconEx(
+    _In_ PPH_STRING FileName,
+    _In_ BOOLEAN NativeFileName,
+    _In_ INT32 IconIndex,
+    _Out_opt_ HICON *IconLarge,
+    _Out_opt_ HICON *IconSmall
+    )
+{
+    NTSTATUS status;
+    HICON iconLarge = NULL;
+    HICON iconSmall = NULL;
+    PPH_STRING fileName;
+    PH_MAPPED_IMAGE mappedImage;
+    PIMAGE_DATA_DIRECTORY dataDirectory;
+    PIMAGE_RESOURCE_DIRECTORY resourceDirectory;
+    ULONG iconDirectoryResourceLength;
+    PNEWHEADER iconDirectoryResource;
+
+    if (!(fileName = PhpGetImageMunResourcePath(
+        FileName,
+        NativeFileName
+        )))
+    {
+        return FALSE;
+    }
+
+    if (NativeFileName)
+    {
+        status = PhLoadMappedImageEx(
+            fileName,
+            NULL,
+            &mappedImage
+            );
+    }
+    else
+    {
+        status = PhLoadMappedImage(
+            PhGetString(fileName),
+            NULL,
+            &mappedImage
+            );
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+        PhDereferenceObject(fileName);
+        return FALSE;
+    }
+
+    status = PhGetMappedImageDataEntry(
+        &mappedImage,
+        IMAGE_DIRECTORY_ENTRY_RESOURCE,
+        &dataDirectory
+        );
+
+    if (!NT_SUCCESS(status))
+        goto CleanupExit;
+
+    resourceDirectory = PhMappedImageRvaToVa(
+        &mappedImage,
+        dataDirectory->VirtualAddress,
+        NULL
+        );
+
+    if (!resourceDirectory)
+        goto CleanupExit;
+
+    __try
+    {
+        if (!PhLoadIconFromResourceDirectory(
+            &mappedImage,
+            resourceDirectory,
+            IconIndex,
+            RT_GROUP_ICON,
+            &iconDirectoryResourceLength,
+            &iconDirectoryResource
+            ))
+        {
+            goto CleanupExit;
+        }
+
+        if (iconDirectoryResource->ResourceType != RES_ICON)
+            goto CleanupExit;
+
+        if (IconLarge)
+        {
+            iconLarge = PhCreateIconFromResourceDirectory(
+                &mappedImage,
+                resourceDirectory,
+                iconDirectoryResource,
+                PhLargeIconSize.X,
+                PhLargeIconSize.Y,
+                LR_DEFAULTCOLOR
+                );
+        }
+
+        if (IconSmall)
+        {
+            iconSmall = PhCreateIconFromResourceDirectory(
+                &mappedImage,
+                resourceDirectory,
+                iconDirectoryResource,
+                PhSmallIconSize.X,
+                PhSmallIconSize.Y,
+                LR_DEFAULTCOLOR
+                );
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        NOTHING;
+    }
+
+CleanupExit:
+
+    PhUnloadMappedImage(&mappedImage);
+    PhDereferenceObject(fileName);
+
+    if (IconLarge && IconSmall)
+    {
+        if (iconLarge && iconSmall)
+        {
+            *IconLarge = iconLarge;
+            *IconSmall = iconSmall;
+            return TRUE;
+        }
+
+        if (iconLarge)
+            DestroyIcon(iconLarge);
+        if (iconSmall)
+            DestroyIcon(iconSmall);
+
+        return FALSE;
+    }
+
+    if (IconLarge && iconLarge)
+    {
+        *IconLarge = iconLarge;
+        return TRUE;
+    }
+
+    if (IconSmall && iconSmall)
+    {
+        *IconSmall = iconSmall;
+        return TRUE;
+    }
+
+    if (iconLarge)
+        DestroyIcon(iconLarge);
+    if (iconSmall)
+        DestroyIcon(iconSmall);
+
+    return FALSE;
+}
+
+// Imagelist support
+
+HIMAGELIST PhImageListCreate(
+    _In_ UINT Width,
+    _In_ UINT Height,
+    _In_ UINT Flags,
+    _In_ UINT InitialCount,
+    _In_ UINT GrowCount
+    )
+{
+    HRESULT status;
+    IImageList2* imageList;
+
+    status = ImageList_CoCreateInstance(
+        &CLSID_ImageList,
+        NULL,
+        &IID_IImageList2,
+        &imageList
+        );
+
+    if (FAILED(status))
+        return NULL;
+
+    status = IImageList2_Initialize(
+        imageList,
+        Width,
+        Height,
+        Flags,
+        InitialCount,
+        GrowCount
+        );
+
+    if (FAILED(status))
+        return NULL;
+
+    // Win32 HIMAGELIST is always a pointer to the IImageList interface. (dmex)
+    return (HIMAGELIST)imageList;
+}
+
+BOOLEAN PhImageListDestroy(
+    _In_ HIMAGELIST ImageListHandle
+    )
+{
+    return SUCCEEDED(IImageList2_Release((IImageList2*)ImageListHandle));
+}
+
+BOOLEAN PhImageListSetImageCount(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Count
+    )
+{
+    return SUCCEEDED(IImageList2_SetImageCount((IImageList2*)ImageListHandle, Count));
+}
+
+BOOLEAN PhImageListSetBkColor(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ COLORREF BackgroundColor
+    )
+{
+    COLORREF previousColor = 0;
+
+    return SUCCEEDED(IImageList2_SetBkColor(
+        (IImageList2*)ImageListHandle,
+        BackgroundColor,
+        &previousColor
+        ));
+}
+
+UINT PhImageListAddIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ HICON IconHandle
+    )
+{
+    INT index = -1;
+
+    IImageList2_ReplaceIcon(
+        (IImageList2*)ImageListHandle,
+        UINT_MAX,
+        IconHandle,
+        &index
+        );
+
+    return index;
+}
+
+UINT PhImageListAddBitmap(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ HBITMAP BitmapImage,
+    _In_opt_ HBITMAP BitmapMask
+    )
+{
+    INT index = -1;
+
+    IImageList2_Add(
+        (IImageList2*)ImageListHandle,
+        BitmapImage,
+        BitmapMask,
+        &index
+        );
+
+    return index;
+}
+
+BOOLEAN PhImageListRemoveIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Index
+    )
+{
+    return SUCCEEDED(IImageList2_Remove(
+        (IImageList2*)ImageListHandle,
+        Index
+        ));
+}
+
+HICON PhImageListGetIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Index,
+    _In_ UINT Flags
+    )
+{
+    HICON iconhandle = NULL;
+
+    IImageList2_GetIcon(
+        (IImageList2*)ImageListHandle,
+        Index,
+        Flags,
+        &iconhandle
+        );
+
+    return iconhandle;
+}
+
+BOOLEAN PhImageListReplace(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Index,
+    _In_ HBITMAP BitmapImage,
+    _In_opt_ HBITMAP BitmapMask
+    )
+{
+    return SUCCEEDED(IImageList2_Replace(
+        (IImageList2*)ImageListHandle,
+        Index,
+        BitmapImage,
+        BitmapMask
+        ));
+}
+
+BOOLEAN PhImageListDrawIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ INT Index,
+    _In_ HDC Hdc,
+    _In_ INT x,
+    _In_ INT y,
+    _In_ UINT Style
+    )
+{
+    return PhImageListDrawEx(
+        ImageListHandle,
+        Index,
+        Hdc,
+        x,
+        y,
+        0,
+        0,
+        CLR_DEFAULT,
+        CLR_DEFAULT,
+        Style
+        );
+}
+
+BOOLEAN PhImageListDrawEx(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ INT Index,
+    _In_ HDC Hdc,
+    _In_ INT x,
+    _In_ INT y,
+    _In_ INT dx,
+    _In_ INT dy,
+    _In_ COLORREF BackColor,
+    _In_ COLORREF ForeColor,
+    _In_ UINT Style
+    )
+{
+    IMAGELISTDRAWPARAMS imagelistDraw;
+
+    memset(&imagelistDraw, 0, sizeof(IMAGELISTDRAWPARAMS));
+    imagelistDraw.cbSize = sizeof(IMAGELISTDRAWPARAMS);
+    imagelistDraw.himl = ImageListHandle;
+    imagelistDraw.hdcDst = Hdc;
+    imagelistDraw.i = Index;
+    imagelistDraw.x = x;
+    imagelistDraw.y = y;
+    imagelistDraw.cx = dx;
+    imagelistDraw.cy = dy;
+    imagelistDraw.rgbBk = BackColor;
+    imagelistDraw.rgbFg = ForeColor;
+    imagelistDraw.fStyle = Style;
+
+    return SUCCEEDED(IImageList2_Draw((IImageList2*)ImageListHandle, &imagelistDraw));
+}
+
+VOID PhCustomDrawTreeTimeLine(
+    _In_ HDC Hdc,
+    _In_ RECT CellRect,
+    _In_ ULONG Flags,
+    _In_opt_ PLARGE_INTEGER StartTime,
+    _In_ PLARGE_INTEGER CreateTime
+    )
+{
+    #define PhInflateRect(rect, dx, dy) \
+    { (rect)->left -= (dx); (rect)->top -= (dy); (rect)->right += (dx); (rect)->bottom += (dy); }
+    HBRUSH previousBrush = NULL;
+    RECT rect = CellRect;
+    RECT borderRect = CellRect;
+    FLOAT percent = 0;
+    LARGE_INTEGER systemTime;
+    LARGE_INTEGER startTime;
+    LARGE_INTEGER createTime;
+
+    if (StartTime)
+    {
+        PhQuerySystemTime(&systemTime);
+        startTime.QuadPart = systemTime.QuadPart - StartTime->QuadPart;
+        createTime.QuadPart = systemTime.QuadPart - CreateTime->QuadPart;
+    }
+    else
+    {
+        static LARGE_INTEGER bootTime = { 0 };
+
+        if (bootTime.QuadPart == 0)
+        {
+            SYSTEM_TIMEOFDAY_INFORMATION timeOfDayInfo;
+
+            if (NT_SUCCESS(NtQuerySystemInformation(
+                SystemTimeOfDayInformation,
+                &timeOfDayInfo,
+                sizeof(SYSTEM_TIMEOFDAY_INFORMATION),
+                NULL
+                )))
+            {
+                bootTime.LowPart = timeOfDayInfo.BootTime.LowPart;
+                bootTime.HighPart = timeOfDayInfo.BootTime.HighPart;
+                bootTime.QuadPart -= timeOfDayInfo.BootTimeBias;
+            }
+
+            //if (NT_SUCCESS(NtQuerySystemInformation(
+            //    SystemTimeOfDayInformation,
+            //    &timeOfDayInfo,
+            //    RTL_SIZEOF_THROUGH_FIELD(SYSTEM_TIMEOFDAY_INFORMATION, CurrentTime),
+            //    NULL
+            //    )))
+            //{
+            //    startTime.QuadPart = timeOfDayInfo.CurrentTime.QuadPart - timeOfDayInfo.BootTime.QuadPart;
+            //    createTime.QuadPart = timeOfDayInfo.CurrentTime.QuadPart - processItem->CreateTime.QuadPart;
+            //    percent = round((DOUBLE)((FLOAT)createTime.QuadPart / (FLOAT)startTime.QuadPart * 100));
+            //}
+        }
+
+        PhQuerySystemTime(&systemTime);
+        startTime.QuadPart = systemTime.QuadPart - bootTime.QuadPart;
+        createTime.QuadPart = systemTime.QuadPart - CreateTime->QuadPart;
+    }
+
+    percent = (FLOAT)createTime.QuadPart / (FLOAT)startTime.QuadPart * 100.f;
+
+    if (Flags & PH_DRAW_TIMELINE_DARKTHEME)
+        FillRect(Hdc, &rect, PhMenuBackgroundBrush);
+    else
+        FillRect(Hdc, &rect, GetSysColorBrush(COLOR_WINDOW));
+
+    PhInflateRect(&rect, -1, -1);
+    rect.bottom += 1;
+
+    if (Flags & PH_DRAW_TIMELINE_DARKTHEME)
+    {
+        FillRect(Hdc, &rect, PhMenuBackgroundBrush);
+
+        if (Flags & PH_DRAW_TIMELINE_OVERFLOW) // System threads created before startup. (dmex)
+            SetDCBrushColor(Hdc, percent > 100.f ? RGB(128, 128, 128) : RGB(0, 130, 135));
+        else
+            SetDCBrushColor(Hdc, RGB(0, 130, 135));
+
+        previousBrush = SelectBrush(Hdc, GetStockBrush(DC_BRUSH));
+    }
+    else
+    {
+        FillRect(Hdc, &rect, GetSysColorBrush(COLOR_3DFACE));
+
+        if (Flags & PH_DRAW_TIMELINE_OVERFLOW) // System threads created before startup. (dmex)
+            SetDCBrushColor(Hdc, percent > 100.f ? RGB(128, 128, 128) : RGB(158, 202, 158));
+        else
+            SetDCBrushColor(Hdc, RGB(158, 202, 158));
+
+        previousBrush = SelectBrush(Hdc, GetStockBrush(DC_BRUSH));
+    }
+
+    // Prevent overflow from changing the system time to an earlier date. (dmex)
+    if (percent > 100.f) percent = 100.f;
+    // TODO: This still loses a small fraction of precision compared to PE here causing a 1px difference. (dmex)
+    //rect.right = ((LONG)(rect.left + ((rect.right - rect.left) * (LONG)percent) / 100));
+    //rect.left = ((LONG)(rect.right + ((rect.left - rect.right) * (LONG)percent) / 100));
+    rect.left = (LONG)(rect.right + ((rect.left - rect.right) * percent / 100));
+
+    PatBlt(
+        Hdc,
+        rect.left,
+        rect.top,
+        rect.right - rect.left,
+        rect.bottom - rect.top,
+        PATCOPY
+        );
+
+    if (previousBrush) SelectBrush(Hdc, previousBrush);
+
+    PhInflateRect(&borderRect, -1, -1);
+    borderRect.bottom += 1;
+    FrameRect(Hdc, &borderRect, GetStockBrush(GRAY_BRUSH));
 }

@@ -37,7 +37,7 @@ static UCHAR KphpTrustedPublicKey[] =
     0x14, 0xF5, 0x19, 0xAA, 0x2D, 0xEE, 0x50, 0x10
 };
 
-//#define NO_SECURITY // For testing
+#define NO_SECURITY // For testing
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, KphHashFile)

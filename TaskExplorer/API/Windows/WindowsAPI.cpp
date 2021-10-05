@@ -1862,6 +1862,127 @@ void CWindowsAPI::ClearPersistence()
 	m_pDnsResolver->ClearPersistence();
 }
 
+bool CWindowsAPI::UpdateRpcList(void* server, void* protocol, QMap<QString, CRpcEndpointPtr>& OldRpcTableList, QSet<QString> &Added, QSet<QString> &Changed)
+{
+	RPC_WSTR szStringBinding = NULL;
+	RPC_BINDING_HANDLE hRpc;
+	RPC_EP_INQ_HANDLE hInq;
+	RPC_STATUS rpcErr;
+	RPC_STATUS rpcErr2;
+
+	rpcErr = RpcStringBindingCompose(NULL, (RPC_WSTR)protocol, (RPC_WSTR)server, NULL, NULL, &szStringBinding);
+	if (rpcErr != RPC_S_OK) {
+		return false;
+	}
+
+	rpcErr = RpcBindingFromStringBinding(szStringBinding, &hRpc);
+	if (rpcErr != RPC_S_OK) {
+		RpcStringFree(&szStringBinding);
+		return false;
+	}
+
+	rpcErr = RpcMgmtEpEltInqBegin(hRpc, RPC_C_EP_ALL_ELTS, NULL, NULL, NULL, &hInq);
+	if (rpcErr != RPC_S_OK) {
+		RpcStringFree(&szStringBinding);
+		RpcBindingFree(&hRpc);
+		return false;
+	}
+
+	do {
+		RPC_IF_ID IfId;					// _Out_ IfId
+		RPC_BINDING_HANDLE hEnumBind;	// _Out_opt Binding: Returns binding handle from the endpoint-map element
+		UUID uuid;						// _Out_opt ObjectUuid: Returns the object UUID from the endpoint-map element.
+		RPC_WSTR szAnnot;				// _Out_opt Annotation: Returns the annotation string for the endpoint-map element. 
+
+		rpcErr = RpcMgmtEpEltInqNext(hInq, &IfId, &hEnumBind, &uuid, &szAnnot);
+		if (rpcErr == RPC_S_OK) {
+			RPC_WSTR str = NULL;
+
+			QString sIfId;
+			if (UuidToString(&(IfId.Uuid), &str) == RPC_S_OK) {
+				sIfId = QString::fromWCharArray((wchar_t*)str); // IfId.VersMajor, IfId.VersMinor
+				RpcStringFree(&str);
+			}
+
+			QString sBinding;
+			if (RpcBindingToStringBinding(hEnumBind, &str) == RPC_S_OK) {
+				sBinding = QString::fromWCharArray((wchar_t*)str);
+				RpcStringFree(&str);
+			}
+
+			QString ID = sIfId + " " + sBinding;
+			CRpcEndpointPtr pRpcEndpoint = OldRpcTableList.take(ID);
+
+			bool bAdd = false;
+			if (pRpcEndpoint.isNull())
+			{
+				pRpcEndpoint = CRpcEndpointPtr(new CRpcEndpoint());
+				pRpcEndpoint->m_IfId = sIfId;
+				pRpcEndpoint->m_Binding = sBinding;
+				QWriteLocker Locker(&m_RpcTableMutex);
+				if (m_RpcTableList.contains(ID))
+					continue; // skip duplicates
+				//ASSERT(!m_RpcTableList.contains(ID));
+				m_RpcTableList.insert(ID, pRpcEndpoint);
+				pRpcEndpoint->m_Description = QString::fromWCharArray((wchar_t*)szAnnot);
+			}
+
+			//bool bChanged = false;
+			//bChanged = pRpcEndpoint->UpdateDynamicData(hEnumBind);
+
+			if (bAdd)
+				Added.insert(ID);
+			//else if (bChanged)
+			//	Changed.insert(ID);
+		}
+	} while (rpcErr != RPC_X_NO_MORE_ENTRIES);
+
+	RpcStringFree(&szStringBinding);
+	RpcBindingFree(&hRpc);
+
+	return true;
+}
+
+bool CWindowsAPI::UpdateRpcList()
+{
+	QSet<QString> Added;
+	QSet<QString> Changed;
+	QSet<QString> Removed;
+
+	QMap<QString, CRpcEndpointPtr> OldRpcTableList = GetRpcTableList();
+
+	UpdateRpcList(NULL, L"ncalrpc", OldRpcTableList, Added, Changed);
+
+	RPC_WSTR protocols[] = {
+		(RPC_WSTR)L"ncacn_ip_tcp",
+		(RPC_WSTR)L"ncadg_ip_udp",
+		(RPC_WSTR)L"ncacn_np",
+		(RPC_WSTR)L"ncacn_nb_tcp",
+		(RPC_WSTR)L"ncacn_http",
+	};
+	for (int i = 0; i < 5; i++) {
+		UpdateRpcList(L"127.0.0.1", protocols[i], OldRpcTableList, Added, Changed);
+	}
+
+	QWriteLocker Locker(&m_RpcTableMutex);
+	foreach(QString TagName, OldRpcTableList.keys())
+	{
+		CRpcEndpointPtr pRpcEndpoint = m_RpcTableList.value(TagName);
+		if (pRpcEndpoint->CanBeRemoved())
+		{
+			m_RpcTableList.remove(TagName);
+			Removed.insert(TagName);
+		}
+		else if (!pRpcEndpoint->IsMarkedForRemoval())
+			pRpcEndpoint->MarkForRemoval();
+	}
+	Locker.unlock();
+
+	emit RpcListUpdated(Added, Changed, Removed);
+
+	return true;
+}
+
 bool CWindowsAPI::UpdatePoolTable()
 {
 	QSet<quint64> Added;
@@ -1982,12 +2103,21 @@ bool CWindowsAPI::InitWindowsInfo()
 	else if (PhOsVersion.dwMajorVersion == 6 && PhOsVersion.dwMinorVersion == 3)
 		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win8"));
     // Windows 10, Windows Server 2016
-    else if (PhOsVersion.dwMajorVersion == 10 && PhOsVersion.dwMinorVersion == 0)
-        m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win10"));
+	else if (PhOsVersion.dwMajorVersion == 10 && PhOsVersion.dwMinorVersion == 0) {
+		if (PhOsVersion.dwBuildNumber < 22000) 
+			m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win10"));
+		else {
+			PhOsVersion.dwMajorVersion = 11;
+			m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/Win11"));
+		}
+	}
 	else
 		m_SystemIcon = QPixmap::fromImage(QImage(":/WinLogos/WinOld"));
 
-	m_SystemVersion = tr("Windows %1.%2").arg(PhOsVersion.dwMajorVersion).arg(PhOsVersion.dwMinorVersion);
+	if(PhOsVersion.dwMinorVersion)
+		m_SystemVersion = tr("Windows %1.%2").arg(PhOsVersion.dwMajorVersion).arg(PhOsVersion.dwMinorVersion);
+	else
+		m_SystemVersion = tr("Windows %1").arg(PhOsVersion.dwMajorVersion);
 	if(!ReleaseId.isEmpty())
 		m_SystemBuild = tr("%1 (%2)").arg(ReleaseId).arg(PhOsVersion.dwBuildNumber);
 	else

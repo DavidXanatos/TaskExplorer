@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -29,6 +29,7 @@
 #include <emenu.h>
 #include <guisup.h>
 #include <mapimg.h>
+#include <hexedit.h>
 #include <prsht.h>
 #include <prpsh.h>
 #include <treenew.h>
@@ -42,12 +43,14 @@
 #include "..\resource.h"
 
 extern PPH_STRING PvFileName;
-extern PH_MAPPED_IMAGE PvMappedImage;
+EXTERN_C PH_MAPPED_IMAGE PvMappedImage;
 extern PIMAGE_COR20_HEADER PvImageCor20Header;
 extern PPH_SYMBOL_PROVIDER PvSymbolProvider;
 extern HICON PvImageSmallIcon;
 extern HICON PvImageLargeIcon;
 extern PH_IMAGE_VERSION_INFO PvImageVersionInfo;
+
+#define PV_SCALE_DPI(Value) PhMultiplyDivide(Value, PhGlobalDpi, 96) // phapppub
 
 FORCEINLINE PWSTR PvpGetStringOrNa(
     _In_ PPH_STRING String
@@ -66,6 +69,10 @@ VOID PvPeProperties(
     VOID
     );
 
+VOID PvShowPePropertiesWindow(
+    VOID
+    );
+
 NTSTATUS PhpOpenFileSecurity(
     _Out_ PHANDLE Handle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -74,7 +81,8 @@ NTSTATUS PhpOpenFileSecurity(
 
 DOUBLE PvCalculateEntropyBuffer(
     _In_ PBYTE Buffer,
-    _In_ SIZE_T BufferLength
+    _In_ SIZE_T BufferLength,
+    _Out_opt_ DOUBLE* BufferVariance
     );
 
 PPH_STRING PvFormatDoubleCropZero(
@@ -146,6 +154,14 @@ VOID PvHandleListViewCommandCopy(
     _In_ HWND ListViewHandle
     );
 
+VOID PvSaveWindowState(
+    _In_ HWND WindowHandle
+    );
+
+VOID PvConfigTreeBorders(
+    _In_ HWND WindowHandle
+    );
+
 // settings
 
 extern BOOLEAN PeEnableThemeSupport;
@@ -156,6 +172,10 @@ VOID PeInitializeSettings(
 
 VOID PeSaveSettings(
     VOID
+    );
+
+VOID PvShowOptionsWindow(
+    _In_ HWND ParentWindow
     );
 
 // symbols
@@ -174,6 +194,7 @@ VOID PvCreateSearchControl(
 
 typedef enum _WCT_TREE_COLUMN_ITEM_NAME
 {
+    TREE_COLUMN_ITEM_INDEX,
     TREE_COLUMN_ITEM_TYPE,
     TREE_COLUMN_ITEM_VA,
     TREE_COLUMN_ITEM_NAME,
@@ -204,13 +225,15 @@ typedef struct _PV_SYMBOL_NODE
 {
     PH_TREENEW_NODE Node;
 
-    ULONG UniqueId;
+    ULONG64 UniqueId;
+    ULONG TypeId;
     PV_SYMBOL_TYPE Type;
     ULONG64 Size;
-    ULONG64 Address;    
+    ULONG64 Address;
     PPH_STRING Name;
     PPH_STRING Data;
     PPH_STRING SizeText;
+    WCHAR Index[PH_INT64_STR_LEN_1];
     WCHAR Pointer[PH_PTR_STR_LEN_1];
 
     PH_STRINGREF TextCache[TREE_COLUMN_ITEM_MAXIMUM];
@@ -302,14 +325,38 @@ VOID PhApplyTreeNewFilters(
     _In_ PPH_TN_FILTER_SUPPORT Support
     );
 
+BOOLEAN PhInsertCopyCellEMenuItem(
+    _In_ struct _PH_EMENU_ITEM* Menu,
+    _In_ ULONG InsertAfterId,
+    _In_ HWND TreeNewHandle,
+    _In_ PPH_TREENEW_COLUMN Column
+    );
+
+BOOLEAN PhHandleCopyCellEMenuItem(
+    _In_ struct _PH_EMENU_ITEM* SelectedItem
+    );
+
+// chcol.c
+
+#define PV_CONTROL_TYPE_TREE_NEW 1
+
+VOID PvShowChooseColumnsDialog(
+    _In_ HWND ParentWindowHandle,
+    _In_ HWND ControlHandle,
+    _In_ ULONG Type
+    );
+
+// pdbprp.c
+
 typedef struct _PDB_SYMBOL_CONTEXT
 {
-    HWND DialogHandle;
+    HWND WindowHandle;
     HWND SearchHandle;
     HWND TreeNewHandle;
     HWND ParentWindowHandle;
     HANDLE UpdateTimerHandle;
 
+    ULONG64 Count;
     ULONG64 BaseAddress;
     PPH_STRING FileName;
     PPH_STRING SearchboxText;
@@ -317,8 +364,9 @@ typedef struct _PDB_SYMBOL_CONTEXT
 
     PPH_LIST SymbolList;
     PPH_LIST UdtList;
-    
+
     PH_LAYOUT_MANAGER LayoutManager;
+    PPV_PROPPAGECONTEXT PropSheetContext;
 
     ULONG TreeNewSortColumn;
     PH_SORT_ORDER TreeNewSortOrder;
@@ -362,7 +410,7 @@ VOID PvSymbolAddTreeNode(
 
 //
 
-INT_PTR CALLBACK PvOptionsWndProc(
+INT_PTR CALLBACK PvPeGeneralDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
@@ -376,28 +424,35 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
     _In_ LPARAM lParam
     );
 
-INT_PTR CALLBACK PvpPeImportsDlgProc(
+INT_PTR CALLBACK PvPeImportsDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     );
 
-INT_PTR CALLBACK PvpPeExportsDlgProc(
+INT_PTR CALLBACK PvPeExportsDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     );
 
-INT_PTR CALLBACK PvpPeLoadConfigDlgProc(
+INT_PTR CALLBACK PvPeHeadersDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     );
 
-INT_PTR CALLBACK PvpPeDirectoryDlgProc(
+INT_PTR CALLBACK PvPeLoadConfigDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
+INT_PTR CALLBACK PvPeDirectoryDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
@@ -411,6 +466,13 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
     _In_ LPARAM lParam
     );
 
+INT_PTR CALLBACK PvpPeClrImportsDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    );
+
 INT_PTR CALLBACK PvpPeCgfDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -418,7 +480,7 @@ INT_PTR CALLBACK PvpPeCgfDlgProc(
     _In_ LPARAM lParam
     );
 
-INT_PTR CALLBACK PvpPeResourcesDlgProc(
+INT_PTR CALLBACK PvPeResourcesDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
@@ -588,6 +650,38 @@ INT_PTR CALLBACK PvpExlfDynamicDlgProc(
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
+    );
+
+// clrtableimport.cpp
+
+typedef struct _PV_CLR_IMAGE_IMPORT_FUNCTION
+{
+    ULONG Flags;
+    PPH_STRING FunctionName;
+    PVOID Offset;
+} PV_CLR_IMAGE_IMPORT_FUNCTION, *PPV_CLR_IMAGE_IMPORT_FUNCTION;
+
+typedef struct _PV_CLR_IMAGE_IMPORT_DLL
+{
+    ULONG ImportToken;
+    PPH_STRING ImportName;
+    PPH_LIST Functions;
+} PV_CLR_IMAGE_IMPORT_DLL, *PPV_CLR_IMAGE_IMPORT_DLL;
+
+EXTERN_C
+PPH_STRING
+NTAPI
+PvClrImportFlagsToString(
+    _In_ ULONG Flags
+    );
+
+EXTERN_C
+HRESULT
+NTAPI
+PvGetClrImageImports(
+    _In_ PVOID ClrMetaDataDispenser,
+    _In_ PWSTR FileName,
+    _Out_ PPH_LIST* ClrImportsList
     );
 
 #endif

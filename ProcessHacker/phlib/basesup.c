@@ -73,6 +73,13 @@
 #define PH_VECTOR_LEVEL_SSE2 1
 #define PH_VECTOR_LEVEL_AVX 2
 
+#if (_MSC_VER < 1920 || DEBUG)
+// Newer versions of the CRT support AVX/SSE vectorization for string routines
+// but keep using our vectorization for debug builds since optimizations are
+// disabled for the debug CRT and slower than our routines in this case. (dmex)
+#define PH_LEGACY_CRT_SUPPORT 1
+#endif
+
 typedef struct _PHP_BASE_THREAD_CONTEXT
 {
     PUSER_THREAD_START_ROUTINE StartAddress;
@@ -319,7 +326,6 @@ NTSTATUS PhCreateThread2(
     )
 {
     NTSTATUS status;
-    HANDLE threadHandle;
     PPHP_BASE_THREAD_CONTEXT context;
 
     context = PhAllocateFromFreeList(&PhpBaseThreadContextFreeList);
@@ -335,14 +341,13 @@ NTSTATUS PhCreateThread2(
         0,
         PhpBaseThreadStart,
         context,
-        &threadHandle,
+        NULL,
         NULL
         );
 
     if (NT_SUCCESS(status))
     {
         PHLIB_INC_STATISTIC(BaseThreadsCreated);
-        NtClose(threadHandle);
     }
     else
     {
@@ -423,24 +428,6 @@ VOID PhLocalTimeToSystemTime(
 
     PhQueryTimeZoneBias(&timeZoneBias);
     SystemTime->QuadPart = LocalTime->QuadPart + timeZoneBias.QuadPart;
-}
-
-NTSTATUS PhDelayExecution(
-    _In_ LONGLONG Interval
-    )
-{
-    if (Interval == INFINITE) // HACK (dmex)
-    {
-        return NtDelayExecution(FALSE, NULL);
-    }
-    else
-    {
-        LARGE_INTEGER interval;
-
-        interval.QuadPart = -(LONGLONG)UInt32x32To64(Interval, PH_TIMEOUT_MS);
-
-        return NtDelayExecution(FALSE, &interval);
-    }
 }
 
 /**
@@ -625,7 +612,7 @@ SIZE_T PhCountStringZ(
     _In_ PWSTR String
     )
 {
-#ifndef _ARM64_
+#if (PH_LEGACY_CRT_SUPPORT && !defined(_ARM64_))
     if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
     {
         PWSTR p;
@@ -1446,7 +1433,7 @@ ULONG_PTR PhFindCharInStringRef(
 
     if (!IgnoreCase)
     {
-#ifndef _ARM64_
+#if (PH_LEGACY_CRT_SUPPORT && !defined(_ARM64_))
         if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
         {
             SIZE_T length16;
@@ -1539,7 +1526,7 @@ ULONG_PTR PhFindLastCharInStringRef(
 
     if (!IgnoreCase)
     {
-#ifndef _ARM64_
+#if (PH_LEGACY_CRT_SUPPORT && !defined(_ARM64_))
         if (PhpVectorLevel >= PH_VECTOR_LEVEL_SSE2)
         {
             SIZE_T length16;
@@ -3224,7 +3211,7 @@ BOOLEAN PhConvertUtf8ToUtf16Size(
     _In_ SIZE_T BytesInUtf8String
     )
 {
-#if (NATIVE_STRING_CONVERSION)
+#if (PH_NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf16String = 0;
 
     if (NT_SUCCESS(RtlUTF8ToUnicodeN(
@@ -3286,7 +3273,7 @@ BOOLEAN PhConvertUtf8ToUtf16Buffer(
     _In_ SIZE_T BytesInUtf8String
     )
 {
-#if (NATIVE_STRING_CONVERSION)
+#if (PH_NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf16String = 0;
 
     if (NT_SUCCESS(RtlUTF8ToUnicodeN(
@@ -3414,7 +3401,7 @@ BOOLEAN PhConvertUtf16ToUtf8Size(
     _In_ SIZE_T BytesInUtf16String
     )
 {
-#if (NATIVE_STRING_CONVERSION)
+#if (PH_NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf8String = 0;
 
     if (NT_SUCCESS(RtlUnicodeToUTF8N(
@@ -3476,7 +3463,7 @@ BOOLEAN PhConvertUtf16ToUtf8Buffer(
     _In_ SIZE_T BytesInUtf16String
     )
 {
-#if (NATIVE_STRING_CONVERSION)
+#if (PH_NATIVE_STRING_CONVERSION)
     ULONG bytesInUtf8String = 0;
 
     if (NT_SUCCESS(RtlUnicodeToUTF8N(

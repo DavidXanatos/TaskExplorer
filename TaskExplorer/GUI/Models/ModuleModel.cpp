@@ -162,6 +162,7 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 
 				switch (section)
 				{
+					case eModule:			if (!pProcess.isNull()) ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(pProcess->GetProcessId()); break;
 					case eBaseAddress:
 					case eParentBaseAddress:
 #ifdef WIN32

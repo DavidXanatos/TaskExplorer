@@ -93,6 +93,7 @@ private:
 	//QAction*				m_pAnalyze;
 	QAction*				m_pCritical;
 	QAction*				m_pToken;
+	QAction*				m_pToken2;
 	QAction*				m_pPermissions;
 #endif
 	//QAction*				m_pWindows;

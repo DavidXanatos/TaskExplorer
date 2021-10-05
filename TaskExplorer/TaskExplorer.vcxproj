@@ -134,7 +134,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Debug\qextwidgets.lib;wbemuuid.lib;dnsapi.lib;..\x64\Debug\MiscHelpers.lib;QtSingleApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Debug\qextwidgets.lib;wbemuuid.lib;dnsapi.lib;..\x64\Debug\MiscHelpers.lib;QtSingleApp.lib;rpcrt4.lib;..\ProcessHacker\tools\thirdparty\bin\Debug64\thirdparty.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;cfgmgr32.dll;dnsapi.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
@@ -178,7 +178,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Debug32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Debug\qwt.lib;..\zlib\Win32\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Debug\qtservice.lib;taskschd.lib;Shlwapi.lib;..\Win32\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\Win32\Debug\qextwidgets.lib;wbemuuid.lib;..\Win32\Debug\MiscHelpers.lib;QtSingleApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Debug32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Debug\qwt.lib;..\zlib\Win32\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Debug\qtservice.lib;taskschd.lib;Shlwapi.lib;..\Win32\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\Win32\Debug\qextwidgets.lib;wbemuuid.lib;..\Win32\Debug\MiscHelpers.lib;QtSingleApp.lib;rpcrt4.lib;..\ProcessHacker\tools\thirdparty\bin\Debug32\thirdparty.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
@@ -221,7 +221,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Release64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Release\qwt.lib;..\zlib\x64\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Release\qtservice.lib;taskschd.lib;Shlwapi.lib;..\x64\Release\qhexedit.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Release\qextwidgets.lib;wbemuuid.lib;..\x64\Release\MiscHelpers.lib;QtSingleApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Release64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Release\qwt.lib;..\zlib\x64\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Release\qtservice.lib;taskschd.lib;Shlwapi.lib;..\x64\Release\qhexedit.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Release\qextwidgets.lib;wbemuuid.lib;..\x64\Release\MiscHelpers.lib;QtSingleApp.lib;rpcrt4.lib;..\ProcessHacker\tools\thirdparty\bin\Release64\thirdparty.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <QtMoc>
@@ -260,7 +260,7 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Release32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Release\qwt.lib;..\zlib\Win32\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Release\qtservice.lib;taskschd.lib;Shlwapi.lib;..\Win32\Release\qhexedit.lib;cfgmgr32.lib;Gdi32.lib;..\Win32\Release\qextwidgets.lib;wbemuuid.lib;..\Win32\Release\MiscHelpers.lib;QtSingleApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Release32\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\Win32\Release\qwt.lib;..\zlib\Win32\Release\zlib.lib;Netapi32.lib;Rasapi32.lib;..\Win32\Release\qtservice.lib;taskschd.lib;Shlwapi.lib;..\Win32\Release\qhexedit.lib;cfgmgr32.lib;Gdi32.lib;..\Win32\Release\qextwidgets.lib;wbemuuid.lib;..\Win32\Release\MiscHelpers.lib;QtSingleApp.lib;rpcrt4.lib;..\ProcessHacker\tools\thirdparty\bin\Release32\thirdparty.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;userenv.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <TargetMachine>MachineX86</TargetMachine>
       <AdditionalOptions> /SUBSYSTEM:WINDOWS</AdditionalOptions>
@@ -342,6 +342,7 @@
     <ClCompile Include="API\Windows\ProcessHacker\RunAs.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\storage.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\syssccpu.cpp" />
+    <ClCompile Include="API\Windows\RpcEndpoint.cpp" />
     <ClCompile Include="API\Windows\RunAsTI.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -415,6 +416,7 @@
     <ClCompile Include="GUI\Models\NtObjectModel.cpp" />
     <ClCompile Include="GUI\Models\PoolModel.cpp" />
     <ClCompile Include="GUI\Models\ProcessModel.cpp" />
+    <ClCompile Include="GUI\Models\RpcModel.cpp" />
     <ClCompile Include="GUI\Models\ServiceModel.cpp" />
     <ClCompile Include="GUI\Models\SocketModel.cpp" />
     <ClCompile Include="GUI\Models\StringModel.cpp" />
@@ -459,6 +461,7 @@
     <ClCompile Include="GUI\SystemInfo\KernelInfo\RunObjView.cpp" />
     <ClCompile Include="GUI\SystemInfo\NetworkView.cpp" />
     <ClCompile Include="GUI\SystemInfo\RAMView.cpp" />
+    <ClCompile Include="GUI\SystemInfo\RpcView.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServiceListWidget.cpp" />
     <ClCompile Include="GUI\SystemInfo\ServicesView.cpp" />
     <ClCompile Include="GUI\SystemInfo\SystemInfoView.cpp" />
@@ -485,6 +488,7 @@
     <ClCompile Include="GUI\TaskInfo\JobView.cpp" />
     <ClCompile Include="GUI\TaskInfo\MemoryView.cpp" />
     <ClCompile Include="GUI\TaskInfo\ModulesView.cpp" />
+    <ClCompile Include="GUI\TaskInfo\SbieView.cpp" />
     <ClCompile Include="GUI\TaskInfo\SocketsView.cpp" />
     <ClCompile Include="GUI\TaskInfo\StackView.cpp" />
     <ClCompile Include="GUI\TaskInfo\TaskInfoView.cpp" />
@@ -747,6 +751,7 @@
     <ClInclude Include="API\Windows\ProcessHacker\syssccpu.h" />
     <ClInclude Include="API\Windows\ProcessHacker\wf.h" />
     <QtMoc Include="API\Windows\SandboxieAPI.h" />
+    <QtMoc Include="API\Windows\RpcEndpoint.h" />
     <ClInclude Include="API\Windows\WinAdmin.h" />
     <QtMoc Include="API\Windows\WinDumper.h" />
     <QtMoc Include="API\Windows\WinMemory.h" />
@@ -942,6 +947,7 @@
     <QtMoc Include="GUI\MultiErrorDialog.h" />
     <QtMoc Include="GUI\PersistenceConfig.h" />
     <ClInclude Include="GUI\Filters\ProcessFilterModel.h" />
+    <QtMoc Include="GUI\Models\RpcModel.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -997,6 +1003,8 @@
     <QtMoc Include="GUI\WaitChainDialog.h" />
     <QtMoc Include="GUI\TaskInfo\DebugView.h" />
     <QtMoc Include="GUI\RunDialog.h" />
+    <QtMoc Include="GUI\TaskInfo\SbieView.h" />
+    <QtMoc Include="GUI\SystemInfo\RpcView.h" />
     <ClInclude Include="Resources\resource.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>

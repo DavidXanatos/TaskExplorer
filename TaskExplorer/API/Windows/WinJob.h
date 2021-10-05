@@ -83,6 +83,7 @@ public:
 	virtual QList<SJobLimit> GetLimits() const { QReadLocker Locker(&m_Mutex);  return m_Limits; }
 
 	virtual STATUS			Terminate();
+	virtual STATUS			Freeze(bool bFreeze);
 	virtual STATUS			AddProcess(quint64 ProcessId);
 
 	virtual void OpenPermissions();

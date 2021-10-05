@@ -329,7 +329,7 @@ NTSTATUS PhpGetObjectName(
     ULONG bufferSize;
     ULONG attempts = 8;
 
-    bufferSize = 0x200;
+    bufferSize = sizeof(OBJECT_NAME_INFORMATION) + (MAXIMUM_FILENAME_LENGTH * sizeof(WCHAR));
     buffer = PhAllocate(bufferSize);
 
     // A loop is needed because the I/O subsystem likes to give us the wrong return lengths... (wj32)
@@ -454,7 +454,7 @@ VOID PhInitializeEtwTraceGuidCache(
 
     if (!(arrayLength = PhGetJsonArrayLength(jsonObject)))
     {
-        PhFreeJsonParser(jsonObject);
+        PhFreeJsonObject(jsonObject);
         return;
     }
 
@@ -488,7 +488,7 @@ VOID PhInitializeEtwTraceGuidCache(
         PhDereferenceObject(guidString);
     }
 
-    PhFreeJsonParser(jsonObject);
+    PhFreeJsonObject(jsonObject);
     PhDereferenceObject(capabilityListString);
 }
 
@@ -832,6 +832,13 @@ NTSTATUS PhGetSectionFileName(
     return status;
 }
 
+_Callback_ PPH_STRING PhStdGetClientIdName(
+    _In_ PCLIENT_ID ClientId
+    )
+{
+    return PhStdGetClientIdNameEx(ClientId, NULL);
+}
+
 PPH_STRING PhStdGetClientIdNameEx(
     _In_ PCLIENT_ID ClientId,
     _In_opt_ PPH_STRING ProcessName
@@ -915,17 +922,50 @@ PPH_STRING PhStdGetClientIdNameEx(
     }
 
     // Combine everything
-    result = PhFormatString(
-        ClientId->UniqueThread ? L"%s%.*s (%lu): %s%.*s (%lu)" : L"%s%.*s (%lu)",
-        isProcessTerminated ? L"Terminated " : L"",
-        processNameRef.Length / sizeof(WCHAR),
-        processNameRef.Buffer,
-        HandleToUlong(ClientId->UniqueProcess),
-        isThreadTerminated ? L"terminated " : L"",
-        threadNameRef.Length / sizeof(WCHAR),
-        threadNameRef.Buffer,
-        HandleToUlong(ClientId->UniqueThread)
-        );
+
+    if (ClientId->UniqueThread)
+    {
+        PH_FORMAT format[10];
+
+        // L"%s%.*s (%lu): %s%.*s (%lu)"
+        PhInitFormatS(&format[0], isProcessTerminated ? L"Terminated " : L"");
+        PhInitFormatSR(&format[1], processNameRef);
+        PhInitFormatS(&format[2], L" (");
+        PhInitFormatU(&format[3], HandleToUlong(ClientId->UniqueProcess));
+        PhInitFormatS(&format[4], L"): ");
+        PhInitFormatS(&format[5], isThreadTerminated ? L"terminated " : L"");
+        PhInitFormatSR(&format[6], threadNameRef);
+        PhInitFormatS(&format[7], L" (");
+        PhInitFormatU(&format[8], HandleToUlong(ClientId->UniqueThread));
+        PhInitFormatC(&format[9], L')');
+
+        result = PhFormat(format, RTL_NUMBER_OF(format), 0x50);
+    }
+    else
+    {
+        PH_FORMAT format[5];
+
+        // L"%s%.*s (%lu)"
+        PhInitFormatS(&format[0], isProcessTerminated ? L"Terminated " : L"");
+        PhInitFormatSR(&format[1], processNameRef);
+        PhInitFormatS(&format[2], L" (");
+        PhInitFormatU(&format[3], HandleToUlong(ClientId->UniqueProcess));
+        PhInitFormatC(&format[4], L')');
+
+        result = PhFormat(format, RTL_NUMBER_OF(format), 0x50);
+    }
+
+    //result = PhFormatString(
+    //    ClientId->UniqueThread ? L"%s%.*s (%lu): %s%.*s (%lu)" : L"%s%.*s (%lu)",
+    //    isProcessTerminated ? L"Terminated " : L"",
+    //    processNameRef.Length / sizeof(WCHAR),
+    //    processNameRef.Buffer,
+    //    HandleToUlong(ClientId->UniqueProcess),
+    //    isThreadTerminated ? L"terminated " : L"",
+    //    threadNameRef.Length / sizeof(WCHAR),
+    //    threadNameRef.Buffer,
+    //    HandleToUlong(ClientId->UniqueThread)
+    //    );
 
     if (processName)
         PhDereferenceObject(processName);
@@ -934,13 +974,6 @@ PPH_STRING PhStdGetClientIdNameEx(
         PhDereferenceObject(threadName);
 
     return result;
-}
-
-_Callback_ PPH_STRING PhStdGetClientIdName(
-    _In_ PCLIENT_ID ClientId
-    )
-{
-    return PhStdGetClientIdNameEx(ClientId, NULL);
 }
 
 NTSTATUS PhpGetBestObjectName(

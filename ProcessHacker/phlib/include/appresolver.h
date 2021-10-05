@@ -63,6 +63,11 @@ PhAppResolverEnumeratePackageBackgroundTasks(
     _In_ PPH_STRING PackageFullName
     );
 
+HRESULT 
+NTAPI PhAppResolverPackageStopSessionRedirection(
+    _In_ PPH_STRING PackageFullName
+    );
+
 PPH_STRING 
 NTAPI
 PhGetAppContainerName(
@@ -89,6 +94,12 @@ PhGetProcessPackageFullName(
 
 BOOLEAN 
 NTAPI
+PhIsTokenFullTrustAppPackage(
+    _In_ HANDLE TokenHandle
+    );
+	
+BOOLEAN 
+NTAPI
 PhIsPackageCapabilitySid(
     _In_ PSID AppContainerSid,
     _In_ PSID Sid
@@ -98,6 +109,12 @@ PPH_STRING
 NTAPI
 PhGetPackagePath(
     _In_ PPH_STRING PackageFullName
+    );
+
+PPH_LIST 
+NTAPI
+PhGetPackageAssetsFromResourceFile(
+    _In_ PWSTR FilePath
     );
 
 PPH_STRING
@@ -110,6 +127,22 @@ PPH_LIST
 NTAPI
 PhGetPackageAssetsFromResourceFile(
     _In_ PWSTR FilePath
+    );
+
+
+// Immersive PLM task support
+
+HRESULT 
+NTAPI
+PhAppResolverBeginCrashDumpTask(
+    _In_ HANDLE ProcessId,
+    _Out_ HANDLE* TaskHandle
+    );
+
+HRESULT 
+NTAPI
+PhAppResolverEndCrashDumpTask(
+    _In_ HANDLE TaskHandle
     );
 
 #ifdef __cplusplus

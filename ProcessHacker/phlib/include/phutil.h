@@ -308,6 +308,17 @@ PhFindStringSiKeyValuePairs(
     _Out_ PWSTR *String
     );
 
+PHLIBAPI
+_Success_(return)
+BOOLEAN
+NTAPI
+PhFindIntegerSiKeyValuePairsStringRef(
+    _In_ PPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ ULONG SizeOfKeyValuePairs,
+    _In_ PPH_STRINGREF String,
+    _Out_ PULONG Integer
+    );
+
 #define GUID_VERSION_MAC 1
 #define GUID_VERSION_DCE 2
 #define GUID_VERSION_MD5 3
@@ -915,6 +926,14 @@ PhQueryRegistryUlong(
     );
 
 PHLIBAPI
+ULONG
+NTAPI
+PhQueryRegistryUlongEx(
+    _In_ HANDLE KeyHandle,
+    _In_opt_ PPH_STRINGREF ValueName
+    );
+
+PHLIBAPI
 ULONG64
 NTAPI
 PhQueryRegistryUlong64(
@@ -1078,6 +1097,7 @@ typedef enum _PH_IMGCOHERENCY_SCAN_TYPE
     * - Image header information
     * - Complete scan of all executable sections, this will include the entry point
     * - .NET manifests if appropriate
+    * - Scans for code caves in tail of mapped sections (virtual mapping > size on disk) 
     */
     PhImageCoherencyFull
 
@@ -1291,26 +1311,6 @@ PhLoadIndirectString(
     );
 
 PHLIBAPI
-BOOLEAN
-NTAPI
-PhExtractIcon(
-    _In_ PWSTR FileName,
-    _Out_opt_ HICON *IconLarge,
-    _Out_opt_ HICON *IconSmall
-    );
-
-_Success_(return)
-PHLIBAPI
-BOOLEAN
-NTAPI
-PhExtractIconEx(
-    _In_ PWSTR FileName,
-    _In_ INT IconIndex,
-    _Out_opt_ HICON *IconLarge,
-    _Out_opt_ HICON *IconSmall
-    );
-
-PHLIBAPI
 HWND
 NTAPI
 PhHungWindowFromGhostWindow(
@@ -1422,7 +1422,6 @@ PVOID
 NTAPI
 PhGetLoaderEntryImageExportFunction(
     _In_ PVOID BaseAddress,
-    _In_ PIMAGE_NT_HEADERS ImageNtHeader,
     _In_ PIMAGE_DATA_DIRECTORY DataDirectory,
     _In_ PIMAGE_EXPORT_DIRECTORY ExportDirectory,
     _In_opt_ PSTR ExportName,
@@ -1520,6 +1519,13 @@ NTSTATUS
 NTAPI
 PhFreeLibraryAsImageResource(
     _In_ PVOID BaseAddress
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhDelayExecution(
+    _In_ ULONG Milliseconds
     );
 
 #ifdef __cplusplus

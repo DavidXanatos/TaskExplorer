@@ -42,6 +42,9 @@ public:
 	virtual bool IsGuiThread() const					{ QReadLocker Locker(&m_Mutex); return m_IsGuiThread; }
 	virtual bool IsCriticalThread() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
 	virtual bool HasToken() const						{ QReadLocker Locker(&m_Mutex); return m_HasToken; }
+	virtual bool HasToken2() const						{ QReadLocker Locker(&m_Mutex); return m_HasToken2; }
+	virtual void SetSandboxed()							{ QWriteLocker Locker(&m_Mutex); m_IsSandboxed = true; }
+	virtual bool IsSandboxed() const					{ QReadLocker Locker(&m_Mutex); return m_IsSandboxed; }
 	virtual STATUS SetCriticalThread(bool bSet, bool bForce = false);
 	virtual STATUS CancelIO();
 	virtual QString GetAppDomain() const;
@@ -82,6 +85,8 @@ protected:
 	bool		m_IsGuiThread;
 	bool		m_IsCritical;
 	bool		m_HasToken;
+	bool		m_HasToken2;
+	bool		m_IsSandboxed;
 
 	QString		m_AppDomain;
 

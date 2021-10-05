@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -23,6 +23,16 @@
 
 #include <peview.h>
 #include "metahost.h"
+
+typedef struct _PVP_PE_CLR_CONTEXT
+{
+    HWND WindowHandle;
+    HWND ListViewHandle;
+    HIMAGELIST ListViewImageList;
+    PH_LAYOUT_MANAGER LayoutManager;
+    PPV_PROPPAGECONTEXT PropSheetContext;
+    PVOID PdbMetadataAddress;
+} PVP_PE_CLR_CONTEXT, *PPVP_PE_CLR_CONTEXT;
 
 // CLR structure reference:
 // https://github.com/dotnet/coreclr/blob/master/src/md/inc/mdfileformat.h
@@ -69,22 +79,29 @@ typedef struct _MDSTREAMHEADER
 #include <poppack.h>
 
 PSTORAGESIGNATURE PvpPeGetClrMetaDataHeader(
-    VOID
+    _In_opt_ PVOID PdbMetadataAddress
     )
 {
     PSTORAGESIGNATURE metaData;
 
-    metaData = PhMappedImageRvaToVa(&PvMappedImage, PvImageCor20Header->MetaData.VirtualAddress, NULL);
-
-    if (metaData)
+    if (PdbMetadataAddress)
     {
-        __try
+        metaData = PdbMetadataAddress;
+    }
+    else
+    {
+        metaData = PhMappedImageRvaToVa(&PvMappedImage, PvImageCor20Header->MetaData.VirtualAddress, NULL);
+
+        if (metaData)
         {
-            PhProbeAddress(metaData, PvImageCor20Header->MetaData.Size, PvMappedImage.ViewBase, PvMappedImage.Size, 4);
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
-        {
-            metaData = NULL;
+            __try
+            {
+                PhProbeAddress(metaData, PvImageCor20Header->MetaData.Size, PvMappedImage.ViewBase, PvMappedImage.Size, 4);
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                metaData = NULL;
+            }
         }
     }
 
@@ -169,12 +186,39 @@ PPH_STRING PvpPeClrGetMvid(
     {
         if (PhEqualBytesZ(streamHeader->Name, "#GUID", TRUE))
         {
-            guidMvidString = PhFormatGuid(PTR_ADD_OFFSET(ClrMetaData, streamHeader->Offset));
+            if (NT_SUCCESS(PhGetMappedImageDebugEntryByType(
+                &PvMappedImage,
+                IMAGE_DEBUG_TYPE_REPRO,
+                NULL,
+                NULL
+                )))
+            {
+                PPH_STRING string;
+                PPH_STRING hash;
+
+                // The MVID is a hash of both the file and the PDB file for repro images. (dmex)
+                string = PhFormatGuid(PTR_ADD_OFFSET(ClrMetaData, streamHeader->Offset));
+                hash = PhBufferToHexStringEx(PTR_ADD_OFFSET(ClrMetaData, streamHeader->Offset), sizeof(GUID), FALSE);
+
+                guidMvidString = PhFormatString(
+                    L"%s (%s) (deterministic)",
+                    PhGetStringOrEmpty(string),
+                    PhGetStringOrEmpty(hash)
+                    );
+
+                PhDereferenceObject(string);
+                PhDereferenceObject(hash);
+            }
+            else
+            {
+                guidMvidString = PhFormatGuid(PTR_ADD_OFFSET(ClrMetaData, streamHeader->Offset));
+            }
             break;
         }
 
         streamHeader = PTR_ADD_OFFSET(streamHeader, ALIGN_UP(UFIELD_OFFSET(STORAGESTREAM, Name) + strlen(streamHeader->Name) + sizeof(ANSI_NULL), ULONG));
     }
+
 
     return guidMvidString;
 }
@@ -372,13 +416,6 @@ CleanupExit:
         FreeLibrary(mscoreeHandle);
 }
 
-typedef struct _PVP_PE_CLR_CONTEXT
-{
-    HWND WindowHandle;
-    HWND ListViewHandle;
-    HIMAGELIST ListViewImageList;
-} PVP_PE_CLR_CONTEXT, *PPVP_PE_CLR_CONTEXT;
-
 INT_PTR CALLBACK PvpPeClrDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -386,22 +423,27 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
     _In_ LPARAM lParam
     )
 {
-    LPPROPSHEETPAGE propSheetPage;
-    PPV_PROPPAGECONTEXT propPageContext;
     PPVP_PE_CLR_CONTEXT context;
-
-    if (!PvPropPageDlgProcHeader(hwndDlg, uMsg, lParam, &propSheetPage, &propPageContext))
-        return FALSE;
 
     if (uMsg == WM_INITDIALOG)
     {
-        context = propPageContext->Context = PhAllocate(sizeof(PVP_PE_CLR_CONTEXT));
-        memset(context, 0, sizeof(PVP_PE_CLR_CONTEXT));
+        context = PhAllocateZero(sizeof(PVP_PE_CLR_CONTEXT));
+        PhSetWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT, context);
+
+        if (lParam)
+        {
+            LPPROPSHEETPAGE propSheetPage = (LPPROPSHEETPAGE)lParam;
+            context->PropSheetContext = (PPV_PROPPAGECONTEXT)propSheetPage->lParam;
+            context->PdbMetadataAddress = context->PropSheetContext->Context;
+        }
     }
     else
     {
-        context = propPageContext->Context;
+        context = PhGetWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
     }
+
+    if (!context)
+        return FALSE;
 
     switch (uMsg)
     {
@@ -423,16 +465,35 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
             PhSetExtendedListView(context->ListViewHandle);
             PhLoadListViewColumnsFromSetting(L"ImageClrListViewColumns", context->ListViewHandle);
 
-            if (context->ListViewImageList = ImageList_Create(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
+            PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
+            PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDC_CLRGROUP), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
+            PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDC_FLAGS), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
+            PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDC_MVIDSTRING), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
+            PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDC_TOKENSTRING), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);         
+            PhAddLayoutItem(&context->LayoutManager, context->ListViewHandle, NULL, PH_ANCHOR_ALL);
+
+            if (context->ListViewImageList = PhImageListCreate(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
                 ListView_SetImageList(context->ListViewHandle, context->ListViewImageList, LVSIL_SMALL);
 
-            PhSetDialogItemText(hwndDlg, IDC_RUNTIMEVERSION, PH_AUTO_T(PH_STRING, PvpPeGetClrVersionText())->Buffer);
-            PhSetDialogItemText(hwndDlg, IDC_FLAGS, PH_AUTO_T(PH_STRING, PvpPeGetClrFlagsText())->Buffer);
+            if (!context->PdbMetadataAddress)
+            {
+                PhSetDialogItemText(hwndDlg, IDC_RUNTIMEVERSION, PH_AUTO_T(PH_STRING, PvpPeGetClrVersionText())->Buffer);
+                PhSetDialogItemText(hwndDlg, IDC_FLAGS, PH_AUTO_T(PH_STRING, PvpPeGetClrFlagsText())->Buffer);
+            }
+            else
+            {
+                PhSetDialogItemText(hwndDlg, IDC_RUNTIMEVERSION, L"");
+                PhSetDialogItemText(hwndDlg, IDC_FLAGS, L"");
+            }
 
-            if (clrMetaData = PvpPeGetClrMetaDataHeader())
+            if (clrMetaData = PvpPeGetClrMetaDataHeader(context->PdbMetadataAddress))
             {
                 PhSetDialogItemText(hwndDlg, IDC_VERSIONSTRING, PH_AUTO_T(PH_STRING, PvpPeGetClrStorageVersionText(clrMetaData))->Buffer);
-                PhSetDialogItemText(hwndDlg, IDC_MVIDSTRING, PH_AUTO_T(PH_STRING, PvpPeClrGetMvid(clrMetaData))->Buffer);
+
+                if (!context->PdbMetadataAddress)
+                    PhSetDialogItemText(hwndDlg, IDC_MVIDSTRING, PH_AUTO_T(PH_STRING, PvpPeClrGetMvid(clrMetaData))->Buffer);
+                else
+                    PhSetDialogItemText(hwndDlg, IDC_MVIDSTRING, L"");
 
                 PvpGetClrStrongNameToken(hwndDlg);
 
@@ -447,23 +508,27 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
             PhSaveListViewColumnsToSetting(L"ImageClrListViewColumns", context->ListViewHandle);
 
             if (context->ListViewImageList)
-                ImageList_Destroy(context->ListViewImageList);
+                PhImageListDestroy(context->ListViewImageList);
+
+            PhDeleteLayoutManager(&context->LayoutManager);
 
             PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
         {
-            if (!propPageContext->LayoutInitialized)
+            if (context->PropSheetContext && !context->PropSheetContext->LayoutInitialized)
             {
-                PPH_LAYOUT_ITEM dialogItem;
-
-                dialogItem = PvAddPropPageLayoutItem(hwndDlg, hwndDlg, PH_PROP_PAGE_TAB_CONTROL_PARENT, PH_ANCHOR_ALL);
-                PvAddPropPageLayoutItem(hwndDlg, context->ListViewHandle, dialogItem, PH_ANCHOR_ALL);
+                PvAddPropPageLayoutItem(hwndDlg, hwndDlg, PH_PROP_PAGE_TAB_CONTROL_PARENT, PH_ANCHOR_ALL);
                 PvDoPropPageLayout(hwndDlg);
 
-                propPageContext->LayoutInitialized = TRUE;
+                context->PropSheetContext->LayoutInitialized = TRUE;
             }
+        }
+        break;
+    case WM_SIZE:
+        {
+            PhLayoutManagerLayout(&context->LayoutManager);
         }
         break;
     case WM_NOTIFY:
@@ -473,9 +538,7 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
             switch (header->code)
             {
             case PSN_QUERYINITIALFOCUS:
-                {
-                    SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, (LONG_PTR)GetDlgItem(hwndDlg, IDC_RUNTIMEVERSION));
-                }
+                SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, (LONG_PTR)GetDlgItem(hwndDlg, IDC_RUNTIMEVERSION));
                 return TRUE;
             }
 

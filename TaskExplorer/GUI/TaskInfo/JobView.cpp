@@ -22,16 +22,28 @@ CJobView::CJobView(QWidget *parent)
 	m_pJobId = new QLabel();
 	m_pMainLayout->addWidget(m_pJobId, row, 3);
 
-	m_pTerminate = new QPushButton(tr("Terminate"));
-	connect(m_pTerminate, SIGNAL(pressed()), this, SLOT(OnTerminate()));
+	//m_pTerminate = new QPushButton(tr("Terminate"));
+	//connect(m_pTerminate, SIGNAL(pressed()), this, SLOT(OnTerminate()));
+	m_pTerminate = new QToolButton();
+	m_pTerminate->setText(tr("Terminate"));
+	m_pTerminate->setPopupMode(QToolButton::MenuButtonPopup);
+	QMenu* pMenu = new QMenu();
+	pMenu->addAction(tr("Freeze"), this, SLOT(OnFreeze()));
+	pMenu->addAction(tr("Unfreeze"), this, SLOT(OnUnFreeze()));
+	m_pTerminate->setMenu(pMenu);
+	//QObject::connect(m_pTerminate, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pTerminate, SIGNAL(clicked(bool)), this, SLOT(OnTerminate()));
 	m_pMainLayout->addWidget(m_pTerminate, row++, 4);
 
 	m_pMainLayout->addWidget(new QLabel(tr("Processes in job:")), row, 0, 1, 4);
 	//m_pPermissions = new QPushButton(tr("Permissions"));
 	//connect(m_pPermissions, SIGNAL(pressed()), this, SLOT(OnPermissions()));
 	//m_pMainLayout->addWidget(m_pPermissions, row++, 2);
-	m_pAddProcess = new QPushButton(tr("Add process"));
-	connect(m_pAddProcess, SIGNAL(pressed()), this, SLOT(OnAddProcess()));
+	//m_pAddProcess = new QPushButton(tr("Add process"));
+	//connect(m_pAddProcess, SIGNAL(pressed()), this, SLOT(OnAddProcess()));
+	m_pAddProcess = new QToolButton();
+	m_pAddProcess->setText(tr("Add process"));
+	QObject::connect(m_pAddProcess, SIGNAL(clicked(bool)), this, SLOT(OnAddProcess()));
 	m_pMainLayout->addWidget(m_pAddProcess, row++, 4);
 
 	m_pSplitter = new QSplitter();
@@ -286,6 +298,24 @@ void CJobView::OnTerminate()
 	{
 		if(!m_pCurJob->Terminate())
 			QMessageBox::warning(this, "TaskExplorer", tr("Failed to terminate job."));
+	}
+}
+
+void CJobView::OnFreeze()
+{
+	if (m_pCurJob)
+	{
+		if(!m_pCurJob->Freeze(true))
+			QMessageBox::warning(this, "TaskExplorer", tr("Failed to freeze job."));
+	}
+}
+
+void CJobView::OnUnFreeze()
+{
+	if (m_pCurJob)
+	{
+		if(!m_pCurJob->Freeze(false))
+			QMessageBox::warning(this, "TaskExplorer", tr("Failed to un freeze job."));
 	}
 }
 

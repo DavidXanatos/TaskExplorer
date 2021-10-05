@@ -1834,6 +1834,7 @@ NTSTATUS PhLoadDllProcess(
     PVOID baseAddress = NULL;
     SIZE_T allocSize;
     HANDLE threadHandle;
+    HANDLE powerRequestHandle = NULL;
 
 #ifdef _WIN64
     PhGetProcessIsWow64(ProcessHandle, &isWow64);
@@ -1905,6 +1906,14 @@ NTSTATUS PhLoadDllProcess(
         )))
         goto FreeExit;
 
+    if (WindowsVersion >= WINDOWS_8)
+    {
+        status = PhCreateExecutionRequiredRequest(ProcessHandle, &powerRequestHandle);
+
+        if (!NT_SUCCESS(status))
+            goto FreeExit;
+    }
+
     if (!NT_SUCCESS(status = RtlCreateUserThread(
         ProcessHandle,
         NULL,
@@ -1918,10 +1927,13 @@ NTSTATUS PhLoadDllProcess(
         NULL
         )))
         goto FreeExit;
-    
+
     // Wait for the thread to finish.   
     status = NtWaitForSingleObject(threadHandle, FALSE, Timeout);
     NtClose(threadHandle);
+
+    if (powerRequestHandle)
+        PhDestroyExecutionRequiredRequest(powerRequestHandle);
 
 FreeExit:
     // Size needs to be zero if we're freeing.  
@@ -1961,6 +1973,7 @@ NTSTATUS PhUnloadDllProcess(
     BOOLEAN isModule32 = FALSE;
 #endif
     HANDLE threadHandle;
+    HANDLE powerRequestHandle = NULL;
     THREAD_BASIC_INFORMATION basicInfo;
     PVOID threadStart;
 
@@ -2034,6 +2047,14 @@ NTSTATUS PhUnloadDllProcess(
     }
 #endif
 
+    if (WindowsVersion >= WINDOWS_8)
+    {
+        status = PhCreateExecutionRequiredRequest(ProcessHandle, &powerRequestHandle);
+
+        if (!NT_SUCCESS(status))
+            return status;
+    }
+
     status = RtlCreateUserThread(
         ProcessHandle,
         NULL,
@@ -2061,6 +2082,9 @@ NTSTATUS PhUnloadDllProcess(
     }
 
     NtClose(threadHandle);
+
+    if (powerRequestHandle)
+        PhDestroyExecutionRequiredRequest(powerRequestHandle);
 
     return status;
 }
@@ -2097,6 +2121,7 @@ NTSTATUS PhSetEnvironmentVariableRemote(
     PVOID rtlExitUserThread = NULL;
     PVOID setEnvironmentVariableW = NULL;
     HANDLE threadHandle = NULL;
+    HANDLE powerRequestHandle = NULL;
 
     nameAllocationSize = Name->Length + sizeof(UNICODE_NULL);
 
@@ -2200,6 +2225,14 @@ NTSTATUS PhSetEnvironmentVariableRemote(
         }
     }
 
+    if (WindowsVersion >= WINDOWS_8)
+    {
+        status = PhCreateExecutionRequiredRequest(ProcessHandle, &powerRequestHandle);
+
+        if (!NT_SUCCESS(status))
+            goto CleanupExit;
+    }
+
     if (!NT_SUCCESS(status = RtlCreateUserThread(
         ProcessHandle,
         NULL,
@@ -2260,6 +2293,11 @@ CleanupExit:
     if (threadHandle)
     {
         NtClose(threadHandle);
+    }
+
+    if (powerRequestHandle)
+    {
+        PhDestroyExecutionRequiredRequest(powerRequestHandle);
     }
 
     if (nameBaseAddress)
@@ -2739,6 +2777,74 @@ BOOLEAN PhSetTokenPrivilege2(
     return PhSetTokenPrivilege(TokenHandle, NULL, &privilegeLuid, Attributes);
 }
 
+NTSTATUS PhAdjustPrivilege(
+    _In_opt_ PWSTR PrivilegeName,
+    _In_opt_ LONG Privilege,
+    _In_ BOOLEAN Enable
+    )
+{
+    NTSTATUS status;
+    HANDLE tokenHandle;
+    TOKEN_PRIVILEGES privileges;
+
+    status = NtOpenProcessToken(
+        NtCurrentProcess(),
+        TOKEN_ADJUST_PRIVILEGES,
+        &tokenHandle
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    privileges.PrivilegeCount = 1;
+    privileges.Privileges[0].Attributes = Enable ? SE_PRIVILEGE_ENABLED : 0;
+
+    if (Privilege)
+    {
+        LUID privilegeLuid;
+
+        privilegeLuid = RtlConvertLongToLuid(Privilege);
+
+        privileges.Privileges[0].Luid = privilegeLuid;
+    }
+    else if (PrivilegeName)
+    {
+        PH_STRINGREF privilegeName;
+
+        PhInitializeStringRef(&privilegeName, PrivilegeName);
+
+        if (!PhLookupPrivilegeValue(
+            &privilegeName,
+            &privileges.Privileges[0].Luid
+            ))
+        {
+            NtClose(tokenHandle);
+            return STATUS_UNSUCCESSFUL;
+        }
+    }
+    else
+    {
+        NtClose(tokenHandle);
+        return STATUS_INVALID_PARAMETER_1;
+    }
+
+    status = NtAdjustPrivilegesToken(
+        tokenHandle,
+        FALSE,
+        &privileges,
+        0,
+        NULL,
+        NULL
+        );
+
+    NtClose(tokenHandle);
+
+    if (status == STATUS_NOT_ALL_ASSIGNED)
+        return STATUS_PRIVILEGE_NOT_HELD;
+
+    return status;
+}
+
 /**
 * Modifies a token group.
 *
@@ -3208,7 +3314,7 @@ NTSTATUS PhSetFilePosition(
     IO_STATUS_BLOCK isb;
 
     if (Position)
-        positionInfo.CurrentByteOffset = *Position;
+        positionInfo.CurrentByteOffset.QuadPart = Position->QuadPart;
     else
         positionInfo.CurrentByteOffset.QuadPart = 0;
 
@@ -5521,7 +5627,7 @@ NTSTATUS PhEnumHandlesEx2(
     ULONG attempts = 0;
 
     bufferSize = 0x8000;
-    buffer = PhAllocate(bufferSize);
+    buffer = PhAllocateZero(bufferSize);
 
     status = NtQueryInformationProcess(
         ProcessHandle,
@@ -5535,7 +5641,7 @@ NTSTATUS PhEnumHandlesEx2(
     {
         PhFree(buffer);
         bufferSize = returnLength;
-        buffer = PhAllocate(bufferSize);
+        buffer = PhAllocateZero(bufferSize);
 
         status = NtQueryInformationProcess(
             ProcessHandle,
@@ -5552,6 +5658,8 @@ NTSTATUS PhEnumHandlesEx2(
     {
         // NOTE: This is needed to workaround minimal processes on Windows 10
         // returning STATUS_SUCCESS with invalid handle data. (dmex)
+        // NOTE: 21H1 and above no longer set NumberOfHandles to zero before returning
+        // STATUS_SUCCESS so we first zero the entire buffer using PhAllocateZero. (dmex)
         if (buffer->NumberOfHandles == 0)
         {
             status = STATUS_UNSUCCESSFUL;
@@ -5741,7 +5849,6 @@ BOOLEAN NTAPI PhpIsDotNetEnumProcessModulesCallback(
     static PH_STRINGREF mscorsvrString = PH_STRINGREF_INIT(L"mscorsvr.dll");
     static PH_STRINGREF mscorlibString = PH_STRINGREF_INIT(L"mscorlib.dll");
     static PH_STRINGREF mscorlibNiString = PH_STRINGREF_INIT(L"mscorlib.ni.dll");
-    static PH_STRINGREF clrjitString = PH_STRINGREF_INIT(L"clrjit.dll");
     static PH_STRINGREF frameworkString = PH_STRINGREF_INIT(L"\\Microsoft.NET\\Framework\\");
     static PH_STRINGREF framework64String = PH_STRINGREF_INIT(L"\\Microsoft.NET\\Framework64\\");
     PH_STRINGREF baseDllName;
@@ -5815,13 +5922,9 @@ BOOLEAN NTAPI PhpIsDotNetEnumProcessModulesCallback(
     {
         *(PULONG)Context |= PH_CLR_MSCORLIB_PRESENT;
     }
-    else if (PhEqualStringRef(&baseDllName, &clrjitString, TRUE))
-    {
-        *(PULONG)Context |= PH_CLR_JIT_PRESENT;
-    }
     else if (PhEqualStringRef(&baseDllName, &clrcoreString, TRUE))
     {
-        *(PULONG)Context |= PH_CLR_JIT_PRESENT;
+        *(PULONG)Context |= PH_CLR_CORELIB_PRESENT;
     }
 
     return TRUE;
@@ -6010,20 +6113,21 @@ NTSTATUS PhGetProcessIsDotNetEx(
 
             status = NtOpenFile(
                 &directoryHandle,
-                GENERIC_READ | SYNCHRONIZE,
+                FILE_LIST_DIRECTORY | SYNCHRONIZE,
                 &objectAttributes,
                 &isb,
                 FILE_SHARE_READ | FILE_SHARE_WRITE,
-                FILE_SYNCHRONOUS_IO_NONALERT
+                FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
                 );
 
             if (NT_SUCCESS(status))
             {
-                PhInitializeArray(&pipeArray, sizeof(PHP_PIPE_NAME_HASH), 512);
+                static UNICODE_STRING pipeSearchPattern = RTL_CONSTANT_STRING(L"dotnet-diagnostic-*");
+                PhInitializeArray(&pipeArray, sizeof(PHP_PIPE_NAME_HASH), 16);
 
                 status = PhEnumDirectoryFile(
                     directoryHandle,
-                    NULL,
+                    &pipeSearchPattern,
                     PhpDotNetCorePipeHashCallback,
                     &pipeArray
                     );
@@ -6126,7 +6230,7 @@ NTSTATUS PhGetProcessIsDotNetEx(
             NtClose(processHandle);
 
         if (IsDotNet)
-            *IsDotNet = (flags & PH_CLR_VERSION_MASK) && (flags & (PH_CLR_MSCORLIB_PRESENT | PH_CLR_JIT_PRESENT));
+            *IsDotNet = (flags & PH_CLR_VERSION_MASK) && (flags & (PH_CLR_MSCORLIB_PRESENT | PH_CLR_CORELIB_PRESENT));
 
         if (Flags)
             *Flags = flags;
@@ -6913,6 +7017,19 @@ PPH_STRING PhGetFileName(
         newFileName->Buffer[systemRoot.Length / sizeof(WCHAR)] = OBJ_NAME_PATH_SEPARATOR;
         memcpy(PTR_ADD_OFFSET(newFileName->Buffer, systemRoot.Length + sizeof(UNICODE_NULL)), FileName->Buffer, FileName->Length);
     }
+#ifdef _WIN64
+    // "SysWOW64\" means "C:\Windows\SysWOW64\".
+    else if (PhStartsWithString2(FileName, L"SysWOW64\\", TRUE))
+    {
+        PH_STRINGREF systemRoot;
+
+        PhGetSystemRoot(&systemRoot);
+        newFileName = PhCreateStringEx(NULL, systemRoot.Length + sizeof(UNICODE_NULL) + FileName->Length);
+        memcpy(newFileName->Buffer, systemRoot.Buffer, systemRoot.Length);
+        newFileName->Buffer[systemRoot.Length / sizeof(WCHAR)] = OBJ_NAME_PATH_SEPARATOR;
+        memcpy(PTR_ADD_OFFSET(newFileName->Buffer, systemRoot.Length + sizeof(UNICODE_NULL)), FileName->Buffer, FileName->Length);
+    }
+#endif
     else if (FileName->Length != 0 && FileName->Buffer[0] == OBJ_NAME_PATH_SEPARATOR)
     {
         PPH_STRING resolvedName;
@@ -9191,6 +9308,13 @@ NTSTATUS PhCreateNamedPipe(
     UNICODE_STRING pipeNameUs;
     OBJECT_ATTRIBUTES objectAttributes;
     IO_STATUS_BLOCK isb;
+    SECURITY_QUALITY_OF_SERVICE pipeSecurityQos =
+    {
+        sizeof(SECURITY_QUALITY_OF_SERVICE),
+        SecurityAnonymous,
+        SECURITY_STATIC_TRACKING,
+        FALSE
+    };
 
     pipeName = PhConcatStrings2(DEVICE_NAMED_PIPE, PipeName);
     PhStringRefToUnicodeString(&pipeName->sr, &pipeNameUs);
@@ -9202,6 +9326,7 @@ NTSTATUS PhCreateNamedPipe(
         NULL,
         NULL
         );
+    objectAttributes.SecurityQualityOfService = &pipeSecurityQos;
 
     if (NT_SUCCESS(RtlDefaultNpAcl_Import()(&pipeAcl)))
     {
@@ -9253,6 +9378,13 @@ NTSTATUS PhConnectPipe(
     UNICODE_STRING pipeNameUs;
     OBJECT_ATTRIBUTES objectAttributes;
     IO_STATUS_BLOCK isb;
+    SECURITY_QUALITY_OF_SERVICE pipeSecurityQos =
+    {
+        sizeof(SECURITY_QUALITY_OF_SERVICE),
+        SecurityAnonymous,
+        SECURITY_STATIC_TRACKING,
+        FALSE
+    };
 
     pipeName = PhConcatStrings2(DEVICE_NAMED_PIPE, PipeName);
     PhStringRefToUnicodeString(&pipeName->sr, &pipeNameUs);
@@ -9264,6 +9396,7 @@ NTSTATUS PhConnectPipe(
         NULL,
         NULL
         );
+    objectAttributes.SecurityQualityOfService = &pipeSecurityQos;
 
     status = NtCreateFile(
         &pipeHandle,
@@ -9605,6 +9738,26 @@ NTSTATUS PhImpersonateClientOfNamedPipe(
         );
 }
 
+NTSTATUS PhDisableImpersonateNamedPipe(
+    _In_ HANDLE PipeHandle
+    )
+{
+    IO_STATUS_BLOCK isb;
+
+    return NtFsControlFile(
+        PipeHandle,
+        NULL,
+        NULL,
+        NULL,
+        &isb,
+        FSCTL_PIPE_DISABLE_IMPERSONATE,
+        NULL,
+        0,
+        NULL,
+        0
+        );
+}
+
 NTSTATUS PhGetNamedPipeClientComputerName(
     _In_ HANDLE PipeHandle,
     _In_ ULONG ClientComputerNameLength,
@@ -9854,44 +10007,70 @@ NTSTATUS PhImpersonateToken(
     )
 {
     NTSTATUS status;
-    SECURITY_QUALITY_OF_SERVICE securityService;
-    OBJECT_ATTRIBUTES objectAttributes;
-    HANDLE tokenHandle;
+    TOKEN_TYPE tokenType;
+    ULONG returnLength;
 
-    InitializeObjectAttributes(
-        &objectAttributes,
-        NULL,
-        0,
-        NULL,
-        NULL
-        );
-
-    securityService.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
-    securityService.ImpersonationLevel = SecurityImpersonation;
-    securityService.ContextTrackingMode = SECURITY_DYNAMIC_TRACKING;
-    securityService.EffectiveOnly = FALSE;
-    objectAttributes.SecurityQualityOfService = &securityService;
-
-    status = NtDuplicateToken(
+    status = NtQueryInformationToken(
         TokenHandle,
-        TOKEN_IMPERSONATE | TOKEN_QUERY,
-        &objectAttributes,
-        FALSE,
-        TokenImpersonation,
-        &tokenHandle
+        TokenType,
+        &tokenType,
+        sizeof(TOKEN_TYPE),
+        &returnLength
         );
 
     if (!NT_SUCCESS(status))
         return status;
 
-    status = NtSetInformationThread(
-        ThreadHandle,
-        ThreadImpersonationToken,
-        &tokenHandle,
-        sizeof(HANDLE)
-        );
+    if (tokenType == TokenPrimary)
+    {
+        SECURITY_QUALITY_OF_SERVICE securityService;
+        OBJECT_ATTRIBUTES objectAttributes;
+        HANDLE tokenHandle;
 
-    NtClose(tokenHandle);
+        InitializeObjectAttributes(
+            &objectAttributes,
+            NULL,
+            0,
+            NULL,
+            NULL
+            );
+
+        securityService.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
+        securityService.ImpersonationLevel = SecurityImpersonation;
+        securityService.ContextTrackingMode = SECURITY_DYNAMIC_TRACKING;
+        securityService.EffectiveOnly = FALSE;
+        objectAttributes.SecurityQualityOfService = &securityService;
+
+        status = NtDuplicateToken(
+            TokenHandle,
+            TOKEN_IMPERSONATE | TOKEN_QUERY,
+            &objectAttributes,
+            FALSE,
+            TokenImpersonation,
+            &tokenHandle
+            );
+
+        if (!NT_SUCCESS(status))
+            return status;
+
+        status = NtSetInformationThread(
+            ThreadHandle,
+            ThreadImpersonationToken,
+            &tokenHandle,
+            sizeof(HANDLE)
+            );
+
+        NtClose(tokenHandle);
+    }
+    else
+    {
+        status = NtSetInformationThread(
+            ThreadHandle,
+            ThreadImpersonationToken,
+            &TokenHandle,
+            sizeof(HANDLE)
+            );
+    }
 
     return status;
 }
@@ -10031,6 +10210,71 @@ NTSTATUS PhQueryProcessHeapInformation(
     return STATUS_SUCCESS;
 }
 
+NTSTATUS PhGetProcessArchitecture(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PUSHORT ProcessArchitecture
+    )
+{
+    USHORT architecture;
+    NTSTATUS status;
+    SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION* buffer;
+    ULONG bufferLength;
+    ULONG returnLength;
+
+    // Essentially KernelBase!QueryProcessMachine (jxy-s)
+    bufferLength = sizeof(SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION[5]);
+    buffer = PhAllocate(bufferLength);
+
+    status = NtQuerySystemInformationEx(
+        SystemSupportedProcessorArchitectures2,
+        &ProcessHandle,
+        sizeof(ProcessHandle),
+        buffer,
+        bufferLength,
+        &returnLength
+        );
+
+    if (status == STATUS_BUFFER_TOO_SMALL)
+    {
+        PhFree(buffer);
+        bufferLength = returnLength;
+        buffer = PhAllocate(bufferLength);
+
+        status = NtQuerySystemInformationEx(
+            SystemSupportedProcessorArchitectures2,
+            &ProcessHandle,
+            sizeof(ProcessHandle),
+            buffer,
+            bufferLength,
+            &returnLength
+            );
+    }
+
+    if (NT_SUCCESS(status))
+    {
+        status = STATUS_NOT_FOUND;
+
+        for (ULONG i = 0; i < returnLength / sizeof(SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION); i++)
+        {
+            if (buffer[i].Process)
+            {
+                architecture = (USHORT)buffer[i].Machine;
+                status = STATUS_SUCCESS;
+                break;
+            }
+        }
+    }
+
+    PhFree(buffer);
+
+    if (NT_SUCCESS(status))
+    {
+        *ProcessArchitecture = architecture;
+    }
+
+    return status;
+}
+
 NTSTATUS PhGetProcessCodePage(
     _In_ HANDLE ProcessHandle,
     _Out_ PUSHORT ProcessCodePage
@@ -10097,3 +10341,179 @@ CleanupExit:
     return status;
 }
 
+NTSTATUS PhGetThreadLastStatusValue(
+    _In_ HANDLE ThreadHandle,
+    _In_opt_ HANDLE ProcessHandle,
+    _Out_ PNTSTATUS LastStatusValue
+    )
+{
+    NTSTATUS status;
+    THREAD_BASIC_INFORMATION basicInfo;
+    BOOLEAN openedProcessHandle = FALSE;
+#ifdef _WIN64
+    BOOLEAN isWow64 = FALSE;
+#endif
+
+    if (!NT_SUCCESS(status = PhGetThreadBasicInformation(ThreadHandle, &basicInfo)))
+        return status;
+
+    if (!ProcessHandle)
+    {
+        if (!NT_SUCCESS(status = PhOpenThreadProcess(
+            ThreadHandle,
+            PROCESS_VM_READ,
+            &ProcessHandle
+            )))
+            return status;
+
+        openedProcessHandle = TRUE;
+    }
+
+#ifdef _WIN64
+    PhGetProcessIsWow64(ProcessHandle, &isWow64);
+
+    if (isWow64)
+    {
+        status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(WOW64_GET_TEB32(basicInfo.TebBaseAddress), UFIELD_OFFSET(TEB32, LastStatusValue)),
+            LastStatusValue,
+            sizeof(NTSTATUS),
+            NULL
+            );
+    }
+    else
+#endif
+    {
+        status = NtReadVirtualMemory(
+            ProcessHandle,
+            PTR_ADD_OFFSET(basicInfo.TebBaseAddress, UFIELD_OFFSET(TEB, LastStatusValue)), // LastErrorValue/ExceptionCode
+            LastStatusValue,
+            sizeof(NTSTATUS),
+            NULL
+            );
+    }
+
+    if (openedProcessHandle)
+        NtClose(ProcessHandle);
+
+    return status;
+}
+
+BOOLEAN PhIsFirmwareSupported(
+    VOID
+    )
+{
+    UNICODE_STRING variableName = RTL_CONSTANT_STRING(L" ");
+    ULONG variableValueLength = 0;
+    GUID vendorGuid = { 0 };
+
+    if (NtQuerySystemEnvironmentValueEx(
+        &variableName, 
+        &vendorGuid,
+        NULL,
+        &variableValueLength,
+        NULL
+        ) == STATUS_VARIABLE_NOT_FOUND)
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+// rev from RtlpCreateExecutionRequiredRequest
+NTSTATUS PhCreateExecutionRequiredRequest(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PHANDLE PowerRequestHandle
+    )
+{
+    NTSTATUS status;
+    HANDLE powerRequestHandle = NULL;
+    PROCESS_EXTENDED_BASIC_INFORMATION basicInfo;
+    COUNTED_REASON_CONTEXT powerRequestReason;
+    POWER_REQUEST_ACTION powerRequestAction;
+
+    status = PhGetProcessExtendedBasicInformation(ProcessHandle, &basicInfo);
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    if (!basicInfo.IsFrozen)
+    {
+        // CreateToolhelp32Snapshot uses RtlpCreateExecutionRequiredRequest but it doesn't create an execution request
+        // when IsFrozen==false (such as when the immersive window is visible), CreateToolhelp32Snapshot proceeds to
+        // inject the debug thread but if the window closes, there's a race here where the debug thread gets frozen because
+        // RtlpCreateExecutionRequiredRequest never created the execution request. We can resolve the race condition
+        // by removing the above code checking IsFrozen but for now just copy what RtlpCreateExecutionRequiredRequest
+        // does (and copy the race condition) by returning here instead of always creating the exeution request. (dmex)
+        // TODO: We should remove the check for IsFrozen if the race condition becomes an issue at some point in the future.
+        *PowerRequestHandle = NULL;
+        return STATUS_SUCCESS;
+    }
+
+    memset(&powerRequestReason, 0, sizeof(COUNTED_REASON_CONTEXT));
+    powerRequestReason.Version = POWER_REQUEST_CONTEXT_VERSION;
+    powerRequestReason.Flags = POWER_REQUEST_CONTEXT_SIMPLE_STRING;
+    RtlInitUnicodeString(&powerRequestReason.SimpleString, L"DebugExecutionRequired request");
+
+    status = NtPowerInformation(
+        PlmPowerRequestCreate,
+        &powerRequestReason,
+        sizeof(COUNTED_REASON_CONTEXT),
+        &powerRequestHandle,
+        sizeof(HANDLE)
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    memset(&powerRequestAction, 0, sizeof(POWER_REQUEST_ACTION));
+    powerRequestAction.PowerRequestHandle = powerRequestHandle;
+    powerRequestAction.RequestType = PowerRequestExecutionRequiredInternal;
+    powerRequestAction.SetAction = TRUE;
+    powerRequestAction.ProcessHandle = ProcessHandle;
+
+    status = NtPowerInformation(
+        PowerRequestAction,
+        &powerRequestAction,
+        sizeof(POWER_REQUEST_ACTION),
+        NULL,
+        0
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *PowerRequestHandle = powerRequestHandle;
+    }
+    else
+    {
+        NtClose(powerRequestHandle);
+    }
+
+    return status;
+}
+
+// rev from RtlpDestroyExecutionRequiredRequest
+NTSTATUS PhDestroyExecutionRequiredRequest(
+    _In_ HANDLE PowerRequestHandle
+    )
+{
+    POWER_REQUEST_ACTION requestPowerAction;
+
+    memset(&requestPowerAction, 0, sizeof(POWER_REQUEST_ACTION));
+    requestPowerAction.PowerRequestHandle = PowerRequestHandle;
+    requestPowerAction.RequestType = PowerRequestExecutionRequiredInternal;
+    requestPowerAction.SetAction = FALSE;
+    requestPowerAction.ProcessHandle = NULL;
+
+    NtPowerInformation(
+        PowerRequestAction,
+        &requestPowerAction,
+        sizeof(POWER_REQUEST_ACTION),
+        NULL,
+        0
+        );
+
+    return NtClose(PowerRequestHandle);
+}

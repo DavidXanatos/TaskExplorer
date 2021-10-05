@@ -23,7 +23,8 @@
         <file alias="Win7">WinLogos/7 Windows 7.png</file>
         <file alias="Win8">WinLogos/8 Windows 8.png</file>
         <file alias="Win10">WinLogos/10 Windows 10.png</file>
-        <file alias="WinNew">WinLogos/10+Windows New.png</file>
+        <file alias="Win11">WinLogos/11 Windows 11.png</file>
+        <file alias="WinNew">WinLogos/New Windows.png</file>
     </qresource>
     <qresource prefix="/Actions">
         <file alias="Settings">Actions/config.png</file>
@@ -71,9 +72,11 @@
         <file alias="Glasses">Actions/glasses.png</file>
         <file alias="Tree">Actions/tree.png</file>
         <file alias="Persistence">Actions/aufgabe.png</file>
-        <file alias="MonitorDbg">Actions/bug.png</file>
+        <file alias="Debug">Actions/bug.png</file>
         <file alias="Filter">Actions/filter.png</file>
         <file alias="Filter2">Actions/filter2.png</file>
+        <file alias="Computer">Actions/computer.png</file>
+        <file alias="MonitorDbg">Actions/log.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

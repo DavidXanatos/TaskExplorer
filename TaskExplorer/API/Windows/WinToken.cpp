@@ -32,6 +32,7 @@ struct SWinToken
 	SWinToken()
 	{
 		QueryHandle = NULL;
+		QueryAux = NULL;
 		Handle = NULL;
 		Type = CWinToken::eProcess;
 		ExtAccess = false;
@@ -40,6 +41,7 @@ struct SWinToken
 	}
 
 	HANDLE QueryHandle;
+	HANDLE QueryAux;
 	HANDLE Handle;
 	CWinToken::EQueryType Type;
 	bool ExtAccess;
@@ -66,7 +68,7 @@ CWinToken::CWinToken(QObject *parent)
 
 CWinToken::~CWinToken()
 {
-	if (m->Type != eProcess && m->Type != eOriginal)
+	if (m->Type != eProcess && m->Type != eOriginalPrimary && m->Type != eOriginalThread)
 		NtClose(m->QueryHandle);
 	delete m;
 }
@@ -87,11 +89,18 @@ NTSTATUS NTAPI CWinToken__OpenProcessToken(_Out_ PHANDLE Handle, _In_ ACCESS_MAS
 	{
 		status = NtOpenThreadToken(m->QueryHandle, DesiredAccess, TRUE, Handle);
 	}
-	else if (m->Type == CWinToken::eOriginal)
+	else if (m->Type == CWinToken::eOriginalPrimary)
 	{
 		CSandboxieAPI* pSandboxieAPI = ((CWindowsAPI*)theAPI)->GetSandboxieAPI();
-		*Handle = pSandboxieAPI ? (HANDLE)pSandboxieAPI->OpenOriginalHandle((quint64)m->QueryHandle) : NULL;
-		if (Handle != NULL)
+		*Handle = pSandboxieAPI ? (HANDLE)pSandboxieAPI->OpenOriginalToken((quint64)m->QueryHandle) : NULL;
+		if (*Handle != NULL)
+			status = STATUS_SUCCESS;
+	}
+	else if (m->Type == CWinToken::eOriginalThread)
+	{
+		CSandboxieAPI* pSandboxieAPI = ((CWindowsAPI*)theAPI)->GetSandboxieAPI();
+		*Handle = pSandboxieAPI ? (HANDLE)pSandboxieAPI->OpenOriginalToken((quint64)m->QueryHandle, (quint64)m->QueryAux) : NULL;
+		if (*Handle != NULL)
 			status = STATUS_SUCCESS;
 	}
 	else
@@ -179,8 +188,18 @@ CWinToken* CWinToken::TokenFromProcess(void* QueryHandle)
 CWinToken* CWinToken::OriginalToken(quint64 ProcessId)
 {
 	CWinToken* pOriginalToken = new CWinToken();
-	pOriginalToken->m->Type = eOriginal;
+	pOriginalToken->m->Type = eOriginalPrimary;
 	pOriginalToken->m->QueryHandle = (HANDLE)ProcessId;
+	pOriginalToken->InitStaticData();
+	return pOriginalToken;
+}
+
+CWinToken* CWinToken::OriginalToken(quint64 ProcessId, quint64 ThreadId)
+{
+	CWinToken* pOriginalToken = new CWinToken();
+	pOriginalToken->m->Type = eOriginalThread;
+	pOriginalToken->m->QueryHandle = (HANDLE)ProcessId;
+	pOriginalToken->m->QueryAux = (HANDLE)ThreadId;
 	pOriginalToken->InitStaticData();
 	return pOriginalToken;
 }

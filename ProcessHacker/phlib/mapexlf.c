@@ -211,6 +211,37 @@ PELF64_IMAGE_SECTION_HEADER PhGetMappedWslImageSectionByType(
     return NULL;
 }
 
+PELF64_IMAGE_SECTION_HEADER PhGetMappedWslImageSectionByName(
+    _In_ PPH_MAPPED_IMAGE MappedWslImage,
+    _In_ PSTR Name
+    )
+{
+    if (Name)
+    {
+        PELF64_IMAGE_SECTION_HEADER sectionHeader;
+        PELF64_IMAGE_SECTION_HEADER stringSection;
+        PELF64_IMAGE_SECTION_HEADER section;
+        PVOID stringTable;
+        USHORT i;
+
+        sectionHeader = IMAGE_FIRST_ELF64_SECTION(MappedWslImage);
+        stringSection = IMAGE_ELF64_SECTION_BY_INDEX(sectionHeader, MappedWslImage->Headers64->e_shstrndx);
+        stringTable = PTR_ADD_OFFSET(MappedWslImage->Header, stringSection->sh_offset);
+
+        for (i = 0; i < MappedWslImage->Headers64->e_shnum; i++)
+        {
+            section = IMAGE_ELF64_SECTION_BY_INDEX(sectionHeader, i);
+
+            if (PhEqualBytesZ(Name, PTR_ADD_OFFSET(stringTable, section->sh_name), FALSE))
+            {
+                return section;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 ULONG64 PhGetMappedWslImageBaseAddress(
     _In_ PPH_MAPPED_IMAGE MappedWslImage
     )

@@ -31,7 +31,7 @@ CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 	m_pSearchLayout->addWidget(m_pSearch);
 	QObject::connect(m_pSearch, SIGNAL(textChanged(QString)), this, SLOT(OnText()));
     QObject::connect(m_pSearch, SIGNAL(returnPressed()), this, SLOT(OnReturn()));
-
+	
 	m_pCaseSensitive = new QCheckBox(tr("Case Sensitive"));
 	m_pSearchLayout->addWidget(m_pCaseSensitive);
 	connect(m_pCaseSensitive, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
@@ -48,7 +48,7 @@ CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 	if (HighLightOption)
 	{
 		m_pHighLight = new QCheckBox(tr("Highlight"));
-		m_pHighLight->setChecked(true);
+		m_pHighLight->setChecked(false);
 		m_pSearchLayout->addWidget(m_pHighLight);
 		connect(m_pHighLight, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
 	}

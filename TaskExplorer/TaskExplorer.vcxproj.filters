@@ -557,6 +557,18 @@
     <ClCompile Include="API\Windows\Monitors\FirewallMonitor.cpp">
       <Filter>API\Windows\Monitors</Filter>
     </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\SbieView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\SystemInfo\RpcView.cpp">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\RpcModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\RpcEndpoint.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -1085,6 +1097,18 @@
     </QtMoc>
     <QtMoc Include="API\Windows\Monitors\FirewallMonitor.h">
       <Filter>API\Windows\Monitors</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\SbieView.h">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\SystemInfo\RpcView.h">
+      <Filter>TaskExplorer\SystemInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\RpcModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\RpcEndpoint.h">
+      <Filter>API\Windows</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

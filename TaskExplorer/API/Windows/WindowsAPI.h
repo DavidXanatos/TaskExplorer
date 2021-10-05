@@ -22,6 +22,7 @@
 #include "WinDriver.h"
 #include "WinWnd.h"
 #include "WinPoolEntry.h"
+#include "RpcEndpoint.h"
 
 enum MISC_WIN_EVENT_TYPE
 {
@@ -136,11 +137,14 @@ public:
 
 	virtual QMultiMap<QString, CDnsCacheEntryPtr> GetDnsEntryList() const;
 
+	virtual QMap<QString, CRpcEndpointPtr> GetRpcTableList() const { QReadLocker Locker(&m_RpcTableMutex); return m_RpcTableList; }
+
 	virtual QMap<quint64, CPoolEntryPtr> GetPoolTableList() const { QReadLocker Locker(&m_PoolTableMutex); return m_PoolTableList; }
 
 	virtual bool UpdateThreads(CWinProcess* pProcess);
 
 signals:
+	void		RpcListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
 	void		PoolListUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 public slots:
@@ -153,6 +157,7 @@ public slots:
 
 	void		OnDebugMessage(quint64 PID, const QString& Message, const QDateTime& TimeStamp);
 
+	bool		UpdateRpcList();
 	bool		UpdatePoolTable();
 
 protected:
@@ -214,8 +219,11 @@ protected:
 	volatile bool			m_UseDiskCounters;
 
 	mutable QReadWriteLock	m_WindowMutex;
-	QHash<quint64, QMultiMap<quint64, quint64> > m_WindowMap;
+	QHash<quint64, QMultiMap<quint64, quint64> > m_WindowMap; // <pid<tid,hwnd>>
 	QHash<quint64, QPair<quint64, quint64> > m_WindowRevMap;
+
+	mutable QReadWriteLock		m_RpcTableMutex;
+	QMap<QString, CRpcEndpointPtr>m_RpcTableList;
 
 	mutable QReadWriteLock		m_PoolTableMutex;
 	QMap<quint64, CPoolEntryPtr>m_PoolTableList;
@@ -227,6 +235,8 @@ private:
 	quint64 UpdateCpuCycleStats();
 	void UpdateCPUCycles(quint64 TotalCycleTime, quint64 IdleCycleTime);
 	bool InitCpuCount();
+
+	bool CWindowsAPI::UpdateRpcList(void* server, void* protocol, QMap<QString, CRpcEndpointPtr>& OldRpcTableList, QSet<QString>& Added, QSet<QString>& Changed);
 
 	bool m_bTestSigning;
 	quint32 m_uDriverStatus;

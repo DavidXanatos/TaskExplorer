@@ -212,6 +212,10 @@ typedef struct _LDR_DATA_TABLE_ENTRY
 
 #define LDR_IS_DATAFILE(DllHandle) (((ULONG_PTR)(DllHandle)) & (ULONG_PTR)1)
 #define LDR_IS_IMAGEMAPPING(DllHandle) (((ULONG_PTR)(DllHandle)) & (ULONG_PTR)2)
+#define LDR_MAPPEDVIEW_TO_DATAFILE(BaseAddress) ((PVOID)(((ULONG_PTR)(BaseAddress)) | (ULONG_PTR)1))
+#define LDR_MAPPEDVIEW_TO_IMAGEMAPPING(BaseAddress) ((PVOID)(((ULONG_PTR)(BaseAddress)) | (ULONG_PTR)2))
+#define LDR_DATAFILE_TO_MAPPEDVIEW(DllHandle) ((PVOID)(((ULONG_PTR)(DllHandle)) & ~(ULONG_PTR)1))
+#define LDR_IMAGEMAPPING_TO_MAPPEDVIEW(DllHandle) ((PVOID)(((ULONG_PTR)(DllHandle)) & ~(ULONG_PTR)2))
 #define LDR_IS_RESOURCE(DllHandle) (LDR_IS_IMAGEMAPPING(DllHandle) || LDR_IS_DATAFILE(DllHandle))
 
 NTSYSAPI
@@ -542,7 +546,7 @@ NTAPI
 LdrRegisterDllNotification(
     _In_ ULONG Flags,
     _In_ PLDR_DLL_NOTIFICATION_FUNCTION NotificationFunction,
-    _In_ PVOID Context,
+    _In_opt_ PVOID Context,
     _Out_ PVOID *Cookie
     );
 
@@ -620,12 +624,7 @@ typedef struct _PS_SYSTEM_DLL_INIT_BLOCK
 
 #if (PHNT_VERSION >= PHNT_THRESHOLD)
 // rev
-NTSYSAPI
-PPS_SYSTEM_DLL_INIT_BLOCK
-NTAPI
-LdrSystemDllInitBlock(
-    VOID
-    );
+NTSYSAPI PS_SYSTEM_DLL_INIT_BLOCK LdrSystemDllInitBlock;
 #endif
 
 // Load as data table
@@ -640,7 +639,8 @@ LdrAddLoadAsDataTable(
     _In_ PVOID Module,
     _In_ PWSTR FilePath,
     _In_ SIZE_T Size,
-    _In_ HANDLE Handle
+    _In_ HANDLE Handle,
+    _In_ HANDLE ActCtx // param added on Win10
     );
 
 // private
@@ -765,6 +765,29 @@ NTAPI
 LdrFindEntryForAddress(
     _In_ PVOID DllHandle,
     _Out_ PLDR_DATA_TABLE_ENTRY *Entry
+    );
+
+// rev - Win10 type
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrLoadAlternateResourceModule(
+    _In_ PVOID DllHandle,
+    _Out_ PVOID *ResourceDllBase,
+    _Out_opt_ ULONG_PTR *ResourceOffset,
+    _In_ ULONG Flags
+    );
+
+// rev - Win10 type
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrLoadAlternateResourceModuleEx(
+    _In_ PVOID DllHandle,
+    _In_ LANGID LanguageId,
+    _Out_ PVOID *ResourceDllBase,
+    _Out_opt_ ULONG_PTR *ResourceOffset,
+    _In_ ULONG Flags
     );
 
 #endif // (PHNT_MODE != PHNT_MODE_KERNEL)
@@ -909,6 +932,7 @@ typedef PVOID (NTAPI *PDELAYLOAD_FAILURE_SYSTEM_ROUTINE)(
     _In_ PCSTR ProcName
     );
 
+#if (PHNT_VERSION >= PHNT_WIN8)
 // rev
 NTSYSAPI
 PVOID
@@ -939,23 +963,27 @@ NTAPI
 LdrSetDefaultDllDirectories(
     _In_ ULONG DirectoryFlags
     );
+#endif
 
 // rev
+DECLSPEC_NORETURN
 NTSYSAPI
-NTSTATUS
+VOID
 NTAPI
 LdrShutdownProcess(
     VOID
     );
 
 // rev
+DECLSPEC_NORETURN
 NTSYSAPI
-NTSTATUS
+VOID
 NTAPI
 LdrShutdownThread(
     VOID
     );
 
+#if (PHNT_VERSION >= PHNT_WINBLUE)
 // rev
 NTSYSAPI
 NTSTATUS
@@ -971,6 +999,7 @@ NTAPI
 LdrControlFlowGuardEnforced(
     VOID
     );
+#endif
 
 #if (PHNT_VERSION >= PHNT_19H1)
 // rev

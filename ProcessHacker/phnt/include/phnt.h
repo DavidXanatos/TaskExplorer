@@ -62,6 +62,7 @@
 #define PHNT_19H2 108
 #define PHNT_20H1 109
 #define PHNT_20H2 110
+#define PHNT_21H1 111
 
 #ifndef PHNT_MODE
 #define PHNT_MODE PHNT_MODE_USER
@@ -88,6 +89,7 @@ extern "C" {
 #include <ntldr.h>
 #include <ntexapi.h>
 
+#include <ntbcd.h>
 #include <ntmmapi.h>
 #include <ntobapi.h>
 #include <ntpsapi.h>

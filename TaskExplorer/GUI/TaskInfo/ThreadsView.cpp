@@ -86,6 +86,7 @@ CThreadsView::CThreadsView(QWidget *parent)
 		m_pCritical->setCheckable(true);
 
 	m_pToken = m_pMenu->addAction(tr("Impersonation Token"), this, SLOT(OnThreadToken()));
+	m_pToken2 = m_pMenu->addAction(tr("Original Impersonation Token"), this, SLOT(OnThreadToken()));
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
 
@@ -319,6 +320,7 @@ void CThreadsView::OnMenu(const QPoint &point)
 	m_pCritical->setChecked(pWinThread && pWinThread->IsCriticalThread());
 
 	m_pToken->setEnabled(pWinThread && pWinThread->HasToken());
+	m_pToken2->setVisible(pWinThread && pWinThread->HasToken2());
 
 	m_pPermissions->setEnabled(selectedRows.count() == 1);
 #endif
@@ -453,7 +455,12 @@ void CThreadsView::OnThreadToken()
 	if (!pWinThread)
 		return;
 
-	CWinToken* pToken = CWinToken::TokenFromThread(pWinThread->GetThreadId());
+	CWinToken* pToken;
+	if (sender() == m_pToken2)
+		pToken = CWinToken::OriginalToken(pWinThread->GetProcessId(), pWinThread->GetThreadId());
+	else
+		pToken = CWinToken::TokenFromThread(pWinThread->GetThreadId());
+
 	if (pToken)
 	{
 		CTokenView* pTokenView = new CTokenView();

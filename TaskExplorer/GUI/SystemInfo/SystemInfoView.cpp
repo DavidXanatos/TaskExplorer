@@ -13,7 +13,9 @@
 #include "NetworkView.h"
 #include "GPUView.h"
 #include "DnsCacheView.h"
-
+#ifdef WIN32
+#include "RpcView.h"
+#endif
 
 CSystemInfoView::CSystemInfoView(bool bAsWindow, QWidget* patent) 
 	: CTabPanel(patent)
@@ -81,6 +83,11 @@ void CSystemInfoView::InitializeTabs()
 
 	m_pServicesView = new CServicesView(true, this);
 	AddTab(m_pServicesView, tr("Services"));
+
+#ifdef WIN32
+	m_pRpcView = new CRpcView(this);
+	AddTab(m_pRpcView, tr("RPC Endpoints"));
+#endif
 }
 
 void CSystemInfoView::OnTab(int tabIndex)

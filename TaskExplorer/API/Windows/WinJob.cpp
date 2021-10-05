@@ -50,13 +50,13 @@ NTSTATUS NTAPI CWinJob__OpenProcessJob(_Out_ PHANDLE Handle, _In_ ACCESS_MASK De
 		HANDLE jobHandle = NULL;
 
 		// Note: we are using the query handle of the process instance instead of pid and re opening it
-		processHandle = m->QueryHandle;
-		//if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)Context)))
-		//   return status;
+		//processHandle = m->QueryHandle;
+		if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)Context)))
+		   return status;
 
 		status = KphOpenProcessJob(processHandle, DesiredAccess, &jobHandle);
 
-		//NtClose(processHandle);
+		NtClose(processHandle);
 
 		if (NT_SUCCESS(status) && status != STATUS_PROCESS_NOT_IN_JOB && jobHandle)
 		{
@@ -261,6 +261,36 @@ STATUS CWinJob::Terminate()
 
     if (!NT_SUCCESS(status))
 		return ERR(tr("Failed to terminate job"), status);
+
+	return OK;
+}
+
+// Freeze flags
+#define JOB_OBJECT_OPERATION_FREEZE 0x01;
+#define JOB_OBJECT_OPERATION_FILTER 0x02;
+#define JOB_OBJECT_OPERATION_SWAP	0x04;
+
+STATUS CWinJob::Freeze(bool bFreeze)
+{
+	if (WindowsVersion < WINDOWS_8)
+		return ERR(tr("Job freezing is only available on windows 8 and later"), STATUS_NOT_IMPLEMENTED);
+
+	HANDLE jobHandle;
+	NTSTATUS status = CWinJob__OpenProcessJob(&jobHandle, JOB_OBJECT_SET_ATTRIBUTES, m);
+	if (!NT_SUCCESS(status))
+		return ERR(tr("Failed to open job"), status);
+
+	JOBOBJECT_FREEZE_INFORMATION info;
+	memset(&info, 0, sizeof(info));
+	info.Flags = JOB_OBJECT_OPERATION_FREEZE;
+	info.Freeze = bFreeze ? TRUE : FALSE;
+
+	status = NtSetInformationJobObject(jobHandle, (JOBOBJECTINFOCLASS)JobObjectFreezeInformation, &info, sizeof(info));
+
+    NtClose(jobHandle);
+
+    if (!NT_SUCCESS(status))
+		return ERR(tr("Failed to (un)freeze job"), status);
 
 	return OK;
 }

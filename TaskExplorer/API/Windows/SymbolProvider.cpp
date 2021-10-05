@@ -300,7 +300,7 @@ BOOLEAN __stdcall LoadSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Mod
         return TRUE;
     }
 
-    PhLoadModuleSymbolProvider(symbolProvider, Module->FileName->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
+    PhLoadModuleSymbolProvider(symbolProvider, Module->FileNameWin32->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
 
     return TRUE;
 }
@@ -317,7 +317,7 @@ BOOLEAN LoadBasicSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, 
     if (PhEqualString2(Module->Name, L"ntdll.dll", TRUE) ||
         PhEqualString2(Module->Name, L"kernel32.dll", TRUE))
     {
-        PhLoadModuleSymbolProvider(symbolProvider, Module->FileName->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
+        PhLoadModuleSymbolProvider(symbolProvider, Module->FileNameWin32->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
     }
 
     return TRUE;
@@ -717,8 +717,12 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
     // PhFormatString(L"Processing stack frame %u...", threadStackContext->NewList->Count)
 
     PPH_STRING symbol = PhGetSymbolFromAddress(m->SymbolProvider, (ULONG64)StackFrame->PcAddress, NULL, NULL, NULL, NULL);
+    //PPH_STRING fileName = NULL;
+    //ULONG64 moduleBaseAddress = 0;
+    //PPH_STRING symbol = PhGetSymbolFromInlineContext(m->SymbolProvider, StackFrame, NULL, &fileName, NULL, NULL, &moduleBaseAddress);
 
 	QString Symbol = CastPhString(symbol);
+    //QString FileName = CastPhString(fileName);
 
     if (symbol && (StackFrame->Flags & PH_THREAD_STACK_FRAME_I386) && !(StackFrame->Flags & PH_THREAD_STACK_FRAME_FPO_DATA_PRESENT))
     {
@@ -784,11 +788,11 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 	
 	QString FileInfo;
 
-    PPH_STRING fileName;
+    PPH_STRING lineFileName;
     PH_SYMBOL_LINE_INFORMATION lineInfo;
-	if(PhGetLineFromAddress(m->SymbolProvider, (ULONG64)StackFrame->PcAddress, &fileName, NULL, &lineInfo))
+	if(PhGetLineFromAddress(m->SymbolProvider, (ULONG64)StackFrame->PcAddress, &lineFileName, NULL, &lineInfo))
 	{
-		FileInfo = tr("File: %1: line %2").arg(CastPhString(fileName)).arg(lineInfo.LineNumber);
+		FileInfo = tr("File: %1: line %2").arg(CastPhString(lineFileName)).arg(lineInfo.LineNumber);
 	}
 
 

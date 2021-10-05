@@ -519,8 +519,9 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
     if (WindowsVersion >= WINDOWS_10_20H1 && m->QueryHandle)
     {
         BOOLEAN cetEnabled;
+		BOOLEAN IsCetStrictModeEnabled; // todo
 
-        if (NT_SUCCESS(PhGetProcessIsCetEnabled(m->QueryHandle, &cetEnabled)))
+        if (NT_SUCCESS(PhGetProcessIsCetEnabled(m->QueryHandle, &cetEnabled, &IsCetStrictModeEnabled)))
         {
             m->IsCetEnabled = cetEnabled;
         }
@@ -1073,6 +1074,8 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 		if (pWinThread.isNull())
 		{
 			pWinThread = QSharedPointer<CWinThread>(new CWinThread());
+			if (m->IsSandBoxed)
+				pWinThread->SetSandboxed();
 			bAdd = pWinThread->InitStaticData(processHandle, Thread);
 			theAPI->AddThread(pWinThread);
 			if (!HaveFirst)

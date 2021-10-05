@@ -582,6 +582,15 @@ PhSetTokenPrivilege2(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhAdjustPrivilege(
+    _In_opt_ PWSTR PrivilegeName,
+    _In_opt_ LONG Privilege,
+    _In_ BOOLEAN Enable
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhSetTokenGroups(
     _In_ HANDLE TokenHandle,
     _In_opt_ PWSTR GroupName,
@@ -1109,7 +1118,7 @@ PhGetProcessIsDotNet(
 #define PH_CLR_VERSION_MASK 0x20
 
 #define PH_CLR_MSCORLIB_PRESENT 0x10000
-#define PH_CLR_JIT_PRESENT 0x20000
+#define PH_CLR_CORELIB_PRESENT 0x20000
 #define PH_CLR_PROCESS_IS_WOW64 0x100000
 
 PHLIBAPI
@@ -1712,6 +1721,13 @@ PhImpersonateClientOfNamedPipe(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhDisableImpersonateNamedPipe(
+    _In_ HANDLE PipeHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetNamedPipeClientComputerName(
     _In_ HANDLE PipeHandle,
     _In_ ULONG ClientComputerNameLength,
@@ -1802,9 +1818,48 @@ PhQueryProcessHeapInformation(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetProcessArchitecture(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PUSHORT ProcessArchitecture
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetProcessCodePage(
     _In_ HANDLE ProcessHandle,
     _Out_ PUSHORT ProcessCodePage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetThreadLastStatusValue(
+    _In_ HANDLE ThreadHandle,
+    _In_opt_ HANDLE ProcessHandle,
+    _Out_ PNTSTATUS LastStatusValue
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhIsFirmwareSupported(
+    VOID
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhCreateExecutionRequiredRequest(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PHANDLE PowerRequestHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhDestroyExecutionRequiredRequest(
+    _In_ HANDLE PowerRequestHandle
     );
 
 #ifdef __cplusplus

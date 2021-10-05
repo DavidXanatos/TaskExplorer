@@ -25,7 +25,7 @@
 
 #include <ph.h>
 #include <guisup.h>
-#include <provider.h>
+//#include <provider.h>
 #include <filestream.h>
 #include <fastlock.h>
 #include <treenew.h>
@@ -46,7 +46,8 @@
 #include <combaseapi.h>
 #include <lsasup.h>
 #include <phnative.h>
-#include <ntgdi.h>
+//#include <ntgdi.h>
+#include "../ProcessHacker/phnt/include/ntgdi.h"
 
 
 #include "../../../MiscHelpers/Common/FlexError.h"

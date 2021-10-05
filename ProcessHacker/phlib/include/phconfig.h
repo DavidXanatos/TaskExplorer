@@ -17,6 +17,7 @@ extern ULONG WindowsVersion;
 
 #define WINDOWS_ANCIENT 0
 #define WINDOWS_XP 51 // August, 2001
+#define WINDOWS_SERVER_2003 52 // April, 2003
 #define WINDOWS_VISTA 60 // November, 2006
 #define WINDOWS_7 61 // July, 2009
 #define WINDOWS_8 62 // August, 2012
@@ -32,6 +33,8 @@ extern ULONG WindowsVersion;
 #define WINDOWS_10_19H2 108 // November, 2019
 #define WINDOWS_10_20H1 109 // May, 2020
 #define WINDOWS_10_20H2 110 // October, 2020
+#define WINDOWS_10_21H1 111 // May, 2021
+#define WINDOWS_11 112
 #define WINDOWS_NEW ULONG_MAX
 
 // Debugging

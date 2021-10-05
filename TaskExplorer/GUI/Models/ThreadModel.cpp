@@ -123,7 +123,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eUserTime:				Value = CpuStats.CpuUserDelta.Value;
 #ifdef WIN32
 				case eIdealProcessor:		Value = pWinThread->GetIdealProcessor(); break;
-				case eHasToken:				Value = pWinThread->HasToken(); break;
+				case eHasToken:				Value = pWinThread->IsSandboxed() ? pWinThread->HasToken2() : pWinThread->HasToken(); break;
 				case eCritical:				Value = pWinThread->IsCriticalThread() ? tr("Critical") : ""; break;
 				case eAppDomain:			Value = pWinThread->GetAppDomain(); break;
 #endif
@@ -162,7 +162,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 					case eContextSwitchesDelta:
 												ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
 #ifdef WIN32
-					case eHasToken:				ColValue.Formated = pWinThread->HasToken() ? tr("True") : ""; break;
+					case eHasToken:				ColValue.Formated = Value.toBool() ? tr("True") : ""; break;
 #endif
 				}
 			}

@@ -42,7 +42,6 @@
  */
 
 #include <ph.h>
-#include <settings.h>
 #include <treenew.h>
 
 #include <uxtheme.h>
@@ -78,8 +77,8 @@ BOOLEAN PhTreeNewInitialization(
         return FALSE;
 
     ComCtl32Handle = PhGetLoaderEntryDllBase(L"comctl32.dll");
-    SmallIconWidth = GetSystemMetrics(SM_CXSMICON);
-    SmallIconHeight = GetSystemMetrics(SM_CYSMICON);
+    SmallIconWidth = PhSmallIconSize.X; //GetSystemMetrics(SM_CXSMICON);
+    SmallIconHeight = PhSmallIconSize.Y; //GetSystemMetrics(SM_CYSMICON);
 
     return TRUE;
 }
@@ -296,11 +295,11 @@ LRESULT CALLBACK PhTnpWndProc(
         }
         break;
     case WM_MEASUREITEM:
-        if (PhThemeWindowMeasureItem(hwnd, (LPMEASUREITEMSTRUCT)lParam))
+        if (context->ThemeSupport && PhThemeWindowMeasureItem(hwnd, (LPMEASUREITEMSTRUCT)lParam))
             return TRUE;
         break;
     case WM_DRAWITEM:
-        if (PhThemeWindowDrawItem((LPDRAWITEMSTRUCT)lParam))
+        if (context->ThemeSupport && PhThemeWindowDrawItem((LPDRAWITEMSTRUCT)lParam))
             return TRUE;
         break;
     }
@@ -1574,6 +1573,13 @@ BOOLEAN PhTnpOnNotify(
                 PhTnpUpdateColumnMaps(Context);
                 Context->Callback(Context->Handle, TreeNewColumnReordered, NULL, NULL, Context->CallbackContext);
                 InvalidateRect(Context->Handle, NULL, FALSE);
+            }
+
+            // We need to invalidate the header but hwndFrom doesn't match HeaderHandle,
+            // instead we'll always invalidate? (dmex)
+            if (Context->ThemeSupport)
+            {
+                InvalidateRect(Context->HeaderHandle, NULL, FALSE);
             }
         }
         break;
@@ -5349,7 +5355,7 @@ VOID PhTnpPaint(
         textRect.right = viewRect.right - 20;
         textRect.bottom = viewRect.bottom - 5;
 
-        if (PhGetIntegerSetting(L"EnableThemeSupport"))
+        if (Context->ThemeSupport)
         {
             SetTextColor(hdc, RGB(0xff, 0xff, 0xff));
         }
@@ -5599,7 +5605,7 @@ VOID PhTnpDrawCell(
 
         if (Context->ImageListSupport)
         {
-            ImageList_DrawEx(
+            PhImageListDrawEx(
                 Context->ImageListHandle,
                 (ULONG)(ULONG_PTR)Node->Icon, // HACK (dmex)
                 hdc,

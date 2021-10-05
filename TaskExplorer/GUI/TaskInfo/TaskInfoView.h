@@ -18,6 +18,7 @@ class CGDIView;
 //class CDnsCacheView;
 class CDebugView;
 //class CEnvironmentView;
+class CSbieView;
 
 
 class CTaskInfoView : public CTabPanel
@@ -80,5 +81,6 @@ private:
 	//CDnsCacheView*		m_pDnsCacheView;
 	CDebugView*			m_pDebugView;
 	//CEnvironmentView*	m_pEnvironmentView;
+	CSbieView*			m_pSbieView;
 };
 

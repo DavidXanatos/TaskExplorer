@@ -2,7 +2,7 @@
  * PE viewer -
  *   pdb support
  *
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2021 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -38,17 +38,6 @@ VOID PvDestroySymbolNode(
     _In_ PPV_SYMBOL_NODE Node
     );
 
-BOOLEAN PhInsertCopyCellEMenuItem(
-    _In_ struct _PH_EMENU_ITEM* Menu,
-    _In_ ULONG InsertAfterId,
-    _In_ HWND TreeNewHandle,
-    _In_ PPH_TREENEW_COLUMN Column
-    );
-
-BOOLEAN PhHandleCopyCellEMenuItem(
-    _In_ struct _PH_EMENU_ITEM* SelectedItem
-    );
-
 VOID PvDeleteSymbolTree(
     _In_ PPDB_SYMBOL_CONTEXT Context
     )
@@ -78,10 +67,10 @@ BOOLEAN SymbolNodeHashtableCompareFunction(
     _In_ PVOID Entry2
     )
 {
-    PPV_SYMBOL_NODE windowNode1 = *(PPV_SYMBOL_NODE *)Entry1;
-    PPV_SYMBOL_NODE windowNode2 = *(PPV_SYMBOL_NODE *)Entry2;
+    PPV_SYMBOL_NODE node1 = *(PPV_SYMBOL_NODE *)Entry1;
+    PPV_SYMBOL_NODE node2 = *(PPV_SYMBOL_NODE *)Entry2;
 
-    return PhEqualString(windowNode1->Name, windowNode2->Name, TRUE);
+    return PhEqualString(node1->Name, node2->Name, TRUE);
 }
 
 ULONG SymbolNodeHashtableHashFunction(
@@ -169,11 +158,17 @@ VOID PvDestroySymbolNode(
     int sortResult = 0;
 
 #define END_SORT_FUNCTION \
-    /*if (sortResult == 0) \
-    //    sortResult = uintptrcmp((ULONG_PTR)node1->Node.Index, (ULONG_PTR)node2->Node.Index); \
-    */\
+    if (sortResult == 0) \
+        sortResult = uintptrcmp((ULONG_PTR)node1->UniqueId, (ULONG_PTR)node2->UniqueId); \
+    \
     return PhModifySort(sortResult, ((PPDB_SYMBOL_CONTEXT)_context)->TreeNewSortOrder); \
 }
+
+BEGIN_SORT_FUNCTION(Index)
+{
+    sortResult = uintptrcmp((ULONG_PTR)node1->UniqueId, (ULONG_PTR)node2->UniqueId);
+}
+END_SORT_FUNCTION
 
 BEGIN_SORT_FUNCTION(Type)
 {
@@ -237,6 +232,7 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
             {
                 static PVOID sortFunctions[] =
                 {
+                    SORT_FUNCTION(Index),
                     SORT_FUNCTION(Type),
                     SORT_FUNCTION(VA),
                     SORT_FUNCTION(Symbol),
@@ -283,6 +279,9 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
 
             switch (getCellText->Id)
             {
+            case TREE_COLUMN_ITEM_INDEX:
+                PhInitializeStringRefLongHint(&getCellText->Text, node->Index);
+                break;
             case TREE_COLUMN_ITEM_TYPE:
                 {
                     switch (node->Type)
@@ -429,19 +428,19 @@ PPV_SYMBOL_NODE PvGetSelectedSymbolNode(
 {
     for (ULONG i = 0; i < Context->NodeList->Count; i++)
     {
-        PPV_SYMBOL_NODE windowNode = Context->NodeList->Items[i];
+        PPV_SYMBOL_NODE node = Context->NodeList->Items[i];
 
-        if (windowNode->Node.Selected)
-            return windowNode;
+        if (node->Node.Selected)
+            return node;
     }
 
     return NULL;
 }
 
-VOID PvGetSelectedSymbolNodes(
+BOOLEAN PvGetSelectedSymbolNodes(
     _In_ PPDB_SYMBOL_CONTEXT Context,
-    _Out_ PPV_SYMBOL_NODE **Windows,
-    _Out_ PULONG NumberOfWindows
+    _Out_ PPV_SYMBOL_NODE **Nodes,
+    _Out_ PULONG NumberOfNodes
     )
 {
     PPH_LIST list = PhCreateList(2);
@@ -454,10 +453,17 @@ VOID PvGetSelectedSymbolNodes(
             PhAddItemList(list, node);
     }
 
-    *Windows = PhAllocateCopy(list->Items, sizeof(PVOID) * list->Count);
-    *NumberOfWindows = list->Count;
+    if (list->Count)
+    {
+        *Nodes = PhAllocateCopy(list->Items, sizeof(PVOID) * list->Count);
+        *NumberOfNodes = list->Count;
+
+        PhDereferenceObject(list);
+        return TRUE;
+    }
 
     PhDereferenceObject(list);
+    return FALSE;
 }
 
 VOID PvInitializeSymbolTree(
@@ -481,14 +487,17 @@ VOID PvInitializeSymbolTree(
     PhSetControlTheme(TreeNewHandle, L"explorer");
 
     TreeNew_SetCallback(TreeNewHandle, PvSymbolTreeNewCallback, Context);
+    TreeNew_SetRedraw(TreeNewHandle, FALSE);
 
+    PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_INDEX, TRUE, L"#", 80, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_INDEX, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_TYPE, TRUE, L"Type", 80, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_TYPE, 0, 0);
-    PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_VA, TRUE, L"VA", 80, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_VA, 0, 0);
+    PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_VA, TRUE, L"RVA", 80, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_VA, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_NAME, TRUE, L"Symbol", 150, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_NAME, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_SYMBOL, TRUE, L"Data", 150, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_SYMBOL, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, TREE_COLUMN_ITEM_SIZE, TRUE, L"Size", 40, PH_ALIGN_LEFT, TREE_COLUMN_ITEM_SIZE, 0, 0);
 
-    TreeNew_SetSort(TreeNewHandle, TREE_COLUMN_ITEM_VA, AscendingSortOrder);
+    TreeNew_SetRedraw(TreeNewHandle, TRUE);
+    TreeNew_SetSort(TreeNewHandle, TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);
 
     settings = PhGetStringSetting(L"PdbTreeListColumns");
     PhCmLoadSettings(TreeNewHandle, &settings->sr);
@@ -505,15 +514,15 @@ BOOLEAN WordMatchStringRef(
     PH_STRINGREF part;
     PH_STRINGREF remainingPart;
 
-    remainingPart = Context->SearchboxText->sr;
+    remainingPart = PhGetStringRef(Context->SearchboxText);
 
     while (remainingPart.Length)
     {
-        PhSplitStringRefAtChar(&remainingPart, '|', &part, &remainingPart);
+        PhSplitStringRefAtChar(&remainingPart, L'|', &part, &remainingPart);
 
         if (part.Length)
         {
-            if (PhFindStringInStringRef(Text, &part, TRUE) != -1)
+            if (PhFindStringInStringRef(Text, &part, TRUE) != SIZE_MAX)
                 return TRUE;
         }
     }
@@ -660,40 +669,50 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
     _In_ LPARAM lParam
     )
 {
-    LPPROPSHEETPAGE propSheetPage;
-    PPV_PROPPAGECONTEXT propPageContext;
     PPDB_SYMBOL_CONTEXT context;
 
-    if (PvPropPageDlgProcHeader(hwndDlg, uMsg, lParam, &propSheetPage, &propPageContext))
+    if (uMsg == WM_INITDIALOG)
     {
-        context = (PPDB_SYMBOL_CONTEXT)propPageContext->Context;
+        context = PhAllocateZero(sizeof(PDB_SYMBOL_CONTEXT));
+        PhSetWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT, context);
+
+        if (lParam)
+        {
+            LPPROPSHEETPAGE propSheetPage = (LPPROPSHEETPAGE)lParam;
+            context->PropSheetContext = (PPV_PROPPAGECONTEXT)propSheetPage->lParam;
+        }
     }
     else
     {
-        return FALSE;
+        context = PhGetWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
     }
+
+    if (!context)
+        return FALSE;
 
     switch (uMsg)
     {
     case WM_INITDIALOG:
         {
-            HANDLE treeNewTimer = NULL;
-
-            context = propPageContext->Context = PhAllocateZero(sizeof(PDB_SYMBOL_CONTEXT));
-            context->DialogHandle = hwndDlg;
-            context->TreeNewHandle = GetDlgItem(hwndDlg, IDC_SYMBOLTREE);
-            context->SearchHandle = GetDlgItem(hwndDlg, IDC_SYMSEARCH);
+            context->WindowHandle = hwndDlg;
+            context->TreeNewHandle = GetDlgItem(hwndDlg, IDC_TREELIST);
+            context->SearchHandle = GetDlgItem(hwndDlg, IDC_TREESEARCH);
             context->SearchboxText = PhReferenceEmptyString();
 
             PvCreateSearchControl(context->SearchHandle, L"Search Symbols (Ctrl+K)");
 
             PvInitializeSymbolTree(context, hwndDlg, context->TreeNewHandle);
+            PvConfigTreeBorders(context->TreeNewHandle);
             PhAddTreeNewFilter(GetSymbolListFilterSupport(context), PvSymbolTreeFilterCallback, context);
 
             SearchResults = PhCreateList(0x1000);
             context->UdtList = PhCreateList(0x100);
 
             TreeNew_SetEmptyText(context->TreeNewHandle, &LoadingSymbolsText, 0);
+
+            PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
+            PhAddLayoutItem(&context->LayoutManager, context->SearchHandle, NULL, PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
+            PhAddLayoutItem(&context->LayoutManager, context->TreeNewHandle, NULL, PH_ANCHOR_ALL);
 
             PhCreateThread2(PeDumpFileSymbols, context);
 
@@ -719,21 +738,26 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             }
 
             PvDeleteSymbolTree(context);
+
+            PhDeleteLayoutManager(&context->LayoutManager);
+
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
         {
-            if (!propPageContext->LayoutInitialized)
+            if (context->PropSheetContext && !context->PropSheetContext->LayoutInitialized)
             {
-                PPH_LAYOUT_ITEM dialogItem;
-
-                dialogItem = PvAddPropPageLayoutItem(hwndDlg, hwndDlg, PH_PROP_PAGE_TAB_CONTROL_PARENT, PH_ANCHOR_ALL);
-                PvAddPropPageLayoutItem(hwndDlg, context->SearchHandle, dialogItem, PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
-                PvAddPropPageLayoutItem(hwndDlg, context->TreeNewHandle, dialogItem, PH_ANCHOR_ALL);
+                PvAddPropPageLayoutItem(hwndDlg, hwndDlg, PH_PROP_PAGE_TAB_CONTROL_PARENT, PH_ANCHOR_ALL);
                 PvDoPropPageLayout(hwndDlg);
 
-                propPageContext->LayoutInitialized = TRUE;
+                context->PropSheetContext->LayoutInitialized = TRUE;
             }
+        }
+        break;
+    case WM_SIZE:
+        {
+            PhLayoutManagerLayout(&context->LayoutManager);
         }
         break;
     case WM_COMMAND:
@@ -786,6 +810,8 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             PvAddPendingSymbolNodes(context);
 
             TreeNew_SetEmptyText(context->TreeNewHandle, &EmptySymbolsText, 0);
+
+            TreeNew_NodesStructured(context->TreeNewHandle);
         }
         break;
     case WM_PV_SEARCH_SHOWMENU:
@@ -794,11 +820,12 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             PPH_EMENU menu;
             PPH_EMENU_ITEM selectedItem;
             PPV_SYMBOL_NODE *symbolNodes = NULL;
-            ULONG numberOfSymbolNodes = 0;
+            ULONG numberOfNodes = 0;
 
-            PvGetSelectedSymbolNodes(context, &symbolNodes, &numberOfSymbolNodes);
+            if (!PvGetSelectedSymbolNodes(context, &symbolNodes, &numberOfNodes))
+                break;
 
-            if (numberOfSymbolNodes != 0)
+            if (numberOfNodes != 0)
             {
                 menu = PhCreateEMenu();
                 PhInsertEMenuItem(menu, PhCreateEMenuItem(0, 1, L"Copy", NULL, NULL), ULONG_MAX);
@@ -860,6 +887,49 @@ VOID PvPdbProperties(
             NULL
             );
         PvAddPropPage(propContext, newPage);
+
+        // CLR page for v1.0 PDBs which are CLR metadata images. (dmex)
+        {
+            HANDLE fileHandle;
+
+            if (NT_SUCCESS(PhCreateFileWin32(
+                &fileHandle,
+                PhGetString(PvFileName),
+                FILE_READ_ATTRIBUTES | FILE_READ_DATA | SYNCHRONIZE,
+                FILE_ATTRIBUTE_NORMAL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                FILE_OPEN,
+                FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+                )))
+            {
+                PVOID viewBase;
+                SIZE_T size;
+
+                if (NT_SUCCESS(PhMapViewOfEntireFile(
+                    PhGetString(PvFileName),
+                    fileHandle,
+                    &viewBase,
+                    &size
+                    )))
+                {
+                    if (size > sizeof(ULONG) && RtlEqualMemory(viewBase, "BSJB", 4)) // BSJB signature 0x424a5342
+                    {
+                        newPage = PvCreatePropPageContext(
+                            MAKEINTRESOURCE(IDD_PECLR),
+                            PvpPeClrDlgProc,
+                            viewBase
+                            );
+                        PvAddPropPage(propContext, newPage);
+                    }
+                    else
+                    {
+                        NtUnmapViewOfSection(NtCurrentProcess(), viewBase);
+                    }
+                }
+
+                NtClose(fileHandle);
+            }
+        }
 
         PhModalPropertySheet(&propContext->PropSheetHeader);
 

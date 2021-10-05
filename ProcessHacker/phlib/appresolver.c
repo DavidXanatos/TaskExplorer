@@ -69,6 +69,23 @@ static PVOID PhpQueryStartMenuCacheInterface(
     return startMenuInterface;
 }
 
+static LPMALLOC PhpQueryStartMenuMallocInterface(
+    VOID
+    )
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static LPMALLOC allocInterface = NULL;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        CoGetMalloc(MEMCTX_TASK, &allocInterface);
+
+        PhEndInitOnce(&initOnce);
+    }
+
+    return allocInterface;
+}
+
 static BOOLEAN PhpKernelAppCoreInitialized(
     VOID
     )
@@ -142,8 +159,12 @@ BOOLEAN PhAppResolverGetAppIdForProcess(
 
     if (appIdText)
     {
+        //SIZE_T appIdTextLength = IMalloc_GetSize(PhpQueryStartMenuMallocInterface(), appIdText);
+        //*ApplicationUserModelId = PhCreateStringEx(appIdText, appIdTextLength - sizeof(UNICODE_NULL));
+        //IMalloc_Free(PhpQueryStartMenuMallocInterface(), appIdText);
+
         *ApplicationUserModelId = PhCreateString(appIdText);
-        RtlFreeHeap(RtlProcessHeap(), 0, appIdText);
+        CoTaskMemFree(appIdText);
         return TRUE;
     }
 
@@ -187,8 +208,12 @@ BOOLEAN PhAppResolverGetAppIdForWindow(
 
     if (appIdText)
     {
+        //SIZE_T appIdTextLength = IMalloc_GetSize(PhpQueryStartMenuMallocInterface(), appIdText);
+        //*ApplicationUserModelId = PhCreateStringEx(appIdText, appIdTextLength - sizeof(UNICODE_NULL));
+        //IMalloc_Free(PhpQueryStartMenuMallocInterface(), appIdText);
+
         *ApplicationUserModelId = PhCreateString(appIdText);
-        RtlFreeHeap(RtlProcessHeap(), 0, appIdText);
+        CoTaskMemFree(appIdText);
         return TRUE;
     }
 
@@ -240,7 +265,6 @@ HRESULT PhAppResolverEnablePackageDebug(
     )
 {
     HRESULT status;
-    PPH_LIST packageTasks = NULL;
     IPackageDebugSettings* packageDebugSettings;
 
     status = PhGetClassObject(
@@ -270,7 +294,6 @@ HRESULT PhAppResolverDisablePackageDebug(
     )
 {
     HRESULT status;
-    PPH_LIST packageTasks = NULL;
     IPackageDebugSettings* packageDebugSettings;
 
     status = PhGetClassObject(
@@ -405,6 +428,33 @@ PPH_LIST PhAppResolverEnumeratePackageBackgroundTasks(
         return NULL;
 }
 
+HRESULT PhAppResolverPackageStopSessionRedirection(
+    _In_ PPH_STRING PackageFullName
+    )
+{
+    HRESULT status;
+    IPackageDebugSettings* packageDebugSettings;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_PackageDebugSettings,
+        &IID_IPackageDebugSettings,
+        &packageDebugSettings
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IPackageDebugSettings_StopSessionRedirection(
+            packageDebugSettings,
+            PhGetString(PackageFullName)
+            );
+
+        IPackageDebugSettings_Release(packageDebugSettings);
+    }
+
+    return status;
+}
+
 PPH_STRING PhGetAppContainerName(
     _In_ PSID AppContainerSid
     )
@@ -425,6 +475,32 @@ PPH_STRING PhGetAppContainerName(
     {
         appContainerName = PhCreateString(packageMonikerName);
         AppContainerFreeMemory_I(packageMonikerName);
+    }
+    else // Check the local system account appcontainer mappings. (dmex)
+    {
+        static PH_STRINGREF appcontainerMappings = PH_STRINGREF_INIT(L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppContainer\\Mappings\\");
+        static PH_STRINGREF appcontainerDefaultMappings = PH_STRINGREF_INIT(L".DEFAULT\\");
+        HANDLE keyHandle;
+        PPH_STRING sidString;
+        PPH_STRING keyPath;
+
+        sidString = PhSidToStringSid(AppContainerSid);
+        keyPath = PhConcatStringRef3(&appcontainerDefaultMappings, &appcontainerMappings, &sidString->sr);
+
+        if (NT_SUCCESS(PhOpenKey(
+            &keyHandle,
+            KEY_READ,
+            PH_KEY_USERS,
+            &keyPath->sr,
+            0
+            )))
+        {
+            PhMoveReference(&appContainerName, PhQueryRegistryString(keyHandle, L"Moniker"));
+            NtClose(keyHandle);
+        }
+
+        PhDereferenceObject(keyPath);
+        PhDereferenceObject(sidString);
     }
 
     return appContainerName;
@@ -458,6 +534,7 @@ PPH_STRING PhGetAppContainerPackageName(
     )
 {   
     static PH_STRINGREF appcontainerMappings = PH_STRINGREF_INIT(L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppContainer\\Mappings\\");
+    static PH_STRINGREF appcontainerDefaultMappings = PH_STRINGREF_INIT(L".DEFAULT\\");
     HANDLE keyHandle;
     PPH_STRING sidString;
     PPH_STRING keyPath;
@@ -486,6 +563,27 @@ PPH_STRING PhGetAppContainerPackageName(
     }
 
     PhDereferenceObject(keyPath);
+
+    // Check the local system account appcontainer mappings. (dmex)
+    if (PhIsNullOrEmptyString(packageName))
+    {
+        keyPath = PhConcatStringRef3(&appcontainerDefaultMappings, &appcontainerMappings, &sidString->sr);
+
+        if (NT_SUCCESS(PhOpenKey(
+            &keyHandle,
+            KEY_READ,
+            PH_KEY_USERS,
+            &keyPath->sr,
+            0
+            )))
+        {
+            PhMoveReference(&packageName, PhQueryRegistryString(keyHandle, L"Moniker"));
+            NtClose(keyHandle);
+        }
+
+        PhDereferenceObject(keyPath);
+    }
+
     PhDereferenceObject(sidString);
 
     return packageName;
@@ -555,6 +653,7 @@ PPH_STRING PhGetPackageAppDataPath(
 
                         attributeValue = PhCreateStringFromUnicodeString(&attribute->Values.pString[2]);
 
+                        // TODO: Lookup user specific environment path from process. (dmex)
                         if (attributePath = PhExpandEnvironmentStrings(&appdataPackages))
                         {
                             packageAppDataPath = PhConcatStringRef2(&attributePath->sr, &attributeValue->sr);
@@ -621,6 +720,47 @@ PPH_STRING PhGetProcessPackageFullName(
     }
 
     return packageName;
+}
+
+BOOLEAN PhIsTokenFullTrustAppPackage(
+    _In_ HANDLE TokenHandle
+    )
+{
+    static PH_STRINGREF attributeName = PH_STRINGREF_INIT(L"WIN://SYSAPPID");
+    PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
+    BOOLEAN tokenIsAppContainer = FALSE;
+    BOOLEAN tokenHasAppId = FALSE;
+
+    if (NT_SUCCESS(PhGetTokenIsAppContainer(TokenHandle, &tokenIsAppContainer)))
+    {
+        if (tokenIsAppContainer)
+            return FALSE;
+    }
+
+    if (NT_SUCCESS(PhQueryTokenVariableSize(TokenHandle, TokenSecurityAttributes, &info)))
+    {
+        for (ULONG i = 0; i < info->AttributeCount; i++)
+        {
+            PTOKEN_SECURITY_ATTRIBUTE_V1 attribute = &info->Attribute.pAttributeV1[i];
+
+            if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
+            {
+                PH_STRINGREF attributeNameSr;
+
+                PhUnicodeStringToStringRef(&attribute->Name, &attributeNameSr);
+
+                if (PhEqualStringRef(&attributeNameSr, &attributeName, FALSE))
+                {
+                    tokenHasAppId = TRUE;
+                    break;
+                }
+            }
+        }
+
+        PhFree(info);
+    }
+
+    return tokenHasAppId;
 }
 
 BOOLEAN PhIsPackageCapabilitySid(
@@ -706,6 +846,55 @@ CleanupExit:
         IMrtResourceManager_Release(resourceManager);
 
     return resourceList;
+}
+
+HRESULT PhAppResolverBeginCrashDumpTask(
+    _In_ HANDLE ProcessId,
+    _Out_ HANDLE *TaskHandle
+    )
+{
+    HRESULT status;
+    IOSTaskCompletion* taskCompletionManager;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_OSTaskCompletion_I,
+        &IID_IOSTaskCompletion_I,
+        &taskCompletionManager
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IOSTaskCompletion_BeginTask(
+            taskCompletionManager,
+            HandleToUlong(ProcessId),
+            PT_TC_CRASHDUMP
+            );
+    }
+
+    if (SUCCEEDED(status))
+    {
+        *TaskHandle = taskCompletionManager;
+    }
+    else if (taskCompletionManager)
+    {
+        IOSTaskCompletion_Release(taskCompletionManager);
+    }
+
+    return status;
+}
+
+HRESULT PhAppResolverEndCrashDumpTask(
+    _In_ HANDLE TaskHandle
+    )
+{
+    IOSTaskCompletion* taskCompletionManager = TaskHandle;
+    HRESULT status;
+
+    status = IOSTaskCompletion_EndTask(taskCompletionManager);
+    IOSTaskCompletion_Release(taskCompletionManager);
+
+    return status;
 }
 
 // TODO: FIXME

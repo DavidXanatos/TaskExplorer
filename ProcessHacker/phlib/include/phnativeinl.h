@@ -176,6 +176,29 @@ PhGetProcessPeb32(
     return status;
 }
 
+FORCEINLINE
+NTSTATUS
+PhGetProcessPeb(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PVOID* PebBaseAddress
+    )
+{
+    NTSTATUS status;
+    PROCESS_BASIC_INFORMATION basicInfo;
+
+    status = PhGetProcessBasicInformation(
+        ProcessHandle,
+        &basicInfo
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *PebBaseAddress = (PVOID)basicInfo.PebBaseAddress;
+    }
+
+    return status;
+}
+
 /**
  * Gets a handle to a process' debug object.
  *
@@ -697,6 +720,58 @@ PhGetProcessAppMemoryInformation(
     return status;
 }
 
+FORCEINLINE
+NTSTATUS
+PhGetProcessPowerThrottlingState(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PPOWER_THROTTLING_PROCESS_STATE PowerThrottlingState
+    )
+{
+    NTSTATUS status;
+    POWER_THROTTLING_PROCESS_STATE powerThrottlingState;
+
+    memset(&powerThrottlingState, 0, sizeof(POWER_THROTTLING_PROCESS_STATE));
+    powerThrottlingState.Version = POWER_THROTTLING_PROCESS_CURRENT_VERSION;
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessPowerThrottlingState,
+        &powerThrottlingState,
+        sizeof(POWER_THROTTLING_PROCESS_STATE),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *PowerThrottlingState = powerThrottlingState;
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhSetProcessPowerThrottlingState(
+    _In_ HANDLE ProcessHandle,
+    _In_ ULONG ControlMask,
+    _In_ ULONG StateMask
+    )
+{
+    POWER_THROTTLING_PROCESS_STATE powerThrottlingState;
+
+    memset(&powerThrottlingState, 0, sizeof(POWER_THROTTLING_PROCESS_STATE));
+    powerThrottlingState.Version = POWER_THROTTLING_PROCESS_CURRENT_VERSION;
+    powerThrottlingState.ControlMask = ControlMask;
+    powerThrottlingState.StateMask = StateMask;
+
+    return NtSetInformationProcess(
+        ProcessHandle,
+        ProcessPowerThrottlingState,
+        &powerThrottlingState,
+        sizeof(POWER_THROTTLING_PROCESS_STATE)
+        );
+}
+
 /**
  * Gets basic information for a thread.
  *
@@ -1092,7 +1167,7 @@ PhGetThreadIsIoPending(
 /**
  * Gets time information for a thread.
  *
- * \param ProcessHandle A handle to a thread. The handle must have
+ * \param ThreadHandle A handle to a thread. The handle must have
  * THREAD_QUERY_LIMITED_INFORMATION access.
  * \param Times A variable which receives the information.
  */
@@ -1724,13 +1799,14 @@ FORCEINLINE
 NTSTATUS
 PhGetProcessIsCetEnabled(
     _In_ HANDLE ProcessHandle,
-    _Out_ PBOOLEAN IsCetEnabled
+    _Out_ PBOOLEAN IsCetEnabled,
+    _Out_ PBOOLEAN IsCetStrictModeEnabled
     )
 {
     NTSTATUS status;
     PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
 
-    policyInfo.Policy = (PROCESS_MITIGATION_POLICY)15; //ProcessUserShadowStackPolicy;
+    policyInfo.Policy = ProcessUserShadowStackPolicy;
 
     status = NtQueryInformationProcess(
         ProcessHandle,
@@ -1743,9 +1819,90 @@ PhGetProcessIsCetEnabled(
     if (NT_SUCCESS(status))
     {
         *IsCetEnabled = !!policyInfo.UserShadowStackPolicy.EnableUserShadowStack;
+        *IsCetStrictModeEnabled = !!policyInfo.UserShadowStackPolicy.EnableUserShadowStackStrictMode;
     }
 
     return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetSystemShadowStackInformation(
+    _Out_ PSYSTEM_SHADOW_STACK_INFORMATION ShadowStackInformation
+    )
+{
+    return NtQuerySystemInformation(
+        SystemShadowStackInformation,
+        ShadowStackInformation,
+        sizeof(SYSTEM_SHADOW_STACK_INFORMATION),
+        NULL
+        );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetSystemProcessorIdleCycleTime(
+    _Out_ PLARGE_INTEGER Buffer,
+    _In_ ULONG BufferLength
+    )
+{
+    return NtQuerySystemInformation(
+        SystemProcessorIdleCycleTimeInformation,
+        Buffer,
+        BufferLength,
+        NULL
+        );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetSystemProcessorIdleCycleTimeEx(
+    _In_ USHORT Group,
+    _Out_ PLARGE_INTEGER Buffer,
+    _In_ ULONG BufferLength
+    )
+{
+    return NtQuerySystemInformationEx(
+        SystemProcessorIdleCycleTimeInformation,
+        &Group,
+        sizeof(Group),
+        Buffer,
+        BufferLength,
+        NULL
+        );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetSystemProcessorCycleTime(
+    _Out_ PLARGE_INTEGER Buffer,
+    _In_ ULONG BufferLength
+    )
+{
+    return NtQuerySystemInformation(
+        SystemProcessorCycleTimeInformation,
+        Buffer,
+        BufferLength,
+        NULL
+        );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetSystemProcessorCycleTimeEx(
+    _In_ USHORT Group,
+    _Out_ PLARGE_INTEGER Buffer,
+    _In_ ULONG BufferLength
+    )
+{
+    return NtQuerySystemInformationEx(
+        SystemProcessorCycleTimeInformation,
+        &Group,
+        sizeof(Group),
+        Buffer,
+        BufferLength,
+        NULL
+        );
 }
 
 #endif

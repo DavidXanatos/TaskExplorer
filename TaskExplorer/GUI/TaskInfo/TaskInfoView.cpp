@@ -16,6 +16,7 @@
 #include "WindowsView.h"
 #include "DebugView.h"
 //#include "EnvironmentView.h"
+#include "SbieView.h"
 //#include "../SystemInfo/ServicesView.h"
 //#include "../SystemInfo/DnsCacheView.h"
 
@@ -103,6 +104,12 @@ void CTaskInfoView::InitializeTabs()
 
 	//m_pEnvironmentView = new CEnvironmentView(this);
 	//AddTab(m_pEnvironmentView, tr("Environment"));
+
+	if (theConf->GetBool("Options/UseSandboxie", false))
+	{
+		m_pSbieView = new CSbieView(this);
+		AddTab(m_pSbieView, tr("Sandboxie"));
+	}
 }
 
 /*void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)

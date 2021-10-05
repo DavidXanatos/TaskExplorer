@@ -197,7 +197,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuRunSys->setShortcut(QKeySequence("Ctrl+Alt+R"));
 #endif
 		m_pMenuProcess->addSeparator();
-		m_pMenuComputer = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Shutdown"), tr("Computer"));
+		m_pMenuComputer = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Computer"), tr("Computer"));
 		m_pMenuUsers = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Users"), tr("Users"));
 		m_pMenuProcess->addSeparator();
 		m_pMenuElevate = m_pMenuProcess->addAction(MakeActionIcon(":/Icons/Shield.png"), tr("Restart Elevated"), this, SLOT(OnElevate()));
@@ -217,7 +217,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuComputer->addSeparator();
 		m_pMenuShutdown = m_pMenuComputer->addAction(MakeActionIcon(":/Actions/Shutdown"), tr("Shutdown"), this, SLOT(OnComputerAction()));
 		m_pMenuForceShutdown = m_pMenuComputer->addAction(MakeActionIcon(":/Actions/HardShutdown"), tr("Force Shutdown"), this, SLOT(OnComputerAction()));
-		m_pMenuHybridShutdown = m_pMenuComputer->addAction(MakeActionIcon(":/Actions/HybridShutdown"), tr("Hybid Shutdown"), this, SLOT(OnComputerAction()));
+		m_pMenuHybridShutdown = m_pMenuComputer->addAction(MakeActionIcon(":/Actions/HybridShutdown"), tr("Hybrid Shutdown"), this, SLOT(OnComputerAction()));
 
 
 
@@ -564,14 +564,23 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	}
 	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
 	{
-		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
-			"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked.\r\n"
-			"If this is the case you need to add an exception in your AV product for the xprocesshacker.sys file."
-		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
+		QString Message;
+		if (!((CWindowsAPI*)theAPI)->IsTestSigning())
+		{
+			Message = tr("Failed to load %1 driver, in order to load the driver please enable test signing by running 'bcdedit /set testsigning on' in an elevated command prompt and reboot the PC."
+			).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
+		}
+		else
+		{
+			Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
+				"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked.\r\n"
+				"If this is the case you need to add an exception in your AV product for the xprocesshacker.sys file."
+			).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
+		}
 
 		bool State = false;
 		CCheckableMessageBox::question(this, "TaskExplorer", Message
-			, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
+			, tr("Don't try to load the driver in future. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
 
 		if (State)
 			theConf->SetValue("Options/UseDriver", false);

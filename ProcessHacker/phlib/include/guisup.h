@@ -11,6 +11,10 @@ extern "C" {
 
 // guisup
 
+typedef BOOL (WINAPI *_IsImmersiveProcess)(
+    _In_ HANDLE ProcessHandle
+    );
+
 #define RFF_NOBROWSE 0x0001
 #define RFF_NODEFAULT 0x0002
 #define RFF_CALCDIRECTORY 0x0004
@@ -39,6 +43,10 @@ typedef LPNMRUNFILEDLGW LPNMRUNFILEDLG;
 
 typedef HANDLE HTHEME;
 
+#define DCX_USESTYLE 0x00010000
+#define DCX_NODELETERGN 0x00040000
+
+extern _IsImmersiveProcess IsImmersiveProcess_I;
 extern PH_INTEGER_PAIR PhSmallIconSize;
 extern PH_INTEGER_PAIR PhLargeIconSize;
 
@@ -362,7 +370,7 @@ VOID PhSetImageListBitmap(
 
 PHLIBAPI
 HICON PhLoadIcon(
-    _In_opt_ HINSTANCE InstanceHandle,
+    _In_opt_ PVOID ImageBaseAddress,
     _In_ PWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ ULONG Width,
@@ -428,7 +436,7 @@ NTAPI
 PhCreateDialog(
     _In_ PVOID Instance,
     _In_ PWSTR Template,
-    _In_ HWND ParentWindow,
+    _In_opt_ HWND ParentWindow,
     _In_ DLGPROC DialogProc,
     _In_opt_ PVOID Parameter
     );
@@ -941,11 +949,160 @@ PhGetGlobalTimerQueue(
     VOID
     );
 
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhExtractIcon(
+    _In_ PWSTR FileName,
+    _Out_opt_ HICON *IconLarge,
+    _Out_opt_ HICON *IconSmall
+    );
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhExtractIconEx(
+    _In_ PPH_STRING FileName,
+    _In_ BOOLEAN NativeFileName,
+    _In_ INT32 IconIndex,
+    _Out_opt_ HICON *IconLarge,
+    _Out_opt_ HICON *IconSmall
+    );
+
+// Imagelist support
+
+PHLIBAPI
+HIMAGELIST
+NTAPI
+PhImageListCreate(
+    _In_ UINT Width,
+    _In_ UINT Height,
+    _In_ UINT Flags,
+    _In_ UINT InitialCount,
+    _In_ UINT GrowCount
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDestroy(
+    _In_ HIMAGELIST ImageListHandle
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListSetImageCount(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Count
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListSetBkColor(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ COLORREF BackgroundColor
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListRemoveIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Index
+    );
+
+#define PhImageListRemoveAll(ImageListHandle) \
+    PhImageListRemoveIcon((ImageListHandle), -1)
+
+PHLIBAPI
+UINT
+NTAPI
+PhImageListAddIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ HICON IconHandle
+    );
+
+PHLIBAPI
+UINT
+NTAPI
+PhImageListAddBitmap(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ HBITMAP BitmapImage,
+    _In_opt_ HBITMAP BitmapMask
+    );
+
+PHLIBAPI
+HICON
+NTAPI
+PhImageListGetIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Index,
+    _In_ UINT Flags
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListReplace(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ UINT Index,
+    _In_ HBITMAP BitmapImage,
+    _In_opt_ HBITMAP BitmapMask
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDrawIcon(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ INT Index,
+    _In_ HDC Hdc,
+    _In_ INT x,
+    _In_ INT y,
+    _In_ UINT Style
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDrawEx(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ INT Index,
+    _In_ HDC Hdc,
+    _In_ INT x,
+    _In_ INT y,
+    _In_ INT dx,
+    _In_ INT dy,
+    _In_ COLORREF BackColor,
+    _In_ COLORREF ForeColor,
+    _In_ UINT Style
+    );
+
+#define PH_DRAW_TIMELINE_OVERFLOW 0x1
+#define PH_DRAW_TIMELINE_DARKTHEME 0x2
+
+PHLIBAPI
+VOID
+NTAPI
+PhCustomDrawTreeTimeLine(
+    _In_ HDC Hdc,
+    _In_ RECT CellRect,
+    _In_ ULONG Flags,
+    _In_opt_ PLARGE_INTEGER StartTime,
+    _In_ PLARGE_INTEGER CreateTime
+    );
+
 // theme support (theme.c)
 
 PHLIBAPI extern HFONT PhApplicationFont; // phapppub
 PHLIBAPI extern HFONT PhTreeWindowFont; // phapppub
 PHLIBAPI extern HBRUSH PhMenuBackgroundBrush;
+extern COLORREF PhThemeWindowForegroundColor;
+extern COLORREF PhThemeWindowBackgroundColor;
 
 PHLIBAPI
 VOID
@@ -1017,6 +1174,13 @@ VOID
 NTAPI
 PhInitializeWindowThemeMainMenu(
     _In_ HMENU MenuHandle
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhInitializeWindowThemeStaticControl(
+    _In_ HWND StaticControl
     );
 
 PHLIBAPI

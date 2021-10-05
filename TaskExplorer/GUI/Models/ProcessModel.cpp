@@ -203,13 +203,13 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				{
 					QString Name = pProcess->GetName();
 #ifdef WIN32
-					bool IsSvcHost = Name.compare("svchost.exe", Qt::CaseInsensitive) == 0;
 					Name += bShow32 && pWinProc->IsWoW64() ? " *32" : "";
 #endif
 					if (m_iUseDescr)
 					{
 						QString Descr;
 #ifdef WIN32
+						bool IsSvcHost = Name.compare("svchost.exe", Qt::CaseInsensitive) == 0;
 						if (IsSvcHost && pProcess->IsServiceProcess())
 						{
 							Descr = pWinProc->GetServiceList().join(tr(", "));

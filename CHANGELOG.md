@@ -3,6 +3,26 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+
+## [1.4.0] - 2021-10-05
+
+### Added
+- added sandboxie tab with a lot of sandboxie related details
+- added option to freeze and unfreeze entire jobs
+- added "Original Impersonation Token" menu command to inspect the impersonation token of sandboxed thread
+- added rpc view listing all rpc endpoints on the system
+- added windows 11 detection
+
+### Changed
+- replaced all icons
+- updated PHlib to version 3.0.4365
+
+### Fixed
+- fixed issue resolving kernel symbols introduced with 1.3
+
+
+
 ## [1.3.0] - 2021-04-12
 
 ### Changed
@@ -74,6 +94,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 - Support for translations using the QtLinguist tool
+
 
 
 ## [1.2.5] - 2020-06-01

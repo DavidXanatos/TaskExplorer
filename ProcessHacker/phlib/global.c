@@ -148,8 +148,12 @@ VOID PhInitializeWindowsVersion(
     minorVersion = versionInfo.dwMinorVersion;
     buildVersion = versionInfo.dwBuildNumber;
 
+    if (majorVersion == 6 && minorVersion < 1 || majorVersion < 6)
+    {
+        WindowsVersion = WINDOWS_ANCIENT;
+    }
     // Windows 7, Windows Server 2008 R2
-    if (majorVersion == 6 && minorVersion == 1)
+    else if (majorVersion == 6 && minorVersion == 1)
     {
         WindowsVersion = WINDOWS_7;
     }
@@ -166,7 +170,15 @@ VOID PhInitializeWindowsVersion(
     // Windows 10, Windows Server 2016
     else if (majorVersion == 10 && minorVersion == 0)
     {
-        if (buildVersion >= 19042)
+        if (buildVersion >= 22000)
+        {
+            WindowsVersion = WINDOWS_11;
+        }
+        else if (buildVersion >= 19043)
+        {
+            WindowsVersion = WINDOWS_10_21H1;
+        }
+        else if (buildVersion >= 19042)
         {
             WindowsVersion = WINDOWS_10_20H2;
         }

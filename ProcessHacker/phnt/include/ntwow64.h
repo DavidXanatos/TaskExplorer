@@ -406,6 +406,9 @@ C_ASSERT(FIELD_OFFSET(PEB32, WaitOnAddressHashTable) == 0x25c);
 //C_ASSERT(sizeof(PEB32) == 0x460); // REDSTONE3
 C_ASSERT(sizeof(PEB32) == 0x470);
 
+// Note: Use PhGetProcessPeb32 instead. (dmex)
+//#define WOW64_GET_PEB32(peb64) ((PPEB32)PTR_ADD_OFFSET((peb64), ALIGN_UP_BY(sizeof(PEB), PAGE_SIZE)))
+
 #define GDI_BATCH_BUFFER_SIZE 310
 
 typedef struct _GDI_TEB_BATCH32
@@ -576,6 +579,11 @@ C_ASSERT(FIELD_OFFSET(TEB32, MuiImpersonation) == 0xfc4);
 C_ASSERT(FIELD_OFFSET(TEB32, ReservedForCrt) == 0xfe8);
 C_ASSERT(FIELD_OFFSET(TEB32, EffectiveContainerId) == 0xff0);
 C_ASSERT(sizeof(TEB32) == 0x1000);
+
+// Get the 32-bit TEB without doing a memory reference
+// modified from public SDK /10.0.10240.0/um/minwin/wow64t.h (dmex)
+#define WOW64_GET_TEB32(teb64) ((PTEB32)PTR_ADD_OFFSET((teb64), ALIGN_UP_BY(sizeof(TEB), PAGE_SIZE)))
+#define WOW64_TEB32_POINTER_ADDRESS(teb64) (PVOID)&((teb64)->NtTib.ExceptionList)
 
 // Conversion
 
