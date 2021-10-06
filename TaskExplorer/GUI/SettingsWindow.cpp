@@ -11,7 +11,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	this->setCentralWidget(centralWidget);
 	this->setWindowTitle(tr("Task Explorer - Settings"));
 
-	ui.uiLang->addItem("International Englisch", "");
+	ui.uiLang->addItem("International English", "");
 	QDir langDir(QApplication::applicationDirPath() + "/translations/");
 	foreach(const QString& langFile, langDir.entryList(QStringList("taskexplorer_*.qm"), QDir::Files))
 	{
