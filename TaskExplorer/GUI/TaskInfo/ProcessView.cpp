@@ -523,17 +523,36 @@ void CProcessView::OnCurrentChanged(const QModelIndex &current, const QModelInde
 void CProcessView::OnCertificate(const QString& Link)
 {
 #ifdef WIN32
-	wstring fileName = Link.toStdWString();
 
-	PH_VERIFY_FILE_INFO info;
-    memset(&info, 0, sizeof(PH_VERIFY_FILE_INFO));
-    info.FileName = (wchar_t*)fileName.c_str();
-    info.Flags = PH_VERIFY_VIEW_PROPERTIES;
-    info.hWnd = NULL;
+	NTSTATUS status;
+	HANDLE fileHandle;
+
+	wstring fileName = Link.toStdWString();
 
 	PPH_STRING packageFullName = m_Processes.isEmpty() ? NULL : CastQString(m_Processes.first().staticCast<CWinProcess>()->GetPackageName());
 
-    PhVerifyFileWithAdditionalCatalog(&info, packageFullName, NULL);
+	status = PhCreateFileWin32(
+		&fileHandle,
+		(wchar_t*)fileName.c_str(),
+		FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+		FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ | FILE_SHARE_DELETE,
+		FILE_OPEN,
+		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+		);
+
+	if (NT_SUCCESS(status))
+	{
+		PH_VERIFY_FILE_INFO info;
+
+		memset(&info, 0, sizeof(PH_VERIFY_FILE_INFO));
+		info.FileHandle = fileHandle;
+		info.Flags = PH_VERIFY_VIEW_PROPERTIES;
+		info.hWnd = NULL;
+		PhVerifyFileWithAdditionalCatalog(&info, packageFullName, NULL);
+
+		NtClose(fileHandle);
+	}
 
 	PhDereferenceObject(packageFullName);
 #endif

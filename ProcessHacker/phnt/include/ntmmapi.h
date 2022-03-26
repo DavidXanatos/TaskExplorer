@@ -65,7 +65,17 @@
 #define MEM_LARGE_PAGES 0x20000000
 #define MEM_DOS_LIM 0x40000000
 #define MEM_4MB_PAGES 0x80000000
+#define MEM_64K_PAGES (MEM_LARGE_PAGES | MEM_PHYSICAL)
 
+#define MEM_UNMAP_WITH_TRANSIENT_BOOST 0x00000001
+#define MEM_COALESCE_PLACEHOLDERS 0x00000001
+#define MEM_PRESERVE_PLACEHOLDER 0x00000002
+#define MEM_REPLACE_PLACEHOLDER 0x00004000
+#define MEM_RESERVE_PLACEHOLDER 0x00040000
+
+#define SEC_HUGE_PAGES 0x00020000  
+#define SEC_PARTITION_OWNER_HANDLE 0x00040000 
+#define SEC_64K_PAGES 0x00080000
 #define SEC_BASED 0x00200000
 #define SEC_NO_CHANGE 0x00400000
 #define SEC_FILE 0x00800000
@@ -98,6 +108,8 @@ typedef enum _MEMORY_INFORMATION_CLASS
     MemoryEnclaveImageInformation, // MEMORY_ENCLAVE_IMAGE_INFORMATION // since REDSTONE3
     MemoryBasicInformationCapped, // 10
     MemoryPhysicalContiguityInformation, // MEMORY_PHYSICAL_CONTIGUITY_INFORMATION // since 20H1
+    MemoryBadInformation, // since WIN11
+    MemoryBadInformationAllProcesses, // since 22H1
     MaxMemoryInfoClass
 } MEMORY_INFORMATION_CLASS;
 #else
@@ -113,6 +125,8 @@ typedef enum _MEMORY_INFORMATION_CLASS
 #define MemoryEnclaveImageInformation 0x9
 #define MemoryBasicInformationCapped 0xA
 #define MemoryPhysicalContiguityInformation 0xB
+#define MemoryBadInformation 0xC
+#define MemoryBadInformationAllProcesses 0xD
 #endif
 
 typedef struct _MEMORY_WORKING_SET_BLOCK
@@ -421,7 +435,7 @@ typedef enum _SECTION_INFORMATION_CLASS
 {
     SectionBasicInformation, // q; SECTION_BASIC_INFORMATION
     SectionImageInformation, // q; SECTION_IMAGE_INFORMATION
-    SectionRelocationInformation, // name:wow64:whNtQuerySection_SectionRelocationInformation
+    SectionRelocationInformation, // q; PVOID RelocationAddress // name:wow64:whNtQuerySection_SectionRelocationInformation
     SectionOriginalBaseInformation, // PVOID BaseAddress
     SectionInternalImageInformation, // SECTION_INTERNAL_IMAGE_INFORMATION // since REDSTONE2
     MaxSectionInfoClass
@@ -513,8 +527,8 @@ typedef enum _SECTION_INHERIT
 } SECTION_INHERIT;
 #endif
 
-#define MEM_EXECUTE_OPTION_DISABLE 0x1
-#define MEM_EXECUTE_OPTION_ENABLE 0x2
+#define MEM_EXECUTE_OPTION_ENABLE 0x1
+#define MEM_EXECUTE_OPTION_DISABLE 0x2
 #define MEM_EXECUTE_OPTION_DISABLE_THUNK_EMULATION 0x4
 #define MEM_EXECUTE_OPTION_PERMANENT 0x8
 #define MEM_EXECUTE_OPTION_EXECUTE_DISPATCH_ENABLE 0x10
@@ -573,6 +587,21 @@ NtReadVirtualMemory(
     _Out_opt_ PSIZE_T NumberOfBytesRead
     );
 
+#if (PHNT_VERSION >= PHNT_WIN11)
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+NtReadVirtualMemoryEx(
+    _In_ HANDLE ProcessHandle,
+    _In_opt_ PVOID BaseAddress,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferSize,
+    _Out_opt_ PSIZE_T NumberOfBytesRead,
+    _In_ ULONG Flags
+    );
+#endif
+
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -624,7 +653,7 @@ NtFlushVirtualMemory(
 typedef enum _VIRTUAL_MEMORY_INFORMATION_CLASS
 {
     VmPrefetchInformation, // ULONG
-    VmPagePriorityInformation,
+    VmPagePriorityInformation, // OFFER_PRIORITY
     VmCfgCallTargetInformation, // CFG_CALL_TARGET_LIST_INFORMATION // REDSTONE2
     VmPageDirtyStateInformation, // REDSTONE3
     VmImageHotPatchInformation, // 19H1
@@ -654,7 +683,7 @@ typedef struct _CFG_CALL_TARGET_LIST_INFORMATION
 
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
 
-#if (PHNT_VERSION >= PHNT_THRESHOLD)
+#if (PHNT_VERSION >= PHNT_WIN8)
 
 NTSYSCALLAPI
 NTSTATUS
@@ -843,9 +872,10 @@ typedef enum _PARTITION_INFORMATION_CLASS
     SystemMemoryPartitionNodeInformation,
     SystemMemoryPartitionCreateLargePages,
     SystemMemoryPartitionDedicatedMemoryInformation,
-    SystemMemoryPartitionOpenDedicatedMemory,
+    SystemMemoryPartitionOpenDedicatedMemory, // 10
     SystemMemoryPartitionMemoryChargeAttributes,
     SystemMemoryPartitionClearAttributes,
+    SystemMemoryPartitionSetMemoryThresholds, // since WIN11
     SystemMemoryPartitionMax
 } PARTITION_INFORMATION_CLASS, *PPARTITION_INFORMATION_CLASS;
 #else
@@ -862,7 +892,8 @@ typedef enum _PARTITION_INFORMATION_CLASS
 #define SystemMemoryPartitionOpenDedicatedMemory 0xA
 #define SystemMemoryPartitionMemoryChargeAttributes 0xB
 #define SystemMemoryPartitionClearAttributes 0xC
-#define SystemMemoryPartitionMax 0xD
+#define SystemMemoryPartitionSetMemoryThresholds 0xD
+#define SystemMemoryPartitionMax 0xE
 #endif
 
 // private
@@ -884,7 +915,7 @@ typedef struct _MEMORY_PARTITION_CONFIGURATION_INFORMATION
     ULONG_PTR StandbyPageCountByPriority[8]; // since REDSTONE2
     ULONG_PTR RepurposedPagesByPriority[8];
     ULONG_PTR MaximumCommitLimit;
-    ULONG_PTR DonatedPagesToPartitions;
+    ULONG_PTR Reserved; // DonatedPagesToPartitions
     ULONG PartitionId; // since REDSTONE3
 } MEMORY_PARTITION_CONFIGURATION_INFORMATION, *PMEMORY_PARTITION_CONFIGURATION_INFORMATION;
 
@@ -957,6 +988,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtCreatePartition(
+    _In_ HANDLE ParentPartitionHandle,
     _Out_ PHANDLE PartitionHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_opt_ POBJECT_ATTRIBUTES ObjectAttributes,

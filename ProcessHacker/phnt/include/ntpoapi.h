@@ -70,7 +70,7 @@
 #define PowerRequestCreate 43 // in: COUNTED_REASON_CONTEXT, out: HANDLE
 #define PowerRequestAction 44 // in: POWER_REQUEST_ACTION
 #define GetPowerRequestList 45 // out: POWER_REQUEST_LIST
-#define ProcessorInformationEx 46 // in: USHORT, out: PROCESSOR_POWER_INFORMATION
+#define ProcessorInformationEx 46 // in: USHORT ProcessorGroup, out: PROCESSOR_POWER_INFORMATION
 #define NotifyUserModeLegacyPowerEvent 47 // (kernel-mode only)
 #define GroupPark 48 // (debug-mode boot only) 
 #define ProcessorIdleDomains 49 // (kernel-mode only)
@@ -120,7 +120,8 @@
 #define EnergyTrackerQuery 93
 #define UpdateBlackBoxRecorder 94
 #define SessionAllowExternalDmaDevices 95
-#define PowerInformationLevelMaximum 96
+#define SendSuspendResumeNotification 96 // since WIN11
+#define PowerInformationLevelMaximum 97
 #endif
 
 typedef struct _PROCESSOR_POWER_INFORMATION
@@ -334,7 +335,7 @@ typedef NTSTATUS (NTAPI *PENTER_STATE_HANDLER)(
     _In_opt_ PENTER_STATE_SYSTEM_HANDLER SystemHandler,
     _In_ PVOID SystemContext,
     _In_ LONG NumberProcessors,
-    _In_ volatile PLONG Number
+    _In_ LONG volatile *Number
     );
 
 typedef struct _POWER_STATE_HANDLER
@@ -435,6 +436,27 @@ typedef enum _POWER_INFORMATION_LEVEL_INTERNAL
     PowerInternalClearConstraints,
     PowerInternalSoftParkVelocityEnabled,
     PowerInternalQueryIntelPepCapabilities,
+    PowerInternalGetSystemIdleLoopEnablement, // since WIN11
+    PowerInternalGetVmPerfControlSupport,
+    PowerInternalGetVmPerfControlConfig, // 70
+    PowerInternalSleepDetailedDiagUpdate,
+    PowerInternalProcessorClassFrequencyBandsStats,
+    PowerInternalHostGlobalUserPresenceStateUpdate,
+    PowerInternalCpuNodeIdleIntervalStats,
+    PowerInternalClassIdleIntervalStats,
+    PowerInternalCpuNodeConcurrencyStats,
+    PowerInternalClassConcurrencyStats,
+    PowerInternalQueryProcMeasurementCapabilities,
+    PowerInternalQueryProcMeasurementValues,
+    PowerInternalPrepareForSystemInitiatedReboot, // 80
+    PowerInternalGetAdaptiveSessionState,
+    PowerInternalSetConsoleLockedState,
+    PowerInternalOverrideSystemInitiatedRebootState,
+    PowerInternalFanImpactStats,
+    PowerInternalFanRpmBuckets,
+    PowerInternalPowerBootAppDiagInfo,
+    PowerInternalUnregisterShutdownNotification, // since 22H1
+    PowerInternalManageTransitionStateRecord,
     PowerInformationInternalMaximum
 } POWER_INFORMATION_LEVEL_INTERNAL;
 
@@ -536,12 +558,14 @@ NtSetThreadExecutionState(
     _Out_ EXECUTION_STATE *PreviousFlags
     );
 
+#if (PHNT_VERSION < PHNT_WIN7)
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtRequestWakeupLatency(
     _In_ LATENCY_TIME latency
     );
+#endif
 
 NTSYSCALLAPI
 NTSTATUS

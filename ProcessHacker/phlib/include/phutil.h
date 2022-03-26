@@ -7,6 +7,7 @@ extern "C" {
 
 extern WCHAR *PhSizeUnitNames[7];
 extern ULONG PhMaxSizeUnit;
+extern USHORT PhMaxPrecisionUnit;
 
 typedef struct _PH_INTEGER_PAIR
 {
@@ -1338,15 +1339,16 @@ PhGetDllFileName(
 PHLIBAPI
 PVOID
 NTAPI
-PhGetLoaderEntryDllBase(
-    _In_ PWSTR DllName
+PhGetLoaderEntryStringRefDllBase(
+    _In_opt_ PPH_STRINGREF FullDllName,
+    _In_opt_ PPH_STRINGREF BaseDllName
     );
 
 PHLIBAPI
 PVOID
 NTAPI
-PhGetLoaderEntryFullDllBase(
-    _In_ PWSTR FullDllName
+PhGetLoaderEntryDllBase(
+    _In_ PWSTR DllName
     );
 
 PHLIBAPI
@@ -1356,6 +1358,15 @@ PhGetDllBaseProcedureAddress(
     _In_ PVOID DllBase,
     _In_opt_ PSTR ProcedureName,
     _In_opt_ USHORT ProcedureNumber
+    );
+
+PHLIBAPI
+PVOID
+NTAPI
+PhGetDllBaseProcedureAddressWithHint(
+    _In_ PVOID BaseAddress,
+    _In_ PSTR ProcedureName,
+    _In_ USHORT ProcedureHint
     );
 
 PHLIBAPI
@@ -1455,6 +1466,14 @@ PhLoaderEntryLoadDll(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhLoaderEntryLoadAllImportsForDll(
+    _In_ PVOID BaseAddress,
+    _In_ PSTR ImportDllName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhLoadAllImportsForDll(
     _In_ PWSTR TargetDllName,
     _In_ PSTR ImportDllName
@@ -1499,10 +1518,9 @@ PhGetClassObject(
     );
 
 PHLIBAPI
-_Ret_maybenull_
 PVOID
 NTAPI
-PhLoadLibrarySafe(
+PhLoadLibrary(
     _In_ PCWSTR LibFileName
     );
 
@@ -1526,6 +1544,35 @@ NTSTATUS
 NTAPI
 PhDelayExecution(
     _In_ ULONG Milliseconds
+    );
+
+PHLIBAPI
+ULONGLONG
+NTAPI
+PhReadTimeStampCounter(
+    VOID
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhQueryPerformanceCounter(
+    _Out_ PLARGE_INTEGER PerformanceCounter,
+    _Out_opt_ PLARGE_INTEGER PerformanceFrequency
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhQueryPerformanceFrequency(
+    _Out_ PLARGE_INTEGER PerformanceFrequency
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhApiSetResolveToHost(
+    _In_ PPH_STRINGREF ApiSetName
     );
 
 #ifdef __cplusplus

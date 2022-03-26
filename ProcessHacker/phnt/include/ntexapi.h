@@ -459,6 +459,14 @@ NtSetHighWaitLowEventPair(
 
 // Mutant
 
+#ifndef MUTANT_QUERY_STATE
+#define MUTANT_QUERY_STATE 0x0001
+#endif
+
+#ifndef MUTANT_ALL_ACCESS
+#define MUTANT_ALL_ACCESS (MUTANT_QUERY_STATE|STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE)
+#endif
+
 typedef enum _MUTANT_INFORMATION_CLASS
 {
     MutantBasicInformation, // MUTANT_BASIC_INFORMATION
@@ -521,6 +529,14 @@ NtQueryMutant(
 #define SEMAPHORE_QUERY_STATE 0x0001
 #endif
 
+#ifndef SEMAPHORE_MODIFY_STATE
+#define SEMAPHORE_MODIFY_STATE 0x0002
+#endif
+
+#ifndef SEMAPHORE_ALL_ACCESS
+#define SEMAPHORE_ALL_ACCESS (SEMAPHORE_QUERY_STATE|SEMAPHORE_MODIFY_STATE|STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE)
+#endif
+
 typedef enum _SEMAPHORE_INFORMATION_CLASS
 {
     SemaphoreBasicInformation
@@ -573,6 +589,18 @@ NtQuerySemaphore(
     );
 
 // Timer
+
+#ifndef TIMER_QUERY_STATE
+#define TIMER_QUERY_STATE 0x0001
+#endif
+
+#ifndef TIMER_MODIFY_STATE
+#define TIMER_MODIFY_STATE 0x0002
+#endif
+
+#ifndef TIMER_ALL_ACCESS
+#define TIMER_ALL_ACCESS (TIMER_QUERY_STATE|TIMER_MODIFY_STATE|STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE)
+#endif
 
 typedef enum _TIMER_INFORMATION_CLASS
 {
@@ -712,7 +740,7 @@ NTAPI
 NtCreateTimer2(
     _Out_ PHANDLE TimerHandle,
     _In_opt_ PVOID Reserved1,
-    _In_opt_ PVOID Reserved2,
+    _In_opt_ POBJECT_ATTRIBUTES ObjectAttributes,
     _In_ ULONG Attributes,
     _In_ ACCESS_MASK DesiredAccess
     );
@@ -894,7 +922,8 @@ typedef enum _WNF_DATA_SCOPE
     WnfDataScopeSession,
     WnfDataScopeUser,
     WnfDataScopeProcess,
-    WnfDataScopeMachine // REDSTONE3
+    WnfDataScopeMachine, // REDSTONE3
+    WnfDataScopePhysicalMachine, // WIN11
 } WNF_DATA_SCOPE;
 
 typedef struct _WNF_TYPE_ID
@@ -1266,7 +1295,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemProcessInformation, // q: SYSTEM_PROCESS_INFORMATION
     SystemCallCountInformation, // q: SYSTEM_CALL_COUNT_INFORMATION
     SystemDeviceInformation, // q: SYSTEM_DEVICE_INFORMATION
-    SystemProcessorPerformanceInformation, // q: SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION
+    SystemProcessorPerformanceInformation, // q: SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION (EX in: USHORT ProcessorGroup)
     SystemFlagsInformation, // q: SYSTEM_FLAGS_INFORMATION
     SystemCallTimeInformation, // not implemented // SYSTEM_CALL_TIME_INFORMATION // 10
     SystemModuleInformation, // q: RTL_PROCESS_MODULES
@@ -1488,8 +1517,15 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemPoolZeroingInformation, // SYSTEM_POOL_ZEROING_INFORMATION
     SystemDpcWatchdogInformation,
     SystemDpcWatchdogInformation2,
-    SystemSupportedProcessorArchitectures2,// q: in opt: HANDLE, out: SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION[] // NtQuerySystemInformationEx  // 230
+    SystemSupportedProcessorArchitectures2, // q: in opt: HANDLE, out: SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION[] // NtQuerySystemInformationEx  // 230
     SystemSingleProcessorRelationshipInformation,
+    SystemXfgCheckFailureInformation,
+    SystemIommuStateInformation, // SYSTEM_IOMMU_STATE_INFORMATION // since 22H1
+    SystemHypervisorMinrootInformation, // SYSTEM_HYPERVISOR_MINROOT_INFORMATION
+    SystemHypervisorBootPagesInformation, // SYSTEM_HYPERVISOR_BOOT_PAGES_INFORMATION
+    SystemPointerAuthInformation, // SYSTEM_POINTER_AUTH_INFORMATION
+    SystemSecureKernelDebuggerInformation,
+    SystemOriginalImageFeatureInformation,
     MaxSystemInfoClass
 } SYSTEM_INFORMATION_CLASS;
 
@@ -3426,14 +3462,13 @@ typedef struct _PROCESS_DISK_COUNTERS
 // private
 typedef union _ENERGY_STATE_DURATION
 {
-    union
+    ULONGLONG Value;
+    struct
     {
-        ULONGLONG Value;
         ULONG LastChangeTime;
+        ULONG Duration : 31;
+        ULONG IsInState : 1;
     };
-
-    ULONG Duration : 31;
-    ULONG IsInState : 1;
 } ENERGY_STATE_DURATION, *PENERGY_STATE_DURATION;
 
 typedef struct _PROCESS_ENERGY_VALUES
@@ -3462,11 +3497,14 @@ typedef struct _PROCESS_ENERGY_VALUES
     ULONGLONG WorkOnBehalfCycles[4][2];
 } PROCESS_ENERGY_VALUES, *PPROCESS_ENERGY_VALUES;
 
-typedef struct _TIMELINE_BITMAP
+typedef union _TIMELINE_BITMAP
 {
     ULONGLONG Value;
-    ULONG EndTime;
-    ULONG Bitmap;
+    struct
+    {
+        ULONG EndTime;
+        ULONG Bitmap;
+    };
 } TIMELINE_BITMAP, *PTIMELINE_BITMAP;
 
 typedef struct _PROCESS_ENERGY_VALUES_EXTENSION
@@ -4151,6 +4189,76 @@ typedef struct _SYSTEM_POOL_LIMIT_INFORMATION
 //    BOOLEAN PoolZeroingSupportPresent;
 //} SYSTEM_POOL_ZEROING_INFORMATION, *PSYSTEM_POOL_ZEROING_INFORMATION;
 
+// private
+typedef struct _HV_MINROOT_NUMA_LPS
+{
+    ULONG NodeIndex;
+    ULONG_PTR Mask[16];
+} HV_MINROOT_NUMA_LPS, *PHV_MINROOT_NUMA_LPS;
+
+// private
+typedef enum _SYSTEM_IOMMU_STATE
+{
+    IommuStateBlock,
+    IommuStateUnblock
+} SYSTEM_IOMMU_STATE;
+
+// private
+typedef struct _SYSTEM_IOMMU_STATE_INFORMATION
+{
+    SYSTEM_IOMMU_STATE State;
+    PVOID Pdo;
+} SYSTEM_IOMMU_STATE_INFORMATION, *PSYSTEM_IOMMU_STATE_INFORMATION;
+
+// private
+typedef struct _SYSTEM_HYPERVISOR_MINROOT_INFORMATION
+{
+    ULONG NumProc;
+    ULONG RootProc;
+    ULONG RootProcNumaNodesSpecified;
+    USHORT RootProcNumaNodes[64];
+    ULONG RootProcPerCore;
+    ULONG RootProcPerNode;
+    ULONG RootProcNumaNodesLpsSpecified;  
+    HV_MINROOT_NUMA_LPS RootProcNumaNodeLps[64];
+} SYSTEM_HYPERVISOR_MINROOT_INFORMATION, *PSYSTEM_HYPERVISOR_MINROOT_INFORMATION;
+
+// private
+typedef struct _SYSTEM_HYPERVISOR_BOOT_PAGES_INFORMATION
+{
+    ULONG RangeCount;
+    ULONG_PTR RangeArray[1];
+} SYSTEM_HYPERVISOR_BOOT_PAGES_INFORMATION, *PSYSTEM_HYPERVISOR_BOOT_PAGES_INFORMATION;
+
+// private
+typedef struct _SYSTEM_POINTER_AUTH_INFORMATION
+{
+    union
+    {
+        USHORT SupportedFlags;
+        struct
+        {
+            USHORT AddressAuthSupported : 1;
+            USHORT AddressAuthQarma : 1;
+            USHORT GenericAuthSupported : 1;
+            USHORT GenericAuthQarma : 1;
+            USHORT SupportedReserved : 12;
+        };
+    };
+    union
+    {
+        USHORT EnabledFlags;
+        struct
+        {
+            USHORT UserPerProcessIpAuthEnabled : 1;
+            USHORT UserGlobalIpAuthEnabled : 1;
+            USHORT UserEnabledReserved : 6;
+            USHORT KernelIpAuthEnabled : 1;
+            USHORT KernelEnabledReserved : 7;
+        };
+    };
+} SYSTEM_POINTER_AUTH_INFORMATION, *PSYSTEM_POINTER_AUTH_INFORMATION;
+
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
 
 NTSYSCALLAPI
@@ -4612,6 +4720,8 @@ C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, NumberOfPhysicalPages) == 0x2e8);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, SafeBootMode) == 0x2ec);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, TickCount) == 0x320);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, TickCountQuad) == 0x320);
+C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, ActiveProcessorCount) == 0x3c0);
+C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, ActiveGroupCount) == 0x3c4);
 C_ASSERT(FIELD_OFFSET(KUSER_SHARED_DATA, XState) == 0x3d8);
 //C_ASSERT(sizeof(KUSER_SHARED_DATA) == 0x70C); // VS2019 has some weird issue with this.
 

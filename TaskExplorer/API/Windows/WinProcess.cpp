@@ -1317,6 +1317,7 @@ static BOOLEAN NTAPI EnumModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 
     copy = (PPH_MODULE_INFO)PhAllocateCopy(Module, sizeof(PH_MODULE_INFO));
     PhReferenceObject(copy->Name);
+	PhReferenceObject(copy->FileNameWin32);
     PhReferenceObject(copy->FileName);
 
     PhAddItemList((PPH_LIST)Context, copy);
@@ -1446,6 +1447,7 @@ bool CWinProcess::UpdateModules()
         PPH_MODULE_INFO module = (PPH_MODULE_INFO)modules->Items[i];
 
         PhDereferenceObject(module->Name);
+		PhDereferenceObject(module->FileNameWin32);
         PhDereferenceObject(module->FileName);
         PhFree(module);
     }

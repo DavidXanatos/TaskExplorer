@@ -1028,7 +1028,7 @@ FORCEINLINE
 VOID
 PhSkipStringRef(
     _Inout_ PPH_STRINGREF String,
-    _In_ LONG_PTR Length
+    _In_ SIZE_T Length
     )
 {
     String->Buffer = (PWCH)PTR_ADD_OFFSET(String->Buffer, Length);
@@ -3015,6 +3015,22 @@ NTAPI
 PhHashStringRef(
     _In_ PPH_STRINGREF String,
     _In_ BOOLEAN IgnoreCase
+    );
+
+typedef enum _PH_STRING_HASH
+{
+    PH_STRING_HASH_DEFAULT,
+    PH_STRING_HASH_FNV1A,
+    PH_STRING_HASH_X65599,
+} PH_STRING_HASH;
+
+PHLIBAPI
+ULONG
+NTAPI
+PhHashStringRefEx(
+    _In_ PPH_STRINGREF String,
+    _In_ BOOLEAN IgnoreCase,
+    _In_ PH_STRING_HASH HashAlgorithm
     );
 
 FORCEINLINE

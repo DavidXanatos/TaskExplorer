@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.4.1] - 2022-03-26
+
+### Fixed
+- fixed singleapp not working
+- the xprocesshacker.sys driver is now signed with a new certificate and shoudl load on win 11
+
+### Changed
+- updated PHlib to version 3.0.4706
+
 
 
 ## [1.4.0] - 2021-10-05

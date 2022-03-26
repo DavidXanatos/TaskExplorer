@@ -1245,6 +1245,20 @@ RtlWakeAddressSingle(
 
 // Strings
 
+FORCEINLINE
+VOID
+NTAPI
+RtlInitEmptyAnsiString(
+    _Out_ PANSI_STRING AnsiString,
+    _Pre_maybenull_ _Pre_readable_size_(MaximumLength) PCHAR Buffer,
+    _In_ USHORT MaximumLength
+    )
+{
+    memset(AnsiString, 0, sizeof(ANSI_STRING));
+    AnsiString->MaximumLength = MaximumLength;
+    AnsiString->Buffer = Buffer;
+}
+
 #ifndef PHNT_NO_INLINE_INIT_STRING
 FORCEINLINE VOID RtlInitString(
     _Out_ PSTRING DestinationString,
@@ -1252,7 +1266,7 @@ FORCEINLINE VOID RtlInitString(
     )
 {
     if (SourceString)
-        DestinationString->MaximumLength = (DestinationString->Length = (USHORT)strlen(SourceString)) + 1;
+        DestinationString->MaximumLength = (DestinationString->Length = (USHORT)strlen(SourceString)) + sizeof(ANSI_NULL);
     else
         DestinationString->MaximumLength = DestinationString->Length = 0;
 
@@ -1285,7 +1299,7 @@ FORCEINLINE VOID RtlInitAnsiString(
     )
 {
     if (SourceString)
-        DestinationString->MaximumLength = (DestinationString->Length = (USHORT)strlen(SourceString)) + 1;
+        DestinationString->MaximumLength = (DestinationString->Length = (USHORT)strlen(SourceString)) + sizeof(ANSI_NULL);
     else
         DestinationString->MaximumLength = DestinationString->Length = 0;
 
@@ -1433,13 +1447,13 @@ VOID
 NTAPI
 RtlInitEmptyUnicodeString(
     _Out_ PUNICODE_STRING DestinationString,
-    _In_opt_ PWCHAR Buffer,
+    _Writable_bytes_(MaximumLength) _When_(MaximumLength != 0, _Notnull_) PWCHAR Buffer,
     _In_ USHORT MaximumLength
     )
 {
-    DestinationString->Buffer = Buffer;
+    memset(DestinationString, 0, sizeof(UNICODE_STRING));
     DestinationString->MaximumLength = MaximumLength;
-    DestinationString->Length = 0;
+    DestinationString->Buffer = Buffer;
 }
 
 #ifndef PHNT_NO_INLINE_INIT_STRING
@@ -2843,7 +2857,7 @@ NTSTATUS
 NTAPI
 RtlCreateProcessReflection(
     _In_ HANDLE ProcessHandle,
-    _In_ ULONG Flags,
+    _In_ ULONG Flags, // RTL_CLONE_PROCESS_FLAGS
     _In_opt_ PVOID StartRoutine,
     _In_opt_ PVOID StartContext,
     _In_opt_ HANDLE EventHandle,
@@ -3979,6 +3993,7 @@ typedef struct _RTL_HEAP_INFORMATION
     ULONG Reserved[5];
     PRTL_HEAP_TAG Tags;
     PRTL_HEAP_ENTRY Entries;
+    ULONG64 HeapTag; // Windows 11 > 22000
 } RTL_HEAP_INFORMATION, *PRTL_HEAP_INFORMATION;
 
 #define RTL_HEAP_SIGNATURE 0xFFEEFFEEUL
@@ -4612,7 +4627,7 @@ NTSYSAPI
 LOGICAL
 NTAPI
 RtlSetCurrentTransaction(
-    _In_ HANDLE TransactionHandle
+    _In_opt_ HANDLE TransactionHandle
     );
 #endif
 
@@ -4796,7 +4811,7 @@ RtlDeCommitDebugInfo(
 #define RTL_QUERY_PROCESS_MODULES32 0x00000040
 #define RTL_QUERY_PROCESS_VERIFIER_OPTIONS 0x00000080 // rev
 #define RTL_QUERY_PROCESS_MODULESEX 0x00000100 // rev
-#define RTL_QUERY_PROCESS_HEAP_ENTRIES_EX 0x00000200 // ?
+#define RTL_QUERY_PROCESS_HEAP_SEGMENTS 0x00000200
 #define RTL_QUERY_PROCESS_CS_OWNER 0x00000400 // rev
 #define RTL_QUERY_PROCESS_NONINVASIVE 0x80000000
 
@@ -6405,6 +6420,29 @@ RtlSelfRelativeToAbsoluteSD2(
 
 // Access masks
 
+#ifndef PHNT_NO_INLINE_ACCESSES_GRANTED
+FORCEINLINE
+BOOLEAN
+NTAPI
+RtlAreAllAccessesGranted(
+    _In_ ACCESS_MASK GrantedAccess,
+    _In_ ACCESS_MASK DesiredAccess
+    )
+{
+    return (~GrantedAccess & DesiredAccess) == 0;
+}
+
+FORCEINLINE
+BOOLEAN
+NTAPI
+RtlAreAnyAccessesGranted(
+    _In_ ACCESS_MASK GrantedAccess,
+    _In_ ACCESS_MASK DesiredAccess
+    )
+{
+    return (GrantedAccess & DesiredAccess) != 0;
+}
+#else
 NTSYSAPI
 BOOLEAN
 NTAPI
@@ -6420,6 +6458,7 @@ RtlAreAnyAccessesGranted(
     _In_ ACCESS_MASK GrantedAccess,
     _In_ ACCESS_MASK DesiredAccess
     );
+#endif
 
 NTSYSAPI
 VOID
@@ -6953,10 +6992,15 @@ RtlQueryValidationRunlevel(
 
 #if (PHNT_VERSION >= PHNT_VISTA)
 
+// rev
+#define BOUNDARY_DESCRIPTOR_ADD_APPCONTAINER_SID 0x0001
+
 // begin_private
 
+_Ret_maybenull_
+_Success_(return != NULL)
 NTSYSAPI
-HANDLE
+POBJECT_BOUNDARY_DESCRIPTOR
 NTAPI
 RtlCreateBoundaryDescriptor(
     _In_ PUNICODE_STRING Name,
@@ -6967,14 +7011,14 @@ NTSYSAPI
 VOID
 NTAPI
 RtlDeleteBoundaryDescriptor(
-    _In_ HANDLE BoundaryDescriptor
+    _In_ _Post_invalid_ POBJECT_BOUNDARY_DESCRIPTOR BoundaryDescriptor
     );
 
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlAddSIDToBoundaryDescriptor(
-    _Inout_ PHANDLE BoundaryDescriptor,
+    _Inout_ POBJECT_BOUNDARY_DESCRIPTOR *BoundaryDescriptor,
     _In_ PSID RequiredSid
     );
 
@@ -6984,7 +7028,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlAddIntegrityLabelToBoundaryDescriptor(
-    _Inout_ PHANDLE BoundaryDescriptor,
+    _Inout_ POBJECT_BOUNDARY_DESCRIPTOR *BoundaryDescriptor,
     _In_ PSID IntegrityLabel
     );
 #endif
@@ -7077,7 +7121,7 @@ NTSTATUS
 NTAPI
 RtlDeregisterWaitEx(
     _In_ HANDLE WaitHandle,
-    _In_opt_ HANDLE Event
+    _In_opt_ HANDLE Event // optional: RTL_WAITER_DEREGISTER_WAIT_FOR_COMPLETION
     );
 
 NTSYSAPI
@@ -7182,7 +7226,7 @@ NTAPI
 RtlDeleteTimer(
     _In_ HANDLE TimerQueueHandle,
     _In_ HANDLE TimerToCancel,
-    _In_opt_ HANDLE Event
+    _In_opt_ HANDLE Event // optional: RTL_TIMER_DELETE_WAIT_FOR_COMPLETION
     );
 
 NTSYSAPI
@@ -8430,7 +8474,7 @@ RtlCheckBootStatusIntegrity(
     _In_ HANDLE FileHandle, 
     _Out_ PBOOLEAN Verified
     );
-    
+
 // rev
 NTSYSAPI
 NTSTATUS
@@ -8627,7 +8671,7 @@ RtlQueryFeatureUsageNotificationSubscriptions(
     _Inout_ PULONG FeatureConfigurationCount
     );
 
-typedef VOID (NTAPI *PRTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICAION)(
+typedef VOID (NTAPI *PRTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION)(
     _In_opt_ PVOID Context
     );
 
@@ -8636,7 +8680,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlRegisterFeatureConfigurationChangeNotification(
-    _In_ PRTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICAION Callback,
+    _In_ PRTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION Callback,
     _In_opt_ PVOID Context,
     _Inout_opt_ PULONGLONG ChangeStamp,
     _Out_ PHANDLE NotificationHandle

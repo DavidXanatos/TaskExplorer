@@ -2,7 +2,7 @@
  * Process Hacker -
  *   http/http2/dns wrappers
  *
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2022 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -122,14 +122,42 @@ VOID PhHttpSocketDestroy(
     if (!HttpContext)
         return;
 
-    if (HttpContext->RequestHandle)
-        WinHttpCloseHandle(HttpContext->RequestHandle);
-    if (HttpContext->ConnectionHandle)
-        WinHttpCloseHandle(HttpContext->ConnectionHandle);
-    if (HttpContext->SessionHandle)
-        WinHttpCloseHandle(HttpContext->SessionHandle);
+    PhHttpSocketClose(HttpContext, ULONG_MAX);
 
     PhFree(HttpContext);
+}
+
+VOID PhHttpSocketClose(
+    _In_ PPH_HTTP_CONTEXT HttpContext,
+    _In_ PH_HTTP_SOCKET_CLOSE_TYPE Type
+    )
+{
+    if (Type & PH_HTTP_SOCKET_CLOSE_SESSION)
+    {
+        if (HttpContext->SessionHandle)
+        {
+            WinHttpCloseHandle(HttpContext->SessionHandle);
+            HttpContext->SessionHandle = NULL;
+        }
+    }
+
+    if (Type & PH_HTTP_SOCKET_CLOSE_CONNECTION)
+    {
+        if (HttpContext->ConnectionHandle)
+        {
+            WinHttpCloseHandle(HttpContext->ConnectionHandle);
+            HttpContext->ConnectionHandle = NULL;
+        }
+    }
+
+    if (Type & PH_HTTP_SOCKET_CLOSE_REQUEST)
+    {
+        if (HttpContext->RequestHandle)
+        {
+            WinHttpCloseHandle(HttpContext->RequestHandle);
+            HttpContext->RequestHandle = NULL;
+        }
+    }
 }
 
 BOOLEAN PhHttpSocketConnect(
@@ -670,6 +698,8 @@ NTSTATUS PhHttpSocketDownloadToFile(
         PhDereferenceObject(tempDirectory);
         return status;
     }
+
+    memset(buffer, 0, sizeof(buffer));
 
     while (PhHttpSocketReadData(HttpContext, buffer, PAGE_SIZE, &numberOfBytesRead))
     {

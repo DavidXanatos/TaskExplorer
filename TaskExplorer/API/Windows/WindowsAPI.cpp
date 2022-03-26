@@ -147,6 +147,8 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_uDriverStatus = 0;
 	m_uDriverFeatures = 0;
 
+	//m_RpcUpdatePending = false;
+
 	m = new SWindowsAPI();
 }
 
@@ -1945,6 +1947,10 @@ bool CWindowsAPI::UpdateRpcList(void* server, void* protocol, QMap<QString, CRpc
 
 bool CWindowsAPI::UpdateRpcList()
 {
+	//if (m_RpcUpdatePending)
+	//	return false;
+	//m_RpcUpdatePending = true;
+
 	QSet<QString> Added;
 	QSet<QString> Changed;
 	QSet<QString> Removed;
@@ -1953,7 +1959,7 @@ bool CWindowsAPI::UpdateRpcList()
 
 	UpdateRpcList(NULL, L"ncalrpc", OldRpcTableList, Added, Changed);
 
-	RPC_WSTR protocols[] = {
+	/*RPC_WSTR protocols[] = {
 		(RPC_WSTR)L"ncacn_ip_tcp",
 		(RPC_WSTR)L"ncadg_ip_udp",
 		(RPC_WSTR)L"ncacn_np",
@@ -1962,7 +1968,7 @@ bool CWindowsAPI::UpdateRpcList()
 	};
 	for (int i = 0; i < 5; i++) {
 		UpdateRpcList(L"127.0.0.1", protocols[i], OldRpcTableList, Added, Changed);
-	}
+	}*/
 
 	QWriteLocker Locker(&m_RpcTableMutex);
 	foreach(QString TagName, OldRpcTableList.keys())
@@ -1979,6 +1985,8 @@ bool CWindowsAPI::UpdateRpcList()
 	Locker.unlock();
 
 	emit RpcListUpdated(Added, Changed, Removed);
+
+	//m_RpcUpdatePending = false;
 
 	return true;
 }

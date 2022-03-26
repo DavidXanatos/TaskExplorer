@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2021 dmex
+ * Copyright (C) 2017-2022 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -63,6 +63,7 @@ typedef enum _PVP_IMAGE_GENERAL_INDEX
     PVP_IMAGE_GENERAL_INDEX_FILEINDEX,
     PVP_IMAGE_GENERAL_INDEX_FILEID,
     PVP_IMAGE_GENERAL_INDEX_FILEOBJECTID,
+    PVP_IMAGE_GENERAL_INDEX_FILEUSN,
 
     PVP_IMAGE_GENERAL_INDEX_DEBUGPDB,
     PVP_IMAGE_GENERAL_INDEX_DEBUGIMAGE,
@@ -76,7 +77,6 @@ typedef struct _PVP_PE_GENERAL_CONTEXT
 {
     HWND WindowHandle;
     HWND ListViewHandle;
-    HIMAGELIST ListViewImageList;
     PH_LAYOUT_MANAGER LayoutManager;
     PPV_PROPPAGECONTEXT PropSheetContext;
     ULONG ListViewRowCache[PVP_IMAGE_GENERAL_INDEX_MAXIMUM];
@@ -124,26 +124,30 @@ VOID PvPeProperties(
 
     if (PvpLoadDbgHelp(&PvSymbolProvider))
     {
-        // Load current PE pdb
-        // TODO: Move into seperate thread.
+        PPH_STRING fileName;
 
-        if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+        if (NT_SUCCESS(PhGetProcessMappedFileName(NtCurrentProcess(), PvMappedImage.ViewBase, &fileName)))
         {
-            PhLoadModuleSymbolProvider(
-                PvSymbolProvider,
-                PvFileName->Buffer,
-                (ULONG64)PvMappedImage.NtHeaders32->OptionalHeader.ImageBase,
-                PvMappedImage.NtHeaders32->OptionalHeader.SizeOfImage
-                );
-        }
-        else
-        {
-            PhLoadModuleSymbolProvider(
-                PvSymbolProvider,
-                PvFileName->Buffer,
-                (ULONG64)PvMappedImage.NtHeaders->OptionalHeader.ImageBase,
-                PvMappedImage.NtHeaders->OptionalHeader.SizeOfImage
-                );
+            if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+            {
+                PhLoadModuleSymbolProvider(
+                    PvSymbolProvider,
+                    fileName->Buffer,
+                    (ULONG64)PvMappedImage.NtHeaders32->OptionalHeader.ImageBase,
+                    PvMappedImage.NtHeaders32->OptionalHeader.SizeOfImage
+                    );
+            }
+            else
+            {
+                PhLoadModuleSymbolProvider(
+                    PvSymbolProvider,
+                    fileName->Buffer,
+                    (ULONG64)PvMappedImage.NtHeaders->OptionalHeader.ImageBase,
+                    PvMappedImage.NtHeaders->OptionalHeader.SizeOfImage
+                    );
+            }
+
+            PhDereferenceObject(fileName);
         }
 
         PhLoadModulesForProcessSymbolProvider(PvSymbolProvider, NtCurrentProcessId());
@@ -579,6 +583,8 @@ VERIFY_RESULT PvpVerifyFileWithAdditionalCatalog(
 {
     static PH_STRINGREF codeIntegrityFileName = PH_STRINGREF_INIT(L"\\AppxMetadata\\CodeIntegrity.cat");
     static PH_STRINGREF windowsAppsPathSr = PH_STRINGREF_INIT(L"%ProgramFiles%\\WindowsApps\\");
+    NTSTATUS status;
+    HANDLE fileHandle;
     VERIFY_RESULT result;
     PH_VERIFY_FILE_INFO info;
     PPH_STRING windowsAppsPath;
@@ -586,8 +592,25 @@ VERIFY_RESULT PvpVerifyFileWithAdditionalCatalog(
     PCERT_CONTEXT *signatures;
     ULONG numberOfSignatures;
 
+    status = PhCreateFileWin32(
+        &fileHandle,
+        FileName->Buffer,
+        FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        FILE_ATTRIBUTE_NORMAL,
+        FILE_SHARE_READ | FILE_SHARE_DELETE,
+        FILE_OPEN,
+        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        signatures = NULL;
+        numberOfSignatures = 0;
+        return VrNoSignature;
+    }
+
     memset(&info, 0, sizeof(PH_VERIFY_FILE_INFO));
-    info.FileName = FileName->Buffer;
+    info.FileHandle = fileHandle;
     info.Flags = Flags;
     info.hWnd = hWnd;
 
@@ -639,6 +662,8 @@ VERIFY_RESULT PvpVerifyFileWithAdditionalCatalog(
     }
 
     PhFreeVerifySignatures(signatures, numberOfSignatures);
+
+    NtClose(fileHandle);
 
     return result;
 }
@@ -1095,21 +1120,77 @@ VOID PvpSetPeImageEntropy(
     PhQueueItemWorkQueue(PhGetGlobalWorkQueue(), PvpEntropyImageThreadStart, WindowHandle);
 }
 
-VOID PvpSetPeImageEntryPoint(
-    _In_ HWND ListViewHandle
+static NTSTATUS PvpEntryPointImageThreadStart(
+    _In_ PVOID Parameter
     )
 {
     ULONG addressOfEntryPoint;
     PPH_STRING string;
+    PPH_STRING symbol = NULL;
+    PPH_STRING symbolName = NULL;
+    PH_SYMBOL_RESOLVE_LEVEL symbolResolveLevel = PhsrlInvalid;
 
     if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
         addressOfEntryPoint = PvMappedImage.NtHeaders32->OptionalHeader.AddressOfEntryPoint;
     else
         addressOfEntryPoint = PvMappedImage.NtHeaders->OptionalHeader.AddressOfEntryPoint;
 
-    string = PhFormatString(L"0x%I32x", addressOfEntryPoint);
-    PhSetListViewSubItem(ListViewHandle, PVP_IMAGE_GENERAL_INDEX_ENTRYPOINT, 1, string->Buffer);
-    PhDereferenceObject(string);
+    if (addressOfEntryPoint)
+    {
+        if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+        {
+            symbol = PhGetSymbolFromAddress(
+                PvSymbolProvider,
+                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, addressOfEntryPoint),
+                &symbolResolveLevel,
+                NULL,
+                &symbolName,
+                NULL
+                );
+        }
+        else
+        {
+            symbol = PhGetSymbolFromAddress(
+                PvSymbolProvider,
+                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, addressOfEntryPoint),
+                &symbolResolveLevel,
+                NULL,
+                &symbolName,
+                NULL
+                );
+        }
+    }
+
+    if (
+        !PhIsNullOrEmptyString(symbolName) && (
+        symbolResolveLevel == PhsrlFunction ||
+        symbolResolveLevel == PhsrlModule ||
+        symbolResolveLevel == PhsrlAddress
+        ))
+    {
+        string = PhFormatString(L"0x%I32x (%s)", addressOfEntryPoint, PhGetStringOrEmpty(symbolName));
+        PhSetListViewSubItem(Parameter, PVP_IMAGE_GENERAL_INDEX_ENTRYPOINT, 1, string->Buffer);
+        PhDereferenceObject(string);
+    }
+    else
+    {
+        string = PhFormatString(L"0x%I32x", addressOfEntryPoint);
+        PhSetListViewSubItem(Parameter, PVP_IMAGE_GENERAL_INDEX_ENTRYPOINT, 1, string->Buffer);
+        PhDereferenceObject(string);
+    }
+
+    PhClearReference(&symbolName);
+    PhClearReference(&symbol);
+    return STATUS_SUCCESS;
+}
+
+VOID PvpSetPeImageEntryPoint(
+    _In_ HWND ListViewHandle
+    )
+{
+    PhSetListViewSubItem(ListViewHandle, PVP_IMAGE_GENERAL_INDEX_ENTRYPOINT, 1, L"Resolving...");
+
+    PhQueueItemWorkQueue(PhGetGlobalWorkQueue(), PvpEntryPointImageThreadStart, ListViewHandle);
 }
 
 VOID PvpSetPeImageCheckSum(
@@ -1522,6 +1603,15 @@ VOID PvpSetPeImageFileProperties(
             PhDereferenceObject(string);
         }
 
+        {
+            LONGLONG fileUsn;
+
+            if (NT_SUCCESS(PhGetFileUsn(fileHandle, &fileUsn)))
+            {
+                PhSetListViewSubItem(ListViewHandle, PVP_IMAGE_GENERAL_INDEX_FILEUSN, 1, PhaFormatUInt64(fileUsn, FALSE)->Buffer);
+            }
+        }
+
         NtClose(fileHandle);
     }
 }
@@ -1721,6 +1811,7 @@ VOID PvpSetPeImageProperties(
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_EXTRAINFO, PVP_IMAGE_GENERAL_INDEX_FILEINDEX, L"File index", NULL);
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_EXTRAINFO, PVP_IMAGE_GENERAL_INDEX_FILEID, L"File identifier", NULL);
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_EXTRAINFO, PVP_IMAGE_GENERAL_INDEX_FILEOBJECTID, L"File object identifier", NULL);
+    PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_EXTRAINFO, PVP_IMAGE_GENERAL_INDEX_FILEUSN, L"File last USN", NULL);
 
     PvpSetPeImageMachineType(Context->ListViewHandle);
     PvpSetPeImageTimeStamp(Context->ListViewHandle);
@@ -1908,6 +1999,8 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
     {
     case WM_INITDIALOG:
         {
+            HIMAGELIST listViewImageList;
+
             context->WindowHandle = hwndDlg;
             context->ListViewHandle = GetDlgItem(hwndDlg, IDC_LIST);
 
@@ -1921,8 +2014,8 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
             PvPeAddImagePropertiesGroups(context);
             PhLoadListViewGroupStatesFromSetting(L"ImageGeneralPropertiesListViewGroupStates", context->ListViewHandle);
 
-            if (context->ListViewImageList = PhImageListCreate(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
-                ListView_SetImageList(context->ListViewHandle, context->ListViewImageList, LVSIL_SMALL);
+            if (listViewImageList = PhImageListCreate(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
+                ListView_SetImageList(context->ListViewHandle, listViewImageList, LVSIL_SMALL);
 
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
             PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDC_FILE), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
@@ -1937,8 +2030,10 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
             ExtendedListView_SetColumnWidth(context->ListViewHandle, 1, ELVSCW_AUTOSIZE_REMAININGSPACE);
 
             if (PeEnableThemeSupport)
+            {
                 PhInitializeWindowThemeStaticControl(GetDlgItem(hwndDlg, IDC_FILEICON));
-            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+                PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+            }
         }
         break;
     case WM_DESTROY:
@@ -1946,12 +2041,7 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
             PhSaveListViewGroupStatesToSetting(L"ImageGeneralPropertiesListViewGroupStates", context->ListViewHandle);
             //PhSaveListViewSortColumnsToSetting(L"ImageGeneralPropertiesListViewSort", context->ListViewHandle);
             //PhSaveListViewColumnsToSetting(L"ImageGeneralPropertiesListViewColumns", context->ListViewHandle);
-
-            if (context->ListViewImageList)
-                PhImageListDestroy(context->ListViewImageList);
-
             PhDeleteLayoutManager(&context->LayoutManager);
-
             PhFree(context);
         }
         break;
@@ -2082,6 +2172,17 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
     case WM_CONTEXTMENU:
         {
             PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, context->ListViewHandle);
+        }
+        break;
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORLISTBOX:
+        {
+            SetBkMode((HDC)wParam, TRANSPARENT);
+            SetTextColor((HDC)wParam, RGB(0, 0, 0));
+            SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
+            return (INT_PTR)GetStockBrush(DC_BRUSH);
         }
         break;
     }

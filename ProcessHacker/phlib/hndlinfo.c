@@ -449,7 +449,7 @@ VOID PhInitializeEtwTraceGuidCache(
 
     PhInitializeArray(EtwTraceGuidArrayList, sizeof(PH_ETW_TRACEGUID_ENTRY), 2000);
 
-    if (!(jsonObject = PhCreateJsonParser(capabilityListString->Buffer)))
+    if (!(jsonObject = PhCreateJsonParserEx(capabilityListString, FALSE)))
         return;
 
     if (!(arrayLength = PhGetJsonArrayLength(jsonObject)))
@@ -607,7 +607,7 @@ PPH_STRING PhGetPnPDeviceName(
     {
         PVOID cfgmgr32;
 
-        if (cfgmgr32 = PhLoadLibrarySafe(L"cfgmgr32.dll"))
+        if (cfgmgr32 = PhLoadLibrary(L"cfgmgr32.dll"))
         {
             DevGetObjects_I = PhGetDllBaseProcedureAddress(cfgmgr32, "DevGetObjects", 0);
             DevFreeObjects_I = PhGetDllBaseProcedureAddress(cfgmgr32, "DevFreeObjects", 0);
@@ -1018,13 +1018,13 @@ NTSTATUS PhpGetBestObjectName(
         {
             if (PhStartsWithString2(ObjectName, L"\\Device\\", TRUE))
             {
-                // The device might be a PDO... Query the PnP manager for the friendy name of the device.
+                // The device might be a PDO... Query the PnP manager for the friendly name of the device. (dmex)
                 bestObjectName = PhGetPnPDeviceName(ObjectName);
             }
 
             if (!bestObjectName)
             {
-                // The file doesn't have a DOS filename and doesn't have a PnP friendy name.
+                // The file doesn't have a DOS filename and doesn't have a PnP friendly name.
                 PhSetReference(&bestObjectName, ObjectName);
             }
         }

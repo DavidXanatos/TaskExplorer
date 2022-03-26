@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2021 dmex
+ * Copyright (C) 2017-2022 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -52,7 +52,7 @@ VOID PvPeAddListViewCfgFunctionEntry(
     if (!NT_SUCCESS(PhGetMappedImageCfgEntry(CfgConfig, Index, Type, &cfgFunctionEntry)))
         return;
 
-    PhPrintUInt64(value, Count + 1);
+    PhPrintUInt64(value, Count);
     lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, value, NULL);
 
     PhPrintPointer(value, UlongToPtr(cfgFunctionEntry.Rva));
@@ -266,6 +266,17 @@ INT_PTR CALLBACK PvpPeCgfDlgProc(
     case WM_CONTEXTMENU:
         {
             PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, context->ListViewHandle);
+        }
+        break;
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORLISTBOX:
+        {
+            SetBkMode((HDC)wParam, TRANSPARENT);
+            SetTextColor((HDC)wParam, RGB(0, 0, 0));
+            SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
+            return (INT_PTR)GetStockBrush(DC_BRUSH);
         }
         break;
     }

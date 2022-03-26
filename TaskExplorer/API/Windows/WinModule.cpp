@@ -38,7 +38,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	QWriteLocker Locker(&m_Mutex);
 
 	m_IsLoaded = true;
-	m_FileName = CastPhString(module->FileName, false);
+	m_FileName = CastPhString(module->FileNameWin32, false);
 	m_ModuleName = CastPhString(module->Name, false);
 
 	m_BaseAddress = (quint64)module->BaseAddress;
@@ -89,7 +89,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
         // 1. It (should be) faster than opening the file and mapping it in, and
         // 2. It contains the correct original image base relocated by ASLR, if present.
 
-        m_Flags &= ~LDRP_IMAGE_NOT_AT_BASE;
+        //m_Flags &= ~LDRP_IMAGE_NOT_AT_BASE;
 
         if (NT_SUCCESS(PhLoadRemoteMappedImageEx((HANDLE)ProcessHandle, &m_BaseAddress, readVirtualMemoryCallback, &remoteMappedImage)))
         {
@@ -116,8 +116,8 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
                 m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
             }
 
-            if (imageBase != (ULONG_PTR)m_BaseAddress)
-                m_Flags |= LDRP_IMAGE_NOT_AT_BASE;
+            //if (imageBase != (ULONG_PTR)m_BaseAddress)
+            //    m_Flags |= LDRP_IMAGE_NOT_AT_BASE;
 
             if (entryPoint != 0)
                 m_EntryPoint = (quint64)PTR_ADD_OFFSET(m_BaseAddress, entryPoint);
@@ -348,7 +348,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 		VERIFY_RESULT VerifyResult = VERIFY_RESULT(0); //VrUnknown
 		PPH_STRING VerifySignerName = NULL;
 		if(theConf->GetBool("Options/VerifySignatures", true))
-			VerifyResult = PhVerifyFileCached(FileName, PackageFullName, &VerifySignerName, FALSE);
+			VerifyResult = PhVerifyFileCached(FileName, PackageFullName, &VerifySignerName, FALSE, FALSE);
 
 		BOOLEAN IsPacked;
 		ulong ImportFunctions;

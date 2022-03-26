@@ -222,6 +222,7 @@ protected:
 	QHash<quint64, QMultiMap<quint64, quint64> > m_WindowMap; // <pid<tid,hwnd>>
 	QHash<quint64, QPair<quint64, quint64> > m_WindowRevMap;
 
+	//bool						m_RpcUpdatePending;
 	mutable QReadWriteLock		m_RpcTableMutex;
 	QMap<QString, CRpcEndpointPtr>m_RpcTableList;
 

@@ -246,8 +246,10 @@ void CSbieView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	FinishPaths(OldPaths, m_pKey, m_iKey, tr("Keys"));
 
 	PrepPaths(OldPaths, m_pIpc);
+	UpdatePaths('in', OldPaths, m_pIpc);
 	UpdatePaths('io', OldPaths, m_pIpc);
 	UpdatePaths('ic', OldPaths, m_pIpc);
+	UpdatePaths('ir', OldPaths, m_pIpc);
 	FinishPaths(OldPaths, m_pIpc, m_iIpc, tr("Ipc"));
 	//OpenIpcPath=$:program.exe
 	//Permits a program running inside the sandbox to have full access into the address space of a 

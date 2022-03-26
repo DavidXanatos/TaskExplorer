@@ -18,10 +18,10 @@
 #define VER_PRERELEASE 0
 
 #define VER_COMPANYNAME_STR "wj32\0"
-#define VER_FILEDESCRIPTION_STR "KProcessHacker\0"
+#define VER_FILEDESCRIPTION_STR "XProcessHacker\0"
 #define VER_LEGALCOPYRIGHT_STR "Licensed under the GNU GPL, v3.\0"
-#define VER_ORIGINALFILENAME_STR "kprocesshacker.sys\0"
-#define VER_PRODUCTNAME_STR "KProcessHacker\0"
+#define VER_ORIGINALFILENAME_STR "xprocesshacker.sys\0"
+#define VER_PRODUCTNAME_STR "XProcessHacker\0"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    	VER_FILEVERSION

@@ -113,10 +113,10 @@ typedef enum _TOKEN_INFORMATION_CLASS
     TokenPrivateNameSpace, // q; s: ULONG
     TokenSingletonAttributes, // q: TOKEN_SECURITY_ATTRIBUTES_INFORMATION
     TokenBnoIsolation, // q: TOKEN_BNO_ISOLATION_INFORMATION
-    TokenChildProcessFlags, // q; s: ULONG
+    TokenChildProcessFlags, // s: ULONG
     TokenIsLessPrivilegedAppContainer, // q: ULONG
     TokenIsSandboxed, // q: ULONG
-    TokenOriginatingProcessTrustLevel, // q: TOKEN_PROCESS_TRUST_LEVEL
+    TokenIsAppSilo, // TokenOriginatingProcessTrustLevel // q: TOKEN_PROCESS_TRUST_LEVEL
     MaxTokenInfoClass
 } TOKEN_INFORMATION_CLASS, *PTOKEN_INFORMATION_CLASS;
 #endif

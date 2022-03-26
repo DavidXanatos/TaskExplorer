@@ -2,7 +2,7 @@
  * Process Hacker -
  *   json and xml wrapper
  *
- * Copyright (C) 2017-2020 dmex
+ * Copyright (C) 2017-2022 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -23,11 +23,10 @@
 #include <ph.h>
 #include <phbasesup.h>
 #include <phutil.h>
+#include <json.h>
 
 #include "..\tools\thirdparty\jsonc\json.h"
 #include "..\tools\thirdparty\mxml\mxml.h"
-
-#include <json.h>
 
 static json_object_ptr json_get_object(
     _In_ json_object_ptr rootObj, 
@@ -49,6 +48,72 @@ PVOID PhCreateJsonParser(
     )
 {
     return json_tokener_parse(JsonString);
+}
+
+PVOID PhCreateJsonParserEx(
+    _In_ PVOID JsonString,
+    _In_ BOOLEAN Unicode
+    )
+{
+    json_tokener* tokenerObject;
+    json_object_ptr jsonObject;
+
+    if (Unicode)
+    {
+        PPH_STRING jsonStringUtf16 = JsonString;
+        PPH_BYTES jsonStringUtf8;
+
+        if (jsonStringUtf16->Length / sizeof(WCHAR) >= INT32_MAX)
+            return NULL;
+        if (!(tokenerObject = json_tokener_new()))
+            return NULL;
+
+        json_tokener_set_flags(
+            tokenerObject,
+            JSON_TOKENER_STRICT | JSON_TOKENER_VALIDATE_UTF8
+            );
+
+        jsonStringUtf8 = PhConvertUtf16ToUtf8Ex(
+            jsonStringUtf16->Buffer,
+            jsonStringUtf16->Length
+            );
+        jsonObject = json_tokener_parse_ex(
+            tokenerObject,
+            jsonStringUtf8->Buffer,
+            (INT)jsonStringUtf8->Length
+            );
+        PhDereferenceObject(jsonStringUtf8);
+    }
+    else
+    {
+        PPH_BYTES jsonStringUtf8 = JsonString;
+
+        if (jsonStringUtf8->Length >= INT32_MAX)
+            return NULL;
+        if (!(tokenerObject = json_tokener_new()))
+            return NULL;
+
+        json_tokener_set_flags(
+            tokenerObject,
+            JSON_TOKENER_STRICT | JSON_TOKENER_VALIDATE_UTF8
+            );
+
+        jsonObject = json_tokener_parse_ex(
+            tokenerObject,
+            jsonStringUtf8->Buffer,
+            (INT)jsonStringUtf8->Length
+            );
+    }
+
+    if (json_tokener_get_error(tokenerObject) != json_tokener_success)
+    {
+        json_tokener_free(tokenerObject);
+        return NULL;
+    }
+
+    json_tokener_free(tokenerObject);
+
+    return jsonObject;
 }
 
 VOID PhFreeJsonObject(
@@ -313,6 +378,29 @@ VOID PhSaveJsonObjectToFile(
 
 // XML support
 
+PVOID PhLoadXmlObjectFromString(
+    _In_ PSTR String
+    )
+{
+    mxml_node_t* currentNode;
+
+    if (currentNode = mxmlLoadString(
+        NULL,
+        String,
+        MXML_OPAQUE_CALLBACK
+        ))
+    {
+        if (mxmlGetType(currentNode) == MXML_ELEMENT)
+        {
+            return currentNode;
+        }
+
+        mxmlDelete(currentNode);
+    }
+
+    return NULL;
+}
+
 NTSTATUS PhLoadXmlObjectFromFile(
     _In_ PWSTR FileName,
     _Out_opt_ PVOID* XmlRootObject
@@ -424,6 +512,32 @@ NTSTATUS PhSaveXmlObjectToFile(
     return status;
 }
 
+VOID PhFreeXmlObject(
+    _In_ PVOID XmlRootObject
+    )
+{
+    mxmlDelete(XmlRootObject);
+}
+
+PVOID PhGetXmlObject(
+    _In_ PVOID XmlNodeObject,
+    _In_ PSTR Path
+    )
+{
+    mxml_node_t* currentNode;
+    mxml_node_t* realNode;
+
+    if (currentNode = mxmlFindPath(XmlNodeObject, Path))
+    {
+        if (realNode = mxmlGetParent(currentNode))
+            return realNode;
+
+        return currentNode;
+    }
+
+    return NULL;
+}
+
 PVOID PhCreateXmlNode(
     _In_opt_ PVOID ParentNode,
     _In_ PSTR Name
@@ -440,11 +554,15 @@ PVOID PhCreateXmlOpaqueNode(
     return mxmlNewOpaque(ParentNode, Value);
 }
 
-VOID PhFreeXmlObject(
-    _In_ PVOID XmlRootObject
+PVOID PhFindXmlObject(
+    _In_ PVOID XmlNodeObject,
+    _In_opt_ PVOID XmlTopObject,
+    _In_opt_ PSTR Element,
+    _In_opt_ PSTR Attribute,
+    _In_opt_ PSTR Value
     )
 {
-    mxmlDelete(XmlRootObject);
+    return mxmlFindElement(XmlNodeObject, XmlTopObject, Element, Attribute, Value, MXML_DESCEND);
 }
 
 PVOID PhGetXmlNodeFirstChild(
@@ -461,7 +579,7 @@ PVOID PhGetXmlNodeNextChild(
     return mxmlGetNextSibling(XmlNodeObject);
 }
 
-PPH_STRING PhGetOpaqueXmlNodeText(
+PPH_STRING PhGetXmlNodeOpaqueText(
     _In_ PVOID XmlNodeObject
     )
 {
@@ -548,4 +666,35 @@ BOOLEAN PhEnumXmlNode(
     }
 
     return TRUE;
+}
+
+PPH_XML_INTERFACE PhGetXmlInterface(
+    _In_ ULONG Version
+    )
+{
+    static PH_XML_INTERFACE PhXmlInterface =
+    {
+        PH_XML_INTERFACE_VERSION,
+        PhLoadXmlObjectFromString,
+        PhLoadXmlObjectFromFile,
+        PhSaveXmlObjectToFile,
+        PhFreeXmlObject,
+        PhGetXmlObject,
+        PhCreateXmlNode,
+        PhCreateXmlOpaqueNode,
+        PhFindXmlObject,
+        PhGetXmlNodeFirstChild,
+        PhGetXmlNodeNextChild,
+        PhGetXmlNodeOpaqueText,
+        PhGetXmlNodeElementText,
+        PhGetXmlNodeAttributeText,
+        PhGetXmlNodeAttributeByIndex,
+        PhSetXmlNodeAttributeText,
+        PhGetXmlNodeAttributeCount
+    };
+
+    if (Version < PH_XML_INTERFACE_VERSION)
+        return NULL;
+
+    return &PhXmlInterface;
 }

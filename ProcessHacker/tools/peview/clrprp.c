@@ -3,7 +3,7 @@
  *   PE viewer
  *
  * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2017-2021 dmex
+ * Copyright (C) 2017-2022 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -22,13 +22,12 @@
  */
 
 #include <peview.h>
-#include "metahost.h"
+#include <metahost.h>
 
 typedef struct _PVP_PE_CLR_CONTEXT
 {
     HWND WindowHandle;
     HWND ListViewHandle;
-    HIMAGELIST ListViewImageList;
     PH_LAYOUT_MANAGER LayoutManager;
     PPV_PROPPAGECONTEXT PropSheetContext;
     PVOID PdbMetadataAddress;
@@ -303,7 +302,7 @@ VOID PvpGetClrStrongNameToken(
 {
     PPH_STRING clrStrongNameString = NULL;
     ICLRMetaHost* clrMetaHost = NULL;
-    ICLRRuntimeInfo* clrRuntimInfo = NULL;
+    ICLRRuntimeInfo* clrRuntimeInfo = NULL;
     ICLRStrongName* clrStrongName = NULL;
     CLRCreateInstanceFnPtr CLRCreateInstance_I = NULL;
     PVOID mscoreeHandle = NULL;
@@ -314,7 +313,7 @@ VOID PvpGetClrStrongNameToken(
     ULONG size = MAX_PATH;
     WCHAR version[MAX_PATH] = L"";
 
-    if (mscoreeHandle = PhLoadLibrarySafe(L"mscoree.dll"))
+    if (mscoreeHandle = PhLoadLibrary(L"mscoree.dll"))
     {
         if (CLRCreateInstance_I = PhGetDllBaseProcedureAddress(mscoreeHandle, "CLRCreateInstance", 0))
         {
@@ -351,14 +350,14 @@ VOID PvpGetClrStrongNameToken(
         clrMetaHost,
         version,
         &IID_ICLRRuntimeInfo,
-        &clrRuntimInfo
+        &clrRuntimeInfo
         )))
     {
         goto CleanupExit;
     }
 
     if (!SUCCEEDED(ICLRRuntimeInfo_GetInterface(
-        clrRuntimInfo,
+        clrRuntimeInfo,
         &CLSID_CLRStrongName,
         &IID_ICLRStrongName,
         &clrStrongName
@@ -408,8 +407,8 @@ CleanupExit:
         ICLRStrongName_Release(clrStrongName);
     }
 
-    if (clrRuntimInfo)
-        ICLRRuntimeInfo_Release(clrRuntimInfo);
+    if (clrRuntimeInfo)
+        ICLRRuntimeInfo_Release(clrRuntimeInfo);
     if (clrMetaHost)
         ICLRMetaHost_Release(clrMetaHost);
     if (mscoreeHandle)
@@ -449,6 +448,7 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
     {
     case WM_INITDIALOG:
         {
+            HIMAGELIST listViewImageList;
             PSTORAGESIGNATURE clrMetaData;
 
             context->WindowHandle = hwndDlg;
@@ -472,8 +472,8 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
             PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDC_TOKENSTRING), NULL, PH_ANCHOR_LEFT | PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);         
             PhAddLayoutItem(&context->LayoutManager, context->ListViewHandle, NULL, PH_ANCHOR_ALL);
 
-            if (context->ListViewImageList = PhImageListCreate(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
-                ListView_SetImageList(context->ListViewHandle, context->ListViewImageList, LVSIL_SMALL);
+            if (listViewImageList = PhImageListCreate(2, 20, ILC_MASK | ILC_COLOR, 1, 1))
+                ListView_SetImageList(context->ListViewHandle, listViewImageList, LVSIL_SMALL);
 
             if (!context->PdbMetadataAddress)
             {
@@ -506,12 +506,7 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
     case WM_DESTROY:
         {
             PhSaveListViewColumnsToSetting(L"ImageClrListViewColumns", context->ListViewHandle);
-
-            if (context->ListViewImageList)
-                PhImageListDestroy(context->ListViewImageList);
-
             PhDeleteLayoutManager(&context->LayoutManager);
-
             PhFree(context);
         }
         break;
@@ -548,6 +543,17 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
     case WM_CONTEXTMENU:
         {
             PvHandleListViewCommandCopy(hwndDlg, lParam, wParam, context->ListViewHandle);
+        }
+        break;
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORLISTBOX:
+        {
+            SetBkMode((HDC)wParam, TRANSPARENT);
+            SetTextColor((HDC)wParam, RGB(0, 0, 0));
+            SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
+            return (INT_PTR)GetStockBrush(DC_BRUSH);
         }
         break;
     }

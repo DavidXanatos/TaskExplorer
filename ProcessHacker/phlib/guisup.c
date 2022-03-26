@@ -3,7 +3,7 @@
  *   GUI support functions
  *
  * Copyright (C) 2009-2016 wj32
- * Copyright (C) 2017-2021 dmex
+ * Copyright (C) 2017-2022 dmex
  *
  * This file is part of Process Hacker.
  *
@@ -29,6 +29,7 @@
 #include <fastlock.h>
 #include <guisupp.h>
 
+#include <math.h>
 #include <commoncontrols.h>
 #include <shellapi.h>
 #include <uxtheme.h>
@@ -61,7 +62,6 @@ HFONT PhApplicationFont = NULL;
 HFONT PhTreeWindowFont = NULL;
 PH_INTEGER_PAIR PhSmallIconSize = { 16, 16 };
 PH_INTEGER_PAIR PhLargeIconSize = { 32, 32 };
-_IsImmersiveProcess IsImmersiveProcess_I = NULL;
 
 static PH_INITONCE SharedIconCacheInitOnce = PH_INITONCE_INIT;
 static PPH_HASHTABLE SharedIconCacheHashtable;
@@ -100,11 +100,6 @@ VOID PhGuiSupportInitialization(
     {
         PhGlobalDpi = GetDeviceCaps(hdc, LOGPIXELSY);
         ReleaseDC(NULL, hdc);
-    }
-
-    if (WindowsVersion >= WINDOWS_8)
-    {
-        IsImmersiveProcess_I = PhGetDllProcedureAddress(L"user32.dll", "IsImmersiveProcess", 0);
     }
 }
 
@@ -1022,6 +1017,37 @@ HWND PhCreateDialog(
     return dialogHandle;
 }
 
+HWND PhCreateWindow(
+    _In_ ULONG ExStyle,
+    _In_opt_ PCWSTR ClassName,
+    _In_opt_ PCWSTR WindowName,
+    _In_ ULONG Style,
+    _In_ INT X,
+    _In_ INT Y,
+    _In_ INT Width,
+    _In_ INT Height,
+    _In_opt_ HWND ParentWindow,
+    _In_opt_ HMENU MenuHandle,
+    _In_opt_ PVOID InstanceHandle,
+    _In_opt_ PVOID Parameter
+    )
+{
+    return CreateWindowEx(
+        ExStyle,
+        ClassName,
+        WindowName,
+        Style,
+        X,
+        Y,
+        Width,
+        Height,
+        ParentWindow,
+        MenuHandle,
+        InstanceHandle,
+        Parameter
+        );
+}
+
 BOOLEAN PhModalPropertySheet(
     _Inout_ PROPSHEETHEADER *Header
     )
@@ -1556,8 +1582,8 @@ HWND PhGetProcessMainWindowEx(
     else
         PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, ProcessId);
 
-    if (processHandle && WindowsVersion >= WINDOWS_8 && IsImmersiveProcess_I)
-        context.IsImmersive = !!IsImmersiveProcess_I(processHandle);
+    if (processHandle && WindowsVersion >= WINDOWS_8)
+        context.IsImmersive = PhIsImmersiveProcess(processHandle);
 
     PhEnumWindows(PhpGetProcessMainWindowEnumWindowsProc, &context);
     //PhEnumChildWindows(NULL, 0x800, PhpGetProcessMainWindowEnumWindowsProc, &context);
@@ -1652,15 +1678,15 @@ static BOOLEAN NTAPI PhpWindowCallbackHashtableEqualFunction(
     )
 {
     return
-        (*(PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION *)Entry1)->WindowHandle ==
-        (*(PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION *)Entry2)->WindowHandle;
+        ((PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION)Entry1)->WindowHandle ==
+        ((PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION)Entry2)->WindowHandle;
 }
 
 static ULONG NTAPI PhpWindowCallbackHashtableHashFunction(
     _In_ PVOID Entry
     )
 {
-    return PhHashIntPtr((ULONG_PTR)(*(PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION *)Entry)->WindowHandle);
+    return PhHashIntPtr((ULONG_PTR)((PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION)Entry)->WindowHandle);
 }
 
 VOID PhRegisterWindowCallback(
@@ -1669,11 +1695,10 @@ VOID PhRegisterWindowCallback(
     _In_opt_ PVOID Context
     )
 {
-    PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION entry;
+    PH_PLUGIN_WINDOW_CALLBACK_REGISTRATION entry;
 
-    entry = PhAllocate(sizeof(PH_PLUGIN_WINDOW_CALLBACK_REGISTRATION));
-    entry->WindowHandle = WindowHandle;
-    entry->Type = Type;
+    entry.WindowHandle = WindowHandle;
+    entry.Type = Type;
 
     switch (Type) // HACK
     {
@@ -1693,27 +1718,14 @@ VOID PhUnregisterWindowCallback(
     )
 {
     PH_PLUGIN_WINDOW_CALLBACK_REGISTRATION lookupEntry;
-    PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION lookupEntryPtr = &lookupEntry;
-    PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION *entryPtr;
     PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION entry;
 
     lookupEntry.WindowHandle = WindowHandle;
 
     PhAcquireQueuedLockExclusive(&WindowCallbackListLock);
-
-    entryPtr = (PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION*)PhFindEntryHashtable(
-        WindowCallbackHashTable,
-        &lookupEntryPtr
-        );
-
-    assert(entryPtr);
-
-    if (entryPtr && PhRemoveEntryHashtable(WindowCallbackHashTable, entryPtr))
-    {
-        entry = *entryPtr;
-        PhFree(entry);
-    }
-
+    entry = PhFindEntryHashtable(WindowCallbackHashTable, &lookupEntry);
+    assert(entry);
+    PhRemoveEntryHashtable(WindowCallbackHashTable, entry);
     PhReleaseQueuedLockExclusive(&WindowCallbackListLock);
 }
 
@@ -1721,16 +1733,16 @@ VOID PhWindowNotifyTopMostEvent(
     _In_ BOOLEAN TopMost
     )
 {
-    PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION *entry;
+    PPH_PLUGIN_WINDOW_CALLBACK_REGISTRATION entry;
     ULONG i = 0;
 
     PhAcquireQueuedLockExclusive(&WindowCallbackListLock);
 
-    while (PhEnumHashtable(WindowCallbackHashTable, (PVOID*)&entry, &i))
+    while (PhEnumHashtable(WindowCallbackHashTable, &entry, &i))
     {
-        if ((*entry)->Type & PH_PLUGIN_WINDOW_EVENT_TYPE_TOPMOST)
+        if (entry->Type & PH_PLUGIN_WINDOW_EVENT_TYPE_TOPMOST)
         {
-            PhSetWindowAlwaysOnTop((*entry)->WindowHandle, TopMost);
+            PhSetWindowAlwaysOnTop(entry->WindowHandle, TopMost);
         }
     }
 
@@ -1752,7 +1764,7 @@ HICON PhGetInternalWindowIcon(
     {
         PVOID shell32Handle;
 
-        if (shell32Handle = PhLoadLibrarySafe(L"shell32.dll"))
+        if (shell32Handle = PhLoadLibrary(L"shell32.dll"))
         {
             InternalGetWindowIcon_I = PhGetDllBaseProcedureAddress(shell32Handle, "InternalGetWindowIcon", 0);
         }
@@ -1781,6 +1793,28 @@ HANDLE PhGetGlobalTimerQueue(
     }
 
     return PhTimerQueueHandle;
+}
+
+BOOLEAN PhIsImmersiveProcess(
+    _In_ HANDLE ProcessHandle
+    )
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static BOOL (WINAPI* IsImmersiveProcess_I)(
+        _In_ HANDLE ProcessHandle
+        ) = NULL;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        if (WindowsVersion >= WINDOWS_8)
+            IsImmersiveProcess_I = PhGetDllProcedureAddress(L"user32.dll", "IsImmersiveProcess", 0);
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (!IsImmersiveProcess_I)
+        return FALSE;
+
+    return !!IsImmersiveProcess_I(ProcessHandle);
 }
 
 // rev from ExtractIconExW
@@ -1928,6 +1962,12 @@ BOOLEAN PhLoadIconFromResourceDirectory(
     return TRUE;
 }
 
+#ifndef MAKEFOURCC
+#define MAKEFOURCC(ch0, ch1, ch2, ch3) \
+ ((ULONG)(BYTE)(ch0) | ((ULONG)(BYTE)(ch1) << 8) | \
+ ((ULONG)(BYTE)(ch2) << 16) | ((ULONG)(BYTE)(ch3) << 24 ))
+#endif
+
 // https://docs.microsoft.com/en-us/windows/win32/menurc/newheader
 // One or more RESDIR structures immediately follow the NEWHEADER structure.
 typedef struct _NEWHEADER
@@ -1981,7 +2021,7 @@ HICON PhCreateIconFromResourceDirectory(
         )
     {
         // CreateIconFromResourceEx seems to know what formats are supported so these
-        // size/format checks are probably redundant and not required?
+        // size/format checks are probably redundant and not required? (dmex)
         return NULL;
     }
 
@@ -2020,8 +2060,8 @@ PPH_STRING PhpGetImageMunResourcePath(
     }
 
     // 19H1 and above relocated binary resources into the \SystemResources\ directory.
-    // This is implemented as a hook inside EnumResouceNamesExW:
-    // PrivateExtractIconExW -> EnumResouceNamesExW -> GetMunResourceModuleForEnumIfExist.
+    // This is implemented as a hook inside EnumResourceNamesExW:
+    // PrivateExtractIconExW -> EnumResourceNamesExW -> GetMunResourceModuleForEnumIfExist.
     //
     // GetMunResourceModuleForEnumIfExist trims the path and inserts '\SystemResources\' and '.mun'
     // to locate the binary with the icon resources. For example:
@@ -2363,6 +2403,19 @@ HICON PhImageListGetIcon(
     return iconhandle;
 }
 
+BOOLEAN PhImageListGetIconSize(
+    _In_ HIMAGELIST ImageListHandle,
+    _Out_ PINT cx,
+    _Out_ PINT cy
+    )
+{
+    return SUCCEEDED(IImageList2_GetIconSize(
+        (IImageList2*)ImageListHandle,
+        cx,
+        cy
+        ));
+}
+
 BOOLEAN PhImageListReplace(
     _In_ HIMAGELIST ImageListHandle,
     _In_ UINT Index,
@@ -2384,7 +2437,8 @@ BOOLEAN PhImageListDrawIcon(
     _In_ HDC Hdc,
     _In_ INT x,
     _In_ INT y,
-    _In_ UINT Style
+    _In_ UINT Style,
+    _In_ BOOLEAN Disabled
     )
 {
     return PhImageListDrawEx(
@@ -2397,7 +2451,8 @@ BOOLEAN PhImageListDrawIcon(
         0,
         CLR_DEFAULT,
         CLR_DEFAULT,
-        Style
+        Style,
+        Disabled ? ILS_SATURATE : ILS_NORMAL
         );
 }
 
@@ -2411,7 +2466,8 @@ BOOLEAN PhImageListDrawEx(
     _In_ INT dy,
     _In_ COLORREF BackColor,
     _In_ COLORREF ForeColor,
-    _In_ UINT Style
+    _In_ UINT Style,
+    _In_ DWORD State
     )
 {
     IMAGELISTDRAWPARAMS imagelistDraw;
@@ -2428,6 +2484,7 @@ BOOLEAN PhImageListDrawEx(
     imagelistDraw.rgbBk = BackColor;
     imagelistDraw.rgbFg = ForeColor;
     imagelistDraw.fStyle = Style;
+    imagelistDraw.fState = State;
 
     return SUCCEEDED(IImageList2_Draw((IImageList2*)ImageListHandle, &imagelistDraw));
 }
@@ -2440,8 +2497,6 @@ VOID PhCustomDrawTreeTimeLine(
     _In_ PLARGE_INTEGER CreateTime
     )
 {
-    #define PhInflateRect(rect, dx, dy) \
-    { (rect)->left -= (dx); (rect)->top -= (dy); (rect)->right += (dx); (rect)->bottom += (dy); }
     HBRUSH previousBrush = NULL;
     RECT rect = CellRect;
     RECT borderRect = CellRect;
@@ -2494,7 +2549,17 @@ VOID PhCustomDrawTreeTimeLine(
         createTime.QuadPart = systemTime.QuadPart - CreateTime->QuadPart;
     }
 
+    // Note: Time is 8 bytes, Float is 4 bytes. Use DOUBLE type at some stage. (dmex)
     percent = (FLOAT)createTime.QuadPart / (FLOAT)startTime.QuadPart * 100.f;
+
+    if (!(Flags & PH_DRAW_TIMELINE_OVERFLOW))
+    {
+        // Prevent overflow from changing the system time to an earlier date. (dmex)
+        if (fabsf(percent) > 100.f)
+            percent = 100.f;
+        if (fabsf(percent) < 0.0005f)
+            percent = 0.f;
+    }
 
     if (Flags & PH_DRAW_TIMELINE_DARKTHEME)
         FillRect(Hdc, &rect, PhMenuBackgroundBrush);
@@ -2527,9 +2592,15 @@ VOID PhCustomDrawTreeTimeLine(
         previousBrush = SelectBrush(Hdc, GetStockBrush(DC_BRUSH));
     }
 
-    // Prevent overflow from changing the system time to an earlier date. (dmex)
-    if (percent > 100.f) percent = 100.f;
-    // TODO: This still loses a small fraction of precision compared to PE here causing a 1px difference. (dmex)
+    if (Flags & PH_DRAW_TIMELINE_OVERFLOW)
+    {
+        // Prevent overflow from changing the system time to an earlier date. (dmex)
+        if (fabsf(percent) > 100.f)
+            percent = 100.f;
+        if (fabsf(percent) < 0.0005f)
+            percent = 0.f;
+    }
+
     //rect.right = ((LONG)(rect.left + ((rect.right - rect.left) * (LONG)percent) / 100));
     //rect.left = ((LONG)(rect.right + ((rect.left - rect.right) * (LONG)percent) / 100));
     rect.left = (LONG)(rect.right + ((rect.left - rect.right) * percent / 100));

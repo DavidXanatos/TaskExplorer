@@ -417,14 +417,6 @@ FORCEINLINE VOID PhPrintUInt32(
     _ultow(UInt32, Destination, 10);
 }
 
-FORCEINLINE VOID PhPrintUInt32Hex(
-    _Out_writes_(PH_PTR_STR_LEN_1) PWSTR Destination,
-    _In_ ULONG UInt32
-    )
-{
-    _ultow(UInt32, Destination, 16);
-}
-
 FORCEINLINE VOID PhPrintInt64(
     _Out_writes_(PH_INT64_STR_LEN_1) PWSTR Destination,
     _In_ LONG64 Int64
@@ -459,6 +451,21 @@ FORCEINLINE VOID PhPrintPointer(
 
 FORCEINLINE ULONG PhCountBits(
     _In_ ULONG Value
+    )
+{
+    ULONG count = 0;
+
+    while (Value)
+    {
+        count++;
+        Value &= Value - 1;
+    }
+
+    return count;
+}
+
+FORCEINLINE ULONG PhCountBitsUlongPtr(
+    _In_ ULONG_PTR Value
     )
 {
     ULONG count = 0;

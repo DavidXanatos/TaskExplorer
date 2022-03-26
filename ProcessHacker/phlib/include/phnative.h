@@ -741,6 +741,14 @@ PhGetProcessIdsUsingFile(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetFileUsn(
+    _In_ HANDLE FileHandle,
+    _Out_ PLONGLONG Usn
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetTransactionManagerBasicInformation(
     _In_ HANDLE TransactionManagerHandle,
     _Out_ PTRANSACTIONMANAGER_BASIC_INFORMATION BasicInformation
@@ -1314,6 +1322,7 @@ typedef struct _PH_MODULE_INFO
     ULONG Type;
     PVOID BaseAddress;
     PVOID ParentBaseAddress;
+    PVOID OriginalBaseAddress;
     ULONG Size;
     PVOID EntryPoint;
     ULONG Flags;
@@ -1761,6 +1770,14 @@ PhGetThreadName(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhSetThreadName(
+    _In_ HANDLE ThreadHandle,
+    _In_ PCWSTR ThreadName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhImpersonateToken(
     _In_ HANDLE ThreadHandle,
     _In_ HANDLE TokenHandle
@@ -1777,6 +1794,7 @@ typedef struct _PH_PROCESS_DEBUG_HEAP_ENTRY
 {
     ULONG Flags;
     ULONG Signature;
+    UCHAR HeapFrontEndType;
     ULONG NumberOfEntries;
     PVOID BaseAddress;
     SIZE_T BytesAllocated;
@@ -1787,6 +1805,7 @@ typedef struct _PH_PROCESS_DEBUG_HEAP_ENTRY32
 {
     ULONG Flags;
     ULONG Signature;
+    UCHAR HeapFrontEndType;
     ULONG NumberOfEntries;
     ULONG BaseAddress;
     ULONG BytesAllocated;
@@ -1806,6 +1825,31 @@ typedef struct _PH_PROCESS_DEBUG_HEAP_INFORMATION32
     ULONG DefaultHeap;
     PH_PROCESS_DEBUG_HEAP_ENTRY32 Heaps[1];
 } PH_PROCESS_DEBUG_HEAP_INFORMATION32, *PPH_PROCESS_DEBUG_HEAP_INFORMATION32;
+
+typedef struct _PH_IMAGE_RUNTIME_FUNCTION_ENTRY_AMD64 {
+    DWORD BeginAddress;
+    DWORD EndAddress;
+    union {
+        DWORD UnwindInfoAddress;
+        DWORD UnwindData;
+    } DUMMYUNIONNAME;
+} PH_IMAGE_RUNTIME_FUNCTION_ENTRY_AMD64, *PPH_IMAGE_RUNTIME_FUNCTION_ENTRY_AMD64;
+
+typedef struct _PH_IMAGE_RUNTIME_FUNCTION_ENTRY_ARM64 {
+    DWORD BeginAddress;
+    union {
+        DWORD UnwindData;
+        struct {
+            DWORD Flag : 2;
+            DWORD FunctionLength : 11;
+            DWORD RegF : 3;
+            DWORD RegI : 4;
+            DWORD H : 1;
+            DWORD CR : 2;
+            DWORD FrameSize : 9;
+        } DUMMYSTRUCTNAME;
+    } DUMMYUNIONNAME;
+} PH_IMAGE_RUNTIME_FUNCTION_ENTRY_ARM64, *PPH_IMAGE_RUNTIME_FUNCTION_ENTRY_ARM64;
 
 PHLIBAPI
 NTSTATUS
@@ -1840,6 +1884,80 @@ PhGetThreadLastStatusValue(
     _Out_ PNTSTATUS LastStatusValue
     );
 
+typedef enum tagOLETLSFLAGS
+{
+    OLETLS_LOCALTID = 0x01, // This TID is in the current process.
+    OLETLS_UUIDINITIALIZED = 0x02, // This Logical thread is init'd.
+    OLETLS_INTHREADDETACH = 0x04, // This is in thread detach.
+    OLETLS_CHANNELTHREADINITIALZED = 0x08,// This channel has been init'd
+    OLETLS_WOWTHREAD = 0x10, // This thread is a 16-bit WOW thread.
+    OLETLS_THREADUNINITIALIZING = 0x20, // This thread is in CoUninitialize.
+    OLETLS_DISABLE_OLE1DDE = 0x40, // This thread can't use a DDE window.
+    OLETLS_APARTMENTTHREADED = 0x80, // This is an STA apartment thread
+    OLETLS_MULTITHREADED = 0x100, // This is an MTA apartment thread
+    OLETLS_IMPERSONATING = 0x200, // This thread is impersonating
+    OLETLS_DISABLE_EVENTLOGGER = 0x400, // Prevent recursion in event logger
+    OLETLS_INNEUTRALAPT = 0x800, // This thread is in the NTA
+    OLETLS_DISPATCHTHREAD = 0x1000, // This is a dispatch thread
+    OLETLS_HOSTTHREAD = 0x2000, // This is a host thread
+    OLETLS_ALLOWCOINIT = 0x4000, // This thread allows inits
+    OLETLS_PENDINGUNINIT = 0x8000, // This thread has pending uninit
+    OLETLS_FIRSTMTAINIT = 0x10000,// First thread to attempt an MTA init
+    OLETLS_FIRSTNTAINIT = 0x20000,// First thread to attempt an NTA init
+    OLETLS_APTINITIALIZING = 0x40000, // Apartment Object is initializing
+    OLETLS_UIMSGSINMODALLOOP = 0x80000,
+    OLETLS_MARSHALING_ERROR_OBJECT = 0x100000,
+    OLETLS_WINRT_INITIALIZE = 0x200000,
+    OLETLS_APPLICATION_STA = 0x400000,
+    OLETLS_IN_SHUTDOWN_CALLBACKS = 0x800000,
+    OLETLS_POINTER_INPUT_BLOCKED = 0x1000000,
+    OLETLS_IN_ACTIVATION_FILTER = 0x2000000,
+    OLETLS_ASTATOASTAEXEMPT_QUIRK = 0x4000000,
+    OLETLS_ASTATOASTAEXEMPT_PROXY = 0x8000000,
+    OLETLS_ASTATOASTAEXEMPT_INDOUBT = 0x10000000,
+    OLETLS_DETECTED_USER_INITIALIZED = 0x20000000,
+    OLETLS_BRIDGE_STA = 0x40000000,
+    OLETLS_NAINITIALIZING = 0x80000000UL
+} OLETLSFLAGS, *POLETLSFLAGS;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetThreadApartmentState(
+    _In_ HANDLE ThreadHandle,
+    _In_opt_ HANDLE ProcessHandle,
+    _Out_ POLETLSFLAGS ApartmentState
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetThreadStackLimits(
+    _In_ HANDLE ThreadHandle,
+    _In_ HANDLE ProcessHandle,
+    _Out_ PULONG_PTR LowPart,
+    _Out_ PULONG_PTR HighPart
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetThreadStackSize(
+    _In_ HANDLE ThreadHandle,
+    _In_ HANDLE ProcessHandle,
+    _Out_ PULONG_PTR StackUsage,
+    _Out_ PULONG_PTR StackLimit
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetThreadIsFiber(
+    _In_ HANDLE ThreadHandle,
+    _In_opt_ HANDLE ProcessHandle,
+    _Out_ PBOOLEAN ThreadIsFiber
+    );
+
 PHLIBAPI
 BOOLEAN
 NTAPI
@@ -1860,6 +1978,34 @@ NTSTATUS
 NTAPI
 PhDestroyExecutionRequiredRequest(
     _In_ HANDLE PowerRequestHandle
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhIsProcessStateFrozen(
+    _In_ HANDLE ProcessId
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhFreezeProcess(
+    _In_ HANDLE ProcessId
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhThawProcess(
+    _In_ HANDLE ProcessId
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhIsKnownDllFileName(
+    _In_ PPH_STRING FileName
     );
 
 #ifdef __cplusplus

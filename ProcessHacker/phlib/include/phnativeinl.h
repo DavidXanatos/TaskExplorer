@@ -634,6 +634,38 @@ PhGetProcessIsCFGuardEnabled(
 
 FORCEINLINE
 NTSTATUS
+PhGetProcessIsXFGuardEnabled(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PBOOLEAN IsXFGuardEnabled
+)
+{
+    NTSTATUS status;
+    PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
+
+    policyInfo.Policy = ProcessControlFlowGuardPolicy;
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessMitigationPolicy,
+        &policyInfo,
+        sizeof(PROCESS_MITIGATION_POLICY_INFORMATION),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+#if !defined(NTDDI_WIN10_CO) || (NTDDI_VERSION < NTDDI_WIN10_CO)
+        *IsXFGuardEnabled = _bittest((const PLONG)&policyInfo.ControlFlowGuardPolicy.Flags, 3);
+#else
+        *IsXFGuardEnabled = !!policyInfo.ControlFlowGuardPolicy.EnableXfg;
+#endif
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
 PhGetProcessHandleCount(
     _In_ HANDLE ProcessHandle,
     _Out_ PPROCESS_HANDLE_INFORMATION HandleInfo
