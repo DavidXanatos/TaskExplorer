@@ -2,37 +2,6 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-add autorun view <--
-scheduler <---
-
-statistics or general gpu entry !!!
-
-goto parent/service/... by pid and so on 
-
-add RpcView functionality !
-
-fix issues with open process into windows
-
-todo: improve gpu performance counters
-
-todo: debug log add clear / add: trace log cleanup options
-
-add custom symbol loading option
-
-
-todo: open program by double ckick it in handle search window
-
-todo: fix PhGetJobBasicUiRestrictions fails for system jobs liek created by sandboxie
-
-add: double click in Search window
-
-todo: update finder
-
-todo: open job objects as system
-
-
-- todo: add option to open a job in a window
-
 
 
 ## [1.5.0] - 2022-12-10
