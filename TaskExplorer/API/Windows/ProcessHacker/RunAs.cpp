@@ -72,7 +72,7 @@ BOOLEAN PhShellProcessHackerEx(
     BOOLEAN result;
     PPH_STRING applicationFileName;
 
-    if (!(applicationFileName = PhGetApplicationFileName()))
+    if (!(applicationFileName = PhGetApplicationFileNameWin32()))
         return FALSE;
 
     result = PhShellExecuteEx(

@@ -567,8 +567,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
 	{
 		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
-			"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked.\r\n"
-			"If this is the case you need to add an exception in your AV product for the xprocesshacker.sys file."
+			"Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features."
 		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
 
 		bool State = false;
