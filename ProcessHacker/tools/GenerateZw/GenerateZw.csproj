@@ -4,15 +4,11 @@
         <OutputType>Exe</OutputType>
         <Platforms>AnyCPU</Platforms>
         <PlatformTarget>AnyCPU</PlatformTarget>
-        <PublishTrimmed>true</PublishTrimmed>
-        <PublishReadyToRun>true</PublishReadyToRun>
-        <PublishSingleFile>true</PublishSingleFile>
-        <PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
-        <RuntimeIdentifier>win-x86</RuntimeIdentifier>
-        <TrimUnusedDependencies>true</TrimUnusedDependencies>
+        <TargetFramework>net7.0</TargetFramework>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
         <IntDir>$(ProjectDir)obj\$(Configuration)\$(TargetFramework)-$(PlatformTarget)\</IntDir>
         <OutDir>$(ProjectDir)bin\$(Configuration)\$(TargetFramework)-$(PlatformTarget)\</OutDir>
+        <PublishAot>true</PublishAot>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -23,8 +19,8 @@
 
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
       <DefineConstants />
-      <DebugType>portable</DebugType>
-      <DebugSymbols>false</DebugSymbols>
+      <DebugType>embedded</DebugType>
+      <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
     
 </Project>

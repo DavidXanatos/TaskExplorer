@@ -155,7 +155,7 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 									break;*/
 				case eType:			ColValue.Formated = pEntry->GetTypeString(); break;
                 case eTTL:			ColValue.Formated = FormatNumber(Value.toULongLong() / 1000); break; // in seconds
-				case eTimeStamp:	if(Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong() / 1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+				case eTimeStamp:	if(Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong() / 1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 			}
 		}
 

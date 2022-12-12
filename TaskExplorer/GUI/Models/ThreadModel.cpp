@@ -150,7 +150,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 					case ePagePriority:			ColValue.Formated = pThread->GetPagePriorityString(); break;
 					case eIOPriority:			ColValue.Formated = pThread->GetIOPriorityString(); break;
 
-					case eCreated:				ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eCreated:				ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 #ifdef WIN32
 					case eType:					ColValue.Formated = pWinThread->GetTypeString(); break;
 #endif

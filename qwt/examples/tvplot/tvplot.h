@@ -1,23 +1,26 @@
-#ifndef _TV_PLOT_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
+#pragma once
 
-class TVPlot: public QwtPlot
+#include <QwtPlot>
+
+class TVPlot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    TVPlot( QWidget * = NULL );
+  public:
+    TVPlot( QWidget* = NULL );
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void setMode( int );
     void exportPlot();
 
-private:
+  private:
     void populate();
 
-private Q_SLOTS:
-    void showItem( const QVariant &, bool on );
+  private Q_SLOTS:
+    void showItem( const QVariant&, bool on );
 };
-
-#endif

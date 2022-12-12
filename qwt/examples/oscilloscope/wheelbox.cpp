@@ -1,108 +1,131 @@
-#include "wheelbox.h"
-#include <qwt_wheel.h>
-#include <qlcdnumber.h>
-#include <qlabel.h>
-#include <qlayout.h>
-#include <qevent.h>
-#include <qapplication.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class Wheel: public QwtWheel
+#include "WheelBox.h"
+
+#include <QwtWheel>
+#include <QLabel>
+#include <QLCDNumber>
+#include <QLayout>
+#include <QWheelEvent>
+#include <QApplication>
+
+namespace
 {
-public:
-    Wheel( WheelBox *parent ):
-        QwtWheel( parent ),
-        d_ignoreWheelEvent( false )
+    class Wheel : public QwtWheel
     {
-        setFocusPolicy( Qt::WheelFocus );
-        parent->installEventFilter( this );
-    }
-
-    virtual bool eventFilter( QObject *object, QEvent *event )
-    {
-        if ( event->type() == QEvent::Wheel && !d_ignoreWheelEvent )
+      public:
+        Wheel( QWidget* parent )
+            : QwtWheel( parent )
+            , m_ignoreWheelEvent( false )
         {
-            const QWheelEvent *we = static_cast<QWheelEvent *>( event );
-
-            QWheelEvent wheelEvent( QPoint( 5, 5 ), we->delta(),
-                we->buttons(), we->modifiers(),
-                we->orientation() );
-
-            d_ignoreWheelEvent = true;
-            QApplication::sendEvent( this, &wheelEvent );
-            d_ignoreWheelEvent = false;
-
-            return true;
+            setFocusPolicy( Qt::WheelFocus );
+            parent->installEventFilter( this );
         }
-        return QwtWheel::eventFilter( object, event );
-    }
-private:
-    bool d_ignoreWheelEvent;
-};
 
-WheelBox::WheelBox( const QString &title,
-        double min, double max, double stepSize, QWidget *parent ):
-    QWidget( parent )
+        virtual bool eventFilter( QObject* object, QEvent* event ) QWT_OVERRIDE
+        {
+            if ( event->type() == QEvent::Wheel && !m_ignoreWheelEvent )
+            {
+                const QWheelEvent* we = static_cast< QWheelEvent* >( event );
+
+                const QPoint pos = wheelRect().center();
+
+#if QT_VERSION >= 0x050c00
+                QWheelEvent wheelEvent(
+                    pos, mapToGlobal( pos ),
+                    we->pixelDelta(), we->angleDelta(),
+                    we->buttons(), we->modifiers(),
+                    we->phase(), we->inverted() );
+#else
+                QWheelEvent wheelEvent(
+                    pos, we->delta(),
+                    we->buttons(), we->modifiers(),
+                    we->orientation() );
+#endif
+
+                m_ignoreWheelEvent = true;
+                QApplication::sendEvent( this, &wheelEvent );
+                m_ignoreWheelEvent = false;
+
+                return true;
+            }
+
+            return QwtWheel::eventFilter( object, event );
+        }
+      private:
+        bool m_ignoreWheelEvent;
+    };
+}
+
+WheelBox::WheelBox( const QString& title,
+        double min, double max, double stepSize, QWidget* parent )
+    : QWidget( parent )
 {
-
-    d_number = new QLCDNumber( this );
-    d_number->setSegmentStyle( QLCDNumber::Filled );
-    d_number->setAutoFillBackground( true );
-    d_number->setFixedHeight( d_number->sizeHint().height() * 2 );
-    d_number->setFocusPolicy( Qt::WheelFocus );
+    m_number = new QLCDNumber();
+    m_number->setSegmentStyle( QLCDNumber::Filled );
+    m_number->setAutoFillBackground( true );
+    m_number->setFixedHeight( m_number->sizeHint().height() * 2 );
+    m_number->setFocusPolicy( Qt::WheelFocus );
 
     QPalette pal( Qt::black );
     pal.setColor( QPalette::WindowText, Qt::green );
-    d_number->setPalette( pal );
+    m_number->setPalette( pal );
 
-    d_wheel = new Wheel( this );
-    d_wheel->setOrientation( Qt::Vertical );
-    d_wheel->setInverted( true );
-    d_wheel->setRange( min, max );
-    d_wheel->setSingleStep( stepSize );
-    d_wheel->setPageStepCount( 5 );
-    d_wheel->setFixedHeight( d_number->height() );
+    m_wheel = new Wheel( this );
+    m_wheel->setOrientation( Qt::Vertical );
+    m_wheel->setInverted( true );
+    m_wheel->setRange( min, max );
+    m_wheel->setSingleStep( stepSize );
+    m_wheel->setPageStepCount( 5 );
+    m_wheel->setFixedHeight( m_number->height() );
 
-    d_number->setFocusProxy( d_wheel );
+    m_number->setFocusProxy( m_wheel );
 
     QFont font( "Helvetica", 10 );
     font.setBold( true );
 
-    d_label = new QLabel( title, this );
-    d_label->setFont( font );
+    m_label = new QLabel( title );
+    m_label->setFont( font );
 
-    QHBoxLayout *hLayout = new QHBoxLayout;
+    QHBoxLayout* hLayout = new QHBoxLayout;
     hLayout->setContentsMargins( 0, 0, 0, 0 );
     hLayout->setSpacing( 2 );
-    hLayout->addWidget( d_number, 10 );
-    hLayout->addWidget( d_wheel );
+    hLayout->addWidget( m_number, 10 );
+    hLayout->addWidget( m_wheel );
 
-    QVBoxLayout *vLayout = new QVBoxLayout( this );
+    QVBoxLayout* vLayout = new QVBoxLayout( this );
     vLayout->addLayout( hLayout, 10 );
-    vLayout->addWidget( d_label, 0, Qt::AlignTop | Qt::AlignHCenter );
+    vLayout->addWidget( m_label, 0, Qt::AlignTop | Qt::AlignHCenter );
 
-    connect( d_wheel, SIGNAL( valueChanged( double ) ),
-        d_number, SLOT( display( double ) ) );
-    connect( d_wheel, SIGNAL( valueChanged( double ) ),
-        this, SIGNAL( valueChanged( double ) ) );
+    connect( m_wheel, SIGNAL(valueChanged(double)),
+        m_number, SLOT(display(double)) );
+
+    connect( m_wheel, SIGNAL(valueChanged(double)),
+        this, SIGNAL(valueChanged(double)) );
 }
 
-void WheelBox::setTheme( const QColor &color )
+void WheelBox::setTheme( const QColor& color )
 {
-    d_wheel->setPalette( color );
+    m_wheel->setPalette( color );
 }
 
 QColor WheelBox::theme() const
 {
-    return d_wheel->palette().color( QPalette::Window );
+    return m_wheel->palette().color( QPalette::Window );
 }
 
 void WheelBox::setValue( double value )
 {
-    d_wheel->setValue( value );
-    d_number->display( value );
+    m_wheel->setValue( value );
+    m_number->display( value );
 }
 
 double WheelBox::value() const
 {
-    return d_wheel->value();
+    return m_wheel->value();
 }
+
+#include "moc_WheelBox.cpp"

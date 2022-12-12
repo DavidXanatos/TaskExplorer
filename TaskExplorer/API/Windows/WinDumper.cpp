@@ -21,7 +21,7 @@ struct SWinDumper
 	}
 
     HANDLE ProcessId;
-    wstring FileName;
+    std::wstring FileName;
     MINIDUMP_TYPE DumpType;
     BOOLEAN IsWow64;
 

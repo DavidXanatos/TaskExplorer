@@ -4,7 +4,9 @@
 #include "WindowsAPI.h"
 #include "../../../MiscHelpers/Common/Settings.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QtWin>
+#endif
 
 CWinModule::CWinModule(quint64 ProcessId, bool IsSubsystemProcess, QObject *parent) 
 	: CModuleInfo(parent) 
@@ -191,7 +193,7 @@ bool CWinModule::ResolveRefServices()
 	if (!I_QueryTagInformation)
 		return false;
 	
-	wstring ModuleName = m_ModuleName.toStdWString();
+	std::wstring ModuleName = m_ModuleName.toStdWString();
 
 	TAG_INFO_NAMES_REFERENCING_MODULE namesReferencingModule;
 	memset(&namesReferencingModule, 0, sizeof(TAG_INFO_NAMES_REFERENCING_MODULE));
@@ -292,7 +294,9 @@ void CWinModule::InitAsyncData(const QString& PackageFullName)
 	QFutureWatcher<QVariantMap>* pWatcher = new QFutureWatcher<QVariantMap>(this); // Note: the job will be canceled if the file will be deleted :D
 	connect(pWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(OnInitAsyncData(int)));
 	connect(pWatcher, SIGNAL(finished()), pWatcher, SLOT(deleteLater()));
-	pWatcher->setFuture(QtConcurrent::run(CWinModule::InitAsyncData, Params));
+	pWatcher->setFuture(QtConcurrent::run([this, Params]() {
+		return this->InitAsyncData(Params);
+	}));
 }
 
 // Note: PhInitializeModuleVersionInfoCached does not look thread safe, so we have to guard it.
@@ -324,13 +328,21 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 
 		if (SmallIcon)
 		{
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)		
 			Result["SmallIcon"] = QtWin::fromHICON(SmallIcon);
+#else
+			Result["SmallIcon"] = QImage::fromHICON(SmallIcon);
+#endif
 			DestroyIcon(SmallIcon);
 		}
 
 		if (LargeIcon)
 		{
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 			Result["LargeIcon"] = QtWin::fromHICON(LargeIcon);
+#else
+			Result["LargeIcon"] = QImage::fromHICON(LargeIcon);
+#endif
 			DestroyIcon(LargeIcon);
 		}
 
@@ -541,7 +553,7 @@ STATUS CWinModule::Unload(bool bForce)
 			return ERR(tr("Unloading a driver may cause system instability."), ERROR_CONFIRM);
 
 		{
-			wstring Name = m_ModuleName.toStdWString();
+			std::wstring Name = m_ModuleName.toStdWString();
 			status = PhUnloadDriver((PVOID)m_BaseAddress, (wchar_t*)Name.c_str());
 		}
 

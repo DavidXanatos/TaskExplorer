@@ -1,21 +1,7 @@
 /*
- * Process Hacker -
- *   Local Inter-process Communication support functions
+ * Local Inter-process Communication support functions
  *
- * This file is part of Process Hacker.
- *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of System Informer.
  */
 
 #ifndef _NTLPCAPI_H
@@ -66,7 +52,7 @@ typedef struct _PORT_DATA_ENTRY
 typedef struct _PORT_DATA_INFORMATION
 {
     ULONG CountDataEntries;
-    PORT_DATA_ENTRY DataEntries[1];
+    _Field_size_(CountDataEntries) PORT_DATA_ENTRY DataEntries[1];
 } PORT_DATA_INFORMATION, *PPORT_DATA_INFORMATION;
 
 #define LPC_REQUEST 1
@@ -375,9 +361,37 @@ NtQueryInformationPort(
 // rev
 typedef HANDLE ALPC_HANDLE, *PALPC_HANDLE;
 
+#define ALPC_PORFLG_LPC_MODE 0x1000 // kernel only
+#define ALPC_PORFLG_ALLOW_IMPERSONATION 0x10000
 #define ALPC_PORFLG_ALLOW_LPC_REQUESTS 0x20000 // rev
 #define ALPC_PORFLG_WAITABLE_PORT 0x40000 // dbg
+#define ALPC_PORFLG_ALLOW_DUP_OBJECT 0x80000
 #define ALPC_PORFLG_SYSTEM_PROCESS 0x100000 // dbg
+#define ALPC_PORFLG_WAKE_POLICY1 0x200000
+#define ALPC_PORFLG_WAKE_POLICY2 0x400000
+#define ALPC_PORFLG_WAKE_POLICY3 0x800000
+#define ALPC_PORFLG_DIRECT_MESSAGE 0x1000000
+#define ALPC_PORFLG_ALLOW_MULTIHANDLE_ATTRIBUTE 0x2000000
+
+#define ALPC_PORFLG_OBJECT_TYPE_FILE 0x0001
+#define ALPC_PORFLG_OBJECT_TYPE_INVALID 0x0002
+#define ALPC_PORFLG_OBJECT_TYPE_THREAD 0x0004
+#define ALPC_PORFLG_OBJECT_TYPE_SEMAPHORE 0x0008
+#define ALPC_PORFLG_OBJECT_TYPE_EVENT 0x0010
+#define ALPC_PORFLG_OBJECT_TYPE_PROCESS 0X0020
+#define ALPC_PORFLG_OBJECT_TYPE_MUTEX 0x0040
+#define ALPC_PORFLG_OBJECT_TYPE_SECTION 0x0080
+#define ALPC_PORFLG_OBJECT_TYPE_REGKEY 0x0100
+#define ALPC_PORFLG_OBJECT_TYPE_TOKEN 0x0200
+#define ALPC_PORFLG_OBJECT_TYPE_COMPOSITION 0x0400
+#define ALPC_PORFLG_OBJECT_TYPE_JOB 0x0800
+#define ALPC_PORFLG_OBJECT_TYPE_ALL \
+    (ALPC_PORFLG_OBJECT_TYPE_FILE | ALPC_PORFLG_OBJECT_TYPE_THREAD | \
+     ALPC_PORFLG_OBJECT_TYPE_SEMAPHORE | ALPC_PORFLG_OBJECT_TYPE_EVENT | \
+     ALPC_PORFLG_OBJECT_TYPE_PROCESS | ALPC_PORFLG_OBJECT_TYPE_MUTEX | \
+     ALPC_PORFLG_OBJECT_TYPE_SECTION | ALPC_PORFLG_OBJECT_TYPE_REGKEY | \
+     ALPC_PORFLG_OBJECT_TYPE_TOKEN | ALPC_PORFLG_OBJECT_TYPE_COMPOSITION | \
+     ALPC_PORFLG_OBJECT_TYPE_JOB)
 
 // symbols
 typedef struct _ALPC_PORT_ATTRIBUTES
@@ -505,6 +519,7 @@ typedef struct _ALPC_HANDLE_ATTR
 
 #define ALPC_SECFLG_CREATE_HANDLE 0x20000 // dbg
 #define ALPC_SECFLG_NOSECTIONHANDLE 0x40000
+
 // private
 typedef struct _ALPC_SECURITY_ATTR
 {
@@ -538,7 +553,7 @@ typedef enum _ALPC_PORT_INFORMATION_CLASS
     AlpcRegisterCompletionListInformation, // s: in ALPC_PORT_COMPLETION_LIST_INFORMATION
     AlpcUnregisterCompletionListInformation, // s: VOID
     AlpcAdjustCompletionListConcurrencyCountInformation, // s: in ULONG
-    AlpcRegisterCallbackInformation, // kernel-mode only
+    AlpcRegisterCallbackInformation, // s: ALPC_REGISTER_CALLBACK // kernel-mode only
     AlpcCompletionListRundownInformation, // s: VOID // 10
     AlpcWaitForPortReferences,
     AlpcServerSessionInformation // q: ALPC_SERVER_SESSION_INFORMATION // since 19H2
@@ -592,6 +607,13 @@ typedef struct _ALPC_PORT_COMPLETION_LIST_INFORMATION
     ULONG ConcurrencyCount;
     ULONG AttributeFlags;
 } ALPC_PORT_COMPLETION_LIST_INFORMATION, *PALPC_PORT_COMPLETION_LIST_INFORMATION;
+
+// private
+typedef struct _ALPC_REGISTER_CALLBACK
+{
+    PVOID CallbackObject; // PCALLBACK_OBJECT
+    PVOID CallbackContext;
+} ALPC_REGISTER_CALLBACK, *PALPC_REGISTER_CALLBACK;
 
 // private
 typedef struct _ALPC_SERVER_SESSION_INFORMATION
@@ -662,6 +684,8 @@ NtAlpcSetInformation(
     _In_reads_bytes_opt_(Length) PVOID PortInformation,
     _In_ ULONG Length
     );
+
+#define ALPC_CREATEPORTSECTIONFLG_SECURE 0x40000 // rev
 
 NTSYSCALLAPI
 NTSTATUS
@@ -761,9 +785,10 @@ NtAlpcQueryInformationMessage(
     );
 
 #define ALPC_MSGFLG_REPLY_MESSAGE 0x1
-#define ALPC_MSGFLG_LPC_MODE 0x2 // ?
+#define ALPC_MSGFLG_LPC_MODE 0x2
 #define ALPC_MSGFLG_RELEASE_MESSAGE 0x10000 // dbg
 #define ALPC_MSGFLG_SYNC_REQUEST 0x20000 // dbg
+#define ALPC_MSGFLG_TRACK_PORT_REFERENCES 0x40000
 #define ALPC_MSGFLG_WAIT_USER_MODE 0x100000
 #define ALPC_MSGFLG_WAIT_ALERTABLE 0x200000
 #define ALPC_MSGFLG_WOW64_CALL 0x80000000 // dbg
@@ -846,6 +871,10 @@ NtAlpcCancelMessage(
     _In_ PALPC_CONTEXT_ATTR MessageContext
     );
 
+#define ALPC_IMPERSONATEFLG_ANONYMOUS 0x1
+#define ALPC_IMPERSONATEFLG_REQUIRE_IMPERSONATE 0x2
+//ALPC_IMPERSONATEFLG 0x3-0x10 (SECURITY_IMPERSONATION_LEVEL)
+
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -862,7 +891,7 @@ NTAPI
 NtAlpcImpersonateClientContainerOfPort(
     _In_ HANDLE PortHandle,
     _In_ PPORT_MESSAGE Message,
-    _In_ ULONG Flags
+    _Reserved_ ULONG Flags
     );
 #endif
 
@@ -873,7 +902,7 @@ NtAlpcOpenSenderProcess(
     _Out_ PHANDLE ProcessHandle,
     _In_ HANDLE PortHandle,
     _In_ PPORT_MESSAGE PortMessage,
-    _In_ ULONG Flags,
+    _Reserved_ ULONG Flags,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ POBJECT_ATTRIBUTES ObjectAttributes
     );
@@ -885,7 +914,7 @@ NtAlpcOpenSenderThread(
     _Out_ PHANDLE ThreadHandle,
     _In_ HANDLE PortHandle,
     _In_ PPORT_MESSAGE PortMessage,
-    _In_ ULONG Flags,
+    _Reserved_ ULONG Flags,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ POBJECT_ATTRIBUTES ObjectAttributes
     );

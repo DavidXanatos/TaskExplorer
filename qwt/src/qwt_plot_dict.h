@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -7,33 +7,31 @@
  * modify it under the terms of the Qwt License, Version 1.0
  *****************************************************************************/
 
-/*! \file !*/
 #ifndef QWT_PLOT_DICT
 #define QWT_PLOT_DICT
 
 #include "qwt_global.h"
 #include "qwt_plot_item.h"
+
 #include <qlist.h>
 
-/// \var typedef QList< QwtPlotItem *> QwtPlotItemList
-/// \brief See QT 4.x assistant documentation for QList
-typedef QList<QwtPlotItem *> QwtPlotItemList;
-typedef QList<QwtPlotItem *>::ConstIterator QwtPlotItemIterator;
+typedef QList< QwtPlotItem* > QwtPlotItemList;
+typedef QList< QwtPlotItem* >::ConstIterator QwtPlotItemIterator;
 
 /*!
-  \brief A dictionary for plot items
+   \brief A dictionary for plot items
 
-  QwtPlotDict organizes plot items in increasing z-order.
-  If autoDelete() is enabled, all attached items will be deleted
-  in the destructor of the dictionary.
-  QwtPlotDict can be used to get access to all QwtPlotItem items - or all
-  items of a specific type -  that are currently on the plot.
+   QwtPlotDict organizes plot items in increasing z-order.
+   If autoDelete() is enabled, all attached items will be deleted
+   in the destructor of the dictionary.
+   QwtPlotDict can be used to get access to all QwtPlotItem items - or all
+   items of a specific type -  that are currently on the plot.
 
-  \sa QwtPlotItem::attach(), QwtPlotItem::detach(), QwtPlotItem::z()
-*/
+   \sa QwtPlotItem::attach(), QwtPlotItem::detach(), QwtPlotItem::z()
+ */
 class QWT_EXPORT QwtPlotDict
 {
-public:
+  public:
     explicit QwtPlotDict();
     virtual ~QwtPlotDict();
 
@@ -46,13 +44,13 @@ public:
     void detachItems( int rtti = QwtPlotItem::Rtti_PlotItem,
         bool autoDelete = true );
 
-protected:
-    void insertItem( QwtPlotItem * );
-    void removeItem( QwtPlotItem * );
+  protected:
+    void insertItem( QwtPlotItem* );
+    void removeItem( QwtPlotItem* );
 
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

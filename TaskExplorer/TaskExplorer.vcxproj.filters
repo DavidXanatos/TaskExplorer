@@ -96,6 +96,9 @@
     <Filter Include="TaskExplorer\Filters">
       <UniqueIdentifier>{d048a725-d5a4-4ff2-84a2-f9f8da01c68b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="API\Windows\Monitors\d3dkmt">
+      <UniqueIdentifier>{0dff98b8-f098-42cc-9ce2-ed62f2caa31c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -365,7 +368,7 @@
     <ClCompile Include="GUI\SystemInfo\SystemInfoWindow.cpp">
       <Filter>TaskExplorer\SystemInfo</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\ProcessHacker\clrsup.cpp">
+    <ClCompile Include="API\Windows\ProcessHacker\clrsup.c">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
     <ClCompile Include="GUI\TaskInfo\DotNetView.cpp">
@@ -377,7 +380,7 @@
     <ClCompile Include="API\AssemblyList.cpp">
       <Filter>API</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp">
+    <ClCompile Include="API\Windows\ProcessHacker\DotNet.cpp">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
     <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp">
@@ -524,7 +527,7 @@
     <ClCompile Include="API\PersistentPreset.cpp">
       <Filter>API</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\ProcessHacker\GpuCounters.cpp">
+    <ClCompile Include="API\Windows\ProcessHacker\GpuCounters.c">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
     <ClCompile Include="API\Windows\Monitors\WinDbgMonitor.cpp">
@@ -568,6 +571,9 @@
     </ClCompile>
     <ClCompile Include="API\Windows\RpcEndpoint.cpp">
       <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.c">
+      <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -613,7 +619,7 @@
     <ClInclude Include="API\AssemblyList.h">
       <Filter>API</Filter>
     </ClInclude>
-    <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h">
+    <ClInclude Include="API\Windows\ProcessHacker\DotNet.h">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\devices.h">
@@ -720,6 +726,15 @@
     </ClInclude>
     <ClInclude Include="GUI\Filters\ProcessFilterModel.h">
       <Filter>TaskExplorer\Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dkmdt.h">
+      <Filter>API\Windows\Monitors\d3dkmt</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dkmthk.h">
+      <Filter>API\Windows\Monitors\d3dkmt</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dukmdt.h">
+      <Filter>API\Windows\Monitors\d3dkmt</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -14,7 +14,7 @@ CSystemView::CSystemView(QWidget *parent)
 	:QWidget(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_pScrollArea = new QScrollArea();
@@ -25,7 +25,7 @@ CSystemView::CSystemView(QWidget *parent)
 	m_pScrollArea->setWidgetResizable(true);
 	m_pScrollArea->setWidget(m_pInfoWidget);
 	QPalette pal = m_pScrollArea->palette();
-	pal.setColor(QPalette::Background, Qt::transparent);
+	pal.setColor(QPalette::Window, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
 	m_pInfoLayout = new QVBoxLayout();
@@ -93,7 +93,7 @@ CSystemView::CSystemView(QWidget *parent)
 	//m_pTabs->setDocumentMode(true);
 	//m_pTabs->setTabPosition(QTabWidget::South);
 	//m_pTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
-	m_pInfoLayout->addWidget(m_pTabs, 0, 0);
+	m_pInfoLayout->addWidget(m_pTabs);
 	
 	m_pStatsView = new CStatsView(CStatsView::eSystem, this);
 	m_pTabs->addTab(m_pStatsView, tr("Statistics"));
@@ -126,7 +126,11 @@ CSystemView::~CSystemView()
 
 void CSystemView::Refresh()
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	if(m_pIcon->pixmap() == NULL)
+#else
+	if(m_pIcon->pixmap().isNull())
+#endif
 		m_pIcon->setPixmap(theAPI->GetSystemIcon().scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 
 	m_pSystemName->setText(theAPI->GetSystemName());

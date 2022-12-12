@@ -1,28 +1,28 @@
-#ifndef _PLOT_H_
-#define _PLOT_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
+#pragma once
+
+#include <QwtPlot>
 
 class RectItem;
 class QwtInterval;
 
-class Plot: public QwtPlot
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget *parent, const QwtInterval & );
-    virtual void updateLayout();
+  public:
+    Plot( QWidget* parent, const QwtInterval& );
+    virtual void updateLayout() QWT_OVERRIDE;
 
-    void setRectOfInterest( const QRectF & );
+    void setRectOfInterest( const QRectF& );
 
-Q_SIGNALS:
+  Q_SIGNALS:
     void resized( double xRatio, double yRatio );
 
-private:
-    RectItem *d_rectOfInterest;
+  private:
+    RectItem* m_rectItem;
 };
-
-#endif
-
-

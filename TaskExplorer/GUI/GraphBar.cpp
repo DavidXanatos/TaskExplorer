@@ -16,11 +16,11 @@ CGraphBar::CGraphBar()
 	m_pMainLayout = new QGridLayout();
 	this->setLayout(m_pMainLayout);
 
-	m_pMainLayout->setMargin(1);
+	m_pMainLayout->setContentsMargins(1,1,1,1);
 	m_pMainLayout->setSpacing(2);
 
 	QPalette pal = palette();
-	pal.setColor(QPalette::Background, Qt::gray);
+	pal.setColor(QPalette::Window, Qt::gray);
 	this->setAutoFillBackground(true);
 	this->setPalette(pal);
 

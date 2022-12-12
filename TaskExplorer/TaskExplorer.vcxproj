@@ -52,23 +52,23 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\phnt\include;C:\Program Files (x86)\Visual Leak Detector\include;$(IncludePath)</IncludePath>
+    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\kphlib\include;..\ProcessHacker\phnt\include;C:\Program Files (x86)\Visual Leak Detector\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\phnt\include;C:\Program Files (x86)\Visual Leak Detector\include;$(IncludePath)</IncludePath>
+    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\kphlib\include;..\ProcessHacker\phnt\include;C:\Program Files (x86)\Visual Leak Detector\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\phnt\include;$(IncludePath)</IncludePath>
+    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\kphlib\include;..\ProcessHacker\phnt\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\phnt\include;$(IncludePath)</IncludePath>
+    <IncludePath>..\ProcessHacker\phlib\include;..\ProcessHacker\kphlib\include;..\ProcessHacker\phnt\include;$(IncludePath)</IncludePath>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -96,18 +96,22 @@
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <QtInstall>msvc2019_64</QtInstall>
     <QtModules>core;network;gui;widgets;winextras;concurrent</QtModules>
+    <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <QtInstall>msvc2019</QtInstall>
     <QtModules>core;network;gui;widgets;winextras;concurrent</QtModules>
+    <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <QtInstall>msvc2019_64</QtInstall>
     <QtModules>core;network;gui;widgets;winextras;concurrent</QtModules>
+    <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <QtInstall>msvc2019</QtInstall>
     <QtModules>core;network;gui;widgets;winextras;concurrent</QtModules>
+    <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.props')">
     <Import Project="$(QtMsBuild)\qt.props" />
@@ -128,13 +132,14 @@
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Debug64\phlib.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Debug\qextwidgets.lib;wbemuuid.lib;dnsapi.lib;..\x64\Debug\MiscHelpers.lib;QtSingleApp.lib;rpcrt4.lib;..\ProcessHacker\tools\thirdparty\bin\Debug64\thirdparty.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\ProcessHacker\phlib\bin\Debug64\phlib.lib;..\ProcessHacker\kphlib\bin\Debug64\kphlib_um.lib;ntdll.lib;userenv.lib;uxtheme.lib;aclui.lib;winsta.lib;iphlpapi.lib;ws2_32.lib;..\x64\Debug\qwt.lib;..\zlib\x64\Debug\zlib.lib;Netapi32.lib;Rasapi32.lib;..\x64\Debug\qtservice.lib;taskschd.lib;Shlwapi.lib;..\x64\Debug\qhexeditd.lib;cfgmgr32.lib;Gdi32.lib;..\x64\Debug\qextwidgets.lib;wbemuuid.lib;dnsapi.lib;..\x64\Debug\MiscHelpers.lib;QtSingleApp.lib;rpcrt4.lib;..\ProcessHacker\tools\thirdparty\bin\Debug64\thirdparty.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <DelayLoadDLLs>advapi32.dll;aclui.dll;comdlg32.dll;comctl32.dll;gdi32.dll;iphlpapi.dll;oleaut32.dll;ole32.dll;shell32.dll;user32.dll;uxtheme.dll;version.dll;winsta.dll;ws2_32.dll;cfgmgr32.dll;dnsapi.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
@@ -172,6 +177,7 @@
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -215,6 +221,7 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <TreatWarningAsError>false</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -254,6 +261,7 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <TreatWarningAsError>false</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -329,11 +337,27 @@
     <ClCompile Include="API\Windows\ProcessHacker.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\appsup.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\AssemblyEnum.cpp" />
-    <ClCompile Include="API\Windows\ProcessHacker\clrsup.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\clrsup.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="API\Windows\ProcessHacker\db.cpp" />
-    <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\DotNet.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\fw.cpp" />
-    <ClCompile Include="API\Windows\ProcessHacker\GpuCounters.cpp" />
+    <ClCompile Include="API\Windows\ProcessHacker\GpuCounters.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp" />
@@ -640,6 +664,9 @@
     <QtMoc Include="API\Windows\DnsResolver.h" />
     <QtMoc Include="API\Windows\Monitors\FwEventMonitor.h" />
     <QtMoc Include="API\Windows\Monitors\EtwEventMonitor.h" />
+    <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dkmdt.h" />
+    <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dkmthk.h" />
+    <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dukmdt.h" />
     <ClInclude Include="API\Windows\Monitors\Etw\krabs.hpp" />
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\client.hpp" />
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\collection_view.hpp" />
@@ -739,7 +766,7 @@
     <ClInclude Include="API\Windows\ProcessHacker\clretw.h" />
     <ClInclude Include="API\Windows\ProcessHacker\clrsup.h" />
     <ClInclude Include="API\Windows\ProcessHacker\devices.h" />
-    <ClInclude Include="API\Windows\ProcessHacker\DotNetCounters.h" />
+    <ClInclude Include="API\Windows\ProcessHacker\DotNet.h" />
     <ClInclude Include="API\Windows\ProcessHacker\GpuCounters.h" />
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h" />
     <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h" />

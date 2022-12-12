@@ -4,7 +4,7 @@
 
 __inline uint qHash( const QVariant & var )
 {
-    if ( !var.isValid() || var.isNull() )
+    if ( !var.isValid() /*|| var.isNull()*/ )
         //return -1;
         Q_ASSERT(0);
 
@@ -45,8 +45,8 @@ __inline uint qHash( const QVariant & var )
         case QVariant::DateTime:
         case QVariant::Url:
         case QVariant::Locale:
-        case QVariant::RegExp:
-                return qHash( var.toString() );
+        //case QVariant::RegExp:
+        //        return qHash( var.toString() );
             break;
         case QVariant::Map:
         case QVariant::List:
@@ -223,6 +223,8 @@ public:
 		emit ColumnChanged(column, !hide);
 	}
 
+	static QString m_ResetColumns;
+
 signals:
 	void ColumnChanged(int column, bool visible);
 	void ResetColumns();
@@ -269,7 +271,7 @@ private slots:
 			if (m_ColumnReset)
 			{
 				m_pMenu->addSeparator();
-				QAction* pAction = m_pMenu->addAction(tr("Reset columns"));
+				QAction* pAction = m_pMenu->addAction(m_ResetColumns);
 				if(m_ColumnReset == 1)
 					connect(pAction, SIGNAL(triggered()), this, SLOT(OnResetColumns()));
 				else

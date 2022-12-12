@@ -1,34 +1,52 @@
-#include <qwt_plot.h>
-#include <qwt_plot_spectrogram.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class Plot: public QwtPlot
+#pragma once
+
+#include <QwtPlot>
+
+class QwtPlotSpectrogram;
+
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
+  public:
     enum ColorMap
     {
         RGBMap,
-        IndexMap,
         HueMap,
+        SaturationMap,
+        ValueMap,
+        SVMap,
         AlphaMap
     };
 
-    Plot( QWidget * = NULL );
+    Plot( QWidget* = NULL );
 
-public Q_SLOTS:
+  Q_SIGNALS:
+    void rendered( const QString& status );
+
+  public Q_SLOTS:
     void showContour( bool on );
     void showSpectrogram( bool on );
+
     void setColorMap( int );
+    void setColorTableSize( int );
     void setAlpha( int );
 
 #ifndef QT_NO_PRINTER
     void printPlot();
 #endif
 
-private:
-    QwtPlotSpectrogram *d_spectrogram;
+  private:
+    virtual void drawItems( QPainter*, const QRectF&,
+        const QwtScaleMap maps[QwtAxis::AxisPositions] ) const QWT_OVERRIDE;
 
-    int d_mapType;
-    int d_alpha;
+    QwtPlotSpectrogram* m_spectrogram;
+
+    int m_mapType;
+    int m_alpha;
 };

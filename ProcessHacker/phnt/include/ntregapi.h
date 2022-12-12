@@ -1,21 +1,7 @@
 /*
- * Process Hacker -
- *   Registry support functions
+ * Registry support functions
  *
- * This file is part of Process Hacker.
- *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of System Informer.
  */
 
 #ifndef _NTREGAPI_H
@@ -51,7 +37,7 @@ typedef struct _KEY_BASIC_INFORMATION
     LARGE_INTEGER LastWriteTime;
     ULONG TitleIndex;
     ULONG NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
 } KEY_BASIC_INFORMATION, *PKEY_BASIC_INFORMATION;
 
 typedef struct _KEY_NODE_INFORMATION
@@ -61,7 +47,7 @@ typedef struct _KEY_NODE_INFORMATION
     ULONG ClassOffset;
     ULONG ClassLength;
     ULONG NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
     // ...
     // WCHAR Class[1];
 } KEY_NODE_INFORMATION, *PKEY_NODE_INFORMATION;
@@ -84,7 +70,7 @@ typedef struct _KEY_FULL_INFORMATION
 typedef struct _KEY_NAME_INFORMATION
 {
     ULONG NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
 } KEY_NAME_INFORMATION, *PKEY_NAME_INFORMATION;
 
 typedef struct _KEY_CACHED_INFORMATION
@@ -97,7 +83,7 @@ typedef struct _KEY_CACHED_INFORMATION
     ULONG MaxValueNameLen;
     ULONG MaxValueDataLen;
     ULONG NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
 } KEY_CACHED_INFORMATION, *PKEY_CACHED_INFORMATION;
 
 // rev
@@ -209,7 +195,7 @@ typedef struct _KEY_VALUE_BASIC_INFORMATION
     ULONG TitleIndex;
     ULONG Type;
     ULONG NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
 } KEY_VALUE_BASIC_INFORMATION, *PKEY_VALUE_BASIC_INFORMATION;
 
 typedef struct _KEY_VALUE_FULL_INFORMATION
@@ -219,7 +205,7 @@ typedef struct _KEY_VALUE_FULL_INFORMATION
     ULONG DataOffset;
     ULONG DataLength;
     ULONG NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
     // ...
     // UCHAR Data[1];
 } KEY_VALUE_FULL_INFORMATION, *PKEY_VALUE_FULL_INFORMATION;
@@ -229,14 +215,14 @@ typedef struct _KEY_VALUE_PARTIAL_INFORMATION
     ULONG TitleIndex;
     ULONG Type;
     ULONG DataLength;
-    UCHAR Data[1];
+    _Field_size_bytes_(DataLength) UCHAR Data[1];
 } KEY_VALUE_PARTIAL_INFORMATION, *PKEY_VALUE_PARTIAL_INFORMATION;
 
 typedef struct _KEY_VALUE_PARTIAL_INFORMATION_ALIGN64
 {
     ULONG Type;
     ULONG DataLength;
-    UCHAR Data[1];
+    _Field_size_bytes_(DataLength) UCHAR Data[1];
 } KEY_VALUE_PARTIAL_INFORMATION_ALIGN64, *PKEY_VALUE_PARTIAL_INFORMATION_ALIGN64;
 
 // private
@@ -533,7 +519,7 @@ NtLoadKeyEx(
     _Out_opt_ PHANDLE RootHandle,
     _Reserved_ PVOID Reserved // previously PIO_STATUS_BLOCK
     );
-       
+
 // rev by tyranid
 #if (PHNT_VERSION >= PHNT_20H1)
 NTSYSCALLAPI
@@ -724,7 +710,7 @@ NTSTATUS NtCreateRegistryTransaction(
     _In_ ACCESS_MASK DesiredAccess,
     _In_opt_ POBJECT_ATTRIBUTES ObjAttributes,
     _Reserved_ ULONG CreateOptions
-    );     
+    );
 #endif
 
 #if (PHNT_VERSION >= PHNT_REDSTONE)

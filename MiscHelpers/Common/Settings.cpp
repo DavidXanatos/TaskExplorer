@@ -2,6 +2,7 @@
 #include "Settings.h"
 #include "qzlib.h"
 #include "Common.h"
+#include <QStandardPaths>
 
 bool TestWriteRight(const QString& Path)
 {
@@ -30,7 +31,7 @@ CSettings::CSettings(const QString& AppName, QMap<QString, SSetting> DefaultValu
 	m_pConf->sync();
 
 	m_DefaultValues = DefaultValues;
-	foreach (const QString& Key, m_DefaultValues.uniqueKeys())
+	foreach (const QString& Key, m_DefaultValues.keys())
 	{
 		const SSetting& Setting = m_DefaultValues[Key];
 		if(!m_pConf->contains(Key) || !Setting.Check(m_pConf->value(Key)))

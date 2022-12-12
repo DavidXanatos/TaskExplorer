@@ -13,14 +13,14 @@ CMemoryView::CMemoryView(QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_pFilterWidget = new QWidget();
 	m_pMainLayout->addWidget(m_pFilterWidget);
 
 	m_pFilterLayout = new QHBoxLayout();
-	m_pFilterLayout->setMargin(3);
+	m_pFilterLayout->setContentsMargins(3, 3, 3, 3);
 	m_pFilterWidget->setLayout(m_pFilterLayout);
 
 	m_pHideFree = new QCheckBox(tr("Hide Free"));
@@ -43,7 +43,7 @@ CMemoryView::CMemoryView(QWidget *parent)
 
 	m_pMemoryModel = new CMemoryModel();
 	
-	m_pSortProxy = new CMemoryFilterModel(false, this);
+	m_pSortProxy = new CMemoryFilterModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pMemoryModel);
 	m_pSortProxy->setDynamicSortFilter(true);

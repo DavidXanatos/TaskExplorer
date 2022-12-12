@@ -1,54 +1,67 @@
-#include <qapplication.h>
-#include <qmainwindow.h>
-#include <qtoolbar.h>
-#include <qtoolbutton.h>
-#include <qcombobox.h>
-#include "barchart.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class MainWindow: public QMainWindow
+#include "BarChart.h"
+
+#include <QApplication>
+#include <QMainWindow>
+#include <QToolBar>
+#include <QToolButton>
+#include <QComboBox>
+
+namespace
 {
-public:
-    MainWindow( QWidget * = NULL );
+    class MainWindow : public QMainWindow
+    {
+      public:
+        MainWindow( QWidget* = NULL );
 
-private:
-    BarChart *d_chart;
-};
+    };
+}
 
-MainWindow::MainWindow( QWidget *parent ):
-    QMainWindow( parent )
+MainWindow::MainWindow( QWidget* parent )
+    : QMainWindow( parent )
 {
-    d_chart = new BarChart( this );
-    setCentralWidget( d_chart );
+    BarChart* chart = new BarChart( this );
+    setCentralWidget( chart );
 
-    QToolBar *toolBar = new QToolBar( this );
+    QToolBar* toolBar = new QToolBar( this );
 
-    QComboBox *orientationBox = new QComboBox( toolBar );
+    QComboBox* orientationBox = new QComboBox( toolBar );
     orientationBox->addItem( "Vertical" );
     orientationBox->addItem( "Horizontal" );
     orientationBox->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
 
-    QToolButton *btnExport = new QToolButton( toolBar );
+    QToolButton* btnExport = new QToolButton( toolBar );
     btnExport->setText( "Export" );
     btnExport->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
-    connect( btnExport, SIGNAL( clicked() ), d_chart, SLOT( exportChart() ) );
+    connect( btnExport, SIGNAL(clicked()), chart, SLOT(exportChart()) );
+
+    QToolButton* btnScreenshot = new QToolButton( toolBar );
+    btnScreenshot->setText( "Screenshot" );
+    btnScreenshot->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
+    connect( btnScreenshot, SIGNAL(clicked()), chart, SLOT(doScreenShot()) );
 
     toolBar->addWidget( orientationBox );
     toolBar->addWidget( btnExport );
+    toolBar->addWidget( btnScreenshot );
     addToolBar( toolBar );
 
-    d_chart->setOrientation( orientationBox->currentIndex() );
-    connect( orientationBox, SIGNAL( currentIndexChanged( int ) ),
-             d_chart, SLOT( setOrientation( int ) ) );
+    chart->setOrientation( orientationBox->currentIndex() );
+    connect( orientationBox, SIGNAL(currentIndexChanged(int)),
+        chart, SLOT(setOrientation(int)) );
 }
 
-int main( int argc, char **argv )
+int main( int argc, char* argv[] )
 {
-    QApplication a( argc, argv );
+    QApplication app( argc, argv );
 
-    MainWindow mainWindow;
+    MainWindow window;
 
-    mainWindow.resize( 600, 400 );
-    mainWindow.show();
+    window.resize( 600, 400 );
+    window.show();
 
-    return a.exec();
+    return app.exec();
 }

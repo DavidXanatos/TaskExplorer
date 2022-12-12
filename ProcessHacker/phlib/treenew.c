@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   tree new (tree list control)
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2011-2016 wj32
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2011-2016
+ *     dmex    2017-2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -52,8 +41,6 @@
 #include <treenewp.h>
 
 static PVOID ComCtl32Handle;
-static LONG SmallIconWidth;
-static LONG SmallIconHeight;
 
 BOOLEAN PhTreeNewInitialization(
     VOID
@@ -77,8 +64,6 @@ BOOLEAN PhTreeNewInitialization(
         return FALSE;
 
     ComCtl32Handle = PhGetLoaderEntryDllBase(L"comctl32.dll");
-    SmallIconWidth = PhSmallIconSize.X; //GetSystemMetrics(SM_CXSMICON);
-    SmallIconHeight = PhSmallIconSize.Y; //GetSystemMetrics(SM_CYSMICON);
 
     return TRUE;
 }
@@ -308,7 +293,7 @@ LRESULT CALLBACK PhTnpWndProc(
         break;
     case WM_CTLCOLORSTATIC:
         if (context->ThemeSupport)
-            return HANDLE_WM_CTLCOLORSTATIC(hwnd, wParam, lParam, PhWindowThemeControlColor);      
+            return HANDLE_WM_CTLCOLORSTATIC(hwnd, wParam, lParam, PhWindowThemeControlColor);
         break;
     }
 
@@ -900,8 +885,8 @@ VOID PhTnpOnMouseLeave(
     if (Context->TooltipIndex != ULONG_MAX || Context->TooltipId != ULONG_MAX)
     {
         // Hide the tooltip when the mouse leaves the window or we lose focus. This fixes a certain tooltip bug
-        // when hovering over an item to show the tooltip while alt-tabbing causes the tooltip to remain stuck 
-        // on screen. There's also a similar issue when a window steals focus just as the tooltip becomes visible 
+        // when hovering over an item to show the tooltip while alt-tabbing causes the tooltip to remain stuck
+        // on screen. There's also a similar issue when a window steals focus just as the tooltip becomes visible
         // and also causes the tooltip to remain stuck on screen. Popping here fixes both issues. (dmex)
         PhTnpPopTooltip(Context);
     }
@@ -1298,6 +1283,9 @@ VOID PhTnpOnContextMenu(
     BOOLEAN keyboardInvoked;
     PH_TREENEW_HIT_TEST hitTest;
     PH_TREENEW_CONTEXT_MENU contextMenu;
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(hwnd);
 
     if (CursorScreenX == -1 && CursorScreenY == -1)
     {
@@ -1324,7 +1312,7 @@ VOID PhTnpOnContextMenu(
         if (found && PhTnpGetRowRects(Context, i, i, FALSE, &rect) &&
             rect.top >= Context->ClientRect.top && rect.top < Context->ClientRect.bottom)
         {
-            clientPoint.x = rect.left + SmallIconWidth / 2;
+            clientPoint.x = rect.left + PhGetSystemMetrics(SM_CXSMICON, dpiValue) / 2;
             clientPoint.y = rect.top + Context->RowHeight / 2;
         }
         else
@@ -2061,6 +2049,9 @@ VOID PhTnpSetFont(
     _In_ BOOLEAN Redraw
     )
 {
+    LOGFONT logFont;
+    LONG dpiValue;
+
     if (Context->FontOwned)
     {
         DeleteFont(Context->Font);
@@ -2071,9 +2062,9 @@ VOID PhTnpSetFont(
 
     if (!Context->Font)
     {
-        LOGFONT logFont;
+        dpiValue = PhGetWindowDpi (Context->Handle);
 
-        if (SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &logFont, 0))
+        if (PhGetSystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &logFont, dpiValue))
         {
             Context->Font = CreateFontIndirect(&logFont);
             Context->FontOwned = TRUE;
@@ -2096,14 +2087,18 @@ VOID PhTnpUpdateSystemMetrics(
     _In_ PPH_TREENEW_CONTEXT Context
     )
 {
-    Context->VScrollWidth = GetSystemMetrics(SM_CXVSCROLL);
-    Context->HScrollHeight = GetSystemMetrics(SM_CYHSCROLL);
-    Context->SystemBorderX = GetSystemMetrics(SM_CXBORDER);
-    Context->SystemBorderY = GetSystemMetrics(SM_CYBORDER);
-    Context->SystemEdgeX = GetSystemMetrics(SM_CXEDGE);
-    Context->SystemEdgeY = GetSystemMetrics(SM_CYEDGE);
-    Context->SystemDragX = GetSystemMetrics(SM_CXDRAG);
-    Context->SystemDragY = GetSystemMetrics(SM_CYDRAG);
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(Context->Handle);
+
+    Context->VScrollWidth = PhGetSystemMetrics(SM_CXVSCROLL, dpiValue);
+    Context->HScrollHeight = PhGetSystemMetrics(SM_CYHSCROLL, dpiValue);
+    Context->SystemBorderX = PhGetSystemMetrics(SM_CXBORDER, dpiValue);
+    Context->SystemBorderY = PhGetSystemMetrics(SM_CYBORDER, dpiValue);
+    Context->SystemEdgeX = PhGetSystemMetrics(SM_CXEDGE, dpiValue);
+    Context->SystemEdgeY = PhGetSystemMetrics(SM_CYEDGE, dpiValue);
+    Context->SystemDragX = PhGetSystemMetrics(SM_CXDRAG, dpiValue);
+    Context->SystemDragY = PhGetSystemMetrics(SM_CYDRAG, dpiValue);
 
     if (Context->SystemDragX < 2)
         Context->SystemDragX = 2;
@@ -2116,6 +2111,9 @@ VOID PhTnpUpdateTextMetrics(
     )
 {
     HDC hdc;
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(Context->Handle);
 
     if (hdc = GetDC(Context->Handle))
     {
@@ -2131,8 +2129,8 @@ VOID PhTnpUpdateTextMetrics(
 
             if (Context->Style & TN_STYLE_ICONS)
             {
-                if (Context->RowHeight < SmallIconHeight)
-                    Context->RowHeight = SmallIconHeight;
+                if (Context->RowHeight < PhGetSystemMetrics(SM_CXSMICON, dpiValue))
+                    Context->RowHeight = PhGetSystemMetrics(SM_CXSMICON, dpiValue);
             }
             else
             {
@@ -2140,10 +2138,10 @@ VOID PhTnpUpdateTextMetrics(
                     Context->RowHeight += 1; // HACK
             }
 
-            Context->RowHeight += 1; // HACK
+            Context->RowHeight += PhGetDpi(1, dpiValue); // HACK
 
             if (!(Context->Style & TN_STYLE_THIN_ROWS))
-                Context->RowHeight += 2; // HACK
+                Context->RowHeight += PhGetDpi(2, dpiValue); // HACK
         }
 
         ReleaseDC(Context->Handle, hdc);
@@ -2451,6 +2449,7 @@ BOOLEAN PhTnpAddColumn(
     )
 {
     PPH_TREENEW_COLUMN realColumn;
+    LONG dpiValue;
 
     // Check if a column with the same ID already exists.
     if (Column->Id < Context->AllocatedColumns && Context->Columns[Column->Id])
@@ -2463,7 +2462,9 @@ BOOLEAN PhTnpAddColumn(
 
     if (realColumn->DpiScaleOnAdd)
     {
-        realColumn->Width = PhMultiplyDivide(realColumn->Width, PhGlobalDpi, 96);
+        dpiValue = PhGetWindowDpi(Context->Handle);
+
+        realColumn->Width = PhGetDpi(realColumn->Width, dpiValue);
         realColumn->DpiScaleOnAdd = FALSE;
     }
 
@@ -3210,6 +3211,7 @@ VOID PhTnpAutoSizeColumnHeader(
             SIZE_T textCount;
             HDC hdc;
             SIZE textSize;
+            LONG dpiValue;
 
             text = Column->Text;
             textCount = PhCountStringZ(text);
@@ -3220,11 +3222,48 @@ VOID PhTnpAutoSizeColumnHeader(
 
                 if (GetTextExtentPoint32(hdc, text, (ULONG)textCount, &textSize))
                 {
-                    if (newWidth < textSize.cx + 6 + 6) // HACK: Magic values (same as our cell margins?)
-                        newWidth = textSize.cx + 6 + 6;
+                    dpiValue = PhGetWindowDpi(Context->Handle);
+
+                    if (newWidth < textSize.cx + PhGetDpi(6 + 6, dpiValue)) // HACK: Magic values (same as our cell margins?)
+                        newWidth = textSize.cx + PhGetDpi(6 + 6, dpiValue);
                 }
 
                 ReleaseDC(Context->Handle, hdc);
+            }
+        }
+
+        // Check the custom header text width. (dmex)
+        if (Context->HeaderCustomDraw)
+        {
+            PH_STRINGREF headerString;
+            WCHAR headerText[0x50];
+
+            if (PhTnpGetColumnHeaderText(
+                Context,
+                Column,
+                headerText,
+                sizeof(headerText),
+                &headerString
+                ))
+            {
+                HDC hdc;
+                SIZE textSize;
+                LONG dpiValue;
+
+                if (hdc = GetDC(Context->Handle))
+                {
+                    SelectFont(hdc, Context->HeaderBoldFontHandle);
+
+                    if (GetTextExtentPoint32(hdc, headerString.Buffer, (ULONG)headerString.Length / sizeof(WCHAR), &textSize))
+                    {
+                        dpiValue = PhGetWindowDpi(Context->Handle);
+
+                        if (newWidth < textSize.cx + PhGetDpi(6 + 6, dpiValue)) // HACK: Magic values (same as our cell margins?)
+                            newWidth = textSize.cx + PhGetDpi(6 + 6, dpiValue);
+                    }
+
+                    ReleaseDC(Context->Handle, hdc);
+                }
             }
         }
     }
@@ -3483,6 +3522,7 @@ BOOLEAN PhTnpGetCellParts(
     LONG nodeY;
     LONG iconVerticalMargin;
     LONG currentX;
+    LONG dpiValue;
 
     if (Index >= Context->FlatList->Count)
         return FALSE;
@@ -3506,7 +3546,9 @@ BOOLEAN PhTnpGetCellParts(
     if (!Column->Visible)
         return FALSE;
 
-    iconVerticalMargin = (Context->RowHeight - SmallIconHeight) / 2;
+    dpiValue = PhGetWindowDpi(Context->Handle);
+
+    iconVerticalMargin = (Context->RowHeight - PhGetSystemMetrics(SM_CYSMICON, dpiValue)) / 2;
 
     if (Column->Fixed)
     {
@@ -3527,7 +3569,7 @@ BOOLEAN PhTnpGetCellParts(
 
     if (Column == Context->FirstColumn)
     {
-        currentX += (LONG)node->Level * SmallIconWidth;
+        currentX += (LONG)node->Level * PhGetSystemMetrics(SM_CXSMICON, dpiValue);
 
         if (Context->CanAnyExpand)
         {
@@ -3535,23 +3577,23 @@ BOOLEAN PhTnpGetCellParts(
             {
                 Parts->Flags |= TN_PART_PLUSMINUS;
                 Parts->PlusMinusRect.left = currentX;
-                Parts->PlusMinusRect.right = currentX + SmallIconWidth;
+                Parts->PlusMinusRect.right = currentX + PhGetSystemMetrics(SM_CXSMICON, dpiValue);
                 Parts->PlusMinusRect.top = Parts->RowRect.top + iconVerticalMargin;
                 Parts->PlusMinusRect.bottom = Parts->RowRect.bottom - iconVerticalMargin;
             }
 
-            currentX += SmallIconWidth;
+            currentX += PhGetSystemMetrics(SM_CXSMICON, dpiValue);
         }
 
         if (node->Icon)
         {
             Parts->Flags |= TN_PART_ICON;
             Parts->IconRect.left = currentX;
-            Parts->IconRect.right = currentX + SmallIconWidth;
+            Parts->IconRect.right = currentX + PhGetSystemMetrics(SM_CXSMICON, dpiValue);
             Parts->IconRect.top = Parts->RowRect.top + iconVerticalMargin;
             Parts->IconRect.bottom = Parts->RowRect.bottom - iconVerticalMargin;
 
-            currentX += SmallIconWidth + TNP_ICON_RIGHT_PADDING;
+            currentX += PhGetSystemMetrics(SM_CXSMICON, dpiValue) + TNP_ICON_RIGHT_PADDING;
         }
     }
 
@@ -3739,6 +3781,8 @@ VOID PhTnpHitTest(
                     {
                         BOOLEAN isFirstColumn;
                         LONG currentX;
+                        LONG dpiValue;
+                        LONG width;
 
                         isFirstColumn = HitTest->Column == Context->FirstColumn;
 
@@ -3747,22 +3791,25 @@ VOID PhTnpHitTest(
 
                         if (isFirstColumn)
                         {
-                            currentX += (LONG)node->Level * SmallIconWidth;
+                            dpiValue = PhGetWindowDpi(Context->Handle);
+                            width = PhGetSystemMetrics(SM_CXSMICON, dpiValue);
+
+                            currentX += (LONG)node->Level * width;
 
                             if (!node->s.IsLeaf)
                             {
-                                if (x >= currentX && x < currentX + SmallIconWidth)
+                                if (x >= currentX && x < currentX + width)
                                     HitTest->Flags |= TN_HIT_ITEM_PLUSMINUS;
 
-                                currentX += SmallIconWidth;
+                                currentX += width;
                             }
 
                             if (node->Icon)
                             {
-                                if (x >= currentX && x < currentX + SmallIconWidth)
+                                if (x >= currentX && x < currentX + width)
                                     HitTest->Flags |= TN_HIT_ITEM_ICON;
 
-                                currentX += SmallIconWidth + TNP_ICON_RIGHT_PADDING;
+                                currentX += width + PhGetDpi(TNP_ICON_RIGHT_PADDING, dpiValue);
                             }
                         }
 
@@ -4135,9 +4182,12 @@ VOID PhTnpProcessMouseVWheel(
     LONG wholeLinesToScroll;
     SCROLLINFO scrollInfo;
     LONG oldPosition;
+    LONG dpiValue;
 
-    if (!SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &wheelScrollLines, 0))
-        wheelScrollLines = 3;
+    dpiValue = PhGetWindowDpi(Context->Handle);
+
+    if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &wheelScrollLines, dpiValue))
+        wheelScrollLines = PhGetDpi(3, dpiValue);
 
     // If page scrolling is enabled, use the number of visible rows.
     if (wheelScrollLines == -1)
@@ -4198,9 +4248,12 @@ VOID PhTnpProcessMouseHWheel(
     LONG wholePixelsToScroll;
     SCROLLINFO scrollInfo;
     LONG oldPosition;
+    LONG dpiValue;
 
-    if (!SystemParametersInfo(SPI_GETWHEELSCROLLCHARS, 0, &wheelScrollChars, 0))
-        wheelScrollChars = 3;
+    dpiValue = PhGetWindowDpi(Context->Handle);
+
+    if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLCHARS, 0, &wheelScrollChars, dpiValue))
+        wheelScrollChars = PhGetDpi(3, dpiValue);
 
     // Zero the remainder if the direction changed.
     if ((Context->HScrollRemainder > 0) != (Distance > 0))
@@ -5162,10 +5215,8 @@ VOID PhTnpPaint(
         if (Context->ThemeSupport)
         {
             HDC tempDc;
-            BITMAPINFOHEADER header;
             HBITMAP bitmap;
             HBITMAP oldBitmap;
-            PVOID bits;
             RECT tempRect;
             BLENDFUNCTION blendFunction;
 
@@ -5175,15 +5226,16 @@ VOID PhTnpPaint(
 
             if (tempDc = CreateCompatibleDC(hdc))
             {
-                memset(&header, 0, sizeof(BITMAPINFOHEADER));
-                header.biSize = sizeof(BITMAPINFOHEADER);
-                header.biWidth = 1;
-                header.biHeight = 1;
-                header.biPlanes = 1;
-                header.biBitCount = 24;
-                bitmap = CreateDIBSection(tempDc, (BITMAPINFO *)&header, DIB_RGB_COLORS, &bits, NULL, 0);
+                //BITMAPINFO bitmapInfo;
+                //memset(&bitmapInfo, 0, sizeof(BITMAPINFOHEADER));
+                //bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                //bitmapInfo.bmiHeader.biWidth = 1;
+                //bitmapInfo.bmiHeader.biHeight = 1;
+                //bitmapInfo.bmiHeader.biPlanes = 1;
+                //bitmapInfo.bmiHeader.biBitCount = 24;
+                //bitmap = CreateDIBSection(tempDc, &bitmapInfo, DIB_RGB_COLORS, NULL, NULL, 0);
 
-                if (bitmap)
+                if (bitmap = CreateCompatibleBitmap(hdc, 1, 1))
                 {
                     // Draw the outline of the selection rectangle.
                     //FrameRect(hdc, &rowRect, GetSysColorBrush(COLOR_HIGHLIGHT));
@@ -5410,11 +5462,14 @@ VOID PhTnpPaint(
     if (Context->FlatList->Count == 0 && Context->EmptyText.Length != 0)
     {
         RECT textRect;
+        LONG dpiValue;
+
+        dpiValue = PhGetWindowDpi(Context->Handle);
 
         textRect.left = 20;
-        textRect.top = Context->HeaderHeight + 10;
-        textRect.right = viewRect.right - 20;
-        textRect.bottom = viewRect.bottom - 5;
+        textRect.top = Context->HeaderHeight + PhGetDpi(10, dpiValue);
+        textRect.right = viewRect.right - PhGetDpi(20, dpiValue);
+        textRect.bottom = viewRect.bottom - PhGetDpi(5, dpiValue);
 
         if (Context->ThemeSupport)
         {
@@ -5587,18 +5642,31 @@ VOID PhTnpDrawCell(
     RECT textRect; // working rectangle, modified as needed
     ULONG textFlags; // DT_* flags
     LONG iconVerticalMargin; // top/bottom margin for icons (determined using height of small icon)
+    LONG dpiValue;
+    LONG width;
+    LONG height;
 
     font = Node->Font;
     textFlags = Column->TextFlags;
 
+    if (Column->Alignment & PH_ALIGN_MONOSPACE_FONT)
+    {
+        font = PhMonospaceFont;
+    }
+
     textRect = *CellRect;
 
+    dpiValue = PhGetWindowDpi(Context->Handle);
+
+    width = PhGetSystemMetrics(SM_CXSMICON, dpiValue);
+    height = PhGetSystemMetrics(SM_CYSMICON, dpiValue);
+
     // Initial margins used by default list view
-    textRect.left += TNP_CELL_LEFT_MARGIN;
-    textRect.right -= TNP_CELL_RIGHT_MARGIN;
+    textRect.left += PhGetDpi(TNP_CELL_LEFT_MARGIN, dpiValue);
+    textRect.right -= PhGetDpi(TNP_CELL_RIGHT_MARGIN, dpiValue);
 
     // icon margin = (height of row - height of small icon) / 2
-    iconVerticalMargin = ((textRect.bottom - textRect.top) - SmallIconHeight) / 2;
+    iconVerticalMargin = ((textRect.bottom - textRect.top) - height) / 2;
 
     textRect.top += iconVerticalMargin;
     textRect.bottom -= iconVerticalMargin;
@@ -5608,10 +5676,10 @@ VOID PhTnpDrawCell(
         BOOLEAN needsClip = FALSE;
         HRGN oldClipRegion = NULL;
 
-        textRect.left += Node->Level * SmallIconWidth;
+        textRect.left += Node->Level * width;
 
         // The icon may need to be clipped if the column is too small.
-        needsClip = Column->Width < textRect.left + (Context->CanAnyExpand ? SmallIconWidth : 0) + (Node->Icon ? SmallIconWidth : 0);
+        needsClip = Column->Width < textRect.left + (Context->CanAnyExpand ? width : 0) + (Node->Icon ? width : 0);
 
         if (needsClip)
         {
@@ -5637,11 +5705,11 @@ VOID PhTnpDrawCell(
                 // Draw the plus/minus glyph.
 
                 themeRect.left = textRect.left;
-                themeRect.right = themeRect.left + SmallIconWidth;
+                themeRect.right = themeRect.left + width;
                 //themeRect.left = textRect.right;
                 //themeRect.right = textRect.right - SmallIconWidth;
                 themeRect.top = textRect.top;
-                themeRect.bottom = themeRect.top + SmallIconHeight;
+                themeRect.bottom = themeRect.top + height;
 
                 if (Context->ThemeHasGlyph)
                 {
@@ -5668,21 +5736,21 @@ VOID PhTnpDrawCell(
                     ULONG glyphHeight;
                     RECT glyphRect;
 
-                    glyphWidth = SmallIconWidth / 2;
-                    glyphHeight = SmallIconHeight / 2;
+                    glyphWidth = width / 2;
+                    glyphHeight = height / 2;
 
-                    glyphRect.left = textRect.left + (SmallIconWidth - glyphWidth) / 2;
+                    glyphRect.left = textRect.left + (width - glyphWidth) / 2;
                     glyphRect.right = glyphRect.left + glyphWidth;
                     //glyphRect.left = textRect.right + (SmallIconWidth - glyphWidth) / 2;
                     //glyphRect.right = glyphRect.left - glyphWidth;
-                    glyphRect.top = textRect.top + (SmallIconHeight - glyphHeight) / 2;
+                    glyphRect.top = textRect.top + (height - glyphHeight) / 2;
                     glyphRect.bottom = glyphRect.top + glyphHeight;
 
                     PhTnpDrawPlusMinusGlyph(hdc, &glyphRect, !Node->Expanded);
                 }
             }
 
-            textRect.left += SmallIconWidth;
+            textRect.left += width;
         }
 
         // Draw the icon.
@@ -5700,15 +5768,15 @@ VOID PhTnpDrawCell(
                 hdc,
                 textRect.left,
                 textRect.top,
-                SmallIconWidth,
-                SmallIconHeight,
+                width,
+                height,
                 CLR_DEFAULT,
                 CLR_NONE,
                 ILD_NORMAL | ILD_TRANSPARENT,
                 ILS_NORMAL
                 );
 
-            textRect.left += SmallIconWidth + TNP_ICON_RIGHT_PADDING;
+            textRect.left += width + PhGetDpi(TNP_ICON_RIGHT_PADDING, dpiValue);
         }
         else if (Node->Icon)
         {
@@ -5717,14 +5785,14 @@ VOID PhTnpDrawCell(
                 textRect.left,
                 textRect.top,
                 Node->Icon,
-                SmallIconWidth,
-                SmallIconHeight,
+                width,
+                height,
                 0,
                 NULL,
                 DI_NORMAL
                 );
 
-            textRect.left += SmallIconWidth + TNP_ICON_RIGHT_PADDING;
+            textRect.left += width + PhGetDpi(TNP_ICON_RIGHT_PADDING, dpiValue);
         }
 
         if (needsClip)
@@ -5924,32 +5992,28 @@ VOID PhTnpDrawSelectionRectangle(
     if (Context->SelectionRectangleAlpha)
     {
         HDC tempDc;
-        BITMAPINFOHEADER header;
         HBITMAP bitmap;
         HBITMAP oldBitmap;
-        PVOID bits;
         RECT tempRect;
         BLENDFUNCTION blendFunction;
 
-        tempDc = CreateCompatibleDC(hdc);
-
-        if (tempDc)
+        if (tempDc = CreateCompatibleDC(hdc))
         {
-            memset(&header, 0, sizeof(BITMAPINFOHEADER));
-            header.biSize = sizeof(BITMAPINFOHEADER);
-            header.biWidth = 1;
-            header.biHeight = 1;
-            header.biPlanes = 1;
-            header.biBitCount = 24;
-            bitmap = CreateDIBSection(tempDc, (BITMAPINFO *)&header, DIB_RGB_COLORS, &bits, NULL, 0);
+            //BITMAPINFO bitmapInfo;
+            //memset(&bitmapInfo, 0, sizeof(BITMAPINFOHEADER));
+            //bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+            //bitmapInfo.bmiHeader.biWidth = 1;
+            //bitmapInfo.bmiHeader.biHeight = 1;
+            //bitmapInfo.bmiHeader.biPlanes = 1;
+            //bitmapInfo.bmiHeader.biBitCount = 24;
+            //bitmap = CreateDIBSection(tempDc, &bitmapInfo, DIB_RGB_COLORS, NULL, NULL, 0);
 
-            if (bitmap)
+            if (bitmap = CreateCompatibleBitmap(hdc, 1, 1))
             {
                 // Draw the outline of the selection rectangle.
                 FrameRect(hdc, &rect, GetSysColorBrush(COLOR_HIGHLIGHT));
 
                 // Fill in the selection rectangle.
-
                 oldBitmap = SelectBitmap(tempDc, bitmap);
                 tempRect.left = 0;
                 tempRect.top = 0;
@@ -6097,13 +6161,13 @@ VOID PhTnpInitializeTooltips(
     // Hook the header control window procedures so we can forward mouse messages to the tooltip control.
     Context->HeaderWindowProc = (WNDPROC)GetWindowLongPtr(Context->HeaderHandle, GWLP_WNDPROC);
     Context->FixedHeaderWindowProc = (WNDPROC)GetWindowLongPtr(Context->FixedHeaderHandle, GWLP_WNDPROC);
-    
+
     PhSetWindowContext(Context->HeaderHandle, 0xF, Context);
     PhSetWindowContext(Context->FixedHeaderHandle, 0xF, Context);
 
     if (Context->HeaderCustomDraw)
     {
-        Context->HeaderHotColumn = ULONG_MAX;
+        Context->HeaderHotColumn = -1;
         Context->HeaderThemeHandle = OpenThemeData(Context->HeaderHandle, VSCLASS_HEADER);
     }
 
@@ -6356,11 +6420,14 @@ VOID PhTnpGetHeaderTooltipText(
     SIZE_T textCount;
     HDC hdc;
     SIZE textSize;
+    LONG dpiValue;
 
     column = PhTnpHitTestHeader(Context, Fixed, Point, &itemRect);
 
     if (!column)
         return;
+
+    dpiValue = PhGetWindowDpi(Context->Handle);
 
     if (Context->TooltipColumnId != column->Id)
     {
@@ -6380,7 +6447,7 @@ VOID PhTnpGetHeaderTooltipText(
         if (!result)
             return;
 
-        if (textSize.cx + 6 + 6 <= itemRect.right - itemRect.left) // HACK: Magic values (same as our cell margins?)
+        if (textSize.cx + PhGetDpi(6 + 6, dpiValue) <= itemRect.right - itemRect.left) // HACK: Magic values (same as our cell margins?)
             return;
 
         Context->TooltipColumnId = column->Id;
@@ -6546,6 +6613,7 @@ LRESULT CALLBACK PhTnpHeaderHookWndProc(
         {
             HFONT fontHandle = (HFONT)wParam;
             LOGFONT logFont;
+            LONG dpiValue;
 
             if (!context->HeaderCustomDraw)
                 break;
@@ -6558,7 +6626,9 @@ LRESULT CALLBACK PhTnpHeaderHookWndProc(
 
             if (GetObject(fontHandle, sizeof(LOGFONT), &logFont))
             {
-                logFont.lfHeight -= PhMultiplyDivideSigned(3, PhGlobalDpi, 96);
+                dpiValue = PhGetWindowDpi(hwnd);
+
+                logFont.lfHeight -= PhGetDpi(2, dpiValue);
                 context->HeaderBoldFontHandle = CreateFontIndirect(&logFont);
                 //context->HeaderBoldFontHandle = PhDuplicateFontWithNewHeight(fontHandle, -14);
             }
@@ -6699,14 +6769,14 @@ LRESULT CALLBACK PhTnpHeaderHookWndProc(
 
             result = CallWindowProc(oldWndProc, hwnd, uMsg, wParam, lParam);
             context->HeaderMouseActive = FALSE;
-            context->HeaderHotColumn = ULONG_MAX;
+            context->HeaderHotColumn = -1;
 
             if (GetCapture() != hwnd)
             {
                 InvalidateRect(hwnd, NULL, FALSE);
             }
 
-            return result; 
+            return result;
         }
         break;
     case WM_PAINT:
@@ -6769,7 +6839,7 @@ LRESULT CALLBACK PhTnpHeaderHookWndProc(
                 HDITEM headerItem;
                 RECT headerRect;
                 PPH_TREENEW_COLUMN column;
-   
+
                 if (!CallWindowProc(oldWndProc, hwnd, HDM_GETITEMRECT, (WPARAM)i, (LPARAM)&headerRect))
                     continue;
                 if (!RectVisible(bufferDc, &headerRect))
@@ -6782,7 +6852,7 @@ LRESULT CALLBACK PhTnpHeaderHookWndProc(
                 if (!(column = (PPH_TREENEW_COLUMN)headerItem.lParam))
                     continue;
 
-                if (context->HeaderHotColumn != ULONG_MAX && context->HeaderHotColumn == column->Id)
+                if (context->HeaderHotColumn != -1 && context->HeaderHotColumn == column->Id)
                 {
                     if (context->ThemeSupport)
                     {
@@ -6863,15 +6933,18 @@ LRESULT CALLBACK PhTnpHeaderHookWndProc(
                     UINT textLength;
                     RECT textRect;
                     HFONT oldFont;
+                    LONG dpiValue;
 
                     textBuffer = column->Text;
                     textLength = (UINT)PhCountStringZ(column->Text);
 
+                    dpiValue = PhGetWindowDpi(hwnd);
+
                     textRect = headerRect;
-                    textRect.left += 5;
-                    textRect.right -= 5;
-                    textRect.bottom -= 5;
-                    textRect.top += 2;
+                    textRect.left += PhGetDpi(5, dpiValue);
+                    textRect.right -= PhGetDpi(5, dpiValue);
+                    textRect.bottom -= PhGetDpi(5, dpiValue);
+                    textRect.top += PhGetDpi(2, dpiValue);
 
                     SetTextColor(bufferDc, context->ThemeSupport ? RGB(0x8f, 0x8f, 0x8f) : RGB(97, 116, 139)); // RGB(178, 178, 178)
                     oldFont = SelectFont(bufferDc, context->Font);

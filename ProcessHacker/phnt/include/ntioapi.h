@@ -1,21 +1,7 @@
 /*
- * Process Hacker -
- *   File management support
+ * File management support
  *
- * This file is part of Process Hacker.
- *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of System Informer.
  */
 
 #ifndef _NTIOAPI_H
@@ -167,7 +153,7 @@
 #define FILE_PIPE_SERVER_END 0x00000001
 
 // Win32 pipe instance limit (0xff)
-#define FILE_PIPE_UNLIMITED_INSTANCES 0xffffffff 
+#define FILE_PIPE_UNLIMITED_INSTANCES 0xffffffff
 
 // Mailslot values
 
@@ -311,7 +297,15 @@ typedef struct _FILE_STANDARD_INFORMATION_EX
 
 typedef struct _FILE_INTERNAL_INFORMATION
 {
-    LARGE_INTEGER IndexNumber;
+    union
+    {
+        LARGE_INTEGER IndexNumber; // private
+        struct
+        {
+            LONGLONG MftRecordIndex : 48; // rev
+            LONGLONG SequenceNumber : 16; // rev
+        };
+    };
 } FILE_INTERNAL_INFORMATION, *PFILE_INTERNAL_INFORMATION;
 
 typedef struct _FILE_EA_INFORMATION
@@ -342,7 +336,7 @@ typedef struct _FILE_ALIGNMENT_INFORMATION
 typedef struct _FILE_NAME_INFORMATION
 {
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_NAME_INFORMATION, *PFILE_NAME_INFORMATION;
 
 typedef struct _FILE_ALL_INFORMATION
@@ -407,7 +401,7 @@ typedef struct _FILE_END_OF_FILE_INFORMATION
 #define FLAGS_DELAY_REASONS_LOG_FILE_FULL 0x00000001
 #define FLAGS_DELAY_REASONS_BITMAP_SCANNED 0x00000002
 
-typedef struct _FILE_END_OF_FILE_INFORMATION_EX 
+typedef struct _FILE_END_OF_FILE_INFORMATION_EX
 {
     LARGE_INTEGER EndOfFile;
     LARGE_INTEGER PagingFileSizeInMM;
@@ -421,8 +415,7 @@ typedef struct _FILE_VALID_DATA_LENGTH_INFORMATION
     LARGE_INTEGER ValidDataLength;
 } FILE_VALID_DATA_LENGTH_INFORMATION, *PFILE_VALID_DATA_LENGTH_INFORMATION;
 
-#if (PHNT_VERSION >= PHNT_REDSTONE5)
-#define FILE_LINK_REPLACE_IF_EXISTS 0x00000001
+#define FILE_LINK_REPLACE_IF_EXISTS 0x00000001 // since RS5
 #define FILE_LINK_POSIX_SEMANTICS 0x00000002
 
 #define FILE_LINK_SUPPRESS_STORAGE_RESERVE_INHERITANCE 0x00000008
@@ -430,28 +423,16 @@ typedef struct _FILE_VALID_DATA_LENGTH_INFORMATION
 #define FILE_LINK_NO_DECREASE_AVAILABLE_SPACE 0x00000020
 #define FILE_LINK_PRESERVE_AVAILABLE_SPACE 0x00000030
 #define FILE_LINK_IGNORE_READONLY_ATTRIBUTE 0x00000040
-#endif
-
-#if (PHNT_VERSION >= PHNT_19H1)
-#define FILE_LINK_FORCE_RESIZE_TARGET_SR 0x00000080
+#define FILE_LINK_FORCE_RESIZE_TARGET_SR 0x00000080 // since 19H1
 #define FILE_LINK_FORCE_RESIZE_SOURCE_SR 0x00000100
 #define FILE_LINK_FORCE_RESIZE_SR 0x00000180
-#endif
 
 typedef struct _FILE_LINK_INFORMATION
 {
-#if (PHNT_VERSION >= PHNT_REDSTONE5)
-    union
-    {
-        BOOLEAN ReplaceIfExists; // FileLinkInformation
-        ULONG Flags; // FileLinkInformationEx
-    };
-#else
     BOOLEAN ReplaceIfExists;
-#endif
     HANDLE RootDirectory;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_LINK_INFORMATION, *PFILE_LINK_INFORMATION;
 
 typedef struct _FILE_LINK_INFORMATION_EX
@@ -459,7 +440,7 @@ typedef struct _FILE_LINK_INFORMATION_EX
     ULONG Flags;
     HANDLE RootDirectory;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_LINK_INFORMATION_EX, *PFILE_LINK_INFORMATION_EX;
 
 typedef struct _FILE_MOVE_CLUSTER_INFORMATION
@@ -467,7 +448,7 @@ typedef struct _FILE_MOVE_CLUSTER_INFORMATION
     ULONG ClusterCount;
     HANDLE RootDirectory;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_MOVE_CLUSTER_INFORMATION, *PFILE_MOVE_CLUSTER_INFORMATION;
 
 typedef struct _FILE_RENAME_INFORMATION
@@ -475,38 +456,27 @@ typedef struct _FILE_RENAME_INFORMATION
     BOOLEAN ReplaceIfExists;
     HANDLE RootDirectory;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_RENAME_INFORMATION, *PFILE_RENAME_INFORMATION;
 
-#if (PHNT_VERSION >= PHNT_REDSTONE)
-#define FILE_RENAME_REPLACE_IF_EXISTS 0x00000001
+#define FILE_RENAME_REPLACE_IF_EXISTS 0x00000001 // since REDSTONE
 #define FILE_RENAME_POSIX_SEMANTICS 0x00000002
-#endif
-
-#if (PHNT_VERSION >= PHNT_REDSTONE3)
-#define FILE_RENAME_SUPPRESS_PIN_STATE_INHERITANCE 0x00000004
-#endif
-
-#if (PHNT_VERSION >= PHNT_REDSTONE5)
-#define FILE_RENAME_SUPPRESS_STORAGE_RESERVE_INHERITANCE 0x00000008
+#define FILE_RENAME_SUPPRESS_PIN_STATE_INHERITANCE 0x00000004 // since REDSTONE3
+#define FILE_RENAME_SUPPRESS_STORAGE_RESERVE_INHERITANCE 0x00000008 // since REDSTONE5
 #define FILE_RENAME_NO_INCREASE_AVAILABLE_SPACE 0x00000010
 #define FILE_RENAME_NO_DECREASE_AVAILABLE_SPACE 0x00000020
 #define FILE_RENAME_PRESERVE_AVAILABLE_SPACE 0x00000030
 #define FILE_RENAME_IGNORE_READONLY_ATTRIBUTE 0x00000040
-#endif
-
-#if (PHNT_VERSION >= PHNT_19H1)
-#define FILE_RENAME_FORCE_RESIZE_TARGET_SR 0x00000080
+#define FILE_RENAME_FORCE_RESIZE_TARGET_SR 0x00000080 // since 19H1
 #define FILE_RENAME_FORCE_RESIZE_SOURCE_SR 0x00000100
 #define FILE_RENAME_FORCE_RESIZE_SR 0x00000180
-#endif
 
 typedef struct _FILE_RENAME_INFORMATION_EX
 {
     ULONG Flags;
     HANDLE RootDirectory;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_RENAME_INFORMATION_EX, *PFILE_RENAME_INFORMATION_EX;
 
 typedef struct _FILE_STREAM_INFORMATION
@@ -515,14 +485,14 @@ typedef struct _FILE_STREAM_INFORMATION
     ULONG StreamNameLength;
     LARGE_INTEGER StreamSize;
     LARGE_INTEGER StreamAllocationSize;
-    WCHAR StreamName[1];
+    _Field_size_bytes_(StreamNameLength) WCHAR StreamName[1];
 } FILE_STREAM_INFORMATION, *PFILE_STREAM_INFORMATION;
 
 typedef struct _FILE_TRACKING_INFORMATION
 {
     HANDLE DestinationFile;
     ULONG ObjectInformationLength;
-    CHAR ObjectInformation[1];
+    _Field_size_bytes_(ObjectInformationLength) CHAR ObjectInformation[1];
 } FILE_TRACKING_INFORMATION, *PFILE_TRACKING_INFORMATION;
 
 typedef struct _FILE_COMPLETION_INFORMATION
@@ -582,7 +552,7 @@ typedef struct _FILE_LINK_ENTRY_INFORMATION
     ULONG NextEntryOffset;
     LONGLONG ParentFileId; // LARGE_INTEGER
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_LINK_ENTRY_INFORMATION, *PFILE_LINK_ENTRY_INFORMATION;
 
 typedef struct _FILE_LINKS_INFORMATION
@@ -595,7 +565,7 @@ typedef struct _FILE_LINKS_INFORMATION
 typedef struct _FILE_NETWORK_PHYSICAL_NAME_INFORMATION
 {
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_NETWORK_PHYSICAL_NAME_INFORMATION, *PFILE_NETWORK_PHYSICAL_NAME_INFORMATION;
 
 typedef struct _FILE_STANDARD_LINK_INFORMATION
@@ -656,7 +626,7 @@ typedef struct _FILE_IO_COMPLETION_NOTIFICATION_INFORMATION
 typedef struct _FILE_PROCESS_IDS_USING_FILE_INFORMATION
 {
     ULONG NumberOfProcessIdsInList;
-    ULONG_PTR ProcessIdList[1];
+    _Field_size_(NumberOfProcessIdsInList) ULONG_PTR ProcessIdList[1];
 } FILE_PROCESS_IDS_USING_FILE_INFORMATION, *PFILE_PROCESS_IDS_USING_FILE_INFORMATION;
 
 typedef struct _FILE_IS_REMOTE_DEVICE_INFORMATION
@@ -750,13 +720,21 @@ typedef struct _FILE_INTEGRITY_STREAM_INFORMATION
 typedef struct _FILE_VOLUME_NAME_INFORMATION
 {
     ULONG DeviceNameLength;
-    WCHAR DeviceName[1];
+    _Field_size_bytes_(DeviceNameLength) WCHAR DeviceName[1];
 } FILE_VOLUME_NAME_INFORMATION, *PFILE_VOLUME_NAME_INFORMATION;
 
 typedef struct _FILE_ID_INFORMATION
 {
     ULONGLONG VolumeSerialNumber;
-    FILE_ID_128 FileId;
+    union
+    {
+        FILE_ID_128 FileId; // private
+        struct
+        {
+            LONGLONG FileIdLowPart : 64; // rev
+            LONGLONG FileIdHighPart : 64; // rev
+        };
+    };
 } FILE_ID_INFORMATION, *PFILE_ID_INFORMATION;
 
 typedef struct _FILE_ID_EXTD_DIR_INFORMATION
@@ -774,7 +752,7 @@ typedef struct _FILE_ID_EXTD_DIR_INFORMATION
     ULONG EaSize;
     ULONG ReparsePointTag;
     FILE_ID_128 FileId;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_ID_EXTD_DIR_INFORMATION, *PFILE_ID_EXTD_DIR_INFORMATION;
 
 typedef struct _FILE_LINK_ENTRY_FULL_ID_INFORMATION
@@ -782,10 +760,10 @@ typedef struct _FILE_LINK_ENTRY_FULL_ID_INFORMATION
     ULONG NextEntryOffset;
     FILE_ID_128 ParentFileId;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_LINK_ENTRY_FULL_ID_INFORMATION, *PFILE_LINK_ENTRY_FULL_ID_INFORMATION;
 
-typedef struct _FILE_LINKS_FULL_ID_INFORMATION 
+typedef struct _FILE_LINKS_FULL_ID_INFORMATION
 {
     ULONG BytesNeeded;
     ULONG EntriesReturned;
@@ -809,7 +787,7 @@ typedef struct _FILE_ID_EXTD_BOTH_DIR_INFORMATION
     FILE_ID_128 FileId;
     CCHAR ShortNameLength;
     WCHAR ShortName[12];
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_ID_EXTD_BOTH_DIR_INFORMATION, *PFILE_ID_EXTD_BOTH_DIR_INFORMATION;
 
 // private
@@ -914,7 +892,7 @@ typedef struct _FILE_DIRECTORY_INFORMATION
     LARGE_INTEGER AllocationSize;
     ULONG FileAttributes;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_DIRECTORY_INFORMATION, *PFILE_DIRECTORY_INFORMATION;
 
 typedef struct _FILE_FULL_DIR_INFORMATION
@@ -930,7 +908,7 @@ typedef struct _FILE_FULL_DIR_INFORMATION
     ULONG FileAttributes;
     ULONG FileNameLength;
     ULONG EaSize;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_FULL_DIR_INFORMATION, *PFILE_FULL_DIR_INFORMATION;
 
 typedef struct _FILE_ID_FULL_DIR_INFORMATION
@@ -947,7 +925,7 @@ typedef struct _FILE_ID_FULL_DIR_INFORMATION
     ULONG FileNameLength;
     ULONG EaSize;
     LARGE_INTEGER FileId;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_ID_FULL_DIR_INFORMATION, *PFILE_ID_FULL_DIR_INFORMATION;
 
 typedef struct _FILE_BOTH_DIR_INFORMATION
@@ -965,7 +943,7 @@ typedef struct _FILE_BOTH_DIR_INFORMATION
     ULONG EaSize;
     CCHAR ShortNameLength;
     WCHAR ShortName[12];
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_BOTH_DIR_INFORMATION, *PFILE_BOTH_DIR_INFORMATION;
 
 typedef struct _FILE_ID_BOTH_DIR_INFORMATION
@@ -984,7 +962,7 @@ typedef struct _FILE_ID_BOTH_DIR_INFORMATION
     CCHAR ShortNameLength;
     WCHAR ShortName[12];
     LARGE_INTEGER FileId;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_ID_BOTH_DIR_INFORMATION, *PFILE_ID_BOTH_DIR_INFORMATION;
 
 typedef struct _FILE_NAMES_INFORMATION
@@ -992,7 +970,7 @@ typedef struct _FILE_NAMES_INFORMATION
     ULONG NextEntryOffset;
     ULONG FileIndex;
     ULONG FileNameLength;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_NAMES_INFORMATION, *PFILE_NAMES_INFORMATION;
 
 typedef struct _FILE_ID_GLOBAL_TX_DIR_INFORMATION
@@ -1010,7 +988,7 @@ typedef struct _FILE_ID_GLOBAL_TX_DIR_INFORMATION
     LARGE_INTEGER FileId;
     GUID LockingTransactionId;
     ULONG TxInfoFlags;
-    WCHAR FileName[1];
+    _Field_size_bytes_(FileNameLength) WCHAR FileName[1];
 } FILE_ID_GLOBAL_TX_DIR_INFORMATION, *PFILE_ID_GLOBAL_TX_DIR_INFORMATION;
 
 #define FILE_ID_GLOBAL_TX_DIR_INFO_FLAG_WRITELOCKED 0x00000001
@@ -1041,14 +1019,16 @@ typedef struct _FILE_FULL_EA_INFORMATION
     UCHAR Flags;
     UCHAR EaNameLength;
     USHORT EaValueLength;
-    CHAR EaName[1];
+    _Field_size_bytes_(EaNameLength) CHAR EaName[1];
+    // ...
+    // UCHAR EaValue[1]
 } FILE_FULL_EA_INFORMATION, *PFILE_FULL_EA_INFORMATION;
 
 typedef struct _FILE_GET_EA_INFORMATION
 {
     ULONG NextEntryOffset;
     UCHAR EaNameLength;
-    CHAR EaName[1];
+    _Field_size_bytes_(EaNameLength) CHAR EaName[1];
 } FILE_GET_EA_INFORMATION, *PFILE_GET_EA_INFORMATION;
 
 // NtQueryQuotaInformationFile/NtSetQuotaInformationFile types
@@ -1057,7 +1037,7 @@ typedef struct _FILE_GET_QUOTA_INFORMATION
 {
     ULONG NextEntryOffset;
     ULONG SidLength;
-    SID Sid;
+    _Field_size_bytes_(SidLength) SID Sid;
 } FILE_GET_QUOTA_INFORMATION, *PFILE_GET_QUOTA_INFORMATION;
 
 typedef struct _FILE_QUOTA_INFORMATION
@@ -1068,7 +1048,7 @@ typedef struct _FILE_QUOTA_INFORMATION
     LARGE_INTEGER QuotaUsed;
     LARGE_INTEGER QuotaThreshold;
     LARGE_INTEGER QuotaLimit;
-    SID Sid;
+    _Field_size_bytes_(SidLength) SID Sid;
 } FILE_QUOTA_INFORMATION, *PFILE_QUOTA_INFORMATION;
 
 typedef enum _FSINFOCLASS
@@ -1089,6 +1069,7 @@ typedef enum _FSINFOCLASS
     FileFsFullSizeInformationEx, // FILE_FS_FULL_SIZE_INFORMATION_EX // since REDSTONE5
     FileFsMaximumInformation
 } FSINFOCLASS, *PFSINFOCLASS;
+typedef enum _FSINFOCLASS FS_INFORMATION_CLASS;
 
 // NtQueryVolumeInformation/NtSetVolumeInformation types
 
@@ -1099,14 +1080,14 @@ typedef struct _FILE_FS_VOLUME_INFORMATION
     ULONG VolumeSerialNumber;
     ULONG VolumeLabelLength;
     BOOLEAN SupportsObjects;
-    WCHAR VolumeLabel[1];
+    _Field_size_bytes_(VolumeLabelLength) WCHAR VolumeLabel[1];
 } FILE_FS_VOLUME_INFORMATION, *PFILE_FS_VOLUME_INFORMATION;
 
 // private
 typedef struct _FILE_FS_LABEL_INFORMATION
 {
     ULONG VolumeLabelLength;
-    WCHAR VolumeLabel[1];
+    _Field_size_bytes_(VolumeLabelLength) WCHAR VolumeLabel[1];
 } FILE_FS_LABEL_INFORMATION, * PFILE_FS_LABEL_INFORMATION;
 
 // private
@@ -1173,7 +1154,7 @@ typedef struct _FILE_FS_ATTRIBUTE_INFORMATION
     ULONG FileSystemAttributes;
     LONG MaximumComponentNameLength;
     ULONG FileSystemNameLength;
-    WCHAR FileSystemName[1];
+    _Field_size_bytes_(FileSystemNameLength) WCHAR FileSystemName[1];
 } FILE_FS_ATTRIBUTE_INFORMATION, *PFILE_FS_ATTRIBUTE_INFORMATION;
 
 // private
@@ -1181,7 +1162,7 @@ typedef struct _FILE_FS_DRIVER_PATH_INFORMATION
 {
     BOOLEAN DriverInPath;
     ULONG DriverNameLength;
-    WCHAR DriverName[1];
+    _Field_size_bytes_(DriverNameLength) WCHAR DriverName[1];
 } FILE_FS_DRIVER_PATH_INFORMATION, *PFILE_FS_DRIVER_PATH_INFORMATION;
 
 // private
@@ -1671,7 +1652,9 @@ NtNotifyChangeDirectoryFile(
 typedef enum _DIRECTORY_NOTIFY_INFORMATION_CLASS
 {
     DirectoryNotifyInformation = 1, // FILE_NOTIFY_INFORMATION
-    DirectoryNotifyExtendedInformation = 2 // FILE_NOTIFY_EXTENDED_INFORMATION
+    DirectoryNotifyExtendedInformation, // FILE_NOTIFY_EXTENDED_INFORMATION
+    DirectoryNotifyFullInformation, // since 22H2
+    DirectoryNotifyMaximumInformation
 } DIRECTORY_NOTIFY_INFORMATION_CLASS, *PDIRECTORY_NOTIFY_INFORMATION_CLASS;
 
 #if (PHNT_VERSION >= PHNT_REDSTONE3)
@@ -1717,7 +1700,7 @@ NtUnloadDriver(
 #endif
 
 #ifndef IO_COMPLETION_ALL_ACCESS
-#define IO_COMPLETION_ALL_ACCESS (IO_COMPLETION_QUERY_STATE|IO_COMPLETION_MODIFY_STATE|STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE) 
+#define IO_COMPLETION_ALL_ACCESS (IO_COMPLETION_QUERY_STATE|IO_COMPLETION_MODIFY_STATE|STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE)
 #endif
 
 typedef enum _IO_COMPLETION_INFORMATION_CLASS
@@ -2068,7 +2051,7 @@ typedef struct _FILE_PIPE_PEEK_BUFFER
     ULONG ReadDataAvailable;
     ULONG NumberOfMessages;
     ULONG MessageLength;
-    CHAR Data[1];
+    _Field_size_bytes_(MessageLength) CHAR Data[1];
 } FILE_PIPE_PEEK_BUFFER, *PFILE_PIPE_PEEK_BUFFER;
 
 // Output for FSCTL_PIPE_QUERY_EVENT
@@ -2087,7 +2070,7 @@ typedef struct _FILE_PIPE_WAIT_FOR_BUFFER
     LARGE_INTEGER Timeout;
     ULONG NameLength;
     BOOLEAN TimeoutSpecified;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
 } FILE_PIPE_WAIT_FOR_BUFFER, *PFILE_PIPE_WAIT_FOR_BUFFER;
 
 // Input for FSCTL_PIPE_SET_CLIENT_PROCESS, Output for FSCTL_PIPE_QUERY_CLIENT_PROCESS
@@ -2104,7 +2087,7 @@ typedef struct _FILE_PIPE_CLIENT_PROCESS_BUFFER
 
 // Control structure for FSCTL_PIPE_QUERY_CLIENT_PROCESS_V2
 
-typedef struct _FILE_PIPE_CLIENT_PROCESS_BUFFER_V2 
+typedef struct _FILE_PIPE_CLIENT_PROCESS_BUFFER_V2
 {
      ULONGLONG ClientSession;
 #if !defined(BUILD_WOW6432)
@@ -2238,21 +2221,21 @@ typedef struct _MOUNTMGR_MOUNT_POINT
     ULONG DeviceNameOffset;
     USHORT DeviceNameLength;
     USHORT Reserved3;
-} MOUNTMGR_MOUNT_POINT, * PMOUNTMGR_MOUNT_POINT;
+} MOUNTMGR_MOUNT_POINT, *PMOUNTMGR_MOUNT_POINT;
 
 // Output structure for IOCTL_MOUNTMGR_DELETE_POINTS, IOCTL_MOUNTMGR_QUERY_POINTS, and IOCTL_MOUNTMGR_DELETE_POINTS_DBONLY.
 typedef struct _MOUNTMGR_MOUNT_POINTS
 {
     ULONG Size;
     ULONG NumberOfMountPoints;
-    MOUNTMGR_MOUNT_POINT MountPoints[1];
+    _Field_size_(NumberOfMountPoints) MOUNTMGR_MOUNT_POINT MountPoints[1];
 } MOUNTMGR_MOUNT_POINTS, *PMOUNTMGR_MOUNT_POINTS;
 
 // Input structure for IOCTL_MOUNTMGR_NEXT_DRIVE_LETTER.
 typedef struct _MOUNTMGR_DRIVE_LETTER_TARGET
 {
     USHORT DeviceNameLength;
-    WCHAR DeviceName[1];
+    _Field_size_bytes_(DeviceNameLength) WCHAR DeviceName[1];
 } MOUNTMGR_DRIVE_LETTER_TARGET, *PMOUNTMGR_DRIVE_LETTER_TARGET;
 
 // Output structure for IOCTL_MOUNTMGR_NEXT_DRIVE_LETTER.
@@ -2288,7 +2271,7 @@ typedef struct _MOUNTMGR_CHANGE_NOTIFY_INFO
 typedef struct _MOUNTMGR_TARGET_NAME
 {
     USHORT DeviceNameLength;
-    WCHAR DeviceName[1];
+    _Field_size_bytes_(DeviceNameLength) WCHAR DeviceName[1];
 } MOUNTMGR_TARGET_NAME, * PMOUNTMGR_TARGET_NAME;
 
 // Macro that defines what a "drive letter" mount point is.  This macro can
@@ -2338,14 +2321,14 @@ typedef struct _MOUNTMGR_TARGET_NAME
 typedef struct _MOUNTDEV_NAME
 {
     USHORT NameLength;
-    WCHAR Name[1];
+    _Field_size_bytes_(NameLength) WCHAR Name[1];
 } MOUNTDEV_NAME, * PMOUNTDEV_NAME;
 
 // Output structure for IOCTL_MOUNTMGR_QUERY_DOS_VOLUME_PATH and IOCTL_MOUNTMGR_QUERY_DOS_VOLUME_PATHS.
 typedef struct _MOUNTMGR_VOLUME_PATHS
 {
     ULONG MultiSzLength;
-    WCHAR MultiSz[1];
+    _Field_size_bytes_(MultiSzLength) WCHAR MultiSz[1];
 } MOUNTMGR_VOLUME_PATHS, *PMOUNTMGR_VOLUME_PATHS;
 
 #define MOUNTMGR_IS_DOS_VOLUME_NAME(s) ( \
@@ -2369,3 +2352,59 @@ typedef struct _MOUNTMGR_VOLUME_PATHS
      (s)->Buffer[1] == '?')
 
 #endif
+
+#if (PHNT_MODE != PHNT_MODE_KERNEL)
+// File Object
+#define FO_FILE_OPEN                    0x00000001
+#define FO_SYNCHRONOUS_IO               0x00000002
+#define FO_ALERTABLE_IO                 0x00000004
+#define FO_NO_INTERMEDIATE_BUFFERING    0x00000008
+#define FO_WRITE_THROUGH                0x00000010
+#define FO_SEQUENTIAL_ONLY              0x00000020
+#define FO_CACHE_SUPPORTED              0x00000040
+#define FO_NAMED_PIPE                   0x00000080
+#define FO_STREAM_FILE                  0x00000100
+#define FO_MAILSLOT                     0x00000200
+#define FO_GENERATE_AUDIT_ON_CLOSE      0x00000400
+#define FO_QUEUE_IRP_TO_THREAD          FO_GENERATE_AUDIT_ON_CLOSE
+#define FO_DIRECT_DEVICE_OPEN           0x00000800
+#define FO_FILE_MODIFIED                0x00001000
+#define FO_FILE_SIZE_CHANGED            0x00002000
+#define FO_CLEANUP_COMPLETE             0x00004000
+#define FO_TEMPORARY_FILE               0x00008000
+#define FO_DELETE_ON_CLOSE              0x00010000
+#define FO_OPENED_CASE_SENSITIVE        0x00020000
+#define FO_HANDLE_CREATED               0x00040000
+#define FO_FILE_FAST_IO_READ            0x00080000
+#define FO_RANDOM_ACCESS                0x00100000
+#define FO_FILE_OPEN_CANCELLED          0x00200000
+#define FO_VOLUME_OPEN                  0x00400000
+#define FO_BYPASS_IO_ENABLED            0x00800000  //when set BYPASS IO is enabled on this handle
+#define FO_REMOTE_ORIGIN                0x01000000
+#define FO_DISALLOW_EXCLUSIVE           0x02000000
+#define FO_SKIP_COMPLETION_PORT         FO_DISALLOW_EXCLUSIVE
+#define FO_SKIP_SET_EVENT               0x04000000
+#define FO_SKIP_SET_FAST_IO             0x08000000
+#define FO_INDIRECT_WAIT_OBJECT         0x10000000
+#define FO_SECTION_MINSTORE_TREATMENT   0x20000000
+
+//
+// Define Device Object (DO) flags
+//
+// DO_DAX_VOLUME - If set, this is a DAX volume i.e. the volume supports mapping a file directly
+// on the persistent memory device.  The cached and memory mapped IO to user files wouldn't
+// generate paging IO.
+//
+#define DO_VERIFY_VOLUME                    0x00000002      
+#define DO_BUFFERED_IO                      0x00000004      
+#define DO_EXCLUSIVE                        0x00000008      
+#define DO_DIRECT_IO                        0x00000010      
+#define DO_MAP_IO_BUFFER                    0x00000020      
+#define DO_DEVICE_INITIALIZING              0x00000080      
+#define DO_SHUTDOWN_REGISTERED              0x00000800      
+#define DO_BUS_ENUMERATED_DEVICE            0x00001000      
+#define DO_POWER_PAGABLE                    0x00002000      
+#define DO_POWER_INRUSH                     0x00004000      
+#define DO_DEVICE_TO_BE_RESET               0x04000000      
+#define DO_DAX_VOLUME                       0x10000000  
+#endif // (PHNT_MODE != PHNT_MODE_KERNEL)

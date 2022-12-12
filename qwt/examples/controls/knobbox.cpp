@@ -1,34 +1,45 @@
-#include <qlabel.h>
-#include <qlayout.h>
-#include <qwt_knob.h>
-#include <qwt_scale_engine.h>
-#include <qwt_transform.h>
-#include "knobbox.h"
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
-KnobBox::KnobBox( QWidget *parent, int knobType ):
-    QWidget( parent )
+#include "KnobBox.h"
+
+#include <QwtKnob>
+#include <QwtScaleEngine>
+#include <QwtTransform>
+
+#include <QLabel>
+#include <QLayout>
+
+KnobBox::KnobBox( QWidget* parent, int knobType )
+    : QWidget( parent )
 {
-    d_knob = createKnob( knobType );
-    d_knob->setKnobWidth( 100 );
+    m_knob = createKnob( knobType );
+    m_knob->setKnobWidth( 100 );
 
-    d_label = new QLabel( this );
-    d_label->setAlignment( Qt::AlignCenter );
+    m_label = new QLabel( this );
+    m_label->setAlignment( Qt::AlignCenter );
 
-    QVBoxLayout *layout = new QVBoxLayout( this );;
+    QVBoxLayout* layout = new QVBoxLayout( this );;
     layout->setSpacing( 0 );
-    layout->addWidget( d_knob, 10 );
-    layout->addWidget( d_label );
+    layout->addWidget( m_knob, 10 );
+    layout->addWidget( m_label );
     layout->addStretch( 10 );
 
-    connect( d_knob, SIGNAL( valueChanged( double ) ), 
-        this, SLOT( setNum( double ) ) );
+    connect( m_knob, SIGNAL(valueChanged(double)),
+        this, SLOT(setNum(double)) );
 
-    setNum( d_knob->value() );
+    setNum( m_knob->value() );
 }
 
-QwtKnob *KnobBox::createKnob( int knobType ) const
+QwtKnob* KnobBox::createKnob( int knobType ) const
 {
-    QwtKnob *knob = new QwtKnob();
+    QwtKnob* knob = new QwtKnob();
     knob->setTracking( true );
 
     switch( knobType )
@@ -54,23 +65,23 @@ QwtKnob *KnobBox::createKnob( int knobType ) const
         {
             knob->setKnobStyle( QwtKnob::Sunken );
             knob->setMarkerStyle( QwtKnob::Tick );
-            
-            QwtLinearScaleEngine *scaleEngine = new QwtLinearScaleEngine( 2 );
+
+            QwtLinearScaleEngine* scaleEngine = new QwtLinearScaleEngine( 2 );
             scaleEngine->setTransformation( new QwtPowerTransform( 2 ) );
             knob->setScaleEngine( scaleEngine );
 
             QList< double > ticks[ QwtScaleDiv::NTickTypes ];
-            ticks[ QwtScaleDiv::MajorTick ] << 0 << 4 
-                << 16 << 32 << 64 << 96 << 128;
+            ticks[ QwtScaleDiv::MajorTick ] << 0 << 4
+                                            << 16 << 32 << 64 << 96 << 128;
             ticks[ QwtScaleDiv::MediumTick ] << 24 << 48 << 80 << 112;
-            ticks[ QwtScaleDiv::MinorTick ] 
-                << 0.5 << 1 << 2 
+            ticks[ QwtScaleDiv::MinorTick ]
+                << 0.5 << 1 << 2
                 << 7 << 10 << 13
-                << 20 << 28 
-                << 40 << 56 
-                << 72 << 88 
-                << 104 << 120; 
- 
+                << 20 << 28
+                << 40 << 56
+                << 72 << 88
+                << 104 << 120;
+
             knob->setScale( QwtScaleDiv( 0, 128, ticks ) );
 
             knob->setTotalSteps( 100 );
@@ -115,5 +126,7 @@ void KnobBox::setNum( double v )
     QString text;
     text.setNum( v, 'f', 2 );
 
-    d_label->setText( text );
+    m_label->setText( text );
 }
+
+#include "moc_KnobBox.cpp"

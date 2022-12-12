@@ -1,25 +1,13 @@
 /*
- * Process Hacker -
+ * System Informer -
  *   qt port of memory provider
  *
  * Copyright (C) 2010-2015 wj32
  * Copyright (C) 2017-2018 dmex
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
+ * This file is part of Task Explorer and contains System Informer code.
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "stdafx.h"
@@ -177,7 +165,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
                 PhFree(processHeaps);
             }
 
-            // ApiSet schema map
+            // ApiSet schema std::map
             if (NT_SUCCESS(NtReadVirtualMemory(
                 ProcessHandle,
                 PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ApiSetMap)),
@@ -219,7 +207,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
                 PhFree(processHeaps32);
             }
 
-            // ApiSet schema map
+            // ApiSet schema std::map
             if (NT_SUCCESS(NtReadVirtualMemory(
                 ProcessHandle,
                 PTR_ADD_OFFSET(peb32, FIELD_OFFSET(PEB32, ApiSetMap)),
@@ -412,7 +400,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
 				while (memoryItem != MemoryMap.end() && memoryItem.value().staticCast<CWinMemory>()->m_AllocationBaseItem == cfgBitmapMemoryItem.value())
 				{
 					// lucasg: We could do a finer tagging since each MEM_COMMIT memory
-					// map is the CFG bitmap of a loaded module. However that might be
+					// std::map is the CFG bitmap of a loaded module. However that might be
 					// brittle to changes made by Windows dev teams.
 					memoryItem.value().staticCast<CWinMemory>()->m_RegionType = CfgBitmapRegion;
 

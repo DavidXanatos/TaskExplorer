@@ -11,7 +11,7 @@ CPathEdit::CPathEdit(bool bDirs, QWidget *parent)
 	m_bDirs = bDirs;
 
 	QHBoxLayout* pLayout = new QHBoxLayout(this);
-	pLayout->setMargin(0);
+	pLayout->setContentsMargins(0,0,0,0);
 	m_pEdit = new QLineEdit(this);
 	connect(m_pEdit, SIGNAL(textChanged(const QString &)), this, SIGNAL(textChanged(const QString &)));
 	pLayout->addWidget(m_pEdit);
@@ -30,7 +30,7 @@ void CPathEdit::Browse()
 		return;
 	if (m_bWinPath)
 		FilePath.replace("/", "\\");
-		SetText(FilePath);
+	SetText(FilePath);
 }
 
 ///////////////////////////////////////////////////
@@ -40,7 +40,7 @@ CProxyEdit::CProxyEdit(QWidget *parent)
  : CTxtEdit(parent) 
 {
 	QHBoxLayout* pLayout = new QHBoxLayout(this);
-	pLayout->setMargin(0);
+	pLayout->setContentsMargins(0,0,0,0);
 
 	m_pType = new QComboBox();
 	m_pType->addItem(QString("No"));

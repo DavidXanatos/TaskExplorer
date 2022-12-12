@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,47 +8,48 @@
  *****************************************************************************/
 
 #ifndef QWT_PLOT_MAGNIFIER_H
-#define QWT_PLOT_MAGNIFIER_H 1
+#define QWT_PLOT_MAGNIFIER_H
 
 #include "qwt_global.h"
+#include "qwt_axis_id.h"
 #include "qwt_magnifier.h"
 
 class QwtPlot;
 
 /*!
-  \brief QwtPlotMagnifier provides zooming, by magnifying in steps.
+   \brief QwtPlotMagnifier provides zooming, by magnifying in steps.
 
-  Using QwtPlotMagnifier a plot can be zoomed in/out in steps using
-  keys, the mouse wheel or moving a mouse button in vertical direction.
+   Using QwtPlotMagnifier a plot can be zoomed in/out in steps using
+   keys, the mouse wheel or moving a mouse button in vertical direction.
 
-  Together with QwtPlotZoomer and QwtPlotPanner it is possible to implement
-  individual and powerful navigation of the plot canvas.
+   Together with QwtPlotZoomer and QwtPlotPanner it is possible to implement
+   individual and powerful navigation of the plot canvas.
 
-  \sa QwtPlotZoomer, QwtPlotPanner, QwtPlot
-*/
-class QWT_EXPORT QwtPlotMagnifier: public QwtMagnifier
+   \sa QwtPlotZoomer, QwtPlotPanner, QwtPlot
+ */
+class QWT_EXPORT QwtPlotMagnifier : public QwtMagnifier
 {
     Q_OBJECT
 
-public:
-    explicit QwtPlotMagnifier( QWidget * );
+  public:
+    explicit QwtPlotMagnifier( QWidget* );
     virtual ~QwtPlotMagnifier();
 
-    void setAxisEnabled( int axis, bool on );
-    bool isAxisEnabled( int axis ) const;
+    void setAxisEnabled( QwtAxisId, bool on );
+    bool isAxisEnabled( QwtAxisId ) const;
 
-    QWidget *canvas();
-    const QWidget *canvas() const;
+    QWidget* canvas();
+    const QWidget* canvas() const;
 
-    QwtPlot *plot();
-    const QwtPlot *plot() const;
+    QwtPlot* plot();
+    const QwtPlot* plot() const;
 
-protected:
-    virtual void rescale( double factor );
+  public Q_SLOTS:
+    virtual void rescale( double factor ) QWT_OVERRIDE;
 
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

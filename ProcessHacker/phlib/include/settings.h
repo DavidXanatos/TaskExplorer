@@ -52,20 +52,6 @@ PhSettingsInitialization(
     VOID
     );
 
-// Note: Program specific function.
-VOID 
-NTAPI
-PhAddDefaultSettings(
-    VOID
-    );
-
-// Note: Program specific function.
-VOID 
-NTAPI
-PhUpdateCachedSettings(
-    VOID
-    );
-
 // private
 
 PPH_STRING PhSettingToString(
@@ -77,6 +63,7 @@ BOOLEAN PhSettingFromString(
     _In_ PH_SETTING_TYPE Type,
     _In_ PPH_STRINGREF StringRef,
     _In_opt_ PPH_STRING String,
+    _In_ LONG dpiValue,
     _Inout_ PPH_SETTING Setting
     );
 
@@ -91,41 +78,150 @@ VOID PhEnumSettings(
     );
 
 // begin_phapppub
+
 _May_raise_
 PHLIBAPI
 ULONG
 NTAPI
-PhGetIntegerSetting(
-    _In_ PWSTR Name
+PhGetIntegerStringRefSetting(
+    _In_ PPH_STRINGREF Name
     );
 
 _May_raise_
 PHLIBAPI
 PH_INTEGER_PAIR
 NTAPI
-PhGetIntegerPairSetting(
-    _In_ PWSTR Name
+PhGetIntegerPairStringRefSetting(
+    _In_ PPH_STRINGREF Name
     );
 
 _May_raise_
 PHLIBAPI
 PH_SCALABLE_INTEGER_PAIR
 NTAPI
-PhGetScalableIntegerPairSetting(
-    _In_ PWSTR Name,
-    _In_ BOOLEAN ScaleToCurrent
+PhGetScalableIntegerPairStringRefSetting(
+    _In_ PPH_STRINGREF Name,
+    _In_ BOOLEAN ScaleToCurrent,
+    _In_ LONG dpiValue
     );
 
 _May_raise_
 PHLIBAPI
 PPH_STRING
 NTAPI
-PhGetStringSetting(
-    _In_ PWSTR Name
+PhGetStringRefSetting(
+    _In_ PPH_STRINGREF Name
     );
 
-FORCEINLINE 
-PPH_STRING 
+_May_raise_
+PHLIBAPI
+VOID
+NTAPI
+PhSetIntegerStringRefSetting(
+    _In_ PPH_STRINGREF Name,
+    _In_ ULONG Value
+    );
+
+_May_raise_
+PHLIBAPI
+VOID
+NTAPI
+PhSetIntegerPairStringRefSetting(
+    _In_ PPH_STRINGREF Name,
+    _In_ PH_INTEGER_PAIR Value
+    );
+
+_May_raise_
+PHLIBAPI
+VOID
+NTAPI
+PhSetScalableIntegerPairStringRefSetting(
+    _In_ PPH_STRINGREF Name,
+    _In_ PH_SCALABLE_INTEGER_PAIR Value
+    );
+
+_May_raise_
+PHLIBAPI
+VOID
+NTAPI
+PhSetScalableIntegerPairStringRefSetting2(
+    _In_ PPH_STRINGREF Name,
+    _In_ PH_INTEGER_PAIR Value,
+    _In_ LONG dpiValue
+    );
+
+_May_raise_
+PHLIBAPI
+VOID
+NTAPI
+PhSetStringRefSetting(
+    _In_ PPH_STRINGREF Name,
+    _In_ PPH_STRINGREF Value
+    );
+
+FORCEINLINE
+ULONG
+NTAPI
+PhGetIntegerSetting(
+    _In_ PWSTR Name
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    return PhGetIntegerStringRefSetting(&name);
+}
+
+FORCEINLINE
+PH_INTEGER_PAIR
+NTAPI
+PhGetIntegerPairSetting(
+    _In_ PWSTR Name
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    return PhGetIntegerPairStringRefSetting(&name);
+}
+
+FORCEINLINE
+PH_SCALABLE_INTEGER_PAIR
+NTAPI
+PhGetScalableIntegerPairSetting(
+    _In_ PWSTR Name,
+    _In_ BOOLEAN ScaleToCurrent,
+    _In_ LONG dpiValue
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    return PhGetScalableIntegerPairStringRefSetting(&name, ScaleToCurrent, dpiValue);
+}
+
+FORCEINLINE
+PPH_STRING
+NTAPI
+PhGetStringSetting(
+    _In_ PWSTR Name
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    return PhGetStringRefSetting(&name);
+}
+
+#define PhaGetStringSetting(Name) PH_AUTO_T(PH_STRING, PhGetStringSetting(Name)) // phapppub
+
+FORCEINLINE
+PPH_STRING
+NTAPI
 PhGetExpandStringSetting(
     _In_ PWSTR Name
     )
@@ -141,59 +237,99 @@ PhGetExpandStringSetting(
     return setting;
 }
 
-_May_raise_
-PHLIBAPI
+FORCEINLINE
 VOID
 NTAPI
 PhSetIntegerSetting(
     _In_ PWSTR Name,
     _In_ ULONG Value
-    );
+    )
+{
+    PH_STRINGREF name;
 
-_May_raise_
-PHLIBAPI
-VOID
-NTAPI
-PhSetIntegerPairSetting(
-    _In_ PWSTR Name,
-    _In_ PH_INTEGER_PAIR Value
-    );
+    PhInitializeStringRef(&name, Name);
 
-_May_raise_
-PHLIBAPI
-VOID
-NTAPI
-PhSetScalableIntegerPairSetting(
-    _In_ PWSTR Name,
-    _In_ PH_SCALABLE_INTEGER_PAIR Value
-    );
+    PhSetIntegerStringRefSetting(&name, Value);
+}
 
-_May_raise_
-PHLIBAPI
-VOID
-NTAPI
-PhSetScalableIntegerPairSetting2(
-    _In_ PWSTR Name,
-    _In_ PH_INTEGER_PAIR Value
-    );
-
-_May_raise_
-PHLIBAPI
+FORCEINLINE
 VOID
 NTAPI
 PhSetStringSetting(
     _In_ PWSTR Name,
     _In_ PWSTR Value
-    );
+    )
+{
+    PH_STRINGREF name;
+    PH_STRINGREF value;
 
-_May_raise_
-PHLIBAPI
+    PhInitializeStringRef(&name, Name);
+    PhInitializeStringRef(&value, Value);
+
+    PhSetStringRefSetting(&name, &value);
+}
+
+FORCEINLINE
 VOID
 NTAPI
 PhSetStringSetting2(
     _In_ PWSTR Name,
     _In_ PPH_STRINGREF Value
-    );
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    PhSetStringRefSetting(&name, Value);
+}
+
+FORCEINLINE
+VOID
+NTAPI
+PhSetIntegerPairSetting(
+    _In_ PWSTR Name,
+    _In_ PH_INTEGER_PAIR Value
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    PhSetIntegerPairStringRefSetting(&name, Value);
+}
+
+FORCEINLINE
+VOID
+NTAPI
+PhSetScalableIntegerPairSetting(
+    _In_ PWSTR Name,
+    _In_ PH_SCALABLE_INTEGER_PAIR Value
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    PhSetScalableIntegerPairStringRefSetting(&name, Value);
+}
+
+FORCEINLINE
+VOID
+NTAPI
+PhSetScalableIntegerPairSetting2(
+    _In_ PWSTR Name,
+    _In_ PH_INTEGER_PAIR Value,
+    _In_ LONG dpiValue
+    )
+{
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    PhSetScalableIntegerPairStringRefSetting2(&name, Value, dpiValue);
+}
+
 // end_phapppub
 
 VOID PhClearIgnoredSettings(
@@ -205,18 +341,16 @@ VOID PhConvertIgnoredSettings(
     );
 
 NTSTATUS PhLoadSettings(
-    _In_ PWSTR FileName
+    _In_ PPH_STRINGREF FileName
     );
 
 NTSTATUS PhSaveSettings(
-    _In_ PWSTR FileName
+    _In_ PPH_STRINGREF FileName
     );
 
 VOID PhResetSettings(
-    VOID
+    _In_ HWND hwnd
     );
-
-#define PhaGetStringSetting(Name) PH_AUTO_T(PH_STRING, PhGetStringSetting(Name)) // phapppub
 
 // begin_phapppub
 // High-level settings creation
@@ -242,6 +376,13 @@ NTAPI
 PhAddSettings(
     _In_ PPH_SETTING_CREATE Settings,
     _In_ ULONG NumberOfSettings
+    );
+
+PHLIBAPI
+PPH_SETTING
+NTAPI
+PhGetSetting(
+    _In_ PPH_STRINGREF Name
     );
 
 VOID
@@ -300,6 +441,22 @@ NTAPI
 PhSaveListViewGroupStatesToSetting(
     _In_ PWSTR Name,
     _In_ HWND ListViewHandle
+    );
+
+VOID
+NTAPI
+PhLoadCustomColorList(
+    _In_ PWSTR Name,
+    _In_ PULONG CustomColorList,
+    _In_ ULONG CustomColorCount
+    );
+
+VOID
+NTAPI
+PhSaveCustomColorList(
+    _In_ PWSTR Name,
+    _In_ PULONG CustomColorList,
+    _In_ ULONG CustomColorCount
     );
 // end_phapppub
 

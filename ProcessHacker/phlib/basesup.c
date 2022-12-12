@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   base support functions
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2009-2016 wj32
- * Copyright (C) 2019-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010-2016
+ *     dmex    2019-2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -229,7 +218,6 @@ NTSTATUS PhCreateUserThread(
     _Out_opt_ PHANDLE ThreadHandle,
     _In_ HANDLE ProcessHandle,
     _In_ ULONG CreateFlags,
-    _In_opt_ SIZE_T StackSize,
     _In_ PUSER_THREAD_START_ROUTINE StartAddress,
     _In_opt_ PVOID Parameter
     )
@@ -262,9 +250,9 @@ NTSTATUS PhCreateUserThread(
         Parameter,
         CreateFlags,
         0,
-        StackSize,
-        StackSize,
-        0 // attributeList
+        0,
+        0,
+        attributeList
         );
 
     if (NT_SUCCESS(status))
@@ -315,12 +303,6 @@ HANDLE PhCreateThread(
         &threadHandle,
         NULL
         );
-
-    // NOTE: PhCreateThread previously used CreateThread with callers using GetLastError()
-    // for checking errors. We need to preserve this behavior for compatibility -dmex
-    // TODO: Migrate code over to PhCreateThreadEx and remove this function.
-    //RtlSetLastWin32ErrorAndNtStatusFromNtStatus(status);
-    SetLastError(RtlNtStatusToDosError(status));
 
     if (NT_SUCCESS(status))
     {
@@ -587,6 +569,9 @@ PVOID PhReAllocate(
  * \return A pointer to the new block of memory, or NULL if the block could not be allocated. The
  * existing contents of the memory block are copied to the new block.
  */
+_Must_inspect_result_
+_Ret_maybenull_
+_Post_writable_byte_size_(Size)
 PVOID PhReAllocateSafe(
     _In_ PVOID Memory,
     _In_ SIZE_T Size
@@ -606,8 +591,9 @@ PVOID PhReAllocateSafe(
  *
  * \return A pointer to the allocated block of memory, or NULL if the block could not be allocated.
  */
-_Check_return_
+_Must_inspect_result_
 _Ret_maybenull_
+_Post_writable_byte_size_(Size)
 _Success_(return != NULL)
 PVOID PhAllocatePage(
     _In_ SIZE_T Size,
@@ -815,7 +801,7 @@ BOOLEAN PhCopyBytesZ(
     BOOLEAN copied;
 
     // Determine the length of the input string.
-    
+
     if (InputCount != SIZE_MAX)
     {
         i = 0;
@@ -1166,7 +1152,7 @@ FORCEINLINE LONG PhpCompareStringZNatural(
          misrepresented as being the original software.
         3. This notice may not be removed or altered from any source distribution.
 
-        This code has been modified for Process Hacker.
+        This code has been modified for System Informer.
      */
 
     ULONG ai, bi;
@@ -3762,24 +3748,6 @@ VOID PhAppendStringBuilder(
         StringBuilder,
         String->Buffer,
         String->Length
-        );
-}
-
-/**
- * Appends a string to the end of a string builder string.
- *
- * \param StringBuilder A string builder object.
- * \param String The string to append.
- */
-VOID PhAppendStringBuilder2(
-    _Inout_ PPH_STRING_BUILDER StringBuilder,
-    _In_ PWSTR String
-    )
-{
-    PhAppendStringBuilderEx(
-        StringBuilder,
-        String,
-        PhCountStringZ(String) * sizeof(WCHAR)
         );
 }
 

@@ -4,7 +4,7 @@
 class CProcessFilterModel : public CSortFilterProxyModel
 {
 public:
-	CProcessFilterModel(bool bAlternate, QObject* parrent = 0);
+	CProcessFilterModel(QObject* parrent = 0);
 
 	bool filterAcceptsRow(int source_row, const QModelIndex & source_parent) const;
 

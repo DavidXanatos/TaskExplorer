@@ -1,15 +1,19 @@
-#ifndef _SETTINGS_H_
-#define _SETTINGS_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qdatetime.h>
+#pragma once
+
+#include <QDateTime>
 
 class Settings
 {
-public:
-    Settings():
-        maxMajorSteps( 10 ),
-        maxMinorSteps( 5 ),
-        maxWeeks( -1 )
+  public:
+    Settings()
+        : maxMajorSteps( 10 )
+        , maxMinorSteps( 5 )
+        , maxWeeks( -1 )
     {
     };
 
@@ -21,5 +25,3 @@ public:
 
     int maxWeeks;
 };
-
-#endif

@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -12,42 +12,43 @@
 
 #include "qwt_global.h"
 #include "qwt_plot_abstract_barchart.h"
-#include "qwt_series_data.h"
 
 class QwtColumnRect;
 class QwtColumnSymbol;
+template< typename T > class QwtSeriesData;
 
 /*!
-  \brief QwtPlotMultiBarChart displays a series of a samples that consist
+   \brief QwtPlotMultiBarChart displays a series of a samples that consist
          each of a set of values.
 
-  Each value is displayed as a bar, the bars of each set can be organized
-  side by side or accumulated.
+   Each value is displayed as a bar, the bars of each set can be organized
+   side by side or accumulated.
 
-  Each bar of a set is rendered by a QwtColumnSymbol, that is set by setSymbol().
-  The bars of different sets use the same symbols. Exceptions are possible
-  by overloading specialSymbol() or overloading drawBar().
+   Each bar of a set is rendered by a QwtColumnSymbol, that is set by setSymbol().
+   The bars of different sets use the same symbols. Exceptions are possible
+   by overloading specialSymbol() or overloading drawBar().
 
-  Depending on its orientation() the bars are displayed horizontally
-  or vertically. The bars cover the interval between the baseline()
-  and the value.
+   Depending on its orientation() the bars are displayed horizontally
+   or vertically. The bars cover the interval between the baseline()
+   and the value.
 
-  In opposite to most other plot items, QwtPlotMultiBarChart returns more
-  than one entry for the legend - one for each symbol.
+   In opposite to most other plot items, QwtPlotMultiBarChart returns more
+   than one entry for the legend - one for each symbol.
 
-  \sa QwtPlotBarChart, QwtPlotHistogram
+   \sa QwtPlotBarChart, QwtPlotHistogram
       QwtPlotSeriesItem::orientation(), QwtPlotAbstractBarChart::baseline()
  */
-class QWT_EXPORT QwtPlotMultiBarChart:
-    public QwtPlotAbstractBarChart, public QwtSeriesStore<QwtSetSample>
+class QWT_EXPORT QwtPlotMultiBarChart
+    : public QwtPlotAbstractBarChart
+    , public QwtSeriesStore< QwtSetSample >
 {
-public:
+  public:
     /*!
         \brief Chart styles.
 
         The default setting is QwtPlotMultiBarChart::Grouped.
         \sa setStyle(), style()
-    */
+     */
     enum ChartStyle
     {
         //! The bars of a set are displayed side by side
@@ -61,67 +62,68 @@ public:
         Stacked
     };
 
-    explicit QwtPlotMultiBarChart( const QString &title = QString() );
-    explicit QwtPlotMultiBarChart( const QwtText &title );
+    explicit QwtPlotMultiBarChart( const QString& title = QString() );
+    explicit QwtPlotMultiBarChart( const QwtText& title );
 
     virtual ~QwtPlotMultiBarChart();
 
-    virtual int rtti() const;
+    virtual int rtti() const QWT_OVERRIDE;
 
-    void setBarTitles( const QList<QwtText> & );
-    QList<QwtText> barTitles() const;
+    void setBarTitles( const QList< QwtText >& );
+    QList< QwtText > barTitles() const;
 
-    void setSamples( const QVector<QwtSetSample> & );
-    void setSamples( const QVector< QVector<double> > & );
-    void setSamples( QwtSeriesData<QwtSetSample> * );
+    void setSamples( const QVector< QwtSetSample >& );
+    void setSamples( const QVector< QVector< double > >& );
+    void setSamples( QwtSeriesData< QwtSetSample >* );
 
     void setStyle( ChartStyle style );
     ChartStyle style() const;
 
-    void setSymbol( int valueIndex, QwtColumnSymbol * );
-    const QwtColumnSymbol *symbol( int valueIndex ) const;
+    void setSymbol( int valueIndex, QwtColumnSymbol* );
+    const QwtColumnSymbol* symbol( int valueIndex ) const;
 
     void resetSymbolMap();
 
-    virtual void drawSeries( QPainter *painter,
-        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-        const QRectF &canvasRect, int from, int to ) const;
+    virtual void drawSeries( QPainter*,
+        const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+        const QRectF& canvasRect, int from, int to ) const QWT_OVERRIDE;
 
-    virtual QRectF boundingRect() const;
+    virtual QRectF boundingRect() const QWT_OVERRIDE;
 
-    virtual QList<QwtLegendData> legendData() const;
+    virtual QList< QwtLegendData > legendData() const QWT_OVERRIDE;
 
-    virtual QwtGraphic legendIcon( int index, const QSizeF & ) const;
+    virtual QwtGraphic legendIcon(
+        int index, const QSizeF& ) const QWT_OVERRIDE;
 
-protected:
-    QwtColumnSymbol *symbol( int valueIndex );
+  protected:
+    QwtColumnSymbol* symbol( int valueIndex );
 
-    virtual QwtColumnSymbol *specialSymbol(
+    virtual QwtColumnSymbol* specialSymbol(
         int sampleIndex, int valueIndex ) const;
 
-    virtual void drawSample( QPainter *painter,
-        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-        const QRectF &canvasRect, const QwtInterval &boundingInterval,
-        int index, const QwtSetSample& sample ) const;
+    virtual void drawSample( QPainter*,
+        const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+        const QRectF& canvasRect, const QwtInterval& boundingInterval,
+        int index, const QwtSetSample& ) const;
 
-    virtual void drawBar( QPainter *, int sampleIndex,
-        int valueIndex, const QwtColumnRect & ) const;
+    virtual void drawBar( QPainter*, int sampleIndex,
+        int valueIndex, const QwtColumnRect& ) const;
 
-    void drawStackedBars( QPainter *painter,
-        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-        const QRectF &canvasRect, int index,
-        double sampleWidth, const QwtSetSample& sample ) const;
+    void drawStackedBars( QPainter*,
+        const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+        const QRectF& canvasRect, int index,
+        double sampleWidth, const QwtSetSample& ) const;
 
-    void drawGroupedBars( QPainter *painter,
-        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-        const QRectF &canvasRect, int index,
-        double sampleWidth, const QwtSetSample& sample ) const;
+    void drawGroupedBars( QPainter*,
+        const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+        const QRectF& canvasRect, int index,
+        double sampleWidth, const QwtSetSample& ) const;
 
-private:
+  private:
     void init();
 
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

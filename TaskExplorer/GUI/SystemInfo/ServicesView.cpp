@@ -18,12 +18,12 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_bAll = bAll;
 
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_pServiceModel = new CServiceModel();
 	
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pServiceModel);
 	m_pSortProxy->setDynamicSortFilter(true);

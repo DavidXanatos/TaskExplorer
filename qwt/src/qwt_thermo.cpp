@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,19 +8,23 @@
  *****************************************************************************/
 
 #include "qwt_thermo.h"
-#include "qwt_scale_engine.h"
 #include "qwt_scale_draw.h"
 #include "qwt_scale_map.h"
 #include "qwt_color_map.h"
+#include "qwt_math.h"
+
 #include <qpainter.h>
 #include <qevent.h>
 #include <qdrawutil.h>
 #include <qstyle.h>
 #include <qstyleoption.h>
-#include <qmath.h>
+#include <qmargins.h>
 
-static inline void qwtDrawLine( QPainter *painter, int pos, 
-    const QColor &color, const QRect &pipeRect, const QRect &liquidRect,
+#include <algorithm>
+#include <functional>
+
+static inline void qwtDrawLine( QPainter* painter, int pos,
+    const QColor& color, const QRect& pipeRect, const QRect& liquidRect,
     Qt::Orientation orientation )
 {
     painter->setPen( color );
@@ -36,9 +40,9 @@ static inline void qwtDrawLine( QPainter *painter, int pos,
     }
 }
 
-QVector<double> qwtTickList( const QwtScaleDiv &scaleDiv )
+static QVector< double > qwtTickList( const QwtScaleDiv& scaleDiv )
 {
-    QVector<double> values;
+    QVector< double > values;
 
     double lowerLimit = scaleDiv.interval().minValue();
     double upperLimit = scaleDiv.interval().maxValue();
@@ -51,37 +55,37 @@ QVector<double> qwtTickList( const QwtScaleDiv &scaleDiv )
     for ( int tickType = QwtScaleDiv::MinorTick;
         tickType < QwtScaleDiv::NTickTypes; tickType++ )
     {
-        const QList<double> ticks = scaleDiv.ticks( tickType );
+        const QList< double > ticks = scaleDiv.ticks( tickType );
 
         for ( int i = 0; i < ticks.count(); i++ )
         {
             const double v = ticks[i];
             if ( v > lowerLimit && v < upperLimit )
                 values += v;
-        }       
-    }   
+        }
+    }
 
     values += upperLimit;
-    
+
     return values;
 }
 
 class QwtThermo::PrivateData
 {
-public:
-    PrivateData():
-        orientation( Qt::Vertical ),
-        scalePosition( QwtThermo::TrailingScale ),
-        spacing( 3 ),
-        borderWidth( 2 ),
-        pipeWidth( 10 ),
-        alarmLevel( 0.0 ),
-        alarmEnabled( false ),
-        autoFillPipe( true ),
-        originMode( QwtThermo::OriginMinimum ),
-        origin( 0.0 ),
-        colorMap( NULL ),
-        value( 0.0 )
+  public:
+    PrivateData()
+        : orientation( Qt::Vertical )
+        , scalePosition( QwtThermo::TrailingScale )
+        , spacing( 3 )
+        , borderWidth( 2 )
+        , pipeWidth( 10 )
+        , alarmLevel( 0.0 )
+        , alarmEnabled( false )
+        , autoFillPipe( true )
+        , originMode( QwtThermo::OriginMinimum )
+        , origin( 0.0 )
+        , colorMap( NULL )
+        , value( 0.0 )
     {
         rangeFlags = QwtInterval::IncludeBorders;
     }
@@ -105,22 +109,22 @@ public:
     QwtThermo::OriginMode originMode;
     double origin;
 
-    QwtColorMap *colorMap;
+    QwtColorMap* colorMap;
 
     double value;
 };
 
 /*!
-  Constructor
-  \param parent Parent widget
-*/
-QwtThermo::QwtThermo( QWidget *parent ):
-    QwtAbstractScale( parent )
+   Constructor
+   \param parent Parent widget
+ */
+QwtThermo::QwtThermo( QWidget* parent )
+    : QwtAbstractScale( parent )
 {
-    d_data = new PrivateData;
+    m_data = new PrivateData;
 
     QSizePolicy policy( QSizePolicy::MinimumExpanding, QSizePolicy::Fixed );
-    if ( d_data->orientation == Qt::Vertical )
+    if ( m_data->orientation == Qt::Vertical )
         policy.transpose();
 
     setSizePolicy( policy );
@@ -132,53 +136,53 @@ QwtThermo::QwtThermo( QWidget *parent ):
 //! Destructor
 QwtThermo::~QwtThermo()
 {
-    delete d_data;
+    delete m_data;
 }
 
 /*!
-  \brief Exclude/Include min/max values
+   \brief Exclude/Include min/max values
 
-  According to the flags minValue() and maxValue()
-  are included/excluded from the pipe. In case of an
-  excluded value the corresponding tick is painted
-  1 pixel off of the pipeRect().
+   According to the flags minValue() and maxValue()
+   are included/excluded from the pipe. In case of an
+   excluded value the corresponding tick is painted
+   1 pixel off of the pipeRect().
 
-  F.e. when a minimum
-  of 0.0 has to be displayed as an empty pipe the minValue()
-  needs to be excluded.
+   F.e. when a minimum
+   of 0.0 has to be displayed as an empty pipe the minValue()
+   needs to be excluded.
 
-  \param flags Range flags
-  \sa rangeFlags()
-*/
+   \param flags Range flags
+   \sa rangeFlags()
+ */
 void QwtThermo::setRangeFlags( QwtInterval::BorderFlags flags )
 {
-    if ( d_data->rangeFlags != flags )
+    if ( m_data->rangeFlags != flags )
     {
-        d_data->rangeFlags = flags;
+        m_data->rangeFlags = flags;
         update();
     }
 }
 
 /*!
-  \return Range flags
-  \sa setRangeFlags()
-*/
+   \return Range flags
+   \sa setRangeFlags()
+ */
 QwtInterval::BorderFlags QwtThermo::rangeFlags() const
 {
-    return d_data->rangeFlags;
+    return m_data->rangeFlags;
 }
 
 /*!
-  Set the current value.
+   Set the current value.
 
-  \param value New Value
-  \sa value()
-*/
+   \param value New Value
+   \sa value()
+ */
 void QwtThermo::setValue( double value )
 {
-    if ( d_data->value != value )
+    if ( m_data->value != value )
     {
-        d_data->value = value;
+        m_data->value = value;
         update();
     }
 }
@@ -186,21 +190,21 @@ void QwtThermo::setValue( double value )
 //! Return the value.
 double QwtThermo::value() const
 {
-    return d_data->value;
+    return m_data->value;
 }
 
 /*!
-  \brief Set a scale draw
+   \brief Set a scale draw
 
-  For changing the labels of the scales, it
-  is necessary to derive from QwtScaleDraw and
-  overload QwtScaleDraw::label().
+   For changing the labels of the scales, it
+   is necessary to derive from QwtScaleDraw and
+   overload QwtScaleDraw::label().
 
-  \param scaleDraw ScaleDraw object, that has to be created with
+   \param scaleDraw ScaleDraw object, that has to be created with
                    new and will be deleted in ~QwtThermo() or the next
                    call of setScaleDraw().
-*/
-void QwtThermo::setScaleDraw( QwtScaleDraw *scaleDraw )
+ */
+void QwtThermo::setScaleDraw( QwtScaleDraw* scaleDraw )
 {
     setAbstractScaleDraw( scaleDraw );
     layoutThermo( true );
@@ -209,68 +213,68 @@ void QwtThermo::setScaleDraw( QwtScaleDraw *scaleDraw )
 /*!
    \return the scale draw of the thermo
    \sa setScaleDraw()
-*/
-const QwtScaleDraw *QwtThermo::scaleDraw() const
+ */
+const QwtScaleDraw* QwtThermo::scaleDraw() const
 {
-    return static_cast<const QwtScaleDraw *>( abstractScaleDraw() );
+    return static_cast< const QwtScaleDraw* >( abstractScaleDraw() );
 }
 
 /*!
    \return the scale draw of the thermo
    \sa setScaleDraw()
-*/
-QwtScaleDraw *QwtThermo::scaleDraw()
+ */
+QwtScaleDraw* QwtThermo::scaleDraw()
 {
-    return static_cast<QwtScaleDraw *>( abstractScaleDraw() );
+    return static_cast< QwtScaleDraw* >( abstractScaleDraw() );
 }
 
 /*!
-  Paint event handler
-  \param event Paint event
-*/
-void QwtThermo::paintEvent( QPaintEvent *event )
+   Paint event handler
+   \param event Paint event
+ */
+void QwtThermo::paintEvent( QPaintEvent* event )
 {
     QPainter painter( this );
     painter.setClipRegion( event->region() );
 
     QStyleOption opt;
-    opt.init(this);
+    opt.initFrom(this);
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
 
     const QRect tRect = pipeRect();
 
     if ( !tRect.contains( event->rect() ) )
     {
-        if ( d_data->scalePosition != QwtThermo::NoScale )
+        if ( m_data->scalePosition != QwtThermo::NoScale )
             scaleDraw()->draw( &painter, palette() );
     }
 
-    const int bw = d_data->borderWidth;
+    const int bw = m_data->borderWidth;
 
     const QBrush brush = palette().brush( QPalette::Base );
-    qDrawShadePanel( &painter, 
+    qDrawShadePanel( &painter,
         tRect.adjusted( -bw, -bw, bw, bw ),
-        palette(), true, bw, 
-        d_data->autoFillPipe ? &brush : NULL );
+        palette(), true, bw,
+        m_data->autoFillPipe ? &brush : NULL );
 
     drawLiquid( &painter, tRect );
 }
 
-/*! 
-  Resize event handler
-  \param event Resize event
-*/
-void QwtThermo::resizeEvent( QResizeEvent *event )
+/*!
+   Resize event handler
+   \param event Resize event
+ */
+void QwtThermo::resizeEvent( QResizeEvent* event )
 {
     Q_UNUSED( event );
     layoutThermo( false );
 }
 
-/*! 
-  Qt change event handler
-  \param event Event
-*/
-void QwtThermo::changeEvent( QEvent *event )
+/*!
+   Qt change event handler
+   \param event Event
+ */
+void QwtThermo::changeEvent( QEvent* event )
 {
     switch( event->type() )
     {
@@ -286,33 +290,33 @@ void QwtThermo::changeEvent( QEvent *event )
 }
 
 /*!
-  Recalculate the QwtThermo geometry and layout based on
-  pipeRect() and the fonts.
+   Recalculate the QwtThermo geometry and layout based on
+   pipeRect() and the fonts.
 
-  \param update_geometry notify the layout system and call update
+   \param update_geometry notify the layout system and call update
          to redraw the scale
-*/
+ */
 void QwtThermo::layoutThermo( bool update_geometry )
 {
     const QRect tRect = pipeRect();
-    const int bw = d_data->borderWidth + d_data->spacing;
+    const int bw = m_data->borderWidth + m_data->spacing;
     const bool inverted = ( upperBound() < lowerBound() );
 
     int from, to;
 
-    if ( d_data->orientation == Qt::Horizontal )
+    if ( m_data->orientation == Qt::Horizontal )
     {
         from = tRect.left();
         to = tRect.right();
 
-        if ( d_data->rangeFlags & QwtInterval::ExcludeMinimum )
+        if ( m_data->rangeFlags & QwtInterval::ExcludeMinimum )
         {
             if ( inverted )
                 to++;
             else
                 from--;
         }
-        if ( d_data->rangeFlags & QwtInterval::ExcludeMaximum )
+        if ( m_data->rangeFlags & QwtInterval::ExcludeMaximum )
         {
             if ( inverted )
                 from--;
@@ -320,7 +324,7 @@ void QwtThermo::layoutThermo( bool update_geometry )
                 to++;
         }
 
-        if ( d_data->scalePosition == QwtThermo::TrailingScale )
+        if ( m_data->scalePosition == QwtThermo::TrailingScale )
         {
             scaleDraw()->setAlignment( QwtScaleDraw::TopScale );
             scaleDraw()->move( from, tRect.top() - bw );
@@ -338,14 +342,14 @@ void QwtThermo::layoutThermo( bool update_geometry )
         from = tRect.top();
         to = tRect.bottom();
 
-        if ( d_data->rangeFlags & QwtInterval::ExcludeMinimum )
+        if ( m_data->rangeFlags & QwtInterval::ExcludeMinimum )
         {
             if ( inverted )
                 from--;
             else
                 to++;
         }
-        if ( d_data->rangeFlags & QwtInterval::ExcludeMaximum )
+        if ( m_data->rangeFlags & QwtInterval::ExcludeMaximum )
         {
             if ( inverted )
                 to++;
@@ -353,7 +357,7 @@ void QwtThermo::layoutThermo( bool update_geometry )
                 from--;
         }
 
-        if ( d_data->scalePosition == QwtThermo::LeadingScale )
+        if ( m_data->scalePosition == QwtThermo::LeadingScale )
         {
             scaleDraw()->setAlignment( QwtScaleDraw::RightScale );
             scaleDraw()->move( tRect.right() + bw, from );
@@ -375,62 +379,62 @@ void QwtThermo::layoutThermo( bool update_geometry )
 }
 
 /*!
-  \return Bounding rectangle of the pipe ( without borders )
+   \return Bounding rectangle of the pipe ( without borders )
           in widget coordinates
-*/
+ */
 QRect QwtThermo::pipeRect() const
 {
     int mbd = 0;
-    if ( d_data->scalePosition != QwtThermo::NoScale )
+    if ( m_data->scalePosition != QwtThermo::NoScale )
     {
         int d1, d2;
         scaleDraw()->getBorderDistHint( font(), d1, d2 );
         mbd = qMax( d1, d2 );
     }
-    const int bw = d_data->borderWidth;
+    const int bw = m_data->borderWidth;
     const int scaleOff = bw + mbd;
 
     const QRect cr = contentsRect();
 
     QRect pipeRect = cr;
-    if ( d_data->orientation == Qt::Horizontal )
+    if ( m_data->orientation == Qt::Horizontal )
     {
         pipeRect.adjust( scaleOff, 0, -scaleOff, 0 );
 
-        if ( d_data->scalePosition == QwtThermo::TrailingScale )
-            pipeRect.setTop( cr.top() + cr.height() - bw - d_data->pipeWidth );
+        if ( m_data->scalePosition == QwtThermo::TrailingScale )
+            pipeRect.setTop( cr.top() + cr.height() - bw - m_data->pipeWidth );
         else
             pipeRect.setTop( bw );
 
-        pipeRect.setHeight( d_data->pipeWidth );
+        pipeRect.setHeight( m_data->pipeWidth );
     }
     else // Qt::Vertical
     {
         pipeRect.adjust( 0, scaleOff, 0, -scaleOff );
 
-        if ( d_data->scalePosition == QwtThermo::LeadingScale )
+        if ( m_data->scalePosition == QwtThermo::LeadingScale )
             pipeRect.setLeft( bw );
-        else 
-            pipeRect.setLeft( cr.left() + cr.width() - bw - d_data->pipeWidth );
+        else
+            pipeRect.setLeft( cr.left() + cr.width() - bw - m_data->pipeWidth );
 
-        pipeRect.setWidth( d_data->pipeWidth );
+        pipeRect.setWidth( m_data->pipeWidth );
     }
 
     return pipeRect;
 }
 
 /*!
-  \brief Set the orientation.
-  \param orientation Allowed values are Qt::Horizontal and Qt::Vertical.
+   \brief Set the orientation.
+   \param orientation Allowed values are Qt::Horizontal and Qt::Vertical.
 
-  \sa orientation(), scalePosition()
-*/
+   \sa orientation(), scalePosition()
+ */
 void QwtThermo::setOrientation( Qt::Orientation orientation )
 {
-    if ( orientation == d_data->orientation )
+    if ( orientation == m_data->orientation )
         return;
 
-    d_data->orientation = orientation;
+    m_data->orientation = orientation;
 
     if ( !testAttribute( Qt::WA_WState_OwnSizePolicy ) )
     {
@@ -445,75 +449,75 @@ void QwtThermo::setOrientation( Qt::Orientation orientation )
 }
 
 /*!
-  \return Orientation
-  \sa setOrientation()
-*/
+   \return Orientation
+   \sa setOrientation()
+ */
 Qt::Orientation QwtThermo::orientation() const
 {
-    return d_data->orientation;
+    return m_data->orientation;
 }
 
 /*!
-  \brief Change how the origin is determined.
-  \sa originMode(), serOrigin(), origin()
+   \brief Change how the origin is determined.
+   \sa originMode(), serOrigin(), origin()
  */
 void QwtThermo::setOriginMode( OriginMode m )
 {
-    if ( m == d_data->originMode )
+    if ( m == m_data->originMode )
         return;
 
-    d_data->originMode = m;
+    m_data->originMode = m;
     update();
 }
 
 /*!
-  \return Mode, how the origin is determined.
-  \sa setOriginMode(), serOrigin(), origin()
+   \return Mode, how the origin is determined.
+   \sa setOriginMode(), serOrigin(), origin()
  */
 QwtThermo::OriginMode QwtThermo::originMode() const
 {
-    return d_data->originMode;
+    return m_data->originMode;
 }
 
 /*!
-  \brief Specifies the custom origin.
+   \brief Specifies the custom origin.
 
-  If originMode is set to OriginCustom this property controls where the
-  liquid starts.
+   If originMode is set to OriginCustom this property controls where the
+   liquid starts.
 
-  \param origin New origin level
-  \sa setOriginMode(), originMode(), origin()
+   \param origin New origin level
+   \sa setOriginMode(), originMode(), origin()
  */
 void QwtThermo::setOrigin( double origin )
 {
-    if ( origin == d_data->origin )
+    if ( origin == m_data->origin )
         return;
 
-    d_data->origin = origin;
+    m_data->origin = origin;
     update();
 }
 
 /*!
-  \return Origin of the thermo, when OriginCustom is enabled
-  \sa setOrigin(), setOriginMode(), originMode()
+   \return Origin of the thermo, when OriginCustom is enabled
+   \sa setOrigin(), setOriginMode(), originMode()
  */
 double QwtThermo::origin() const
 {
-    return d_data->origin;
+    return m_data->origin;
 }
 
 /*!
-  \brief Change the position of the scale
-  \param scalePosition Position of the scale.
+   \brief Change the position of the scale
+   \param scalePosition Position of the scale.
 
-  \sa ScalePosition, scalePosition()
-*/
+   \sa ScalePosition, scalePosition()
+ */
 void QwtThermo::setScalePosition( ScalePosition scalePosition )
 {
-    if ( d_data->scalePosition == scalePosition )
+    if ( m_data->scalePosition == scalePosition )
         return;
 
-    d_data->scalePosition = scalePosition;
+    m_data->scalePosition = scalePosition;
 
     if ( testAttribute( Qt::WA_WState_Polished ) )
         layoutThermo( true );
@@ -522,10 +526,10 @@ void QwtThermo::setScalePosition( ScalePosition scalePosition )
 /*!
    \return Scale position.
    \sa setScalePosition()
-*/
+ */
 QwtThermo::ScalePosition QwtThermo::scalePosition() const
 {
-    return d_data->scalePosition;
+    return m_data->scalePosition;
 }
 
 //! Notify a scale change.
@@ -538,9 +542,9 @@ void QwtThermo::scaleChange()
    Redraw the liquid in thermometer pipe.
    \param painter Painter
    \param pipeRect Bounding rectangle of the pipe without borders
-*/
-void QwtThermo::drawLiquid( 
-    QPainter *painter, const QRect &pipeRect ) const
+ */
+void QwtThermo::drawLiquid(
+    QPainter* painter, const QRect& pipeRect ) const
 {
     painter->save();
     painter->setClipRect( pipeRect, Qt::IntersectClip );
@@ -550,27 +554,27 @@ void QwtThermo::drawLiquid(
 
     QRect liquidRect = fillRect( pipeRect );
 
-    if ( d_data->colorMap != NULL )
+    if ( m_data->colorMap != NULL )
     {
         const QwtInterval interval = scaleDiv().interval().normalized();
 
         // Because the positions of the ticks are rounded
         // we calculate the colors for the rounded tick values
 
-        QVector<double> values = qwtTickList( scaleDraw()->scaleDiv() );
+        QVector< double > values = qwtTickList( scaleDraw()->scaleDiv() );
 
         if ( scaleMap.isInverting() )
-            qSort( values.begin(), values.end(), qGreater<double>() );
+            std::sort( values.begin(), values.end(), std::greater< double >() );
         else
-            qSort( values.begin(), values.end(), qLess<double>() );
+            std::sort( values.begin(), values.end(), std::less< double >() );
 
         int from;
         if ( !values.isEmpty() )
         {
             from = qRound( scaleMap.transform( values[0] ) );
             qwtDrawLine( painter, from,
-                d_data->colorMap->color( interval, values[0] ),
-                pipeRect, liquidRect, d_data->orientation );
+                m_data->colorMap->color( interval, values[0] ),
+                pipeRect, liquidRect, m_data->orientation );
         }
 
         for ( int i = 1; i < values.size(); i++ )
@@ -581,21 +585,21 @@ void QwtThermo::drawLiquid(
             {
                 const double v = scaleMap.invTransform( pos );
 
-                qwtDrawLine( painter, pos, 
-                    d_data->colorMap->color( interval, v ),
-                    pipeRect, liquidRect, d_data->orientation );
+                qwtDrawLine( painter, pos,
+                    m_data->colorMap->color( interval, v ),
+                    pipeRect, liquidRect, m_data->orientation );
             }
 
             qwtDrawLine( painter, to,
-                d_data->colorMap->color( interval, values[i] ),
-                pipeRect, liquidRect, d_data->orientation );
+                m_data->colorMap->color( interval, values[i] ),
+                pipeRect, liquidRect, m_data->orientation );
 
             from = to;
         }
     }
     else
     {
-        if ( !liquidRect.isEmpty() && d_data->alarmEnabled )
+        if ( !liquidRect.isEmpty() && m_data->alarmEnabled )
         {
             const QRect r = alarmRect( liquidRect );
             if ( !r.isEmpty() )
@@ -612,50 +616,50 @@ void QwtThermo::drawLiquid(
 }
 
 /*!
-  \brief Change the spacing between pipe and scale
+   \brief Change the spacing between pipe and scale
 
-  A spacing of 0 means, that the backbone of the scale is below
-  the pipe.
+   A spacing of 0 means, that the backbone of the scale is below
+   the pipe.
 
-  The default setting is 3 pixels.
+   The default setting is 3 pixels.
 
-  \param spacing Number of pixels
-  \sa spacing();
-*/
+   \param spacing Number of pixels
+   \sa spacing();
+ */
 void QwtThermo::setSpacing( int spacing )
 {
     if ( spacing <= 0 )
         spacing = 0;
 
-    if ( spacing != d_data->spacing  )
+    if ( spacing != m_data->spacing  )
     {
-        d_data->spacing = spacing;
+        m_data->spacing = spacing;
         layoutThermo( true );
     }
 }
 
 /*!
-  \return Number of pixels between pipe and scale
-  \sa setSpacing()
-*/
+   \return Number of pixels between pipe and scale
+   \sa setSpacing()
+ */
 int QwtThermo::spacing() const
 {
-    return d_data->spacing;
+    return m_data->spacing;
 }
 
 /*!
    Set the border width of the pipe.
    \param width Border width
    \sa borderWidth()
-*/
+ */
 void QwtThermo::setBorderWidth( int width )
 {
     if ( width <= 0 )
         width = 0;
 
-    if ( width != d_data->borderWidth  )
+    if ( width != m_data->borderWidth  )
     {
-        d_data->borderWidth = width;
+        m_data->borderWidth = width;
         layoutThermo( true );
     }
 }
@@ -663,56 +667,56 @@ void QwtThermo::setBorderWidth( int width )
 /*!
    \return Border width of the thermometer pipe.
    \sa setBorderWidth()
-*/
+ */
 int QwtThermo::borderWidth() const
 {
-    return d_data->borderWidth;
+    return m_data->borderWidth;
 }
 
 /*!
-  \brief Assign a color map for the fill color
+   \brief Assign a color map for the fill color
 
-  \param colorMap Color map
-  \warning The alarm threshold has no effect, when
+   \param colorMap Color map
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
-void QwtThermo::setColorMap( QwtColorMap *colorMap )
+ */
+void QwtThermo::setColorMap( QwtColorMap* colorMap )
 {
-    if ( colorMap != d_data->colorMap )
+    if ( colorMap != m_data->colorMap )
     {
-        delete d_data->colorMap;
-        d_data->colorMap = colorMap;
+        delete m_data->colorMap;
+        m_data->colorMap = colorMap;
     }
 }
 
 /*!
-  \return Color map for the fill color
-  \warning The alarm threshold has no effect, when
+   \return Color map for the fill color
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
-QwtColorMap *QwtThermo::colorMap()
+ */
+QwtColorMap* QwtThermo::colorMap()
 {
-    return d_data->colorMap;
+    return m_data->colorMap;
 }
 
 /*!
-  \return Color map for the fill color
-  \warning The alarm threshold has no effect, when
+   \return Color map for the fill color
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
-const QwtColorMap *QwtThermo::colorMap() const
+ */
+const QwtColorMap* QwtThermo::colorMap() const
 {
-    return d_data->colorMap;
+    return m_data->colorMap;
 }
 
 /*!
-  \brief Change the brush of the liquid.
- 
-  Changes the QPalette::ButtonText brush of the palette.
+   \brief Change the brush of the liquid.
 
-  \param brush New brush. 
-  \sa fillBrush(), QWidget::setPalette()
-*/
+   Changes the QPalette::ButtonText brush of the palette.
+
+   \param brush New brush.
+   \sa fillBrush(), QWidget::setPalette()
+ */
 void QwtThermo::setFillBrush( const QBrush& brush )
 {
     QPalette pal = palette();
@@ -721,25 +725,25 @@ void QwtThermo::setFillBrush( const QBrush& brush )
 }
 
 /*!
-  \return Liquid ( QPalette::ButtonText ) brush. 
-  \sa setFillBrush(), QWidget::palette()
-*/
+   \return Liquid ( QPalette::ButtonText ) brush.
+   \sa setFillBrush(), QWidget::palette()
+ */
 QBrush QwtThermo::fillBrush() const
 {
     return palette().brush( QPalette::ButtonText );
 }
 
 /*!
-  \brief Specify the liquid brush above the alarm threshold
+   \brief Specify the liquid brush above the alarm threshold
 
-  Changes the QPalette::Highlight brush of the palette.
+   Changes the QPalette::Highlight brush of the palette.
 
-  \param brush New brush. 
-  \sa alarmBrush(), QWidget::setPalette()
+   \param brush New brush.
+   \sa alarmBrush(), QWidget::setPalette()
 
-  \warning The alarm threshold has no effect, when
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
+ */
 void QwtThermo::setAlarmBrush( const QBrush& brush )
 {
     QPalette pal = palette();
@@ -748,175 +752,174 @@ void QwtThermo::setAlarmBrush( const QBrush& brush )
 }
 
 /*!
-  \return Liquid brush ( QPalette::Highlight ) above the alarm threshold.
-  \sa setAlarmBrush(), QWidget::palette()
+   \return Liquid brush ( QPalette::Highlight ) above the alarm threshold.
+   \sa setAlarmBrush(), QWidget::palette()
 
-  \warning The alarm threshold has no effect, when
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
+ */
 QBrush QwtThermo::alarmBrush() const
 {
     return palette().brush( QPalette::Highlight );
 }
 
 /*!
-  Specify the alarm threshold.
+   Specify the alarm threshold.
 
-  \param level Alarm threshold
-  \sa alarmLevel()
+   \param level Alarm threshold
+   \sa alarmLevel()
 
-  \warning The alarm threshold has no effect, when
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
+ */
 void QwtThermo::setAlarmLevel( double level )
 {
-    d_data->alarmLevel = level;
-    d_data->alarmEnabled = 1;
+    m_data->alarmLevel = level;
+    m_data->alarmEnabled = 1;
     update();
 }
 
 /*!
-  \return Alarm threshold.
-  \sa setAlarmLevel()
+   \return Alarm threshold.
+   \sa setAlarmLevel()
 
-  \warning The alarm threshold has no effect, when
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
+ */
 double QwtThermo::alarmLevel() const
 {
-    return d_data->alarmLevel;
+    return m_data->alarmLevel;
 }
 
 /*!
-  Change the width of the pipe.
+   Change the width of the pipe.
 
-  \param width Width of the pipe
-  \sa pipeWidth()
-*/
+   \param width Width of the pipe
+   \sa pipeWidth()
+ */
 void QwtThermo::setPipeWidth( int width )
 {
     if ( width > 0 )
     {
-        d_data->pipeWidth = width;
+        m_data->pipeWidth = width;
         layoutThermo( true );
     }
 }
 
 /*!
-  \return Width of the pipe.
-  \sa setPipeWidth()
-*/
+   \return Width of the pipe.
+   \sa setPipeWidth()
+ */
 int QwtThermo::pipeWidth() const
 {
-    return d_data->pipeWidth;
+    return m_data->pipeWidth;
 }
 
 /*!
-  \brief Enable or disable the alarm threshold
-  \param on true (disabled) or false (enabled)
+   \brief Enable or disable the alarm threshold
+   \param on true (disabled) or false (enabled)
 
-  \warning The alarm threshold has no effect, when
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
+ */
 void QwtThermo::setAlarmEnabled( bool on )
 {
-    d_data->alarmEnabled = on;
+    m_data->alarmEnabled = on;
     update();
 }
 
-/*! 
-  \return True, when the alarm threshold is enabled.
+/*!
+   \return True, when the alarm threshold is enabled.
 
-  \warning The alarm threshold has no effect, when
+   \warning The alarm threshold has no effect, when
            a color map has been assigned
-*/
+ */
 bool QwtThermo::alarmEnabled() const
 {
-    return d_data->alarmEnabled;
+    return m_data->alarmEnabled;
 }
 
 /*!
-  \return the minimum size hint
-  \sa minimumSizeHint()
-*/
+   \return the minimum size hint
+   \sa minimumSizeHint()
+ */
 QSize QwtThermo::sizeHint() const
 {
     return minimumSizeHint();
 }
 
 /*!
-  \return Minimum size hint
-  \warning The return value depends on the font and the scale.
-  \sa sizeHint()
-*/
+   \return Minimum size hint
+   \warning The return value depends on the font and the scale.
+   \sa sizeHint()
+ */
 QSize QwtThermo::minimumSizeHint() const
 {
     int w = 0, h = 0;
 
-    if ( d_data->scalePosition != NoScale )
+    if ( m_data->scalePosition != NoScale )
     {
-        const int sdExtent = qCeil( scaleDraw()->extent( font() ) );
+        const int sdExtent = qwtCeil( scaleDraw()->extent( font() ) );
         const int sdLength = scaleDraw()->minLength( font() );
 
         w = sdLength;
-        h = d_data->pipeWidth + sdExtent + d_data->spacing;
+        h = m_data->pipeWidth + sdExtent + m_data->spacing;
 
     }
     else // no scale
     {
         w = 200;
-        h = d_data->pipeWidth;
+        h = m_data->pipeWidth;
     }
 
-    if ( d_data->orientation == Qt::Vertical )
+    if ( m_data->orientation == Qt::Vertical )
         qSwap( w, h );
 
-    w += 2 * d_data->borderWidth;
-    h += 2 * d_data->borderWidth;
+    w += 2 * m_data->borderWidth;
+    h += 2 * m_data->borderWidth;
 
     // finally add the margins
-    int left, right, top, bottom;
-    getContentsMargins( &left, &top, &right, &bottom );
-    w += left + right;
-    h += top + bottom;
+    const QMargins m = contentsMargins();
+    w += m.left() + m.right();
+    h += m.top() + m.bottom();
 
     return QSize( w, h );
 }
 
 /*!
-  \brief Calculate the filled rectangle of the pipe
+   \brief Calculate the filled rectangle of the pipe
 
-  \param pipeRect Rectangle of the pipe
-  \return Rectangle to be filled ( fill and alarm brush )
+   \param pipeRect Rectangle of the pipe
+   \return Rectangle to be filled ( fill and alarm brush )
 
-  \sa pipeRect(), alarmRect()
+   \sa pipeRect(), alarmRect()
  */
-QRect QwtThermo::fillRect( const QRect &pipeRect ) const
+QRect QwtThermo::fillRect( const QRect& pipeRect ) const
 {
-    double origin;        
-    if ( d_data->originMode == OriginMinimum )
+    double origin;
+    if ( m_data->originMode == OriginMinimum )
     {
         origin = qMin( lowerBound(), upperBound() );
     }
-    else if ( d_data->originMode == OriginMaximum )
+    else if ( m_data->originMode == OriginMaximum )
     {
         origin = qMax( lowerBound(), upperBound() );
     }
     else // OriginCustom
     {
-        origin = d_data->origin;
+        origin = m_data->origin;
     }
 
     const QwtScaleMap scaleMap = scaleDraw()->scaleMap();
 
-    int from = qRound( scaleMap.transform( d_data->value ) );
+    int from = qRound( scaleMap.transform( m_data->value ) );
     int to = qRound( scaleMap.transform( origin ) );
 
     if ( to < from )
         qSwap( from, to );
-    
+
     QRect fillRect = pipeRect;
-    if ( d_data->orientation == Qt::Horizontal )
+    if ( m_data->orientation == Qt::Horizontal )
     {
         fillRect.setLeft( from );
         fillRect.setRight( to );
@@ -931,37 +934,37 @@ QRect QwtThermo::fillRect( const QRect &pipeRect ) const
 }
 
 /*!
-  \brief Calculate the alarm rectangle of the pipe
+   \brief Calculate the alarm rectangle of the pipe
 
-  \param fillRect Filled rectangle in the pipe
-  \return Rectangle to be filled with the alarm brush
+   \param fillRect Filled rectangle in the pipe
+   \return Rectangle to be filled with the alarm brush
 
-  \sa pipeRect(), fillRect(), alarmLevel(), alarmBrush()
+   \sa pipeRect(), fillRect(), alarmLevel(), alarmBrush()
  */
-QRect QwtThermo::alarmRect( const QRect &fillRect ) const
+QRect QwtThermo::alarmRect( const QRect& fillRect ) const
 {
     QRect alarmRect( 0, 0, -1, -1); // something invalid
 
-    if ( !d_data->alarmEnabled )
+    if ( !m_data->alarmEnabled )
         return alarmRect;
 
     const bool inverted = ( upperBound() < lowerBound() );
-    
+
     bool increasing;
-    if ( d_data->originMode == OriginCustom )
+    if ( m_data->originMode == OriginCustom )
     {
-        increasing = d_data->value > d_data->origin;
+        increasing = m_data->value > m_data->origin;
     }
     else
     {
-        increasing = d_data->originMode == OriginMinimum;
+        increasing = m_data->originMode == OriginMinimum;
     }
 
     const QwtScaleMap map = scaleDraw()->scaleMap();
-    const int alarmPos = qRound( map.transform( d_data->alarmLevel ) );
-    const int valuePos = qRound( map.transform( d_data->value ) );
-    
-    if ( d_data->orientation == Qt::Horizontal )
+    const int alarmPos = qRound( map.transform( m_data->alarmLevel ) );
+    const int valuePos = qRound( map.transform( m_data->value ) );
+
+    if ( m_data->orientation == Qt::Horizontal )
     {
         int v1, v2;
         if ( inverted )
@@ -1002,4 +1005,8 @@ QRect QwtThermo::alarmRect( const QRect &fillRect ) const
     }
 
     return alarmRect;
-} 
+}
+
+#if QWT_MOC_INCLUDE
+#include "moc_qwt_thermo.cpp"
+#endif

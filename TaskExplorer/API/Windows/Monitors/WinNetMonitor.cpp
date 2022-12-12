@@ -1,25 +1,13 @@
 /*
- * Process Hacker Plugins -
+ * System Informer Plugins -
  *   qt port of Hardware Devices Plugin
  *
  * Copyright (C) 2016 wj32
  * Copyright (C) 2015-2018 dmex
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
+ * This file is part of Task Explorer and contains System Informer code.
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "stdafx.h"
@@ -148,7 +136,7 @@ BOOLEAN QueryNetworkDeviceInterfaceDescription(
 
 bool CWinNetMonitor::UpdateAdapters()
 {
-	QSet<QString> OldNics = m_NicList.keys().toSet();
+	QSet<QString> OldNics = ListToSet(m_NicList.keys());
 
 	/*if (1)
     {
@@ -299,7 +287,7 @@ bool CWinNetMonitor::UpdateAdapters()
 
 				QString deviceInstanceID = CastPhString(PhQueryRegistryString(keyHandle, L"DeviceInstanceID"));
 
-				// Don't list virtual RAS adapters
+				// Don't std::list virtual RAS adapters
 				// Note: some USB adapters have PhysicalMediaType not set so also check for the deviceInstanceID value
 				if (PhysicalMediaType != NdisPhysicalMediumUnspecified || deviceInstanceID.left(14) != "SWD\\MSRRAS\\MS_")
 				{
@@ -430,7 +418,7 @@ void CWinNetMonitor::UpdateNetStats()
 
 	if (!RasCons.isEmpty())
 	{
-		QSet<QString> OldNics = m_NicList.keys().toSet();
+		QSet<QString> OldNics = ListToSet(m_NicList.keys());
 
 		MIB_IF_TABLE2* pIfTable = NULL;
 		if (GetIfTable2(&pIfTable) == NO_ERROR)
@@ -582,7 +570,7 @@ void CWinNetMonitor::UpdateNetStats()
 
 		if (EnableNDIS && entry->DeviceSupported)
 		{
-			wstring DeviceInterface = entry->DeviceInterface.toStdWString();
+			std::wstring DeviceInterface = entry->DeviceInterface.toStdWString();
 			PWSTR deviceInterface = (PWSTR)DeviceInterface.c_str();
 			if (NT_SUCCESS(PhCreateFileWin32(
 				&deviceHandle,

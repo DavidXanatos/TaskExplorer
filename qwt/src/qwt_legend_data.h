@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -11,30 +11,31 @@
 #define QWT_LEGEND_DATA_H
 
 #include "qwt_global.h"
-#include "qwt_text.h"
-#include "qwt_graphic.h"
+
 #include <qvariant.h>
-#include <qpixmap.h>
 #include <qmap.h>
 
+class QwtText;
+class QwtGraphic;
+
 /*!
-  \brief Attributes of an entry on a legend
+   \brief Attributes of an entry on a legend
 
-  QwtLegendData is an abstract container ( like QAbstractModel )
-  to exchange attributes, that are only known between to 
-  the plot item and the legend. 
-  
-  By overloading QwtPlotItem::legendData() any other set of attributes
-  could be used, that can be handled by a modified ( or completely 
-  different ) implementation of a legend.
+   QwtLegendData is an abstract container ( like QAbstractModel )
+   to exchange attributes, that are only known between to
+   the plot item and the legend.
 
-  \sa QwtLegend, QwtPlotLegendItem
-  \note The stockchart example implements a legend as a tree
+   By overloading QwtPlotItem::legendData() any other set of attributes
+   could be used, that can be handled by a modified ( or completely
+   different ) implementation of a legend.
+
+   \sa QwtLegend, QwtPlotLegendItem
+   \note The stockchart example implements a legend as a tree
         with checkable items
  */
 class QWT_EXPORT QwtLegendData
 {
-public:
+  public:
     //! Mode defining how a legend entry interacts
     enum Mode
     {
@@ -48,17 +49,17 @@ public:
         Checkable
     };
 
-    //! Identifier how to interprete a QVariant
+    //! Identifier how to interpret a QVariant
     enum Role
     {
         // The value is a Mode
-        ModeRole, 
+        ModeRole,
 
         // The value is a title
-        TitleRole, 
+        TitleRole,
 
         // The value is an icon
-        IconRole, 
+        IconRole,
 
         // Values < UserRole are reserved for internal use
         UserRole  = 32
@@ -67,10 +68,10 @@ public:
     QwtLegendData();
     ~QwtLegendData();
 
-    void setValues( const QMap<int, QVariant> & );
-    const QMap<int, QVariant> &values() const;
+    void setValues( const QMap< int, QVariant >& );
+    const QMap< int, QVariant >& values() const;
 
-    void setValue( int role, const QVariant & );
+    void setValue( int role, const QVariant& );
     QVariant value( int role ) const;
 
     bool hasRole( int role ) const;
@@ -80,8 +81,8 @@ public:
     QwtText title() const;
     Mode mode() const;
 
-private:
-    QMap<int, QVariant> d_map;
+  private:
+    QMap< int, QVariant > m_map;
 };
 
 #endif

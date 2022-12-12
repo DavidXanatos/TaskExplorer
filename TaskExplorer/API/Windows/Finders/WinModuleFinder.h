@@ -6,12 +6,12 @@ class CWinModuleFinder : public CAbstractFinder
 	Q_OBJECT
 
 public:
-	CWinModuleFinder(const QVariant& Type, const QRegExp& RegExp, QObject* parent = NULL);
+	CWinModuleFinder(const QVariant& Type, const QRegularExpression& RegExp, QObject* parent = NULL);
 	virtual ~CWinModuleFinder();
 
 protected:
 	virtual void run();
 
 	QVariant m_Type;
-	QRegExp m_RegExp;
+	QRegularExpression m_RegExp;
 };

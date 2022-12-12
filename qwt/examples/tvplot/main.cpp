@@ -1,57 +1,59 @@
-#include <qapplication.h>
-#include <qmainwindow.h>
-#include <qtoolbar.h>
-#include <qtoolbutton.h>
-#include <qcombobox.h>
-#include "tvplot.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class MainWindow: public QMainWindow
+#include "TVPlot.h"
+
+#include <QApplication>
+#include <QMainWindow>
+#include <QToolBar>
+#include <QToolButton>
+#include <QComboBox>
+
+namespace
 {
-public:
-    MainWindow( QWidget * = NULL );
+    class MainWindow : public QMainWindow
+    {
+      public:
+        MainWindow()
+        {
+            TVPlot* plot = new TVPlot();
+            setCentralWidget( plot );
 
-private:
-    TVPlot *d_plot;
-};
+            QComboBox* typeBox = new QComboBox();
+            typeBox->addItem( "Outline" );
+            typeBox->addItem( "Columns" );
+            typeBox->addItem( "Lines" );
+            typeBox->addItem( "Column Symbol" );
+            typeBox->setCurrentIndex( typeBox->count() - 1 );
+            typeBox->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
 
-MainWindow::MainWindow( QWidget *parent ):
-    QMainWindow( parent )
-{
-    d_plot = new TVPlot( this );
-    setCentralWidget( d_plot );
+            QToolButton* btnExport = new QToolButton();
+            btnExport->setText( "Export" );
+            btnExport->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
+            connect( btnExport, SIGNAL(clicked()), plot, SLOT(exportPlot()) );
 
-    QToolBar *toolBar = new QToolBar( this );
+            QToolBar* toolBar = new QToolBar( this );
+            toolBar->addWidget( typeBox );
+            toolBar->addWidget( btnExport );
+            addToolBar( toolBar );
 
-    QComboBox *typeBox = new QComboBox( toolBar );
-    typeBox->addItem( "Outline" );
-    typeBox->addItem( "Columns" );
-    typeBox->addItem( "Lines" );
-    typeBox->addItem( "Column Symbol" );
-    typeBox->setCurrentIndex( typeBox->count() - 1 );
-    typeBox->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
-
-    QToolButton *btnExport = new QToolButton( toolBar );
-    btnExport->setText( "Export" );
-    btnExport->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
-    connect( btnExport, SIGNAL( clicked() ), d_plot, SLOT( exportPlot() ) );
-
-    toolBar->addWidget( typeBox );
-    toolBar->addWidget( btnExport );
-    addToolBar( toolBar );
-
-    d_plot->setMode( typeBox->currentIndex() );
-    connect( typeBox, SIGNAL( currentIndexChanged( int ) ),
-             d_plot, SLOT( setMode( int ) ) );
+            plot->setMode( typeBox->currentIndex() );
+            connect( typeBox, SIGNAL(currentIndexChanged(int)),
+                plot, SLOT(setMode(int)) );
+        }
+    };
 }
 
-int main( int argc, char **argv )
+int main( int argc, char* argv[] )
 {
-    QApplication a( argc, argv );
+    QApplication app( argc, argv );
 
-    MainWindow mainWindow;
+    MainWindow window;
 
-    mainWindow.resize( 600, 400 );
-    mainWindow.show();
+    window.resize( 600, 400 );
+    window.show();
 
-    return a.exec();
+    return app.exec();
 }

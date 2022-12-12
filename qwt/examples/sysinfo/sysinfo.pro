@@ -1,5 +1,5 @@
 ################################################################
-# Qwt Widget Library
+# Qwt Examples
 # Copyright (C) 1997   Josef Wilgen
 # Copyright (C) 2002   Uwe Rathmann
 #
@@ -12,4 +12,4 @@ include( $${PWD}/../examples.pri )
 TARGET  = sysinfo
 
 SOURCES = \
-    sysinfo.cpp 
+    main.cpp 

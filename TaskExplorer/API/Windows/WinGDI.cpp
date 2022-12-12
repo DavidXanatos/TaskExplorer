@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "WinGDI.h"
 #include "ProcessHacker.h"
+#define GDI_HANDLE_UNIQUE(Handle) ((ULONG)(Handle >> GDI_HANDLE_INDEX_BITS) & GDI_HANDLE_INDEX_MASK)
 
 
 CWinGDI::CWinGDI(QObject *parent) : CAbstractInfoEx(parent)

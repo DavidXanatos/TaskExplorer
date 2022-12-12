@@ -5,20 +5,8 @@
  * Copyright (C) 2011 wj32
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -31,7 +19,7 @@
 #include "../../SVC/TaskService.h"
 #include "Monitors/WinNetMonitor.h"
 
-#include <QtWin>
+//#include <QtWin>
 
 //exttools.h
 typedef enum _ET_FIREWALL_STATUS
@@ -45,7 +33,7 @@ typedef enum _ET_FIREWALL_STATUS
 } ET_FIREWALL_STATUS;
 
 //treeext.c
-ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, uint16_t LocalPort, bool bIPv6 = false, bool bUDP = false, bool bTCP = false);
+ET_FIREWALL_STATUS EtQueryFirewallStatus(std::wstring FileName, WCHAR* LocalAddress, uint16_t LocalPort, bool bIPv6 = false, bool bUDP = false, bool bTCP = false);
 
 
 struct SWinSocket
@@ -122,7 +110,7 @@ bool CWinSocket::InitStaticData(quint64 ProcessId, quint32 ProtocolType,
 	else
 		m_ProcessName = tr("Unknown process PID: %1").arg(m_ProcessId);
 
-	// generate a somewhat unique id to optimize map search
+	// generate a somewhat unique id to optimize std::map search
 	m_HashID = CSocketInfo::MkHash(ProcessId, ProtocolType, LocalAddress, LocalPort, RemoteAddress, RemotePort);
 
 	return true;
@@ -298,7 +286,7 @@ QString CWinSocket::GetFirewallStatusString()
 static GUID IID_INetFwMgr_I = { 0xf7898af5, 0xcac4, 0x4632, { 0xa2, 0xec, 0xda, 0x06, 0xe5, 0x11, 0x1a, 0xf2 } };
 static GUID CLSID_NetFwMgr_I = { 0x304ce942, 0x6e39, 0x40d8, { 0x94, 0x3a, 0xb9, 0x13, 0xc4, 0x0c, 0x9c, 0xd4 } };
 
-ET_FIREWALL_STATUS EtQueryFirewallStatus(wstring FileName, WCHAR* LocalAddress, uint16_t LocalPort, bool bIPv6, bool bUDP, bool bTCP)
+ET_FIREWALL_STATUS EtQueryFirewallStatus(std::wstring FileName, WCHAR* LocalAddress, uint16_t LocalPort, bool bIPv6, bool bUDP, bool bTCP)
 {
     static INetFwMgr* manager = NULL;
     ET_FIREWALL_STATUS result;

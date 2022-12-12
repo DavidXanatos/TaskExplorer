@@ -1,23 +1,12 @@
 /*
- * Process Hacker .NET Tools -
- *   .NET Process IPC definitions
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2015-2016 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2015-2016
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 // Licensed to the .NET Foundation under one or more agreements.
@@ -130,10 +119,9 @@ C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, NumOfUsedSlots) == 0xC);
 C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, LastFreedSlot) == 0x10);
 C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, SizeInBytes) == 0x14);
 C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, ProcessNameLengthInBytes) == 0x18);
-// TODO: Why does Visual Studio have issues with these entries...
-//C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, ProcessName) == 0x20);
-//C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, ListOfAppDomains) == 0x28);
-//C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, LockInvalid) == 0x30);
+C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, ProcessName) == 0x20);
+C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, ListOfAppDomains) == 0x28);
+C_ASSERT(FIELD_OFFSET(AppDomainEnumerationIPCBlock, LockInvalid) == 0x30);
 #endif
 
 #endif _DBG_APPDOMAIN_H_

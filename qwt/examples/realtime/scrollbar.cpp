@@ -1,23 +1,28 @@
-#include <qstyle.h>
-#include <qstyleoption.h>
-#include "scrollbar.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-ScrollBar::ScrollBar( QWidget * parent ):
-    QScrollBar( parent )
+#include "ScrollBar.h"
+
+#include <QStyle>
+#include <QStyleOption>
+
+ScrollBar::ScrollBar( QWidget* parent )
+    : QScrollBar( parent )
 {
     init();
 }
 
-ScrollBar::ScrollBar( Qt::Orientation o,
-        QWidget *parent ):
-    QScrollBar( o, parent )
+ScrollBar::ScrollBar( Qt::Orientation o, QWidget* parent )
+    : QScrollBar( o, parent )
 {
     init();
 }
 
 ScrollBar::ScrollBar( double minBase, double maxBase,
-        Qt::Orientation o, QWidget *parent ):
-    QScrollBar( o, parent )
+        Qt::Orientation o, QWidget* parent )
+    : QScrollBar( o, parent )
 {
     init();
     setBase( minBase, maxBase );
@@ -26,36 +31,36 @@ ScrollBar::ScrollBar( double minBase, double maxBase,
 
 void ScrollBar::init()
 {
-    d_inverted = orientation() == Qt::Vertical;
-    d_baseTicks = 1000000;
-    d_minBase = 0.0;
-    d_maxBase = 1.0;
-    moveSlider( d_minBase, d_maxBase );
+    m_inverted = orientation() == Qt::Vertical;
+    m_baseTicks = 1000000;
+    m_minBase = 0.0;
+    m_maxBase = 1.0;
+    moveSlider( m_minBase, m_maxBase );
 
-    connect( this, SIGNAL( sliderMoved( int ) ), SLOT( catchSliderMoved( int ) ) );
-    connect( this, SIGNAL( valueChanged( int ) ), SLOT( catchValueChanged( int ) ) );
+    connect( this, SIGNAL(sliderMoved(int)), SLOT(catchSliderMoved(int)) );
+    connect( this, SIGNAL(valueChanged(int)), SLOT(catchValueChanged(int)) );
 }
 
 void ScrollBar::setInverted( bool inverted )
 {
-    if ( d_inverted != inverted )
+    if ( m_inverted != inverted )
     {
-        d_inverted = inverted;
+        m_inverted = inverted;
         moveSlider( minSliderValue(), maxSliderValue() );
     }
 }
 
 bool ScrollBar::isInverted() const
 {
-    return d_inverted;
+    return m_inverted;
 }
 
 void ScrollBar::setBase( double min, double max )
 {
-    if ( min != d_minBase || max != d_maxBase )
+    if ( min != m_minBase || max != m_maxBase )
     {
-        d_minBase = min;
-        d_maxBase = max;
+        m_minBase = min;
+        m_maxBase = max;
 
         moveSlider( minSliderValue(), maxSliderValue() );
     }
@@ -64,7 +69,7 @@ void ScrollBar::setBase( double min, double max )
 void ScrollBar::moveSlider( double min, double max )
 {
     const int sliderTicks = qRound( ( max - min ) /
-        ( d_maxBase - d_minBase ) * d_baseTicks );
+        ( m_maxBase - m_minBase ) * m_baseTicks );
 
     // setRange initiates a valueChanged of the scrollbars
     // in some situations. So we block
@@ -72,7 +77,7 @@ void ScrollBar::moveSlider( double min, double max )
 
     blockSignals( true );
 
-    setRange( sliderTicks / 2, d_baseTicks - sliderTicks / 2 );
+    setRange( sliderTicks / 2, m_baseTicks - sliderTicks / 2 );
     int steps = sliderTicks / 200;
     if ( steps <= 0 )
         steps = 1;
@@ -82,7 +87,7 @@ void ScrollBar::moveSlider( double min, double max )
 
     int tick = mapToTick( min + ( max - min ) / 2 );
     if ( isInverted() )
-        tick = d_baseTicks - tick;
+        tick = m_baseTicks - tick;
 
     setSliderPosition( tick );
     blockSignals( false );
@@ -90,18 +95,18 @@ void ScrollBar::moveSlider( double min, double max )
 
 double ScrollBar::minBaseValue() const
 {
-    return d_minBase;
+    return m_minBase;
 }
 
 double ScrollBar::maxBaseValue() const
 {
-    return d_maxBase;
+    return m_maxBase;
 }
 
-void ScrollBar::sliderRange( int value, double &min, double &max ) const
+void ScrollBar::sliderRange( int value, double& min, double& max ) const
 {
     if ( isInverted() )
-        value = d_baseTicks - value;
+        value = m_baseTicks - value;
 
     const int visibleTicks = pageStep();
 
@@ -127,13 +132,13 @@ double ScrollBar::maxSliderValue() const
 
 int ScrollBar::mapToTick( double v ) const
 {
-    const double pos = ( v - d_minBase ) / ( d_maxBase - d_minBase ) * d_baseTicks;
-    return static_cast<int>( pos );
+    const double pos = ( v - m_minBase ) / ( m_maxBase - m_minBase ) * m_baseTicks;
+    return static_cast< int >( pos );
 }
 
 double ScrollBar::mapFromTick( int tick ) const
 {
-    return d_minBase + ( d_maxBase - d_minBase ) * tick / d_baseTicks;
+    return m_minBase + ( m_maxBase - m_minBase ) * tick / m_baseTicks;
 }
 
 void ScrollBar::catchValueChanged( int value )
@@ -153,7 +158,7 @@ void ScrollBar::catchSliderMoved( int value )
 int ScrollBar::extent() const
 {
     QStyleOptionSlider opt;
-    opt.init( this );
+    opt.initFrom( this );
     opt.subControls = QStyle::SC_None;
     opt.activeSubControls = QStyle::SC_None;
     opt.orientation = orientation();
@@ -164,7 +169,11 @@ int ScrollBar::extent() const
     opt.singleStep = singleStep();
     opt.pageStep = pageStep();
     opt.upsideDown = invertedAppearance();
+
     if ( orientation() == Qt::Horizontal )
         opt.state |= QStyle::State_Horizontal;
+
     return style()->pixelMetric( QStyle::PM_ScrollBarExtent, &opt, this );
 }
+
+#include "moc_ScrollBar.cpp"

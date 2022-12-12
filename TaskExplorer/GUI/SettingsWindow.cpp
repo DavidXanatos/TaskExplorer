@@ -24,7 +24,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", true));
 	ui.chkLinuxStyle->setTristate(true);
-	ui.chkLinuxStyle->setToolTip(tr("Linux CPU Usage shows 100% per core, i.e. if a process is using 2 cores to 100% it will show as 200% total cpu usage.\r\nPartiallyChecked state means apply only to thread list."));
+	ui.chkLinuxStyle->setToolTip(tr("Linux CPU Usage shows 100% per core, i.e. if a process is using 2 cores to 100% it will show as 200% total cpu usage.\r\nPartiallyChecked state means apply only to thread std::list."));
 	switch (theConf->GetInt("Options/LinuxStyleCPU", 2))
 	{
 	case 0:	ui.chkLinuxStyle->setCheckState(Qt::Unchecked); break;
@@ -123,7 +123,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 		}
 
 		pItem->setData(Qt::UserRole, Color.Name);
-		pItem->setBackgroundColor(QColor(ColorUse.first));
+		pItem->setBackground(QColor(ColorUse.first));
 
 		ui.colorList->addItem(pItem);
 	}
@@ -213,7 +213,7 @@ void CSettingsWindow::apply()
 		QListWidgetItem* pItem = ui.colorList->item(i);
 		QString Name = pItem->data(Qt::UserRole).toString();
 
-		QString ColorStr = pItem->backgroundColor().name();
+		QString ColorStr = pItem->background().color().name();
 
 		if (Name == "GridColor")
 			theConf->SetValue("Options/ShowGrid", pItem->checkState() == Qt::Checked);
@@ -243,9 +243,9 @@ void CSettingsWindow::reject()
 
 void CSettingsWindow::OnChangeColor(QListWidgetItem* pItem)
 {
-	QColor color = QColorDialog::getColor(pItem->backgroundColor(), this, "Select color");
+	QColor color = QColorDialog::getColor(pItem->background().color(), this, "Select color");
 	if (color.isValid())
-		pItem->setBackgroundColor(color);
+		pItem->setBackground(color);
 }
 
 void CSettingsWindow::OnChange()

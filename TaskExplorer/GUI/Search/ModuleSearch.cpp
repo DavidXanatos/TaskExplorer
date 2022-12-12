@@ -36,7 +36,13 @@ CAbstractFinder* CModuleSearch::NewFinder()
 	m_Modules.clear();
 	m_pModuleView->ShowModules(m_Modules);
 
-	QRegExp RegExp = QRegExp(m_pSearch->text(), Qt::CaseInsensitive, m_pRegExp->isChecked() ? QRegExp::RegExp : QRegExp::FixedString);
+	QString Exp;
+	if (m_pRegExp->isChecked())
+		Exp = m_pSearch->text();
+	else
+		Exp = QRegularExpression::wildcardToRegularExpression("*" + m_pSearch->text() + "*");
+	QRegularExpression RegExp = QRegularExpression(Exp, QRegularExpression::CaseInsensitiveOption);
+
 	bool bOk;
 	int Type = m_pType->currentData().toInt(&bOk);
 	if (!bOk)

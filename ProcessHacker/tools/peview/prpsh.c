@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   property sheet 
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 // NOTE: Copied from processhacker\ProcessHacker\procprp.c
@@ -240,11 +229,12 @@ static HWND PvpCreateSecurityButton(
 static HFONT PvpCreateFont(
     _In_ PWSTR Name,
     _In_ ULONG Size,
-    _In_ ULONG Weight
+    _In_ ULONG Weight,
+    _In_ LONG dpiValue
     )
 {
     return CreateFont(
-        -(LONG)PhMultiplyDivide(Size, PhGlobalDpi, 72),
+        -(LONG)PhMultiplyDivide(Size, dpiValue, 72),
         0,
         0,
         0,
@@ -262,20 +252,23 @@ static HFONT PvpCreateFont(
 }
 
 VOID PvpInitializeFont(
-    VOID
+    _In_ HWND hwnd
 )
 {
     NONCLIENTMETRICS metrics = { sizeof(metrics) };
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(hwnd);
 
     if (PhApplicationFont)
-        DeleteObject(PhApplicationFont);
+        DeleteFont(PhApplicationFont);
 
     if (
-        !(PhApplicationFont = PvpCreateFont(L"Microsoft Sans Serif", 8, FW_NORMAL)) &&
-        !(PhApplicationFont = PvpCreateFont(L"Tahoma", 8, FW_NORMAL))
+        !(PhApplicationFont = PvpCreateFont(L"Microsoft Sans Serif", 8, FW_NORMAL, dpiValue)) &&
+        !(PhApplicationFont = PvpCreateFont(L"Tahoma", 8, FW_NORMAL, dpiValue))
         )
     {
-        if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, 0, &metrics, 0))
+        if (PhGetSystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, dpiValue))
             PhApplicationFont = CreateFontIndirect(&metrics.lfMessageFont);
         else
             PhApplicationFont = NULL;
@@ -313,7 +306,7 @@ INT CALLBACK PvpPropSheetProc(
             HICON smallIcon;
             HICON largeIcon;
 
-            PvpInitializeFont();
+            PvpInitializeFont(hwndDlg);
 
             PhGetStockApplicationIcon(&smallIcon, &largeIcon);
             SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);
@@ -405,6 +398,11 @@ LRESULT CALLBACK PvpPropSheetWndProc(
             PhFree(propSheetContext);
         }
         break;
+    case WM_DPICHANGED:
+        {
+            PvpInitializeFont(hWnd);
+        }
+        break;
     case WM_COMMAND:
         {
             switch (LOWORD(wParam))
@@ -474,9 +472,12 @@ VOID PhpInitializePropSheetLayoutStage2(
     )
 {
     PH_RECTANGLE windowRectangle;
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(hwnd);
 
     windowRectangle.Position = PhGetIntegerPairSetting(L"MainWindowPosition");
-    windowRectangle.Size = PhGetScalableIntegerPairSetting(L"MainWindowSize", TRUE).Pair;
+    windowRectangle.Size = PhGetScalableIntegerPairSetting(L"MainWindowSize", TRUE, dpiValue).Pair;
 
     if (!windowRectangle.Position.X)
         return;

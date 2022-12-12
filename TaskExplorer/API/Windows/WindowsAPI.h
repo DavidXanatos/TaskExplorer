@@ -63,7 +63,7 @@ public:
 	virtual bool Init();
 
 	virtual QPair<QString, QString> SellectDriver();
-	virtual STATUS InitDriver(QString DeviceName, QString FileName, int SecurityLevel = 0);
+	virtual STATUS InitDriver(QString DeviceName, QString FileName);
 
 	virtual bool RootAvaiable();
 

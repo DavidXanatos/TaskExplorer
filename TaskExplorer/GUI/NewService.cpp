@@ -45,9 +45,9 @@ void CNewService::closeEvent(QCloseEvent *e)
 
 void CNewService::accept()
 {
-	wstring serviceName = ui.scvName->text().toStdWString();
-	wstring serviceDisplayName = ui.displayName->text().toStdWString();
-	wstring serviceBinaryPath = ui.binaryPath->text().replace("/","\\").toStdWString();
+	std::wstring serviceName = ui.scvName->text().toStdWString();
+	std::wstring serviceDisplayName = ui.displayName->text().toStdWString();
+	std::wstring serviceBinaryPath = ui.binaryPath->text().replace("/","\\").toStdWString();
 
 	quint64 serviceType = ui.svcType->currentData().toInt();
 	quint64 serviceStartType = ui.startType->currentData().toInt();

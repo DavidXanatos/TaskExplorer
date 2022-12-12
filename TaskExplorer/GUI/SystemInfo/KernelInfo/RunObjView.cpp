@@ -5,20 +5,8 @@
  * Copyright (C) 2015 dmex
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -33,14 +21,14 @@ CRunObjView::CRunObjView(QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	// RunObj List
 	m_pRunObjModel = new CSimpleListModel();
 	m_pRunObjModel->setHeaderLabels(tr("Display name").split("|"));
 
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pRunObjModel);
 	m_pSortProxy->setDynamicSortFilter(true);

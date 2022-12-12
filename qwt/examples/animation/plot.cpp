@@ -1,48 +1,50 @@
-#include <qapplication.h>
-#include <qwt_math.h>
-#include <qwt_symbol.h>
-#include <qwt_curve_fitter.h>
-#include <qwt_plot_curve.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_layout.h>
-#include <qevent.h>
-#include "plot.h"
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
-class Curve: public QwtPlotCurve
+#include "Plot.h"
+
+#include <QwtMath>
+#include <QwtSymbol>
+#include <QwtPlotCurve>
+#include <QwtPlotLayout>
+
+class Curve : public QwtPlotCurve
 {
-public:
-    void setTransformation( const QTransform &transform )
+  public:
+    void setTransformation( const QTransform& transform )
     {
-        d_transform = transform;
+        m_transform = transform;
     }
 
     virtual void updateSamples( double phase )
     {
-        setSamples( d_transform.map( points( phase ) ) );
+        setSamples( m_transform.map( points( phase ) ) );
     }
 
-private:
+  private:
     virtual QPolygonF points( double phase ) const = 0;
 
-private:
-    QTransform d_transform;
+  private:
+    QTransform m_transform;
 };
 
-class Curve1: public Curve
+class Curve1 : public Curve
 {
-public:
+  public:
     Curve1()
     {
         setPen( QColor( 150, 150, 200 ), 2 );
         setStyle( QwtPlotCurve::Lines );
 
-        QwtSplineCurveFitter *curveFitter = new QwtSplineCurveFitter();
-        curveFitter->setSplineSize( 150 );
-        setCurveFitter( curveFitter );
-
         setCurveAttribute( QwtPlotCurve::Fitted, true );
 
-        QwtSymbol *symbol = new QwtSymbol( QwtSymbol::XCross );
+        QwtSymbol* symbol = new QwtSymbol( QwtSymbol::XCross );
         symbol->setPen( Qt::yellow );
         symbol->setSize( 7 );
 
@@ -56,7 +58,7 @@ public:
         setTransformation( transform );
     }
 
-    virtual QPolygonF points( double phase ) const
+    virtual QPolygonF points( double phase ) const QWT_OVERRIDE
     {
         QPolygonF points;
 
@@ -64,16 +66,16 @@ public:
         for ( int i = 0; i < numSamples; i++ )
         {
             const double v = 6.28 * double( i ) / double( numSamples - 1 );
-            points += QPointF( qSin( v - phase ), v );
+            points += QPointF( std::sin( v - phase ), v );
         }
 
         return points;
     }
 };
 
-class Curve2: public Curve
+class Curve2 : public Curve
 {
-public:
+  public:
     Curve2()
     {
         setStyle( QwtPlotCurve::Sticks );
@@ -83,8 +85,8 @@ public:
             QColor( Qt::gray ), QColor( Qt::yellow ), QSize( 5, 5 ) ) );
     }
 
-private:
-    virtual QPolygonF points( double phase ) const
+  private:
+    virtual QPolygonF points( double phase ) const QWT_OVERRIDE
     {
         QPolygonF points;
 
@@ -92,25 +94,20 @@ private:
         for ( int i = 0; i < numSamples; i++ )
         {
             const double v = 10.0 * i / double( numSamples - 1 );
-            points += QPointF( v, qCos( 3.0 * ( v + phase ) ) );
+            points += QPointF( v, std::cos( 3.0 * ( v + phase ) ) );
         }
 
         return points;
     }
 };
 
-class Curve3: public Curve
-{       
-public: 
+class Curve3 : public Curve
+{
+  public:
     Curve3()
     {
         setStyle( QwtPlotCurve::Lines );
         setPen( QColor( 100, 200, 150 ), 2 );
-
-        QwtSplineCurveFitter* curveFitter = new QwtSplineCurveFitter();
-        curveFitter->setFitMode( QwtSplineCurveFitter::ParametricSpline );
-        curveFitter->setSplineSize( 200 );
-        setCurveFitter( curveFitter );
 
         setCurveAttribute( QwtPlotCurve::Fitted, true );
 
@@ -120,10 +117,10 @@ public:
         transform.scale( 2.0, 2.0 );
 
         setTransformation( transform );
-    }   
+    }
 
-private:
-    virtual QPolygonF points( double phase ) const
+  private:
+    virtual QPolygonF points( double phase ) const QWT_OVERRIDE
     {
         QPolygonF points;
 
@@ -131,16 +128,16 @@ private:
         for ( int i = 0; i < numSamples; i++ )
         {
             const double v = i * 2.0 * M_PI / ( numSamples - 1 );
-            points += QPointF( qSin( v - phase ), qCos( 3.0 * ( v + phase ) ) );
+            points += QPointF( std::sin( v - phase ), std::cos( 3.0 * ( v + phase ) ) );
         }
 
         return points;
     }
-};  
+};
 
-class Curve4: public Curve
-{       
-public: 
+class Curve4 : public Curve
+{
+  public:
     Curve4()
     {
         setStyle( QwtPlotCurve::Lines );
@@ -154,28 +151,28 @@ public:
         transform.scale( 1.5, 1.5 );
 
         setTransformation( transform );
-    }   
+    }
 
-private:
-    virtual QPolygonF points( double phase ) const
+  private:
+    virtual QPolygonF points( double phase ) const QWT_OVERRIDE
     {
         const double speed = 0.05;
 
-        const double s = speed * qSin( phase );
-        const double c = qSqrt( 1.0 - s * s );
+        const double s = speed * std::sin( phase );
+        const double c = std::sqrt( 1.0 - s * s );
 
-        for ( int i = 0; i < d_points.size(); i++ )
+        for ( int i = 0; i < m_points.size(); i++ )
         {
-            const QPointF p = d_points[i];
+            const QPointF p = m_points[i];
 
             const double u = p.x();
             const double v = p.y();
 
-            d_points[i].setX( u * c - v * s );
-            d_points[i].setY( v * c + u * s );
+            m_points[i].setX( u * c - v * s );
+            m_points[i].setY( v * c + u * s );
         }
 
-        return d_points;
+        return m_points;
     }
 
     void initSamples()
@@ -186,46 +183,50 @@ private:
         {
             const double angle = i * ( 2.0 * M_PI / ( numSamples - 1 ) );
 
-            QPointF p( qCos( angle ), qSin( angle ) );
+            QPointF p( std::cos( angle ), std::sin( angle ) );
             if ( i % 2 )
                 p *= 0.4;
-            
-            d_points += p;
+
+            m_points += p;
         }
     }
 
-private:
-    mutable QPolygonF d_points;
-};  
+  private:
+    mutable QPolygonF m_points;
+};
 
-Plot::Plot( QWidget *parent ):
-    QwtPlot( parent)
+Plot::Plot( QWidget* parent )
+    : QwtPlot( parent)
 {
     setAutoReplot( false );
 
     setTitle( "Animated Curves" );
 
     // hide all axes
-    for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
-        enableAxis( axis, false );
+    for ( int axisPos = 0; axisPos < QwtAxis::AxisPositions; axisPos++ )
+        setAxisVisible( axisPos, false );
 
     plotLayout()->setCanvasMargin( 10 );
 
-    d_curves[0] = new Curve1();
-    d_curves[1] = new Curve2();
-    d_curves[2] = new Curve3();
-    d_curves[3] = new Curve4();
+    Curve* curve1 = new Curve1();
+    curve1->attach( this );
+
+    Curve* curve2 = new Curve2();
+    curve2->attach( this );
+
+    Curve* curve3 = new Curve3();
+    curve3->attach( this );
+
+    Curve* curve4 = new Curve4();
+    curve4->attach( this );
 
     updateCurves();
 
-    for ( int i = 0; i < CurveCount; i++ )
-        d_curves[i]->attach( this );
-
-    d_time.start();
+    m_timer.start();
     ( void )startTimer( 40 );
 }
 
-void Plot::timerEvent( QTimerEvent * )
+void Plot::timerEvent( QTimerEvent* )
 {
     updateCurves();
     replot();
@@ -234,8 +235,18 @@ void Plot::timerEvent( QTimerEvent * )
 void Plot::updateCurves()
 {
     const double speed = 2 * M_PI / 25000.0; // a cycle every 25 seconds
+    const double phase = m_timer.elapsed() * speed;
 
-    const double phase = d_time.elapsed() * speed;
-    for ( int i = 0; i < CurveCount; i++ )
-        d_curves[i]->updateSamples( phase );
+    const QwtPlotItemList& items = itemList();
+    for ( QwtPlotItemIterator it = items.constBegin();
+        it != items.constEnd(); ++it )
+    {
+        QwtPlotItem* item = *it;
+
+        if ( item->rtti() == QwtPlotItem::Rtti_PlotCurve )
+        {
+            Curve* curve = dynamic_cast< Curve* >( item );
+            curve->updateSamples( phase );
+        }
+    }
 }

@@ -156,7 +156,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 					case eProtocol:				ColValue.Formated = pSocket->GetProtocolString(); break; 
 					case eState:				ColValue.Formated = pSocket->GetStateString(); break; 			
 
-					case eTimeStamp:			ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eTimeStamp:			ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 
 					case eReceiveBytes:
 					case eSendBytes:

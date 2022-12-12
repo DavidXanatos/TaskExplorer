@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -10,27 +10,11 @@
 #include "qwt_transform.h"
 #include "qwt_math.h"
 
-#if QT_VERSION < 0x040601
-#define qExp(x) ::exp(x)
-#endif
-
-#if QT_VERSION >= 0x050400
-
 //! Smallest allowed value for logarithmic scales: 1.0e-150
 const double QwtLogTransform::LogMin = 1.0e-150;
-    
+
 //! Largest allowed value for logarithmic scales: 1.0e150
 const double QwtLogTransform::LogMax = 1.0e150;
-
-#else
-
-//! Smallest allowed value for logarithmic scales: 1.0e-150
-QT_STATIC_CONST_IMPL double QwtLogTransform::LogMin = 1.0e-150;
-
-//! Largest allowed value for logarithmic scales: 1.0e150
-QT_STATIC_CONST_IMPL double QwtLogTransform::LogMax = 1.0e150;
-
-#endif
 
 //! Constructor
 QwtTransform::QwtTransform()
@@ -42,9 +26,9 @@ QwtTransform::~QwtTransform()
 {
 }
 
-/*! 
-  \param value Value to be bounded
-  \return value unmodified
+/*!
+   \param value Value to be bounded
+   \return value unmodified
  */
 double QwtTransform::bounded( double value ) const
 {
@@ -62,18 +46,18 @@ QwtNullTransform::~QwtNullTransform()
 {
 }
 
-/*! 
-  \param value Value to be transformed
-  \return value unmodified
+/*!
+   \param value Value to be transformed
+   \return value unmodified
  */
 double QwtNullTransform::transform( double value ) const
 {
     return value;
 }
 
-/*! 
-  \param value Value to be transformed
-  \return value unmodified
+/*!
+   \param value Value to be transformed
+   \return value unmodified
  */
 double QwtNullTransform::invTransform( double value ) const
 {
@@ -81,7 +65,7 @@ double QwtNullTransform::invTransform( double value ) const
 }
 
 //! \return Clone of the transformation
-QwtTransform *QwtNullTransform::copy() const
+QwtTransform* QwtNullTransform::copy() const
 {
     return new QwtNullTransform();
 }
@@ -97,27 +81,27 @@ QwtLogTransform::~QwtLogTransform()
 {
 }
 
-/*! 
-  \param value Value to be transformed
-  \return log( value )
+/*!
+   \param value Value to be transformed
+   \return log( value )
  */
 double QwtLogTransform::transform( double value ) const
 {
-    return ::log( value );
+    return std::log( value );
 }
 
-/*! 
-  \param value Value to be transformed
-  \return exp( value )
+/*!
+   \param value Value to be transformed
+   \return exp( value )
  */
 double QwtLogTransform::invTransform( double value ) const
 {
-    return qExp( value );
+    return std::exp( value );
 }
 
-/*! 
-  \param value Value to be bounded
-  \return qBound( LogMin, value, LogMax )
+/*!
+   \param value Value to be bounded
+   \return qBound( LogMin, value, LogMax )
  */
 double QwtLogTransform::bounded( double value ) const
 {
@@ -125,18 +109,18 @@ double QwtLogTransform::bounded( double value ) const
 }
 
 //! \return Clone of the transformation
-QwtTransform *QwtLogTransform::copy() const
+QwtTransform* QwtLogTransform::copy() const
 {
     return new QwtLogTransform();
 }
 
 /*!
-  Constructor
-  \param exponent Exponent
-*/
+   Constructor
+   \param exponent Exponent
+ */
 QwtPowerTransform::QwtPowerTransform( double exponent ):
     QwtTransform(),
-    d_exponent( exponent )
+    m_exponent( exponent )
 {
 }
 
@@ -145,33 +129,33 @@ QwtPowerTransform::~QwtPowerTransform()
 {
 }
 
-/*! 
-  \param value Value to be transformed
-  \return Exponentiation preserving the sign
+/*!
+   \param value Value to be transformed
+   \return Exponentiation preserving the sign
  */
 double QwtPowerTransform::transform( double value ) const
 {
     if ( value < 0.0 )
-        return -qPow( -value, 1.0 / d_exponent );
+        return -std::pow( -value, 1.0 / m_exponent );
     else
-        return qPow( value, 1.0 / d_exponent );
-    
+        return std::pow( value, 1.0 / m_exponent );
+
 }
 
-/*! 
-  \param value Value to be transformed
-  \return Inverse exponentiation preserving the sign
+/*!
+   \param value Value to be transformed
+   \return Inverse exponentiation preserving the sign
  */
 double QwtPowerTransform::invTransform( double value ) const
 {
     if ( value < 0.0 )
-        return -qPow( -value, d_exponent );
+        return -std::pow( -value, m_exponent );
     else
-        return qPow( value, d_exponent );
+        return std::pow( value, m_exponent );
 }
 
 //! \return Clone of the transformation
-QwtTransform *QwtPowerTransform::copy() const
+QwtTransform* QwtPowerTransform::copy() const
 {
-    return new QwtPowerTransform( d_exponent );
+    return new QwtPowerTransform( m_exponent );
 }

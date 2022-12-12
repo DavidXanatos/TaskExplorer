@@ -5,7 +5,7 @@
 #include "../../API/Windows/WindowsAPI.h"
 #include "../../API/Windows/ProcessHacker/AssemblyEnum.h"
 #include "../../API/Windows/ProcessHacker.h"
-#include "../../API/Windows/ProcessHacker/DotNetCounters.h"
+#include "../../API/Windows/ProcessHacker/DotNet.h"
 #include "../../API/Windows/ProcessHacker/appsup.h"	
 
 
@@ -13,14 +13,14 @@ CDotNetView::CDotNetView(QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_pFilterWidget = new QWidget();
 	m_pMainLayout->addWidget(m_pFilterWidget);
 
 	m_pFilterLayout = new QHBoxLayout();
-	m_pFilterLayout->setMargin(3);
+	m_pFilterLayout->setContentsMargins(3, 3, 3, 3);
 	m_pFilterWidget->setLayout(m_pFilterLayout);
 
 
@@ -41,7 +41,7 @@ CDotNetView::CDotNetView(QWidget *parent)
 	m_pAssemblyModel->AddColumn(tr("ID"), "ID");
 	m_pAssemblyModel->AddColumn(tr("Native Path"), "NativePath");
 
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pAssemblyModel);
 	m_pSortProxy->setDynamicSortFilter(true);

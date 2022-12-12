@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2020-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2020-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -110,7 +99,7 @@ BOOLEAN PvShellExecuteRestart(
     PPH_STRING filename;
     PPH_STRING parameters;
 
-    if (!(filename = PhGetApplicationFileName()))
+    if (!(filename = PhGetApplicationFileNameWin32()))
         return FALSE;
 
     parameters = PhConcatStringRef3(
@@ -166,7 +155,7 @@ VOID PvGeneralPageSave(
     )
 {
     //PhSetStringSetting2(L"SearchEngine", &PhaGetDlgItemText(WindowHandle, IDC_SEARCHENGINE)->sr);
-    
+
     if (ComboBox_GetCurSel(GetDlgItem(Context->WindowHandle, IDC_MAXSIZEUNIT)) != PhGetIntegerSetting(L"MaxSizeUnit"))
     {
         PhSetIntegerSetting(L"MaxSizeUnit", ComboBox_GetCurSel(GetDlgItem(Context->WindowHandle, IDC_MAXSIZEUNIT)));
@@ -188,8 +177,8 @@ VOID PvGeneralPageSave(
     SetSettingForLvItemCheckRestartRequired(Context->ListViewHandle, PHP_OPTIONS_INDEX_ENABLE_LEGACY_TABS, L"EnableLegacyPropertiesDialog");
     SetSettingForLvItemCheckRestartRequired(Context->ListViewHandle, PHP_OPTIONS_INDEX_ENABLE_THEME_BORDER, L"EnableTreeListBorder");
 
-    PhUpdateCachedSettings();
-    PeSaveSettings();
+    PvUpdateCachedSettings();
+    PvSaveSettings();
 
     if (RestartRequired)
     {
@@ -235,14 +224,12 @@ INT_PTR CALLBACK PvOptionsWndProc(
     {
     case WM_INITDIALOG:
         {
-            HIMAGELIST listViewImageList;
             HICON smallIcon;
             HICON largeIcon;
 
             context->WindowHandle = hwndDlg;
             context->ListViewHandle = GetDlgItem(hwndDlg, IDC_SETTINGS);
             context->ComboHandle = GetDlgItem(hwndDlg, IDC_MAXSIZEUNIT);
-            listViewImageList = PhImageListCreate(1, PV_SCALE_DPI(22), ILC_MASK | ILC_COLOR, 1, 1);
 
             PhCenterWindow(hwndDlg, GetParent(hwndDlg));
 
@@ -258,9 +245,9 @@ INT_PTR CALLBACK PvOptionsWndProc(
             PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDOK), NULL, PH_ANCHOR_RIGHT | PH_ANCHOR_BOTTOM);
             PhAddLayoutItem(&context->LayoutManager, GetDlgItem(hwndDlg, IDCANCEL), NULL, PH_ANCHOR_RIGHT | PH_ANCHOR_BOTTOM);
 
+            PvSetListViewImageList(context->WindowHandle, context->ListViewHandle);
             PhSetListViewStyle(context->ListViewHandle, FALSE, TRUE);
             ListView_SetExtendedListViewStyleEx(context->ListViewHandle, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
-            ListView_SetImageList(context->ListViewHandle, listViewImageList, LVSIL_SMALL);
             PhSetControlTheme(context->ListViewHandle, L"explorer");
 
             for (ULONG i = 0; i < RTL_NUMBER_OF(PhSizeUnitNames); i++)
@@ -278,7 +265,13 @@ INT_PTR CALLBACK PvOptionsWndProc(
         break;
     case WM_DESTROY:
         {
-            NOTHING;
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
+            PhFree(context);
+        }
+        break;
+    case WM_DPICHANGED:
+        {
+            PvSetListViewImageList(context->WindowHandle, context->ListViewHandle);
         }
         break;
     case WM_COMMAND:
@@ -305,9 +298,9 @@ INT_PTR CALLBACK PvOptionsWndProc(
                         L""
                         ) == IDYES)
                     {
-                        PhResetSettings();
+                        PhResetSettings(hwndDlg);
 
-                        PeSaveSettings();
+                        PvSaveSettings();
 
                         if (PvShellExecuteRestart(hwndDlg))
                         {

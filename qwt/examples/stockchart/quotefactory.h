@@ -1,11 +1,21 @@
-#ifndef _QUOTE_FACTORY_H_
-#define _QUOTE_FACTORY_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_series_data.h>
+#pragma once
 
-class QuoteFactory
+#include <QtGlobal>
+
+class QwtOHLCSample;
+class QString;
+
+#if QT_VERSION < 0x060000
+template< typename T > class QVector;
+#endif
+
+namespace QuoteFactory
 {
-public:
     enum Stock
     {
         BMW,
@@ -15,8 +25,6 @@ public:
         NumStocks
     };
 
-    static QVector<QwtOHLCSample> samples2010( Stock );
-    static QString title( Stock );
-};
-
-#endif
+    QVector< QwtOHLCSample > samples2010( Stock );
+    QString title( Stock );
+}

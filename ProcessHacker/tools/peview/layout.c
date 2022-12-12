@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2020-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2020-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -155,7 +144,7 @@ ULONG PvLayoutNodeHashtableHashFunction(
 PPV_LAYOUT_NODE PvAddLayoutNode(
     _Inout_ PPV_PE_LAYOUT_CONTEXT Context,
     _In_ PWSTR Name,
-    _In_ PPH_STRING Value
+    _In_opt_ PPH_STRING Value
     )
 {
     static ULONG64 index = 0;
@@ -186,7 +175,7 @@ PPV_LAYOUT_NODE PvAddChildLayoutNode(
     _In_ PPV_PE_LAYOUT_CONTEXT Context,
     _In_opt_ PPV_LAYOUT_NODE ParentNode,
     _In_ PWSTR Name,
-    _In_ PPH_STRING Value
+    _In_opt_ PPH_STRING Value
     )
 {
     PPV_LAYOUT_NODE childNode;
@@ -426,7 +415,7 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
             //data.MouseEvent = Parameter1;
             //data.DefaultSortColumn = 0;
             //data.DefaultSortOrder = AscendingSortOrder;
-            //PhInitializeTreeNewColumnMenu(&data);
+            //PhInitializeTreeNewColumnMenuEx(&data, PH_TN_COLUMN_MENU_SHOW_RESET_SORT);
 
             //data.Selection = PhShowEMenu(data.Menu, hwnd, PH_EMENU_SHOW_LEFTRIGHT,
             //    PH_ALIGN_LEFT | PH_ALIGN_TOP, data.MouseEvent->ScreenLocation.x, data.MouseEvent->ScreenLocation.y);
@@ -466,6 +455,7 @@ PPV_LAYOUT_NODE PvGetSelectedLayoutNode(
     return NULL;
 }
 
+_Success_(return)
 BOOLEAN PvGetSelectedLayoutNodes(
     _In_ PPV_PE_LAYOUT_CONTEXT Context,
     _Out_ PPV_LAYOUT_NODE** Nodes,
@@ -751,7 +741,7 @@ BOOLEAN PvLayoutWordMatchStringZ(
 
 BOOLEAN PvLayoutTreeFilterCallback(
     _In_ PPH_TREENEW_NODE Node,
-    _In_opt_ PVOID Context
+    _In_ PVOID Context
     )
 {
     PPV_PE_LAYOUT_CONTEXT context = Context;
@@ -777,8 +767,15 @@ BOOLEAN PvLayoutTreeFilterCallback(
 
 #define FILE_LAYOUT_ENTRY_VERSION 0x1
 #define STREAM_LAYOUT_ENTRY_VERSION 0x1
-#define FIRST_LAYOUT_ENTRY(LayoutEntry) ((LayoutEntry) ? PTR_ADD_OFFSET(LayoutEntry, (LayoutEntry)->FirstFileOffset) : NULL)
-#define NEXT_LAYOUT_ENTRY(LayoutEntry) (((LayoutEntry))->NextFileOffset ? PTR_ADD_OFFSET((LayoutEntry), (LayoutEntry)->NextFileOffset) : NULL)
+#define PH_FIRST_LAYOUT_ENTRY(LayoutEntry) \
+    ((PFILE_LAYOUT_ENTRY)(PTR_ADD_OFFSET(LayoutEntry, \
+    ((PQUERY_FILE_LAYOUT_OUTPUT)LayoutEntry)->FirstFileOffset)))
+#define PH_NEXT_LAYOUT_ENTRY(LayoutEntry) ( \
+    ((PFILE_LAYOUT_ENTRY)(LayoutEntry))->NextFileOffset ? \
+    (PFILE_LAYOUT_ENTRY)(PTR_ADD_OFFSET((LayoutEntry), \
+    ((PFILE_LAYOUT_ENTRY)(LayoutEntry))->NextFileOffset)) : \
+    NULL \
+    )
 
 typedef enum _FILE_METADATA_OPTIMIZATION_STATE
 {
@@ -806,7 +803,6 @@ NTSTATUS PvLayoutGetMetadataOptimization(
 {
     NTSTATUS status;
     HANDLE fileHandle;
-    IO_STATUS_BLOCK isb;
 
     status = PhCreateFileWin32(
         &fileHandle,
@@ -821,17 +817,14 @@ NTSTATUS PvLayoutGetMetadataOptimization(
     if (!NT_SUCCESS(status))
         return status;
 
-    status = NtFsControlFile(
+    status = PhDeviceIoControlFile(
         fileHandle,
-        NULL,
-        NULL,
-        NULL,
-        &isb,
         FSCTL_QUERY_FILE_METADATA_OPTIMIZATION,
         NULL,
         0,
         FileMetadataOptimization,
-        sizeof(FILE_QUERY_METADATA_OPTIMIZATION_OUTPUT)
+        sizeof(FILE_QUERY_METADATA_OPTIMIZATION_OUTPUT),
+        NULL
         );
 
     NtClose(fileHandle);
@@ -846,7 +839,6 @@ NTSTATUS PvLayoutSetMetadataOptimization(
     NTSTATUS status;
     HANDLE fileHandle;
     HANDLE tokenHandle;
-    IO_STATUS_BLOCK isb;
 
     status = PhCreateFileWin32(
         &fileHandle,
@@ -860,17 +852,14 @@ NTSTATUS PvLayoutSetMetadataOptimization(
 
     if (NT_SUCCESS(status))
     {
-        status = NtFsControlFile(
+        status = PhDeviceIoControlFile(
             fileHandle,
-            NULL,
-            NULL,
-            NULL,
-            &isb,
             FSCTL_INITIATE_FILE_METADATA_OPTIMIZATION,
             NULL,
             0,
             NULL,
-            0
+            0,
+            NULL
             );
 
         NtClose(fileHandle);
@@ -902,17 +891,14 @@ NTSTATUS PvLayoutSetMetadataOptimization(
 
     if (NT_SUCCESS(status))
     {
-        status = NtFsControlFile(
+        status = PhDeviceIoControlFile(
             fileHandle,
-            NULL,
-            NULL,
-            NULL,
-            &isb,
             FSCTL_INITIATE_FILE_METADATA_OPTIMIZATION,
             NULL,
             0,
             NULL,
-            0
+            0,
+            NULL
             );
 
         NtClose(fileHandle);
@@ -936,7 +922,7 @@ NTSTATUS PvGetFileAllocatedRanges(
     LARGE_INTEGER fileSize;
     FILE_ALLOCATED_RANGE_BUFFER input;
     PFILE_ALLOCATED_RANGE_BUFFER output;
-    IO_STATUS_BLOCK isb;
+    ULONG returnLength;
 
     status = PhGetFileSize(FileHandle, &fileSize);
 
@@ -952,23 +938,20 @@ NTSTATUS PvGetFileAllocatedRanges(
 
     while (TRUE)
     {
-        status = NtFsControlFile(
+        status = PhDeviceIoControlFile(
             FileHandle,
-            NULL,
-            NULL,
-            NULL,
-            &isb,
             FSCTL_QUERY_ALLOCATED_RANGES,
             &input,
             sizeof(FILE_ALLOCATED_RANGE_BUFFER),
             output,
-            outputLength
+            outputLength,
+            &returnLength
             );
 
         if (!NT_SUCCESS(status))
             break;
 
-        outputCount = (ULONG)isb.Information / sizeof(FILE_ALLOCATED_RANGE_BUFFER);
+        outputCount = returnLength / sizeof(FILE_ALLOCATED_RANGE_BUFFER);
 
         if (outputCount == 0)
             break;
@@ -1002,9 +985,8 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
     PPH_STRING volumeName;
     PH_STRINGREF firstPart;
     PH_STRINGREF lastPart;
-    IO_STATUS_BLOCK isb;
     ULONG outputLength;
-    FILE_INTERNAL_INFORMATION fileInternalInfo;
+    FILE_INTERNAL_INFORMATION internalInfo;
     FILE_QUERY_METADATA_OPTIMIZATION_OUTPUT fileMetadataOptimization;
     QUERY_FILE_LAYOUT_INPUT input;
     PQUERY_FILE_LAYOUT_OUTPUT output;
@@ -1045,25 +1027,22 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
         goto CleanupExit;
 
     memset(&fileMetadataOptimization, 0, sizeof(FILE_QUERY_METADATA_OPTIMIZATION_OUTPUT));
-    NtFsControlFile(
+    status = PhDeviceIoControlFile(
         fileHandle,
-        NULL,
-        NULL,
-        NULL,
-        &isb,
         FSCTL_QUERY_FILE_METADATA_OPTIMIZATION,
         NULL,
         0,
         &fileMetadataOptimization,
-        sizeof(FILE_QUERY_METADATA_OPTIMIZATION_OUTPUT)
+        sizeof(FILE_QUERY_METADATA_OPTIMIZATION_OUTPUT),
+        NULL
         );
 
-    status = NtQueryInformationFile(
+    //if (!NT_SUCCESS(status))
+    //    goto CleanupExit;
+
+    status = PhGetFileIndexNumber(
         fileHandle,
-        &isb,
-        &fileInternalInfo,
-        sizeof(FILE_INTERNAL_INFORMATION),
-        FileInternalInformation
+        &internalInfo
         );
 
     if (!NT_SUCCESS(status))
@@ -1071,7 +1050,7 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
 
     status = PhCreateFile(
         &volumeHandle,
-        volumeName,
+        &volumeName->sr,
         FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | SYNCHRONIZE, // magic value
         FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -1102,31 +1081,28 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
 
     input.FilterEntryCount = 1;
     input.FilterType = QUERY_FILE_LAYOUT_FILTER_TYPE_FILEID;
-    input.Filter.FileReferenceRanges->StartingFileReferenceNumber = fileInternalInfo.IndexNumber.QuadPart;
-    input.Filter.FileReferenceRanges->EndingFileReferenceNumber = fileInternalInfo.IndexNumber.QuadPart;
+    input.Filter.FileReferenceRanges->StartingFileReferenceNumber = internalInfo.IndexNumber.QuadPart;
+    input.Filter.FileReferenceRanges->EndingFileReferenceNumber = internalInfo.IndexNumber.QuadPart;
 
     outputLength = 0x2000000; // magic value
     output = PhAllocateZero(outputLength);
 
     while (TRUE)
     {
-        status = NtFsControlFile(
+        status = PhDeviceIoControlFile(
             volumeHandle,
-            NULL,
-            NULL,
-            NULL,
-            &isb,
             FSCTL_QUERY_FILE_LAYOUT,
             &input,
             sizeof(QUERY_FILE_LAYOUT_INPUT),
             output,
-            outputLength
+            outputLength,
+            NULL
             );
 
         if (!NT_SUCCESS(status))
             break;
 
-        for (fileLayoutEntry = FIRST_LAYOUT_ENTRY(output); fileLayoutEntry; fileLayoutEntry = NEXT_LAYOUT_ENTRY(fileLayoutEntry))
+        for (fileLayoutEntry = PH_FIRST_LAYOUT_ENTRY(output); fileLayoutEntry; fileLayoutEntry = PH_NEXT_LAYOUT_ENTRY(fileLayoutEntry))
         {
             if (fileLayoutEntry->Version != FILE_LAYOUT_ENTRY_VERSION)
             {
@@ -1134,7 +1110,9 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
                 break;
             }
 
-            fileLayoutNameEntry = PTR_ADD_OFFSET(fileLayoutEntry, fileLayoutEntry->FirstNameOffset);
+            //if (fileLayoutEntry->Flags == 1 && fileLayoutEntry->FileReferenceNumber == 1)
+            //    continue;
+
             fileLayoutSteamEntry = PTR_ADD_OFFSET(fileLayoutEntry, fileLayoutEntry->FirstStreamOffset);
             fileLayoutInfoEntry = PTR_ADD_OFFSET(fileLayoutEntry, fileLayoutEntry->ExtraInfoOffset);
 
@@ -1145,7 +1123,7 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
             //PvAddChildLayoutNode(Context, NULL, L"Last access time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastAccessTime));
             PvAddChildLayoutNode(Context, NULL, L"Last write time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastWriteTime));
             PvAddChildLayoutNode(Context, NULL, L"Change time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.ChangeTime));
-            PvAddChildLayoutNode(Context, NULL, L"LastUsn", PhFormatUInt64(fileLayoutInfoEntry->Usn, TRUE));
+            PvAddChildLayoutNode(Context, NULL, L"LastUsn", PhFormatUInt64(fileLayoutInfoEntry->Usn, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"OwnerId", PhFormatUInt64(fileLayoutInfoEntry->OwnerId, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"SecurityId", PhFormatUInt64(fileLayoutInfoEntry->SecurityId, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"StorageReserveId", PhFormatUInt64(fileLayoutInfoEntry->StorageReserveId, FALSE));
@@ -1156,19 +1134,30 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
             PvAddChildLayoutNode(Context, NULL, L"Number of resident attributes", PhFormatUInt64(fileMetadataOptimization.NumberOfResidentAttributes, TRUE));
             PvAddChildLayoutNode(Context, NULL, L"Number of nonresident attributes", PhFormatUInt64(fileMetadataOptimization.NumberOfNonresidentAttributes, TRUE));
 
-            while (TRUE)
+            if (fileLayoutEntry->FirstNameOffset)
             {
-                PPV_LAYOUT_NODE parentNode;
+                fileLayoutNameEntry = PTR_ADD_OFFSET(fileLayoutEntry, fileLayoutEntry->FirstNameOffset);
 
-                parentNode = PvAddChildLayoutNode(Context, NULL, L"Filename", NULL);
-                PvAddChildLayoutNode(Context, parentNode, PvLayoutNameFlagsToString(fileLayoutNameEntry->Flags), PhCreateStringEx(fileLayoutNameEntry->FileName, fileLayoutNameEntry->FileNameLength));
-                //PvAddChildLayoutNode(Context, parentNode, L"Parent Name", PvLayoutGetParentIdName(fileHandle, fileLayoutNameEntry->ParentFileReferenceNumber));
-                PvAddChildLayoutNode(Context, parentNode, L"Parent ID", PhFormatString(L"%I64u (0x%I64x)", fileLayoutNameEntry->ParentFileReferenceNumber, fileLayoutNameEntry->ParentFileReferenceNumber));
+                while (TRUE)
+                {
+                    PPV_LAYOUT_NODE parentNode;
+                    PPH_STRING layoutFileName;
 
-                if (fileLayoutNameEntry->NextNameOffset == 0)
-                    break;
+                    if (fileLayoutNameEntry->FileNameLength >= sizeof(UNICODE_NULL))
+                        layoutFileName = PhCreateStringEx(fileLayoutNameEntry->FileName, fileLayoutNameEntry->FileNameLength);
+                    else
+                        layoutFileName = PhReferenceEmptyString();
 
-                fileLayoutNameEntry = PTR_ADD_OFFSET(fileLayoutNameEntry, fileLayoutNameEntry->NextNameOffset);
+                    parentNode = PvAddChildLayoutNode(Context, NULL, L"Filename", NULL);
+                    PvAddChildLayoutNode(Context, parentNode, PvLayoutNameFlagsToString(fileLayoutNameEntry->Flags), layoutFileName);
+                    //PvAddChildLayoutNode(Context, parentNode, L"Parent Name", PvLayoutGetParentIdName(fileHandle, fileLayoutNameEntry->ParentFileReferenceNumber));
+                    PvAddChildLayoutNode(Context, parentNode, L"Parent ID", PhFormatString(L"%I64u (0x%I64x)", fileLayoutNameEntry->ParentFileReferenceNumber, fileLayoutNameEntry->ParentFileReferenceNumber));
+
+                    if (fileLayoutNameEntry->NextNameOffset == 0)
+                        break;
+
+                    fileLayoutNameEntry = PTR_ADD_OFFSET(fileLayoutNameEntry, fileLayoutNameEntry->NextNameOffset);
+                }
             }
 
             while (TRUE)
@@ -1313,6 +1302,7 @@ INT_PTR CALLBACK PvpPeLayoutDlgProc(
 
             PhDeleteLayoutManager(&context->LayoutManager);
 
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
             PhFree(context);
         }
         break;

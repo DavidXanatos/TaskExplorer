@@ -4,22 +4,10 @@
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2017-2019 dmex
- * Copyright (C) 2019 David Xanatos
+ * Copyright (C) 2019-2022 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -27,9 +15,6 @@
 #include "ProcessHacker/ProcMtgn.h"
 #include <lsasup.h>
 #include <userenv.h>
-extern "C" {
-#include <kphuserp.h>
-}
 
 #include "WindowsAPI.h"
 #include "WinProcess.h"
@@ -261,7 +246,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 			m_ProcessName = QString::fromWCharArray(Process->ImageName.Buffer, Process->ImageName.Length / sizeof(wchar_t));
 	}
 	else
-		m_ProcessName = QString::fromWCharArray(SYSTEM_IDLE_PROCESS_NAME);
+		m_ProcessName = tr("System Idle Process");
 
 	m->CreateTime = Process->CreateTime;
 	m_CreateTimeStamp = FILETIME2ms(m->CreateTime.QuadPart);
@@ -763,11 +748,11 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	{
 		bool PriorityChanged = false;
 
-		PROCESS_PRIORITY_CLASS PriorityClass;
-		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &PriorityClass)) && m_Priority != PriorityClass.PriorityClass)
+		UCHAR PriorityClass;
+		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &PriorityClass)) && m_Priority != PriorityClass)
 		{
 			PriorityChanged = true;
-			m_Priority = PriorityClass.PriorityClass;
+			m_Priority = PriorityClass;
 		}
 
 		IO_PRIORITY_HINT IoPriority;
@@ -850,7 +835,7 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 			//BOOLEAN isInSignificantJob = FALSE;
 			BOOLEAN isInJob = FALSE;
 
-			/*if (KphIsConnected())
+			/*if (KphCommsIsConnected())
 			{
 				HANDLE jobHandle = NULL;
 
@@ -1220,7 +1205,7 @@ bool CWinProcess::UpdateHandles()
 	// Copy the handle Map
 	QMap<quint64, CHandlePtr> OldHandles = GetHandleList();
 
-	BOOLEAN useWorkQueue = !KphIsConnected();
+	BOOLEAN useWorkQueue = !KphCommsIsConnected();
 	QList<QFutureWatcher<bool>*> Watchers;
 
 	for (int i = 0; i < handleInfo->NumberOfHandles; i++)
@@ -1995,12 +1980,12 @@ STATUS CWinProcess::EditEnvVariable(const QString& Name, const QString& Value)
 	{
 		timeout.QuadPart = -(LONGLONG)UInt32x32To64(10, PH_TIMEOUT_SEC);
 
-		wstring NameStr = Name.toStdWString();
+		std::wstring NameStr = Name.toStdWString();
 		PH_STRINGREF NameRef;
 		NameRef.Buffer = (PWCH)NameStr.c_str();
 		NameRef.Length = NameStr.length() * sizeof(wchar_t);
 
-		wstring ValueStr = Value.toStdWString();
+		std::wstring ValueStr = Value.toStdWString();
 		PH_STRINGREF ValueRef;
 		ValueRef.Buffer = (PWCH)ValueStr.c_str();
 		ValueRef.Length = ValueStr.length() * sizeof(wchar_t);
@@ -2371,7 +2356,8 @@ QString CWinProcess::GetProtectionString() const
 
 STATUS CWinProcess::SetProtectionFlag(quint8 Flag, bool bForce)
 {
-	if ((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 31)) == 0)
+	return ERR(); // todo: xxxx si
+	/*if ((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 31)) == 0)
 		return ERR(tr("The loaded driver does not support this feature."), STATUS_NOT_SUPPORTED);
 
 	if (!KphIsVerified())
@@ -2406,7 +2392,7 @@ STATUS CWinProcess::SetProtectionFlag(quint8 Flag, bool bForce)
 
 	if (!NT_SUCCESS(status))
 		return ERR(tr("Failed to Clear Process Protection flag"), status);
-	return OK;
+	return OK;*/
 }
 
 QList<QPair<QString, QString>> CWinProcess::GetMitigationDetails() const
@@ -2613,12 +2599,7 @@ STATUS CWinProcess::SetPriority(long Value)
     {
         if (m->UniqueProcessId != SYSTEM_PROCESS_ID)
         {
-            PROCESS_PRIORITY_CLASS priorityClass;
-
-            priorityClass.Foreground = FALSE;
-            priorityClass.PriorityClass = (UCHAR)Value;
-
-            status = PhSetProcessPriority(processHandle, priorityClass);
+            status = PhSetProcessPriority(processHandle, (UCHAR)Value);
         }
         else
         {
@@ -2950,7 +2931,7 @@ NTSTATUS CWinProcess__LoadModule(HANDLE ProcessHandle, const QString& Path)
 {
 	LARGE_INTEGER Timeout;
 		Timeout.QuadPart = -(LONGLONG)UInt32x32To64(5, PH_TIMEOUT_SEC);
-	wstring FileName = Path.toStdWString();
+	std::wstring FileName = Path.toStdWString();
 
 #ifdef _WIN64
 	static PVOID loadLibraryW32 = NULL;

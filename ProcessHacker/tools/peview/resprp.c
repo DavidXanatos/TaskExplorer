@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -40,11 +29,23 @@ typedef enum _PV_RESOURCES_TREE_COLUMN_ITEM
     PV_RESOURCES_TREE_COLUMN_ITEM_MAXIMUM
 } PV_RESOURCES_TREE_COLUMN_ITEM;
 
+typedef enum _PV_RESOURCES_TREE_NODE_TYPE
+{
+    PV_RESOURCES_TREE_NODE_TYPE_IMAGE,
+    PV_RESOURCES_TREE_NODE_TYPE_MUI,
+    PV_RESOURCES_TREE_NODE_TYPE_MAXIMUM
+} PV_RESOURCES_TREE_NODE_TYPE;
+
 typedef struct _PV_RESOURCE_NODE
 {
     PH_TREENEW_NODE Node;
 
+    struct _PV_RESOURCE_NODE* Parent;
+    PPH_LIST Children;
+    BOOLEAN HasChildren;
+
     ULONG64 UniqueId;
+    PV_RESOURCES_TREE_NODE_TYPE NodeType;
 
     PVOID RvaStart;
     PVOID RvaEnd;
@@ -86,6 +87,8 @@ typedef struct _PV_RESOURCES_CONTEXT
     PH_TN_FILTER_SUPPORT FilterSupport;
     PPH_HASHTABLE NodeHashtable;
     PPH_LIST NodeList;
+
+    PH_MAPPED_IMAGE MuiMappedImage;
 } PV_RESOURCES_CONTEXT, *PPV_RESOURCES_CONTEXT;
 
 BOOLEAN PvResourcesNodeHashtableCompareFunction(
@@ -210,7 +213,7 @@ PPH_STRING PvpPeResourceDumpFileName(
 {
     static PH_FILETYPE_FILTER filters[] =
     {
-        { L"Resouce data (*.data)", L"*.data" },
+        { L"Resource data (*.data)", L"*.data" },
         { L"All files (*.*)", L"*.*" }
     };
     PPH_STRING fileName = NULL;
@@ -233,89 +236,106 @@ PPH_STRING PvpPeResourceDumpFileName(
 }
 
 VOID PvpPeResourceSaveToFile(
+    _In_ PPV_RESOURCES_CONTEXT Context,
     _In_ HWND WindowHandle,
     _In_ PPV_RESOURCE_NODE ResourceNode
     )
 {
-    PH_MAPPED_IMAGE_RESOURCES resources;
+    PH_MAPPED_IMAGE_RESOURCES resources = { 0 };
     PH_IMAGE_RESOURCE_ENTRY entry;
     PPH_STRING fileName;
 
     if (!(fileName = PvpPeResourceDumpFileName(WindowHandle)))
         return;
 
-    if (NT_SUCCESS(PhGetMappedImageResources(&resources, &PvMappedImage)))
+    if (ResourceNode->NodeType == PV_RESOURCES_TREE_NODE_TYPE_IMAGE)
     {
-        for (ULONG i = 0; i < resources.NumberOfEntries; i++)
+        if (!NT_SUCCESS(PhGetMappedImageResources(&resources, &PvMappedImage)))
         {
-            if (i + 1 != ResourceNode->UniqueId)
-                continue;
-
-            entry = resources.ResourceEntries[i];
-
-            if (entry.Data && entry.Size)
-            {
-                NTSTATUS status;
-                HANDLE fileHandle;
-
-                status = PhCreateFileWin32(
-                    &fileHandle,
-                    PhGetString(fileName),
-                    FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                    FILE_ATTRIBUTE_NORMAL,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE,
-                    FILE_OVERWRITE_IF,
-                    FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE
-                    );
-
-                if (NT_SUCCESS(status))
-                {
-                    IO_STATUS_BLOCK isb;
-
-                    __try
-                    {
-                        status = NtWriteFile(
-                            fileHandle,
-                            NULL,
-                            NULL,
-                            NULL,
-                            &isb,
-                            entry.Data,
-                            entry.Size,
-                            NULL,
-                            NULL
-                            );
-                    }
-                    __except (EXCEPTION_EXECUTE_HANDLER)
-                    {
-                        status = GetExceptionCode();    
-                    }
-
-                    NtClose(fileHandle);
-                }
-
-                if (!NT_SUCCESS(status))
-                {
-                    PhShowStatus(WindowHandle, L"Unable to save resource.", status, 0);
-                }
-            }
+            PhDereferenceObject(fileName);
+            return;
         }
-
-        PhFree(resources.ResourceEntries);
+    }
+    else if (ResourceNode->NodeType == PV_RESOURCES_TREE_NODE_TYPE_MUI)
+    {
+        if (!NT_SUCCESS(PhGetMappedImageResources(&resources, &Context->MuiMappedImage)))
+        {
+            PhDereferenceObject(fileName);
+            return;
+        }
     }
 
+    for (ULONG i = 0; i < resources.NumberOfEntries; i++)
+    {
+        entry = resources.ResourceEntries[i];
+
+        if (UlongToPtr(entry.Offset) != ResourceNode->RvaStart)
+            continue;
+
+        if (entry.Data && entry.Size)
+        {
+            NTSTATUS status;
+            HANDLE fileHandle;
+
+            status = PhCreateFileWin32(
+                &fileHandle,
+                PhGetString(fileName),
+                FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+                FILE_ATTRIBUTE_NORMAL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                FILE_OVERWRITE_IF,
+                FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE
+                );
+
+            if (NT_SUCCESS(status))
+            {
+                IO_STATUS_BLOCK isb;
+
+                __try
+                {
+                    status = NtWriteFile(
+                        fileHandle,
+                        NULL,
+                        NULL,
+                        NULL,
+                        &isb,
+                        entry.Data,
+                        entry.Size,
+                        NULL,
+                        NULL
+                        );
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    status = GetExceptionCode();
+                }
+
+                NtClose(fileHandle);
+            }
+
+            if (!NT_SUCCESS(status))
+            {
+                PhShowStatus(WindowHandle, L"Unable to save resource.", status, 0);
+            }
+        }
+    }
+
+    PhFree(resources.ResourceEntries);
     PhDereferenceObject(fileName);
 }
 
-NTSTATUS PvpPeResourcesEnumerateThread(
-    _In_ PPV_RESOURCES_CONTEXT Context
+VOID PvpPeEnumMappedImageResources(
+    _In_ PPV_RESOURCES_CONTEXT Context,
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ BOOLEAN IsMuiFile
     )
 {
+    static ULONG64 NextUniqueId = 0;
     PH_MAPPED_IMAGE_RESOURCES resources;
     PH_IMAGE_RESOURCE_ENTRY entry;
     ULONG i;
 
-    if (NT_SUCCESS(PhGetMappedImageResources(&resources, &PvMappedImage)))
+    if (NT_SUCCESS(PhGetMappedImageResources(&resources, MappedImage)))
     {
         for (i = 0; i < resources.NumberOfEntries; i++)
         {
@@ -325,8 +345,9 @@ NTSTATUS PvpPeResourcesEnumerateThread(
             entry = resources.ResourceEntries[i];
 
             resourceNode = PhAllocateZero(sizeof(PV_RESOURCE_NODE));
-            resourceNode->UniqueId = i + 1;
+            resourceNode->UniqueId = ++NextUniqueId;
             resourceNode->UniqueIdString = PhFormatUInt64(resourceNode->UniqueId, FALSE);
+            resourceNode->NodeType = IsMuiFile ? PV_RESOURCES_TREE_NODE_TYPE_MUI : PV_RESOURCES_TREE_NODE_TYPE_IMAGE;
 
             resourceNode->RvaStart = UlongToPtr(entry.Offset);
             PhPrintPointer(value, resourceNode->RvaStart);
@@ -364,7 +385,6 @@ NTSTATUS PvpPeResourcesEnumerateThread(
             {
                 if ((ULONG)entry.Language)
                 {
-#if (PHNT_VERSION >= PHNT_WIN7)
                     UNICODE_STRING localeNameUs;
                     WCHAR localeName[LOCALE_NAME_MAX_LENGTH] = { UNICODE_NULL };
 
@@ -381,14 +401,10 @@ NTSTATUS PvpPeResourcesEnumerateThread(
                         PhPrintUInt32(value, (ULONG)entry.Language);
                         resourceNode->LcidString = PhCreateString(value);
                     }
-#else
-                    PhPrintUInt32(value, (ULONG)entry.Language);
-                    resourceNode->LcidString = PhCreateString(value);
-#endif
                 }
-                else // LOCALE_NEUTRAL
+                else
                 {
-                    resourceNode->LcidString = PhCreateString(L"Neutral");
+                    resourceNode->LcidString = PhCreateString(L"Neutral"); // LOCALE_NEUTRAL
                 }
             }
             else
@@ -416,7 +432,7 @@ NTSTATUS PvpPeResourcesEnumerateThread(
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
                     //resourceNode->HashString = PhGetNtMessage(GetExceptionCode());
-                    resourceNode->HashString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                    resourceNode->HashString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
                 }
             }
 
@@ -438,7 +454,7 @@ NTSTATUS PvpPeResourcesEnumerateThread(
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
                     //resourceNode->EntropyString = PhGetNtMessage(GetExceptionCode());
-                    resourceNode->EntropyString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                    resourceNode->EntropyString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
                 }
             }
 
@@ -449,6 +465,59 @@ NTSTATUS PvpPeResourcesEnumerateThread(
 
         PhFree(resources.ResourceEntries);
     }
+}
+
+VOID PvpPeEnumAlternateMappedImageResources(
+    _In_ PPV_RESOURCES_CONTEXT Context,
+    _In_ PPH_STRING FileName
+    )
+{
+    if (!Context->MuiMappedImage.ViewBase)
+    {
+        PVOID baseAddress;
+        PVOID muiBaseAddress;
+        PPH_STRING muiFileName;
+        PH_MAPPED_IMAGE muiMappedImage;
+
+        if (NT_SUCCESS(PhLoadLibraryAsImageResourceWin32(&FileName->sr, &baseAddress)))
+        {
+            if (NT_SUCCESS(LdrLoadAlternateResourceModule(baseAddress, &muiBaseAddress, NULL, 0)))
+            {
+                if (NT_SUCCESS(PhGetProcessMappedFileName(NtCurrentProcess(), muiBaseAddress, &muiFileName)))
+                {
+                    if (NT_SUCCESS(PhLoadMappedImageEx(&muiFileName->sr, NULL, &muiMappedImage)))
+                    {
+                        Context->MuiMappedImage = muiMappedImage;
+                    }
+
+                    //PPH_STRING win32MuiFileName = PhGetFileName(muiFileName);
+                    //PvpPeEnumAlternateMappedImageResources(Context, win32MuiFileName);
+                    //PhDereferenceObject(win32MuiFileName);
+                    PhDereferenceObject(muiFileName);
+                }
+
+                LdrUnloadAlternateResourceModule(muiBaseAddress);
+            }
+
+            PhFreeLibraryAsImageResource(baseAddress);
+        }
+    }
+
+    if (Context->MuiMappedImage.ViewBase)
+    {
+        PvpPeEnumMappedImageResources(Context, &Context->MuiMappedImage, TRUE);
+    }
+}
+
+NTSTATUS PvpPeResourcesEnumerateThread(
+    _In_ PPV_RESOURCES_CONTEXT Context
+    )
+{
+    // Enumerate the resources in the current image.
+    PvpPeEnumMappedImageResources(Context, &PvMappedImage, FALSE);
+
+    // Enumerate the resources in the alternate image.
+    PvpPeEnumAlternateMappedImageResources(Context, PvFileName);
 
     PostMessage(Context->DialogHandle, WM_PV_SEARCH_FINISHED, 0, 0);
     return STATUS_SUCCESS;
@@ -512,8 +581,13 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
         break;
     case WM_DESTROY:
         {
+            //if (context->MuiMappedImage.ViewBase)
+            //    PhUnloadMappedImage(&context->MuiMappedImage);
+
             PhSaveSettingsResourcesList(context);
             PvDeleteResourcesTree(context);
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
@@ -615,7 +689,7 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
                         switch (selectedItem->Id)
                         {
                         case 1:
-                            PvpPeResourceSaveToFile(hwndDlg, sectionNodes[0]);
+                            PvpPeResourceSaveToFile(context, hwndDlg, sectionNodes[0]);
                             break;
                         case USHRT_MAX:
                             {
@@ -673,9 +747,9 @@ VOID PhSaveSettingsResourcesList(
 {
     PPH_STRING settings;
     PPH_STRING sortSettings;
-    
+
     settings = PhCmSaveSettingsEx(Context->TreeNewHandle, &Context->Cm, 0, &sortSettings);
-    
+
     //PhSetIntegerSetting(L"ImageResourcesTreeListFlags", Context->Flags);
     PhSetStringSetting2(L"ImageResourcesTreeListColumns", &settings->sr);
     PhSetStringSetting2(L"ImageResourcesTreeListSort", &sortSettings->sr);
@@ -995,6 +1069,11 @@ BOOLEAN NTAPI PvResourcesTreeNewCallback(
 
             node = (PPV_RESOURCE_NODE)getNodeColor->Node;
 
+            if (node->NodeType == PV_RESOURCES_TREE_NODE_TYPE_MUI)
+            {
+                getNodeColor->BackColor = RGB(0xcc, 0xcc, 0xff);
+            }
+
             getNodeColor->Flags = TN_CACHE | TN_AUTO_FORECOLOR;
         }
         return TRUE;
@@ -1019,7 +1098,7 @@ BOOLEAN NTAPI PvResourcesTreeNewCallback(
             SendMessage(context->ParentWindowHandle, WM_PV_SEARCH_SHOWMENU, 0, (LPARAM)contextMenu);
         }
         return TRUE;
-    case TreeNewHeaderRightClick: 
+    case TreeNewHeaderRightClick:
         {
             PH_TN_COLUMN_MENU_DATA data;
 

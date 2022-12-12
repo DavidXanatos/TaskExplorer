@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -18,32 +18,32 @@ class QwtScaleDraw;
 class QwtColorMap;
 
 /*!
-  \brief The Thermometer Widget
+   \brief The Thermometer Widget
 
-  QwtThermo is a widget which displays a value in an interval. It supports:
-  - a horizontal or vertical layout;
-  - a range;
-  - a scale;
-  - an alarm level.
+   QwtThermo is a widget which displays a value in an interval. It supports:
+   - a horizontal or vertical layout;
+   - a range;
+   - a scale;
+   - an alarm level.
 
-  \image html sysinfo.png
+   \image html sysinfo.png
 
-  The fill colors might be calculated from an optional color map
-  If no color map has been assigned QwtThermo uses the
-  following colors/brushes from the widget palette:
+   The fill colors might be calculated from an optional color map
+   If no color map has been assigned QwtThermo uses the
+   following colors/brushes from the widget palette:
 
-  - QPalette::Base
+   - QPalette::Base
     Background of the pipe
-  - QPalette::ButtonText
+   - QPalette::ButtonText
     Fill brush below the alarm level
-  - QPalette::Highlight
+   - QPalette::Highlight
     Fill brush for the values above the alarm level
-  - QPalette::WindowText
+   - QPalette::WindowText
     For the axis of the scale
-  - QPalette::Text
+   - QPalette::Text
     For the labels of the scale
-*/
-class QWT_EXPORT QwtThermo: public QwtAbstractScale
+ */
+class QWT_EXPORT QwtThermo : public QwtAbstractScale
 {
     Q_OBJECT
 
@@ -62,13 +62,13 @@ class QWT_EXPORT QwtThermo: public QwtAbstractScale
     Q_PROPERTY( int spacing READ spacing WRITE setSpacing )
     Q_PROPERTY( int borderWidth READ borderWidth WRITE setBorderWidth )
     Q_PROPERTY( int pipeWidth READ pipeWidth WRITE setPipeWidth )
-    Q_PROPERTY( double value READ value WRITE setValue )
+    Q_PROPERTY( double value READ value WRITE setValue USER true )
 
-public:
+  public:
 
     /*!
-      Position of the scale
-      \sa setScalePosition(), setOrientation()
+       Position of the scale
+       \sa setScalePosition(), setOrientation()
      */
     enum ScalePosition
     {
@@ -83,11 +83,11 @@ public:
     };
 
     /*!
-      Origin mode. This property specifies where the beginning of the liquid
-      is placed.
+       Origin mode. This property specifies where the beginning of the liquid
+       is placed.
 
-      \sa setOriginMode(), setOrigin()
-    */
+       \sa setOriginMode(), setOrigin()
+     */
     enum OriginMode
     {
         //! The origin is the minimum of the scale
@@ -100,7 +100,7 @@ public:
         OriginCustom
     };
 
-    explicit QwtThermo( QWidget *parent = NULL );
+    explicit QwtThermo( QWidget* parent = NULL );
     virtual ~QwtThermo();
 
     void setOrientation( Qt::Orientation );
@@ -121,10 +121,10 @@ public:
     void setOrigin( double );
     double origin() const;
 
-    void setFillBrush( const QBrush & );
+    void setFillBrush( const QBrush& );
     QBrush fillBrush() const;
 
-    void setAlarmBrush( const QBrush & );
+    void setAlarmBrush( const QBrush& );
     QBrush alarmBrush() const;
 
     void setAlarmLevel( double );
@@ -133,9 +133,9 @@ public:
     void setAlarmEnabled( bool );
     bool alarmEnabled() const;
 
-    void setColorMap( QwtColorMap * );
-    QwtColorMap *colorMap();
-    const QwtColorMap *colorMap() const;
+    void setColorMap( QwtColorMap* );
+    QwtColorMap* colorMap();
+    const QwtColorMap* colorMap() const;
 
     void setPipeWidth( int );
     int pipeWidth() const;
@@ -145,34 +145,34 @@ public:
 
     double value() const;
 
-    virtual QSize sizeHint() const;
-    virtual QSize minimumSizeHint() const;
+    virtual QSize sizeHint() const QWT_OVERRIDE;
+    virtual QSize minimumSizeHint() const QWT_OVERRIDE;
 
-    void setScaleDraw( QwtScaleDraw * );
-    const QwtScaleDraw *scaleDraw() const;
+    void setScaleDraw( QwtScaleDraw* );
+    const QwtScaleDraw* scaleDraw() const;
 
-public Q_SLOTS:
+  public Q_SLOTS:
     virtual void setValue( double );
 
-protected:
-    virtual void drawLiquid( QPainter *, const QRect & ) const;
-    virtual void scaleChange();
+  protected:
+    virtual void drawLiquid( QPainter*, const QRect& ) const;
+    virtual void scaleChange() QWT_OVERRIDE;
 
-    virtual void paintEvent( QPaintEvent * );
-    virtual void resizeEvent( QResizeEvent * );
-    virtual void changeEvent( QEvent * );
+    virtual void paintEvent( QPaintEvent* ) QWT_OVERRIDE;
+    virtual void resizeEvent( QResizeEvent* ) QWT_OVERRIDE;
+    virtual void changeEvent( QEvent* ) QWT_OVERRIDE;
 
-    QwtScaleDraw *scaleDraw();
+    QwtScaleDraw* scaleDraw();
 
     QRect pipeRect() const;
-    QRect fillRect( const QRect & ) const;
-    QRect alarmRect( const QRect & ) const;
+    QRect fillRect( const QRect& ) const;
+    QRect alarmRect( const QRect& ) const;
 
-private:
+  private:
     void layoutThermo( bool );
 
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

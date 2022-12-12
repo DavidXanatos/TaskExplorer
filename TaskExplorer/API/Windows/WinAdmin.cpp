@@ -23,15 +23,15 @@ bool IsElevated()
     return fRet;
 }
 
-int RunElevated(const wstring& Params, bool bGetCode)
+int RunElevated(const std::wstring& Params, bool bGetCode)
 {
 	wchar_t szPath[MAX_PATH];
 	if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
 		return -3;
-	return RunElevated(wstring(szPath), Params, bGetCode);
+	return RunElevated(std::wstring(szPath), Params, bGetCode);
 }
 
-int RunElevated(const wstring& binaryPath, const wstring& Params, bool bGetCode)
+int RunElevated(const std::wstring& binaryPath, const std::wstring& Params, bool bGetCode)
 {
 	// Launch itself as admin
 	SHELLEXECUTEINFO sei = { sizeof(sei) };
@@ -64,12 +64,12 @@ int RunElevated(const wstring& binaryPath, const wstring& Params, bool bGetCode)
 
 int RestartElevated(int &argc, char **argv)
 {
-	wstring Params;
+	std::wstring Params;
 	for (int i = 1; i < argc; i++)
 	{
 		if (i > 1)
 			Params.append(L" ");
-		Params.append(L"\"" + wstring_convert<codecvt_utf8<wchar_t>>().from_bytes(argv[i]) + L"\"");
+		Params.append(L"\"" + std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(argv[i]) + L"\"");
 	}
 	return RunElevated(Params);
 }
@@ -114,7 +114,7 @@ bool AutorunEnable (bool is_enable)
 			wchar_t szPath[MAX_PATH];
 			if (GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
 			{
-				wstring path = L"\"" + wstring(szPath) + L"\" -autorun";
+				std::wstring path = L"\"" + std::wstring(szPath) + L"\" -autorun";
 
 				result = (RegSetValueEx(hkey, AUTO_RUN_KEY_NAME, 0, REG_SZ, (LPBYTE)path.c_str(), DWORD((path.length() + 1) * sizeof(WCHAR))) == ERROR_SUCCESS);
 			}
@@ -197,8 +197,8 @@ bool SkipUacEnable (bool is_enable)
 	wchar_t szPath[MAX_PATH];
 	if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
 		return false;
-    wstring::size_type pos = wstring(szPath).find_last_of( L"\\/" );
-    wstring dir = wstring(szPath).substr(0, pos);
+    std::wstring::size_type pos = std::wstring(szPath).find_last_of( L"\\/" );
+    std::wstring dir = std::wstring(szPath).substr(0, pos);
 
 	MBSTR root (L"\\");
 	MBSTR name (SKIP_UAC_TASK_NAME);
@@ -379,7 +379,7 @@ bool SkipUacRun (bool test_only)
 												}
 												else
 												{
-													wstring args;
+													std::wstring args;
 
 													// get arguments
 													{

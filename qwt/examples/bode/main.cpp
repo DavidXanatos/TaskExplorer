@@ -1,13 +1,22 @@
-#include <qapplication.h>
-#include "mainwindow.h"
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
-int main ( int argc, char **argv )
+#include "MainWindow.h"
+#include <QApplication>
+
+int main( int argc, char* argv[] )
 {
-    QApplication a( argc, argv );
+    QApplication app( argc, argv );
 
-    MainWindow w;
-    w.resize( 540, 400 );
-    w.show();
+    MainWindow window;
+    window.resize( 540, 400 );
+    window.show();
 
-    return a.exec();
+    return app.exec();
 }

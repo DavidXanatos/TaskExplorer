@@ -1,43 +1,58 @@
-#include <qfiledialog.h>
-#include <qwt_plot_svgitem.h>
-#include <qwt_plot_grid.h>
-#include <qwt_plot_layout.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_panner.h>
-#include <qwt_plot_magnifier.h>
-#include "plot.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-Plot::Plot( QWidget *parent ):
-    QwtPlot( parent ),
-    d_mapItem( NULL ),
-    d_mapRect( 0.0, 0.0, 100.0, 100.0 ) // something
+#include "Plot.h"
+
+#include <QwtPlotGraphicItem>
+#include <QwtPlotLayout>
+#include <QwtPlotPanner>
+#include <QwtPlotMagnifier>
+#include <QwtGraphic>
+
+#define DEBUG_SCALE 0
+
+#if DEBUG_SCALE
+#include <QwtPlotGrid>
+#endif
+
+#include <QSvgRenderer>
+#include <QFileDialog>
+
+Plot::Plot( QWidget* parent )
+    : QwtPlot( parent )
+    , m_mapItem( NULL )
+    , m_mapRect( 0.0, 0.0, 100.0, 100.0 ) // something
 {
-#if 1
+#if DEBUG_SCALE
+    QwtPlotGrid* grid = new QwtPlotGrid();
+    grid->attach( this );
+#else
     /*
-       d_mapRect is only a reference for zooming, but
+       m_mapRect is only a reference for zooming, but
        the ranges are nothing useful for the user. So we
        hide the axes.
      */
     plotLayout()->setCanvasMargin( 0 );
-    for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
-        enableAxis( axis, false );
-#else
-    QwtPlotGrid *grid = new QwtPlotGrid();
-    grid->attach( this );
+    for ( int axisPos = 0; axisPos < QwtAxis::AxisPositions; axisPos++ )
+        setAxisVisible( axisPos, false );
 #endif
 
     /*
-      Navigation:
+       Navigation:
 
-      Left Mouse Button: Panning
-      Mouse Wheel:       Zooming In/Out
-      Right Mouse Button: Reset to initial
-    */
+       Left Mouse Button: Panning
+       Mouse Wheel:       Zooming In/Out
+       Right Mouse Button: Reset to initial
+     */
 
     ( void )new QwtPlotPanner( canvas() );
     ( void )new QwtPlotMagnifier( canvas() );
 
     canvas()->setFocusPolicy( Qt::WheelFocus );
+    setCanvasBackground( Qt::white );
+
     rescale();
 }
 
@@ -56,24 +71,33 @@ void Plot::loadSVG()
 
 #endif
 
-void Plot::loadSVG( const QString &fileName )
+void Plot::loadSVG( const QString& fileName )
 {
-    if ( d_mapItem == NULL )
+    if ( m_mapItem == NULL )
     {
-        d_mapItem = new QwtPlotSvgItem();
-        d_mapItem->attach( this );
+        m_mapItem = new QwtPlotGraphicItem();
+        m_mapItem->attach( this );
     }
 
-    d_mapItem->loadFile( d_mapRect, fileName );
-    rescale();
+    QwtGraphic graphic;
 
+    QSvgRenderer renderer;
+    if ( renderer.load( fileName ) )
+    {
+        QPainter p( &graphic );
+        renderer.render( &p );
+    }
+
+    m_mapItem->setGraphic( m_mapRect, graphic );
+
+    rescale();
     replot();
 }
 
 void Plot::rescale()
 {
-    setAxisScale( QwtPlot::xBottom,
-        d_mapRect.left(), d_mapRect.right() );
-    setAxisScale( QwtPlot::yLeft,
-        d_mapRect.top(), d_mapRect.bottom() );
+    setAxisScale( QwtAxis::XBottom, m_mapRect.left(), m_mapRect.right() );
+    setAxisScale( QwtAxis::YLeft, m_mapRect.top(), m_mapRect.bottom() );
 }
+
+#include "moc_Plot.cpp"

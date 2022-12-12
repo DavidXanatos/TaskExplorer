@@ -5,7 +5,7 @@
 #include "../WinHandle.h"
 #include "../WindowsAPI.h"
 
-CWinHandleFinder::CWinHandleFinder(const QVariant& Type, const QRegExp& RegExp, QObject* parent) : CAbstractFinder(parent) 
+CWinHandleFinder::CWinHandleFinder(const QVariant& Type, const QRegularExpression& RegExp, QObject* parent) : CAbstractFinder(parent)
 {
 	m_Type = Type.toInt();
 	m_RegExp = RegExp;
@@ -22,7 +22,7 @@ void CWinHandleFinder::run()
 	{
 		quint64 TimeStamp = GetTime() * 1000;
 
-		//if (!KphIsConnected())
+		//if (!KphCommsIsConnected())
 		//{
 		//	PhFree(handleInfo);
 		//	return false;

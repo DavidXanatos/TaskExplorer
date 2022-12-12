@@ -15,8 +15,6 @@
 #include <memory>
 
 
-using namespace std;
-
 // Qt includes
 #include <QObject>
 #include <QList>

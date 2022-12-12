@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,33 +8,34 @@
  *****************************************************************************/
 
 #ifndef QWT_NULL_PAINT_DEVICE_H
-#define QWT_NULL_PAINT_DEVICE_H 1
+#define QWT_NULL_PAINT_DEVICE_H
 
 #include "qwt_global.h"
+
 #include <qpaintdevice.h>
 #include <qpaintengine.h>
 
 /*!
-  \brief A null paint device doing nothing
+   \brief A null paint device doing nothing
 
-  Sometimes important layout/rendering geometries are not
-  available or changeable from the public Qt class interface.
-  ( f.e hidden in the style implementation ).
+   Sometimes important layout/rendering geometries are not
+   available or changeable from the public Qt class interface.
+   ( f.e hidden in the style implementation ).
 
-  QwtNullPaintDevice can be used to manipulate or filter out
-  this information by analyzing the stream of paint primitives.
+   QwtNullPaintDevice can be used to manipulate or filter out
+   this information by analyzing the stream of paint primitives.
 
-  F.e. QwtNullPaintDevice is used by QwtPlotCanvas to identify
-  styled backgrounds with rounded corners.
-*/
+   F.e. QwtNullPaintDevice is used by QwtPlotCanvas to identify
+   styled backgrounds with rounded corners.
+ */
 
-class QWT_EXPORT QwtNullPaintDevice: public QPaintDevice
+class QWT_EXPORT QwtNullPaintDevice : public QPaintDevice
 {
-public:
+  public:
     /*!
-      \brief Render mode
+       \brief Render mode
 
-      \sa setMode(), mode()
+       \sa setMode(), mode()
      */
     enum Mode
     {
@@ -74,53 +75,53 @@ public:
     void setMode( Mode );
     Mode mode() const;
 
-    virtual QPaintEngine *paintEngine() const;
+    virtual QPaintEngine* paintEngine() const QWT_OVERRIDE;
 
-    virtual int metric( PaintDeviceMetric ) const;
+    virtual int metric( PaintDeviceMetric ) const QWT_OVERRIDE;
 
-    virtual void drawRects(const QRect *, int );
-    virtual void drawRects(const QRectF *, int );
+    virtual void drawRects(const QRect*, int );
+    virtual void drawRects(const QRectF*, int );
 
-    virtual void drawLines(const QLine *, int );
-    virtual void drawLines(const QLineF *, int );
+    virtual void drawLines(const QLine*, int );
+    virtual void drawLines(const QLineF*, int );
 
-    virtual void drawEllipse(const QRectF &);
-    virtual void drawEllipse(const QRect &);
+    virtual void drawEllipse(const QRectF&);
+    virtual void drawEllipse(const QRect&);
 
-    virtual void drawPath(const QPainterPath &);
+    virtual void drawPath(const QPainterPath&);
 
-    virtual void drawPoints(const QPointF *, int );
-    virtual void drawPoints(const QPoint *, int );
+    virtual void drawPoints(const QPointF*, int );
+    virtual void drawPoints(const QPoint*, int );
 
-    virtual void drawPolygon(
-        const QPointF *, int , QPaintEngine::PolygonDrawMode );
+    virtual void drawPolygon( const QPointF*, int,
+        QPaintEngine::PolygonDrawMode );
 
-    virtual void drawPolygon(
-        const QPoint *, int , QPaintEngine::PolygonDrawMode );
+    virtual void drawPolygon( const QPoint*, int,
+        QPaintEngine::PolygonDrawMode );
 
-    virtual void drawPixmap(const QRectF &,
-        const QPixmap &, const QRectF &);
+    virtual void drawPixmap(const QRectF&,
+        const QPixmap&, const QRectF&);
 
-    virtual void drawTextItem(const QPointF &, const QTextItem &);
+    virtual void drawTextItem(const QPointF&, const QTextItem&);
 
-    virtual void drawTiledPixmap(const QRectF &,
-        const QPixmap &, const QPointF & );
+    virtual void drawTiledPixmap(const QRectF&,
+        const QPixmap&, const QPointF& );
 
-    virtual void drawImage(const QRectF &,
-        const QImage &, const QRectF &, Qt::ImageConversionFlags );
+    virtual void drawImage(const QRectF&, const QImage&,
+        const QRectF&, Qt::ImageConversionFlags );
 
-    virtual void updateState( const QPaintEngineState & );
+    virtual void updateState( const QPaintEngineState& );
 
-protected:
+  protected:
     //! \return Size needed to implement metric()
     virtual QSize sizeMetrics() const = 0;
 
-private:
+  private:
     class PaintEngine;
-    PaintEngine *d_engine;
+    PaintEngine* m_engine;
 
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

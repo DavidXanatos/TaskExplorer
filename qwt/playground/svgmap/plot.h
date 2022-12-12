@@ -1,31 +1,33 @@
-#ifndef PLOT_H
-#define PLOT_H
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
-#include <qrect.h>
+#pragma once
 
-class QwtPlotSvgItem;
+#include <QwtPlot>
+#include <QRect>
 
-class Plot: public QwtPlot
+class QwtPlotGraphicItem;
+
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget * = NULL );
+  public:
+    Plot( QWidget* = NULL );
 
-public Q_SLOTS:
+  public Q_SLOTS:
 
 #ifndef QT_NO_FILEDIALOG
     void loadSVG();
 #endif
 
-    void loadSVG( const QString & );
+    void loadSVG( const QString& );
 
-private:
+  private:
     void rescale();
 
-    QwtPlotSvgItem *d_mapItem;
-    const QRectF d_mapRect;
+    QwtPlotGraphicItem* m_mapItem;
+    const QRectF m_mapRect;
 };
-
-#endif

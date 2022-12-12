@@ -1,28 +1,31 @@
-#ifndef _SCROLLZOOMER_H
-#define _SCROLLZOOMER_H
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qglobal.h>
-#include <qwt_plot_zoomer.h>
-#include <qwt_plot.h>
+#pragma once
+
+#include <QwtPlotZoomer>
+#include <QwtPlot>
 
 class ScrollData;
 class ScrollBar;
 
-class ScrollZoomer: public QwtPlotZoomer
+class ScrollZoomer : public QwtPlotZoomer
 {
     Q_OBJECT
-public:
+  public:
     enum ScrollBarPosition
     {
         AttachedToScale,
         OppositeToScale
     };
 
-    ScrollZoomer( QWidget * );
+    ScrollZoomer( QWidget* );
     virtual ~ScrollZoomer();
 
-    ScrollBar *horizontalScrollBar() const;
-    ScrollBar *verticalScrollBar() const;
+    ScrollBar* horizontalScrollBar() const;
+    ScrollBar* verticalScrollBar() const;
 
     void setHScrollBarMode( Qt::ScrollBarPolicy );
     void setVScrollBarMode( Qt::ScrollBarPolicy );
@@ -37,31 +40,29 @@ public:
     ScrollBarPosition vScrollBarPosition() const;
 
     QWidget* cornerWidget() const;
-    virtual void setCornerWidget( QWidget * );
+    virtual void setCornerWidget( QWidget* );
 
-    virtual bool eventFilter( QObject *, QEvent * );
+    virtual bool eventFilter( QObject*, QEvent* ) QWT_OVERRIDE;
 
-    virtual void rescale();
+    virtual void rescale() QWT_OVERRIDE;
 
-protected:
-    virtual ScrollBar *scrollBar( Qt::Orientation );
+  protected:
+    virtual ScrollBar* scrollBar( Qt::Orientation );
     virtual void updateScrollBars();
-    virtual void layoutScrollBars( const QRect & );
+    virtual void layoutScrollBars( const QRect& );
 
-private Q_SLOTS:
+  private Q_SLOTS:
     void scrollBarMoved( Qt::Orientation o, double min, double max );
 
-private:
+  private:
     bool needScrollBar( Qt::Orientation ) const;
     int oppositeAxis( int ) const;
 
-    QWidget *d_cornerWidget;
+    QWidget* m_cornerWidget;
 
-    ScrollData *d_hScrollData;
-    ScrollData *d_vScrollData;
+    ScrollData* m_hScrollData;
+    ScrollData* m_vScrollData;
 
-    bool d_inZoom;
-    bool d_alignCanvasToScales[ QwtPlot::axisCnt ];
+    bool m_inZoom;
+    bool m_alignCanvasToScales[ QwtAxis::AxisPositions ];
 };
-
-#endif

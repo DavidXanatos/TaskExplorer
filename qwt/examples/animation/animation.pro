@@ -1,5 +1,5 @@
 ################################################################
-# Qwt Widget Library
+# Qwt Examples
 # Copyright (C) 1997   Josef Wilgen
 # Copyright (C) 2002   Uwe Rathmann
 #
@@ -12,8 +12,8 @@ include( $${PWD}/../examples.pri )
 TARGET  = animation
 
 HEADERS = \
-    plot.h
+    Plot.h
 
 SOURCES = \
-    plot.cpp \
+    Plot.cpp \
     main.cpp

@@ -11,14 +11,14 @@ CTokenView::CTokenView(QWidget *parent)
 	m_LockValues = false;
 
 	QVBoxLayout* m_pMainLayout = new QVBoxLayout();
-	//m_pMainLayout->setMargin(0);
+	//m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_GeneralWidget = new QWidget();
 	m_pMainLayout->addWidget(m_GeneralWidget);
 
 	m_pGeneralLayout = new QGridLayout();
-	//m_pGeneralLayout->setMargin(0);
+	//m_pGeneralLayout->setContentsMargins(0, 0, 0, 0);
 	m_GeneralWidget->setLayout(m_pGeneralLayout);
 	int row = 0;
 
@@ -75,7 +75,7 @@ CTokenView::CTokenView(QWidget *parent)
 	// Variables List
 	m_pTokenList = new QTreeWidgetEx();
 	m_pTokenList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pTokenList->setHeaderLabels(tr("Name|Status|Description").split("|"));
+	m_pTokenList->setHeaderLabels(tr("Name|Status|Description|SID").split("|"));
 	m_pTokenList->setMinimumHeight(50);
 
 	m_pTokenList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -342,16 +342,16 @@ void CTokenView__SetRowColor(QTreeWidgetItem* pItem, bool bEnabled, bool bModifi
 		if (bEnabled)
 		{
 			if (bModified)
-				pItem->setBackgroundColor(i, QColor(192, 240, 192));
+				pItem->setBackground(i, QColor(192, 240, 192));
 			else
-				pItem->setBackgroundColor(i, QColor(224, 240, 224));
+				pItem->setBackground(i, QColor(224, 240, 224));
 		}
 		else
 		{
 			if (bModified)
-				pItem->setBackgroundColor(i, QColor(240, 192, 192));
+				pItem->setBackground(i, QColor(240, 192, 192));
 			else
-				pItem->setBackgroundColor(i, QColor(240, 224, 224));
+				pItem->setBackground(i, QColor(240, 224, 224));
 		}
 	}
 }
@@ -547,6 +547,13 @@ void CTokenView::UpdateGeneral()
 		{
 			pItem = new QTreeWidgetItem();
 			pItem->setData(eName, Qt::UserRole, Group.Sid);
+
+			QString sSID;
+			PPH_STRING stringUserSid;
+			if (stringUserSid = PhSidToStringSid((PSID)Group.Sid.data()))
+				sSID = CastPhString(stringUserSid);
+
+			pItem->setText(eSID, sSID);
 			pItem->setText(eDescription, CWinToken::GetGroupDescription(Group.Attributes));
 			if(Group.Restricted)
 				m_pRestrictingSIDs->addChild(pItem);
@@ -569,7 +576,7 @@ void CTokenView::UpdateGeneral()
 	m_pGroups->setHidden(m_pGroups->childCount() == 0);
 	m_pRestrictingSIDs->setHidden(m_pRestrictingSIDs->childCount() == 0);
 
-	if (!m_pFinder->GetRegExp().isEmpty())
+	if (m_pFinder->GetRegExp().isValid())
 		SetFilter(m_pFinder->GetRegExp());
 }
 
@@ -946,7 +953,7 @@ void CTokenView::OnLinkedToken()
 	}
 }
 
-void CTokenView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
+void CTokenView::SetFilter(const QRegularExpression& Exp, bool bHighLight, int Col)
 {
 	CPanelWidgetEx::ApplyFilter(m_pTokenList, Exp/*, bHighLight, Col*/);
 }

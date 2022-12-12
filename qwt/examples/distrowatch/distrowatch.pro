@@ -1,19 +1,15 @@
-################################################################
-# Qwt Widget Library
-# Copyright (C) 1997   Josef Wilgen
-# Copyright (C) 2002   Uwe Rathmann
-#
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the Qwt License, Version 1.0
-################################################################
+######################################################################
+# Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+# This file may be used under the terms of the 3-clause BSD License
+######################################################################
 
 include( $${PWD}/../examples.pri )
 
 TARGET       = distrowatch
 
 HEADERS = \
-    barchart.h 
+    BarChart.h 
 
 SOURCES = \
-    barchart.cpp \
+    BarChart.cpp \
     main.cpp

@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -9,134 +9,135 @@
 
 #include "qwt_scale_map.h"
 #include "qwt_math.h"
+
 #include <qrect.h>
 #include <qdebug.h>
 
 /*!
-  \brief Constructor
+   \brief Constructor
 
-  The scale and paint device intervals are both set to [0,1].
-*/
-QwtScaleMap::QwtScaleMap():
-    d_s1( 0.0 ),
-    d_s2( 1.0 ),
-    d_p1( 0.0 ),
-    d_p2( 1.0 ),
-    d_cnv( 1.0 ),
-    d_ts1( 0.0 ),
-    d_transform( NULL )
+   The scale and paint device intervals are both set to [0,1].
+ */
+QwtScaleMap::QwtScaleMap()
+    : m_s1( 0.0 )
+    , m_s2( 1.0 )
+    , m_p1( 0.0 )
+    , m_p2( 1.0 )
+    , m_cnv( 1.0 )
+    , m_ts1( 0.0 )
+    , m_transform( NULL )
 {
 }
 
 //! Copy constructor
-QwtScaleMap::QwtScaleMap( const QwtScaleMap& other ):
-    d_s1( other.d_s1 ),
-    d_s2( other.d_s2 ),
-    d_p1( other.d_p1 ),
-    d_p2( other.d_p2 ),
-    d_cnv( other.d_cnv ),
-    d_ts1( other.d_ts1 ),
-    d_transform( NULL )
+QwtScaleMap::QwtScaleMap( const QwtScaleMap& other )
+    : m_s1( other.m_s1 )
+    , m_s2( other.m_s2 )
+    , m_p1( other.m_p1 )
+    , m_p2( other.m_p2 )
+    , m_cnv( other.m_cnv )
+    , m_ts1( other.m_ts1 )
+    , m_transform( NULL )
 {
-    if ( other.d_transform )
-        d_transform = other.d_transform->copy();
+    if ( other.m_transform )
+        m_transform = other.m_transform->copy();
 }
 
 /*!
-  Destructor
-*/
+   Destructor
+ */
 QwtScaleMap::~QwtScaleMap()
 {
-    delete d_transform;
+    delete m_transform;
 }
 
 //! Assignment operator
-QwtScaleMap &QwtScaleMap::operator=( const QwtScaleMap & other )
+QwtScaleMap& QwtScaleMap::operator=( const QwtScaleMap& other )
 {
-    d_s1 = other.d_s1;
-    d_s2 = other.d_s2;
-    d_p1 = other.d_p1;
-    d_p2 = other.d_p2;
-    d_cnv = other.d_cnv;
-    d_ts1 = other.d_ts1;
+    m_s1 = other.m_s1;
+    m_s2 = other.m_s2;
+    m_p1 = other.m_p1;
+    m_p2 = other.m_p2;
+    m_cnv = other.m_cnv;
+    m_ts1 = other.m_ts1;
 
-    delete d_transform;
-    d_transform = NULL;
+    delete m_transform;
+    m_transform = NULL;
 
-    if ( other.d_transform )
-        d_transform = other.d_transform->copy();
+    if ( other.m_transform )
+        m_transform = other.m_transform->copy();
 
     return *this;
 }
 
 /*!
    Initialize the map with a transformation
-*/
-void QwtScaleMap::setTransformation( QwtTransform *transform )
+ */
+void QwtScaleMap::setTransformation( QwtTransform* transform )
 {
-    if ( transform != d_transform )
+    if ( transform != m_transform )
     {
-        delete d_transform;
-        d_transform = transform;
+        delete m_transform;
+        m_transform = transform;
     }
 
-    setScaleInterval( d_s1, d_s2 );
+    setScaleInterval( m_s1, m_s2 );
 }
 
 //! Get the transformation
-const QwtTransform *QwtScaleMap::transformation() const
+const QwtTransform* QwtScaleMap::transformation() const
 {
-    return d_transform;
+    return m_transform;
 }
 
 /*!
-  \brief Specify the borders of the scale interval
-  \param s1 first border
-  \param s2 second border
-  \warning scales might be aligned to 
+   \brief Specify the borders of the scale interval
+   \param s1 first border
+   \param s2 second border
+   \warning scales might be aligned to
            transformation depending boundaries
-*/
+ */
 void QwtScaleMap::setScaleInterval( double s1, double s2 )
 {
-    d_s1 = s1;
-    d_s2 = s2;
+    m_s1 = s1;
+    m_s2 = s2;
 
-    if ( d_transform )
+    if ( m_transform )
     {
-        d_s1 = d_transform->bounded( d_s1 );
-        d_s2 = d_transform->bounded( d_s2 );
+        m_s1 = m_transform->bounded( m_s1 );
+        m_s2 = m_transform->bounded( m_s2 );
     }
 
     updateFactor();
 }
 
 /*!
-  \brief Specify the borders of the paint device interval
-  \param p1 first border
-  \param p2 second border
-*/
+   \brief Specify the borders of the paint device interval
+   \param p1 first border
+   \param p2 second border
+ */
 void QwtScaleMap::setPaintInterval( double p1, double p2 )
 {
-    d_p1 = p1;
-    d_p2 = p2;
+    m_p1 = p1;
+    m_p2 = p2;
 
     updateFactor();
 }
 
 void QwtScaleMap::updateFactor()
 {
-    d_ts1 = d_s1;
-    double ts2 = d_s2;
+    m_ts1 = m_s1;
+    double ts2 = m_s2;
 
-    if ( d_transform )
+    if ( m_transform )
     {
-        d_ts1 = d_transform->transform( d_ts1 );
-        ts2 = d_transform->transform( ts2 );
+        m_ts1 = m_transform->transform( m_ts1 );
+        ts2 = m_transform->transform( ts2 );
     }
 
-    d_cnv = 1.0;
-    if ( d_ts1 != ts2 )
-        d_cnv = ( d_p2 - d_p1 ) / ( ts2 - d_ts1 );
+    m_cnv = 1.0;
+    if ( m_ts1 != ts2 )
+        m_cnv = ( m_p2 - m_p1 ) / ( ts2 - m_ts1 );
 }
 
 /*!
@@ -148,9 +149,9 @@ void QwtScaleMap::updateFactor()
    \return Rectangle in paint coordinates
 
    \sa invTransform()
-*/
-QRectF QwtScaleMap::transform( const QwtScaleMap &xMap,
-    const QwtScaleMap &yMap, const QRectF &rect )
+ */
+QRectF QwtScaleMap::transform( const QwtScaleMap& xMap,
+    const QwtScaleMap& yMap, const QRectF& rect )
 {
     double x1 = xMap.transform( rect.left() );
     double x2 = xMap.transform( rect.right() );
@@ -182,14 +183,14 @@ QRectF QwtScaleMap::transform( const QwtScaleMap &xMap,
    \param pos Position in paint coordinates
    \return Position in scale coordinates
    \sa transform()
-*/
-QPointF QwtScaleMap::invTransform( const QwtScaleMap &xMap,
-    const QwtScaleMap &yMap, const QPointF &pos )
+ */
+QPointF QwtScaleMap::invTransform( const QwtScaleMap& xMap,
+    const QwtScaleMap& yMap, const QPointF& pos )
 {
-    return QPointF( 
-        xMap.invTransform( pos.x() ), 
-        yMap.invTransform( pos.y() ) 
-    );
+    return QPointF(
+        xMap.invTransform( pos.x() ),
+        yMap.invTransform( pos.y() )
+        );
 }
 
 /*!
@@ -201,14 +202,14 @@ QPointF QwtScaleMap::invTransform( const QwtScaleMap &xMap,
    \return Position in paint coordinates
 
    \sa invTransform()
-*/
-QPointF QwtScaleMap::transform( const QwtScaleMap &xMap,
-    const QwtScaleMap &yMap, const QPointF &pos )
+ */
+QPointF QwtScaleMap::transform( const QwtScaleMap& xMap,
+    const QwtScaleMap& yMap, const QPointF& pos )
 {
-    return QPointF( 
-        xMap.transform( pos.x() ), 
+    return QPointF(
+        xMap.transform( pos.x() ),
         yMap.transform( pos.y() )
-    );
+        );
 }
 
 /*!
@@ -219,9 +220,9 @@ QPointF QwtScaleMap::transform( const QwtScaleMap &xMap,
    \param rect Rectangle in paint coordinates
    \return Rectangle in scale coordinates
    \sa transform()
-*/
-QRectF QwtScaleMap::invTransform( const QwtScaleMap &xMap,
-    const QwtScaleMap &yMap, const QRectF &rect )
+ */
+QRectF QwtScaleMap::invTransform( const QwtScaleMap& xMap,
+    const QwtScaleMap& yMap, const QRectF& rect )
 {
     const double x1 = xMap.invTransform( rect.left() );
     const double x2 = xMap.invTransform( rect.right() - 1 );
@@ -234,13 +235,13 @@ QRectF QwtScaleMap::invTransform( const QwtScaleMap &xMap,
 
 #ifndef QT_NO_DEBUG_STREAM
 
-QDebug operator<<( QDebug debug, const QwtScaleMap &map )
+QDebug operator<<( QDebug debug, const QwtScaleMap& map )
 {
     debug.nospace() << "QwtScaleMap("
-        << map.transformation()
-        << ", s:" << map.s1() << "->" << map.s2()
-        << ", p:" << map.p1() << "->" << map.p2()
-        << ")";
+                    << map.transformation()
+                    << ", s:" << map.s1() << "->" << map.s2()
+                    << ", p:" << map.p1() << "->" << map.p2()
+                    << ")";
 
     return debug.space();
 }

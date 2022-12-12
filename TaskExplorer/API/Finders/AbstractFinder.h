@@ -13,8 +13,8 @@ public:
 	virtual void Cancel() { m_bCancel = true; }
 	virtual bool IsCanceled() { return m_bCancel; }
 
-	static CAbstractFinder* FindHandles(const QVariant& Type, const QRegExp& RegExp);
-	static CAbstractFinder* FindModules(const QVariant& Type, const QRegExp& RegExp);
+	static CAbstractFinder* FindHandles(const QVariant& Type, const QRegularExpression& RegExp);
+	static CAbstractFinder* FindModules(const QVariant& Type, const QRegularExpression& RegExp);
 
 	struct SMemOptions
 	{
@@ -26,7 +26,7 @@ public:
 		bool Image;
 		bool Mapped;
 	};
-	static CAbstractFinder* FindStrings(const SMemOptions& Options, const QRegExp& RegExp, const CProcessPtr& pProcess = CProcessPtr());
+	static CAbstractFinder* FindStrings(const SMemOptions& Options, const QRegularExpression& RegExp, const CProcessPtr& pProcess = CProcessPtr());
 
 signals:
 	void	Progress(float value, const QString& Info = QString());

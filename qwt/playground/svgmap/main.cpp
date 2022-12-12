@@ -1,49 +1,65 @@
-#include <qapplication.h>
-#include <qmainwindow.h>
-#include <qtoolbar.h>
-#include <qtoolbutton.h>
-#include "plot.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class MainWindow: public QMainWindow
+#include "Plot.h"
+
+#include <QApplication>
+#include <QMainWindow>
+
+#ifndef QT_NO_FILEDIALOG
+#include <QToolBar>
+#include <QToolButton>
+#endif
+
+namespace
 {
-public:
-    MainWindow( const QString &fileName )
+    class MainWindow : public QMainWindow
     {
-        Plot *plot = new Plot( this );
-        if ( !fileName.isEmpty() )
-            plot->loadSVG( fileName );
+      public:
+        MainWindow( const QString& fileName )
+        {
+            Plot* plot = new Plot( this );
+            if ( !fileName.isEmpty() )
+                plot->loadSVG( fileName );
 
-        setCentralWidget( plot );
+            setCentralWidget( plot );
 
 #ifndef QT_NO_FILEDIALOG
 
-        QToolBar *toolBar = new QToolBar( this );
+            QToolButton* btnLoad = new QToolButton();
+            btnLoad->setText( "Load SVG" );
+            btnLoad->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
 
-        QToolButton *btnLoad = new QToolButton( toolBar );
+            QToolBar* toolBar = new QToolBar();
+            toolBar->addWidget( btnLoad );
+            addToolBar( toolBar );
 
-        btnLoad->setText( "Load SVG" );
-        btnLoad->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
-        toolBar->addWidget( btnLoad );
-
-        addToolBar( toolBar );
-
-        connect( btnLoad, SIGNAL( clicked() ), plot, SLOT( loadSVG() ) );
+            connect( btnLoad, SIGNAL(clicked()), plot, SLOT(loadSVG()) );
 #endif
-    }
-};
+        }
+    };
+}
 
-int main( int argc, char **argv )
+int main( int argc, char* argv[] )
 {
-    QApplication a( argc, argv );
+    QApplication app( argc, argv );
 
     QString fileName;
     if ( argc > 1 )
+    {
         fileName = argv[1];
+    }
+    else
+    {
+        // see: https://commons.wikimedia.org/wiki/File:Schlosspark_Nymphenburg.svg
+        fileName = ":/svg/Schlosspark_Nymphenburg.svg";
+    }
 
-    MainWindow w( fileName );
-    w.resize( 600, 400 );
-    w.show();
+    MainWindow window( fileName );
+    window.resize( 600, 600 );
+    window.show();
 
-    int rv = a.exec();
-    return rv;
+    return app.exec();
 }

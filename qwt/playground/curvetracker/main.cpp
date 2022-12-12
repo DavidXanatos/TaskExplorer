@@ -1,13 +1,18 @@
-#include <qapplication.h>
-#include "plot.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-int main( int argc, char **argv )
+#include "Plot.h"
+#include <QApplication>
+
+int main( int argc, char* argv[] )
 {
-    QApplication a( argc, argv );
+    QApplication app( argc, argv );
 
     Plot plot;
     plot.resize( 600, 400 );
     plot.show();
 
-    return a.exec();
+    return app.exec();
 }

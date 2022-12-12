@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,30 +8,30 @@
  *****************************************************************************/
 
 #ifndef QWT_PICKER_MACHINE
-#define QWT_PICKER_MACHINE 1
+#define QWT_PICKER_MACHINE
 
 #include "qwt_global.h"
-#include <qlist.h>
 
-class QEvent;
 class QwtEventPattern;
+class QEvent;
+template< typename T > class QList;
 
 /*!
-  \brief A state machine for QwtPicker selections
+   \brief A state machine for QwtPicker selections
 
-  QwtPickerMachine accepts key and mouse events and translates them
-  into selection commands.
+   QwtPickerMachine accepts key and mouse events and translates them
+   into selection commands.
 
-  \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
-*/
+   \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
+ */
 
 class QWT_EXPORT QwtPickerMachine
 {
-public:
+  public:
     /*!
-      Type of a selection.
-      \sa selectionType()
-    */
+       Type of a selection.
+       \sa selectionType()
+     */
     enum SelectionType
     {
         //! The state machine not usable for any type of selection.
@@ -57,12 +57,12 @@ public:
         End
     };
 
-    QwtPickerMachine( SelectionType );
+    explicit QwtPickerMachine( SelectionType );
     virtual ~QwtPickerMachine();
 
     //! Transition
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * ) = 0;
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) = 0;
     void reset();
 
     int state() const;
@@ -70,145 +70,145 @@ public:
 
     SelectionType selectionType() const;
 
-private:
-    const SelectionType d_selectionType;
-    int d_state;
+  private:
+    const SelectionType m_selectionType;
+    int m_state;
 };
 
 /*!
-  \brief A state machine for indicating mouse movements
+   \brief A state machine for indicating mouse movements
 
-  QwtPickerTrackerMachine supports displaying information
-  corresponding to mouse movements, but is not intended for
-  selecting anything. Begin/End are related to Enter/Leave events.
-*/
-class QWT_EXPORT QwtPickerTrackerMachine: public QwtPickerMachine
+   QwtPickerTrackerMachine supports displaying information
+   corresponding to mouse movements, but is not intended for
+   selecting anything. Begin/End are related to Enter/Leave events.
+ */
+class QWT_EXPORT QwtPickerTrackerMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerTrackerMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 /*!
-  \brief A state machine for point selections
+   \brief A state machine for point selections
 
-  Pressing QwtEventPattern::MouseSelect1 or
-  QwtEventPattern::KeySelect1 selects a point.
+   Pressing QwtEventPattern::MouseSelect1 or
+   QwtEventPattern::KeySelect1 selects a point.
 
-  \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
-*/
-class QWT_EXPORT QwtPickerClickPointMachine: public QwtPickerMachine
+   \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
+ */
+class QWT_EXPORT QwtPickerClickPointMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerClickPointMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 /*!
-  \brief A state machine for point selections
+   \brief A state machine for point selections
 
-  Pressing QwtEventPattern::MouseSelect1 or QwtEventPattern::KeySelect1
-  starts the selection, releasing QwtEventPattern::MouseSelect1 or
-  a second press of QwtEventPattern::KeySelect1 terminates it.
-*/
-class QWT_EXPORT QwtPickerDragPointMachine: public QwtPickerMachine
+   Pressing QwtEventPattern::MouseSelect1 or QwtEventPattern::KeySelect1
+   starts the selection, releasing QwtEventPattern::MouseSelect1 or
+   a second press of QwtEventPattern::KeySelect1 terminates it.
+ */
+class QWT_EXPORT QwtPickerDragPointMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerDragPointMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 /*!
-  \brief A state machine for rectangle selections
+   \brief A state machine for rectangle selections
 
-  Pressing QwtEventPattern::MouseSelect1 starts
-  the selection, releasing it selects the first point. Pressing it
-  again selects the second point and terminates the selection.
-  Pressing QwtEventPattern::KeySelect1 also starts the
-  selection, a second press selects the first point. A third one selects
-  the second point and terminates the selection.
+   Pressing QwtEventPattern::MouseSelect1 starts
+   the selection, releasing it selects the first point. Pressing it
+   again selects the second point and terminates the selection.
+   Pressing QwtEventPattern::KeySelect1 also starts the
+   selection, a second press selects the first point. A third one selects
+   the second point and terminates the selection.
 
-  \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
-*/
+   \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
+ */
 
-class QWT_EXPORT QwtPickerClickRectMachine: public QwtPickerMachine
+class QWT_EXPORT QwtPickerClickRectMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerClickRectMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 /*!
-  \brief A state machine for rectangle selections
+   \brief A state machine for rectangle selections
 
-  Pressing QwtEventPattern::MouseSelect1 selects
-  the first point, releasing it the second point.
-  Pressing QwtEventPattern::KeySelect1 also selects the
-  first point, a second press selects the second point and terminates
-  the selection.
+   Pressing QwtEventPattern::MouseSelect1 selects
+   the first point, releasing it the second point.
+   Pressing QwtEventPattern::KeySelect1 also selects the
+   first point, a second press selects the second point and terminates
+   the selection.
 
-  \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
-*/
+   \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
+ */
 
-class QWT_EXPORT QwtPickerDragRectMachine: public QwtPickerMachine
+class QWT_EXPORT QwtPickerDragRectMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerDragRectMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 /*!
-  \brief A state machine for line selections
-    
-  Pressing QwtEventPattern::MouseSelect1 selects
-  the first point, releasing it the second point.
-  Pressing QwtEventPattern::KeySelect1 also selects the
-  first point, a second press selects the second point and terminates
-  the selection.
+   \brief A state machine for line selections
 
-  A common use case of QwtPickerDragLineMachine are pickers for
-  distance measurements.
-  
-  \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
-*/              
-                    
-class QWT_EXPORT QwtPickerDragLineMachine: public QwtPickerMachine
+   Pressing QwtEventPattern::MouseSelect1 selects
+   the first point, releasing it the second point.
+   Pressing QwtEventPattern::KeySelect1 also selects the
+   first point, a second press selects the second point and terminates
+   the selection.
+
+   A common use case of QwtPickerDragLineMachine are pickers for
+   distance measurements.
+
+   \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
+ */
+
+class QWT_EXPORT QwtPickerDragLineMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerDragLineMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 /*!
-  \brief A state machine for polygon selections
+   \brief A state machine for polygon selections
 
-  Pressing QwtEventPattern::MouseSelect1 or QwtEventPattern::KeySelect1
-  starts the selection and selects the first point, or appends a point.
-  Pressing QwtEventPattern::MouseSelect2 or QwtEventPattern::KeySelect2
-  appends the last point and terminates the selection.
+   Pressing QwtEventPattern::MouseSelect1 or QwtEventPattern::KeySelect1
+   starts the selection and selects the first point, or appends a point.
+   Pressing QwtEventPattern::MouseSelect2 or QwtEventPattern::KeySelect2
+   appends the last point and terminates the selection.
 
-  \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
-*/
+   \sa QwtEventPattern::MousePatternCode, QwtEventPattern::KeyPatternCode
+ */
 
-class QWT_EXPORT QwtPickerPolygonMachine: public QwtPickerMachine
+class QWT_EXPORT QwtPickerPolygonMachine : public QwtPickerMachine
 {
-public:
+  public:
     QwtPickerPolygonMachine();
 
-    virtual QList<Command> transition(
-        const QwtEventPattern &, const QEvent * );
+    virtual QList< Command > transition(
+        const QwtEventPattern&, const QEvent* ) QWT_OVERRIDE;
 };
 
 #endif

@@ -22,7 +22,7 @@ CMemorySearch::CMemorySearch(const CProcessPtr& pProcess, QWidget *parent)
 
 	m_pStringWidget = new QWidget();
 	m_pStringLayout = new QHBoxLayout();
-	m_pStringLayout->setMargin(3);
+	m_pStringLayout->setContentsMargins(3, 3, 3, 3);
 	m_pStringWidget->setLayout(m_pStringLayout);
 	m_pMainLayout->insertWidget(1, m_pStringWidget);
 
@@ -112,7 +112,12 @@ CAbstractFinder* CMemorySearch::NewFinder()
 		}
 	}
 
-	QRegExp RegExp = QRegExp(m_pSearch->text(), Qt::CaseInsensitive, m_pRegExp->isChecked() ? QRegExp::RegExp : QRegExp::FixedString);
+	QString Exp;
+	if (m_pRegExp->isChecked())
+		Exp = m_pSearch->text();
+	else
+		Exp = QRegularExpression::wildcardToRegularExpression("*" + m_pSearch->text() + "*");
+	QRegularExpression RegExp = QRegularExpression(Exp, QRegularExpression::CaseInsensitiveOption);
 
 	CAbstractFinder::SMemOptions Options;
 	if (m_pType->currentData().toInt() == 1)

@@ -1,46 +1,56 @@
-#include <qapplication.h>
-#include "plot.h"
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
+
+#include "Plot.h"
+#include <QApplication>
 
 #ifndef QWT_NO_OPENGL
-#define USE_OPENGL 1
-#endif
+    #if QT_VERSION < 0x050000
+        #include <qgl.h>
+    #endif
 
-#if USE_OPENGL
-#include <qgl.h>
-#include <qwt_plot_glcanvas.h>
+    #if QT_VERSION >= 0x050400
+        #include <QwtPlotOpenGLCanvas>
+        typedef QwtPlotOpenGLCanvas Canvas;
+    #else
+        #include <QwtPlotGLCanvas>
+        typedef QwtPlotGLCanvas Canvas;
+    #endif
 #else
-#include <qwt_plot_canvas.h>
+    #include <QwtPlotCanvas>
+    typedef QwtPlotCanvas Canvas;
 #endif
 
-int main ( int argc, char **argv )
+namespace
 {
-#if USE_OPENGL
-#if QT_VERSION >= 0x040600 && QT_VERSION < 0x050000
-    // on my box QPaintEngine::OpenGL2 has serious problems, f.e:
-    // the lines of a simple drawRect are wrong.
+    class AminatedPlot : public Plot
+    {
+      public:
+        AminatedPlot()
+        {
+            Canvas* canvas = new Canvas();
+            canvas->setPaintAttribute( Canvas::BackingStore, false );
+            canvas->setFrameStyle( QFrame::NoFrame );
 
-    QGL::setPreferredPaintEngine( QPaintEngine::OpenGL );
-#endif
-#endif
+            setCanvas( canvas );
+            setCanvasBackground( QColor( 30, 30, 50 ) );
+        }
+    };
+}
 
-    QApplication a( argc, argv );
+int main( int argc, char* argv[] )
+{
+    QApplication app( argc, argv );
 
-    Plot plot;
-
-#if USE_OPENGL
-    QwtPlotGLCanvas *canvas = new QwtPlotGLCanvas();
-    canvas->setFrameStyle( QwtPlotGLCanvas::NoFrame );
-#else
-    QwtPlotCanvas *canvas = new QwtPlotCanvas();
-    canvas->setFrameStyle( QFrame::NoFrame );
-    canvas->setPaintAttribute( QwtPlotCanvas::BackingStore, false );
-#endif
-
-    plot.setCanvas( canvas );
-    plot.setCanvasBackground( QColor( 30, 30, 50 ) );
-
+    AminatedPlot plot;
     plot.resize( 400, 400 );
     plot.show();
 
-    return a.exec();
+    return app.exec();
 }

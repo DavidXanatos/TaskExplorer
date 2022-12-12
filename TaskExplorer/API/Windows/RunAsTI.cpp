@@ -6,7 +6,7 @@
 
 using namespace std;
 
-void enable_privilege(wstring privilege_name)
+void enable_privilege(std::wstring privilege_name)
 {
 	HANDLE token_handle;
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES, &token_handle))
@@ -32,7 +32,7 @@ void enable_privilege(wstring privilege_name)
 	CloseHandle(token_handle);
 }
 
-DWORD get_process_id_by_name(const wstring process_name)
+DWORD get_process_id_by_name(const std::wstring process_name)
 {
 	HANDLE snapshot_handle;
 	if ((snapshot_handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)) == INVALID_HANDLE_VALUE)
@@ -178,7 +178,7 @@ int start_trusted_installer_service()
 	throw runtime_error("QueryServiceStatusEx failed: " + to_string(GetLastError()));
 }
 
-void create_process_as_trusted_installer(const DWORD pid, wstring command_line)
+void create_process_as_trusted_installer(const DWORD pid, std::wstring command_line)
 {
 	enable_privilege(SE_DEBUG_NAME);
 	enable_privilege(SE_IMPERSONATE_NAME);
@@ -240,7 +240,7 @@ void create_process_as_trusted_installer(const DWORD pid, wstring command_line)
 	}
 }
 
-void create_process_as_trusted_installer(wstring command_line)
+void create_process_as_trusted_installer(std::wstring command_line)
 {
 	try
 	{

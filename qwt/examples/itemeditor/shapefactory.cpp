@@ -1,12 +1,18 @@
-#include "shapefactory.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-QPainterPath ShapeFactory::path( Shape shape, 
-    const QPointF &pos, const QSizeF &size )
+#include "ShapeFactory.h"
+#include <QPainterPath>
+
+QPainterPath ShapeFactory::path( Shape shape,
+    const QPointF& pos, const QSizeF& size )
 {
     QRectF rect;
     rect.setSize( size );
     rect.moveCenter( pos );
-    
+
     QPainterPath path;
 
     switch( shape )
@@ -80,7 +86,7 @@ QPainterPath ShapeFactory::path( Shape shape,
         }
         case Hexagon:
         {
-            const double cos30 = 0.866025; 
+            const double cos30 = 0.866025;
 
             const double dx = 0.5 * size.width() - cos30;
             const double dy = 0.25 * size.height();

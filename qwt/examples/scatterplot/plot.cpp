@@ -1,44 +1,56 @@
-#include "plot.h"
-#include <qwt_plot_magnifier.h>
-#include <qwt_plot_panner.h>
-#include <qwt_plot_picker.h>
-#include <qwt_picker_machine.h>
-#include <qwt_plot_curve.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class DistancePicker: public QwtPlotPicker
+#include "Plot.h"
+
+#include <QwtPlotMagnifier>
+#include <QwtPlotPanner>
+#include <QwtPlotPicker>
+#include <QwtPickerMachine>
+#include <QwtPlotCurve>
+#include <QwtText>
+
+#include <QPen>
+
+namespace
 {
-public:
-    DistancePicker( QWidget *canvas ):
-        QwtPlotPicker( canvas )
+    class DistancePicker : public QwtPlotPicker
     {
-        setTrackerMode( QwtPicker::ActiveOnly );
-        setStateMachine( new QwtPickerDragLineMachine() );
-        setRubberBand( QwtPlotPicker::PolygonRubberBand );
-    }
-
-    virtual QwtText trackerTextF( const QPointF &pos ) const
-    {
-        QwtText text;
-
-        const QPolygon points = selection();
-        if ( !points.isEmpty() )
+      public:
+        DistancePicker( QWidget* canvas )
+            : QwtPlotPicker( canvas )
         {
-            QString num;
-            num.setNum( QLineF( pos, invTransform( points[0] ) ).length() );
-
-            QColor bg( Qt::white );
-            bg.setAlpha( 200 );
-
-            text.setBackgroundBrush( QBrush( bg ) );
-            text.setText( num );
+            setTrackerMode( QwtPicker::ActiveOnly );
+            setStateMachine( new QwtPickerDragLineMachine() );
+            setRubberBand( QwtPlotPicker::PolygonRubberBand );
         }
-        return text;
-    }
-};
 
-Plot::Plot( QWidget *parent ):
-    QwtPlot( parent ),
-    d_curve( NULL )
+        virtual QwtText trackerTextF( const QPointF& pos ) const QWT_OVERRIDE
+        {
+            QwtText text;
+
+            const QPolygon points = selection();
+            if ( !points.isEmpty() )
+            {
+                QString num;
+                num.setNum( QLineF( pos, invTransform( points[0] ) ).length() );
+
+                QColor bg( Qt::white );
+                bg.setAlpha( 200 );
+
+                text.setBackgroundBrush( QBrush( bg ) );
+                text.setText( num );
+            }
+            return text;
+        }
+    };
+}
+
+Plot::Plot( QWidget* parent )
+    : QwtPlot( parent )
+    , m_curve( NULL )
 {
     canvas()->setStyleSheet(
         "border: 2px solid Black;"
@@ -48,14 +60,14 @@ Plot::Plot( QWidget *parent ):
     );
 
     // attach curve
-    d_curve = new QwtPlotCurve( "Scattered Points" );
-    d_curve->setPen( QColor( "Purple" ) );
+    m_curve = new QwtPlotCurve( "Scattered Points" );
+    m_curve->setPen( QColor( "Purple" ) );
 
     // when using QwtPlotCurve::ImageBuffer simple dots can be
     // rendered in parallel on multicore systems.
-    d_curve->setRenderThreadCount( 0 ); // 0: use QThread::idealThreadCount()
+    m_curve->setRenderThreadCount( 0 ); // 0: use QThread::idealThreadCount()
 
-    d_curve->attach( this );
+    m_curve->attach( this );
 
     setSymbol( NULL );
 
@@ -63,29 +75,31 @@ Plot::Plot( QWidget *parent ):
     (void )new QwtPlotPanner( canvas() );
 
     // zoom in/out with the wheel
-    QwtPlotMagnifier *magnifier = new QwtPlotMagnifier( canvas() );
+    QwtPlotMagnifier* magnifier = new QwtPlotMagnifier( canvas() );
     magnifier->setMouseButton( Qt::NoButton );
 
     // distanve measurement with the right mouse button
-    DistancePicker *picker = new DistancePicker( canvas() );
+    DistancePicker* picker = new DistancePicker( canvas() );
     picker->setMousePattern( QwtPlotPicker::MouseSelect1, Qt::RightButton );
     picker->setRubberBandPen( QPen( Qt::blue ) );
 }
 
-void Plot::setSymbol( QwtSymbol *symbol )
+void Plot::setSymbol( QwtSymbol* symbol )
 {
-    d_curve->setSymbol( symbol );
+    m_curve->setSymbol( symbol );
 
     if ( symbol == NULL )
     {
-        d_curve->setStyle( QwtPlotCurve::Dots );
+        m_curve->setStyle( QwtPlotCurve::Dots );
     }
 }
 
-void Plot::setSamples( const QVector<QPointF> &samples )
+void Plot::setSamples( const QVector< QPointF >& samples )
 {
-    d_curve->setPaintAttribute( 
+    m_curve->setPaintAttribute(
         QwtPlotCurve::ImageBuffer, samples.size() > 1000 );
 
-    d_curve->setSamples( samples );
+    m_curve->setSamples( samples );
 }
+
+#include "moc_Plot.cpp"

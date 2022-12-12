@@ -5,7 +5,7 @@
 #include "../../../MiscHelpers/Common/Finder.h"
 #include "../../API/Windows/WinProcess.h"
 #include "../../API/Windows/ProcessHacker.h"
-
+#include <algorithm>
 
 CDebugView::CDebugView(QWidget *parent)
 	:CPanelWidgetEx(parent)
@@ -124,7 +124,7 @@ void CDebugView::Refresh()
 
 	if (m_ViewMode == eMulti)
 	{
-		qSort(NewMessages);
+		std::sort(NewMessages.begin(), NewMessages.end());
 	}
 
 	QDateTime OldThreshold = QDateTime::currentDateTime().addSecs(-theConf->GetInt("Options/ShortDateLimit", 12*60*60));

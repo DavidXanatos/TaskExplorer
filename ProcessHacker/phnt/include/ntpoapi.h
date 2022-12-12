@@ -1,21 +1,7 @@
 /*
- * Process Hacker -
- *   Power Management support functions
+ * Power Management support functions
  *
- * This file is part of Process Hacker.
- *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of System Informer.
  */
 
 #ifndef _NTPOAPI_H
@@ -72,14 +58,14 @@
 #define GetPowerRequestList 45 // out: POWER_REQUEST_LIST
 #define ProcessorInformationEx 46 // in: USHORT ProcessorGroup, out: PROCESSOR_POWER_INFORMATION
 #define NotifyUserModeLegacyPowerEvent 47 // (kernel-mode only)
-#define GroupPark 48 // (debug-mode boot only) 
+#define GroupPark 48 // (debug-mode boot only)
 #define ProcessorIdleDomains 49 // (kernel-mode only)
 #define WakeTimerList 50 // powercfg.exe /waketimers
 #define SystemHiberFileSize 51 // ULONG
 #define ProcessorIdleStatesHv 52 // (kernel-mode only)
 #define ProcessorPerfStatesHv 53 // (kernel-mode only)
 #define ProcessorPerfCapHv 54 // (kernel-mode only)
-#define ProcessorSetIdle 55 // (debug-mode boot only) 
+#define ProcessorSetIdle 55 // (debug-mode boot only)
 #define LogicalProcessorIdling 56 // (kernel-mode only)
 #define UserPresence 57 // POWER_USER_PRESENCE // not implemented
 #define PowerSettingNotificationName 58
@@ -113,7 +99,7 @@
 #define BatteryDeviceState 86
 #define PowerInformationInternal 87 // POWER_INFORMATION_LEVEL_INTERNAL // PopPowerInformationInternal
 #define ThermalStandby 88 // NULL // shutdown with thermal standby as reason.
-#define SystemHiberFileType 89 // ULONG // zero ? reduced : full // powercfg.exe /h /type 
+#define SystemHiberFileType 89 // ULONG // zero ? reduced : full // powercfg.exe /h /type
 #define PhysicalPowerButtonPress 90 // BOOLEAN
 #define QueryPotentialDripsConstraint 91 // (kernel-mode only)
 #define EnergyTrackerCreate 92
@@ -261,7 +247,7 @@ typedef struct _DIAGNOSTIC_BUFFER
             ULONG_PTR DeviceDescriptionOffset; // PWSTR
             ULONG_PTR DevicePathOffset; // PWSTR
         };
-    };    
+    };
     ULONG_PTR ReasonOffset; // PCOUNTED_REASON_CONTEXT_RELATIVE
 } DIAGNOSTIC_BUFFER, *PDIAGNOSTIC_BUFFER;
 

@@ -176,7 +176,7 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 					case eTimeStamp:
 					case eLoadTime:
 #endif
-					case eFileModifiedTime:	ColValue.Formated = QDateTime::fromTime_t(ColValue.Raw.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eFileModifiedTime:	ColValue.Formated = QDateTime::fromSecsSinceEpoch(ColValue.Raw.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
 				}
 			}
 

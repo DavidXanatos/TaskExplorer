@@ -1,33 +1,35 @@
-#ifndef _PLOT_H
-#define _PLOT_H
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
-#include "shapefactory.h"
+#pragma once
+
+#include "ShapeFactory.h"
+#include <QwtPlot>
 
 class QColor;
 class QSizeF;
 class QPointF;
 class Editor;
 
-class Plot: public QwtPlot
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget *parent = NULL );
+  public:
+    Plot( QWidget* parent = NULL );
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void exportPlot();
     void setMode( int );
-    
-private:
+
+  private:
     void populate();
 
-    void addShape( const QString &title,
-        ShapeFactory::Shape, const QColor &,
-        const QPointF &, const QSizeF & );
+    void addShape( const QString& title,
+        ShapeFactory::Shape, const QColor&,
+        const QPointF&, const QSizeF& );
 
-    Editor *d_editor;
+    Editor* m_editor;
 };
-
-#endif

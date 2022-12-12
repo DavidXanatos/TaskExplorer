@@ -1,24 +1,12 @@
 /*
- * Process Hacker Plugins -
+ * System Informer Plugins -
  *   qt port of Debug View Plugin
  *
  * Copyright (C) 2015-2017 dmex
- * Copyright (C) 2020 David Xanatos
+ * Copyright (C) 2020-2022 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -152,10 +140,10 @@ struct SWinDbgMonitor
         maximumSize.QuadPart = PAGE_SIZE;
         viewSize = sizeof(DBWIN_PAGE_BUFFER);
 
-        if (!(BufferReadyEvent = CreateEvent(&SecurityAttributes, FALSE, FALSE, (wstring(bGlobal ? L"Global\\" : L"Local\\") + DBWIN_BUFFER_READY).c_str())))
+        if (!(BufferReadyEvent = CreateEvent(&SecurityAttributes, FALSE, FALSE, (std::wstring(bGlobal ? L"Global\\" : L"Local\\") + DBWIN_BUFFER_READY).c_str())))
 			return ERR("DBWIN_BUFFER_READY", GetLastError());
 
-        if (!(DataReadyEvent = CreateEvent(&SecurityAttributes, FALSE, FALSE, (wstring(bGlobal ? L"Global\\" : L"Local\\") + DBWIN_DATA_READY).c_str())))
+        if (!(DataReadyEvent = CreateEvent(&SecurityAttributes, FALSE, FALSE, (std::wstring(bGlobal ? L"Global\\" : L"Local\\") + DBWIN_DATA_READY).c_str())))
 			return ERR("DBWIN_DATA_READY", GetLastError());
 
         DbgFormatObjectName(bGlobal ? FALSE : TRUE, DBWIN_BUFFER_SECTION_NAME, &objectName);
@@ -249,8 +237,8 @@ CWinDbgMonitor::~CWinDbgMonitor()
 		m->UnInit(false);
 	if (m->GlobalCaptureEnabled)
 		m->UnInit(true);
-	if (m->KernelCaptureEnabled)
-		KphSetDebugLog(FALSE);
+	//if (m->KernelCaptureEnabled) // todo: xxxx si
+	//	KphSetDebugLog(FALSE);
 
 	delete m;
 }
@@ -299,7 +287,7 @@ static NTSTATUS DbgEventsKernelThread(PVOID Parameter)
 {
 	CWinDbgMonitor* This = (CWinDbgMonitor*)Parameter;
 	
-	ULONG SequenceNumber = 0;
+	/*ULONG SequenceNumber = 0; // todo: xxxx si
 
 	while (TRUE)
 	{
@@ -314,7 +302,7 @@ static NTSTATUS DbgEventsKernelThread(PVOID Parameter)
 			break;
 
 		emit This->DebugMessage((quint64)SYSTEM_PROCESS_ID, QString::fromLatin1(Buffer, Length));
-	}
+	}*/
 
 	return STATUS_SUCCESS;
 }
@@ -351,7 +339,7 @@ STATUS CWinDbgMonitor::SetMonitor(EModes Mode)
 
 	if ((Mode & eKernel) != 0)
 	{
-		if (!m->KernelCaptureEnabled)
+		/*if (!m->KernelCaptureEnabled) // todo: xxxx si
 		{
 			NTSTATUS status = KphSetDebugLog(TRUE);
 			if (!NT_SUCCESS(status))
@@ -359,11 +347,11 @@ STATUS CWinDbgMonitor::SetMonitor(EModes Mode)
 			m->KernelCaptureEnabled = TRUE;
 			if (HANDLE threadHandle = PhCreateThread(0, (PUSER_THREAD_START_ROUTINE)DbgEventsKernelThread, this))
 				NtClose(threadHandle);
-		}
+		}*/
 	}
 	else if(m->KernelCaptureEnabled)
 	{
-		KphSetDebugLog(FALSE);
+		//KphSetDebugLog(FALSE); // todo: xxxx si
 		m->KernelCaptureEnabled = FALSE;
 	}
 

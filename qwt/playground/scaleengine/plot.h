@@ -1,23 +1,24 @@
-#ifndef _PLOT_H_
-#define _PLOT_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
+#pragma once
+
+#include <QwtPlot>
 
 class QwtTransform;
 
-class Plot: public QwtPlot
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget *parent = NULL );
+  public:
+    Plot( QWidget* parent = NULL );
 
-public Q_SLOTS:
-    void setTransformation( QwtTransform * );
+  public Q_SLOTS:
+    void setTransformation( QwtTransform* );
 
-private:
+  private:
     void populate();
 };
-
-#endif
-

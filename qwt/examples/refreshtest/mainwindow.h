@@ -1,28 +1,29 @@
-#ifndef _MAIN_WINDOW_H_
-#define _MAIN_WINDOW_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qmainwindow.h>
+#pragma once
+
+#include <QwtGlobal>
+#include <QMainWindow>
 
 class Plot;
-class Panel;
 class QLabel;
 class Settings;
 
-class MainWindow: public QMainWindow
+class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
-public:
-    MainWindow( QWidget *parent = NULL );
-    virtual bool eventFilter( QObject *, QEvent * );
+  public:
+    MainWindow( QWidget* parent = NULL );
+    virtual bool eventFilter( QObject*, QEvent* ) QWT_OVERRIDE;
 
-private Q_SLOTS:
-    void applySettings( const Settings & );
+  private Q_SLOTS:
+    void applySettings( const Settings& );
 
-private:
-    Plot *d_plot;
-    Panel *d_panel;
-    QLabel *d_frameCount;
+  private:
+    Plot* m_plot;
+    QLabel* m_frameCount;
 };
-
-#endif

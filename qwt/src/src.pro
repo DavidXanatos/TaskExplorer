@@ -25,6 +25,17 @@ contains(QWT_CONFIG, QwtDll) {
 
     CONFIG += dll
     win32|symbian: DEFINES += QT_DLL QWT_DLL QWT_MAKEDLL
+
+    unix:!macx {
+        !isEmpty( QMAKE_LFLAGS_SONAME ) {
+    
+            # we increase the SONAME for every minor number
+
+            QWT_SONAME=libqwt.so.$${VER_MAJ}.$${VER_MIN}
+            QMAKE_LFLAGS *= $${QMAKE_LFLAGS_SONAME}$${QWT_SONAME}
+            QMAKE_LFLAGS_SONAME=
+        }
+    }
 }
 else {
     CONFIG += staticlib

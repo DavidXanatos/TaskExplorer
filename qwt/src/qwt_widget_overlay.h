@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -12,9 +12,9 @@
 
 #include "qwt_global.h"
 #include <qwidget.h>
-#include <qregion.h>
 
 class QPainter;
+class QRegion;
 
 /*!
    \brief An overlay for a widget
@@ -22,8 +22,8 @@ class QPainter;
    The main use case of an widget overlay is to avoid
    heavy repaint operation of the widget below.
 
-   F.e. in combination with the plot canvas an overlay 
-   avoid replots as the content of the canvas can be restored from 
+   F.e. in combination with the plot canvas an overlay
+   avoid replots as the content of the canvas can be restored from
    its backing store.
 
    QwtWidgetOverlay is an abstract base class. Deriving classes are
@@ -32,25 +32,25 @@ class QPainter;
    - drawOverlay()
    - maskHint()
 
-   Internally QwtPlotPicker uses overlays for displaying 
+   Internally QwtPlotPicker uses overlays for displaying
    the rubber band and the tracker text.
 
    \sa QwtPlotCanvas::BackingStore
  */
-class QWT_EXPORT QwtWidgetOverlay: public QWidget
+class QWT_EXPORT QwtWidgetOverlay : public QWidget
 {
-public:
+  public:
     /*!
        \brief Mask mode
 
        When using masks the widget below gets paint events for
        the masked regions of the overlay only. Otherwise
        Qt triggers full repaints. On less powerful hardware
-       ( f.e embedded systems ) - or when using the raster paint 
+       ( f.e embedded systems ) - or when using the raster paint
        engine on a remote desktop - bit blitting is a noticeable
        operation, that needs to be avoided.
-       
-       If and how to mask depends on how expensive the calculation 
+
+       If and how to mask depends on how expensive the calculation
        of the mask is and how many pixels can be excluded by the mask.
 
        The default setting is MaskHint.
@@ -65,7 +65,7 @@ public:
         /*!
            \brief Use maskHint() as mask
 
-           For many situations a fast approximation is good enough 
+           For many situations a fast approximation is good enough
            and it is not necessary to build a more detailed mask
            ( f.e the bounding rectangle of a text ).
          */
@@ -77,7 +77,7 @@ public:
            Sometimes it is not possible to give a fast approximation
            and the mask needs to be calculated by drawing the overlay
            and testing the result.
-          
+
            When a valid maskHint() is available
            only pixels inside this approximation are checked.
          */
@@ -111,7 +111,7 @@ public:
         DrawOverlay
     };
 
-    QwtWidgetOverlay( QWidget* );
+    explicit QwtWidgetOverlay( QWidget* );
     virtual ~QwtWidgetOverlay();
 
     void setMaskMode( MaskMode );
@@ -120,13 +120,14 @@ public:
     void setRenderMode( RenderMode );
     RenderMode renderMode() const;
 
+    virtual bool eventFilter( QObject*, QEvent*) QWT_OVERRIDE;
+
+  public Q_SLOTS:
     void updateOverlay();
 
-    virtual bool eventFilter( QObject *, QEvent *);
-
-protected:
-    virtual void paintEvent( QPaintEvent* event );
-    virtual void resizeEvent( QResizeEvent* event );
+  protected:
+    virtual void paintEvent( QPaintEvent* ) QWT_OVERRIDE;
+    virtual void resizeEvent( QResizeEvent* ) QWT_OVERRIDE;
 
     virtual QRegion maskHint() const;
 
@@ -134,15 +135,15 @@ protected:
        Draw the widget overlay
        \param painter Painter
      */
-    virtual void drawOverlay( QPainter *painter ) const = 0;
+    virtual void drawOverlay( QPainter* painter ) const = 0;
 
-private:
+  private:
     void updateMask();
-    void draw( QPainter * ) const;
+    void draw( QPainter* ) const;
 
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

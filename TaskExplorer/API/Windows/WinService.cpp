@@ -6,20 +6,8 @@
  * Copyright (C) 2017 dmex
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 
@@ -355,7 +343,7 @@ STATUS CWinService::Start()
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	wstring SvcName = m_SvcName.toStdWString();
+	std::wstring SvcName = m_SvcName.toStdWString();
     SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_START);
 
 	BOOLEAN success = FALSE;
@@ -386,7 +374,7 @@ STATUS CWinService::Pause()
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	wstring SvcName = m_SvcName.toStdWString();
+	std::wstring SvcName = m_SvcName.toStdWString();
     SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
 
 	BOOLEAN success = FALSE;
@@ -419,7 +407,7 @@ STATUS CWinService::Continue()
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	wstring SvcName = m_SvcName.toStdWString();
+	std::wstring SvcName = m_SvcName.toStdWString();
     SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
 
 	BOOLEAN success = FALSE;
@@ -452,7 +440,7 @@ STATUS CWinService::Stop()
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	wstring SvcName = m_SvcName.toStdWString();
+	std::wstring SvcName = m_SvcName.toStdWString();
     SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_STOP);
 
 	BOOLEAN success = FALSE;
@@ -492,7 +480,7 @@ STATUS CWinService::Delete(bool bForce)
 	return OK;
 #endif
 
-	wstring SvcName = m_SvcName.toStdWString();
+	std::wstring SvcName = m_SvcName.toStdWString();
 	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), DELETE);
 
 	BOOLEAN success = FALSE;
@@ -522,7 +510,7 @@ STATUS CWinService::Delete(bool bForce)
 NTSTATUS NTAPI CWinService__OpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
 	SC_HANDLE serviceHandle;
-	wstring* pName = ((wstring*)Context);
+	std::wstring* pName = ((std::wstring*)Context);
 
 	if (serviceHandle = PhOpenService((wchar_t*)pName->c_str(),DesiredAccess))
 	{
@@ -535,7 +523,7 @@ NTSTATUS NTAPI CWinService__OpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK D
 
 NTSTATUS NTAPI CWinService__cbPermissionsClosed(_In_opt_ PVOID Context)
 {
-	wstring* pName = ((wstring*)Context);
+	std::wstring* pName = ((std::wstring*)Context);
 	delete pName;
 
 	return STATUS_SUCCESS;
@@ -544,7 +532,7 @@ NTSTATUS NTAPI CWinService__cbPermissionsClosed(_In_opt_ PVOID Context)
 void CWinService::OpenPermissions()
 {
 
-	wstring* pName = new wstring;
+	std::wstring* pName = new std::wstring;
 	*pName = GetName().toStdWString();
 
 	PhEditSecurity(NULL, (wchar_t*)m_DisplayName.toStdWString().c_str(), L"Service", CWinService__OpenService, CWinService__cbPermissionsClosed, pName);

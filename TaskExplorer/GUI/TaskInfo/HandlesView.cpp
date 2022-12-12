@@ -41,7 +41,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_ShowAllFiles = iAll;
 
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 #ifdef WIN32
@@ -51,7 +51,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 		m_pMainLayout->addWidget(m_pFilterWidget);
 
 		m_pFilterLayout = new QHBoxLayout();
-		m_pFilterLayout->setMargin(3);
+		m_pFilterLayout->setContentsMargins(3, 3, 3, 3);
 		m_pFilterWidget->setLayout(m_pFilterLayout);
 
 		m_pFilterLayout->addWidget(new QLabel(tr("Types:")));
@@ -139,7 +139,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	m_pHandleModel = new CHandleModel();
 	
 	//m_pSortProxy = new CHandleFilterModel(false, this);
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pHandleModel);
 	m_pSortProxy->setDynamicSortFilter(true);
@@ -571,8 +571,8 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		}
 
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Name"), Name);
-		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Created"), QDateTime::fromTime_t(HandleInfo.Task.Created).toString("dd.MM.yyyy hh:mm:ss"));
-		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Exited"), QDateTime::fromTime_t(HandleInfo.Task.Exited).toString("dd.MM.yyyy hh:mm:ss"));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Created"), QDateTime::fromSecsSinceEpoch(HandleInfo.Task.Created).toString("dd.MM.yyyy hh:mm:ss"));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Exited"), QDateTime::fromSecsSinceEpoch(HandleInfo.Task.Exited).toString("dd.MM.yyyy hh:mm:ss"));
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("ExitStatus"), QString::number(HandleInfo.Task.ExitStatus));
 	}
 	else if(TypeName == "Timer")
@@ -601,9 +601,9 @@ void CHandlesView::OnMenu(const QPoint &point)
 #ifdef WIN32
 	QSharedPointer<CWinHandle> pWinHandle = pHandle.staticCast<CWinHandle>();
 
-	m_pProtect->setEnabled(!pHandle.isNull() && KphIsConnected());
+	m_pProtect->setEnabled(!pHandle.isNull() && KphCommsIsConnected());
 	m_pProtect->setChecked(pWinHandle && pWinHandle->IsProtected());
-	m_pInherit->setEnabled(!pHandle.isNull() && KphIsConnected());
+	m_pInherit->setEnabled(!pHandle.isNull() && KphCommsIsConnected());
 	m_pInherit->setChecked(pWinHandle && pWinHandle->IsInherited());
 
 	QString Type = pWinHandle ? pWinHandle->GetTypeName() : "";

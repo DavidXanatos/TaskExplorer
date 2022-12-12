@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,12 +8,12 @@
  *****************************************************************************/
 
 #include "qwt_arrow_button.h"
-#include "qwt_math.h"
+#include "qwt.h"
+
 #include <qpainter.h>
 #include <qstyle.h>
 #include <qstyleoption.h>
 #include <qevent.h>
-#include <qapplication.h>
 
 static const int MaxNum = 3;
 static const int Margin = 2;
@@ -21,7 +21,7 @@ static const int Spacing = 1;
 
 class QwtArrowButton::PrivateData
 {
-public:
+  public:
     int num;
     Qt::ArrowType arrowType;
 };
@@ -29,7 +29,7 @@ public:
 static QStyleOptionButton styleOpt( const QwtArrowButton* btn )
 {
     QStyleOptionButton option;
-    option.init( btn );
+    option.initFrom( btn );
     option.features = QStyleOptionButton::None;
     if ( btn->isFlat() )
         option.features |= QStyleOptionButton::Flat;
@@ -48,22 +48,21 @@ static QStyleOptionButton styleOpt( const QwtArrowButton* btn )
 }
 
 /*!
-  \param num Number of arrows
-  \param arrowType see Qt::ArrowType in the Qt docs.
-  \param parent Parent widget
-*/
-QwtArrowButton::QwtArrowButton( int num,
-        Qt::ArrowType arrowType, QWidget *parent ):
-    QPushButton( parent )
+   \param num Number of arrows
+   \param arrowType see Qt::ArrowType in the Qt docs.
+   \param parent Parent widget
+ */
+QwtArrowButton::QwtArrowButton( int num, Qt::ArrowType arrowType, QWidget* parent )
+    : QPushButton( parent )
 {
-    d_data = new PrivateData;
-    d_data->num = qBound( 1, num, MaxNum );
-    d_data->arrowType = arrowType;
+    m_data = new PrivateData;
+    m_data->num = qBound( 1, num, MaxNum );
+    m_data->arrowType = arrowType;
 
     setAutoRepeat( true );
     setAutoDefault( false );
 
-    switch ( d_data->arrowType )
+    switch ( m_data->arrowType )
     {
         case Qt::LeftArrow:
         case Qt::RightArrow:
@@ -79,29 +78,29 @@ QwtArrowButton::QwtArrowButton( int num,
 //! Destructor
 QwtArrowButton::~QwtArrowButton()
 {
-    delete d_data;
-    d_data = NULL;
+    delete m_data;
+    m_data = NULL;
 }
 
 /*!
-  \brief The direction of the arrows
-*/
+   \brief The direction of the arrows
+ */
 Qt::ArrowType QwtArrowButton::arrowType() const
 {
-    return d_data->arrowType;
+    return m_data->arrowType;
 }
 
 /*!
-  \brief The number of arrows
-*/
+   \brief The number of arrows
+ */
 int QwtArrowButton::num() const
 {
-    return d_data->num;
+    return m_data->num;
 }
 
 /*!
-  \return the bounding rectangle for the label
-*/
+   \return the bounding rectangle for the label
+ */
 QRect QwtArrowButton::labelRect() const
 {
     const int m = Margin;
@@ -127,8 +126,8 @@ QRect QwtArrowButton::labelRect() const
 /*!
    Paint event handler
    \param event Paint event
-*/
-void QwtArrowButton::paintEvent( QPaintEvent *event )
+ */
+void QwtArrowButton::paintEvent( QPaintEvent* event )
 {
     QPushButton::paintEvent( event );
     QPainter painter( this );
@@ -136,15 +135,15 @@ void QwtArrowButton::paintEvent( QPaintEvent *event )
 }
 
 /*!
-  \brief Draw the button label
+   \brief Draw the button label
 
-  \param painter Painter
-  \sa The Qt Manual for QPushButton
-*/
-void QwtArrowButton::drawButtonLabel( QPainter *painter )
+   \param painter Painter
+   \sa The Qt Manual for QPushButton
+ */
+void QwtArrowButton::drawButtonLabel( QPainter* painter )
 {
-    const bool isVertical = d_data->arrowType == Qt::UpArrow ||
-        d_data->arrowType == Qt::DownArrow;
+    const bool isVertical = m_data->arrowType == Qt::UpArrow ||
+        m_data->arrowType == Qt::DownArrow;
 
     const QRect r = labelRect();
     QSize boundingSize = labelRect().size();
@@ -161,17 +160,17 @@ void QwtArrowButton::drawButtonLabel( QPainter *painter )
         arrow.transpose();
 
     QRect contentsSize; // aligned rect where to paint all arrows
-    if ( d_data->arrowType == Qt::LeftArrow || d_data->arrowType == Qt::RightArrow )
+    if ( m_data->arrowType == Qt::LeftArrow || m_data->arrowType == Qt::RightArrow )
     {
-        contentsSize.setWidth( d_data->num * arrow.width()
-            + ( d_data->num - 1 ) * Spacing );
+        contentsSize.setWidth( m_data->num * arrow.width()
+            + ( m_data->num - 1 ) * Spacing );
         contentsSize.setHeight( arrow.height() );
     }
     else
     {
         contentsSize.setWidth( arrow.width() );
-        contentsSize.setHeight( d_data->num * arrow.height()
-            + ( d_data->num - 1 ) * Spacing );
+        contentsSize.setHeight( m_data->num * arrow.height()
+            + ( m_data->num - 1 ) * Spacing );
     }
 
     QRect arrowRect( contentsSize );
@@ -179,9 +178,9 @@ void QwtArrowButton::drawButtonLabel( QPainter *painter )
     arrowRect.setSize( arrow );
 
     painter->save();
-    for ( int i = 0; i < d_data->num; i++ )
+    for ( int i = 0; i < m_data->num; i++ )
     {
-        drawArrow( painter, arrowRect, d_data->arrowType );
+        drawArrow( painter, arrowRect, m_data->arrowType );
 
         int dx = 0;
         int dy = 0;
@@ -198,7 +197,7 @@ void QwtArrowButton::drawButtonLabel( QPainter *painter )
     if ( hasFocus() )
     {
         QStyleOptionFocusRect option;
-        option.init( this );
+        option.initFrom( this );
         option.backgroundColor = palette().color( QPalette::Window );
 
         style()->drawPrimitive( QStyle::PE_FrameFocusRect,
@@ -212,9 +211,9 @@ void QwtArrowButton::drawButtonLabel( QPainter *painter )
     \param painter Painter
     \param r Rectangle where to paint the arrow
     \param arrowType Arrow type
-*/
-void QwtArrowButton::drawArrow( QPainter *painter,
-    const QRect &r, Qt::ArrowType arrowType ) const
+ */
+void QwtArrowButton::drawArrow( QPainter* painter,
+    const QRect& r, Qt::ArrowType arrowType ) const
 {
     QPolygon pa( 3 );
 
@@ -255,17 +254,17 @@ void QwtArrowButton::drawArrow( QPainter *painter,
 }
 
 /*!
-  \return a size hint
-*/
+   \return a size hint
+ */
 QSize QwtArrowButton::sizeHint() const
 {
     const QSize hint = minimumSizeHint();
-    return hint.expandedTo( QApplication::globalStrut() );
+    return qwtExpandedToGlobalStrut( hint );
 }
 
 /*!
-  \brief Return a minimum size hint
-*/
+   \brief Return a minimum size hint
+ */
 QSize QwtArrowButton::minimumSizeHint() const
 {
     const QSize asz = arrowSize( Qt::RightArrow, QSize() );
@@ -273,13 +272,13 @@ QSize QwtArrowButton::minimumSizeHint() const
     QSize sz(
         2 * Margin + ( MaxNum - 1 ) * Spacing + MaxNum * asz.width(),
         2 * Margin + asz.height()
-    );
+        );
 
-    if ( d_data->arrowType == Qt::UpArrow || d_data->arrowType == Qt::DownArrow )
+    if ( m_data->arrowType == Qt::UpArrow || m_data->arrowType == Qt::DownArrow )
         sz.transpose();
 
     QStyleOption styleOption;
-    styleOption.init( this );
+    styleOption.initFrom( this );
 
     sz = style()->sizeFromContents( QStyle::CT_PushButton,
         &styleOption, sz, this );
@@ -293,9 +292,9 @@ QSize QwtArrowButton::minimumSizeHint() const
    \param arrowType Arrow type
    \param boundingSize Bounding size
    \return Size of the arrow
-*/
+ */
 QSize QwtArrowButton::arrowSize( Qt::ArrowType arrowType,
-    const QSize &boundingSize ) const
+    const QSize& boundingSize ) const
 {
     QSize bs = boundingSize;
     if ( arrowType == Qt::UpArrow || arrowType == Qt::DownArrow )
@@ -322,9 +321,9 @@ QSize QwtArrowButton::arrowSize( Qt::ArrowType arrowType,
 }
 
 /*!
-  \brief autoRepeat for the space keys
-*/
-void QwtArrowButton::keyPressEvent( QKeyEvent *event )
+   \brief autoRepeat for the space keys
+ */
+void QwtArrowButton::keyPressEvent( QKeyEvent* event )
 {
     if ( event->isAutoRepeat() && event->key() == Qt::Key_Space )
         Q_EMIT clicked();

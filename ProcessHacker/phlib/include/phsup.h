@@ -401,6 +401,8 @@ FORCEINLINE BOOLEAN _InterlockedIncrementPositive(
 #define PH_PTR_STR_LEN 24
 #define PH_PTR_STR_LEN_1 (PH_PTR_STR_LEN + 1)
 
+#define PH_HEX_CHARS L"0123456789abcdef"
+
 FORCEINLINE VOID PhPrintInt32(
     _Out_writes_(PH_INT32_STR_LEN_1) PWSTR Destination,
     _In_ LONG Int32
@@ -435,7 +437,7 @@ FORCEINLINE VOID PhPrintUInt64(
 
 FORCEINLINE VOID PhPrintPointer(
     _Out_writes_(PH_PTR_STR_LEN_1) PWSTR Destination,
-    _In_ PVOID Pointer
+    _In_opt_ PVOID Pointer
     )
 {
     Destination[0] = L'0';
@@ -445,6 +447,48 @@ FORCEINLINE VOID PhPrintPointer(
 #else
     _ultow((ULONG)Pointer, &Destination[2], 16);
 #endif
+}
+
+FORCEINLINE VOID PhPrintPointerPadZeros(
+    _Out_writes_(PH_PTR_STR_LEN_1) PWSTR Destination,
+    _In_ PVOID Pointer
+    )
+{
+    ULONG_PTR ptr = (ULONG_PTR)Pointer;
+    PWSTR dest = Destination;
+
+    *dest++ = L'0';
+    *dest++ = L'x';
+
+#ifdef _WIN64
+    *dest++ = PH_HEX_CHARS[ptr >> 60];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0f00000000000000) >> 56];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00f0000000000000) >> 52];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x000f000000000000) >> 48];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0000f00000000000) >> 44];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00000f0000000000) >> 40];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x000000f000000000) >> 36];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0000000f00000000) >> 32];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00000000f0000000) >> 28];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x000000000f000000) >> 24];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0000000000f00000) >> 20];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00000000000f0000) >> 16];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x000000000000f000) >> 12];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0000000000000f00) >> 8];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00000000000000f0) >> 4];
+    *dest++ = PH_HEX_CHARS[ptr & 0x000000000000000f];
+#else
+    *dest++ = PH_HEX_CHARS[ptr >> 28];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0f000000) >> 24];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00f00000) >> 20];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x000f0000) >> 16];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x0000f000) >> 12];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x00000f00) >> 8];
+    *dest++ = PH_HEX_CHARS[(ptr & 0x000000f0) >> 4];
+    *dest++ = PH_HEX_CHARS[ptr & 0x0000000f];
+#endif
+
+    *dest = UNICODE_NULL;
 }
 
 // Misc.
@@ -531,20 +575,20 @@ FORCEINLINE VOID PhProbeAddress(
 }
 
 FORCEINLINE PLARGE_INTEGER PhTimeoutFromMilliseconds(
-    _Inout_ PLARGE_INTEGER Timeout,
+    _Out_ PLARGE_INTEGER Timeout,
     _In_ ULONG Milliseconds
     )
 {
     if (Milliseconds == INFINITE)
-        return NULL;
-
-    Timeout->QuadPart = -(LONGLONG)UInt32x32To64(Milliseconds, PH_TIMEOUT_MS);
+        Timeout->QuadPart = MINLONGLONG;
+    else
+        Timeout->QuadPart = -(LONGLONG)UInt32x32To64(Milliseconds, PH_TIMEOUT_MS);
 
     return Timeout;
 }
 
 #define PhTimeoutFromMillisecondsEx(Milliseconds) \
-    &(LARGE_INTEGER) { .QuadPart = -(LONGLONG)UInt32x32To64(((ULONG)Milliseconds), PH_TIMEOUT_MS) }
+    &(LARGE_INTEGER) { .QuadPart = -(LONGLONG)UInt32x32To64(((ULONG)(Milliseconds)), PH_TIMEOUT_MS) }
 
 FORCEINLINE NTSTATUS PhGetLastWin32ErrorAsNtStatus(
     VOID

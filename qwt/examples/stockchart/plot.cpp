@@ -1,124 +1,134 @@
-#include "plot.h"
-#include "legend.h"
-#include "griditem.h"
-#include "quotefactory.h"
-#include <qwt_legend.h>
-#include <qwt_plot_tradingcurve.h>
-#include <qwt_plot_marker.h>
-#include <qwt_plot_zoneitem.h>
-#include <qwt_plot_renderer.h>
-#include <qwt_plot_zoomer.h>
-#include <qwt_plot_panner.h>
-#include <qwt_legend_label.h>
-#include <qwt_date.h>
-#include <qwt_date_scale_engine.h>
-#include <qwt_date_scale_draw.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class Zoomer: public QwtPlotZoomer
+#include "Plot.h"
+#include "Legend.h"
+#include "GridItem.h"
+#include "QuoteFactory.h"
+
+#include <QwtPlotTradingCurve>
+#include <QwtPlotMarker>
+#include <QwtPlotZoneItem>
+#include <QwtPlotRenderer>
+#include <QwtPlotZoomer>
+#include <QwtPlotPanner>
+#include <QwtDate>
+#include <QwtDateScaleEngine>
+#include <QwtDateScaleDraw>
+#include <QwtText>
+
+#include <QPen>
+
+namespace
 {
-public:
-    Zoomer( QWidget *canvas ):
-        QwtPlotZoomer( canvas )
+    class Zoomer : public QwtPlotZoomer
     {
-        setRubberBandPen( QColor( Qt::darkGreen ) );
-        setTrackerMode( QwtPlotPicker::AlwaysOn );
-    }
+      public:
+        Zoomer( QWidget* canvas )
+            : QwtPlotZoomer( canvas )
+        {
+            setRubberBandPen( QColor( Qt::darkGreen ) );
+            setTrackerMode( QwtPlotPicker::AlwaysOn );
+        }
 
-protected:
-    virtual QwtText trackerTextF( const QPointF &pos ) const
+      protected:
+        virtual QwtText trackerTextF( const QPointF& pos ) const QWT_OVERRIDE
+        {
+            const QDateTime dt = QwtDate::toDateTime( pos.x() );
+
+            QString s;
+            s += QwtDate::toString( QwtDate::toDateTime( pos.x() ),
+                "MMM dd hh:mm ", QwtDate::FirstThursday );
+
+            QwtText text( s );
+            text.setColor( Qt::white );
+
+            QColor c = rubberBandPen().color();
+            text.setBorderPen( QPen( c ) );
+            text.setBorderRadius( 6 );
+            c.setAlpha( 170 );
+            text.setBackgroundBrush( c );
+
+            return text;
+        }
+    };
+
+    class DateScaleDraw : public QwtDateScaleDraw
     {
-        const QDateTime dt = QwtDate::toDateTime( pos.x() );
+      public:
+        DateScaleDraw( Qt::TimeSpec timeSpec )
+            : QwtDateScaleDraw( timeSpec )
+        {
+            // as we have dates from 2010 only we use
+            // format strings without the year
 
-        QString s;
-        s += QwtDate::toString( QwtDate::toDateTime( pos.x() ),
-            "MMM dd hh:mm ", QwtDate::FirstThursday );
+            setDateFormat( QwtDate::Millisecond, "hh:mm:ss:zzz\nddd dd MMM" );
+            setDateFormat( QwtDate::Second, "hh:mm:ss\nddd dd MMM" );
+            setDateFormat( QwtDate::Minute, "hh:mm\nddd dd MMM" );
+            setDateFormat( QwtDate::Hour, "hh:mm\nddd dd MMM" );
+            setDateFormat( QwtDate::Day, "ddd dd MMM" );
+            setDateFormat( QwtDate::Week, "Www" );
+            setDateFormat( QwtDate::Month, "MMM" );
+        }
+    };
 
-        QwtText text( s );
-        text.setColor( Qt::white );
-
-        QColor c = rubberBandPen().color();
-        text.setBorderPen( QPen( c ) );
-        text.setBorderRadius( 6 );
-        c.setAlpha( 170 );
-        text.setBackgroundBrush( c );
-
-        return text;
-    }
-};
-
-class DateScaleDraw: public QwtDateScaleDraw
-{
-public:
-    DateScaleDraw( Qt::TimeSpec timeSpec ):
-        QwtDateScaleDraw( timeSpec )
+    class ZoneItem : public QwtPlotZoneItem
     {
-        // as we have dates from 2010 only we use
-        // format strings without the year
+      public:
+        ZoneItem( const QString& title )
+        {
+            setTitle( title );
+            setZ( 11 ); // on top the the grid
+            setOrientation( Qt::Vertical );
+            setItemAttribute( QwtPlotItem::Legend, true );
+        }
 
-        setDateFormat( QwtDate::Millisecond, "hh:mm:ss:zzz\nddd dd MMM" );
-        setDateFormat( QwtDate::Second, "hh:mm:ss\nddd dd MMM" );
-        setDateFormat( QwtDate::Minute, "hh:mm\nddd dd MMM" );
-        setDateFormat( QwtDate::Hour, "hh:mm\nddd dd MMM" );
-        setDateFormat( QwtDate::Day, "ddd dd MMM" );
-        setDateFormat( QwtDate::Week, "Www" );
-        setDateFormat( QwtDate::Month, "MMM" );
-    }
-};
+        void setColor( const QColor& color )
+        {
+            QColor c = color;
 
-class ZoneItem: public QwtPlotZoneItem
-{
-public:
-    ZoneItem( const QString &title )
-    {
-        setTitle( title );
-        setZ( 11 ); // on top the the grid
-        setOrientation( Qt::Vertical );
-        setItemAttribute( QwtPlotItem::Legend, true );
-    }
+            c.setAlpha( 100 );
+            setPen( c );
 
-    void setColor( const QColor &color )
-    {
-        QColor c = color;
+            c.setAlpha( 20 );
+            setBrush( c );
+        }
 
-        c.setAlpha( 100 );
-        setPen( c );
+        void setInterval( const QDate& date1, const QDate& date2 )
+        {
+            const QDateTime dt1( date1, QTime(), Qt::UTC );
+            const QDateTime dt2( date2, QTime(), Qt::UTC );
 
-        c.setAlpha( 20 );
-        setBrush( c );
-    }
+            QwtPlotZoneItem::setInterval( QwtDate::toDouble( dt1 ),
+                QwtDate::toDouble( dt2 ) );
+        }
+    };
+}
 
-    void setInterval( const QDate &date1, const QDate &date2 )
-    {
-        const QDateTime dt1( date1, QTime(), Qt::UTC );
-        const QDateTime dt2( date2, QTime(), Qt::UTC );
-
-        QwtPlotZoneItem::setInterval( QwtDate::toDouble( dt1 ),
-            QwtDate::toDouble( dt2 ) );
-    }
-};
-
-Plot::Plot( QWidget *parent ):
-    QwtPlot( parent )
+Plot::Plot( QWidget* parent )
+    : QwtPlot( parent )
 {
     setTitle( "Trading Chart" );
 
-    QwtDateScaleDraw *scaleDraw = new DateScaleDraw( Qt::UTC );
-    QwtDateScaleEngine *scaleEngine = new QwtDateScaleEngine( Qt::UTC );
+    QwtDateScaleDraw* scaleDraw = new DateScaleDraw( Qt::UTC );
+    QwtDateScaleEngine* scaleEngine = new QwtDateScaleEngine( Qt::UTC );
 
-    setAxisTitle( QwtPlot::xBottom, QString( "2010" ) );
-    setAxisScaleDraw( QwtPlot::xBottom, scaleDraw );
-    setAxisScaleEngine( QwtPlot::xBottom, scaleEngine );
-    setAxisLabelRotation( QwtPlot::xBottom, -50.0 );
-    setAxisLabelAlignment( QwtPlot::xBottom, Qt::AlignLeft | Qt::AlignBottom );
+    setAxisTitle( QwtAxis::XBottom, QString( "2010" ) );
+    setAxisScaleDraw( QwtAxis::XBottom, scaleDraw );
+    setAxisScaleEngine( QwtAxis::XBottom, scaleEngine );
+    setAxisLabelRotation( QwtAxis::XBottom, -50.0 );
+    setAxisLabelAlignment( QwtAxis::XBottom, Qt::AlignLeft | Qt::AlignBottom );
 
-    setAxisTitle( QwtPlot::yLeft, QString( "Price [EUR]" ) );
+    setAxisTitle( QwtAxis::YLeft, QString( "Price [EUR]" ) );
 
 #if 0
-    QwtLegend *legend = new QwtLegend;
+    QwtLegend* legend = new QwtLegend;
     legend->setDefaultItemMode( QwtLegendData::Checkable );
     insertLegend( legend, QwtPlot::RightLegend );
 #else
-    Legend *legend = new Legend;
+    Legend* legend = new Legend;
     insertLegend( legend, QwtPlot::RightLegend );
 #endif
 
@@ -135,16 +145,16 @@ Plot::Plot( QWidget *parent ):
     zoomer->setMousePattern( QwtEventPattern::MouseSelect3,
         Qt::RightButton );
 
-    QwtPlotPanner *panner = new QwtPlotPanner( canvas() );
-    panner->setMouseButton( Qt::MidButton );
+    QwtPlotPanner* panner = new QwtPlotPanner( canvas() );
+    panner->setMouseButton( Qt::MiddleButton );
 
-    connect( legend, SIGNAL( checked( QwtPlotItem *, bool, int ) ),
-        SLOT( showItem( QwtPlotItem *, bool ) ) );
+    connect( legend, SIGNAL(checked(QwtPlotItem*,bool,int)),
+        SLOT(showItem(QwtPlotItem*,bool)) );
 }
 
 void Plot::populate()
 {
-    GridItem *gridItem = new GridItem();
+    GridItem* gridItem = new GridItem();
 #if 0
     gridItem->setOrientations( Qt::Horizontal );
 #endif
@@ -163,9 +173,9 @@ void Plot::populate()
 
     for ( int i = 0; i < QuoteFactory::NumStocks; i++ )
     {
-        QuoteFactory::Stock stock = static_cast<QuoteFactory::Stock>( i );
+        QuoteFactory::Stock stock = static_cast< QuoteFactory::Stock >( i );
 
-        QwtPlotTradingCurve *curve = new QwtPlotTradingCurve();
+        QwtPlotTradingCurve* curve = new QwtPlotTradingCurve();
         curve->setTitle( QuoteFactory::title( stock ) );
         curve->setOrientation( Qt::Vertical );
         curve->setSamples( QuoteFactory::samples2010( stock ) );
@@ -191,16 +201,20 @@ void Plot::populate()
 
     for ( int i = 0; i < 2; i++ )
     {
-        QwtPlotMarker *marker = new QwtPlotMarker();
+        QwtPlotMarker* marker = new QwtPlotMarker();
 
         marker->setTitle( QString( "Event %1" ).arg( i + 1 ) );
         marker->setLineStyle( QwtPlotMarker::VLine );
         marker->setLinePen( colors[ i % numColors ], 0, Qt::DashLine );
         marker->setVisible( false );
 
+#if QT_VERSION >= 0x050e00
+        QDateTime dt = QDate( 2010, 1, 1 ).startOfDay();
+#else
         QDateTime dt( QDate( 2010, 1, 1 ) );
+#endif
         dt = dt.addDays( 77 * ( i + 1 ) );
-        
+
         marker->setValue( QwtDate::toDouble( dt ), 0.0 );
 
         marker->setItemAttribute( QwtPlotItem::Legend, true );
@@ -210,13 +224,13 @@ void Plot::populate()
 
     // to show how QwtPlotZoneItem works
 
-    ZoneItem *zone1 = new ZoneItem( "Zone 1");
+    ZoneItem* zone1 = new ZoneItem( "Zone 1");
     zone1->setColor( Qt::darkBlue );
     zone1->setInterval( QDate( 2010, 3, 10 ), QDate( 2010, 3, 27 ) );
     zone1->setVisible( false );
     zone1->attach( this );
 
-    ZoneItem *zone2 = new ZoneItem( "Zone 2");
+    ZoneItem* zone2 = new ZoneItem( "Zone 2");
     zone2->setColor( Qt::darkMagenta );
     zone2->setInterval( QDate( 2010, 8, 1 ), QDate( 2010, 8, 24 ) );
     zone2->setVisible( false );
@@ -227,20 +241,20 @@ void Plot::populate()
 void Plot::setMode( int style )
 {
     QwtPlotTradingCurve::SymbolStyle symbolStyle =
-        static_cast<QwtPlotTradingCurve::SymbolStyle>( style );
+        static_cast< QwtPlotTradingCurve::SymbolStyle >( style );
 
     QwtPlotItemList curves = itemList( QwtPlotItem::Rtti_PlotTradingCurve );
     for ( int i = 0; i < curves.size(); i++ )
     {
-        QwtPlotTradingCurve *curve =
-            static_cast<QwtPlotTradingCurve *>( curves[i] );
+        QwtPlotTradingCurve* curve =
+            static_cast< QwtPlotTradingCurve* >( curves[i] );
         curve->setSymbolStyle( symbolStyle );
     }
 
     replot();
 }
 
-void Plot::showItem( QwtPlotItem *item, bool on )
+void Plot::showItem( QwtPlotItem* item, bool on )
 {
     item->setVisible( on );
     replot();
@@ -251,3 +265,5 @@ void Plot::exportPlot()
     QwtPlotRenderer renderer;
     renderer.exportTo( this, "stockchart.pdf" );
 }
+
+#include "moc_Plot.cpp"

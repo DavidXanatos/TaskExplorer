@@ -1,23 +1,11 @@
 /*
- * Process Hacker -
- *   Searchbox control
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2012-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ *     dmex    2012-2022
  *
  */
 
@@ -72,15 +60,18 @@ VOID PhpSearchInitializeFont(
     )
 {
     LOGFONT logFont;
+    LONG dpiValue;
 
-    if (Context->WindowFont) 
+    if (Context->WindowFont)
         DeleteFont(Context->WindowFont);
 
-    if (!SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &logFont, 0))
+    dpiValue = PhGetWindowDpi(WindowHandle);
+
+    if (!PhGetSystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &logFont, dpiValue))
         return;
 
     Context->WindowFont = CreateFont(
-        -PhMultiplyDivideSigned(10, PhGlobalDpi, 72),
+        -PhMultiplyDivideSigned(10, dpiValue, 72),
         0,
         0,
         0,
@@ -104,8 +95,15 @@ VOID PhpSearchInitializeTheme(
     _In_ HWND WindowHandle
     )
 {
-    Context->CXWidth = PhMultiplyDivideSigned(20, PhGlobalDpi, 96);//PH_SCALE_DPI(20);
+    LONG dpiValue;
+    INT borderX;
+
+    dpiValue = PhGetWindowDpi(WindowHandle);
+
+    Context->CXWidth = PhGetDpi(20, dpiValue);
     Context->ColorMode = PhGetIntegerSetting(L"GraphColorMode");
+
+    borderX = PhGetSystemMetrics(SM_CXBORDER, dpiValue);
 
     if (IsThemeActive())
     {
@@ -123,19 +121,19 @@ VOID PhpSearchInitializeTheme(
                 &Context->CXBorder
                 )))
             {
-                Context->CXBorder = GetSystemMetrics(SM_CXBORDER) * 2;
+                Context->CXBorder = borderX * 2;
             }
 
             CloseThemeData(themeDataHandle);
         }
         else
         {
-            Context->CXBorder = GetSystemMetrics(SM_CXBORDER) * 2;
+            Context->CXBorder = borderX * 2;
         }
     }
     else
     {
-        Context->CXBorder = GetSystemMetrics(SM_CXBORDER) * 2;
+        Context->CXBorder = borderX * 2;
     }
 }
 
@@ -151,9 +149,8 @@ HBITMAP PhLoadPngImageFromResource(
     UINT frameCount = 0;
     ULONG resourceLength = 0;
     WICInProcPointer resourceBuffer = NULL;
-    HDC screenHdc = NULL;
-    HDC bufferDc = NULL;
-    BITMAPINFO bitmapInfo = { 0 };
+    HDC screenHdc;
+    BITMAPINFO bitmapInfo;
     HBITMAP bitmapHandle = NULL;
     PVOID bitmapBuffer = NULL;
     IWICStream* wicStream = NULL;
@@ -235,16 +232,17 @@ HBITMAP PhLoadPngImageFromResource(
         IWICBitmapFrameDecode_Release(wicFrame);
     }
 
+    memset(&bitmapInfo, 0, sizeof(BITMAPINFO));
     bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
     bitmapInfo.bmiHeader.biWidth = rect.Width;
     bitmapInfo.bmiHeader.biHeight = -((LONG)rect.Height);
-    bitmapInfo.bmiHeader.biPlanes = 1;
     bitmapInfo.bmiHeader.biBitCount = 32;
-    bitmapInfo.bmiHeader.biCompression = BI_RGB;
 
     screenHdc = GetDC(NULL);
-    bufferDc = CreateCompatibleDC(screenHdc);
     bitmapHandle = CreateDIBSection(screenHdc, &bitmapInfo, DIB_RGB_COLORS, &bitmapBuffer, NULL, 0);
+    ReleaseDC(NULL, screenHdc);
 
     // Check if it's the same rect as the requested size.
     //if (width != rect.Width || height != rect.Height)
@@ -252,7 +250,7 @@ HBITMAP PhLoadPngImageFromResource(
         goto CleanupExit;
     if (FAILED(IWICBitmapScaler_Initialize(wicScaler, wicBitmapSource, rect.Width, rect.Height, WICBitmapInterpolationModeFant)))
         goto CleanupExit;
-    if (FAILED(IWICBitmapScaler_CopyPixels(wicScaler, &rect, rect.Width * 4, rect.Width * rect.Height * 4, (PBYTE)bitmapBuffer)))
+    if (FAILED(IWICBitmapScaler_CopyPixels(wicScaler, &rect, rect.Width * sizeof(RGBQUAD), rect.Width * rect.Height * sizeof(RGBQUAD), (PBYTE)bitmapBuffer)))
         goto CleanupExit;
 
     success = TRUE;
@@ -261,12 +259,6 @@ CleanupExit:
 
     if (wicScaler)
         IWICBitmapScaler_Release(wicScaler);
-
-    if (bufferDc)
-        DeleteDC(bufferDc);
-
-    if (screenHdc)
-        ReleaseDC(NULL, screenHdc);
 
     if (wicBitmapSource)
         IWICBitmapSource_Release(wicBitmapSource);
@@ -288,13 +280,19 @@ CleanupExit:
 }
 
 VOID PhpSearchInitializeImages(
-    _Inout_ PEDIT_CONTEXT Context
+    _Inout_ PEDIT_CONTEXT Context,
+    _In_ HWND WindowHandle
     )
 {
     HBITMAP bitmap;
+    LONG dpiValue;
 
-    Context->ImageWidth = PhSmallIconSize.X + 4; //GetSystemMetrics(SM_CXSMICON) + 4;
-    Context->ImageHeight = PhSmallIconSize.Y + 4; //GetSystemMetrics(SM_CYSMICON) + 4;
+    dpiValue = PhGetWindowDpi(WindowHandle);
+
+    Context->ImageWidth = PhGetSystemMetrics(SM_CXSMICON, dpiValue) + PhGetDpi(4, dpiValue);
+    Context->ImageHeight = PhGetSystemMetrics(SM_CYSMICON, dpiValue) + PhGetDpi(4, dpiValue);
+
+    if (Context->ImageListHandle) PhImageListDestroy(Context->ImageListHandle);
     Context->ImageListHandle = PhImageListCreate(
         Context->ImageWidth,
         Context->ImageHeight,
@@ -493,8 +491,8 @@ VOID PhpSearchDrawButton(
             Context->ImageListHandle,
             0,
             Hdc,
-            ButtonRect.left + 1, // offset
-            ButtonRect.top,
+            ButtonRect.left + 1 /*offset*/ + ((ButtonRect.right - ButtonRect.left) - Context->ImageWidth) / 2,
+            ButtonRect.top + ((ButtonRect.bottom - ButtonRect.top) - Context->ImageHeight) / 2,
             ILD_TRANSPARENT,
             FALSE
             );
@@ -505,8 +503,8 @@ VOID PhpSearchDrawButton(
             Context->ImageListHandle,
             1,
             Hdc,
-            ButtonRect.left + 2, // offset
-            ButtonRect.top + 1, // offset
+            ButtonRect.left + 2 /*offset*/ + ((ButtonRect.right - ButtonRect.left) - Context->ImageWidth) / 2,
+            ButtonRect.top + 1 /*offset*/ + ((ButtonRect.bottom - ButtonRect.top) - Context->ImageHeight) / 2,
             ILD_TRANSPARENT,
             FALSE
             );
@@ -559,6 +557,20 @@ LRESULT CALLBACK PhpSearchWndSubclassProc(
         break;
     case WM_ERASEBKGND:
         return 1;
+    case WM_DPICHANGED:
+        {
+            PhpSearchFreeTheme(context);
+            PhpSearchInitializeTheme(context, hWnd);
+            PhpSearchInitializeFont(context, hWnd);
+            PhpSearchInitializeImages(context, hWnd);
+
+            // Refresh the non-client area.
+            SetWindowPos(hWnd, NULL, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+
+            // Force the edit control to update its non-client area.
+            RedrawWindow(hWnd, NULL, NULL, RDW_FRAME | RDW_INVALIDATE);
+        }
+        break;
     case WM_NCCALCSIZE:
         {
             LPNCCALCSIZE_PARAMS ncCalcSize = (NCCALCSIZE_PARAMS*)lParam;
@@ -599,7 +611,7 @@ LRESULT CALLBACK PhpSearchWndSubclassProc(
                 // Get the screen coordinates of the window.
                 GetWindowRect(hWnd, &windowRect);
                 // Adjust the coordinates (start from 0,0).
-                PhOffsetRect(&windowRect, -windowRect.left, -windowRect.top);   
+                PhOffsetRect(&windowRect, -windowRect.left, -windowRect.top);
                 buttonRect = windowRect;
                 // Get the position of the inserted button.
                 PhpSearchGetButtonRect(context, &buttonRect);
@@ -741,7 +753,7 @@ LRESULT CALLBACK PhpSearchWndSubclassProc(
                 //SendMessage(GetParent(context->WindowHandle), WM_COMMAND, MAKEWPARAM(context->CommandID, BN_CLICKED), 0);
 
                 SetFocus(hWnd);
-                Static_SetText(hWnd, L"");
+                PhSetWindowText(hWnd, L"");
             }
 
             if (GetCapture() == hWnd)
@@ -966,7 +978,7 @@ LRESULT CALLBACK PhpSearchWndSubclassProc(
             PWSTR text = (PWSTR)lParam;
 
             PhMoveReference(&context->CueBannerText, PhCreateString(text));
-            
+
             RedrawWindow(hWnd, NULL, NULL, RDW_FRAME | RDW_INVALIDATE);
         }
         return TRUE;
@@ -1013,7 +1025,7 @@ VOID PvCreateSearchControl(
     context->ColorMode = PhGetIntegerSetting(L"GraphColorMode");
 
     //PhpSearchInitializeTheme(context);
-    PhpSearchInitializeImages(context);
+    PhpSearchInitializeImages(context, WindowHandle);
 
     // Set initial text
     if (BannerText)

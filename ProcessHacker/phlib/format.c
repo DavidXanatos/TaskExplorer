@@ -1,23 +1,13 @@
 /*
- * Process Hacker -
- *   string formatting
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010-2015 wj32
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010-2015
+ *     dmex    2020
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -44,11 +34,6 @@ extern ULONG PhMaxSizeUnit;
 #define PHP_FORMAT_POSITIVE 0x2
 #define PHP_FORMAT_PAD 0x4
 
-// Internal CRT routine needed for floating-point conversion
-
-errno_t __cdecl _cfltcvt_l(double *arg, char *buffer, size_t sizeInBytes,
-    int format, int precision, int caps, _locale_t plocinfo);
-
 // Keep in sync with PhSizeUnitNames
 static PH_STRINGREF PhpSizeUnitNamesCounted[7] =
 {
@@ -66,36 +51,55 @@ static WCHAR PhpFormatDecimalSeparator = L'.';
 static WCHAR PhpFormatThousandSeparator = L',';
 static _locale_t PhpFormatUserLocale = NULL;
 
-#if (_MSC_VER >= 1900)
-
-// See Source\10.0.10150.0\ucrt\convert\cvt.cpp in SDK v10.
-/*errno_t __cdecl __acrt_fp_format(
-    double const* const value,
-    char*         const result_buffer,
-    size_t        const result_buffer_count,
-    char*         const scratch_buffer,
-    size_t        const scratch_buffer_count,
-    int           const format,
-    int           const precision,
-    UINT64        const options,
-    _locale_t     const locale
-    );*/
-
-static errno_t __cdecl _cfltcvt_l(double *arg, char *buffer, size_t sizeInBytes,
-    int format, int precision, int caps, _locale_t plocinfo)
+// We previously used an internal CRT routine named _cfltcvt_l for floating-point
+// conversion (which also handled the locale) but this was changed in newer versions
+// of the CRT and was no longer available. We're now using the high-performance std::to_chars
+// but it doesn't handle the users locale so we'll fixup the locale here. (dmex)
+VOID PhpFormatDoubleToUtf8Locale(
+    _In_ DOUBLE Value,
+    _In_ ULONG Type,
+    _In_ INT32 Precision,
+    _Out_writes_bytes_opt_(BufferLength) PSTR Buffer,
+    _In_opt_ SIZE_T BufferLength
+    )
 {
-    /*char scratch_buffer[_CVTBUFSIZE + 1];
+    if (!PhFormatDoubleToUtf8(
+        Value,
+        Type,
+        Precision,
+        Buffer,
+        BufferLength,
+        NULL
+        ))
+    {
+        if (Buffer)
+            *Buffer = ANSI_NULL;
+        return;
+    }
 
-    if (caps & 1)
-        format -= 32; // Make uppercase
+    if (PhpFormatUserLocale && Buffer)
+    {
+        for (PCH c = Buffer; *c; ++c)
+        {
+            if (*c == '.')
+            {
+                *c = (CHAR)PhpFormatDecimalSeparator;
+                break;
+            }
+        }
+    }
 
-    return __acrt_fp_format(arg, buffer, sizeInBytes, scratch_buffer, sizeof(scratch_buffer),
-        format, precision, 0, plocinfo);*/
+    if (Type & FormatUpperCase)
+    {
+        if (PhpFormatUserLocale)
+            _strupr_l(Buffer, PhpFormatUserLocale);
+        else
+            _strupr(Buffer);
 
-    return _sprintf_s_l(buffer, sizeInBytes, "%.2f", plocinfo, *arg);
+        //for (PCH c = Buffer; *c; ++c)
+        //    *c = RtlUpperChar(*c);
+    }
 }
-
-#endif
 
 // From Source\10.0.10150.0\ucrt\inc\corecrt_internal_stdio_output.h in SDK v10.
 VOID PhpCropZeros(
@@ -121,7 +125,7 @@ VOID PhpCropZeros(
         if (*Buffer == decimalSeparator)
             --Buffer;
 
-        while ((*++Buffer = *stop++) != '\0')
+        while ((*++Buffer = *stop++) != ANSI_NULL)
             NOTHING;
     }
 }

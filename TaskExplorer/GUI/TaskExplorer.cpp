@@ -42,7 +42,11 @@ CTaskExplorer* theGUI = NULL;
 class CNativeEventFilter : public QAbstractNativeEventFilter
 {
 public:
-	virtual bool nativeEventFilter(const QByteArray &eventType, void *message, long *result)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+	virtual bool nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result)
+#else
+	virtual bool nativeEventFilter(const QByteArray& eventType, void* message, long* result)
+#endif
 	{
 		if (eventType == "windows_generic_MSG" || eventType == "windows_dispatcher_MSG") 
 		{
@@ -89,6 +93,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 {
 	theGUI = this;
 
+	//QApplication::setStyle(QStyleFactory::create("Fusion"));
+
 	m_DefaultStyle = QApplication::style()->objectName();
 	m_DefaultPalett = QApplication::palette();
 
@@ -101,13 +107,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	QString appTitle = tr("TaskExplorer v%1").arg(GetVersion());
 
 #ifdef WIN32
-	if (KphIsConnected())
-	{
-		if(KphIsVerified())
-			appTitle.append(tr(" - [kPH]")); // full
-		else
-			appTitle.append(tr(" ~ [kPH]")); // limited
-	}
+	if (KphCommsIsConnected())
+		appTitle.append(tr(" - [root]"));
 #endif
 
 	if (theAPI->RootAvaiable())
@@ -134,7 +135,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	m_pMainLayout->setSpacing(0);
 	this->setCentralWidget(m_pMainWidget);
 
@@ -314,8 +315,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuFree = m_pMenuTools->addMenu(MakeActionIcon(":/Actions/FreeMem"), tr("&Free Memory"));
 			m_pMenuFreeWorkingSet = m_pMenuFree->addAction(tr("Empty Working set"), this, SLOT(OnFreeMemory()));
 			m_pMenuFreeModPages = m_pMenuFree->addAction(tr("Empty Modified pages"), this, SLOT(OnFreeMemory()));
-			m_pMenuFreeStandby = m_pMenuFree->addAction(tr("Empty Standby list"), this, SLOT(OnFreeMemory()));
-			m_pMenuFreePriority0 = m_pMenuFree->addAction(tr("Empty Priority 0 list"), this, SLOT(OnFreeMemory()));
+			m_pMenuFreeStandby = m_pMenuFree->addAction(tr("Empty Standby std::list"), this, SLOT(OnFreeMemory()));
+			m_pMenuFreePriority0 = m_pMenuFree->addAction(tr("Empty Priority 0 std::list"), this, SLOT(OnFreeMemory()));
 			m_pMenuFree->addSeparator();
 			m_pMenuCombinePages = m_pMenuFree->addAction(tr("Combine Pages"), this, SLOT(OnFreeMemory()));
 #endif
@@ -351,11 +352,12 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuMonitorDbgGlobal->setChecked((DbgMode & CWinDbgMonitor::eGlobal) != 0);
 		m_pMenuMonitorDbgGlobal->setProperty("Mode", (int)CWinDbgMonitor::eGlobal);
 		m_pMenuMonitorDbgGlobal->setEnabled(theAPI->RootAvaiable());
-		m_pMenuMonitorDbgKernel = m_pMenuMonitorDbgMenu->addAction("Kernel", this, SLOT(OnMonitorDbg()));
-		m_pMenuMonitorDbgKernel->setCheckable(true);
-		m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
-		m_pMenuMonitorDbgKernel->setProperty("Mode", (int)CWinDbgMonitor::eKernel);
-		m_pMenuMonitorDbgKernel->setEnabled((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0);
+		// todo: xxxx si
+		//m_pMenuMonitorDbgKernel = m_pMenuMonitorDbgMenu->addAction("Kernel", this, SLOT(OnMonitorDbg()));
+		//m_pMenuMonitorDbgKernel->setCheckable(true);
+		//m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
+		//m_pMenuMonitorDbgKernel->setProperty("Mode", (int)CWinDbgMonitor::eKernel);
+		//m_pMenuMonitorDbgKernel->setEnabled((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0);
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
@@ -558,29 +560,20 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		show();
 
 #ifdef WIN32
-	if (KphIsConnected())
+	if (KphCommsIsConnected())
 	{
-		statusBar()->showMessage(tr("TaskExplorer with %1 (%2) driver is ready...").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()).arg(KphIsVerified() ? tr("full") : tr("limited")), 30000);
+		statusBar()->showMessage(tr("TaskExplorer with kernel driver is ready..."), 30000);
 	}
 	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
 	{
-		QString Message;
-		if (!((CWindowsAPI*)theAPI)->IsTestSigning())
-		{
-			Message = tr("Failed to load %1 driver, in order to load the driver please enable test signing by running 'bcdedit /set testsigning on' in an elevated command prompt and reboot the PC."
-			).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
-		}
-		else
-		{
-			Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
-				"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked.\r\n"
-				"If this is the case you need to add an exception in your AV product for the xprocesshacker.sys file."
-			).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
-		}
+		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
+			"The driver file may be missing, or is wrongfully detected as malicious by your anti-virus application and is being blocked.\r\n"
+			"If this is the case you need to add an exception in your AV product for the xprocesshacker.sys file."
+		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
 
 		bool State = false;
 		CCheckableMessageBox::question(this, "TaskExplorer", Message
-			, tr("Don't try to load the driver in future. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
+			, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
 
 		if (State)
 			theConf->SetValue("Options/UseDriver", false);
@@ -1479,7 +1472,7 @@ void CTaskExplorer::OnFindProcess()
 #ifdef WIN32
 	int count = ((CWindowsAPI*)theAPI)->FindHiddenProcesses();
 	if(count > 0)
-		QMessageBox::warning(NULL, "TaskExplorer", tr("Found %1 hidden processes and added them to the process list.").arg(count));
+		QMessageBox::warning(NULL, "TaskExplorer", tr("Found %1 hidden processes and added them to the process std::list.").arg(count));
 	else
 		QMessageBox::information(NULL, "TaskExplorer", tr("No hidden processes found."));
 #endif
@@ -1570,7 +1563,8 @@ void CTaskExplorer::OnMonitorDbg()
 		m_pMenuMonitorDbgButton->setChecked((DbgMode & CWinDbgMonitor::eAll) != 0);
 	m_pMenuMonitorDbgLocal->setChecked((DbgMode & CWinDbgMonitor::eLocal) != 0);
 	m_pMenuMonitorDbgGlobal->setChecked((DbgMode & CWinDbgMonitor::eGlobal) != 0);
-	m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
+	// todo: xxxx si
+	//m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
 
 	m_Act2Tab.key(CTaskInfoView::eDebugView)->setChecked(DbgMode != CWinDbgMonitor::eNone);
 	m_pTaskInfo->ShowTab(CTaskInfoView::eDebugView, DbgMode != CWinDbgMonitor::eNone);
@@ -1687,7 +1681,7 @@ void CTaskExplorer::InitColors()
 	m_Colors.insert(eGridColor, SColor("GridColor", tr("List grid color"), "#808080"));
 	m_Colors.insert(eBackground, SColor("Background", tr("Default background"), "#FFFFFF"));
 
-	// list colors:
+	// std::list colors:
 	m_Colors.insert(eAdded, SColor("NewlyCreated", tr("New items"), "#00FF7F"));
 	m_Colors.insert(eToBeRemoved, SColor("ToBeRemoved", tr("Removed items"), "#F08080"));
 
@@ -1782,7 +1776,7 @@ void CTaskExplorer::OnAbout()
 			"<h3>About TaskExplorer</h3>"
 			"<p>Version %1</p>"
 			"<p>by DavidXanatos</p>"
-			"<p>Copyright (c) 2019-2020</p>"
+			"<p>Copyright (c) 2019-2022</p>"
 		).arg(GetVersion());
 		QString AboutText = tr(
 			"<p>TaskExplorer is a powerfull multi-purpose Task Manager that helps you monitor system resources, debug software and detect malware.</p>"

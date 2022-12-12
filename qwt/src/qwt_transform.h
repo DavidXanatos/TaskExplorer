@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -31,10 +31,10 @@
 
    - p = p1 + ( p2 - p1 ) * ( T( s ) - T( s1 ) / ( T( s2 ) - T( s1 ) );
    - s = invT ( T( s1 ) + ( T( s2 ) - T( s1 ) ) * ( p - p1 ) / ( p2 - p1 ) );
-*/
+ */
 class QWT_EXPORT QwtTransform
 {
-public:
+  public:
     QwtTransform();
     virtual ~QwtTransform();
 
@@ -65,25 +65,28 @@ public:
     virtual double invTransform( double value ) const = 0;
 
     //! Virtualized copy operation
-    virtual QwtTransform *copy() const = 0;
+    virtual QwtTransform* copy() const = 0;
+
+  private:
+    Q_DISABLE_COPY(QwtTransform)
 };
 
 /*!
    \brief Null transformation
 
    QwtNullTransform returns the values unmodified.
-   
+
  */
-class QWT_EXPORT QwtNullTransform: public QwtTransform
+class QWT_EXPORT QwtNullTransform : public QwtTransform
 {
-public:
+  public:
     QwtNullTransform();
     virtual ~QwtNullTransform();
 
-    virtual double transform( double value ) const;
-    virtual double invTransform( double value ) const;
+    virtual double transform( double value ) const QWT_OVERRIDE;
+    virtual double invTransform( double value ) const QWT_OVERRIDE;
 
-    virtual QwtTransform *copy() const;
+    virtual QwtTransform* copy() const QWT_OVERRIDE;
 };
 /*!
    \brief Logarithmic transformation
@@ -91,52 +94,47 @@ public:
    QwtLogTransform modifies the values using log() and exp().
 
    \note In the calculations of QwtScaleMap the base of the log function
-         has no effect on the mapping. So QwtLogTransform can be used 
+         has no effect on the mapping. So QwtLogTransform can be used
          for log2(), log10() or any other logarithmic scale.
  */
-class QWT_EXPORT QwtLogTransform: public QwtTransform
-{   
-public:
+class QWT_EXPORT QwtLogTransform : public QwtTransform
+{
+  public:
     QwtLogTransform();
     virtual ~QwtLogTransform();
-    
-    virtual double transform( double value ) const;
-    virtual double invTransform( double value ) const;
 
-    virtual double bounded( double value ) const;
+    virtual double transform( double value ) const QWT_OVERRIDE;
+    virtual double invTransform( double value ) const QWT_OVERRIDE;
 
-    virtual QwtTransform *copy() const;
+    virtual double bounded( double value ) const QWT_OVERRIDE;
 
-#if QT_VERSION >= 0x050400
+    virtual QwtTransform* copy() const QWT_OVERRIDE;
+
     static const double LogMin;
     static const double LogMax;
-#else
-    QT_STATIC_CONST double LogMin;
-    QT_STATIC_CONST double LogMax;
-#endif
 };
 
 /*!
    \brief A transformation using pow()
 
-   QwtPowerTransform preserves the sign of a value. 
+   QwtPowerTransform preserves the sign of a value.
    F.e. a transformation with a factor of 2
    transforms a value of -3 to -9 and v.v. Thus QwtPowerTransform
    can be used for scales including negative values.
  */
-class QWT_EXPORT QwtPowerTransform: public QwtTransform
+class QWT_EXPORT QwtPowerTransform : public QwtTransform
 {
-public:
-    QwtPowerTransform( double exponent );
+  public:
+    explicit QwtPowerTransform( double exponent );
     virtual ~QwtPowerTransform();
 
-    virtual double transform( double value ) const;
-    virtual double invTransform( double value ) const;
+    virtual double transform( double value ) const QWT_OVERRIDE;
+    virtual double invTransform( double value ) const QWT_OVERRIDE;
 
-    virtual QwtTransform *copy() const;
+    virtual QwtTransform* copy() const QWT_OVERRIDE;
 
-private:
-    const double d_exponent;
+  private:
+    const double m_exponent;
 };
 
 #endif

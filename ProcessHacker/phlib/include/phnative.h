@@ -10,7 +10,9 @@ extern "C" {
 /** The PID of the system process. */
 #define SYSTEM_PROCESS_ID ((HANDLE)4)
 
-#define SYSTEM_IDLE_PROCESS_NAME (L"System Idle Process")
+#define SYSTEM_IDLE_PROCESS_NAME ((UNICODE_STRING)RTL_CONSTANT_STRING(L"System Idle Process"))
+
+#define PhNtPathSeperatorString ((PH_STRINGREF)PH_STRINGREF_INIT(L"\\")) // OBJ_NAME_PATH_SEPARATOR // RtlNtPathSeperatorString
 
 // General object-related function types
 
@@ -78,25 +80,7 @@ PhOpenProcess(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhOpenProcessPublic(
-    _Out_ PHANDLE ProcessHandle,
-    _In_ ACCESS_MASK DesiredAccess,
-    _In_ HANDLE ProcessId
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
 PhOpenThread(
-    _Out_ PHANDLE ThreadHandle,
-    _In_ ACCESS_MASK DesiredAccess,
-    _In_ HANDLE ThreadId
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhOpenThreadPublic(
     _Out_ PHANDLE ThreadHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ HANDLE ThreadId
@@ -123,15 +107,6 @@ PhOpenProcessToken(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhOpenProcessTokenPublic(
-    _In_ HANDLE ProcessHandle,
-    _In_ ACCESS_MASK DesiredAccess,
-    _Out_ PHANDLE TokenHandle
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
 PhGetObjectSecurity(
     _In_ HANDLE Handle,
     _In_ SECURITY_INFORMATION SecurityInformation,
@@ -148,41 +123,9 @@ PhSetObjectSecurity(
     );
 
 PHLIBAPI
-PPH_STRING
-NTAPI
-PhGetSecurityDescriptorAsString(
-    _In_ SECURITY_INFORMATION SecurityInformation,
-    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
-    );
-
-PHLIBAPI
-PSECURITY_DESCRIPTOR
-NTAPI
-PhGetSecurityDescriptorFromString(
-    _In_ PWSTR SecurityDescriptorString
-    );
-
-_Success_(return)
-PHLIBAPI
-BOOLEAN
-NTAPI
-PhGetObjectSecurityDescriptorAsString(
-    _In_ HANDLE Handle,
-    _Out_ PPH_STRING* SecurityDescriptorString
-    );
-
-PHLIBAPI
 NTSTATUS
 NTAPI
 PhTerminateProcess(
-    _In_ HANDLE ProcessHandle,
-    _In_ NTSTATUS ExitStatus
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhTerminateProcessPublic(
     _In_ HANDLE ProcessHandle,
     _In_ NTSTATUS ExitStatus
     );
@@ -210,6 +153,14 @@ PhGetProcessImageFileNameById(
     _In_ HANDLE ProcessId,
     _Out_opt_ PPH_STRING *FullFileName,
     _Out_opt_ PPH_STRING *FileName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessImageFileNameByProcessId(
+    _In_opt_ HANDLE ProcessId,
+    _Out_ PPH_STRING* FileName
     );
 
 PHLIBAPI
@@ -259,6 +210,13 @@ NTAPI
 PhGetProcessCommandLine(
     _In_ HANDLE ProcessHandle,
     _Out_ PPH_STRING *CommandLine
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessCommandLineStringRef(
+    _Out_ PPH_STRINGREF CommandLine
     );
 
 PHLIBAPI
@@ -384,7 +342,7 @@ NTSTATUS
 NTAPI
 PhLoadDllProcess(
     _In_ HANDLE ProcessHandle,
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_opt_ PLARGE_INTEGER Timeout
     );
 
@@ -654,6 +612,14 @@ PhGetFileStandardInformation(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhSetFileCompletionNotificationMode(
+    _In_ HANDLE FileHandle,
+    _In_ ULONG Flags
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetFileSize(
     _In_ HANDLE FileHandle,
     _Out_ PLARGE_INTEGER Size
@@ -702,6 +668,14 @@ PhSetFileAllocationSize(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetFileIndexNumber(
+    _In_ HANDLE FileHandle,
+    _Out_ PFILE_INTERNAL_INFORMATION IndexNumber
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhDeleteFile(
     _In_ HANDLE FileHandle
     );
@@ -727,7 +701,7 @@ NTSTATUS
 NTAPI
 PhGetFileId(
     _In_ HANDLE FileHandle,
-    _Out_ PFILE_ID_INFORMATION *FileId
+    _Out_ PFILE_ID_INFORMATION FileId
     );
 
 PHLIBAPI
@@ -808,7 +782,25 @@ PhOpenDriverByBaseAddress(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhOpenDriver(
+    _Out_ PHANDLE DriverHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_opt_ HANDLE RootDirectory,
+    _In_ PPH_STRINGREF ObjectName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetDriverName(
+    _In_ HANDLE DriverHandle,
+    _Out_ PPH_STRING *Name
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetDriverImageFileName(
     _In_ HANDLE DriverHandle,
     _Out_ PPH_STRING *Name
     );
@@ -907,6 +899,103 @@ PhSetProcessModuleLoadCount32(
     );
 
 PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessQuotaLimits(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PQUOTA_LIMITS QuotaLimits
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessQuotaLimits(
+    _In_ HANDLE ProcessHandle,
+    _In_ QUOTA_LIMITS QuotaLimits
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessEmptyWorkingSet(
+    _In_ HANDLE ProcessHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessEmptyPageWorkingSet(
+    _In_ HANDLE ProcessHandle,
+    _In_ PVOID BaseAddress,
+    _In_ SIZE_T Size
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessPriority(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PUCHAR PriorityClass
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessPriority(
+    _In_ HANDLE ProcessHandle,
+    _In_ UCHAR PriorityClass
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessIoPriority(
+    _In_ HANDLE ProcessHandle,
+    _In_ IO_PRIORITY_HINT IoPriority
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessPagePriority(
+    _In_ HANDLE ProcessHandle,
+    _In_ ULONG PagePriority
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessPriorityBoost(
+    _In_ HANDLE ProcessHandle,
+    _In_ BOOLEAN PriorityBoost
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessAffinityMask(
+    _In_ HANDLE ProcessHandle,
+    _In_ KAFFINITY AffinityMask
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessGroupAffinity(
+    _In_ HANDLE ProcessHandle,
+    _In_ GROUP_AFFINITY GroupAffinity
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetProcessPowerThrottlingState(
+    _In_ HANDLE ProcessHandle,
+    _In_ ULONG ControlMask,
+    _In_ ULONG StateMask
+    );
+
+PHLIBAPI
 PVOID
 NTAPI
 PhGetDllHandle(
@@ -933,14 +1022,40 @@ PhGetProcedureAddress(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetProcedureAddressRemoteStringRef(
+    _In_ HANDLE ProcessHandle,
+    _In_ PPH_STRINGREF FileName,
+    _In_opt_ PSTR ProcedureName,
+    _In_opt_ USHORT ProcedureNumber,
+    _Out_ PVOID *ProcedureAddress,
+    _Out_opt_ PVOID *DllBase
+    );
+
+FORCEINLINE
+NTSTATUS
+NTAPI
 PhGetProcedureAddressRemote(
     _In_ HANDLE ProcessHandle,
     _In_ PWSTR FileName,
     _In_opt_ PSTR ProcedureName,
-    _In_opt_ ULONG ProcedureNumber,
+    _In_opt_ USHORT ProcedureNumber,
     _Out_ PVOID *ProcedureAddress,
     _Out_opt_ PVOID *DllBase
-    );
+    )
+{
+    PH_STRINGREF fileName;
+
+    PhInitializeStringRef(&fileName, FileName);
+
+    return PhGetProcedureAddressRemoteStringRef(
+        ProcessHandle,
+        &fileName,
+        ProcedureName,
+        ProcedureNumber,
+        ProcedureAddress,
+        DllBase
+        );
+}
 
 PHLIBAPI
 NTSTATUS
@@ -996,6 +1111,10 @@ PhGetKernelFileName(
     UFIELD_OFFSET(SYSTEM_PROCESS_INFORMATION, Threads) + \
     sizeof(SYSTEM_EXTENDED_THREAD_INFORMATION) * \
     ((PSYSTEM_PROCESS_INFORMATION)(Process))->NumberOfThreads))
+
+// rev from PsGetProcessStartKey (dmex)
+#define PH_PROCESS_EXTENSION_STARTKEY(SequenceNumber) \
+    ((SequenceNumber) | (((ULONGLONG)USER_SHARED_DATA->BootId) << 0x30)) // SYSTEM_PROCESS_INFORMATION_EXTENSION->ProcessSequenceNumber
 
 PHLIBAPI
 NTSTATUS
@@ -1096,14 +1215,6 @@ NTSTATUS
 NTAPI
 PhEnumPagefilesEx(
     _Out_ PVOID *Pagefiles
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhGetProcessImageFileNameByProcessId(
-    _In_opt_ HANDLE ProcessId,
-    _Out_ PPH_STRING *FileName
     );
 
 PHLIBAPI
@@ -1421,6 +1532,14 @@ PhQueryKey(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhQueryKeyLastWriteTime(
+    _In_ HANDLE KeyHandle,
+    _Out_ PLARGE_INTEGER LastWriteTime
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhQueryValueKey(
     _In_ HANDLE KeyHandle,
     _In_opt_ PPH_STRINGREF ValueName,
@@ -1438,6 +1557,43 @@ PhSetValueKey(
     _In_ PVOID Buffer,
     _In_ ULONG BufferLength
     );
+
+FORCEINLINE
+NTSTATUS
+NTAPI
+PhSetValueKeyZ(
+    _In_ HANDLE KeyHandle,
+    _In_opt_ PWSTR ValueName,
+    _In_ ULONG ValueType,
+    _In_ PVOID Buffer,
+    _In_ ULONG BufferLength
+    )
+{
+    if (ValueName)
+    {
+        PH_STRINGREF valueNameSr;
+
+        PhInitializeStringRef(&valueNameSr, ValueName);
+
+        return PhSetValueKey(
+            KeyHandle,
+            &valueNameSr,
+            ValueType,
+            Buffer,
+            BufferLength
+            );
+    }
+    else
+    {
+        return PhSetValueKey(
+            KeyHandle,
+            NULL,
+            ValueType,
+            Buffer,
+            BufferLength
+            );
+    }
+}
 
 PHLIBAPI
 NTSTATUS
@@ -1480,7 +1636,7 @@ PhCreateFileWin32(
     _Out_ PHANDLE FileHandle,
     _In_ PWSTR FileName,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_opt_ ULONG FileAttributes,
+    _In_ ULONG FileAttributes,
     _In_ ULONG ShareAccess,
     _In_ ULONG CreateDisposition,
     _In_ ULONG CreateOptions
@@ -1494,7 +1650,7 @@ PhCreateFileWin32Ex(
     _In_ PWSTR FileName,
     _In_ ACCESS_MASK DesiredAccess,
     _In_opt_ PLARGE_INTEGER AllocationSize,
-    _In_opt_ ULONG FileAttributes,
+    _In_ ULONG FileAttributes,
     _In_ ULONG ShareAccess,
     _In_ ULONG CreateDisposition,
     _In_ ULONG CreateOptions,
@@ -1506,7 +1662,7 @@ NTSTATUS
 NTAPI
 PhCreateFile(
     _Out_ PHANDLE FileHandle,
-    _In_ PPH_STRING FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ ULONG FileAttributes,
     _In_ ULONG ShareAccess,
@@ -1532,6 +1688,19 @@ PhOpenFileWin32Ex(
     _Out_ PHANDLE FileHandle,
     _In_ PWSTR FileName,
     _In_ ACCESS_MASK DesiredAccess,
+    _In_ ULONG ShareAccess,
+    _In_ ULONG OpenOptions,
+    _Out_opt_ PULONG OpenStatus
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhOpenFile(
+    _Out_ PHANDLE FileHandle,
+    _In_ PPH_STRINGREF FileName,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_opt_ HANDLE RootDirectory,
     _In_ ULONG ShareAccess,
     _In_ ULONG OpenOptions,
     _Out_opt_ PULONG OpenStatus
@@ -1572,7 +1741,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhQueryFullAttributesFile(
-    _In_ PPH_STRING FileName,
+    _In_ PPH_STRINGREF FileName,
     _Out_ PFILE_NETWORK_OPEN_INFORMATION FileInformation
     );
 
@@ -1587,21 +1756,21 @@ PhQueryAttributesFileWin32(
 PHLIBAPI
 BOOLEAN
 NTAPI
-PhDoesFileExistsWin32(
+PhDoesFileExistWin32(
     _In_ PWSTR FileName
     );
 
 PHLIBAPI
 BOOLEAN
 NTAPI
-PhDoesFileExists(
-    _In_ PPH_STRING FileName
+PhDoesFileExist(
+    _In_ PPH_STRINGREF FileName
     );
 
 PHLIBAPI
 BOOLEAN
 NTAPI
-PhDoesDirectoryExistsWin32(
+PhDoesDirectoryExistWin32(
     _In_ PWSTR FileName
     );
 
@@ -1622,22 +1791,39 @@ PhDeleteFileWin32(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhMoveFileWin32(
+PhCopyFileWin32(
     _In_ PWSTR OldFileName,
-    _In_ PWSTR NewFileName
+    _In_ PWSTR NewFileName,
+    _In_ BOOLEAN FailIfExists
     );
 
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhCreateDirectory(
+PhMoveFileWin32(
+    _In_ PWSTR OldFileName,
+    _In_ PWSTR NewFileName,
+    _In_ BOOLEAN FailIfExists
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhCreateDirectoryWin32(
     _In_ PPH_STRING DirectoryPath
     );
 
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhDeleteDirectory(
+PhCreateDirectoryFullPathWin32(
+    _In_ PPH_STRINGREF FileName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhDeleteDirectoryWin32(
     _In_ PPH_STRING DirectoryPath
     );
 
@@ -1778,6 +1964,71 @@ PhSetThreadName(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhSetThreadAffinityMask(
+    _In_ HANDLE ThreadHandle,
+    _In_ KAFFINITY AffinityMask
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetThreadBasePriority(
+    _In_ HANDLE ThreadHandle,
+    _In_ KPRIORITY Increment
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetThreadIoPriority(
+    _In_ HANDLE ThreadHandle,
+    _In_ IO_PRIORITY_HINT IoPriority
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetThreadPagePriority(
+    _In_ HANDLE ThreadHandle,
+    _In_ ULONG PagePriority
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetThreadPriorityBoost(
+    _In_ HANDLE ThreadHandle,
+    _In_ BOOLEAN PriorityBoost
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetThreadIdealProcessor(
+    _In_ HANDLE ThreadHandle,
+    _In_ PPROCESSOR_NUMBER ProcessorNumber,
+    _Out_opt_ PPROCESSOR_NUMBER PreviousIdealProcessor
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetThreadGroupAffinity(
+    _In_ HANDLE ThreadHandle,
+    _In_ GROUP_AFFINITY GroupAffinity
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetThreadLastSystemCall(
+    _In_ HANDLE ThreadHandle,
+    _Out_ PTHREAD_LAST_SYSCALL_INFORMATION LastSystemCall
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhImpersonateToken(
     _In_ HANDLE ThreadHandle,
     _In_ HANDLE TokenHandle
@@ -1870,9 +2121,50 @@ PhGetProcessArchitecture(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetProcessImageBaseAddress(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PVOID* ImageBaseAddress
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhGetProcessCodePage(
     _In_ HANDLE ProcessHandle,
     _Out_ PUSHORT ProcessCodePage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessConsoleCodePage(
+    _In_ HANDLE ProcessHandle,
+    _In_ BOOLEAN ConsoleOutputCP,
+    _Out_ PUSHORT ConsoleCodePage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessSequenceNumber(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PULONGLONG SequenceNumber
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessStartKey(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PULONGLONG ProcessStartKey
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessSystemDllInitBlock(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PPS_SYSTEM_DLL_INIT_BLOCK* SystemDllInitBlock
     );
 
 PHLIBAPI
@@ -1968,6 +2260,39 @@ PhIsFirmwareSupported(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetFirmwareEnvironmentVariable(
+    _In_ PPH_STRINGREF VariableName,
+    _In_ PPH_STRINGREF VendorGuid,
+    _Out_ PVOID* VariableValueBuffer,
+    _Out_opt_ PULONG VariableValueLength
+    );
+
+#define PH_FIRST_FIRMWARE_VALUE(Variables) ((PVARIABLE_NAME_AND_VALUE)(Variables))
+#define PH_NEXT_FIRMWARE_VALUE(Variables) ( \
+    ((PVARIABLE_NAME_AND_VALUE)(Variables))->NextEntryOffset ? \
+    (PVARIABLE_NAME_AND_VALUE)(PTR_ADD_OFFSET((Variables), \
+    ((PVARIABLE_NAME_AND_VALUE)(Variables))->NextEntryOffset)) : \
+    NULL \
+    )
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhEnumFirmwareEnvironmentValues(
+    _In_ SYSTEM_ENVIRONMENT_INFORMATION_CLASS InformationClass,
+    _Out_ PVOID* Variables
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetSystemEnvironmentBootToFirmware(
+    VOID
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhCreateExecutionRequiredRequest(
     _In_ HANDLE ProcessHandle,
     _Out_ PHANDLE PowerRequestHandle
@@ -2006,6 +2331,111 @@ BOOLEAN
 NTAPI
 PhIsKnownDllFileName(
     _In_ PPH_STRING FileName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetSystemLogicalProcessorInformation(
+    _In_ LOGICAL_PROCESSOR_RELATIONSHIP RelationshipType,
+    _Out_ PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX* Buffer,
+    _Out_ PULONG BufferLength
+    );
+
+PHLIBAPI
+USHORT
+NTAPI
+PhGetActiveProcessorCount(
+    _In_ USHORT ProcessorGroup
+    );
+
+typedef struct _PH_PROCESSOR_NUMBER
+{
+    USHORT Group;
+    USHORT Number;
+} PH_PROCESSOR_NUMBER, *PPH_PROCESSOR_NUMBER;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessorNumberFromIndex(
+    _In_ ULONG ProcessorIndex,
+    _Out_ PPH_PROCESSOR_NUMBER ProcessorNumber
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessorGroupActiveAffinityMask(
+    _In_ USHORT ProcessorGroup,
+    _Out_ PKAFFINITY ActiveProcessorMask
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessorSystemAffinityMask(
+    _Out_ PKAFFINITY ActiveProcessorsAffinityMask
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetNumaHighestNodeNumber(
+    _Out_ PUSHORT NodeNumber
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetNumaProcessorNode(
+    _In_ PPH_PROCESSOR_NUMBER ProcessorNumber,
+    _Out_ PUSHORT NodeNumber
+    );
+
+typedef struct _PH_SYSTEM_STORE_COMPRESSION_INFORMATION
+{
+    ULONG CompressionPid;
+    ULONG WorkingSetSize;
+    SIZE_T TotalDataCompressed;
+    SIZE_T TotalCompressedSize;
+    SIZE_T TotalUniqueDataCompressed;
+} PH_SYSTEM_STORE_COMPRESSION_INFORMATION, *PPH_SYSTEM_STORE_COMPRESSION_INFORMATION;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetSystemCompressionStoreInformation(
+    _Out_ PPH_SYSTEM_STORE_COMPRESSION_INFORMATION SystemCompressionStoreInformation
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetSystemFileCacheSize(
+    _Out_ PSYSTEM_FILECACHE_INFORMATION CacheInfo
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhSetSystemFileCacheSize(
+    _In_ SIZE_T MinimumFileCacheSize,
+    _In_ SIZE_T MaximumFileCacheSize,
+    _In_ ULONG Flags
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhDeviceIoControlFile(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONG IoControlCode,
+    _In_reads_bytes_opt_(InputBufferLength) PVOID InputBuffer,
+    _In_ ULONG InputBufferLength,
+    _Out_writes_bytes_to_opt_(OutputBufferLength, *ReturnLength) PVOID OutputBuffer,
+    _In_ ULONG OutputBufferLength,
+    _Out_opt_ PULONG ReturnLength
     );
 
 #ifdef __cplusplus

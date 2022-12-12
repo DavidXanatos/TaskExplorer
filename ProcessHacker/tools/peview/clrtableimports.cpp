@@ -1,28 +1,39 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2021-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
+
+#ifdef __has_include
+#if __has_include (<metahost.h>)
 #include <metahost.h>
+#else
+#include "metahost/metahost.h"
+#endif
+#else
+#include "metahost/metahost.h"
+#endif
+
+#ifdef __has_include
+#if __has_include (<cor.h>)
 #include <cor.h>
+#else
+#define _WINDOWS_UPDATES_
+#include "metahost/corhdr.h"
+#include "metahost/cor.h"
+#endif
+#else
+#define _WINDOWS_UPDATES_
+#include "metahost/corhdr.h"
+#include "metahost/cor.h"
+#endif
 
 // metamodelpub.h
 #define TBL_Method 6UL
@@ -88,7 +99,7 @@ PPH_STRING PvClrImportFlagsToString(
     return PhFinalStringBuilderString(&stringBuilder);
 }
 
-// TODO: Add support for dynamic imports by enumerating the types. (dmex) 
+// TODO: Add support for dynamic imports by enumerating the types. (dmex)
 EXTERN_C HRESULT PvGetClrImageImports(
     _In_ PVOID ClrMetaDataDispenser,
     _In_ PWSTR FileName,

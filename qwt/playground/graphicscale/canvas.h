@@ -1,38 +1,40 @@
-#ifndef CANVAS_H
-#define CANVAS_H
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwidget.h>
+#pragma once
 
-class QByteArray;
+#include <QwtGlobal>
+#include <QWidget>
+
 class QSvgRenderer;
 class QwtGraphic;
 
-class Canvas: public QWidget
+class Canvas : public QWidget
 {
-public:
+  public:
     enum Mode
     {
         Svg,
         VectorGraphic
     };
 
-    Canvas( Mode, QWidget *parent = NULL );
+    Canvas( Mode, QWidget* parent = NULL );
     virtual ~Canvas();
 
-    void setSvg( const QByteArray & );
+    void setSvg( const QByteArray& );
 
-protected:
-    virtual void paintEvent( QPaintEvent * );
+  protected:
+    virtual void paintEvent( QPaintEvent* ) QWT_OVERRIDE;
 
-private:
-    void render( QPainter *, const QRect & ) const;
+  private:
+    void render( QPainter*, const QRect& ) const;
 
-    const Mode d_mode;
+    const Mode m_mode;
     union
     {
-        QSvgRenderer *d_renderer;
-        QwtGraphic *d_graphic;
+        QSvgRenderer* m_renderer;
+        QwtGraphic* m_graphic;
     };
 };
-
-#endif

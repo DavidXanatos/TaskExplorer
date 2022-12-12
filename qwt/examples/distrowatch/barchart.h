@@ -1,27 +1,32 @@
-#ifndef _BAR_CHART_H_
-#define _BAR_CHART_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
-#include <qstringlist.h>
+#pragma once
 
-class DistroChartItem;
+#include <QwtPlot>
+#include <QStringList>
 
-class BarChart: public QwtPlot
+class QwtPlotBarChart;
+
+class BarChart : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    BarChart( QWidget * = NULL );
+  public:
+    BarChart( QWidget* = NULL );
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void setOrientation( int );
     void exportChart();
+    void doScreenShot();
 
-private:
+  private:
     void populate();
+    void exportPNG( int width, int height );
+    void render( QPainter* painter, const QRectF& targetRect );
 
-    DistroChartItem *d_barChartItem;
-    QStringList d_distros;
+    QwtPlotBarChart* m_chartItem;
+    QStringList m_distros;
 };
-
-#endif

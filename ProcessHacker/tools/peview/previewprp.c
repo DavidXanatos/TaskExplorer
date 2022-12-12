@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2019-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2019-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -40,7 +29,7 @@ VOID PvpSetRichEditText(
     SendMessage(WindowHandle, WM_SETREDRAW, FALSE, 0);
     //SendMessage(WindowHandle, EM_SETSEL, 0, -1); // -2
     SendMessage(WindowHandle, WM_SETTEXT, FALSE, (LPARAM)Text);
-    //SendMessage(WindowHandle, WM_VSCROLL, SB_TOP, 0); // requires SetFocus()    
+    //SendMessage(WindowHandle, WM_VSCROLL, SB_TOP, 0); // requires SetFocus()
     SendMessage(WindowHandle, WM_SETREDRAW, TRUE, 0);
     //PostMessage(WindowHandle, EM_SETSEL, -1, 0);
     //InvalidateRect(WindowHandle, NULL, FALSE);
@@ -53,7 +42,7 @@ VOID PvpShowFilePreview(
     PPH_STRING fileText;
     PH_STRING_BUILDER sb;
 
-    if (fileText = PhFileReadAllText(PvFileName->Buffer, TRUE))
+    if (fileText = PhFileReadAllTextWin32(PvFileName->Buffer, TRUE))
     {
         PhInitializeStringBuilder(&sb, 0x1000);
 
@@ -119,7 +108,7 @@ INT_PTR CALLBACK PvpPePreviewDlgProc(
             PhAddLayoutItem(&context->LayoutManager, context->EditWindow, NULL, PH_ANCHOR_ALL);
 
             PvpShowFilePreview(hwndDlg);
-            
+
             PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
         }
         break;
@@ -127,6 +116,7 @@ INT_PTR CALLBACK PvpPePreviewDlgProc(
         {
             PhDeleteLayoutManager(&context->LayoutManager);
 
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
             PhFree(context);
         }
         break;

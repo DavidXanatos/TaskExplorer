@@ -1,69 +1,77 @@
-#include "mainwindow.h"
-#include "plot.h"
-#include "knob.h"
-#include "wheelbox.h"
-#include <qwt_scale_engine.h>
-#include <qlabel.h>
-#include <qlayout.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-MainWindow::MainWindow( QWidget *parent ):
-    QWidget( parent )
+#include "MainWindow.h"
+#include "Plot.h"
+#include "Knob.h"
+#include "WheelBox.h"
+
+#include <QLayout>
+
+MainWindow::MainWindow( QWidget* parent )
+    : QWidget( parent )
 {
     const double intervalLength = 10.0; // seconds
 
-    d_plot = new Plot( this );
-    d_plot->setIntervalLength( intervalLength );
+    m_plot = new Plot();
+    m_plot->setIntervalLength( intervalLength );
 
-    d_amplitudeKnob = new Knob( "Amplitude", 0.0, 200.0, this );
-    d_amplitudeKnob->setValue( 160.0 );
+    m_amplitudeKnob = new Knob( "Amplitude", 0.0, 200.0 );
+    m_amplitudeKnob->setValue( 160.0 );
 
-    d_frequencyKnob = new Knob( "Frequency [Hz]", 0.1, 20.0, this );
-    d_frequencyKnob->setValue( 17.8 );
+    m_frequencyKnob = new Knob( "Frequency [Hz]", 0.1, 20.0 );
+    m_frequencyKnob->setValue( 17.8 );
 
-    d_intervalWheel = new WheelBox( "Displayed [s]", 1.0, 100.0, 1.0, this );
-    d_intervalWheel->setValue( intervalLength );
+    m_intervalWheel = new WheelBox( "Displayed [s]", 1.0, 100.0, 1.0 );
+    m_intervalWheel->setValue( intervalLength );
 
-    d_timerWheel = new WheelBox( "Sample Interval [ms]", 0.0, 20.0, 0.1, this );
-    d_timerWheel->setValue( 10.0 );
+    m_timerWheel = new WheelBox( "Sample Interval [ms]", 0.0, 20.0, 0.1 );
+    m_timerWheel->setValue( 10.0 );
 
     QVBoxLayout* vLayout1 = new QVBoxLayout();
-    vLayout1->addWidget( d_intervalWheel );
-    vLayout1->addWidget( d_timerWheel );
+    vLayout1->addWidget( m_intervalWheel );
+    vLayout1->addWidget( m_timerWheel );
     vLayout1->addStretch( 10 );
-    vLayout1->addWidget( d_amplitudeKnob );
-    vLayout1->addWidget( d_frequencyKnob );
+    vLayout1->addWidget( m_amplitudeKnob );
+    vLayout1->addWidget( m_frequencyKnob );
 
-    QHBoxLayout *layout = new QHBoxLayout( this );
-    layout->addWidget( d_plot, 10 );
+    QHBoxLayout* layout = new QHBoxLayout( this );
+    layout->addWidget( m_plot, 10 );
     layout->addLayout( vLayout1 );
 
-    connect( d_amplitudeKnob, SIGNAL( valueChanged( double ) ),
-        SIGNAL( amplitudeChanged( double ) ) );
-    connect( d_frequencyKnob, SIGNAL( valueChanged( double ) ),
-        SIGNAL( frequencyChanged( double ) ) );
-    connect( d_timerWheel, SIGNAL( valueChanged( double ) ),
-        SIGNAL( signalIntervalChanged( double ) ) );
+    connect( m_amplitudeKnob, SIGNAL(valueChanged(double)),
+        SIGNAL(amplitudeChanged(double)) );
 
-    connect( d_intervalWheel, SIGNAL( valueChanged( double ) ),
-        d_plot, SLOT( setIntervalLength( double ) ) );
+    connect( m_frequencyKnob, SIGNAL(valueChanged(double)),
+        SIGNAL(frequencyChanged(double)) );
+
+    connect( m_timerWheel, SIGNAL(valueChanged(double)),
+        SIGNAL(signalIntervalChanged(double)) );
+
+    connect( m_intervalWheel, SIGNAL(valueChanged(double)),
+        m_plot, SLOT(setIntervalLength(double)) );
 }
 
 void MainWindow::start()
 {
-    d_plot->start();
+    m_plot->start();
 }
 
 double MainWindow::frequency() const
 {
-    return d_frequencyKnob->value();
+    return m_frequencyKnob->value();
 }
 
 double MainWindow::amplitude() const
 {
-    return d_amplitudeKnob->value();
+    return m_amplitudeKnob->value();
 }
 
 double MainWindow::signalInterval() const
 {
-    return d_timerWheel->value();
+    return m_timerWheel->value();
 }
+
+#include "moc_MainWindow.cpp"

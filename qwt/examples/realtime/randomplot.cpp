@@ -1,79 +1,86 @@
-#include <qglobal.h>
-#include <qtimer.h>
-#include <qwt_plot_grid.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_layout.h>
-#include <qwt_scale_widget.h>
-#include <qwt_scale_draw.h>
-#include "scrollzoomer.h"
-#include "randomplot.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-const unsigned int c_rangeMax = 1000;
+#include "RandomPlot.h"
+#include "ScrollZoomer.h"
 
-class Zoomer: public ScrollZoomer
+#include <QwtPlotGrid>
+#include <QwtPlotCanvas>
+#include <QwtPlotLayout>
+#include <QwtScaleWidget>
+#include <QwtScaleDraw>
+#include <QwtMath>
+
+#include <QPen>
+#include <QTimer>
+
+namespace
 {
-public:
-    Zoomer( QWidget *canvas ):
-        ScrollZoomer( canvas )
+    const unsigned int c_rangeMax = 1000;
+
+    class Zoomer : public ScrollZoomer
     {
-#if 0
-        setRubberBandPen( QPen( Qt::red, 2, Qt::DotLine ) );
-#else
-        setRubberBandPen( QPen( Qt::red ) );
-#endif
-    }
-
-    virtual QwtText trackerTextF( const QPointF &pos ) const
-    {
-        QColor bg( Qt::white );
-
-        QwtText text = QwtPlotZoomer::trackerTextF( pos );
-        text.setBackgroundBrush( QBrush( bg ) );
-        return text;
-    }
-
-    virtual void rescale()
-    {
-        QwtScaleWidget *scaleWidget = plot()->axisWidget( yAxis() );
-        QwtScaleDraw *sd = scaleWidget->scaleDraw();
-
-        double minExtent = 0.0;
-        if ( zoomRectIndex() > 0 )
+      public:
+        Zoomer( QWidget* canvas )
+            : ScrollZoomer( canvas )
         {
-            // When scrolling in vertical direction
-            // the plot is jumping in horizontal direction
-            // because of the different widths of the labels
-            // So we better use a fixed extent.
-
-            minExtent = sd->spacing() + sd->maxTickLength() + 1;
-            minExtent += sd->labelSize(
-                scaleWidget->font(), c_rangeMax ).width();
+            setRubberBandPen( QPen( Qt::red ) );
         }
 
-        sd->setMinimumExtent( minExtent );
+        virtual QwtText trackerTextF( const QPointF& pos ) const QWT_OVERRIDE
+        {
+            QColor bg( Qt::white );
 
-        ScrollZoomer::rescale();
-    }
-};
+            QwtText text = QwtPlotZoomer::trackerTextF( pos );
+            text.setBackgroundBrush( QBrush( bg ) );
+            return text;
+        }
 
-RandomPlot::RandomPlot( QWidget *parent ):
-    IncrementalPlot( parent ),
-    d_timer( 0 ),
-    d_timerCount( 0 )
+        virtual void rescale() QWT_OVERRIDE
+        {
+            QwtScaleWidget* scaleWidget = plot()->axisWidget( yAxis() );
+            QwtScaleDraw* sd = scaleWidget->scaleDraw();
+
+            double minExtent = 0.0;
+            if ( zoomRectIndex() > 0 )
+            {
+                // When scrolling in vertical direction
+                // the plot is jumping in horizontal direction
+                // because of the different widths of the labels
+                // So we better use a fixed extent.
+
+                minExtent = sd->spacing() + sd->maxTickLength() + 1;
+                minExtent += sd->labelSize(
+                    scaleWidget->font(), c_rangeMax ).width();
+            }
+
+            sd->setMinimumExtent( minExtent );
+
+            ScrollZoomer::rescale();
+        }
+    };
+}
+
+RandomPlot::RandomPlot( QWidget* parent )
+    : IncrementalPlot( parent )
+    , m_timer( 0 )
+    , m_timerCount( 0 )
 {
     setFrameStyle( QFrame::NoFrame );
     setLineWidth( 0 );
 
     plotLayout()->setAlignCanvasToScales( true );
 
-    QwtPlotGrid *grid = new QwtPlotGrid;
+    QwtPlotGrid* grid = new QwtPlotGrid;
     grid->setMajorPen( Qt::gray, 0, Qt::DotLine );
     grid->attach( this );
 
     setCanvasBackground( QColor( 29, 100, 141 ) ); // nice blue
 
-    setAxisScale( xBottom, 0, c_rangeMax );
-    setAxisScale( yLeft, 0, c_rangeMax );
+    setAxisScale( QwtAxis::XBottom, 0, c_rangeMax );
+    setAxisScale( QwtAxis::YLeft, 0, c_rangeMax );
 
     replot();
 
@@ -89,48 +96,48 @@ QSize RandomPlot::sizeHint() const
 
 void RandomPlot::appendPoint()
 {
-    double x = qrand() % c_rangeMax;
-    x += ( qrand() % 100 ) / 100;
+    double x = qwtRand() % c_rangeMax;
+    x += ( qwtRand() % 100 ) / 100;
 
-    double y = qrand() % c_rangeMax;
-    y += ( qrand() % 100 ) / 100;
+    double y = qwtRand() % c_rangeMax;
+    y += ( qwtRand() % 100 ) / 100;
 
     IncrementalPlot::appendPoint( QPointF( x, y ) );
 
-    if ( --d_timerCount <= 0 )
+    if ( --m_timerCount <= 0 )
         stop();
 }
 
 void RandomPlot::append( int timeout, int count )
 {
-    if ( !d_timer )
+    if ( !m_timer )
     {
-        d_timer = new QTimer( this );
-        connect( d_timer, SIGNAL( timeout() ), SLOT( appendPoint() ) );
+        m_timer = new QTimer( this );
+        connect( m_timer, SIGNAL(timeout()), SLOT(appendPoint()) );
     }
 
-    d_timerCount = count;
+    m_timerCount = count;
 
     Q_EMIT running( true );
-    d_timeStamp.start();
+    m_timeStamp.start();
 
-    QwtPlotCanvas *plotCanvas = qobject_cast<QwtPlotCanvas *>( canvas() );
+    QwtPlotCanvas* plotCanvas = qobject_cast< QwtPlotCanvas* >( canvas() );
     plotCanvas->setPaintAttribute( QwtPlotCanvas::BackingStore, false );
 
-    d_timer->start( timeout );
+    m_timer->start( timeout );
 }
 
 void RandomPlot::stop()
 {
-    Q_EMIT elapsed( d_timeStamp.elapsed() );
+    Q_EMIT elapsed( m_timeStamp.elapsed() );
 
-    if ( d_timer )
+    if ( m_timer )
     {
-        d_timer->stop();
+        m_timer->stop();
         Q_EMIT running( false );
     }
 
-    QwtPlotCanvas *plotCanvas = qobject_cast<QwtPlotCanvas *>( canvas() );
+    QwtPlotCanvas* plotCanvas = qobject_cast< QwtPlotCanvas* >( canvas() );
     plotCanvas->setPaintAttribute( QwtPlotCanvas::BackingStore, true );
 }
 
@@ -139,3 +146,5 @@ void RandomPlot::clear()
     clearPoints();
     replot();
 }
+
+#include "moc_RandomPlot.cpp"

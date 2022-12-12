@@ -171,8 +171,7 @@ bool CWindowsAPI::Init()
 	if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseDriver", true))
 	{
 		QPair<QString, QString> Driver = SellectDriver();
-		int SecurityLevel = theConf->GetInt("Options/DriverSecurityLevel", KphSecurityPrivilegeCheck);
-		InitDriver(Driver.first, Driver.second, SecurityLevel);
+		InitDriver(Driver.first, Driver.second);
 	}
 
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
@@ -276,30 +275,25 @@ QPair<QString, QString> CWindowsAPI::SellectDriver()
 		DeviceName = theConf->GetString("Options/DriverDevice");
 	else
 	{
-		if (QFile::exists(QApplication::applicationDirPath() + "/xprocesshacker.sys"))
+		if (QFile::exists(QApplication::applicationDirPath() + "/systeminformer.sys"))
 		{
-			DeviceName = "XProcessHacker3";
-			FileName = "xprocesshacker.sys";
-		}
-		else
-		{
-			DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
-			FileName = "kprocesshacker.sys";
+			DeviceName = "KSystemInformer";
+			FileName = "systeminformer.sys";
 		}
 	}
 	return qMakePair(DeviceName, FileName);
 }
 
-STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName, int SecurityLevel)
+STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName)
 {
-	if (KphIsConnected())
+	if (KphCommsIsConnected())
 		return OK;
 
 	m_DriverFileName = FileName;
 	m_DriverDeviceName = DeviceName;
 
-	STATUS Status = InitKPH(DeviceName, FileName, SecurityLevel);
-	if (!Status.IsError())
+	STATUS Status = InitKPH(DeviceName, FileName);
+	/*if (!Status.IsError())  // todo: xxxx si
 	{
 		CLIENT_ID clientId;
 
@@ -318,7 +312,7 @@ STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName, int Securit
 
 			KphDisconnect();
 		}
-	}
+	}*/
 
 	m_uDriverStatus = Status.GetStatus();
 	if (Status.IsError())
@@ -326,7 +320,7 @@ STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName, int Securit
 	else
 	{
 		ULONG Features = 0;
-		KphGetFeatures(&Features);
+		//KphGetFeatures(&Features); // todo: xxxx si
 		m_uDriverFeatures = Features;
 	}
 
@@ -791,7 +785,7 @@ bool CWindowsAPI::UpdateProcessList()
 	}
 
 	// Comment from: procprv.c
-    // Add the fake processes to the PID list.
+    // Add the fake processes to the PID std::list.
     //
     // On Windows 7 the two fake processes are merged into "Interrupts" since we can only get cycle
     // time information both DPCs and Interrupts combined.
@@ -838,7 +832,7 @@ bool CWindowsAPI::UpdateProcessList()
 	{
 		quint64 ProcessID = (quint64)process->UniqueProcessId;
 
-		// take all running processes out of the copyed map
+		// take all running processes out of the copyed std::map
 		QSharedPointer<CWinProcess> pProcess = OldProcesses.take(ProcessID).staticCast<CWinProcess>();
 		bool bAdd = false;
 		if (pProcess.isNull())
@@ -891,7 +885,7 @@ bool CWindowsAPI::UpdateProcessList()
 		}
 
         // Trick ourselves into thinking that the fake processes
-        // are on the list.
+        // are on the std::list.
         if (process == &m->InterruptsProcessInformation)
         {
 			CpuStatsDPCUsage += pProcess->GetCpuStats().CpuUsage;
@@ -1008,7 +1002,7 @@ int CWindowsAPI::FindHiddenProcesses()
 {
 	int count = 0;
 
-	PVOID processes; // get the most up do date list
+	PVOID processes; // get the most up do date std::list
 	if (!NT_SUCCESS(PhEnumProcesses(&processes)))
 		return count; 
 
@@ -1212,7 +1206,7 @@ bool CWindowsAPI::UpdateSocketList()
 
 	//QWriteLocker Locker(&m_SocketMutex);
 	
-	// Copy the socket map Map
+	// Copy the socket std::map Map
 	QMultiMap<quint64, CSocketPtr> OldSockets = GetSocketList();
 
 	for (ulong i = 0; i < connections.size(); i++)
@@ -1502,7 +1496,7 @@ void CWindowsAPI::OnProcessEvent(int Type, quint32 ProcessId, QString CommandLin
 	if (pProcess)
 	{
 		// Note: the etw mechanism is a bit slow so the process may be terminates already 
-		//			so try at list to fill in what little we know from the event metadata.
+		//			so try at std::list to fill in what little we know from the event metadata.
 		if (!pProcess->IsFullyInitialized())
 		{
 			pProcess->SetParentId(ParentId);
@@ -1538,7 +1532,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 	// Copy the handle Map
 	QMap<quint64, CHandlePtr> OldHandles = GetOpenFilesList();
 
-	//if (!KphIsConnected())
+	//if (!KphCommsIsConnected())
 	//{
 	//	PhFree(handleInfo);
 	//	return false;
@@ -1553,7 +1547,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 		// Note: to make this much mroe efficient we would need to add a call to the PH driver that only executes NTSTATUS KphQueryNameObject
 		//			without the need of having a valid process handle
 
-		// Only list fiel handles
+		// Only std::list fiel handles
 		if (handle->ObjectTypeIndex != g_fileObjectTypeIndex)
 			continue;
 
@@ -1892,9 +1886,9 @@ bool CWindowsAPI::UpdateRpcList(void* server, void* protocol, QMap<QString, CRpc
 
 	do {
 		RPC_IF_ID IfId;					// _Out_ IfId
-		RPC_BINDING_HANDLE hEnumBind;	// _Out_opt Binding: Returns binding handle from the endpoint-map element
-		UUID uuid;						// _Out_opt ObjectUuid: Returns the object UUID from the endpoint-map element.
-		RPC_WSTR szAnnot;				// _Out_opt Annotation: Returns the annotation string for the endpoint-map element. 
+		RPC_BINDING_HANDLE hEnumBind;	// _Out_opt Binding: Returns binding handle from the endpoint-std::map element
+		UUID uuid;						// _Out_opt ObjectUuid: Returns the object UUID from the endpoint-std::map element.
+		RPC_WSTR szAnnot;				// _Out_opt Annotation: Returns the annotation string for the endpoint-std::map element. 
 
 		rpcErr = RpcMgmtEpEltInqNext(hInq, &IfId, &hEnumBind, &uuid, &szAnnot);
 		if (rpcErr == RPC_S_OK) {
@@ -1936,6 +1930,9 @@ bool CWindowsAPI::UpdateRpcList(void* server, void* protocol, QMap<QString, CRpc
 				Added.insert(ID);
 			//else if (bChanged)
 			//	Changed.insert(ID);
+
+			RpcBindingFree(&hEnumBind);
+			RpcStringFree(&szAnnot);
 		}
 	} while (rpcErr != RPC_X_NO_MORE_ENTRIES);
 

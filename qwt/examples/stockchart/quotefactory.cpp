@@ -1,5 +1,14 @@
-#include "quotefactory.h"
-#include <qwt_date.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "QuoteFactory.h"
+
+#include <QwtOHLCSample>
+#include <QwtDate>
+
+#include <QVector>
 
 typedef struct
 {
@@ -792,9 +801,9 @@ static t_Data2010 daimlerData[] =
     { 363, 51.50, 51.70, 50.61, 50.73 }
 };
 
-QVector<QwtOHLCSample> QuoteFactory::samples2010( Stock stock )
+QVector< QwtOHLCSample > QuoteFactory::samples2010( Stock stock )
 {
-    const t_Data2010 *data = NULL;
+    const t_Data2010* data = NULL;
     int numSamples = 0;
 
     switch( stock )
@@ -821,16 +830,16 @@ QVector<QwtOHLCSample> QuoteFactory::samples2010( Stock stock )
             break;
     }
 
-    QVector<QwtOHLCSample> samples;
+    QVector< QwtOHLCSample > samples;
     samples.reserve( numSamples );
 
     QDateTime year2010( QDate( 2010, 1, 1 ), QTime( 0, 0 ), Qt::UTC );
 
     for ( int i = 0; i < numSamples; i++ )
     {
-        const t_Data2010 &ohlc = data[ i ];
+        const t_Data2010& ohlc = data[ i ];
 
-        samples += QwtOHLCSample( 
+        samples += QwtOHLCSample(
             QwtDate::toDouble( year2010.addDays( ohlc.day ) ),
             ohlc.open, ohlc.high, ohlc.low, ohlc.close );
     }

@@ -1,25 +1,32 @@
-#include <qwt_sampling_thread.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class SamplingThread: public QwtSamplingThread
+#pragma once
+
+#include <QwtSamplingThread>
+
+class SamplingThread : public QwtSamplingThread
 {
     Q_OBJECT
 
-public:
-    SamplingThread( QObject *parent = NULL );
+  public:
+    SamplingThread( QObject* parent = NULL );
 
     double frequency() const;
     double amplitude() const;
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void setAmplitude( double );
     void setFrequency( double );
 
-protected:
-    virtual void sample( double elapsed );
+  protected:
+    virtual void sample( double elapsed ) QWT_OVERRIDE;
 
-private:
+  private:
     virtual double value( double timeStamp ) const;
 
-    double d_frequency;
-    double d_amplitude;
+    double m_frequency;
+    double m_amplitude;
 };

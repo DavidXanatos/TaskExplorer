@@ -1,20 +1,32 @@
-#include <qlabel.h>
-#include <qlayout.h>
-#include <qwt_slider.h>
-#include <qwt_scale_engine.h>
-#include <qwt_transform.h>
-#include "sliderbox.h"
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
-SliderBox::SliderBox( int sliderType, QWidget *parent ):
-    QWidget( parent )
+#include "SliderBox.h"
+
+#include <QwtSlider>
+#include <QwtScaleEngine>
+#include <QwtTransform>
+#include <QwtPainter>
+
+#include <QLabel>
+#include <QLayout>
+
+SliderBox::SliderBox( int sliderType, QWidget* parent )
+    : QWidget( parent )
 {
-    d_slider = createSlider( sliderType );
+    m_slider = createSlider( sliderType );
 
-    QFlags<Qt::AlignmentFlag> alignment;
+    QFlags< Qt::AlignmentFlag > alignment;
 
-    if ( d_slider->orientation() == Qt::Horizontal )
+    if ( m_slider->orientation() == Qt::Horizontal )
     {
-        if ( d_slider->scalePosition() == QwtSlider::TrailingScale )
+        if ( m_slider->scalePosition() == QwtSlider::TrailingScale )
             alignment = Qt::AlignBottom;
         else
             alignment = Qt::AlignTop;
@@ -23,7 +35,7 @@ SliderBox::SliderBox( int sliderType, QWidget *parent ):
     }
     else
     {
-        if ( d_slider->scalePosition() == QwtSlider::TrailingScale )
+        if ( m_slider->scalePosition() == QwtSlider::TrailingScale )
             alignment = Qt::AlignRight;
         else
             alignment = Qt::AlignLeft;
@@ -31,27 +43,30 @@ SliderBox::SliderBox( int sliderType, QWidget *parent ):
         alignment |= Qt::AlignVCenter;
     }
 
-    d_label = new QLabel( this );
-    d_label->setAlignment( alignment );
-    d_label->setFixedWidth( d_label->fontMetrics().width( "10000.9" ) );
+    m_label = new QLabel( this );
+    m_label->setAlignment( alignment );
 
-    connect( d_slider, SIGNAL( valueChanged( double ) ), SLOT( setNum( double ) ) );
+    const int labelWidth = QwtPainter::horizontalAdvance(
+        m_label->fontMetrics(), "10000.9" );
+    m_label->setFixedWidth( labelWidth );
 
-    QBoxLayout *layout;
-    if ( d_slider->orientation() == Qt::Horizontal )
+    connect( m_slider, SIGNAL(valueChanged(double)), SLOT(setNum(double)) );
+
+    QBoxLayout* layout;
+    if ( m_slider->orientation() == Qt::Horizontal )
         layout = new QHBoxLayout( this );
     else
         layout = new QVBoxLayout( this );
 
-    layout->addWidget( d_slider );
-    layout->addWidget( d_label );
+    layout->addWidget( m_slider );
+    layout->addWidget( m_label );
 
-    setNum( d_slider->value() );
+    setNum( m_slider->value() );
 }
 
-QwtSlider *SliderBox::createSlider( int sliderType ) const
+QwtSlider* SliderBox::createSlider( int sliderType ) const
 {
-    QwtSlider *slider = new QwtSlider();
+    QwtSlider* slider = new QwtSlider();
 
     switch( sliderType )
     {
@@ -63,10 +78,10 @@ QwtSlider *SliderBox::createSlider( int sliderType ) const
             slider->setGroove( false );
             slider->setSpacing( 0 );
             slider->setHandleSize( QSize( 30, 16 ) );
-            slider->setScale( 10.0, -10.0 ); 
-            slider->setTotalSteps( 8 ); 
-            slider->setSingleSteps( 1 ); 
-            slider->setPageSteps( 1 ); 
+            slider->setScale( 10.0, -10.0 );
+            slider->setTotalSteps( 8 );
+            slider->setSingleSteps( 1 );
+            slider->setPageSteps( 1 );
             slider->setWrapping( true );
             break;
         }
@@ -102,7 +117,7 @@ QwtSlider *SliderBox::createSlider( int sliderType ) const
             slider->setTrough( true );
             slider->setGroove( true );
 
-            QwtLinearScaleEngine *scaleEngine = new QwtLinearScaleEngine( 2 );
+            QwtLinearScaleEngine* scaleEngine = new QwtLinearScaleEngine( 2 );
             scaleEngine->setTransformation( new QwtPowerTransform( 2 ) );
             slider->setScaleEngine( scaleEngine );
             slider->setScale( 0.0, 128.0 );
@@ -168,5 +183,7 @@ void SliderBox::setNum( double v )
     QString text;
     text.setNum( v, 'f', 2 );
 
-    d_label->setText( text );
+    m_label->setText( text );
 }
+
+#include "moc_SliderBox.cpp"

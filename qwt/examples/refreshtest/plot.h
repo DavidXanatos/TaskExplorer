@@ -1,38 +1,41 @@
-#ifndef _PLOT_H_
-#define _PLOT_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
-#include <qwt_system_clock.h>
-#include "settings.h"
+#pragma once
+
+#include "Settings.h"
+
+#include <QwtPlot>
+#include <QElapsedTimer>
 
 class QwtPlotGrid;
 class QwtPlotCurve;
 
-class Plot: public QwtPlot
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
+  public:
     Plot( QWidget* = NULL );
 
-public Q_SLOTS:
-    void setSettings( const Settings & );
+  public Q_SLOTS:
+    void setSettings( const Settings& );
 
-protected:
-    virtual void timerEvent( QTimerEvent *e );
+  protected:
+    virtual void timerEvent( QTimerEvent* ) QWT_OVERRIDE;
 
-private:
+  private:
     void alignScales();
 
-    QwtPlotGrid *d_grid;
-    QwtPlotCurve *d_curve;
+    QwtPlotGrid* m_grid;
+    QwtPlotCurve* m_curve;
 
-    QwtSystemClock d_clock;
-    double d_interval;
+    QElapsedTimer m_elapsedTimer;
+    double m_interval;
 
-    int d_timerId;
+    int m_timerId;
 
-    Settings d_settings;
+    Settings m_settings;
 };
-
-#endif

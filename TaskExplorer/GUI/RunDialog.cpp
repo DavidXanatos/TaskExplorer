@@ -66,9 +66,9 @@ NTSTATUS CWinProcess__LoadModule(HANDLE ProcessHandle, const QString& Path);
 void CRunDialog::accept()
 {
 #ifdef WIN32
-	wstring filePath = ui.binaryPath->currentText().toStdWString();
+	std::wstring filePath = ui.binaryPath->currentText().toStdWString();
 	QString DllPath = ui.dllPath->currentText();
-	wstring dllPath = DllPath.toStdWString();
+	std::wstring dllPath = DllPath.toStdWString();
 
 	NTSTATUS status;
 

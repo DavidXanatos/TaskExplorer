@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010 wj32
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010
+ *     dmex    2017-2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -52,9 +41,9 @@ INT WINAPI wWinMain(
     {
         { 0, L"h", NoArgumentType }
     };
-    PPH_STRING commandLine;
+    PH_STRINGREF commandLine;
 
-    if (!NT_SUCCESS(PhInitializePhLibEx(L"PE Viewer", ULONG_MAX, hInstance, 0, 0)))
+    if (!NT_SUCCESS(PhInitializePhLib(L"PE Viewer", hInstance)))
         return 1;
     if (!PvInitializeExceptionPolicy())
         return 1;
@@ -62,20 +51,36 @@ INT WINAPI wWinMain(
     // Create a mutant for the installer.
     {
         HANDLE mutantHandle;
-        PPH_STRING objectName;
         OBJECT_ATTRIBUTES objectAttributes;
-        UNICODE_STRING objectNameUs;
+        UNICODE_STRING objectName;
+        PH_STRINGREF objectNameSr;
+        SIZE_T returnLength;
+        WCHAR formatBuffer[PH_INT64_STR_LEN_1];
         PH_FORMAT format[2];
 
-        PhInitFormatS(&format[0], L"PeViewerMutant_");
+        PhInitFormatS(&format[0], L"SiViewerMutant_");
         PhInitFormatU(&format[1], HandleToUlong(NtCurrentProcessId()));
 
-        objectName = PhFormat(format, 2, 0x40);
-        PhStringRefToUnicodeString(&objectName->sr, &objectNameUs);
+        if (!PhFormatToBuffer(
+            format,
+            RTL_NUMBER_OF(format),
+            formatBuffer,
+            sizeof(formatBuffer),
+            &returnLength
+            ))
+        {
+            return FALSE;
+        }
+
+        objectNameSr.Length = returnLength - sizeof(UNICODE_NULL);
+        objectNameSr.Buffer = formatBuffer;
+
+        if (!PhStringRefToUnicodeString(&objectNameSr, &objectName))
+            return FALSE;
 
         InitializeObjectAttributes(
             &objectAttributes,
-            &objectNameUs,
+            &objectName,
             OBJ_CASE_INSENSITIVE,
             PhGetNamespaceHandle(),
             NULL
@@ -87,8 +92,6 @@ INT WINAPI wWinMain(
             &objectAttributes,
             TRUE
             );
-
-        PhDereferenceObject(objectName);
     }
 
 #ifndef DEBUG
@@ -107,22 +110,21 @@ INT WINAPI wWinMain(
 
     PhGuiSupportInitialization();
     PhSettingsInitialization();
-    PeInitializeSettings();
+    PvInitializeSettings();
     PvPropInitialization();
     PhTreeNewInitialization();
 
-    if (!NT_SUCCESS(PhGetProcessCommandLine(NtCurrentProcess(), &commandLine)))
+    if (!NT_SUCCESS(PhGetProcessCommandLineStringRef(&commandLine)))
         return 1;
 
     PhParseCommandLine(
-        &commandLine->sr,
+        &commandLine,
         options,
         RTL_NUMBER_OF(options),
         PH_COMMAND_LINE_IGNORE_FIRST_PART,
         PvpCommandLineCallback,
         NULL
         );
-    PhDereferenceObject(commandLine);
 
     if (!PvFileName)
     {
@@ -147,15 +149,17 @@ INT WINAPI wWinMain(
 #ifndef DEBUG
                 PPH_STRING applicationFileName;
 
-                if (applicationFileName = PhGetApplicationFileName())
+                if (applicationFileName = PhGetApplicationFileNameWin32())
                 {
                     PhMoveReference(&PvFileName, PhConcatStrings(3, L"\"", PvFileName->Buffer, L"\""));
+
+                    AllowSetForegroundWindow(ASFW_ANY);
 
                     if (PhShellExecuteEx(
                         NULL,
                         PhGetString(applicationFileName),
                         PvFileName->Buffer,
-                        SW_SHOWDEFAULT,
+                        SW_SHOWNORMAL,
                         PH_SHELL_EXECUTE_NOZONECHECKS,
                         0,
                         NULL
@@ -177,7 +181,7 @@ INT WINAPI wWinMain(
         return 1;
 
 #ifdef DEBUG
-    if (!PhDoesFileExistsWin32(PhGetString(PvFileName)))
+    if (!PhDoesFileExistWin32(PhGetString(PvFileName)))
     {
         PPH_STRING fileName;
 
@@ -283,7 +287,7 @@ INT WINAPI wWinMain(
         }
     }
 
-    PeSaveSettings();
+    PvSaveSettings();
 
     return 0;
 }
@@ -297,7 +301,7 @@ ULONG CALLBACK PvUnhandledExceptionCallback(
     PPH_STRING message;
 
     if (NT_NTWIN32(ExceptionInfo->ExceptionRecord->ExceptionCode))
-        errorMessage = PhGetStatusMessage(0, WIN32_FROM_NTSTATUS(ExceptionInfo->ExceptionRecord->ExceptionCode));
+        errorMessage = PhGetStatusMessage(0, PhNtStatusToDosError(ExceptionInfo->ExceptionRecord->ExceptionCode));
     else
         errorMessage = PhGetStatusMessage(ExceptionInfo->ExceptionRecord->ExceptionCode, 0);
 
@@ -329,7 +333,7 @@ BOOLEAN PvInitializeExceptionPolicy(
 {
 #ifndef DEBUG
     ULONG errorMode;
-    
+
     if (NT_SUCCESS(PhGetProcessErrorMode(NtCurrentProcess(), &errorMode)))
     {
         errorMode &= ~(SEM_NOOPENFILEERRORBOX | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);

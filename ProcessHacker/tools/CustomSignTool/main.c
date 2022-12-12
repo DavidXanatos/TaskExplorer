@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   Custom data signing tool
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2016 wj32
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2016
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -35,6 +24,7 @@
 #define ARG_SIG 2
 #define ARG_HEX 3
 
+EXTERN_C PVOID __ImageBase;
 PPH_STRING CstCommand = NULL;
 PPH_STRING CstArgument1 = NULL;
 PPH_STRING CstArgument2 = NULL;
@@ -123,7 +113,7 @@ static VOID CstExportKey(
     if (!NT_SUCCESS(status = BCryptExportKey(KeyHandle, NULL, BlobType, blob, blobSize, &blobSize, 0)))
         CstFailWithStatus(PhFormatString(L"Unable to export %s: Unable to get blob data", Description)->Buffer, status, 0);
 
-    if (!NT_SUCCESS(status = PhCreateFileWin32(&fileHandle, FileName, FILE_GENERIC_WRITE, FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF, FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE)))
+    if (!NT_SUCCESS(status = PhCreateFileWin32Ex(&fileHandle, FileName, FILE_GENERIC_WRITE, blobSize, FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF, FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE, NULL)))
         CstFailWithStatus(PhFormatString(L"Unable to create '%s'", FileName)->Buffer, status, 0);
     if (!NT_SUCCESS(status = NtWriteFile(fileHandle, NULL, NULL, NULL, &iosb, blob, blobSize, NULL, NULL)))
         CstFailWithStatus(PhFormatString(L"Unable to write blob to '%s'", FileName)->Buffer, status, 0);
@@ -191,23 +181,37 @@ static PVOID CstHashFile(
     if (!NT_SUCCESS(status = PhCreateFileWin32(&fileHandle, FileName, FILE_GENERIC_READ, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE)))
         CstFailWithStatus(PhFormatString(L"Unable to open '%s'", FileName)->Buffer, status, 0);
 
-    buffer = PhAllocatePage(FILE_BUFFER_SIZE, NULL);
-
-    while (TRUE)
+    if (buffer = PhAllocatePage(FILE_BUFFER_SIZE, NULL))
     {
-        if (!NT_SUCCESS(status = NtReadFile(fileHandle, NULL, NULL, NULL, &iosb, buffer, FILE_BUFFER_SIZE, NULL, NULL)))
+        while (TRUE)
         {
-            if (status == STATUS_END_OF_FILE)
-                break;
+            status = NtReadFile(
+                fileHandle,
+                NULL,
+                NULL,
+                NULL,
+                &iosb,
+                buffer,
+                FILE_BUFFER_SIZE,
+                NULL,
+                NULL
+                );
 
-            CstFailWithStatus(PhFormatString(L"Unable to read '%s'", FileName)->Buffer, status, 0);
+            if (!NT_SUCCESS(status))
+            {
+                if (status == STATUS_END_OF_FILE)
+                    break;
+
+                CstFailWithStatus(PhFormatString(L"Unable to read '%s'", FileName)->Buffer, status, 0);
+            }
+
+            if (!NT_SUCCESS(status = BCryptHashData(hashHandle, buffer, (ULONG)iosb.Information, 0)))
+                CstFailWithStatus(L"Unable to hash file", status, 0);
         }
 
-        if (!NT_SUCCESS(status = BCryptHashData(hashHandle, buffer, (ULONG)iosb.Information, 0)))
-            CstFailWithStatus(L"Unable to hash file", status, 0);
+        PhFreePage(buffer);
     }
 
-    PhFreePage(buffer);
     NtClose(fileHandle);
 
     hash = PhAllocate(hashSize);
@@ -234,18 +238,23 @@ int __cdecl wmain(int argc, wchar_t *argv[])
     NTSTATUS status;
     PH_STRINGREF commandLine;
 
-    if (!NT_SUCCESS(PhInitializePhLib()))
-        return 1;
+    if (!NT_SUCCESS(PhInitializePhLib(L"CustomSignTool", __ImageBase)))
+        return EXIT_FAILURE;
 
-    PhUnicodeStringToStringRef(&NtCurrentPeb()->ProcessParameters->CommandLine, &commandLine);
-    PhParseCommandLine(
+    if (!NT_SUCCESS(PhGetProcessCommandLineStringRef(&commandLine)))
+        return EXIT_FAILURE;
+
+    if (!PhParseCommandLine(
         &commandLine,
         options,
-        sizeof(options) / sizeof(PH_COMMAND_LINE_OPTION),
+        RTL_NUMBER_OF(options),
         PH_COMMAND_LINE_IGNORE_FIRST_PART,
         CstCommandLineCallback,
         NULL
-        );
+        ))
+    {
+        return EXIT_FAILURE;
+    }
 
     if (!CstCommand)
         CstFailWith(CstHelpMessage);
@@ -294,7 +303,7 @@ int __cdecl wmain(int argc, wchar_t *argv[])
             CstFailWithStatus(L"Unable to open the signing algorithm provider", status, 0);
         buffer = CstReadFile(CstKeyFileName->Buffer, 1024 * 1024, &bufferSize);
         if (!NT_SUCCESS(status = BCryptImportKeyPair(signAlgHandle, NULL, CST_BLOB_PRIVATE, &keyHandle, buffer, bufferSize, 0)))
-            CstFailWithStatus(PhFormatString(L"Unable to import the private key", CstKeyFileName->Buffer)->Buffer, status, 0);
+            CstFailWithStatus(PhFormatString(L"Unable to import the private key: %s", CstKeyFileName->Buffer)->Buffer, status, 0);
         PhFree(buffer);
 
         // Hash the file.
@@ -308,6 +317,7 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         signature = PhAllocate(signatureSize);
         if (!NT_SUCCESS(status = BCryptSignHash(keyHandle, NULL, hash, hashSize, signature, signatureSize, &signatureSize, 0)))
             CstFailWithStatus(L"Unable to create the signature", status, 0);
+
         PhFree(hash);
         BCryptDestroyKey(keyHandle);
         BCryptCloseAlgorithmProvider(signAlgHandle, 0);
@@ -356,7 +366,7 @@ int __cdecl wmain(int argc, wchar_t *argv[])
             CstFailWithStatus(L"Unable to open the signing algorithm provider", status, 0);
         buffer = CstReadFile(CstKeyFileName->Buffer, 1024 * 1024, &bufferSize);
         if (!NT_SUCCESS(status = BCryptImportKeyPair(signAlgHandle, NULL, CST_BLOB_PUBLIC, &keyHandle, buffer, bufferSize, 0)))
-            CstFailWithStatus(PhFormatString(L"Unable to import the public key", CstKeyFileName->Buffer)->Buffer, status, 0);
+            CstFailWithStatus(PhFormatString(L"Unable to import the public key: %s", CstKeyFileName->Buffer)->Buffer, status, 0);
         PhFree(buffer);
 
         // Read the signature.
@@ -370,7 +380,8 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         // Verify the hash.
 
         if (!NT_SUCCESS(status = BCryptVerifySignature(keyHandle, NULL, hash, hashSize, signature, signatureSize, 0)))
-            CstFailWithStatus(PhFormatString(L"Signature verification failed", CstKeyFileName->Buffer)->Buffer, status, 0);
+            CstFailWithStatus(PhFormatString(L"Signature verification failed: %s", CstKeyFileName->Buffer)->Buffer, status, 0);
+
         PhFree(signature);
         PhFree(hash);
 

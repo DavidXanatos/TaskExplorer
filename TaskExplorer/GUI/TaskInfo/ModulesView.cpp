@@ -12,7 +12,7 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 
@@ -23,7 +23,7 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 		m_pMainLayout->addWidget(m_pFilterWidget);
 
 		m_pFilterLayout = new QHBoxLayout();
-		m_pFilterLayout->setMargin(3);
+		m_pFilterLayout->setContentsMargins(3, 3, 3, 3);
 		m_pFilterWidget->setLayout(m_pFilterLayout);
 
 		m_pLoadModule = new QPushButton(tr("Inject DLL"));
@@ -36,7 +36,7 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 	// Module List
 	m_pModuleModel = new CModuleModel();
 
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pModuleModel);
 	m_pSortProxy->setDynamicSortFilter(true);

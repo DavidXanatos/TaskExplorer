@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -10,13 +10,15 @@
 #include "qwt_plot_multi_barchart.h"
 #include "qwt_scale_map.h"
 #include "qwt_column_symbol.h"
-#include "qwt_painter.h"
-#include <qpainter.h>
-#include <qpalette.h>
+#include "qwt_text.h"
+#include "qwt_graphic.h"
+#include "qwt_legend_data.h"
+#include "qwt_math.h"
+
 #include <qmap.h>
 
 inline static bool qwtIsIncreasing(
-    const QwtScaleMap &map, const QVector<double> &values )
+    const QwtScaleMap& map, const QVector< double >& values )
 {
     bool isInverting = map.isInverting();
 
@@ -32,33 +34,33 @@ inline static bool qwtIsIncreasing(
 
 class QwtPlotMultiBarChart::PrivateData
 {
-public:
-    PrivateData():
-        style( QwtPlotMultiBarChart::Grouped )
+  public:
+    PrivateData()
+        : style( QwtPlotMultiBarChart::Grouped )
     {
     }
 
     QwtPlotMultiBarChart::ChartStyle style;
-    QList<QwtText> barTitles;
-    QMap<int, QwtColumnSymbol *> symbolMap;
+    QList< QwtText > barTitles;
+    QMap< int, QwtColumnSymbol* > symbolMap;
 };
 
 /*!
-  Constructor
-  \param title Title of the chart
-*/
-QwtPlotMultiBarChart::QwtPlotMultiBarChart( const QwtText &title ):
-    QwtPlotAbstractBarChart( title )
+   Constructor
+   \param title Title of the chart
+ */
+QwtPlotMultiBarChart::QwtPlotMultiBarChart( const QwtText& title )
+    : QwtPlotAbstractBarChart( title )
 {
     init();
 }
 
 /*!
-  Constructor
-  \param title Title of the chart
-*/
-QwtPlotMultiBarChart::QwtPlotMultiBarChart( const QString &title ):
-    QwtPlotAbstractBarChart( QwtText( title ) )
+   Constructor
+   \param title Title of the chart
+ */
+QwtPlotMultiBarChart::QwtPlotMultiBarChart( const QString& title )
+    : QwtPlotAbstractBarChart( QwtText( title ) )
 {
     init();
 }
@@ -67,12 +69,12 @@ QwtPlotMultiBarChart::QwtPlotMultiBarChart( const QString &title ):
 QwtPlotMultiBarChart::~QwtPlotMultiBarChart()
 {
     resetSymbolMap();
-    delete d_data;
+    delete m_data;
 }
 
 void QwtPlotMultiBarChart::init()
 {
-    d_data = new PrivateData;
+    m_data = new PrivateData;
     setData( new QwtSetSeriesData() );
 }
 
@@ -83,23 +85,25 @@ int QwtPlotMultiBarChart::rtti() const
 }
 
 /*!
-  Initialize data with an array of samples.
-  \param samples Vector of points
-*/
+   Initialize data with an array of samples.
+   \param samples Vector of points
+ */
 void QwtPlotMultiBarChart::setSamples(
-    const QVector<QwtSetSample> &samples )
+    const QVector< QwtSetSample >& samples )
 {
     setData( new QwtSetSeriesData( samples ) );
 }
 
 /*!
-  Initialize data with an array of samples.
-  \param samples Vector of points
-*/
+   Initialize data with an array of samples.
+   \param samples Vector of points
+ */
 void QwtPlotMultiBarChart::setSamples(
-    const QVector< QVector<double> > &samples )
+    const QVector< QVector< double > >& samples )
 {
-    QVector<QwtSetSample> s;
+    QVector< QwtSetSample > s;
+    s.reserve( samples.size() );
+
     for ( int i = 0; i < samples.size(); i++ )
         s += QwtSetSample( i, samples[ i ] );
 
@@ -107,68 +111,68 @@ void QwtPlotMultiBarChart::setSamples(
 }
 
 /*!
-  Assign a series of samples
+   Assign a series of samples
 
-  setSamples() is just a wrapper for setData() without any additional
-  value - beside that it is easier to find for the developer.
+   setSamples() is just a wrapper for setData() without any additional
+   value - beside that it is easier to find for the developer.
 
-  \param data Data
-  \warning The item takes ownership of the data object, deleting
+   \param data Data
+   \warning The item takes ownership of the data object, deleting
            it when its not used anymore.
-*/
+ */
 void QwtPlotMultiBarChart::setSamples(
-    QwtSeriesData<QwtSetSample> *data )
+    QwtSeriesData< QwtSetSample >* data )
 {
     setData( data );
 }
 
 /*!
-  \brief Set the titles for the bars
+   \brief Set the titles for the bars
 
-  The titles are used for the legend.
+   The titles are used for the legend.
 
-  \param titles Bar titles
+   \param titles Bar titles
 
-  \sa barTitles(), legendData()
+   \sa barTitles(), legendData()
  */
-void QwtPlotMultiBarChart::setBarTitles( const QList<QwtText> &titles )
+void QwtPlotMultiBarChart::setBarTitles( const QList< QwtText >& titles )
 {
-    d_data->barTitles = titles;
+    m_data->barTitles = titles;
     itemChanged();
 }
 
 /*!
-  \return Bar titles
-  \sa setBarTitles(), legendData()
+   \return Bar titles
+   \sa setBarTitles(), legendData()
  */
-QList<QwtText> QwtPlotMultiBarChart::barTitles() const
+QList< QwtText > QwtPlotMultiBarChart::barTitles() const
 {
-    return d_data->barTitles;
+    return m_data->barTitles;
 }
 
 /*!
-  \brief Add a symbol to the symbol map
+   \brief Add a symbol to the symbol map
 
-  Assign a default symbol for drawing the bar representing all values
-  with the same index in a set.
+   Assign a default symbol for drawing the bar representing all values
+   with the same index in a set.
 
-  \param valueIndex Index of a value in a set
-  \param symbol Symbol used for drawing a bar
+   \param valueIndex Index of a value in a set
+   \param symbol Symbol used for drawing a bar
 
-  \sa symbol(), resetSymbolMap(), specialSymbol()
-*/
-void QwtPlotMultiBarChart::setSymbol( int valueIndex, QwtColumnSymbol *symbol )
+   \sa symbol(), resetSymbolMap(), specialSymbol()
+ */
+void QwtPlotMultiBarChart::setSymbol( int valueIndex, QwtColumnSymbol* symbol )
 {
     if ( valueIndex < 0 )
         return;
 
-    QMap<int, QwtColumnSymbol *>::iterator it =
-        d_data->symbolMap.find(valueIndex);
-    if ( it == d_data->symbolMap.end() )
+    QMap< int, QwtColumnSymbol* >::iterator it =
+        m_data->symbolMap.find(valueIndex);
+    if ( it == m_data->symbolMap.end() )
     {
         if ( symbol != NULL )
         {
-            d_data->symbolMap.insert( valueIndex, symbol );
+            m_data->symbolMap.insert( valueIndex, symbol );
 
             legendChanged();
             itemChanged();
@@ -182,7 +186,7 @@ void QwtPlotMultiBarChart::setSymbol( int valueIndex, QwtColumnSymbol *symbol )
 
             if ( symbol == NULL )
             {
-                d_data->symbolMap.remove( valueIndex );
+                m_data->symbolMap.remove( valueIndex );
             }
             else
             {
@@ -196,67 +200,67 @@ void QwtPlotMultiBarChart::setSymbol( int valueIndex, QwtColumnSymbol *symbol )
 }
 
 /*!
-  Find a symbol in the symbol map
+   Find a symbol in the symbol map
 
-  \param valueIndex Index of a value in a set
-  \return The symbol, that had been set by setSymbol() or NULL.
+   \param valueIndex Index of a value in a set
+   \return The symbol, that had been set by setSymbol() or NULL.
 
-  \sa setSymbol(), specialSymbol(), drawBar()
-*/
-const QwtColumnSymbol *QwtPlotMultiBarChart::symbol( int valueIndex ) const
+   \sa setSymbol(), specialSymbol(), drawBar()
+ */
+const QwtColumnSymbol* QwtPlotMultiBarChart::symbol( int valueIndex ) const
 {
-    QMap<int, QwtColumnSymbol *>::const_iterator it =
-        d_data->symbolMap.constFind( valueIndex );
+    QMap< int, QwtColumnSymbol* >::const_iterator it =
+        m_data->symbolMap.constFind( valueIndex );
 
-    return ( it == d_data->symbolMap.constEnd() ) ? NULL : it.value();
+    return ( it == m_data->symbolMap.constEnd() ) ? NULL : it.value();
 }
 
 /*!
-  Find a symbol in the symbol map
+   Find a symbol in the symbol map
 
-  \param valueIndex Index of a value in a set
-  \return The symbol, that had been set by setSymbol() or NULL.
+   \param valueIndex Index of a value in a set
+   \return The symbol, that had been set by setSymbol() or NULL.
 
-  \sa setSymbol(), specialSymbol(), drawBar()
-*/
-QwtColumnSymbol *QwtPlotMultiBarChart::symbol( int valueIndex )
+   \sa setSymbol(), specialSymbol(), drawBar()
+ */
+QwtColumnSymbol* QwtPlotMultiBarChart::symbol( int valueIndex )
 {
-    QMap<int, QwtColumnSymbol *>::const_iterator it =
-        d_data->symbolMap.constFind( valueIndex );
+    QMap< int, QwtColumnSymbol* >::const_iterator it =
+        m_data->symbolMap.constFind( valueIndex );
 
-    return ( it == d_data->symbolMap.constEnd() ) ? NULL : it.value();
+    return ( it == m_data->symbolMap.constEnd() ) ? NULL : it.value();
 }
 
 /*!
-  Remove all symbols from the symbol map
+   Remove all symbols from the symbol map
  */
 void QwtPlotMultiBarChart::resetSymbolMap()
 {
-    qDeleteAll( d_data->symbolMap );
-    d_data->symbolMap.clear();
+    qDeleteAll( m_data->symbolMap );
+    m_data->symbolMap.clear();
 }
 
 /*!
-  \brief Create a symbol for special values
+   \brief Create a symbol for special values
 
-  Usually the symbols for displaying a bar are set by setSymbols() and
-  common for all sets. By overloading specialSymbol() it is possible to
-  create a temporary symbol() for displaying a special value.
+   Usually the symbols for displaying a bar are set by setSymbols() and
+   common for all sets. By overloading specialSymbol() it is possible to
+   create a temporary symbol() for displaying a special value.
 
-  The symbol has to be created by new each time specialSymbol() is
-  called. As soon as the symbol is painted this symbol gets deleted.
+   The symbol has to be created by new each time specialSymbol() is
+   called. As soon as the symbol is painted this symbol gets deleted.
 
-  When no symbol ( NULL ) is returned, the value will be displayed
-  with the standard symbol that is used for all symbols with the same
-  valueIndex.
+   When no symbol ( NULL ) is returned, the value will be displayed
+   with the standard symbol that is used for all symbols with the same
+   valueIndex.
 
-  \param sampleIndex Index of the sample
-  \param valueIndex Index of the value in the set
+   \param sampleIndex Index of the sample
+   \param valueIndex Index of the value in the set
 
-  \return NULL, meaning that the value is not special
+   \return NULL, meaning that the value is not special
 
  */
-QwtColumnSymbol *QwtPlotMultiBarChart::specialSymbol(
+QwtColumnSymbol* QwtPlotMultiBarChart::specialSymbol(
     int sampleIndex, int valueIndex ) const
 {
     Q_UNUSED( sampleIndex );
@@ -266,16 +270,16 @@ QwtColumnSymbol *QwtPlotMultiBarChart::specialSymbol(
 }
 
 /*!
-  Set the style of the chart
+   Set the style of the chart
 
-  \param style Chart style
-  \sa style()
+   \param style Chart style
+   \sa style()
  */
 void QwtPlotMultiBarChart::setStyle( ChartStyle style )
 {
-    if ( style != d_data->style )
+    if ( style != m_data->style )
     {
-        d_data->style = style;
+        m_data->style = style;
 
         legendChanged();
         itemChanged();
@@ -283,18 +287,18 @@ void QwtPlotMultiBarChart::setStyle( ChartStyle style )
 }
 
 /*!
-  \return Style of the chart
-  \sa setStyle()
+   \return Style of the chart
+   \sa setStyle()
  */
 QwtPlotMultiBarChart::ChartStyle QwtPlotMultiBarChart::style() const
 {
-    return d_data->style;
+    return m_data->style;
 }
 
 /*!
-  \return Bounding rectangle of all samples.
-  For an empty series the rectangle is invalid.
-*/
+   \return Bounding rectangle of all samples.
+   For an empty series the rectangle is invalid.
+ */
 QRectF QwtPlotMultiBarChart::boundingRect() const
 {
     const size_t numSamples = dataSize();
@@ -306,7 +310,7 @@ QRectF QwtPlotMultiBarChart::boundingRect() const
 
     QRectF rect;
 
-    if ( d_data->style != QwtPlotMultiBarChart::Stacked )
+    if ( m_data->style != QwtPlotMultiBarChart::Stacked )
     {
         rect = QwtPlotSeriesItem::boundingRect();
 
@@ -325,7 +329,7 @@ QRectF QwtPlotMultiBarChart::boundingRect() const
         xMin = xMax = 0.0;
         yMin = yMax = baseLine;
 
-        const QwtSeriesData<QwtSetSample> *series = data();
+        const QwtSeriesData< QwtSetSample >* series = data();
 
         for ( size_t i = 0; i < numSamples; i++ )
         {
@@ -336,14 +340,14 @@ QRectF QwtPlotMultiBarChart::boundingRect() const
             }
             else
             {
-                xMin = qMin( xMin, sample.value );
-                xMax = qMax( xMax, sample.value );
+                xMin = qwtMinF( xMin, sample.value );
+                xMax = qwtMaxF( xMax, sample.value );
             }
 
             const double y = baseLine + sample.added();
 
-            yMin = qMin( yMin, y );
-            yMax = qMax( yMax, y );
+            yMin = qwtMinF( yMin, y );
+            yMax = qwtMaxF( yMax, y );
         }
         rect.setRect( xMin, yMin, xMax - xMin, yMax - yMin );
     }
@@ -355,21 +359,21 @@ QRectF QwtPlotMultiBarChart::boundingRect() const
 }
 
 /*!
-  Draw an interval of the bar chart
+   Draw an interval of the bar chart
 
-  \param painter Painter
-  \param xMap Maps x-values into pixel coordinates.
-  \param yMap Maps y-values into pixel coordinates.
-  \param canvasRect Contents rectangle of the canvas
-  \param from Index of the first point to be painted
-  \param to Index of the last point to be painted. If to < 0 the
+   \param painter Painter
+   \param xMap Maps x-values into pixel coordinates.
+   \param yMap Maps y-values into pixel coordinates.
+   \param canvasRect Contents rectangle of the canvas
+   \param from Index of the first point to be painted
+   \param to Index of the last point to be painted. If to < 0 the
          curve will be painted to its last point.
 
-  \sa drawSymbols()
-*/
-void QwtPlotMultiBarChart::drawSeries( QPainter *painter,
-    const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-    const QRectF &canvasRect, int from, int to ) const
+   \sa drawSymbols()
+ */
+void QwtPlotMultiBarChart::drawSeries( QPainter* painter,
+    const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+    const QRectF& canvasRect, int from, int to ) const
 {
     if ( to < 0 )
         to = dataSize() - 1;
@@ -396,21 +400,21 @@ void QwtPlotMultiBarChart::drawSeries( QPainter *painter,
 }
 
 /*!
-  Draw a sample
+   Draw a sample
 
-  \param painter Painter
-  \param xMap x map
-  \param yMap y map
-  \param canvasRect Contents rectangle of the canvas
-  \param boundingInterval Bounding interval of sample values
-  \param index Index of the sample to be painted
-  \param sample Sample value
+   \param painter Painter
+   \param xMap x map
+   \param yMap y map
+   \param canvasRect Contents rectangle of the canvas
+   \param boundingInterval Bounding interval of sample values
+   \param index Index of the sample to be painted
+   \param sample Sample value
 
-  \sa drawSeries()
-*/
-void QwtPlotMultiBarChart::drawSample( QPainter *painter,
-    const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-    const QRectF &canvasRect, const QwtInterval &boundingInterval,
+   \sa drawSeries()
+ */
+void QwtPlotMultiBarChart::drawSample( QPainter* painter,
+    const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+    const QRectF& canvasRect, const QwtInterval& boundingInterval,
     int index, const QwtSetSample& sample ) const
 {
     if ( sample.set.size() <= 0 )
@@ -429,7 +433,7 @@ void QwtPlotMultiBarChart::drawSample( QPainter *painter,
             boundingInterval.width(), sample.value );
     }
 
-    if ( d_data->style == Stacked )
+    if ( m_data->style == Stacked )
     {
         drawStackedBars( painter, xMap, yMap,
             canvasRect, index, sampleW, sample );
@@ -442,21 +446,21 @@ void QwtPlotMultiBarChart::drawSample( QPainter *painter,
 }
 
 /*!
-  Draw a grouped sample
+   Draw a grouped sample
 
-  \param painter Painter
-  \param xMap x map
-  \param yMap y map
-  \param canvasRect Contents rectangle of the canvas
-  \param index Index of the sample to be painted
-  \param sampleWidth Boundng width for all bars of the smaple
-  \param sample Sample
+   \param painter Painter
+   \param xMap x map
+   \param yMap y map
+   \param canvasRect Contents rectangle of the canvas
+   \param index Index of the sample to be painted
+   \param sampleWidth Bounding width for all bars of the sample
+   \param sample Sample
 
-  \sa drawSeries(), sampleWidth()
-*/
-void QwtPlotMultiBarChart::drawGroupedBars( QPainter *painter,
-    const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-    const QRectF &canvasRect, int index, double sampleWidth,
+   \sa drawSeries(), sampleWidth()
+ */
+void QwtPlotMultiBarChart::drawGroupedBars( QPainter* painter,
+    const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+    const QRectF& canvasRect, int index, double sampleWidth,
     const QwtSetSample& sample ) const
 {
     Q_UNUSED( canvasRect );
@@ -522,21 +526,21 @@ void QwtPlotMultiBarChart::drawGroupedBars( QPainter *painter,
 }
 
 /*!
-  Draw a stacked sample
+   Draw a stacked sample
 
-  \param painter Painter
-  \param xMap x map
-  \param yMap y map
-  \param canvasRect Contents rectangle of the canvas
-  \param index Index of the sample to be painted
-  \param sampleWidth Width of the bars
-  \param sample Sample
+   \param painter Painter
+   \param xMap x map
+   \param yMap y map
+   \param canvasRect Contents rectangle of the canvas
+   \param index Index of the sample to be painted
+   \param sampleWidth Width of the bars
+   \param sample Sample
 
-  \sa drawSeries(), sampleWidth()
-*/
-void QwtPlotMultiBarChart::drawStackedBars( QPainter *painter,
-    const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-    const QRectF &canvasRect, int index,
+   \sa drawSeries(), sampleWidth()
+ */
+void QwtPlotMultiBarChart::drawStackedBars( QPainter* painter,
+    const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+    const QRectF& canvasRect, int index,
     double sampleWidth, const QwtSetSample& sample ) const
 {
     Q_UNUSED( canvasRect ); // clipping the bars ?
@@ -635,24 +639,24 @@ void QwtPlotMultiBarChart::drawStackedBars( QPainter *painter,
 }
 
 /*!
-  Draw a bar
+   Draw a bar
 
-  \param painter Painter
-  \param sampleIndex Index of the sample - might be -1 when the
+   \param painter Painter
+   \param sampleIndex Index of the sample - might be -1 when the
                      bar is painted for the legend
-  \param valueIndex Index of a value in a set
-  \param rect Directed target rectangle for the bar
+   \param valueIndex Index of a value in a set
+   \param rect Directed target rectangle for the bar
 
-  \sa drawSeries()
-*/
-void QwtPlotMultiBarChart::drawBar( QPainter *painter,
-    int sampleIndex, int valueIndex, const QwtColumnRect &rect ) const
+   \sa drawSeries()
+ */
+void QwtPlotMultiBarChart::drawBar( QPainter* painter,
+    int sampleIndex, int valueIndex, const QwtColumnRect& rect ) const
 {
-    const QwtColumnSymbol *specialSym = NULL;
+    const QwtColumnSymbol* specialSym = NULL;
     if ( sampleIndex >= 0 )
         specialSym = specialSymbol( sampleIndex, valueIndex );
 
-    const QwtColumnSymbol *sym = specialSym;
+    const QwtColumnSymbol* sym = specialSym;
     if ( sym == NULL )
         sym = symbol( valueIndex );
 
@@ -673,32 +677,29 @@ void QwtPlotMultiBarChart::drawBar( QPainter *painter,
 }
 
 /*!
-  \return Information to be displayed on the legend
+   \return Information to be displayed on the legend
 
-  The chart is represented by a list of entries - one for each bar title.
-  Each element contains a bar title and an icon showing its corresponding bar.
+   The chart is represented by a list of entries - one for each bar title.
+   Each element contains a bar title and an icon showing its corresponding bar.
 
-  \sa barTitles(), legendIcon(), legendIconSize()
-*/
-QList<QwtLegendData> QwtPlotMultiBarChart::legendData() const
+   \sa barTitles(), legendIcon(), legendIconSize()
+ */
+QList< QwtLegendData > QwtPlotMultiBarChart::legendData() const
 {
-    QList<QwtLegendData> list;
+    QList< QwtLegendData > list;
+    list.reserve( m_data->barTitles.size() );
 
-    for ( int i = 0; i < d_data->barTitles.size(); i++ )
+    for ( int i = 0; i < m_data->barTitles.size(); i++ )
     {
         QwtLegendData data;
 
-        QVariant titleValue;
-        qVariantSetValue( titleValue, d_data->barTitles[i] );
-        data.setValue( QwtLegendData::TitleRole, titleValue );
+        data.setValue( QwtLegendData::TitleRole,
+            QVariant::fromValue( m_data->barTitles[i] ) );
 
         if ( !legendIconSize().isEmpty() )
         {
-            QVariant iconValue;
-            qVariantSetValue( iconValue,
-                legendIcon( i, legendIconSize() ) );
-
-            data.setValue( QwtLegendData::IconRole, iconValue );
+            data.setValue( QwtLegendData::IconRole,
+                QVariant::fromValue( legendIcon( i, legendIconSize() ) ) );
         }
 
         list += data;
@@ -708,16 +709,16 @@ QList<QwtLegendData> QwtPlotMultiBarChart::legendData() const
 }
 
 /*!
-  \return Icon for representing a bar on the legend
+   \return Icon for representing a bar on the legend
 
-  \param index Index of the bar
-  \param size Icon size
+   \param index Index of the bar
+   \param size Icon size
 
-  \return An icon showing a bar
-  \sa drawBar(), legendData()
+   \return An icon showing a bar
+   \sa drawBar(), legendData()
  */
 QwtGraphic QwtPlotMultiBarChart::legendIcon( int index,
-    const QSizeF &size ) const
+    const QSizeF& size ) const
 {
     QwtColumnRect column;
     column.hInterval = QwtInterval( 0.0, size.width() - 1.0 );

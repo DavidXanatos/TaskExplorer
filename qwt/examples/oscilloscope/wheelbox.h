@@ -1,40 +1,42 @@
-#ifndef _WHEELBOX_H_
-#define _WHEELBOX_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwidget.h>
+#pragma once
+
+#include <QWidget>
 
 class QwtWheel;
 class QLabel;
 class QLCDNumber;
 
-class WheelBox: public QWidget
+class WheelBox : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY( QColor theme READ theme WRITE setTheme )
 
-public:
-    WheelBox( const QString &title,
+  public:
+    WheelBox( const QString& title,
         double min, double max, double stepSize,
-        QWidget *parent = NULL );
+        QWidget* parent = NULL );
 
-    void setTheme( const QColor & );
+    void setTheme( const QColor& );
     QColor theme() const;
 
-    void setUnit( const QString & );
+    void setUnit( const QString& );
     QString unit() const;
 
     void setValue( double value );
     double value() const;
 
-Q_SIGNALS:
+  Q_SIGNALS:
     double valueChanged( double );
 
-private:
-    QLCDNumber *d_number;
-    QwtWheel *d_wheel;
-    QLabel *d_label;
+  private:
+    QLCDNumber* m_number;
+    QwtWheel* m_wheel;
+    QLabel* m_label;
 
-    QString d_unit;
+    QString m_unit;
 };
-
-#endif

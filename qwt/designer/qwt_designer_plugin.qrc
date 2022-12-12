@@ -1,6 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
         <file>pixmaps/qwtplot.png</file>
+        <file>pixmaps/qwt_polar_plot.png</file>
         <file>pixmaps/qwtanalogclock.png</file>
         <file>pixmaps/qwtcounter.png</file>
         <file>pixmaps/qwtcompass.png</file>

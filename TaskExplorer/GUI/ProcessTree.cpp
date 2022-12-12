@@ -31,7 +31,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	this->ForceColumn(CProcessModel::eProcess);
 
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_pProcessModel = new CProcessModel();
@@ -39,7 +39,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	//connect(m_pProcessModel, SIGNAL(CheckChanged(quint64, bool)), this, SLOT(OnCheckChanged(quint64, bool)));
 	//connect(m_pProcessModel, SIGNAL(Updated()), this, SLOT(OnUpdated()));
 
-	m_pSortProxy = new CProcessFilterModel(false, this);
+	m_pSortProxy = new CProcessFilterModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pProcessModel);
 	m_pSortProxy->setDynamicSortFilter(true);
@@ -111,8 +111,9 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pMiscMenu->addSeparator();
 	m_pCritical = m_pMiscMenu->addAction(tr("Critical Process Flag"), this, SLOT(OnProcessAction()));
 	m_pCritical->setCheckable(true);
-	m_pProtected = m_pMiscMenu->addAction(tr("Protected Process"), this, SLOT(OnProcessAction()));
-	m_pProtected->setCheckable(true);
+	// todo: xxxx si
+	//m_pProtected = m_pMiscMenu->addAction(tr("Protected Process"), this, SLOT(OnProcessAction()));
+	//m_pProtected->setCheckable(true);
 
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
@@ -156,7 +157,7 @@ CProcessTree::~CProcessTree()
 
 void CProcessTree::OnResetColumns()
 {
-	QByteArray PackedDefault = 
+	/*QByteArray PackedDefault = 
 		"eNrt19dOVGEUhuHZKmIDlGajo1hQsXfsBTsgTcGCLnvvvXAtXoiHHnpk9BK8AE91fEdfdMdIlEQjRid5_P4hAfbs9c0aOdjRdSOTySSZTME"
 		"7Mpv5_EiUn_tnIPXFAhSiApUowiTcwm2MwWTkYSymYBRGoxglKEUZyjEV0zAdM3K_EBMxE-NQhfGoRg0moBZ1qMcszEYD5mAu5mE-GrEAC7"
 		"EITViMJViKZViJVViNNViLdViPZmzARmzCFmzFNmzHDuxEC3ZhN_ZgL_ZhPw6gFW1ox0F0oBNd6EYPDuEwetGHIziKYziOfpzASQRO4TTO4"
@@ -167,9 +168,9 @@ void CProcessTree::OnResetColumns()
 		"oURLo1wcYSLJVwu4YIJl1G4kMJlFS6scGmFiytcbuGCI2fmFu9AknxazF8ekXt3prZ2entnvIj0N3zv6y2pc3PqvDV1bhvi5wx1bk2dr3w9"
 		"J-XD_Dkj4fwqde77C6__d5_bh5j7utR5feq84f99-1fOSc-_-9o_fYj84WsY_XbwQqr9uy_5_F_1JPep-zrJfXr4V-BHg7SxPA";
 
-	m_pProcessList->restoreState(Unpack(QByteArray::fromBase64(PackedDefault.replace("-","+").replace("_","/"))));
+	m_pProcessList->restoreState(Unpack(QByteArray::fromBase64(PackedDefault.replace("-","+").replace("_","/"))));*/
 
-	/*for (int i = 1; i < m_pProcessModel->columnCount(); i++)
+	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
 		m_pProcessList->GetView()->setColumnHidden(i, true);
 
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::ePID, false);
@@ -189,10 +190,10 @@ void CProcessTree::OnResetColumns()
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eUSER_Handles, false);
 #endif
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eThreads, false);
-	//m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eCommandLine, false);
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNet_TotalRate, false);
 	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eDisk_TotalRate, false);
-	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);*/
+	m_pProcessList->GetView()->setColumnHidden(CProcessModel::eNetUsage, false);
 
 	m_pProcessModel->SetColumnEnabled(0, true);
 	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
@@ -714,8 +715,9 @@ void CProcessTree::OnMenu(const QPoint &point)
 	m_pCritical->setEnabled(selectedRows.count() > 0);
 	m_pCritical->setChecked(pWinProcess && pWinProcess->IsCriticalProcess());
 
-	m_pProtected->setEnabled(selectedRows.count() > 0);
-	m_pProtected->setChecked(pWinProcess && pWinProcess->GetProtection());
+	// todo: xxxx si
+	//m_pProtected->setEnabled(selectedRows.count() > 0);
+	//m_pProtected->setChecked(pWinProcess && pWinProcess->GetProtection());
 
 	m_pReduceWS->setEnabled(selectedRows.count() > 0);
 	m_pWatchWS->setEnabled(selectedRows.count() == 1);
@@ -781,8 +783,9 @@ void CProcessTree::OnProcessAction()
 			}
 			else*/ if (sender() == m_pCritical)
 				Status = pWinProcess->SetCriticalProcess(m_pCritical->isChecked(), Force == 1);
-			else if (sender() == m_pProtected)
-				Status = pWinProcess->SetProtectionFlag(m_pProtected->isChecked() ? -1 : 0, Force == 1);
+			// todo: xxxx si
+			//else if (sender() == m_pProtected)
+			//	Status = pWinProcess->SetProtectionFlag(m_pProtected->isChecked() ? -1 : 0, Force == 1);
 			else if (sender() == m_pReduceWS)
 				Status = pWinProcess->ReduceWS();
 			else if (sender() == m_pDebug)

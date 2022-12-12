@@ -1,39 +1,41 @@
-#ifndef _RANDOMPLOT_H_
-#define _RANDOMPLOT_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include "incrementalplot.h"
-#include <qdatetime.h>
+#pragma once
+
+#include "IncrementalPlot.h"
+#include <QElapsedTimer>
 
 class QTimer;
 
-class RandomPlot: public IncrementalPlot
+class RandomPlot : public IncrementalPlot
 {
     Q_OBJECT
 
-public:
-    RandomPlot( QWidget *parent );
+  public:
+    RandomPlot( QWidget* parent = NULL );
 
-    virtual QSize sizeHint() const;
+    virtual QSize sizeHint() const QWT_OVERRIDE;
 
-Q_SIGNALS:
+  Q_SIGNALS:
     void running( bool );
     void elapsed( int ms );
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void clear();
     void stop();
     void append( int timeout, int count );
 
-private Q_SLOTS:
+  private Q_SLOTS:
     void appendPoint();
 
-private:
+  private:
     void initCurve();
 
-    QTimer *d_timer;
-    int d_timerCount;
+    QTimer* m_timer;
+    int m_timerCount;
 
-    QTime d_timeStamp;
+    QElapsedTimer m_timeStamp;
 };
-
-#endif // _RANDOMPLOT_H_

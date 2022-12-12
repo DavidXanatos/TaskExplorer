@@ -1,37 +1,38 @@
-#ifndef _MAINWINDOW_H_
-#define _MAINWINDOW_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qmainwindow.h>
-#include <qaction.h>
+#pragma once
 
-class QSpinBox;
-class QPushButton;
+#include <QMainWindow>
+
 class RandomPlot;
 class Counter;
-class QCheckBox;
 
-class MainWindow: public QMainWindow
+class QCheckBox;
+class QAction;
+
+class MainWindow : public QMainWindow
 {
     Q_OBJECT
-public:
+  public:
     MainWindow();
 
-private Q_SLOTS:
+  private Q_SLOTS:
     void showRunning( bool );
     void appendPoints( bool );
     void showElapsed( int );
 
-private:
-    QToolBar *toolBar();
+  private:
+    QToolBar* toolBar();
     void initWhatsThis();
 
-private:
-    Counter *d_randomCount;
-    Counter *d_timerCount;
-    QCheckBox *d_symbolType;
-    QAction *d_startAction;
-    QAction *d_clearAction;
-    RandomPlot *d_plot;
+  private:
+    Counter* m_randomCount;
+    Counter* m_timerCount;
+    QCheckBox* m_symbolType;
+    QAction* m_startAction;
+    QAction* m_clearAction;
+    RandomPlot* m_plot;
 };
-
-#endif

@@ -9,7 +9,7 @@ CDiskView::CDiskView(QWidget *parent)
 	:QWidget(parent)
 {
 	m_pMainLayout = new QGridLayout();
-	//m_pMainLayout->setMargin(3);
+	//m_pMainLayout->setContentsMargins(3, 3, 3, 3);
 	this->setLayout(m_pMainLayout);
 
 	QLabel* pLabel = new QLabel(tr("Disks"));
@@ -26,14 +26,14 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pScrollWidget = new QWidget();
 	m_pScrollArea = new QScrollArea();
 	m_pScrollLayout = new QGridLayout();
-	m_pScrollLayout->setMargin(0);
+	m_pScrollLayout->setContentsMargins(0, 0, 0, 0);
 	m_pScrollWidget->setLayout(m_pScrollLayout);
 	m_pScrollArea->setFrameShape(QFrame::NoFrame);
 	m_pScrollArea->setWidgetResizable(true);
 	m_pScrollArea->setWidget(m_pScrollWidget);
 	m_pMainLayout->addWidget(m_pScrollArea, 1, 0, 1, 3);
 	QPalette pal = m_pScrollArea->palette();
-	pal.setColor(QPalette::Background, Qt::transparent);
+	pal.setColor(QPalette::Window, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
 	m_PlotLimit = theGUI->GetGraphLimit(true);
@@ -57,7 +57,7 @@ CDiskView::CDiskView(QWidget *parent)
 	
 	m_pWRPlotWidget = new QWidget();
 	m_pWRPlotLayout = new QVBoxLayout();
-	m_pWRPlotLayout->setMargin(0);
+	m_pWRPlotLayout->setContentsMargins(0, 0, 0, 0);
 	m_pWRPlotWidget->setLayout(m_pWRPlotLayout);
 	m_pGraphTabs->addTab(m_pWRPlotWidget, tr("Data Rates"));
 
@@ -79,7 +79,7 @@ CDiskView::CDiskView(QWidget *parent)
 
 	m_pIOPlotWidget = new QWidget();
 	m_pIOPlotLayout = new QVBoxLayout();
-	m_pIOPlotLayout->setMargin(0);
+	m_pIOPlotLayout->setContentsMargins(0, 0, 0, 0);
 	m_pIOPlotWidget->setLayout(m_pIOPlotLayout);
 	m_pGraphTabs->addTab(m_pIOPlotWidget, tr("IO Rates"));
 

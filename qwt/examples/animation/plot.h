@@ -1,21 +1,27 @@
-#include <qwt_plot.h>
-#include <qdatetime.h>
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
-class Curve;
+#pragma once
 
-class Plot: public QwtPlot
+#include <QwtPlot>
+#include <QElapsedTimer>
+
+class Plot : public QwtPlot
 {
-public:
-    Plot( QWidget * = NULL);
+  public:
+    Plot( QWidget* = NULL);
 
-protected:
-    virtual void timerEvent( QTimerEvent * );
+  protected:
+    virtual void timerEvent( QTimerEvent* ) QWT_OVERRIDE;
 
-private:
+  private:
     void updateCurves();
 
-    enum { CurveCount = 4 };
-    Curve *d_curves[CurveCount];
-
-    QTime d_time;
+    QElapsedTimer m_timer;
 };

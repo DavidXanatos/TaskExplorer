@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -12,22 +12,20 @@
 
 #include "qwt_global.h"
 #include "qwt_interval.h"
-#include <qpen.h>
-#include <qsize.h>
-#include <qrect.h>
+
+#include <qnamespace.h>
 
 class QPainter;
 class QPalette;
-class QRect;
-class QwtText;
+class QRectF;
 
 /*!
     \brief Directed rectangle representing bounding rectangle and orientation
     of a column.
-*/
+ */
 class QWT_EXPORT QwtColumnRect
 {
-public:
+  public:
     //! Direction of the column
     enum Direction
     {
@@ -45,30 +43,13 @@ public:
     };
 
     //! Build an rectangle with invalid intervals directed BottomToTop.
-    QwtColumnRect():
-        direction( BottomToTop )
+    QwtColumnRect()
+        : direction( BottomToTop )
     {
     }
 
     //! \return A normalized QRect built from the intervals
-    QRectF toRect() const
-    {
-        QRectF r( hInterval.minValue(), vInterval.minValue(),
-            hInterval.maxValue() - hInterval.minValue(),
-            vInterval.maxValue() - vInterval.minValue() );
-        r = r.normalized();
-
-        if ( hInterval.borderFlags() & QwtInterval::ExcludeMinimum )
-            r.adjust( 1, 0, 0, 0 );
-        if ( hInterval.borderFlags() & QwtInterval::ExcludeMaximum )
-            r.adjust( 0, 0, -1, 0 );
-        if ( vInterval.borderFlags() & QwtInterval::ExcludeMinimum )
-            r.adjust( 0, 1, 0, 0 );
-        if ( vInterval.borderFlags() & QwtInterval::ExcludeMaximum )
-            r.adjust( 0, 0, 0, -1 );
-
-        return r;
-    }
+    QRectF toRect() const;
 
     //! \return Orientation
     Qt::Orientation orientation() const
@@ -92,33 +73,33 @@ public:
 //! A drawing primitive for columns
 class QWT_EXPORT QwtColumnSymbol
 {
-public:
+  public:
     /*!
-      Style
-      \sa setStyle(), style()
-    */
+       Style
+       \sa setStyle(), style()
+     */
     enum Style
     {
         //! No Style, the symbol draws nothing
         NoStyle = -1,
 
         /*!
-          The column is painted with a frame depending on the frameStyle()
-          and lineWidth() using the palette().
+           The column is painted with a frame depending on the frameStyle()
+           and lineWidth() using the palette().
          */
         Box,
 
         /*!
-          Styles >= QwtColumnSymbol::UserStyle are reserved for derived
-          classes of QwtColumnSymbol that overload draw() with
-          additional application specific symbol types.
+           Styles >= QwtColumnSymbol::UserStyle are reserved for derived
+           classes of QwtColumnSymbol that overload draw() with
+           additional application specific symbol types.
          */
         UserStyle = 1000
     };
 
     /*!
-      Frame Style used in Box style().
-      \sa Style, setFrameStyle(), frameStyle(), setStyle(), setPalette()
+       Frame Style used in Box style().
+       \sa Style, setFrameStyle(), frameStyle(), setStyle(), setPalette()
      */
     enum FrameStyle
     {
@@ -132,8 +113,8 @@ public:
         Raised
     };
 
-public:
-    QwtColumnSymbol( Style = NoStyle );
+  public:
+    explicit QwtColumnSymbol( Style = NoStyle );
     virtual ~QwtColumnSymbol();
 
     void setFrameStyle( FrameStyle );
@@ -142,20 +123,22 @@ public:
     void setLineWidth( int width );
     int lineWidth() const;
 
-    void setPalette( const QPalette & );
-    const QPalette &palette() const;
+    void setPalette( const QPalette& );
+    const QPalette& palette() const;
 
     void setStyle( Style );
     Style style() const;
 
-    virtual void draw( QPainter *, const QwtColumnRect & ) const;
+    virtual void draw( QPainter*, const QwtColumnRect& ) const;
 
-protected:
-    void drawBox( QPainter *, const QwtColumnRect & ) const;
+  protected:
+    void drawBox( QPainter*, const QwtColumnRect& ) const;
 
-private:
+  private:
+    Q_DISABLE_COPY(QwtColumnSymbol)
+
     class PrivateData;
-    PrivateData* d_data;
+    PrivateData* m_data;
 };
 
 #endif

@@ -1,11 +1,16 @@
-#include "circularbuffer.h"
-#include <math.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-CircularBuffer::CircularBuffer( double interval, size_t numPoints ):
-    d_y( NULL ),
-    d_referenceTime( 0.0 ),
-    d_startIndex( 0 ),
-    d_offset( 0.0 )
+#include "CircularBuffer.h"
+#include <QwtMath>
+
+CircularBuffer::CircularBuffer( double interval, size_t numPoints )
+    : m_y( NULL )
+    , m_referenceTime( 0.0 )
+    , m_startIndex( 0 )
+    , m_offset( 0.0 )
 {
     fill( interval, numPoints );
 }
@@ -15,59 +20,59 @@ void CircularBuffer::fill( double interval, size_t numPoints )
     if ( interval <= 0.0 || numPoints < 2 )
         return;
 
-    d_values.resize( numPoints );
-    d_values.fill( 0.0 );
+    m_values.resize( numPoints );
+    m_values.fill( 0.0 );
 
-    if ( d_y )
+    if ( m_y )
     {
-        d_step = interval / ( numPoints - 2 );
+        m_step = interval / ( numPoints - 2 );
         for ( size_t i = 0; i < numPoints; i++ )
-            d_values[i] = d_y( i * d_step );
+            m_values[i] = m_y( i * m_step );
     }
 
-    d_interval = interval;
+    m_interval = interval;
 }
 
-void CircularBuffer::setFunction( double( *y )( double ) )
+void CircularBuffer::setFunction( double ( * y )( double ) )
 {
-    d_y = y;
+    m_y = y;
 }
 
 void CircularBuffer::setReferenceTime( double timeStamp )
 {
-    d_referenceTime = timeStamp;
+    m_referenceTime = timeStamp;
 
-    const double startTime = ::fmod( d_referenceTime, d_values.size() * d_step );
+    const double startTime = std::fmod( m_referenceTime, m_values.size() * m_step );
 
-    d_startIndex = int( startTime / d_step ); // floor
-    d_offset = ::fmod( startTime, d_step );
+    m_startIndex = int( startTime / m_step ); // floor
+    m_offset = std::fmod( startTime, m_step );
 }
 
 double CircularBuffer::referenceTime() const
 {
-    return d_referenceTime;
+    return m_referenceTime;
 }
 
 size_t CircularBuffer::size() const
 {
-    return d_values.size();
+    return m_values.size();
 }
 
 QPointF CircularBuffer::sample( size_t i ) const
 {
-    const int size = d_values.size();
+    const int size = m_values.size();
 
-    int index = d_startIndex + i;
+    int index = m_startIndex + i;
     if ( index >= size )
         index -= size;
 
-    const double x = i * d_step - d_offset - d_interval;
-    const double y = d_values.data()[index];
+    const double x = i * m_step - m_offset - m_interval;
+    const double y = m_values.data()[index];
 
     return QPointF( x, y );
 }
 
 QRectF CircularBuffer::boundingRect() const
 {
-    return QRectF( -1.0, -d_interval, 2.0, d_interval );
+    return QRectF( -1.0, -m_interval, 2.0, m_interval );
 }

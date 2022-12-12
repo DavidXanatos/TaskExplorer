@@ -32,8 +32,8 @@
             PhpFormatThousandSeparator = localeBuffer[0];
         }
 
-        if (PhpFormatDecimalSeparator != '.')
-            PhpFormatUserLocale = _create_locale(LC_ALL, "");
+        if (PhpFormatDecimalSeparator != L'.')
+            PhpFormatUserLocale = _wcreate_locale(LC_ALL, L"");
 
         PhEndInitOnce(&PhpFormatInitOnce);
     }
@@ -205,9 +205,9 @@
         if (OK_BUFFER) \
         { \
             if (flags & PHP_FORMAT_NEGATIVE) \
-                *buffer++ = '-'; \
+                *buffer++ = L'-'; \
             else if ((Format)->Type & FormatPrefixSign) \
-                *buffer++ = '+'; \
+                *buffer++ = L'+'; \
             \
             if (flags & PHP_FORMAT_PAD) \
             { \
@@ -284,7 +284,6 @@ CommonInt64Format:
     do { \
         ULONG precision; \
         DOUBLE value; \
-        CHAR c; \
         PSTR temp; \
         ULONG length; \
         \
@@ -300,25 +299,14 @@ CommonInt64Format:
             precision = 6; \
         } \
         \
-        c = 'f'; \
-        \
-        if ((Format)->Type & FormatStandardForm) \
-            c = 'e'; \
-        else if ((Format)->Type & FormatHexadecimalForm) \
-            c = 'a'; \
-        \
-        /* Use MS CRT routines to do the work. */ \
-        \
         value = (Format)->u.Double; \
         temp = (PSTR)tempBuffer + 1; /* leave one character so we can insert a prefix if needed */ \
-        _cfltcvt_l( \
-            &value, \
-            temp, \
-            sizeof(tempBuffer) - 1, \
-            c, \
+        PhpFormatDoubleToUtf8Locale( \
+            value, \
+            (Format)->Type, \
             precision, \
-            !!((Format)->Type & FormatUpperCase), \
-            PhpFormatUserLocale \
+            temp, \
+            sizeof(tempBuffer) - 1 \
             ); \
         \
         /* if (((Format)->Type & FormatForceDecimalPoint) && precision == 0) */ \
@@ -379,9 +367,9 @@ CommonInt64Format:
             if (OK_BUFFER) \
             { \
                 if (flags & PHP_FORMAT_NEGATIVE) \
-                    *buffer++ = '-'; \
+                    *buffer++ = L'-'; \
                 else if (flags & PHP_FORMAT_POSITIVE) \
-                    *buffer++ = '+'; \
+                    *buffer++ = L'+'; \
                 \
                 while (copyCount--) \
                 { \
@@ -437,9 +425,9 @@ CommonInt64Format:
             if (OK_BUFFER) \
             { \
                 if (flags & PHP_FORMAT_NEGATIVE) \
-                    *buffer++ = '-'; \
+                    *buffer++ = L'-'; \
                 else if (flags & PHP_FORMAT_POSITIVE) \
-                    *buffer++ = '+'; \
+                    *buffer++ = L'+'; \
                 \
                 if (flags & PHP_FORMAT_PAD) \
                 { \
@@ -510,7 +498,7 @@ CommonInt64Format:
                 ENSURE_BUFFER(sizeof(WCHAR) + PhpSizeUnitNamesCounted[i].Length);
                 if (OK_BUFFER)
                 {
-                    *buffer = ' ';
+                    *buffer = L' ';
                     memcpy(buffer + 1, PhpSizeUnitNamesCounted[i].Buffer, PhpSizeUnitNamesCounted[i].Length);
                 }
                 ADVANCE_BUFFER(sizeof(WCHAR) + PhpSizeUnitNamesCounted[i].Length);
@@ -541,7 +529,7 @@ ContinueLoop:
                     if (format->Type & FormatUsePad)
                         pad = format->Pad;
                     else
-                        pad = ' ';
+                        pad = L' ';
 
                     if (format->Type & FormatLeftAlign)
                     {

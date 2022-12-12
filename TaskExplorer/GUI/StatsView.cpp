@@ -17,7 +17,7 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	m_eView = eView;
 
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	// Stack List
@@ -419,7 +419,7 @@ void CStatsView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	{
 		CProcessPtr pProcess = Processes.first();
 
-		m_pUpTime->setText(eCount, QDateTime::fromTime_t(pProcess->GetCreateTimeStamp() / 1000).toString("dd.MM.yyyy hh:mm:ss"));
+		m_pUpTime->setText(eCount, QDateTime::fromSecsSinceEpoch(pProcess->GetCreateTimeStamp() / 1000).toString("dd.MM.yyyy hh:mm:ss"));
 	}
 	else
 	{
@@ -518,7 +518,7 @@ void CStatsView::ShowSystem()
 #ifdef WIN32
     /*QString pagedLimit;
     QString nonPagedLimit;
-	if (!KphIsConnected())
+	if (!KphCommsIsConnected())
     {
         pagedLimit = nonPagedLimit = tr("no driver");
     }
@@ -632,7 +632,7 @@ void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 }
 #endif
 
-void CStatsView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
+void CStatsView::SetFilter(const QRegularExpression& Exp, bool bHighLight, int Col)
 {
 	CPanelWidgetEx::ApplyFilter(m_pStatsList, Exp/*, bHighLight, Col*/);
 }

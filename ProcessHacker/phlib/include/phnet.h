@@ -158,7 +158,6 @@ typedef struct _PH_HTTP_CONTEXT
     PVOID SessionHandle;
     PVOID ConnectionHandle;
     PVOID RequestHandle;
-    PWSTR ServerName;
 } PH_HTTP_CONTEXT, *PPH_HTTP_CONTEXT;
 
 _Success_(return)
@@ -179,9 +178,9 @@ PhHttpSocketDestroy(
 
 typedef enum _PH_HTTP_SOCKET_CLOSE_TYPE
 {
-    PH_HTTP_SOCKET_CLOSE_SESSION = 0x0,
-    PH_HTTP_SOCKET_CLOSE_CONNECTION = 0x1,
-    PH_HTTP_SOCKET_CLOSE_REQUEST = 0x2,
+    PH_HTTP_SOCKET_CLOSE_SESSION = 0x1,
+    PH_HTTP_SOCKET_CLOSE_CONNECTION = 0x2,
+    PH_HTTP_SOCKET_CLOSE_REQUEST = 0x4,
 } PH_HTTP_SOCKET_CLOSE_TYPE;
 
 PHLIBAPI
@@ -343,7 +342,7 @@ NTSTATUS
 NTAPI
 PhHttpSocketDownloadToFile(
     _In_ PPH_HTTP_CONTEXT HttpContext,
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PPH_HTTPDOWNLOAD_CALLBACK Callback,
     _In_opt_ PVOID Context
     );
@@ -390,7 +389,7 @@ PhHttpSocketGetErrorMessage(
     );
 
 PHLIBAPI
-BOOLEAN 
+BOOLEAN
 NTAPI
 PhHttpSocketSetCredentials(
     _In_ PPH_HTTP_CONTEXT HttpContext,

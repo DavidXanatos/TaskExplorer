@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   Appmodel support functions
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2020 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -69,22 +58,22 @@ static PVOID PhpQueryStartMenuCacheInterface(
     return startMenuInterface;
 }
 
-static LPMALLOC PhpQueryStartMenuMallocInterface(
-    VOID
-    )
-{
-    static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static LPMALLOC allocInterface = NULL;
-
-    if (PhBeginInitOnce(&initOnce))
-    {
-        CoGetMalloc(MEMCTX_TASK, &allocInterface);
-
-        PhEndInitOnce(&initOnce);
-    }
-
-    return allocInterface;
-}
+//static LPMALLOC PhpQueryStartMenuMallocInterface(
+//    VOID
+//    )
+//{
+//    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+//    static LPMALLOC allocInterface = NULL;
+//
+//    if (PhBeginInitOnce(&initOnce))
+//    {
+//        CoGetMalloc(MEMCTX_TASK, &allocInterface);
+//
+//        PhEndInitOnce(&initOnce);
+//    }
+//
+//    return allocInterface;
+//}
 
 static BOOLEAN PhpKernelAppCoreInitialized(
     VOID
@@ -108,7 +97,7 @@ static BOOLEAN PhpKernelAppCoreInitialized(
 
             if (
                 AppContainerDeriveSidFromMoniker_I &&
-                AppContainerLookupMoniker_I && 
+                AppContainerLookupMoniker_I &&
                 AppContainerFreeMemory_I
                 )
             {
@@ -221,7 +210,7 @@ BOOLEAN PhAppResolverGetAppIdForWindow(
 }
 
 HRESULT PhAppResolverActivateAppId(
-    _In_ PPH_STRING AppUserModelId,
+    _In_ PPH_STRING ApplicationUserModelId,
     _In_opt_ PWSTR CommandLine,
     _Out_opt_ HANDLE *ProcessId
     )
@@ -243,7 +232,7 @@ HRESULT PhAppResolverActivateAppId(
 
         status = IApplicationActivationManager_ActivateApplication(
             applicationActivationManager,
-            PhGetString(AppUserModelId),
+            PhGetString(ApplicationUserModelId),
             CommandLine,
             AO_NONE,
             &processId
@@ -467,7 +456,7 @@ PPH_STRING PhGetAppContainerName(
         return NULL;
 
     result = AppContainerLookupMoniker_I(
-        AppContainerSid, 
+        AppContainerSid,
         &packageMonikerName
         );
 
@@ -517,7 +506,7 @@ PPH_STRING PhGetAppContainerSidFromName(
         return NULL;
 
     if (SUCCEEDED(AppContainerDeriveSidFromMoniker_I(
-        AppContainerName, 
+        AppContainerName,
         &appContainerSid
         )))
     {
@@ -532,7 +521,7 @@ PPH_STRING PhGetAppContainerSidFromName(
 PPH_STRING PhGetAppContainerPackageName(
     _In_ PSID Sid
     )
-{   
+{
     static PH_STRINGREF appcontainerMappings = PH_STRINGREF_INIT(L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppContainer\\Mappings\\");
     static PH_STRINGREF appcontainerDefaultMappings = PH_STRINGREF_INIT(L".DEFAULT\\");
     HANDLE keyHandle;
@@ -624,15 +613,28 @@ PPH_STRING PhGetPackageAppDataPath(
 {
     static PH_STRINGREF attributeName = PH_STRINGREF_INIT(L"WIN://SYSAPPID");
     static PH_STRINGREF appdataPackages = PH_STRINGREF_INIT(L"%APPDATALOCAL%\\Packages\\");
+    NTSTATUS status;
     HANDLE tokenHandle;
+    BOOLEAN tokenContainerRevertToken = FALSE;
     PTOKEN_SECURITY_ATTRIBUTES_INFORMATION info;
     PPH_STRING packageAppDataPath = NULL;
 
-    if (NT_SUCCESS(PhOpenProcessToken(
+    status = PhOpenProcessToken(
         ProcessHandle,
-        TOKEN_QUERY,
+        TOKEN_QUERY | TOKEN_IMPERSONATE | TOKEN_DUPLICATE,
         &tokenHandle
-        )))
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        tokenContainerRevertToken = NT_SUCCESS(PhImpersonateToken(NtCurrentThread(), tokenHandle));
+    }
+    else
+    {
+        status = PhOpenProcessToken(ProcessHandle, TOKEN_QUERY, &tokenHandle);
+    }
+
+    if (NT_SUCCESS(status))
     {
         if (NT_SUCCESS(PhQueryTokenVariableSize(tokenHandle, TokenSecurityAttributes, &info)))
         {
@@ -642,11 +644,11 @@ PPH_STRING PhGetPackageAppDataPath(
 
                 if (attribute->ValueType == TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING)
                 {
-                    PH_STRINGREF attributeNameSr;
+                    PH_STRINGREF valueAttributeName;
 
-                    PhUnicodeStringToStringRef(&attribute->Name, &attributeNameSr);
+                    PhUnicodeStringToStringRef(&attribute->Name, &valueAttributeName);
 
-                    if (PhEqualStringRef(&attributeNameSr, &attributeName, FALSE))
+                    if (PhEqualStringRef(&valueAttributeName, &attributeName, FALSE))
                     {
                         PPH_STRING attributeValue;
                         PPH_STRING attributePath;
@@ -670,6 +672,9 @@ PPH_STRING PhGetPackageAppDataPath(
 
             PhFree(info);
         }
+
+        if (tokenContainerRevertToken)
+            PhRevertImpersonationToken(NtCurrentThread());
 
         NtClose(tokenHandle);
     }
@@ -854,19 +859,19 @@ HRESULT PhAppResolverBeginCrashDumpTask(
     )
 {
     HRESULT status;
-    IOSTaskCompletion* taskCompletionManager;
+    IOSTaskCompletion* taskCompletion;
 
     status = PhGetClassObject(
         L"twinapi.appcore.dll",
         &CLSID_OSTaskCompletion_I,
         &IID_IOSTaskCompletion_I,
-        &taskCompletionManager
+        &taskCompletion
         );
 
     if (SUCCEEDED(status))
     {
         status = IOSTaskCompletion_BeginTask(
-            taskCompletionManager,
+            taskCompletion,
             HandleToUlong(ProcessId),
             PT_TC_CRASHDUMP
             );
@@ -874,11 +879,47 @@ HRESULT PhAppResolverBeginCrashDumpTask(
 
     if (SUCCEEDED(status))
     {
-        *TaskHandle = taskCompletionManager;
+        *TaskHandle = taskCompletion;
     }
-    else if (taskCompletionManager)
+    else if (taskCompletion)
     {
-        IOSTaskCompletion_Release(taskCompletionManager);
+        IOSTaskCompletion_Release(taskCompletion);
+    }
+
+    return status;
+}
+
+HRESULT PhAppResolverBeginCrashDumpTaskByHandle(
+    _In_ HANDLE ProcessHandle,
+    _Out_ HANDLE *TaskHandle
+    )
+{
+    HRESULT status;
+    IOSTaskCompletion* taskCompletion;
+
+    status = PhGetClassObject(
+        L"twinapi.appcore.dll",
+        &CLSID_OSTaskCompletion_I,
+        &IID_IOSTaskCompletion_I,
+        &taskCompletion
+        );
+
+    if (SUCCEEDED(status))
+    {
+        status = IOSTaskCompletion_BeginTaskByHandle(
+            taskCompletion,
+            ProcessHandle,
+            PT_TC_CRASHDUMP
+            );
+    }
+
+    if (SUCCEEDED(status))
+    {
+        *TaskHandle = taskCompletion;
+    }
+    else if (taskCompletion)
+    {
+        IOSTaskCompletion_Release(taskCompletion);
     }
 
     return status;

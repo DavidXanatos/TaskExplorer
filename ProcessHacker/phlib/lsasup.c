@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   LSA support functions
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010-2011 wj32
- * Copyright (C) 2019 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010-2011
+ *     dmex    2019-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -30,6 +19,8 @@
 
 #include <ph.h>
 #include <apiimport.h>
+
+#include <accctrl.h>
 #include <lsasup.h>
 
 NTSTATUS PhOpenLsaPolicy(
@@ -343,11 +334,10 @@ VOID PhLookupSids(
             {
                 if (domainName && userName)
                 {
-                    translatedNames[i] = PhConcatStrings(
-                        3,
-                        domainName->Buffer,
-                        L"\\",
-                        userName->Buffer
+                    translatedNames[i] = PhConcatStringRef3(
+                        &domainName->sr,
+                        &PhNtPathSeperatorString,
+                        &userName->sr
                         );
                 }
                 else if (domainName)
@@ -602,7 +592,7 @@ PPH_STRING PhSidToStringSid(
 }
 
 PPH_STRING PhGetTokenUserString(
-    _In_ HANDLE TokenHandle, 
+    _In_ HANDLE TokenHandle,
     _In_ BOOLEAN IncludeDomain
     )
 {
@@ -735,23 +725,19 @@ VOID PhInitializeCapabilitySidCache(
     _Inout_ PPH_ARRAY CapabilitySidArrayList
     )
 {
-    PPH_STRING applicationDirectory;
     PPH_STRING capabilityListString = NULL;
+    PPH_STRING capabilityListFileName;
     PH_STRINGREF namePart;
     PH_STRINGREF remainingPart;
 
     if (!RtlDeriveCapabilitySidsFromName_Import())
         return;
 
-    if (applicationDirectory = PhGetApplicationDirectory())
+    if (capabilityListFileName = PhGetApplicationDirectory())
     {
-        PPH_STRING capabilityListFileName;
-
-        capabilityListFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"capslist.txt");
-        PhDereferenceObject(applicationDirectory);
-
-        capabilityListString = PhFileReadAllText(capabilityListFileName->Buffer, TRUE);
-        PhDereferenceObject(capabilityListFileName);      
+        PhMoveReference(&capabilityListFileName, PhConcatStringRefZ(&capabilityListFileName->sr, L"capslist.txt"));
+        capabilityListString = PhFileReadAllText(&capabilityListFileName->sr, TRUE);
+        PhDereferenceObject(capabilityListFileName);
     }
 
     if (!capabilityListString)
@@ -1021,4 +1007,19 @@ PPH_STRING PhGetCapabilityGuidName(
     }
 
     return NULL;
+}
+
+// rev from BuildTrusteeWithSidW (dmex)
+BOOLEAN PhBuildTrusteeWithSid(
+    _Out_ PVOID Trustee,
+    _In_opt_ PSID Sid
+    )
+{
+    memset((PTRUSTEE)Trustee, 0, sizeof(TRUSTEE));
+    ((PTRUSTEE)Trustee)->pMultipleTrustee = NULL;
+    ((PTRUSTEE)Trustee)->MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE;
+    ((PTRUSTEE)Trustee)->TrusteeForm = TRUSTEE_IS_SID;
+    ((PTRUSTEE)Trustee)->TrusteeType = TRUSTEE_IS_UNKNOWN;
+    ((PTRUSTEE)Trustee)->ptstrName = (LPWCH)Sid;
+    return TRUE;
 }

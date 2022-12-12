@@ -1,76 +1,61 @@
-#include <qglobal.h>
-#include <qwt_painter.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_grid.h>
-#include <qwt_plot_curve.h>
-#include <qwt_plot_layout.h>
-#include <qwt_scale_widget.h>
-#include <qwt_scale_draw.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "Plot.h"
+#include "CircularBuffer.h"
+#include "Settings.h"
+
+#include <QwtPainter>
+#include <QwtPlotCanvas>
+#include <QwtPlotGrid>
+#include <QwtPlotCurve>
+#include <QwtPlotLayout>
+#include <QwtScaleWidget>
+#include <QwtScaleDraw>
+#include <QwtMath>
+
 #ifndef QWT_NO_OPENGL
-#include <qevent.h>
-#include <qwt_plot_glcanvas.h>
+
+#if QT_VERSION >= 0x050400
+#define USE_OPENGL_WIDGET 1
 #endif
-#include "plot.h"
-#include "circularbuffer.h"
-#include "settings.h"
+
+#if USE_OPENGL_WIDGET
+    #include <QwtPlotOpenGLCanvas>
+#else
+    #include <QwtPlotGLCanvas>
+#endif
+#endif
 
 static double wave( double x )
 {
     const double period = 1.0;
     const double c = 5.0;
 
-    double v = ::fmod( x, period );
+    double v = std::fmod( x, period );
 
     const double amplitude = qAbs( x - qRound( x / c ) * c ) / ( 0.5 * c );
-    v = amplitude * qSin( v / period * 2 * M_PI );
+    v = amplitude * std::sin( v / period * 2 * M_PI );
 
     return v;
 }
 
 static double noise( double )
 {
-    return 2.0 * ( qrand() / ( static_cast<double>( RAND_MAX ) + 1 ) ) - 1.0;
+    return 2.0 * ( qwtRand() / ( static_cast< double >( RAND_MAX ) + 1 ) ) - 1.0;
 }
 
-#ifndef QWT_NO_OPENGL
-class GLCanvas: public QwtPlotGLCanvas
-{
-public:
-    GLCanvas( QwtPlot *parent = NULL ):
-        QwtPlotGLCanvas( parent )
-    {
-        setContentsMargins( 1, 1, 1, 1 );
-    }
-
-protected:
-    virtual void paintEvent( QPaintEvent *event )
-    {
-        QPainter painter( this );
-        painter.setClipRegion( event->region() );
-
-        QwtPlot *plot = qobject_cast< QwtPlot *>( parent() );
-        if ( plot )
-            plot->drawCanvas( &painter );
-
-        painter.setPen( palette().windowText().color() );
-#if QT_VERSION >= 0x050000
-        painter.drawRect( rect().adjusted( 1, 1, 0, 0 ) );
-#else
-        painter.drawRect( rect().adjusted( 0, 0, -1, -1 ) );
-#endif
-    }
-};
-#endif
-
-Plot::Plot( QWidget *parent ):
-    QwtPlot( parent ),
-    d_interval( 10.0 ), // seconds
-    d_timerId( -1 )
+Plot::Plot( QWidget* parent )
+    : QwtPlot( parent )
+    , m_interval( 10.0 ) // seconds
+    , m_timerId( -1 )
 {
     // Assign a title
     setTitle( "Testing Refresh Rates" );
 
-    QwtPlotCanvas *canvas = new QwtPlotCanvas();
+    QwtPlotCanvas* canvas = new QwtPlotCanvas();
     canvas->setFrameStyle( QFrame::Box | QFrame::Plain );
     canvas->setLineWidth( 1 );
     canvas->setPalette( Qt::white );
@@ -80,25 +65,25 @@ Plot::Plot( QWidget *parent ):
     alignScales();
 
     // Insert grid
-    d_grid = new QwtPlotGrid();
-    d_grid->attach( this );
+    m_grid = new QwtPlotGrid();
+    m_grid->attach( this );
 
     // Insert curve
-    d_curve = new QwtPlotCurve( "Data Moving Right" );
-    d_curve->setPen( Qt::black );
-    d_curve->setData( new CircularBuffer( d_interval, 10 ) );
-    d_curve->attach( this );
+    m_curve = new QwtPlotCurve( "Data Moving Right" );
+    m_curve->setPen( Qt::black );
+    m_curve->setData( new CircularBuffer( m_interval, 10 ) );
+    m_curve->attach( this );
 
     // Axis
-    setAxisTitle( QwtPlot::xBottom, "Seconds" );
-    setAxisScale( QwtPlot::xBottom, -d_interval, 0.0 );
+    setAxisTitle( QwtAxis::XBottom, "Seconds" );
+    setAxisScale( QwtAxis::XBottom, -m_interval, 0.0 );
 
-    setAxisTitle( QwtPlot::yLeft, "Values" );
-    setAxisScale( QwtPlot::yLeft, -1.0, 1.0 );
+    setAxisTitle( QwtAxis::YLeft, "Values" );
+    setAxisScale( QwtAxis::YLeft, -1.0, 1.0 );
 
-    d_clock.start();
+    m_elapsedTimer.start();
 
-    setSettings( d_settings );
+    setSettings( m_settings );
 }
 
 //
@@ -110,13 +95,13 @@ void Plot::alignScales()
     // the canvas frame, but is also a good example demonstrating
     // why the spreaded API needs polishing.
 
-    for ( int i = 0; i < QwtPlot::axisCnt; i++ )
+    for ( int axisPos = 0; axisPos < QwtAxis::AxisPositions; axisPos++ )
     {
-        QwtScaleWidget *scaleWidget = axisWidget( i );
+        QwtScaleWidget* scaleWidget = axisWidget( axisPos );
         if ( scaleWidget )
             scaleWidget->setMargin( 0 );
 
-        QwtScaleDraw *scaleDraw = axisScaleDraw( i );
+        QwtScaleDraw* scaleDraw = axisScaleDraw( axisPos );
         if ( scaleDraw )
             scaleDraw->enableComponent( QwtAbstractScaleDraw::Backbone, false );
     }
@@ -124,19 +109,19 @@ void Plot::alignScales()
     plotLayout()->setAlignCanvasToScales( true );
 }
 
-void Plot::setSettings( const Settings &s )
+void Plot::setSettings( const Settings& s )
 {
-    if ( d_timerId >= 0 )
-        killTimer( d_timerId );
+    if ( m_timerId >= 0 )
+        killTimer( m_timerId );
 
-    d_timerId = startTimer( s.updateInterval );
+    m_timerId = startTimer( s.updateInterval );
 
-    d_grid->setPen( s.grid.pen );
-    d_grid->setVisible( s.grid.pen.style() != Qt::NoPen );
+    m_grid->setPen( s.grid.pen );
+    m_grid->setVisible( s.grid.pen.style() != Qt::NoPen );
 
-    CircularBuffer *buffer = static_cast<CircularBuffer *>( d_curve->data() );
+    CircularBuffer* buffer = static_cast< CircularBuffer* >( m_curve->data() );
     if ( s.curve.numPoints != buffer->size() ||
-            s.curve.functionType != d_settings.curve.functionType )
+        s.curve.functionType != m_settings.curve.functionType )
     {
         switch( s.curve.functionType )
         {
@@ -150,36 +135,54 @@ void Plot::setSettings( const Settings &s )
                 buffer->setFunction( NULL );
         }
 
-        buffer->fill( d_interval, s.curve.numPoints );
+        buffer->fill( m_interval, s.curve.numPoints );
     }
 
-    d_curve->setPen( s.curve.pen );
-    d_curve->setBrush( s.curve.brush );
+    m_curve->setPen( s.curve.pen );
+    m_curve->setBrush( s.curve.brush );
 
-    d_curve->setPaintAttribute( QwtPlotCurve::ClipPolygons,
+    m_curve->setPaintAttribute( QwtPlotCurve::ClipPolygons,
         s.curve.paintAttributes & QwtPlotCurve::ClipPolygons );
-    d_curve->setPaintAttribute( QwtPlotCurve::FilterPoints,
+    m_curve->setPaintAttribute( QwtPlotCurve::FilterPoints,
         s.curve.paintAttributes & QwtPlotCurve::FilterPoints );
+    m_curve->setPaintAttribute( QwtPlotCurve::FilterPointsAggressive,
+        s.curve.paintAttributes & QwtPlotCurve::FilterPointsAggressive );
 
-    d_curve->setRenderHint( QwtPlotItem::RenderAntialiased,
+    m_curve->setRenderHint( QwtPlotItem::RenderAntialiased,
         s.curve.renderHint & QwtPlotItem::RenderAntialiased );
 
 #ifndef QWT_NO_OPENGL
     if ( s.canvas.openGL )
     {
-        QwtPlotGLCanvas *plotCanvas = qobject_cast<QwtPlotGLCanvas *>( canvas() );
+#if USE_OPENGL_WIDGET
+        QwtPlotOpenGLCanvas* plotCanvas = qobject_cast< QwtPlotOpenGLCanvas* >( canvas() );
         if ( plotCanvas == NULL )
         {
-            plotCanvas = new GLCanvas();
+            plotCanvas = new QwtPlotOpenGLCanvas();
+            plotCanvas->setPalette( QColor( "NavajoWhite" ) );
             plotCanvas->setPalette( QColor( "khaki" ) );
+            plotCanvas->setFrameStyle( QFrame::Box | QFrame::Plain );
+            plotCanvas->setLineWidth( 1 );
 
             setCanvas( plotCanvas );
         }
+#else
+        QwtPlotGLCanvas* plotCanvas = qobject_cast< QwtPlotGLCanvas* >( canvas() );
+        if ( plotCanvas == NULL )
+        {
+            plotCanvas = new QwtPlotGLCanvas();
+            plotCanvas->setPalette( QColor( "khaki" ) );
+            plotCanvas->setFrameStyle( QFrame::Box | QFrame::Plain );
+            plotCanvas->setLineWidth( 1 );
+
+            setCanvas( plotCanvas );
+        }
+#endif
     }
     else
 #endif
     {
-        QwtPlotCanvas *plotCanvas = qobject_cast<QwtPlotCanvas *>( canvas() );
+        QwtPlotCanvas* plotCanvas = qobject_cast< QwtPlotCanvas* >( canvas() );
         if ( plotCanvas == NULL )
         {
             plotCanvas = new QwtPlotCanvas();
@@ -200,15 +203,15 @@ void Plot::setSettings( const Settings &s )
 
     QwtPainter::setPolylineSplitting( s.curve.lineSplitting );
 
-    d_settings = s;
+    m_settings = s;
 }
 
-void Plot::timerEvent( QTimerEvent * )
+void Plot::timerEvent( QTimerEvent* )
 {
-    CircularBuffer *buffer = static_cast<CircularBuffer *>( d_curve->data() );
-    buffer->setReferenceTime( d_clock.elapsed() / 1000.0 );
+    CircularBuffer* buffer = static_cast< CircularBuffer* >( m_curve->data() );
+    buffer->setReferenceTime( m_elapsedTimer.elapsed() / 1000.0 );
 
-    if ( d_settings.updateType == Settings::RepaintCanvas )
+    if ( m_settings.updateType == Settings::RepaintCanvas )
     {
         // the axes in this example doesn't change. So all we need to do
         // is to repaint the canvas.
@@ -220,3 +223,5 @@ void Plot::timerEvent( QTimerEvent * )
         replot();
     }
 }
+
+#include "moc_Plot.cpp"

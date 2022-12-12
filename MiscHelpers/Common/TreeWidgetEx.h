@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../mischelpers_global.h"
+#include "TreeViewEx.h"
 
 class MISCHELPERS_EXPORT QTreeWidgetEx: public QTreeWidget
 {
@@ -77,7 +78,7 @@ private slots:
 			if (m_ColumnReset)
 			{
 				m_pMenu->addSeparator();
-				QAction* pAction = m_pMenu->addAction(tr("Reset columns"));
+				QAction* pAction = m_pMenu->addAction(QTreeViewEx::m_ResetColumns);
 				if(m_ColumnReset == 1)
 					connect(pAction, SIGNAL(triggered()), this, SLOT(OnResetColumns()));
 				else

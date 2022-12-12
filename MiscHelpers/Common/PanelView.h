@@ -10,8 +10,15 @@ public:
 	virtual ~CPanelView();
 
 	static void					SetSimpleFormat(bool bSimple) { m_SimpleFormat = bSimple; }
+	static void					SetDarkMode(bool bDarkMode) { m_DarkMode = bDarkMode; }
 	static void					SetMaxCellWidth(int iMaxWidth) { m_MaxCellWidth = iMaxWidth; }
 	static void					SetCellSeparator(const QString& Sep) { m_CellSeparator = Sep; }
+
+	virtual QList<QStringList>	DumpPanel();
+
+	static QString				m_CopyCell;
+	static QString				m_CopyRow;
+	static QString				m_CopyPanel;
 
 protected slots:
 	virtual void				OnMenu(const QPoint& Point);
@@ -39,6 +46,8 @@ protected slots:
 	virtual void				RecursiveCopyPanel(const QModelIndex& ModelIndex, QList<QStringList>& Rows, int Level = 0);
 
 protected:
+	void						UpdateCopyMenu();
+	void						AddCopyMenu(QMenu* pMenu, bool bAddSeparator = true);
 	void						FormatAndCopy(QList<QStringList> Rows, bool Headder = true);
 
 	QMenu*						m_pMenu;
@@ -50,6 +59,7 @@ protected:
 	//bool						m_CopyAll;
 	QSet<int>					m_ForcedColumns;
 	static bool					m_SimpleFormat;
+	static bool					m_DarkMode;
 	static int					m_MaxCellWidth;
 	static QString				m_CellSeparator;
 };
@@ -61,7 +71,7 @@ public:
 	CPanelWidget(QWidget *parent = 0) : CPanelView(parent)
 	{
 		m_pMainLayout = new QVBoxLayout();
-		m_pMainLayout->setMargin(0);
+		m_pMainLayout->setContentsMargins(0,0,0,0);
 		this->setLayout(m_pMainLayout);
 
 		m_pTreeList = new T();
@@ -103,13 +113,15 @@ public:
 	{
 		m_pFinder = new CFinder(NULL, this, false);
 		m_pMainLayout->addWidget(m_pFinder);
-		QObject::connect(m_pFinder, SIGNAL(SetFilter(const QRegExp&, bool, int)), this, SLOT(SetFilter(const QRegExp&, bool, int)));
+		QObject::connect(m_pFinder, SIGNAL(SetFilter(const QRegularExpression&, bool, int)), this, SLOT(SetFilter(const QRegularExpression&, bool, int)));
 	}
 
-	static void ApplyFilter(QTreeWidgetEx* pTree, QTreeWidgetItem* pItem, const QRegExp& Exp/*, bool bHighLight = false, int Col = -1*/)
+	static void ApplyFilter(QTreeWidgetEx* pTree, QTreeWidgetItem* pItem, const QRegularExpression& Exp/*, bool bHighLight = false, int Col = -1*/)
 	{
-		for (int j = 0; j < pTree->columnCount(); j++)
-			pItem->setBackground(j, !Exp.isEmpty() && pItem->text(j).contains(Exp) ? Qt::yellow : Qt::white);
+		for (int j = 0; j < pTree->columnCount(); j++) {
+			pItem->setForeground(j, (m_DarkMode && !Exp.isValid() && pItem->text(j).contains(Exp)) ? Qt::yellow : pTree->palette().color(QPalette::WindowText));
+			pItem->setBackground(j, (!m_DarkMode && !Exp.isValid() && pItem->text(j).contains(Exp)) ? Qt::yellow : pTree->palette().color(QPalette::Base));
+		}
 
 		for (int i = 0; i < pItem->childCount(); i++)
 		{
@@ -117,14 +129,14 @@ public:
 		}
 	}
 
-	static void ApplyFilter(QTreeWidgetEx* pTree, const QRegExp& Exp/*, bool bHighLight = false, int Col = -1*/)
+	static void ApplyFilter(QTreeWidgetEx* pTree, const QRegularExpression& Exp/*, bool bHighLight = false, int Col = -1*/)
 	{
 		for (int i = 0; i < pTree->topLevelItemCount(); i++)
 			ApplyFilter(pTree, pTree->topLevelItem(i), Exp/*, bHighLight, Col*/);
 	}
 
 private slots:
-	void SetFilter(const QRegExp& Exp, bool bHighLight = false, int Col = -1) // -1 = any
+	void SetFilter(const QRegularExpression& Exp, bool bHighLight = false, int Col = -1) // -1 = any
 	{
 		ApplyFilter(m_pTreeList, Exp);
 	}
@@ -135,27 +147,30 @@ private:
 };
 
 #include "TreeViewEx.h"
+#include "SortFilterProxyModel.h"
 
-template <class T>
-class CPanelViewImpl: public CPanelWidget<QTreeViewEx>
+class CPanelViewEx: public CPanelWidget<QTreeViewEx>
 {
 public:
-	CPanelViewImpl(T* pModel, QWidget *parent = 0) : CPanelWidget<QTreeViewEx>(parent)
+	CPanelViewEx(QAbstractItemModel* pModel, QWidget *parent = 0) : CPanelWidget<QTreeViewEx>(parent)
 	{
 		m_pModel = pModel;
 
-		m_pSortProxy = new CSortFilterProxyModel(false, this);
+		m_pSortProxy = new CSortFilterProxyModel(this);
 		m_pSortProxy->setSortRole(Qt::EditRole);
 		m_pSortProxy->setSourceModel(m_pModel);
 		m_pSortProxy->setDynamicSortFilter(true);
 
 		m_pTreeList->setModel(m_pSortProxy);
+		((CSortFilterProxyModel*)m_pSortProxy)->setView(m_pTreeList);
+		
 
 		m_pTreeList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 #ifdef WIN32
 		QStyle* pStyle = QStyleFactory::create("windows");
 		m_pTreeList->setStyle(pStyle);
 #endif
+		m_pTreeList->setExpandsOnDoubleClick(false);
 		m_pTreeList->setSortingEnabled(true);
 
 		m_pTreeList->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -164,9 +179,11 @@ public:
 		m_pTreeList->setColumnReset(1);
 		//connect(m_pTreeList, SIGNAL(ResetColumns()), m_pTreeList, SLOT(OnResetColumns()));
 		//connect(m_pBoxTree, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
+
+		m_pMainLayout->addWidget(CFinder::AddFinder(m_pTreeList, m_pSortProxy));
 	}
 
 protected:
-	T*						m_pModel;
+	QAbstractItemModel*		m_pModel;
 	QSortFilterProxyModel*	m_pSortProxy;
 };

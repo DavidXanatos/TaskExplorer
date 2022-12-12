@@ -9,7 +9,7 @@ CJobView::CJobView(QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QGridLayout();
-	//m_pMainLayout->setMargin(0);
+	//m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 	int row = 0;
 
@@ -57,7 +57,7 @@ CJobView::CJobView(QWidget *parent)
 
 	m_pProcessModel->SetTree(false);
 
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pProcessModel);
 	m_pSortProxy->setDynamicSortFilter(true);
@@ -94,7 +94,7 @@ CJobView::CJobView(QWidget *parent)
 
 	m_pSubWidget = new QWidget();
 	m_pSubLayout = new QGridLayout();
-	m_pSubLayout->setMargin(0);
+	m_pSubLayout->setContentsMargins(0, 0, 0, 0);
 	m_pSubWidget->setLayout(m_pSubLayout);
 	m_pSplitter->addWidget(m_pSubWidget);
 

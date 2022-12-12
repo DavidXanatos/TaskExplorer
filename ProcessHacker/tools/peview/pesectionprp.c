@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2019-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2019-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -346,7 +335,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
                 //sectionNode->HashString = PhGetNtMessage(GetExceptionCode());
-                sectionNode->HashString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                sectionNode->HashString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
             }
 
             __try
@@ -369,7 +358,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
                 //sectionNode->EntropyString = PhGetNtMessage(GetExceptionCode());
-                sectionNode->EntropyString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                sectionNode->EntropyString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
             }
 
             __try
@@ -394,7 +383,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
                 //sectionNode->SsdeepString = PhGetNtMessage(GetExceptionCode());
-                sectionNode->SsdeepString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                sectionNode->SsdeepString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
             }
 
             __try
@@ -423,7 +412,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
                 //sectionNode->TlshString = PhGetNtMessage(GetExceptionCode());
-                sectionNode->TlshString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                sectionNode->TlshString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
             }
         }
 
@@ -496,6 +485,8 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
         {
             PhSaveSettingsSectionList(context);
             PvDeleteSectionTree(context);
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
@@ -706,7 +697,7 @@ VOID PhLoadSettingsSectionList(
 {
     PPH_STRING settings;
     PPH_STRING sortSettings;
-    
+
     settings = PhGetStringSetting(L"ImageSectionsTreeListColumns");
     sortSettings = PhGetStringSetting(L"ImageSectionsTreeListSort");
     Context->Flags = PhGetIntegerSetting(L"ImageSectionsTreeListFlags");
@@ -723,13 +714,13 @@ VOID PhSaveSettingsSectionList(
 {
     PPH_STRING settings;
     PPH_STRING sortSettings;
-    
+
     settings = PhCmSaveSettingsEx(Context->TreeNewHandle, &Context->Cm, 0, &sortSettings);
-    
+
     PhSetIntegerSetting(L"ImageSectionsTreeListFlags", Context->Flags);
     PhSetStringSetting2(L"ImageSectionsTreeListColumns", &settings->sr);
     PhSetStringSetting2(L"ImageSectionsTreeListSort", &sortSettings->sr);
-    
+
     PhDereferenceObject(settings);
     PhDereferenceObject(sortSettings);
 }
@@ -1181,7 +1172,7 @@ BOOLEAN NTAPI PvSectionTreeNewCallback(
             SendMessage(context->ParentWindowHandle, WM_PV_SEARCH_SHOWMENU, 0, (LPARAM)contextMenu);
         }
         return TRUE;
-    case TreeNewHeaderRightClick: 
+    case TreeNewHeaderRightClick:
         {
             PH_TN_COLUMN_MENU_DATA data;
 
@@ -1189,7 +1180,7 @@ BOOLEAN NTAPI PvSectionTreeNewCallback(
             data.MouseEvent = Parameter1;
             data.DefaultSortColumn = 0;
             data.DefaultSortOrder = AscendingSortOrder;
-            PhInitializeTreeNewColumnMenu(&data);
+            PhInitializeTreeNewColumnMenuEx(&data, PH_TN_COLUMN_MENU_SHOW_RESET_SORT);
 
             data.Selection = PhShowEMenu(data.Menu, hwnd, PH_EMENU_SHOW_LEFTRIGHT,
                 PH_ALIGN_LEFT | PH_ALIGN_TOP, data.MouseEvent->ScreenLocation.x, data.MouseEvent->ScreenLocation.y);

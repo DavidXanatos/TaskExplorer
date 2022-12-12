@@ -4,30 +4,15 @@
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2017-2019 dmex
- * Copyright (C) 2019 David Xanatos
+ * Copyright (C) 2019-2023 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
+ * This file is part of Task Explorer and contains System Informer code.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "stdafx.h"
 #include "ProcessHacker.h"
 #include <settings.h>
-extern "C" {
-#include <kphuserp.h>
-}
 
 QString CastPhString(PPH_STRING phString, bool bDeRef)
 {
@@ -43,7 +28,7 @@ QString CastPhString(PPH_STRING phString, bool bDeRef)
 
 PPH_STRING CastQString(const QString& qString)
 {
-	wstring wstr = qString.toStdWString();
+	std::wstring wstr = qString.toStdWString();
 	UNICODE_STRING ustr;
 	RtlInitUnicodeString(&ustr, (wchar_t*)wstr.c_str());
 	return PhCreateStringFromUnicodeString(&ustr);
@@ -145,114 +130,6 @@ VOID PhpEnablePrivileges(
 	}
 }
 
-NTSTATUS PhpReadSignature(
-    _In_ PWSTR FileName,
-    _Out_ PUCHAR *Signature,
-    _Out_ PULONG SignatureSize
-    )
-{
-    NTSTATUS status;
-    HANDLE fileHandle;
-    PUCHAR signature;
-    ULONG bufferSize;
-    IO_STATUS_BLOCK iosb;
-
-    if (!NT_SUCCESS(status = PhCreateFileWin32(&fileHandle, FileName, FILE_GENERIC_READ, FILE_ATTRIBUTE_NORMAL,
-        FILE_SHARE_READ, FILE_OPEN, FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT)))
-    {
-        return status;
-    }
-
-    bufferSize = 1024;
-    signature = (PUCHAR)PhAllocate(bufferSize);
-
-    status = NtReadFile(fileHandle, NULL, NULL, NULL, &iosb, signature, bufferSize, NULL, NULL);
-    NtClose(fileHandle);
-
-    if (NT_SUCCESS(status))
-    {
-        *Signature = signature;
-        *SignatureSize = (ULONG)iosb.Information;
-        return status;
-    }
-    else
-    {
-        PhFree(signature);
-        return status;
-    }
-}
-
-VOID PhInitializeKph(
-    VOID
-    )
-{
-    NTSTATUS status;
-    PPH_STRING applicationDirectory;
-    PPH_STRING kprocesshackerFileName;
-    //PPH_STRING processhackerSigFileName;
-    KPH_PARAMETERS parameters;
-
-    if (!(applicationDirectory = PhGetApplicationDirectory()))
-        return;
-
-    kprocesshackerFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"kprocesshacker.sys");
-    //processhackerSigFileName = PhConcatStringRefZ(&applicationDirectory->sr, L"ProcessHacker.sig");
-    PhDereferenceObject(applicationDirectory);
-
-    if (!RtlDoesFileExists_U(kprocesshackerFileName->Buffer))
-    {
-		qDebug() << "The Process Hacker kernel driver 'kprocesshacker.sys' was not found in the application directory.";
-        // return;
-    }
-
-    parameters.SecurityLevel = KphSecurityPrivilegeCheck;
-    parameters.CreateDynamicConfiguration = TRUE;
-
-    if (NT_SUCCESS(status = KphConnect2Ex(
-        //KPH_DEVICE_SHORT_NAME,
-		L"XProcessHacker3",
-        kprocesshackerFileName->Buffer,
-        &parameters
-        )))
-    {
-		qDebug() << "Process Hacker kernel driver connected.";
-
-/*
-		PUCHAR signature;
-        ULONG signatureSize;
-
-        status = PhpReadSignature(
-            processhackerSigFileName->Buffer, 
-            &signature, 
-            &signatureSize
-            );
-
-        if (NT_SUCCESS(status))
-        {
-            status = KphVerifyClient(signature, signatureSize);
-
-            if (!NT_SUCCESS(status))
-            {
-				qDebug() << "Unable to verify the kernel driver signature.";
-            }
-
-            PhFree(signature);
-        }
-        else
-        {
-			qDebug() << "Unable to load the kernel driver signature.";
-        }
-*/
-    }
-    else
-    {
-		qDebug() << "Unable to load the kernel driver.";
-    }
-
-    PhDereferenceObject(kprocesshackerFileName);
-    //PhDereferenceObject(processhackerSigFileName);
-}
-
 HMODULE GetThisModuleHandle()
 {
     //Returns module handle where this function is running in: EXE or DLL
@@ -274,7 +151,8 @@ int InitPH(bool bSvc)
 
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
-	if (!NT_SUCCESS(PhInitializePhLibEx(L"Task Explorer", ULONG_MAX, Instance, 0, 0)))
+	//if (!NT_SUCCESS(PhInitializePhLibEx(L"Task Explorer", ULONG_MAX, Instance, 0, 0)))
+	if (!NT_SUCCESS(PhInitializePhLib(L"Task Explorer", Instance)))
 		return 1;
 	//if (!PhInitializeExceptionPolicy())
 	//	return 1;
@@ -315,20 +193,42 @@ int InitPH(bool bSvc)
 	PhpAddIntegerSetting(L"GraphColorMode", L"1");
 	PhpAddIntegerSetting(L"TreeListBorderEnable", L"0");
 
-    /*if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseKProcessHacker", true))
-    {
-        PhInitializeKph();
-    }*/
-
 	return 0;
 }
 
-STATUS InitKPH(QString DeviceName, QString FileName, int SecurityLevel)
+extern "C" {
+
+static VOID NTAPI KsiCommsCallback(
+    _In_ ULONG_PTR ReplyToken,
+    _In_ PCKPH_MESSAGE Message
+    )
+{
+    PPH_FREE_LIST freelist;
+    PKPH_MESSAGE msg;
+
+    if (Message->Header.MessageId != KphMsgProcessCreate)
+    {
+        return;
+    }
+
+    freelist = KphGetMessageFreeList();
+
+    msg = (PKPH_MESSAGE)PhAllocateFromFreeList(freelist);
+    KphMsgInit(msg, KphMsgProcessCreate);
+    msg->Reply.ProcessCreate.CreationStatus = STATUS_SUCCESS;
+    KphCommsReplyMessage(ReplyToken, msg);
+
+    PhFreeToFreeList(freelist, msg);
+}
+
+}
+
+STATUS InitKPH(QString DeviceName, QString FileName)
 {
 	if (DeviceName.isEmpty())
-		DeviceName = QString::fromWCharArray(KPH_DEVICE_SHORT_NAME);
+		DeviceName = QString::fromWCharArray(KPH_SERVICE_NAME);
 	if (FileName.isEmpty())
-		FileName = "kprocesshacker.sys";
+		FileName = "systeminformer.sys";
 
 	// if the file name is not a full path Add the application directory
 	if (!FileName.contains("\\"))
@@ -336,57 +236,119 @@ STATUS InitKPH(QString DeviceName, QString FileName, int SecurityLevel)
 
 	FileName = FileName.replace("/", "\\");
     if (!QFile::exists(FileName))
-		return ERR(QObject::tr("The Process Hacker kernel driver '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
+		return ERR(QObject::tr("The kernel driver file '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
 
-	KPH_PARAMETERS parameters;
-    parameters.SecurityLevel = (KPH_SECURITY_LEVEL)SecurityLevel;
-    parameters.CreateDynamicConfiguration = TRUE;
-	NTSTATUS status = KphConnect2Ex((wchar_t*)DeviceName.toStdWString().c_str(), (wchar_t*)FileName.toStdWString().c_str(), &parameters);
-    if (!NT_SUCCESS(status))
-		return ERR(QObject::tr("Unable to load the kernel driver, Error: %1").arg(CastPhString(PhGetNtMessage(status))), status);
-    
-	PUCHAR signature = NULL;
-    ULONG signatureSize = 0;
+    if (WindowsVersion < WINDOWS_10 || WindowsVersion == WINDOWS_NEW)
+        return ERR("Unsupported windows version.", STATUS_UNKNOWN_REVISION);
+    if (!PhGetOwnTokenAttributes().Elevated)
+        return ERR("Driver required administrative privileges.", STATUS_ELEVATION_REQUIRED);
 
-	QString SigFileName = QApplication::applicationDirPath() + "/TaskExplorer.sig";
-	SigFileName = SigFileName.replace("/", "\\");
-	if (QFile::exists(SigFileName))
-		PhpReadSignature((wchar_t*)SigFileName.toStdWString().c_str(), &signature, &signatureSize);
+	// todo: fix-me
+    //if (PhDoesOldKsiExist())
+    //{
+    //    if (PhGetIntegerSetting(L"EnableKphWarnings") && !PhStartupParameters.PhSvc)
+    //    {
+    //        PhShowKsiError(
+    //            L"Unable to load kernel driver, the last System Informer update requires a reboot.",
+    //            STATUS_PENDING 
+    //            );
+    //    }
+    //    return;
+    //}
 
-	// Note: Debug driver accepts a empty signature as valid
-	if (NT_SUCCESS(KphVerifyClient(signature, signatureSize)))
-	{
-#ifdef _DEBUG
-		KPH_KEY Key;
-		KPHP_GET_L1_KEY_CONTEXT Context = { &Key };
-		KphpGetL1KeyContinuation(-1, &Context); // "Master"-Key LOL
-#endif
-		qDebug() << "Successfully verified the client signature.";
-	}
-	else
-		qDebug() << "Unable to verify the client signature.";
+	STATUS Status = OK;
+	PPH_STRING ksiFileName = NULL;
+    PPH_STRING ksiServiceName = NULL;
 
-	if(signature)
-		PhFree(signature);
+    //if (!(ksiServiceName = PhCreateString(KPH_SERVICE_NAME)))
+	if (!(ksiServiceName = CastQString(DeviceName)))
+        goto CleanupExit;
+    if (!(ksiFileName = CastQString(FileName)))
+        goto CleanupExit;
 
-	return OK;
+    {
+		NTSTATUS status;
+        KPH_CONFIG_PARAMETERS config = { 0 };
+        PPH_STRING objectName = NULL;
+        PPH_STRING portName = NULL;
+        PPH_STRING altitudeName = NULL;
+        BOOLEAN disableImageLoadProtection = TRUE; // FALSE;
+
+        //if (PhIsNullOrEmptyString(objectName = PhGetStringSetting(L"KphObjectName")))
+        //PhMoveReference((PVOID*)&objectName, PhCreateString(KPH_OBJECT_NAME));
+		objectName = CastQString("\\Driver\\" + DeviceName);
+        //if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
+        //PhMoveReference((PVOID*)&portName, PhCreateString(KPH_PORT_NAME));
+		portName = CastQString("\\" + DeviceName);
+        //if (PhIsNullOrEmptyString(altitudeName = PhGetStringSetting(L"KphAltitude")))
+        PhMoveReference((PVOID*)&altitudeName, PhCreateString(KPH_ALTITUDE_NAME));
+        //disableImageLoadProtection = !!PhGetIntegerSetting(L"KphDisableImageLoadProtection");
+
+        config.FileName = &ksiFileName->sr;
+        config.ServiceName = &ksiServiceName->sr;
+        config.ObjectName = &objectName->sr;
+        config.PortName = &portName->sr;
+        config.Altitude = &altitudeName->sr;
+        config.DisableImageLoadProtection = disableImageLoadProtection;
+        config.Callback = KsiCommsCallback;
+        status = KphConnect(&config);
+
+        if (NT_SUCCESS(status))
+        {
+            KPH_LEVEL level = KphLevel();
+
+            if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
+            {
+                //if ((level == KphLevelHigh) &&
+                //    !PhStartupParameters.KphStartupMax)
+                //{
+                //    PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kx");
+                //    PhRestartSelf(&commandline);
+                //}
+
+                //if ((level < KphLevelHigh) &&
+                //    !PhStartupParameters.KphStartupMax &&
+                //    !PhStartupParameters.KphStartupHigh)
+                //{
+                //    PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kh");
+                //    PhRestartSelf(&commandline);
+                //}
+            }
+        }
+        else
+        {
+			Status = ERR("Unable to load the kernel driver service.", status);
+        }
+
+        PhClearReference((PVOID*)&objectName);
+    }
+
+CleanupExit:
+    if (ksiServiceName)
+        PhDereferenceObject(ksiServiceName);
+    if (ksiFileName)
+        PhDereferenceObject(ksiFileName);
+
+	return Status;
 }
 
 void PhShowAbout(QWidget* parent)
 {
 		QString AboutCaption = QString(
-			"<h3>Process Hacker</h3>"
-			"<p>Licensed under the GNU GPL, v3.</p>"
-			"<p>Copyright (c) 2008-2020</p>"
-		).arg("3.0.2450");
+			"<h3>System Informer</h3>"
+			"<p>Licensed Under the MIT License</p>"
+			"<p>Copyright (c) 2022</p>"
+		);
 		QString AboutText = QString(
                 "<p>Thanks to:<br>"
                 "    <a href=\"https://github.com/wj32\">wj32</a> - Wen Jia Liu<br>"
                 "    <a href=\"https://github.com/dmex\">dmex</a> - Steven G<br>"
-                "    <a href=\"https://github.com/xhmikosr\">XhmikosR</a><br>"
-                "    <a href=\"https://github.com/processhacker/processhacker/graphs/contributors\">Contributors</a> - thank you for your additions!<br>"
+                "    <a href=\"https://github.com/jxy-s\">jxy-s</a> - Johnny Shaw<br>"
+                "    <a href=\"https://github.com/ionescu007\">ionescu007</a> - Alex Ionescu\n"
+                "    <a href=\"https://github.com/yardenshafir\">yardenshafir</a> - Yarden Shafir<br>"
+                "    <a href=\"https://github.com/winsiderss/systeminformer/graphs/contributors\">Contributors</a> - thank you for your additions!<br>"
                 "    Donors - thank you for your support!</p>"
-                "<p>Process Hacker uses the following components:<br>"
+                "<p>System Informer uses the following components:<br>"
                 "    <a href=\"https://github.com/michaelrsweet/mxml\">Mini-XML</a> by Michael Sweet<br>"
                 "    <a href=\"https://www.pcre.org\">PCRE</a><br>"
                 "    <a href=\"https://github.com/json-c/json-c\">json-c</a><br>"
@@ -395,7 +357,7 @@ void PhShowAbout(QWidget* parent)
                 "    <a href=\"http://www.famfamfam.com/lab/icons/silk\">Silk icons</a><br>"
                 "    <a href=\"https://www.fatcow.com/free-icons\">Farm-fresh web icons</a><br></p>"
 			"<p></p>"
-			"<p>Visit <a href=\"https://github.com/processhacker/processhacker\">Process Hacker on github</a> for more information.</p>"
+			"<p>Visit <a href=\"https://github.com/winsiderss/systeminformer\">System Informer on github</a> for more information.</p>"
 		);
 		QMessageBox *msgBox = new QMessageBox(parent);
 		msgBox->setAttribute(Qt::WA_DeleteOnClose);

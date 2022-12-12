@@ -1,22 +1,25 @@
-#ifndef _CURVE_TRACKER_H_
-#define _CURVE_TRACKER_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot_picker.h>
+#pragma once
+
+#include <QwtPlotPicker>
 
 class QwtPlotCurve;
+class QLineF;
 
-class CurveTracker: public QwtPlotPicker
+class CurveTracker : public QwtPlotPicker
 {
-public:
-    CurveTracker( QWidget * );
+  public:
+    CurveTracker( QWidget* );
 
-protected:
-    virtual QwtText trackerTextF( const QPointF & ) const;
-    virtual QRect trackerRect( const QFont & ) const;
+  protected:
+    virtual QwtText trackerTextF( const QPointF& ) const QWT_OVERRIDE;
+    virtual QRect trackerRect( const QFont& ) const QWT_OVERRIDE;
 
-private:
-    QString curveInfoAt( const QwtPlotCurve *, const QPointF & ) const;
-    QLineF curveLineAt( const QwtPlotCurve *, double x ) const;
+  private:
+    QString curveInfoAt( const QwtPlotCurve*, const QPointF& ) const;
+    QLineF curveLineAt( const QwtPlotCurve*, double x ) const;
 };
-
-#endif

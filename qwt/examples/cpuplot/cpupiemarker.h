@@ -1,17 +1,20 @@
-//-----------------------------------------------------------------
-// This class shows how to extend QwtPlotItems. It displays a
-// pie chart of user/total/idle cpu usage in percent.
-//-----------------------------------------------------------------
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot_item.h>
+#pragma once
 
-class CpuPieMarker: public QwtPlotItem
+#include <QwtPlotItem>
+
+class CpuPieMarker : public QwtPlotItem
 {
-public:
+  public:
     CpuPieMarker();
 
-    virtual int rtti() const;
+    virtual int rtti() const QWT_OVERRIDE;
 
-    virtual void draw( QPainter *,
-        const QwtScaleMap &, const QwtScaleMap &, const QRectF & ) const;
+    virtual void draw( QPainter*,
+        const QwtScaleMap&, const QwtScaleMap&,
+        const QRectF& ) const QWT_OVERRIDE;
 };

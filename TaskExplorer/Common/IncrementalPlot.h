@@ -13,6 +13,7 @@
 #include "../../qwt/src/qwt_legend.h"
 #include "../../qwt/src/qwt_scale_engine.h"
 #include "../../qwt/src/qwt_plot_zoomer.h"
+#include "../../qwt/src/qwt_text.h"
 
 #include <QStaticText>
 
@@ -90,7 +91,7 @@ public:
 protected:
 	virtual QwtText trackerTextF(const QPointF &pos) const
 	{
-		QDateTime dt = QDateTime::fromTime_t(pos.x());
+		QDateTime dt = QDateTime::fromSecsSinceEpoch(pos.x());
 
 		//QString s = QString(" %1 @ %2 \r\n test\r\n test ").arg(pos.y()).arg(dt.toString("dd-MMM-yyyy hh:mm"));
 

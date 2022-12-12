@@ -352,7 +352,7 @@ struct SSandboxieAPI
 		return status;
 	}
 
-	NTSTATUS SbieIniGet(const wstring& section, const wstring& setting, quint32 index, wstring& value)
+	NTSTATUS SbieIniGet(const std::wstring& section, const std::wstring& setting, quint32 index, std::wstring& value)
 	{
 		WCHAR out_buffer[SBIE_CONF_LINE_LEN] = { 0 };
 
@@ -367,7 +367,7 @@ struct SSandboxieAPI
 		parms[4] = (ULONG64)&Output;
 		NTSTATUS status = IoControl(parms);
 		
-		value = wstring(out_buffer);
+		value = std::wstring(out_buffer);
 
 		return status;
 	}
@@ -433,9 +433,9 @@ CSandboxieAPI::~CSandboxieAPI()
 		ULONG ipcPathLength = 0;
 		m->QueryBoxPath(boxName, NULL, NULL, NULL, &filePathLength, &keyPathLength, &ipcPathLength);
 		
-		wstring FileRoot(filePathLength + 1, '0');
-		wstring KeyRoot(filePathLength + 1, '0');
-		wstring IpcRoot(filePathLength + 1, '0');
+		std::wstring FileRoot(filePathLength + 1, '0');
+		std::wstring KeyRoot(filePathLength + 1, '0');
+		std::wstring IpcRoot(filePathLength + 1, '0');
 		m->QueryBoxPath(boxName, (WCHAR*)FileRoot.data(), (WCHAR*)KeyRoot.data(), (WCHAR*)IpcRoot.data(), &filePathLength, &keyPathLength, &ipcPathLength);
 
 		pBoxInfo->FileRoot = QString::fromStdWString(FileRoot);
@@ -533,9 +533,9 @@ void CSandboxieAPI::GetProcessPaths(quint64 ProcessId, QString& FilePath, QStrin
 	if (!NT_SUCCESS(m->QueryProcessPath((HANDLE)ProcessId, NULL, NULL, NULL, &filePathLength, &keyPathLength, &ipcPathLength)))
 		return;
 		
-	wstring fileRoot(filePathLength/2, '0');
-	wstring keyRoot(keyPathLength/2, '0');
-	wstring ipcRoot(ipcPathLength/2, '0');
+	std::wstring fileRoot(filePathLength/2, '0');
+	std::wstring keyRoot(keyPathLength/2, '0');
+	std::wstring ipcRoot(ipcPathLength/2, '0');
 	if (!NT_SUCCESS(m->QueryProcessPath((HANDLE)ProcessId, (WCHAR*)fileRoot.data(), (WCHAR*)keyRoot.data(), (WCHAR*)ipcRoot.data(), &filePathLength, &keyPathLength, &ipcPathLength)))
 		return;
 
@@ -551,7 +551,7 @@ void CSandboxieAPI::QueryPathList(quint64 ProcessId, quint32 path_code, QStringL
     if (status != STATUS_SUCCESS)
         return;
 
-	wstring path(len / 2, '0');
+	std::wstring path(len / 2, '0');
     status = m->QueryPathList(path_code, NULL, (WCHAR*)path.c_str(), (HANDLE)ProcessId);
 
 	Paths.clear();
@@ -578,7 +578,7 @@ QList<QPair<QString, QString>> CSandboxieAPI::GetIniSection(const QString& BoxNa
 	QList<QPair<QString, QString>> Settings;
 	for (int setting_index = 0; ; setting_index++)
 	{
-		wstring setting_name;
+		std::wstring setting_name;
 		status = m->SbieIniGet(BoxName.toStdWString(), L"", setting_index | flags, setting_name);
 		if (status == STATUS_RESOURCE_NAME_NOT_FOUND) {
 			status = STATUS_SUCCESS;
@@ -589,7 +589,7 @@ QList<QPair<QString, QString>> CSandboxieAPI::GetIniSection(const QString& BoxNa
 
 		for (int value_index = 0; ; value_index++)
 		{
-			wstring setting_value;
+			std::wstring setting_value;
 			status = m->SbieIniGet(BoxName.toStdWString(), setting_name, value_index | flags, setting_value);
 			if (status == STATUS_RESOURCE_NAME_NOT_FOUND) {
 				status = STATUS_SUCCESS;

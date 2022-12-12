@@ -1,0 +1,8 @@
+QwtPolarPlot
+{
+    border: 2px solid Blue;
+    border-radius: 5px;
+    background-color: Gray;
+    color: palette(light);
+    padding: 10px;
+}   

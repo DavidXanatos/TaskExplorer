@@ -344,7 +344,7 @@ void CSecurityExplorer::LoadCredentials()
 		LARGE_INTEGER FileTime;
 		FileTime.HighPart = credential[i]->LastWritten.dwHighDateTime;
 		FileTime.LowPart = credential[i]->LastWritten.dwLowDateTime;
-		pItem->setText(3, QDateTime::fromTime_t(FILETIME2time(FileTime.QuadPart)).toString("dd.MM.yyyy hh:mm:ss"));
+		pItem->setText(3, QDateTime::fromSecsSinceEpoch(FILETIME2time(FileTime.QuadPart)).toString("dd.MM.yyyy hh:mm:ss"));
 
 		ui.credential->addTopLevelItem(pItem);
     }

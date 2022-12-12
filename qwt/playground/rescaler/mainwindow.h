@@ -1,17 +1,21 @@
-#ifndef _MAINWINDOW_H_
-#define _MAINWINDOW_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qmainwindow.h>
+#pragma once
+
+#include <QMainWindow>
 
 class QwtPlotRescaler;
 class QLabel;
 class Plot;
 
-class MainWindow: public QMainWindow
+class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
-public:
+  public:
     enum RescaleMode
     {
         KeepScales,
@@ -22,18 +26,16 @@ public:
 
     MainWindow();
 
-private Q_SLOTS:
+  private Q_SLOTS:
     void setRescaleMode( int );
     void showRatio( double, double );
 
-private:
-    QWidget *createPanel( QWidget * );
-    Plot *createPlot( QWidget * );
+  private:
+    QWidget* createPanel( QWidget* );
+    Plot* createPlot( QWidget* );
 
-    QwtPlotRescaler *d_rescaler;
-    QLabel *d_rescaleInfo;
+    QwtPlotRescaler* m_rescaler;
+    QLabel* m_rescaleInfo;
 
-    Plot *d_plot;
+    Plot* m_plot;
 };
-
-#endif

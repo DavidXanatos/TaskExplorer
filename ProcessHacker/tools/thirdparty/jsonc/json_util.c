@@ -17,7 +17,6 @@
 
 #include "strerror_override.h"
 
-#include <ctype.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -95,7 +94,7 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
 
     if (!(pb = printbuf_new()))
     {
-        _json_c_set_last_err("json_object_from_file: printbuf_new failed\n");
+        _json_c_set_last_err("json_object_from_fd_ex: printbuf_new failed\n");
         return NULL;
     }
 
@@ -105,7 +104,7 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
     if (!tok)
     {
         _json_c_set_last_err(
-            "json_object_from_fd: unable to allocate json_tokener(depth=%d): %s\n", depth,
+            "json_object_from_fd_ex: unable to allocate json_tokener(depth=%d): %s\n", depth,
             strerror(errno));
         printbuf_free(pb);
         return NULL;
@@ -117,7 +116,7 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
     }
     if (ret < 0)
     {
-        _json_c_set_last_err("json_object_from_fd: error reading fd %d: %s\n", fd,
+        _json_c_set_last_err("json_object_from_fd_ex: error reading fd %d: %s\n", fd,
                              strerror(errno));
         json_tokener_free(tok);
         printbuf_free(pb);
@@ -206,9 +205,10 @@ int json_object_to_file_ext(wchar_t *filename, struct json_object *obj, int flag
     NTSTATUS status;
     HANDLE fileHandle;
     IO_STATUS_BLOCK isb;
-    PSTR json_str;
+    PSTR json_string;
+    size_t json_length;
 
-    if (!(json_str = (PSTR)json_object_to_json_string_ext(obj, flags)))
+    if (!(json_string = (PSTR)json_object_to_json_string_length(obj, flags, &json_length)))
         return -1;
 
     status = PhCreateFileWin32(
@@ -230,8 +230,8 @@ int json_object_to_file_ext(wchar_t *filename, struct json_object *obj, int flag
         NULL,
         NULL,
         &isb,
-        json_str,
-        (ULONG)strlen(json_str),
+        json_string,
+        (ULONG)json_length,
         NULL,
         NULL
         );
@@ -276,7 +276,7 @@ static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const 
     {
         if ((ret = _write(fd, json_str + wpos, wsize - wpos)) < 0)
         {
-            _json_c_set_last_err("json_object_to_file: error writing file %s: %s\n",
+            _json_c_set_last_err("json_object_to_fd: error writing file %s: %s\n",
                                  filename, strerror(errno));
             return -1;
         }
@@ -362,8 +362,8 @@ const char *json_type_to_name(enum json_type o_type)
     int o_type_int = (int)o_type;
     if (o_type_int < 0 || o_type_int >= (int)NELEM(json_type_name))
     {
-        _json_c_set_last_err("json_type_to_name: type %d is out of range [0,%d]\n", o_type,
-                             NELEM(json_type_name));
+        _json_c_set_last_err("json_type_to_name: type %d is out of range [0,%u]\n", o_type,
+                             (unsigned)NELEM(json_type_name));
         return NULL;
     }
     return json_type_name[o_type];

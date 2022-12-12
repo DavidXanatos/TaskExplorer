@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2019-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2019-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -283,7 +272,7 @@ VOID PvpPeEnumerateImageDataDirectory(
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
             //directoryNode->HashString = PhGetNtMessage(GetExceptionCode());
-            directoryNode->HashString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+            directoryNode->HashString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
         }
 
         __try
@@ -302,7 +291,7 @@ VOID PvpPeEnumerateImageDataDirectory(
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
             //directoryNode->EntropyString = PhGetNtMessage(GetExceptionCode());
-            directoryNode->EntropyString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+            directoryNode->EntropyString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
         }
 
         __try
@@ -323,7 +312,7 @@ VOID PvpPeEnumerateImageDataDirectory(
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
             //directoryNode->SsdeepString = PhGetNtMessage(GetExceptionCode());
-            directoryNode->SsdeepString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+            directoryNode->SsdeepString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
         }
 
         __try
@@ -348,7 +337,7 @@ VOID PvpPeEnumerateImageDataDirectory(
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
             //sectionNode->TlshString = PhGetNtMessage(GetExceptionCode());
-            directoryNode->TlshString = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+            directoryNode->TlshString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
         }
     }
 
@@ -442,6 +431,8 @@ INT_PTR CALLBACK PvPeDirectoryDlgProc(
         {
             PhSaveSettingsDirectoryList(context);
             PvDeleteDirectoryTree(context);
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:
@@ -576,7 +567,7 @@ VOID PhLoadSettingsDirectoryList(
 {
     PPH_STRING settings;
     PPH_STRING sortSettings;
-    
+
     settings = PhGetStringSetting(L"ImageDirectoryTreeListColumns");
     sortSettings = PhGetStringSetting(L"ImageDirectoryTreeListSort");
     //Context->Flags = PhGetIntegerSetting(L"ImageDirectoryTreeListFlags");
@@ -593,13 +584,13 @@ VOID PhSaveSettingsDirectoryList(
 {
     PPH_STRING settings;
     PPH_STRING sortSettings;
-    
+
     settings = PhCmSaveSettingsEx(Context->TreeNewHandle, &Context->Cm, 0, &sortSettings);
-    
+
     //PhSetIntegerSetting(L"ImageDirectoryTreeListFlags", Context->Flags);
     PhSetStringSetting2(L"ImageDirectoryTreeListColumns", &settings->sr);
     PhSetStringSetting2(L"ImageDirectoryTreeListSort", &sortSettings->sr);
-    
+
     PhDereferenceObject(settings);
     PhDereferenceObject(sortSettings);
 }
@@ -999,7 +990,7 @@ BOOLEAN NTAPI PvDirectoryTreeNewCallback(
             SendMessage(context->ParentWindowHandle, WM_PV_SEARCH_SHOWMENU, 0, (LPARAM)contextMenu);
         }
         return TRUE;
-    case TreeNewHeaderRightClick: 
+    case TreeNewHeaderRightClick:
         {
             PH_TN_COLUMN_MENU_DATA data;
 
@@ -1007,7 +998,7 @@ BOOLEAN NTAPI PvDirectoryTreeNewCallback(
             data.MouseEvent = Parameter1;
             data.DefaultSortColumn = 0;
             data.DefaultSortOrder = AscendingSortOrder;
-            PhInitializeTreeNewColumnMenu(&data);
+            PhInitializeTreeNewColumnMenuEx(&data, PH_TN_COLUMN_MENU_SHOW_RESET_SORT);
 
             data.Selection = PhShowEMenu(data.Menu, hwnd, PH_EMENU_SHOW_LEFTRIGHT,
                 PH_ALIGN_LEFT | PH_ALIGN_TOP, data.MouseEvent->ScreenLocation.x, data.MouseEvent->ScreenLocation.y);

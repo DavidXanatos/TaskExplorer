@@ -6,7 +6,7 @@ class CDateScale : public QwtScaleDraw
 {
 public:
 	QwtText label(double value) const { 
-		return QDateTime::fromTime_t(value).time().toString(Qt::ISODate);  
+		return QDateTime::fromSecsSinceEpoch(value).time().toString(Qt::ISODate);  
 	}
 };
 
@@ -28,7 +28,7 @@ CIncrementalPlot::CIncrementalPlot(const QColor& Back, const QColor& Front, cons
 	m_UseDate = false;
 
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 
 	m_pPlot = new QwtPlotEx();
 

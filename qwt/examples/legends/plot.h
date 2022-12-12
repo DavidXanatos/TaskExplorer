@@ -1,32 +1,34 @@
-#ifndef _PLOT_H_
-#define _PLOT_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
+#pragma once
+
+#include <QwtPlot>
 
 class Settings;
-class LegendItem;
+class QwtPlotLegendItem;
 class QwtLegend;
 
-class Plot: public QwtPlot
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget *parent = NULL );
+  public:
+    Plot( QWidget* parent = NULL );
     virtual ~Plot();
 
-public Q_SLOTS:
-    void applySettings( const Settings & );
+  public Q_SLOTS:
+    void applySettings( const Settings& );
 
-public:
-    virtual void replot();
+  public:
+    virtual void replot() QWT_OVERRIDE;
 
-private:
+  private:
     void insertCurve();
 
-    QwtLegend *d_externalLegend;
-    LegendItem *d_legendItem;
-    bool d_isDirty;
+    QwtLegend* m_externalLegend;
+    QwtPlotLegendItem* m_legendItem;
+    bool m_isDirty;
 };
-
-#endif

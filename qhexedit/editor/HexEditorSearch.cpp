@@ -3,6 +3,7 @@
 
 #include "../src/qhexedit.h"
 #include <QMessageBox>
+#include <QTextCodec>
 
 QHexEditorSearch::QHexEditorSearch(QHexEdit *hexEdit, QWidget *parent) :
     QDialog(parent),

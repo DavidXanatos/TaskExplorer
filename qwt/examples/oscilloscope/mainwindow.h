@@ -1,4 +1,11 @@
-#include <qwidget.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#pragma once
+
+#include <QWidget>
 
 class Plot;
 class Knob;
@@ -8,8 +15,8 @@ class MainWindow : public QWidget
 {
     Q_OBJECT
 
-public:
-    MainWindow( QWidget * = NULL );
+  public:
+    MainWindow( QWidget* = NULL );
 
     void start();
 
@@ -17,16 +24,16 @@ public:
     double frequency() const;
     double signalInterval() const;
 
-Q_SIGNALS:
+  Q_SIGNALS:
     void amplitudeChanged( double );
     void frequencyChanged( double );
     void signalIntervalChanged( double );
 
-private:
-    Knob *d_frequencyKnob;
-    Knob *d_amplitudeKnob;
-    WheelBox *d_timerWheel;
-    WheelBox *d_intervalWheel;
+  private:
+    Knob* m_frequencyKnob;
+    Knob* m_amplitudeKnob;
+    WheelBox* m_timerWheel;
+    WheelBox* m_intervalWheel;
 
-    Plot *d_plot;
+    Plot* m_plot;
 };

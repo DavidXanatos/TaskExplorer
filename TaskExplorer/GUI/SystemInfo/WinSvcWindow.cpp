@@ -5,20 +5,8 @@
  * Copyright (C) 2010-2015 wj32
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -396,7 +384,7 @@ void CWinSvcWindow::SaveGeneral()
 	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_CHANGE_CONFIG);
 	if (serviceHandle)
 	{
-		wstring Dependencies;
+		std::wstring Dependencies;
 		if (m_OldDependencies != serviceList)
 		{
 			foreach(const QString& service, serviceList)
@@ -634,9 +622,9 @@ void CWinSvcWindow::SaveRecovery()
 	// Build the failure actions structure.
 
 	failureActions.dwResetPeriod = ui.resetFailCtr->text().toULongLong() * 60 * 60 * 24;
-	wstring RebootMsg = m_RebootMessage.toStdWString();
+	std::wstring RebootMsg = m_RebootMessage.toStdWString();
 	failureActions.lpRebootMsg = (wchar_t*)RebootMsg.c_str();
-	wstring RrogramRun = ui.programRun->text().toStdWString();
+	std::wstring RrogramRun = ui.programRun->text().toStdWString();
 	failureActions.lpCommand = (wchar_t*)RrogramRun.c_str();
 	failureActions.cActions = 3;
 	failureActions.lpsaActions = actions;
@@ -930,7 +918,7 @@ void CWinSvcWindow::LoadOther()
 	if (WindowsVersion < WINDOWS_8_1)
 		ui.protectionType->setEnabled(false);
 
-	wstring svcNameStr = m_pService->GetName().toStdWString();
+	std::wstring svcNameStr = m_pService->GetName().toStdWString();
 	PH_STRINGREF svcName;
 	svcName.Buffer = (wchar_t*)svcNameStr.c_str();
 	svcName.Length = svcNameStr.length() * sizeof(wchar_t);
@@ -1070,7 +1058,7 @@ void CWinSvcWindow::SaveOther()
 
     if (m_RequiredPrivilegesValid && win32Result == 0)
     {
-        wstring sb;
+        std::wstring sb;
                 
         for (int i = 0; i < ui.privilegs->topLevelItemCount(); i++)
         {
@@ -1366,7 +1354,7 @@ void CWinSvcWindow::OnRemovePrivilege()
 
 void CWinSvcWindow::AddPrivilege(const QString& Privilege)
 {
-	wstring wPrivilege = Privilege.toStdWString();
+	std::wstring wPrivilege = Privilege.toStdWString();
 
 	wchar_t* privilege = (wchar_t*)wPrivilege.c_str();
 	size_t privilegeLength = wPrivilege.length();

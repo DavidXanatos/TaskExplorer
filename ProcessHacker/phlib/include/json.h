@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   json wrapper
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef _PH_PHJSON_H
@@ -240,14 +229,14 @@ PHLIBAPI
 PVOID
 NTAPI
 PhLoadJsonObjectFromFile(
-    _In_ PWSTR FileName
+    _In_ PPH_STRINGREF FileName
     );
 
 PHLIBAPI
 VOID
 NTAPI
 PhSaveJsonObjectToFile(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PVOID Object
     );
 
@@ -264,7 +253,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoadXmlObjectFromFile(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _Out_opt_ PVOID* XmlRootNode
     );
 
@@ -272,7 +261,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhSaveXmlObjectToFile(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PVOID XmlRootObject,
     _In_opt_ PVOID XmlSaveCallback
     );
@@ -385,12 +374,12 @@ typedef PVOID (NTAPI* PH_XML_LOAD_OBJECT_FROM_STRING)(
     );
 
 typedef NTSTATUS (NTAPI* PH_XML_LOAD_OBJECT_FROM_FILE)(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _Out_opt_ PVOID* XmlRootNode
     );
 
 typedef NTSTATUS (NTAPI* PH_XML_SAVE_OBJECT_TO_FILE)(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PVOID XmlRootObject,
     _In_opt_ PVOID XmlSaveCallback
     );

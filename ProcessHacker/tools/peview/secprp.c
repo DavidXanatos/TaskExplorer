@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2020-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2020-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -694,7 +683,7 @@ BOOLEAN NTAPI PvCertificateTreeNewCallback(
             data.MouseEvent = Parameter1;
             data.DefaultSortColumn = 0;
             data.DefaultSortOrder = AscendingSortOrder;
-            PhInitializeTreeNewColumnMenu(&data);
+            PhInitializeTreeNewColumnMenuEx(&data, PH_TN_COLUMN_MENU_SHOW_RESET_SORT);
 
             data.Selection = PhShowEMenu(data.Menu, hwnd, PH_EMENU_SHOW_LEFTRIGHT,
                 PH_ALIGN_LEFT | PH_ALIGN_TOP, data.MouseEvent->ScreenLocation.x, data.MouseEvent->ScreenLocation.y);
@@ -1054,7 +1043,7 @@ BOOLEAN PvpPeFillNodeCertificateInfo(
 
     for (ULONG i = 0; i < CertificateContext->pCertInfo->cExtension; i++)
     {
-        dprintf("%s\n", CertificateContext->pCertInfo->rgExtension[i].pszObjId);
+        //dprintf("%s\n", CertificateContext->pCertInfo->rgExtension[i].pszObjId);
     }
 
     //if (CertificateContext->pCertInfo && CertificateContext->pCertInfo->SignatureAlgorithm.pszObjId)
@@ -1125,108 +1114,6 @@ PCMSG_SIGNER_INFO PvpPeGetSignerInfoIndex(
 
     return signerInfo;
 }
-
-DWORD SOFTPUB_DecodeInnerContent(_In_ HCRYPTMSG CryptMessageHandle)
-{
-    BOOL ret;
-    DWORD size, err = ERROR_SUCCESS;
-    LPSTR oid = NULL;
-    LPBYTE buf = NULL;
-    PWSTR algID;
-
-    ret = CryptMsgGetParam(CryptMessageHandle, CMSG_INNER_CONTENT_TYPE_PARAM, 0, NULL, &size);
-    if (!ret)
-    {
-        err = GetLastError();
-        goto error;
-    }
-
-    oid = PhAllocateSafe(size);
-    if (!oid)
-    {
-        err = ERROR_OUTOFMEMORY;
-        goto error;
-    }
-
-    ret = CryptMsgGetParam(CryptMessageHandle, CMSG_INNER_CONTENT_TYPE_PARAM, 0, oid, &size);
-    if (!ret)
-    {
-        err = GetLastError();
-        goto error;
-    }
-
-    ret = CryptMsgGetParam(CryptMessageHandle, CMSG_CONTENT_PARAM, 0, NULL, &size);
-    if (!ret)
-    {
-        err = GetLastError();
-        goto error;
-    }
-
-    buf = PhAllocateSafe(size);
-    if (!buf)
-    {
-        err = ERROR_OUTOFMEMORY;
-        goto error;
-    }
-
-    ret = CryptMsgGetParam(CryptMessageHandle, CMSG_CONTENT_PARAM, 0, buf, &size);
-    if (!ret)
-    {
-        err = GetLastError();
-        goto error;
-    }
-
-    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, oid, buf, size, 0, NULL, NULL, &size);
-    if (!ret)
-    {
-        err = GetLastError();
-        goto error;
-    }
-
-    PVOID psIndirectData = PhAllocateSafe(size);
-    if (!psIndirectData)
-    {
-        err = ERROR_OUTOFMEMORY;
-        goto error;
-    }
-
-    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, oid, buf, size, 0, NULL, psIndirectData, &size);
-    if (!ret)
-        err = GetLastError();
-
-
-
-    SPC_INDIRECT_DATA_CONTENT* indirect = (SPC_INDIRECT_DATA_CONTENT*)psIndirectData;
-
-    if (
-        ((ULONG_PTR)indirect->Data.pszObjId >> 16) == 0 ||
-        !RtlEqualMemory(indirect->Data.pszObjId, SPC_PE_IMAGE_DATA_OBJID, sizeof(SPC_PE_IMAGE_DATA_OBJID)) &&
-        !RtlEqualMemory(indirect->Data.pszObjId, SPC_CAB_DATA_OBJID, sizeof(SPC_CAB_DATA_OBJID))
-        )
-    {
-        return TRUST_E_NOSIGNATURE;
-    }
-
-    if (RtlEqualMemory(indirect->DigestAlgorithm.pszObjId, szOID_OIWSEC_sha1, sizeof(szOID_OIWSEC_sha1)))
-        algID = BCRYPT_SHA1_ALGORITHM;
-    else if (RtlEqualMemory(indirect->DigestAlgorithm.pszObjId, szOID_NIST_sha256, sizeof(szOID_NIST_sha256)))
-        algID = BCRYPT_SHA256_ALGORITHM;
-    else
-    {
-        //algID = CertOIDToAlgId(indirect->DigestAlgorithm.pszObjId);
-        algID = BCRYPT_SHA1_ALGORITHM;
-    }
-
-
-    PPH_STRING authentiHash = PhBufferToHexString(indirect->Digest.pbData, indirect->Digest.cbData);
-
-error:
-    PhFree(oid);
-    PhFree(buf);
-
-    return err;
-}
-
 
 typedef struct _PV_CERT_ENUM_CONTEXT
 {
@@ -1626,6 +1513,7 @@ INT_PTR CALLBACK PvpPeSecurityDlgProc(
 
             PhDeleteLayoutManager(&context->LayoutManager);
 
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
             PhFree(context);
         }
         break;

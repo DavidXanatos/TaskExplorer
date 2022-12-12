@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -9,27 +9,33 @@
 
 #include "qwt_raster_data.h"
 #include "qwt_point_3d.h"
+#include "qwt_interval.h"
+
+#include <qrect.h>
+#include <qpolygon.h>
 #include <qnumeric.h>
+#include <qlist.h>
+#include <qmap.h>
 
 class QwtRasterData::ContourPlane
 {
-public:
-    inline ContourPlane( double z ):
-        d_z( z )
+  public:
+    explicit inline ContourPlane( double z ):
+        m_z( z )
     {
     }
 
     inline bool intersect( const QwtPoint3D vertex[3],
         QPointF line[2], bool ignoreOnPlane ) const;
 
-    inline double z() const { return d_z; }
+    inline double z() const { return m_z; }
 
-private:
+  private:
     inline int compare( double z ) const;
     inline QPointF intersection(
-        const QwtPoint3D& p1, const QwtPoint3D &p2 ) const;
+        const QwtPoint3D& p1, const QwtPoint3D& p2 ) const;
 
-    double d_z;
+    double m_z;
 };
 
 inline bool QwtRasterData::ContourPlane::intersect(
@@ -64,7 +70,7 @@ inline bool QwtRasterData::ContourPlane::intersect(
         { { 9, 6, 7 }, { 5, 2, 0 }, { 8, 0, 0 } }
     };
 
-    const int edgeType = tab[eq1+1][eq2+1][eq3+1];
+    const int edgeType = tab[eq1 + 1][eq2 + 1][eq3 + 1];
     switch ( edgeType )
     {
         case 1:
@@ -134,20 +140,20 @@ inline bool QwtRasterData::ContourPlane::intersect(
 
 inline int QwtRasterData::ContourPlane::compare( double z ) const
 {
-    if ( z > d_z )
+    if ( z > m_z )
         return 1;
 
-    if ( z < d_z )
+    if ( z < m_z )
         return -1;
 
     return 0;
 }
 
 inline QPointF QwtRasterData::ContourPlane::intersection(
-    const QwtPoint3D& p1, const QwtPoint3D &p2 ) const
+    const QwtPoint3D& p1, const QwtPoint3D& p2 ) const
 {
-    const double h1 = p1.z() - d_z;
-    const double h2 = p2.z() - d_z;
+    const double h1 = p1.z() - m_z;
+    const double h2 = p2.z() - m_z;
 
     const double x = ( h2 * p1.x() - h1 * p2.x() ) / ( h2 - h1 );
     const double y = ( h2 * p1.y() - h1 * p2.y() ) / ( h2 - h1 );
@@ -155,60 +161,79 @@ inline QPointF QwtRasterData::ContourPlane::intersection(
     return QPointF( x, y );
 }
 
+class QwtRasterData::PrivateData
+{
+  public:
+    QwtRasterData::Attributes attributes;
+};
+
 //! Constructor
 QwtRasterData::QwtRasterData()
 {
+    m_data = new PrivateData();
 }
 
 //! Destructor
 QwtRasterData::~QwtRasterData()
 {
+    delete m_data;
 }
 
 /*!
-   Set the bounding interval for the x, y or z coordinates.
+   Specify an attribute of the data
 
-   \param axis Axis
-   \param interval Bounding interval
-
-   \sa interval()
-*/
-void QwtRasterData::setInterval( Qt::Axis axis, const QwtInterval &interval )
+   \param attribute Attribute
+   \param on On/Off
+   /sa Attribute, testAttribute()
+ */
+void QwtRasterData::setAttribute( Attribute attribute, bool on )
 {
-    d_intervals[axis] = interval;
+    if ( on )
+        m_data->attributes |= attribute;
+    else
+        m_data->attributes &= ~attribute;
 }
 
 /*!
-  \brief Initialize a raster
+    \return True, when attribute is enabled
+    \sa Attribute, setAttribute()
+ */
+bool QwtRasterData::testAttribute( Attribute attribute ) const
+{
+    return m_data->attributes & attribute;
+}
 
-  Before the composition of an image QwtPlotSpectrogram calls initRaster(),
-  announcing the area and its resolution that will be requested.
+/*!
+   \brief Initialize a raster
 
-  The default implementation does nothing, but for data sets that
-  are stored in files, it might be good idea to reimplement initRaster(),
-  where the data is resampled and loaded into memory.
+   Before the composition of an image QwtPlotSpectrogram calls initRaster(),
+   announcing the area and its resolution that will be requested.
 
-  \param area Area of the raster
-  \param raster Number of horizontal and vertical pixels
+   The default implementation does nothing, but for data sets that
+   are stored in files, it might be good idea to reimplement initRaster(),
+   where the data is resampled and loaded into memory.
 
-  \sa initRaster(), value()
-*/
-void QwtRasterData::initRaster( const QRectF &area, const QSize &raster )
+   \param area Area of the raster
+   \param raster Number of horizontal and vertical pixels
+
+   \sa initRaster(), value()
+ */
+void QwtRasterData::initRaster( const QRectF& area, const QSize& raster )
 {
     Q_UNUSED( area );
     Q_UNUSED( raster );
 }
 
 /*!
-  \brief Discard a raster
+   \brief Discard a raster
 
-  After the composition of an image QwtPlotSpectrogram calls discardRaster().
+   After the composition of an image QwtPlotSpectrogram calls discardRaster().
 
-  The default implementation does nothing, but if data has been loaded
-  in initRaster(), it could deleted now.
+   The default implementation does nothing, but if data has been loaded
+   in initRaster(), it could deleted now.
 
-  \sa initRaster(), value()
-*/
+   \sa initRaster(), value()
+ */
 void QwtRasterData::discardRaster()
 {
 }
@@ -238,8 +263,8 @@ void QwtRasterData::discardRaster()
                depend on the requested area.
 
    \return Bounding rectangle of a pixel
-*/
-QRectF QwtRasterData::pixelHint( const QRectF &area ) const
+ */
+QRectF QwtRasterData::pixelHint( const QRectF& area ) const
 {
     Q_UNUSED( area );
     return QRectF();
@@ -257,10 +282,10 @@ QRectF QwtRasterData::pixelHint( const QRectF &area ) const
 
    An adaption of CONREC, a simple contouring algorithm.
    http://local.wasp.uwa.edu.au/~pbourke/papers/conrec/
-*/
+ */
 QwtRasterData::ContourLines QwtRasterData::contourLines(
-    const QRectF &rect, const QSize &raster,
-    const QList<double> &levels, ConrecFlags flags ) const
+    const QRectF& rect, const QSize& raster,
+    const QList< double >& levels, ConrecFlags flags ) const
 {
     ContourLines contourLines;
 
@@ -278,13 +303,8 @@ QwtRasterData::ContourLines QwtRasterData::contourLines(
     if ( range.isValid() )
         ignoreOutOfRange = flags & IgnoreOutOfRange;
 
-    QwtRasterData *that = const_cast<QwtRasterData *>( this );
+    QwtRasterData* that = const_cast< QwtRasterData* >( this );
     that->initRaster( rect, raster );
-
-#if __GNUC__ >= 9
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-copy"
-#endif
 
     for ( int y = 0; y < raster.height() - 1; y++ )
     {
@@ -312,13 +332,13 @@ QwtRasterData::ContourLines QwtRasterData::contourLines(
                 xy[TopRight].setY( pos.y() );
                 xy[TopRight].setZ(
                     value( xy[TopRight].x(), xy[TopRight].y() )
-                );
+                    );
 
                 xy[BottomRight].setX( pos.x() );
                 xy[BottomRight].setY( pos.y() + dy );
                 xy[BottomRight].setZ(
                     value( xy[BottomRight].x(), xy[BottomRight].y() )
-                );
+                    );
             }
 
             xy[TopLeft] = xy[TopRight];
@@ -331,10 +351,10 @@ QwtRasterData::ContourLines QwtRasterData::contourLines(
 
             xy[TopRight].setZ(
                 value( xy[TopRight].x(), xy[TopRight].y() )
-            );
+                );
             xy[BottomRight].setZ(
                 value( xy[BottomRight].x(), xy[BottomRight].y() )
-            );
+                );
 
             double zMin = xy[TopLeft].z();
             double zMax = zMin;
@@ -379,7 +399,7 @@ QwtRasterData::ContourLines QwtRasterData::contourLines(
                 const double level = levels[l];
                 if ( level < zMin || level > zMax )
                     continue;
-                QPolygonF &lines = contourLines[level];
+                QPolygonF& lines = contourLines[level];
                 const ContourPlane plane( level );
 
                 QPointF line[2];
@@ -402,10 +422,6 @@ QwtRasterData::ContourLines QwtRasterData::contourLines(
             }
         }
     }
-
-#if __GNUC__ >= 9
-#pragma GCC diagnostic pop
-#endif
 
     that->discardRaster();
 

@@ -1,32 +1,20 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2011 wj32
- * Copyright (C) 2019-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2011
+ *     dmex    2019-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
 #include <emenu.h>
+#include <cpysave.h>
 
 #include <shobjidl.h>
-
-#include <cpysave.h>
 
 static GUID CLSID_ShellLink_I = { 0x00021401, 0x0000, 0x0000, { 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46 } };
 static GUID IID_IShellLinkW_I = { 0x000214f9, 0x0000, 0x0000, { 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46 } };
@@ -73,7 +61,6 @@ PPH_STRING PvResolveReparsePointTarget(
     PREPARSE_DATA_BUFFER reparseBuffer;
     ULONG reparseLength;
     HANDLE fileHandle;
-    IO_STATUS_BLOCK isb;
 
     if (PhIsNullOrEmptyString(FileName))
         return NULL;
@@ -94,17 +81,14 @@ PPH_STRING PvResolveReparsePointTarget(
     reparseLength = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
     reparseBuffer = PhAllocateZero(reparseLength);
 
-    if (NT_SUCCESS(NtFsControlFile(
+    if (NT_SUCCESS(PhDeviceIoControlFile(
         fileHandle,
-        NULL,
-        NULL,
-        NULL,
-        &isb,
         FSCTL_GET_REPARSE_POINT,
         NULL,
         0,
         reparseBuffer,
-        reparseLength
+        reparseLength,
+        NULL
         )))
     {
         if (
@@ -126,7 +110,7 @@ PPH_STRING PvResolveReparsePointTarget(
 
             for (ULONG i = 0; i < appexeclink->StringCount; i++)
             {
-                if (i == 2 && PhDoesFileExistsWin32(string))
+                if (i == 2 && PhDoesFileExistWin32(string))
                 {
                     targetFileName = PhCreateString(string);
                     break;
@@ -316,6 +300,7 @@ BOOLEAN PvGetListViewContextMenuPoint(
     INT selectedIndex;
     RECT bounds;
     RECT clientRect;
+    LONG dpiValue;
 
     // The user pressed a key to display the context menu.
     // Suggest where the context menu should display.
@@ -323,8 +308,10 @@ BOOLEAN PvGetListViewContextMenuPoint(
     {
         if (ListView_GetItemRect(ListViewHandle, selectedIndex, &bounds, LVIR_BOUNDS))
         {
-            Point->x = bounds.left + PhSmallIconSize.X / 2;
-            Point->y = bounds.top + PhSmallIconSize.Y / 2;
+            dpiValue = PhGetWindowDpi(ListViewHandle);
+
+            Point->x = bounds.left + PhGetSystemMetrics(SM_CXSMICON, dpiValue) / 2;
+            Point->y = bounds.top + PhGetSystemMetrics(SM_CYSMICON, dpiValue) / 2;
 
             GetClientRect(ListViewHandle, &clientRect);
 
@@ -884,3 +871,61 @@ BOOLEAN PhHandleCopyCellEMenuItem(
 }
 
 #pragma endregion
+
+VOID PvSetListViewImageList(
+    _In_ HWND WindowHandle,
+    _In_ HWND ListViewHandle
+    )
+{
+    HIMAGELIST listViewImageList;
+    LONG dpiValue;
+
+    if (listViewImageList = ListView_GetImageList(ListViewHandle, LVSIL_SMALL))
+    {
+        PhImageListDestroy(listViewImageList);
+        listViewImageList = NULL;
+    }
+
+    dpiValue = PhGetWindowDpi(WindowHandle);
+    listViewImageList = PhImageListCreate(
+        2,
+        PhGetDpi(20, dpiValue),
+        ILC_MASK | ILC_COLOR32,
+        1,
+        1
+        );
+
+    if (listViewImageList)
+    {
+        ListView_SetImageList(ListViewHandle, listViewImageList, LVSIL_SMALL);
+    }
+}
+
+VOID PvSetTreeViewImageList(
+    _In_ HWND WindowHandle,
+    _In_ HWND TreeViewHandle
+    )
+{
+    HIMAGELIST treeViewImageList;
+    LONG dpiValue;
+
+    if (treeViewImageList = TreeView_GetImageList(TreeViewHandle, TVSIL_NORMAL))
+    {
+        PhImageListDestroy(treeViewImageList);
+        treeViewImageList = NULL;
+    }
+
+    dpiValue = PhGetWindowDpi(WindowHandle);
+    treeViewImageList = PhImageListCreate(
+        2,
+        PhGetDpi(24, dpiValue),
+        ILC_MASK | ILC_COLOR32,
+        1,
+        1
+        );
+
+    if (treeViewImageList)
+    {
+        TreeView_SetImageList(TreeViewHandle, treeViewImageList, TVSIL_NORMAL);
+    }
+}

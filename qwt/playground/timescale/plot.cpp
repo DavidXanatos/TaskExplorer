@@ -1,15 +1,21 @@
-#include "plot.h"
-#include "settings.h"
-#include <qwt_date.h>
-#include <qwt_date_scale_draw.h>
-#include <qwt_date_scale_engine.h>
-#include <qwt_plot_panner.h>
-#include <qwt_plot_magnifier.h>
-#include <qwt_plot_grid.h>
-#include <qwt_plot_layout.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-Plot::Plot( QWidget *parent ):
-    QwtPlot( parent )
+#include "Plot.h"
+#include "Settings.h"
+
+#include <QwtDate>
+#include <QwtDateScaleDraw>
+#include <QwtDateScaleEngine>
+#include <QwtPlotPanner>
+#include <QwtPlotMagnifier>
+#include <QwtPlotGrid>
+#include <QwtPlotLayout>
+
+Plot::Plot( QWidget* parent )
+    : QwtPlot( parent )
 {
     setAutoFillBackground( true );
     setPalette( Qt::darkGray );
@@ -17,26 +23,25 @@ Plot::Plot( QWidget *parent ):
 
     plotLayout()->setAlignCanvasToScales( true );
 
-    initAxis( QwtPlot::yLeft, "Local Time", Qt::LocalTime );
-    initAxis( QwtPlot::yRight, 
+    initAxis( QwtAxis::YLeft, "Local Time", Qt::LocalTime );
+    initAxis( QwtAxis::YRight,
         "Coordinated Universal Time ( UTC )", Qt::UTC );
 
-    QwtPlotPanner *panner = new QwtPlotPanner( canvas() );
-    QwtPlotMagnifier *magnifier = new QwtPlotMagnifier( canvas() );
+    QwtPlotPanner* panner = new QwtPlotPanner( canvas() );
+    QwtPlotMagnifier* magnifier = new QwtPlotMagnifier( canvas() );
 
-    for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
+    for ( int axis = 0; axis < QwtAxis::AxisPositions; axis++ )
     {
-        const bool on = axis == QwtPlot::yLeft ||
-            axis == QwtPlot::yRight;
+        const bool on = QwtAxis::isYAxis( axis );
 
-        enableAxis( axis, on );
+        setAxisVisible( axis, on );
         panner->setAxisEnabled( axis, on );
         magnifier->setAxisEnabled( axis, on );
     }
 
-    QwtPlotGrid *grid = new QwtPlotGrid();
+    QwtPlotGrid* grid = new QwtPlotGrid();
     grid->setMajorPen( Qt::black, 0, Qt::SolidLine );
-    grid->setMinorPen( Qt::gray, 0 , Qt::SolidLine );
+    grid->setMinorPen( Qt::gray, 0, Qt::SolidLine );
     grid->enableX( false );
     grid->enableXMin( false );
     grid->enableY( true );
@@ -45,13 +50,13 @@ Plot::Plot( QWidget *parent ):
     grid->attach( this );
 }
 
-void Plot::initAxis( int axis, 
+void Plot::initAxis( int axis,
     const QString& title, Qt::TimeSpec timeSpec )
 {
     setAxisTitle( axis, title );
 
-    QwtDateScaleDraw *scaleDraw = new QwtDateScaleDraw( timeSpec );
-    QwtDateScaleEngine *scaleEngine = new QwtDateScaleEngine( timeSpec );
+    QwtDateScaleDraw* scaleDraw = new QwtDateScaleDraw( timeSpec );
+    QwtDateScaleEngine* scaleEngine = new QwtDateScaleEngine( timeSpec );
 
 #if 0
     if ( timeSpec == Qt::LocalTime )
@@ -67,24 +72,26 @@ void Plot::initAxis( int axis,
     setAxisScaleEngine( axis, scaleEngine );
 }
 
-void Plot::applySettings( const Settings &settings )
+void Plot::applySettings( const Settings& settings )
 {
-    applyAxisSettings( QwtPlot::yLeft, settings );
-    applyAxisSettings( QwtPlot::yRight, settings );
+    applyAxisSettings( QwtAxis::YLeft, settings );
+    applyAxisSettings( QwtAxis::YRight, settings );
 
     replot();
 }
 
-void Plot::applyAxisSettings( int axis, const Settings &settings )
+void Plot::applyAxisSettings( int axis, const Settings& settings )
 {
-    QwtDateScaleEngine *scaleEngine = 
-        static_cast<QwtDateScaleEngine *>( axisScaleEngine( axis ) );
+    QwtDateScaleEngine* scaleEngine =
+        static_cast< QwtDateScaleEngine* >( axisScaleEngine( axis ) );
 
     scaleEngine->setMaxWeeks( settings.maxWeeks );
     setAxisMaxMinor( axis, settings.maxMinorSteps );
     setAxisMaxMajor( axis, settings.maxMajorSteps );
 
 
-    setAxisScale( axis, QwtDate::toDouble( settings.startDateTime ), 
+    setAxisScale( axis, QwtDate::toDouble( settings.startDateTime ),
         QwtDate::toDouble( settings.endDateTime ) );
 }
+
+#include "moc_Plot.cpp"

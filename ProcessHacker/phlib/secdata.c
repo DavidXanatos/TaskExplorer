@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   object security data
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010-2016 wj32
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010-2016
+ *     dmex    2017-2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -89,6 +78,24 @@ ACCESS_ENTRIES(Directory)
     { L"Create subdirectories", DIRECTORY_CREATE_SUBDIRECTORY, TRUE, TRUE}
 };
 
+ACCESS_ENTRIES(EtwConsumer)
+{
+    { L"Full control", WMIGUID_ALL_ACCESS, TRUE, TRUE },
+    { L"Query", WMIGUID_QUERY, TRUE, TRUE },
+    { L"Read", WMIGUID_SET, TRUE, TRUE },
+    { L"Notification", WMIGUID_NOTIFICATION, TRUE, TRUE },
+    { L"Read description", WMIGUID_READ_DESCRIPTION, TRUE, TRUE },
+    { L"Execute", WMIGUID_EXECUTE, TRUE, TRUE },
+    { L"Create realtime", TRACELOG_CREATE_REALTIME, TRUE, TRUE },
+    { L"Create logfile", TRACELOG_CREATE_ONDISK, TRUE, TRUE },
+    { L"GUID enable", TRACELOG_GUID_ENABLE, TRUE, TRUE },
+    { L"Access kernel logger", TRACELOG_ACCESS_KERNEL_LOGGER, TRUE, TRUE },
+    { L"Log events", TRACELOG_LOG_EVENT, TRUE, TRUE },
+    { L"Access realtime", TRACELOG_ACCESS_REALTIME, TRUE, TRUE },
+    { L"Register guids", TRACELOG_REGISTER_GUIDS, TRUE, TRUE },
+    { L"Join group", TRACELOG_JOIN_GROUP, TRUE, TRUE }
+};
+
 ACCESS_ENTRIES(EtwRegistration)
 {
     { L"Full control", WMIGUID_ALL_ACCESS, TRUE, TRUE },
@@ -102,7 +109,6 @@ ACCESS_ENTRIES(EtwRegistration)
     { L"GUID enable", TRACELOG_GUID_ENABLE, TRUE, TRUE },
     { L"Access kernel logger", TRACELOG_ACCESS_KERNEL_LOGGER, TRUE, TRUE },
     { L"Log events", TRACELOG_LOG_EVENT, TRUE, TRUE },
-    { L"Create inprocess", TRACELOG_CREATE_INPROC, TRUE, TRUE },
     { L"Access realtime", TRACELOG_ACCESS_REALTIME, TRUE, TRUE },
     { L"Register guids", TRACELOG_REGISTER_GUIDS, TRUE, TRUE },
     { L"Join group", TRACELOG_JOIN_GROUP, TRUE, TRUE }
@@ -645,6 +651,7 @@ static PH_SPECIFIC_TYPE PhSpecificTypes[] =
     ACCESS_ENTRY(DebugObject, TRUE),
     ACCESS_ENTRY(Desktop, FALSE),
     ACCESS_ENTRY(Directory, FALSE),
+    ACCESS_ENTRY(EtwConsumer, FALSE),
     ACCESS_ENTRY(EtwRegistration, FALSE),
     ACCESS_ENTRY(Event, TRUE),
     ACCESS_ENTRY(EventPair, TRUE),

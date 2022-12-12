@@ -4,22 +4,10 @@
  *
  * Copyright (C) 2010-2015 wj32
  * Copyright (C) 2017 dmex
- * Copyright (C) 2019 David Xanatos
+ * Copyright (C) 2019-2022 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -93,7 +81,7 @@ bool CWinHandle::InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, 
 			}
 		}
 
-		if (TypeName && PhEqualString2(TypeName, L"File", TRUE) && KphIsConnected())
+		if (TypeName && PhEqualString2(TypeName, L"File", TRUE) && KphCommsIsConnected())
 		{
 			KPH_FILE_OBJECT_INFORMATION objectInfo;
 
@@ -119,7 +107,9 @@ bool CWinHandle::InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, 
 QFutureWatcher<bool>* CWinHandle::InitExtDataAsync(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, quint64 ProcessHandle)
 {
 	QFutureWatcher<bool>* pWatcher = new QFutureWatcher<bool>(this);
-	pWatcher->setFuture(QtConcurrent::run(CWinHandle::InitExtDataAsync, this, handle, ProcessHandle));
+	pWatcher->setFuture(QtConcurrent::run([this, handle, ProcessHandle]() {
+		return CWinHandle::InitExtDataAsync(this, handle, ProcessHandle);
+	}));
 	return pWatcher;
 }
 
@@ -310,7 +300,7 @@ NTSTATUS PhEnumHandlesGeneric(
 	// * On Windows XP and later, NtQuerySystemInformation with SystemExtendedHandleInformation.
 	// * Otherwise, NtQuerySystemInformation with SystemHandleInformation can be used.
 
-	if (KphIsConnected())
+	if (KphCommsIsConnected())
 	{
 		PKPH_PROCESS_HANDLE_INFORMATION handles;
 		PSYSTEM_HANDLE_INFORMATION_EX convertedHandles;
@@ -408,7 +398,7 @@ STATUS CWinHandle::SetAttribute(quint32 Attribute, bool bSet)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-    if (!KphIsConnected())
+    if (!KphCommsIsConnected())
 		return ERR(tr("KProcessHacker is not available"));
 
 	if(bSet)
@@ -541,8 +531,11 @@ VOID PhLoadSymbolProviderOptions(_Inout_ PPH_SYMBOL_PROVIDER SymbolProvider);
 
 BOOLEAN NTAPI EnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ PVOID Context)
 {
-    if (Module->Type == PH_MODULE_TYPE_MODULE || Module->Type == PH_MODULE_TYPE_WOW64_MODULE)
-        PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Module->FileName->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
+	if (Module->Type == PH_MODULE_TYPE_MODULE || Module->Type == PH_MODULE_TYPE_WOW64_MODULE) {
+		PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
+		PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Name, (ULONG64)Module->BaseAddress, Module->Size);
+		PhDereferenceObject(Name);
+	}
     return TRUE;
 }
 

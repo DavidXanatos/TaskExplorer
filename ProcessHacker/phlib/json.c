@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   json and xml wrapper
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -29,7 +18,7 @@
 #include "..\tools\thirdparty\mxml\mxml.h"
 
 static json_object_ptr json_get_object(
-    _In_ json_object_ptr rootObj, 
+    _In_ json_object_ptr rootObj,
     _In_ PSTR key
     )
 {
@@ -230,7 +219,7 @@ VOID PhAddJsonObjectValue(
     _In_ PVOID Value
     )
 {
-    json_object_object_add_ex(Object, Key, Value, JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_KEY_IS_CONSTANT);
+    json_object_object_add_ex(Object, Key, Value, JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
 VOID PhAddJsonObject(
@@ -239,7 +228,7 @@ VOID PhAddJsonObject(
     _In_ PSTR Value
     )
 {
-    json_object_object_add_ex(Object, Key, json_object_new_string(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_KEY_IS_CONSTANT);
+    json_object_object_add_ex(Object, Key, json_object_new_string(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
 VOID PhAddJsonObject2(
@@ -251,7 +240,7 @@ VOID PhAddJsonObject2(
 {
     PVOID string = json_object_new_string_len(Value, (UINT32)Length);
 
-    json_object_object_add_ex(Object, Key, string, JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_KEY_IS_CONSTANT);
+    json_object_object_add_ex(Object, Key, string, JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
 VOID PhAddJsonObjectInt64(
@@ -260,7 +249,7 @@ VOID PhAddJsonObjectInt64(
     _In_ LONGLONG Value
     )
 {
-    json_object_object_add_ex(Object, Key, json_object_new_int64(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_KEY_IS_CONSTANT);
+    json_object_object_add_ex(Object, Key, json_object_new_int64(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
 VOID PhAddJsonObjectUInt64(
@@ -269,7 +258,7 @@ VOID PhAddJsonObjectUInt64(
     _In_ ULONGLONG Value
     )
 {
-    json_object_object_add_ex(Object, Key, json_object_new_uint64(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_KEY_IS_CONSTANT);
+    json_object_object_add_ex(Object, Key, json_object_new_uint64(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
 VOID PhAddJsonObjectDouble(
@@ -278,7 +267,7 @@ VOID PhAddJsonObjectDouble(
     _In_ DOUBLE Value
     )
 {
-    json_object_object_add_ex(Object, Key, json_object_new_double(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_KEY_IS_CONSTANT);
+    json_object_object_add_ex(Object, Key, json_object_new_double(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
 PVOID PhCreateJsonArray(
@@ -350,7 +339,7 @@ PVOID PhGetJsonObjectAsArrayList(
     json_object_object_foreachC(Object, json_array_ptr)
     {
         PJSON_ARRAY_LIST_OBJECT object;
-        
+
         object = PhAllocateZero(sizeof(JSON_ARRAY_LIST_OBJECT));
         object->Key = json_array_ptr.key;
         object->Entry = json_array_ptr.val;
@@ -362,18 +351,18 @@ PVOID PhGetJsonObjectAsArrayList(
 }
 
 PVOID PhLoadJsonObjectFromFile(
-    _In_ PWSTR FileName
+    _In_ PPH_STRINGREF FileName
     )
 {
-    return json_object_from_file(FileName);
+    return json_object_from_file(FileName->Buffer);
 }
 
 VOID PhSaveJsonObjectToFile(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PVOID Object
     )
 {
-    json_object_to_file(FileName, Object);
+    json_object_to_file(FileName->Buffer, Object);
 }
 
 // XML support
@@ -402,7 +391,7 @@ PVOID PhLoadXmlObjectFromString(
 }
 
 NTSTATUS PhLoadXmlObjectFromFile(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _Out_opt_ PVOID* XmlRootObject
     )
 {
@@ -413,7 +402,7 @@ NTSTATUS PhLoadXmlObjectFromFile(
 
     status = PhCreateFileWin32(
         &fileHandle,
-        FileName,
+        PhGetStringRefZ(FileName),
         FILE_GENERIC_READ,
         FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_DELETE,
@@ -456,42 +445,24 @@ NTSTATUS PhLoadXmlObjectFromFile(
 }
 
 NTSTATUS PhSaveXmlObjectToFile(
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PVOID XmlRootObject,
     _In_opt_ PVOID XmlSaveCallback
     )
 {
     NTSTATUS status;
     HANDLE fileHandle;
-    PPH_STRING fullPath;
-    ULONG indexOfFileName;
 
-    // Create the directory if it does not exist.  
-    if (fullPath = PhGetFullPath(FileName, &indexOfFileName))
-    {
-        if (indexOfFileName != ULONG_MAX)
-        {
-            PPH_STRING directoryName;
+    // Create the directory if it does not exist.
 
-            directoryName = PhSubstring(fullPath, 0, indexOfFileName);
-            status = PhCreateDirectory(directoryName);
+    status = PhCreateDirectoryFullPathWin32(FileName);
 
-            if (!NT_SUCCESS(status))
-            {
-                PhDereferenceObject(directoryName);
-                PhDereferenceObject(fullPath);
-                return status;
-            }
-
-            PhDereferenceObject(directoryName);
-        }
-
-        PhDereferenceObject(fullPath);
-    }  
+    if (!NT_SUCCESS(status))
+        return status;
 
     status = PhCreateFileWin32(
         &fileHandle,
-        FileName,
+        PhGetStringRefZ(FileName),
         FILE_GENERIC_WRITE,
         FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ,

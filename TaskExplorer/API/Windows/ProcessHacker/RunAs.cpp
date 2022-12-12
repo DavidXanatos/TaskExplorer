@@ -1,25 +1,13 @@
 /*
- * Process Hacker -
+ * System Informer -
  *   qt wrapper and runas.c functions
  *
  * Copyright (C) 2009-2016 wj32
  * Copyright (C) 2018
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 
@@ -254,22 +242,22 @@ long SvcApiInvokeRunAsService(const QVariantMap& Parameters)
 	PH_RUNAS_SERVICE_PARAMETERS parameters;
 
 	parameters.ProcessId = Parameters["ProcessId"].toULongLong();
-	wstring userName = Parameters["UserName"].toString().toStdWString();
+	std::wstring userName = Parameters["UserName"].toString().toStdWString();
 	parameters.UserName = userName.size() != 0 ? (wchar_t*)userName.c_str() : NULL;
-	wstring password = Parameters["Password"].toString().toStdWString();
+	std::wstring password = Parameters["Password"].toString().toStdWString();
     parameters.Password = userName.size() != 0 ? (wchar_t*)password.c_str() : NULL; // if we have a username we also must have a password, even if its empty
 	parameters.LogonType = Parameters["LogonType"].toUInt();
     parameters.SessionId = Parameters["SessionId"].toUInt();
-	wstring currentDirectory = Parameters["CurrentDirectory"].toString().toStdWString();
+	std::wstring currentDirectory = Parameters["CurrentDirectory"].toString().toStdWString();
     parameters.CurrentDirectory = currentDirectory.size() != 0 ? (wchar_t*)currentDirectory.c_str() : NULL;
-	wstring commandLine = Parameters["CommandLine"].toString().toStdWString();
+	std::wstring commandLine = Parameters["CommandLine"].toString().toStdWString();
     parameters.CommandLine = commandLine.size() != 0 ? (wchar_t*)commandLine.c_str() : NULL;
-	wstring fileName = Parameters["FileName"].toString().toStdWString();
+	std::wstring fileName = Parameters["FileName"].toString().toStdWString();
     parameters.FileName = fileName.size() != 0 ? (wchar_t*)fileName.c_str() : NULL;
-	wstring desktopName = Parameters["DesktopName"].toString().toStdWString();
+	std::wstring desktopName = Parameters["DesktopName"].toString().toStdWString();
     parameters.DesktopName = desktopName.size() != 0 ? (wchar_t*)desktopName.c_str() : NULL;
 	parameters.UseLinkedToken = Parameters["UseLinkedToken"].toBool();
-	wstring serviceName = Parameters["ServiceName"].toString().toStdWString();
+	std::wstring serviceName = Parameters["ServiceName"].toString().toStdWString();
 	parameters.ServiceName = serviceName.size() != 0 ? (wchar_t*)serviceName.c_str() : NULL;
     parameters.CreateSuspendedProcess = Parameters["CreateSuspendedProcess"].toBool();
 
@@ -1224,9 +1212,9 @@ VOID SetDefaultDesktopEntry(QComboBox* pComboBox)
 typedef INT (CALLBACK *MRUSTRINGCMPPROC)(PCWSTR pString1, PCWSTR pString2);
 typedef INT (CALLBACK *MRUINARYCMPPROC)(LPCVOID pString1, LPCVOID pString2, ULONG length);
 
-#define MRU_STRING 0x0000 // list will contain strings.
-#define MRU_BINARY 0x0001 // list will contain binary data.
-#define MRU_CACHEWRITE 0x0002 // only save list order to reg. is FreeMRUList.
+#define MRU_STRING 0x0000 // std::list will contain strings.
+#define MRU_BINARY 0x0001 // std::list will contain binary data.
+#define MRU_CACHEWRITE 0x0002 // only save std::list order to reg. is FreeMRUList.
 
 typedef struct _MRUINFO
 {

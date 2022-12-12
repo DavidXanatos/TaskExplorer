@@ -1,43 +1,47 @@
-#include <qstatusbar.h>
-#include <qlabel.h>
-#include <qlayout.h>
-#include <qevent.h>
-#include <qdatetime.h>
-#include <qwt_plot_canvas.h>
-#include "panel.h"
-#include "plot.h"
-#include "mainwindow.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-MainWindow::MainWindow( QWidget *parent ):
-    QMainWindow( parent )
+#include "MainWindow.h"
+#include "Plot.h"
+#include "Panel.h"
+
+#include <QStatusBar>
+#include <QLabel>
+#include <QLayout>
+#include <QEvent>
+#include <QElapsedTimer>
+
+MainWindow::MainWindow( QWidget* parent )
+    : QMainWindow( parent )
 {
-    QWidget *w = new QWidget( this );
+    Panel* panel = new Panel();
+    m_plot = new Plot();
 
-    d_panel = new Panel( w );
+    QWidget* w = new QWidget( this );
 
-    d_plot = new Plot( w );
-
-    QHBoxLayout *hLayout = new QHBoxLayout( w );
-    hLayout->addWidget( d_panel );
-    hLayout->addWidget( d_plot, 10 );
+    QHBoxLayout* hLayout = new QHBoxLayout( w );
+    hLayout->addWidget( panel );
+    hLayout->addWidget( m_plot, 10 );
 
     setCentralWidget( w );
 
-    d_frameCount = new QLabel( this );
-    statusBar()->addWidget( d_frameCount, 10 );
+    m_frameCount = new QLabel( this );
+    statusBar()->addWidget( m_frameCount, 10 );
 
-    applySettings( d_panel->settings() );
+    applySettings( panel->settings() );
 
-    connect( d_panel, SIGNAL( settingsChanged( const Settings & ) ),
-        this, SLOT( applySettings( const Settings & ) ) );
+    connect( panel, SIGNAL(settingsChanged(const Settings&)),
+        this, SLOT(applySettings(const Settings&)) );
 }
 
-bool MainWindow::eventFilter( QObject *object, QEvent *event )
+bool MainWindow::eventFilter( QObject* object, QEvent* event )
 {
-    if ( object == d_plot->canvas() && event->type() == QEvent::Paint )
+    if ( object == m_plot->canvas() && event->type() == QEvent::Paint )
     {
         static int counter;
-        static QTime timeStamp;
+        static QElapsedTimer timeStamp;
 
         if ( !timeStamp.isValid() )
         {
@@ -55,7 +59,7 @@ bool MainWindow::eventFilter( QObject *object, QEvent *event )
                 fps.setNum( qRound( counter / elapsed ) );
                 fps += " Fps";
 
-                d_frameCount->setText( fps );
+                m_frameCount->setText( fps );
 
                 counter = 0;
                 timeStamp.start();
@@ -66,11 +70,13 @@ bool MainWindow::eventFilter( QObject *object, QEvent *event )
     return QMainWindow::eventFilter( object, event );
 }
 
-void MainWindow::applySettings( const Settings &settings )
+void MainWindow::applySettings( const Settings& settings )
 {
-    d_plot->setSettings( settings );
+    m_plot->setSettings( settings );
 
     // the canvas might have been recreated
-    d_plot->canvas()->removeEventFilter( this );
-    d_plot->canvas()->installEventFilter( this );
+    m_plot->canvas()->removeEventFilter( this );
+    m_plot->canvas()->installEventFilter( this );
 }
+
+#include "moc_MainWindow.cpp"

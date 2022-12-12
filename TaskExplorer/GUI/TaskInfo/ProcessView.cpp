@@ -17,7 +17,7 @@ CProcessView::CProcessView(QWidget *parent)
 	:QWidget(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	//m_pMainLayout->setMargin(0);
+	//m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	/*
@@ -29,7 +29,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pScrollArea->setWidgetResizable(true);
 	m_pScrollArea->setWidget(m_pInfoWidget);
 	QPalette pal = m_pScrollArea->palette();
-	pal.setColor(QPalette::Background, Qt::transparent);
+	pal.setColor(QPalette::Window, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
 	m_pInfoLayout = new QVBoxLayout();
@@ -45,7 +45,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pOneProcWidget = new QWidget();
 	m_pOneProcLayout = new QVBoxLayout();
-	m_pOneProcLayout->setMargin(0);
+	m_pOneProcLayout->setContentsMargins(0, 0, 0, 0);
 	m_pOneProcWidget->setLayout(m_pOneProcLayout);
 	//m_pInfoLayout->addWidget(m_pOneProcWidget);
 	m_pStackedLayout->addWidget(m_pOneProcWidget);
@@ -101,7 +101,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pProcessArea->setWidgetResizable(true);
 	m_pProcessArea->setWidget(m_pProcessBox);
 	QPalette pal = m_pProcessArea->palette();
-	pal.setColor(QPalette::Background, Qt::transparent);
+	pal.setColor(QPalette::Window, Qt::transparent);
 	m_pProcessArea->setPalette(pal);
 
 
@@ -236,7 +236,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pMultiProcWidget = new QWidget();
 	m_pMultiProcLayout = new QVBoxLayout();
-	m_pMultiProcLayout->setMargin(0);
+	m_pMultiProcLayout->setContentsMargins(0, 0, 0, 0);
 	m_pMultiProcWidget->setLayout(m_pMultiProcLayout);
 	//m_pInfoLayout->addWidget(m_pMultiProcWidget);
 	m_pMainLayout->addWidget(m_pMultiProcWidget);
@@ -251,7 +251,7 @@ CProcessView::CProcessView(QWidget *parent)
 
 	m_pProcessModel->SetTree(false);
 
-	m_pSortProxy = new CSortFilterProxyModel(false, this);
+	m_pSortProxy = new CSortFilterProxyModel(this);
 	m_pSortProxy->setSortRole(Qt::EditRole);
     m_pSortProxy->setSourceModel(m_pProcessModel);
 	m_pSortProxy->setDynamicSortFilter(true);
@@ -527,7 +527,7 @@ void CProcessView::OnCertificate(const QString& Link)
 	NTSTATUS status;
 	HANDLE fileHandle;
 
-	wstring fileName = Link.toStdWString();
+	std::wstring fileName = Link.toStdWString();
 
 	PPH_STRING packageFullName = m_Processes.isEmpty() ? NULL : CastQString(m_Processes.first().staticCast<CWinProcess>()->GetPackageName());
 

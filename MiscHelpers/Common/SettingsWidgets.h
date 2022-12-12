@@ -13,7 +13,7 @@ public:
 		setPlainText(Lines.join("\r\n"));
 	}
 	QStringList			GetLines(){
-		return toPlainText().split(QRegExp("\r?\n"));
+		return toPlainText().split(QRegularExpression("\r?\n"));
 	}
 };
 
@@ -341,7 +341,7 @@ public:
 	{
 		QWidget* pWidget = new CActionWidget(pControll->parentWidget());
         QHBoxLayout* pLayout = new QHBoxLayout();
-		pLayout->setMargin(0);
+		pLayout->setContentsMargins(0,0,0,0);
 
 		if(!IconFile.isEmpty())
 		{

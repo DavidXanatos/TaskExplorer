@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -11,6 +11,7 @@
 #define QWT_PAINTER_COMMAND_H
 
 #include "qwt_global.h"
+
 #include <qpaintengine.h>
 #include <qpixmap.h>
 #include <qimage.h>
@@ -20,17 +21,17 @@
 class QPainterPath;
 
 /*!
-  QwtPainterCommand represents the attributes of a paint operation
-  how it is used between QPainter and QPaintDevice
+   QwtPainterCommand represents the attributes of a paint operation
+   how it is used between QPainter and QPaintDevice
 
-  It is used by QwtGraphic to record and replay paint operations
+   It is used by QwtGraphic to record and replay paint operations
 
-  \sa QwtGraphic::commands()
+   \sa QwtGraphic::commands()
  */
 
 class QWT_EXPORT QwtPainterCommand
 {
-public:
+  public:
     //! Type of the paint command
     enum Type
     {
@@ -78,7 +79,6 @@ public:
         QBrush backgroundBrush;
         Qt::BGMode backgroundMode;
         QFont font;
-        QMatrix matrix;
         QTransform transform;
 
         Qt::ClipOperation clipOperation;
@@ -92,27 +92,27 @@ public:
     };
 
     QwtPainterCommand();
-    QwtPainterCommand(const QwtPainterCommand &);
+    QwtPainterCommand(const QwtPainterCommand&);
 
-    QwtPainterCommand( const QPainterPath & );
+    explicit QwtPainterCommand( const QPainterPath& );
 
-    QwtPainterCommand( const QRectF &rect,
-            const QPixmap &, const QRectF& subRect );
+    QwtPainterCommand( const QRectF& rect,
+        const QPixmap&, const QRectF& subRect );
 
-    QwtPainterCommand( const QRectF &rect,
-            const QImage &, const QRectF& subRect,
-            Qt::ImageConversionFlags );
+    QwtPainterCommand( const QRectF& rect,
+        const QImage&, const QRectF& subRect,
+        Qt::ImageConversionFlags );
 
-    QwtPainterCommand( const QPaintEngineState & );
+    explicit QwtPainterCommand( const QPaintEngineState& );
 
     ~QwtPainterCommand();
 
-    QwtPainterCommand &operator=(const QwtPainterCommand & );
+    QwtPainterCommand& operator=(const QwtPainterCommand& );
 
     Type type() const;
 
-    QPainterPath *path();
-    const QPainterPath *path() const;
+    QPainterPath* path();
+    const QPainterPath* path() const;
 
     PixmapData* pixmapData();
     const PixmapData* pixmapData() const;
@@ -123,52 +123,52 @@ public:
     StateData* stateData();
     const StateData* stateData() const;
 
-private:
-    void copy( const QwtPainterCommand & );
+  private:
+    void copy( const QwtPainterCommand& );
     void reset();
 
-    Type d_type;
+    Type m_type;
 
     union
     {
-        QPainterPath *d_path;
-        PixmapData *d_pixmapData;
-        ImageData *d_imageData;
-        StateData *d_stateData;
+        QPainterPath* m_path;
+        PixmapData* m_pixmapData;
+        ImageData* m_imageData;
+        StateData* m_stateData;
     };
 };
 
 //! \return Type of the command
 inline QwtPainterCommand::Type QwtPainterCommand::type() const
 {
-    return d_type;
+    return m_type;
 }
 
 //! \return Painter path to be painted
-inline const QPainterPath *QwtPainterCommand::path() const
+inline const QPainterPath* QwtPainterCommand::path() const
 {
-    return d_path;
+    return m_path;
 }
 
 //! \return Attributes how to paint a QPixmap
-inline const QwtPainterCommand::PixmapData *
+inline const QwtPainterCommand::PixmapData*
 QwtPainterCommand::pixmapData() const
 {
-    return d_pixmapData;
+    return m_pixmapData;
 }
 
 //! \return Attributes how to paint a QImage
-inline const QwtPainterCommand::ImageData *
+inline const QwtPainterCommand::ImageData*
 QwtPainterCommand::imageData() const
 {
-    return d_imageData;
+    return m_imageData;
 }
 
 //! \return Attributes of a state change
-inline const QwtPainterCommand::StateData *
+inline const QwtPainterCommand::StateData*
 QwtPainterCommand::stateData() const
 {
-    return d_stateData;
+    return m_stateData;
 }
 
 #endif

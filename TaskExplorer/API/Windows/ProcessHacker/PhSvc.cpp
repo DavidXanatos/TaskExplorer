@@ -1,24 +1,12 @@
 /*
- * Process Hacker -
+ * System Informer -
  *   functions from the ExtendedServices pluggin
  *
  * Copyright (C) 2009-2015 wj32
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 
@@ -793,7 +781,7 @@ PH_KEY_VALUE_PAIR ServiceActionPairs[] =
 };
 
 /*
-* Process Hacker Extra Plugins -
+* System Informer Extra Plugins -
 *   Service Backup and Restore Plugin
 *
 */
@@ -804,7 +792,7 @@ PH_KEY_VALUE_PAIR ServiceActionPairs[] =
 static PH_STRINGREF servicesKeyName = PH_STRINGREF_INIT(L"System\\CurrentControlSet\\Services\\");
 static PH_STRINGREF fileExtName = PH_STRINGREF_INIT(L".phservicebackup");
 
-STATUS PhBackupService(const wstring& svcName, const wstring& backFile)
+STATUS PhBackupService(const std::wstring& svcName, const std::wstring& backFile)
 {
     NTSTATUS status = STATUS_SUCCESS;
     HANDLE keyHandle = NULL;
@@ -867,7 +855,7 @@ STATUS PhBackupService(const wstring& svcName, const wstring& backFile)
 	return OK;
 }
 
-STATUS PhRestoreService(const wstring& backFile, const wstring& svcName)
+STATUS PhRestoreService(const std::wstring& backFile, const std::wstring& svcName)
 {
     NTSTATUS status = STATUS_SUCCESS;
     HANDLE keyHandle = NULL;
@@ -878,7 +866,7 @@ STATUS PhRestoreService(const wstring& backFile, const wstring& svcName)
 
     serviceKeyName = PhConcatStringRef2(&servicesKeyName, &ServiceItemName);
 
-	wstring err;
+	std::wstring err;
 
     __try
     {

@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -10,12 +10,12 @@
 #include "qwt_symbol.h"
 #include "qwt_painter.h"
 #include "qwt_graphic.h"
-#include <qapplication.h>
+#include "qwt_math.h"
+
 #include <qpainter.h>
 #include <qpainterpath.h>
 #include <qpixmap.h>
 #include <qpaintengine.h>
-#include <qmath.h>
 #ifndef QWT_NO_SVG
 #include <qsvgrenderer.h>
 #endif
@@ -31,8 +31,8 @@ namespace QwtTriangle
     };
 }
 
-static QwtGraphic qwtPathGraphic( const QPainterPath &path,
-    const QPen &pen, const QBrush& brush )
+static QwtGraphic qwtPathGraphic( const QPainterPath& path,
+    const QPen& pen, const QBrush& brush )
 {
     QwtGraphic graphic;
     graphic.setRenderHint( QwtGraphic::RenderPensUnscaled );
@@ -47,7 +47,7 @@ static QwtGraphic qwtPathGraphic( const QPainterPath &path,
 }
 
 static inline QRectF qwtScaledBoundingRect(
-    const QwtGraphic &graphic, const QSizeF size )
+    const QwtGraphic& graphic, const QSizeF size )
 {
     QSizeF scaledSize = size;
     if ( scaledSize.isEmpty() )
@@ -66,8 +66,8 @@ static inline QRectF qwtScaledBoundingRect(
     return graphic.scaledBoundingRect( sx, sy );
 }
 
-static inline void qwtDrawPixmapSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawPixmapSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     QSize size = symbol.size();
     if ( size.isEmpty() )
@@ -101,9 +101,9 @@ static inline void qwtDrawPixmapSymbols( QPainter *painter,
 
 #ifndef QWT_NO_SVG
 
-static inline void qwtDrawSvgSymbols( QPainter *painter,
-    const QPointF *points, int numPoints,
-    QSvgRenderer *renderer, const QwtSymbol &symbol )
+static inline void qwtDrawSvgSymbols( QPainter* painter,
+    const QPointF* points, int numPoints,
+    QSvgRenderer* renderer, const QwtSymbol& symbol )
 {
     if ( renderer == NULL || !renderer->isValid() )
         return;
@@ -138,9 +138,9 @@ static inline void qwtDrawSvgSymbols( QPainter *painter,
 
 #endif
 
-static inline void qwtDrawGraphicSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtGraphic &graphic,
-    const QwtSymbol &symbol )
+static inline void qwtDrawGraphicSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtGraphic& graphic,
+    const QwtSymbol& symbol )
 {
     const QRectF pointRect = graphic.controlPointRect();
     if ( pointRect.isEmpty() )
@@ -177,8 +177,8 @@ static inline void qwtDrawGraphicSymbols( QPainter *painter,
     painter->setTransform( transform );
 }
 
-static inline void qwtDrawEllipseSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawEllipseSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     painter->setBrush( symbol.brush() );
     painter->setPen( symbol.pen() );
@@ -219,8 +219,8 @@ static inline void qwtDrawEllipseSymbols( QPainter *painter,
     }
 }
 
-static inline void qwtDrawRectSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawRectSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     const QSize size = symbol.size();
 
@@ -264,8 +264,8 @@ static inline void qwtDrawRectSymbols( QPainter *painter,
     }
 }
 
-static inline void qwtDrawDiamondSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawDiamondSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     const QSize size = symbol.size();
 
@@ -299,7 +299,7 @@ static inline void qwtDrawDiamondSymbols( QPainter *painter,
     {
         for ( int i = 0; i < numPoints; i++ )
         {
-            const QPointF &pos = points[i];
+            const QPointF& pos = points[i];
 
             const double x1 = pos.x() - 0.5 * size.width();
             const double y1 = pos.y() - 0.5 * size.height();
@@ -318,9 +318,9 @@ static inline void qwtDrawDiamondSymbols( QPainter *painter,
 }
 
 static inline void qwtDrawTriangleSymbols(
-    QPainter *painter, QwtTriangle::Type type,
-    const QPointF *points, int numPoints,
-    const QwtSymbol &symbol )
+    QPainter* painter, QwtTriangle::Type type,
+    const QPointF* points, int numPoints,
+    const QwtSymbol& symbol )
 {
     const QSize size = symbol.size();
 
@@ -337,16 +337,16 @@ static inline void qwtDrawTriangleSymbols(
 
     if ( doAlign )
     {
-        sw2 = qFloor( sw2 );
-        sh2 = qFloor( sh2 );
+        sw2 = std::floor( sw2 );
+        sh2 = std::floor( sh2 );
     }
 
     QPolygonF triangle( 3 );
-    QPointF *trianglePoints = triangle.data();
+    QPointF* trianglePoints = triangle.data();
 
     for ( int i = 0; i < numPoints; i++ )
     {
-        const QPointF &pos = points[i];
+        const QPointF& pos = points[i];
 
         double x = pos.x();
         double y = pos.y();
@@ -422,8 +422,8 @@ static inline void qwtDrawTriangleSymbols(
 }
 
 static inline void qwtDrawLineSymbols(
-    QPainter *painter, int orientations,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+    QPainter* painter, int orientations,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     const QSize size = symbol.size();
 
@@ -441,8 +441,8 @@ static inline void qwtDrawLineSymbols(
 
     if ( QwtPainter::roundingAlignment( painter ) )
     {
-        const int sw = qFloor( size.width() );
-        const int sh = qFloor( size.height() );
+        const int sw = qwtFloor( size.width() );
+        const int sh = qwtFloor( size.height() );
         const int sw2 = size.width() / 2;
         const int sh2 = size.height() / 2;
 
@@ -491,8 +491,8 @@ static inline void qwtDrawLineSymbols(
     }
 }
 
-static inline void qwtDrawXCrossSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawXCrossSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     const QSize size = symbol.size();
     int off = 0;
@@ -515,7 +515,7 @@ static inline void qwtDrawXCrossSymbols( QPainter *painter,
 
         for ( int i = 0; i < numPoints; i++ )
         {
-            const QPointF &pos = points[i];
+            const QPointF& pos = points[i];
 
             const int x = qRound( pos.x() );
             const int y = qRound( pos.y() );
@@ -538,7 +538,7 @@ static inline void qwtDrawXCrossSymbols( QPainter *painter,
 
         for ( int i = 0; i < numPoints; i++ )
         {
-            const QPointF &pos = points[i];
+            const QPointF& pos = points[i];
 
             const double x1 = pos.x() - sw2;
             const double x2 = x1 + sw;
@@ -551,8 +551,8 @@ static inline void qwtDrawXCrossSymbols( QPainter *painter,
     }
 }
 
-static inline void qwtDrawStar1Symbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawStar1Symbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     const QSize size = symbol.size();
     painter->setPen( symbol.pen() );
@@ -574,7 +574,7 @@ static inline void qwtDrawStar1Symbols( QPainter *painter,
                 qRound( r.right() - d1 ), qRound( r.bottom() - d1 ) );
             QwtPainter::drawLine( painter,
                 qRound( r.left() + d1 ), qRound( r.bottom() - d1 ),
-                qRound( r .right() - d1), qRound( r.top() + d1 ) );
+                qRound( r.right() - d1), qRound( r.top() + d1 ) );
 
             const QPoint c = r.center();
 
@@ -595,7 +595,7 @@ static inline void qwtDrawStar1Symbols( QPainter *painter,
             const double sqrt1_2 = 0.70710678118654752440; /* 1/sqrt(2) */
 
             const QPointF c = r.center();
-            const double d1  = r.width() / 2.0 * ( 1.0 - sqrt1_2 );
+            const double d1 = r.width() / 2.0 * ( 1.0 - sqrt1_2 );
 
             QwtPainter::drawLine( painter,
                 r.left() + d1, r.top() + d1,
@@ -613,8 +613,8 @@ static inline void qwtDrawStar1Symbols( QPainter *painter,
     }
 }
 
-static inline void qwtDrawStar2Symbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawStar2Symbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     QPen pen = symbol.pen();
     if ( pen.width() > 1 )
@@ -630,7 +630,7 @@ static inline void qwtDrawStar2Symbols( QPainter *painter,
     const double dx = 0.5 * symbol.size().width() * cos30 / 3.0;
 
     QPolygonF star( 12 );
-    QPointF *starPoints = star.data();
+    QPointF* starPoints = star.data();
 
     const bool doAlign = QwtPainter::roundingAlignment( painter );
 
@@ -704,8 +704,8 @@ static inline void qwtDrawStar2Symbols( QPainter *painter,
     }
 }
 
-static inline void qwtDrawHexagonSymbols( QPainter *painter,
-    const QPointF *points, int numPoints, const QwtSymbol &symbol )
+static inline void qwtDrawHexagonSymbols( QPainter* painter,
+    const QPointF* points, int numPoints, const QwtSymbol& symbol )
 {
     painter->setBrush( symbol.brush() );
     painter->setPen( symbol.pen() );
@@ -716,7 +716,7 @@ static inline void qwtDrawHexagonSymbols( QPainter *painter,
     const double dy = 0.25 * symbol.size().height();
 
     QPolygonF hexaPolygon( 6 );
-    QPointF *hexaPoints = hexaPolygon.data();
+    QPointF* hexaPoints = hexaPolygon.data();
 
     const bool doAlign = QwtPainter::roundingAlignment( painter );
 
@@ -734,8 +734,8 @@ static inline void qwtDrawHexagonSymbols( QPainter *painter,
         double y1 = y - 2 * dy;
         if ( doAlign )
         {
-            x1 = qCeil( x1 );
-            y1 = qCeil( y1 );
+            x1 = std::ceil( x1 );
+            y1 = std::ceil( y1 );
         }
 
         const double x2 = x1 + 1 * dx;
@@ -769,14 +769,14 @@ static inline void qwtDrawHexagonSymbols( QPainter *painter,
 
 class QwtSymbol::PrivateData
 {
-public:
-    PrivateData( QwtSymbol::Style st, const QBrush &br,
-            const QPen &pn, const QSize &sz ):
-        style( st ),
-        size( sz ),
-        brush( br ),
-        pen( pn ),
-        isPinPointEnabled( false )
+  public:
+    PrivateData( QwtSymbol::Style st, const QBrush& br,
+            const QPen& pn, const QSize& sz )
+        : style( st )
+        , size( sz )
+        , brush( br )
+        , pen( pn )
+        , isPinPointEnabled( false )
     {
         cache.policy = QwtSymbol::AutoCache;
 #ifndef QWT_NO_SVG
@@ -821,7 +821,7 @@ public:
 #ifndef QWT_NO_SVG
     struct SVG
     {
-        QSvgRenderer *renderer;
+        QSvgRenderer* renderer;
     } svg;
 #endif
 
@@ -834,103 +834,103 @@ public:
 };
 
 /*!
-  Default Constructor
-  \param style Symbol Style
+   Default Constructor
+   \param style Symbol Style
 
-  The symbol is constructed with gray interior,
-  black outline with zero width, no size and style 'NoSymbol'.
-*/
+   The symbol is constructed with gray interior,
+   black outline with zero width, no size and style 'NoSymbol'.
+ */
 QwtSymbol::QwtSymbol( Style style )
 {
-    d_data = new PrivateData( style, QBrush( Qt::gray ),
+    m_data = new PrivateData( style, QBrush( Qt::gray ),
         QPen( Qt::black, 0 ), QSize() );
 }
 
 /*!
-  \brief Constructor
-  \param style Symbol Style
-  \param brush brush to fill the interior
-  \param pen outline pen
-  \param size size
+   \brief Constructor
+   \param style Symbol Style
+   \param brush brush to fill the interior
+   \param pen outline pen
+   \param size size
 
-  \sa setStyle(), setBrush(), setPen(), setSize()
-*/
-QwtSymbol::QwtSymbol( QwtSymbol::Style style, const QBrush &brush,
-    const QPen &pen, const QSize &size )
+   \sa setStyle(), setBrush(), setPen(), setSize()
+ */
+QwtSymbol::QwtSymbol( QwtSymbol::Style style, const QBrush& brush,
+    const QPen& pen, const QSize& size )
 {
-    d_data = new PrivateData( style, brush, pen, size );
+    m_data = new PrivateData( style, brush, pen, size );
 }
 
 /*!
-  \brief Constructor
+   \brief Constructor
 
-  The symbol gets initialized by a painter path. The style is
-  set to QwtSymbol::Path, the size is set to empty ( the path
-  is displayed unscaled ).
+   The symbol gets initialized by a painter path. The style is
+   set to QwtSymbol::Path, the size is set to empty ( the path
+   is displayed unscaled ).
 
-  \param path painter path
-  \param brush brush to fill the interior
-  \param pen outline pen
+   \param path painter path
+   \param brush brush to fill the interior
+   \param pen outline pen
 
-  \sa setPath(), setBrush(), setPen(), setSize()
-*/
+   \sa setPath(), setBrush(), setPen(), setSize()
+ */
 
-QwtSymbol::QwtSymbol( const QPainterPath &path,
-    const QBrush &brush, const QPen &pen )
+QwtSymbol::QwtSymbol( const QPainterPath& path,
+    const QBrush& brush, const QPen& pen )
 {
-    d_data = new PrivateData( QwtSymbol::Path, brush, pen, QSize() );
+    m_data = new PrivateData( QwtSymbol::Path, brush, pen, QSize() );
     setPath( path );
 }
 
 //! Destructor
 QwtSymbol::~QwtSymbol()
 {
-    delete d_data;
+    delete m_data;
 }
 
 /*!
-  Change the cache policy
+   Change the cache policy
 
-  The default policy is AutoCache
+   The default policy is AutoCache
 
-  \param policy Cache policy
-  \sa CachePolicy, cachePolicy()
-*/
+   \param policy Cache policy
+   \sa CachePolicy, cachePolicy()
+ */
 void QwtSymbol::setCachePolicy(
     QwtSymbol::CachePolicy policy )
 {
-    if ( d_data->cache.policy != policy )
+    if ( m_data->cache.policy != policy )
     {
-        d_data->cache.policy = policy;
+        m_data->cache.policy = policy;
         invalidateCache();
     }
 }
 
 /*!
-  \return Cache policy
-  \sa CachePolicy, setCachePolicy()
-*/
+   \return Cache policy
+   \sa CachePolicy, setCachePolicy()
+ */
 QwtSymbol::CachePolicy QwtSymbol::cachePolicy() const
 {
-    return d_data->cache.policy;
+    return m_data->cache.policy;
 }
 
 /*!
-  \brief Set a painter path as symbol
+   \brief Set a painter path as symbol
 
-  The symbol is represented by a painter path, where the
-  origin ( 0, 0 ) of the path coordinate system is mapped to
-  the position of the symbol.
+   The symbol is represented by a painter path, where the
+   origin ( 0, 0 ) of the path coordinate system is mapped to
+   the position of the symbol.
 
-  When the symbol has valid size the painter path gets scaled
-  to fit into the size. Otherwise the symbol size depends on
-  the bounding rectangle of the path.
+   When the symbol has valid size the painter path gets scaled
+   to fit into the size. Otherwise the symbol size depends on
+   the bounding rectangle of the path.
 
-  \par Example
+   \par Example
     The following code defines a symbol drawing an arrow:
 
     \code
-      #include <qwt_symbol.h>
+ #include <qwt_symbol.h>
 
       QwtSymbol *symbol = new QwtSymbol();
 
@@ -957,114 +957,113 @@ QwtSymbol::CachePolicy QwtSymbol::cachePolicy() const
 
       setSize( 10, 14 );
     \endcode
-  \endpar
 
-  \param path Painter path
+   \param path Painter path
 
-  \note The style is implicitely set to QwtSymbol::Path.
-  \sa path(), setSize()
+   \note The style is implicitly set to QwtSymbol::Path.
+   \sa path(), setSize()
  */
-void QwtSymbol::setPath( const QPainterPath &path )
+void QwtSymbol::setPath( const QPainterPath& path )
 {
-    d_data->style = QwtSymbol::Path;
-    d_data->path.path = path;
-    d_data->path.graphic.reset();
+    m_data->style = QwtSymbol::Path;
+    m_data->path.path = path;
+    m_data->path.graphic.reset();
 }
 
 /*!
    \return Painter path for displaying the symbol
    \sa setPath()
-*/
-const QPainterPath &QwtSymbol::path() const
+ */
+const QPainterPath& QwtSymbol::path() const
 {
-    return d_data->path.path;
+    return m_data->path.path;
 }
 
 /*!
-  Set a pixmap as symbol
+   Set a pixmap as symbol
 
-  \param pixmap Pixmap
+   \param pixmap Pixmap
 
-  \sa pixmap(), setGraphic()
+   \sa pixmap(), setGraphic()
 
-  \note the style() is set to QwtSymbol::Pixmap
-  \note brush() and pen() have no effect
+   \note the style() is set to QwtSymbol::Pixmap
+   \note brush() and pen() have no effect
  */
-void QwtSymbol::setPixmap( const QPixmap &pixmap )
+void QwtSymbol::setPixmap( const QPixmap& pixmap )
 {
-    d_data->style = QwtSymbol::Pixmap;
-    d_data->pixmap.pixmap = pixmap;
+    m_data->style = QwtSymbol::Pixmap;
+    m_data->pixmap.pixmap = pixmap;
 }
 
 /*!
-  \return Assigned pixmap
-  \sa setPixmap()
+   \return Assigned pixmap
+   \sa setPixmap()
  */
-const QPixmap &QwtSymbol::pixmap() const
+const QPixmap& QwtSymbol::pixmap() const
 {
-    return d_data->pixmap.pixmap;
+    return m_data->pixmap.pixmap;
 }
 
 /*!
-  Set a graphic as symbol
+   Set a graphic as symbol
 
-  \param graphic Graphic
+   \param graphic Graphic
 
-  \sa graphic(), setPixmap()
+   \sa graphic(), setPixmap()
 
-  \note the style() is set to QwtSymbol::Graphic
-  \note brush() and pen() have no effect
+   \note the style() is set to QwtSymbol::Graphic
+   \note brush() and pen() have no effect
  */
-void QwtSymbol::setGraphic( const QwtGraphic &graphic )
+void QwtSymbol::setGraphic( const QwtGraphic& graphic )
 {
-    d_data->style = QwtSymbol::Graphic;
-    d_data->graphic.graphic = graphic;
+    m_data->style = QwtSymbol::Graphic;
+    m_data->graphic.graphic = graphic;
 }
 
 /*!
-  \return Assigned graphic
-  \sa setGraphic()
+   \return Assigned graphic
+   \sa setGraphic()
  */
-const QwtGraphic &QwtSymbol::graphic() const
+const QwtGraphic& QwtSymbol::graphic() const
 {
-    return d_data->graphic.graphic;
+    return m_data->graphic.graphic;
 }
 
 #ifndef QWT_NO_SVG
 
 /*!
-  Set a SVG icon as symbol
+   Set a SVG icon as symbol
 
-  \param svgDocument SVG icon
+   \param svgDocument SVG icon
 
-  \sa setGraphic(), setPixmap()
+   \sa setGraphic(), setPixmap()
 
-  \note the style() is set to QwtSymbol::SvgDocument
-  \note brush() and pen() have no effect
+   \note the style() is set to QwtSymbol::SvgDocument
+   \note brush() and pen() have no effect
  */
-void QwtSymbol::setSvgDocument( const QByteArray &svgDocument )
+void QwtSymbol::setSvgDocument( const QByteArray& svgDocument )
 {
-    d_data->style = QwtSymbol::SvgDocument;
-    if ( d_data->svg.renderer == NULL )
-        d_data->svg.renderer = new QSvgRenderer();
+    m_data->style = QwtSymbol::SvgDocument;
+    if ( m_data->svg.renderer == NULL )
+        m_data->svg.renderer = new QSvgRenderer();
 
-    d_data->svg.renderer->load( svgDocument );
+    m_data->svg.renderer->load( svgDocument );
 }
 
 #endif
 
 /*!
-  \brief Specify the symbol's size
+   \brief Specify the symbol's size
 
-  If the 'h' parameter is left out or less than 0,
-  and the 'w' parameter is greater than or equal to 0,
-  the symbol size will be set to (w,w).
+   If the 'h' parameter is left out or less than 0,
+   and the 'w' parameter is greater than or equal to 0,
+   the symbol size will be set to (w,w).
 
-  \param width Width
-  \param height Height (defaults to -1)
+   \param width Width
+   \param height Height (defaults to -1)
 
-  \sa size()
-*/
+   \sa size()
+ */
 void QwtSymbol::setSize( int width, int height )
 {
     if ( ( width >= 0 ) && ( height < 0 ) )
@@ -1078,12 +1077,12 @@ void QwtSymbol::setSize( int width, int height )
    \param size Size
 
    \sa size()
-*/
-void QwtSymbol::setSize( const QSize &size )
+ */
+void QwtSymbol::setSize( const QSize& size )
 {
-    if ( size.isValid() && size != d_data->size )
+    if ( size.isValid() && size != m_data->size )
     {
-        d_data->size = size;
+        m_data->size = size;
         invalidateCache();
     }
 }
@@ -1091,102 +1090,102 @@ void QwtSymbol::setSize( const QSize &size )
 /*!
    \return Size
    \sa setSize()
-*/
+ */
 const QSize& QwtSymbol::size() const
 {
-    return d_data->size;
+    return m_data->size;
 }
 
 /*!
-  \brief Assign a brush
+   \brief Assign a brush
 
-  The brush is used to draw the interior of the symbol.
-  \param brush Brush
+   The brush is used to draw the interior of the symbol.
+   \param brush Brush
 
-  \sa brush()
-*/
-void QwtSymbol::setBrush( const QBrush &brush )
+   \sa brush()
+ */
+void QwtSymbol::setBrush( const QBrush& brush )
 {
-    if ( brush != d_data->brush )
+    if ( brush != m_data->brush )
     {
-        d_data->brush = brush;
+        m_data->brush = brush;
         invalidateCache();
 
-        if ( d_data->style == QwtSymbol::Path )
-            d_data->path.graphic.reset();
+        if ( m_data->style == QwtSymbol::Path )
+            m_data->path.graphic.reset();
     }
 }
 
 /*!
-  \return Brush
-  \sa setBrush()
-*/
+   \return Brush
+   \sa setBrush()
+ */
 const QBrush& QwtSymbol::brush() const
 {
-    return d_data->brush;
+    return m_data->brush;
 }
 
 /*!
-  Build and assign a pen
+   Build and assign a pen
 
-  In Qt5 the default pen width is 1.0 ( 0.0 in Qt4 )
-  what makes it non cosmetic ( see QPen::isCosmetic() ).
-  This method has been introduced to hide this incompatibility.
+   In Qt5 the default pen width is 1.0 ( 0.0 in Qt4 )
+   what makes it non cosmetic ( see QPen::isCosmetic() ).
+   This method has been introduced to hide this incompatibility.
 
-  \param color Pen color
-  \param width Pen width
-  \param style Pen style
+   \param color Pen color
+   \param width Pen width
+   \param style Pen style
 
-  \sa pen(), brush()
+   \sa pen(), brush()
  */
-void QwtSymbol::setPen( const QColor &color,
+void QwtSymbol::setPen( const QColor& color,
     qreal width, Qt::PenStyle style )
 {
     setPen( QPen( color, width, style ) );
 }
 
 /*!
-  Assign a pen
+   Assign a pen
 
-  The pen is used to draw the symbol's outline.
+   The pen is used to draw the symbol's outline.
 
-  \param pen Pen
-  \sa pen(), setBrush()
-*/
-void QwtSymbol::setPen( const QPen &pen )
+   \param pen Pen
+   \sa pen(), setBrush()
+ */
+void QwtSymbol::setPen( const QPen& pen )
 {
-    if ( pen != d_data->pen )
+    if ( pen != m_data->pen )
     {
-        d_data->pen = pen;
+        m_data->pen = pen;
         invalidateCache();
 
-        if ( d_data->style == QwtSymbol::Path )
-            d_data->path.graphic.reset();
+        if ( m_data->style == QwtSymbol::Path )
+            m_data->path.graphic.reset();
     }
 }
 
 /*!
-  \return Pen
-  \sa setPen(), brush()
-*/
+   \return Pen
+   \sa setPen(), brush()
+ */
 const QPen& QwtSymbol::pen() const
 {
-    return d_data->pen;
+    return m_data->pen;
 }
 
 /*!
-  \brief Set the color of the symbol
+   \brief Set the color of the symbol
 
-  Change the color of the brush for symbol types with a filled area.
-  For all other symbol types the color will be assigned to the pen.
+   Change the color of the brush for symbol types with a filled area.
+   For all other symbol types the color will be assigned to the pen.
 
-  \param color Color
+   \param color Color
 
-  \sa setBrush(), setPen(), brush(), pen()
-*/
-void QwtSymbol::setColor( const QColor &color )
+   \sa setBrush(), setPen(), brush(), pen()
+ */
+void QwtSymbol::setColor( const QColor& color )
 {
-    switch ( d_data->style )
+    switch ( m_data->style )
     {
         case QwtSymbol::Ellipse:
         case QwtSymbol::Rect:
@@ -1199,9 +1198,9 @@ void QwtSymbol::setColor( const QColor &color )
         case QwtSymbol::Star2:
         case QwtSymbol::Hexagon:
         {
-            if ( d_data->brush.color() != color )
+            if ( m_data->brush.color() != color )
             {
-                d_data->brush.setColor( color );
+                m_data->brush.setColor( color );
                 invalidateCache();
             }
             break;
@@ -1212,47 +1211,47 @@ void QwtSymbol::setColor( const QColor &color )
         case QwtSymbol::VLine:
         case QwtSymbol::Star1:
         {
-            if ( d_data->pen.color() != color )
+            if ( m_data->pen.color() != color )
             {
-                d_data->pen.setColor( color );
+                m_data->pen.setColor( color );
                 invalidateCache();
             }
             break;
         }
         default:
         {
-            if ( d_data->brush.color() != color ||
-                d_data->pen.color() != color )
+            if ( m_data->brush.color() != color ||
+                m_data->pen.color() != color )
             {
                 invalidateCache();
             }
 
-            d_data->brush.setColor( color );
-            d_data->pen.setColor( color );
+            m_data->brush.setColor( color );
+            m_data->pen.setColor( color );
         }
     }
 }
 
 /*!
-  \brief Set and enable a pin point
+   \brief Set and enable a pin point
 
-  The position of a complex symbol is not always aligned to its center
-  ( f.e an arrow, where the peak points to a position ). The pin point
-  defines the position inside of a Pixmap, Graphic, SvgDocument
-  or PainterPath symbol where the represented point has to
-  be aligned to.
+   The position of a complex symbol is not always aligned to its center
+   ( f.e an arrow, where the peak points to a position ). The pin point
+   defines the position inside of a Pixmap, Graphic, SvgDocument
+   or PainterPath symbol where the represented point has to
+   be aligned to.
 
-  \param pos Position
-  \param enable En/Disable the pin point alignment
+   \param pos Position
+   \param enable En/Disable the pin point alignment
 
-  \sa pinPoint(), setPinPointEnabled()
+   \sa pinPoint(), setPinPointEnabled()
  */
-void QwtSymbol::setPinPoint( const QPointF &pos, bool enable )
+void QwtSymbol::setPinPoint( const QPointF& pos, bool enable )
 {
-    if ( d_data->pinPoint != pos )
+    if ( m_data->pinPoint != pos )
     {
-        d_data->pinPoint = pos;
-        if ( d_data->isPinPointEnabled )
+        m_data->pinPoint = pos;
+        if ( m_data->isPinPointEnabled )
         {
             invalidateCache();
         }
@@ -1262,51 +1261,51 @@ void QwtSymbol::setPinPoint( const QPointF &pos, bool enable )
 }
 
 /*!
-  \return Pin point
-  \sa setPinPoint(), setPinPointEnabled()
+   \return Pin point
+   \sa setPinPoint(), setPinPointEnabled()
  */
 QPointF QwtSymbol::pinPoint() const
 {
-    return d_data->pinPoint;
+    return m_data->pinPoint;
 }
 
 /*!
-  En/Disable the pin point alignment
+   En/Disable the pin point alignment
 
-  \param on Enabled, when on is true
-  \sa setPinPoint(), isPinPointEnabled()
+   \param on Enabled, when on is true
+   \sa setPinPoint(), isPinPointEnabled()
  */
 void QwtSymbol::setPinPointEnabled( bool on )
 {
-    if ( d_data->isPinPointEnabled != on )
+    if ( m_data->isPinPointEnabled != on )
     {
-        d_data->isPinPointEnabled = on;
+        m_data->isPinPointEnabled = on;
         invalidateCache();
     }
 }
 
 /*!
-  \return True, when the pin point translation is enabled
-  \sa setPinPoint(), setPinPointEnabled()
+   \return True, when the pin point translation is enabled
+   \sa setPinPoint(), setPinPointEnabled()
  */
 bool QwtSymbol::isPinPointEnabled() const
 {
-    return d_data->isPinPointEnabled;
+    return m_data->isPinPointEnabled;
 }
 
 /*!
-  Render an array of symbols
+   Render an array of symbols
 
-  Painting several symbols is more effective than drawing symbols
-  one by one, as a couple of layout calculations and setting of pen/brush
-  can be done once for the complete array.
+   Painting several symbols is more effective than drawing symbols
+   one by one, as a couple of layout calculations and setting of pen/brush
+   can be done once for the complete array.
 
-  \param painter Painter
-  \param points Array of points
-  \param numPoints Number of points
-*/
-void QwtSymbol::drawSymbols( QPainter *painter,
-    const QPointF *points, int numPoints ) const
+   \param painter Painter
+   \param points Array of points
+   \param numPoints Number of points
+ */
+void QwtSymbol::drawSymbols( QPainter* painter,
+    const QPointF* points, int numPoints ) const
 {
     if ( numPoints <= 0 )
         return;
@@ -1319,37 +1318,66 @@ void QwtSymbol::drawSymbols( QPainter *painter,
     if ( QwtPainter::roundingAlignment( painter ) &&
         !painter->transform().isScaling() )
     {
-        if ( d_data->cache.policy == QwtSymbol::Cache )
+        if ( m_data->cache.policy == QwtSymbol::Cache )
         {
             useCache = true;
         }
-        else if ( d_data->cache.policy == QwtSymbol::AutoCache )
+        else if ( m_data->cache.policy == QwtSymbol::AutoCache )
         {
-            if ( painter->paintEngine()->type() == QPaintEngine::Raster )
+            switch( painter->paintEngine()->type() )
             {
-                useCache = true;
-            }
-            else
-            {
-                switch( d_data->style )
+                case QPaintEngine::OpenGL:
+                case QPaintEngine::OpenGL2:
                 {
-                    case QwtSymbol::XCross:
-                    case QwtSymbol::HLine:
-                    case QwtSymbol::VLine:
-                    case QwtSymbol::Cross:
-                        break;
-
-                    case QwtSymbol::Pixmap:
+                    // using a FBO as cache ?
+                    useCache = false;
+                    break;
+                }
+                case QPaintEngine::OpenVG:
+                case QPaintEngine::SVG:
+                case QPaintEngine::Pdf:
+                case QPaintEngine::Picture:
+                {
+                    // vector graphics
+                    useCache = false;
+                    break;
+                }
+                case QPaintEngine::X11:
+                {
+                    switch( m_data->style )
                     {
-                        if ( !d_data->size.isEmpty() &&
-                            d_data->size != d_data->pixmap.pixmap.size() )
+                        case QwtSymbol::XCross:
+                        case QwtSymbol::HLine:
+                        case QwtSymbol::VLine:
+                        case QwtSymbol::Cross:
                         {
-                            useCache = true;
+                            // for the very simple shapes using vector graphics is
+                            // usually faster.
+
+                            useCache = false;
+                            break;
                         }
-                        break;
+
+                        case QwtSymbol::Pixmap:
+                        {
+                            if ( m_data->size.isEmpty() ||
+                                m_data->size == m_data->pixmap.pixmap.size() )
+                            {
+                                // no need to have a pixmap cache for a pixmap
+                                // of the same size
+
+                                useCache = false;
+                            }
+                            break;
+                        }
+                        default:
+                            break;
                     }
-                    default:
-                        useCache = true;
+                    break;
+                }
+                default:
+                {
+                    useCache = true;
                 }
             }
         }
@@ -1359,16 +1387,16 @@ void QwtSymbol::drawSymbols( QPainter *painter,
     {
         const QRect br = boundingRect();
 
-        if ( d_data->cache.pixmap.isNull() )
+        if ( m_data->cache.pixmap.isNull() )
         {
-            d_data->cache.pixmap = QwtPainter::backingStore( NULL, br.size() );
-            d_data->cache.pixmap.fill( Qt::transparent );
+            m_data->cache.pixmap = QwtPainter::backingStore( NULL, br.size() );
+            m_data->cache.pixmap.fill( Qt::transparent );
 
-            QPainter p( &d_data->cache.pixmap );
+            QPainter p( &m_data->cache.pixmap );
             p.setRenderHints( painter->renderHints() );
             p.translate( -br.topLeft() );
 
-            const QPointF pos;
+            const QPointF pos( 0.0, 0.0 );
             renderSymbols( &p, &pos, 1 );
         }
 
@@ -1380,7 +1408,7 @@ void QwtSymbol::drawSymbols( QPainter *painter,
             const int left = qRound( points[i].x() ) + dx;
             const int top = qRound( points[i].y() ) + dy;
 
-            painter->drawPixmap( left, top, d_data->cache.pixmap );
+            painter->drawPixmap( left, top, m_data->cache.pixmap );
         }
     }
     else
@@ -1392,47 +1420,47 @@ void QwtSymbol::drawSymbols( QPainter *painter,
 }
 
 /*!
-  \brief Draw the symbol into a rectangle
+   \brief Draw the symbol into a rectangle
 
-  The symbol is painted centered and scaled into the target rectangle.
-  It is always painted uncached and the pin point is ignored.
+   The symbol is painted centered and scaled into the target rectangle.
+   It is always painted uncached and the pin point is ignored.
 
-  This method is primarily intended for drawing a symbol to
-  the legend.
+   This method is primarily intended for drawing a symbol to
+   the legend.
 
-  \param painter Painter
-  \param rect Target rectangle for the symbol
-*/
-void QwtSymbol::drawSymbol( QPainter *painter, const QRectF &rect ) const
+   \param painter Painter
+   \param rect Target rectangle for the symbol
+ */
+void QwtSymbol::drawSymbol( QPainter* painter, const QRectF& rect ) const
 {
-    if ( d_data->style == QwtSymbol::NoSymbol )
+    if ( m_data->style == QwtSymbol::NoSymbol )
         return;
 
-    if ( d_data->style == QwtSymbol::Graphic )
+    if ( m_data->style == QwtSymbol::Graphic )
     {
-        d_data->graphic.graphic.render(
+        m_data->graphic.graphic.render(
             painter, rect, Qt::KeepAspectRatio );
     }
-    else if ( d_data->style == QwtSymbol::Path )
+    else if ( m_data->style == QwtSymbol::Path )
     {
-        if ( d_data->path.graphic.isNull() )
+        if ( m_data->path.graphic.isNull() )
         {
-            d_data->path.graphic = qwtPathGraphic(
-                d_data->path.path, d_data->pen, d_data->brush );
+            m_data->path.graphic = qwtPathGraphic(
+                m_data->path.path, m_data->pen, m_data->brush );
         }
 
-        d_data->path.graphic.render(
+        m_data->path.graphic.render(
             painter, rect, Qt::KeepAspectRatio );
         return;
     }
-    else if ( d_data->style == QwtSymbol::SvgDocument )
+    else if ( m_data->style == QwtSymbol::SvgDocument )
     {
 #ifndef QWT_NO_SVG
-        if ( d_data->svg.renderer )
+        if ( m_data->svg.renderer )
         {
             QRectF scaledRect;
 
-            QSizeF sz = d_data->svg.renderer->viewBoxF().size();
+            QSizeF sz = m_data->svg.renderer->viewBoxF().size();
             if ( !sz.isEmpty() )
             {
                 sz.scale( rect.size(), Qt::KeepAspectRatio );
@@ -1444,7 +1472,7 @@ void QwtSymbol::drawSymbol( QPainter *painter, const QRectF &rect ) const
                 scaledRect = rect;
             }
 
-            d_data->svg.renderer->render(
+            m_data->svg.renderer->render(
                 painter, scaledRect );
         }
 #endif
@@ -1463,29 +1491,29 @@ void QwtSymbol::drawSymbol( QPainter *painter, const QRectF &rect ) const
         painter->translate( rect.center() );
         painter->scale( ratio, ratio );
 
-        const bool isPinPointEnabled = d_data->isPinPointEnabled;
-        d_data->isPinPointEnabled = false;
+        const bool isPinPointEnabled = m_data->isPinPointEnabled;
+        m_data->isPinPointEnabled = false;
 
         const QPointF pos;
         renderSymbols( painter, &pos, 1 );
 
-        d_data->isPinPointEnabled = isPinPointEnabled;
+        m_data->isPinPointEnabled = isPinPointEnabled;
 
         painter->restore();
     }
 }
 
 /*!
-  Render the symbol to series of points
+   Render the symbol to series of points
 
-  \param painter Qt painter
-  \param points Positions of the symbols
-  \param numPoints Number of points
+   \param painter Qt painter
+   \param points Positions of the symbols
+   \param numPoints Number of points
  */
-void QwtSymbol::renderSymbols( QPainter *painter,
-    const QPointF *points, int numPoints ) const
+void QwtSymbol::renderSymbols( QPainter* painter,
+    const QPointF* points, int numPoints ) const
 {
-    switch ( d_data->style )
+    switch ( m_data->style )
     {
         case QwtSymbol::Ellipse:
         {
@@ -1567,14 +1595,14 @@ void QwtSymbol::renderSymbols( QPainter *painter,
         }
         case QwtSymbol::Path:
         {
-            if ( d_data->path.graphic.isNull() )
+            if ( m_data->path.graphic.isNull() )
             {
-                d_data->path.graphic = qwtPathGraphic( d_data->path.path,
-                    d_data->pen, d_data->brush );
+                m_data->path.graphic = qwtPathGraphic( m_data->path.path,
+                    m_data->pen, m_data->brush );
             }
 
             qwtDrawGraphicSymbols( painter, points, numPoints,
-                d_data->path.graphic, *this );
+                m_data->path.graphic, *this );
             break;
         }
         case QwtSymbol::Pixmap:
@@ -1585,14 +1613,14 @@ void QwtSymbol::renderSymbols( QPainter *painter,
         case QwtSymbol::Graphic:
         {
             qwtDrawGraphicSymbols( painter, points, numPoints,
-                d_data->graphic.graphic, *this );
+                m_data->graphic.graphic, *this );
             break;
         }
         case QwtSymbol::SvgDocument:
         {
 #ifndef QWT_NO_SVG
             qwtDrawSvgSymbols( painter, points, numPoints,
-                d_data->svg.renderer, *this );
+                m_data->svg.renderer, *this );
 #endif
             break;
         }
@@ -1601,10 +1629,10 @@ void QwtSymbol::renderSymbols( QPainter *painter,
 }
 
 /*!
-  Calculate the bounding rectangle for a symbol
-  at position (0,0).
+   Calculate the bounding rectangle for a symbol
+   at position (0,0).
 
-  \return Bounding rectangle
+   \return Bounding rectangle
  */
 QRect QwtSymbol::boundingRect() const
 {
@@ -1612,17 +1640,17 @@ QRect QwtSymbol::boundingRect() const
 
     bool pinPointTranslation = false;
 
-    switch ( d_data->style )
+    switch ( m_data->style )
     {
         case QwtSymbol::Ellipse:
         case QwtSymbol::Rect:
         case QwtSymbol::Hexagon:
         {
             qreal pw = 0.0;
-            if ( d_data->pen.style() != Qt::NoPen )
-                pw = qMax( d_data->pen.widthF(), qreal( 1.0 ) );
+            if ( m_data->pen.style() != Qt::NoPen )
+                pw = QwtPainter::effectivePenWidth( m_data->pen );
 
-            rect.setSize( d_data->size + QSizeF( pw, pw ) );
+            rect.setSize( m_data->size + QSizeF( pw, pw ) );
             rect.moveCenter( QPointF( 0.0, 0.0 ) );
 
             break;
@@ -1638,33 +1666,33 @@ QRect QwtSymbol::boundingRect() const
         case QwtSymbol::Star2:
         {
             qreal pw = 0.0;
-            if ( d_data->pen.style() != Qt::NoPen )
-                pw = qMax( d_data->pen.widthF(), qreal( 1.0 ) );
+            if ( m_data->pen.style() != Qt::NoPen )
+                pw = QwtPainter::effectivePenWidth( m_data->pen );
 
-            rect.setSize( d_data->size + QSizeF( 2 * pw, 2 * pw ) );
+            rect.setSize( m_data->size + QSizeF( 2 * pw, 2 * pw ) );
             rect.moveCenter( QPointF( 0.0, 0.0 ) );
             break;
         }
         case QwtSymbol::Path:
         {
-            if ( d_data->path.graphic.isNull() )
+            if ( m_data->path.graphic.isNull() )
             {
-                d_data->path.graphic = qwtPathGraphic(
-                    d_data->path.path, d_data->pen, d_data->brush );
+                m_data->path.graphic = qwtPathGraphic(
+                    m_data->path.path, m_data->pen, m_data->brush );
             }
 
             rect = qwtScaledBoundingRect(
-                d_data->path.graphic, d_data->size );
+                m_data->path.graphic, m_data->size );
             pinPointTranslation = true;
 
             break;
         }
         case QwtSymbol::Pixmap:
         {
-            if ( d_data->size.isEmpty() )
-                rect.setSize( d_data->pixmap.pixmap.size() );
+            if ( m_data->size.isEmpty() )
+                rect.setSize( m_data->pixmap.pixmap.size() );
             else
-                rect.setSize( d_data->size );
+                rect.setSize( m_data->size );
 
             pinPointTranslation = true;
 
@@ -1673,7 +1701,7 @@ QRect QwtSymbol::boundingRect() const
         case QwtSymbol::Graphic:
         {
             rect = qwtScaledBoundingRect(
-                d_data->graphic.graphic, d_data->size );
+                m_data->graphic.graphic, m_data->size );
             pinPointTranslation = true;
 
             break;
@@ -1681,15 +1709,15 @@ QRect QwtSymbol::boundingRect() const
 #ifndef QWT_NO_SVG
         case QwtSymbol::SvgDocument:
         {
-            if ( d_data->svg.renderer )
-                rect = d_data->svg.renderer->viewBoxF();
+            if ( m_data->svg.renderer )
+                rect = m_data->svg.renderer->viewBoxF();
 
-            if ( d_data->size.isValid() && !rect.isEmpty() )
+            if ( m_data->size.isValid() && !rect.isEmpty() )
             {
                 QSizeF sz = rect.size();
 
-                const double sx = d_data->size.width() / sz.width();
-                const double sy = d_data->size.height() / sz.height();
+                const double sx = m_data->size.width() / sz.width();
+                const double sy = m_data->size.height() / sz.height();
 
                 QTransform transform;
                 transform.scale( sx, sy );
@@ -1702,7 +1730,7 @@ QRect QwtSymbol::boundingRect() const
 #endif
         default:
         {
-            rect.setSize( d_data->size );
+            rect.setSize( m_data->size );
             rect.moveCenter( QPointF( 0.0, 0.0 ) );
         }
     }
@@ -1710,61 +1738,61 @@ QRect QwtSymbol::boundingRect() const
     if ( pinPointTranslation )
     {
         QPointF pinPoint( 0.0, 0.0 );
-        if ( d_data->isPinPointEnabled )
-            pinPoint = rect.center() - d_data->pinPoint;
+        if ( m_data->isPinPointEnabled )
+            pinPoint = rect.center() - m_data->pinPoint;
 
         rect.moveCenter( pinPoint );
     }
 
     QRect r;
-    r.setLeft( qFloor( rect.left() ) );
-    r.setTop( qFloor( rect.top() ) );
-    r.setRight( qCeil( rect.right() ) );
-    r.setBottom( qCeil( rect.bottom() ) );
+    r.setLeft( qwtFloor( rect.left() ) );
+    r.setTop( qwtFloor( rect.top() ) );
+    r.setRight( qwtCeil( rect.right() ) );
+    r.setBottom( qwtCeil( rect.bottom() ) );
 
-    if ( d_data->style != QwtSymbol::Pixmap )
+    if ( m_data->style != QwtSymbol::Pixmap )
         r.adjust( -1, -1, 1, 1 ); // for antialiasing
 
     return r;
 }
 
 /*!
-  Invalidate the cached symbol pixmap
+   Invalidate the cached symbol pixmap
 
-  The symbol invalidates its cache, whenever an attribute is changed
-  that has an effect ob how to display a symbol. In case of derived
-  classes with individual styles ( >= QwtSymbol::UserStyle ) it
-  might be necessary to call invalidateCache() for attributes
-  that are relevant for this style.
+   The symbol invalidates its cache, whenever an attribute is changed
+   that has an effect ob how to display a symbol. In case of derived
+   classes with individual styles ( >= QwtSymbol::UserStyle ) it
+   might be necessary to call invalidateCache() for attributes
+   that are relevant for this style.
 
-  \sa CachePolicy, setCachePolicy(), drawSymbols()
+   \sa CachePolicy, setCachePolicy(), drawSymbols()
  */
 void QwtSymbol::invalidateCache()
 {
-    if ( !d_data->cache.pixmap.isNull() )
-        d_data->cache.pixmap = QPixmap();
+    if ( !m_data->cache.pixmap.isNull() )
+        m_data->cache.pixmap = QPixmap();
 }
 
 /*!
-  Specify the symbol style
+   Specify the symbol style
 
-  \param style Style
-  \sa style()
-*/
+   \param style Style
+   \sa style()
+ */
 void QwtSymbol::setStyle( QwtSymbol::Style style )
 {
-    if ( d_data->style != style )
+    if ( m_data->style != style )
     {
-        d_data->style = style;
+        m_data->style = style;
         invalidateCache();
     }
 }
 
 /*!
-  \return Current symbol style
-  \sa setStyle()
-*/
+   \return Current symbol style
+   \sa setStyle()
+ */
 QwtSymbol::Style QwtSymbol::style() const
 {
-    return d_data->style;
+    return m_data->style;
 }

@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   Boot Configuration Data (BCD) wrappers
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2021-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2021-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -479,7 +468,7 @@ NTSTATUS PhBcdSetBootApplicationOneTime(
     {
         HANDLE objectFirmwareHandle;
 
-        // The user might have a third party boot loader where the Windows NT {bootmgr} 
+        // The user might have a third party boot loader where the Windows NT {bootmgr}
         // is NOT the default {fwbootmgr} entry. So make the reboot seemless/effortless by
         // synchronizing the {fwbootmgr} one-time option to the Windows NT {bootmgr}.
         // This is a QOL optimization so you don't have to manually select Windows
@@ -491,8 +480,11 @@ NTSTATUS PhBcdSetBootApplicationOneTime(
             &objectFirmwareHandle
             )))
         {
-            BCD_ELEMENT_OBJECT_LIST objectFirmwareList[32] = { 0 }; // dynamic?
-            ULONG objectFirmwareListLength = sizeof(objectFirmwareList);
+            BCD_ELEMENT_OBJECT_LIST objectFirmwareList[32]; // dynamic?
+            ULONG objectFirmwareListLength;
+
+            memset(objectFirmwareList, 0, sizeof(objectFirmwareList));
+            objectFirmwareListLength = sizeof(objectFirmwareList);
 
             if (NT_SUCCESS(PhBcdGetElementData(
                 objectFirmwareHandle,
@@ -502,7 +494,7 @@ NTSTATUS PhBcdSetBootApplicationOneTime(
                 )))
             {
                 // Check if the default entry is some third party application.
-                if (!IsEqualGUID(GUID_WINDOWS_BOOTMGR, objectFirmwareList->ObjectList[0]))
+                if (!IsEqualGUID(objectFirmwareList->ObjectList[0], GUID_WINDOWS_BOOTMGR))
                 {
                     BCD_ELEMENT_OBJECT_LIST firmwareOneTimeBootEntry[1];
 

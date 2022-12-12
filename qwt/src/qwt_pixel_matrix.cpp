@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -10,13 +10,13 @@
 #include "qwt_pixel_matrix.h"
 
 /*!
-  \brief Constructor
+   \brief Constructor
 
-  \param rect Bounding rectangle for the matrix
-*/
-QwtPixelMatrix::QwtPixelMatrix( const QRect& rect ):
-    QBitArray( qMax( rect.width() * rect.height(), 0 ) ),
-    d_rect( rect )
+   \param rect Bounding rectangle for the matrix
+ */
+QwtPixelMatrix::QwtPixelMatrix( const QRect& rect )
+    : QBitArray( qMax( rect.width() * rect.height(), 0 ) )
+    , m_rect( rect )
 {
 }
 
@@ -34,9 +34,9 @@ QwtPixelMatrix::~QwtPixelMatrix()
  */
 void QwtPixelMatrix::setRect( const QRect& rect )
 {
-    if ( rect != d_rect )
+    if ( rect != m_rect )
     {
-        d_rect = rect;
+        m_rect = rect;
         const int sz = qMax( rect.width() * rect.height(), 0 );
         resize( sz );
     }
@@ -47,5 +47,5 @@ void QwtPixelMatrix::setRect( const QRect& rect )
 //! \return Bounding rectangle
 QRect QwtPixelMatrix::rect() const
 {
-    return d_rect;
+    return m_rect;
 }

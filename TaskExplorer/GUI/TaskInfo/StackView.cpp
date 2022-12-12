@@ -9,7 +9,7 @@ CStackView::CStackView(QWidget *parent)
 	:CPanelView(parent)
 {
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	// Stack List
@@ -52,7 +52,7 @@ void CStackView::Invalidate()
 	}
 }
 
-void CStackView::SetFilter(const QRegExp& Exp, bool bHighLight, int Col)
+void CStackView::SetFilter(const QRegularExpression& Exp, bool bHighLight, int Col)
 {
 	CPanelWidgetEx::ApplyFilter(m_pStackList, Exp/*, bHighLight, Col*/);
 }
@@ -93,7 +93,7 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 	for (; i < m_pStackList->topLevelItemCount(); )
 		delete m_pStackList->topLevelItem(i);
 
-	if (!m_pFinder->GetRegExp().isEmpty())
+	if (m_pFinder->GetRegExp().isValid())
 		SetFilter(m_pFinder->GetRegExp());
 
 	m_bIsInvalid = false;

@@ -42,9 +42,6 @@ typedef HANDLE HTHEME;
 #define DCX_USESTYLE 0x00010000
 #define DCX_NODELETERGN 0x00040000
 
-extern PH_INTEGER_PAIR PhSmallIconSize;
-extern PH_INTEGER_PAIR PhLargeIconSize;
-
 PHLIBAPI
 VOID PhGuiSupportInitialization(
     VOID
@@ -100,6 +97,24 @@ FORCEINLINE VOID PhSetWindowExStyle(
 #define WM_REFLECT 0x2000
 #endif
 
+FORCEINLINE LRESULT PhReflectMessage(
+    _In_ HWND Handle,
+    _In_ UINT Message,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam
+    )
+{
+    if (Message == WM_NOTIFY)
+    {
+        LPNMHDR header = (LPNMHDR)lParam;
+
+        if (header->hwndFrom == Handle)
+            return SendMessage(Handle, WM_REFLECT + Message, wParam, lParam);
+    }
+
+    return 0;
+}
+
 #define REFLECT_MESSAGE(hwnd, msg, wParam, lParam) \
     { \
         LRESULT result_ = PhReflectMessage(hwnd, msg, wParam, lParam); \
@@ -118,24 +133,6 @@ FORCEINLINE VOID PhSetWindowExStyle(
             return TRUE; \
         } \
     }
-
-FORCEINLINE LRESULT PhReflectMessage(
-    _In_ HWND Handle,
-    _In_ UINT Message,
-    _In_ WPARAM wParam,
-    _In_ LPARAM lParam
-    )
-{
-    if (Message == WM_NOTIFY)
-    {
-        LPNMHDR header = (LPNMHDR)lParam;
-
-        if (header->hwndFrom == Handle)
-            return SendMessage(Handle, WM_REFLECT + Message, wParam, lParam);
-    }
-
-    return 0;
-}
 
 FORCEINLINE VOID PhSetListViewStyle(
     _In_ HWND Handle,
@@ -369,7 +366,8 @@ HICON PhLoadIcon(
     _In_ PWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ ULONG Width,
-    _In_opt_ ULONG Height
+    _In_opt_ ULONG Height,
+    _In_opt_ LONG dpiValue
     );
 
 PHLIBAPI
@@ -483,7 +481,6 @@ typedef struct _PH_LAYOUT_ITEM
     HDWP DeferHandle;
 
     RECT Rect;
-    RECT OrigRect;
     RECT Margin;
     ULONG Anchor;
 } PH_LAYOUT_ITEM, *PPH_LAYOUT_ITEM;
@@ -494,6 +491,8 @@ typedef struct _PH_LAYOUT_MANAGER
     PH_LAYOUT_ITEM RootItem;
 
     ULONG LayoutNumber;
+
+    LONG dpiValue;
 } PH_LAYOUT_MANAGER, *PPH_LAYOUT_MANAGER;
 
 PHLIBAPI
@@ -532,24 +531,24 @@ VOID PhLayoutManagerLayout(
 #define PH_WINDOW_CONTEXT_DEFAULT 0xFFFF
 
 PHLIBAPI
-PVOID 
+PVOID
 PhGetWindowContext(
-    _In_ HWND WindowHandle, 
+    _In_ HWND WindowHandle,
     _In_ ULONG PropertyHash
     );
 
 PHLIBAPI
-VOID 
+VOID
 PhSetWindowContext(
-    _In_ HWND WindowHandle, 
+    _In_ HWND WindowHandle,
     _In_ ULONG PropertyHash,
     _In_ PVOID Context
     );
 
 PHLIBAPI
-VOID 
+VOID
 PhRemoveWindowContext(
-    _In_ HWND WindowHandle, 
+    _In_ HWND WindowHandle,
     _In_ ULONG PropertyHash
     );
 
@@ -564,7 +563,7 @@ VOID PhEnumWindows(
     );
 
 typedef BOOLEAN (CALLBACK *PH_CHILD_ENUM_CALLBACK)(
-    _In_ HWND WindowHandle, 
+    _In_ HWND WindowHandle,
     _In_opt_ PVOID Context
     );
 
@@ -624,6 +623,14 @@ PhSetWindowText(
 PHLIBAPI
 VOID
 NTAPI
+PhSetGroupBoxText(
+    _In_ HWND WindowHandle,
+    _In_ PCWSTR WindowText
+    );
+
+PHLIBAPI
+VOID
+NTAPI
 PhSetWindowAlwaysOnTop(
     _In_ HWND WindowHandle,
     _In_ BOOLEAN AlwaysOnTop
@@ -641,7 +648,7 @@ FORCEINLINE VOID PhSetDialogFocus(
     _In_ HWND FocusHandle
     )
 {
-    // Do not use the SendMessage function to send a WM_NEXTDLGCTL message if your application will 
+    // Do not use the SendMessage function to send a WM_NEXTDLGCTL message if your application will
     // concurrently process other messages that set the focus. Use the PostMessage function instead.
     SendMessage(WindowHandle, WM_NEXTDLGCTL, (WPARAM)FocusHandle, MAKELPARAM(TRUE, 0));
 }
@@ -701,6 +708,15 @@ PhIconToBitmap(
     _In_ ULONG Height
     );
 
+PHLIBAPI
+VOID
+NTAPI
+PhBitmapSetAlpha(
+    _In_ PVOID Bits,
+    _In_ ULONG Width,
+    _In_ ULONG Height
+    );
+
 // extlv
 
 #define PH_ALIGN_CENTER 0x0
@@ -708,6 +724,8 @@ PhIconToBitmap(
 #define PH_ALIGN_RIGHT 0x2
 #define PH_ALIGN_TOP 0x4
 #define PH_ALIGN_BOTTOM 0x8
+
+#define PH_ALIGN_MONOSPACE_FONT 0x80000000
 
 typedef enum _PH_ITEM_STATE
 {
@@ -969,6 +987,43 @@ PhIsImmersiveProcess(
     _In_ HANDLE ProcessHandle
     );
 
+typedef enum _PH_PROCESS_DPI_AWARENESS
+{
+    PH_PROCESS_DPI_AWARENESS_UNAWARE = 0,
+    PH_PROCESS_DPI_AWARENESS_SYSTEM_DPI_AWARE = 1,
+    PH_PROCESS_DPI_AWARENESS_PER_MONITOR_DPI_AWARE = 2,
+    PH_PROCESS_DPI_AWARENESS_PER_MONITOR_AWARE_V2 = 3,
+    PH_PROCESS_DPI_AWARENESS_UNAWARE_GDISCALED = 4,
+} PH_PROCESS_DPI_AWARENESS, *PPH_PROCESS_DPI_AWARENESS;
+
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetProcessDpiAwareness(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PPH_PROCESS_DPI_AWARENESS ProcessDpiAwareness
+    );
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetPhysicallyInstalledSystemMemory(
+    _Out_ PULONGLONG TotalMemory,
+    _Out_ PULONGLONG ReservedMemory
+    );
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetSendMessageReceiver(
+    _In_ HANDLE ThreadId,
+    _Out_ HWND *WindowHandle
+    );
+
 _Success_(return)
 PHLIBAPI
 BOOLEAN
@@ -988,7 +1043,8 @@ PhExtractIconEx(
     _In_ BOOLEAN NativeFileName,
     _In_ INT32 IconIndex,
     _Out_opt_ HICON *IconLarge,
-    _Out_opt_ HICON *IconSmall
+    _Out_opt_ HICON *IconSmall,
+    _In_ LONG dpiValue
     );
 
 // Imagelist support
@@ -1017,6 +1073,14 @@ NTAPI
 PhImageListSetImageCount(
     _In_ HIMAGELIST ImageListHandle,
     _In_ UINT Count
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListGetImageCount(
+    _In_ HIMAGELIST ImageListHandle,
+    _Out_ PUINT Count
     );
 
 PHLIBAPI
@@ -1104,6 +1168,35 @@ PhImageListDrawEx(
     _In_ DWORD State
     );
 
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListSetIconSize(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ INT cx,
+    _In_ INT cy
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhDpiChangedForwardChildWindows(
+    _In_ HWND WindowHandle
+    );
+
+#define PH_SHUTDOWN_RESTART 0x1
+#define PH_SHUTDOWN_POWEROFF 0x2
+#define PH_SHUTDOWN_INSTALL_UPDATES 0x4
+#define PH_SHUTDOWN_HYBRID 0x8
+#define PH_SHUTDOWN_RESTART_BOOTOPTIONS 0x10
+
+PHLIBAPI
+ULONG
+NTAPI
+PhInitiateShutdown(
+    _In_ ULONG Flags
+    );
+
 #define PH_DRAW_TIMELINE_OVERFLOW 0x1
 #define PH_DRAW_TIMELINE_DARKTHEME 0x2
 
@@ -1122,6 +1215,7 @@ PhCustomDrawTreeTimeLine(
 
 PHLIBAPI extern HFONT PhApplicationFont; // phapppub
 PHLIBAPI extern HFONT PhTreeWindowFont; // phapppub
+PHLIBAPI extern HFONT PhMonospaceFont; // phapppub
 PHLIBAPI extern HBRUSH PhMenuBackgroundBrush;
 extern COLORREF PhThemeWindowForegroundColor;
 extern COLORREF PhThemeWindowBackgroundColor;
@@ -1234,14 +1328,15 @@ FORCEINLINE
 HFONT
 PhDuplicateFontWithNewHeight(
     _In_ HFONT Font,
-    _In_ LONG NewHeight
+    _In_ LONG NewHeight,
+    _In_ LONG dpiValue
     )
 {
     LOGFONT logFont;
 
     if (GetObject(Font, sizeof(LOGFONT), &logFont))
     {
-        logFont.lfHeight = PhMultiplyDivide(NewHeight, PhGlobalDpi, 96);
+        logFont.lfHeight = PhGetDpi(NewHeight, dpiValue);
         return CreateFontIndirect(&logFont);
     }
 

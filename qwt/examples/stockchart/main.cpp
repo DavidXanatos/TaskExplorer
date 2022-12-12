@@ -1,54 +1,57 @@
-#include <qapplication.h>
-#include <qmainwindow.h>
-#include <qcombobox.h>
-#include <qtoolbar.h>
-#include <qtoolbutton.h>
-#include "plot.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class MainWindow: public QMainWindow
+#include "Plot.h"
+
+#include <QApplication>
+#include <QMainWindow>
+#include <QComboBox>
+#include <QToolBar>
+#include <QToolButton>
+
+namespace
 {
-public:
-    MainWindow( QWidget * = NULL );
+    class MainWindow : public QMainWindow
+    {
+      public:
+        MainWindow( QWidget* parent = NULL )
+            : QMainWindow( parent )
+        {
+            Plot* plot = new Plot( this );
+            setCentralWidget( plot );
 
-private:
-    Plot *d_plot;
-};
+            QComboBox* typeBox = new QComboBox();
+            typeBox->addItem( "Bars" );
+            typeBox->addItem( "CandleSticks" );
+            typeBox->setCurrentIndex( 1 );
+            typeBox->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
 
-MainWindow::MainWindow( QWidget *parent ):
-    QMainWindow( parent )
-{
-    d_plot = new Plot( this );
-    setCentralWidget( d_plot );
+            QToolButton* btnExport = new QToolButton();
+            btnExport->setText( "Export" );
+            btnExport->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
+            connect( btnExport, SIGNAL(clicked()), plot, SLOT(exportPlot()) );
 
-    QToolBar *toolBar = new QToolBar( this );
+            QToolBar* toolBar = new QToolBar();
+            toolBar->addWidget( typeBox );
+            toolBar->addWidget( btnExport );
+            addToolBar( toolBar );
 
-    QComboBox *typeBox = new QComboBox( toolBar );
-    typeBox->addItem( "Bars" );
-    typeBox->addItem( "CandleSticks" );
-    typeBox->setCurrentIndex( 1 );
-    typeBox->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
-
-    QToolButton *btnExport = new QToolButton( toolBar );
-    btnExport->setText( "Export" );
-    btnExport->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
-    connect( btnExport, SIGNAL( clicked() ), d_plot, SLOT( exportPlot() ) );
-
-    toolBar->addWidget( typeBox );
-    toolBar->addWidget( btnExport );
-    addToolBar( toolBar );
-
-    d_plot->setMode( typeBox->currentIndex() );
-    connect( typeBox, SIGNAL( currentIndexChanged( int ) ),
-        d_plot, SLOT( setMode( int ) ) );
+            plot->setMode( typeBox->currentIndex() );
+            connect( typeBox, SIGNAL(currentIndexChanged(int)),
+                plot, SLOT(setMode(int)) );
+        }
+    };
 }
 
-int main( int argc, char **argv )
+int main( int argc, char* argv[] )
 {
-    QApplication a( argc, argv );
+    QApplication app( argc, argv );
 
-    MainWindow w;
-    w.resize( 600, 400 );
-    w.show();
+    MainWindow window;
+    window.resize( 600, 400 );
+    window.show();
 
-    return a.exec();
+    return app.exec();
 }

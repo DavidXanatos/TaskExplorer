@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   tree new column manager
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2011-2016 wj32
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2011-2016
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -214,6 +203,9 @@ BOOLEAN PhCmLoadSettingsEx(
     PPH_KEY_VALUE_PAIR pair;
     LONG orderArray[PH_CM_ORDER_LIMIT];
     LONG maxOrder;
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(TreeNewHandle);
 
     if (Settings->Length != 0)
     {
@@ -233,7 +225,7 @@ BOOLEAN PhCmLoadSettingsEx(
         }
         else
         {
-            scale = PhGlobalDpi;
+            scale = dpiValue;
         }
 
         while (remainingColumnPart.Length != 0)
@@ -308,8 +300,8 @@ BOOLEAN PhCmLoadSettingsEx(
 
                 width = (ULONG)integer;
 
-                if (scale != PhGlobalDpi && scale != 0)
-                    width = PhMultiplyDivide(width, PhGlobalDpi, scale);
+                if (scale != dpiValue && scale != 0)
+                    width = PhMultiplyDivide(width, dpiValue, scale);
 
                 column = PhAllocate(sizeof(PH_TREENEW_COLUMN));
                 column->Id = id;
@@ -471,6 +463,7 @@ PPH_STRING PhCmSaveSettingsEx(
     ULONG total;
     ULONG increment;
     PH_TREENEW_COLUMN column;
+    LONG dpiValue;
 
     total = TreeNew_GetColumnCount(TreeNewHandle);
 
@@ -481,7 +474,27 @@ PPH_STRING PhCmSaveSettingsEx(
 
     PhInitializeStringBuilder(&stringBuilder, 100);
 
-    PhAppendFormatStringBuilder(&stringBuilder, L"@%u|", PhGlobalDpi);
+    dpiValue = PhGetWindowDpi(TreeNewHandle);
+
+    {
+        PH_FORMAT format[3];
+        SIZE_T returnLength;
+        WCHAR buffer[PH_INT64_STR_LEN_1];
+
+        // @%u|
+        PhInitFormatC(&format[0], L'@');
+        PhInitFormatU(&format[1], dpiValue);
+        PhInitFormatC(&format[2], L'|');
+
+        if (PhFormatToBuffer(format, RTL_NUMBER_OF(format), buffer, sizeof(buffer), &returnLength))
+        {
+            PhAppendStringBuilderEx(&stringBuilder, buffer, returnLength - sizeof(UNICODE_NULL));
+        }
+        else
+        {
+            PhAppendFormatStringBuilder(&stringBuilder, L"@%u|", dpiValue);
+        }
+    }
 
     while (count < total)
     {

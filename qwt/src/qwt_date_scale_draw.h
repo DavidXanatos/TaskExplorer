@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -7,55 +7,55 @@
  * modify it under the terms of the Qwt License, Version 1.0
  *****************************************************************************/
 
-#ifndef _QWT_DATE_SCALE_DRAW_H_
-#define _QWT_DATE_SCALE_DRAW_H_ 1
+#ifndef QWT_DATE_SCALE_DRAW_H
+#define QWT_DATE_SCALE_DRAW_H
 
 #include "qwt_global.h"
 #include "qwt_scale_draw.h"
 #include "qwt_date.h"
 
 /*!
-  \brief A class for drawing datetime scales
+   \brief A class for drawing datetime scales
 
-  QwtDateScaleDraw displays values as datetime labels.
-  The format of the labels depends on the alignment of
-  the major tick labels.
+   QwtDateScaleDraw displays values as datetime labels.
+   The format of the labels depends on the alignment of
+   the major tick labels.
 
-  The default format strings are:
+   The default format strings are:
 
-  - Millisecond\n
+   - Millisecond\n
     "hh:mm:ss:zzz\nddd dd MMM yyyy"
-  - Second\n
+   - Second\n
     "hh:mm:ss\nddd dd MMM yyyy"
-  - Minute\n
+   - Minute\n
     "hh:mm\nddd dd MMM yyyy"
-  - Hour\n
+   - Hour\n
     "hh:mm\nddd dd MMM yyyy"
-  - Day\n
+   - Day\n
     "ddd dd MMM yyyy"
-  - Week\n
+   - Week\n
     "Www yyyy"
-  - Month\n
+   - Month\n
     "MMM yyyy"
-  - Year\n
+   - Year\n
     "yyyy"
 
-  The format strings can be modified using setDateFormat()
-  or individually for each tick label by overloading dateFormatOfDate(),
+   The format strings can be modified using setDateFormat()
+   or individually for each tick label by overloading dateFormatOfDate(),
 
-  Usually QwtDateScaleDraw is used in combination with
-  QwtDateScaleEngine, that calculates scales for datetime
-  intervals.
+   Usually QwtDateScaleDraw is used in combination with
+   QwtDateScaleEngine, that calculates scales for datetime
+   intervals.
 
-  \sa QwtDateScaleEngine, QwtPlot::setAxisScaleDraw()
-*/
-class QWT_EXPORT QwtDateScaleDraw: public QwtScaleDraw
+   \sa QwtDateScaleEngine, QwtPlot::setAxisScaleDraw()
+ */
+class QWT_EXPORT QwtDateScaleDraw : public QwtScaleDraw
 {
-public:
-    QwtDateScaleDraw( Qt::TimeSpec = Qt::LocalTime );
+  public:
+    explicit QwtDateScaleDraw( Qt::TimeSpec = Qt::LocalTime );
     virtual ~QwtDateScaleDraw();
 
-    void setDateFormat( QwtDate::IntervalType, const QString & );
+    void setDateFormat( QwtDate::IntervalType, const QString& );
     QString dateFormat( QwtDate::IntervalType ) const;
 
     void setTimeSpec( Qt::TimeSpec );
@@ -67,20 +67,20 @@ public:
     void setWeek0Type( QwtDate::Week0Type );
     QwtDate::Week0Type week0Type() const;
 
-    virtual QwtText label( double ) const;
+    virtual QwtText label( double ) const QWT_OVERRIDE;
 
     QDateTime toDateTime( double ) const;
 
-protected:
-    virtual QwtDate::IntervalType 
-        intervalType( const QwtScaleDiv & ) const;
+  protected:
+    virtual QwtDate::IntervalType
+    intervalType( const QwtScaleDiv& ) const;
 
-    virtual QString dateFormatOfDate( const QDateTime &,
+    virtual QString dateFormatOfDate( const QDateTime&,
         QwtDate::IntervalType ) const;
 
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

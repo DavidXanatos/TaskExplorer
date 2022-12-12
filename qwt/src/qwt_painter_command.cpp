@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -10,122 +10,122 @@
 #include "qwt_painter_command.h"
 
 //! Construct an invalid command
-QwtPainterCommand::QwtPainterCommand():
-    d_type( Invalid )
+QwtPainterCommand::QwtPainterCommand()
+    : m_type( Invalid )
 {
 }
 
 //! Copy constructor
-QwtPainterCommand::QwtPainterCommand( const QPainterPath &path ):
-    d_type( Path )
+QwtPainterCommand::QwtPainterCommand( const QPainterPath& path )
+    : m_type( Path )
 {
-    d_path = new QPainterPath( path );
+    m_path = new QPainterPath( path );
 }
 
 /*!
-  Constructor for Pixmap paint operation
+   Constructor for Pixmap paint operation
 
-  \param rect Target rectangle
-  \param pixmap Pixmap
-  \param subRect Rectangle inside the pixmap
+   \param rect Target rectangle
+   \param pixmap Pixmap
+   \param subRect Rectangle inside the pixmap
 
-  \sa QPainter::drawPixmap()
+   \sa QPainter::drawPixmap()
  */
-QwtPainterCommand::QwtPainterCommand( const QRectF &rect,
-        const QPixmap &pixmap, const QRectF& subRect ):
-    d_type( Pixmap )
+QwtPainterCommand::QwtPainterCommand( const QRectF& rect,
+        const QPixmap& pixmap, const QRectF& subRect )
+    : m_type( Pixmap )
 {
-    d_pixmapData = new PixmapData();
-    d_pixmapData->rect = rect;
-    d_pixmapData->pixmap = pixmap;
-    d_pixmapData->subRect = subRect;
+    m_pixmapData = new PixmapData();
+    m_pixmapData->rect = rect;
+    m_pixmapData->pixmap = pixmap;
+    m_pixmapData->subRect = subRect;
 }
 
 /*!
-  Constructor for Image paint operation
+   Constructor for Image paint operation
 
-  \param rect Target rectangle
-  \param image Image
-  \param subRect Rectangle inside the image
-  \param flags Conversion flags
+   \param rect Target rectangle
+   \param image Image
+   \param subRect Rectangle inside the image
+   \param flags Conversion flags
 
-  \sa QPainter::drawImage()
+   \sa QPainter::drawImage()
  */
-QwtPainterCommand::QwtPainterCommand( const QRectF &rect,
-        const QImage &image, const QRectF& subRect,
-        Qt::ImageConversionFlags flags ):
-    d_type( Image )
+QwtPainterCommand::QwtPainterCommand( const QRectF& rect,
+        const QImage& image, const QRectF& subRect,
+        Qt::ImageConversionFlags flags )
+    : m_type( Image )
 {
-    d_imageData = new ImageData();
-    d_imageData->rect = rect;
-    d_imageData->image = image;
-    d_imageData->subRect = subRect;
-    d_imageData->flags = flags;
-}
-
-/*! 
-  Constructor for State paint operation
-  \param state Paint engine state
- */  
-QwtPainterCommand::QwtPainterCommand( const QPaintEngineState &state ):
-    d_type( State )
-{
-    d_stateData = new StateData();
-
-    d_stateData->flags = state.state();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyPen ) 
-        d_stateData->pen = state.pen();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyBrush ) 
-        d_stateData->brush = state.brush();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyBrushOrigin ) 
-        d_stateData->brushOrigin = state.brushOrigin();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyFont ) 
-        d_stateData->font = state.font();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyBackground ) 
-    {
-        d_stateData->backgroundMode = state.backgroundMode();
-        d_stateData->backgroundBrush = state.backgroundBrush();
-    }
-
-    if ( d_stateData->flags & QPaintEngine::DirtyTransform ) 
-        d_stateData->transform = state.transform();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyClipEnabled ) 
-        d_stateData->isClipEnabled = state.isClipEnabled();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyClipRegion ) 
-    {
-        d_stateData->clipRegion = state.clipRegion();
-        d_stateData->clipOperation = state.clipOperation();
-    }
-
-    if ( d_stateData->flags & QPaintEngine::DirtyClipPath ) 
-    {
-        d_stateData->clipPath = state.clipPath();
-        d_stateData->clipOperation = state.clipOperation();
-    }
-
-    if ( d_stateData->flags & QPaintEngine::DirtyHints ) 
-        d_stateData->renderHints = state.renderHints();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyCompositionMode ) 
-        d_stateData->compositionMode = state.compositionMode();
-
-    if ( d_stateData->flags & QPaintEngine::DirtyOpacity ) 
-        d_stateData->opacity = state.opacity();
+    m_imageData = new ImageData();
+    m_imageData->rect = rect;
+    m_imageData->image = image;
+    m_imageData->subRect = subRect;
+    m_imageData->flags = flags;
 }
 
 /*!
-  Copy constructor
-  \param other Command to be copied
-  
+   Constructor for State paint operation
+   \param state Paint engine state
  */
-QwtPainterCommand::QwtPainterCommand(const QwtPainterCommand &other)
+QwtPainterCommand::QwtPainterCommand( const QPaintEngineState& state )
+    : m_type( State )
+{
+    m_stateData = new StateData();
+
+    m_stateData->flags = state.state();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyPen )
+        m_stateData->pen = state.pen();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyBrush )
+        m_stateData->brush = state.brush();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyBrushOrigin )
+        m_stateData->brushOrigin = state.brushOrigin();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyFont )
+        m_stateData->font = state.font();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyBackground )
+    {
+        m_stateData->backgroundMode = state.backgroundMode();
+        m_stateData->backgroundBrush = state.backgroundBrush();
+    }
+
+    if ( m_stateData->flags & QPaintEngine::DirtyTransform )
+        m_stateData->transform = state.transform();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyClipEnabled )
+        m_stateData->isClipEnabled = state.isClipEnabled();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyClipRegion )
+    {
+        m_stateData->clipRegion = state.clipRegion();
+        m_stateData->clipOperation = state.clipOperation();
+    }
+
+    if ( m_stateData->flags & QPaintEngine::DirtyClipPath )
+    {
+        m_stateData->clipPath = state.clipPath();
+        m_stateData->clipOperation = state.clipOperation();
+    }
+
+    if ( m_stateData->flags & QPaintEngine::DirtyHints )
+        m_stateData->renderHints = state.renderHints();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyCompositionMode )
+        m_stateData->compositionMode = state.compositionMode();
+
+    if ( m_stateData->flags & QPaintEngine::DirtyOpacity )
+        m_stateData->opacity = state.opacity();
+}
+
+/*!
+   Copy constructor
+   \param other Command to be copied
+
+ */
+QwtPainterCommand::QwtPainterCommand( const QwtPainterCommand& other )
 {
     copy( other );
 }
@@ -137,12 +137,12 @@ QwtPainterCommand::~QwtPainterCommand()
 }
 
 /*!
-  Assignment operator
+   Assignment operator
 
-  \param other Command to be copied
-  \return Modified command
+   \param other Command to be copied
+   \return Modified command
  */
-QwtPainterCommand &QwtPainterCommand::operator=(const QwtPainterCommand &other)
+QwtPainterCommand& QwtPainterCommand::operator=( const QwtPainterCommand& other )
 {
     reset();
     copy( other );
@@ -150,30 +150,30 @@ QwtPainterCommand &QwtPainterCommand::operator=(const QwtPainterCommand &other)
     return *this;
 }
 
-void QwtPainterCommand::copy( const QwtPainterCommand &other )
+void QwtPainterCommand::copy( const QwtPainterCommand& other )
 {
-    d_type = other.d_type;
+    m_type = other.m_type;
 
-    switch( other.d_type )
+    switch( other.m_type )
     {
         case Path:
         {
-            d_path = new QPainterPath( *other.d_path );
+            m_path = new QPainterPath( *other.m_path );
             break;
         }
         case Pixmap:
         {
-            d_pixmapData = new PixmapData( *other.d_pixmapData );
+            m_pixmapData = new PixmapData( *other.m_pixmapData );
             break;
         }
         case Image:
         {
-            d_imageData = new ImageData( *other.d_imageData );
+            m_imageData = new ImageData( *other.m_imageData );
             break;
         }
         case State:
         {
-            d_stateData = new StateData( *other.d_stateData );
+            m_stateData = new StateData( *other.m_stateData );
             break;
         }
         default:
@@ -183,55 +183,55 @@ void QwtPainterCommand::copy( const QwtPainterCommand &other )
 
 void QwtPainterCommand::reset()
 {
-    switch( d_type )
+    switch( m_type )
     {
         case Path:
         {
-            delete d_path;
+            delete m_path;
             break;
         }
         case Pixmap:
         {
-            delete d_pixmapData;
+            delete m_pixmapData;
             break;
         }
         case Image:
         {
-            delete d_imageData;
+            delete m_imageData;
             break;
         }
         case State:
         {
-            delete d_stateData;
+            delete m_stateData;
             break;
         }
         default:
             break;
     }
 
-    d_type = Invalid;
+    m_type = Invalid;
 }
 
 //! \return Painter path to be painted
-QPainterPath *QwtPainterCommand::path() 
+QPainterPath* QwtPainterCommand::path()
 {
-    return d_path;
+    return m_path;
 }
 
 //! \return Attributes how to paint a QPixmap
-QwtPainterCommand::PixmapData* QwtPainterCommand::pixmapData() 
+QwtPainterCommand::PixmapData* QwtPainterCommand::pixmapData()
 {
-    return d_pixmapData;
+    return m_pixmapData;
 }
 
 //! \return Attributes how to paint a QImage
-QwtPainterCommand::ImageData* QwtPainterCommand::imageData() 
+QwtPainterCommand::ImageData* QwtPainterCommand::imageData()
 {
-    return d_imageData;
+    return m_imageData;
 }
 
 //! \return Attributes of a state change
-QwtPainterCommand::StateData* QwtPainterCommand::stateData() 
+QwtPainterCommand::StateData* QwtPainterCommand::stateData()
 {
-    return d_stateData;
+    return m_stateData;
 }

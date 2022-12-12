@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   Appmodel support functions
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2018 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2018
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef _PH_APPRESOLVER_H
@@ -64,7 +53,8 @@ PhAppResolverEnumeratePackageBackgroundTasks(
     );
 
 HRESULT 
-NTAPI PhAppResolverPackageStopSessionRedirection(
+NTAPI 
+PhAppResolverPackageStopSessionRedirection(
     _In_ PPH_STRING PackageFullName
     );
 
@@ -97,7 +87,7 @@ NTAPI
 PhIsTokenFullTrustAppPackage(
     _In_ HANDLE TokenHandle
     );
-	
+
 BOOLEAN 
 NTAPI
 PhIsPackageCapabilitySid(
@@ -117,25 +107,19 @@ PhGetPackageAssetsFromResourceFile(
     _In_ PWSTR FilePath
     );
 
-PPH_STRING
-NTAPI
-PhGetPackageAppDataPath(
-    _In_ HANDLE ProcessHandle
-    );
-
-PPH_LIST 
-NTAPI
-PhGetPackageAssetsFromResourceFile(
-    _In_ PWSTR FilePath
-    );
-
-
 // Immersive PLM task support
 
 HRESULT 
 NTAPI
 PhAppResolverBeginCrashDumpTask(
     _In_ HANDLE ProcessId,
+    _Out_ HANDLE* TaskHandle
+    );
+
+HRESULT 
+NTAPI
+PhAppResolverBeginCrashDumpTaskByHandle(
+    _In_ HANDLE ProcessHandle,
     _Out_ HANDLE* TaskHandle
     );
 

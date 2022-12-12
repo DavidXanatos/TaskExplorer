@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,9 +8,10 @@
  *****************************************************************************/
 
 #ifndef QWT_EVENT_PATTERN
-#define QWT_EVENT_PATTERN 1
+#define QWT_EVENT_PATTERN
 
 #include "qwt_global.h"
+
 #include <qnamespace.h>
 #include <qvector.h>
 
@@ -18,82 +19,82 @@ class QMouseEvent;
 class QKeyEvent;
 
 /*!
-  \brief A collection of event patterns
+   \brief A collection of event patterns
 
-  QwtEventPattern introduces an level of indirection for mouse and
-  keyboard inputs. Those are represented by symbolic names, so
-  the application code can be configured by individual mappings.
+   QwtEventPattern introduces an level of indirection for mouse and
+   keyboard inputs. Those are represented by symbolic names, so
+   the application code can be configured by individual mappings.
 
-  \sa QwtPicker, QwtPickerMachine, QwtPlotZoomer
-*/
+   \sa QwtPicker, QwtPickerMachine, QwtPlotZoomer
+ */
 class QWT_EXPORT QwtEventPattern
 {
-public:
+  public:
     /*!
-      \brief Symbolic mouse input codes
+       \brief Symbolic mouse input codes
 
-      QwtEventPattern implements 3 different settings for
-      mice with 1, 2, or 3 buttons that can be activated
-      using initMousePattern(). The default setting is for
-      3 button mice.
+       QwtEventPattern implements 3 different settings for
+       mice with 1, 2, or 3 buttons that can be activated
+       using initMousePattern(). The default setting is for
+       3 button mice.
 
-      Individual settings can be configured using setMousePattern().
+       Individual settings can be configured using setMousePattern().
 
-      \sa initMousePattern(), setMousePattern(), setKeyPattern()
-    */
+       \sa initMousePattern(), setMousePattern(), setKeyPattern()
+     */
     enum MousePatternCode
     {
         /*!
-          The default setting for 1, 2 and 3 button mice is:
+           The default setting for 1, 2 and 3 button mice is:
 
-          - Qt::LeftButton
-          - Qt::LeftButton
-          - Qt::LeftButton
+           - Qt::LeftButton
+           - Qt::LeftButton
+           - Qt::LeftButton
          */
         MouseSelect1,
 
         /*!
-          The default setting for 1, 2 and 3 button mice is:
+           The default setting for 1, 2 and 3 button mice is:
 
-          - Qt::LeftButton + Qt::ControlModifier
-          - Qt::RightButton
-          - Qt::RightButton
+           - Qt::LeftButton + Qt::ControlModifier
+           - Qt::RightButton
+           - Qt::RightButton
          */
         MouseSelect2,
 
         /*!
-          The default setting for 1, 2 and 3 button mice is:
+           The default setting for 1, 2 and 3 button mice is:
 
-          - Qt::LeftButton + Qt::AltModifier
-          - Qt::LeftButton + Qt::AltModifier
-          - Qt::MidButton
+           - Qt::LeftButton + Qt::AltModifier
+           - Qt::LeftButton + Qt::AltModifier
+           - Qt::MidButton
          */
         MouseSelect3,
 
         /*!
-          The default setting for 1, 2 and 3 button mice is:
+           The default setting for 1, 2 and 3 button mice is:
 
-          - Qt::LeftButton + Qt::ShiftModifier
-          - Qt::LeftButton + Qt::ShiftModifier
-          - Qt::LeftButton + Qt::ShiftModifier
+           - Qt::LeftButton + Qt::ShiftModifier
+           - Qt::LeftButton + Qt::ShiftModifier
+           - Qt::LeftButton + Qt::ShiftModifier
          */
         MouseSelect4,
 
         /*!
-          The default setting for 1, 2 and 3 button mice is:
+           The default setting for 1, 2 and 3 button mice is:
 
-          - Qt::LeftButton + Qt::ControlButton | Qt::ShiftModifier
-          - Qt::RightButton + Qt::ShiftModifier
-          - Qt::RightButton + Qt::ShiftModifier
+           - Qt::LeftButton + Qt::ControlButton | Qt::ShiftModifier
+           - Qt::RightButton + Qt::ShiftModifier
+           - Qt::RightButton + Qt::ShiftModifier
          */
         MouseSelect5,
 
         /*!
-          The default setting for 1, 2 and 3 button mice is:
+           The default setting for 1, 2 and 3 button mice is:
 
-          - Qt::LeftButton + Qt::AltModifier + Qt::ShiftModifier
-          - Qt::LeftButton + Qt::AltModifier | Qt::ShiftModifier
-          - Qt::MidButton + Qt::ShiftModifier
+           - Qt::LeftButton + Qt::AltModifier + Qt::ShiftModifier
+           - Qt::LeftButton + Qt::AltModifier | Qt::ShiftModifier
+           - Qt::MidButton + Qt::ShiftModifier
          */
         MouseSelect6,
 
@@ -102,12 +103,12 @@ public:
     };
 
     /*!
-      \brief Symbolic keyboard input codes
+       \brief Symbolic keyboard input codes
 
-      Individual settings can be configured using setKeyPattern()
+       Individual settings can be configured using setKeyPattern()
 
-      \sa setKeyPattern(), setMousePattern()
-    */
+       \sa setKeyPattern(), setMousePattern()
+     */
     enum KeyPatternCode
     {
         //! Qt::Key_Return
@@ -147,10 +148,10 @@ public:
     //! A pattern for mouse events
     class MousePattern
     {
-    public:
+      public:
         //! Constructor
         MousePattern( Qt::MouseButton btn = Qt::NoButton,
-                Qt::KeyboardModifiers modifierCodes = Qt::NoModifier ):
+            Qt::KeyboardModifiers modifierCodes = Qt::NoModifier ):
             button( btn ),
             modifiers( modifierCodes )
         {
@@ -166,10 +167,10 @@ public:
     //! A pattern for key events
     class KeyPattern
     {
-    public:
+      public:
         //! Constructor
         KeyPattern( int keyCode = Qt::Key_unknown,
-                Qt::KeyboardModifiers modifierCodes = Qt::NoModifier ):
+            Qt::KeyboardModifiers modifierCodes = Qt::NoModifier ):
             key( keyCode ),
             modifiers( modifierCodes )
         {
@@ -194,45 +195,45 @@ public:
     void setKeyPattern( KeyPatternCode, int key,
         Qt::KeyboardModifiers modifiers = Qt::NoModifier );
 
-    void setMousePattern( const QVector<MousePattern> & );
-    void setKeyPattern( const QVector<KeyPattern> & );
+    void setMousePattern( const QVector< MousePattern >& );
+    void setKeyPattern( const QVector< KeyPattern >& );
 
-    const QVector<MousePattern> &mousePattern() const;
-    const QVector<KeyPattern> &keyPattern() const;
+    const QVector< MousePattern >& mousePattern() const;
+    const QVector< KeyPattern >& keyPattern() const;
 
-    QVector<MousePattern> &mousePattern();
-    QVector<KeyPattern> &keyPattern();
+    QVector< MousePattern >& mousePattern();
+    QVector< KeyPattern >& keyPattern();
 
-    bool mouseMatch( MousePatternCode, const QMouseEvent * ) const;
-    bool keyMatch( KeyPatternCode, const QKeyEvent * ) const;
+    bool mouseMatch( MousePatternCode, const QMouseEvent* ) const;
+    bool keyMatch( KeyPatternCode, const QKeyEvent* ) const;
 
-protected:
-    virtual bool mouseMatch( const MousePattern &, const QMouseEvent * ) const;
-    virtual bool keyMatch( const KeyPattern &, const QKeyEvent * ) const;
+  protected:
+    virtual bool mouseMatch( const MousePattern&, const QMouseEvent* ) const;
+    virtual bool keyMatch( const KeyPattern&, const QKeyEvent* ) const;
 
-private:
+  private:
 
-#if defined(_MSC_VER)
+#if defined( _MSC_VER )
 #pragma warning(push)
 #pragma warning(disable: 4251)
 #endif
-    QVector<MousePattern> d_mousePattern;
-    QVector<KeyPattern> d_keyPattern;
-#if defined(_MSC_VER)
+    QVector< MousePattern > m_mousePattern;
+    QVector< KeyPattern > m_keyPattern;
+#if defined( _MSC_VER )
 #pragma warning(pop)
 #endif
 };
 
 //! Compare operator
 inline bool operator==( QwtEventPattern::MousePattern b1,
-    QwtEventPattern::MousePattern  b2 )
+    QwtEventPattern::MousePattern b2 )
 {
     return b1.button == b2.button && b1.modifiers == b2.modifiers;
 }
 
 //! Compare operator
 inline bool operator==( QwtEventPattern::KeyPattern b1,
-   QwtEventPattern::KeyPattern  b2 )
+    QwtEventPattern::KeyPattern b2 )
 {
     return b1.key == b2.key && b1.modifiers == b2.modifiers;
 }

@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -11,15 +11,17 @@
 #include "qwt_color_map.h"
 #include "qwt_scale_map.h"
 #include "qwt_painter.h"
+#include "qwt_text.h"
+
 #include <qpainter.h>
 
 class QwtPlotSpectroCurve::PrivateData
 {
-public:
-    PrivateData():
-        colorRange( 0.0, 1000.0 ),
-        penWidth(0.0),
-        paintAttributes( QwtPlotSpectroCurve::ClipPoints )
+  public:
+    PrivateData()
+        : colorRange( 0.0, 1000.0 )
+        , penWidth( 0.0 )
+        , paintAttributes( QwtPlotSpectroCurve::ClipPoints )
     {
         colorMap = new QwtLinearColorMap();
     }
@@ -29,29 +31,29 @@ public:
         delete colorMap;
     }
 
-    QwtColorMap *colorMap;
+    QwtColorMap* colorMap;
     QwtInterval colorRange;
-    QVector<QRgb> colorTable;
+    QVector< QRgb > colorTable;
     double penWidth;
     QwtPlotSpectroCurve::PaintAttributes paintAttributes;
 };
 
 /*!
-  Constructor
-  \param title Title of the curve
-*/
-QwtPlotSpectroCurve::QwtPlotSpectroCurve( const QwtText &title ):
-    QwtPlotSeriesItem( title )
+   Constructor
+   \param title Title of the curve
+ */
+QwtPlotSpectroCurve::QwtPlotSpectroCurve( const QwtText& title )
+    : QwtPlotSeriesItem( title )
 {
     init();
 }
 
 /*!
-  Constructor
-  \param title Title of the curve
-*/
-QwtPlotSpectroCurve::QwtPlotSpectroCurve( const QString &title ):
-    QwtPlotSeriesItem( QwtText( title ) )
+   Constructor
+   \param title Title of the curve
+ */
+QwtPlotSpectroCurve::QwtPlotSpectroCurve( const QString& title )
+    : QwtPlotSeriesItem( QwtText( title ) )
 {
     init();
 }
@@ -59,18 +61,18 @@ QwtPlotSpectroCurve::QwtPlotSpectroCurve( const QString &title ):
 //! Destructor
 QwtPlotSpectroCurve::~QwtPlotSpectroCurve()
 {
-    delete d_data;
+    delete m_data;
 }
 
 /*!
-  \brief Initialize data members
-*/
+   \brief Initialize data members
+ */
 void QwtPlotSpectroCurve::init()
 {
     setItemAttribute( QwtPlotItem::Legend );
     setItemAttribute( QwtPlotItem::AutoScale );
 
-    d_data = new PrivateData;
+    m_data = new PrivateData;
     setData( new QwtPoint3DSeriesData() );
 
     setZ( 20.0 );
@@ -83,71 +85,71 @@ int QwtPlotSpectroCurve::rtti() const
 }
 
 /*!
-  Specify an attribute how to draw the curve
+   Specify an attribute how to draw the curve
 
-  \param attribute Paint attribute
-  \param on On/Off
-  /sa PaintAttribute, testPaintAttribute()
-*/
+   \param attribute Paint attribute
+   \param on On/Off
+   /sa PaintAttribute, testPaintAttribute()
+ */
 void QwtPlotSpectroCurve::setPaintAttribute( PaintAttribute attribute, bool on )
 {
     if ( on )
-        d_data->paintAttributes |= attribute;
+        m_data->paintAttributes |= attribute;
     else
-        d_data->paintAttributes &= ~attribute;
+        m_data->paintAttributes &= ~attribute;
 }
 
 /*!
     \return True, when attribute is enabled
     \sa PaintAttribute, setPaintAttribute()
-*/
+ */
 bool QwtPlotSpectroCurve::testPaintAttribute( PaintAttribute attribute ) const
 {
-    return ( d_data->paintAttributes & attribute );
+    return ( m_data->paintAttributes & attribute );
 }
 
 /*!
-  Initialize data with an array of samples.
-  \param samples Vector of points
-*/
-void QwtPlotSpectroCurve::setSamples( const QVector<QwtPoint3D> &samples )
+   Initialize data with an array of samples.
+   \param samples Vector of points
+ */
+void QwtPlotSpectroCurve::setSamples( const QVector< QwtPoint3D >& samples )
 {
     setData( new QwtPoint3DSeriesData( samples ) );
 }
 
 /*!
-  Assign a series of samples
-    
-  setSamples() is just a wrapper for setData() without any additional
-  value - beside that it is easier to find for the developer.
-    
-  \param data Data
-  \warning The item takes ownership of the data object, deleting
-           it when its not used anymore. 
-*/
+   Assign a series of samples
+
+   setSamples() is just a wrapper for setData() without any additional
+   value - beside that it is easier to find for the developer.
+
+   \param data Data
+   \warning The item takes ownership of the data object, deleting
+           it when its not used anymore.
+ */
 void QwtPlotSpectroCurve::setSamples(
-    QwtSeriesData<QwtPoint3D> *data )
+    QwtSeriesData< QwtPoint3D >* data )
 {
     setData( data );
-}  
+}
 
 /*!
-  Change the color map
+   Change the color map
 
-  Often it is useful to display the mapping between intensities and
-  colors as an additional plot axis, showing a color bar.
+   Often it is useful to display the mapping between intensities and
+   colors as an additional plot axis, showing a color bar.
 
-  \param colorMap Color Map
+   \param colorMap Color Map
 
-  \sa colorMap(), setColorRange(), QwtColorMap::color(),
+   \sa colorMap(), setColorRange(), QwtColorMap::color(),
       QwtScaleWidget::setColorBarEnabled(), QwtScaleWidget::setColorMap()
-*/
-void QwtPlotSpectroCurve::setColorMap( QwtColorMap *colorMap )
+ */
+void QwtPlotSpectroCurve::setColorMap( QwtColorMap* colorMap )
 {
-    if ( colorMap != d_data->colorMap )
+    if ( colorMap != m_data->colorMap )
     {
-        delete d_data->colorMap;
-        d_data->colorMap = colorMap;
+        delete m_data->colorMap;
+        m_data->colorMap = colorMap;
     }
 
     legendChanged();
@@ -157,10 +159,10 @@ void QwtPlotSpectroCurve::setColorMap( QwtColorMap *colorMap )
 /*!
    \return Color Map used for mapping the intensity values to colors
    \sa setColorMap(), setColorRange(), QwtColorMap::color()
-*/
-const QwtColorMap *QwtPlotSpectroCurve::colorMap() const
+ */
+const QwtColorMap* QwtPlotSpectroCurve::colorMap() const
 {
-    return d_data->colorMap;
+    return m_data->colorMap;
 }
 
 /*!
@@ -170,12 +172,12 @@ const QwtColorMap *QwtPlotSpectroCurve::colorMap() const
                    interval.maxValue() to 1.0 on the color map.
 
    \sa colorRange(), setColorMap(), QwtColorMap::color()
-*/
-void QwtPlotSpectroCurve::setColorRange( const QwtInterval &interval )
+ */
+void QwtPlotSpectroCurve::setColorRange( const QwtInterval& interval )
 {
-    if ( interval != d_data->colorRange )
+    if ( interval != m_data->colorRange )
     {
-        d_data->colorRange = interval;
+        m_data->colorRange = interval;
 
         legendChanged();
         itemChanged();
@@ -183,28 +185,28 @@ void QwtPlotSpectroCurve::setColorRange( const QwtInterval &interval )
 }
 
 /*!
-  \return Value interval, that corresponds to the color map
-  \sa setColorRange(), setColorMap(), QwtColorMap::color()
-*/
-QwtInterval &QwtPlotSpectroCurve::colorRange() const
+   \return Value interval, that corresponds to the color map
+   \sa setColorRange(), setColorMap(), QwtColorMap::color()
+ */
+QwtInterval& QwtPlotSpectroCurve::colorRange() const
 {
-    return d_data->colorRange;
+    return m_data->colorRange;
 }
 
 /*!
-  Assign a pen width
+   Assign a pen width
 
-  \param penWidth New pen width
-  \sa penWidth()
-*/
+   \param penWidth New pen width
+   \sa penWidth()
+ */
 void QwtPlotSpectroCurve::setPenWidth(double penWidth)
 {
     if ( penWidth < 0.0 )
         penWidth = 0.0;
 
-    if ( d_data->penWidth != penWidth )
+    if ( m_data->penWidth != penWidth )
     {
-        d_data->penWidth = penWidth;
+        m_data->penWidth = penWidth;
 
         legendChanged();
         itemChanged();
@@ -212,30 +214,30 @@ void QwtPlotSpectroCurve::setPenWidth(double penWidth)
 }
 
 /*!
-  \return Pen width used to draw a dot
-  \sa setPenWidth()
-*/
+   \return Pen width used to draw a dot
+   \sa setPenWidth()
+ */
 double QwtPlotSpectroCurve::penWidth() const
 {
-    return d_data->penWidth;
+    return m_data->penWidth;
 }
 
 /*!
-  Draw a subset of the points
+   Draw a subset of the points
 
-  \param painter Painter
-  \param xMap Maps x-values into pixel coordinates.
-  \param yMap Maps y-values into pixel coordinates.
-  \param canvasRect Contents rectangle of the canvas
-  \param from Index of the first sample to be painted
-  \param to Index of the last sample to be painted. If to < 0 the
+   \param painter Painter
+   \param xMap Maps x-values into pixel coordinates.
+   \param yMap Maps y-values into pixel coordinates.
+   \param canvasRect Contents rectangle of the canvas
+   \param from Index of the first sample to be painted
+   \param to Index of the last sample to be painted. If to < 0 the
          series will be painted to its last sample.
 
-  \sa drawDots()
-*/
-void QwtPlotSpectroCurve::drawSeries( QPainter *painter,
-    const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-    const QRectF &canvasRect, int from, int to ) const
+   \sa drawDots()
+ */
+void QwtPlotSpectroCurve::drawSeries( QPainter* painter,
+    const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+    const QRectF& canvasRect, int from, int to ) const
 {
     if ( !painter || dataSize() <= 0 )
         return;
@@ -253,32 +255,32 @@ void QwtPlotSpectroCurve::drawSeries( QPainter *painter,
 }
 
 /*!
-  Draw a subset of the points
+   Draw a subset of the points
 
-  \param painter Painter
-  \param xMap Maps x-values into pixel coordinates.
-  \param yMap Maps y-values into pixel coordinates.
-  \param canvasRect Contents rectangle of the canvas
-  \param from Index of the first sample to be painted
-  \param to Index of the last sample to be painted. If to < 0 the
+   \param painter Painter
+   \param xMap Maps x-values into pixel coordinates.
+   \param yMap Maps y-values into pixel coordinates.
+   \param canvasRect Contents rectangle of the canvas
+   \param from Index of the first sample to be painted
+   \param to Index of the last sample to be painted. If to < 0 the
          series will be painted to its last sample.
 
-  \sa drawSeries()
-*/
-void QwtPlotSpectroCurve::drawDots( QPainter *painter,
-    const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-    const QRectF &canvasRect, int from, int to ) const
+   \sa drawSeries()
+ */
+void QwtPlotSpectroCurve::drawDots( QPainter* painter,
+    const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+    const QRectF& canvasRect, int from, int to ) const
 {
-    if ( !d_data->colorRange.isValid() )
+    if ( !m_data->colorRange.isValid() )
         return;
 
     const bool doAlign = QwtPainter::roundingAlignment( painter );
 
-    const QwtColorMap::Format format = d_data->colorMap->format();
+    const QwtColorMap::Format format = m_data->colorMap->format();
     if ( format == QwtColorMap::Indexed )
-        d_data->colorTable = d_data->colorMap->colorTable( d_data->colorRange );
+        m_data->colorTable = m_data->colorMap->colorTable256();
 
-    const QwtSeriesData<QwtPoint3D> *series = data();
+    const QwtSeriesData< QwtPoint3D >* series = data();
 
     for ( int i = from; i <= to; i++ )
     {
@@ -292,7 +294,7 @@ void QwtPlotSpectroCurve::drawDots( QPainter *painter,
             yi = qRound( yi );
         }
 
-        if ( d_data->paintAttributes & QwtPlotSpectroCurve::ClipPoints )
+        if ( m_data->paintAttributes & QwtPlotSpectroCurve::ClipPoints )
         {
             if ( !canvasRect.contains( xi, yi ) )
                 continue;
@@ -300,22 +302,22 @@ void QwtPlotSpectroCurve::drawDots( QPainter *painter,
 
         if ( format == QwtColorMap::RGB )
         {
-            const QRgb rgb = d_data->colorMap->rgb(
-                d_data->colorRange, sample.z() );
+            const QRgb rgb = m_data->colorMap->rgb(
+                m_data->colorRange, sample.z() );
 
-            painter->setPen( QPen( QColor::fromRgba( rgb ), d_data->penWidth ) );
+            painter->setPen( QPen( QColor::fromRgba( rgb ), m_data->penWidth ) );
         }
         else
         {
-            const unsigned char index = d_data->colorMap->colorIndex(
-                d_data->colorRange, sample.z() );
+            const unsigned char index = m_data->colorMap->colorIndex(
+                256, m_data->colorRange, sample.z() );
 
-            painter->setPen( QPen( QColor::fromRgba( d_data->colorTable[index] ), 
-                d_data->penWidth ) );
+            painter->setPen( QPen( QColor::fromRgba( m_data->colorTable[index] ),
+                m_data->penWidth ) );
         }
 
         QwtPainter::drawPoint( painter, QPointF( xi, yi ) );
     }
 
-    d_data->colorTable.clear();
+    m_data->colorTable.clear();
 }

@@ -1,25 +1,15 @@
 /*
- * Process Hacker -
- *   Image Coherency
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2020 jxy-s
- * Copyright (C) 2021-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     jxy-s   2020-2022
+ *     dmex    2021-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <ph.h>
 #include <mapimg.h>
 #include <kphuser.h>
@@ -43,6 +33,8 @@ typedef struct _PH_IMAGE_COHERENCY_CONTEXT
     NTSTATUS MappedImageStatus;               /**< Status of initializing MappedImage */
     PH_MAPPED_IMAGE MappedImage;              /**< On-disk image mapping */
     PPH_HASHTABLE MappedImageReloc;           /**< On-disk mapped image relocations table */
+    ULONG MappedImageIatRva;                  /**< On-disk import address table RVA */
+    ULONG MappedImageIatSize;                 /**< On-disk import address table size */
 
     NTSTATUS RemoteMappedImageStatus;         /**< Status of initializing RemoteMappedImage */
     PH_REMOTE_MAPPED_IMAGE RemoteMappedImage; /**< Remote image mapping */
@@ -53,7 +45,7 @@ typedef struct _PH_IMAGE_COHERENCY_CONTEXT
 } PH_IMAGE_COHERENCY_CONTEXT, *PPH_IMAGE_COHERENCY_CONTEXT;
 
 /**
-* Inspection skip callback type. 
+* Inspection skip callback type.
 *
 * \param[in] Rva - Current rva in the range being inspected.
 * \param[in] Context - Context supplied to this callback.
@@ -208,7 +200,7 @@ PPH_IMAGE_COHERENCY_CONTEXT PhpCreateImageCoherencyContext(
     // Map the on-disk image
     //
     context->MappedImageStatus = PhLoadMappedImageEx(
-        FileName,
+        &FileName->sr,
         NULL,
         &context->MappedImage
         );
@@ -216,6 +208,7 @@ PPH_IMAGE_COHERENCY_CONTEXT PhpCreateImageCoherencyContext(
     if (NT_SUCCESS(context->MappedImageStatus))
     {
         PH_MAPPED_IMAGE_RELOC relocs;
+        PIMAGE_DATA_DIRECTORY directory;
 
         //
         // Build a hash table for the relocation entries to skip later.
@@ -261,6 +254,14 @@ PPH_IMAGE_COHERENCY_CONTEXT PhpCreateImageCoherencyContext(
 
             PhFreeMappedImageRelocations(&relocs);
         }
+
+        if (NT_SUCCESS(PhGetMappedImageDataEntry(&context->MappedImage,
+                                                 IMAGE_DIRECTORY_ENTRY_IAT,
+                                                 &directory)))
+        {
+            context->MappedImageIatRva = directory->VirtualAddress;
+            context->MappedImageIatSize = directory->Size;
+        }
     }
 
     if (!RemoteImageBase)
@@ -272,7 +273,7 @@ PPH_IMAGE_COHERENCY_CONTEXT PhpCreateImageCoherencyContext(
     context->RemoteImageBase = RemoteImageBase;
 
     //
-    // Map the remote image 
+    // Map the remote image
     //
     context->RemoteMappedImageStatus =
         PhLoadRemoteMappedImageEx(ProcessHandle,
@@ -353,7 +354,7 @@ VOID PhpAnalyzeImageCoherencyInspect(
 
 /**
 * Analyzes the image coherency as if it were a native application.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Rva - Relative virtual address to inspect.
 * \param[in] Size - Size of data to inspect from the RVA.
@@ -401,7 +402,7 @@ VOID PhpAnalyzeImageCoherencyCommonByRva(
                                                    &bytesRead)))
         {
             //
-            // Force 0, we'll handle this below 
+            // Force 0, we'll handle this below
             //
             bytesRead = 0;
         }
@@ -419,7 +420,7 @@ VOID PhpAnalyzeImageCoherencyCommonByRva(
         else
         {
             //
-            // Force 0, we'll handle this below 
+            // Force 0, we'll handle this below
             //
             remainingView = 0;
         }
@@ -431,7 +432,7 @@ VOID PhpAnalyzeImageCoherencyCommonByRva(
         assert(bytes <= PAGE_SIZE);
 
         //
-        // Do the inspection, clamp the bytes to the minimum 
+        // Do the inspection, clamp the bytes to the minimum
         //
         PhpAnalyzeImageCoherencyInspect(fileBytes,
                                         (ULONG)bytes,
@@ -450,7 +451,7 @@ VOID PhpAnalyzeImageCoherencyCommonByRva(
 /**
 * Analyzes the image coherency as if it were a native application. And expects
 * certain bytes over the range, used for code cave scanning.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Rva - Relative virtual address to inspect.
 * \param[in] Size - Size of data to inspect from the RVA.
@@ -498,7 +499,7 @@ VOID PhpAnalyzeImageCoherencyCommonByRvaExpectBytes(
             assert(bytesRead <= PAGE_SIZE);
 
             //
-            // Do the inspection 
+            // Do the inspection
             //
             PhpAnalyzeImageCoherencyInspect(expected,
                                             (ULONG)bytesRead,
@@ -516,14 +517,14 @@ VOID PhpAnalyzeImageCoherencyCommonByRvaExpectBytes(
 }
 
 /**
-* Skip bytes callback to skip relocations during inspection.
+* Skip bytes callback to skip bytes during inspection.
 *
 * \param[in] Rva - Current rva in the range being inspected.
 * \param[in] Context - Relocation skip context.
 *
-* \return Number of bytes to skip if a relocation is encountered, 0 otherwise.
+* \return Number of bytes to skip, 0 otherwise.
 */
-ULONG CALLBACK PhpImgCoherencySkipRelocations(
+ULONG CALLBACK PhpImgCoherencySkip(
     _In_ ULONG Rva,
     _In_opt_ PVOID Context
     )
@@ -538,29 +539,34 @@ ULONG CALLBACK PhpImgCoherencySkipRelocations(
 
     context = (PPH_IMAGE_COHERENCY_CONTEXT)Context;
 
-    if (!context->MappedImageReloc)
+    if (context->MappedImageReloc)
     {
-        return 0;
+        //
+        // Look up the RVA in our hash table, if we find one we will skip the
+        // number of bytes stored in the hash table for that entry.
+        //
+        entry = PhFindItemSimpleHashtable(context->MappedImageReloc,
+                                          PTR_ADD_OFFSET(NULL, Rva));
+        if (entry)
+        {
+            return PtrToUlong(*entry);
+        }
     }
 
-    //
-    // Look up the RVA in our hash table, if we find one we will skip the
-    // number of bytes stored in the hash table for that entry.
-    //
-
-    entry = PhFindItemSimpleHashtable(context->MappedImageReloc,
-                                      PTR_ADD_OFFSET(NULL, Rva));
-    if (!entry)
+    if (context->MappedImageIatRva && (context->MappedImageIatRva == Rva))
     {
-        return 0;
+        //
+        // Skip over the import address table.
+        //
+        return context->MappedImageIatSize;
     }
 
-    return PtrToUlong(*entry);
+    return 0;
 }
 
 /**
 * Analyzes the image coherency as if it were a native application.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Context - Image coherency context.
 */
@@ -634,7 +640,7 @@ VOID PhpAnalyzeImageCoherencyCommonAsNative(
                                                     mappedSection->VirtualAddress,
                                                     size,
                                                     Context,
-                                                    PhpImgCoherencySkipRelocations,
+                                                    PhpImgCoherencySkip,
                                                     Context);
 
                 bytesInspected = (Context->TotalBytes - prevTotal);
@@ -662,7 +668,7 @@ VOID PhpAnalyzeImageCoherencyCommonAsNative(
                                                             addressOfEntry,
                                                             length,
                                                             Context,
-                                                            PhpImgCoherencySkipRelocations,
+                                                            PhpImgCoherencySkip,
                                                             Context);
                     }
                 }
@@ -710,7 +716,7 @@ VOID PhpAnalyzeImageCoherencyCommonAsNative(
 
 /**
 * Analyzes the image coherency as if it were a managed (.NET) application.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Context - Image coherency context.
 */
@@ -749,7 +755,7 @@ VOID PhpAnalyzeImageCoherencyCommonAsManaged(
                                         NULL);
 
     //
-    // Get the .NET MetaData 
+    // Get the .NET MetaData
     //
     dotNet = PhMappedImageRvaToVa(&Context->MappedImage,
                                   dataDirectory->VirtualAddress,
@@ -774,7 +780,7 @@ VOID PhpAnalyzeImageCoherencyCommonAsManaged(
 
 /**
 * Checks if the image is a .NET application.
-* 
+*
 * \param[in] Context - Image coherency context.
 *
 * \return TRUE if the image is a .NET application, FALSE otherwise.
@@ -820,7 +826,7 @@ BOOLEAN PhpAnalyzeImageCoherencyIsDotNet (
 
 /**
 * Common analysis for image coherency.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Context - Image coherency context.
 */
@@ -901,7 +907,7 @@ ULONG CALLBACK PspImageCoherencySkipImageOptionalHeader32(
 
 /**
 * Analyzes image coherency for 32 bit images.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Context - Image coherency context.
 *
@@ -943,7 +949,7 @@ NTSTATUS PhpAnalyzeImageCoherencyNt32(
                                     NULL);
 
     //
-    // Do the common inspection 
+    // Do the common inspection
     //
     PhpAnalyzeImageCoherencyCommon(ProcessHandle, Context);
 
@@ -979,7 +985,7 @@ ULONG CALLBACK PspImageCoherencySkipImageOptionalHeader64(
 
 /**
 * Analyzes image coherency for 64 bit images.
-* 
+*
 * \param[in] ProcessHandle - Handle to the process requires PROCESS_VM_READ.
 * \param[in] Context - Image coherency context.
 *
@@ -1020,7 +1026,7 @@ NTSTATUS PhpAnalyzeImageCoherencyNt64(
                                     NULL);
 
     //
-    // Do the common inspection 
+    // Do the common inspection
     //
     PhpAnalyzeImageCoherencyCommon(ProcessHandle, Context);
 
@@ -1135,7 +1141,7 @@ NTSTATUS PhpInspectForImageCoherency(
             break;
         }
     }
-    
+
 CleanupExit:
 
     if (Context->TotalBytes)
@@ -1182,7 +1188,6 @@ NTSTATUS PhGetProcessImageCoherency(
     NTSTATUS status;
     HANDLE processHandle;
     PPH_IMAGE_COHERENCY_CONTEXT context;
-    PROCESS_BASIC_INFORMATION basicInfo;
     PVOID remoteImageBase;
 
     context = NULL;
@@ -1200,18 +1205,9 @@ NTSTATUS PhGetProcessImageCoherency(
     }
 
     //
-    // Get the remote image base 
+    // Get the remote image base
     //
-    status = PhGetProcessBasicInformation(processHandle, &basicInfo);
-    if (NT_SUCCESS(status))
-    {
-        status = NtReadVirtualMemory(processHandle,
-                                     PTR_ADD_OFFSET(basicInfo.PebBaseAddress,
-                                                    FIELD_OFFSET(PEB, ImageBaseAddress)),
-                                     &remoteImageBase,
-                                     sizeof(PVOID),
-                                     NULL);
-    }
+    status = PhGetProcessImageBaseAddress(processHandle, &remoteImageBase);
     if (!NT_SUCCESS(status))
     {
         remoteImageBase = NULL;
@@ -1227,7 +1223,7 @@ NTSTATUS PhGetProcessImageCoherency(
     status = PhpInspectForImageCoherency(processHandle,
                                          context,
                                          ImageCoherency);
-    
+
 CleanupExit:
 
     PhpFreeImageCoherencyContext(context);
@@ -1244,7 +1240,7 @@ CleanupExit:
 * Inspects a module image coherency compared to the file on disk.
 *
 * \param[in] FileName Win32 path to the image file on disk.
-* \param[in] ProcessHandle - Handle to the process where the module is mapped 
+* \param[in] ProcessHandle - Handle to the process where the module is mapped
 * requires PROCESS_VM_READ.
 * \param[in] ImageBaseAddress - Base address of the image.
 * \param[in] IsKernelModule - Notes if this is a kernel module.

@@ -1,7 +1,11 @@
-#ifndef _PLOT_H_
-#define _PLOT_H_ 1
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
+#pragma once
+
+#include <QwtPlot>
 
 class QwtPlotCurve;
 class QwtSymbol;
@@ -10,14 +14,12 @@ class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget *parent = NULL );
+  public:
+    Plot( QWidget* parent = NULL );
 
-    void setSymbol( QwtSymbol * );
-    void setSamples( const QVector<QPointF> &samples );
+    void setSymbol( QwtSymbol* );
+    void setSamples( const QVector< QPointF >& samples );
 
-private:
-    QwtPlotCurve *d_curve;
+  private:
+    QwtPlotCurve* m_curve;
 };
-
-#endif // _PLOT_H_

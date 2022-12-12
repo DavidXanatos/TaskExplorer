@@ -1,5 +1,12 @@
-#include <qwt_plot.h>
-#include "cpustat.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#pragma once
+
+#include "CpuStat.h"
+#include <QwtPlot>
 
 #define HISTORY 60 // seconds
 
@@ -8,7 +15,7 @@ class QwtPlotCurve;
 class CpuPlot : public QwtPlot
 {
     Q_OBJECT
-public:
+  public:
     enum CpuData
     {
         User,
@@ -19,29 +26,29 @@ public:
         NCpuData
     };
 
-    CpuPlot( QWidget * = 0 );
-    const QwtPlotCurve *cpuCurve( int id ) const
+    CpuPlot( QWidget* = 0 );
+    const QwtPlotCurve* cpuCurve( int id ) const
     {
-        return data[id].curve;
+        return m_data[id].curve;
     }
 
-protected:
-    void timerEvent( QTimerEvent *e );
+  protected:
+    void timerEvent( QTimerEvent* ) QWT_OVERRIDE;
 
-private Q_SLOTS:
-    void legendChecked( const QVariant &, bool on );
+  private Q_SLOTS:
+    void legendChecked( const QVariant&, bool on );
 
-private:
-    void showCurve( QwtPlotItem *, bool on );
+  private:
+    void showCurve( QwtPlotItem*, bool on );
 
     struct
     {
-        QwtPlotCurve *curve;
+        QwtPlotCurve* curve;
         double data[HISTORY];
-    } data[NCpuData];
+    } m_data[NCpuData];
 
-    double timeData[HISTORY];
+    double m_timeData[HISTORY];
 
-    int dataCount;
-    CpuStat cpuStat;
+    int m_dataCount;
+    CpuStat m_cpuStat;
 };

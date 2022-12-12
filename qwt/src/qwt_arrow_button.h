@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -14,39 +14,38 @@
 #include <qpushbutton.h>
 
 /*!
-  \brief Arrow Button
+   \brief Arrow Button
 
-  A push button with one or more filled triangles on its front.
-  An Arrow button can have 1 to 3 arrows in a row, pointing
-  up, down, left or right.
-*/
+   A push button with one or more filled triangles on its front.
+   An Arrow button can have 1 to 3 arrows in a row, pointing
+   up, down, left or right.
+ */
 class QWT_EXPORT QwtArrowButton : public QPushButton
 {
-public:
-    explicit QwtArrowButton ( int num, Qt::ArrowType, QWidget *parent = NULL );
+  public:
+    explicit QwtArrowButton ( int num, Qt::ArrowType, QWidget* parent = NULL );
     virtual ~QwtArrowButton();
 
     Qt::ArrowType arrowType() const;
     int num() const;
 
-    virtual QSize sizeHint() const;
-    virtual QSize minimumSizeHint() const;
+    virtual QSize sizeHint() const QWT_OVERRIDE;
+    virtual QSize minimumSizeHint() const QWT_OVERRIDE;
 
-protected:
-    virtual void paintEvent( QPaintEvent *event );
+  protected:
+    virtual void paintEvent( QPaintEvent*) QWT_OVERRIDE;
+    virtual void keyPressEvent( QKeyEvent* ) QWT_OVERRIDE;
 
-    virtual void drawButtonLabel( QPainter * );
-    virtual void drawArrow( QPainter *,
-        const QRect &, Qt::ArrowType ) const;
+    virtual void drawButtonLabel( QPainter* );
+    virtual void drawArrow( QPainter*,
+        const QRect&, Qt::ArrowType ) const;
     virtual QRect labelRect() const;
     virtual QSize arrowSize( Qt::ArrowType,
-        const QSize &boundingSize ) const;
+        const QSize& boundingSize ) const;
 
-    virtual void keyPressEvent( QKeyEvent * );
-
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

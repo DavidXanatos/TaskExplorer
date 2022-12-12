@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   object security editor
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010-2016 wj32
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010-2016
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -201,7 +190,7 @@ ISecurityInformation *PhSecurityInformation_Create(
     info->ObjectType = PhCreateString(ObjectType);
     info->OpenObject = OpenObject;
     info->CloseObject = CloseObject;
-    info->Context = Context;  
+    info->Context = Context;
     info->IsPage = IsPage;
 
     if (PhGetAccessEntries(ObjectType, &info->AccessEntriesArray, &info->NumberOfAccessEntries))
@@ -329,11 +318,11 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation_Release(
         if (this->CloseObject)
             this->CloseObject(this->Context);
 
-        if (this->ObjectName) 
+        if (this->ObjectName)
             PhDereferenceObject(this->ObjectName);
         if (this->ObjectType)
             PhDereferenceObject(this->ObjectType);
-        if (this->AccessEntries) 
+        if (this->AccessEntries)
             PhFree(this->AccessEntries);
         if (this->AccessEntriesArray)
             PhFree(this->AccessEntriesArray);
@@ -1115,7 +1104,7 @@ HRESULT STDMETHODCALLTYPE PhEffectivePermission_GetEffectivePermission(
     BOOLEAN defaulted = FALSE;
     PACL dacl = NULL;
     PACCESS_MASK accessRights;
-    TRUSTEE trustee = { 0 };
+    TRUSTEE trustee;
 
     status = RtlGetDaclSecurityDescriptor(
         SecurityDescriptor,
@@ -1135,7 +1124,7 @@ HRESULT STDMETHODCALLTYPE PhEffectivePermission_GetEffectivePermission(
     if (!accessRights)
         return S_FALSE;
 
-    BuildTrusteeWithSid(&trustee, UserSid);
+    PhBuildTrusteeWithSid(&trustee, UserSid);
     status = GetEffectiveRightsFromAcl(dacl, &trustee, accessRights);
 
     if (status != ERROR_SUCCESS)
@@ -1283,24 +1272,24 @@ _Callback_ NTSTATUS PhStdGetObjectSecurity(
         PhEqualString2(this->ObjectType, L"SamUser", TRUE)
         )
     {
-        PSECURITY_DESCRIPTOR securityDescriptor;
-        
-        status = SamQuerySecurityObject(
-            handle,
-            SecurityInformation,
-            &securityDescriptor
-            );
-        
-        if (NT_SUCCESS(status))
-        {
-            *SecurityDescriptor = PhAllocateCopy(
-                securityDescriptor,
-                RtlLengthSecurityDescriptor(securityDescriptor)
-                );
-            SamFreeMemory(securityDescriptor);
-        }
-        
-        SamCloseHandle(handle);
+        //PSECURITY_DESCRIPTOR securityDescriptor;
+        //
+        //status = SamQuerySecurityObject(
+        //    handle,
+        //    SecurityInformation,
+        //    &securityDescriptor
+        //    );
+        //
+        //if (NT_SUCCESS(status))
+        //{
+        //    *SecurityDescriptor = PhAllocateCopy(
+        //        securityDescriptor,
+        //        RtlLengthSecurityDescriptor(securityDescriptor)
+        //        );
+        //    SamFreeMemory(securityDescriptor);
+        //}
+        //
+        //SamCloseHandle(handle);
     }
     else if (PhEqualString2(this->ObjectType, L"TokenDefault", TRUE))
     {
@@ -1458,7 +1447,7 @@ _Callback_ NTSTATUS PhStdSetObjectSecurity(
             SecurityInformation,
             SecurityDescriptor
             );
-        
+
         LsaClose(handle);
     }
     else if (
@@ -1883,7 +1872,7 @@ NTSTATUS PhpGetRemoteDesktopSecurityDescriptor(
     if (!WTSGetListenerSecurity_I)
         return STATUS_PROCEDURE_NOT_FOUND;
 
-    // Todo: Add support for SI_RESET using the default security descriptor: 
+    // Todo: Add support for SI_RESET using the default security descriptor:
     // HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\DefaultSecurity
 
     status = WTSGetListenerSecurity_I(
@@ -2006,7 +1995,6 @@ NTSTATUS PhGetWmiNamespaceSecurityDescriptor(
     PVOID securityDescriptorData = NULL;
     PPH_STRING querySelectString = NULL;
     BSTR wbemResourceString = NULL;
-    BSTR wbemLanguageString = NULL;
     BSTR wbemQueryString = NULL;
     BSTR wbemMethodString = NULL;
     IWbemLocator* wbemLocator = NULL;
@@ -2015,7 +2003,7 @@ NTSTATUS PhGetWmiNamespaceSecurityDescriptor(
     IWbemClassObject* wbemGetSDClassObject = 0;
     VARIANT variantReturnValue = { VT_EMPTY };
     VARIANT variantArrayValue = { VT_EMPTY };
-   
+
     if (!(imageBaseAddress = PhGetWbemProxDllBase()))
         return STATUS_UNSUCCESSFUL;
 
@@ -2029,7 +2017,7 @@ NTSTATUS PhGetWmiNamespaceSecurityDescriptor(
     if (FAILED(status))
         goto CleanupExit;
 
-    wbemResourceString = SysAllocString(L"Root");
+    wbemResourceString = SysAllocStringLen(L"Root", 4);
     status = IWbemLocator_ConnectServer(
         wbemLocator,
         wbemResourceString,
@@ -2045,7 +2033,7 @@ NTSTATUS PhGetWmiNamespaceSecurityDescriptor(
     if (FAILED(status))
         goto CleanupExit;
 
-    wbemQueryString = SysAllocString(L"__SystemSecurity");
+    wbemQueryString = SysAllocStringLen(L"__SystemSecurity", 16);
     status = IWbemServices_GetObject(
         wbemServices,
         wbemQueryString,
@@ -2058,7 +2046,7 @@ NTSTATUS PhGetWmiNamespaceSecurityDescriptor(
     if (FAILED(status))
         goto CleanupExit;
 
-    wbemMethodString = SysAllocString(L"GetSD");
+    wbemMethodString = SysAllocStringLen(L"GetSD", 5);
     status = IWbemServices_ExecMethod(
         wbemServices,
         wbemQueryString,
@@ -2139,8 +2127,6 @@ CleanupExit:
         SysFreeString(wbemMethodString);
     if (wbemQueryString)
         SysFreeString(wbemQueryString);
-    if (wbemLanguageString)
-        SysFreeString(wbemLanguageString);
     if (wbemResourceString)
         SysFreeString(wbemResourceString);
     if (querySelectString)
@@ -2173,7 +2159,6 @@ NTSTATUS PhSetWmiNamespaceSecurityDescriptor(
     PVOID imageBaseAddress;
     PPH_STRING querySelectString = NULL;
     BSTR wbemResourceString = NULL;
-    BSTR wbemLanguageString = NULL;
     BSTR wbemQueryString = NULL;
     BSTR wbemMethodString = NULL;
     IWbemLocator* wbemLocator = NULL;
@@ -2202,7 +2187,7 @@ NTSTATUS PhSetWmiNamespaceSecurityDescriptor(
     if (FAILED(status))
         goto CleanupExit;
 
-    wbemResourceString = SysAllocString(L"Root");
+    wbemResourceString = SysAllocStringLen(L"Root", 4);
     status = IWbemLocator_ConnectServer(
         wbemLocator,
         wbemResourceString,
@@ -2218,7 +2203,7 @@ NTSTATUS PhSetWmiNamespaceSecurityDescriptor(
     if (FAILED(status))
         goto CleanupExit;
 
-    wbemQueryString = SysAllocString(L"__SystemSecurity");
+    wbemQueryString = SysAllocStringLen(L"__SystemSecurity", 16);
     status = IWbemServices_GetObject(
         wbemServices,
         wbemQueryString,
@@ -2313,7 +2298,7 @@ NTSTATUS PhSetWmiNamespaceSecurityDescriptor(
     if (FAILED(status))
         goto CleanupExit;
 
-    wbemMethodString = SysAllocString(L"SetSD");
+    wbemMethodString = SysAllocStringLen(L"SetSD", 5);
     status = IWbemServices_ExecMethod(
         wbemServices,
         wbemQueryString,
@@ -2366,8 +2351,6 @@ CleanupExit:
         SysFreeString(wbemMethodString);
     if (wbemQueryString)
         SysFreeString(wbemQueryString);
-    if (wbemLanguageString)
-        SysFreeString(wbemLanguageString);
     if (wbemResourceString)
         SysFreeString(wbemResourceString);
     if (querySelectString)
@@ -2384,4 +2367,133 @@ CleanupExit:
         return STATUS_INVALID_PARAMETER;
 
     return STATUS_INVALID_SECURITY_DESCR;
+}
+
+HRESULT PhRestartDefenderOfflineScan(
+    VOID
+    )
+{
+    HRESULT status;
+    PVOID imageBaseAddress;
+    PPH_STRING querySelectString = NULL;
+    BSTR wbemResourceString = NULL;
+    BSTR wbemQueryString = NULL;
+    BSTR wbemMethodString = NULL;
+    IWbemLocator* wbemLocator = NULL;
+    IWbemServices* wbemServices = NULL;
+    IWbemClassObject* wbemClassObject = NULL;
+    IWbemClassObject* wbemStartClassObject = 0;
+    VARIANT variantReturnValue = { VT_EMPTY };
+
+    if (!(imageBaseAddress = PhGetWbemProxDllBase()))
+        return STATUS_UNSUCCESSFUL;
+
+    status = PhGetClassObjectDllBase(
+        imageBaseAddress,
+        &CLSID_WbemLocator,
+        &IID_IWbemLocator,
+        &wbemLocator
+        );
+
+    if (FAILED(status))
+        goto CleanupExit;
+
+    wbemResourceString = SysAllocStringLen(L"Root\\Microsoft\\Windows\\Defender", 31);
+    status = IWbemLocator_ConnectServer(
+        wbemLocator,
+        wbemResourceString,
+        NULL,
+        NULL,
+        NULL,
+        WBEM_FLAG_CONNECT_USE_MAX_WAIT,
+        NULL,
+        NULL,
+        &wbemServices
+        );
+
+    if (FAILED(status))
+        goto CleanupExit;
+
+    status = CoSetProxyBlanket(
+        (IUnknown*)wbemServices,
+        RPC_C_AUTHN_WINNT,
+        RPC_C_AUTHZ_NONE,
+        NULL,
+        RPC_C_AUTHN_LEVEL_CALL,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        NULL,
+        EOAC_NONE
+        );
+
+    if (FAILED(status))
+        goto CleanupExit;
+
+    wbemQueryString = SysAllocStringLen(L"MSFT_MpWDOScan", 14);
+    status = IWbemServices_GetObject(
+        wbemServices,
+        wbemQueryString,
+        0,
+        NULL,
+        &wbemClassObject,
+        NULL
+        );
+
+    if (FAILED(status))
+        goto CleanupExit;
+
+    wbemMethodString = SysAllocStringLen(L"Start", 5);
+    status = IWbemServices_ExecMethod(
+        wbemServices,
+        wbemQueryString,
+        wbemMethodString,
+        0,
+        NULL,
+        wbemClassObject,
+        &wbemStartClassObject,
+        NULL
+        );
+
+    if (FAILED(status))
+        goto CleanupExit;
+
+    status = IWbemClassObject_Get(
+        wbemStartClassObject,
+        L"ReturnValue",
+        0,
+        &variantReturnValue,
+        NULL,
+        NULL
+        );
+
+    if (FAILED(status))
+        goto CleanupExit;
+
+    if (V_UI4(&variantReturnValue) != ERROR_SUCCESS)
+    {
+        status = HRESULT_FROM_WIN32(V_UI4(&variantReturnValue));
+        goto CleanupExit;
+    }
+
+CleanupExit:
+    if (wbemStartClassObject)
+        IWbemClassObject_Release(wbemStartClassObject);
+    if (wbemServices)
+        IWbemServices_Release(wbemServices);
+    if (wbemClassObject)
+        IWbemClassObject_Release(wbemClassObject);
+    if (wbemLocator)
+        IWbemLocator_Release(wbemLocator);
+
+    VariantClear(&variantReturnValue);
+
+    if (wbemMethodString)
+        SysFreeString(wbemMethodString);
+    if (wbemQueryString)
+        SysFreeString(wbemQueryString);
+    if (wbemResourceString)
+        SysFreeString(wbemResourceString);
+    if (querySelectString)
+        PhDereferenceObject(querySelectString);
+
+    return status;
 }

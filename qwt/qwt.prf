@@ -24,6 +24,16 @@ else {
 	DEFINES *= QWT_NO_SVG
 }
 
+contains(QWT_CONFIG, QwtOpenGL) {
+
+    QT      *= opengl
+}
+else {
+
+    DEFINES *= QWT_NO_OPENGL
+}
+
+
 contains(QWT_CONFIG, QwtFramework) {
 
     INCLUDEPATH *= $${QWT_INSTALL_LIBS}/qwt.framework/Headers

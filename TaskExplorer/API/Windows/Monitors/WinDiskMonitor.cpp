@@ -1,24 +1,12 @@
 /*
- * Process Hacker Plugins -
+ * System Informer Plugins -
  *   qt port of Hardware Devices Plugin
  *
  * Copyright (C) 2015-2018 dmex
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
+ * This file is part of Task Explorer and contains System Informer code.
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "stdafx.h"
@@ -27,6 +15,7 @@
 #include "../ProcessHacker/devices.h"
 #include <cfgmgr32.h>
 #include <devguid.h>
+#include "../../MiscHelpers/Common/Common.h"
 
 CWinDiskMonitor::CWinDiskMonitor(QObject *parent)
 	: CDiskMonitor(parent)
@@ -158,7 +147,7 @@ bool CWinDiskMonitor::UpdateDisks()
 	PH_AUTO_POOL autoPool;
 	PhInitializeAutoPool(&autoPool);
 
-	QSet<QString> OldDisks = m_DiskList.keys().toSet();
+	QSet<QString> OldDisks = ListToSet(m_DiskList.keys());
 
 	for (deviceInterface = deviceInterfaceList; *deviceInterface; deviceInterface += PhCountStringZ(deviceInterface) + 1)
 	{
@@ -257,7 +246,7 @@ void CWinDiskMonitor::UpdateDiskStats()
 		//if (!entry->DevicePresent)
 		//	continue;
 
-		wstring DeviceInterface = entry->DevicePath.toStdWString();
+		std::wstring DeviceInterface = entry->DevicePath.toStdWString();
 		PWSTR deviceInterface = (PWSTR)DeviceInterface.c_str();
 		HANDLE deviceHandle;
 		if (NT_SUCCESS(PhCreateFileWin32(

@@ -102,7 +102,7 @@ struct SEtwEventMonitor
 
 				bool bOk = false;
 			
-				try { Info += QString::fromStdWString(parser.parse<std::wstring>(I->name()));	bOk = true; }
+				try { Info += QString::fromStdWString(parser.parse<wstring>(I->name()));	bOk = true; }
 				catch (...) {}
 			
 				if(!bOk) try { Info += QString::number(parser.parse<uint64_t>(I->name()));	bOk = true; }
@@ -193,8 +193,8 @@ struct SEtwEventMonitor
 			krabs::parser parser(schema);
 
 			quint32 ProcessId = parser.parse<uint32_t>(L"ProcessId");
-			QString CommandLine = QString::fromStdWString(parser.parse<wstring>(L"CommandLine"));
-			QString FileName = QString::fromStdString(parser.parse<string>(L"ImageFileName"));
+			QString CommandLine = QString::fromStdWString(parser.parse<std::wstring>(L"CommandLine"));
+			QString FileName = QString::fromStdString(parser.parse<std::string>(L"ImageFileName"));
 			quint32 ParentId = parser.parse<uint32_t>(L"ParentId");
 
 			//qDebug() << FILETIME2time(schema.timestamp().QuadPart) << GetTime();
@@ -337,10 +337,10 @@ struct SEtwEventMonitor
 			if (!parser.try_parse(L"Status", Status) || Status != 0)
 				return;
 
-			QString HostName = QString::fromStdWString(parser.parse<wstring>(L"NodeName"));
-			QString Result = QString::fromStdWString(parser.parse<wstring>(L"Result"));
+			QString HostName = QString::fromStdWString(parser.parse<std::wstring>(L"NodeName"));
+			QString Result = QString::fromStdWString(parser.parse<std::wstring>(L"Result"));
 
-			emit This->DnsResEvent(schema.process_id(), schema.thread_id(), HostName, Result.split(";", QString::SkipEmptyParts));
+			emit This->DnsResEvent(schema.process_id(), schema.thread_id(), HostName, Result.split(";", Qt::SkipEmptyParts));
 		});
 		user_trace.enable(dns_res_provider);
 

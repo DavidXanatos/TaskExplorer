@@ -39,7 +39,7 @@ int vswprintf_l(wchar_t * _String, size_t _Count, const wchar_t * _Format, va_li
 time_t GetTime()
 {
 	QDateTime dateTime = QDateTime::currentDateTime();
-	time_t time = dateTime.toTime_t(); // returns time in seconds (since 1970-01-01T00:00:00) in UTC !
+	time_t time = dateTime.toSecsSinceEpoch(); // returns time in seconds (since 1970-01-01T00:00:00) in UTC !
 	return time;
 }
 
@@ -96,7 +96,7 @@ quint64 GetRand64()
 {
 	quint64 Rand64;
 #ifdef USE_OPENSSL
-	int Ret = RAND_bytes((byte*)&Rand64, sizeof(uint64));
+	int Ret = RAND_bytes((byte*)&Rand64, sizeof(quint64));
 	ASSERT(Ret == 1); // An error occurs if the PRNG has not been seeded with enough randomness to ensure an unpredictable byte sequence.
 #else
 	//CryptoPP::AutoSeededRandomPool rng;
@@ -168,7 +168,7 @@ QString FormatRate(quint64 Size, int Precision)
 QString FormatUnit(quint64 Size, int Precision)
 {
 	double Div;
-	if(Size > (quint64)(Div = 1.0*1000*1000*1000*1024*1000*1000))
+	if(Size > (quint64)(Div = 1.0*1000*1000*1000*1000*1000*1000))
 		return QString::number(double(Size)/Div, 'f', Precision) + " E";
 	if(Size > (quint64)(Div = 1.0*1000*1000*1000*1000*1000))
 		return QString::number(double(Size)/Div, 'f', Precision) + " P";
@@ -197,13 +197,13 @@ QString FormatTime(quint64 Time, bool ms)
 	Time /= 60;
 	int hours = Time % 24;
 	int days = Time / 24;
-	if(ms && (minutes == 0) && (hours == 0) && (days == 0))
-		return QString().sprintf("%02d.%04d", seconds, miliseconds);
-	if((hours == 0) && (days == 0))
-		return QString().sprintf("%02d:%02d", minutes, seconds);
+	if (ms && (minutes == 0) && (hours == 0) && (days == 0))
+		return QString("%1.%2").arg(seconds, 2, 10, QChar('0')).arg(miliseconds, 2, 10, QChar('0'));
+	if ((hours == 0) && (days == 0))
+		return QString("%1:%2").arg(minutes, 2, 10, QChar('0')).arg(seconds, 2, 10, QChar('0'));
 	if (days == 0)
-		return QString().sprintf("%02d:%02d:%02d", hours, minutes, seconds);
-	return QString().sprintf("%dd%02d:%02d:%02d", days, hours, minutes, seconds);
+		return QString("%1:%2:%3").arg(hours, 2, 10, QChar('0')).arg(minutes, 2, 10, QChar('0')).arg(seconds, 2, 10, QChar('0'));
+	return QString("%1d%2:%3:%4").arg(days, 2, 10, QChar('0')).arg(hours, 2, 10, QChar('0')).arg(minutes, 2, 10, QChar('0')).arg(seconds, 2, 10, QChar('0'));
 }
 
 QString	FormatNumber(quint64 Number)
@@ -237,7 +237,7 @@ void GrayScale (QImage& Image)
 		uchar* g = (Image.bits () + 1);
 		uchar* b = (Image.bits () + 2);
 
-		uchar* end = (Image.bits() + Image.byteCount ());
+		uchar* end = (Image.bits() + Image.sizeInBytes());
 		while (r != end)
 		{
 			*r = *g = *b = (((*r + *g) >> 1) + *b) >> 1; // (r + b + g) / 3
@@ -331,6 +331,22 @@ QAction* MakeActionCheck(QMenu* pParent, const QString& Text, const QVariant& Da
 	pParent->addAction(pAction);
 	return pAction;
 }
+
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+bool operator < (const QVariant& l, const QVariant& r)
+{
+	/*auto lt = l.type();
+	auto lv = l.isValid();
+	auto ln = l.isNull();
+	auto rt = r.type();
+	auto rv = r.isValid();
+	auto rn = r.isNull();*/
+	auto ret = QVariant::compare(l, r);
+	//Q_ASSERT(ret != QPartialOrdering::Unordered);
+	return ret == QPartialOrdering::Less;
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // 

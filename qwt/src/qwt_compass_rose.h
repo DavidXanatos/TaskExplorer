@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -8,7 +8,7 @@
  *****************************************************************************/
 
 #ifndef QWT_COMPASS_ROSE_H
-#define QWT_COMPASS_ROSE_H 1
+#define QWT_COMPASS_ROSE_H
 
 #include "qwt_global.h"
 #include <qpalette.h>
@@ -16,25 +16,16 @@
 class QPainter;
 
 /*!
-  \brief Abstract base class for a compass rose
-*/
+   \brief Abstract base class for a compass rose
+ */
 class QWT_EXPORT QwtCompassRose
 {
-public:
-    //! Destructor
-    virtual ~QwtCompassRose() {};
+  public:
+    QwtCompassRose();
+    virtual ~QwtCompassRose();
 
-    //! Assign a palette
-    virtual void setPalette( const QPalette &p )
-    {
-        d_palette = p;
-    }
-
-    //! \return Current palette
-    const QPalette &palette() const
-    {
-        return d_palette;
-    }
+    virtual void setPalette( const QPalette& );
+    const QPalette& palette() const;
 
     /*!
         Draw the rose
@@ -45,20 +36,22 @@ public:
         \param north Position
         \param colorGroup Color group
      */
-    virtual void draw( QPainter *painter,
-        const QPointF &center, double radius, double north,
+    virtual void draw( QPainter* painter,
+        const QPointF& center, double radius, double north,
         QPalette::ColorGroup colorGroup = QPalette::Active ) const = 0;
 
-private:
-    QPalette d_palette;
+  private:
+    Q_DISABLE_COPY(QwtCompassRose)
+
+    QPalette m_palette;
 };
 
 /*!
-  \brief A simple rose for QwtCompass
-*/
-class QWT_EXPORT QwtSimpleCompassRose: public QwtCompassRose
+   \brief A simple rose for QwtCompass
+ */
+class QWT_EXPORT QwtSimpleCompassRose : public QwtCompassRose
 {
-public:
+  public:
     QwtSimpleCompassRose( int numThorns = 8, int numThornLevels = -1 );
     virtual ~QwtSimpleCompassRose();
 
@@ -74,16 +67,17 @@ public:
     void setShrinkFactor( double factor );
     double shrinkFactor() const;
 
-    virtual void draw( QPainter *, const QPointF &center, double radius,
-        double north, QPalette::ColorGroup = QPalette::Active ) const;
+    virtual void draw( QPainter*,
+        const QPointF& center, double radius, double north,
+        QPalette::ColorGroup = QPalette::Active ) const QWT_OVERRIDE;
 
-    static void drawRose( QPainter *, const QPalette &,
-        const QPointF &center, double radius, double north, double width,
+    static void drawRose( QPainter*, const QPalette&,
+        const QPointF& center, double radius, double north, double width,
         int numThorns, int numThornLevels, double shrinkFactor );
 
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

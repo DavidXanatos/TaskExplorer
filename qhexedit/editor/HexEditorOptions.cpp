@@ -60,9 +60,9 @@ void QHexEditorOptions::writeSettings()
     _hexEdit->setOverwriteMode(ui->cbOverwriteMode->isChecked());
     _hexEdit->setReadOnly(ui->cbReadOnly->isChecked());
 
-    _hexEdit->setHighlightingColor(ui->lbHighlightingColor->palette().color(QPalette::Background));
-    _hexEdit->setAddressAreaColor(ui->lbAddressAreaColor->palette().color(QPalette::Background));
-    _hexEdit->setSelectionColor(ui->lbSelectionColor->palette().color(QPalette::Background));
+    _hexEdit->setHighlightingColor(ui->lbHighlightingColor->palette().color(QPalette::Window));
+    _hexEdit->setAddressAreaColor(ui->lbAddressAreaColor->palette().color(QPalette::Window));
+    _hexEdit->setSelectionColor(ui->lbSelectionColor->palette().color(QPalette::Window));
     _hexEdit->setFont(ui->leWidgetFont->font());
 
     _hexEdit->setAddressWidth(ui->sbAddressAreaWidth->value());
@@ -72,28 +72,28 @@ void QHexEditorOptions::writeSettings()
 void QHexEditorOptions::setColor(QWidget *widget, QColor color)
 {
     QPalette palette = widget->palette();
-    palette.setColor(QPalette::Background, color);
+    palette.setColor(QPalette::Window, color);
     widget->setPalette(palette);
     widget->setAutoFillBackground(true);
 }
 
 void QHexEditorOptions::on_pbHighlightingColor_clicked()
 {
-    QColor color = QColorDialog::getColor(ui->lbHighlightingColor->palette().color(QPalette::Background), this);
+    QColor color = QColorDialog::getColor(ui->lbHighlightingColor->palette().color(QPalette::Window), this);
     if (color.isValid())
         setColor(ui->lbHighlightingColor, color);
 }
 
 void QHexEditorOptions::on_pbAddressAreaColor_clicked()
 {
-    QColor color = QColorDialog::getColor(ui->lbAddressAreaColor->palette().color(QPalette::Background), this);
+    QColor color = QColorDialog::getColor(ui->lbAddressAreaColor->palette().color(QPalette::Window), this);
     if (color.isValid())
         setColor(ui->lbAddressAreaColor, color);
 }
 
 void QHexEditorOptions::on_pbSelectionColor_clicked()
 {
-    QColor color = QColorDialog::getColor(ui->lbSelectionColor->palette().color(QPalette::Background), this);
+    QColor color = QColorDialog::getColor(ui->lbSelectionColor->palette().color(QPalette::Window), this);
     if (color.isValid())
         setColor(ui->lbSelectionColor, color);
 }

@@ -1,24 +1,26 @@
-#ifndef _PLOT_H_
-#define _PLOT_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qwt_plot.h>
+#pragma once
 
-class Plot: public QwtPlot
+#include <QwtPlot>
+
+class Plot : public QwtPlot
 {
     Q_OBJECT
 
-public:
-    Plot( QWidget * = NULL );
+  public:
+    Plot( QWidget* = NULL );
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void setMode( int );
     void exportPlot();
 
-private Q_SLOTS:
-    void showItem( QwtPlotItem *, bool on );
+  private Q_SLOTS:
+    void showItem( QwtPlotItem*, bool on );
 
-private:
+  private:
     void populate();
 };
-
-#endif

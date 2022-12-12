@@ -739,13 +739,13 @@ HWND* BuildWindowList
 	if (!lib_NtUserBuildHwndListW10)
 		return NULL;
 
-	// initial size of list
+	// initial size of std::list
 	lv_Max = 512;
 
-	// retry to get list
+	// retry to get std::list
 	for (;;)
 	{
-		// allocate list
+		// allocate std::list
 		if ((lv_List = (HWND*)malloc(lv_Max * sizeof(HWND))) == NULL)
 			break;
 
@@ -761,7 +761,7 @@ HWND* BuildWindowList
 		if (lv_NtStatus == NOERROR)
 			break;
 
-		// free allocated list
+		// free allocated std::list
 		free(lv_List);
 
 		// clear
@@ -778,7 +778,7 @@ HWND* BuildWindowList
 	// return the count
 	*out_Cnt = lv_Cnt;
 
-	// return the list, or NULL when failed
+	// return the std::list, or NULL when failed
 	return lv_List;
 }
 
@@ -790,13 +790,13 @@ void CWinWnd__EnumAllWindows10(CWinWnd::WNDENUMPROCEX in_Proc, void* in_Param, H
 	HWND  lv_hParent;
 	HWND *lv_List;
 
-	// first try api to get full window list including immersive/metro apps
+	// first try api to get full window std::list including immersive/metro apps
 	lv_List = BuildWindowList(0, in_Parent, FALSE, 0, &lv_Cnt);
 
 	// success?
 	if (lv_List)
 	{
-		// loop through list
+		// loop through std::list
 		while (lv_Cnt-- > 0)
 		{
 			// get handle
@@ -814,7 +814,7 @@ void CWinWnd__EnumAllWindows10(CWinWnd::WNDENUMPROCEX in_Proc, void* in_Param, H
 			}
 		}
 
-		// free the list
+		// free the std::list
 		free(lv_List);
 	}
 	else

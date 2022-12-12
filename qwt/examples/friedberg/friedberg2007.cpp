@@ -1,4 +1,9 @@
-#include "friedberg2007.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "Friedberg2007.h"
 
 // Temperature 2007 from Friedberg somewhere in Germany
 // See: http://wetter61169.de

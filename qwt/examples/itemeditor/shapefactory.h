@@ -1,7 +1,13 @@
-#ifndef _SHAPE_FACTORY_H_
-#define _SHAPE_FACTORY_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qpainterpath.h>
+#pragma once
+
+class QPainterPath;
+class QPointF;
+class QSizeF;
 
 namespace ShapeFactory
 {
@@ -15,7 +21,5 @@ namespace ShapeFactory
         Hexagon
     };
 
-    QPainterPath path( Shape, const QPointF &, const QSizeF & );
+    QPainterPath path( Shape, const QPointF&, const QSizeF& );
 }
-
-#endif

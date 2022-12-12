@@ -170,6 +170,9 @@ PhGetProcessPeb32(
 
     if (NT_SUCCESS(status))
     {
+        if (!wow64)
+            return STATUS_UNSUCCESSFUL;
+
         *Peb32 = (PVOID)wow64;
     }
 
@@ -193,6 +196,9 @@ PhGetProcessPeb(
 
     if (NT_SUCCESS(status))
     {
+        if (!basicInfo.PebBaseAddress)
+            return STATUS_UNSUCCESSFUL;
+
         *PebBaseAddress = (PVOID)basicInfo.PebBaseAddress;
     }
 
@@ -279,37 +285,6 @@ PhGetProcessExecuteFlags(
         );
 }
 
-FORCEINLINE
-NTSTATUS
-PhGetProcessPriority(
-    _In_ HANDLE ProcessHandle,
-    _Out_ PPROCESS_PRIORITY_CLASS PriorityClass
-    )
-{
-    return NtQueryInformationProcess(
-        ProcessHandle,
-        ProcessPriorityClass,
-        PriorityClass,
-        sizeof(PROCESS_PRIORITY_CLASS),
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhSetProcessPriority(
-    _In_ HANDLE ProcessHandle,
-    _In_ PROCESS_PRIORITY_CLASS PriorityClass
-    )
-{
-    return NtSetInformationProcess(
-        ProcessHandle, 
-        ProcessPriorityClass, 
-        &PriorityClass,
-        sizeof(PROCESS_PRIORITY_CLASS)
-        );
-}
-
 /**
  * Gets a process' I/O priority.
  *
@@ -330,27 +305,6 @@ PhGetProcessIoPriority(
         IoPriority,
         sizeof(IO_PRIORITY_HINT),
         NULL
-        );
-}
-
-/**
- * Sets a process' I/O priority.
- *
- * \param ProcessHandle A handle to a process. The handle must have PROCESS_SET_INFORMATION access.
- * \param IoPriority The new I/O priority.
- */
-FORCEINLINE
-NTSTATUS
-PhSetProcessIoPriority(
-    _In_ HANDLE ProcessHandle,
-    _In_ IO_PRIORITY_HINT IoPriority
-    )
-{
-    return NtSetInformationProcess(
-        ProcessHandle,
-        ProcessIoPriority,
-        &IoPriority,
-        sizeof(IO_PRIORITY_HINT)
         );
 }
 
@@ -389,25 +343,6 @@ PhGetProcessPagePriority(
 
 FORCEINLINE
 NTSTATUS
-PhSetProcessPagePriority(
-    _In_ HANDLE ProcessHandle,
-    _In_ ULONG PagePriority
-    )
-{
-    PAGE_PRIORITY_INFORMATION pagePriorityInfo;
-
-    pagePriorityInfo.PagePriority = PagePriority;
-
-    return NtSetInformationProcess(
-        ProcessHandle,
-        ProcessPagePriority,
-        &pagePriorityInfo,
-        sizeof(PAGE_PRIORITY_INFORMATION)
-        );
-}
-
-FORCEINLINE
-NTSTATUS
 PhGetProcessPriorityBoost(
     _In_ HANDLE ProcessHandle,
     _Out_ PBOOLEAN PriorityBoost
@@ -430,25 +365,6 @@ PhGetProcessPriorityBoost(
     }
 
     return status;
-}
-
-FORCEINLINE
-NTSTATUS
-PhSetProcessPriorityBoost(
-    _In_ HANDLE ProcessHandle,
-    _In_ BOOLEAN PriorityBoost
-    )
-{
-    ULONG priorityBoost;
-
-    priorityBoost = PriorityBoost ? 1 : 0;
-
-    return NtSetInformationProcess(
-        ProcessHandle,
-        ProcessPriorityBoost,
-        &priorityBoost,
-        sizeof(ULONG)
-        );
 }
 
 /**
@@ -554,54 +470,107 @@ PhGetProcessProtection(
 
 FORCEINLINE
 NTSTATUS
-PhGetProcessQuotaLimits(
+PhGetProcessAffinityMask(
     _In_ HANDLE ProcessHandle,
-    _Out_ PQUOTA_LIMITS QuotaLimits
+    _Out_ PKAFFINITY AffinityMask
     )
 {
-    return NtQueryInformationProcess(
-        ProcessHandle,
-        ProcessQuotaLimits,
-        QuotaLimits,
-        sizeof(QUOTA_LIMITS),
-        NULL
-        );
-}
+    NTSTATUS status;
+    KAFFINITY affinityMask;
 
-FORCEINLINE
-NTSTATUS
-PhSetProcessQuotaLimits(
-    _In_ HANDLE ProcessHandle,
-    _In_ QUOTA_LIMITS QuotaLimits
-    )
-{
-    return NtSetInformationProcess(
-        ProcessHandle,
-        ProcessQuotaLimits,
-        &QuotaLimits,
-        sizeof(QUOTA_LIMITS)
-        );
-}
+    memset(&affinityMask, 0, sizeof(KAFFINITY));
 
-/**
- * Sets a process' affinity mask.
- *
- * \param ProcessHandle A handle to a process. The handle must have PROCESS_SET_INFORMATION access.
- * \param AffinityMask The new affinity mask.
- */
-FORCEINLINE
-NTSTATUS
-PhSetProcessAffinityMask(
-    _In_ HANDLE ProcessHandle,
-    _In_ ULONG_PTR AffinityMask
-    )
-{
-    return NtSetInformationProcess(
+    status = NtQueryInformationProcess(
         ProcessHandle,
         ProcessAffinityMask,
-        &AffinityMask,
-        sizeof(ULONG_PTR)
+        &affinityMask,
+        sizeof(KAFFINITY),
+        NULL
         );
+
+    if (NT_SUCCESS(status))
+    {
+        *AffinityMask = affinityMask;
+    }
+    else // Windows 7 (dmex)
+    {
+        PROCESS_BASIC_INFORMATION basicInfo;
+
+        if (NT_SUCCESS(PhGetProcessBasicInformation(ProcessHandle, &basicInfo)))
+        {
+            *AffinityMask = basicInfo.AffinityMask;
+            return STATUS_SUCCESS;
+        }
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetProcessGroupInformation(
+    _In_ HANDLE ProcessHandle,
+    _Inout_ PUSHORT GroupCount,
+    _Out_ PUSHORT GroupArray
+    )
+{
+    NTSTATUS status;
+    ULONG returnLength;
+
+    // rev from GetProcessGroupAffinity (dmex)
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessGroupInformation,
+        GroupArray,
+        sizeof(USHORT) * *GroupCount,
+        &returnLength
+        );
+
+    if (NT_SUCCESS(status) || status == STATUS_BUFFER_TOO_SMALL)
+    {
+        *GroupCount = (USHORT)returnLength / sizeof(USHORT); // (USHORT)returnLength >> 1
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetProcessGroupAffinity(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PGROUP_AFFINITY GroupAffinity
+    )
+{
+    NTSTATUS status;
+    GROUP_AFFINITY groupAffinity;
+
+    memset(&groupAffinity, 0, sizeof(GROUP_AFFINITY));
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessAffinityMask,
+        &groupAffinity,
+        sizeof(GROUP_AFFINITY),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        memcpy(GroupAffinity, &groupAffinity, sizeof(GROUP_AFFINITY));
+    }
+    else // Windows 7 (dmex)
+    {
+        KAFFINITY affinityMask;
+
+        if (NT_SUCCESS(PhGetProcessAffinityMask(ProcessHandle, &affinityMask)))
+        {
+            groupAffinity.Mask = affinityMask;
+            memcpy(GroupAffinity, &groupAffinity, sizeof(GROUP_AFFINITY));
+            return STATUS_SUCCESS;
+        }
+    }
+
+    return status;
 }
 
 FORCEINLINE
@@ -636,8 +605,9 @@ FORCEINLINE
 NTSTATUS
 PhGetProcessIsXFGuardEnabled(
     _In_ HANDLE ProcessHandle,
-    _Out_ PBOOLEAN IsXFGuardEnabled
-)
+    _Out_ PBOOLEAN IsXFGuardEnabled,
+    _Out_ PBOOLEAN IsXFGuardAuditEnabled
+    )
 {
     NTSTATUS status;
     PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
@@ -656,8 +626,10 @@ PhGetProcessIsXFGuardEnabled(
     {
 #if !defined(NTDDI_WIN10_CO) || (NTDDI_VERSION < NTDDI_WIN10_CO)
         *IsXFGuardEnabled = _bittest((const PLONG)&policyInfo.ControlFlowGuardPolicy.Flags, 3);
+        *IsXFGuardAuditEnabled = _bittest((const PLONG)&policyInfo.ControlFlowGuardPolicy.Flags, 4);
 #else
         *IsXFGuardEnabled = !!policyInfo.ControlFlowGuardPolicy.EnableXfg;
+        *IsXFGuardAuditEnabled = !!policyInfo.ControlFlowGuardPolicy.EnableXfgAuditMode;
 #endif
     }
 
@@ -781,29 +753,6 @@ PhGetProcessPowerThrottlingState(
     return status;
 }
 
-FORCEINLINE
-NTSTATUS
-PhSetProcessPowerThrottlingState(
-    _In_ HANDLE ProcessHandle,
-    _In_ ULONG ControlMask,
-    _In_ ULONG StateMask
-    )
-{
-    POWER_THROTTLING_PROCESS_STATE powerThrottlingState;
-
-    memset(&powerThrottlingState, 0, sizeof(POWER_THROTTLING_PROCESS_STATE));
-    powerThrottlingState.Version = POWER_THROTTLING_PROCESS_CURRENT_VERSION;
-    powerThrottlingState.ControlMask = ControlMask;
-    powerThrottlingState.StateMask = StateMask;
-
-    return NtSetInformationProcess(
-        ProcessHandle,
-        ProcessPowerThrottlingState,
-        &powerThrottlingState,
-        sizeof(POWER_THROTTLING_PROCESS_STATE)
-        );
-}
-
 /**
  * Gets basic information for a thread.
  *
@@ -831,7 +780,7 @@ FORCEINLINE
 NTSTATUS
 PhGetThreadBasePriority(
     _In_ HANDLE ThreadHandle,
-    _Out_ PLONG Increment
+    _Out_ PKPRIORITY Increment
     )
 {
     NTSTATUS status;
@@ -871,21 +820,6 @@ PhGetThreadStartAddress(
         );
 }
 
-FORCEINLINE
-NTSTATUS
-PhSetThreadBasePriority(
-    _In_ HANDLE ThreadHandle,
-    _In_ LONG Increment
-    )
-{
-    return NtSetInformationThread(
-        ThreadHandle,
-        ThreadBasePriority,
-        &Increment,
-        sizeof(LONG)
-        );
-}
-
 /**
  * Gets a thread's I/O priority.
  *
@@ -906,28 +840,6 @@ PhGetThreadIoPriority(
         IoPriority,
         sizeof(IO_PRIORITY_HINT),
         NULL
-        );
-}
-
-/**
- * Sets a thread's I/O priority.
- *
- * \param ThreadHandle A handle to a thread. The handle must have THREAD_SET_LIMITED_INFORMATION
- * access.
- * \param IoPriority The new I/O priority.
- */
-FORCEINLINE
-NTSTATUS
-PhSetThreadIoPriority(
-    _In_ HANDLE ThreadHandle,
-    _In_ IO_PRIORITY_HINT IoPriority
-    )
-{
-    return NtSetInformationThread(
-        ThreadHandle,
-        ThreadIoPriority,
-        &IoPriority,
-        sizeof(IO_PRIORITY_HINT)
         );
 }
 
@@ -966,25 +878,6 @@ PhGetThreadPagePriority(
 
 FORCEINLINE
 NTSTATUS
-PhSetThreadPagePriority(
-    _In_ HANDLE ThreadHandle,
-    _In_ ULONG PagePriority
-    )
-{
-    PAGE_PRIORITY_INFORMATION pagePriorityInfo;
-
-    pagePriorityInfo.PagePriority = PagePriority;
-
-    return NtSetInformationThread(
-        ThreadHandle,
-        ThreadPagePriority,
-        &pagePriorityInfo,
-        sizeof(PAGE_PRIORITY_INFORMATION)
-        );
-}
-
-FORCEINLINE
-NTSTATUS
 PhGetThreadPriorityBoost(
     _In_ HANDLE ThreadHandle,
     _Out_ PBOOLEAN PriorityBoost
@@ -1007,25 +900,6 @@ PhGetThreadPriorityBoost(
     }
 
     return status;
-}
-
-FORCEINLINE
-NTSTATUS
-PhSetThreadPriorityBoost(
-    _In_ HANDLE ThreadHandle,
-    _In_ BOOLEAN PriorityBoost
-    )
-{
-    ULONG priorityBoost;
-
-    priorityBoost = PriorityBoost ? 1 : 0;
-
-    return NtSetInformationThread(
-        ThreadHandle,
-        ThreadPriorityBoost,
-        &priorityBoost,
-        sizeof(ULONG)
-        );
 }
 
 /**
@@ -1089,22 +963,6 @@ PhGetThreadSuspendCount(
         ThreadSuspendCount,
         SuspendCount,
         sizeof(ULONG),
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetThreadLastSystemCall(
-    _In_ HANDLE ThreadHandle,
-    _Out_ PTHREAD_LAST_SYSCALL_INFORMATION LastSystemCall
-    )
-{
-    return NtQueryInformationThread(
-        ThreadHandle,
-        ThreadLastSystemCall,
-        LastSystemCall,
-        RTL_SIZEOF_THROUGH_FIELD(THREAD_LAST_SYSCALL_INFORMATION, Pad), // HACK: Win7 requires exact size. (dmex)
         NULL
         );
 }
@@ -1245,25 +1103,47 @@ PhGetThreadIsTerminated(
     return status;
 }
 
-/**
- * Sets a thread's affinity mask.
- *
- * \param ThreadHandle A handle to a thread. The handle must have THREAD_SET_LIMITED_INFORMATION
- * access.
- * \param AffinityMask The new affinity mask.
- */
 FORCEINLINE
 NTSTATUS
-PhSetThreadAffinityMask(
+PhGetThreadAffinityMask(
     _In_ HANDLE ThreadHandle,
-    _In_ ULONG_PTR AffinityMask
+    _Out_ PKAFFINITY AffinityMask
     )
 {
-    return NtSetInformationThread(
+    NTSTATUS status;
+    THREAD_BASIC_INFORMATION basicInfo;
+
+    status = PhGetThreadBasicInformation(ThreadHandle, &basicInfo);
+
+    if (NT_SUCCESS(status))
+    {
+        *AffinityMask = basicInfo.AffinityMask;
+    }
+
+    return status;
+
+    //return NtQueryInformationThread(
+    //    ThreadHandle,
+    //    ThreadAffinityMask,
+    //    &AffinityMask,
+    //    sizeof(KAFFINITY),
+    //    NULL
+    //    );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetThreadGroupAffinity(
+    _In_ HANDLE ThreadHandle,
+    _Out_ PGROUP_AFFINITY GroupAffinity
+    )
+{
+    return NtQueryInformationThread(
         ThreadHandle,
-        ThreadAffinityMask,
-        &AffinityMask,
-        sizeof(ULONG_PTR)
+        ThreadGroupInformation,
+        GroupAffinity,
+        sizeof(GROUP_AFFINITY),
+        NULL
         );
 }
 
@@ -1633,18 +1513,15 @@ PhGetTokenMandatoryPolicy(
     _Out_ PTOKEN_MANDATORY_POLICY MandatoryPolicy
     )
 {
-    NTSTATUS status;
     ULONG returnLength;
 
-    status = NtQueryInformationToken(
+    return NtQueryInformationToken(
         TokenHandle,
         TokenMandatoryPolicy,
         MandatoryPolicy,
         sizeof(TOKEN_MANDATORY_POLICY),
         &returnLength
         );
-    
-    return status;
 }
 
 FORCEINLINE
@@ -1709,7 +1586,6 @@ PhGetTokenAppContainerNumber(
         &returnLength
         );
 }
-
 
 FORCEINLINE
 NTSTATUS
@@ -1867,72 +1743,6 @@ PhGetSystemShadowStackInformation(
         SystemShadowStackInformation,
         ShadowStackInformation,
         sizeof(SYSTEM_SHADOW_STACK_INFORMATION),
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetSystemProcessorIdleCycleTime(
-    _Out_ PLARGE_INTEGER Buffer,
-    _In_ ULONG BufferLength
-    )
-{
-    return NtQuerySystemInformation(
-        SystemProcessorIdleCycleTimeInformation,
-        Buffer,
-        BufferLength,
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetSystemProcessorIdleCycleTimeEx(
-    _In_ USHORT Group,
-    _Out_ PLARGE_INTEGER Buffer,
-    _In_ ULONG BufferLength
-    )
-{
-    return NtQuerySystemInformationEx(
-        SystemProcessorIdleCycleTimeInformation,
-        &Group,
-        sizeof(Group),
-        Buffer,
-        BufferLength,
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetSystemProcessorCycleTime(
-    _Out_ PLARGE_INTEGER Buffer,
-    _In_ ULONG BufferLength
-    )
-{
-    return NtQuerySystemInformation(
-        SystemProcessorCycleTimeInformation,
-        Buffer,
-        BufferLength,
-        NULL
-        );
-}
-
-FORCEINLINE
-NTSTATUS
-PhGetSystemProcessorCycleTimeEx(
-    _In_ USHORT Group,
-    _Out_ PLARGE_INTEGER Buffer,
-    _In_ ULONG BufferLength
-    )
-{
-    return NtQuerySystemInformationEx(
-        SystemProcessorCycleTimeInformation,
-        &Group,
-        sizeof(Group),
-        Buffer,
-        BufferLength,
         NULL
         );
 }

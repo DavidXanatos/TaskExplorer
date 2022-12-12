@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   PE viewer
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -246,7 +235,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_STUBENTROPY, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -275,7 +264,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_STUBHASH, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -326,7 +315,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_RICHENTROPY, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -355,7 +344,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_RICHHASH, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -406,7 +395,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_ENTROPY, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -435,7 +424,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_HASH, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -702,7 +691,6 @@ VOID PvSetPeImageOverlayHeaderProperties(
             )))
         {
             if (
-                dataDirectory->VirtualAddress &&
                 (lastRawDataOffset + dataDirectory->Size == PvMappedImage.Size) &&
                 (lastRawDataOffset == dataDirectory->VirtualAddress)
                 )
@@ -755,7 +743,7 @@ VOID PvSetPeImageOverlayHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_PE_OVERLAY_ENTROPY, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -784,7 +772,7 @@ VOID PvSetPeImageOverlayHeaderProperties(
         {
             PPH_STRING message;
 
-            if (message = PhGetWin32Message(RtlNtStatusToDosError(GetExceptionCode())))
+            if (message = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())))
             {
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_PE_OVERLAY_HASH, 1, PhGetString(message));
                 PhDereferenceObject(message);
@@ -958,6 +946,8 @@ INT_PTR CALLBACK PvPeHeadersDlgProc(
         {
             PhSaveListViewGroupStatesToSetting(L"ImageHeadersListViewGroupStates", context->ListViewHandle);
             PhSaveListViewColumnsToSetting(L"ImageHeadersListViewColumns", context->ListViewHandle);
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
+            PhFree(context);
         }
         break;
     case WM_SHOWWINDOW:

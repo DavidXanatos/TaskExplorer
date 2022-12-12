@@ -10,7 +10,7 @@
 class CMemoryFilterModel: public CSortFilterProxyModel
 {
 public:
-	CMemoryFilterModel(bool bAlternate, QObject* parrent = 0) : CSortFilterProxyModel(bAlternate, parrent) 
+	CMemoryFilterModel(QObject* parrent = 0) : CSortFilterProxyModel(parrent) 
 	{
 		m_bHideFree = false;
 	}
@@ -78,7 +78,8 @@ protected:
 	
 	CProcessPtr				m_pCurProcess;
 
-	QMultiMap<quint64, CMemoryPtr> m_MemoryList;
+	//QMultiMap<quint64, CMemoryPtr> m_MemoryList; // todo: Qt6
+	QMap<quint64, CMemoryPtr> m_MemoryList;
 
 private:
 

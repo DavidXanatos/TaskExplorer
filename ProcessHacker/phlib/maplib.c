@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   mapped library
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010 wj32
- * Copyright (C) 2019 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010
+ *     dmex    2019
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -341,7 +330,7 @@ NTSTATUS PhpGetMappedArchiveMemberFromHeader(
                 return STATUS_INVALID_PARAMETER;
 
             // TODO: Probe the name.
-            Member->Name = (PSTR)PTR_ADD_OFFSET(MappedArchive->LongnamesMember.Data, offset);
+            Member->Name = PTR_ADD_OFFSET(MappedArchive->LongnamesMember.Data, offset);
         }
         else
         {
@@ -384,8 +373,8 @@ NTSTATUS PhGetMappedArchiveImportEntry(
     Entry->Machine = importHeader->Machine;
 
     // TODO: Probe the name.
-    Entry->Name = (PSTR)PTR_ADD_OFFSET(importHeader, sizeof(IMPORT_OBJECT_HEADER));
-    Entry->DllName = (PSTR)PTR_ADD_OFFSET(Entry->Name, strlen(Entry->Name) + 1);
+    Entry->Name = PTR_ADD_OFFSET(importHeader, sizeof(IMPORT_OBJECT_HEADER));
+    Entry->DllName = PTR_ADD_OFFSET(Entry->Name, strlen(Entry->Name) + 1);
 
     // Ordinal/NameHint are union'ed, so these statements are exactly the same.
     // It's there in case this changes in the future.

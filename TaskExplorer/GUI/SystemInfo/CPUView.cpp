@@ -7,7 +7,7 @@ CCPUView::CCPUView(QWidget *parent)
 	:QWidget(parent)
 {
 	m_pMainLayout = new QGridLayout();
-	//m_pMainLayout->setMargin(3);
+	//m_pMainLayout->setContentsMargins(3, 3, 3, 3);
 	this->setLayout(m_pMainLayout);
 
 	QLabel* pLabel = new QLabel(tr("CPU"));
@@ -24,14 +24,14 @@ CCPUView::CCPUView(QWidget *parent)
 	m_pScrollWidget = new QWidget();
 	m_pScrollArea = new QScrollArea();
 	m_pScrollLayout = new QGridLayout();
-	m_pScrollLayout->setMargin(0);
+	m_pScrollLayout->setContentsMargins(0, 0, 0, 0);
 	m_pScrollWidget->setLayout(m_pScrollLayout);
 	m_pScrollArea->setFrameShape(QFrame::NoFrame);
 	m_pScrollArea->setWidgetResizable(true);
 	m_pScrollArea->setWidget(m_pScrollWidget);
 	m_pMainLayout->addWidget(m_pScrollArea, 1, 0, 1, 3);
 	QPalette pal = m_pScrollArea->palette();
-	pal.setColor(QPalette::Background, Qt::transparent);
+	pal.setColor(QPalette::Window, Qt::transparent);
 	m_pScrollArea->setPalette(pal);
 
 	m_pStackedWidget = new QWidget(this);
@@ -80,19 +80,19 @@ CCPUView::CCPUView(QWidget *parent)
 
 	m_pInfoWidget = new QWidget();
 	m_pInfoLayout = new QHBoxLayout();
-	m_pInfoLayout->setMargin(0);
+	m_pInfoLayout->setContentsMargins(0, 0, 0, 0);
 	m_pInfoWidget->setLayout(m_pInfoLayout);
 	m_pScrollLayout->addWidget(m_pInfoWidget, 2, 0, 1, 3);
 
 	m_pInfoWidget1 = new QWidget();
 	m_pInfoLayout1 = new QVBoxLayout();
-	m_pInfoLayout1->setMargin(0);
+	m_pInfoLayout1->setContentsMargins(0, 0, 0, 0);
 	m_pInfoWidget1->setLayout(m_pInfoLayout1);
 	m_pInfoLayout->addWidget(m_pInfoWidget1);
 
 	m_pInfoWidget2 = new QWidget();
 	m_pInfoLayout2 = new QVBoxLayout();
-	m_pInfoLayout2->setMargin(0);
+	m_pInfoLayout2->setContentsMargins(0, 0, 0, 0);
 	m_pInfoWidget2->setLayout(m_pInfoLayout2);
 	m_pInfoLayout->addWidget(m_pInfoWidget2);
 

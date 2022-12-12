@@ -1,23 +1,12 @@
 /*
- * PE viewer -
- *   pdb support
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
@@ -25,7 +14,7 @@
 #include "colmgr.h"
 
 static PH_STRINGREF EmptySymbolsText = PH_STRINGREF_INIT(L"There are no symbols to display.");
-static PH_STRINGREF LoadingSymbolsText = PH_STRINGREF_INIT(L"Loading symbols from image...");
+static PH_STRINGREF LoadingSymbolsText = PH_STRINGREF_INIT(L"Loading symbols...");
 
 BOOLEAN SymbolNodeHashtableCompareFunction(
     _In_ PVOID Entry1,
@@ -344,7 +333,7 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
                         PH_FORMAT format[1];
 
                         PhInitFormatSize(&format[0], node->Size);
-  
+
                         PhMoveReference(&node->SizeText, PhFormat(format, 1, 0));
                         getCellText->Text = node->SizeText->sr;
                     }
@@ -376,6 +365,37 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
         }
         return TRUE;
     case TreeNewKeyDown:
+        {
+            PPH_TREENEW_KEY_EVENT keyEvent = Parameter1;
+
+            if (!keyEvent)
+                break;
+
+            switch (keyEvent->VirtualKey)
+            {
+            case 'C':
+                {
+                    if (GetKeyState(VK_CONTROL) < 0)
+                    {
+                        PPH_STRING text;
+
+                        text = PhGetTreeNewText(hwnd, 0);
+                        PhSetClipboardString(hwnd, &text->sr);
+                        PhDereferenceObject(text);
+                    }
+                }
+                break;
+            case 'A':
+                {
+                    if (GetKeyState(VK_CONTROL) < 0)
+                    {
+                        TreeNew_SelectRange(hwnd, 0, -1);
+                    }
+                }
+                break;
+            }
+        }
+        return TRUE;
     case TreeNewNodeExpanding:
         return TRUE;
     case TreeNewLeftDoubleClick:
@@ -390,7 +410,7 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
             SendMessage(context->ParentWindowHandle, WM_PV_SEARCH_SHOWMENU, 0, (LPARAM)contextMenu);
         }
         return TRUE;
-    case TreeNewHeaderRightClick: 
+    case TreeNewHeaderRightClick:
         {
             PH_TN_COLUMN_MENU_DATA data;
 
@@ -741,6 +761,7 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
 
             PhDeleteLayoutManager(&context->LayoutManager);
 
+            PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
             PhFree(context);
         }
         break;
@@ -860,6 +881,17 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             }
         }
         break;
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORLISTBOX:
+        {
+            SetBkMode((HDC)wParam, TRANSPARENT);
+            SetTextColor((HDC)wParam, RGB(0, 0, 0));
+            SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
+            return (INT_PTR)GetStockBrush(DC_BRUSH);
+        }
+        break;
     }
 
     return FALSE;
@@ -871,7 +903,7 @@ VOID PvPdbProperties(
 {
     PPV_PROPCONTEXT propContext;
 
-    if (!PhDoesFileExistsWin32(PvFileName->Buffer))
+    if (!PhDoesFileExistWin32(PhGetString(PvFileName)))
     {
         PhShowStatus(NULL, L"Unable to load the pdb file", STATUS_FILE_NOT_AVAILABLE, 0);
         return;

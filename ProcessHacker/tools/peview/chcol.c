@@ -1,24 +1,13 @@
 /*
- * Process Hacker -
- *   column chooser
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2010 wj32
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     wj32    2010
+ *     dmex    2017-2021
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 // NOTE: Copied from processhacker\ProcessHacker\chcol.c
@@ -123,13 +112,16 @@ static ULONG IndexOfStringInList(
 }
 
 static HFONT PvColumnsGetCurrentFont(
-    VOID
+    _In_ HWND hwnd
     )
 {
     NONCLIENTMETRICS metrics = { sizeof(NONCLIENTMETRICS) };
     HFONT font;
+    LONG dpiValue;
 
-    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, 0, &metrics, 0))
+    dpiValue = PhGetWindowDpi(hwnd);
+
+    if (PhGetSystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, dpiValue))
         font = CreateFontIndirect(&metrics.lfMessageFont);
     else
         font = NULL;
@@ -203,6 +195,19 @@ VOID PvColumnsResetListBox(
     SendMessage(ListBoxHandle, WM_SETREDRAW, TRUE, 0);
 }
 
+VOID PvSetListHeight(
+    _In_ PCOLUMNS_DIALOG_CONTEXT context,
+    _In_ HWND hwndDlg
+)
+{
+    LONG dpiValue;
+
+    dpiValue = PhGetWindowDpi(hwndDlg);
+
+    ListBox_SetItemHeight(context->InactiveWindowHandle, 0, PhGetDpi(16, dpiValue));
+    ListBox_SetItemHeight(context->ActiveWindowHandle, 0, PhGetDpi(16, dpiValue));
+}
+
 INT_PTR CALLBACK PvColumnsDlgProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -244,15 +249,14 @@ INT_PTR CALLBACK PvColumnsDlgProc(
             context->SearchActiveHandle = GetDlgItem(hwndDlg, IDC_FILTER);
             context->InactiveListArray = PhCreateList(1);
             context->ActiveListArray = PhCreateList(1);
-            context->ControlFont = PvColumnsGetCurrentFont();
+            context->ControlFont = PvColumnsGetCurrentFont(hwndDlg);
             context->InactiveSearchboxText = PhReferenceEmptyString();
             context->ActiveSearchboxText = PhReferenceEmptyString();
 
             PvCreateSearchControl(context->SearchInactiveHandle, L"Inactive columns...");
             PvCreateSearchControl(context->SearchActiveHandle, L"Active columns...");
 
-            ListBox_SetItemHeight(context->InactiveWindowHandle, 0, PV_SCALE_DPI(16));
-            ListBox_SetItemHeight(context->ActiveWindowHandle, 0, PV_SCALE_DPI(16));
+            PvSetListHeight(context, hwndDlg);
 
             Button_Enable(GetDlgItem(hwndDlg, IDC_HIDE), FALSE);
             Button_Enable(GetDlgItem(hwndDlg, IDC_SHOW), FALSE);
@@ -369,6 +373,11 @@ INT_PTR CALLBACK PvColumnsDlgProc(
                 PhDereferenceObject(context->ActiveSearchboxText);
 
             PhRemoveWindowContext(hwndDlg, PH_WINDOW_CONTEXT_DEFAULT);
+        }
+        break;
+    case WM_DPICHANGED:
+        {
+            PvSetListHeight (context, hwndDlg);
         }
         break;
     case WM_COMMAND:

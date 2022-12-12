@@ -1,9 +1,13 @@
-#ifndef _FRIEDBERG_2007_H_
-#define _FRIEDBERG_2007_H_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#pragma once
 
 class Temperature
 {
-public:
+  public:
     Temperature():
         minValue( 0.0 ),
         maxValue( 0.0 ),
@@ -24,5 +28,3 @@ public:
 };
 
 extern Temperature friedberg2007[];
-
-#endif

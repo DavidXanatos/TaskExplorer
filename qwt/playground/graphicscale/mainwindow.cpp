@@ -1,48 +1,54 @@
-#include "mainwindow.h"
-#include "canvas.h"
-#include <qtoolbar.h>
-#include <qtoolbutton.h>
-#include <qlayout.h>
-#include <qlabel.h>
-#include <qfiledialog.h>
-#include <qbuffer.h>
-#include <qpainter.h>
-#include <qsvggenerator.h>
-#include <qstatusbar.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "MainWindow.h"
+#include "Canvas.h"
+
+#include <QToolBar>
+#include <QToolButton>
+#include <QLayout>
+#include <QLabel>
+#include <QFileDialog>
+#include <QBuffer>
+#include <QPainter>
+#include <QSvgGenerator>
+#include <QStatusBar>
 
 MainWindow::MainWindow()
 {
-    QWidget *w = new QWidget( this );
+    QWidget* w = new QWidget( this );
 
-    d_canvas[0] = new Canvas( Canvas::Svg, this );
-    d_canvas[0]->setAutoFillBackground( true );
-    d_canvas[0]->setPalette( Qt::gray );
+    m_canvas[0] = new Canvas( Canvas::Svg, this );
+    m_canvas[0]->setAutoFillBackground( true );
+    m_canvas[0]->setPalette( Qt::gray );
 
-    d_canvas[1] = new Canvas( Canvas::VectorGraphic, this );
-    d_canvas[1]->setAutoFillBackground( true );
-    d_canvas[1]->setPalette( Qt::gray );
+    m_canvas[1] = new Canvas( Canvas::VectorGraphic, this );
+    m_canvas[1]->setAutoFillBackground( true );
+    m_canvas[1]->setPalette( Qt::gray );
 
-    QVBoxLayout *vBox1 = new QVBoxLayout();
+    QVBoxLayout* vBox1 = new QVBoxLayout();
     vBox1->setContentsMargins( 0, 0, 0, 0 );
     vBox1->setSpacing( 5 );
     vBox1->addWidget( new QLabel( "SVG" ), 0, Qt::AlignCenter );
-    vBox1->addWidget( d_canvas[0], 10 );
+    vBox1->addWidget( m_canvas[0], 10 );
 
-    QVBoxLayout *vBox2 = new QVBoxLayout();
+    QVBoxLayout* vBox2 = new QVBoxLayout();
     vBox2->setContentsMargins( 0, 0, 0, 0 );
     vBox2->setSpacing( 5 );
     vBox2->addWidget( new QLabel( "Vector Graphic" ), 0, Qt::AlignCenter );
-    vBox2->addWidget( d_canvas[1], 10 );
+    vBox2->addWidget( m_canvas[1], 10 );
 
-    QHBoxLayout *layout = new QHBoxLayout( w );
+    QHBoxLayout* layout = new QHBoxLayout( w );
     layout->addLayout( vBox1 );
     layout->addLayout( vBox2 );
 
     setCentralWidget( w );
 
-    QToolBar *toolBar = new QToolBar( this );
+    QToolBar* toolBar = new QToolBar( this );
 
-    QToolButton *btnLoad = new QToolButton( toolBar );
+    QToolButton* btnLoad = new QToolButton( toolBar );
 
     btnLoad->setText( "Load SVG" );
     btnLoad->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
@@ -50,7 +56,7 @@ MainWindow::MainWindow()
 
     addToolBar( toolBar );
 
-    connect( btnLoad, SIGNAL( clicked() ), this, SLOT( loadSVG() ) );
+    connect( btnLoad, SIGNAL(clicked()), this, SLOT(loadSVG()) );
 
 #if 0
     QPainterPath path;
@@ -76,7 +82,7 @@ void MainWindow::loadSVG()
     statusBar()->showMessage( fileName );
 }
 
-void MainWindow::loadSVG( const QString &fileName )
+void MainWindow::loadSVG( const QString& fileName )
 {
     QFile file( fileName );
     if ( !file.open(QIODevice::ReadOnly | QIODevice::Text) )
@@ -85,12 +91,12 @@ void MainWindow::loadSVG( const QString &fileName )
     const QByteArray document = file.readAll();
     file.close();
 
-    d_canvas[0]->setSvg( document );
-    d_canvas[1]->setSvg( document );
+    m_canvas[0]->setSvg( document );
+    m_canvas[1]->setSvg( document );
 }
 
 
-void MainWindow::loadPath( const QPainterPath &path )
+void MainWindow::loadPath( const QPainterPath& path )
 {
     QBuffer buf;
 
@@ -104,6 +110,8 @@ void MainWindow::loadPath( const QPainterPath &path )
     painter.drawPath( path );
     painter.end();
 
-    d_canvas[0]->setSvg( buf.data() );
-    d_canvas[1]->setSvg( buf.data() );
+    m_canvas[0]->setSvg( buf.data() );
+    m_canvas[1]->setSvg( buf.data() );
 }
+
+#include "moc_MainWindow.cpp"

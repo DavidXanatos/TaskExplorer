@@ -1,41 +1,47 @@
-#include <qstringlist.h>
-#include <qfile.h>
-#include <qtextstream.h>
-#include "cpustat.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "CpuStat.h"
+
+#include <QStringList>
+#include <QFile>
+#include <QTextStream>
 
 CpuStat::CpuStat()
 {
-    lookUp( procValues );
+    lookUp( m_procValues );
 }
 
 QTime CpuStat::upTime() const
 {
     QTime t( 0, 0, 0 );
     for ( int i = 0; i < NValues; i++ )
-        t = t.addSecs( int( procValues[i] / 100 ) );
+        t = t.addSecs( int( m_procValues[i] / 100 ) );
 
     return t;
 }
 
-void CpuStat::statistic( double &user, double &system )
+void CpuStat::statistic( double& user, double& system )
 {
     double values[NValues];
 
     lookUp( values );
 
     double userDelta = values[User] + values[Nice]
-        - procValues[User] - procValues[Nice];
-    double systemDelta = values[System] - procValues[System];
+        - m_procValues[User] - m_procValues[Nice];
+    double systemDelta = values[System] - m_procValues[System];
 
     double totalDelta = 0;
     for ( int i = 0; i < NValues; i++ )
-        totalDelta += values[i] - procValues[i];
+        totalDelta += values[i] - m_procValues[i];
 
     user = userDelta / totalDelta * 100.0;
     system = systemDelta / totalDelta * 100.0;
 
     for ( int j = 0; j < NValues; j++ )
-        procValues[j] = values[j];
+        m_procValues[j] = values[j];
 }
 
 void CpuStat::lookUp( double values[NValues] ) const
@@ -210,11 +216,15 @@ void CpuStat::lookUp( double values[NValues] ) const
             if ( line.startsWith( "cpu " ) )
             {
                 const QStringList valueList =
+#if QT_VERSION >= 0x050f00
+                    line.split( " ",  Qt::SkipEmptyParts );
+#else
                     line.split( " ",  QString::SkipEmptyParts );
+#endif
                 if ( valueList.count() >= 5 )
                 {
                     for ( int i = 0; i < NValues; i++ )
-                        values[i] = valueList[i+1].toDouble();
+                        values[i] = valueList[i + 1].toDouble();
                 }
                 break;
             }

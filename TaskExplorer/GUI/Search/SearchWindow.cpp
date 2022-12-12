@@ -10,13 +10,13 @@ CSearchWindow::CSearchWindow(QWidget *parent)
 
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout();
-	m_pMainLayout->setMargin(0);
+	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	m_pMainWidget->setLayout(m_pMainLayout);
 	this->setCentralWidget(m_pMainWidget);
 
 	m_pFinderWidget = new QWidget();
 	m_pFinderLayout = new QHBoxLayout();
-	m_pFinderLayout->setMargin(3);
+	m_pFinderLayout->setContentsMargins(3, 3, 3, 3);
 	m_pFinderWidget->setLayout(m_pFinderLayout);
 	m_pMainLayout->addWidget(m_pFinderWidget);
 

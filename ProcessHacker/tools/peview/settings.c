@@ -1,31 +1,20 @@
 /*
- * PE viewer -
- *   program settings
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2021 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <peview.h>
 
-static PPH_STRING PeSettingsFileName = NULL;
+static PPH_STRING PvSettingsFileName = NULL;
 BOOLEAN PeEnableThemeSupport = FALSE;
 
-VOID PhAddDefaultSettings(
+VOID PvAddDefaultSettings(
     VOID
     )
 {
@@ -88,6 +77,7 @@ VOID PhAddDefaultSettings(
     PhpAddStringSetting(L"ImageDebugCrtListViewColumns", L"");
     PhpAddStringSetting(L"ImageDebugPogoListViewColumns", L"");
     PhpAddStringSetting(L"ImageEhContListViewColumns", L"");
+    PhpAddStringSetting(L"ImageVolatileListViewColumns", L"");
     PhpAddStringSetting(L"LibListViewColumns", L"");
     PhpAddStringSetting(L"PdbTreeListColumns", L"");
     PhpAddIntegerSetting(L"TreeListBorderEnable", L"0");
@@ -98,7 +88,7 @@ VOID PhAddDefaultSettings(
     PhpAddStringSetting(L"ExportsWslListViewColumns", L"");
 }
 
-VOID PhUpdateCachedSettings(
+VOID PvUpdateCachedSettings(
     VOID
     )
 {
@@ -106,15 +96,15 @@ VOID PhUpdateCachedSettings(
     PeEnableThemeSupport = !!PhGetIntegerSetting(L"EnableThemeSupport");
 }
 
-VOID PeInitializeSettings(
+VOID PvInitializeSettings(
     VOID
     )
 {
-    static PH_STRINGREF settingsPath = PH_STRINGREF_INIT(L"%APPDATA%\\Process Hacker\\peview.xml");
-    static PH_STRINGREF settingsSuffix = PH_STRINGREF_INIT(L".settings.xml");
     NTSTATUS status;
     PPH_STRING appFileName;
-    PPH_STRING tempFileName;  
+    PPH_STRING tempFileName;
+
+    PvAddDefaultSettings();
 
     // There are three possible locations for the settings file:
     // 1. A file named peview.exe.settings.xml in the program directory. (This changes
@@ -123,28 +113,32 @@ VOID PeInitializeSettings(
 
     // 1. File in program directory
 
-    appFileName = PhGetApplicationFileName();
-    tempFileName = PhConcatStringRef2(&appFileName->sr, &settingsSuffix);
-    PhDereferenceObject(appFileName);
+    if (appFileName = PhGetApplicationFileNameWin32())
+    {
+        tempFileName = PhConcatStringRefZ(&appFileName->sr, L".settings.xml");
 
-    if (PhDoesFileExistsWin32(tempFileName->Buffer))
-    {
-        PeSettingsFileName = tempFileName;
-    }
-    else
-    {
-        PhDereferenceObject(tempFileName);
+        if (PhDoesFileExistWin32(PhGetString(tempFileName)))
+        {
+            PvSettingsFileName = tempFileName;
+        }
+        else
+        {
+            PhDereferenceObject(tempFileName);
+        }
+
+        PhDereferenceObject(appFileName);
     }
 
     // 2. Default location
-    if (!PeSettingsFileName)
+    if (PhIsNullOrEmptyString(PvSettingsFileName))
     {
-        PeSettingsFileName = PhExpandEnvironmentStrings(&settingsPath);
+        PvSettingsFileName = PhExpandEnvironmentStringsZ(L"%APPDATA%\\SystemInformer\\peview.xml");
     }
 
-    if (PeSettingsFileName)
+    if (!PhIsNullOrEmptyString(PvSettingsFileName))
     {
-        status = PhLoadSettings(PeSettingsFileName->Buffer);
+        status = PhLoadSettings(&PvSettingsFileName->sr);
+        PvUpdateCachedSettings();
 
         // If we didn't find the file, it will be created. Otherwise,
         // there was probably a parsing error and we don't want to
@@ -167,7 +161,7 @@ VOID PeInitializeSettings(
                 // and overwrite it with some valid XML, especially with case (2) above.
                 if (NT_SUCCESS(PhCreateFileWin32(
                     &fileHandle,
-                    PeSettingsFileName->Buffer,
+                    PhGetString(PvSettingsFileName),
                     FILE_GENERIC_WRITE,
                     FILE_ATTRIBUTE_NORMAL,
                     FILE_SHARE_READ | FILE_SHARE_DELETE,
@@ -182,20 +176,22 @@ VOID PeInitializeSettings(
             else
             {
                 // Pretend we don't have a settings store so bad things don't happen.
-                PhDereferenceObject(PeSettingsFileName);
-                PeSettingsFileName = NULL;
+                PhDereferenceObject(PvSettingsFileName);
+                PvSettingsFileName = NULL;
             }
         }
     }
 
     // Apply basic global settings.
     PhMaxSizeUnit = PhGetIntegerSetting(L"MaxSizeUnit");
+
+    PvUpdateCachedSettings();
 }
 
-VOID PeSaveSettings(
+VOID PvSaveSettings(
     VOID
     )
 {
-    if (PeSettingsFileName)
-        PhSaveSettings(PeSettingsFileName->Buffer);
+    if (!PhIsNullOrEmptyString(PvSettingsFileName))
+        PhSaveSettings(&PvSettingsFileName->sr);
 }

@@ -167,7 +167,9 @@ bool CSystemAPI::UpdateOpenFileListAsync()
 
 	m_FileListUpdateWatcher = new QFutureWatcher<bool>();
 	connect(m_FileListUpdateWatcher, SIGNAL(finished()), this, SLOT(OnOpenFilesUpdated()));
-	m_FileListUpdateWatcher->setFuture(QtConcurrent::run(CSystemAPI::UpdateOpenFileListAsync, this));
+	m_FileListUpdateWatcher->setFuture(QtConcurrent::run([this] (){
+		return CSystemAPI::UpdateOpenFileListAsync(this);
+	}));
 	return true;
 }
 

@@ -69,7 +69,7 @@ struct SRingBuffer
 
 	void expand()
 	{
-		vector<T> NewBuffer;
+		std::vector<T> NewBuffer;
 		NewBuffer.resize(Length + Grow);
 		size_t togo = size();
 		if (togo)
@@ -84,7 +84,7 @@ struct SRingBuffer
 	}
 
 protected:
-	vector<T>	Buffer;
+	std::vector<T>	Buffer;
 	size_t		Head;
 	size_t		Tail;
 	size_t		Size;
@@ -193,7 +193,7 @@ protected:
 		quint64 Interval;
 		quint64 Bytes;
 	};
-	//list<SStat>			RateStat;
+	//std::list<SStat>			RateStat;
 	SRingBuffer<SStat>	RateStat;
 	quint64				TotalBytes;
 	quint64				TotalTime;
@@ -224,7 +224,7 @@ protected:
 	__inline void		Clear() { ByteRate = 0; Smooth.clear(); TotalRate = 0; }
 
 protected:
-	//list<quint64>		Smooth;
+	//std::list<quint64>		Smooth;
 	SRingBuffer<quint64>Smooth;
 	quint64				TotalRate;
 };*/
@@ -249,7 +249,7 @@ struct SSmoother
 		return TotalValue / SmoothList.size();
 	}
 
-	list<quint64>	SmoothList;
+	std::list<quint64>	SmoothList;
 	quint64			TotalValue;
 };
 

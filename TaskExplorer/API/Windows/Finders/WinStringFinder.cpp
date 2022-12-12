@@ -6,20 +6,8 @@
  * Copyright (C) 2017 dmex
  * Copyright (C) 2019 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
+ * This file is part of Task Explorer and contains System Informer code.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "stdafx.h"
@@ -28,7 +16,7 @@
 #include "../../StringInfo.h"
 #include "../WindowsAPI.h"
 
-CWinStringFinder::CWinStringFinder(const SMemOptions& Options, const QRegExp& RegExp, const CProcessPtr& pProcess, QObject* parent) : CAbstractFinder(parent) 
+CWinStringFinder::CWinStringFinder(const SMemOptions& Options, const QRegularExpression& RegExp, const CProcessPtr& pProcess, QObject* parent) : CAbstractFinder(parent)
 {
 	m_Options = Options;
 	m_RegExp = RegExp;
@@ -372,7 +360,7 @@ CreateResult:
 						{
 							//result = PhCreateMemoryResult(PTR_ADD_OFFSET(baseAddress, i - bias - lengthInBytes), baseAddress, lengthInBytes))
 							displayLength = (ULONG)(min(length, displayBufferCount) * sizeof(WCHAR));
-							wstring displayStr(displayLength / sizeof(WCHAR) + 1, L'0');
+							std::wstring displayStr(displayLength / sizeof(WCHAR) + 1, L'0');
 							memcpy((void*)displayStr.c_str(), displayBuffer, displayLength);
 
 							QString DisplayStr = QString::fromStdWString(displayStr);

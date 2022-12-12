@@ -539,12 +539,12 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case eWritesDelta:
 											ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
 
-					case eStartTime:		ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eStartTime:		ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 #ifdef WIN32
 					case eTimeStamp:
 #endif
 					case eFileModifiedTime:
-											if (Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromTime_t(Value.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
+											if (Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
                     case eUpTime:
 #ifdef WIN32
 					case eRunningTime:			

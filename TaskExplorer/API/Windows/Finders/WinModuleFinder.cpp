@@ -5,7 +5,7 @@
 #include "../WindowsAPI.h"
 
 
-CWinModuleFinder::CWinModuleFinder(const QVariant& Type, const QRegExp& RegExp, QObject* parent) : CAbstractFinder(parent) 
+CWinModuleFinder::CWinModuleFinder(const QVariant& Type, const QRegularExpression& RegExp, QObject* parent) : CAbstractFinder(parent)
 {
 	m_Type = Type;
 	m_RegExp = RegExp;

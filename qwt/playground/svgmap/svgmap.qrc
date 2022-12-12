@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/svg">
+        <file>Schlosspark_Nymphenburg.svg</file>
+    </qresource>
+</RCC>

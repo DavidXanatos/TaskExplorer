@@ -12,13 +12,14 @@ CDriverWindow::CDriverWindow(QWidget *parent)
 	this->setCentralWidget(centralWidget);
 	this->setWindowTitle("Task Explorer - Driver Options");
 
+	ui.securityLevel->setEnabled(false);
+
 	connect(ui.btnStart, SIGNAL(pressed()), this, SLOT(OnStop()));
 	connect(ui.btnConnect, SIGNAL(pressed()), this, SLOT(OnConnect()));
 	connect(ui.buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
 	ui.chkUseDriver->setChecked(theConf->GetBool("Options/UseDriver", true));
-	ui.securityLevel->setCurrentIndex(theConf->GetInt("Options/DriverSecurityLevel", KphSecurityPrivilegeCheck));
 
 	ui.fileName->addItem(tr("(Auto Selection)"), "");
 	QDir dir(QApplication::applicationDirPath());
@@ -71,7 +72,6 @@ void CDriverWindow::closeEvent(QCloseEvent *e)
 void CDriverWindow::accept()
 {
 	theConf->SetValue("Options/UseDriver", ui.chkUseDriver->isChecked());
-	theConf->SetValue("Options/DriverSecurityLevel", ui.securityLevel->currentIndex());
 
 	if (ui.autoSelection->isVisible())
 	{
@@ -125,10 +125,8 @@ void CDriverWindow::OnDriverFile()
 		ui.autoSelection->setVisible(false);
 		ui.deviceName->setReadOnly(false);
 
-		if (FileName.contains("XProcessHacker", Qt::CaseInsensitive))
-			ui.deviceName->setText("XProcessHacker3");
-		else if (FileName.contains("KProcessHacker", Qt::CaseInsensitive))
-			ui.deviceName->setText("KProcessHacker3");
+		if (FileName.contains("systeminformer", Qt::CaseInsensitive))
+			ui.deviceName->setText("KSystemInformer");
 		else
 			ui.deviceName->setText("");
 	}
@@ -163,14 +161,14 @@ void CDriverWindow::Refresh()
 		}
 	}
 
-	if (KphIsConnected())
+	if (KphCommsIsConnected())
 	{
 		ui.btnConnect->setEnabled(true);
 		ui.btnConnect->setText(tr("Disconnect"));
 
 		ui.connection->setText(tr("Connected"));
 
-		ui.verification->setText(KphIsVerified() ? tr("Verified") : tr("NOT Verified"));
+		ui.verification->setText(QString("%1").arg(KphLevel()));
 		
 		//ui.features->setText(tr("0x%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 8, 16, QChar('0')));
 		ui.features->setText(tr("%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 32, 2, QChar('0')));
@@ -192,13 +190,13 @@ void CDriverWindow::Refresh()
 
 void CDriverWindow::OnConnect()
 {
-	if (KphIsConnected())
+	if (KphCommsIsConnected())
 	{
-		KphDisconnect();
+		KphCommsStop();
 	}
 	else
 	{
-		STATUS Status = ((CWindowsAPI*)theAPI)->InitDriver(ui.deviceName->text(), ui.fileName->currentText(), ui.securityLevel->currentIndex());
+		STATUS Status = ((CWindowsAPI*)theAPI)->InitDriver(ui.deviceName->text(), ui.fileName->currentText());
 		if (Status.IsError())
 			QMessageBox::critical(this, "Task Explorer", Status.GetText());
 	}

@@ -1,59 +1,70 @@
-#include <qlabel.h>
-#include <qlayout.h>
-#include <qstatusbar.h>
-#include <qtoolbar.h>
-#include <qtoolbutton.h>
-#include <qspinbox.h>
-#include <qcheckbox.h>
-#include <qwhatsthis.h>
-#include <qpixmap.h>
-#include "randomplot.h"
-#include "mainwindow.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "RandomPlot.h"
+#include "MainWindow.h"
 #include "start.xpm"
 #include "clear.xpm"
 
-class MyToolBar: public QToolBar
-{
-public:
-    MyToolBar( MainWindow *parent ):
-        QToolBar( parent )
-    {
-    }
-    void addSpacing( int spacing )
-    {
-        QLabel *label = new QLabel( this );
-        addWidget( label );
-        label->setFixedWidth( spacing );
-    }
-};
+#include <QAction>
+#include <QLabel>
+#include <QLayout>
+#include <QStatusBar>
+#include <QToolBar>
+#include <QSpinBox>
+#include <QCheckBox>
+#include <QWhatsThis>
+#include <QPixmap>
 
-class Counter: public QWidget
+namespace
 {
-public:
-    Counter( QWidget *parent,
-            const QString &prefix, const QString &suffix,
-            int min, int max, int step ):
-        QWidget( parent )
+    class ToolBar : public QToolBar
     {
-        QHBoxLayout *layout = new QHBoxLayout( this );
+      public:
+        ToolBar( QMainWindow* parent )
+            : QToolBar( parent )
+        {
+        }
+
+        void addSpacing( int spacing )
+        {
+            QLabel* label = new QLabel();
+            label->setFixedWidth( spacing );
+
+            addWidget( label );
+        }
+    };
+}
+
+class Counter : public QWidget
+{
+  public:
+    Counter( const QString& prefix, const QString& suffix,
+            int min, int max, int step, QWidget* parent = NULL )
+        : QWidget( parent )
+    {
+        QHBoxLayout* layout = new QHBoxLayout( this );
 
         if ( !prefix.isEmpty() )
-            layout->addWidget( new QLabel( prefix + " ", this ) );
+            layout->addWidget( new QLabel( prefix + " " ) );
 
-        d_counter = new QSpinBox( this );
-        d_counter->setRange( min, max );
-        d_counter->setSingleStep( step );
-        layout->addWidget( d_counter );
+        m_counter = new QSpinBox();
+        m_counter->setRange( min, max );
+        m_counter->setSingleStep( step );
+
+        layout->addWidget( m_counter );
 
         if ( !suffix.isEmpty() )
-            layout->addWidget( new QLabel( QString( " " ) + suffix, this ) );
+            layout->addWidget( new QLabel( QString( " " ) + suffix ) );
     }
 
-    void setValue( int value ) { d_counter->setValue( value ); }
-    int value() const { return d_counter->value(); }
+    void setValue( int value ) { m_counter->setValue( value ); }
+    int value() const { return m_counter->value(); }
 
-private:
-    QSpinBox *d_counter;
+  private:
+    QSpinBox* m_counter;
 };
 
 MainWindow::MainWindow()
@@ -63,66 +74,65 @@ MainWindow::MainWindow()
     ( void )statusBar();
 #endif
 
-    d_plot = new RandomPlot( this );
+    m_plot = new RandomPlot();
+
     const int margin = 4;
-    d_plot->setContentsMargins( margin, margin, margin, margin );
+    m_plot->setContentsMargins( margin, margin, margin, margin );
 
-    setCentralWidget( d_plot );
+    setCentralWidget( m_plot );
 
-    connect( d_startAction, SIGNAL( toggled( bool ) ), this, SLOT( appendPoints( bool ) ) );
-    connect( d_clearAction, SIGNAL( triggered() ), d_plot, SLOT( clear() ) );
-    connect( d_symbolType, SIGNAL( toggled( bool ) ), d_plot, SLOT( showSymbols( bool ) ) );
-    connect( d_plot, SIGNAL( running( bool ) ), this, SLOT( showRunning( bool ) ) );
-    connect( d_plot, SIGNAL( elapsed( int ) ), this, SLOT( showElapsed( int ) ) );
+    connect( m_startAction, SIGNAL(toggled(bool)), this, SLOT(appendPoints(bool)) );
+    connect( m_clearAction, SIGNAL(triggered()), m_plot, SLOT(clear()) );
+    connect( m_symbolType, SIGNAL(toggled(bool)), m_plot, SLOT(showSymbols(bool)) );
+    connect( m_plot, SIGNAL(running(bool)), this, SLOT(showRunning(bool)) );
+    connect( m_plot, SIGNAL(elapsed(int)), this, SLOT(showElapsed(int)) );
 
     initWhatsThis();
 
     setContextMenuPolicy( Qt::NoContextMenu );
 }
 
-QToolBar *MainWindow::toolBar()
+QToolBar* MainWindow::toolBar()
 {
-    MyToolBar *toolBar = new MyToolBar( this );
-
-    toolBar->setAllowedAreas( Qt::TopToolBarArea | Qt::BottomToolBarArea );
     setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
-
-    d_startAction = new QAction( QPixmap( start_xpm ), "Start", toolBar );
-    d_startAction->setCheckable( true );
-    d_clearAction = new QAction( QPixmap( clear_xpm ), "Clear", toolBar );
-    QAction *whatsThisAction = QWhatsThis::createAction( toolBar );
-    whatsThisAction->setText( "Help" );
-
-    toolBar->addAction( d_startAction );
-    toolBar->addAction( d_clearAction );
-    toolBar->addAction( whatsThisAction );
-
     setIconSize( QSize( 22, 22 ) );
 
-    QWidget *hBox = new QWidget( toolBar );
+    m_startAction = new QAction( QPixmap( start_xpm ), "Start", this );
+    m_startAction->setCheckable( true );
+    m_clearAction = new QAction( QPixmap( clear_xpm ), "Clear", this );
 
-    d_symbolType = new QCheckBox( "Symbols", hBox );
-    d_symbolType->setChecked( true );
+    QAction* whatsThisAction = QWhatsThis::createAction();
+    whatsThisAction->setText( "Help" );
 
-    d_randomCount = new Counter( hBox, "Points", QString(), 1, 100000, 100 );
-    d_randomCount->setValue( 1000 );
+    QWidget* hBox = new QWidget();
 
-    d_timerCount = new Counter( hBox, "Delay", "ms", 0, 100000, 100 );
-    d_timerCount->setValue( 0 );
+    m_symbolType = new QCheckBox( "Symbols", hBox );
+    m_symbolType->setChecked( true );
 
-    QHBoxLayout *layout = new QHBoxLayout( hBox );
-    layout->setMargin( 0 );
+    m_randomCount = new Counter( "Points", QString(), 1, 100000, 100 );
+    m_randomCount->setValue( 1000 );
+
+    m_timerCount = new Counter( "Delay", "ms", 0, 100000, 100 );
+    m_timerCount->setValue( 0 );
+
+    QHBoxLayout* layout = new QHBoxLayout( hBox );
+    layout->setContentsMargins( QMargins() );
     layout->setSpacing( 0 );
     layout->addSpacing( 10 );
     layout->addWidget( new QWidget( hBox ), 10 ); // spacer
-    layout->addWidget( d_symbolType );
+    layout->addWidget( m_symbolType );
     layout->addSpacing( 5 );
-    layout->addWidget( d_randomCount );
+    layout->addWidget( m_randomCount );
     layout->addSpacing( 5 );
-    layout->addWidget( d_timerCount );
+    layout->addWidget( m_timerCount );
 
     showRunning( false );
 
+    ToolBar* toolBar = new ToolBar( this );
+    toolBar->setAllowedAreas( Qt::TopToolBarArea | Qt::BottomToolBarArea );
+    toolBar->addAction( m_startAction );
+    toolBar->addAction( m_clearAction );
+    toolBar->addAction( whatsThisAction );
     toolBar->addWidget( hBox );
 
     return toolBar;
@@ -131,18 +141,22 @@ QToolBar *MainWindow::toolBar()
 void MainWindow::appendPoints( bool on )
 {
     if ( on )
-        d_plot->append( d_timerCount->value(),
-                        d_randomCount->value() );
+    {
+        m_plot->append( m_timerCount->value(),
+            m_randomCount->value() );
+    }
     else
-        d_plot->stop();
+    {
+        m_plot->stop();
+    }
 }
 
 void MainWindow::showRunning( bool running )
 {
-    d_randomCount->setEnabled( !running );
-    d_timerCount->setEnabled( !running );
-    d_startAction->setChecked( running );
-    d_startAction->setText( running ? "Stop" : "Start" );
+    m_randomCount->setEnabled( !running );
+    m_timerCount->setEnabled( !running );
+    m_startAction->setChecked( running );
+    m_startAction->setText( running ? "Stop" : "Start" );
 }
 
 void MainWindow::showElapsed( int ms )
@@ -156,7 +170,7 @@ void MainWindow::showElapsed( int ms )
 
 void MainWindow::initWhatsThis()
 {
-    const char *text1 =
+    const char* text1 =
         "Zooming is enabled until the selected area gets "
         "too small for the significance on the axes.\n\n"
         "You can zoom in using the left mouse button.\n"
@@ -164,13 +178,13 @@ void MainWindow::initWhatsThis()
         "previous zoomed area.\n"
         "The right mouse button is used to unzoom completely.";
 
-    const char *text2 =
+    const char* text2 =
         "Number of random points that will be generated.";
 
-    const char *text3 =
+    const char* text3 =
         "Delay between the generation of two random points.";
 
-    const char *text4 =
+    const char* text4 =
         "Start generation of random points.\n\n"
         "The intention of this example is to show how to implement "
         "growing curves. The points will be generated and displayed "
@@ -181,12 +195,13 @@ void MainWindow::initWhatsThis()
         "To inspect the curve, stacked zooming is implemented using the "
         "mouse buttons on the plot.";
 
-    const char *text5 = "Remove all points.";
+    const char* text5 = "Remove all points.";
 
-    d_plot->setWhatsThis( text1 );
-    d_randomCount->setWhatsThis( text2 );
-    d_timerCount->setWhatsThis( text3 );
-    d_startAction->setWhatsThis( text4 );
-    d_clearAction->setWhatsThis( text5 );
+    m_plot->setWhatsThis( text1 );
+    m_randomCount->setWhatsThis( text2 );
+    m_timerCount->setWhatsThis( text3 );
+    m_startAction->setWhatsThis( text4 );
+    m_clearAction->setWhatsThis( text5 );
 }
 
+#include "moc_MainWindow.cpp"

@@ -1,11 +1,13 @@
 #include "stdafx.h"
 #include "Finder.h"
 
+bool CFinder::m_DarkMode = false;
+
 QWidget* CFinder::AddFinder(QWidget* pList, QObject* pFilterTarget, bool HighLightOption, CFinder** ppFinder)
 {
 	QWidget* pWidget = new QWidget();
 	QVBoxLayout* pLayout = new QVBoxLayout();
-	pLayout->setMargin(0);
+	pLayout->setContentsMargins(0,0,0,0);
 	pWidget->setLayout(pLayout);
 
 	pLayout->addWidget(pList);
@@ -21,7 +23,7 @@ CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 :QWidget(parent)
 {
 	m_pSearchLayout = new QHBoxLayout();
-	m_pSearchLayout->setMargin(0);
+	m_pSearchLayout->setContentsMargins(0,0,0,0);
 	m_pSearchLayout->setSpacing(3);
 	m_pSearchLayout->setAlignment(Qt::AlignLeft);
 
@@ -31,7 +33,7 @@ CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 	m_pSearchLayout->addWidget(m_pSearch);
 	QObject::connect(m_pSearch, SIGNAL(textChanged(QString)), this, SLOT(OnText()));
     QObject::connect(m_pSearch, SIGNAL(returnPressed()), this, SLOT(OnReturn()));
-	
+
 	m_pCaseSensitive = new QCheckBox(tr("Case Sensitive"));
 	m_pSearchLayout->addWidget(m_pCaseSensitive);
 	connect(m_pCaseSensitive, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
@@ -40,15 +42,21 @@ CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 	m_pSearchLayout->addWidget(m_pRegExp);
 	connect(m_pRegExp, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
 
-	m_pColumn = new QComboBox();
-	m_pSearchLayout->addWidget(m_pColumn);
-	connect(m_pColumn, SIGNAL(currentIndexChanged(int)), this, SLOT(OnUpdate()));
-	m_pColumn->setVisible(false);
+	m_pSortProxy = qobject_cast<QSortFilterProxyModel*>(pFilterTarget);
+
+	if (m_pSortProxy) {
+		m_pColumn = new QComboBox();
+		m_pSearchLayout->addWidget(m_pColumn);
+		connect(m_pColumn, SIGNAL(currentIndexChanged(int)), this, SLOT(OnUpdate()));
+		m_pColumn->setVisible(false);
+	}
+	else
+		m_pColumn = NULL;
 
 	if (HighLightOption)
 	{
 		m_pHighLight = new QCheckBox(tr("Highlight"));
-		m_pHighLight->setChecked(false);
+		//m_pHighLight->setChecked(true);
 		m_pSearchLayout->addWidget(m_pHighLight);
 		connect(m_pHighLight, SIGNAL(stateChanged(int)), this, SLOT(OnUpdate()));
 	}
@@ -83,9 +91,8 @@ CFinder::CFinder(QObject* pFilterTarget, QWidget *parent, bool HighLightOption)
 		QObject::connect(pFind, SIGNAL(triggered()), this, SLOT(Open()));
 	}
 
-	m_pSortProxy = qobject_cast<QSortFilterProxyModel*>(pFilterTarget);
 	if (pFilterTarget) {
-		QObject::connect(this, SIGNAL(SetFilter(const QRegExp&, bool, int)), pFilterTarget, SLOT(SetFilter(const QRegExp&, bool, int)));
+		QObject::connect(this, SIGNAL(SetFilter(const QRegularExpression&, bool, int)), pFilterTarget, SLOT(SetFilter(const QRegularExpression&, bool, int)));
 		QObject::connect(this, SIGNAL(SelectNext()), pFilterTarget, SLOT(SelectNext()));
 	}
 
@@ -129,11 +136,16 @@ void CFinder::Open()
 	OnUpdate();
 }
 
-QRegExp CFinder::GetRegExp() const
+QRegularExpression CFinder::GetRegExp() const
 {
-	if (!isVisible())
-		return QRegExp();
-	return QRegExp(m_pSearch->text(), m_pCaseSensitive->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive, m_pRegExp->isChecked() ? QRegExp::RegExp : QRegExp::FixedString);
+	if (!isVisible() || m_pSearch->text().isEmpty())
+		return QRegularExpression();
+	QString Exp;
+	if(m_pRegExp->isChecked())
+		Exp = m_pSearch->text();
+	else
+		Exp = QRegularExpression::wildcardToRegularExpression("*" + m_pSearch->text() + "*");
+	return QRegularExpression(Exp, m_pCaseSensitive->isChecked() ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
 }
 
 void CFinder::OnUpdate()
@@ -157,6 +169,6 @@ void CFinder::OnReturn()
 
 void CFinder::Close()
 {
-	emit SetFilter(QRegExp());
+	emit SetFilter(QRegularExpression());
 	hide();
 }

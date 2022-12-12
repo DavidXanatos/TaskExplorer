@@ -1,27 +1,33 @@
-#include <cstdlib>
-#include <qgroupbox.h>
-#include <qcombobox.h>
-#include <qlayout.h>
-#include <qstatusbar.h>
-#include <qlabel.h>
-#include <qwt_plot.h>
-#include <qwt_plot_rescaler.h>
-#include <qwt_scale_div.h>
-#include "plot.h"
-#include "mainwindow.h"
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+
+#include "MainWindow.h"
+#include "Plot.h"
+
+#include <QwtPlot>
+#include <QwtPlotRescaler>
+#include <QwtInterval>
+
+#include <QGroupBox>
+#include <QComboBox>
+#include <QLayout>
+#include <QStatusBar>
+#include <QLabel>
 
 MainWindow::MainWindow()
 {
-    QFrame *w = new QFrame( this );
+    QFrame* w = new QFrame( this );
 
-    QWidget *panel = createPanel( w );
+    QWidget* panel = createPanel( w );
     panel->setFixedWidth( 2 * panel->sizeHint().width() );
-    d_plot = createPlot( w );
+    m_plot = createPlot( w );
 
-    QHBoxLayout *layout = new QHBoxLayout( w );
-    layout->setMargin( 0 );
+    QHBoxLayout* layout = new QHBoxLayout( w );
+    layout->setContentsMargins( QMargins() );
     layout->addWidget( panel, 0 );
-    layout->addWidget( d_plot, 10 );
+    layout->addWidget( m_plot, 10 );
 
     setCentralWidget( w );
 
@@ -30,48 +36,48 @@ MainWindow::MainWindow()
     ( void )statusBar();
 }
 
-QWidget *MainWindow::createPanel( QWidget *parent )
+QWidget* MainWindow::createPanel( QWidget* parent )
 {
-    QGroupBox *panel = new QGroupBox( "Navigation Panel", parent );
+    QGroupBox* panel = new QGroupBox( "Navigation Panel", parent );
 
-    QComboBox *rescaleBox = new QComboBox( panel );
+    QComboBox* rescaleBox = new QComboBox( panel );
     rescaleBox->setEditable( false );
     rescaleBox->insertItem( KeepScales, "None" );
     rescaleBox->insertItem( Fixed, "Fixed" );
     rescaleBox->insertItem( Expanding, "Expanding" );
     rescaleBox->insertItem( Fitting, "Fitting" );
 
-    connect( rescaleBox, SIGNAL( activated( int ) ), SLOT( setRescaleMode( int ) ) );
+    connect( rescaleBox, SIGNAL(activated(int)), SLOT(setRescaleMode(int)) );
 
-    d_rescaleInfo = new QLabel( panel );
-    d_rescaleInfo->setSizePolicy(
+    m_rescaleInfo = new QLabel( panel );
+    m_rescaleInfo->setSizePolicy(
         QSizePolicy::Expanding, QSizePolicy::Expanding );
-    d_rescaleInfo->setWordWrap( true );
+    m_rescaleInfo->setWordWrap( true );
 
-    QVBoxLayout *layout = new QVBoxLayout( panel );
+    QVBoxLayout* layout = new QVBoxLayout( panel );
     layout->addWidget( rescaleBox );
-    layout->addWidget( d_rescaleInfo );
+    layout->addWidget( m_rescaleInfo );
     layout->addStretch( 10 );
 
     return panel;
 }
 
-Plot *MainWindow::createPlot( QWidget *parent )
+Plot* MainWindow::createPlot( QWidget* parent )
 {
-    Plot *plot = new Plot( parent, QwtInterval( 0.0, 1000.0 ) );
+    Plot* plot = new Plot( parent, QwtInterval( 0.0, 1000.0 ) );
     plot->replot();
 
-    d_rescaler = new QwtPlotRescaler( plot->canvas() );
-    d_rescaler->setReferenceAxis( QwtPlot::xBottom );
-    d_rescaler->setAspectRatio( QwtPlot::yLeft, 1.0 );
-    d_rescaler->setAspectRatio( QwtPlot::yRight, 0.0 );
-    d_rescaler->setAspectRatio( QwtPlot::xTop, 0.0 );
+    m_rescaler = new QwtPlotRescaler( plot->canvas() );
+    m_rescaler->setReferenceAxis( QwtAxis::XBottom );
+    m_rescaler->setAspectRatio( QwtAxis::YLeft, 1.0 );
+    m_rescaler->setAspectRatio( QwtAxis::YRight, 0.0 );
+    m_rescaler->setAspectRatio( QwtAxis::XTop, 0.0 );
 
-    for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
-        d_rescaler->setIntervalHint( axis, QwtInterval( 0.0, 1000.0 ) );
+    for ( int axisPos = 0; axisPos < QwtAxis::AxisPositions; axisPos++ )
+        m_rescaler->setIntervalHint( axisPos, QwtInterval( 0.0, 1000.0 ) );
 
-    connect( plot, SIGNAL( resized( double, double ) ),
-        SLOT( showRatio( double, double ) ) );
+    connect( plot, SIGNAL(resized(double,double)),
+        SLOT(showRatio(double,double)) );
     return plot;
 }
 
@@ -92,7 +98,7 @@ void MainWindow::setRescaleMode( int mode )
         }
         case Fixed:
         {
-            d_rescaler->setRescalePolicy( QwtPlotRescaler::Fixed );
+            m_rescaler->setRescalePolicy( QwtPlotRescaler::Fixed );
             info = "The scale of the bottom axis remains unchanged, "
                 "when the plot is resized. All other scales are changed, "
                 "so that a pixel on screen means the same distance for"
@@ -101,20 +107,20 @@ void MainWindow::setRescaleMode( int mode )
         }
         case Expanding:
         {
-            d_rescaler->setRescalePolicy( QwtPlotRescaler::Expanding );
+            m_rescaler->setRescalePolicy( QwtPlotRescaler::Expanding );
             info = "The scales of all axis are shrinked/expanded, when "
                 "resizing the plot, keeping the distance that is represented "
                 "by one pixel.";
-            d_rescaleInfo->setText( "Expanding" );
+            m_rescaleInfo->setText( "Expanding" );
             break;
         }
         case Fitting:
         {
-            d_rescaler->setRescalePolicy( QwtPlotRescaler::Fitting );
+            m_rescaler->setRescalePolicy( QwtPlotRescaler::Fitting );
             const QwtInterval xIntv =
-                d_rescaler->intervalHint( QwtPlot::xBottom );
+                m_rescaler->intervalHint( QwtAxis::XBottom );
             const QwtInterval yIntv =
-                d_rescaler->intervalHint( QwtPlot::yLeft );
+                m_rescaler->intervalHint( QwtAxis::YLeft );
 
             rectOfInterest = QRectF( xIntv.minValue(), yIntv.minValue(),
                 xIntv.width(), yIntv.width() );
@@ -125,17 +131,17 @@ void MainWindow::setRescaleMode( int mode )
         }
     }
 
-    d_plot->setRectOfInterest( rectOfInterest );
+    m_plot->setRectOfInterest( rectOfInterest );
 
-    d_rescaleInfo->setText( info );
-    d_rescaler->setEnabled( doEnable );
-    for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
-        d_rescaler->setExpandingDirection( direction );
+    m_rescaleInfo->setText( info );
+    m_rescaler->setEnabled( doEnable );
+    for ( int axisPos = 0; axisPos < QwtAxis::AxisPositions; axisPos++ )
+        m_rescaler->setExpandingDirection( direction );
 
     if ( doEnable )
-        d_rescaler->rescale();
+        m_rescaler->rescale();
     else
-        d_plot->replot();
+        m_plot->replot();
 }
 
 void MainWindow::showRatio( double xRatio, double yRatio )
@@ -144,3 +150,4 @@ void MainWindow::showRatio( double xRatio, double yRatio )
     statusBar()->showMessage( msg );
 }
 
+#include "moc_MainWindow.cpp"

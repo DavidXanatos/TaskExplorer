@@ -2,7 +2,9 @@
 
 #define _PHLIB_
 #define _PHAPP_
+#ifndef _WINDOWS
 #define _WINDOWS
+#endif
 
 #ifdef _DEBUG
 #define DEBUG
@@ -33,7 +35,13 @@
 #include <circbuf.h>
 #include <dltmgr.h>
 #include <phnet.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <kphuser.h>
+#ifdef __cplusplus
+}
+#endif
 #include <appresolver.h>
 #include <hndlinfo.h>
 #include <verify.h>
@@ -49,8 +57,9 @@
 //#include <ntgdi.h>
 #include "../ProcessHacker/phnt/include/ntgdi.h"
 
-
+#ifdef __cplusplus
 #include "../../../MiscHelpers/Common/FlexError.h"
+#endif
 
 // begin_phapppub
 #define DPCS_PROCESS_ID ((HANDLE)(LONG_PTR)-2)
@@ -70,6 +79,7 @@
 #define PH_INTEGRITY_STR_LEN 10
 #define PH_INTEGRITY_STR_LEN_1 (PH_INTEGRITY_STR_LEN + 1)
 
+#ifdef __cplusplus
 
 QString CastPhString(PPH_STRING phString, bool bDeRef = true);
 PPH_STRING CastQString(const QString& qString);
@@ -84,6 +94,8 @@ extern "C" {
 // initialization call
 int InitPH(bool bSvc = false);
 
-STATUS InitKPH(QString DeviceName, QString FileName, int SecurityLevel);
+STATUS InitKPH(QString DeviceName, QString FileName);
 
 void PhShowAbout(QWidget* parent);
+
+#endif

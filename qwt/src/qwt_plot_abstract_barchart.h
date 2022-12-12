@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -12,19 +12,18 @@
 
 #include "qwt_global.h"
 #include "qwt_plot_seriesitem.h"
-#include "qwt_series_data.h"
 
 /*!
-  \brief Abstract base class for bar chart items
+   \brief Abstract base class for bar chart items
 
-  In opposite to almost all other plot items bar charts can't be
-  displayed inside of their bounding rectangle and need a special
-  API  how to calculate the width of the bars and how they affect
-  the layout of the attached plot.
+   In opposite to almost all other plot items bar charts can't be
+   displayed inside of their bounding rectangle and need a special
+   API  how to calculate the width of the bars and how they affect
+   the layout of the attached plot.
  */
-class QWT_EXPORT QwtPlotAbstractBarChart: public QwtPlotSeriesItem
+class QWT_EXPORT QwtPlotAbstractBarChart : public QwtPlotSeriesItem
 {
-public:
+  public:
     /*!
         \brief Mode how to calculate the bar width
 
@@ -33,34 +32,34 @@ public:
     enum LayoutPolicy
     {
         /*!
-          The sample width is calculated by dividing the bounding rectangle
-          by the number of samples. The layoutHint() is used as a minimum width
-          in paint device coordinates.
+           The sample width is calculated by dividing the bounding rectangle
+           by the number of samples. The layoutHint() is used as a minimum width
+           in paint device coordinates.
 
-          \sa boundingRectangle()
+           \sa boundingRectangle()
          */
         AutoAdjustSamples,
 
         /*!
-          layoutHint() defines an interval in axis coordinates
+           layoutHint() defines an interval in axis coordinates
          */
         ScaleSamplesToAxes,
 
         /*!
-          The bar width is calculated by multiplying layoutHint()
-          with the height or width of the canvas.
+           The bar width is calculated by multiplying layoutHint()
+           with the height or width of the canvas.
 
-          \sa boundingRectangle()
+           \sa boundingRectangle()
          */
         ScaleSampleToCanvas,
 
         /*!
-          layoutHint() defines a fixed width in paint device coordinates.
+           layoutHint() defines a fixed width in paint device coordinates.
          */
         FixedSampleSize
     };
 
-    explicit QwtPlotAbstractBarChart( const QwtText &title );
+    explicit QwtPlotAbstractBarChart( const QwtText& title );
     virtual ~QwtPlotAbstractBarChart();
 
     void setLayoutPolicy( LayoutPolicy );
@@ -79,19 +78,19 @@ public:
     double baseline() const;
 
     virtual void getCanvasMarginHint(
-        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-        const QRectF &canvasRect,
-        double &left, double &top, double &right, double &bottom) const;
+        const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+        const QRectF& canvasRect, double& left, double& top,
+        double& right, double& bottom) const QWT_OVERRIDE;
 
 
-protected:
-    double sampleWidth( const QwtScaleMap &map,
+  protected:
+    double sampleWidth( const QwtScaleMap& map,
         double canvasSize, double boundingSize,
         double value ) const;
 
-private:
+  private:
     class PrivateData;
-    PrivateData *d_data;
+    PrivateData* m_data;
 };
 
 #endif

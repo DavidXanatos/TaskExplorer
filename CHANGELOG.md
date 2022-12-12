@@ -2,6 +2,64 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+add autorun view <--
+scheduler <---
+
+statistics or general gpu entry !!!
+
+goto parent/service/... by pid and so on 
+
+add RpcView functionality !
+
+fix issues with open process into windows
+
+todo: improve gpu performance counters
+
+todo: debug log add clear / add: trace log cleanup options
+
+add custom symbol loading option
+
+
+todo: open program by double ckick it in handle search window
+
+todo: fix PhGetJobBasicUiRestrictions fails for system jobs liek created by sandboxie
+
+add: double click in Search window
+
+todo: update finder
+
+todo: open job objects as system
+
+
+- todo: add option to open a job in a window
+
+
+
+## [1.5.0] - 2022-12-10
+
+### Changed
+- updated PHlib to version 3.0.5553
+- updated DotNET counter code
+
+### Fixed
+- fixed issues with GPU usage not being displayed proeprly
+- fixed memory leak in RPC Endpoint View
+
+### Removed
+- removed aility to unprotect protected processes
+- removed kernel debug log dumping (will be re added later)
+
+
+
+
+## [1.4.2a] - 2022-09-30
+
+### Changed
+- Made Qt6 Compatible
+- updated QWT library to v6.2
+
+
+
 
 ## [1.4.1] - 2022-03-26
 

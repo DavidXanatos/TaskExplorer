@@ -1,5 +1,5 @@
 ################################################################
-# Qwt Widget Library
+# Qwt Examples
 # Copyright (C) 1997   Josef Wilgen
 # Copyright (C) 2002   Uwe Rathmann
 #
@@ -12,23 +12,23 @@ include( $${PWD}/../examples.pri )
 TARGET       = controls
 
 HEADERS = \
-    sliderbox.h \
-    slidertab.h \
-    wheelbox.h \
-    wheeltab.h \
-    knobbox.h \
-    knobtab.h \
-    dialbox.h \
-    dialtab.h
+    SliderBox.h \
+    SliderTab.h \
+    WheelBox.h \
+    WheelTab.h \
+    KnobBox.h \
+    KnobTab.h \
+    DialBox.h \
+    DialTab.h
 
 SOURCES = \
-    sliderbox.cpp \
-    slidertab.cpp \
-    wheelbox.cpp \
-    wheeltab.cpp \
-    knobbox.cpp \
-    knobtab.cpp \
-    dialbox.cpp \
-    dialtab.cpp \
+    SliderBox.cpp \
+    SliderTab.cpp \
+    WheelBox.cpp \
+    WheelTab.cpp \
+    KnobBox.cpp \
+    KnobTab.cpp \
+    DialBox.cpp \
+    DialTab.cpp \
     main.cpp
 

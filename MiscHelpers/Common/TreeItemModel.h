@@ -1,7 +1,10 @@
 #pragma once
 #include "TreeViewEx.h"
 
+#include "Common.h"
+
 #include "../mischelpers_global.h"
+
 
 class MISCHELPERS_EXPORT CTreeItemModel : public QAbstractItemModelEx
 {
@@ -19,6 +22,9 @@ public:
 	//void			CountItems();
 	QModelIndex		FindIndex(const QVariant& ID);
 	void			RemoveIndex(const QModelIndex &index);
+	int				Count() const					{ return m_Map.count(); }
+
+	QVariant		GetItemID(const QModelIndex& index) const;
 
 	QVariant		Data(const QModelIndex &index, int role, int section) const;
 
@@ -33,7 +39,7 @@ public:
 	virtual QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const = 0;
 
 public slots:
-	void			Clear();
+	virtual void			Clear();
 
 signals:
 	void			CheckChanged(const QVariant& ID, bool State);
@@ -48,6 +54,8 @@ protected:
 			Parent = NULL;
 			Row = 0;
 			//AllChildren = 0;
+
+			Virtual = false;
 
 			IsBold = false;
 			IsGray = false;
@@ -65,6 +73,7 @@ protected:
 		QList<STreeNode*>	Children;
 		//int				AllChildren;
 		QMap<QVariant, int>	Aux;
+		bool				Virtual;
 
 		QVariant			Icon;
 		bool				IsBold;
@@ -82,10 +91,11 @@ protected:
 	virtual QVariant	NodeData(STreeNode* pNode, int role, int section) const;
 
 	virtual STreeNode*	MkNode(const QVariant& Id) = 0; // { return new STreeNode(Id); }
+	virtual STreeNode*	MkVirtualNode(const QVariant& Id, STreeNode* pParent);
 
-	void			Sync(QMap<QList<QVariant>, QList<STreeNode*> >& New, QHash<QVariant, STreeNode*>& Old);
+	void			Sync(QMap<QList<QVariant>, QList<STreeNode*> >& New, QHash<QVariant, STreeNode*>& Old, QList<QVariant>* pAdded = NULL);
 	void			Purge(STreeNode* pParent, const QModelIndex &parent, QHash<QVariant, STreeNode*>& Old);
-	void			Fill(STreeNode* pParent, const QModelIndex &parent, const QList<QVariant>& Paths, int PathsIndex, const QList<STreeNode*>& New, const QList<QVariant>& Path);
+	void			Fill(STreeNode* pParent, const QModelIndex &parent, const QList<QVariant>& Paths, int PathsIndex, const QList<STreeNode*>& New, const QList<QVariant>& Path, QList<QVariant>* pAdded);
 	QModelIndex		Find(STreeNode* pParent, STreeNode* pNode);
 	//int				CountItems(STreeNode* pRoot);
 
@@ -107,8 +117,6 @@ public:
 	CSimpleTreeModel(QObject *parent = 0);
 	
 	void					Sync(const QMap<QVariant, QVariantMap>& List);
-
-	QVariant				GetItemID(const QModelIndex &index) const;
 
 	void					AddColumn(const QString& Name, const QString& Key) { m_ColumnKeys.append(qMakePair(Name, Key)); }
 

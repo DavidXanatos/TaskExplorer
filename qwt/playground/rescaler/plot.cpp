@@ -1,127 +1,134 @@
-#include "plot.h"
-#include <qglobal.h>
-#include <qpainter.h>
-#include <qwt_plot_grid.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_layout.h>
-#include <qwt_interval.h>
-#include <qwt_painter.h>
-#include <qwt_plot_item.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class TextItem: public QwtPlotItem
+#include "Plot.h"
+
+#include <QwtPlotGrid>
+#include <QwtPlotItem>
+#include <QwtScaleMap>
+#include <QwtPlotLayout>
+#include <QwtInterval>
+#include <QwtPainter>
+#include <QwtMath>
+
+#include <QPainter>
+
+class TextItem : public QwtPlotItem
 {
-public:
-    void setText( const QString &text )
+  public:
+    void setText( const QString& text )
     {
         m_text = text;
     }
 
-    virtual void draw( QPainter *painter,
-        const QwtScaleMap &, const QwtScaleMap &,
-        const QRectF &canvasRect ) const
+    virtual void draw( QPainter* painter,
+        const QwtScaleMap&, const QwtScaleMap&,
+        const QRectF& canvasRect ) const QWT_OVERRIDE
     {
         const int margin = 5;
-        const QRectF textRect = 
+        const QRectF textRect =
             canvasRect.adjusted( margin, margin, -margin, -margin );
 
         painter->setPen( Qt::white );
-        painter->drawText( textRect, 
+        painter->drawText( textRect,
             Qt::AlignBottom | Qt::AlignRight, m_text );
     }
 
-private:
+  private:
     QString m_text;
 };
-
 
 // RectItem shows how to implement a simple plot item,
 // what wouldn't be necessary as QwtPlotShapeItem
 // would do the same
-class RectItem: public QwtPlotItem
+
+class RectItem : public QwtPlotItem
 {
-public:
+  public:
     enum Type
     {
         Rect,
         Ellipse
     };
 
-    RectItem( Type type ):
-        d_type( type )
+    explicit RectItem( Type type )
+        : m_type( type )
     {
     }
 
-    void setPen( const QPen &pen )
+    void setPen( const QPen& pen )
     {
-        if ( pen != d_pen )
+        if ( pen != m_pen )
         {
-            d_pen = pen;
+            m_pen = pen;
             itemChanged();
         }
     }
 
-    void setBrush( const QBrush &brush )
+    void setBrush( const QBrush& brush )
     {
-        if ( brush != d_brush )
+        if ( brush != m_brush )
         {
-            d_brush = brush;
+            m_brush = brush;
             itemChanged();
         }
     }
-    void setRect( const QRectF &rect )
+    void setRect( const QRectF& rect )
     {
-        if ( d_rect != rect )
+        if ( m_rect != rect )
         {
-            d_rect = rect;
+            m_rect = rect;
             itemChanged();
         }
     }
 
-    virtual QRectF boundingRect() const
+    virtual QRectF boundingRect() const QWT_OVERRIDE
     {
-        return d_rect;
+        return m_rect;
     }
 
-    virtual void draw( QPainter *painter,
-        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-        const QRectF & ) const
+    virtual void draw( QPainter* painter,
+        const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+        const QRectF& ) const QWT_OVERRIDE
     {
-        if ( d_rect.isValid() )
+        if ( m_rect.isValid() )
         {
             const QRectF rect = QwtScaleMap::transform(
-                xMap, yMap, d_rect );
+                xMap, yMap, m_rect );
 
-            painter->setPen( d_pen );
-            painter->setBrush( d_brush );
+            painter->setPen( m_pen );
+            painter->setBrush( m_brush );
 
-            if ( d_type == Ellipse )
+            if ( m_type == Ellipse )
                 QwtPainter::drawEllipse( painter, rect );
             else
                 QwtPainter::drawRect( painter, rect );
         }
     }
 
-private:
-    QPen d_pen;
-    QBrush d_brush;
-    QRectF d_rect;
-    Type d_type;
+  private:
+    QPen m_pen;
+    QBrush m_brush;
+    QRectF m_rect;
+    Type m_type;
 };
 
-Plot::Plot( QWidget *parent, const QwtInterval &interval ):
-    QwtPlot( parent )
+Plot::Plot( QWidget* parent, const QwtInterval& interval )
+    : QwtPlot( parent )
 {
-    for ( int axis = 0; axis < QwtPlot::axisCnt; axis ++ )
-        setAxisScale( axis, interval.minValue(), interval.maxValue() );
+    for ( int axisPos = 0; axisPos < QwtAxis::AxisPositions; axisPos++ )
+        setAxisScale( axisPos, interval.minValue(), interval.maxValue() );
 
     setCanvasBackground( QColor( Qt::darkBlue ) );
     plotLayout()->setAlignCanvasToScales( true );
 
     // grid
-    QwtPlotGrid *grid = new QwtPlotGrid;
+    QwtPlotGrid* grid = new QwtPlotGrid;
     //grid->enableXMin(true);
     grid->setMajorPen( Qt::white, 0, Qt::DotLine );
-    grid->setMinorPen( Qt::gray, 0 , Qt::DotLine );
+    grid->setMinorPen( Qt::gray, 0, Qt::DotLine );
     grid->attach( this );
 
     const int numEllipses = 10;
@@ -129,39 +136,39 @@ Plot::Plot( QWidget *parent, const QwtInterval &interval ):
     for ( int i = 0; i < numEllipses; i++ )
     {
         const double x = interval.minValue() +
-            qrand() % qRound( interval.width() );
+            qwtRand() % qRound( interval.width() );
         const double y = interval.minValue() +
-            qrand() % qRound( interval.width() );
+            qwtRand() % qRound( interval.width() );
         const double r = interval.minValue() +
-            qrand() % qRound( interval.width() / 6 );
+            qwtRand() % qRound( interval.width() / 6 );
 
-        const QRectF area( x - r, y - r , 2 * r, 2 * r );
+        const QRectF area( x - r, y - r, 2 * r, 2 * r );
 
-        RectItem *item = new RectItem( RectItem::Ellipse );
+        RectItem* item = new RectItem( RectItem::Ellipse );
         item->setRenderHint( QwtPlotItem::RenderAntialiased, true );
         item->setRect( area );
         item->setPen( QPen( Qt::yellow ) );
         item->attach( this );
     }
 
-    TextItem *textItem = new TextItem();
+    TextItem* textItem = new TextItem();
     textItem->setText( "Navigation Example" );
     textItem->attach( this );
 
-    d_rectOfInterest = new RectItem( RectItem::Rect );
-    d_rectOfInterest->setPen( Qt::NoPen );
+    m_rectItem = new RectItem( RectItem::Rect );
+    m_rectItem->setPen( Qt::NoPen );
     QColor c = Qt::gray;
     c.setAlpha( 100 );
-    d_rectOfInterest->setBrush( QBrush( c ) );
-    d_rectOfInterest->attach( this );
+    m_rectItem->setBrush( QBrush( c ) );
+    m_rectItem->attach( this );
 }
 
 void Plot::updateLayout()
 {
     QwtPlot::updateLayout();
 
-    const QwtScaleMap xMap = canvasMap( QwtPlot::xBottom );
-    const QwtScaleMap yMap = canvasMap( QwtPlot::yLeft );
+    const QwtScaleMap xMap = canvasMap( QwtAxis::XBottom );
+    const QwtScaleMap yMap = canvasMap( QwtAxis::YLeft );
 
     const QRect cr = canvas()->contentsRect();
     const double x1 = xMap.invTransform( cr.left() );
@@ -175,7 +182,9 @@ void Plot::updateLayout()
     Q_EMIT resized( xRatio, yRatio );
 }
 
-void Plot::setRectOfInterest( const QRectF &rect )
+void Plot::setRectOfInterest( const QRectF& rect )
 {
-    d_rectOfInterest->setRect( rect );
+    m_rectItem->setRect( rect );
 }
+
+#include "moc_Plot.cpp"

@@ -3,7 +3,7 @@
  *
  * https://www.msweet.org/mxml
  *
- * Copyright © 2003-2019 by Michael R Sweet.
+ * Copyright © 2003-2021 by Michael R Sweet.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
  * information.
@@ -46,12 +46,8 @@ mxmlIndexDelete(mxml_index_t *ind)	/* I - Index to delete */
   * Free memory...
   */
 
-  if (ind->attr)
-    free(ind->attr);
-
-  if (ind->alloc_nodes)
-    free(ind->nodes);
-
+  free(ind->attr);
+  free(ind->nodes);
   free(ind);
 }
 
@@ -309,7 +305,7 @@ mxmlIndexNew(mxml_node_t *node,		/* I - XML node tree */
 {
   mxml_index_t	*ind;			/* New index */
   mxml_node_t	*current,		/* Current node in index */
-        **temp;			/* Temporary node pointer array */
+          **temp;			/* Temporary node pointer array */
 
 
  /*
@@ -330,12 +326,19 @@ mxmlIndexNew(mxml_node_t *node,		/* I - XML node tree */
 
   if ((ind = calloc(1, sizeof(mxml_index_t))) == NULL)
   {
-    mxml_error("Unable to allocate %d bytes for index - %s", (int)sizeof(mxml_index_t), strerror(errno));
+    mxml_error("Unable to allocate memory for index.");
     return (NULL);
   }
 
   if (attr)
-    ind->attr = strdup(attr);
+  {
+    if ((ind->attr = strdup(attr)) == NULL)
+    {
+      mxml_error("Unable to allocate memory for index attribute.");
+      free(ind);
+      return (NULL);
+    }
+  }
 
   if (!element && !attr)
     current = node;
@@ -357,8 +360,7 @@ mxmlIndexNew(mxml_node_t *node,		/* I - XML node tree */
         * Unable to allocate memory for the index, so abort...
     */
 
-        mxml_error("Unable to allocate %d bytes for index: %s", (int)((ind->alloc_nodes + 64) * sizeof(mxml_node_t *)), strerror(errno));
-
+        mxml_error("Unable to allocate memory for index nodes.");
         mxmlIndexDelete(ind);
     return (NULL);
       }

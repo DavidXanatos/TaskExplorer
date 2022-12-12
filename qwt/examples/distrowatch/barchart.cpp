@@ -1,112 +1,126 @@
-#include "barchart.h"
-#include <qwt_plot_renderer.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_barchart.h>
-#include <qwt_column_symbol.h>
-#include <qwt_plot_layout.h>
-#include <qwt_legend.h>
-#include <qwt_scale_draw.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-class DistroScaleDraw: public QwtScaleDraw
+#include "BarChart.h"
+
+#include <QwtPlotRenderer>
+#include <QwtPlotCanvas>
+#include <QwtPlotBarChart>
+#include <QwtColumnSymbol>
+#include <QwtPlotLayout>
+#include <QwtLegend>
+#include <QwtScaleDraw>
+#include <QwtText>
+
+#include <QApplication>
+#include <QPainter>
+
+namespace
 {
-public:
-    DistroScaleDraw( Qt::Orientation orientation, const QStringList &labels ):
-        d_labels( labels )
+    class ScaleDraw : public QwtScaleDraw
     {
-        setTickLength( QwtScaleDiv::MinorTick, 0 );
-        setTickLength( QwtScaleDiv::MediumTick, 0 );
-        setTickLength( QwtScaleDiv::MajorTick, 2 );
-
-        enableComponent( QwtScaleDraw::Backbone, false );
-
-        if ( orientation == Qt::Vertical )
+      public:
+        ScaleDraw( Qt::Orientation orientation, const QStringList& labels )
+            : m_labels( labels )
         {
-            setLabelRotation( -60.0 );
+            setTickLength( QwtScaleDiv::MinorTick, 0 );
+            setTickLength( QwtScaleDiv::MediumTick, 0 );
+            setTickLength( QwtScaleDiv::MajorTick, 2 );
+
+            enableComponent( QwtScaleDraw::Backbone, false );
+
+            if ( orientation == Qt::Vertical )
+            {
+                setLabelRotation( -60.0 );
+            }
+            else
+            {
+                setLabelRotation( -20.0 );
+            }
+
+            setLabelAlignment( Qt::AlignLeft | Qt::AlignVCenter );
         }
-        else
+
+        virtual QwtText label( double value ) const QWT_OVERRIDE
         {
-            setLabelRotation( -20.0 );
+            QwtText lbl;
+
+            const int index = qRound( value );
+            if ( index >= 0 && index < m_labels.size() )
+            {
+                lbl = m_labels[ index ];
+            }
+
+            return lbl;
         }
 
-        setLabelAlignment( Qt::AlignLeft | Qt::AlignVCenter );
-    }
+      private:
+        const QStringList m_labels;
+    };
 
-    virtual QwtText label( double value ) const
+    class ChartItem : public QwtPlotBarChart
     {
-        QwtText lbl;
-
-        const int index = qRound( value );
-        if ( index >= 0 && index < d_labels.size() )
+      public:
+        ChartItem()
+            : QwtPlotBarChart( "Page Hits" )
         {
-            lbl = d_labels[ index ];
+            setLegendMode( QwtPlotBarChart::LegendBarTitles );
+            setLegendIconSize( QSize( 10, 14 ) );
+            setLayoutPolicy( AutoAdjustSamples );
+            setLayoutHint( 4.0 ); // minimum width for a single bar
+
+            setSpacing( 10 ); // spacing between bars
         }
-            
-        return lbl;
-    }
 
-private:
-    const QStringList d_labels;
-};
+        void addDistro( const QString& distro, const QColor& color )
+        {
+            m_colors += color;
+            m_distros += distro;
+            itemChanged();
+        }
 
-class DistroChartItem: public QwtPlotBarChart
+        virtual QwtColumnSymbol* specialSymbol(
+            int index, const QPointF& ) const QWT_OVERRIDE
+        {
+            // we want to have individual colors for each bar
+
+            QwtColumnSymbol* symbol = new QwtColumnSymbol( QwtColumnSymbol::Box );
+            symbol->setLineWidth( 2 );
+            symbol->setFrameStyle( QwtColumnSymbol::Raised );
+
+            QColor c( Qt::white );
+            if ( index >= 0 && index < m_colors.size() )
+                c = m_colors[ index ];
+
+            symbol->setPalette( c );
+
+            return symbol;
+        }
+
+        virtual QwtText barTitle( int sampleIndex ) const QWT_OVERRIDE
+        {
+            QwtText title;
+            if ( sampleIndex >= 0 && sampleIndex < m_distros.size() )
+                title = m_distros[ sampleIndex ];
+
+            return title;
+        }
+
+      private:
+        QList< QColor > m_colors;
+        QList< QString > m_distros;
+    };
+
+}
+
+BarChart::BarChart( QWidget* parent )
+    : QwtPlot( parent )
 {
-public:
-    DistroChartItem():
-        QwtPlotBarChart( "Page Hits" )
+    const struct
     {
-        setLegendMode( QwtPlotBarChart::LegendBarTitles );
-        setLegendIconSize( QSize( 10, 14 ) );
-        setLayoutPolicy( AutoAdjustSamples );
-        setLayoutHint( 4.0 ); // minimum width for a single bar
-
-        setSpacing( 10 ); // spacing between bars
-    }
-
-    void addDistro( const QString &distro, const QColor &color )
-    {
-        d_colors += color;
-        d_distros += distro;
-        itemChanged();
-    }
-
-    virtual QwtColumnSymbol *specialSymbol(
-        int index, const QPointF& ) const
-    {
-        // we want to have individual colors for each bar
-
-        QwtColumnSymbol *symbol = new QwtColumnSymbol( QwtColumnSymbol::Box );
-        symbol->setLineWidth( 2 );
-        symbol->setFrameStyle( QwtColumnSymbol::Raised );
-
-        QColor c( Qt::white );
-        if ( index >= 0 && index < d_colors.size() )
-            c = d_colors[ index ];
-
-        symbol->setPalette( c );
-    
-        return symbol;
-    }
-
-    virtual QwtText barTitle( int sampleIndex ) const
-    {
-        QwtText title;
-        if ( sampleIndex >= 0 && sampleIndex < d_distros.size() )
-            title = d_distros[ sampleIndex ];
-
-        return title;
-    }
-
-private:
-    QList<QColor> d_colors;
-    QList<QString> d_distros;
-};
-
-BarChart::BarChart( QWidget *parent ):
-    QwtPlot( parent )
-{
-    const struct 
-    {
-        const char *distro;
+        const char* distro;
         const int hits;
         QColor color;
 
@@ -125,35 +139,35 @@ BarChart::BarChart( QWidget *parent ):
     setAutoFillBackground( true );
     setPalette( QColor( "Linen" ) );
 
-    QwtPlotCanvas *canvas = new QwtPlotCanvas();
+    QwtPlotCanvas* canvas = new QwtPlotCanvas();
     canvas->setLineWidth( 2 );
     canvas->setFrameStyle( QFrame::Box | QFrame::Sunken );
     canvas->setBorderRadius( 10 );
 
     QPalette canvasPalette( QColor( "Plum" ) );
-    canvasPalette.setColor( QPalette::Foreground, QColor( "Indigo" ) );
+    canvasPalette.setColor( QPalette::WindowText, QColor( "Indigo" ) );
     canvas->setPalette( canvasPalette );
 
     setCanvas( canvas );
 
     setTitle( "DistroWatch Page Hit Ranking, April 2012" );
 
-    d_barChartItem = new DistroChartItem();
+    ChartItem* chartItem = new ChartItem();
 
     QVector< double > samples;
 
     for ( uint i = 0; i < sizeof( pageHits ) / sizeof( pageHits[ 0 ] ); i++ )
     {
-        d_distros += pageHits[ i ].distro;
+        m_distros += pageHits[ i ].distro;
         samples += pageHits[ i ].hits;
 
-        d_barChartItem->addDistro( 
-            pageHits[ i ].distro, pageHits[ i ].color );
+        chartItem->addDistro( pageHits[ i ].distro, pageHits[ i ].color );
     }
 
-    d_barChartItem->setSamples( samples );
+    chartItem->setSamples( samples );
+    chartItem->attach( this );
 
-    d_barChartItem->attach( this );
+    m_chartItem = chartItem;
 
     insertLegend( new QwtLegend() );
 
@@ -166,22 +180,22 @@ void BarChart::setOrientation( int o )
     const Qt::Orientation orientation =
         ( o == 0 ) ? Qt::Vertical : Qt::Horizontal;
 
-    int axis1 = QwtPlot::xBottom;
-    int axis2 = QwtPlot::yLeft;
+    int axis1 = QwtAxis::XBottom;
+    int axis2 = QwtAxis::YLeft;
 
     if ( orientation == Qt::Horizontal )
         qSwap( axis1, axis2 );
 
-    d_barChartItem->setOrientation( orientation );
+    m_chartItem->setOrientation( orientation );
 
     setAxisTitle( axis1, "Distros" );
     setAxisMaxMinor( axis1, 3 );
-    setAxisScaleDraw( axis1, new DistroScaleDraw( orientation, d_distros ) );
+    setAxisScaleDraw( axis1, new ScaleDraw( orientation, m_distros ) );
 
     setAxisTitle( axis2, "Hits per day ( HPD )" );
     setAxisMaxMinor( axis2, 3 );
 
-    QwtScaleDraw *scaleDraw = new QwtScaleDraw();
+    QwtScaleDraw* scaleDraw = new QwtScaleDraw();
     scaleDraw->setTickLength( QwtScaleDiv::MediumTick, 4 );
     setAxisScaleDraw( axis2, scaleDraw );
 
@@ -194,3 +208,54 @@ void BarChart::exportChart()
     QwtPlotRenderer renderer;
     renderer.exportTo( this, "distrowatch.pdf" );
 }
+
+void BarChart::doScreenShot()
+{
+    exportPNG( 800, 600 );
+}
+
+void BarChart::exportPNG( int width, int height )
+{
+    const QString fileBase = QString("distrowatch-%2x%3" ).arg( width ).arg( height);
+
+    const int resolution = qRound( 85.0 * width / 800.0 );
+
+    const double mmToInch = 1.0 / 25.4;
+    const int dotsPerMeter = qRound( resolution * mmToInch * 1000.0 );
+
+    QImage image( width, height, QImage::Format_ARGB32 );
+    image.setDotsPerMeterX( dotsPerMeter );
+    image.setDotsPerMeterY( dotsPerMeter );
+
+    image.fill( Qt::transparent );
+
+    QPainter painter( &image );
+    render( &painter, QRectF( 0, 0, width, height ) );
+    painter.end();
+
+    image.save( fileBase + ".png" );
+}
+
+void BarChart::render( QPainter* painter, const QRectF& targetRect )
+{
+    const int r = 20;
+    const QRectF plotRect = targetRect.adjusted( 0.5 * r, 0.5 * r, -0.5 * r, -0.5 * r );
+
+    QwtPlotRenderer renderer;
+
+    if ( qApp->styleSheet().isEmpty() )
+    {
+        renderer.setDiscardFlag( QwtPlotRenderer::DiscardBackground, true );
+
+        painter->save();
+        painter->setRenderHint( QPainter::Antialiasing, true );
+        painter->setPen( QPen( Qt::darkGray, 1 ) );
+        painter->setBrush( QColor( "WhiteSmoke" ) );
+        painter->drawRoundedRect( targetRect, r, r );
+        painter->restore();
+    }
+
+    renderer.render( this, painter, plotRect );
+}
+
+#include "moc_BarChart.cpp"

@@ -1,4 +1,4 @@
-/* -*- mode: C++ ; c-file-style: "stroustrup" -*- *****************************
+/******************************************************************************
  * Qwt Widget Library
  * Copyright (C) 1997   Josef Wilgen
  * Copyright (C) 2002   Uwe Rathmann
@@ -12,43 +12,43 @@
 
 #include "qwt_global.h"
 #include "qwt_dial.h"
-#include "qwt_dial_needle.h"
-#include <qdatetime.h>
+
+class QwtDialNeedle;
 
 /*!
-  \brief An analog clock
+   \brief An analog clock
 
-  \image html analogclock.png
+   \image html analogclock.png
 
-  \par Example
-  \code 
-  #include <qwt_analog_clock.h>
+   \par Example
+   \code
+ #include <qwt_analog_clock.h>
 
-  QwtAnalogClock *clock = new QwtAnalogClock(...);
-  clock->scaleDraw()->setPenWidth(3);
-  clock->setLineWidth(6);
-  clock->setFrameShadow(QwtDial::Sunken);
-  clock->setTime();
+   QwtAnalogClock *clock = new QwtAnalogClock(...);
+   clock->scaleDraw()->setPenWidth(3);
+   clock->setLineWidth(6);
+   clock->setFrameShadow(QwtDial::Sunken);
+   clock->setTime();
 
-  // update the clock every second
-  QTimer *timer = new QTimer(clock);
-  timer->connect(timer, SIGNAL(timeout()), clock, SLOT(setCurrentTime()));
-  timer->start(1000);
+   // update the clock every second
+   QTimer *timer = new QTimer(clock);
+   timer->connect(timer, SIGNAL(timeout()), clock, SLOT(setCurrentTime()));
+   timer->start(1000);
 
-  \endcode
+   \endcode
 
-  \note The examples/dials example shows how to use QwtAnalogClock.
-*/
+   \note The examples/dials example shows how to use QwtAnalogClock.
+ */
 
-class QWT_EXPORT QwtAnalogClock: public QwtDial
+class QWT_EXPORT QwtAnalogClock : public QwtDial
 {
     Q_OBJECT
 
-public:
+  public:
     /*!
         Hand type
         \sa setHand(), hand()
-    */
+     */
     enum Hand
     {
         //! Needle displaying the seconds
@@ -67,27 +67,27 @@ public:
     explicit QwtAnalogClock( QWidget* parent = NULL );
     virtual ~QwtAnalogClock();
 
-    void setHand( Hand, QwtDialNeedle * );
+    void setHand( Hand, QwtDialNeedle* );
 
-    const QwtDialNeedle *hand( Hand ) const;
-    QwtDialNeedle *hand( Hand );
+    const QwtDialNeedle* hand( Hand ) const;
+    QwtDialNeedle* hand( Hand );
 
-public Q_SLOTS:
+  public Q_SLOTS:
     void setCurrentTime();
-    void setTime( const QTime & );
+    void setTime( const QTime& );
 
-protected:
-    virtual void drawNeedle( QPainter *, const QPointF &,
+  protected:
+    virtual void drawNeedle( QPainter*, const QPointF&, double radius,
+        double direction, QPalette::ColorGroup ) const QWT_OVERRIDE;
+
+    virtual void drawHand( QPainter*, Hand, const QPointF&,
         double radius, double direction, QPalette::ColorGroup ) const;
 
-    virtual void drawHand( QPainter *, Hand, const QPointF &,
-        double radius, double direction, QPalette::ColorGroup ) const;
-
-private:
+  private:
     // use setHand instead
-    void setNeedle( QwtDialNeedle * );
+    void setNeedle( QwtDialNeedle* );
 
-    QwtDialNeedle *d_hand[NHands];
+    QwtDialNeedle* m_hand[NHands];
 };
 
 #endif

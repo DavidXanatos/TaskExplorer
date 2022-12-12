@@ -1,11 +1,15 @@
-#ifndef _SETTINGS_
-#define _SETTINGS_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include <qstring.h>
+#pragma once
+
+#include <QString>
 
 class Settings
 {
-public:
+  public:
     Settings()
     {
         legend.isEnabled = false;
@@ -20,7 +24,7 @@ public:
         curve.numCurves = 0;
         curve.title = "Curve";
     }
-    
+
     struct
     {
         bool isEnabled;
@@ -34,14 +38,12 @@ public:
         int alignment;
         int backgroundMode;
         int size;
-        
+
     } legendItem;
-    
+
     struct
     {
         int numCurves;
         QString title;
     } curve;
 };
-
-#endif

@@ -1,82 +1,87 @@
-#include "panel.h"
-#include "settings.h"
-#include <qwt_date.h>
-#include <qdatetimeedit.h>
-#include <qspinbox.h>
-#include <qlayout.h>
-#include <qlabel.h>
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-Panel::Panel( QWidget *parent ):
-    QWidget( parent )
+#include "Panel.h"
+#include "Settings.h"
+
+#include <QDateTimeEdit>
+#include <QSpinBox>
+#include <QLayout>
+#include <QLabel>
+
+Panel::Panel( QWidget* parent )
+    : QWidget( parent )
 {
     // create widgets
 
-    d_startDateTime = new QDateTimeEdit();
-    d_startDateTime->setDisplayFormat( "M/d/yyyy h:mm AP :zzz" );
-    d_startDateTime->setCalendarPopup( true );
+    m_startDateTime = new QDateTimeEdit();
+    m_startDateTime->setDisplayFormat( "M/d/yyyy h:mm AP :zzz" );
+    m_startDateTime->setCalendarPopup( true );
 
-    d_endDateTime = new QDateTimeEdit();
-    d_endDateTime->setDisplayFormat( "M/d/yyyy h:mm AP :zzz" );
-    d_endDateTime->setCalendarPopup( true );
-    
-    d_maxMajorSteps = new QSpinBox();
-    d_maxMajorSteps->setRange( 0, 50 );
+    m_endDateTime = new QDateTimeEdit();
+    m_endDateTime->setDisplayFormat( "M/d/yyyy h:mm AP :zzz" );
+    m_endDateTime->setCalendarPopup( true );
 
-    d_maxMinorSteps = new QSpinBox();
-    d_maxMinorSteps->setRange( 0, 50 );
+    m_maxMajorSteps = new QSpinBox();
+    m_maxMajorSteps->setRange( 0, 50 );
 
-    d_maxWeeks = new QSpinBox();
-    d_maxWeeks->setRange( -1, 100 );
-    d_maxWeeks->setSpecialValueText( "Disabled" );
+    m_maxMinorSteps = new QSpinBox();
+    m_maxMinorSteps->setRange( 0, 50 );
+
+    m_maxWeeks = new QSpinBox();
+    m_maxWeeks->setRange( -1, 100 );
+    m_maxWeeks->setSpecialValueText( "Disabled" );
 
     // layout
 
-    QGridLayout *layout = new QGridLayout( this );
+    QGridLayout* layout = new QGridLayout( this );
     layout->setAlignment( Qt::AlignLeft | Qt::AlignTop );
 
     int row = 0;
     layout->addWidget( new QLabel( "From" ), row, 0 );
-    layout->addWidget( d_startDateTime, row, 1 );
+    layout->addWidget( m_startDateTime, row, 1 );
 
     row++;
     layout->addWidget( new QLabel( "To" ), row, 0 );
-    layout->addWidget( d_endDateTime, row, 1 );
+    layout->addWidget( m_endDateTime, row, 1 );
 
     row++;
     layout->addWidget( new QLabel( "Max. Major Steps" ), row, 0 );
-    layout->addWidget( d_maxMajorSteps, row, 1 );
+    layout->addWidget( m_maxMajorSteps, row, 1 );
 
     row++;
     layout->addWidget( new QLabel( "Max. Minor Steps" ), row, 0 );
-    layout->addWidget( d_maxMinorSteps, row, 1 );
+    layout->addWidget( m_maxMinorSteps, row, 1 );
 
     row++;
     layout->addWidget( new QLabel( "Max Weeks" ), row, 0 );
-    layout->addWidget( d_maxWeeks, row, 1 );
+    layout->addWidget( m_maxWeeks, row, 1 );
 
-    connect( d_startDateTime,
-        SIGNAL( dateTimeChanged( const QDateTime & ) ), SIGNAL( edited() ) );
-    connect( d_endDateTime,
-        SIGNAL( dateTimeChanged( const QDateTime & ) ), SIGNAL( edited() ) );
-    connect( d_maxMajorSteps,
-        SIGNAL( valueChanged( int ) ), SIGNAL( edited() ) );
-    connect( d_maxMinorSteps,
-        SIGNAL( valueChanged( int ) ), SIGNAL( edited() ) );
-    connect( d_maxWeeks,
-        SIGNAL( valueChanged( int ) ), SIGNAL( edited() ) );
+    connect( m_startDateTime,
+        SIGNAL(dateTimeChanged(const QDateTime&)), SIGNAL(edited()) );
+    connect( m_endDateTime,
+        SIGNAL(dateTimeChanged(const QDateTime&)), SIGNAL(edited()) );
+    connect( m_maxMajorSteps,
+        SIGNAL(valueChanged(int)), SIGNAL(edited()) );
+    connect( m_maxMinorSteps,
+        SIGNAL(valueChanged(int)), SIGNAL(edited()) );
+    connect( m_maxWeeks,
+        SIGNAL(valueChanged(int)), SIGNAL(edited()) );
 }
 
-void Panel::setSettings( const Settings &settings )
+void Panel::setSettings( const Settings& settings )
 {
     blockSignals( true );
 
-    d_startDateTime->setDateTime( settings.startDateTime );
-    d_endDateTime->setDateTime( settings.endDateTime );
+    m_startDateTime->setDateTime( settings.startDateTime );
+    m_endDateTime->setDateTime( settings.endDateTime );
 
-    d_maxMajorSteps->setValue( settings.maxMajorSteps );
-    d_maxMinorSteps->setValue( settings.maxMinorSteps );
-    d_maxWeeks->setValue( settings.maxWeeks );
-        
+    m_maxMajorSteps->setValue( settings.maxMajorSteps );
+    m_maxMinorSteps->setValue( settings.maxMinorSteps );
+    m_maxWeeks->setValue( settings.maxWeeks );
+
     blockSignals( false );
 }
 
@@ -84,12 +89,14 @@ Settings Panel::settings() const
 {
     Settings settings;
 
-    settings.startDateTime = d_startDateTime->dateTime();
-    settings.endDateTime = d_endDateTime->dateTime();
+    settings.startDateTime = m_startDateTime->dateTime();
+    settings.endDateTime = m_endDateTime->dateTime();
 
-    settings.maxMajorSteps = d_maxMajorSteps->value();
-    settings.maxMinorSteps = d_maxMinorSteps->value();
-    settings.maxWeeks = d_maxWeeks->value();
+    settings.maxMajorSteps = m_maxMajorSteps->value();
+    settings.maxMinorSteps = m_maxMinorSteps->value();
+    settings.maxWeeks = m_maxWeeks->value();
 
     return settings;
 }
+
+#include "moc_Panel.cpp"

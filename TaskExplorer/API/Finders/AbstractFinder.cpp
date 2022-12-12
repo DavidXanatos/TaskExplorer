@@ -21,7 +21,7 @@ CAbstractFinder::~CAbstractFinder()
 		terminate();
 }
 
-CAbstractFinder* CAbstractFinder::FindHandles(const QVariant& Type, const QRegExp& RegExp)
+CAbstractFinder* CAbstractFinder::FindHandles(const QVariant& Type, const QRegularExpression& RegExp)
 {
 #ifdef WIN32
 	return new CWinHandleFinder(Type, RegExp);
@@ -30,7 +30,7 @@ CAbstractFinder* CAbstractFinder::FindHandles(const QVariant& Type, const QRegEx
 #endif // WIN32
 }
 
-CAbstractFinder* CAbstractFinder::FindModules(const QVariant& Type, const QRegExp& RegExp)
+CAbstractFinder* CAbstractFinder::FindModules(const QVariant& Type, const QRegularExpression& RegExp)
 {
 #ifdef WIN32
 	return new CWinModuleFinder(Type, RegExp);
@@ -39,7 +39,7 @@ CAbstractFinder* CAbstractFinder::FindModules(const QVariant& Type, const QRegEx
 #endif // WIN32
 }
 
-CAbstractFinder* CAbstractFinder::FindStrings(const SMemOptions& Options, const QRegExp& RegExp, const CProcessPtr& pProcess)
+CAbstractFinder* CAbstractFinder::FindStrings(const SMemOptions& Options, const QRegularExpression& RegExp, const CProcessPtr& pProcess)
 {
 #ifdef WIN32
 	return new CWinStringFinder(Options, RegExp, pProcess);

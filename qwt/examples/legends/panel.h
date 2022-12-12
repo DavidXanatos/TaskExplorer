@@ -1,52 +1,54 @@
-#ifndef _PANEL_
-#define _PANEL_
+/*****************************************************************************
+ * Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
 
-#include "settings.h"
-#include <qwidget.h>
+#pragma once
+
+#include "Settings.h"
+#include <QWidget>
 
 class QCheckBox;
 class QComboBox;
 class QSpinBox;
 class QLineEdit;
 
-class Panel: public QWidget
+class Panel : public QWidget
 {
     Q_OBJECT
 
-public:
-    Panel( QWidget *parent = NULL );
+  public:
+    Panel( QWidget* parent = NULL );
 
-    void setSettings( const Settings &);
+    void setSettings( const Settings&);
     Settings settings() const;
-    
-Q_SIGNALS:
+
+  Q_SIGNALS:
     void edited();
 
-private:
+  private:
     struct
     {
-        QCheckBox *checkBox;
-        QComboBox *positionBox;
+        QCheckBox* checkBox;
+        QComboBox* positionBox;
 
-    } d_legend;
-
-    struct
-    {
-        QCheckBox *checkBox;
-        QSpinBox *numColumnsBox;
-        QComboBox *hAlignmentBox;
-        QComboBox *vAlignmentBox;
-        QComboBox *backgroundBox;
-        QSpinBox *sizeBox;
-
-    } d_legendItem;
+    } m_legend;
 
     struct
     {
-        QSpinBox *numCurves;
-        QLineEdit *title;
+        QCheckBox* checkBox;
+        QSpinBox* numColumnsBox;
+        QComboBox* hAlignmentBox;
+        QComboBox* vAlignmentBox;
+        QComboBox* backgroundBox;
+        QSpinBox* sizeBox;
 
-    } d_curve;
+    } m_legendItem;
+
+    struct
+    {
+        QSpinBox* numCurves;
+        QLineEdit* title;
+
+    } m_curve;
 };
-
-#endif

@@ -75,7 +75,7 @@ QList<SNtObjectInfo> EnumDirectoryObjects(const QString& ObjectPath)
 {
 	DIRECTORY_ENUM_CONTEXT enumContext;
 
-	wstring Name = ObjectPath.toStdWString();
+	std::wstring Name = ObjectPath.toStdWString();
 
     HANDLE directoryHandle;
     OBJECT_ATTRIBUTES oa;
@@ -151,7 +151,7 @@ void CNtObjectModel::fetchMore(const QModelIndex &parent)
 	{
 		beginInsertRows(parent, 0, FoundObjects.size()-1);
 		for(QMap<QList<QVariant>, QList<STreeNode*> >::const_iterator I = New.begin(); I != New.end(); I++)
-			Fill(m_Root, QModelIndex(), I.key(), 0, I.value(), I.key());
+			Fill(m_Root, QModelIndex(), I.key(), 0, I.value(), I.key(), NULL);
 		endInsertRows();
 	}
 }

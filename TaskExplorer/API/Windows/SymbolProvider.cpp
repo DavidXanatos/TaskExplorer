@@ -4,22 +4,10 @@
  *
  * Copyright (C) 2010-2016 wj32
  * Copyright (C) 2017-2019 dmex
- * Copyright (C) 2019 David Xanatos
+ * Copyright (C) 2019-2022 David Xanatos
  *
- * This file is part of Task Explorer and contains Process Hacker code.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is part of Task Explorer and contains System Informer code.
+ * 
  */
 
 #include "stdafx.h"
@@ -27,7 +15,9 @@
 #include "WindowsAPI.h"
 #include "ProcessHacker.h"
 #include "../../../MiscHelpers/Common/Common.h"
+extern "C" {
 #include "./ProcessHacker/clrsup.h"
+}
 #include "../../SVC/TaskService.h"
 #include "../../../MiscHelpers/Common/Settings.h"
 
@@ -93,68 +83,24 @@ VOID __stdcall SymbolProviderEventCallbackHandler(
     PPH_SYMBOL_EVENT_DATA event = (PPH_SYMBOL_EVENT_DATA)Parameter;
     CSymbolProvider* This = (CSymbolProvider*)Context;
     PPH_STRING statusMessage = NULL;
+    ULONG statusProgress = 0;
 
-    switch (event->ActionCode)
+    if (!event) return;
+
+    switch (event->EventType)
     {
-    case CBA_DEFERRED_SYMBOL_LOAD_START:
-    case CBA_DEFERRED_SYMBOL_LOAD_COMPLETE:
-    case CBA_DEFERRED_SYMBOL_LOAD_FAILURE:
-    case CBA_SYMBOLS_UNLOADED:
-        {
-            PIMAGEHLP_DEFERRED_SYMBOL_LOADW64 callbackData = (PIMAGEHLP_DEFERRED_SYMBOL_LOADW64)event->EventData;
-            PPH_STRING fileName = NULL;
-
-            if (callbackData->FileName[0] != UNICODE_NULL)
-            {
-                fileName = PhCreateString(callbackData->FileName);
-                PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
-            }
-
-            switch (event->ActionCode)
-            {
-            case CBA_DEFERRED_SYMBOL_LOAD_START:
-                statusMessage = PhFormatString(L"Loading symbols from %s...", PhGetStringOrEmpty(fileName));
-                break;
-            case CBA_DEFERRED_SYMBOL_LOAD_COMPLETE:
-                statusMessage = PhFormatString(L"Loaded symbols from %s...", PhGetStringOrEmpty(fileName));
-                break;
-            case CBA_DEFERRED_SYMBOL_LOAD_FAILURE:
-                statusMessage = PhFormatString(L"Failed to load symbols from %s...", PhGetStringOrEmpty(fileName));
-                break;
-            case CBA_SYMBOLS_UNLOADED:
-                statusMessage = PhFormatString(L"Unloading symbols from %s...", PhGetStringOrEmpty(fileName));
-                break;
-            }
-
-            if (fileName)
-                PhDereferenceObject(fileName);
-        }
+    case PH_SYMBOL_EVENT_TYPE_LOAD_START:
+        statusMessage = (PPH_STRING)PhReferenceObject(event->EventMessage);
         break;
-    case CBA_READ_MEMORY:
-        {
-            PIMAGEHLP_CBA_READ_MEMORY callbackEvent = (PIMAGEHLP_CBA_READ_MEMORY)event->EventData;
-            //statusMessage = PhFormatString(L"Reading %lu bytes of memory from %I64u...", callbackEvent->bytes, callbackEvent->addr);
-        }
+    case PH_SYMBOL_EVENT_TYPE_LOAD_END:
+        statusMessage = PhCreateString(L"Loading symbols...");
         break;
-    case CBA_EVENT:
-        {
-            PIMAGEHLP_CBA_EVENTW callbackEvent = (PIMAGEHLP_CBA_EVENTW)event->EventData;
-            statusMessage = PhFormatString(L"%s", callbackEvent->desc);
-        }
-        break;
-    case CBA_DEBUG_INFO:
-        {
-            statusMessage = PhFormatString(L"%s", event->EventData);
-        }
-        break;
-    case CBA_ENGINE_PRESENT:
-    case CBA_DEFERRED_SYMBOL_LOAD_PARTIAL:
-    case CBA_DEFERRED_SYMBOL_LOAD_CANCEL:
-    default:
-        {
-            //statusMessage = PhFormatString(L"Unknown: %lu", event->ActionCode);
-        }
-        break;
+    case PH_SYMBOL_EVENT_TYPE_PROGRESS:
+    {
+        statusMessage = (PPH_STRING)PhReferenceObject(event->EventMessage);
+        statusProgress = (ULONG)event->EventProgress;
+    }
+    break;
     }
 
     if (statusMessage)
@@ -300,7 +246,9 @@ BOOLEAN __stdcall LoadSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Mod
         return TRUE;
     }
 
-    PhLoadModuleSymbolProvider(symbolProvider, Module->FileNameWin32->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
+    PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
+    PhLoadModuleSymbolProvider(symbolProvider, Name, (ULONG64)Module->BaseAddress, Module->Size);
+    PhDereferenceObject(Name);
 
     return TRUE;
 }
@@ -317,7 +265,9 @@ BOOLEAN LoadBasicSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, 
     if (PhEqualString2(Module->Name, L"ntdll.dll", TRUE) ||
         PhEqualString2(Module->Name, L"kernel32.dll", TRUE))
     {
-        PhLoadModuleSymbolProvider(symbolProvider, Module->FileNameWin32->Buffer, (ULONG64)Module->BaseAddress, Module->Size);
+        PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
+        PhLoadModuleSymbolProvider(symbolProvider, Name, (ULONG64)Module->BaseAddress, Module->Size);
+        PhDereferenceObject(Name);
     }
 
     return TRUE;
@@ -363,15 +313,9 @@ VOID PhLoadSymbolsThreadProvider(SSymbolProvider* m)
         {
             if (kernelModules->NumberOfModules > 0)
             {
-                PPH_STRING fileName;
-                PPH_STRING newFileName;
-
-                fileName = PhConvertMultiByteToUtf16((PSTR)kernelModules->Modules[0].FullPathName);
-                newFileName = PhGetFileName(fileName);
+                PPH_STRING fileName = PhConvertMultiByteToUtf16((PSTR)kernelModules->Modules[0].FullPathName);
+                PhLoadModuleSymbolProvider(m->SymbolProvider, fileName, (ULONG64)kernelModules->Modules[0].ImageBase, kernelModules->Modules[0].ImageSize);
                 PhDereferenceObject(fileName);
-
-                PhLoadModuleSymbolProvider(m->SymbolProvider, newFileName->Buffer, (ULONG64)kernelModules->Modules[0].ImageBase, kernelModules->Modules[0].ImageSize);
-                PhDereferenceObject(newFileName);
             }
 
             PhFree(kernelModules);
@@ -516,7 +460,7 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
 
 	if (!NT_SUCCESS(status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, (HANDLE)m_ThreadId)))
     {
-        if (KphIsConnected())
+        if (KphCommsIsConnected())
         {
             status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)m_ThreadId);
         }

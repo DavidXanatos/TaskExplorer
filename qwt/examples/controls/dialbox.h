@@ -1,25 +1,31 @@
-#ifndef _DIAL_BOX_H_
-#define _DIAL_BOX_H_
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
-#include <qwidget.h>
+#pragma once
+
+#include <QWidget>
 
 class QLabel;
 class QwtDial;
 
-class DialBox: public QWidget
+class DialBox : public QWidget
 {
     Q_OBJECT
-public:
-    DialBox( QWidget *parent, int type );
+  public:
+    DialBox( QWidget* parent, int type );
 
-private Q_SLOTS:
+  private Q_SLOTS:
     void setNum( double v );
 
-private:
-    QwtDial *createDial( int type ) const;
+  private:
+    QwtDial* createDial( int type ) const;
 
-    QwtDial *d_dial;
-    QLabel *d_label;
+    QwtDial* m_dial;
+    QLabel* m_label;
 };
-
-#endif

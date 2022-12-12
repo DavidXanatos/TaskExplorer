@@ -211,12 +211,12 @@ void CTaskService::receiveConnection()
 				DWORD newStartType = Parameters["StartType"].toULongLong();
 				DWORD newErrorControl = Parameters["ErrorControl"].toULongLong();
 
-				wstring BinaryPathName = Parameters.value("BinaryPathName").toString().toStdWString();
-				wstring LoadOrderGroup = Parameters.value("LoadOrderGroup").toString().toStdWString();
+				std::wstring BinaryPathName = Parameters.value("BinaryPathName").toString().toStdWString();
+				std::wstring LoadOrderGroup = Parameters.value("LoadOrderGroup").toString().toStdWString();
 				
 				DWORD newTagId = Parameters.value("LocalAdTagIddress").toUInt();
 				
-				wstring Dependencies;
+				std::wstring Dependencies;
 				foreach(const QString& service, Parameters.value("Dependencies").toStringList())
 				{
 					Dependencies.append(service.toStdWString());
@@ -224,9 +224,9 @@ void CTaskService::receiveConnection()
 				}
 				Dependencies.push_back(L'\0');
 				
-				wstring ServiceStartName = Parameters.value("ServiceStartName").toString().toStdWString();
-				wstring Password = Parameters.value("Password").toString().toStdWString();
-				wstring DisplayName = Parameters.value("DisplayName").toString().toStdWString();
+				std::wstring ServiceStartName = Parameters.value("ServiceStartName").toString().toStdWString();
+				std::wstring Password = Parameters.value("Password").toString().toStdWString();
+				std::wstring DisplayName = Parameters.value("DisplayName").toString().toStdWString();
 
 
 				if (!ChangeServiceConfig(
@@ -372,12 +372,7 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, cons
 		{
 			if (Action == "SetPriority")
 			{
-				PROCESS_PRIORITY_CLASS priorityClass;
-
-				priorityClass.Foreground = FALSE;
-				priorityClass.PriorityClass = (UCHAR)Data.toUInt();
-
-				status = PhSetProcessPriority(processHandle, priorityClass);
+				status = PhSetProcessPriority(processHandle, (UCHAR)Data.toUInt());
 			}
 			else if (Action == "SetPagePriority")
 			{
@@ -484,7 +479,7 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 {
 #ifdef WIN32
     NTSTATUS status = 0;
-	wstring SvcName = Name.toStdWString();
+	std::wstring SvcName = Name.toStdWString();
 	SC_HANDLE serviceHandle = NULL;
 	if (Action == "Start")
 	{
@@ -635,7 +630,7 @@ QString CTaskService::RunWorker(bool bElevanted)
 	SocketName = TASK_SERVICE_NAME;
 	SocketName += "_" + GetRand64Str();
 
-	wstring Arguments = L"-wrk \"" + SocketName.toStdWString() + L"\"";
+	std::wstring Arguments = L"-wrk \"" + SocketName.toStdWString() + L"\"";
 #if 0
 	Arguments.append(L" -timeout 50000");
 	Arguments.append(L" -dbg_wait");
@@ -770,7 +765,7 @@ bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 		if (!(scManagerHandle = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE)))
 			return false; //PhGetLastWin32ErrorAsNtStatus();
 
-		wstring CommandLine = L"\"" + BinaryPath.toStdWString() + L"\" -svc \"" + ServiceName.toStdWString() + L"\"";
+		std::wstring CommandLine = L"\"" + BinaryPath.toStdWString() + L"\" -svc \"" + ServiceName.toStdWString() + L"\"";
 #if 0
 		CommandLine.append(L" -timeout 50000");
 		CommandLine.append(L" -dbg_wait");

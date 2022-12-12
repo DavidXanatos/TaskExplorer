@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   http/http2/dns wrappers
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017-2022 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017-2022
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -88,7 +77,7 @@ BOOLEAN PhHttpSocketCreate(
         WinHttpSetOption(
             httpContext->SessionHandle,
             WINHTTP_OPTION_SECURE_PROTOCOLS,
-            &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3 },
+            &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3 },
             sizeof(ULONG)
             );
 
@@ -107,6 +96,18 @@ BOOLEAN PhHttpSocketCreate(
                 &(ULONG){ WINHTTP_PROTOCOL_FLAG_HTTP2 },
                 sizeof(ULONG)
                 );
+        }
+
+        if (WindowsVersion >= WINDOWS_11)
+        {
+#ifdef WINHTTP_OPTION_DISABLE_GLOBAL_POOLING
+            WinHttpSetOption(
+                httpContext->SessionHandle,
+                WINHTTP_OPTION_DISABLE_GLOBAL_POOLING,
+                &(ULONG){ TRUE },
+                sizeof(ULONG)
+                );
+#endif
         }
     }
 
@@ -291,8 +292,8 @@ BOOLEAN PhHttpSocketSendRequest(
 {
     return !!WinHttpSendRequest(
         HttpContext->RequestHandle,
-        WINHTTP_NO_ADDITIONAL_HEADERS, 
-        0, 
+        WINHTTP_NO_ADDITIONAL_HEADERS,
+        0,
         RequestData,
         RequestDataLength,
         RequestDataLength,
@@ -344,8 +345,8 @@ BOOLEAN PhHttpSocketAddRequestHeaders(
     )
 {
     return !!WinHttpAddRequestHeaders(
-        HttpContext->RequestHandle, 
-        Headers, 
+        HttpContext->RequestHandle,
+        Headers,
         HeadersLength ? HeadersLength : ULONG_MAX,
         WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE
         );
@@ -461,7 +462,7 @@ BOOLEAN PhHttpSocketQueryHeaderUlong(
         *HeaderValue = headerValue;
         return TRUE;
     }
- 
+
     return FALSE;
 }
 
@@ -483,7 +484,7 @@ ULONG PhHttpSocketQueryStatusCode(
     {
         return headerValue;
     }
- 
+
     return ULONG_MAX;
 }
 
@@ -645,26 +646,23 @@ PVOID PhHttpSocketDownloadString(
 
 NTSTATUS PhHttpSocketDownloadToFile(
     _In_ PPH_HTTP_CONTEXT HttpContext,
-    _In_ PWSTR FileName,
+    _In_ PPH_STRINGREF FileName,
     _In_ PPH_HTTPDOWNLOAD_CALLBACK Callback,
     _In_opt_ PVOID Context
     )
 {
-    static PH_STRINGREF tempFilePath = PH_STRINGREF_INIT(L"%TEMP%\\");
     NTSTATUS status;
     HANDLE fileHandle;
-    LARGE_INTEGER allocationSize;
+    LARGE_INTEGER fileSize;
     ULONG numberOfBytesTotal = 0;
     ULONG numberOfBytesRead = 0;
     ULONG64 numberOfBytesReadTotal = 0;
     ULONG64 timeTicks;
     LARGE_INTEGER timeNow;
     LARGE_INTEGER timeStart;
-    PPH_STRING tempDirectory;
-    PPH_STRING tempFileName;
+    PPH_STRING fileName;
     PH_HTTPDOWNLOAD_CONTEXT context;
     IO_STATUS_BLOCK isb;
-    WCHAR alphaString[32] = L"";
     BYTE buffer[PAGE_SIZE];
 
     PhQuerySystemTime(&timeStart);
@@ -675,16 +673,17 @@ NTSTATUS PhHttpSocketDownloadToFile(
     if (numberOfBytesTotal == 0)
         return STATUS_UNSUCCESSFUL;
 
-    tempDirectory = PhExpandEnvironmentStrings(&tempFilePath);
-    PhGenerateRandomAlphaString(alphaString, RTL_NUMBER_OF(alphaString));
-    tempFileName = PhConcatStrings2(PhGetString(tempDirectory), alphaString);
+    fileName = PhGetTemporaryDirectoryRandomAlphaFileName();
+    fileSize.QuadPart = numberOfBytesTotal;
 
-    allocationSize.QuadPart = numberOfBytesTotal;
+    if (PhIsNullOrEmptyString(fileName))
+        return STATUS_UNSUCCESSFUL;
+
     status = PhCreateFileWin32Ex(
         &fileHandle,
-        PhGetString(tempFileName),
+        PhGetString(fileName),
         FILE_GENERIC_WRITE,
-        &allocationSize,
+        &fileSize,
         FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         FILE_CREATE,
@@ -694,8 +693,7 @@ NTSTATUS PhHttpSocketDownloadToFile(
 
     if (!NT_SUCCESS(status))
     {
-        PhDereferenceObject(tempFileName);
-        PhDereferenceObject(tempDirectory);
+        PhDereferenceObject(fileName);
         return status;
     }
 
@@ -757,32 +755,15 @@ NTSTATUS PhHttpSocketDownloadToFile(
 
     if (NT_SUCCESS(status))
     {
-        ULONG indexOfFileName;
-        PPH_STRING fullPath;
-        PPH_STRING directoryName;
-
-        if (fullPath = PhGetFullPath(FileName, &indexOfFileName))
-        {
-            if (indexOfFileName != ULONG_MAX)
-            {
-                directoryName = PhSubstring(fullPath, 0, indexOfFileName);
-
-                status = PhCreateDirectory(directoryName);
-
-                PhDereferenceObject(directoryName);
-            }
-
-            PhDereferenceObject(fullPath);
-        }
+        status = PhCreateDirectoryFullPathWin32(FileName);
 
         if (NT_SUCCESS(status))
         {
-            status = PhMoveFileWin32(PhGetString(tempFileName), FileName);
+            status = PhMoveFileWin32(PhGetString(fileName), PhGetStringRefZ(FileName), FALSE);
         }
     }
 
-    PhDereferenceObject(tempFileName);
-    PhDereferenceObject(tempDirectory);
+    PhDereferenceObject(fileName);
 
     return status;
 }
@@ -902,9 +883,9 @@ BOOLEAN PhHttpSocketSetCredentials(
     )
 {
     return !!WinHttpSetCredentials(
-        HttpContext->RequestHandle, 
-        WINHTTP_AUTH_TARGET_SERVER, 
-        WINHTTP_AUTH_SCHEME_BASIC, 
+        HttpContext->RequestHandle,
+        WINHTTP_AUTH_TARGET_SERVER,
+        WINHTTP_AUTH_SCHEME_BASIC,
         Name,
         Value,
         NULL
@@ -943,7 +924,7 @@ HINTERNET PhpCreateDohConnectionHandle(
                 WinHttpSetOption(
                     httpSessionHandle,
                     WINHTTP_OPTION_SECURE_PROTOCOLS,
-                    &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3 },
+                    &(ULONG){ WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3 },
                     sizeof(ULONG)
                     );
 
@@ -962,6 +943,18 @@ HINTERNET PhpCreateDohConnectionHandle(
                         &(ULONG){ WINHTTP_PROTOCOL_FLAG_HTTP2 },
                         sizeof(ULONG)
                         );
+                }
+
+                if (WindowsVersion >= WINDOWS_11)
+                {
+#ifdef WINHTTP_OPTION_DISABLE_GLOBAL_POOLING
+                    WinHttpSetOption(
+                        httpSessionHandle,
+                        WINHTTP_OPTION_DISABLE_GLOBAL_POOLING,
+                        &(ULONG){ TRUE },
+                        sizeof(ULONG)
+                        );
+#endif
                 }
             }
 
@@ -1229,6 +1222,11 @@ PDNS_RECORD PhHttpDnsQuery(
     //        &optionLength
     //        ))
     //    {
+    //        if (option & WINHTTP_PROTOCOL_FLAG_HTTP3)
+    //        {
+    //            dprintf("HTTP3 socket\n");
+    //        }
+    //
     //        if (option & WINHTTP_PROTOCOL_FLAG_HTTP2)
     //        {
     //            dprintf("HTTP2 socket\n");

@@ -13,14 +13,14 @@ CSbieView::CSbieView(QWidget *parent)
 	:QWidget(parent)
 {
 	QVBoxLayout* m_pMainLayout = new QVBoxLayout();
-	//m_pMainLayout->setMargin(0);
+	//m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
 
 	m_GeneralWidget = new QWidget();
 	m_pMainLayout->addWidget(m_GeneralWidget);
 
 	m_pGeneralLayout = new QGridLayout();
-	//m_pGeneralLayout->setMargin(0);
+	//m_pGeneralLayout->setContentsMargins(0, 0, 0, 0);
 	m_GeneralWidget->setLayout(m_pGeneralLayout);
 	int row = 0;
 
@@ -210,7 +210,7 @@ void CSbieView::ShowProcesses(const QList<CProcessPtr>& Processes)
 				if (Color.isValid())
 				{
 					for (int i = 0; i < pItem->columnCount(); i++)
-						pItem->setBackgroundColor(i, Color);
+						pItem->setBackground(i, Color);
 				}
 				pTree->GetTree()->addTopLevelItem(pItem);
 			}

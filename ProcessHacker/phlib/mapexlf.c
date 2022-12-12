@@ -1,23 +1,12 @@
 /*
- * Process Hacker -
- *   ELF library support
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
  *
- * Copyright (C) 2017 dmex
+ * This file is part of System Informer.
  *
- * This file is part of Process Hacker.
+ * Authors:
  *
- * Process Hacker is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *     dmex    2017
  *
- * Process Hacker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Process Hacker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ph.h>
@@ -36,9 +25,9 @@ NTSTATUS PhInitializeMappedWslImage(
     __try
     {
         PhProbeAddress(
-            MappedWslImage->Header, 
-            sizeof(ELF_IMAGE_HEADER), 
-            MappedWslImage->ViewBase, 
+            MappedWslImage->Header,
+            sizeof(ELF_IMAGE_HEADER),
+            MappedWslImage->ViewBase,
             MappedWslImage->Size,
             1
             );
@@ -62,10 +51,10 @@ NTSTATUS PhInitializeMappedWslImage(
         __try
         {
             PhProbeAddress(
-                MappedWslImage->Headers64, 
-                sizeof(ELF64_IMAGE_SECTION_HEADER), 
-                MappedWslImage->ViewBase, 
-                MappedWslImage->Size, 
+                MappedWslImage->Headers64,
+                sizeof(ELF64_IMAGE_SECTION_HEADER),
+                MappedWslImage->ViewBase,
+                MappedWslImage->Size,
                 1
                 );
         }
@@ -302,7 +291,7 @@ BOOLEAN PhGetMappedWslImageSections(
 
     // Get the string table (The string table is an array of null terminated strings).
     stringTableAddress = PTR_ADD_OFFSET(MappedWslImage->Header, stringSection->sh_offset);
-                                                                                  
+
     // Enumerate the sections.
     for (i = 0; i < count; i++)
     {
@@ -443,7 +432,7 @@ BOOLEAN PhGetMappedWslImageSymbols(
         entry = PTR_ADD_OFFSET(MappedWslImage->Header, section->sh_offset);
         stringTable = PhGetMappedWslImageSectionData(MappedWslImage, NULL, section->sh_link);
 
-        // NOTE: SHT_DYNSYM entries include the version in the symbol name (e.g. printf@GLIBC_2.2.5) 
+        // NOTE: SHT_DYNSYM entries include the version in the symbol name (e.g. printf@GLIBC_2.2.5)
         // instead of using a version record entry from the SHT_SUNW_versym section -dmex
         versionTable = PhGetMappedWslImageSectionDataByType(MappedWslImage, SHT_SUNW_versym);
         versionRecords = PhpParseMappedWslImageVersionRecords(MappedWslImage, stringTable);

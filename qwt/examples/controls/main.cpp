@@ -1,41 +1,60 @@
-#include <qapplication.h>
-#include <qtabwidget.h>
-#include "slidertab.h"
-#include "wheeltab.h"
-#include "knobtab.h"
-#include "dialtab.h"
+/*****************************************************************************
+ * Qwt Examples
+ * Copyright (C) 1997   Josef Wilgen
+ * Copyright (C) 2002   Uwe Rathmann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the Qwt License, Version 1.0
+ *****************************************************************************/
 
+#include "SliderTab.h"
+#include "WheelTab.h"
+#include "KnobTab.h"
+#include "DialTab.h"
 
-int main ( int argc, char **argv )
+#include <QApplication>
+#include <QTabWidget>
+
+namespace
 {
-    QApplication a( argc, argv );
+    class TabWidget : public QTabWidget
+    {
+      public:
+        TabWidget()
+        {
+            SliderTab* sliderTab = new SliderTab();
+            sliderTab->setAutoFillBackground( true );
+            sliderTab->setPalette( QColor( "DimGray" ) );
 
-    QTabWidget tabWidget;
+            WheelTab* wheelTab = new WheelTab();
+            wheelTab->setAutoFillBackground( true );
+            wheelTab->setPalette( QColor( "Silver" ) );
 
-    SliderTab *sliderTab = new SliderTab();
-    sliderTab->setAutoFillBackground( true );
-    sliderTab->setPalette( QColor( "DimGray" ) );
+            KnobTab* knobTab = new KnobTab();
+            knobTab->setAutoFillBackground( true );
+            knobTab->setPalette( Qt::darkGray );
 
-    WheelTab *wheelTab = new WheelTab();
-    wheelTab->setAutoFillBackground( true );
-    wheelTab->setPalette( QColor( "Silver" ) );
+            DialTab* dialTab = new DialTab();
+            dialTab->setAutoFillBackground( true );
+            dialTab->setPalette( Qt::darkGray );
 
-    KnobTab *knobTab = new KnobTab();
-    knobTab->setAutoFillBackground( true );
-    knobTab->setPalette( Qt::darkGray );
+            addTab( sliderTab, "Slider" );
+            addTab( wheelTab, "Wheel/Thermo" );
+            addTab( knobTab, "Knob" );
+            addTab( dialTab, "Dial" );
+        }
+    };
+}
 
-    DialTab *dialTab = new DialTab();
-    dialTab->setAutoFillBackground( true );
-    dialTab->setPalette( Qt::darkGray );
+int main( int argc, char* argv[] )
+{
+    QApplication app( argc, argv );
 
-    tabWidget.addTab( new SliderTab, "Slider" );
-    tabWidget.addTab( new WheelTab, "Wheel/Thermo" );
-    tabWidget.addTab( knobTab, "Knob" );
-    tabWidget.addTab( dialTab, "Dial" );
+    TabWidget tabWidget;
 
     tabWidget.resize( 800, 600 );
     tabWidget.show();
 
-    return a.exec();
+    return app.exec();
 }
 

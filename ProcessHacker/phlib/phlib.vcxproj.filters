@@ -71,9 +71,6 @@
     <ClCompile Include="maplib.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="md5.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="native.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -90,9 +87,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="secedit.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="sha.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="svcsup.c">
@@ -119,9 +113,6 @@
     <ClCompile Include="treenew.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="kphdata.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="apiimport.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -135,9 +126,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="util.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="settings.c">
@@ -158,10 +146,19 @@
     <ClCompile Include="http.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="imgcoherency.c">
+    <ClCompile Include="format_std.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="json.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imgcoherency.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bcd.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="kphcomms.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -244,9 +241,6 @@
     <ClInclude Include="include\phintrnl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\kphapi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\kphuser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -325,19 +319,7 @@
     <ClInclude Include="include\phutil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="md5.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sha.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\guisup.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\kphuserp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sha256.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\settings.h">
@@ -356,6 +338,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\wslsup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\exprodid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\bcd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\kphcomms.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
