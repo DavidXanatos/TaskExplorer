@@ -331,6 +331,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 		m_pMenuTools->addSeparator();
 #ifdef WIN32
+
+		m_pMenuMonitorSYS = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorSys"), tr("Use Driver to Monitor System"), this, SLOT(OnMonitorSys()));
+		m_pMenuMonitorSYS->setCheckable(true);
+
 		m_pMenuMonitorETW = m_pMenuTools->addAction(MakeActionIcon(":/Actions/MonitorETW"), tr("Monitor ETW Events"), this, SLOT(OnMonitorETW()));
 		m_pMenuMonitorETW->setCheckable(true);
 		m_pMenuMonitorETW->setChecked(((CWindowsAPI*)theAPI)->IsMonitoringETW());
@@ -352,12 +356,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuMonitorDbgGlobal->setChecked((DbgMode & CWinDbgMonitor::eGlobal) != 0);
 		m_pMenuMonitorDbgGlobal->setProperty("Mode", (int)CWinDbgMonitor::eGlobal);
 		m_pMenuMonitorDbgGlobal->setEnabled(theAPI->RootAvaiable());
-		// todo: xxxx si
-		//m_pMenuMonitorDbgKernel = m_pMenuMonitorDbgMenu->addAction("Kernel", this, SLOT(OnMonitorDbg()));
-		//m_pMenuMonitorDbgKernel->setCheckable(true);
-		//m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
-		//m_pMenuMonitorDbgKernel->setProperty("Mode", (int)CWinDbgMonitor::eKernel);
-		//m_pMenuMonitorDbgKernel->setEnabled((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0);
+		m_pMenuMonitorDbgKernel = m_pMenuMonitorDbgMenu->addAction("Kernel", this, SLOT(OnMonitorDbg()));
+		m_pMenuMonitorDbgKernel->setCheckable(true);
+		m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
+		m_pMenuMonitorDbgKernel->setProperty("Mode", (int)CWinDbgMonitor::eKernel);
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
@@ -434,6 +436,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pToolBar->addSeparator();
 #ifdef WIN32
+	m_pToolBar->addAction(m_pMenuMonitorSYS);
 	m_pToolBar->addAction(m_pMenuMonitorETW);
 	m_pToolBar->addAction(m_pMenuMonitorFW);
 
@@ -722,6 +725,15 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 
 	m_pMenuShowTree->setChecked(m_pProcessTree->IsTree());
 	m_pMenuExpandAll->setEnabled(m_pProcessTree->IsTree());
+
+	if (KphCommsIsConnected()) {
+		m_pMenuMonitorSYS->setEnabled(true);
+		m_pMenuMonitorSYS->setChecked(KphGetSystemMon());
+	}
+	else if (m_pMenuMonitorSYS->isEnabled()) {
+		m_pMenuMonitorSYS->setEnabled(false);
+		m_pMenuMonitorSYS->setChecked(false);
+	}
 
 	foreach(QAction* pAction, m_pRefreshGroup->actions())
 		pAction->setChecked(pAction->data().toULongLong() == Interval);
@@ -1495,6 +1507,17 @@ void CTaskExplorer::OnFindMemory()
 	pMemorySearch->show();
 }
 
+void CTaskExplorer::OnMonitorSys()
+{
+#ifdef WIN32
+	if (!KphCommsIsConnected())
+		return;
+
+	KphSetSystemMon(m_pMenuMonitorSYS->isChecked());
+	theConf->SetValue("Options/MonitorSys", m_pMenuMonitorSYS->isChecked());
+#endif
+}
+
 void CTaskExplorer::OnMonitorETW()
 {
 #ifdef WIN32
@@ -1562,8 +1585,7 @@ void CTaskExplorer::OnMonitorDbg()
 		m_pMenuMonitorDbgButton->setChecked((DbgMode & CWinDbgMonitor::eAll) != 0);
 	m_pMenuMonitorDbgLocal->setChecked((DbgMode & CWinDbgMonitor::eLocal) != 0);
 	m_pMenuMonitorDbgGlobal->setChecked((DbgMode & CWinDbgMonitor::eGlobal) != 0);
-	// todo: xxxx si
-	//m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
+	m_pMenuMonitorDbgKernel->setChecked((DbgMode & CWinDbgMonitor::eKernel) != 0);
 
 	m_Act2Tab.key(CTaskInfoView::eDebugView)->setChecked(DbgMode != CWinDbgMonitor::eNone);
 	m_pTaskInfo->ShowTab(CTaskInfoView::eDebugView, DbgMode != CWinDbgMonitor::eNone);

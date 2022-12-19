@@ -120,92 +120,107 @@ bool CWinHandle::InitExtDataAsync(CWinHandle* This, struct _SYSTEM_HANDLE_TABLE_
 
 bool CWinHandle__UpdateFileData(HANDLE ProcessHandle, HANDLE HandleId, QString& SubTypeName, quint64& FileSize, quint64& FilePosition, quint32* FileMode = NULL, int* FileType = NULL)
 {
-	HANDLE fileHandle;
-	NTSTATUS status = NtDuplicateObject(ProcessHandle, HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0);
+	NTSTATUS status;
+	IO_STATUS_BLOCK isb;
 
-    if (NT_SUCCESS(status))
-    {
-        BOOLEAN isFileOrDirectory = FALSE;
-        BOOLEAN isConsoleHandle = FALSE;
-		BOOLEAN isPipeHandle = FALSE;
-        BOOLEAN isNetworkHandle = FALSE;
+	HANDLE fileHandle = NULL;
 
-		IO_STATUS_BLOCK isb;
-        FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
-        if (NT_SUCCESS(NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation)))
-        {
-            switch (fileDeviceInfo.DeviceType)
-            {
-            case FILE_DEVICE_NAMED_PIPE:
-				isPipeHandle = TRUE;
-				SubTypeName = "Pipe";
-                break;
-            case FILE_DEVICE_NETWORK:
-                isNetworkHandle = TRUE;
-				SubTypeName = "Network";
-				break;
-            case FILE_DEVICE_CD_ROM:
-            case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-            case FILE_DEVICE_CONTROLLER:
-            case FILE_DEVICE_DATALINK:
-            case FILE_DEVICE_DFS:
-            case FILE_DEVICE_DISK:
-            case FILE_DEVICE_DISK_FILE_SYSTEM:
-            case FILE_DEVICE_VIRTUAL_DISK:
-                isFileOrDirectory = TRUE;
-                SubTypeName = "File or directory";
-                break;
-            case FILE_DEVICE_CONSOLE:
-                isConsoleHandle = TRUE;
-                SubTypeName = "Console";
-                break;
-            default:
-                SubTypeName = "Other";
-                break;
-            }
-        }
+	FILE_FS_DEVICE_INFORMATION fileDeviceInfo;
+	if (!KphCommsIsConnected() || !NT_SUCCESS(status = KphQueryVolumeInformationFile(ProcessHandle, HandleId, FileFsDeviceInformation, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), &isb)))
+	{
+		if (!NT_SUCCESS(status = NtDuplicateObject(ProcessHandle, HandleId, NtCurrentProcess(), &fileHandle, MAXIMUM_ALLOWED, 0, 0)))
+			return false;
+	
+		status = NtQueryVolumeInformationFile(fileHandle, &isb, &fileDeviceInfo, sizeof(FILE_FS_DEVICE_INFORMATION), FileFsDeviceInformation);
+	}
 
-		if (FileMode)
+    BOOLEAN isFileOrDirectory = FALSE;
+    BOOLEAN isConsoleHandle = FALSE;
+	BOOLEAN isPipeHandle = FALSE;
+    BOOLEAN isNetworkHandle = FALSE;
+
+	if (NT_SUCCESS(status))
+	{
+		switch (fileDeviceInfo.DeviceType)
 		{
-			// Note: These devices deadlock without a timeout (dmex)
-            // 1) Named pipes
-            // 2) \Device\ConDrv\CurrentIn
-            // 3) \Device\VolMgrControl
-
-			FILE_MODE_INFORMATION fileModeInfo;
-			if (NT_SUCCESS(status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION))))
-			{
-				*FileMode = fileModeInfo.Mode;
-			}
+		case FILE_DEVICE_NAMED_PIPE:
+			isPipeHandle = TRUE;
+			SubTypeName = "Pipe";
+			break;
+		case FILE_DEVICE_NETWORK:
+			isNetworkHandle = TRUE;
+			SubTypeName = "Network";
+			break;
+		case FILE_DEVICE_CD_ROM:
+		case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
+		case FILE_DEVICE_CONTROLLER:
+		case FILE_DEVICE_DATALINK:
+		case FILE_DEVICE_DFS:
+		case FILE_DEVICE_DISK:
+		case FILE_DEVICE_DISK_FILE_SYSTEM:
+		case FILE_DEVICE_VIRTUAL_DISK:
+			isFileOrDirectory = TRUE;
+			SubTypeName = "File or directory";
+			break;
+		case FILE_DEVICE_CONSOLE:
+			isConsoleHandle = TRUE;
+			SubTypeName = "Console";
+			break;
+		default:
+			SubTypeName = "Other";
+			break;
 		}
+	}
 
-		// NOTE: NtQueryInformationFile can hang on windows 7 at \Device\VolMgrControl (DX)
-        if (isFileOrDirectory)
-		// if(!isConsoleHandle)
+	if (FileMode)
+	{
+		// Note: These devices deadlock without a timeout (dmex)
+        // 1) Named pipes
+        // 2) \Device\ConDrv\CurrentIn
+        // 3) \Device\VolMgrControl
+
+		FILE_MODE_INFORMATION fileModeInfo;
+		if (NT_SUCCESS(status = ((fileHandle != NULL)
+			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION))
+			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION))
+			)))
+		{
+			*FileMode = fileModeInfo.Mode;
+		}
+	}
+
+	// NOTE: NtQueryInformationFile can hang on windows 7 at \Device\VolMgrControl (DX)
+    if (isFileOrDirectory)
+	// if(!isConsoleHandle)
+    {
+		FILE_STANDARD_INFORMATION fileStandardInfo;
+        //if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
+		if (NT_SUCCESS(status = ((fileHandle != NULL)
+			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION))
+			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION))
+			)))
         {
-			FILE_STANDARD_INFORMATION fileStandardInfo;
-            //if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
-            if (NT_SUCCESS(status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION))))
-            {
-				if (FileType)
-					*FileType = fileStandardInfo.Directory ? 2 : 1;
+			if (FileType) *FileType = fileStandardInfo.Directory ? 2 : 1;
 
-				SubTypeName = fileStandardInfo.Directory ? "Directory" : "File";
+			SubTypeName = fileStandardInfo.Directory ? "Directory" : "File";
 
-				FileSize = fileStandardInfo.EndOfFile.QuadPart;
-            }
-
-			FILE_POSITION_INFORMATION filePositionInfo;
-			//if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
-            if (NT_SUCCESS(status = PhCallNtQueryFileInformationWithTimeout(fileHandle, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION))))
-			{
-				FilePosition = filePositionInfo.CurrentByteOffset.QuadPart;
-			}
+			FileSize = fileStandardInfo.EndOfFile.QuadPart;
         }
 
-        NtClose(fileHandle);
+		FILE_POSITION_INFORMATION filePositionInfo;
+		//if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
+		if (NT_SUCCESS(status = ((fileHandle != NULL)
+			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION))
+			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION))
+			)))
+		{
+			FilePosition = filePositionInfo.CurrentByteOffset.QuadPart;
+		}
     }
-
+	
+	if(fileHandle) 
+		NtClose(fileHandle);
+	
 	return true;
 }
 
@@ -540,11 +555,11 @@ BOOLEAN NTAPI EnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 }
 
 
-CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
+QVariantMap CWinHandle::GetHandleInfo() const
 {
 	QReadLocker Locker(&m_Mutex); 
 
-	SHandleInfo HandleInfo;
+	QVariantMap HandleInfo;
 
     HANDLE processHandle;
 	if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_DUP_HANDLE, (HANDLE)m_ProcessId)))
@@ -553,27 +568,90 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 	OBJECT_BASIC_INFORMATION basicInfo;
 	if (NT_SUCCESS(PhGetHandleInformation(processHandle, (HANDLE)m_HandleId, ULONG_MAX, &basicInfo, NULL, NULL, NULL)))
 	{
-		HandleInfo.References = (quint64)basicInfo.PointerCount;
-		HandleInfo.Handles = (quint64)basicInfo.HandleCount;
+		HandleInfo["References"] = (quint64)basicInfo.PointerCount;
+		HandleInfo["Handles"] = (quint64)basicInfo.HandleCount;
 
-		HandleInfo.Paged = (quint64)basicInfo.PagedPoolCharge;
-		HandleInfo.VirtualSize = (quint64)basicInfo.NonPagedPoolCharge;
+		HandleInfo["Paged"] = (quint64)basicInfo.PagedPoolCharge;
+		HandleInfo["VirtualSize"] = (quint64)basicInfo.NonPagedPoolCharge;
 	}
 
 
 	if(m_TypeName == "ALPC Port")
 	{
-		HANDLE alpcPortHandle;
-		if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &alpcPortHandle, READ_CONTROL, 0, 0 )))
-		{
-			ALPC_BASIC_INFORMATION alpcInfo;
-			if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcBasicInformation, &alpcInfo, sizeof(ALPC_BASIC_INFORMATION), NULL)))
+        //
+        // TODO this path doesn't use all the ALPC info returned yet
+        // see: KPH_ALPC_BASIC_INFORMATION.State
+        //
+        KPH_ALPC_BASIC_INFORMATION kphAlpcInfo;
+        if (KphCommsIsConnected() && NT_SUCCESS(KphAlpcQueryInformation(processHandle, (HANDLE)m_HandleId, KphAlpcBasicInformation, &kphAlpcInfo, sizeof(kphAlpcInfo), NULL)))
+        {
+			HandleInfo["Flags"] = (quint32)kphAlpcInfo.Flags;
+			HandleInfo["SeqNumber"] = (quint64)kphAlpcInfo.SequenceNo;
+			HandleInfo["Context"] = (quint64)kphAlpcInfo.PortContext;
+
+			PKPH_ALPC_COMMUNICATION_NAMES_INFORMATION connectionNames;
+			if (!NT_SUCCESS(KphAlpcQueryComminicationsNamesInfo(processHandle, (HANDLE)m_HandleId, &connectionNames)))
 			{
-				HandleInfo.Port.SeqNumber = (quint64)alpcInfo.SequenceNo;
-				HandleInfo.Port.Context = (quint64)alpcInfo.PortContext;
+				connectionNames = NULL;
 			}
 
-			NtClose(alpcPortHandle);
+			KPH_ALPC_COMMUNICATION_INFORMATION connectionInfo;
+			if (NT_SUCCESS(KphAlpcQueryInformation(processHandle, (HANDLE)m_HandleId, KphAlpcCommunicationInformation, &connectionInfo, sizeof(connectionInfo), NULL)))
+			{
+				if (connectionInfo.ConnectionPort.OwnerProcessId)
+				{
+					HandleInfo["ConnectionPID"] = (quint64)connectionInfo.ConnectionPort.OwnerProcessId;
+
+					if (connectionNames && connectionNames->ConnectionPort.Length > 0)
+						HandleInfo["ConnectionPort"] = QString::fromWCharArray(connectionNames->ConnectionPort.Buffer, connectionNames->ConnectionPort.Length / sizeof(WCHAR));
+				}
+
+				if (connectionInfo.ServerCommunicationPort.OwnerProcessId)
+				{
+					HandleInfo["ServerComPID"] = (quint64)connectionInfo.ServerCommunicationPort.OwnerProcessId;
+
+					if (connectionNames && connectionNames->ServerCommunicationPort.Length > 0)
+						HandleInfo["ServerComPort"] = QString::fromWCharArray(connectionNames->ServerCommunicationPort.Buffer, connectionNames->ServerCommunicationPort.Length / sizeof(WCHAR));
+				}
+
+				if (connectionInfo.ClientCommunicationPort.OwnerProcessId)
+				{
+					HandleInfo["ClientComPID"] = (quint64)connectionInfo.ClientCommunicationPort.OwnerProcessId;
+
+					if (connectionNames && connectionNames->ClientCommunicationPort.Length > 0)
+						HandleInfo["ClientComPort"] = QString::fromWCharArray(connectionNames->ClientCommunicationPort.Buffer, connectionNames->ClientCommunicationPort.Length / sizeof(WCHAR));
+				}
+
+				if (connectionNames)
+					PhFree(connectionNames);
+			}
+        }
+		else
+		{
+			HANDLE alpcPortHandle;
+			if (NT_SUCCESS(NtDuplicateObject(processHandle, (HANDLE)m_HandleId, NtCurrentProcess(), &alpcPortHandle, READ_CONTROL, 0, 0)))
+			{
+				ALPC_BASIC_INFORMATION alpcInfo;
+				if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcBasicInformation, &alpcInfo, sizeof(ALPC_BASIC_INFORMATION), NULL)))
+				{
+					HandleInfo["Flags"] = (quint32)alpcInfo.Flags;
+					HandleInfo["SeqNumber"] = (quint64)alpcInfo.SequenceNo;
+					HandleInfo["Context"] = (quint64)alpcInfo.PortContext;
+				}
+
+				//if (WindowsVersion >= WINDOWS_10_19H2)
+				//{
+				//	ALPC_SERVER_SESSION_INFORMATION serverInfo;
+				//
+				//	if (NT_SUCCESS(NtAlpcQueryInformation(alpcPortHandle, AlpcServerSessionInformation, &serverInfo, sizeof(ALPC_SERVER_SESSION_INFORMATION), NULL)))
+				//	{
+				//		HandleInfo["SessionId"] = (quint64)serverInfo.SessionId;
+				//		HandleInfo["ProcessId"] = (quint64)serverInfo.ProcessId;
+				//	}
+				//}
+
+				NtClose(alpcPortHandle);
+			}
 		}
 	}
 	else if(m_TypeName == "File")
@@ -586,13 +664,27 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 
 		CWinHandle__UpdateFileData(processHandle, (HANDLE)m_HandleId, SubTypeName, FileSize, FilePosition, &FileMode, &FileType);
 		
-		HandleInfo.File.Mode = FileMode;
+		HandleInfo["Mode"] = FileMode;
 
 		if (FileType != 0)
 		{
-			HandleInfo.File.IsDir = FileType == 2;
-			HandleInfo.File.Size = FileSize;
-			HandleInfo.File.Position = FilePosition;
+			HandleInfo["IsDir"] = FileType == 2;
+			HandleInfo["Size"] = FileSize;
+			HandleInfo["Position"] = FilePosition;
+		}
+
+		KPH_FILE_OBJECT_DRIVER fileObjectDriver;
+		if (KphCommsIsConnected() && NT_SUCCESS(KphQueryInformationObject(processHandle, (HANDLE)m_HandleId, KphObjectFileObjectDriver, &fileObjectDriver, sizeof(fileObjectDriver), NULL)))
+		{
+			PPH_STRING string;
+
+			if (NT_SUCCESS(PhGetDriverName(fileObjectDriver.DriverHandle, &string)))
+				HandleInfo["DrvDevice"] = CastPhString(string);
+
+			if (NT_SUCCESS(PhGetDriverImageFileName(fileObjectDriver.DriverHandle, &string)))
+				HandleInfo["DrvImage"] = CastPhString(string);
+
+			NtClose(fileObjectDriver.DriverHandle);
 		}
 	}
 	else if(m_TypeName == "Section")
@@ -608,23 +700,23 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
             
 			if (NT_SUCCESS(PhGetSectionBasicInformation(sectionHandle, &sectionInfo)))
 			{
-				HandleInfo.Section.Attribs = sectionInfo.AllocationAttributes;
-
-				HandleInfo.Section.Size = sectionInfo.MaximumSize.QuadPart;
+				HandleInfo["Attribs"] = (quint32)sectionInfo.AllocationAttributes;
+				HandleInfo["Size"] = (quint64)sectionInfo.MaximumSize.QuadPart;
 			}
 
-			/*PPH_STRING fileName = NULL;
+			PPH_STRING fileName = NULL;
 			if (NT_SUCCESS(PhGetSectionFileName(sectionHandle, &fileName)))
 			{
 				PPH_STRING newFileName;
 
-				PH_AUTO(fileName);
+				if (newFileName = PhResolveDevicePrefix(fileName)) 
+				{
+					PhDereferenceObject(fileName);
+					fileName = newFileName;
+				}
+			}
 
-				if (newFileName = PhResolveDevicePrefix(fileName))
-					fileName = PH_AUTO(newFileName);
-			}*/
-
-			//Section["File"] = ;
+			HandleInfo["File"] = CastPhString(fileName);
 
 			NtClose(sectionHandle);
 		}
@@ -639,14 +731,14 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 
 			if (NT_SUCCESS(PhGetMutantBasicInformation(mutantHandle, &mutantInfo)))
 			{
-				HandleInfo.Mutant.Count = mutantInfo.CurrentCount;
-				HandleInfo.Mutant.Abandoned = mutantInfo.AbandonedState;
+				HandleInfo["Count"] = mutantInfo.CurrentCount;
+				HandleInfo["Abandoned"] = mutantInfo.AbandonedState;
 			}
 
 			if (NT_SUCCESS(PhGetMutantOwnerInformation(mutantHandle, &ownerInfo)))
 			{
-				HandleInfo.Mutant.OwnerPID = (quint64)ownerInfo.ClientId.UniqueProcess;
-				HandleInfo.Mutant.OwnerTID = (quint64)ownerInfo.ClientId.UniqueThread;
+				HandleInfo["OwnerPID"] = (quint64)ownerInfo.ClientId.UniqueProcess;
+				HandleInfo["OwnerTID"] = (quint64)ownerInfo.ClientId.UniqueThread;
 			}
 
 			NtClose(mutantHandle);
@@ -667,17 +759,17 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 			PROCESS_BASIC_INFORMATION procInfo;
 			if (NT_SUCCESS(PhGetProcessBasicInformation(dupHandle, &procInfo)))
 			{
-				HandleInfo.Task.PID = (quint64)procInfo.UniqueProcessId;
+				HandleInfo["PID"] = (quint64)procInfo.UniqueProcessId;
 
-				HandleInfo.Task.ExitStatus = procInfo.ExitStatus;
+				HandleInfo["ExitStatus"] = procInfo.ExitStatus;
 			}
 
 			KERNEL_USER_TIMES times;
 			if (NT_SUCCESS(PhGetProcessTimes(dupHandle, &times)))
 			{
-				HandleInfo.Task.Created = FILETIME2time(times.CreateTime.QuadPart);
+				HandleInfo["Created"] = FILETIME2time(times.CreateTime.QuadPart);
 				if (exitStatus != STATUS_PENDING)
-					HandleInfo.Task.Exited = FILETIME2time(times.ExitTime.QuadPart);
+					HandleInfo["Exited"] = FILETIME2time(times.ExitTime.QuadPart);
 			}
 
 			NtClose(dupHandle);
@@ -698,10 +790,10 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 			THREAD_BASIC_INFORMATION threadInfo;
 			if (NT_SUCCESS(PhGetThreadBasicInformation(dupHandle, &threadInfo)))
 			{
-				HandleInfo.Task.PID = (quint64)threadInfo.ClientId.UniqueProcess;
-				HandleInfo.Task.TID = (quint64)threadInfo.ClientId.UniqueThread;
+				HandleInfo["PID"] = (quint64)threadInfo.ClientId.UniqueProcess;
+				HandleInfo["TID"] = (quint64)threadInfo.ClientId.UniqueThread;
 
-				HandleInfo.Task.ExitStatus = threadInfo.ExitStatus;
+				HandleInfo["ExitStatus"] = threadInfo.ExitStatus;
 
 				//if (NT_SUCCESS(PhOpenProcess(
 				//    &processHandle,
@@ -723,9 +815,9 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 			KERNEL_USER_TIMES times;
 			if (NT_SUCCESS(PhGetThreadTimes(dupHandle, &times)))
 			{
-				HandleInfo.Task.Created = FILETIME2time(times.CreateTime.QuadPart);
+				HandleInfo["Created"] = FILETIME2time(times.CreateTime.QuadPart);
 				if (exitStatus != STATUS_PENDING)
-					HandleInfo.Task.Exited = FILETIME2time(times.ExitTime.QuadPart);
+					HandleInfo["Exited"] = FILETIME2time(times.ExitTime.QuadPart);
 			}
 
 			NtClose(dupHandle);
@@ -739,8 +831,8 @@ CWinHandle::SHandleInfo CWinHandle::GetHandleInfo() const
 			TIMER_BASIC_INFORMATION basicInfo;
 			if (NT_SUCCESS(PhGetTimerBasicInformation(timerHandle, &basicInfo)))
 			{
-				HandleInfo.Timer.Remaining = basicInfo.RemainingTime.QuadPart;
-				HandleInfo.Timer.Signaled = basicInfo.TimerState;
+				HandleInfo["Remaining"] = basicInfo.RemainingTime.QuadPart;
+				HandleInfo["Signaled"] = basicInfo.TimerState;
 			}
 
 			NtClose(timerHandle);

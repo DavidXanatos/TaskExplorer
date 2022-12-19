@@ -77,6 +77,7 @@
         <file alias="Filter2">Actions/filter2.png</file>
         <file alias="Computer">Actions/computer.png</file>
         <file alias="MonitorDbg">Actions/log.png</file>
+        <file alias="MonitorSys">Actions/sys_mon.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

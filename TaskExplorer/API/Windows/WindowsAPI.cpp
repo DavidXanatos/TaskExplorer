@@ -152,6 +152,23 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m = new SWindowsAPI();
 }
 
+bool KernelProcessMonitor(quint64 ProcessId, quint64 ParrentId, const QString& FileName, const QString& CommandLine)
+{
+	QSharedPointer<CWinProcess> pProcess = theAPI->GetProcessByID(ProcessId, true).staticCast<CWinProcess>();
+	if (pProcess && !pProcess->IsFullyInitialized()) {
+		pProcess->SetParentId(ParrentId);
+		pProcess->CloseHandle(); // close the handle such that we can re open it later and re scan teh process once its fully up
+	}
+
+	CPersistentPresetPtr PersistentPreset = theAPI->FindPersistentPreset(FileName, CommandLine);
+	if (PersistentPreset) {
+		CPersistentPresetDataPtr Preset = PersistentPreset->GetData();
+		if (Preset->bTerminate)
+			return false;
+	}
+	return true;
+}
+
 bool CWindowsAPI::Init()
 {
 	//if(WindowsVersion >= WINDOWS_10_RS1)
@@ -232,6 +249,11 @@ bool CWindowsAPI::Init()
 	m_UserName = QString::fromWCharArray(user);
 
 	m_SystemDir = CastPhString(PhGetSystemDirectory());
+
+	extern bool (*g_KernelProcessMonitor)(quint64 ProcessId, quint64 ParrentId, const QString& FileName, const QString& CommandLine);
+	g_KernelProcessMonitor = KernelProcessMonitor;
+	if (theConf->GetBool("Options/MonitorSys", false))
+		KphSetSystemMon(true);
 
 	if (theConf->GetBool("Options/MonitorETW", false))
 		MonitorETW(true);
@@ -329,6 +351,9 @@ STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName)
 
 CWindowsAPI::~CWindowsAPI()
 {
+	extern bool (*g_KernelProcessMonitor)(quint64 ProcessId, quint64 ParrentId, const QString& FileName, const QString& CommandLine);
+	g_KernelProcessMonitor = NULL;
+
 	delete m_pEventMonitor;
 	delete m_pFirewallMonitor;
 	delete m_pDebugMonitor;
@@ -837,13 +862,14 @@ bool CWindowsAPI::UpdateProcessList()
 		bool bAdd = false;
 		if (pProcess.isNull())
 		{
-			pProcess = QSharedPointer<CWinProcess>(new CWinProcess());
-			bAdd = pProcess->InitStaticData(process, bFullProcessInfo);
 			QWriteLocker Locker(&m_ProcessMutex);
-			ASSERT(!m_ProcessList.contains(ProcessID));
-			m_ProcessList.insert(ProcessID, pProcess);
+			CProcessPtr &pProcessRef = m_ProcessList[ProcessID];
+			if (pProcessRef.isNull()) // sometimes the proces was added already by sys mon or etw mon so only create one if non is listed
+				pProcessRef = QSharedPointer<CWinProcess>(new CWinProcess());
+			pProcess = pProcessRef.staticCast<CWinProcess>();
 		}
-		else if(!pProcess->IsFullyInitialized())
+		
+		if(!pProcess->IsFullyInitialized())
 		{
 			bAdd = true;
 			pProcess->InitStaticData(process, bFullProcessInfo);
@@ -1491,6 +1517,9 @@ void CWindowsAPI::OnProcessEvent(int Type, quint32 ProcessId, QString CommandLin
 {
 	if (Type != EtwProcessStarted)
 		return;
+
+	if (KphGetSystemMon())
+		return; // nothing to do when the driver is helping
 
 	QSharedPointer<CWinProcess> pProcess = GetProcessByID(ProcessId, true).staticCast<CWinProcess>();
 	if (pProcess)

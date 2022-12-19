@@ -134,6 +134,8 @@ public:
 	virtual quint64 GetJobObjectID() const;
 
 	virtual quint8 GetProtection() const;
+	virtual QString GetPPLProtectionString() const;
+	virtual QString GetKPHProtectionString() const;
 	virtual QString GetProtectionString() const;
 	virtual STATUS SetProtectionFlag(quint8 Flag, bool bForce = false);
 	virtual QList<QPair<QString, QString>> GetMitigationDetails() const;
@@ -159,6 +161,8 @@ public:
 	virtual CWndPtr	GetMainWindow() const;
 
 	virtual void UpdateDns(const QString& HostName, const QList<QHostAddress>& Addresses);
+
+	virtual void CloseHandle();
 
 	struct STask
 	{

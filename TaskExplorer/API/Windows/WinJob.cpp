@@ -46,17 +46,8 @@ NTSTATUS NTAPI CWinJob__OpenProcessJob(_Out_ PHANDLE Handle, _In_ ACCESS_MASK De
 	}
 	else
 	{
-		HANDLE processHandle;
 		HANDLE jobHandle = NULL;
-
-		// Note: we are using the query handle of the process instance instead of pid and re opening it
-		//processHandle = m->QueryHandle;
-		if (!NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, (HANDLE)Context)))
-		   return status;
-
-		status = KphOpenProcessJob(processHandle, DesiredAccess, &jobHandle);
-
-		NtClose(processHandle);
+		status = KphOpenProcessJob(m->QueryHandle, DesiredAccess, &jobHandle);
 
 		if (NT_SUCCESS(status) && status != STATUS_PROCESS_NOT_IN_JOB && jobHandle)
 		{

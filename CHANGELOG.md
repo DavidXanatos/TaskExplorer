@@ -4,6 +4,18 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [1.5.1] - 2022-12-19
+
+### Added
+- re added kernel debug log dumping
+- added more handle information
+- added option to block processes from starting using the driver
+
+### Fixed
+- fixed issue with opening job objects
+
+
+
 ## [1.5.0] - 2022-12-10
 
 ### Changed

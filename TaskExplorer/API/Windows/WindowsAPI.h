@@ -181,6 +181,7 @@ protected:
 #endif
 	CFwEventMonitor*		m_pFirewallMonitor;
 	//CFirewallMonitor*		m_pFirewallMonitor;
+	friend void KernelDebugLogger(const QString& Output);
 	CWinDbgMonitor*			m_pDebugMonitor;
 
 	CSandboxieAPI*			m_pSandboxieAPI;

@@ -12,6 +12,7 @@
 
 #include "stdafx.h"
 #include "ProcessHacker.h"
+#include <kphmsgdyn.h>
 #include <settings.h>
 
 QString CastPhString(PPH_STRING phString, bool bDeRef)
@@ -196,6 +197,10 @@ int InitPH(bool bSvc)
 	return 0;
 }
 
+bool (*g_KernelProcessMonitor)(quint64 ProcessId, quint64 ParrentId, const QString& FileName, const QString& CommandLine) = NULL;
+
+void (*g_KernelDebugLogger)(const QString& Output) = NULL;
+
 extern "C" {
 
 static VOID NTAPI KsiCommsCallback(
@@ -203,22 +208,54 @@ static VOID NTAPI KsiCommsCallback(
     _In_ PCKPH_MESSAGE Message
     )
 {
-    PPH_FREE_LIST freelist;
-    PKPH_MESSAGE msg;
+	switch (Message->Header.MessageId)
+	{
+		case KphMsgProcessCreate:
+		{
+			PPH_FREE_LIST freelist = KphGetMessageFreeList();
 
-    if (Message->Header.MessageId != KphMsgProcessCreate)
-    {
-        return;
-    }
+			PKPH_MESSAGE msg = (PKPH_MESSAGE)PhAllocateFromFreeList(freelist);
+			KphMsgInit(msg, KphMsgProcessCreate);
+			if (g_KernelProcessMonitor) 
+			{
+				quint64 ProcessId = (quint64)Message->Kernel.ProcessCreate.TargetProcessId;
+				quint64 ParrentId = (quint64)Message->Kernel.ProcessCreate.ParentProcessId;
 
-    freelist = KphGetMessageFreeList();
+				QString FileName;
+				UNICODE_STRING fileName = { 0 };
+				if (NT_SUCCESS(KphMsgDynGetUnicodeString(Message, KphMsgFieldFileName, &fileName))) {
+					PPH_STRING oldFileName = PhCreateString(fileName.Buffer);
+					PPH_STRING newFileName = PhGetFileName(oldFileName);
+					PhDereferenceObject(oldFileName);
+					FileName = CastPhString(newFileName);
+				}
 
-    msg = (PKPH_MESSAGE)PhAllocateFromFreeList(freelist);
-    KphMsgInit(msg, KphMsgProcessCreate);
-    msg->Reply.ProcessCreate.CreationStatus = STATUS_SUCCESS;
-    KphCommsReplyMessage(ReplyToken, msg);
+				QString CommandLine;
+				UNICODE_STRING commandLine = { 0 };
+				if (NT_SUCCESS(KphMsgDynGetUnicodeString(Message, KphMsgFieldCommandLine, &commandLine)))
+					CommandLine = QString::fromWCharArray(commandLine.Buffer, commandLine.Length / sizeof(wchar_t));
 
-    PhFreeToFreeList(freelist, msg);
+				msg->Reply.ProcessCreate.CreationStatus = g_KernelProcessMonitor(ProcessId, ParrentId, FileName, CommandLine) ? STATUS_SUCCESS : STATUS_ACCESS_DENIED;
+			}
+			else
+				msg->Reply.ProcessCreate.CreationStatus = STATUS_SUCCESS;
+			KphCommsReplyMessage(ReplyToken, msg);
+
+			PhFreeToFreeList(freelist, msg);
+
+			break;
+		}
+		case KphMsgDebugPrint:
+		{
+			ANSI_STRING aStr;
+			if (NT_SUCCESS(KphMsgDynGetAnsiString(Message, KphMsgFieldOutput, &aStr)))
+			{
+				if(g_KernelDebugLogger)
+					g_KernelDebugLogger(QString::fromLatin1(aStr.Buffer, aStr.Length));
+			}
+			break;
+		}
+	}
 }
 
 }
@@ -330,6 +367,42 @@ CleanupExit:
         PhDereferenceObject(ksiFileName);
 
 	return Status;
+}
+
+bool KphSetDebugLog(bool Enable)
+{
+	NTSTATUS status;
+	KPH_INFORMER_SETTINGS Settings;
+	if (NT_SUCCESS(status = KphGetInformerSettings(&Settings))) {
+		Settings.DebugPrint = Enable;
+		status = KphSetInformerSettings(&Settings);
+	}
+	return NT_SUCCESS(status);
+}
+
+bool KphSetSystemMon(bool Enable)
+{
+	if (!KphCommsIsConnected())
+		return false;
+
+	NTSTATUS status;
+	KPH_INFORMER_SETTINGS Settings;
+	if (NT_SUCCESS(status = KphGetInformerSettings(&Settings))) {
+		Settings.ProcessCreate = Enable;
+		status = KphSetInformerSettings(&Settings);
+	}
+	return NT_SUCCESS(status);
+}
+
+bool KphGetSystemMon()
+{
+	if (!KphCommsIsConnected())
+		return false;
+
+	KPH_INFORMER_SETTINGS Settings;
+	if (NT_SUCCESS(KphGetInformerSettings(&Settings)))
+		return Settings.ProcessCreate;
+	return false;
 }
 
 void PhShowAbout(QWidget* parent)

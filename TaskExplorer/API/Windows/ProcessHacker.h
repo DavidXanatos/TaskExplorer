@@ -96,6 +96,10 @@ int InitPH(bool bSvc = false);
 
 STATUS InitKPH(QString DeviceName, QString FileName);
 
+bool KphSetDebugLog(bool Enable);
+bool KphSetSystemMon(bool Enable);
+bool KphGetSystemMon();
+
 void PhShowAbout(QWidget* parent);
 
 #endif

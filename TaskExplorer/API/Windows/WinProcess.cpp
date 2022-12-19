@@ -71,6 +71,8 @@ struct SWinProcess
 		DepStatus = 0;
 
 		KnownProcessType = -1;
+
+		KphProcessState = 0;
 	}
 
 	
@@ -155,6 +157,8 @@ struct SWinProcess
 	ULONG DepStatus;
 
 	int KnownProcessType;
+
+	KPH_PROCESS_STATE KphProcessState;
 
 	QString DesktopInfo;
 };
@@ -917,6 +921,13 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		if (NT_SUCCESS(PhGetProcessBreakOnTermination(m->QueryHandle, &breakOnTermination)))
 			m_IsCritical = breakOnTermination;
 
+		if (KphCommsIsConnected()) {
+			KPH_PROCESS_BASIC_INFORMATION info = { 0 };
+			if (NT_SUCCESS(KphQueryInformationProcess(m->QueryHandle, KphProcessBasicInformation, &info, sizeof(info), NULL)))
+				m->KphProcessState = info.ProcessState;
+		}
+
+
 		//if(PH_IS_REAL_PROCESS_ID(m->UniqueProcessId)) // WARNING: querying WsCounters causes very high CPU load !!!
 		//	PhGetProcessWsCounters(m->QueryHandle, &m->WsCounters); 
 
@@ -1123,7 +1134,7 @@ bool CWinProcess::UpdateThreads()
 	return ((CWindowsAPI*)theAPI)->UpdateThreads(this);
 }
 
-void CWinProcess::UnInit()
+void CWinProcess::CloseHandle()
 {
 	QWriteLocker Locker(&m_Mutex);
 
@@ -1131,6 +1142,11 @@ void CWinProcess::UnInit()
 		NtClose(m->QueryHandle);
 		m->QueryHandle = NULL;
 	}
+}
+
+void CWinProcess::UnInit()
+{
+	CloseHandle();
 
 	QWriteLocker StatsLocker(&m_StatsMutex);
 
@@ -2325,7 +2341,7 @@ quint8 CWinProcess::GetProtection() const
 	return m->Protection.Level;
 }
 
-QString CWinProcess::GetProtectionString() const
+QString CWinProcess::GetPPLProtectionString() const
 {
 	QReadLocker Locker(&m_Mutex); 
     if (m->Protection.Level != UCHAR_MAX)
@@ -2340,7 +2356,7 @@ QString CWinProcess::GetProtectionString() const
 
             switch (m->Protection.Type)
             {
-			case PsProtectedTypeNone:				return tr("None %1").arg(Signer);
+			case PsProtectedTypeNone:				return "";
             case PsProtectedTypeProtectedLight:		return tr("Light %1").arg(Signer);
             case PsProtectedTypeProtected:			return tr("Full %1").arg(Signer);
             default:								return tr("Unknown %1").arg(Signer);
@@ -2348,10 +2364,68 @@ QString CWinProcess::GetProtectionString() const
         }
         else
         {
-            return m->IsProtectedProcess ? tr("Yes") : tr("None");
+            return m->IsProtectedProcess ? tr("Yes") : "";
         }
     }
-    return tr("N/A");
+    return QString();
+}
+
+QString CWinProcess::GetKPHProtectionString() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	if (m->KphProcessState & KPH_PROCESS_VERIFIED_PROCESS) 
+	{
+		QString Level;
+		if		((m->KphProcessState & KPH_PROCESS_STATE_MAXIMUM) == KPH_PROCESS_STATE_MAXIMUM)	Level = "Max";	// 5
+		else if ((m->KphProcessState & KPH_PROCESS_STATE_HIGH) == KPH_PROCESS_STATE_HIGH)		Level = "High";	// 4
+		else if ((m->KphProcessState & KPH_PROCESS_STATE_MEDIUM) == KPH_PROCESS_STATE_MEDIUM)	Level = "Med";	// 3
+		else if ((m->KphProcessState & KPH_PROCESS_STATE_LOW) == KPH_PROCESS_STATE_LOW)			Level = "Low";	// 2
+		else if ((m->KphProcessState & KPH_PROCESS_STATE_MINIMUM) == KPH_PROCESS_STATE_MINIMUM)	Level = "Min";	// 1
+		else																					Level = "None";	// 0
+		
+		QString Str = tr("KPH %1").arg(Level);
+
+#ifdef _DEBUG
+		QStringList Flags;
+		if (m->KphProcessState & KPH_PROCESS_SECURELY_CREATED)
+			Flags.append("SecuC");
+		if (m->KphProcessState & KPH_PROCESS_VERIFIED_PROCESS)
+			Flags.append("VProc");
+		if (m->KphProcessState & KPH_PROCESS_PROTECTED_PROCESS) {
+			Flags.append("PProc");
+			if (m->KphProcessState & KPH_PROCESS_NO_UNTRUSTED_IMAGES)
+				Flags.append("NoUnk");
+		}
+		if ((m->KphProcessState & KPH_PROCESS_HAS_FILE_OBJECT) == 0)
+			Flags.append("NoFile");
+		if ((m->KphProcessState & KPH_PROCESS_HAS_SECTION_OBJECT_POINTERS) == 0)
+			Flags.append("NoSect");
+		if ((m->KphProcessState & KPH_PROCESS_NO_USER_WRITABLE_REFERENCES) == 0)
+			Flags.append("WrRef");
+		if ((m->KphProcessState & KPH_PROCESS_NO_FILE_TRANSACTION) == 0)
+			Flags.append("FileTx");
+		if ((m->KphProcessState & KPH_PROCESS_NOT_BEING_DEBUGGED) == 0)
+			Flags.append("Dbg");
+
+		Str += QString(" (%2)").arg(Flags.join(", "));
+#endif
+
+		return Str;
+	}
+	return QString();
+}
+
+QString CWinProcess::GetProtectionString() const
+{
+	QString PPLProtection = GetPPLProtectionString();
+	QString KPHProtection = GetKPHProtectionString();
+	if (!PPLProtection.isEmpty() && !KPHProtection.isEmpty())
+		return PPLProtection + " / " + KPHProtection;
+	else if (!PPLProtection.isEmpty())
+		return PPLProtection;
+	else if (!KPHProtection.isEmpty())
+		return KPHProtection;
+	return QString();
 }
 
 STATUS CWinProcess::SetProtectionFlag(quint8 Flag, bool bForce)

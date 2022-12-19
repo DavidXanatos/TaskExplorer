@@ -171,6 +171,7 @@ private slots:
 	void				OnPersistenceOptions();
 	void				OnSecurityExplorer();
 	void				OnFreeMemory();
+	void				OnMonitorSys();
 	void				OnMonitorETW();
 	void				OnMonitorFW();
 	void				OnMonitorDbg();
@@ -298,6 +299,7 @@ private:
 
 
 #ifdef WIN32
+	QAction*			m_pMenuMonitorSYS;
 	QAction*			m_pMenuMonitorETW;
 	QAction*			m_pMenuMonitorFW;
 	QMenu*				m_pMenuMonitorDbgMenu;

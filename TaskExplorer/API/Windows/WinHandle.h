@@ -37,69 +37,9 @@ public:
 	virtual QString GetTypeString() const;
 	virtual QString GetGrantedAccessString() const;
 
-	struct SHandleInfo
-	{
-		SHandleInfo()
-		{
-			memset(this, 0, sizeof(SHandleInfo));
-		}
-
-		quint32 References;
-		quint32 Handles;
-
-		quint64 Paged;
-		quint64 VirtualSize;
-
-		union
-		{
-			struct
-			{
-				quint64 SeqNumber;
-				quint64 Context;
-			} Port;
-
-			struct
-			{
-				quint32 Mode;
-				bool IsDir;
-				quint64 Size;
-				quint64 Position;
-			} File;
-
-			struct
-			{
-				quint32 Attribs;
-				quint64 Size;
-			} Section;
-
-			struct
-			{
-				long Count;
-				bool Abandoned;
-				quint64 OwnerPID;
-				quint64 OwnerTID;
-			} Mutant;
-
-			struct
-			{
-				quint64 PID;
-				quint64 TID;
-				time_t Created;
-				time_t Exited;
-				int ExitStatus;
-			} Task;
-
-			struct
-			{
-				quint64 Remaining;
-				bool Signaled;
-			} Timer;
-		};
-	};
-
 	static QString GetFileAccessMode(quint32 Mode);
 	static QString GetSectionType(quint32 Attribs);
-	virtual SHandleInfo GetHandleInfo() const;
+	virtual QVariantMap GetHandleInfo() const;
 
 	virtual STATUS				Close(bool bForce = false);
 

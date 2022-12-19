@@ -237,8 +237,8 @@ CWinDbgMonitor::~CWinDbgMonitor()
 		m->UnInit(false);
 	if (m->GlobalCaptureEnabled)
 		m->UnInit(true);
-	//if (m->KernelCaptureEnabled) // todo: xxxx si
-	//	KphSetDebugLog(FALSE);
+	if (m->KernelCaptureEnabled)
+		KphSetDebugLog(FALSE);
 
 	delete m;
 }
@@ -283,28 +283,36 @@ static NTSTATUS DbgEventsGlobalThread(PVOID Parameter)
 	return DbgEventsThread(true, (CWinDbgMonitor*)Parameter);
 }
 
-static NTSTATUS DbgEventsKernelThread(PVOID Parameter)
+//static NTSTATUS DbgEventsKernelThread(PVOID Parameter)
+//{
+//	CWinDbgMonitor* This = (CWinDbgMonitor*)Parameter;
+//	
+//	ULONG SequenceNumber = 0; 
+//
+//	while (TRUE)
+//	{
+//		SIZE_T Length = 0;
+//		char Buffer[8 * 1024] = { 0 };
+//		NTSTATUS status = KphReadDebugLog(&SequenceNumber, Buffer, ARRSIZE(Buffer), &Length);
+//		if (status == STATUS_NO_MORE_ENTRIES) {
+//			QThread::msleep(10);
+//			continue;
+//		}
+//		if (!NT_SUCCESS(status) && status != STATUS_BUFFER_TOO_SMALL) // Note: if the buffer was to small it still wil hold a truncated result
+//			break;
+//
+//		emit This->DebugMessage((quint64)SYSTEM_PROCESS_ID, QString::fromLatin1(Buffer, Length));
+//	}
+//
+//	return STATUS_SUCCESS;
+//}
+
+extern void (*g_KernelDebugLogger)(const QString& Output);
+
+void KernelDebugLogger(const QString& Output)
 {
-	CWinDbgMonitor* This = (CWinDbgMonitor*)Parameter;
-	
-	/*ULONG SequenceNumber = 0; // todo: xxxx si
-
-	while (TRUE)
-	{
-		SIZE_T Length = 0;
-		char Buffer[8 * 1024] = { 0 };
-		NTSTATUS status = KphReadDebugLog(&SequenceNumber, Buffer, ARRSIZE(Buffer), &Length);
-		if (status == STATUS_NO_MORE_ENTRIES) {
-			QThread::msleep(10);
-			continue;
-		}
-		if (!NT_SUCCESS(status) && status != STATUS_BUFFER_TOO_SMALL) // Note: if the buffer was to small it still wil hold a truncated result
-			break;
-
-		emit This->DebugMessage((quint64)SYSTEM_PROCESS_ID, QString::fromLatin1(Buffer, Length));
-	}*/
-
-	return STATUS_SUCCESS;
+	if (theAPI && ((CWindowsAPI*)theAPI)->m_pDebugMonitor)
+		((CWindowsAPI*)theAPI)->m_pDebugMonitor->DebugMessage((quint64)SYSTEM_PROCESS_ID, Output);
 }
 
 STATUS CWinDbgMonitor::SetMonitor(EModes Mode)
@@ -339,19 +347,22 @@ STATUS CWinDbgMonitor::SetMonitor(EModes Mode)
 
 	if ((Mode & eKernel) != 0)
 	{
-		/*if (!m->KernelCaptureEnabled) // todo: xxxx si
+		if (!m->KernelCaptureEnabled)
 		{
+			if(!g_KernelDebugLogger)
+				g_KernelDebugLogger = KernelDebugLogger;
+
 			NTSTATUS status = KphSetDebugLog(TRUE);
 			if (!NT_SUCCESS(status))
 				return ERR("KphSetDebugLog", status);
 			m->KernelCaptureEnabled = TRUE;
-			if (HANDLE threadHandle = PhCreateThread(0, (PUSER_THREAD_START_ROUTINE)DbgEventsKernelThread, this))
-				NtClose(threadHandle);
-		}*/
+			//if (HANDLE threadHandle = PhCreateThread(0, (PUSER_THREAD_START_ROUTINE)DbgEventsKernelThread, this))
+			//	NtClose(threadHandle);
+		}
 	}
 	else if(m->KernelCaptureEnabled)
 	{
-		//KphSetDebugLog(FALSE); // todo: xxxx si
+		KphSetDebugLog(FALSE);
 		m->KernelCaptureEnabled = FALSE;
 	}
 
