@@ -42,7 +42,7 @@ NTSTATUS KphMsgDynAddUnicodeString(
     );
 
 _Must_inspect_result_
-NTSTATUS KphMsgDynGetUnicodeString(
+NTSTATUS __stdcall KphMsgDynGetUnicodeString(
     _In_ PCKPH_MESSAGE Message,
     _In_ KPH_MESSAGE_FIELD_ID FieldId,
     _Out_ PUNICODE_STRING String
@@ -56,7 +56,7 @@ NTSTATUS KphMsgDynAddAnsiString(
     );
 
 _Must_inspect_result_
-NTSTATUS KphMsgDynGetAnsiString(
+NTSTATUS __stdcall KphMsgDynGetAnsiString(
     _In_ PCKPH_MESSAGE Message,
     _In_ KPH_MESSAGE_FIELD_ID FieldId,
     _Out_ PANSI_STRING String

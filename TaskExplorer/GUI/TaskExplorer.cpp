@@ -275,7 +275,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			connect(m_pMenuFilterService, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
 			m_pMenuFilterOther = MakeActionCheck(m_pMenuFilterMenu, tr("Processes of Other Logged-In Users"), QVariant(), true);
 			connect(m_pMenuFilterOther, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
-			m_pMenuFilterOwn = MakeActionCheck(m_pMenuFilterMenu, tr("Processes of the Current User"), QVariant(), true);
+			m_pMenuFilterOwn = MakeActionCheck(m_pMenuFilterMenu, tr("Processes ot the Current User"), QVariant(), true);
 			connect(m_pMenuFilterOwn, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
 
 

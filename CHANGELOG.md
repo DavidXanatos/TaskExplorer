@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [1.5.2] - 2023-05-02
+
+### Fixed
+- added fix for BSOD on windows 10 LTSC 2019
+
+
 
 ## [1.5.1] - 2022-12-19
 
