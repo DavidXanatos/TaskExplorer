@@ -131,8 +131,8 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 		{
 			PPH_STRING Name = PhCreateString(service->lpServiceName);
 
-			LPQUERY_SERVICE_CONFIG config = (LPQUERY_SERVICE_CONFIG)PhGetServiceConfig(serviceHandle);
-			if (config)
+			LPQUERY_SERVICE_CONFIG config;
+			if (NT_SUCCESS(PhGetServiceConfig(serviceHandle, &config)))
 			{
 				m_StartType = config->dwStartType;
 				m_ErrorControl = config->dwErrorControl;
@@ -218,7 +218,7 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 				m->DelayedStart = FALSE;
 
 			PSERVICE_TRIGGER_INFO triggerInfo;
-			if (triggerInfo = (PSERVICE_TRIGGER_INFO)PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_TRIGGER_INFO))
+			if (NT_SUCCESS(PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_TRIGGER_INFO, (PVOID*)&triggerInfo)))
 			{
 				m->HasTriggers = triggerInfo->cTriggers != 0;
 				PhFree(triggerInfo);
@@ -344,10 +344,10 @@ STATUS CWinService::Start()
 	QWriteLocker Locker(&m_Mutex);
 
 	std::wstring SvcName = m_SvcName.toStdWString();
-    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_START);
-
 	BOOLEAN success = FALSE;
-    if (serviceHandle)
+
+	SC_HANDLE serviceHandle;
+    if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_START, (wchar_t*)SvcName.c_str())))
     {
         if (StartService(serviceHandle, 0, NULL))
             success = TRUE;
@@ -375,10 +375,10 @@ STATUS CWinService::Pause()
 	QWriteLocker Locker(&m_Mutex);
 
 	std::wstring SvcName = m_SvcName.toStdWString();
-    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
-
 	BOOLEAN success = FALSE;
-    if (serviceHandle)
+
+	SC_HANDLE serviceHandle;
+    if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_PAUSE_CONTINUE, (wchar_t*)SvcName.c_str())))
     {
 		SERVICE_STATUS serviceStatus;
 
@@ -408,10 +408,10 @@ STATUS CWinService::Continue()
 	QWriteLocker Locker(&m_Mutex);
 
 	std::wstring SvcName = m_SvcName.toStdWString();
-    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
-
 	BOOLEAN success = FALSE;
-    if (serviceHandle)
+
+	SC_HANDLE serviceHandle;
+    if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_PAUSE_CONTINUE, (wchar_t*)SvcName.c_str())))
     {
 		SERVICE_STATUS serviceStatus;
 
@@ -441,10 +441,10 @@ STATUS CWinService::Stop()
 	QWriteLocker Locker(&m_Mutex);
 
 	std::wstring SvcName = m_SvcName.toStdWString();
-    SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_STOP);
-
 	BOOLEAN success = FALSE;
-    if (serviceHandle)
+
+	SC_HANDLE serviceHandle;
+    if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_STOP, (wchar_t*)SvcName.c_str())))
     {
 		SERVICE_STATUS serviceStatus;
 
@@ -481,10 +481,10 @@ STATUS CWinService::Delete(bool bForce)
 #endif
 
 	std::wstring SvcName = m_SvcName.toStdWString();
-	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), DELETE);
-
 	BOOLEAN success = FALSE;
-    if (serviceHandle)
+
+	SC_HANDLE serviceHandle;
+    if (NT_SUCCESS(PhOpenService(&serviceHandle, DELETE, (wchar_t*)SvcName.c_str())))
     {
         if (DeleteService(serviceHandle))
             success = TRUE;
@@ -509,10 +509,10 @@ STATUS CWinService::Delete(bool bForce)
 
 NTSTATUS NTAPI CWinService__OpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ PVOID Context)
 {
-	SC_HANDLE serviceHandle;
 	std::wstring* pName = ((std::wstring*)Context);
 
-	if (serviceHandle = PhOpenService((wchar_t*)pName->c_str(),DesiredAccess))
+	SC_HANDLE serviceHandle;
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, DesiredAccess, (wchar_t*)pName->c_str())))
 	{
 		*Handle = serviceHandle;
 		return STATUS_SUCCESS;

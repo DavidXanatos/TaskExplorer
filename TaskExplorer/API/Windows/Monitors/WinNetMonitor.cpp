@@ -280,12 +280,12 @@ bool CWinNetMonitor::UpdateAdapters()
                 CM_REGISTRY_SOFTWARE
                 ) == CR_SUCCESS)
             {
-				PPH_STRING deviceGuid = PhQueryRegistryString(keyHandle, L"NetCfgInstanceId");
+				PPH_STRING deviceGuid = PhQueryRegistryStringZ(keyHandle, L"NetCfgInstanceId");
 
-				NDIS_MEDIUM MediumType =  (NDIS_MEDIUM)PhQueryRegistryUlong(keyHandle, L"*MediaType");
-				NDIS_PHYSICAL_MEDIUM PhysicalMediaType = (NDIS_PHYSICAL_MEDIUM)PhQueryRegistryUlong(keyHandle, L"*PhysicalMediaType");
+				NDIS_MEDIUM MediumType =  (NDIS_MEDIUM)PhQueryRegistryUlongZ(keyHandle, L"*MediaType");
+				NDIS_PHYSICAL_MEDIUM PhysicalMediaType = (NDIS_PHYSICAL_MEDIUM)PhQueryRegistryUlongZ(keyHandle, L"*PhysicalMediaType");
 
-				QString deviceInstanceID = CastPhString(PhQueryRegistryString(keyHandle, L"DeviceInstanceID"));
+				QString deviceInstanceID = CastPhString(PhQueryRegistryStringZ(keyHandle, L"DeviceInstanceID"));
 
 				// Don't std::list virtual RAS adapters
 				// Note: some USB adapters have PhysicalMediaType not set so also check for the deviceInstanceID value
@@ -308,8 +308,8 @@ bool CWinNetMonitor::UpdateAdapters()
 						OldNics.remove(DeviceInterface);
 						adapterEntry = &I.value();
 					}
-					((PNET_LUID_LH)&adapterEntry->DeviceLuid)->Info.IfType = PhQueryRegistryUlong64(keyHandle, L"*IfType");
-					((PNET_LUID_LH)&adapterEntry->DeviceLuid)->Info.NetLuidIndex = PhQueryRegistryUlong64(keyHandle, L"NetLuidIndex");
+					((PNET_LUID_LH)&adapterEntry->DeviceLuid)->Info.IfType = PhQueryRegistryUlong64Z(keyHandle, L"*IfType");
+					((PNET_LUID_LH)&adapterEntry->DeviceLuid)->Info.NetLuidIndex = PhQueryRegistryUlong64Z(keyHandle, L"NetLuidIndex");
 
 					HANDLE deviceHandle;
 					if (NT_SUCCESS(PhCreateFileWin32(

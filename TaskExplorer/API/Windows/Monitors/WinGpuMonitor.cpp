@@ -248,10 +248,10 @@ quint64 CWinGpuMonitor::QueryGpuInstalledMemory(
         CM_REGISTRY_SOFTWARE
         ) == CR_SUCCESS)
     {
-        installedMemory = PhQueryRegistryUlong64(keyHandle, L"HardwareInformation.qwMemorySize");
+        installedMemory = PhQueryRegistryUlong64Z(keyHandle, L"HardwareInformation.qwMemorySize");
 
         if (installedMemory == ULLONG_MAX)
-            installedMemory = PhQueryRegistryUlong(keyHandle, L"HardwareInformation.MemorySize");
+            installedMemory = PhQueryRegistryUlongZ(keyHandle, L"HardwareInformation.MemorySize");
 
         if (installedMemory == ULONG_MAX) // HACK
             installedMemory = ULLONG_MAX;

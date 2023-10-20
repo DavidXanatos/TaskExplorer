@@ -49,7 +49,7 @@ bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, 
         {
             if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, instanceHandle, &fileName)))
             {
-                PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(fileName));
+                PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
                 PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
 
 				m_ModuleString = CastPhString(fileName);
@@ -677,7 +677,7 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 
 		if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, (HANDLE)WndInfo.InstanceHandle, &fileName)))
 		{
-			PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(fileName));
+			PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
             PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
 
 			WndInfo.InstanceString = CastPhString(fileName);
@@ -685,7 +685,7 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 
 		if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, (HANDLE)WndInfo.InstanceHandle2, &fileName)))
 		{
-			PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(fileName));
+			PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
             PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
 
 			WndInfo.InstanceString2 = CastPhString(fileName);

@@ -484,8 +484,7 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
 
 	if (NT_SUCCESS(status))
 	{
-		status = PhWalkThreadStack(m->ThreadHandle, m->SymbolProvider->ProcessHandle, &clientId, m->SymbolProvider,
-			PH_WALK_I386_STACK | PH_WALK_AMD64_STACK | PH_WALK_KERNEL_STACK, PhpWalkThreadStackCallback, this);
+		status = PhWalkThreadStack(m->ThreadHandle, m->SymbolProvider->ProcessHandle, &clientId, m->SymbolProvider, PH_WALK_KERNEL_STACK, PhpWalkThreadStackCallback, this);
 	}
 
 	// case PluginThreadStackEndDefaultWalkStack:

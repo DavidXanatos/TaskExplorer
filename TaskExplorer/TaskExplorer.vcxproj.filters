@@ -99,6 +99,9 @@
     <Filter Include="API\Windows\Monitors\d3dkmt">
       <UniqueIdentifier>{0dff98b8-f098-42cc-9ce2-ed62f2caa31c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="API\Windows\ProcMon">
+      <UniqueIdentifier>{128cb3e9-a9b4-40b1-92cd-9fa7f9eb29bd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

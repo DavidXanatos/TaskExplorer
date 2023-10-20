@@ -10,12 +10,10 @@
  */
 
 #pragma once
+
 #include <kphmsg.h>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+EXTERN_C_START
 
 typedef struct _KPH_STACK_TRACE
 {
@@ -34,14 +32,6 @@ NTSTATUS KphMsgDynAddUnicodeString(
     _In_ PCUNICODE_STRING String
     );
 
-_Must_inspect_result_
-NTSTATUS KphMsgDynAddUnicodeString(
-    _Inout_ PKPH_MESSAGE Message,
-    _In_ KPH_MESSAGE_FIELD_ID FieldId,
-    _In_ PCUNICODE_STRING String
-    );
-
-_Must_inspect_result_
 NTSTATUS __stdcall KphMsgDynGetUnicodeString(
     _In_ PCKPH_MESSAGE Message,
     _In_ KPH_MESSAGE_FIELD_ID FieldId,
@@ -55,7 +45,6 @@ NTSTATUS KphMsgDynAddAnsiString(
     _In_ PCANSI_STRING String
     );
 
-_Must_inspect_result_
 NTSTATUS __stdcall KphMsgDynGetAnsiString(
     _In_ PCKPH_MESSAGE Message,
     _In_ KPH_MESSAGE_FIELD_ID FieldId,
@@ -66,16 +55,13 @@ _Must_inspect_result_
 NTSTATUS KphMsgDynAddStackTrace(
     _Inout_ PKPH_MESSAGE Message,
     _In_ KPH_MESSAGE_FIELD_ID FieldId,
-    _In_ PKPH_STACK_TRACE StackTrace 
+    _In_ PKPH_STACK_TRACE StackTrace
     );
 
-_Must_inspect_result_
 NTSTATUS KphMsgDynGetStackTrace(
     _In_ PCKPH_MESSAGE Message,
     _In_ KPH_MESSAGE_FIELD_ID FieldId,
-    _Out_ PKPH_STACK_TRACE StackTrace 
+    _Out_ PKPH_STACK_TRACE StackTrace
     );
 
-#ifdef __cplusplus
-}
-#endif
+EXTERN_C_END

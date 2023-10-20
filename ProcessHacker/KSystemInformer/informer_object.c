@@ -40,7 +40,7 @@ VOID KphpPopulateObjectNameInMessage(
     POBJECT_NAME_INFORMATION info;
     ULONG length;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     buffer = NULL;
 
@@ -112,14 +112,14 @@ OB_PREOP_CALLBACK_STATUS KphpObPreProcessHandleCreate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
     NT_ASSERT(Info->ObjectType == *PsProcessType);
     NT_ASSERT(Info->Operation == OB_OPERATION_HANDLE_CREATE);
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
     KphApplyObProtections(Info);
 #endif
 
@@ -177,7 +177,7 @@ VOID KphpObPostProcessHandleCreate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -237,14 +237,14 @@ OB_PREOP_CALLBACK_STATUS KphpObPreProcessHandleDuplicate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
     NT_ASSERT(Info->ObjectType == *PsProcessType);
     NT_ASSERT(Info->Operation == OB_OPERATION_HANDLE_DUPLICATE);
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
     KphApplyObProtections(Info);
 #endif
 
@@ -306,7 +306,7 @@ VOID KphpObPostProcessHandleDuplicate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -366,11 +366,11 @@ OB_PREOP_CALLBACK_STATUS KphpObPreThreadHandleCreate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
     KphApplyObProtections(Info);
 #endif
 
@@ -431,7 +431,7 @@ VOID KphpObPostThreadHandleCreate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -491,11 +491,11 @@ OB_PREOP_CALLBACK_STATUS KphpObPreThreadHandleDuplicate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
     KphApplyObProtections(Info);
 #endif
 
@@ -560,7 +560,7 @@ VOID KphpObPostThreadHandleDuplicate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -620,7 +620,7 @@ OB_PREOP_CALLBACK_STATUS KphpObPreDesktopHandleCreate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -681,7 +681,7 @@ VOID KphpObPostDesktopHandleCreate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -741,7 +741,7 @@ OB_PREOP_CALLBACK_STATUS KphpObPreDesktopHandleDuplicate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -806,7 +806,7 @@ VOID KphpObPostDesktopHandleDuplicate(
 {
     PKPH_MESSAGE msg;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -864,7 +864,7 @@ OB_PREOP_CALLBACK_STATUS KphpObPreCallback(
     _Inout_ POB_PRE_OPERATION_INFORMATION Info
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (Info->ObjectType == *PsProcessType)
     {
@@ -915,7 +915,7 @@ VOID KphpObPostCallback(
     _In_ POB_POST_OPERATION_INFORMATION Info
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Context);
 
@@ -974,9 +974,8 @@ NTSTATUS KphObjectInformerStart(
     NTSTATUS status;
     OB_CALLBACK_REGISTRATION callbackRegistration;
     OB_OPERATION_REGISTRATION operationRegistration[3];
-    USHORT operationCount;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphDynAltitude);
 
@@ -992,20 +991,13 @@ NTSTATUS KphObjectInformerStart(
     operationRegistration[1].PreOperation = KphpObPreCallback;
     operationRegistration[1].PostOperation = KphpObPostCallback;
 
-    operationCount = 2;
-
-    if (KphOsVersion >= KphWin10)
-    {
-        operationRegistration[2].ObjectType = ExDesktopObjectType;
-        operationRegistration[2].Operations = OB_OPERATION_HANDLE_CREATE | OB_OPERATION_HANDLE_DUPLICATE;
-        operationRegistration[2].PreOperation = KphpObPreCallback;
-        operationRegistration[2].PostOperation = KphpObPostCallback;
-
-        operationCount++;
-    }
+    operationRegistration[2].ObjectType = ExDesktopObjectType;
+    operationRegistration[2].Operations = OB_OPERATION_HANDLE_CREATE | OB_OPERATION_HANDLE_DUPLICATE;
+    operationRegistration[2].PreOperation = KphpObPreCallback;
+    operationRegistration[2].PostOperation = KphpObPostCallback;
 
     callbackRegistration.Version = OB_FLT_REGISTRATION_VERSION;
-    callbackRegistration.OperationRegistrationCount = operationCount;
+    callbackRegistration.OperationRegistrationCount = ARRAYSIZE(operationRegistration);
     callbackRegistration.Altitude.Buffer = KphDynAltitude->Buffer;
     callbackRegistration.Altitude.Length = KphDynAltitude->Length;
     callbackRegistration.Altitude.MaximumLength = KphDynAltitude->MaximumLength;
@@ -1035,7 +1027,7 @@ VOID KphObjectInformerStop(
     VOID
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (KphpObRegistrationHandle)
     {

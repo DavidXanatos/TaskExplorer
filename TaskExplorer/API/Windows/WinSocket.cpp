@@ -557,7 +557,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
             memcpy(
                 connections[index].OwnerInfo,
                 tcp4Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                sizeof(ULONGLONG) * std::min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
                 );
 
             index++;
@@ -584,7 +584,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
             memcpy(
                 connections[index].OwnerInfo,
                 tcp6Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                sizeof(ULONGLONG) * std::min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
                 );
 
             connections[index].LocalScopeId = tcp6Table->table[i].dwLocalScopeId;
@@ -614,7 +614,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
             memcpy(
                 connections[index].OwnerInfo,
                 udp4Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                sizeof(ULONGLONG) * std::min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
                 );
 
             index++;
@@ -641,7 +641,7 @@ QVector<CWinSocket::SSocket> CWinSocket::GetNetworkConnections()
             memcpy(
                 connections[index].OwnerInfo,
                 udp6Table->table[i].OwningModuleInfo,
-                sizeof(ULONGLONG) * min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
+                sizeof(ULONGLONG) * std::min(PH_NETWORK_OWNER_INFO_SIZE, TCPIP_OWNING_MODULE_SIZE)
                 );
 
             index++;

@@ -15,27 +15,52 @@
 
 #include <trace.h>
 
-KPH_PROTECTED_DATA_SECTION_PUSH();
-static BYTE KphpTrustedPublicKey[] =
+typedef enum _KPH_KEY_TYPE
 {
+    KphKeyTypeTest,
+    KphKeyTypeProd,
+} KPH_KEY_TYPE, *PKPH_KEY_TYPE;
+
+#define KPH_KEY_MATERIAL_SIZE ((ULONG)72)
+
+typedef struct _KPH_KEY
+{
+    KPH_KEY_TYPE Type;
+    BYTE Material[KPH_KEY_MATERIAL_SIZE];
+} KPH_KEY, *PKPH_KEY;
+typedef const KPH_KEY* PCKPH_KEY;
+
+KPH_PROTECTED_DATA_SECTION_RO_PUSH();
+static const KPH_KEY KphpPublicKeys[] =
+{
+    {
+        KphKeyTypeProd,
+        {
     0x45, 0x43, 0x53, 0x31, 0x20, 0x00, 0x00, 0x00,
-    0x7C, 0x32, 0xAB, 0xA6, 0x40, 0x79, 0x9C, 0x00,
-    0x67, 0xE2, 0x54, 0x7E, 0x0E, 0x4F, 0x55, 0x4A,
-    0xE1, 0x78, 0xC2, 0x62, 0x9A, 0x96, 0x81, 0x63,
-    0xCD, 0x4E, 0x3A, 0x28, 0x52, 0xB2, 0x4D, 0x28,
-    0x6A, 0x96, 0xE5, 0x7D, 0x1B, 0xCB, 0x9B, 0x27,
-    0xC8, 0xFD, 0x53, 0xDC, 0x00, 0x0D, 0x96, 0x62,
-    0xA2, 0x55, 0x38, 0x71, 0xF0, 0x0F, 0xCC, 0x8F,
-    0x84, 0xF4, 0x2B, 0x60, 0x38, 0xA6, 0xE7, 0x37,
+    0x05, 0x7A, 0x12, 0x5A, 0xF8, 0x54, 0x01, 0x42,
+    0xDB, 0x19, 0x87, 0xFC, 0xC4, 0xE3, 0xD3, 0x8D,
+    0x46, 0x7B, 0x74, 0x01, 0x12, 0xFC, 0x78, 0xEB,
+    0xEF, 0x7F, 0xF6, 0xAF, 0x4D, 0x9A, 0x3A, 0xF6,
+    0x64, 0x90, 0xDB, 0xE3, 0x48, 0xAB, 0x3E, 0xA7,
+    0x2F, 0xC1, 0x18, 0x32, 0xBD, 0x23, 0x02, 0x9D,
+    0x3F, 0xF3, 0x27, 0x86, 0x71, 0x45, 0x26, 0x14,
+    0x14, 0xF5, 0x19, 0xAA, 0x2D, 0xEE, 0x50, 0x10,
+        }
+    }
 };
+KPH_PROTECTED_DATA_SECTION_RO_POP();
+
+KPH_PROTECTED_DATA_SECTION_PUSH();
+static BCRYPT_ALG_HANDLE KphpBCryptSigningProvider = NULL;
+static BCRYPT_KEY_HANDLE KphpPublicKeyHandles[ARRAYSIZE(KphpPublicKeys)] = { 0 };
+static ULONG KphpPublicKeyHandlesCount = 0;
+C_ASSERT(ARRAYSIZE(KphpPublicKeyHandles) == ARRAYSIZE(KphpPublicKeys));
 KPH_PROTECTED_DATA_SECTION_POP();
+
 
 PAGED_FILE();
 
 static UNICODE_STRING KphpSigExtension = RTL_CONSTANT_STRING(L".sig");
-
-static BCRYPT_ALG_HANDLE KphpBCryptSigningProvider = NULL;
-static BCRYPT_KEY_HANDLE KphpTrustedPublicKeyHandle = NULL;
 
 /**
  * \brief Initializes verification infrastructure.
@@ -49,8 +74,9 @@ NTSTATUS KphInitializeVerify(
     )
 {
     NTSTATUS status;
+    BOOLEAN testSigning;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     status = BCryptOpenAlgorithmProvider(&KphpBCryptSigningProvider,
                                          BCRYPT_ECDSA_P256_ALGORITHM,
@@ -67,22 +93,38 @@ NTSTATUS KphInitializeVerify(
         return status;
     }
 
-    status = BCryptImportKeyPair(KphpBCryptSigningProvider,
-                                 NULL,
-                                 BCRYPT_ECCPUBLIC_BLOB,
-                                 &KphpTrustedPublicKeyHandle,
-                                 KphpTrustedPublicKey,
-                                 sizeof(KphpTrustedPublicKey),
-                                 0);
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      VERIFY,
-                      "BCryptImportKeyPair failed: %!STATUS!",
-                      status);
+    testSigning = KphTestSigningEnabled();
 
-        KphpTrustedPublicKeyHandle = NULL;
-        return status;
+    for (ULONG i = 0; i < ARRAYSIZE(KphpPublicKeys); i++)
+    {
+        PCKPH_KEY key;
+        BCRYPT_KEY_HANDLE keyHandle;
+
+        key = &KphpPublicKeys[i];
+
+        if (!testSigning && (key->Type == KphKeyTypeTest))
+        {
+            continue;
+        }
+
+        status = BCryptImportKeyPair(KphpBCryptSigningProvider,
+                                     NULL,
+                                     BCRYPT_ECCPUBLIC_BLOB,
+                                     &keyHandle,
+                                     (PUCHAR)key->Material,
+                                     KPH_KEY_MATERIAL_SIZE,
+                                     0);
+        if (!NT_SUCCESS(status))
+        {
+            KphTracePrint(TRACE_LEVEL_ERROR,
+                          VERIFY,
+                          "BCryptImportKeyPair failed: %!STATUS!",
+                          status);
+
+            return status;
+        }
+
+        KphpPublicKeyHandles[KphpPublicKeyHandlesCount++] = keyHandle;
     }
 
     return status;
@@ -96,19 +138,64 @@ VOID KphCleanupVerify(
     VOID
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
-    if (KphpTrustedPublicKeyHandle)
+    for (ULONG i = 0; i < KphpPublicKeyHandlesCount; i++)
     {
-        BCryptDestroyKey(KphpTrustedPublicKeyHandle);
-        KphpTrustedPublicKeyHandle = NULL;
+        BCryptDestroyKey(KphpPublicKeyHandles[i]);
     }
 
     if (KphpBCryptSigningProvider)
     {
         BCryptCloseAlgorithmProvider(KphpBCryptSigningProvider, 0);
-        KphpBCryptSigningProvider = NULL;
     }
+}
+
+/**
+ * \brief Verifies that the specified signature matches the specified hash by
+ * using one of the known public keys.
+ *
+ * \param[in] Hash The hash to verify.
+ * \param[in] Signature The signature to check.
+ * \param[in] SignatureLength The length of the signature.
+ *
+ * \return Successful or errant status.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphpVerifyHash(
+    _In_ PKPH_HASH Hash,
+    _In_ PBYTE Signature,
+    _In_ ULONG SignatureLength
+    )
+{
+    NTSTATUS status;
+
+    PAGED_CODE_PASSIVE();
+
+    status = STATUS_UNSUCCESSFUL;
+
+    for (ULONG i = 0; i < KphpPublicKeyHandlesCount; i++)
+    {
+        status = BCryptVerifySignature(KphpPublicKeyHandles[i],
+                                       NULL,
+                                       Hash->Buffer,
+                                       Hash->Size,
+                                       Signature,
+                                       SignatureLength,
+                                       0);
+        if (NT_SUCCESS(status))
+        {
+            return status;
+        }
+    }
+
+    KphTracePrint(TRACE_LEVEL_VERBOSE,
+                  VERIFY,
+                  "BCryptVerifySignature failed: %!STATUS!",
+                  status);
+
+    return status;
 }
 
 /**
@@ -133,9 +220,7 @@ NTSTATUS KphVerifyBuffer(
     NTSTATUS status;
     KPH_HASH hash;
 
-    PAGED_PASSIVE();
-
-    NT_ASSERT(KphpTrustedPublicKeyHandle);
+    PAGED_CODE_PASSIVE();
 
     status = KphHashBuffer(Buffer, BufferLength, CALG_SHA_256, &hash);
     if (!NT_SUCCESS(status))
@@ -148,18 +233,12 @@ NTSTATUS KphVerifyBuffer(
         goto Exit;
     }
 
-    status = BCryptVerifySignature(KphpTrustedPublicKeyHandle,
-                                   NULL,
-                                   hash.Buffer,
-                                   hash.Size,
-                                   Signature,
-                                   SignatureLength,
-                                   0);
+    status = KphpVerifyHash(&hash, Signature, SignatureLength);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       VERIFY,
-                      "BCryptVerifySignature failed: %!STATUS!",
+                      "KphpVerifyHash failed: %!STATUS!",
                       status);
 
         goto Exit;
@@ -193,9 +272,7 @@ NTSTATUS KphVerifyFile(
     IO_STATUS_BLOCK ioStatusBlock;
     BYTE signature[MINCRYPT_MAX_HASH_LEN];
 
-    PAGED_PASSIVE();
-
-    NT_ASSERT(KphpTrustedPublicKeyHandle);
+    PAGED_CODE_PASSIVE();
 
     signatureFileHandle = NULL;
     RtlZeroMemory(&signatureFileName, sizeof(signatureFileName));
@@ -259,21 +336,19 @@ NTSTATUS KphVerifyFile(
                                NULL,
                                NULL);
 
-    status = IoCreateFileEx(&signatureFileHandle,
-                            FILE_READ_ACCESS,
-                            &objectAttributes,
-                            &ioStatusBlock,
-                            NULL,
-                            FILE_ATTRIBUTE_NORMAL,
-                            FILE_SHARE_READ,
-                            FILE_OPEN,
-                            FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-                            NULL,
-                            0,
-                            CreateFileTypeNone,
-                            NULL,
-                            IO_IGNORE_SHARE_ACCESS_CHECK,
-                            NULL);
+    status = KphCreateFile(&signatureFileHandle,
+                           FILE_READ_ACCESS | SYNCHRONIZE,
+                           &objectAttributes,
+                           &ioStatusBlock,
+                           NULL,
+                           FILE_ATTRIBUTE_NORMAL,
+                           FILE_SHARE_READ,
+                           FILE_OPEN,
+                           FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+                           NULL,
+                           0,
+                           IO_IGNORE_SHARE_ACCESS_CHECK,
+                           KernelMode);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
@@ -303,6 +378,13 @@ NTSTATUS KphVerifyFile(
                       &signatureFileName,
                       status);
 
+#ifdef SIG_NO_SECURITY
+        if (status == STATUS_END_OF_FILE)
+        {
+            status = STATUS_SUCCESS;
+        }
+#endif
+
         goto Exit;
     }
 
@@ -319,18 +401,12 @@ NTSTATUS KphVerifyFile(
         goto Exit;
     }
 
-    status = BCryptVerifySignature(KphpTrustedPublicKeyHandle,
-                                   NULL,
-                                   hash.Buffer,
-                                   hash.Size,
-                                   signature,
-                                   (ULONG)ioStatusBlock.Information,
-                                   0);
+    status = KphpVerifyHash(&hash, signature, (ULONG)ioStatusBlock.Information);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       VERIFY,
-                      "BCryptVerifySignature failed: %!STATUS!",
+                      "KphpVerifyHash failed: %!STATUS!",
                       status);
 
         goto Exit;
@@ -358,7 +434,6 @@ Exit:
  * strict and lacks enough information from the kernel to fully understand the
  * protected process state.
  *
- * \param[in] Client - Client information.
  * \param[in] Process - Calling process.
  * \param[in] ProcessTarget - Target process to check that the calling process
  * dominates.
@@ -366,7 +441,7 @@ Exit:
  * domination check is bypassed.
  *
  * \return Appropriate status:
- * STATUS_SUCCESS - The calling process dominates the target.
+ * STATUS_SUCCESS - The calling process dominates the target, or the target is not protected
  * STATUS_ACCESS_DENIED - The calling process does not dominate the target.
 */
 _IRQL_requires_max_(APC_LEVEL)
@@ -395,9 +470,10 @@ NTSTATUS KphDominationCheck(
     // we'll do a very strict check here:
     //
 
-    if (NT_SUCCESS(KphGetProcessProtection(Process, &processProtection)) &&
-        NT_SUCCESS(KphGetProcessProtection(ProcessTarget, &targetProtection)) &&
-        (targetProtection.Type != PsProtectedTypeNone) &&
+    processProtection = PsGetProcessProtection(Process);
+    targetProtection = PsGetProcessProtection(ProcessTarget);
+
+    if ((targetProtection.Type != PsProtectedTypeNone) &&
         (targetProtection.Type >= processProtection.Type))
     {
         //
@@ -410,11 +486,6 @@ NTSTATUS KphDominationCheck(
         //
         return STATUS_ACCESS_DENIED;
     }
-
-    //
-    // Either the protected process check is not exported or the verified
-    // process dominates the target. Our domination check succeeded.
-    //
 
     return STATUS_SUCCESS;
 }
@@ -435,12 +506,12 @@ KPH_PROCESS_STATE KphGetProcessState(
 
     PAGED_CODE();
 
-    if (KphKdPresent())
+    if (KphProtectionsSuppressed())
     {
         //
-        // There is an active kernel debugger. This ultimately permits low
-        // state callers into the driver. But still check for verification. 
-        // We still want to exercise the code below, regardless.
+        // This ultimately permits low state callers into the driver. But still
+        // check for verification. We still want to exercise the code below,
+        // regardless.
         //
         processState = ~KPH_PROCESS_VERIFIED_PROCESS;
     }

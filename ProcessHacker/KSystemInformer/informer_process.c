@@ -24,7 +24,6 @@ typedef struct _KPH_PROCESS_CREATE_APC
 {
     KSI_KAPC Apc;
     PKPH_THREAD_CONTEXT Actor;
-
 } KPH_PROCESS_CREATE_APC, *PKPH_PROCESS_CREATE_APC;
 
 /**
@@ -41,7 +40,7 @@ PKPH_PROCESS_CREATE_APC KphpAllocateProcessCreateApc(
 {
     PKPH_PROCESS_CREATE_APC apc;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphpProcesCreateApcLookaside);
 
@@ -91,16 +90,13 @@ PKPH_PROCESS_CONTEXT KphpPerformProcessTracking(
     _Inout_opt_ PPS_CREATE_NOTIFY_INFO CreateInfo
     )
 {
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
-    NTSTATUS status;
-#endif
     PKPH_PROCESS_CONTEXT process;
     PKPH_PROCESS_CONTEXT creatorProcess;
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
     KPH_PROCESS_STATE processState;
 #endif
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (!CreateInfo)
     {
@@ -112,7 +108,8 @@ PKPH_PROCESS_CONTEXT KphpPerformProcessTracking(
 
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       TRACKING,
-                      "Stopped tracking process %lu",
+                      "Stopped tracking process %wZ (%lu)",
+                      &process->ImageName,
                       HandleToULong(process->ProcessId));
 
         process->ExitNotification = TRUE;
@@ -142,44 +139,12 @@ PKPH_PROCESS_CONTEXT KphpPerformProcessTracking(
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   TRACKING,
-                  "Tracking process %lu",
+                  "Tracking process %wZ (%lu)",
+                  &process->ImageName,
                   HandleToULong(process->ProcessId));
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
-    processState = KphGetProcessState(process);
-    if ((processState & KPH_PROCESS_STATE_LOW) == KPH_PROCESS_STATE_LOW)
-    {
-        ACCESS_MASK processAllowedMask;
-        ACCESS_MASK threadAllowedMask;
-
-        if (KphKdPresent())
-        {
-            //
-            // There is an active kernel debugger. Allow all access, but still
-            // exercise the code by registering.
-            //
-            processAllowedMask = ((ACCESS_MASK)-1);
-            threadAllowedMask = ((ACCESS_MASK)-1);
-        }
-        else
-        {
-            processAllowedMask = KPH_PROTECED_PROCESS_MASK;
-            threadAllowedMask = KPH_PROTECED_THREAD_MASK;
-        }
-
-        status = KphStartProtectingProcess(process,
-                                           processAllowedMask,
-                                           threadAllowedMask);
-        if (!NT_SUCCESS(status))
-        {
-            KphTracePrint(TRACE_LEVEL_ERROR,
-                          PROTECTION,
-                          "KphStartProtectingProcess failed: %!STATUS!",
-                          status);
-
-            NT_ASSERT(!process->Protected);
-        }
-    }
+#ifndef KPP_NO_SECURITY
+    KphVerifyProcessAndProtectIfAppropriate(process);
 #endif
 
     creatorProcess = KphGetCurrentProcessContext();
@@ -188,7 +153,7 @@ PKPH_PROCESS_CONTEXT KphpPerformProcessTracking(
         return process;
     }
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
     processState = KphGetProcessState(creatorProcess);
     if ((processState & KPH_PROCESS_STATE_HIGH) == KPH_PROCESS_STATE_HIGH)
     {
@@ -205,7 +170,6 @@ PKPH_PROCESS_CONTEXT KphpPerformProcessTracking(
  * \brief Informs any clients of process notify routine invocations.
  *
  * \param[in,out] Process The process being created.
- * \param[in] ProcessId ProcessID of the process being created.
  * \param[in,out] CreateInfo Information on the process being created, if the
  * process is being destroyed this is NULL.
  *
@@ -214,7 +178,6 @@ _Function_class_(PCREATE_PROCESS_NOTIFY_ROUTINE_EX)
 _IRQL_requires_max_(PASSIVE_LEVEL)
 VOID KphpCreateProcessNotifyInformer(
     _In_ PKPH_PROCESS_CONTEXT Process,
-    _In_ HANDLE ProcessId,
     _Inout_opt_ PPS_CREATE_NOTIFY_INFO CreateInfo
     )
 {
@@ -222,7 +185,7 @@ VOID KphpCreateProcessNotifyInformer(
     PKPH_MESSAGE msg;
     PKPH_MESSAGE reply;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     msg = NULL;
     reply = NULL;
@@ -254,9 +217,9 @@ VOID KphpCreateProcessNotifyInformer(
 
         KphMsgInit(msg, KphMsgProcessCreate);
         msg->Kernel.ProcessCreate.CreatingClientId.UniqueProcess = PsGetCurrentProcessId();
-        msg->Kernel.ProcessCreate.CreatingClientId.UniqueThread = PsGetCurrentProcessId();
+        msg->Kernel.ProcessCreate.CreatingClientId.UniqueThread = PsGetCurrentThreadId();
         msg->Kernel.ProcessCreate.ParentProcessId = CreateInfo->ParentProcessId;
-        msg->Kernel.ProcessCreate.TargetProcessId = ProcessId;
+        msg->Kernel.ProcessCreate.TargetProcessId = Process->ProcessId;
         msg->Kernel.ProcessCreate.IsSubsystemProcess = (CreateInfo->IsSubsystemProcess ? TRUE : FALSE);
 
         if (Process->ImageFileName)
@@ -292,7 +255,7 @@ VOID KphpCreateProcessNotifyInformer(
             KphCaptureStackInMessage(msg);
         }
 
-        status = KphCommsSendMessage(msg, reply, KPH_COMMS_DEFAULT_TIMEOUT);
+        status = KphCommsSendMessage(msg, reply);
         if (!NT_SUCCESS(status))
         {
             KphTracePrint(TRACE_LEVEL_ERROR,
@@ -433,20 +396,22 @@ VOID KSIAPI KphpProcessCreateKernelRoutine(
  * creating a process. This will be cleared when the kernel routine fires
  * before returning from the system.
  *
- * \param[in] ProcessId ProcessID of the process being created.
+ * \param[in] Process The process context of the process being created.
  * \param[in,out] CreateInfo Information on the process being created, if the
  * process is being destroyed this is NULL.
  */
 _IRQL_requires_max_(PASSIVE_LEVEL)
 VOID KphpPerformProcessCreationTracking(
-    _In_ HANDLE ProcessId,
+    _In_ PKPH_PROCESS_CONTEXT Process,
     _Inout_opt_ PPS_CREATE_NOTIFY_INFO CreateInfo
     )
 {
+    NTSTATUS status;
     PKPH_THREAD_CONTEXT actor;
     PKPH_PROCESS_CREATE_APC apc;
+    BOOLEAN stopProtecting;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (!CreateInfo)
     {
@@ -456,6 +421,16 @@ VOID KphpPerformProcessCreationTracking(
     NT_ASSERT(PsGetCurrentProcessId() == CreateInfo->CreatingThreadId.UniqueProcess);
     NT_ASSERT(PsGetCurrentThreadId() == CreateInfo->CreatingThreadId.UniqueThread);
 
+    if (!KphIsProtectedProcess(Process))
+    {
+        return;
+    }
+
+    //
+    // If we fail here we will stop protecting the process. If protection is
+    // stopped the process will not be given full access to the driver APIs.
+    //
+    stopProtecting = TRUE;
     apc = NULL;
 
     actor = KphGetCurrentThreadContext();
@@ -465,9 +440,21 @@ VOID KphpPerformProcessCreationTracking(
         goto Exit;
     }
 
-    if (!actor->ProcessContext->ApcNoopRoutine)
+    if (actor->ProcessContext->IsSubsystemProcess)
     {
-        KphTracePrint(TRACE_LEVEL_ERROR, TRACKING, "APC no-op routine null.");
+        KphTracePrint(TRACE_LEVEL_WARNING,
+                      TRACKING,
+                      "Skipping for subsystem process.");
+        goto Exit;
+    }
+
+    status = KphCheckProcessApcNoopRoutine(actor->ProcessContext);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      TRACKING,
+                      "KphCheckProcessApcNoopRoutine failed: %!STATUS!",
+                      status);
         goto Exit;
     }
 
@@ -485,7 +472,7 @@ VOID KphpPerformProcessCreationTracking(
     actor = NULL;
 
     apc->Actor->IsCreatingProcess = TRUE;
-    apc->Actor->IsCreatingProcessId = ProcessId;
+    apc->Actor->IsCreatingProcessId = Process->ProcessId;
 
     KsiInitializeApc(&apc->Apc,
                      KphDriverObject,
@@ -514,6 +501,7 @@ VOID KphpPerformProcessCreationTracking(
     //
     KeTestAlertThread(UserMode);
 
+    stopProtecting = FALSE;
     apc = NULL;
 
 Exit:
@@ -526,6 +514,11 @@ Exit:
     if (actor)
     {
         KphDereferenceObject(actor);
+    }
+
+    if (stopProtecting)
+    {
+        KphStopProtectingProcess(Process);
     }
 }
 
@@ -547,14 +540,13 @@ VOID KphpCreateProcessNotifyRoutine(
 {
     PKPH_PROCESS_CONTEXT process;
 
-    PAGED_PASSIVE();
-
-    KphpPerformProcessCreationTracking(ProcessId, CreateInfo);
+    PAGED_CODE_PASSIVE();
 
     process = KphpPerformProcessTracking(Process, ProcessId, CreateInfo);
     if (process)
     {
-        KphpCreateProcessNotifyInformer(process, ProcessId, CreateInfo);
+        KphpPerformProcessCreationTracking(process, CreateInfo);
+        KphpCreateProcessNotifyInformer(process, CreateInfo);
         KphDereferenceObject(process);
     }
 }
@@ -572,7 +564,7 @@ NTSTATUS KphProcessInformerStart(
 {
     NTSTATUS status;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     status = KphCreateNPagedLookasideObject(&KphpProcesCreateApcLookaside,
                                             sizeof(KPH_PROCESS_CREATE_APC),
@@ -642,7 +634,7 @@ VOID KphProcessInformerStop(
     VOID
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (!KphpProcesCreateApcLookaside)
     {

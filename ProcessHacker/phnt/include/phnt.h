@@ -53,13 +53,14 @@
 #define PHNT_WIN10_22H2 113
 #define PHNT_WIN11 114
 #define PHNT_WIN11_22H2 115
+#define PHNT_WIN11_23H2 116
 
 #ifndef PHNT_MODE
 #define PHNT_MODE PHNT_MODE_USER
 #endif
 
 #ifndef PHNT_VERSION
-#define PHNT_VERSION PHNT_WIN7
+#define PHNT_VERSION PHNT_WIN11
 #endif
 
 // Options
@@ -94,6 +95,7 @@ extern "C" {
 #include <ntpoapi.h>
 #include <ntregapi.h>
 #include <ntrtl.h>
+#include <ntimage.h>
 #endif
 
 #if (PHNT_MODE != PHNT_MODE_KERNEL)

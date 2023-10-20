@@ -12,11 +12,15 @@
 #ifndef _PH_KPHCOMMS_H
 #define _PH_KPHCOMMS_H
 
-#include <ph.h>
 #include <kphmsg.h>
 
+NTSTATUS NTAPI KphFilterLoadUnload(
+    _In_ PPH_STRINGREF ServiceName,
+    _In_ BOOLEAN LoadDriver
+    );
+
 typedef
-VOID (NTAPI *PKPH_COMMS_CALLBACK)(
+BOOLEAN (NTAPI *PKPH_COMMS_CALLBACK)(
     _In_ ULONG_PTR ReplyToken,
     _In_ PCKPH_MESSAGE Message
     );

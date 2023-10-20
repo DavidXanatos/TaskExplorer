@@ -283,7 +283,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
 
             if (NT_SUCCESS(PhGetProcessMappedFileName(ProcessHandle, (PVOID)memoryItem->m_BaseAddress, &fileName)))
             {
-                PPH_STRING newFileName = PhResolveDevicePrefix(fileName);
+                PPH_STRING newFileName = PhResolveDevicePrefix(&fileName->sr);
 
                 if (newFileName)
                     PhMoveReference((PVOID*)&fileName, newFileName);
@@ -356,7 +356,7 @@ NTSTATUS PhpUpdateMemoryRegionTypes(
     PPH_STRING ntdllFileName;
     
     ntdllFileName = PhConcatStrings2(USER_SHARED_DATA->NtSystemRoot, L"\\System32\\ntdll.dll");
-    status = PhGetProcedureAddressRemote(
+    status = PhGetProcedureAddressRemoteZ(
         ProcessHandle,
         ntdllFileName->Buffer,
         "LdrSystemDllInitBlock",
@@ -463,7 +463,7 @@ NTSTATUS PhpUpdateMemoryWsCounters(
 
         while (remainingPages != 0)
         {
-            requestPages = min(remainingPages, WS_REQUEST_COUNT);
+            requestPages = std::min(remainingPages, (SIZE_T)WS_REQUEST_COUNT);
 
             for (i = 0; i < requestPages; i++)
             {

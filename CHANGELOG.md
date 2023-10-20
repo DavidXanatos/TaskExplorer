@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+
+## [1.5.3] - 2023-10-20
+
+### Changed
+- updated PHlib to version 3.0.7270
+
+
+
 ## [1.5.2] - 2023-05-02
 
 ### Fixed

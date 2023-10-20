@@ -277,15 +277,13 @@ void CWinSvcWindow::LoadGeneral()
 
 	startType = m_pService->GetStartType();
 	errorControl = m_pService->GetErrorControl();
-	serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_QUERY_CONFIG);
-
-	if (serviceHandle)
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_CONFIG, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
 	{
 		LPQUERY_SERVICE_CONFIG config;
 		PPH_STRING description;
 		BOOLEAN delayedStart;
 
-		if (config = (LPQUERY_SERVICE_CONFIG)PhGetServiceConfig(serviceHandle))
+		if (NT_SUCCESS(PhGetServiceConfig(serviceHandle, &config)))
 		{
 			ui.svcGroup->setText(QString::fromWCharArray(config->lpLoadOrderGroup));
 			ui.binaryPath->setText(QString::fromWCharArray(config->lpBinaryPathName));
@@ -381,8 +379,8 @@ void CWinSvcWindow::SaveGeneral()
 
 	QStringList serviceList = m_pDependencies->GetServicesList();
 
-	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_CHANGE_CONFIG);
-	if (serviceHandle)
+	SC_HANDLE serviceHandle;
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_CHANGE_CONFIG, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
 	{
 		std::wstring Dependencies;
 		if (m_OldDependencies != serviceList)
@@ -499,9 +497,9 @@ void CWinSvcWindow::LoadRecovery()
 	ULONG returnLength;
 	ULONG i;
 
-	if (serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_QUERY_CONFIG))
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_CONFIG, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
 	{
-		if (failureActions = (LPSERVICE_FAILURE_ACTIONS)PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_FAILURE_ACTIONS))
+		if (NT_SUCCESS(PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_FAILURE_ACTIONS, (PVOID*)&failureActions)))
 		{
 			// Failure action types
 
@@ -654,9 +652,7 @@ void CWinSvcWindow::SaveRecovery()
 
 	// Try to save the changes.
 
-	serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_CHANGE_CONFIG | (enableRestart ? SERVICE_START : 0)); // SC_ACTION_RESTART requires SERVICE_START
-
-	if (serviceHandle)
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_CHANGE_CONFIG | (enableRestart ? SERVICE_START : 0), (wchar_t*)m_pService->GetName().toStdWString().c_str()))) // SC_ACTION_RESTART requires SERVICE_START
 	{
 		if (ChangeServiceConfig2(
 			serviceHandle,
@@ -723,7 +719,7 @@ void CWinSvcWindow::LoadDependants()
 	ULONG win32Result = 0;
 	BOOLEAN success = FALSE;
 
-	if (serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_ENUMERATE_DEPENDENTS))
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_ENUMERATE_DEPENDENTS, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
 	{
 		LPENUM_SERVICE_STATUS dependentServices;
 		ULONG numberOfDependentServices;
@@ -770,12 +766,12 @@ void CWinSvcWindow::LoadTriggers()
 	NTSTATUS status = STATUS_SUCCESS;
 	SC_HANDLE serviceHandle;
 
-	if (serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_QUERY_CONFIG))
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_CONFIG, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
 	{
 		PSERVICE_TRIGGER_INFO triggerInfo;
 		ULONG i;
 
-		if (triggerInfo = (PSERVICE_TRIGGER_INFO)PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_TRIGGER_INFO))
+		if (NT_SUCCESS(PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_TRIGGER_INFO, (PVOID*)&triggerInfo)))
 		{
 			for (i = 0; i < triggerInfo->cTriggers; i++)
 			{
@@ -875,7 +871,7 @@ void CWinSvcWindow::SaveTriggers()
 	}
 
 	ULONG win32Result = 0;
-	if (serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_CHANGE_CONFIG))
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_CHANGE_CONFIG, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
 	{
 		if (!ChangeServiceConfig2(serviceHandle, SERVICE_CONFIG_TRIGGER_INFO, &triggerInfo))
 		{
@@ -934,7 +930,7 @@ void CWinSvcWindow::LoadOther()
 	SERVICE_SID_INFO sidInfo;
 	SERVICE_LAUNCH_PROTECTED_INFO launchProtectedInfo;
 
-	if (serviceHandle = PhOpenService((wchar_t*)svcNameStr.c_str(), SERVICE_QUERY_CONFIG))
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_CONFIG, (wchar_t*)svcNameStr.c_str())))
 	{
 		// Preshutdown timeout
 		if (QueryServiceConfig2(serviceHandle,
@@ -950,7 +946,7 @@ void CWinSvcWindow::LoadOther()
 
 		// Required privileges
 
-		if (requiredPrivilegesInfo = (LPSERVICE_REQUIRED_PRIVILEGES_INFO)PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO))
+		if (NT_SUCCESS(PhQueryServiceVariableSize(serviceHandle, SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO, (PVOID*)&requiredPrivilegesInfo)))
 		{
 			PWSTR privilege;
 			ULONG privilegeLength;
@@ -1037,7 +1033,7 @@ void CWinSvcWindow::SaveOther()
     SERVICE_SID_INFO sidInfo;
     SERVICE_LAUNCH_PROTECTED_INFO launchProtectedInfo;
 
-    if (serviceHandle = PhOpenService((wchar_t*)m_pService->GetName().toStdWString().c_str(), SERVICE_CHANGE_CONFIG))
+    if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_CHANGE_CONFIG, (wchar_t*)m_pService->GetName().toStdWString().c_str())))
     {
         win32Result = GetLastError();
     }

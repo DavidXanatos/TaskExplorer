@@ -86,30 +86,35 @@ CSbieView::CSbieView(QWidget *parent)
 	row++;
 
 	m_pFile = new CPanelWidgetEx();
+	m_pFile->GetTree()->setSortingEnabled(true);
 	m_pFile->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pFile->GetView())->setHeaderLabels(tr("Directive|Path").split("|"));
 	m_pFile->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_iFile = m_pPaths->addTab(m_pFile, tr("Files"));
 
 	m_pKey = new CPanelWidgetEx();
+	m_pKey->GetTree()->setSortingEnabled(true);
 	m_pKey->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pKey->GetView())->setHeaderLabels(tr("Directive|Path").split("|"));
 	m_pKey->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_iKey = m_pPaths->addTab(m_pKey, tr("Keys"));
 
 	m_pIpc = new CPanelWidgetEx();
+	m_pIpc->GetTree()->setSortingEnabled(true);
 	m_pIpc->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pIpc->GetView())->setHeaderLabels(tr("Directive|Path").split("|"));
 	m_pIpc->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_iIpc = m_pPaths->addTab(m_pIpc, tr("Ipc"));
 
 	m_pWnd = new CPanelWidgetEx();
+	m_pWnd->GetTree()->setSortingEnabled(true);
 	m_pWnd->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pWnd->GetView())->setHeaderLabels(tr("Directive|Path").split("|"));
 	m_pWnd->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_iWnd = m_pPaths->addTab(m_pWnd, tr("WinClass"));
 
 	m_pConf = new CPanelWidgetEx();
+	m_pConf->GetTree()->setSortingEnabled(true);
 	m_pConf->GetView()->setItemDelegate(theGUI->GetItemDelegate());
 	((QTreeWidgetEx*)m_pConf->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
 	m_pConf->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -173,13 +178,14 @@ void CSbieView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	m_pIpcRoot->setText(IpcPath);
 
 	auto PrepPaths = [&](QMap<QString, QTreeWidgetItem*>& OldPaths, CPanelWidgetEx* pTree) {
-		for (int i = 0; i < pTree->GetTree()->topLevelItemCount(); ++i)
-		{
-			QTreeWidgetItem* pItem = pTree->GetTree()->topLevelItem(i);
-			QString Name = pItem->data(0, Qt::UserRole).toString();
-			Q_ASSERT(!OldPaths.contains(Name));
-			OldPaths.insert(Name, pItem);
-		}
+		//for (int i = 0; i < pTree->GetTree()->topLevelItemCount(); ++i)
+		//{
+		//	QTreeWidgetItem* pItem = pTree->GetTree()->topLevelItem(i);
+		//	QString Name = pItem->data(0, Qt::UserRole).toString();
+		//	Q_ASSERT(!OldPaths.contains(Name));
+		//	OldPaths.insert(Name, pItem);
+		//}
+		pTree->GetTree()->clear();
 	};
 
 	auto UpdatePaths = [&](quint32 path_code, QMap<QString, QTreeWidgetItem*> & OldPaths, CPanelWidgetEx* pTree) {
@@ -218,9 +224,9 @@ void CSbieView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	};
 
 	auto FinishPaths = [&](QMap<QString, QTreeWidgetItem*>& OldPaths, CPanelWidgetEx* pTree, int Index, const QString& Name) {
-		foreach(QTreeWidgetItem* pItem, OldPaths)
-			delete pItem;
-		OldPaths.clear();
+		//foreach(QTreeWidgetItem* pItem, OldPaths)
+		//	delete pItem;
+		//OldPaths.clear();
 		m_pPaths->setTabText(Index, QString("%1 (%2)").arg(Name).arg(pTree->GetTree()->topLevelItemCount()));
 	};
 

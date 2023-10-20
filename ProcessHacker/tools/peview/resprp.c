@@ -272,7 +272,7 @@ VOID PvpPeResourceSaveToFile(
         if (UlongToPtr(entry.Offset) != ResourceNode->RvaStart)
             continue;
 
-        if (entry.Data && entry.Size)
+        if (entry.Size)
         {
             NTSTATUS status;
             HANDLE fileHandle;
@@ -291,6 +291,8 @@ VOID PvpPeResourceSaveToFile(
             {
                 IO_STATUS_BLOCK isb;
 
+                PVOID resourceData = PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, NULL);
+
                 __try
                 {
                     status = NtWriteFile(
@@ -299,7 +301,7 @@ VOID PvpPeResourceSaveToFile(
                         NULL,
                         NULL,
                         &isb,
-                        entry.Data,
+                        resourceData,
                         entry.Size,
                         NULL,
                         NULL
@@ -381,6 +383,8 @@ VOID PvpPeEnumMappedImageResources(
                 resourceNode->NameString = PhCreateStringEx(resourceString->NameString, resourceString->Length * sizeof(WCHAR));
             }
 
+            // Language
+
             if (IS_INTRESOURCE(entry.Language))
             {
                 if ((ULONG)entry.Language)
@@ -414,47 +418,46 @@ VOID PvpPeEnumMappedImageResources(
                 resourceNode->LcidString = PhCreateStringEx(resourceString->NameString, resourceString->Length * sizeof(WCHAR));
             }
 
-            if (entry.Data && entry.Size)
+            // Hash
+
+            if (entry.Size)
             {
-                __try
-                {
-                    PH_HASH_CONTEXT hashContext;
-                    UCHAR hash[32];
+                PVOID resourceData = PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, NULL);
 
-                    PhInitializeHash(&hashContext, Md5HashAlgorithm);
-                    PhUpdateHash(&hashContext, entry.Data, entry.Size);
-
-                    if (PhFinalHash(&hashContext, hash, 16, NULL))
-                    {
-                        resourceNode->HashString = PhBufferToHexString(hash, 16);
-                    }
-                }
-                __except (EXCEPTION_EXECUTE_HANDLER)
+                if (resourceData)
                 {
-                    //resourceNode->HashString = PhGetNtMessage(GetExceptionCode());
-                    resourceNode->HashString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                    resourceNode->HashString = PvHashBuffer(resourceData, entry.Size);
                 }
             }
 
-            if (entry.Data && entry.Size)
+            // Entropy
+
+            if (entry.Size)
             {
-                __try
-                {
-                    DOUBLE imageResourceEntropy;
+                PVOID resourceData = PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, NULL);
 
-                    imageResourceEntropy = PvCalculateEntropyBuffer(
-                        entry.Data,
-                        entry.Size,
-                        NULL
-                        );
-
-                    resourceNode->ResourcesEntropy = imageResourceEntropy;
-                    resourceNode->EntropyString = PvFormatDoubleCropZero(imageResourceEntropy, 2);
-                }
-                __except (EXCEPTION_EXECUTE_HANDLER)
+                if (resourceData)
                 {
-                    //resourceNode->EntropyString = PhGetNtMessage(GetExceptionCode());
-                    resourceNode->EntropyString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                    __try
+                    {
+                        DOUBLE imageResourceEntropy;
+
+                        if (PhCalculateEntropy(
+                            resourceData,
+                            entry.Size,
+                            &imageResourceEntropy,
+                            NULL
+                            ))
+                        {
+                            resourceNode->ResourcesEntropy = imageResourceEntropy;
+                            resourceNode->EntropyString = PhFormatEntropy(imageResourceEntropy, 2, 0, 0);
+                        }
+                    }
+                    __except (EXCEPTION_EXECUTE_HANDLER)
+                    {
+                        //resourceNode->EntropyString = PhGetNtMessage(GetExceptionCode());
+                        resourceNode->EntropyString = PhGetWin32Message(PhNtStatusToDosError(GetExceptionCode())); // WIN32_FROM_NTSTATUS
+                    }
                 }
             }
 
@@ -479,7 +482,7 @@ VOID PvpPeEnumAlternateMappedImageResources(
         PPH_STRING muiFileName;
         PH_MAPPED_IMAGE muiMappedImage;
 
-        if (NT_SUCCESS(PhLoadLibraryAsImageResourceWin32(&FileName->sr, &baseAddress)))
+        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&FileName->sr, FALSE, &baseAddress)))
         {
             if (NT_SUCCESS(LdrLoadAlternateResourceModule(baseAddress, &muiBaseAddress, NULL, 0)))
             {
@@ -576,7 +579,7 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
 
             PhCreateThread2(PvpPeResourcesEnumerateThread, context);
 
-            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+            PhInitializeWindowTheme(hwndDlg, PhEnableThemeSupport);
         }
         break;
     case WM_DESTROY:
@@ -987,6 +990,8 @@ BOOLEAN NTAPI PvResourcesTreeNewCallback(
                     SORT_FUNCTION(Entropy),
                 };
                 int (__cdecl *sortFunction)(void *, const void *, const void *);
+
+                static_assert(RTL_NUMBER_OF(sortFunctions) == PV_RESOURCES_TREE_COLUMN_ITEM_MAXIMUM, "SortFunctions must equal maximum.");
 
                 if (context->TreeNewSortColumn < PV_RESOURCES_TREE_COLUMN_ITEM_MAXIMUM)
                     sortFunction = sortFunctions[context->TreeNewSortColumn];

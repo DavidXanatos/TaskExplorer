@@ -3,14 +3,14 @@
 
 bool CFinder::m_DarkMode = false;
 
-QWidget* CFinder::AddFinder(QWidget* pList, QObject* pFilterTarget, bool HighLightOption, CFinder** ppFinder)
+QWidget* CFinder::AddFinder(QTreeView* pTree, QObject* pFilterTarget, bool HighLightOption, CFinder** ppFinder)
 {
 	QWidget* pWidget = new QWidget();
 	QVBoxLayout* pLayout = new QVBoxLayout();
 	pLayout->setContentsMargins(0,0,0,0);
 	pWidget->setLayout(pLayout);
 
-	pLayout->addWidget(pList);
+	pLayout->addWidget(pTree);
 	CFinder* pFinder = new CFinder(pFilterTarget, pWidget, HighLightOption);
 	pLayout->addWidget(pFinder);
 

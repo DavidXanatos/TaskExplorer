@@ -327,7 +327,7 @@ STATUS InitKPH(QString DeviceName, QString FileName)
         config.PortName = &portName->sr;
         config.Altitude = &altitudeName->sr;
         config.DisableImageLoadProtection = disableImageLoadProtection;
-        config.Callback = KsiCommsCallback;
+        config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
         status = KphConnect(&config);
 
         if (NT_SUCCESS(status))

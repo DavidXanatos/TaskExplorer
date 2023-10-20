@@ -1694,9 +1694,8 @@ bool CWindowsAPI::UpdateServiceList(bool bRefresh)
 		return false;
 
 	ULONG numberOfServices;
-    LPENUM_SERVICE_STATUS_PROCESS services = (LPENUM_SERVICE_STATUS_PROCESS)PhEnumServices(scManagerHandle, 0, 0, &numberOfServices);
-
-	if (!services) {
+    LPENUM_SERVICE_STATUS_PROCESS services;
+	if (!NT_SUCCESS(PhEnumServices(&services, &numberOfServices))) {
 		CloseServiceHandle(scManagerHandle);
 		return false;
 	}
@@ -2108,10 +2107,10 @@ bool CWindowsAPI::InitWindowsInfo()
 	static PH_STRINGREF currentVersion = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows NT\\CurrentVersion");
     if (NT_SUCCESS(PhOpenKey(&keyHandle, KEY_READ, PH_KEY_LOCAL_MACHINE, &currentVersion, 0)))
     {
-		m_SystemName = CastPhString(PhQueryRegistryString(keyHandle, L"ProductName"));
-		m_SystemType = CastPhString(PhQueryRegistryString(keyHandle, L"InstallationType"));
+		m_SystemName = CastPhString(PhQueryRegistryStringZ(keyHandle, L"ProductName"));
+		m_SystemType = CastPhString(PhQueryRegistryStringZ(keyHandle, L"InstallationType"));
 		//bServer = m_SystemType == "Server";
-		ReleaseId = CastPhString(PhQueryRegistryString(keyHandle, L"ReleaseId"));
+		ReleaseId = CastPhString(PhQueryRegistryStringZ(keyHandle, L"ReleaseId"));
 
         NtClose(keyHandle);
     }

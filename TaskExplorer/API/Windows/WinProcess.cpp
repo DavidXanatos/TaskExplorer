@@ -309,7 +309,7 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 			if (!m->IsSubsystemProcess)
 			{
 				PPH_STRING applicationUserModelId;
-				if (PhAppResolverGetAppIdForProcess(m->UniqueProcessId, &applicationUserModelId))
+				if (SUCCEEDED(PhAppResolverGetAppIdForProcess(m->UniqueProcessId, &applicationUserModelId)))
 				{
 					m->AppID = CastPhString(applicationUserModelId);
 				}
@@ -1318,7 +1318,6 @@ static BOOLEAN NTAPI EnumModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 
     copy = (PPH_MODULE_INFO)PhAllocateCopy(Module, sizeof(PH_MODULE_INFO));
     PhReferenceObject(copy->Name);
-	PhReferenceObject(copy->FileNameWin32);
     PhReferenceObject(copy->FileName);
 
     PhAddItemList((PPH_LIST)Context, copy);
@@ -1448,7 +1447,6 @@ bool CWinProcess::UpdateModules()
         PPH_MODULE_INFO module = (PPH_MODULE_INFO)modules->Items[i];
 
         PhDereferenceObject(module->Name);
-		PhDereferenceObject(module->FileNameWin32);
         PhDereferenceObject(module->FileName);
         PhFree(module);
     }
@@ -2114,7 +2112,7 @@ STATUS CWinProcess::AttachDebugger()
 
     if (NT_SUCCESS(status))
     {
-        if (debugger = PhQueryRegistryString(keyHandle, L"Debugger"))
+        if (debugger = PhQueryRegistryStringZ(keyHandle, L"Debugger"))
         {
             if (PhSplitStringRefAtChar(&debugger->sr, '"', &dummy, &commandPart) &&
                 PhSplitStringRefAtChar(&commandPart, '"', &commandPart, &dummy))
@@ -2188,12 +2186,12 @@ STATUS CWinProcess::DetachDebugger()
     return OK;
 }
 
-bool RtlEqualSid(_In_ PSID Sid1, const CWinTokenPtr& token)
+bool MyEqualSid(const SID* Sid1, const CWinTokenPtr& token)
 {
 	if (!token)
 		return false;
 	QByteArray sid = token->GetUserSid(true);
-	if (sid.isEmpty() || RtlLengthSid(Sid1) != sid.size())
+	if (sid.isEmpty() || RtlLengthSid((PSID)Sid1) != sid.size())
 		return false;
 	return memcmp((char*)Sid1, sid.data(), sid.size()) == 0;
 }
@@ -2221,19 +2219,19 @@ bool CWinProcess::IsSystemProcess() const
 	QReadLocker Locker(&m_Mutex); 
 	if(PH_IS_FAKE_PROCESS_ID(m->UniqueProcessId) || m->UniqueProcessId == SYSTEM_IDLE_PROCESS_ID || m->UniqueProcessId == SYSTEM_PROCESS_ID)
 		return true;
-	return RtlEqualSid(&PhSeLocalSystemSid, m_pToken);
+	return MyEqualSid(&PhSeLocalSystemSid, m_pToken);
 }
 
 bool CWinProcess::IsServiceProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return !m_ServiceList.isEmpty() || (RtlEqualSid(&PhSeServiceSid, m_pToken) || RtlEqualSid(&PhSeLocalServiceSid, m_pToken) || RtlEqualSid(&PhSeNetworkServiceSid, m_pToken));
+	return !m_ServiceList.isEmpty() || (MyEqualSid(&PhSeServiceSid, m_pToken) || MyEqualSid(&PhSeLocalServiceSid, m_pToken) || MyEqualSid(&PhSeNetworkServiceSid, m_pToken));
 }
 
 bool CWinProcess::IsUserProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return RtlEqualSid(PhGetOwnTokenAttributes().TokenSid, m_pToken);
+	return MyEqualSid((const SID*)PhGetOwnTokenAttributes().TokenSid, m_pToken);
 }
 
 bool CWinProcess::IsElevated() const
@@ -3052,7 +3050,7 @@ NTSTATUS CWinProcess__LoadModule(HANDLE ProcessHandle, const QString& Path)
 			PhGetSystemRoot(&systemRoot);
 			kernel32FileName = PhConcatStringRefZ(&systemRoot, L"\\SysWow64\\kernel32.dll");
 
-			status = PhGetProcedureAddressRemote(ProcessHandle, kernel32FileName->Buffer, "LoadLibraryW", 0, &loadLibraryW32, NULL);
+			status = PhGetProcedureAddressRemoteZ(ProcessHandle, kernel32FileName->Buffer, "LoadLibraryW", 0, &loadLibraryW32, NULL);
 			PhDereferenceObject(kernel32FileName);
 
 			if (!NT_SUCCESS(status))
@@ -3363,7 +3361,7 @@ QList<CWinProcess::SDriver> CWinProcess::GetUmdfDrivers() const
                         PH_STRINGREF deviceName;
                         PPH_STRING hardwareId;
 
-                        if (deviceDesc = PhQueryRegistryString(driverKeyHandle, L"DeviceDesc"))
+                        if (deviceDesc = PhQueryRegistryStringZ(driverKeyHandle, L"DeviceDesc"))
                         {
                             PH_STRINGREF firstPart;
                             PH_STRINGREF secondPart;
@@ -3378,7 +3376,7 @@ QList<CWinProcess::SDriver> CWinProcess::GetUmdfDrivers() const
                             PhInitializeStringRef(&deviceName, L"Unknown Device");
                         }
 
-                        hardwareId = PhQueryRegistryString(driverKeyHandle, L"HardwareID");
+                        hardwareId = PhQueryRegistryStringZ(driverKeyHandle, L"HardwareID");
 
 						SDriver Driver;
 						Driver.Name = QString::fromWCharArray(deviceName.Buffer, deviceName.Length / sizeof(wchar_t));

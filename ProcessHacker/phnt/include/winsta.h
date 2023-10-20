@@ -7,6 +7,17 @@
 #ifndef _WINSTA_H
 #define _WINSTA_H
 
+// Specifies the current server.
+#define WINSTATION_CURRENT_SERVER         ((HANDLE)NULL)
+#define WINSTATION_CURRENT_SERVER_HANDLE  ((HANDLE)NULL)
+#define WINSTATION_CURRENT_SERVER_NAME    (NULL)
+
+// Specifies the current session (SessionId)
+#define WINSTATION_CURRENT_SESSION ((ULONG)-1)
+
+// Specifies any-session (SessionId)
+#define WINSTATION_ANY_SESSION ((ULONG)-2)
+
 // Access rights
 
 #define WINSTATION_QUERY 0x00000001 // WinStationQueryInformation
@@ -56,7 +67,6 @@
 #define CLIENTNAME_LENGTH 20
 #define CLIENTADDRESS_LENGTH 30
 #define IMEFILENAME_LENGTH 32
-#define DIRECTORY_LENGTH 256
 #define CLIENTLICENSE_LENGTH 32
 #define CLIENTMODEM_LENGTH 40
 #define CLIENT_PRODUCT_ID_LENGTH 32
@@ -128,11 +138,11 @@ typedef enum _WINSTATIONINFOCLASS
     WinStationBeep,
     WinStationEncryptionOff,
     WinStationEncryptionPerm,
-    WinStationNtSecurity,
+    WinStationNtSecurity, // s; (open secure desktop ctrl+alt+del)
     WinStationUserToken, // WINSTATIONUSERTOKEN
     WinStationUnused1,
     WinStationVideoData, // WINSTATIONVIDEODATA
-    WinStationInitialProgram,
+    WinStationInitialProgram, // s; (set current process as initial program)
     WinStationCd, // CDCONFIG
     WinStationSystemTrace,
     WinStationVirtualData,
@@ -149,9 +159,9 @@ typedef enum _WINSTATIONINFOCLASS
     WinStationLastReconnectType, // ULONG
     WinStationDisallowAutoReconnect, // BOOLEAN
     WinStationMprNotifyInfo,
-    WinStationExecSrvSystemPipe,
-    WinStationSmartCardAutoLogon,
-    WinStationIsAdminLoggedOn,
+    WinStationExecSrvSystemPipe, // WCHAR[48]
+    WinStationSmartCardAutoLogon, // BOOLEAN
+    WinStationIsAdminLoggedOn, // BOOLEAN
     WinStationReconnectedFromId, // ULONG
     WinStationEffectsPolicy, // ULONG
     WinStationType, // ULONG
@@ -924,6 +934,15 @@ WinStationNameFromLogonIdW(
     _In_opt_ HANDLE ServerHandle,
     _In_ ULONG SessionId,
     _Out_writes_(WINSTATIONNAME_LENGTH + 1) PWSTR pWinStationName
+    );
+
+// rev
+BOOLEAN
+WINAPI
+LogonIdFromWinStationNameW(
+    _In_opt_ HANDLE ServerHandle,
+    _In_ PWSTR pWinStationName,
+    _Out_ PULONG SessionId
     );
 
 // rev

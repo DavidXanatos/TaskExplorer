@@ -3,6 +3,8 @@
 #include "..\WindowsAPI.h"
 #include ".\etw\krabs.hpp"
 
+//#define USE_ETW_FILE_IO
+
 #ifdef USE_ETW_FILE_IO
 namespace krabs { namespace kernel {
 CREATE_CONVENIENCE_KERNEL_PROVIDER(
@@ -148,7 +150,7 @@ struct SEtwEventMonitor
 				krabs::parser parser(schema);
 
 				quint64 FileId = (quint64)parser.parse<void*>(L"FileObject");
-				QString FileName = QString::fromStdWString(parser.parse<wstring>(L"FileName"));
+				QString FileName = QString::fromStdWString(parser.parse<std::wstring>(L"FileName"));
 
 				quint64 ProcessId = -1;
 				quint64 ThreadId = -1;

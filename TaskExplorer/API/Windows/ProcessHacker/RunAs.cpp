@@ -79,6 +79,7 @@ BOOLEAN PhShellProcessHackerEx(
         hWnd,
         FileName ? FileName : PhGetString(applicationFileName),
         Parameters,
+        NULL,
         ShowWindowType,
         Flags,
         Timeout,
@@ -299,7 +300,7 @@ VOID PhSetDesktopWinStaAccess(
     allocationLength = SECURITY_DESCRIPTOR_MIN_LENGTH +
         (ULONG)sizeof(ACL) +
         (ULONG)sizeof(ACCESS_ALLOWED_ACE) +
-        RtlLengthSid(&PhSeEveryoneSid) +
+        RtlLengthSid((PSID)&PhSeEveryoneSid) +
         (ULONG)sizeof(ACCESS_ALLOWED_ACE) +
         RtlLengthSid(allAppPackagesSid);
     securityDescriptor = PhAllocate(allocationLength);
@@ -307,7 +308,7 @@ VOID PhSetDesktopWinStaAccess(
 
     RtlCreateSecurityDescriptor(securityDescriptor, SECURITY_DESCRIPTOR_REVISION);
     RtlCreateAcl(dacl, allocationLength - SECURITY_DESCRIPTOR_MIN_LENGTH, ACL_REVISION);
-    RtlAddAccessAllowedAce(dacl, ACL_REVISION, GENERIC_ALL, &PhSeEveryoneSid);
+    RtlAddAccessAllowedAce(dacl, ACL_REVISION, GENERIC_ALL, (PSID)&PhSeEveryoneSid);
 
     if (WindowsVersion >= WINDOWS_8)
     {
@@ -483,14 +484,14 @@ NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine)
     SC_HANDLE serviceHandle = NULL;
     HANDLE processHandle = NULL;
     HANDLE tokenHandle = NULL;
-    PTOKEN_USER tokenUser = NULL;
+    PH_TOKEN_USER tokenUser;
     PPH_STRING userName = NULL;
     PPH_STRING commandLine;
     ULONG bytesNeeded = 0;
 
     commandLine = PhConcatStrings2(CommandLine, L"");
 
-    if (!(serviceHandle = PhOpenService(L"TrustedInstaller", SERVICE_QUERY_STATUS | SERVICE_START)))
+    if(!NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_STATUS | SERVICE_START, L"TrustedInstaller")))
     {
         status = PhGetLastWin32ErrorAsNtStatus();
         goto CleanupExit;
@@ -555,7 +556,7 @@ NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine)
     if (!NT_SUCCESS(status = PhGetTokenUser(tokenHandle, &tokenUser)))
         goto CleanupExit;
 
-    if (!(userName = PhGetSidFullName(tokenUser->User.Sid, TRUE, NULL)))
+    if (!(userName = PhGetSidFullName(tokenUser.User.Sid, TRUE, NULL)))
     {
         status = STATUS_INVALID_SID; // the SID structure is not valid.
         goto CleanupExit;
@@ -580,9 +581,6 @@ CleanupExit:
 
     if (userName)
         PhDereferenceObject(userName);
-
-    if (tokenUser)
-        PhFree(tokenUser);
 
     if (tokenHandle)
         NtClose(tokenHandle);
@@ -629,6 +627,7 @@ BOOLEAN PhMwpOnNotify(
                 PhMainWndHandle,
                 fullFileName->Buffer,
                 argumentsString->Buffer,
+                NULL,
                 runFileDlg->ShowCmd,
                 PH_SHELL_EXECUTE_ADMIN,
                 0,
@@ -876,9 +875,9 @@ BOOLEAN InitNtAuthority()
     if (PhBeginInitOnce(&initOnce))
     {
 		// that may like a mutex, but sonc all subsequent access is read only its imho fine without one.
-        ntAuthoritySystem = PhGetSidFullName(&PhSeLocalSystemSid, TRUE, NULL);
-		ntAuthorityLocal = PhGetSidFullName(&PhSeLocalServiceSid, TRUE, NULL);
-		ntAuthorityNetwork = PhGetSidFullName(&PhSeNetworkServiceSid, TRUE, NULL);
+        ntAuthoritySystem = PhGetSidFullName((PSID)&PhSeLocalSystemSid, TRUE, NULL);
+		ntAuthorityLocal = PhGetSidFullName((PSID)&PhSeLocalServiceSid, TRUE, NULL);
+		ntAuthorityNetwork = PhGetSidFullName((PSID)&PhSeNetworkServiceSid, TRUE, NULL);
 
         PhEndInitOnce(&initOnce);
     }

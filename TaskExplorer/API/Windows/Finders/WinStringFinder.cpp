@@ -359,7 +359,7 @@ CreateResult:
 						if (!(isWide && !detectUnicode))
 						{
 							//result = PhCreateMemoryResult(PTR_ADD_OFFSET(baseAddress, i - bias - lengthInBytes), baseAddress, lengthInBytes))
-							displayLength = (ULONG)(min(length, displayBufferCount) * sizeof(WCHAR));
+							displayLength = std::min(length, (ULONG)displayBufferCount) * sizeof(WCHAR);
 							std::wstring displayStr(displayLength / sizeof(WCHAR) + 1, L'0');
 							memcpy((void*)displayStr.c_str(), displayBuffer, displayLength);
 

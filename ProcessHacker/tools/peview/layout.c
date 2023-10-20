@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2020-2022
+ *     dmex    2020-2023
  *
  */
 
@@ -65,7 +65,7 @@ VOID PvDestroyLayoutNode(
     _In_ PPV_LAYOUT_NODE CertificateNode
     );
 BOOLEAN NTAPI PvLayoutTreeNewCallback(
-    _In_ HWND hwnd,
+    _In_ HWND WindowHandle,
     _In_ PH_TREENEW_MESSAGE Message,
     _In_opt_ PVOID Parameter1,
     _In_opt_ PVOID Parameter2,
@@ -79,7 +79,7 @@ VOID PvInitializeLayoutTree(
     PPH_STRING settings;
 
     Context->NodeHashtable = PhCreateHashtable(
-        sizeof(PV_LAYOUT_NODE),
+        sizeof(PPV_LAYOUT_NODE),
         PvLayoutNodeHashtableEqualFunction,
         PvLayoutNodeHashtableHashFunction,
         100
@@ -281,14 +281,14 @@ BEGIN_SORT_FUNCTION(Index)
 END_SORT_FUNCTION
 
 BOOLEAN NTAPI PvLayoutTreeNewCallback(
-    _In_ HWND hwnd,
+    _In_ HWND WindowHandle,
     _In_ PH_TREENEW_MESSAGE Message,
-    _In_opt_ PVOID Parameter1,
-    _In_opt_ PVOID Parameter2,
-    _In_opt_ PVOID Context
+    _In_ PVOID Parameter1,
+    _In_ PVOID Parameter2,
+    _In_ PVOID Context
     )
 {
-    PPV_PE_LAYOUT_CONTEXT context = Context;
+    const PPV_PE_LAYOUT_CONTEXT context = Context;
     PPV_LAYOUT_NODE node;
 
     if (!context)
@@ -298,11 +298,7 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
     {
     case TreeNewGetChildren:
         {
-            PPH_TREENEW_GET_CHILDREN getChildren = Parameter1;
-
-            if (!getChildren)
-                break;
-
+            const PPH_TREENEW_GET_CHILDREN getChildren = Parameter1;
             node = (PPV_LAYOUT_NODE)getChildren->Node;
 
             if (!node)
@@ -319,11 +315,7 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
         return TRUE;
     case TreeNewIsLeaf:
         {
-            PPH_TREENEW_IS_LEAF isLeaf = Parameter1;
-
-            if (!isLeaf)
-                break;
-
+            const PPH_TREENEW_IS_LEAF isLeaf = Parameter1;
             node = (PPV_LAYOUT_NODE)isLeaf->Node;
 
             if (context->TreeNewSortOrder == NoSortOrder)
@@ -334,11 +326,7 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
         return TRUE;
     case TreeNewGetCellText:
         {
-            PPH_TREENEW_GET_CELL_TEXT getCellText = Parameter1;
-
-            if (!getCellText)
-                break;
-
+            const PPH_TREENEW_GET_CELL_TEXT getCellText = Parameter1;
             node = (PPV_LAYOUT_NODE)getCellText->Node;
 
             switch (getCellText->Id)
@@ -362,11 +350,7 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
         return TRUE;
     case TreeNewGetNodeColor:
         {
-            PPH_TREENEW_GET_NODE_COLOR getNodeColor = Parameter1;
-
-            if (!getNodeColor)
-                break;
-
+            const PPH_TREENEW_GET_NODE_COLOR getNodeColor = Parameter1;
             node = (PPV_LAYOUT_NODE)getNodeColor->Node;
 
             getNodeColor->Flags = TN_AUTO_FORECOLOR | TN_CACHE;
@@ -374,17 +358,14 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
         return TRUE;
     case TreeNewSortChanged:
         {
-            TreeNew_GetSort(hwnd, &context->TreeNewSortColumn, &context->TreeNewSortOrder);
+            TreeNew_GetSort(WindowHandle, &context->TreeNewSortColumn, &context->TreeNewSortOrder);
             // Force a rebuild to sort the items.
-            TreeNew_NodesStructured(hwnd);
+            TreeNew_NodesStructured(WindowHandle);
         }
         return TRUE;
     case TreeNewKeyDown:
         {
-            PPH_TREENEW_KEY_EVENT keyEvent = Parameter1;
-
-            if (!keyEvent)
-                break;
+            const PPH_TREENEW_KEY_EVENT keyEvent = Parameter1;
 
             switch (keyEvent->VirtualKey)
             {
@@ -402,7 +383,7 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
         return TRUE;
     case TreeNewContextMenu:
         {
-            PPH_TREENEW_CONTEXT_MENU contextMenuEvent = Parameter1;
+            const PPH_TREENEW_CONTEXT_MENU contextMenuEvent = Parameter1;
 
             SendMessage(context->WindowHandle, WM_COMMAND, WM_PV_LAYOUT_CONTEXTMENU, (LPARAM)contextMenuEvent);
         }
@@ -411,13 +392,13 @@ BOOLEAN NTAPI PvLayoutTreeNewCallback(
         {
             //PH_TN_COLUMN_MENU_DATA data;
 
-            //data.TreeNewHandle = hwnd;
+            //data.TreeNewHandle = WindowHandle;
             //data.MouseEvent = Parameter1;
             //data.DefaultSortColumn = 0;
             //data.DefaultSortOrder = AscendingSortOrder;
             //PhInitializeTreeNewColumnMenuEx(&data, PH_TN_COLUMN_MENU_SHOW_RESET_SORT);
 
-            //data.Selection = PhShowEMenu(data.Menu, hwnd, PH_EMENU_SHOW_LEFTRIGHT,
+            //data.Selection = PhShowEMenu(data.Menu, WindowHandle, PH_EMENU_SHOW_LEFTRIGHT,
             //    PH_ALIGN_LEFT | PH_ALIGN_TOP, data.MouseEvent->ScreenLocation.x, data.MouseEvent->ScreenLocation.y);
             //PhHandleTreeNewColumnMenu(&data);
             //PhDeleteTreeNewColumnMenu(&data);
@@ -446,7 +427,7 @@ PPV_LAYOUT_NODE PvGetSelectedLayoutNode(
 {
     for (ULONG i = 0; i < Context->NodeList->Count; i++)
     {
-        PPV_LAYOUT_NODE layoutNode = Context->NodeList->Items[i];
+        const PPV_LAYOUT_NODE layoutNode = Context->NodeList->Items[i];
 
         if (layoutNode->Node.Selected)
             return layoutNode;
@@ -469,7 +450,7 @@ BOOLEAN PvGetSelectedLayoutNodes(
 
     for (i = 0; i < Context->NodeList->Count; i++)
     {
-        PPV_LAYOUT_NODE node = Context->NodeList->Items[i];
+        const PPV_LAYOUT_NODE node = Context->NodeList->Items[i];
 
         if (node->Node.Selected)
         {
@@ -500,7 +481,7 @@ VOID PvExpandAllLayoutNodes(
 
     for (i = 0; i < Context->NodeList->Count; i++)
     {
-        PPV_LAYOUT_NODE node = Context->NodeList->Items[i];
+        const PPV_LAYOUT_NODE node = Context->NodeList->Items[i];
 
         if (node->Children->Count != 0 && node->Node.Expanded != Expand)
         {
@@ -765,17 +746,46 @@ BOOLEAN PvLayoutTreeFilterCallback(
     return FALSE;
 }
 
+PPH_STRING PvLayoutFormatSize(
+    _In_ ULONG64 Size
+    )
+{
+    PH_FORMAT format[5];
+
+    PhInitFormatI64U(&format[0], Size);
+    PhInitFormatS(&format[1], L" (");
+    PhInitFormatSize(&format[2], Size);
+    PhInitFormatC(&format[3], L')');
+
+    return PhFormat(format, 4, 16);
+}
+
 #define FILE_LAYOUT_ENTRY_VERSION 0x1
 #define STREAM_LAYOUT_ENTRY_VERSION 0x1
 #define PH_FIRST_LAYOUT_ENTRY(LayoutEntry) \
-    ((PFILE_LAYOUT_ENTRY)(PTR_ADD_OFFSET(LayoutEntry, \
-    ((PQUERY_FILE_LAYOUT_OUTPUT)LayoutEntry)->FirstFileOffset)))
+    ((PFILE_LAYOUT_ENTRY)(PTR_ADD_OFFSET((LayoutEntry), \
+    ((PQUERY_FILE_LAYOUT_OUTPUT)(LayoutEntry))->FirstFileOffset)))
 #define PH_NEXT_LAYOUT_ENTRY(LayoutEntry) ( \
     ((PFILE_LAYOUT_ENTRY)(LayoutEntry))->NextFileOffset ? \
     (PFILE_LAYOUT_ENTRY)(PTR_ADD_OFFSET((LayoutEntry), \
     ((PFILE_LAYOUT_ENTRY)(LayoutEntry))->NextFileOffset)) : \
     NULL \
     )
+
+#define ATTRIBUTE_TYPECODE_STANDARD_INFORMATION 0x10
+#define ATTRIBUTE_TYPECODE_ATTRIBUTE_LIST 0x20
+#define ATTRIBUTE_TYPECODE_FILE_NAME 0x30
+#define ATTRIBUTE_TYPECODE_OBJECT_ID 0x40
+#define ATTRIBUTE_TYPECODE_SECURITY_DESCRIPTOR 0x50
+#define ATTRIBUTE_TYPECODE_VOLUME_NAME 0x60
+#define ATTRIBUTE_TYPECODE_VOLUME_INFORMATION 0x70
+#define ATTRIBUTE_TYPECODE_DATA 0x80
+#define ATTRIBUTE_TYPECODE_INDEX_ROOT 0x90
+#define ATTRIBUTE_TYPECODE_INDEX_ALLOCATION 0xA0
+#define ATTRIBUTE_TYPECODE_BITMAP 0xB0
+#define ATTRIBUTE_TYPECODE_SYMBOLIC_LINK 0xC0
+#define ATTRIBUTE_TYPECODE_EA_INFORMATION 0xD0
+#define ATTRIBUTE_TYPECODE_EA 0xE0
 
 typedef enum _FILE_METADATA_OPTIMIZATION_STATE
 {
@@ -1007,7 +1017,7 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
     volumeName = PhCreateString2(&firstPart);
     PhMoveReference(&volumeName, PhConcatStrings(3, L"\\??\\", PhGetStringOrEmpty(volumeName), L":"));
 
-    if (PhDetermineDosPathNameType(PhGetString(volumeName)) != RtlPathTypeRooted)
+    if (PhDetermineDosPathNameType(&volumeName->sr) != RtlPathTypeRooted)
     {
         PhDereferenceObject(volumeName);
         return STATUS_UNSUCCESSFUL;
@@ -1120,16 +1130,16 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
             PvAddChildLayoutNode(Context, NULL, L"File attributes", PhFormatUInt64(fileLayoutEntry->FileAttributes, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"File entry flags", PhFormatUInt64(fileLayoutEntry->Flags, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"Creation time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.CreationTime));
-            //PvAddChildLayoutNode(Context, NULL, L"Last access time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastAccessTime));
-            PvAddChildLayoutNode(Context, NULL, L"Last write time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastWriteTime));
+            //PvAddChildLayoutNode(Context, NULL, L"Access time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastAccessTime));
+            PvAddChildLayoutNode(Context, NULL, L"Write time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastWriteTime));
             PvAddChildLayoutNode(Context, NULL, L"Change time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.ChangeTime));
             PvAddChildLayoutNode(Context, NULL, L"LastUsn", PhFormatUInt64(fileLayoutInfoEntry->Usn, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"OwnerId", PhFormatUInt64(fileLayoutInfoEntry->OwnerId, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"SecurityId", PhFormatUInt64(fileLayoutInfoEntry->SecurityId, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"StorageReserveId", PhFormatUInt64(fileLayoutInfoEntry->StorageReserveId, FALSE));
-            PvAddChildLayoutNode(Context, NULL, L"Attribute list size", PhFormatSize(fileMetadataOptimization.AttributeListSize, ULONG_MAX));
-            PvAddChildLayoutNode(Context, NULL, L"Metadata space used", PhFormatSize(fileMetadataOptimization.MetadataSpaceUsed, ULONG_MAX));
-            PvAddChildLayoutNode(Context, NULL, L"Metadata space allocated", PhFormatSize(fileMetadataOptimization.MetadataSpaceAllocated, ULONG_MAX));
+            PvAddChildLayoutNode(Context, NULL, L"Attribute list size", PvLayoutFormatSize(fileMetadataOptimization.AttributeListSize));
+            PvAddChildLayoutNode(Context, NULL, L"Metadata space used", PvLayoutFormatSize(fileMetadataOptimization.MetadataSpaceUsed));
+            PvAddChildLayoutNode(Context, NULL, L"Metadata space allocated", PvLayoutFormatSize(fileMetadataOptimization.MetadataSpaceAllocated));
             PvAddChildLayoutNode(Context, NULL, L"Number of file records", PhFormatUInt64(fileMetadataOptimization.NumberOfFileRecords, TRUE));
             PvAddChildLayoutNode(Context, NULL, L"Number of resident attributes", PhFormatUInt64(fileMetadataOptimization.NumberOfResidentAttributes, TRUE));
             PvAddChildLayoutNode(Context, NULL, L"Number of nonresident attributes", PhFormatUInt64(fileMetadataOptimization.NumberOfNonresidentAttributes, TRUE));
@@ -1172,31 +1182,60 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
 
                 parentNode = PvAddChildLayoutNode(Context, NULL, L"Stream", NULL);
 
-                if (fileLayoutSteamEntry->AttributeTypeCode == 0x80)
+                if (fileLayoutSteamEntry->AttributeTypeCode == ATTRIBUTE_TYPECODE_DATA)
                     PvAddChildLayoutNode(Context, parentNode, L"Name", PhCreateString(L"::$DATA"));
                 else
                     PvAddChildLayoutNode(Context, parentNode, L"Name", PhCreateStringEx(fileLayoutSteamEntry->StreamIdentifier, fileLayoutSteamEntry->StreamIdentifierLength));
                 PvAddChildLayoutNode(Context, parentNode, L"Attributes", PhFormatUInt64(fileLayoutSteamEntry->AttributeFlags, FALSE));
                 PvAddChildLayoutNode(Context, parentNode, L"Attribute typecode", PhFormatString(L"0x%x", fileLayoutSteamEntry->AttributeTypeCode));
                 PvAddChildLayoutNode(Context, parentNode, L"Flags", PvLayoutSteamFlagsToString(fileLayoutSteamEntry->Flags));
-                PvAddChildLayoutNode(Context, parentNode, L"Size", PhFormatSize(fileLayoutSteamEntry->EndOfFile.QuadPart, ULONG_MAX));
-                PvAddChildLayoutNode(Context, parentNode, L"Allocated Size", PhFormatSize(fileLayoutSteamEntry->AllocationSize.QuadPart, ULONG_MAX));
+                PvAddChildLayoutNode(Context, parentNode, L"Size", PvLayoutFormatSize(fileLayoutSteamEntry->EndOfFile.QuadPart));
+                PvAddChildLayoutNode(Context, parentNode, L"Allocated Size", PvLayoutFormatSize(fileLayoutSteamEntry->AllocationSize.QuadPart));
 
                 if (fileLayoutSteamEntry->StreamInformationOffset)
                 {
-                    //PFILE_FULL_EA_INFORMATION eaattr = PTR_ADD_OFFSET(fileLayoutSteamEntry, fileLayoutSteamEntry->StreamInformationOffset);
-                    //PVOID data = PTR_ADD_OFFSET(fileLayoutSteamEntry, fileLayoutSteamEntry->StreamInformationOffset);
-                    //CHAR databuffer[PAGE_SIZE] = { 0 };
-                    //memcpy(databuffer, data, 64);
-                    //PvAddChildLayoutNode(Context, parentNode, L"Data", PhFormatString(L"%I64x (%.*hs)", data, 64, data));
+                    PSTREAM_INFORMATION_ENTRY streamInformationEntry;
+
+                    streamInformationEntry = PTR_ADD_OFFSET(fileLayoutSteamEntry, fileLayoutSteamEntry->StreamInformationOffset);
+
+                    if (streamInformationEntry->Version == 1)
+                    {
+                        if (fileLayoutSteamEntry->AttributeTypeCode == ATTRIBUTE_TYPECODE_DATA)
+                        {
+                            PvAddChildLayoutNode(Context, parentNode, L"Valid Data Length", PvLayoutFormatSize(streamInformationEntry->StreamInformation.DataStream.Vdl));
+                        }
+
+                        if (fileLayoutSteamEntry->AttributeTypeCode == ATTRIBUTE_TYPECODE_EA)
+                        {
+                            PFILE_FULL_EA_INFORMATION eainfo;
+                            PFILE_FULL_EA_INFORMATION i;
+
+                            eainfo = PTR_ADD_OFFSET(streamInformationEntry, streamInformationEntry->StreamInformation.Ea.EaInformationOffset);
+
+                            for (i = PH_FIRST_FILE_EA(eainfo); i; i = PH_NEXT_FILE_EA(i))
+                            {
+                                PPV_LAYOUT_NODE parentAttributeNode = PvAddChildLayoutNode(Context, parentNode, L"Extended Attributes", NULL);
+                                PvAddChildLayoutNode(Context, parentAttributeNode, L"Name", PhConvertUtf8ToUtf16Ex(i->EaName, i->EaNameLength));
+                                PvAddChildLayoutNode(Context, parentAttributeNode, L"Size", PvLayoutFormatSize(i->EaValueLength));
+                            }
+                        }
+                    }
                 }
 
                 if (fileLayoutSteamEntry->ExtentInformationOffset)
                 {
-                    PSTREAM_EXTENT_ENTRY streamExtentEntry;
+                    PSTREAM_EXTENT_ENTRY streamExtentEntry = PTR_ADD_OFFSET(fileLayoutSteamEntry, fileLayoutSteamEntry->ExtentInformationOffset);
 
-                    streamExtentEntry = PTR_ADD_OFFSET(fileLayoutSteamEntry, fileLayoutSteamEntry->ExtentInformationOffset);
                     PvAddChildLayoutNode(Context, parentNode, L"Extents", PhFormatUInt64(streamExtentEntry->ExtentInformation.RetrievalPointers.ExtentCount, FALSE));
+                    //PvAddChildLayoutNode(Context, parentNode, L"StartingVcn", PhFormatUInt64(streamExtentEntry->ExtentInformation.RetrievalPointers.StartingVcn.QuadPart, FALSE));
+
+                    //for (ULONG i = 0; i < streamExtentEntry->ExtentInformation.RetrievalPointers.ExtentCount; i++)
+                    //{
+                    //    PPV_LAYOUT_NODE parentExtentNode = PvAddChildLayoutNode(Context, parentNode, L"Extents", NULL);
+                    //    //PvAddChildLayoutNode(Context, parentExtentNode, L"Index", PhFormatUInt64(i, TRUE));
+                    //    PvAddChildLayoutNode(Context, parentExtentNode, L"Lcn", PhFormatUInt64(streamExtentEntry->ExtentInformation.RetrievalPointers.Extents[i].Lcn.QuadPart, FALSE));
+                    //    PvAddChildLayoutNode(Context, parentExtentNode, L"NextVcn", PhFormatUInt64(streamExtentEntry->ExtentInformation.RetrievalPointers.Extents[i].NextVcn.QuadPart, FALSE));
+                    //}
                 }
 
                 if (fileLayoutSteamEntry->NextStreamOffset == 0)
@@ -1293,7 +1332,7 @@ INT_PTR CALLBACK PvpPeLayoutDlgProc(
 
             TreeNew_NodesStructured(context->TreeNewHandle);
 
-            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+            PhInitializeWindowTheme(hwndDlg, PhEnableThemeSupport);
         }
         break;
     case WM_DESTROY:

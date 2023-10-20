@@ -1,18 +1,42 @@
+/*
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
+ *
+ * This file is part of System Informer.
+ *
+ * Authors:
+ *
+ *     wj32    2010-2015
+ *     dmex    2017-2023
+ *
+ */
+
 #ifndef _PH_PHNET_H
 #define _PH_PHNET_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+EXTERN_C_START
 
 #define __WINDOT11_H__ // temporary preprocessor workaround (dmex)
 
+#ifndef PIO_APC_ROUTINE_DEFINED
+#define PIO_APC_ROUTINE_DEFINED 1
+#endif
+
+#ifndef UM_NDIS60
+#define UM_NDIS60 1
+#endif
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <ws2ipdef.h>
+#include <ws2def.h>
 #include <windns.h>
+#include <nldef.h>
 #include <iphlpapi.h>
 #include <mstcpip.h>
+#include <icmpapi.h>
+
+EXTERN_C CONST DECLSPEC_SELECTANY IN_ADDR  inaddr_any             = { 0x00 };
+EXTERN_C CONST DECLSPEC_SELECTANY IN6_ADDR in6addr_any            = { 0x00 };
+EXTERN_C CONST DECLSPEC_SELECTANY IN6_ADDR in6addr_v4mappedprefix = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 };
 
 #define PH_IPV4_NETWORK_TYPE 0x1
 #define PH_IPV6_NETWORK_TYPE 0x2
@@ -50,7 +74,6 @@ FORCEINLINE BOOLEAN PhEqualIpAddress(
     if (Address1->Type != Address2->Type)
         return FALSE;
 
-    // TODO: Remove the below commented code if the ADDR_EQUAL macros work -dmex
     if (Address1->Type == PH_IPV4_NETWORK_TYPE)
     {
         return IN4_ADDR_EQUAL(&Address1->InAddr, &Address2->InAddr);
@@ -297,6 +320,16 @@ PhHttpSocketQueryHeaderUlong(
     _Out_ PULONG HeaderValue
     );
 
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhHttpSocketQueryHeaderUlong64(
+    _In_ PPH_HTTP_CONTEXT HttpContext,
+    _In_ ULONG QueryValue,
+    _Out_ PULONG64 HeaderValue
+    );
+
 PHLIBAPI
 PPH_STRING
 NTAPI
@@ -434,8 +467,6 @@ PhDnsFree(
     _In_ PDNS_RECORD DnsRecordList
     );
 
-#ifdef __cplusplus
-}
-#endif
+EXTERN_C_END
 
 #endif

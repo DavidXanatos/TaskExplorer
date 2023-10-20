@@ -1175,7 +1175,7 @@ static VOID DnCleanupDacAuxiliaryProvider(
 
         if (directoryPath = PhGetBaseDirectory(dataTarget->DaccorePath))
         {
-            PhDeleteDirectoryWin32(directoryPath);
+            PhDeleteDirectoryWin32(&directoryPath->sr);
             PhDereferenceObject(directoryPath);
         }
         else
@@ -1230,7 +1230,7 @@ PVOID DnLoadMscordaccore(
     {
         PVOID imageBaseAddress;
 
-        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, &imageBaseAddress)))
+        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, TRUE, &imageBaseAddress)))
         {
             PCLR_DEBUG_RESOURCE debugVersionInfo;
 
@@ -1393,7 +1393,7 @@ TryAppLocal:
         PVOID mscordacResourceBuffer;
         ULONG mscordacResourceLength;
 
-        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, &imageBaseAddress)))
+        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, TRUE, &imageBaseAddress)))
         {
             if (PhLoadResource(
                 imageBaseAddress,

@@ -18,38 +18,6 @@
 PAGED_FILE();
 
 /**
- * \brief Retrieves process protection information.
- *
- * \details This wraps a call to PsGetProcessProtection which is not exported
- * everywhere. If the function is not exported this call fails with
- * STATUS_NOT_IMPLEMENTED.
- *
- * \param[in] Process A process object to retrieve the information from.
- * \param[out] Protection On success this is populated with the process
- * protection.
- * \return Appropriate status:
- * STATUS_NOT_IMPLEMENTED - The call is not supported.
- * STATUS_SUCCESS - Retrieved the process protection level.
- */
-_IRQL_requires_max_(APC_LEVEL)
-_Must_inspect_result_
-NTSTATUS KphGetProcessProtection(
-    _In_ PEPROCESS Process,
-    _Out_ PPS_PROTECTION Protection
-    )
-{
-    PAGED_CODE();
-
-    if (!KphDynPsGetProcessProtection)
-    {
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    *Protection = KphDynPsGetProcessProtection(Process);
-    return STATUS_SUCCESS;
-}
-
-/**
  * \brief Opens a process.
  *
  * \param[out] ProcessHandle A variable which receives the process handle.
@@ -76,7 +44,7 @@ NTSTATUS KphOpenProcess(
     PEPROCESS process;
     HANDLE processHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     process = NULL;
 
@@ -85,9 +53,7 @@ NTSTATUS KphOpenProcess(
         __try
         {
             ProbeOutputType(ProcessHandle, HANDLE);
-            ProbeForRead(ClientId,
-                         sizeof(CLIENT_ID),
-                         TYPE_ALIGNMENT(CLIENT_ID));
+            ProbeInputType(ClientId, CLIENT_ID);
             clientId = *ClientId;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
@@ -137,7 +103,7 @@ NTSTATUS KphOpenProcess(
         }
     }
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_PROCESS_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -227,7 +193,7 @@ NTSTATUS KphOpenProcessToken(
     PACCESS_TOKEN primaryToken;
     HANDLE tokenHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     process = NULL;
     primaryToken = NULL;
@@ -272,7 +238,7 @@ NTSTATUS KphOpenProcessToken(
         goto Exit;
     }
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_TOKEN_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -367,7 +333,7 @@ NTSTATUS KphOpenProcessJob(
     PEJOB job;
     HANDLE jobHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     process = NULL;
 
@@ -407,7 +373,7 @@ NTSTATUS KphOpenProcessJob(
         goto Exit;
     }
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_JOB_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -495,7 +461,7 @@ NTSTATUS KphTerminateProcess(
     PEPROCESS process;
     HANDLE processHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     process = NULL;
     processHandle = NULL;
@@ -517,7 +483,7 @@ NTSTATUS KphTerminateProcess(
         goto Exit;
     }
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef PPL_NO_SECURITY
     status = KphDominationCheck(PsGetCurrentProcess(),
                                 process,
                                 AccessMode);
@@ -614,7 +580,7 @@ NTSTATUS KphQueryInformationProcess(
     PKPH_PROCESS_CONTEXT process;
     ULONG returnLength;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     processObject = NULL;
     process = NULL;
@@ -654,7 +620,7 @@ NTSTATUS KphQueryInformationProcess(
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
 
-        process = NULL;
+        processObject = NULL;
         goto Exit;
     }
 
@@ -690,7 +656,7 @@ NTSTATUS KphQueryInformationProcess(
                 KphAcquireRWLockShared(&process->ThreadListLock);
                 KphAcquireRWLockShared(&process->ProtectionLock);
                 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
                 info->ProcessState = KphGetProcessState(process);
 #else
                 info->ProcessState = 0;
@@ -724,6 +690,7 @@ NTSTATUS KphQueryInformationProcess(
                         MmDoesFileHaveUserWritableReferences(process->FileObject->SectionObjectPointer);
                 }
 
+                returnLength = sizeof(KPH_PROCESS_BASIC_INFORMATION);
                 status = STATUS_SUCCESS;
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
@@ -750,11 +717,61 @@ NTSTATUS KphQueryInformationProcess(
 
             __try
             {
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef COM_NO_SECURITY
                 *state = KphGetProcessState(process);
 #else
+                // as the client checks its state when there is no com security we always fake max state
                 *state = KPH_PROCESS_STATE_MAXIMUM;
 #endif
+                returnLength = sizeof(KPH_PROCESS_STATE);
+                status = STATUS_SUCCESS;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                status = GetExceptionCode();
+                goto Exit;
+            }
+
+            break;
+        }
+        case KphProcessWSLProcessId:
+        {
+            PULONG processId;
+
+            if (process->SubsystemType != SubsystemInformationTypeWSL)
+            {
+                KphTracePrint(TRACE_LEVEL_WARNING,
+                              GENERAL,
+                              "Invalid subsystem for WSL process ID query.");
+
+                status = STATUS_INVALID_HANDLE;
+                goto Exit;
+            }
+
+            if (!process->WSL.ValidProcessId)
+            {
+                KphTracePrint(TRACE_LEVEL_WARNING,
+                              GENERAL,
+                              "WSL process ID is not valid.");
+
+                status = STATUS_OBJECTID_NOT_FOUND;
+                goto Exit;
+            }
+
+            if (!ProcessInformation ||
+                (ProcessInformationLength < sizeof(ULONG)))
+            {
+                status = STATUS_INFO_LENGTH_MISMATCH;
+                returnLength = sizeof(ULONG);
+                goto Exit;
+            }
+
+            processId = ProcessInformation;
+
+            __try
+            {
+                *processId = process->WSL.ProcessId;
+                returnLength = sizeof(ULONG);
                 status = STATUS_SUCCESS;
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
@@ -834,7 +851,7 @@ NTSTATUS KphSetInformationProcess(
     HANDLE processHandle;
     PROCESSINFOCLASS processInformationClass;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     processInformation = NULL;
     process = NULL;
@@ -850,6 +867,7 @@ NTSTATUS KphSetInformationProcess(
     {
         if (ProcessInformationLength <= ARRAYSIZE(stackBuffer))
         {
+            RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
             processInformation = stackBuffer;
         }
         else
@@ -923,7 +941,7 @@ NTSTATUS KphSetInformationProcess(
         case KphProcessPriorityClassEx:
         default:
         {
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef PPL_NO_SECURITY
             status = KphDominationCheck(PsGetCurrentProcess(),
                                         process,
                                         AccessMode);

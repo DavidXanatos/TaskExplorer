@@ -638,6 +638,69 @@ BOOLEAN PhpSelectFavoriteInRegedit(
 }
 
 /**
+ * Opens a key in the Registry Editor.
+ *
+ * \param WindowHandle A handle to the parent window.
+ * \param KeyName The key name to open.
+ */
+VOID PhShellOpenKey(
+    _In_ HWND WindowHandle,
+    _In_ PPH_STRING KeyName
+    )
+{
+    static PH_STRINGREF regeditKeyName = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit");
+    NTSTATUS status;
+    HANDLE regeditKeyHandle;
+    PPH_STRING lastKey;
+    PPH_STRING regeditFileName;
+    PH_STRINGREF systemRootString;
+
+    status = PhCreateKey(
+        &regeditKeyHandle,
+        KEY_WRITE,
+        PH_KEY_CURRENT_USER,
+        &regeditKeyName,
+        0,
+        0,
+        NULL
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        PhShowStatus(WindowHandle, L"Unable to execute the program.", status, 0);
+        return;
+    }
+
+    lastKey = PhExpandKeyName(KeyName, FALSE);
+    PhSetValueKeyZ(regeditKeyHandle, L"LastKey", REG_SZ, lastKey->Buffer, (ULONG)lastKey->Length + sizeof(UNICODE_NULL));
+    NtClose(regeditKeyHandle);
+    PhDereferenceObject(lastKey);
+
+    // Start regedit. If we aren't elevated, request that regedit be elevated. This is so we can get
+    // the consent dialog in the center of the specified window. (wj32)
+
+    PhGetSystemRoot(&systemRootString);
+    regeditFileName = PhConcatStringRefZ(&systemRootString, L"\\regedit.exe");
+
+    if (PhGetOwnTokenAttributes().Elevated)
+    {
+        if (!PhShellExecuteEx(WindowHandle, regeditFileName->Buffer, NULL, NULL, SW_SHOW, 0, 0, NULL))
+        {
+            PhShowStatus(WindowHandle, L"Unable to execute the program.", 0, GetLastError());
+        }
+    }
+    else
+    {
+        if (!PhShellExecuteEx(WindowHandle, regeditFileName->Buffer, NULL, NULL, SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, NULL))
+        {
+            PhShowStatus(WindowHandle, L"Unable to execute the program.", 0, GetLastError());
+        }
+    }
+
+    PhDereferenceObject(regeditFileName);
+}
+
+/**
  * Opens a key in the Registry Editor. If the Registry Editor is already open,
  * the specified key is selected in the Registry Editor.
  *

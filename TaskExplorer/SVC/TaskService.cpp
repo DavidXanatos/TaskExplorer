@@ -192,8 +192,8 @@ void CTaskService::receiveConnection()
 		QString ServiceName = Parameters["ServiceName"].toString();
 
 		ULONG win32Result = 0;
-		SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_CHANGE_CONFIG);
-		if (serviceHandle)
+		SC_HANDLE serviceHandle;
+		if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_CHANGE_CONFIG, (wchar_t*)ServiceName.toStdWString().c_str())))
 		{
 			if (Parameters.contains("InfoLevel") && Parameters.contains("InfoData"))
 			{
@@ -483,8 +483,7 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 	SC_HANDLE serviceHandle = NULL;
 	if (Action == "Start")
 	{
-		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_START);
-		if (serviceHandle)
+		if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_START, (wchar_t*)SvcName.c_str())))
 		{
 			if (!StartService(serviceHandle, 0, NULL))
 				status = PhGetLastWin32ErrorAsNtStatus();
@@ -492,8 +491,7 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 	}
 	else if (Action == "Pause")
 	{
-		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
-		if (serviceHandle)
+		if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_PAUSE_CONTINUE, (wchar_t*)SvcName.c_str())))
 		{
 			SERVICE_STATUS serviceStatus;
 			if (!ControlService(serviceHandle, SERVICE_CONTROL_PAUSE, &serviceStatus))
@@ -502,8 +500,7 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 	}
 	else if (Action == "Continue")
 	{
-		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_PAUSE_CONTINUE);
-		if (serviceHandle)
+		if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_PAUSE_CONTINUE, (wchar_t*)SvcName.c_str())))
 		{
 			SERVICE_STATUS serviceStatus;
 			if (!ControlService(serviceHandle, SERVICE_CONTROL_CONTINUE, &serviceStatus))
@@ -512,8 +509,7 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 	}
 	else if (Action == "Stop")
 	{
-		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), SERVICE_STOP);
-		if (serviceHandle)
+		if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_STOP, (wchar_t*)SvcName.c_str())))
 		{
 			SERVICE_STATUS serviceStatus;
 			if (!ControlService(serviceHandle, SERVICE_CONTROL_STOP, &serviceStatus))
@@ -522,8 +518,7 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 	}
 	else if (Action == "Delete")
 	{
-		serviceHandle = PhOpenService((wchar_t*)SvcName.c_str(), DELETE);
-		if (serviceHandle)
+		if (NT_SUCCESS(PhOpenService(&serviceHandle, DELETE, (wchar_t*)SvcName.c_str())))
 		{
 			if (!DeleteService(serviceHandle))
 				status = PhGetLastWin32ErrorAsNtStatus();
@@ -640,9 +635,9 @@ QString CTaskService::RunWorker(bool bElevanted)
 
 	HANDLE ProcessHandle = NULL;
 	if (bElevanted && !PhGetOwnTokenAttributes().Elevated)
-		PhShellProcessHackerEx(NULL, (wchar_t*)BinaryPath.toStdWString().c_str(), (wchar_t*)Arguments.c_str(), SW_HIDE, PH_SHELL_EXECUTE_ADMIN | PH_SHELL_EXECUTE_NOZONECHECKS, 0, 0, &ProcessHandle);
+		PhShellProcessHackerEx(NULL, (wchar_t*)BinaryPath.toStdWString().c_str(), (wchar_t*)Arguments.c_str(), SW_HIDE, PH_SHELL_EXECUTE_ADMIN, 0, 0, &ProcessHandle);
 	else
-		PhShellProcessHackerEx(NULL, (wchar_t*)BinaryPath.toStdWString().c_str(), (wchar_t*)Arguments.c_str(), SW_HIDE, PH_SHELL_EXECUTE_NOZONECHECKS, 0, 0, &ProcessHandle);
+		PhShellProcessHackerEx(NULL, (wchar_t*)BinaryPath.toStdWString().c_str(), (wchar_t*)Arguments.c_str(), SW_HIDE, 0, 0, 0, &ProcessHandle);
 	if (ProcessHandle == NULL)
 		return QString();
 
@@ -690,8 +685,8 @@ QString CTaskService::RunService()
 	/*// check if a persistent service is installed and running
 	bool isRunning = false;
 	bool isInstalled = false;
-	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_QUERY_STATUS);
-	if (serviceHandle)
+	SC_HANDLE serviceHandle;
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_STATUS, (wchar_t*)ServiceName.toStdWString().c_str())))
 	{
 		isInstalled = true;
 		SERVICE_STATUS serviceStatus;
@@ -745,8 +740,8 @@ bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 	BOOLEAN success = FALSE;
 
 	// Try to start the service if its installed
-	SC_HANDLE serviceHandle = PhOpenService((wchar_t*)ServiceName.toStdWString().c_str(), SERVICE_QUERY_STATUS | SERVICE_START); // this is safe to call without InitPH
-	if (serviceHandle)
+	SC_HANDLE serviceHandle; 
+	if (NT_SUCCESS(PhOpenService(&serviceHandle, SERVICE_QUERY_STATUS | SERVICE_START, (wchar_t*)ServiceName.toStdWString().c_str()))) // this is safe to call without InitPH
 	{
 		SERVICE_STATUS serviceStatus;
         if (QueryServiceStatus(serviceHandle, &serviceStatus) && serviceStatus.dwCurrentState == SERVICE_RUNNING)

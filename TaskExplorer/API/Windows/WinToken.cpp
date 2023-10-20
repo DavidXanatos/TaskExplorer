@@ -132,7 +132,7 @@ void CWinToken::OnSidResolved(const QByteArray& SID, const QString& Name)
 CWinToken* CWinToken::NewSystemToken()
 {
 	CWinToken* pToken = new CWinToken();
-	pToken->m_UserSid = QByteArray((char*)&PhSeLocalSystemSid, RtlLengthSid(&PhSeLocalSystemSid));
+	pToken->m_UserSid = QByteArray((char*)&PhSeLocalSystemSid, RtlLengthSid((PSID)&PhSeLocalSystemSid));
 	pToken->m_UserName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(pToken->m_UserSid, pToken, SLOT(OnSidResolved(const QByteArray&, const QString&)));
 	return pToken;
 }
@@ -304,10 +304,10 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
     PhGetTokenIsAppContainer(tokenHandle, &tokenIsAppContainer);
 	m_IsAppContainer = tokenIsAppContainer != FALSE ? 1 : 0;
 
-	PTOKEN_USER tokenUser;
+	PH_TOKEN_USER tokenUser;
     if (NT_SUCCESS(PhGetTokenUser(tokenHandle, &tokenUser)))
     {
-		m_UserSid = QByteArray((char*)tokenUser->User.Sid, RtlLengthSid(tokenUser->User.Sid));
+		m_UserSid = QByteArray((char*)tokenUser.User.Sid, RtlLengthSid(tokenUser.User.Sid));
 
         if (!tokenIsAppContainer) // HACK (dmex)
         {
@@ -315,20 +315,16 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
         }
 
 		PPH_STRING stringUserSid;
-        if (stringUserSid = PhSidToStringSid(tokenUser->User.Sid))
+        if (stringUserSid = PhSidToStringSid(tokenUser.User.Sid))
 			m_SidString = CastPhString(stringUserSid);
-
-        PhFree(tokenUser);
     }
 
-	PTOKEN_OWNER tokenOwner;
+	PH_TOKEN_OWNER tokenOwner;
     if (NT_SUCCESS(PhGetTokenOwner(tokenHandle, &tokenOwner)))
     {
-		m_OwnerSid = QByteArray((char*)tokenOwner->Owner, RtlLengthSid(tokenOwner->Owner));
+		m_OwnerSid = QByteArray((char*)tokenOwner.Owner.Sid, RtlLengthSid(tokenOwner.Owner.Sid));
 
 		m_OwnerName = ((CWindowsAPI*)theAPI)->GetSidResolver()->GetSidFullName(m_OwnerSid, this, SLOT(OnSidResolved(const QByteArray&, const QString&)));
-
-        PhFree(tokenOwner);
     }
 
 	PTOKEN_PRIMARY_GROUP tokenPrimaryGroup;
@@ -408,13 +404,12 @@ bool CWinToken::UpdateExtendedData()
 		SetDangerousFlag(eSandboxInertEnabled, isSandboxInert);
     }
 
-	BOOLEAN isUIAccess;
-    if (NT_SUCCESS(PhGetTokenIsUIAccessEnabled(tokenHandle, &isUIAccess)))
-    {
-        // The presence of UIAccess flag is considered dangerous (diversenok)
-		SetDangerousFlag(eUIAccessEnabled, isUIAccess);
-    }
-	//
+//	BOOLEAN isUIAccess;
+//	if (NT_SUCCESS(PhGetTokenIsUIAccessEnabled(tokenHandle, &isUIAccess)))
+//	{
+//		// The presence of UIAccess flag is considered dangerous (diversenok)
+//		SetDangerousFlag(eUIAccessEnabled, isUIAccess);
+//	}
 
     //PhpUpdateTokenGroups
 	PTOKEN_GROUPS Groups = NULL;
@@ -799,17 +794,15 @@ PPH_STRING PhpGetTokenFolderPath(
     PPH_STRING profileFolderPath = NULL;
     PPH_STRING profileKeyPath = NULL;
     PPH_STRING tokenUserSid;
-    PTOKEN_USER tokenUser;
+    PH_TOKEN_USER tokenUser;
 
     if (NT_SUCCESS(PhGetTokenUser(TokenHandle, &tokenUser)))
     {
-        if (tokenUserSid = PhSidToStringSid(tokenUser->User.Sid))
+        if (tokenUserSid = PhSidToStringSid(tokenUser.User.Sid))
         {
             profileKeyPath = PhConcatStringRef2(&servicesKeyName, &tokenUserSid->sr);
             PhDereferenceObject(tokenUserSid);
         }
-
-        PhFree(tokenUser);
     }
 
     if (profileKeyPath)
@@ -826,7 +819,7 @@ PPH_STRING PhpGetTokenFolderPath(
         {
             PPH_STRING profileImagePath;
 
-            if (profileFolderPath = PhQueryRegistryString(keyHandle, L"ProfileImagePath"))
+            if (profileFolderPath = PhQueryRegistryStringZ(keyHandle, L"ProfileImagePath"))
             {
                 if (profileImagePath = PhExpandEnvironmentStrings(&profileFolderPath->sr))
                 {
@@ -857,12 +850,11 @@ PPH_STRING PhpGetTokenRegistryPath(
 {
     PPH_STRING profileRegistryPath = NULL;
     PPH_STRING tokenUserSid = NULL;
-    PTOKEN_USER tokenUser;
+    PH_TOKEN_USER tokenUser;
 
     if (NT_SUCCESS(PhGetTokenUser(TokenHandle, &tokenUser)))
     {
-        tokenUserSid = PhSidToStringSid(tokenUser->User.Sid);
-        PhFree(tokenUser);
+        tokenUserSid = PhSidToStringSid(tokenUser.User.Sid);
     }
 
     if (tokenUserSid)

@@ -13,7 +13,7 @@
 #include <kph.h>
 #define _DYNDATA_PRIVATE
 #include <dyndata.h>
-#include <kphdyn.h>
+#include <kphdyndata.h>
 
 #include <trace.h>
 
@@ -28,67 +28,60 @@ static UNICODE_STRING KphpDisableImageLoadProtectionValueName = RTL_CONSTANT_STR
 typedef struct _KPH_ACTIVE_DYNDATA
 {
     ULONG Version;
-    ULONG Index;
     USHORT MajorVersion;
     USHORT MinorVersion;
     USHORT BuildNumberMin;
     USHORT RevisionMin;
     USHORT BuildNumberMax;
     USHORT RevisionMax;
-
 } KPH_ACTIVE_DYNDATA, *PKPH_ACTIVE_DYNDATA;
 
 static KPH_ACTIVE_DYNDATA KphpActiveDynData = { 0 };
+
+#define KPH_LOAD_DYNITEM(x) KphDyn##x = C_2sTo4(Configuration->##x)
 
 /**
  * \brief Sets the dynamic configuration.
  *
  * \param[in] Configuration The configuration to set.
  *
- * \return Successful status or an errant one.
  */
 _IRQL_requires_max_(PASSIVE_LEVEL)
-_Must_inspect_result_
-NTSTATUS KphpSetDynamicConfigiration(
+VOID KphpSetDynamicConfigiration(
     _In_ PKPH_DYN_CONFIGURATION Configuration
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
-    if ((Configuration->MajorVersion != KphOsVersionInfo.dwMajorVersion) ||
-        (Configuration->MinorVersion != KphOsVersionInfo.dwMinorVersion))
-    {
-        return STATUS_NOT_SUPPORTED;
-    }
-
-    if ((KphOsVersionInfo.dwBuildNumber < Configuration->BuildNumberMin) ||
-        (KphOsVersionInfo.dwBuildNumber > Configuration->BuildNumberMax))
-    {
-        return STATUS_NOT_SUPPORTED;
-    }
-
-    if ((KphOsRevision < Configuration->RevisionMin) ||
-        (KphOsRevision > Configuration->BuildNumberMax))
-    {
-        return STATUS_NOT_SUPPORTED;
-    }
-
-    KphTracePrint(TRACE_LEVEL_VERBOSE,
+    KphTracePrint(TRACE_LEVEL_INFORMATION,
                   GENERAL,
-                  "Setting dynamic configuration for Windows %lu.%lu.%lu.%lu",
+                  "Setting dynamic configuration "
+                  "(%lu.%lu.%lu.%lu - %lu.%lu.%lu.%lu) "
+                  "for Windows %lu.%lu.%lu Kernel %lu.%lu.%lu.%lu",
+                  Configuration->MajorVersion,
+                  Configuration->MinorVersion,
+                  Configuration->BuildNumberMin,
+                  Configuration->RevisionMin,
+                  Configuration->MajorVersion,
+                  Configuration->MinorVersion,
+                  Configuration->BuildNumberMax,
+                  Configuration->RevisionMax,
                   KphOsVersionInfo.dwMajorVersion,
                   KphOsVersionInfo.dwMinorVersion,
                   KphOsVersionInfo.dwBuildNumber,
-                  KphOsRevision);
+                  KphKernelVersion.MajorVersion,
+                  KphKernelVersion.MinorVersion,
+                  KphKernelVersion.BuildNumber,
+                  KphKernelVersion.Revision);
 
-    KphDynEgeGuid = C_2sTo4(Configuration->EgeGuid);
-    KphDynEpObjectTable = C_2sTo4(Configuration->EpObjectTable);
-    KphDynEreGuidEntry = C_2sTo4(Configuration->EreGuidEntry);
-    KphDynHtHandleContentionEvent = C_2sTo4(Configuration->HtHandleContentionEvent);
-    KphDynOtName = C_2sTo4(Configuration->OtName);
-    KphDynOtIndex = C_2sTo4(Configuration->OtIndex);
-    KphDynObDecodeShift = C_2sTo4(Configuration->ObDecodeShift);
-    KphDynObAttributesShift = C_2sTo4(Configuration->ObAttributesShift);
+    KPH_LOAD_DYNITEM(EgeGuid);
+    KPH_LOAD_DYNITEM(EpObjectTable);
+    KPH_LOAD_DYNITEM(EreGuidEntry);
+    KPH_LOAD_DYNITEM(HtHandleContentionEvent);
+    KPH_LOAD_DYNITEM(OtName);
+    KPH_LOAD_DYNITEM(OtIndex);
+    KPH_LOAD_DYNITEM(ObDecodeShift);
+    KPH_LOAD_DYNITEM(ObAttributesShift);
 
     if (Configuration->CiVersion == KPH_DYN_CI_V1)
     {
@@ -109,20 +102,43 @@ NTSTATUS KphpSetDynamicConfigiration(
         KphTracePrint(TRACE_LEVEL_ERROR, GENERAL, "CI INVALID");
     }
 
-    KphDynAlpcCommunicationInfo = C_2sTo4(Configuration->AlpcCommunicationInfo);
-    KphDynAlpcOwnerProcess = C_2sTo4(Configuration->AlpcOwnerProcess);
-    KphDynAlpcConnectionPort = C_2sTo4(Configuration->AlpcConnectionPort);
-    KphDynAlpcServerCommunicationPort = C_2sTo4(Configuration->AlpcServerCommunicationPort);
-    KphDynAlpcClientCommunicationPort = C_2sTo4(Configuration->AlpcClientCommunicationPort);
-    KphDynAlpcHandleTable = C_2sTo4(Configuration->AlpcHandleTable);
-    KphDynAlpcHandleTableLock = C_2sTo4(Configuration->AlpcHandleTableLock);
-    KphDynAlpcAttributes = C_2sTo4(Configuration->AlpcAttributes);
-    KphDynAlpcAttributesFlags = C_2sTo4(Configuration->AlpcAttributesFlags);
-    KphDynAlpcPortContext = C_2sTo4(Configuration->AlpcPortContext);
-    KphDynAlpcSequenceNo = C_2sTo4(Configuration->AlpcSequenceNo);
-    KphDynAlpcState = C_2sTo4(Configuration->AlpcState);
+    if (Configuration->LxVersion == KPH_DYN_LX_V1)
+    {
+        KphTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "LX V1");
+        KphDynLxpThreadGetCurrent = (PLXP_THREAD_GET_CURRENT)KphGetRoutineAddress(L"lxcore.sys", "LxpThreadGetCurrent");
+    }
+    else
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR, GENERAL, "LX INVALID");
+    }
 
-    return STATUS_SUCCESS;
+    KPH_LOAD_DYNITEM(AlpcCommunicationInfo);
+    KPH_LOAD_DYNITEM(AlpcOwnerProcess);
+    KPH_LOAD_DYNITEM(AlpcConnectionPort);
+    KPH_LOAD_DYNITEM(AlpcServerCommunicationPort);
+    KPH_LOAD_DYNITEM(AlpcClientCommunicationPort);
+    KPH_LOAD_DYNITEM(AlpcHandleTable);
+    KPH_LOAD_DYNITEM(AlpcHandleTableLock);
+    KPH_LOAD_DYNITEM(AlpcAttributes);
+    KPH_LOAD_DYNITEM(AlpcAttributesFlags);
+    KPH_LOAD_DYNITEM(AlpcPortContext);
+    KPH_LOAD_DYNITEM(AlpcPortObjectLock);
+    KPH_LOAD_DYNITEM(AlpcSequenceNo);
+    KPH_LOAD_DYNITEM(AlpcState);
+    KPH_LOAD_DYNITEM(KtReadOperationCount);
+    KPH_LOAD_DYNITEM(KtWriteOperationCount);
+    KPH_LOAD_DYNITEM(KtOtherOperationCount);
+    KPH_LOAD_DYNITEM(KtReadTransferCount);
+    KPH_LOAD_DYNITEM(KtWriteTransferCount);
+    KPH_LOAD_DYNITEM(KtOtherTransferCount);
+    KPH_LOAD_DYNITEM(LxPicoProc);
+    KPH_LOAD_DYNITEM(LxPicoProcInfo);
+    KPH_LOAD_DYNITEM(LxPicoProcInfoPID);
+    KPH_LOAD_DYNITEM(LxPicoThrdInfo);
+    KPH_LOAD_DYNITEM(LxPicoThrdInfoTID);
+    KPH_LOAD_DYNITEM(MmSectionControlArea);
+    KPH_LOAD_DYNITEM(MmControlAreaListHead);
+    KPH_LOAD_DYNITEM(MmControlAreaLock);
 }
 
 /**
@@ -135,7 +151,7 @@ NTSTATUS KphpSetDynamicConfigiration(
  */
 _IRQL_requires_max_(PASSIVE_LEVEL)
 _Must_inspect_result_
-NTSTATUS KphpOpenParametersKey(
+NTSTATUS KphOpenParametersKey(
     _In_ PUNICODE_STRING RegistryPath,
     _Out_ PHANDLE KeyHandle
     )
@@ -145,7 +161,7 @@ NTSTATUS KphpOpenParametersKey(
     UNICODE_STRING parametersKeyName;
     OBJECT_ATTRIBUTES objectAttributes;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     *KeyHandle = NULL;
 
@@ -199,7 +215,7 @@ _IRQL_requires_max_(PASSIVE_LEVEL)
 _Must_inspect_result_
 NTSTATUS KphpReadDynamicConfiguration(
     _In_ HANDLE KeyHandle,
-    _Out_ PKPH_DYNDATA* DynData 
+    _Out_ PKPH_DYNDATA* DynData
     )
 {
     NTSTATUS status;
@@ -210,7 +226,7 @@ NTSTATUS KphpReadDynamicConfiguration(
     ULONG actualLength;
     PKPH_DYNDATA dynData;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     *DynData = NULL;
 
@@ -245,7 +261,7 @@ NTSTATUS KphpReadDynamicConfiguration(
         goto Exit;
     }
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef DYN_NO_SECURITY
     status = KphVerifyBuffer(dataBuffer, dataLength, sigBuffer, sigLength);
     if (!NT_SUCCESS(status))
     {
@@ -351,13 +367,14 @@ NTSTATUS KphDynamicDataInitialization(
     NTSTATUS status;
     HANDLE keyHandle;
     PKPH_DYNDATA dynData;
+    PKPH_DYN_CONFIGURATION config;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     keyHandle = NULL;
     dynData = NULL;
 
-    status = KphpOpenParametersKey(RegistryPath, &keyHandle);
+    status = KphOpenParametersKey(RegistryPath, &keyHandle);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_ERROR,
@@ -415,34 +432,31 @@ NTSTATUS KphDynamicDataInitialization(
         goto Exit;
     }
 
-    for (ULONG i = 0; i < dynData->Count; i++)
-    {
-        PKPH_DYN_CONFIGURATION config;
-
-        config = &dynData->Configs[i];
-
-        status = KphpSetDynamicConfigiration(config);
-        if (NT_SUCCESS(status))
-        {
-            KphpActiveDynData.Version = dynData->Version;
-            KphpActiveDynData.Index = i;
-            KphpActiveDynData.MajorVersion = config->MajorVersion;
-            KphpActiveDynData.MinorVersion = config->MinorVersion;
-            KphpActiveDynData.BuildNumberMin = config->BuildNumberMin;
-            KphpActiveDynData.RevisionMin = config->RevisionMin;
-            KphpActiveDynData.BuildNumberMax = config->BuildNumberMax;
-            KphpActiveDynData.RevisionMax = config->RevisionMax;
-            break;
-        }
-    }
-
+    status = KphDynDataGetConfiguration(dynData,
+                                        KphKernelVersion.MajorVersion,
+                                        KphKernelVersion.MinorVersion,
+                                        KphKernelVersion.BuildNumber,
+                                        KphKernelVersion.Revision,
+                                        &config);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_ERROR,
                       GENERAL,
-                      "KphpSetDynamicConfigiration failed: %!STATUS!",
+                      "KphDynDataGetConfiguration failed: %!STATUS!",
                       status);
+
+        goto Exit;
     }
+
+    KphpSetDynamicConfigiration(config);
+
+    KphpActiveDynData.Version = dynData->Version;
+    KphpActiveDynData.MajorVersion = config->MajorVersion;
+    KphpActiveDynData.MinorVersion = config->MinorVersion;
+    KphpActiveDynData.BuildNumberMin = config->BuildNumberMin;
+    KphpActiveDynData.RevisionMin = config->RevisionMin;
+    KphpActiveDynData.BuildNumberMax = config->BuildNumberMax;
+    KphpActiveDynData.RevisionMax = config->RevisionMax;
 
 Exit:
 
@@ -467,7 +481,7 @@ VOID KphDynamicDataCleanup(
     VOID
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (KphDynAltitude)
     {

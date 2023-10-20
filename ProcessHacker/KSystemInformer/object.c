@@ -49,7 +49,7 @@ NTSTATUS KphReferenceProcessHandleTable(
     PHANDLE_TABLE handleTable;
     NTSTATUS status;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     *HandleTable = NULL;
 
@@ -104,7 +104,7 @@ VOID KphDereferenceProcessHandleTable(
     _In_ PEPROCESS Process
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     PsReleaseProcessExitSynchronization(Process);
 }
@@ -123,7 +123,9 @@ VOID KphpUnlockHandleTableEntry(
 {
     PEX_PUSH_LOCK handleContentionEvent;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
+
+    NT_ASSERT(KphDynHtHandleContentionEvent != ULONG_MAX);
 
     //
     // Set the unlocked bit.
@@ -144,37 +146,7 @@ typedef struct _KPH_ENUM_PROC_HANDLE_EX_CONTEXT
 {
     PKPH_ENUM_PROCESS_HANDLES_CALLBACK Callback;
     PVOID Parameter;
-
 } KPH_ENUM_PROC_HANDLE_EX_CONTEXT, *PKPH_ENUM_PROC_HANDLE_EX_CONTEXT;
-
-/**
- * \brief Pass-through callback for handle table enumeration.
- *
- * \param[in,out] HandleTableEntry Related handle table entry.
- * \param[in] Handle The handle for this entry.
- * \param[in] Context Enumeration context.
- *
- * \return Result from wrapped callback.
- */
-_Function_class_(EX_ENUM_HANDLE_CALLBACK_61)
-_IRQL_requires_max_(PASSIVE_LEVEL)
-_Must_inspect_result_
-BOOLEAN NTAPI KphEnumerateProcessHandlesExCallback61(
-    _Inout_ PHANDLE_TABLE_ENTRY HandleTableEntry,
-    _In_ HANDLE Handle,
-    _In_opt_ PVOID Context
-    )
-{
-    PKPH_ENUM_PROC_HANDLE_EX_CONTEXT context;
-
-    PAGED_PASSIVE();
-
-    NT_ASSERT(Context);
-
-    context = Context;
-
-    return context->Callback(HandleTableEntry, Handle, context->Parameter);
-}
 
 /**
  * \brief Pass-through callback for handle table enumeration.
@@ -195,13 +167,16 @@ BOOLEAN NTAPI KphEnumerateProcessHandlesExCallback(
     _In_opt_ PVOID Context
     )
 {
+    PKPH_ENUM_PROC_HANDLE_EX_CONTEXT context;
     BOOLEAN result;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
-    result = KphEnumerateProcessHandlesExCallback61(HandleTableEntry,
-                                                    Handle,
-                                                    Context);
+    NT_ASSERT(Context);
+
+    context = Context;
+
+    result = context->Callback(HandleTableEntry, Handle, context->Parameter);
 
     KphpUnlockHandleTableEntry(HandleTable, HandleTableEntry);
 
@@ -228,10 +203,9 @@ NTSTATUS KphEnumerateProcessHandlesEx(
     KPH_ENUM_PROC_HANDLE_EX_CONTEXT context;
     PHANDLE_TABLE handleTable;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
-    if ((KphOsVersion >= KphWin8) &&
-        (KphDynHtHandleContentionEvent == ULONG_MAX) ||
+    if ((KphDynHtHandleContentionEvent == ULONG_MAX) ||
         (KphDynEpObjectTable == ULONG_MAX))
     {
         KphTracePrint(TRACE_LEVEL_ERROR,
@@ -255,20 +229,10 @@ NTSTATUS KphEnumerateProcessHandlesEx(
     context.Callback = Callback;
     context.Parameter = Parameter;
 
-    if (KphOsVersion >= KphWin8)
-    {
-        ExEnumHandleTable(handleTable,
-                          KphEnumerateProcessHandlesExCallback,
-                          &context,
-                          NULL);
-    }
-    else
-    {
-        ExEnumHandleTable(handleTable,
-                          (PEX_ENUM_HANDLE_CALLBACK)KphEnumerateProcessHandlesExCallback61,
-                          &context,
-                          NULL);
-    }
+    ExEnumHandleTable(handleTable,
+                      KphEnumerateProcessHandlesExCallback,
+                      &context,
+                      NULL);
 
     KphDereferenceProcessHandleTable(Process);
 
@@ -299,7 +263,7 @@ BOOLEAN KphpEnumerateProcessHandlesCallbck(
     POBJECT_TYPE objectType;
     PKPH_PROCESS_HANDLE entryInBuffer;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     context = Context;
 
@@ -394,7 +358,7 @@ NTSTATUS KphEnumerateProcessHandles(
     PEPROCESS process;
     KPHP_ENUMERATE_PROCESS_HANDLES_CONTEXT context;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (!Buffer)
     {
@@ -530,7 +494,7 @@ NTSTATUS KphQueryNameObject(
     NTSTATUS status;
     POBJECT_TYPE objectType;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     objectType = ObGetObjectType(Object);
 
@@ -608,7 +572,12 @@ NTSTATUS KphpExtractNameFileObject(
     ULONG subNameLength;
     PFILE_OBJECT relatedFileObject;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
+
+    if (FlagOn(FileObject->Flags, FO_CLEANUP_COMPLETE))
+    {
+        return STATUS_FILE_CLOSED;
+    }
 
     if (BufferLength < sizeof(OBJECT_NAME_INFORMATION))
     {
@@ -690,15 +659,12 @@ NTSTATUS KphpExtractNameFileObject(
 
     do
     {
-        subNameLength += relatedFileObject->FileName.Length;
-
-        //
-        // Avoid infinite loops.
-        //
-        if (relatedFileObject == relatedFileObject->RelatedFileObject)
+        if (FlagOn(relatedFileObject->Flags, FO_CLEANUP_COMPLETE))
         {
             break;
         }
+
+        subNameLength += relatedFileObject->FileName.Length;
 
         relatedFileObject = relatedFileObject->RelatedFileObject;
 
@@ -727,18 +693,15 @@ NTSTATUS KphpExtractNameFileObject(
 
     do
     {
+        if (FlagOn(relatedFileObject->Flags, FO_CLEANUP_COMPLETE))
+        {
+            break;
+        }
+
         objectName -= relatedFileObject->FileName.Length;
         RtlCopyMemory(objectName,
                       relatedFileObject->FileName.Buffer,
                       relatedFileObject->FileName.Length);
-
-        //
-        // Avoid infinite loops.
-        //
-        if (relatedFileObject == relatedFileObject->RelatedFileObject)
-        {
-            break;
-        }
 
         relatedFileObject = relatedFileObject->RelatedFileObject;
 
@@ -773,55 +736,49 @@ NTSTATUS KphQueryNameFileObject(
 {
     NTSTATUS status;
     PFLT_FILE_NAME_INFORMATION fileNameInfo;
+    FLT_FILE_NAME_OPTIONS nameOptions;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
-    fileNameInfo = NULL;
+    nameOptions = FLT_FILE_NAME_NORMALIZED;
 
     if (IoGetTopLevelIrp() || KeAreAllApcsDisabled())
     {
-        status = STATUS_POSSIBLE_DEADLOCK;
+        nameOptions |= FLT_FILE_NAME_QUERY_CACHE_ONLY;
     }
     else
     {
-        status = FltGetFileNameInformationUnsafe(FileObject,
-                                                 NULL,
-                                                 (FLT_FILE_NAME_NORMALIZED |
-                                                  FLT_FILE_NAME_QUERY_DEFAULT),
-                                                 &fileNameInfo);
-        if (!NT_SUCCESS(status))
-        {
-            fileNameInfo = NULL;
-        }
-        else
-        {
-            *ReturnLength = sizeof(OBJECT_NAME_INFORMATION);
-            *ReturnLength += fileNameInfo->Name.Length;
-            if (BufferLength < *ReturnLength)
-            {
-                status = STATUS_BUFFER_TOO_SMALL;
-                goto Exit;
-            }
-
-            Buffer->Name.Length = 0;
-            Buffer->Name.MaximumLength = (USHORT)(BufferLength - sizeof(OBJECT_NAME_INFORMATION));
-            Buffer->Name.Buffer = (PWSTR)Add2Ptr(Buffer, sizeof(OBJECT_NAME_INFORMATION));
-
-            RtlCopyUnicodeString(&Buffer->Name, &fileNameInfo->Name);
-
-            status = STATUS_SUCCESS;
-            goto Exit;
-        }
+        nameOptions |= FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP;
     }
 
-    if (!NT_SUCCESS(status) &&
-        !BooleanFlagOn(FileObject->Flags, FO_CLEANUP_COMPLETE))
+    status = FltGetFileNameInformationUnsafe(FileObject,
+                                             NULL,
+                                             nameOptions,
+                                             &fileNameInfo);
+    if (!NT_SUCCESS(status))
     {
+        fileNameInfo = NULL;
+
         status = KphpExtractNameFileObject(FileObject,
                                            Buffer,
                                            BufferLength,
                                            ReturnLength);
+        goto Exit;
     }
+
+    *ReturnLength = sizeof(OBJECT_NAME_INFORMATION);
+    *ReturnLength += fileNameInfo->Name.Length;
+    if (BufferLength < *ReturnLength)
+    {
+        status = STATUS_BUFFER_TOO_SMALL;
+        goto Exit;
+    }
+
+    Buffer->Name.Length = 0;
+    Buffer->Name.MaximumLength = (USHORT)(BufferLength - sizeof(OBJECT_NAME_INFORMATION));
+    Buffer->Name.Buffer = (PWSTR)Add2Ptr(Buffer, sizeof(OBJECT_NAME_INFORMATION));
+
+    RtlCopyUnicodeString(&Buffer->Name, &fileNameInfo->Name);
 
 Exit:
 
@@ -872,7 +829,7 @@ NTSTATUS KphQueryInformationObject(
     KPROCESSOR_MODE accessMode;
     PKPH_PROCESS_CONTEXT processContext;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     process = NULL;
     returnLength = 0;
@@ -924,11 +881,7 @@ NTSTATUS KphQueryInformationObject(
     }
     else
     {
-        //
-        // Make sure the handle isn't a kernel handle if we're not going to
-        // attach to the System process.
-        //
-        if (IsKernelHandle(Handle))
+        if (IsKernelHandle(Handle) && !IsPseudoHandle(Handle))
         {
             status = STATUS_INVALID_HANDLE;
             goto Exit;
@@ -943,7 +896,7 @@ NTSTATUS KphQueryInformationObject(
             OBJECT_BASIC_INFORMATION basicInfo;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(basicInfo)))
+                (ObjectInformationLength < sizeof(basicInfo)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(basicInfo);
@@ -1007,6 +960,7 @@ NTSTATUS KphQueryInformationObject(
 
             if (allocateSize <= ARRAYSIZE(stackBuffer))
             {
+                RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
                 buffer = stackBuffer;
             }
             else
@@ -1033,12 +987,9 @@ NTSTATUS KphQueryInformationObject(
                     goto Exit;
                 }
 
-                if (nameInfo->Name.Buffer)
-                {
-                    RebaseUnicodeString(&nameInfo->Name,
-                                        nameInfo,
-                                        ObjectInformation);
-                }
+                RebaseUnicodeString(&nameInfo->Name,
+                                    nameInfo,
+                                    ObjectInformation);
 
                 __try
                 {
@@ -1079,6 +1030,7 @@ NTSTATUS KphQueryInformationObject(
 
             if (allocateSize <= ARRAYSIZE(stackBuffer))
             {
+                RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
                 buffer = stackBuffer;
             }
             else
@@ -1108,12 +1060,9 @@ NTSTATUS KphQueryInformationObject(
                     goto Exit;
                 }
 
-                if (typeInfo->TypeName.Buffer)
-                {
-                    RebaseUnicodeString(&typeInfo->TypeName,
-                                        typeInfo,
-                                        ObjectInformation);
-                }
+                RebaseUnicodeString(&typeInfo->TypeName,
+                                    typeInfo,
+                                    ObjectInformation);
 
                 __try
                 {
@@ -1134,7 +1083,7 @@ NTSTATUS KphQueryInformationObject(
             OBJECT_HANDLE_FLAG_INFORMATION handleFlagInfo;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(handleFlagInfo)))
+                (ObjectInformationLength < sizeof(handleFlagInfo)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(handleFlagInfo);
@@ -1170,7 +1119,7 @@ NTSTATUS KphQueryInformationObject(
             PROCESS_BASIC_INFORMATION basicInfo;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(basicInfo)))
+                (ObjectInformationLength < sizeof(basicInfo)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(basicInfo);
@@ -1206,7 +1155,7 @@ NTSTATUS KphQueryInformationObject(
             THREAD_BASIC_INFORMATION basicInfo;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(basicInfo)))
+                (ObjectInformationLength < sizeof(basicInfo)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(basicInfo);
@@ -1253,7 +1202,7 @@ NTSTATUS KphQueryInformationObject(
             }
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(basicInfo)))
+                (ObjectInformationLength < sizeof(basicInfo)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(basicInfo);
@@ -1341,7 +1290,7 @@ NTSTATUS KphQueryInformationObject(
             KIRQL irql;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(fileInfo)))
+                (ObjectInformationLength < sizeof(fileInfo)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(fileInfo);
@@ -1492,7 +1441,7 @@ NTSTATUS KphQueryInformationObject(
             HANDLE driverHandle;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(KPH_FILE_OBJECT_DRIVER)))
+                (ObjectInformationLength < sizeof(KPH_FILE_OBJECT_DRIVER)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(KPH_FILE_OBJECT_DRIVER);
@@ -1554,7 +1503,7 @@ NTSTATUS KphQueryInformationObject(
             KERNEL_USER_TIMES times;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(times)))
+                (ObjectInformationLength < sizeof(times)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(times);
@@ -1588,7 +1537,7 @@ NTSTATUS KphQueryInformationObject(
             KERNEL_USER_TIMES times;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(times)))
+                (ObjectInformationLength < sizeof(times)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(times);
@@ -1696,6 +1645,7 @@ NTSTATUS KphQueryInformationObject(
 
             if (allocateSize <= ARRAYSIZE(stackBuffer))
             {
+                RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
                 buffer = stackBuffer;
             }
             else
@@ -1725,12 +1675,9 @@ NTSTATUS KphQueryInformationObject(
                     goto Exit;
                 }
 
-                if (nameInfo->ThreadName.Buffer)
-                {
-                    RebaseUnicodeString(&nameInfo->ThreadName,
-                                        nameInfo,
-                                        ObjectInformation);
-                }
+                RebaseUnicodeString(&nameInfo->ThreadName,
+                                    nameInfo,
+                                    ObjectInformation);
 
                 __try
                 {
@@ -1749,7 +1696,7 @@ NTSTATUS KphQueryInformationObject(
             ULONG threadIsTerminated;
 
             if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(threadIsTerminated)))
+                (ObjectInformationLength < sizeof(threadIsTerminated)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 returnLength = sizeof(threadIsTerminated);
@@ -1779,36 +1726,111 @@ NTSTATUS KphQueryInformationObject(
             break;
         }
         case KphObjectSectionBasicInformation:
+        case KphObjectSectionImageInformation:
+        case KphObjectSectionRelocationInformation:
+        case KphObjectSectionOriginalBaseInformation:
+        case KphObjectSectionInternalImageInformation:
+        case KphObjectSectionMappingsInformation:
         {
-            SECTION_BASIC_INFORMATION sectionInfo;
-
-            if (!ObjectInformation ||
-                (ObjectInformationLength != sizeof(sectionInfo)))
+            if (ObjectInformation)
             {
-                status = STATUS_INFO_LENGTH_MISMATCH;
-                returnLength = sizeof(sectionInfo);
-                goto Exit;
+                if (ObjectInformationLength <= ARRAYSIZE(stackBuffer))
+                {
+                    RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
+                    buffer = stackBuffer;
+                }
+                else
+                {
+                    buffer = KphAllocatePaged(ObjectInformationLength,
+                                              KPH_TAG_OBJECT_QUERY);
+                    if (!buffer)
+                    {
+                        status = STATUS_INSUFFICIENT_RESOURCES;
+                        goto Exit;
+                    }
+                }
+            }
+            else
+            {
+                NT_ASSERT(!buffer);
+                ObjectInformationLength = 0;
             }
 
-            KeStackAttachProcess(process, &apcState);
-            status = ZwQuerySection(Handle,
-                                    SectionBasicInformation,
-                                    &sectionInfo,
-                                    sizeof(sectionInfo),
-                                    NULL);
-            KeUnstackDetachProcess(&apcState);
-            if (NT_SUCCESS(status))
+            if (ObjectInformationClass == KphObjectSectionMappingsInformation)
             {
-                __try
+                KeStackAttachProcess(process, &apcState);
+                status = KphQuerySection(Handle,
+                                         KphSectionMappingsInformation,
+                                         buffer,
+                                         ObjectInformationLength,
+                                         &returnLength,
+                                         KernelMode);
+                KeUnstackDetachProcess(&apcState);
+                if (NT_SUCCESS(status))
                 {
-                    RtlCopyMemory(ObjectInformation,
-                                  &sectionInfo,
-                                  sizeof(sectionInfo));
-                    returnLength = sizeof(sectionInfo);
+                    __try
+                    {
+                        RtlCopyMemory(ObjectInformation, buffer, returnLength);
+                    }
+                    __except (EXCEPTION_EXECUTE_HANDLER)
+                    {
+                        status = GetExceptionCode();
+                    }
                 }
-                __except (EXCEPTION_EXECUTE_HANDLER)
+            }
+            else
+            {
+                SIZE_T length;
+                SECTION_INFORMATION_CLASS sectionInfoClass;
+
+                if (ObjectInformationClass == KphObjectSectionBasicInformation)
                 {
-                    status = GetExceptionCode();
+                    sectionInfoClass = SectionBasicInformation;
+                }
+                else if (ObjectInformationClass == KphObjectSectionImageInformation)
+                {
+                    sectionInfoClass = SectionImageInformation;
+                }
+                else if (ObjectInformationClass == KphObjectSectionRelocationInformation)
+                {
+                    sectionInfoClass = SectionRelocationInformation;
+                }
+                else if (ObjectInformationClass == KphObjectSectionOriginalBaseInformation)
+                {
+                    sectionInfoClass = SectionOriginalBaseInformation;
+                }
+                else
+                {
+                    NT_ASSERT(ObjectInformationClass == KphObjectSectionInternalImageInformation);
+                    sectionInfoClass = SectionInternalImageInformation;
+                }
+
+                length = 0;
+                KeStackAttachProcess(process, &apcState);
+                status = ZwQuerySection(Handle,
+                                        sectionInfoClass,
+                                        buffer,
+                                        ObjectInformationLength,
+                                        &length);
+                KeUnstackDetachProcess(&apcState);
+                if (NT_SUCCESS(status))
+                {
+                    if (length > ULONG_MAX)
+                    {
+                        status = STATUS_INTEGER_OVERFLOW;
+                        returnLength = 0;
+                        goto Exit;
+                    }
+
+                    __try
+                    {
+                        RtlCopyMemory(ObjectInformation, buffer, length);
+                        returnLength = (ULONG)length;
+                    }
+                    __except (EXCEPTION_EXECUTE_HANDLER)
+                    {
+                        status = GetExceptionCode();
+                    }
                 }
             }
 
@@ -1832,6 +1854,7 @@ NTSTATUS KphQueryInformationObject(
 
             if (allocateSize <= ARRAYSIZE(stackBuffer))
             {
+                RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
                 buffer = stackBuffer;
             }
             else
@@ -1914,12 +1937,9 @@ NTSTATUS KphQueryInformationObject(
                     goto Exit;
                 }
 
-                if (sectionFileName->Buffer)
-                {
-                    RebaseUnicodeString(sectionFileName,
-                                        sectionFileName,
-                                        ObjectInformation);
-                }
+                RebaseUnicodeString(sectionFileName,
+                                    sectionFileName,
+                                    ObjectInformation);
 
                 __try
                 {
@@ -2015,7 +2035,7 @@ NTSTATUS KphSetInformationObject(
     PEPROCESS process;
     KAPC_STATE apcState;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     process = NULL;
 
@@ -2074,7 +2094,7 @@ NTSTATUS KphSetInformationObject(
         {
             OBJECT_HANDLE_FLAG_INFORMATION handleFlagInfo;
 
-            if (ObjectInformationLength != sizeof(handleFlagInfo))
+            if (ObjectInformationLength < sizeof(handleFlagInfo))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 goto Exit;
@@ -2139,7 +2159,7 @@ NTSTATUS KphOpenNamedObject(
     NTSTATUS status;
     HANDLE objectHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (AccessMode != KernelMode)
     {
@@ -2194,7 +2214,7 @@ Exit:
 }
 
 /**
- * \brief Duplicates an object. 
+ * \brief Duplicates an object.
  *
  * \param[in] ProcessHandle Handle to process where the source handle exists.
  * \param[in] SourceHandle Source handle in the target process.
@@ -2219,7 +2239,7 @@ NTSTATUS KphDuplicateObject(
     PEPROCESS targetProcess;
     HANDLE targetHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     targetProcess = NULL;
     sourceProcess = NULL;
@@ -2334,6 +2354,144 @@ Exit:
     if (sourceProcess)
     {
         ObDereferenceObject(sourceProcess);
+    }
+
+    return status;
+}
+
+/**
+ * \brief Checks if two object handles refer to the same object.
+ *
+ * \param[in] FirstObjectHandle First handle to compare with the second.
+ * \param[in] SecondObjectHandle Second handle to compare with the first.
+ * \param[in] AccessMode The mode in which to perform access checks.
+ *
+ * \return STATUS_SUCCESS if the object handles refer to the same object,
+ * STATUS_NOT_SAME_OBJECT if the object handles refer to different objects,
+ * and STATUS_INVALID_HANDLE if one of the handles is invalid.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphpCompareObjects(
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle,
+    _In_ KPROCESSOR_MODE AccessMode
+    )
+{
+    NTSTATUS status;
+    PVOID firstObject;
+    PVOID secondObject;
+
+    PAGED_CODE_PASSIVE();
+
+    status = ObReferenceObjectByHandle(FirstObjectHandle,
+                                       0,
+                                       NULL,
+                                       AccessMode,
+                                       &firstObject,
+                                       NULL);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "ObReferenceObjectByHandle failed %!STATUS!",
+                      status);
+
+        firstObject = NULL;
+        secondObject = NULL;
+        goto Exit;
+    }
+
+    status = ObReferenceObjectByHandle(SecondObjectHandle,
+                                       0,
+                                       NULL,
+                                       AccessMode,
+                                       &secondObject,
+                                       NULL);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "ObReferenceObjectByHandle failed %!STATUS!",
+                      status);
+
+        secondObject = NULL;
+        goto Exit;
+    }
+
+    status = (firstObject == secondObject) ?
+        STATUS_SUCCESS : STATUS_NOT_SAME_OBJECT;
+
+Exit:
+
+    if (secondObject)
+    {
+        ObDereferenceObject(secondObject);
+    }
+
+    if (firstObject)
+    {
+        ObDereferenceObject(firstObject);
+    }
+
+    return status;
+}
+
+/**
+ * \brief Checks if two object handles refer to the same object, for a process.
+ *
+ * \param[in] ProcessHandle A handle to a process.
+ * \param[in] FirstObjectHandle First handle to compare with the second.
+ * \param[in] SecondObjectHandle Second handle to compare with the first.
+ * \param[in] AccessMode The mode in which to perform access checks.
+ *
+ * \return STATUS_SUCCESS if the object handles refer to the same object,
+ * STATUS_NOT_SAME_OBJECT if the object handles refer to different objects,
+ * and STATUS_INVALID_HANDLE if one of the handles is invalid.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphCompareObjects(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle,
+    _In_ KPROCESSOR_MODE AccessMode
+    )
+{
+    NTSTATUS status;
+    PEPROCESS process;
+    KAPC_STATE apcState;
+
+    PAGED_CODE_PASSIVE();
+
+    status = ObReferenceObjectByHandle(ProcessHandle,
+                                       0,
+                                       *PsProcessType,
+                                       AccessMode,
+                                       &process,
+                                       NULL);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "ObReferenceObjectByHandle failed %!STATUS!",
+                      status);
+
+        process = NULL;
+        goto Exit;
+    }
+
+    KeStackAttachProcess(process, &apcState);
+    status = KphpCompareObjects(FirstObjectHandle,
+                                SecondObjectHandle,
+                                AccessMode);
+    KeUnstackDetachProcess(&apcState);
+
+Exit:
+
+    if (process)
+    {
+        ObDereferenceObject(process);
     }
 
     return status;

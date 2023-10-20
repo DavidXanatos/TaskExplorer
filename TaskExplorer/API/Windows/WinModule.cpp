@@ -40,7 +40,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	QWriteLocker Locker(&m_Mutex);
 
 	m_IsLoaded = true;
-	m_FileName = CastPhString(module->FileNameWin32, false);
+	m_FileName = CastPhString(PhGetFileName(module->FileName));
 	m_ModuleName = CastPhString(module->Name, false);
 
 	m_BaseAddress = (quint64)module->BaseAddress;
@@ -93,7 +93,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 
         //m_Flags &= ~LDRP_IMAGE_NOT_AT_BASE;
 
-        if (NT_SUCCESS(PhLoadRemoteMappedImageEx((HANDLE)ProcessHandle, &m_BaseAddress, readVirtualMemoryCallback, &remoteMappedImage)))
+        if (NT_SUCCESS(PhLoadRemoteMappedImageEx((HANDLE)ProcessHandle, &m_BaseAddress, m_Size, readVirtualMemoryCallback, &remoteMappedImage)))
         {
             ULONG_PTR imageBase = 0;
             ULONG entryPoint = 0;
@@ -641,7 +641,7 @@ bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, 
 				PH_REMOTE_MAPPED_IMAGE mappedImage;
                 if (NT_SUCCESS(NtReadVirtualMemory((HANDLE)ProcessHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL)))
                 {
-                    if (NT_SUCCESS(PhLoadRemoteMappedImage((HANDLE)ProcessHandle, imageBaseAddress, &mappedImage)))
+                    if (NT_SUCCESS(PhLoadRemoteMappedImage((HANDLE)ProcessHandle, imageBaseAddress, -1, &mappedImage))) // todo: xxx
                     {
                         m_ImageTimeStamp = mappedImage.NtHeaders->FileHeader.TimeDateStamp;
                         m_ImageCharacteristics = mappedImage.NtHeaders->FileHeader.Characteristics;

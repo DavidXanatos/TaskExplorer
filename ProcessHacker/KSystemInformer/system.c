@@ -20,7 +20,7 @@ PAGED_FILE();
  * \brief Performs generic system control actions.
  *
  * \param[in] SystemControlClass System control classification.
- * \param[in] SystemControlInfo Control input buffer. 
+ * \param[in] SystemControlInfo Control input buffer.
  * \param[in] SystemControlInfoLength Length of control input buffer.
  * \param[in] AccessMode The mode in which to perform access checks.
  *
@@ -38,7 +38,7 @@ NTSTATUS KphSystemControl(
     NTSTATUS status;
     HANDLE processHandle;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(SystemControlInfo);
     UNREFERENCED_PARAMETER(SystemControlInfoLength);

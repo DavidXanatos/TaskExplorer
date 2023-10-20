@@ -65,6 +65,7 @@ NTSTATUS PhGetProcessSwitchContext(_In_ HANDLE ProcessHandle, _Out_ PGUID Guid);
 
 ULONG GetProcessDpiAwareness(HANDLE QueryHandle);
 
+VOID PhShellOpenKey(_In_ HWND WindowHandle, _In_ PPH_STRING KeyName);
 BOOLEAN PhShellOpenKey2(_In_ HWND hWnd, _In_ PPH_STRING KeyName);
 
 VOID PhShellExecuteUserString(

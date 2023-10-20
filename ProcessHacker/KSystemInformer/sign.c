@@ -18,7 +18,6 @@ typedef struct _KPH_SIGNING_INFRASTRUCTURE
 {
     KPH_AUTHENTICODE_INFO HalAuthenticode;
     volatile SIZE_T CatalogsAreLoadedCalls;
-
 } KPH_SIGNING_INFRASTRUCTURE, *PKPH_SIGNING_INFRASTRUCTURE;
 
 static UNICODE_STRING KphpSigningInfraName = RTL_CONSTANT_STRING(L"KphSigningInfrastructure");
@@ -125,7 +124,7 @@ VOID KphpResetSigningInfo(
     _Inout_opt_ PUNICODE_STRING CatalogName
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphDynCiFreePolicyInfo);
 
@@ -146,7 +145,7 @@ VOID KphpResetSigningInfo(
         SigningTime->QuadPart = 0;
     }
 
-    if (CatalogName && CatalogName->Buffer)
+    if (CatalogName)
     {
         RtlFreeUnicodeString(CatalogName);
         RtlZeroMemory(CatalogName, sizeof(*CatalogName));
@@ -162,7 +161,7 @@ NTSTATUS KphpCiCheckSignedFile(
     _Inout_opt_ PMINCRYPT_POLICY_INFO TimeStampPolicyInfo
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphDynCiFreePolicyInfo);
     NT_ASSERT(Info->Signature);
@@ -226,7 +225,7 @@ NTSTATUS KphpCiVerifyHashInCatalog(
     _Inout_opt_ PMINCRYPT_POLICY_INFO TimeStampPolicyInfo
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphDynCiFreePolicyInfo);
 
@@ -295,7 +294,7 @@ NTSTATUS KphInitializeSigning(
     NTSTATUS status;
     KPH_OBJECT_TYPE_INFO typeInfo;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     typeInfo.Allocate = KphpAllocateSigningInfra;
     typeInfo.Initialize = KphpInitSigningInfra;
@@ -326,7 +325,7 @@ VOID KphCleanupSigning(
     VOID
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (KphpSigningInfra)
     {
@@ -379,7 +378,7 @@ BOOLEAN KphpSigningCatalogsAreLoaded(
     MINCRYPT_POLICY_INFO policyInfo;
     MINCRYPT_POLICY_INFO timeStampPolicyInfo;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphDynCiFreePolicyInfo);
     NT_ASSERT(KphpSigningInfra);
@@ -425,7 +424,7 @@ NTSTATUS KphpPopulateCiInfo(
 {
     NTSTATUS status;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphDynCiFreePolicyInfo);
 
@@ -493,7 +492,7 @@ NTSTATUS KphGetSigningInfo(
 {
     NTSTATUS status;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     RtlZeroMemory(Info, sizeof(*Info));
 
@@ -530,7 +529,7 @@ NTSTATUS KphGetSigningInfoByFileName(
 {
     NTSTATUS status;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     RtlZeroMemory(Info, sizeof(*Info));
 
@@ -558,12 +557,9 @@ VOID KphFreeSigningInfo(
     _In_freesMem_ PKPH_SIGNING_INFO Info
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
-    if (Info->CatalogName.Buffer)
-    {
-        RtlFreeUnicodeString(&Info->CatalogName);
-    }
+    RtlFreeUnicodeString(&Info->CatalogName);
 
     if (KphDynCiFreePolicyInfo)
     {

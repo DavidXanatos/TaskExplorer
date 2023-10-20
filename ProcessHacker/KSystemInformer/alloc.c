@@ -20,11 +20,15 @@ static UNICODE_STRING KphpPagedLookasideObjectTypeName = RTL_CONSTANT_STRING(L"K
 static PKPH_OBJECT_TYPE KphpNPagedLookasideObjectType = NULL;
 static UNICODE_STRING KphpNPagedLookasideObjectTypeName = RTL_CONSTANT_STRING(L"KphNPagedLookaside");
 
+static UNICODE_STRING KphpRandomizedPoolTagValueName = RTL_CONSTANT_STRING(L"RandomizedPoolTag");
+KPH_PROTECTED_DATA_SECTION_PUSH();
+static ULONG KphpRandomPoolTag = 0;
+KPH_PROTECTED_DATA_SECTION_POP();
+
 typedef struct _KPH_LOOKASIDE_INIT
 {
     SIZE_T Size;
     ULONG Tag;
-
 } KPH_LOOKASIDE_INIT, *PKPH_LOOKASIDE_INIT;
 
 /**
@@ -42,8 +46,14 @@ PVOID KphAllocateNPaged(
     _In_ ULONG Tag
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
+
+#pragma warning(suppress: 4995) // suppress deprecation warning
     return ExAllocatePoolZero(NonPagedPoolNx, NumberOfBytes, Tag);
 }
 
@@ -59,9 +69,15 @@ VOID KphFree(
     _In_ ULONG Tag
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
     NT_ASSERT(Memory);
 
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
+
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExFreePoolWithTag(Memory, Tag);
 }
 
@@ -79,8 +95,14 @@ VOID KphInitializeNPagedLookaside(
     _In_ ULONG Tag
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
+
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExInitializeNPagedLookasideList(Lookaside,
                                     NULL,
                                     NULL,
@@ -100,8 +122,9 @@ VOID KphDeleteNPagedLookaside(
     _Inout_ PNPAGED_LOOKASIDE_LIST Lookaside
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExDeleteNPagedLookasideList(Lookaside);
 }
 
@@ -120,8 +143,9 @@ PVOID KphAllocateFromNPagedLookaside(
 {
     PVOID memory;
 
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
+#pragma warning(suppress: 4995) // suppress deprecation warning
     memory = ExAllocateFromNPagedLookasideList(Lookaside);
     if (memory)
     {
@@ -143,9 +167,10 @@ VOID KphFreeToNPagedLookaside(
     _In_freesMem_ PVOID Memory
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
     NT_ASSERT(Memory);
 
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExFreeToNPagedLookasideList(Lookaside, Memory);
 }
 
@@ -162,7 +187,7 @@ PVOID KSIAPI KphpAllocateNPagedLookasideObject(
     _In_ SIZE_T Size
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
     return KphAllocateNPaged(Size, KPH_TAG_NPAGED_LOOKASIDE_OBJECT);
 }
@@ -185,7 +210,7 @@ NTSTATUS KSIAPI KphpInitializeNPagedLookasideObject(
     PKPH_NPAGED_LOOKASIDE_OBJECT lookaside;
     PKPH_LOOKASIDE_INIT init;
 
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
     NT_ASSERT(Parameter);
 
@@ -211,7 +236,7 @@ VOID KSIAPI KphpDeleteNPagedLookasideObject(
 {
     PKPH_NPAGED_LOOKASIDE_OBJECT lookaside;
 
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
     lookaside = Object;
 
@@ -228,7 +253,7 @@ VOID KSIAPI KphpFreeNPagedLookasideObject(
     _In_freesMem_ PVOID Object
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
     KphFree(Object, KPH_TAG_NPAGED_LOOKASIDE_OBJECT);
 }
@@ -252,7 +277,12 @@ NTSTATUS KphCreateNPagedLookasideObject(
     NTSTATUS status;
     KPH_LOOKASIDE_INIT init;
 
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
+
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
 
     init.Size = Size;
     init.Tag = Tag;
@@ -284,7 +314,7 @@ PVOID KphAllocateFromNPagedLookasideObject(
     _Inout_ PKPH_NPAGED_LOOKASIDE_OBJECT Lookaside
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
     return KphAllocateFromNPagedLookaside((PNPAGED_LOOKASIDE_LIST)Lookaside);
 }
@@ -301,7 +331,7 @@ VOID KphFreeToNPagedLookasideObject(
     _In_freesMem_ PVOID Memory
     )
 {
-    NT_ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MAX();
 
     KphFreeToNPagedLookaside((PNPAGED_LOOKASIDE_LIST)Lookaside, Memory);
 }
@@ -326,6 +356,12 @@ PVOID KphAllocatePaged(
 {
     PAGED_CODE();
 
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
+
+#pragma warning(suppress: 4995) // suppress deprecation warning
     return ExAllocatePoolZero(PagedPool, NumberOfBytes, Tag);
 }
 
@@ -345,6 +381,12 @@ VOID KphInitializePagedLookaside(
 {
     PAGED_CODE();
 
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
+
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExInitializePagedLookasideList(Lookaside, NULL, NULL, 0, Size, Tag, 0);
 }
 
@@ -360,6 +402,7 @@ VOID KphDeletePagedLookaside(
 {
     PAGED_CODE();
 
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExDeletePagedLookasideList(Lookaside);
 }
 
@@ -380,6 +423,7 @@ PVOID KphAllocateFromPagedLookaside(
 
     PAGED_CODE();
 
+#pragma warning(suppress: 4995) // suppress deprecation warning
     memory = ExAllocateFromPagedLookasideList(Lookaside);
     if (memory)
     {
@@ -405,6 +449,7 @@ VOID KphFreeToPagedLookaside(
 
     NT_ASSERT(Memory);
 
+#pragma warning(suppress: 4995) // suppress deprecation warning
     ExFreeToPagedLookasideList(Lookaside, Memory);
 }
 
@@ -513,6 +558,11 @@ NTSTATUS KphCreatePagedLookasideObject(
 
     PAGED_CODE();
 
+    if (KphpRandomPoolTag)
+    {
+        Tag = KphpRandomPoolTag;
+    }
+
     init.Size = Size;
     init.Tag = Tag;
 
@@ -566,16 +616,153 @@ VOID KphFreeToPagedLookasideObject(
 }
 
 /**
- * \brief Initializes allocation infrastructure.
+ * \brief Makes a byte suitable for a pool tag.
+ *
+ * \param[in] Byte A byte to make suitable for a pool tag.
+ *
+ * \return A byte suitable for a pool tag.
  */
 _IRQL_requires_max_(PASSIVE_LEVEL)
-VOID KphInitializeAlloc(
+BYTE KphpMakePoolTagByte(
+    _In_ BYTE Byte
+    )
+{
+    BYTE outByte;
+
+    PAGED_CODE_PASSIVE();
+
+    outByte = Byte % '~';
+    if (outByte < ' ')
+    {
+        outByte += ' ';
+    }
+    return outByte;
+}
+
+/**
+ * \brief Generates a randomized pool tag.
+ *
+ * \return Randomized pool tag.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+ULONG KphpGenerateRandomPoolTag(
     VOID
     )
 {
+    ULONG64 interruptTime;
+    ULONG seed;
+    ULONG randomValue;
+    BYTE byte;
+    ULONG poolTag;
+
+    PAGED_CODE_PASSIVE();
+
+    interruptTime = KeQueryInterruptTime();
+    seed = (ULONG)(interruptTime >> 32);
+    seed |= (ULONG)interruptTime;
+    seed ^= PtrToUlong(PsGetCurrentThread());
+
+    do
+    {
+        randomValue = RtlRandomEx(&seed);
+    } while (!randomValue);
+
+    poolTag = 0;
+    byte = KphpMakePoolTagByte(randomValue & 0xff);
+    poolTag = (ULONG)byte;
+    byte = KphpMakePoolTagByte((randomValue >> 8) & 0xff);
+    poolTag |= ((ULONG)byte << 8);
+    byte = KphpMakePoolTagByte((randomValue >> 16) & 0xff);
+    poolTag |= ((ULONG)byte << 16);
+    byte = KphpMakePoolTagByte((randomValue >> 24) & 0xff);
+    poolTag |= ((ULONG)byte << 24);
+
+    return poolTag;
+}
+
+/**
+ * \brief Initializes allocation infrastructure options.
+ *
+ * \param[in] RegistryPath Registry path from the entry point.
+ *
+ * \return Successful or errant status.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphpInitializeAllocOptions(
+    _In_ PUNICODE_STRING RegistryPath
+    )
+{
+    NTSTATUS status;
+    HANDLE keyHandle;
+    ULONG randomizedPoolTag;
+
+    PAGED_CODE_PASSIVE();
+
+    status = KphOpenParametersKey(RegistryPath, &keyHandle);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "KphOpenParametersKey failed: %!STATUS!",
+                      status);
+
+        keyHandle = NULL;
+        goto Exit;
+    }
+
+    status = KphQueryRegistryULong(keyHandle,
+                                   &KphpRandomizedPoolTagValueName,
+                                   &randomizedPoolTag);
+    if (!NT_SUCCESS(status))
+    {
+        randomizedPoolTag = 0;
+    }
+
+    status = STATUS_SUCCESS;
+    if (randomizedPoolTag)
+    {
+        KphpRandomPoolTag = KphpGenerateRandomPoolTag();
+    }
+
+Exit:
+
+    if (keyHandle)
+    {
+        ZwClose(keyHandle);
+    }
+
+    return status;
+}
+
+/**
+ * \brief Initializes allocation infrastructure.
+ *
+ * \param[in] RegistryPath Registry path from the entry point.
+ *
+ * \return Successful or errant status.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphInitializeAlloc(
+    _In_ PUNICODE_STRING RegistryPath
+    )
+{
+    NTSTATUS status;
     KPH_OBJECT_TYPE_INFO typeInfo;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
+
+    status = KphpInitializeAllocOptions(RegistryPath);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "KphpInitializeAllocOptions failed: %!STATUS!",
+                      status);
+
+        return status;
+    }
 
     typeInfo.Allocate = KphpAllocatePagedLookasideObject;
     typeInfo.Initialize = KphpInitializePagedLookasideObject;
@@ -594,4 +781,6 @@ VOID KphInitializeAlloc(
     KphCreateObjectType(&KphpNPagedLookasideObjectTypeName,
                         &typeInfo,
                         &KphpNPagedLookasideObjectType);
+
+    return STATUS_SUCCESS;
 }

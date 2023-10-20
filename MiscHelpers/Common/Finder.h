@@ -13,7 +13,7 @@ public:
 	static void			SetDarkMode(bool bDarkMode) { m_DarkMode = bDarkMode; }
 	static bool			GetDarkMode() { return m_DarkMode; }
 
-	static QWidget* AddFinder(QWidget* pList, QObject* pFilterTarget, bool HighLightOption = true, CFinder** ppFinder = NULL);
+	static QWidget* AddFinder(QTreeView* pTree, QObject* pFilterTarget, bool HighLightOption = true, CFinder** ppFinder = NULL);
 
 	QRegularExpression GetRegExp() const;
 	bool GetHighLight() const	{ return m_pHighLight ? m_pHighLight->isChecked() : false; }

@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2011
- *     dmex    2017-2022
+ *     dmex    2017-2023
  *
  */
 
@@ -23,6 +23,9 @@ typedef enum _PV_EXPORT_TREE_COLUMN_ITEM
     PV_EXPORT_TREE_COLUMN_ITEM_NAME,
     PV_EXPORT_TREE_COLUMN_ITEM_ORDINAL,
     PV_EXPORT_TREE_COLUMN_ITEM_HINT,
+    PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME,
+    PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL,
+    PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION,
     PV_EXPORT_TREE_COLUMN_ITEM_MAXIMUM
 } PV_EXPORT_TREE_COLUMN_ITEM;
 
@@ -35,11 +38,14 @@ typedef struct _PV_EXPORT_NODE
     ULONG Ordinal;
     ULONG Hint;
     BOOLEAN ExportForwarded;
+    BOOLEAN ExportSuppressed;
     PPH_STRING UniqueIdString;
     PPH_STRING AddressString;
     PPH_STRING NameString;
     PPH_STRING OrdinalString;
     PPH_STRING HintString;
+    PPH_STRING ForwardString;
+    PPH_STRING SymbolString;
 
     PH_STRINGREF TextCache[PV_EXPORT_TREE_COLUMN_ITEM_MAXIMUM];
 } PV_EXPORT_NODE, *PPV_EXPORT_NODE;
@@ -67,6 +73,8 @@ typedef struct _PV_EXPORT_CONTEXT
     PH_TN_FILTER_SUPPORT FilterSupport;
     PPH_HASHTABLE NodeHashtable;
     PPH_LIST NodeList;
+
+    ULONG ExportsFlags;
 } PV_EXPORT_CONTEXT, *PPV_EXPORT_CONTEXT;
 
 BOOLEAN PvExportNodeHashtableCompareFunction(
@@ -142,16 +150,71 @@ VOID PvAddPendingExportNodes(
     TreeNew_SetRedraw(Context->TreeNewHandle, TRUE);
 }
 
+PPH_HASHTABLE PvPeCreateSuppressedGuardHashtable(
+    VOID
+    )
+{
+    PPH_HASHTABLE supressedHashTable = NULL;
+    PH_MAPPED_IMAGE_CFG cfgConfig = { 0 };
+
+    if (NT_SUCCESS(PhGetMappedImageCfg(&cfgConfig, &PvMappedImage)))
+    {
+        supressedHashTable = PhCreateSimpleHashtable(500);
+
+        for (ULONGLONG i = 0; i < cfgConfig.NumberOfGuardFunctionEntries; i++)
+        {
+            IMAGE_CFG_ENTRY cfgFunctionEntry = { 0 };
+
+            if (NT_SUCCESS(PhGetMappedImageCfgEntry(&cfgConfig, i, ControlFlowGuardFunction, &cfgFunctionEntry)))
+            {
+                if (cfgFunctionEntry.ExportSuppressed)
+                {
+                    PhAddItemSimpleHashtable(supressedHashTable, UlongToPtr(cfgFunctionEntry.Rva), UlongToPtr(TRUE));
+                }
+            }
+        }
+
+        for (ULONGLONG i = 0; i < cfgConfig.NumberOfGuardAdressIatEntries; i++)
+        {
+            IMAGE_CFG_ENTRY cfgFunctionEntry = { 0 };
+
+            if (NT_SUCCESS(PhGetMappedImageCfgEntry(&cfgConfig, i, ControlFlowGuardTakenIatEntry, &cfgFunctionEntry)))
+            {
+                if (cfgFunctionEntry.ExportSuppressed)
+                {
+                    PhAddItemSimpleHashtable(supressedHashTable, UlongToPtr(cfgFunctionEntry.Rva), UlongToPtr(TRUE));
+                }
+            }
+        }
+
+        for (ULONGLONG i = 0; i < cfgConfig.NumberOfGuardLongJumpEntries; i++)
+        {
+            IMAGE_CFG_ENTRY cfgFunctionEntry = { 0 };
+
+            if (NT_SUCCESS(PhGetMappedImageCfgEntry(&cfgConfig, i, ControlFlowGuardLongJump, &cfgFunctionEntry)))
+            {
+                if (cfgFunctionEntry.ExportSuppressed)
+                {
+                    PhAddItemSimpleHashtable(supressedHashTable, UlongToPtr(cfgFunctionEntry.Rva), UlongToPtr(TRUE));
+                }
+            }
+        }
+    }
+
+    return supressedHashTable;
+}
+
 NTSTATUS PvpPeExportsEnumerateThread(
     _In_ PPV_EXPORT_CONTEXT Context
     )
 {
+    PPH_HASHTABLE supressedHashTable = PvPeCreateSuppressedGuardHashtable();
     PH_MAPPED_IMAGE_EXPORTS exports;
     PH_MAPPED_IMAGE_EXPORT_ENTRY exportEntry;
     PH_MAPPED_IMAGE_EXPORT_FUNCTION exportFunction;
     ULONG i;
 
-    if (NT_SUCCESS(PhGetMappedImageExports(&exports, &PvMappedImage)))
+    if (NT_SUCCESS(PhGetMappedImageExportsEx(&exports, &PvMappedImage, Context->ExportsFlags)))
     {
         for (i = 0; i < exports.NumberOfEntries; i++)
         {
@@ -177,9 +240,16 @@ NTSTATUS PvpPeExportsEnumerateThread(
                     exportNode->HintString = PhFormatUInt64(exportEntry.Hint, FALSE);
                 }
 
+                if (exportFunction.Function)
+                {
+                    PhPrintPointer(value, exportFunction.Function);
+                    exportNode->AddressString = PhCreateString(value);
+                }
+
                 if (exportFunction.ForwardedName)
                 {
                     PPH_STRING forwardName;
+                    PPH_STRING importDllName;
 
                     forwardName = PhConvertUtf8ToUtf16(exportFunction.ForwardedName);
 
@@ -191,15 +261,17 @@ NTSTATUS PvpPeExportsEnumerateThread(
                             PhMoveReference(&forwardName, undecoratedName);
                     }
 
-                    exportNode->AddressString = forwardName;
-                }
-                else
-                {
-                    if (exportFunction.Function)
+                    if (importDllName = PhApiSetResolveToHost(&forwardName->sr))
                     {
-                        PhPrintPointer(value, exportFunction.Function);
-                        exportNode->AddressString = PhCreateString(value);
+                        PhMoveReference(&forwardName, PhFormatString(
+                            L"%s (%s)",
+                            PhGetString(forwardName),
+                            PhGetString(importDllName))
+                            );
+                        PhDereferenceObject(importDllName);
                     }
+
+                    exportNode->ForwardString = forwardName;
                 }
 
                 if (exportEntry.Name)
@@ -212,50 +284,59 @@ NTSTATUS PvpPeExportsEnumerateThread(
                     {
                         PPH_STRING undecoratedName;
 
-                        if (undecoratedName = PhUndecorateSymbolName(PvSymbolProvider, exportName->Buffer))
+                        if (undecoratedName = PhUndecorateSymbolName(PvSymbolProvider, PhGetString(exportName)))
                             PhMoveReference(&exportName, undecoratedName);
                     }
 
                     exportNode->NameString = exportName;
                 }
-                else
+
+                if (exportFunction.Function)
                 {
-                    if (exportFunction.Function)
+                    PPH_STRING exportSymbol = NULL;
+                    PPH_STRING exportSymbolName = NULL;
+
+                    // Try find the export name using symbols.
+                    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
                     {
-                        PPH_STRING exportSymbol = NULL;
-                        PPH_STRING exportSymbolName = NULL;
+                        exportSymbol = PhGetSymbolFromAddress(
+                            PvSymbolProvider,
+                            (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, exportFunction.Function),
+                            NULL,
+                            NULL,
+                            &exportSymbolName,
+                            NULL
+                            );
+                    }
+                    else
+                    {
+                        exportSymbol = PhGetSymbolFromAddress(
+                            PvSymbolProvider,
+                            (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, exportFunction.Function),
+                            NULL,
+                            NULL,
+                            &exportSymbolName,
+                            NULL
+                            );
+                    }
 
-                        // Try find the export name using symbols.
-                        if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-                        {
-                            exportSymbol = PhGetSymbolFromAddress(
-                                PvSymbolProvider,
-                                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, exportFunction.Function),
-                                NULL,
-                                NULL,
-                                &exportSymbolName,
-                                NULL
-                                );
-                        }
-                        else
-                        {
-                            exportSymbol = PhGetSymbolFromAddress(
-                                PvSymbolProvider,
-                                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, exportFunction.Function),
-                                NULL,
-                                NULL,
-                                &exportSymbolName,
-                                NULL
-                                );
-                        }
+                    if (
+                        (exportSymbolName && PhIsNullOrEmptyString(exportNode->NameString)) ||
+                        (exportNode->NameString && !PhEqualString(exportSymbolName, exportNode->NameString, TRUE))
+                        )
+                    {
+                        exportNode->SymbolString = PhReferenceObject(exportSymbolName);
+                    }
 
-                        if (!PhIsNullOrEmptyString(exportSymbolName))
-                        {
-                            exportNode->NameString = PhConcatStringRefZ(&exportSymbolName->sr, L" (unnamed)");
-                        }
+                    PhClearReference(&exportSymbolName);
+                    PhClearReference(&exportSymbol);
+                }
 
-                        PhClearReference(&exportSymbolName);
-                        PhClearReference(&exportSymbol);
+                if (exportFunction.Function && supressedHashTable)
+                {
+                    if (PhFindItemSimpleHashtable2(supressedHashTable, exportFunction.Function))
+                    {
+                        exportNode->ExportSuppressed = TRUE;
                     }
                 }
 
@@ -265,6 +346,8 @@ NTSTATUS PvpPeExportsEnumerateThread(
             }
         }
     }
+
+    PhClearReference(&supressedHashTable);
 
     PostMessage(Context->WindowHandle, WM_PV_SEARCH_FINISHED, 0, 0);
     return STATUS_SUCCESS;
@@ -288,6 +371,25 @@ INT_PTR CALLBACK PvPeExportsDlgProc(
         {
             LPPROPSHEETPAGE propSheetPage = (LPPROPSHEETPAGE)lParam;
             context->PropSheetContext = (PPV_PROPPAGECONTEXT)propSheetPage->lParam;
+
+            if (context->PropSheetContext->Context)
+            {
+                PPV_EXPORTS_PAGECONTEXT exportsPageContext = context->PropSheetContext->Context;
+
+                context->ExportsFlags = PtrToUlong(exportsPageContext->Context);
+
+                if (exportsPageContext->FreePropPageContext)
+                {
+                    PhFree(exportsPageContext);
+                    exportsPageContext = NULL;
+
+                    PhFree(context->PropSheetContext);
+                    context->PropSheetContext = NULL;
+
+                    PhFree(propSheetPage);
+                    propSheetPage = NULL;
+                }
+            }
         }
     }
     else
@@ -323,7 +425,7 @@ INT_PTR CALLBACK PvPeExportsDlgProc(
 
             PhCreateThread2(PvpPeExportsEnumerateThread, context);
 
-            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+            PhInitializeWindowTheme(hwndDlg, PhEnableThemeSupport);
         }
         break;
     case WM_DESTROY:
@@ -467,9 +569,9 @@ VOID PhLoadSettingsExportList(
     PPH_STRING settings;
     PPH_STRING sortSettings;
 
-    settings = PhGetStringSetting(L"ImageExportsTreeListColumns");
-    sortSettings = PhGetStringSetting(L"ImageExportsTreeListSort");
-    //Context->Flags = PhGetIntegerSetting(L"ImageExportsTreeListFlags");
+    settings = PhGetStringSetting(L"ImageExportTreeListColumns");
+    sortSettings = PhGetStringSetting(L"ImageExportTreeListSort");
+    //Context->Flags = PhGetIntegerSetting(L"ImageExportTreeListFlags");
 
     PhCmLoadSettingsEx(Context->TreeNewHandle, &Context->Cm, 0, &settings->sr, &sortSettings->sr);
 
@@ -486,9 +588,9 @@ VOID PhSaveSettingsExportList(
 
     settings = PhCmSaveSettingsEx(Context->TreeNewHandle, &Context->Cm, 0, &sortSettings);
 
-    //PhSetIntegerSetting(L"ImageExportsTreeListFlags", Context->Flags);
-    PhSetStringSetting2(L"ImageExportsTreeListColumns", &settings->sr);
-    PhSetStringSetting2(L"ImageExportsTreeListSort", &sortSettings->sr);
+    //PhSetIntegerSetting(L"ImageExportTreeListFlags", Context->Flags);
+    PhSetStringSetting2(L"ImageExportTreeListColumns", &settings->sr);
+    PhSetStringSetting2(L"ImageExportTreeListSort", &sortSettings->sr);
 
     PhDereferenceObject(settings);
     PhDereferenceObject(sortSettings);
@@ -659,29 +761,40 @@ BEGIN_SORT_FUNCTION(Hint)
 }
 END_SORT_FUNCTION
 
+BEGIN_SORT_FUNCTION(ForwardName)
+{
+    sortResult = PhCompareStringWithNull(node1->ForwardString, node2->ForwardString, FALSE);
+}
+END_SORT_FUNCTION
+
+BEGIN_SORT_FUNCTION(Symbol)
+{
+    sortResult = PhCompareStringWithNull(node1->SymbolString, node2->SymbolString, FALSE);
+}
+END_SORT_FUNCTION
+
+BEGIN_SORT_FUNCTION(Supression)
+{
+    sortResult = ucharcmp(node1->ExportSuppressed, node2->ExportSuppressed);
+}
+END_SORT_FUNCTION
+
 BOOLEAN NTAPI PvExportTreeNewCallback(
     _In_ HWND hwnd,
     _In_ PH_TREENEW_MESSAGE Message,
-    _In_opt_ PVOID Parameter1,
-    _In_opt_ PVOID Parameter2,
-    _In_opt_ PVOID Context
+    _In_ PVOID Parameter1,
+    _In_ PVOID Parameter2,
+    _In_ PVOID Context
     )
 {
     PPV_EXPORT_CONTEXT context = Context;
     PPV_EXPORT_NODE node;
-
-    if (!context)
-        return FALSE;
 
     switch (Message)
     {
     case TreeNewGetChildren:
         {
             PPH_TREENEW_GET_CHILDREN getChildren = Parameter1;
-
-            if (!getChildren)
-                break;
-
             node = (PPV_EXPORT_NODE)getChildren->Node;
 
             if (!getChildren->Node)
@@ -693,8 +806,13 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
                     SORT_FUNCTION(Name),
                     SORT_FUNCTION(Ordinal),
                     SORT_FUNCTION(Hint),
+                    SORT_FUNCTION(ForwardName),
+                    SORT_FUNCTION(Symbol),
+                    SORT_FUNCTION(Supression),
                 };
                 int (__cdecl *sortFunction)(void *, const void *, const void *);
+
+                static_assert(RTL_NUMBER_OF(sortFunctions) == PV_EXPORT_TREE_COLUMN_ITEM_MAXIMUM, "SortFunctions must equal maximum.");
 
                 if (context->TreeNewSortColumn < PV_EXPORT_TREE_COLUMN_ITEM_MAXIMUM)
                     sortFunction = sortFunctions[context->TreeNewSortColumn];
@@ -714,10 +832,6 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
     case TreeNewIsLeaf:
         {
             PPH_TREENEW_IS_LEAF isLeaf = (PPH_TREENEW_IS_LEAF)Parameter1;
-
-            if (!isLeaf)
-                break;
-
             node = (PPV_EXPORT_NODE)isLeaf->Node;
 
             isLeaf->IsLeaf = TRUE;
@@ -726,10 +840,6 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
     case TreeNewGetCellText:
         {
             PPH_TREENEW_GET_CELL_TEXT getCellText = (PPH_TREENEW_GET_CELL_TEXT)Parameter1;
-
-            if (!getCellText)
-                break;
-
             node = (PPV_EXPORT_NODE)getCellText->Node;
 
             switch (getCellText->Id)
@@ -749,6 +859,20 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
             case PV_EXPORT_TREE_COLUMN_ITEM_HINT:
                 getCellText->Text = PhGetStringRef(node->HintString);
                 break;
+            case PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME:
+                getCellText->Text = PhGetStringRef(node->ForwardString);
+                break;
+            case PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL:
+                getCellText->Text = PhGetStringRef(node->SymbolString);
+                break;
+            case PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION:
+                {
+                    if (node->ExportSuppressed)
+                        PhInitializeStringRef(&getCellText->Text, L"Yes");
+                    else
+                        PhInitializeEmptyStringRef(&getCellText->Text);
+                }
+                break;
             default:
                 return FALSE;
             }
@@ -759,10 +883,6 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
     case TreeNewGetNodeColor:
         {
             PPH_TREENEW_GET_NODE_COLOR getNodeColor = (PPH_TREENEW_GET_NODE_COLOR)Parameter1;
-
-            if (!getNodeColor)
-                break;
-
             node = (PPV_EXPORT_NODE)getNodeColor->Node;
 
             getNodeColor->Flags = TN_CACHE | TN_AUTO_FORECOLOR;
@@ -775,12 +895,32 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
         }
         return TRUE;
     case TreeNewKeyDown:
-    case TreeNewNodeExpanding:
-        return TRUE;
-    case TreeNewLeftDoubleClick:
         {
-           // SendMessage(context->ParentWindowHandle, WM_COMMAND, WM_ACTION, (LPARAM)context);
+            PPH_TREENEW_KEY_EVENT keyEvent = Parameter1;
+
+            switch (keyEvent->VirtualKey)
+            {
+            case 'C':
+                {
+                    if (GetKeyState(VK_CONTROL) < 0)
+                    {
+                        PPH_STRING text;
+
+                        text = PhGetTreeNewText(hwnd, 0);
+                        PhSetClipboardString(hwnd, &text->sr);
+                        PhDereferenceObject(text);
+                    }
+                }
+                break;
+            case 'A':
+                if (GetKeyState(VK_CONTROL) < 0)
+                    TreeNew_SelectRange(context->TreeNewHandle, 0, -1);
+                break;
+            }
         }
+        return TRUE;
+    case TreeNewNodeExpanding:
+    case TreeNewLeftDoubleClick:
         return TRUE;
     case TreeNewContextMenu:
         {
@@ -892,6 +1032,9 @@ VOID PvInitializeExportTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_NAME, TRUE, L"Name", 250, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_NAME, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_ORDINAL, TRUE, L"Ordinal", 50, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_ORDINAL, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_HINT, TRUE, L"Hint", 50, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_HINT, 0, 0);
+    PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME, TRUE, L"Forwarded name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME, 0, 0);
+    PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL, TRUE, L"Undecorated name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL, 0, 0);
+    PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION, TRUE, L"CFG export suppression", 80, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION, 0, 0);
 
     TreeNew_SetRedraw(TreeNewHandle, TRUE);
     TreeNew_SetSort(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);

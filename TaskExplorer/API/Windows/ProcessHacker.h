@@ -51,9 +51,11 @@ extern "C" {
 #include <symprv.h>
 #include <svcsup.h>
 #include <mapimg.h>
+#include <mapldr.h>
 #include <combaseapi.h>
 #include <lsasup.h>
 #include <phnative.h>
+#include <mapldr.h>
 //#include <ntgdi.h>
 #include "../ProcessHacker/phnt/include/ntgdi.h"
 

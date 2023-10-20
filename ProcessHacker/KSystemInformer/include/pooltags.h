@@ -13,8 +13,8 @@
 
 // alloc
 
-#define KPH_TAG_PAGED_LOOKASIDE_OBJECT          '0AcK'
-#define KPH_TAG_NPAGED_LOOKASIDE_OBJECT         '1AcK'
+#define KPH_TAG_PAGED_LOOKASIDE_OBJECT          '0ApK'
+#define KPH_TAG_NPAGED_LOOKASIDE_OBJECT         '1ApK'
 
 // comms
 
@@ -23,11 +23,10 @@
 #define KPH_TAG_NPAGED_MESSAGE                  '2CpK'
 #define KPH_TAG_QUEUE_ITEM                      '3CpK'
 #define KPH_TAG_THREAD_POOL                     '4CpK'
-#define KPH_TAG_CONNECT_PARAMTERS               '5CpK'
 
 // dyndata
 
-#define KPH_TAG_DYNDATA                         '6DpK'
+#define KPH_TAG_DYNDATA                         '0DpK'
 
 // object
 
@@ -39,21 +38,14 @@
 
 // thread
 
-#define KPH_TAG_BACKTRACE                       '0TpK'
+#define KPH_TAG_THREAD_BACK_TRACE               '0TpK'
 #define KPH_TAG_THREAD_INFO                     '1TpK'
 
 // util
 
-#define KPH_TAG_MODULES                         '0UpK'
-#define KPH_TAG_FILE_NAME                       '1UpK'
-#define KPH_TAG_REG_STRING                      '2UpK'
-#define KPH_TAG_REG_BINARY                      '3UpK'
-#define KPH_TAG_FILE_OBJECT_NAME                '4UpK'
-#define KPH_TAG_ACL                             '5UpK'
-
-// verify
-
-#define KPH_TAG_VERIFY                          '0VpK'
+#define KPH_TAG_REG_STRING                      '0UpK'
+#define KPH_TAG_REG_BINARY                      '1UpK'
+#define KPH_TAG_FILE_OBJECT_NAME                '2UpK'
 
 // vm
 
@@ -84,6 +76,7 @@
 #define KPH_TAG_CID_POPULATE                    '1cpK'
 #define KPH_TAG_PROCESS_CONTEXT                 '2cpK'
 #define KPH_TAG_THREAD_CONTEXT                  '3cpK'
+#define KPH_TAG_CID_APC                         '4cpK'
 
 // protection
 
@@ -91,9 +84,20 @@
 
 // alpc
 
-#define KPH_TAG_ALPC_NAME_QUERY                 '0ApK'
+#define KPH_TAG_ALPC_NAME_QUERY                 '0apK'
+#define KPH_TAG_ALPC_QUERY                      '1apK'
 
 // file
 
 #define KPH_TAG_FILE_QUERY                      '0FpK'
 #define KPH_TAG_VOL_FILE_QUERY                  '1FpK'
+
+// socket
+
+#define KPH_TAG_SOCKET                          '0spK'
+#define KPH_TAG_TLS                             '1spK'
+#define KPH_TAG_TLS_BUFFER                      '2spK'
+
+// back_trace
+
+#define KPH_TAG_BACK_TRACE_OBJECT               '0BpK'

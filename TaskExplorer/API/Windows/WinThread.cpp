@@ -81,7 +81,7 @@ bool CWinThread::InitStaticData(void* ProcessHandle, struct _SYSTEM_THREAD_INFOR
         PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, thread->ClientId.UniqueThread);
     }
 
-	PVOID startAddress = NULL;
+	ULONG_PTR startAddress = NULL;
     if (m->ThreadHandle)
     {
         PhGetThreadStartAddress(m->ThreadHandle, &startAddress);
@@ -370,14 +370,14 @@ QString CWinThread::GetStateString() const
     if (m_State != Waiting)
     {
 		if (m_State < MaximumThreadState)
-			State = QString::fromWCharArray(PhKThreadStateNames[m_State]);
+			State = QString::fromWCharArray(PhKThreadStateNames[m_State].Buffer);
         else
             State = tr("Unknown");
     }
     else
     {
 		if (m_WaitReason < MaximumWaitReason)
-			State = tr("Wait:") + QString::fromWCharArray(PhKWaitReasonNames[m_WaitReason]);
+			State = tr("Wait:") + QString::fromWCharArray(PhKWaitReasonNames[m_WaitReason].Buffer);
         else
             State = tr("Waiting");
     }

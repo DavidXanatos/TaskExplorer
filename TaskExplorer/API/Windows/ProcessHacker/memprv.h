@@ -92,5 +92,5 @@ typedef struct _HEAP_SEGMENT_OLD32
 } HEAP_SEGMENT_OLD32, *PHEAP_SEGMENT_OLD32;
 
 #define HEAP_SEGMENT_MAX_SIZE \
-    (max(sizeof(HEAP_SEGMENT), max(sizeof(HEAP_SEGMENT_OLD), \
-        max(sizeof(HEAP_SEGMENT32), sizeof(HEAP_SEGMENT_OLD32)))))
+    (std::max(sizeof(HEAP_SEGMENT), std::max(sizeof(HEAP_SEGMENT_OLD), \
+        std::max(sizeof(HEAP_SEGMENT32), sizeof(HEAP_SEGMENT_OLD32)))))

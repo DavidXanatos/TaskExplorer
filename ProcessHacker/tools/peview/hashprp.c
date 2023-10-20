@@ -5,15 +5,16 @@
  *
  * Authors:
  *
- *     dmex    2021-2022
+ *     dmex    2021-2023
  *
  */
 
 #include <peview.h>
-#include <bcrypt.h>
-#include "..\thirdparty\tlsh\tlsh_wrapper.h"
-#include "..\thirdparty\ssdeep\fuzzy.h"
 
+#include "../thirdparty/tlsh/tlsh_wrapper.h"
+#include "../thirdparty/ssdeep/fuzzy.h"
+
+#include <bcrypt.h>
 #include <wincrypt.h>
 #include <wintrust.h>
 
@@ -220,12 +221,7 @@ PPH_STRING PvGetFinalHash(
         0
         )))
     {
-        PPH_STRING string;
-
-        string = PhBufferToHexString(HashContext->Hash, HashContext->HashSize);
-        _wcsupr(string->Buffer);
-
-        return string;
+        return PhBufferToHexString(HashContext->Hash, HashContext->HashSize);
     }
 
     return NULL;
@@ -237,7 +233,7 @@ NTSTATUS PvHashMappedImageData(
     _In_ ULONG64 BufferLength
     )
 {
-    NTSTATUS status;
+    NTSTATUS status = STATUS_UNSUCCESSFUL;
 
     if (BufferLength >= ULONG_MAX)
     {
@@ -361,7 +357,7 @@ PPH_LIST PvEnumSpcAuthenticodePageHashes(
         SPC_INDIRECT_DATA_CONTENT_STRUCT,
         cryptInnerContentBuffer,
         cryptInnerContentLength,
-        CRYPT_DECODE_ALLOC_FLAG,
+        CRYPT_DECODE_NOCOPY_FLAG | CRYPT_DECODE_ALLOC_FLAG,
         NULL,
         &spcIndirectDataContentBuffer,
         &spcIndirectDataContentLength
@@ -378,7 +374,7 @@ PPH_LIST PvEnumSpcAuthenticodePageHashes(
         SPC_PE_IMAGE_DATA_STRUCT,
         spcIndirectDataContentBuffer->Data.Value.pbData,
         spcIndirectDataContentBuffer->Data.Value.cbData,
-        CRYPT_DECODE_ALLOC_FLAG,
+        CRYPT_DECODE_NOCOPY_FLAG | CRYPT_DECODE_ALLOC_FLAG,
         NULL,
         &spcPeImageDataBuffer,
         &spcPeImageDataLength
@@ -402,7 +398,7 @@ PPH_LIST PvEnumSpcAuthenticodePageHashes(
             PKCS_ATTRIBUTES,
             spcPeImageDataBuffer->pFile->Moniker.SerializedData.pbData,
             spcPeImageDataBuffer->pFile->Moniker.SerializedData.cbData,
-            CRYPT_DECODE_ALLOC_FLAG,
+            CRYPT_DECODE_NOCOPY_FLAG | CRYPT_DECODE_ALLOC_FLAG,
             NULL,
             &spcSerializedObjectAttributesBuffer,
             &spcSerializedObjectAttributesLength
@@ -421,7 +417,7 @@ PPH_LIST PvEnumSpcAuthenticodePageHashes(
                     X509_OCTET_STRING,
                     spcSerializedObjectBuffer.rgValue->pbData,
                     spcSerializedObjectBuffer.rgValue->cbData,
-                    CRYPT_DECODE_ALLOC_FLAG,
+                    CRYPT_DECODE_NOCOPY_FLAG | CRYPT_DECODE_ALLOC_FLAG,
                     NULL,
                     &spcImagePageHashesBuffer,
                     &spcImagePageHashesLength
@@ -571,232 +567,227 @@ NTSTATUS PvGetMappedImageMicrosoftImpHash(
 
     if (NT_SUCCESS(status))
     {
-        PPH_STRING string;
-
-        string = PhBufferToHexString(importTableMd5Hash, sizeof(importTableMd5Hash));
-        _wcsupr(string->Buffer);
-
-        *HashResult = string;
+        *HashResult = PhBufferToHexString(importTableMd5Hash, sizeof(importTableMd5Hash));
         return STATUS_SUCCESS;
     }
 
     return status;
 }
 
-PPH_STRING PvGetMappedImageAuthentihash(
-    _In_ PCWSTR AlgorithmId
-    )
-{
-    PIMAGE_DOS_HEADER imageDosHeader = (PIMAGE_DOS_HEADER)PvMappedImage.ViewBase;
-    PPH_STRING hashString = NULL;
-    ULONG imageChecksumOffset;
-    ULONG imageSecurityOffset;
-    PIMAGE_DATA_DIRECTORY dataDirectory;
-    PPV_HASH_CONTEXT hashContext;
-
-    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-    {
-        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.CheckSum);
-        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
-    }
-    else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
-    {
-        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.CheckSum);
-        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
-    }
-    else
-    {
-        return NULL;
-    }
-
-    if (!(hashContext = PvCreateHashHandle(AlgorithmId)))
-        return NULL;
-
-    {
-        ULONG64 offset = 0;
-        ULONG64 length = imageChecksumOffset - offset;
-
-        if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
-            return NULL;
-    }
-
-    {
-        ULONG64 offset = imageChecksumOffset + RTL_FIELD_SIZE(IMAGE_OPTIONAL_HEADER, CheckSum);
-        ULONG64 length = imageSecurityOffset - offset;
-
-        if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
-            return NULL;
-    }
-
-    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
-    {
-        {
-            ULONG64 offset = imageSecurityOffset + sizeof(IMAGE_DATA_DIRECTORY);
-            ULONG64 length = dataDirectory->VirtualAddress - offset;
-
-            if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
-                return NULL;
-        }
-
-        {
-            ULONG64 offset = dataDirectory->VirtualAddress + dataDirectory->Size;
-            ULONG64 length = PvMappedImage.Size - offset;
-
-            if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
-                return NULL;
-        }
-    }
-    else
-    {
-        ULONG64 offset = imageSecurityOffset + sizeof(IMAGE_DATA_DIRECTORY);
-        ULONG64 length = PvMappedImage.Size - offset;
-
-        if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
-            return NULL;
-    }
-
-    hashString = PvGetFinalHash(hashContext);
-    PvDestroyHashHandle(hashContext);
-
-    return hashString;
-}
-
-PPH_STRING PvGetMappedImageAuthentihashLegacy(
-    _In_ PCWSTR AlgorithmId
-    )
-{
-    PIMAGE_DOS_HEADER imageDosHeader = (PIMAGE_DOS_HEADER)PvMappedImage.ViewBase;
-    PPH_STRING hashString = NULL;
-    ULONG64 offset = 0;
-    ULONG imageChecksumOffset;
-    ULONG imageSecurityOffset;
-    ULONG directoryAddress = 0;
-    ULONG directorySize= 0;
-    PIMAGE_DATA_DIRECTORY dataDirectory;
-    PPV_HASH_CONTEXT hashContext;
-
-    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-    {
-        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.CheckSum);
-        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
-    }
-    else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
-    {
-        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.CheckSum);
-        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
-    }
-    else
-    {
-        return NULL;
-    }
-
-    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
-    {
-        directoryAddress = dataDirectory->VirtualAddress;
-        directorySize = dataDirectory->Size;
-    }
-
-    if (!(hashContext = PvCreateHashHandle(AlgorithmId)))
-        return NULL;
-
-    while (offset < imageChecksumOffset)
-    {
-        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
-        offset++;
-    }
-
-    offset += RTL_FIELD_SIZE(IMAGE_OPTIONAL_HEADER, CheckSum);
-
-    while (offset < imageSecurityOffset)
-    {
-        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
-        offset++;
-    }
-
-    offset += sizeof(IMAGE_DATA_DIRECTORY);
-
-    while (offset < directoryAddress)
-    {
-        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
-        offset++;
-    }
-
-    offset += directorySize;
-
-    while (offset < PvMappedImage.Size)
-    {
-        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
-        offset++;
-    }
-
-    hashString = PvGetFinalHash(hashContext);
-    PvDestroyHashHandle(hashContext);
-
-    return hashString;
-}
-
-PPH_STRING PvGetMappedImageWdacPageHash(
-    _In_ PCWSTR AlgorithmId
-    )
-{
-    PIMAGE_DOS_HEADER imageDosHeader = (PIMAGE_DOS_HEADER)PvMappedImage.ViewBase;
-    PPH_STRING hashString = NULL;
-    ULONG offset = 0;
-    ULONG imageChecksumOffset;
-    ULONG imageSecurityOffset;
-    ULONG imageSizeOfHeaders;
-    PPV_HASH_CONTEXT hashContext;
-
-    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-    {
-        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.CheckSum);
-        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
-        imageSizeOfHeaders = ((PIMAGE_OPTIONAL_HEADER32)&PvMappedImage.NtHeaders32->OptionalHeader)->SizeOfHeaders;
-    }
-    else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
-    {
-        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.CheckSum);
-        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
-        imageSizeOfHeaders = ((PIMAGE_OPTIONAL_HEADER64)&PvMappedImage.NtHeaders->OptionalHeader)->SizeOfHeaders;
-    }
-    else
-    {
-        return NULL;
-    }
-
-    if (!(hashContext = PvCreateHashHandle(AlgorithmId)))
-        return NULL;
-
-    while (offset < PAGE_SIZE)
-    {
-        if (offset == imageChecksumOffset)
-            offset += RTL_FIELD_SIZE(IMAGE_OPTIONAL_HEADER, CheckSum);
-        if (offset == imageSecurityOffset)
-            offset += sizeof(IMAGE_DATA_DIRECTORY);
-        if (offset >= imageSizeOfHeaders)
-            break;
-
-        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
-        offset++;
-    }
-
-    if (offset < PAGE_SIZE)
-    {
-        ULONG paddingLength;
-        PVOID paddingBuffer;
-
-        paddingLength = PAGE_SIZE - offset;
-        paddingBuffer = PhAllocateZero(paddingLength);
-
-        PvHashMappedImageData(hashContext, paddingBuffer, paddingLength);
-        PhFree(paddingBuffer);
-    }
-
-    hashString = PvGetFinalHash(hashContext);
-    PvDestroyHashHandle(hashContext);
-
-    return hashString;
-}
+//PPH_STRING PvGetMappedImageAuthentihash(
+//    _In_ PCWSTR AlgorithmId
+//    )
+//{
+//    PIMAGE_DOS_HEADER imageDosHeader = (PIMAGE_DOS_HEADER)PvMappedImage.ViewBase;
+//    PPH_STRING hashString = NULL;
+//    ULONG imageChecksumOffset;
+//    ULONG imageSecurityOffset;
+//    PIMAGE_DATA_DIRECTORY dataDirectory;
+//    PPV_HASH_CONTEXT hashContext;
+//
+//    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+//    {
+//        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.CheckSum);
+//        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+//    }
+//    else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+//    {
+//        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.CheckSum);
+//        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+//    }
+//    else
+//    {
+//        return NULL;
+//    }
+//
+//    if (!(hashContext = PvCreateHashHandle(AlgorithmId)))
+//        return NULL;
+//
+//    {
+//        ULONG64 offset = 0;
+//        ULONG64 length = imageChecksumOffset - offset;
+//
+//        if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
+//            return NULL;
+//    }
+//
+//    {
+//        ULONG64 offset = imageChecksumOffset + RTL_FIELD_SIZE(IMAGE_OPTIONAL_HEADER, CheckSum);
+//        ULONG64 length = imageSecurityOffset - offset;
+//
+//        if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
+//            return NULL;
+//    }
+//
+//    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
+//    {
+//        {
+//            ULONG64 offset = imageSecurityOffset + sizeof(IMAGE_DATA_DIRECTORY);
+//            ULONG64 length = dataDirectory->VirtualAddress - offset;
+//
+//            if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
+//                return NULL;
+//        }
+//
+//        {
+//            ULONG64 offset = dataDirectory->VirtualAddress + dataDirectory->Size;
+//            ULONG64 length = PvMappedImage.Size - offset;
+//
+//            if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
+//                return NULL;
+//        }
+//    }
+//    else
+//    {
+//        ULONG64 offset = imageSecurityOffset + sizeof(IMAGE_DATA_DIRECTORY);
+//        ULONG64 length = PvMappedImage.Size - offset;
+//
+//        if (!NT_SUCCESS(PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), length)))
+//            return NULL;
+//    }
+//
+//    hashString = PvGetFinalHash(hashContext);
+//    PvDestroyHashHandle(hashContext);
+//
+//    return hashString;
+//}
+//
+//PPH_STRING PvGetMappedImageAuthentihashLegacy(
+//    _In_ PCWSTR AlgorithmId
+//)
+//{
+//    PIMAGE_DOS_HEADER imageDosHeader = (PIMAGE_DOS_HEADER)PvMappedImage.ViewBase;
+//    PPH_STRING hashString = NULL;
+//    ULONG64 offset = 0;
+//    ULONG imageChecksumOffset;
+//    ULONG imageSecurityOffset;
+//    ULONG directoryAddress = 0;
+//    ULONG directorySize= 0;
+//    PIMAGE_DATA_DIRECTORY dataDirectory;
+//    PPV_HASH_CONTEXT hashContext;
+//
+//    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+//    {
+//        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.CheckSum);
+//        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+//    }
+//    else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+//    {
+//        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.CheckSum);
+//        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+//    }
+//    else
+//    {
+//        return NULL;
+//    }
+//
+//    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
+//    {
+//        directoryAddress = dataDirectory->VirtualAddress;
+//        directorySize = dataDirectory->Size;
+//    }
+//
+//    if (!(hashContext = PvCreateHashHandle(AlgorithmId)))
+//        return NULL;
+//
+//    while (offset < imageChecksumOffset)
+//    {
+//        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
+//        offset++;
+//    }
+//
+//    offset += RTL_FIELD_SIZE(IMAGE_OPTIONAL_HEADER, CheckSum);
+//
+//    while (offset < imageSecurityOffset)
+//    {
+//        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
+//        offset++;
+//    }
+//
+//    offset += sizeof(IMAGE_DATA_DIRECTORY);
+//
+//    while (offset < directoryAddress)
+//    {
+//        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
+//        offset++;
+//    }
+//
+//    offset += directorySize;
+//
+//    while (offset < PvMappedImage.Size)
+//    {
+//        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
+//        offset++;
+//    }
+//
+//    hashString = PvGetFinalHash(hashContext);
+//    PvDestroyHashHandle(hashContext);
+//
+//    return hashString;
+//}
+//
+//PPH_STRING PvGetMappedImageWdacPageHash(
+//    _In_ PCWSTR AlgorithmId
+//    )
+//{
+//    PIMAGE_DOS_HEADER imageDosHeader = (PIMAGE_DOS_HEADER)PvMappedImage.ViewBase;
+//    PPH_STRING hashString = NULL;
+//    ULONG offset = 0;
+//    ULONG imageChecksumOffset;
+//    ULONG imageSecurityOffset;
+//    ULONG imageSizeOfHeaders;
+//    PPV_HASH_CONTEXT hashContext;
+//
+//    if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+//    {
+//        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.CheckSum);
+//        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+//        imageSizeOfHeaders = ((PIMAGE_OPTIONAL_HEADER32)&PvMappedImage.NtHeaders32->OptionalHeader)->SizeOfHeaders;
+//    }
+//    else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+//    {
+//        imageChecksumOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.CheckSum);
+//        imageSecurityOffset = imageDosHeader->e_lfanew + UFIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+//        imageSizeOfHeaders = ((PIMAGE_OPTIONAL_HEADER64)&PvMappedImage.NtHeaders->OptionalHeader)->SizeOfHeaders;
+//    }
+//    else
+//    {
+//        return NULL;
+//    }
+//
+//    if (!(hashContext = PvCreateHashHandle(AlgorithmId)))
+//        return NULL;
+//
+//    while (offset < PAGE_SIZE)
+//    {
+//        if (offset == imageChecksumOffset)
+//            offset += RTL_FIELD_SIZE(IMAGE_OPTIONAL_HEADER, CheckSum);
+//        if (offset == imageSecurityOffset)
+//            offset += sizeof(IMAGE_DATA_DIRECTORY);
+//        if (offset >= imageSizeOfHeaders)
+//            break;
+//
+//        PvHashMappedImageData(hashContext, PTR_ADD_OFFSET(PvMappedImage.ViewBase, offset), sizeof(BYTE));
+//        offset++;
+//    }
+//
+//    if (offset < PAGE_SIZE)
+//    {
+//        ULONG paddingLength;
+//        PVOID paddingBuffer;
+//
+//        paddingLength = PAGE_SIZE - offset;
+//        paddingBuffer = PhAllocateZero(paddingLength);
+//
+//        PvHashMappedImageData(hashContext, paddingBuffer, paddingLength);
+//        PhFree(paddingBuffer);
+//    }
+//
+//    hashString = PvGetFinalHash(hashContext);
+//    PvDestroyHashHandle(hashContext);
+//
+//    return hashString;
+//}
 
 PPH_HASHTABLE PvGenerateOrdinalHashtableStringRef(
     _In_ PPH_STRINGREF FileName
@@ -1043,7 +1034,7 @@ BOOLEAN PvGetMappedImageImphash(
                             &importDllName->sr,
                             &separator,
                             &importFuncName->sr);
-                        _wcslwr(importImphashName->Buffer);
+                        PhLowerStringRef(&importImphashName->sr);
 
                         // "%s,"
                         PhAppendStringBuilder(&stringBuilder, &importImphashName->sr);
@@ -1069,20 +1060,12 @@ BOOLEAN PvGetMappedImageImphash(
         PPH_STRING importStringFinal;
         PPH_STRING importStringFuzzy;
         PPH_BYTES importStringUtf8;
-        PH_HASH_CONTEXT hashContext;
-        UCHAR hash[32];
 
         importStringFinal = PhFinalStringBuilderString(&stringBuilder);
         importStringUtf8 = PhConvertUtf16ToUtf8Ex(importStringFinal->Buffer, importStringFinal->Length);
 
-        PhInitializeHash(&hashContext, Md5HashAlgorithm);
-        PhUpdateHash(&hashContext, importStringUtf8->Buffer, (ULONG)importStringUtf8->Length);
-
-        if (PhFinalHash(&hashContext, hash, 16, NULL))
-        {
-            hashString = PhBufferToHexString(hash, 16);
-            _wcsupr(hashString->Buffer);
-        }
+        hashString = PvHashBuffer(importStringUtf8->Buffer, (ULONG)importStringUtf8->Length);
+        PhUpperStringRef(&hashString->sr);
 
         // Generate the "impfuzzy" hash:
         // https://blogs.jpcert.or.jp/en/2016/05/classifying-mal-a988.html
@@ -1184,23 +1167,23 @@ NTSTATUS PvPeFileHashThread(
 
     if (PhIsNullOrEmptyString(ssdeepHashString))
     {
-        fuzzy_hash_buffer(PvMappedImage.ViewBase, PvMappedImage.Size, &ssdeepHashString);
+        fuzzy_hash_buffer(PvMappedImage.ViewBase, PvMappedImage.ViewSize, &ssdeepHashString);
     }
 
     if (PhIsNullOrEmptyString(tlshHashString))
     {
-        PvGetTlshBufferHash(PvMappedImage.ViewBase, PvMappedImage.Size, &tlshHashString);
+        PvGetTlshBufferHash(PvMappedImage.ViewBase, PvMappedImage.ViewSize, &tlshHashString);
     }
 
     // Authentihash (Authenticode)
 
-    authentihashSha1String = PvGetMappedImageAuthentihash(BCRYPT_SHA1_ALGORITHM);
-    authentihashSha256String = PvGetMappedImageAuthentihash(BCRYPT_SHA256_ALGORITHM);
+    authentihashSha1String = PhGetMappedImageAuthenticodeHash(&PvMappedImage, Sha1HashAlgorithm);
+    authentihashSha256String = PhGetMappedImageAuthenticodeHash(&PvMappedImage, Sha256HashAlgorithm);
 
     // Page hash (WDAC)
 
-    wdaghashSha1String = PvGetMappedImageWdacPageHash(BCRYPT_SHA1_ALGORITHM);
-    wdaghashSha256String = PvGetMappedImageWdacPageHash(BCRYPT_SHA256_ALGORITHM);
+    wdaghashSha1String = PhGetMappedImageWdacHash(&PvMappedImage, Sha1HashAlgorithm);
+    wdaghashSha256String = PhGetMappedImageWdacHash(&PvMappedImage, Sha256HashAlgorithm);
 
     // Page hash (Authenticode)
 
@@ -1255,7 +1238,7 @@ VOID PvPeHashesAddListViewItem(
 
     if (!PhIsNullOrEmptyString(Result))
     {
-        if (UpperCase) _wcsupr(Result->Buffer);
+        if (UpperCase) PhUpperStringRef(&Result->sr);
 
         PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, PhGetString(Result));
         PhDereferenceObject(Result);
@@ -1324,7 +1307,7 @@ INT_PTR CALLBACK PvpPeHashesDlgProc(
 
             PhCreateThread2(PvPeFileHashThread, context);
 
-            PhInitializeWindowTheme(hwndDlg, PeEnableThemeSupport);
+            PhInitializeWindowTheme(hwndDlg, PhEnableThemeSupport);
         }
         break;
     case WM_DESTROY:
@@ -1416,7 +1399,7 @@ INT_PTR CALLBACK PvpPeHashesDlgProc(
             if (results->ImageHasImports)
             {
                 PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_IMPORTHASH, PV_HASHLIST_INDEX_IMPHASH, &count, FALSE, NULL, L"Imphash", results->ImphashString);
-                PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_IMPORTHASH, PV_HASHLIST_INDEX_IMPHASHMSFT, &count, FALSE, NULL, L"Imphash (Microsoft)", results->ImpMsftHashString);
+                PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_IMPORTHASH, PV_HASHLIST_INDEX_IMPHASHMSFT, &count, TRUE, NULL, L"Imphash (Microsoft)", results->ImpMsftHashString);
                 PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_FUZZYHASH, PV_HASHLIST_INDEX_IMPFUZZY, &count, FALSE, NULL, L"Impfuzzy", results->ImphashFuzzyString);
             }
             else

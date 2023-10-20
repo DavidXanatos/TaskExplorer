@@ -36,7 +36,7 @@ NTSTATUS KphOpenDriver(
     _In_ KPROCESSOR_MODE AccessMode
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     return KphOpenNamedObject(DriverHandle,
                               DesiredAccess,
@@ -73,7 +73,7 @@ NTSTATUS KphQueryInformationDriver(
     PDRIVER_OBJECT driverObject;
     ULONG returnLength;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     driverObject = NULL;
     returnLength = 0;
@@ -116,9 +116,9 @@ NTSTATUS KphQueryInformationDriver(
         goto Exit;
     }
 
-        //
-        // We reach into the driver object on purpose
-        //
+    //
+    // We reach into the driver object on purpose
+    //
 #pragma prefast(push)
 #pragma prefast(disable : 28175)
     switch (DriverInformationClass)
@@ -132,7 +132,7 @@ NTSTATUS KphQueryInformationDriver(
             PDRIVER_BASIC_INFORMATION basicInfo;
 
             if (!DriverInformation ||
-                (DriverInformationLength != sizeof(DRIVER_BASIC_INFORMATION)))
+                (DriverInformationLength < sizeof(DRIVER_BASIC_INFORMATION)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
                 goto Exit;
@@ -261,12 +261,6 @@ NTSTATUS KphQueryInformationDriver(
         {
             UNICODE_STRING fullDriverPath;
 
-            if (!KphDynIoQueryFullDriverPath)
-            {
-                status = STATUS_NOINTERFACE;
-                goto Exit;
-            }
-
             if ((KphOsVersionInfo.dwMajorVersion < 10) ||
                 (KphOsVersionInfo.dwMajorVersion == 10) &&
                 (KphOsVersionInfo.dwBuildNumber < 16299))
@@ -281,7 +275,7 @@ NTSTATUS KphQueryInformationDriver(
 
             RtlZeroMemory(&fullDriverPath, sizeof(fullDriverPath));
 
-            status = KphDynIoQueryFullDriverPath(driverObject, &fullDriverPath);
+            status = IoQueryFullDriverPath(driverObject, &fullDriverPath);
             if (!NT_SUCCESS(status))
             {
                 goto Exit;
@@ -313,6 +307,7 @@ NTSTATUS KphQueryInformationDriver(
                 }
             }
 
+#pragma warning(suppress: 4995) // intentional use of ExFreePool
             ExFreePool(fullDriverPath.Buffer);
             break;
         }

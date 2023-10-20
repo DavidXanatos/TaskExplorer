@@ -1,3 +1,16 @@
+/*
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
+ *
+ * This file is part of System Informer.
+ *
+ * Authors:
+ *
+ *     wj32    2009-2016
+ *     dmex    2017-2023
+ *     jxy-s   2021-2022
+ *
+ */
+
 #ifndef _PH_KPHUSER_H
 #define _PH_KPHUSER_H
 
@@ -24,9 +37,29 @@ typedef struct _KPH_CONFIG_PARAMETERS
     _In_ PPH_STRINGREF ObjectName;
     _In_ PPH_STRINGREF PortName;
     _In_ PPH_STRINGREF Altitude;
-    _In_ BOOLEAN DisableImageLoadProtection;
+
+    union
+    {
+        BOOLEAN Flags;
+        struct
+        {
+            BOOLEAN EnableNativeLoad : 1;
+            BOOLEAN EnableFilterLoad : 1;
+            BOOLEAN DisableImageLoadProtection : 1;
+            BOOLEAN RandomizedPoolTag : 1;
+            BOOLEAN Spare : 4;
+        };
+    };
+
     _In_opt_ PKPH_COMMS_CALLBACK Callback;
 } KPH_CONFIG_PARAMETERS, *PKPH_CONFIG_PARAMETERS;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphInitialize(
+    VOID
+    );
 
 PHLIBAPI
 NTSTATUS
@@ -49,6 +82,21 @@ KphSetServiceSecurity(
     _In_ SC_HANDLE ServiceHandle
     );
 
+PHLIBAPI
+NTSTATUS
+NTAPI
+KsiLoadUnloadService(
+    _In_ PKPH_CONFIG_PARAMETERS Config,
+    _In_ BOOLEAN LoadDriver
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphServiceStop(
+    _In_ PKPH_CONFIG_PARAMETERS Config
+    );
+
 //PHLIBAPI
 //NTSTATUS
 //NTAPI
@@ -67,13 +115,6 @@ KphSetServiceSecurity(
 //KphUninstall(
 //    _In_ PPH_STRINGREF ServiceName
 //    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-KphServiceStop(
-    _In_ PPH_STRINGREF ServiceName
-    );
 
 PHLIBAPI
 PPH_FREE_LIST
@@ -160,6 +201,10 @@ KphOpenThreadProcess(
     _Out_ PHANDLE ProcessHandle
     );
 
+#define KPH_STACK_BACK_TRACE_USER_MODE   0x00000001ul
+#define KPH_STACK_BACK_TRACE_SKIP_KPH    0x00000002ul
+#define KPH_STACK_BACK_TRACE_NO_SENTINEL 0x00000004ul
+
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -167,9 +212,10 @@ KphCaptureStackBackTraceThread(
     _In_ HANDLE ThreadHandle,
     _In_ ULONG FramesToSkip,
     _In_ ULONG FramesToCapture,
-    _Out_writes_(FramesToCapture) PVOID *BackTrace,
-    _Inout_opt_ PULONG CapturedFrames,
-    _Inout_opt_ PULONG BackTraceHash
+    _Out_writes_(FramesToCapture) PVOID* BackTrace,
+    _Out_ PULONG CapturedFrames,
+    _Out_opt_ PULONG BackTraceHash,
+    _In_ ULONG Flags
     );
 
 PHLIBAPI
@@ -200,6 +246,15 @@ KphQueryInformationObject(
     _Out_writes_bytes_opt_(ObjectInformationLength) PVOID ObjectInformation,
     _In_ ULONG ObjectInformationLength,
     _Out_opt_ PULONG ReturnLength
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphQueryObjectSectionMappingsInfo(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _Out_ PKPH_SECTION_MAPPINGS_INFORMATION* Info
     );
 
 PHLIBAPI
@@ -274,6 +329,13 @@ KPH_LEVEL
 NTAPI
 KphProcessLevel(
     _In_ HANDLE ProcessHandle
+    );
+
+PHLIBAPI
+KPH_LEVEL
+NTAPI
+KphLevelEx(
+    _In_ BOOLEAN Cached
     );
 
 PHLIBAPI
@@ -365,6 +427,112 @@ KphDuplicateObject(
     _In_ HANDLE SourceHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _Out_ PHANDLE TargetHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphQueryPerformanceCounter(
+    _Out_ PLARGE_INTEGER PerformanceCounter,
+    _Out_opt_ PLARGE_INTEGER PerformanceFrequency
+    );
+
+#define IO_OPEN_TARGET_DIRECTORY        0x0004
+#define IO_STOP_ON_SYMLINK              0x0008
+#define IO_IGNORE_SHARE_ACCESS_CHECK    0x0800  // Ignores share access checks on opens.
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphCreateFile(
+    _Out_ PHANDLE FileHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _Out_ PIO_STATUS_BLOCK IoStatusBlock,
+    _In_opt_ PLARGE_INTEGER AllocationSize,
+    _In_ ULONG FileAttributes,
+    _In_ ULONG ShareAccess,
+    _In_ ULONG CreateDisposition,
+    _In_ ULONG CreateOptions,
+    _In_reads_bytes_opt_(EaLength) PVOID EaBuffer,
+    _In_ ULONG EaLength,
+    _In_ ULONG Options
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphQueryInformationThread(
+    _In_ HANDLE ThreadHandle,
+    _In_ KPH_THREAD_INFORMATION_CLASS ThreadInformationClass,
+    _Out_writes_bytes_opt_(ThreadInformationLength) PVOID ThreadInformation,
+    _In_ ULONG ThreadInformationLength,
+    _Out_opt_ PULONG ReturnLength
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphQuerySection(
+    _In_ HANDLE SectionHandle,
+    _In_ KPH_SECTION_INFORMATION_CLASS SectionInformationClass,
+    _Out_writes_bytes_(SectionInformationLength) PVOID SectionInformation,
+    _In_ ULONG SectionInformationLength,
+    _Out_opt_ PULONG ReturnLength
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphQuerySectionMappingsInfo(
+    _In_ HANDLE SectionHandle,
+    _Out_ PKPH_SECTION_MAPPINGS_INFORMATION* Info
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphCompareObjects(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphGetMessageTimeouts(
+    _Out_ PKPH_MESSAGE_TIMEOUTS Timeouts
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphSetMessageTimeouts(
+    _In_ PKPH_MESSAGE_TIMEOUTS Timeouts
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphAcquireDriverUnloadProtection(
+    _Out_opt_ PLONG PreviousCount,
+    _Out_opt_ PLONG ClientPreviousCount
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphReleaseDriverUnloadProtection(
+    _Out_opt_ PLONG PreviousCount,
+    _Out_opt_ PLONG ClientPreviousCount
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphGetConnectedClientCount(
+    _Out_ PULONG Count
     );
 
 EXTERN_C_END

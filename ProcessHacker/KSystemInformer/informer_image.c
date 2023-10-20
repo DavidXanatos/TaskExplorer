@@ -30,7 +30,7 @@ VOID KphpPerformImageTracking(
     _In_ PIMAGE_INFO_EX ImageInfo
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(ImageInfo);
 
@@ -57,7 +57,7 @@ VOID KphpLoadImageNotifyInformer(
     PUNICODE_STRING fileName;
     BOOLEAN freeFileName;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (!KphInformerSettings.ImageLoad)
     {
@@ -112,7 +112,7 @@ VOID KphpLoadImageNotifyInformer(
             KphFreeNameFileObject(fileName);
         }
     }
-    
+
     if (KphInformerSettings.EnableStackTraces)
     {
         KphCaptureStackInMessage(msg);
@@ -139,7 +139,7 @@ VOID KphpLoadImageNotifyRoutine(
     PKPH_PROCESS_CONTEXT process;
     PIMAGE_INFO_EX imageInfo;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(FullImageName);
     NT_ASSERT(ImageInfo->ExtendedInfoPresent);
@@ -151,7 +151,7 @@ VOID KphpLoadImageNotifyRoutine(
     {
         KphpPerformImageTracking(process, imageInfo);
 
-#if 0 // <<<<<<<<<<<<<<<<<< NO SECURITY
+#ifndef KPP_NO_SECURITY
         KphApplyImageProtections(process, imageInfo);
 #endif
 
@@ -174,7 +174,7 @@ NTSTATUS KphImageInformerStart(
 {
     NTSTATUS status;
 
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     if (KphDynPsSetLoadImageNotifyRoutineEx)
     {
@@ -214,7 +214,7 @@ VOID KphImageInformerStop(
     VOID
     )
 {
-    PAGED_PASSIVE();
+    PAGED_CODE_PASSIVE();
 
     PsRemoveLoadImageNotifyRoutine(KphpLoadImageNotifyRoutine);
 }

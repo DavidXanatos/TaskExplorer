@@ -25,7 +25,6 @@ typedef struct _KPH_DBG_PRINT_SLOT
     ULONG Level;
     USHORT Length;
     CHAR Buffer[3 * 1024];
-
 } KPH_DBG_PRINT_SLOT, *PKPH_DBG_PRINT_SLOT;
 
 static BOOLEAN KphpDbgPrintInitialized = FALSE;
@@ -94,7 +93,7 @@ VOID KphpDebugPrintFlush(
  * \param SystemArgument2 Unused
  */
 _IRQL_requires_same_
-VOID KphpDebugPrintDpc (
+VOID KphpDebugPrintDpc(
     _In_ PKDPC Dpc,
     _In_opt_ PVOID DeferredContext,
     _In_opt_ PVOID SystemArgument1,
@@ -133,7 +132,7 @@ VOID KphpDebugPrintCallback(
 {
     PKPH_DBG_PRINT_SLOT slot;
 
-    NT_ASSERT(KeGetCurrentIrql() >= DISPATCH_LEVEL);
+    NPAGED_CODE_DISPATCH_MIN();
 
     if (!KphInformerSettings.DebugPrint)
     {
@@ -198,6 +197,8 @@ NTSTATUS KphDebugInformerStart(
     NTSTATUS status;
     ULONG count;
 
+    NPAGED_CODE_PASSIVE();
+
     NT_ASSERT(KphpDbgPrintSlotNext == 0);
     NT_ASSERT(!KphpDbgPrintInitialized);
 
@@ -251,7 +252,7 @@ Exit:
 
         if (KphpDbgPrintSlots)
         {
-            ExFreePoolWithTag(KphpDbgPrintSlots, KPH_TAG_DBG_SLOTS);
+            KphFree(KphpDbgPrintSlots, KPH_TAG_DBG_SLOTS);
             KphpDbgPrintSlots = NULL;
         }
     }
@@ -269,6 +270,8 @@ VOID KphDebugInformerStop(
 {
     KIRQL oldIrql;
 
+    NPAGED_CODE_PASSIVE();
+
     if (!KphpDbgPrintInitialized)
     {
         return;
@@ -278,18 +281,7 @@ VOID KphDebugInformerStop(
 
     for (ULONG i = 0; i < KphpDbgPrintSlotCount; i++)
     {
-        if (KphDynKeRemoveQueueDpcEx)
-        {
-            KphDynKeRemoveQueueDpcEx(&KphpDbgPrintSlots[i].Dpc, TRUE);
-        }
-        else
-        {
-            //
-            // This produces a small chance that we haven't completely returned
-            // from the DPC routine.
-            //
-            KeRemoveQueueDpc(&KphpDbgPrintSlots[i].Dpc);
-        }
+        KeRemoveQueueDpcEx(&KphpDbgPrintSlots[i].Dpc, TRUE);
     }
 
     KeAcquireSpinLock(&KphpDbgPrintLock, &oldIrql);
@@ -297,7 +289,7 @@ VOID KphDebugInformerStop(
     KphpDebugPrintFlush();
 
     KphpDbgPrintSlotCount = 0;
-    ExFreePoolWithTag(KphpDbgPrintSlots, KPH_TAG_DBG_SLOTS);
+    KphFree(KphpDbgPrintSlots, KPH_TAG_DBG_SLOTS);
     KphpDbgPrintSlots = NULL;
 
     KeReleaseSpinLock(&KphpDbgPrintLock, oldIrql);
