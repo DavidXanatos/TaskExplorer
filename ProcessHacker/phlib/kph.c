@@ -1094,6 +1094,8 @@ KPH_LEVEL KphLevel(
     )
 {
     //return KphLevelEx(TRUE);
+    if (!KphCommsIsConnected())
+        return KphLevelNone;
     return KphLevelMax;
 }
 
