@@ -232,6 +232,22 @@ PhGetProcessDebugObject(
 
 FORCEINLINE
 NTSTATUS
+PhGetProcessEnergyValues(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PPROCESS_EXTENDED_ENERGY_VALUES EnergyValues
+    )
+{
+    return NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessEnergyValues,
+        EnergyValues,
+        sizeof(PROCESS_EXTENDED_ENERGY_VALUES),
+        NULL
+        );
+}
+
+FORCEINLINE
+NTSTATUS
 PhGetProcessErrorMode(
     _In_ HANDLE ProcessHandle,
     _Out_ PULONG ErrorMode
@@ -743,6 +759,36 @@ PhGetProcessPowerThrottlingState(
         sizeof(POWER_THROTTLING_PROCESS_STATE),
         NULL
         );
+
+    if (NT_SUCCESS(status))
+    {
+        *PowerThrottlingState = powerThrottlingState;
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetThreadPowerThrottlingState(
+    _In_ HANDLE ThreadHandle,
+    _Out_ PPOWER_THROTTLING_THREAD_STATE PowerThrottlingState
+    )
+{
+    NTSTATUS status;
+    POWER_THROTTLING_THREAD_STATE powerThrottlingState;  // Define the structure
+
+    // Initialize the structure explicitly
+    ZeroMemory(&powerThrottlingState, sizeof(powerThrottlingState));
+    powerThrottlingState.Version = POWER_THROTTLING_THREAD_CURRENT_VERSION;
+
+    status = NtQueryInformationThread(
+        ThreadHandle,
+        ThreadPowerThrottlingState,
+        &powerThrottlingState,
+        sizeof(powerThrottlingState),
+        NULL
+    );
 
     if (NT_SUCCESS(status))
     {

@@ -1486,9 +1486,9 @@ NTSTATUS PhGetProcessDepStatus(
 
     // Check if execution of data pages is enabled.
     if (executeFlags & MEM_EXECUTE_OPTION_ENABLE)
-        depStatus = 0;
-    else
         depStatus = PH_PROCESS_DEP_ENABLED;
+    else
+        depStatus = 0;
 
     if (executeFlags & MEM_EXECUTE_OPTION_DISABLE_THUNK_EMULATION)
         depStatus |= PH_PROCESS_DEP_ATL_THUNK_EMULATION_DISABLED;
@@ -1695,12 +1695,39 @@ BOOLEAN PhEnumProcessEnvironmentVariables(
     return TRUE;
 }
 
+NTSTATUS PhQueryEnvironmentVariableStringRef(
+    _In_opt_ PVOID Environment,
+    _In_ PPH_STRINGREF Name,
+    _Inout_opt_ PPH_STRINGREF Value
+    )
+{
+    NTSTATUS status;
+    SIZE_T returnLength;
+
+    status = RtlQueryEnvironmentVariable(
+        Environment,
+        Name->Buffer,
+        Name->Length / sizeof(WCHAR),
+        Value ? Value->Buffer : NULL,
+        Value ? Value->Length / sizeof(WCHAR) : 0,
+        &returnLength
+        );
+
+    if (Value && NT_SUCCESS(status))
+    {
+        Value->Length = returnLength * sizeof(WCHAR);
+    }
+
+    return status;
+}
+
 NTSTATUS PhQueryEnvironmentVariable(
     _In_opt_ PVOID Environment,
     _In_ PPH_STRINGREF Name,
     _Out_opt_ PPH_STRING* Value
     )
 {
+#ifdef PHNT_UNICODESTRING_ENVIRONMENTVARIABLE
     NTSTATUS status;
     UNICODE_STRING variableName;
     UNICODE_STRING variableValue;
@@ -1752,6 +1779,51 @@ NTSTATUS PhQueryEnvironmentVariable(
     }
 
     return status;
+#else
+    NTSTATUS status;
+    PPH_STRING buffer;
+    SIZE_T returnLength;
+
+    status = RtlQueryEnvironmentVariable(
+        Environment,
+        Name->Buffer,
+        Name->Length / sizeof(WCHAR),
+        NULL,
+        0,
+        &returnLength
+        );
+
+    if (Value && status == STATUS_BUFFER_TOO_SMALL)
+    {
+        buffer = PhCreateStringEx(NULL, returnLength * sizeof(WCHAR));
+
+        status = RtlQueryEnvironmentVariable(
+            Environment,
+            Name->Buffer,
+            Name->Length / sizeof(WCHAR),
+            buffer->Buffer,
+            buffer->Length / sizeof(WCHAR),
+            &returnLength
+            );
+
+        if (NT_SUCCESS(status))
+        {
+            buffer->Length = returnLength * sizeof(WCHAR);
+            *Value = buffer;
+        }
+        else
+        {
+            PhDereferenceObject(buffer);
+        }
+    }
+    else
+    {
+        if (Value)
+            *Value = NULL;
+    }
+
+    return status;
+#endif
 }
 
 NTSTATUS PhSetEnvironmentVariable(
@@ -2138,7 +2210,7 @@ NTSTATUS PhTraceControl(
     _In_ ETWTRACECONTROLCODE TraceInformationClass,
     _In_reads_bytes_opt_(InputBufferLength) PVOID InputBuffer,
     _In_ ULONG InputBufferLength,
-    _Out_opt_ PVOID *OutputBuffer,
+    _Out_writes_bytes_opt_(*OutputBufferLength) PVOID* OutputBuffer,
     _Out_opt_ PULONG OutputBufferLength
     )
 {
@@ -2151,14 +2223,13 @@ NTSTATUS PhTraceControl(
         TraceInformationClass,
         InputBuffer,
         InputBufferLength,
-        buffer,
-        bufferLength,
+        NULL,
+        0,
         &returnLength
         );
 
     if (status == STATUS_BUFFER_TOO_SMALL)
     {
-        PhFree(buffer);
         bufferLength = returnLength;
         buffer = PhAllocate(bufferLength);
 
@@ -4031,7 +4102,7 @@ NTSTATUS PhGetProcessMandatoryPolicy(
 {
     NTSTATUS status;
     BOOLEAN found = FALSE;
-    ACCESS_MASK currentMask;
+    ACCESS_MASK currentMask = 0;
     PSYSTEM_MANDATORY_LABEL_ACE currentAce;
     PSECURITY_DESCRIPTOR currentSecurityDescriptor;
     BOOLEAN currentSaclPresent;
@@ -4201,42 +4272,63 @@ NTSTATUS PhGetTokenProcessTrustLevelRID(
 
     if (TrustLevelString)
     {
-        PWSTR protectionTypeString = NULL;
-        PWSTR protectionLevelString = NULL;
+        static PH_STRINGREF ProtectionTypeString[] =
+        {
+            PH_STRINGREF_INIT(L"None"),
+            PH_STRINGREF_INIT(L"Full"),
+            PH_STRINGREF_INIT(L"Lite"),
+        };
+        static PH_STRINGREF ProtectionLevelString[] =
+        {
+            PH_STRINGREF_INIT(L" (None)"),
+            PH_STRINGREF_INIT(L" (WinTcb)"),
+            PH_STRINGREF_INIT(L" (Windows)"),
+            PH_STRINGREF_INIT(L" (StoreApp)"),
+            PH_STRINGREF_INIT(L" (Antimalware)"),
+            PH_STRINGREF_INIT(L" (Authenticode)"),
+        };
+        PPH_STRINGREF protectionTypeString = NULL;
+        PPH_STRINGREF protectionLevelString = NULL;
 
         switch (protectionType)
         {
+        case SECURITY_PROCESS_PROTECTION_TYPE_NONE_RID:
+            protectionTypeString = &ProtectionTypeString[0];
+            break;
         case SECURITY_PROCESS_PROTECTION_TYPE_FULL_RID:
-            protectionTypeString = L"Full";
+            protectionTypeString = &ProtectionTypeString[1];
             break;
         case SECURITY_PROCESS_PROTECTION_TYPE_LITE_RID:
-            protectionTypeString = L"Lite";
+            protectionTypeString = &ProtectionTypeString[2];
             break;
         }
 
         switch (protectionLevel)
         {
+        case SECURITY_PROCESS_PROTECTION_LEVEL_NONE_RID:
+            protectionLevelString = &ProtectionLevelString[0];
+            break;
         case SECURITY_PROCESS_PROTECTION_LEVEL_WINTCB_RID:
-            protectionLevelString = L" (WinTcb)";
+            protectionLevelString = &ProtectionLevelString[1];
             break;
         case SECURITY_PROCESS_PROTECTION_LEVEL_WINDOWS_RID:
-            protectionLevelString = L" (Windows)";
+            protectionLevelString = &ProtectionLevelString[2];
             break;
         case SECURITY_PROCESS_PROTECTION_LEVEL_APP_RID:
-            protectionLevelString = L" (StoreApp)";
+            protectionLevelString = &ProtectionLevelString[3];
             break;
         case SECURITY_PROCESS_PROTECTION_LEVEL_ANTIMALWARE_RID:
-            protectionLevelString = L" (Antimalware)";
+            protectionLevelString = &ProtectionLevelString[4];
             break;
         case SECURITY_PROCESS_PROTECTION_LEVEL_AUTHENTICODE_RID:
-            protectionLevelString = L" (Authenticode)";
+            protectionLevelString = &ProtectionLevelString[5];
             break;
         }
 
         if (protectionTypeString && protectionLevelString)
-            *TrustLevelString = PhConcatStrings2(protectionTypeString, protectionLevelString);
+            *TrustLevelString = PhConcatStringRef2(protectionTypeString, protectionLevelString);
         else
-            *TrustLevelString = PhCreateString(L"Unknown");
+            *TrustLevelString = PhCreateStringZ(L"Unknown");
     }
 
     if (TrustLevelSidString)
@@ -4326,6 +4418,31 @@ NTSTATUS PhSetFileBasicInformation(
         sizeof(FILE_BASIC_INFORMATION),
         FileBasicInformation
         );
+}
+
+NTSTATUS PhGetFileFullAttributesInformation(
+    _In_ HANDLE FileHandle,
+    _Out_ PFILE_NETWORK_OPEN_INFORMATION FileInformation
+    )
+{
+    NTSTATUS status;
+    IO_STATUS_BLOCK isb;
+    FILE_NETWORK_OPEN_INFORMATION fullAttributesInfo;
+
+    status = NtQueryInformationFile(
+        FileHandle,
+        &isb,
+        &fullAttributesInfo,
+        sizeof(FILE_NETWORK_OPEN_INFORMATION),
+        FileNetworkOpenInformation
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *FileInformation = fullAttributesInfo;
+    }
+
+    return status;
 }
 
 NTSTATUS PhGetFileStandardInformation(
@@ -4518,6 +4635,31 @@ NTSTATUS PhGetFileIndexNumber(
         sizeof(FILE_INTERNAL_INFORMATION),
         FileInternalInformation
         );
+}
+
+NTSTATUS PhGetFileIsRemoteDevice(
+    _In_ HANDLE FileHandle,
+    _Out_ PBOOLEAN FileIsRemoteDevice
+    )
+{
+    NTSTATUS status;
+    IO_STATUS_BLOCK ioStatusBlock;
+    FILE_IS_REMOTE_DEVICE_INFORMATION fileRemoteInfo;
+
+    status = NtQueryInformationFile(
+        FileHandle,
+        &ioStatusBlock,
+        &fileRemoteInfo,
+        sizeof(FILE_IS_REMOTE_DEVICE_INFORMATION),
+        FileIsRemoteDeviceInformation
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *FileIsRemoteDevice = !!fileRemoteInfo.IsRemote;
+    }
+
+    return status;
 }
 
 NTSTATUS PhSetFileDelete(
@@ -6773,7 +6915,7 @@ NTSTATUS PhEnumKernelModules(
     )
 {
     NTSTATUS status;
-    PVOID buffer;
+    PRTL_PROCESS_MODULES buffer;
     ULONG bufferSize = 2048;
 
     buffer = PhAllocate(bufferSize);
@@ -6860,23 +7002,35 @@ PPH_STRING PhGetKernelFileName(
     VOID
     )
 {
+    NTSTATUS status;
+    UCHAR buffer[FIELD_OFFSET(RTL_PROCESS_MODULES, Modules) + sizeof(RTL_PROCESS_MODULE_INFORMATION)] = { 0 };
     PRTL_PROCESS_MODULES modules;
-    PPH_STRING fileName = NULL;
+    ULONG modulesLength;
 
-    if (!NT_SUCCESS(PhEnumKernelModules(&modules)))
+    modules = (PRTL_PROCESS_MODULES)buffer;
+    modulesLength = sizeof(buffer);
+
+    status = NtQuerySystemInformation(
+        SystemModuleInformation,
+        modules,
+        modulesLength,
+        &modulesLength
+        );
+
+    if (status != STATUS_SUCCESS && status != STATUS_INFO_LENGTH_MISMATCH)
+        return NULL;
+    if (status == STATUS_SUCCESS || modules->NumberOfModules < 1)
         return NULL;
 
-    if (modules->NumberOfModules >= 1)
-    {
-        fileName = PhConvertUtf8ToUtf16(modules->Modules[0].FullPathName);
-    }
-
-    PhFree(modules);
-
-    return fileName;
+    return PhConvertUtf8ToUtf16(modules->Modules[0].FullPathName);
 }
 
-// Kernel filename without the SystemModuleInformation overhead (dmex)
+/**
+ * Gets the file name of the kernel image without the SystemModuleInformation and string conversion overhead.
+ *
+ * \return A pointer to a string containing the kernel image file name. You must free the string
+ * using PhDereferenceObject() when you no longer need it.
+ */
 PPH_STRING PhGetKernelFileName2(
     VOID
     )
@@ -6885,13 +7039,58 @@ PPH_STRING PhGetKernelFileName2(
     {
         static PH_STRINGREF kernelFileName = PH_STRINGREF_INIT(L"\\SystemRoot\\System32\\ntoskrnl.exe");
 
-        if (PhDoesFileExist(&kernelFileName))
-        {
-            return PhCreateString2(&kernelFileName);
-        }
+        return PhCreateString2(&kernelFileName);
     }
 
     return PhGetKernelFileName();
+}
+
+/**
+ * Gets the file name of the kernel image.
+ *
+ * \return A pointer to a string containing the kernel image file name. You must free the string
+ * using PhDereferenceObject() when you no longer need it.
+ */
+NTSTATUS PhGetKernelFileNameEx(
+    _Out_ PPH_STRING* FileName,
+    _Out_ PVOID* ImageBase,
+    _Out_ ULONG* ImageSize
+    )
+{
+    NTSTATUS status;
+    UCHAR buffer[FIELD_OFFSET(RTL_PROCESS_MODULES, Modules) + sizeof(RTL_PROCESS_MODULE_INFORMATION)] = { 0 };
+    PRTL_PROCESS_MODULES modules;
+    ULONG modulesLength;
+
+    modules = (PRTL_PROCESS_MODULES)buffer;
+    modulesLength = sizeof(buffer);
+
+    status = NtQuerySystemInformation(
+        SystemModuleInformation,
+        modules,
+        modulesLength,
+        &modulesLength
+        );
+
+    if (status != STATUS_SUCCESS && status != STATUS_INFO_LENGTH_MISMATCH)
+        return status;
+    if (status == STATUS_SUCCESS || modules->NumberOfModules < 1)
+        return STATUS_UNSUCCESSFUL;
+
+    if (WindowsVersion >= WINDOWS_10)
+    {
+        static PH_STRINGREF kernelFileName = PH_STRINGREF_INIT(L"\\SystemRoot\\System32\\ntoskrnl.exe");
+        *FileName = PhCreateString2(&kernelFileName);
+    }
+    else
+    {
+        *FileName = PhConvertUtf8ToUtf16(modules->Modules[0].FullPathName);
+    }
+
+    *ImageBase = modules->Modules[0].ImageBase;
+    *ImageSize = modules->Modules[0].ImageSize;
+
+    return STATUS_SUCCESS;
 }
 
 /**
@@ -7007,6 +7206,9 @@ NTSTATUS PhEnumNextProcess(
     {
         status = Callback(processHandle, Context);
 
+        if (status == STATUS_NO_MORE_ENTRIES)
+            break;
+
         if (!NT_SUCCESS(status))
         {
             NtClose(processHandle);
@@ -7066,6 +7268,9 @@ NTSTATUS PhEnumNextThread(
     while (TRUE)
     {
         status = Callback(threadHandle, Context);
+
+        if (status == STATUS_NO_MORE_ENTRIES)
+            break;
 
         if (!NT_SUCCESS(status))
         {
@@ -8959,6 +9164,116 @@ NTSTATUS PhGetVolumePathNamesForVolumeName(
     }
 
     PhFree(inputBuffer);
+
+    return status;
+}
+
+/**
+ * Flush file caches on all volumes.
+ *
+ * \return Successful or errant status.
+ */
+NTSTATUS PhFlushVolumeCache(
+    VOID
+    )
+{
+    NTSTATUS status;
+    HANDLE deviceHandle;
+    UNICODE_STRING objectName;
+    OBJECT_ATTRIBUTES objectAttributes;
+    IO_STATUS_BLOCK ioStatusBlock;
+    PMOUNTMGR_MOUNT_POINTS objectMountPoints;
+
+    RtlInitUnicodeString(&objectName, MOUNTMGR_DEVICE_NAME);
+    InitializeObjectAttributes(
+        &objectAttributes,
+        &objectName,
+        OBJ_CASE_INSENSITIVE,
+        NULL,
+        NULL
+        );
+
+    status = NtCreateFile(
+        &deviceHandle,
+        FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        &objectAttributes,
+        &ioStatusBlock,
+        NULL,
+        FILE_ATTRIBUTE_NORMAL,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_OPEN,
+        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+        NULL,
+        0
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    status = PhGetVolumeMountPoints(
+        deviceHandle,
+        &objectMountPoints
+        );
+
+    if (!NT_SUCCESS(status))
+        goto CleanupExit;
+
+    for (ULONG i = 0; i < objectMountPoints->NumberOfMountPoints; i++)
+    {
+        PMOUNTMGR_MOUNT_POINT mountPoint = &objectMountPoints->MountPoints[i];
+        objectName.Length = mountPoint->SymbolicLinkNameLength;
+        objectName.MaximumLength = mountPoint->SymbolicLinkNameLength + sizeof(UNICODE_NULL);
+        objectName.Buffer = PTR_ADD_OFFSET(objectMountPoints, mountPoint->SymbolicLinkNameOffset);
+
+        if (MOUNTMGR_IS_VOLUME_NAME(&objectName)) // \\??\\Volume{1111-2222}
+        {
+            HANDLE volumeHandle;
+
+            InitializeObjectAttributes(
+                &objectAttributes,
+                &objectName,
+                OBJ_CASE_INSENSITIVE,
+                NULL,
+                NULL
+                );
+
+            status = NtCreateFile(
+                &volumeHandle,
+                FILE_WRITE_DATA | SYNCHRONIZE,
+                &objectAttributes,
+                &ioStatusBlock,
+                NULL,
+                FILE_ATTRIBUTE_NORMAL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                FILE_OPEN,
+                FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+                NULL,
+                0
+                );
+
+            if (NT_SUCCESS(status))
+            {
+                //if (WindowsVersion >= WINDOWS_8)
+                //{
+                //    status = NtFlushBuffersFileEx(volumeHandle, 0, 0, 0, &ioStatusBlock);
+                //}
+                //else
+                {
+                    status = NtFlushBuffersFile(volumeHandle, &ioStatusBlock);
+                }
+
+                NtClose(volumeHandle);
+            }
+
+            if (!NT_SUCCESS(status)) // HACK
+                goto CleanupExit;
+        }
+    }
+
+    PhFree(objectMountPoints);
+
+CleanupExit:
+    NtClose(deviceHandle);
 
     return status;
 }
@@ -14313,7 +14628,7 @@ NTSTATUS PhGetMachineTypeAttributes(
     return status;
 }
 
-// Essentially KernelBase!QueryProcessMachine (jxy-s)
+// rev from KernelBase!QueryProcessMachine (jxy-s)
 NTSTATUS PhGetProcessArchitecture(
     _In_ HANDLE ProcessHandle,
     _Out_ PUSHORT ProcessArchitecture
@@ -14651,19 +14966,58 @@ NTSTATUS PhGetProcessSequenceNumber(
     )
 {
     NTSTATUS status;
-    ULONGLONG sequenceNumber;
 
-    status = NtQueryInformationProcess(
-        ProcessHandle,
-        ProcessSequenceNumber,
-        &sequenceNumber,
-        sizeof(ULONGLONG),
-        NULL
-        );
-
-    if (NT_SUCCESS(status))
+    if (KphLevel() >= KphLevelLow)
     {
-        *SequenceNumber = sequenceNumber;
+        // The driver exposes this information earlier than ProcessSequenceNumber was introduced.
+        // Where not available it synthesizes it for informer messages, for consistency use it if
+        // it's enabled.
+        status = KphQueryInformationProcess(
+            ProcessHandle,
+            KphProcessSequenceNumber,
+            SequenceNumber,
+            sizeof(ULONGLONG),
+            NULL
+            );
+    }
+    else
+    {
+        ULONGLONG sequenceNumber;
+
+        status = NtQueryInformationProcess(
+            ProcessHandle,
+            ProcessSequenceNumber,
+            &sequenceNumber,
+            sizeof(ULONGLONG),
+            NULL
+            );
+
+        if (status == STATUS_INVALID_INFO_CLASS)
+        {
+            PROCESS_TELEMETRY_ID_INFORMATION telemetryInfo;
+
+            // ProcessTelemetryIdInformation exposes the process sequence number (and process start
+            // key) earlier than ProcessSequenceNumber was introduced.
+            status = NtQueryInformationProcess(
+                ProcessHandle,
+                ProcessTelemetryIdInformation,
+                &telemetryInfo,
+                sizeof(PROCESS_TELEMETRY_ID_INFORMATION),
+                NULL
+                );
+
+            // We don't care about the extra information that ProcessTelemetryIdInformation provides.
+            // The sequence number will have been filled in regardless.
+            if (status == STATUS_BUFFER_OVERFLOW)
+                status = STATUS_SUCCESS;
+
+            sequenceNumber = telemetryInfo.ProcessSequenceNumber;
+        }
+
+        if (NT_SUCCESS(status))
+        {
+            *SequenceNumber = sequenceNumber;
+        }
     }
 
     return status;
@@ -14675,16 +15029,33 @@ NTSTATUS PhGetProcessStartKey(
     )
 {
     NTSTATUS status;
-    ULONGLONG processSequenceNumber;
 
-    status = PhGetProcessSequenceNumber(
-        ProcessHandle,
-        &processSequenceNumber
-        );
-
-    if (NT_SUCCESS(status))
+    if (KphLevel() >= KphLevelLow)
     {
-        *ProcessStartKey = PH_PROCESS_EXTENSION_STARTKEY(processSequenceNumber);
+        // The driver exposes this information earlier than ProcessSequenceNumber was introduced.
+        // Where not available it synthesizes it for informer messages, for consistency use it if
+        // it's enabled.
+        status = KphQueryInformationProcess(
+            ProcessHandle,
+            KphProcessStartKey,
+            ProcessStartKey,
+            sizeof(ULONGLONG),
+            NULL
+            );
+    }
+    else
+    {
+        ULONGLONG processSequenceNumber;
+
+        status = PhGetProcessSequenceNumber(
+            ProcessHandle,
+            &processSequenceNumber
+            );
+
+        if (NT_SUCCESS(status))
+        {
+            *ProcessStartKey = PH_PROCESS_EXTENSION_STARTKEY(processSequenceNumber);
+        }
     }
 
     return status;
@@ -14747,6 +15118,36 @@ NTSTATUS PhGetProcessSystemDllInitBlock(
     else
     {
         PhFree(ldrInitBlock);
+    }
+
+    return status;
+}
+
+NTSTATUS PhGetProcessTelemetryAppSessionGuid(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PGUID TelemetrySessionGuid
+    )
+{
+    NTSTATUS status;
+    PROCESS_TELEMETRY_ID_INFORMATION telemetryInfo;
+    ULONG returnLength;
+
+    memset(&telemetryInfo, 0, sizeof(PROCESS_TELEMETRY_ID_INFORMATION));
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessTelemetryIdInformation,
+        &telemetryInfo,
+        sizeof(PROCESS_TELEMETRY_ID_INFORMATION),
+        &returnLength
+        );
+
+    if (NT_SUCCESS(status) || status == STATUS_BUFFER_OVERFLOW && returnLength)
+    {
+        TelemetrySessionGuid->Data1 = telemetryInfo.ProcessId;
+        TelemetrySessionGuid->Data2 = (USHORT)telemetryInfo.SessionId;
+        TelemetrySessionGuid->Data3 = (USHORT)telemetryInfo.BootId;
+        memcpy(TelemetrySessionGuid->Data4, &telemetryInfo.CreateTime, sizeof(telemetryInfo.CreateTime));
     }
 
     return status;
@@ -17990,3 +18391,337 @@ CleanupExit:
 
     return STATUS_SUCCESS;
 }
+
+#ifdef _M_ARM64
+// rev from ntdll!RtlEcContextToNativeContext (jxy-s)
+VOID PhEcContextToNativeContext(
+    _Out_ PCONTEXT Context,
+    _In_ PARM64EC_NT_CONTEXT EcContext
+    )
+{
+    Context->ContextFlags = 0;
+
+    //#define CONTEXT_AMD64   0x00100000L
+
+    //#define CONTEXT_CONTROL         (CONTEXT_AMD64 | 0x00000001L)
+    if (BooleanFlagOn(EcContext->ContextFlags, 0x00100000L | 0x00000001L))
+        SetFlag(Context->ContextFlags, CONTEXT_CONTROL);
+
+    //#define CONTEXT_INTEGER         (CONTEXT_AMD64 | 0x00000002L)
+    if (BooleanFlagOn(EcContext->ContextFlags, 0x00100000L | 0x00000002L))
+        SetFlag(Context->ContextFlags, CONTEXT_INTEGER);
+
+    //#define CONTEXT_FLOATING_POINT  (CONTEXT_AMD64 | 0x00000008L)
+    if (BooleanFlagOn(EcContext->ContextFlags, 0x00100000L | 0x00000008L))
+        SetFlag(Context->ContextFlags, CONTEXT_FLOATING_POINT);
+
+    SetFlag(Context->ContextFlags,
+            EcContext->ContextFlags & (
+                CONTEXT_EXCEPTION_ACTIVE |
+                CONTEXT_SERVICE_ACTIVE |
+                CONTEXT_EXCEPTION_REQUEST |
+                CONTEXT_EXCEPTION_REPORTING
+                ));
+
+    Context->Cpsr = (EcContext->AMD64_EFlags & 0x00000100);         // Overflow Flag
+    Context->Cpsr |= ((EcContext->AMD64_EFlags & 0x00000800) << 4); // Direction Flag
+    Context->Cpsr |= ((EcContext->AMD64_EFlags & 0xFFFFFFC0) << 7); // Other Flags
+    Context->Cpsr |= ((EcContext->AMD64_EFlags & 0x00000001) << 5); // Carry Flag
+    Context->Cpsr <<= 13;
+
+    Context->X0 = EcContext->X0;
+    Context->X2 = EcContext->X2;
+    Context->X4 = EcContext->X4;
+    Context->X6 = EcContext->X6;
+    Context->X7 = EcContext->X7;
+    Context->X8 = EcContext->X8;
+    Context->X9 = EcContext->X9;
+    Context->X10 = EcContext->X10;
+    Context->X11 = EcContext->X11;
+    Context->X12 = EcContext->X12;
+    Context->X14 = 0;
+    Context->X15 = EcContext->X15;
+
+    Context->X16 = EcContext->X16_0;
+    Context->X16 |= ((ULONG64)EcContext->X16_1 << 16);
+    Context->X16 |= ((ULONG64)EcContext->X16_2 << 32);
+    Context->X16 |= ((ULONG64)EcContext->X16_3 << 48);
+
+    Context->X17 = EcContext->X17_0;
+    Context->X17 |= ((ULONG64)EcContext->X17_1 << 16);
+    Context->X17 |= ((ULONG64)EcContext->X17_2 << 32);
+    Context->X17 |= ((ULONG64)EcContext->X17_3 << 48);
+
+    Context->X19 = EcContext->X19;
+    Context->X21 = EcContext->X21;
+    Context->X23 = 0;
+    Context->X25 = EcContext->X25;
+    Context->X27 = EcContext->X27;
+
+    Context->Fp = EcContext->Fp;
+    Context->Lr = EcContext->Lr;
+    Context->Sp = EcContext->Sp;
+    Context->Pc = EcContext->Pc;
+
+    Context->V[0] = EcContext->V[0];
+    Context->V[1] = EcContext->V[1];
+    Context->V[2] = EcContext->V[2];
+    Context->V[3] = EcContext->V[3];
+    Context->V[4] = EcContext->V[4];
+    Context->V[5] = EcContext->V[5];
+    Context->V[6] = EcContext->V[6];
+    Context->V[7] = EcContext->V[7];
+    Context->V[8] = EcContext->V[8];
+    Context->V[9] = EcContext->V[9];
+    Context->V[10] = EcContext->V[10];
+    Context->V[11] = EcContext->V[11];
+    Context->V[12] = EcContext->V[12];
+    Context->V[13] = EcContext->V[13];
+    Context->V[14] = EcContext->V[14];
+    Context->V[15] = EcContext->V[15];
+    RtlZeroMemory(&Context->V[16], sizeof(ARM64_NT_NEON128));
+
+    Context->Fpcr = (EcContext->AMD64_MxCsr & 0x00000080) == 0;         // IM: Invalid Operation Mask
+    Context->Fpcr |= ((EcContext->AMD64_MxCsr & 0x00000200) == 0) << 1; // ZM: Divide-by-Zero Mask
+    Context->Fpcr |= ((EcContext->AMD64_MxCsr & 0x00000400) == 0) << 2; // OM: Overflow Mask
+    Context->Fpcr |= ((EcContext->AMD64_MxCsr & 0x00000800) == 0) << 3; // UM: Underflow Mask
+    Context->Fpcr |= ((EcContext->AMD64_MxCsr & 0x00001000) == 0) << 4; // PM: Precision Mask
+    Context->Fpcr |= (EcContext->AMD64_MxCsr & 0x00000040) << 5;        // DAZ: Denormals Are Zero Mask
+    Context->Fpcr |= ((EcContext->AMD64_MxCsr & 0x00000100) == 0) << 7; // DM: Denormal Operation Mask
+    Context->Fpcr |= (EcContext->AMD64_MxCsr & 0x00002000);             // FZ: Flush to Zero Mask
+    Context->Fpcr |= (EcContext->AMD64_MxCsr & 0x0000C000);             // RC: Rounding Control
+    Context->Fpcr <<= 8;
+
+    Context->Fpsr = EcContext->AMD64_MxCsr & 1;            // IE: Invalid Operation Flag
+    Context->Fpsr |= (EcContext->AMD64_MxCsr & 2) << 6;    // DE: Denormal Flag
+    Context->Fpsr |= (EcContext->AMD64_MxCsr >> 1) & 0x1E; // ZE | OE | UE | PE: Zero, Overflow, Underflow, Precision Flags
+
+    RtlZeroMemory(Context->Bcr, sizeof(Context->Bcr));
+    RtlZeroMemory(Context->Bvr, sizeof(Context->Bvr));
+    RtlZeroMemory(Context->Wcr, sizeof(Context->Wcr));
+    RtlZeroMemory(Context->Wvr, sizeof(Context->Wvr));
+}
+
+// rev from ntdll!RtlNativeContextToEcContext (jxy-s)
+VOID PhNativeContextToEcContext(
+    _When_(InitializeEc, _Out_) _When_(!InitializeEc, _Inout_) PARM64EC_NT_CONTEXT EcContext,
+    _In_ PCONTEXT Context,
+    _In_ BOOLEAN InitializeEc
+    )
+{
+    if (InitializeEc)
+    {
+        EcContext->ContextFlags = 0;
+
+        //#define CONTEXT_AMD64   0x00100000L
+
+        //#define CONTEXT_CONTROL         (CONTEXT_AMD64 | 0x00000001L)
+        if (BooleanFlagOn(Context->ContextFlags, CONTEXT_CONTROL))
+            SetFlag(EcContext->ContextFlags, (0x00100000L | 0x00000001L));
+
+        //#define CONTEXT_INTEGER         (CONTEXT_AMD64 | 0x00000002L)
+        if (BooleanFlagOn(Context->ContextFlags, CONTEXT_INTEGER))
+            SetFlag(EcContext->ContextFlags, (0x00100000L | 0x00000002L));
+
+        //#define CONTEXT_FLOATING_POINT  (CONTEXT_AMD64 | 0x00000008L)
+        if (BooleanFlagOn(Context->ContextFlags, CONTEXT_FLOATING_POINT))
+            SetFlag(EcContext->ContextFlags, (0x00100000L | 0x00000008L));
+
+        EcContext->AMD64_P1Home = 0;
+        EcContext->AMD64_P2Home = 0;
+        EcContext->AMD64_P3Home = 0;
+        EcContext->AMD64_P4Home = 0;
+        EcContext->AMD64_P5Home = 0;
+        EcContext->AMD64_P6Home = 0;
+
+        EcContext->AMD64_Dr0 = 0;
+        EcContext->AMD64_Dr1 = 0;
+        EcContext->AMD64_Dr3 = 0;
+        EcContext->AMD64_Dr6 = 0;
+        EcContext->AMD64_Dr7 = 0;
+
+        EcContext->AMD64_MxCsr_copy = 0;
+
+        EcContext->AMD64_SegCs = 0x0033;
+        EcContext->AMD64_SegDs = 0x002B;
+        EcContext->AMD64_SegEs = 0x002B;
+        EcContext->AMD64_SegFs = 0x0053;
+        EcContext->AMD64_SegGs = 0x002B;
+        EcContext->AMD64_SegSs = 0x002B;
+
+        EcContext->AMD64_ControlWord = 0;
+        EcContext->AMD64_StatusWord = 0;
+        EcContext->AMD64_TagWord = 0;
+        EcContext->AMD64_Reserved1 = 0;
+        EcContext->AMD64_ErrorOpcode = 0;
+        EcContext->AMD64_ErrorOffset = 0;
+        EcContext->AMD64_ErrorSelector = 0;
+        EcContext->AMD64_Reserved2= 0;
+        EcContext->AMD64_DataOffset = 0;
+        EcContext->AMD64_DataSelector = 0;
+        EcContext->AMD64_Reserved3 = 0;
+
+        EcContext->AMD64_MxCsr = 0;
+        EcContext->AMD64_MxCsr_Mask = 0;
+
+        EcContext->AMD64_St0_Reserved1 = 0;
+        EcContext->AMD64_St0_Reserved2 = 0;
+        EcContext->AMD64_St1_Reserved1 = 0;
+        EcContext->AMD64_St1_Reserved2 = 0;
+        EcContext->AMD64_St2_Reserved1 = 0;
+        EcContext->AMD64_St2_Reserved2 = 0;
+        EcContext->AMD64_St3_Reserved1 = 0;
+        EcContext->AMD64_St3_Reserved2 = 0;
+        EcContext->AMD64_St4_Reserved1 = 0;
+        EcContext->AMD64_St4_Reserved2 = 0;
+        EcContext->AMD64_St5_Reserved1 = 0;
+        EcContext->AMD64_St5_Reserved2 = 0;
+        EcContext->AMD64_St6_Reserved1 = 0;
+        EcContext->AMD64_St6_Reserved2 = 0;
+        EcContext->AMD64_St7_Reserved1 = 0;
+        EcContext->AMD64_St7_Reserved2 = 0;
+
+        EcContext->AMD64_EFlags = 0x202; // IF(EI) | RESERVED_1(always set)
+    }
+
+    EcContext->ContextFlags &= 0x7ffffffff;
+    SetFlag(EcContext->ContextFlags,
+            Context->ContextFlags & (
+                CONTEXT_EXCEPTION_ACTIVE |
+                CONTEXT_SERVICE_ACTIVE |
+                CONTEXT_EXCEPTION_REQUEST |
+                CONTEXT_EXCEPTION_REPORTING
+                ));
+
+    EcContext->AMD64_MxCsr_copy &= 0xFFFF0000;
+    EcContext->AMD64_MxCsr_copy |= (Context->Fpsr & 0x00000080) >> 6;         // IM: Invalid Operation Mask
+    EcContext->AMD64_MxCsr_copy |= (Context->Fpcr & 0x00400000) >> 8;         // ZM: Divide-by-Zero Mask
+    EcContext->AMD64_MxCsr_copy |= (Context->Fpcr & 0x01000000) >> 9;         // OM: Overflow Mask
+    EcContext->AMD64_MxCsr_copy |= (Context->Fpcr & 0x00080000) >> 7;         // UM: Underflow Mask
+    EcContext->AMD64_MxCsr_copy |= (Context->Fpcr & 0x00800000) >> 7;         // PM: Precision Mask
+    EcContext->AMD64_MxCsr_copy |= (Context->Fpsr & 0x0000001E) << 1;         // Other Flags
+    EcContext->AMD64_MxCsr_copy |= ((Context->Fpcr & 0x00000100) == 0) << 7;  // DAZ: Denormals Are Zeros
+    EcContext->AMD64_MxCsr_copy |= ((Context->Fpcr & 0x00008000) == 0) << 8;  // DM: Denormal Operation Mask
+    EcContext->AMD64_MxCsr_copy |= ((Context->Fpcr & 0x00000200) == 0) << 9;  // FZ: Flush to Zero
+    EcContext->AMD64_MxCsr_copy |= ((Context->Fpcr & 0x00000400) == 0) << 10; // RC: Rounding Control
+    EcContext->AMD64_MxCsr_copy |= ((Context->Fpcr & 0x00000800) == 0) << 11; // RC: Rounding Control
+    EcContext->AMD64_MxCsr_copy |= ((Context->Fpcr & 0x00001000) == 0) << 12; // RC: Rounding Control
+    EcContext->AMD64_MxCsr_copy |= Context->Fpsr & 0x00000001;
+
+    EcContext->AMD64_EFlags &= 0xFFFFF63E;
+    EcContext->AMD64_EFlags |= ((Context->Cpsr & 0x200000) >> 13);         // Overflow Flag
+    EcContext->AMD64_EFlags |= ((Context->Cpsr & 0x10000000) >> 17);       // Direction Flag
+    EcContext->AMD64_EFlags |= (((Context->Cpsr >> 5) & 0x1000000) >> 20); // Carry Flag
+    EcContext->AMD64_EFlags |= ((Context->Cpsr & 0xC0FFFFFF) >> 20);       // Other Flags
+
+    EcContext->Pc = Context->Pc;
+
+    EcContext->X8 = Context->X8;
+    EcContext->X0 = Context->X0;
+    EcContext->X1 = Context->X1;
+    EcContext->X27 = Context->X27;
+    EcContext->Sp = Context->Sp;
+    EcContext->Fp = Context->Fp;
+    EcContext->X25 = Context->X25;
+    EcContext->X26 = Context->X26;
+    EcContext->X2 = Context->X2;
+    EcContext->X3 = Context->X3;
+    EcContext->X4 = Context->X4;
+    EcContext->X5 = Context->X5;
+    EcContext->X19 = Context->X19;
+    EcContext->X20 = Context->X20;
+    EcContext->X21 = Context->X21;
+    EcContext->X22 = Context->X22;
+
+    EcContext->Lr = Context->Lr;
+    EcContext->X16_0 = LOWORD(Context->X16);
+    EcContext->X6 = Context->X6;
+    EcContext->X16_1 = HIWORD(Context->X16);
+    EcContext->X7 = Context->X7;
+    EcContext->X16_2 = LOWORD(Context->X16 >> 32);
+    EcContext->X9 = Context->X9;
+    EcContext->X16_3 = HIWORD(Context->X16 >> 32);
+    EcContext->X10 = Context->X10;
+    EcContext->X17_0 = LOWORD(Context->X17);
+    EcContext->X11 = Context->X11;
+    EcContext->X17_1 = HIWORD(Context->X17);
+    EcContext->X12 = Context->X12;
+    EcContext->X17_2 = LOWORD(Context->X17 >> 32);
+    EcContext->X15 = Context->X15;
+    EcContext->X17_3 = HIWORD(Context->X17 >> 32);
+
+    EcContext->V[0] = Context->V[0];
+    EcContext->V[1] = Context->V[1];
+    EcContext->V[2] = Context->V[2];
+    EcContext->V[3] = Context->V[3];
+    EcContext->V[4] = Context->V[4];
+    EcContext->V[5] = Context->V[5];
+    EcContext->V[6] = Context->V[6];
+    EcContext->V[7] = Context->V[7];
+    EcContext->V[8] = Context->V[8];
+    EcContext->V[9] = Context->V[9];
+    EcContext->V[10] = Context->V[10];
+    EcContext->V[11] = Context->V[11];
+    EcContext->V[12] = Context->V[12];
+    EcContext->V[13] = Context->V[13];
+    EcContext->V[14] = Context->V[14];
+    EcContext->V[15] = Context->V[15];
+}
+
+// rev from ntdll!RtlIsEcCode (jxy-s)
+NTSTATUS PhIsEcCode(
+    _In_ HANDLE ProcessHandle,
+    _In_ ULONG64 CodePointer,
+    _Out_ PBOOLEAN IsEcCode
+    )
+{
+    NTSTATUS status;
+    PVOID pebBaseAddress;
+    PVOID ecCodeBitMap;
+    ULONG64 bitmap;
+
+    *IsEcCode = FALSE;
+
+    // hack (jxy-s)
+    // 0x00007ffffffeffff = LdrpEcBitmapData.HighestAddress (MmHighestUserAddress)
+    // 0x0000000000010000 = MM_LOWEST_USER_ADDRESS
+    if (CodePointer > 0x00007ffffffeffff || CodePointer < 0x0000000000010000)
+        return STATUS_INVALID_PARAMETER_2;
+
+    if (!NT_SUCCESS(status = PhGetProcessPeb(ProcessHandle, &pebBaseAddress)))
+        return status;
+
+    if (!NT_SUCCESS(status = NtReadVirtualMemory(
+        ProcessHandle,
+        PTR_ADD_OFFSET(pebBaseAddress, FIELD_OFFSET(PEB, EcCodeBitMap)),
+        &ecCodeBitMap,
+        sizeof(PVOID),
+        NULL
+        )))
+        return status;
+
+    if (!ecCodeBitMap)
+        return STATUS_INVALID_PARAMETER_1;
+
+    // each byte of bitmap indexes 8*4K = 2^15 byte span
+    ecCodeBitMap = PTR_ADD_OFFSET(ecCodeBitMap, CodePointer >> 15);
+
+    if (!NT_SUCCESS(status = NtReadVirtualMemory(
+        ProcessHandle,
+        ecCodeBitMap,
+        &bitmap,
+        sizeof(ULONG64),
+        NULL
+        )))
+        return status;
+
+    // index to the 4k page within the 8*4K span
+    bitmap >>= ((CodePointer >> PAGE_SHIFT) & 7);
+
+    // test the specific page
+    if (bitmap & 1)
+        *IsEcCode = TRUE;
+
+    return STATUS_SUCCESS;
+}
+#endif

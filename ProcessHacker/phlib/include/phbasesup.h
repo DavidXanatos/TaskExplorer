@@ -952,6 +952,20 @@ PhInitializeEmptyStringRef(
 }
 
 FORCEINLINE
+VOID
+NTAPI
+PhInitializeBufferStringRef(
+    _Out_ PPH_STRINGREF String,
+    _Writable_bytes_(Length) _When_(Length != 0, _Notnull_) PWCHAR Buffer,
+    _In_ SIZE_T Length
+    )
+{
+    memset(String, 0, sizeof(PH_STRINGREF));
+    String->Length = Length;
+    String->Buffer = Buffer;
+}
+
+FORCEINLINE
 BOOLEAN
 PhStringRefToUnicodeString(
     _In_ PPH_STRINGREF String,
@@ -1296,6 +1310,22 @@ PhCreateString2(
         return PhReferenceEmptyString();
 
     return PhCreateStringEx(String->Buffer, String->Length);
+}
+
+FORCEINLINE
+PPH_STRING
+NTAPI
+PhCreateStringZ(
+    _In_ PCWSTR String
+    )
+{
+    PH_STRINGREF string;
+
+    string.Length = wcslen(String) * sizeof(WCHAR);
+    string.Buffer = (PWSTR)String;
+    //PhInitializeStringRef(&string, (PWSTR)String);
+
+    return PhCreateString2(&string);
 }
 
 #define PH_STRING_TRIM_START_ONLY PH_TRIM_START_ONLY
@@ -3867,6 +3897,30 @@ ULONG
 NTAPI
 PhCountBitsUlongPtr(
     _In_ ULONG_PTR Value
+    );
+
+// Thread Local Storage (TLS)
+
+PHLIBAPI
+ULONG
+NTAPI
+PhTlsAlloc(
+    VOID
+    );
+
+PHLIBAPI
+PVOID
+NTAPI
+PhTlsGetValue(
+    _In_ ULONG Index
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhTlsSetValue(
+    _In_ ULONG Index,
+    _In_opt_ PVOID Value
     );
 
 // Auto-dereference convenience functions

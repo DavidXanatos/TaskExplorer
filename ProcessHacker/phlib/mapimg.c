@@ -1318,11 +1318,10 @@ NTSTATUS PhGetRemoteMappedImageGuardFlagsEx(
     return status;
 }
 
-NTSTATUS PhpFixupExportDirectoryForARM64EC(
+NTSTATUS PhRelocateMappedImageDataEntryARM64X(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ PIMAGE_DATA_DIRECTORY DataDirectory,
-    _Inout_ PIMAGE_EXPORT_DIRECTORY* ExportDirectory,
-    _Out_ PIMAGE_DATA_DIRECTORY FixedDataDirectory
+    _In_ PIMAGE_DATA_DIRECTORY Entry,
+    _Out_ PIMAGE_DATA_DIRECTORY RelocatedEntry
     )
 {
     NTSTATUS status;
@@ -1332,7 +1331,7 @@ NTSTATUS PhpFixupExportDirectoryForARM64EC(
     PIMAGE_DYNAMIC_RELOCATION64 reloc;
     PVOID end;
 
-    RtlZeroMemory(FixedDataDirectory, sizeof(IMAGE_DATA_DIRECTORY));
+    RtlZeroMemory(RelocatedEntry, sizeof(IMAGE_DATA_DIRECTORY));
 
     if (MappedImage->Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
         return STATUS_INVALID_PARAMETER;
@@ -1344,9 +1343,10 @@ NTSTATUS PhpFixupExportDirectoryForARM64EC(
     if (table->Version != 1)
         return STATUS_NOT_SUPPORTED;
 
-    vaRva = PtrToUlong(PTR_SUB_OFFSET(DataDirectory, MappedImage->ViewBase));
-    sizeRva = PtrToUlong(PTR_SUB_OFFSET(PTR_ADD_OFFSET(DataDirectory, sizeof(ULONG)), MappedImage->ViewBase));
-#define PH_ARM64EC_EXP_FIX_DONE() (vaRva == 0 && sizeRva == 0)
+    vaRva = PtrToUlong(PTR_SUB_OFFSET(Entry, MappedImage->ViewBase));
+    sizeRva = PtrToUlong(PTR_SUB_OFFSET(PTR_ADD_OFFSET(Entry, sizeof(ULONG)), MappedImage->ViewBase));
+
+#define PH_ARM64X_DIR_FIX_DONE() (vaRva == 0 && sizeRva == 0)
 
     reloc = PTR_ADD_OFFSET(table, RTL_SIZEOF_THROUGH_FIELD(IMAGE_DYNAMIC_RELOCATION_TABLE, Size));
     end = PTR_ADD_OFFSET(table, table->Size);
@@ -1398,12 +1398,12 @@ NTSTATUS PhpFixupExportDirectoryForARM64EC(
                             ULONG value = *(PULONG)PTR_ADD_OFFSET(record, consumed);
                             if (vaRva != 0 && vaRva == rva)
                             {
-                                FixedDataDirectory->VirtualAddress = value;
+                                RelocatedEntry->VirtualAddress = value;
                                 vaRva = 0;
                             }
                             else if (sizeRva != 0 && sizeRva == rva)
                             {
-                                FixedDataDirectory->Size = value;
+                                RelocatedEntry->Size = value;
                                 sizeRva = 0;
                             }
 
@@ -1428,14 +1428,14 @@ NTSTATUS PhpFixupExportDirectoryForARM64EC(
                         break;
                     }
 
-                    if (PH_ARM64EC_EXP_FIX_DONE())
+                    if (PH_ARM64X_DIR_FIX_DONE())
                         break;
 
                     if (!PhPtrAdvance(&record, recordsEnd, consumed))
                         break;
                 }
 
-                if (PH_ARM64EC_EXP_FIX_DONE())
+                if (PH_ARM64X_DIR_FIX_DONE())
                     break;
 
                 if (!PhPtrAdvance(&base, baseEnd, base->SizeOfBlock))
@@ -1443,7 +1443,7 @@ NTSTATUS PhpFixupExportDirectoryForARM64EC(
             }
         }
 
-        if (PH_ARM64EC_EXP_FIX_DONE())
+        if (PH_ARM64X_DIR_FIX_DONE())
             break;
 
         if (!PhPtrAdvance(&reloc, end, reloc->BaseRelocSize))
@@ -1453,19 +1453,7 @@ NTSTATUS PhpFixupExportDirectoryForARM64EC(
             break;
     }
 
-    if (!PH_ARM64EC_EXP_FIX_DONE())
-        return STATUS_INVALID_PARAMETER;
-
-    *ExportDirectory = PhMappedImageRvaToVa(
-        MappedImage,
-        FixedDataDirectory->VirtualAddress,
-        NULL
-        );
-
-    if (!(*ExportDirectory))
-        return STATUS_INVALID_PARAMETER;
-
-    return STATUS_SUCCESS;
+    return PH_ARM64X_DIR_FIX_DONE() ? STATUS_SUCCESS : STATUS_INVALID_PARAMETER;
 }
 
 NTSTATUS PhGetMappedImageExportsEx(
@@ -1478,8 +1466,8 @@ NTSTATUS PhGetMappedImageExportsEx(
     PIMAGE_DATA_DIRECTORY dataDirectory;
     PIMAGE_EXPORT_DIRECTORY exportDirectory;
 
-    Exports->DataDirectoryARM64EC.VirtualAddress = 0;
-    Exports->DataDirectoryARM64EC.Size = 0;
+    Exports->DataDirectoryARM64X.VirtualAddress = 0;
+    Exports->DataDirectoryARM64X.Size = 0;
 
     // Get a pointer to the export directory.
 
@@ -1492,27 +1480,34 @@ NTSTATUS PhGetMappedImageExportsEx(
     if (!NT_SUCCESS(status))
         return status;
 
-    exportDirectory = PhMappedImageRvaToVa(
-        MappedImage,
-        dataDirectory->VirtualAddress,
-        NULL
-        );
-
-    if (!exportDirectory)
-        return STATUS_INVALID_PARAMETER;
-
-    if (Flags & PH_GET_IMAGE_EXPORTS_ARM64EC)
+    if (Flags & PH_GET_IMAGE_EXPORTS_ARM64X)
     {
-        status = PhpFixupExportDirectoryForARM64EC(
+        status = PhRelocateMappedImageDataEntryARM64X(
             MappedImage,
             dataDirectory,
-            &exportDirectory,
-            &Exports->DataDirectoryARM64EC
+            &Exports->DataDirectoryARM64X
             );
 
         if (!NT_SUCCESS(status))
             return status;
+
+        exportDirectory = PhMappedImageRvaToVa(
+            MappedImage,
+            Exports->DataDirectoryARM64X.VirtualAddress,
+            NULL
+            );
     }
+    else
+    {
+        exportDirectory = PhMappedImageRvaToVa(
+            MappedImage,
+            dataDirectory->VirtualAddress,
+            NULL
+            );
+    }
+
+    if (!exportDirectory)
+        return STATUS_INVALID_PARAMETER;
 
     __try
     {
@@ -4772,6 +4767,15 @@ NTSTATUS PhGetMappedImageExceptions(
     _Out_ PPH_MAPPED_IMAGE_EXCEPTIONS Exceptions
     )
 {
+    return PhGetMappedImageExceptionsEx(MappedImage, Exceptions, 0);
+}
+
+NTSTATUS PhGetMappedImageExceptionsEx(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_EXCEPTIONS Exceptions,
+    _In_ ULONG Flags
+    )
+{
     NTSTATUS status;
     PIMAGE_DATA_DIRECTORY dataDirectory;
     PVOID exceptionDirectory;
@@ -4779,6 +4783,9 @@ NTSTATUS PhGetMappedImageExceptions(
     ULONG imageMachine;
     ULONG exceptionTotal = 0;
     ULONG exceptionEntrySize = 0;
+
+    Exceptions->DataDirectoryARM64X.VirtualAddress = 0;
+    Exceptions->DataDirectoryARM64X.Size = 0;
 
     if (MappedImage->Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
         imageMachine = MappedImage->NtHeaders32->FileHeader.Machine;
@@ -4849,50 +4856,101 @@ NTSTATUS PhGetMappedImageExceptions(
     if (!NT_SUCCESS(status))
         return status;
 
-    exceptionDirectory = PhMappedImageRvaToVa(
-        MappedImage,
-        dataDirectory->VirtualAddress,
-        NULL
-        );
-
-    if (!exceptionDirectory)
-        return STATUS_INVALID_PARAMETER;
-
-    __try
+    if (Flags & PH_GET_IMAGE_EXCEPTIONS_ARM64X)
     {
-        PhMappedImageProbe(MappedImage, exceptionDirectory, dataDirectory->Size);
+        status = PhRelocateMappedImageDataEntryARM64X(
+            MappedImage,
+            dataDirectory,
+            &Exceptions->DataDirectoryARM64X
+            );
+
+        if (!NT_SUCCESS(status))
+            return status;
+
+        exceptionDirectory = PhMappedImageRvaToVa(
+            MappedImage,
+            Exceptions->DataDirectoryARM64X.VirtualAddress,
+            NULL
+            );
+
+        if (!exceptionDirectory)
+            return STATUS_INVALID_PARAMETER;
+
+        __try
+        {
+            PhMappedImageProbe(MappedImage, exceptionDirectory, Exceptions->DataDirectoryARM64X.Size);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            return GetExceptionCode();
+        }
+
+        // N.B. intentionally inverted
+        switch (imageMachine)
+        {
+        //case IMAGE_FILE_MACHINE_AMD64:
+        //    {
+        //        exceptionEntrySize = sizeof(IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY);
+        //        exceptionTotal = Exceptions->DataDirectoryARM64X.Size / exceptionEntrySize;
+        //    }
+        //    break;
+        case IMAGE_FILE_MACHINE_ARM64:
+            {
+                exceptionEntrySize = sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY);
+                exceptionTotal = Exceptions->DataDirectoryARM64X.Size / exceptionEntrySize;
+            }
+            break;
+        default:
+            return STATUS_NOT_SUPPORTED;
+        }
     }
-    __except (EXCEPTION_EXECUTE_HANDLER)
+    else
     {
-        return GetExceptionCode();
+        exceptionDirectory = PhMappedImageRvaToVa(
+            MappedImage,
+            dataDirectory->VirtualAddress,
+            NULL
+            );
+
+        if (!exceptionDirectory)
+            return STATUS_INVALID_PARAMETER;
+
+        __try
+        {
+            PhMappedImageProbe(MappedImage, exceptionDirectory, dataDirectory->Size);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            return GetExceptionCode();
+        }
+
+        switch (imageMachine)
+        {
+        case IMAGE_FILE_MACHINE_AMD64:
+        case IMAGE_FILE_MACHINE_IA64:
+            {
+                exceptionEntrySize = sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY);
+                exceptionTotal = dataDirectory->Size / exceptionEntrySize;
+            }
+            break;
+        case IMAGE_FILE_MACHINE_ARMNT:
+            {
+                exceptionEntrySize = sizeof(IMAGE_ARM_RUNTIME_FUNCTION_ENTRY);
+                exceptionTotal = dataDirectory->Size / exceptionEntrySize;
+            }
+            break;
+        case IMAGE_FILE_MACHINE_ARM64:
+            {
+                exceptionEntrySize = sizeof(IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY);
+                exceptionTotal = dataDirectory->Size / exceptionEntrySize;
+            }
+            break;
+        }
     }
 
     Exceptions->MappedImage = MappedImage;
     Exceptions->DataDirectory = dataDirectory;
     Exceptions->ExceptionDirectory = exceptionDirectory;
-
-    switch (imageMachine)
-    {
-    case IMAGE_FILE_MACHINE_AMD64:
-    case IMAGE_FILE_MACHINE_IA64:
-        {
-            exceptionEntrySize = sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY);
-            exceptionTotal = dataDirectory->Size / exceptionEntrySize;
-        }
-        break;
-    case IMAGE_FILE_MACHINE_ARMNT:
-        {
-            exceptionEntrySize = sizeof(IMAGE_ARM_RUNTIME_FUNCTION_ENTRY);
-            exceptionTotal = dataDirectory->Size / exceptionEntrySize;
-        }
-        break;
-    case IMAGE_FILE_MACHINE_ARM64:
-        {
-            exceptionEntrySize = sizeof(IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY);
-            exceptionTotal = dataDirectory->Size / exceptionEntrySize;
-        }
-        break;
-    }
 
     // Allocate the number of exception entries.
 
@@ -5398,6 +5456,145 @@ BOOLEAN PhGetMappedImageEntropy(
     {
         status = FALSE;
     }
+
+    return status;
+}
+
+ULONG PhGetMappedImageCHPEVersion(
+    _In_ PPH_MAPPED_IMAGE MappedImage
+    )
+{
+    if (MappedImage->Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+    {
+        PIMAGE_LOAD_CONFIG_DIRECTORY32 config32;
+
+        if (NT_SUCCESS(PhGetMappedImageLoadConfig32(MappedImage, &config32)) &&
+            RTL_CONTAINS_FIELD(config32, config32->Size, CHPEMetadataPointer) &&
+            config32->CHPEMetadataPointer)
+        {
+            PIMAGE_CHPE_METADATA_X86 chpe32;
+
+            chpe32 = PhMappedImageVaToVa(MappedImage, config32->CHPEMetadataPointer, NULL);
+            if (chpe32)
+                return chpe32->Version;
+        }
+    }
+    else if (MappedImage->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+    {
+        PIMAGE_LOAD_CONFIG_DIRECTORY64 config64;
+
+        if (NT_SUCCESS(PhGetMappedImageLoadConfig64(MappedImage, &config64)) &&
+            RTL_CONTAINS_FIELD(config64, config64->Size, CHPEMetadataPointer) &&
+            config64->CHPEMetadataPointer)
+        {
+            PIMAGE_ARM64EC_METADATA chpe64;
+
+            chpe64 = PhMappedImageVaToVa(MappedImage, config64->CHPEMetadataPointer, NULL);
+            if (chpe64)
+                return chpe64->Version;
+        }
+    }
+
+    return 0;
+}
+
+NTSTATUS PhGetRemoteMappedImageCHPEVersion(
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _Out_ PULONG CHPEVersion
+    )
+{
+    return PhGetRemoteMappedImageCHPEVersionEx(RemoteMappedImage, NtReadVirtualMemory, CHPEVersion);
+}
+
+NTSTATUS PhGetRemoteMappedImageCHPEVersionEx(
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
+    _Out_ PULONG CHPEVersion
+    )
+{
+    NTSTATUS status;
+    PVOID entry;
+    ULONG entryLength;
+
+    *CHPEVersion = 0;
+
+    if (!NT_SUCCESS(status = PhGetRemoteMappedImageDirectoryEntry(
+        RemoteMappedImage,
+        ReadVirtualMemoryCallback,
+        IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG,
+        &entry,
+        &entryLength
+        )))
+        return status;
+
+    if (RemoteMappedImage->Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+    {
+        PIMAGE_LOAD_CONFIG_DIRECTORY32 config32;
+        IMAGE_CHPE_METADATA_X86 chpe32;
+
+        if (entryLength < sizeof(IMAGE_LOAD_CONFIG_DIRECTORY32))
+        {
+            status = STATUS_BUFFER_TOO_SMALL;
+            goto CleanupExit;
+        }
+
+        config32 = entry;
+
+        if (!RTL_CONTAINS_FIELD(config32, config32->Size, CHPEMetadataPointer) ||
+            !config32->CHPEMetadataPointer)
+        {
+            status = STATUS_SUCCESS;
+            goto CleanupExit;
+        }
+
+        status = ReadVirtualMemoryCallback(
+            RemoteMappedImage->ProcessHandle,
+            ULongToPtr(config32->CHPEMetadataPointer),
+            &chpe32,
+            sizeof(chpe32),
+            NULL
+            );
+        if (!NT_SUCCESS(status))
+            goto CleanupExit;
+
+        *CHPEVersion = chpe32.Version;
+    }
+    else if (RemoteMappedImage->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+    {
+        PIMAGE_LOAD_CONFIG_DIRECTORY64 config64;
+        IMAGE_ARM64EC_METADATA chpe64;
+
+        if (entryLength < sizeof(IMAGE_LOAD_CONFIG_DIRECTORY64))
+        {
+            status = STATUS_BUFFER_TOO_SMALL;
+            goto CleanupExit;
+        }
+
+        config64 = entry;
+
+        if (!RTL_CONTAINS_FIELD(config64, config64->Size, CHPEMetadataPointer) ||
+            !config64->CHPEMetadataPointer)
+        {
+            status = STATUS_SUCCESS;
+            goto CleanupExit;
+        }
+
+        status = ReadVirtualMemoryCallback(
+            RemoteMappedImage->ProcessHandle,
+            (PVOID)config64->CHPEMetadataPointer,
+            &chpe64,
+            sizeof(chpe64),
+            NULL
+            );
+        if (!NT_SUCCESS(status))
+            goto CleanupExit;
+
+        *CHPEVersion = chpe64.Version;
+    }
+
+CleanupExit:
+
+    PhFree(entry);
 
     return status;
 }

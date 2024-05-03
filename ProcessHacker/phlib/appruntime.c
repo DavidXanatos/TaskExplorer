@@ -20,9 +20,9 @@
 #endif
 
 #ifdef __hstring_h__
-C_ASSERT(sizeof(HSTRING_REFERENCE) == sizeof(HSTRING_HEADER));
+static_assert(sizeof(HSTRING_REFERENCE) == sizeof(HSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
 #else
-C_ASSERT(sizeof(HSTRING_REFERENCE) == sizeof(WSTRING_HEADER));
+static_assert(sizeof(HSTRING_REFERENCE) == sizeof(WSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
 #endif
 
 PPH_STRING PhCreateStringFromWindowsRuntimeString(
@@ -382,7 +382,7 @@ static PVOID PhDetoursPackageSystemIdentificationContext(
 
     if (PhBeginInitOnce(&initOnce))
     {
-        index = TlsAlloc();
+        index = PhTlsAlloc();
         PhEndInitOnce(&initOnce);
     }
 
@@ -390,12 +390,12 @@ static PVOID PhDetoursPackageSystemIdentificationContext(
     {
         if (Initialize)
         {
-            if (TlsSetValue(index, Buffer))
+            if (NT_SUCCESS(PhTlsSetValue(index, Buffer)))
                 return Buffer;
         }
         else
         {
-            return TlsGetValue(index);
+            return PhTlsGetValue(index);
         }
     }
 
@@ -713,22 +713,23 @@ HRESULT PhGetProcessSystemIdentification(
     {
         PSYSTEM_PROCESS_INFORMATION process;
 
-        process = PhFindProcessInformation(processes, ProcessId);
-
-        for (ULONG i = 0; i < process->NumberOfThreads; i++)
+        if (process = PhFindProcessInformation(processes, ProcessId))
         {
-            HANDLE tempThreadHandle;
-
-            threadId = process->Threads[i].ClientId.UniqueThread;
-
-            if (NT_SUCCESS(PhOpenThread(
-                &tempThreadHandle,
-                THREAD_QUERY_LIMITED_INFORMATION,
-                threadId
-                )))
+            for (ULONG i = 0; i < process->NumberOfThreads; i++)
             {
-                threadHandle = tempThreadHandle;
-                break;
+                HANDLE tempThreadHandle;
+
+                threadId = process->Threads[i].ClientId.UniqueThread;
+
+                if (NT_SUCCESS(PhOpenThread(
+                    &tempThreadHandle,
+                    THREAD_QUERY_LIMITED_INFORMATION,
+                    threadId
+                    )))
+                {
+                    threadHandle = tempThreadHandle;
+                    break;
+                }
             }
         }
 

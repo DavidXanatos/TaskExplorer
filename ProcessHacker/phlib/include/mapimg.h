@@ -183,6 +183,15 @@ PhGetMappedImageDataEntry(
     );
 
 PHLIBAPI
+NTSTATUS
+NTAPI
+PhRelocateMappedImageDataEntryARM64X(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PIMAGE_DATA_DIRECTORY Entry,
+    _Out_ PIMAGE_DATA_DIRECTORY RelocatedEntry
+    );
+
+PHLIBAPI
 PVOID
 NTAPI
 PhGetMappedImageDirectoryEntry(
@@ -335,7 +344,7 @@ typedef struct _PH_MAPPED_IMAGE_EXPORTS
     ULONG NumberOfEntries;
 
     PIMAGE_DATA_DIRECTORY DataDirectory;
-    IMAGE_DATA_DIRECTORY DataDirectoryARM64EC;
+    IMAGE_DATA_DIRECTORY DataDirectoryARM64X;
     PIMAGE_EXPORT_DIRECTORY ExportDirectory;
     PULONG AddressTable;
     PULONG NamePointerTable;
@@ -355,7 +364,7 @@ typedef struct _PH_MAPPED_IMAGE_EXPORT_FUNCTION
     PSTR ForwardedName;
 } PH_MAPPED_IMAGE_EXPORT_FUNCTION, *PPH_MAPPED_IMAGE_EXPORT_FUNCTION;
 
-#define PH_GET_IMAGE_EXPORTS_ARM64EC 0x00000001ul
+#define PH_GET_IMAGE_EXPORTS_ARM64X 0x00000001ul
 
 PHLIBAPI
 NTSTATUS
@@ -1049,11 +1058,23 @@ typedef struct _PH_MAPPED_IMAGE_EXCEPTIONS
 {
     PPH_MAPPED_IMAGE MappedImage;
     PIMAGE_DATA_DIRECTORY DataDirectory;
+    IMAGE_DATA_DIRECTORY DataDirectoryARM64X;
     PVOID ExceptionDirectory;
 
     ULONG NumberOfEntries;
     PVOID ExceptionEntries;
 } PH_MAPPED_IMAGE_EXCEPTIONS, *PPH_MAPPED_IMAGE_EXCEPTIONS;
+
+#define PH_GET_IMAGE_EXCEPTIONS_ARM64X 0x00000001ul
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageExceptionsEx(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_EXCEPTIONS Exceptions,
+    _In_ ULONG Flags
+    );
 
 PHLIBAPI
 NTSTATUS
@@ -1141,6 +1162,30 @@ PhGetMappedImageEntropy(
     _In_ PPH_MAPPED_IMAGE MappedImage,
     _Out_ DOUBLE* ImageEntropy,
     _Out_ DOUBLE* ImageVariance
+    );
+
+PHLIBAPI
+ULONG
+NTAPI
+PhGetMappedImageCHPEVersion(
+    _In_ PPH_MAPPED_IMAGE MappedImage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetRemoteMappedImageCHPEVersion(
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _Out_ PULONG CHPEVersion
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetRemoteMappedImageCHPEVersionEx(
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
+    _Out_ PULONG CHPEVersion
     );
 
 // ELF binary support

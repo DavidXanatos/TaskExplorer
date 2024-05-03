@@ -331,8 +331,8 @@ typedef struct _PH_ENVIRONMENT_VARIABLE
     PH_STRINGREF Value;
 } PH_ENVIRONMENT_VARIABLE, *PPH_ENVIRONMENT_VARIABLE;
 
-PHLIBAPI
 _Success_(return)
+PHLIBAPI
 BOOLEAN
 NTAPI
 PhEnumProcessEnvironmentVariables(
@@ -341,6 +341,43 @@ PhEnumProcessEnvironmentVariables(
     _Inout_ PULONG EnumerationKey,
     _Out_ PPH_ENVIRONMENT_VARIABLE Variable
     );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhQueryEnvironmentVariableStringRef(
+    _In_opt_ PVOID Environment,
+    _In_ PPH_STRINGREF Name,
+    _Inout_opt_ PPH_STRINGREF Value
+    );
+
+FORCEINLINE
+NTSTATUS
+NTAPI
+PhQueryEnvironmentVariableToBufferZ(
+    _In_opt_ PVOID Environment,
+    _In_ PWSTR Name,
+    _Out_writes_opt_(BufferLength) PWSTR Buffer,
+    _In_opt_ SIZE_T BufferLength,
+    _Out_ PSIZE_T ReturnLength
+    )
+{
+    NTSTATUS status;
+    PH_STRINGREF name;
+
+    PhInitializeStringRef(&name, Name);
+
+    status = RtlQueryEnvironmentVariable(
+        Environment,
+        name.Buffer,
+        name.Length / sizeof(WCHAR),
+        Buffer,
+        BufferLength,
+        ReturnLength
+        );
+
+    return status;
+}
 
 PHLIBAPI
 NTSTATUS
@@ -492,7 +529,7 @@ PhTraceControl(
     _In_ ETWTRACECONTROLCODE TraceInformationClass,
     _In_reads_bytes_opt_(InputBufferLength) PVOID InputBuffer,
     _In_ ULONG InputBufferLength,
-    _Out_opt_ PVOID* OutputBuffer,
+    _Out_writes_bytes_opt_(*OutputBufferLength) PVOID* OutputBuffer,
     _Out_opt_ PULONG OutputBufferLength
     );
 
@@ -945,11 +982,7 @@ PhFreeSid(
     _In_ _Post_invalid_ PSID Sid
     )
 {
-#if (PHNT_NATIVE_SID)
-    return !RtlFreeSid(Sid);
-#else
-    return !!RtlFreeHeap(RtlProcessHeap(), 0, Sid);
-#endif
+    return !!RtlFreeSid(Sid);
 }
 
 // rev from RtlFreeUnicodeString (dmex)
@@ -960,11 +993,20 @@ PhFreeUnicodeString(
     _Inout_ _At_(UnicodeString->Buffer, _Frees_ptr_opt_ _Post_invalid_) PUNICODE_STRING UnicodeString
     )
 {
-#ifdef PHNT_INLINE_FREE_UNICODE_STRING
     RtlFreeUnicodeString(UnicodeString);
-#else
-    RtlFreeHeap(RtlProcessHeap(), 0, UnicodeString->Buffer);
-#endif
+}
+
+FORCEINLINE
+NTSTATUS
+NTAPI
+PhCreateSecurityDescriptor(
+    _Out_ PSECURITY_DESCRIPTOR SecurityDescriptor,
+    _In_ BYTE Revision
+    )
+{
+    memset(SecurityDescriptor, 0, sizeof(PISECURITY_DESCRIPTOR));
+    ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision = Revision;
+    return STATUS_SUCCESS;
 }
 
 FORCEINLINE
@@ -1138,6 +1180,14 @@ NTAPI
 PhSetFileBasicInformation(
     _In_ HANDLE FileHandle,
     _In_ PFILE_BASIC_INFORMATION BasicInfo
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetFileFullAttributesInformation(
+    _In_ HANDLE FileHandle,
+    _Out_ PFILE_NETWORK_OPEN_INFORMATION FileInformation
     );
 
 PHLIBAPI
@@ -1578,6 +1628,15 @@ PhGetKernelFileName2(
     VOID
     );
 
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetKernelFileNameEx(
+    _Out_ PPH_STRING* FileName,
+    _Out_ PVOID* ImageBase,
+    _Out_ ULONG* ImageSize
+    );
+
 /**
  * Gets a pointer to the first process information structure in a buffer returned by
  * PhEnumProcesses().
@@ -1845,14 +1904,12 @@ PhEnumDirectoryFileEx(
     _In_opt_ PVOID Context
     );
 
-_Function_class_(PH_ENUM_REPARSE_POINT)
-typedef NTSTATUS (NTAPI PH_ENUM_REPARSE_POINT)(
+typedef NTSTATUS (NTAPI *PPH_ENUM_REPARSE_POINT)(
     _In_ HANDLE RootDirectory,
     _In_ PVOID Information,
     _In_ SIZE_T InformationLength,
     _In_opt_ PVOID Context
     );
-typedef PH_ENUM_REPARSE_POINT *PPH_ENUM_REPARSE_POINT;
 
 PHLIBAPI
 NTSTATUS
@@ -1863,14 +1920,12 @@ PhEnumReparsePointInformation(
     _In_opt_ PVOID Context
     );
 
-_Function_class_(PH_ENUM_OBJECT_ID)
-typedef NTSTATUS (NTAPI PH_ENUM_OBJECT_ID)(
+typedef NTSTATUS (NTAPI *PPH_ENUM_OBJECT_ID)(
     _In_ HANDLE RootDirectory,
     _In_ PVOID Information,
     _In_ SIZE_T InformationLength,
     _In_opt_ PVOID Context
     );
-typedef PH_ENUM_OBJECT_ID *PPH_ENUM_OBJECT_ID;
 
 PHLIBAPI
 NTSTATUS
@@ -1986,6 +2041,13 @@ PHLIBAPI
 VOID
 NTAPI
 PhUpdateDosDevicePrefixes(
+    VOID
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhFlushVolumeCache(
     VOID
     );
 
@@ -2834,36 +2896,6 @@ typedef struct _PH_PROCESS_DEBUG_HEAP_INFORMATION32
     PH_PROCESS_DEBUG_HEAP_ENTRY32 Heaps[1];
 } PH_PROCESS_DEBUG_HEAP_INFORMATION32, *PPH_PROCESS_DEBUG_HEAP_INFORMATION32;
 
-typedef struct _PH_IMAGE_RUNTIME_FUNCTION_ENTRY_AMD64
-{
-    ULONG BeginAddress;
-    ULONG EndAddress;
-    union
-    {
-        ULONG UnwindInfoAddress;
-        ULONG UnwindData;
-    } DUMMYUNIONNAME;
-} PH_IMAGE_RUNTIME_FUNCTION_ENTRY_AMD64, *PPH_IMAGE_RUNTIME_FUNCTION_ENTRY_AMD64;
-
-typedef struct _PH_IMAGE_RUNTIME_FUNCTION_ENTRY_ARM64
-{
-    ULONG BeginAddress;
-    union
-    {
-        ULONG UnwindData;
-        struct
-        {
-            ULONG Flag : 2;
-            ULONG FunctionLength : 11;
-            ULONG RegF : 3;
-            ULONG RegI : 4;
-            ULONG H : 1;
-            ULONG CR : 2;
-            ULONG FrameSize : 9;
-        } DUMMYSTRUCTNAME;
-    } DUMMYUNIONNAME;
-} PH_IMAGE_RUNTIME_FUNCTION_ENTRY_ARM64, *PPH_IMAGE_RUNTIME_FUNCTION_ENTRY_ARM64;
-
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -3449,7 +3481,7 @@ NTSTATUS
 NTAPI
 PhEnumProcessEnclaves(
     _In_ HANDLE ProcessHandle,
-    _In_ PVOID LdrpEnclaveList,
+    _In_ PVOID LdrEnclaveList,
     _In_ PPH_ENUM_PROCESS_ENCLAVES_CALLBACK Callback,
     _In_opt_ PVOID Context
     );
@@ -3482,6 +3514,34 @@ PhGetProcessLdrTableEntryNames(
     _Out_ PPH_STRING* Name,
     _Out_ PPH_STRING* FileName
     );
+
+#ifdef _M_ARM64
+PHLIBAPI
+VOID
+NTAPI
+PhEcContextToNativeContext(
+    _Out_ PCONTEXT Context,
+    _In_ PARM64EC_NT_CONTEXT EcContext
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhNativeContextToEcContext(
+    _When_(InitializeEc, _Out_) _When_(!InitializeEc, _Inout_) PARM64EC_NT_CONTEXT EcContext,
+    _In_ PCONTEXT Context,
+    _In_ BOOLEAN InitializeEc
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhIsEcCode(
+    _In_ HANDLE ProcessHandle,
+    _In_ ULONG64 CodePointer,
+    _Out_ PBOOLEAN IsEcCode
+    );
+#endif
 
 EXTERN_C_END
 

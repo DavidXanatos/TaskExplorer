@@ -232,6 +232,13 @@ PhGetSystemMetrics(
     );
 
 PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetSystemSafeBootMode(
+    VOID
+    );
+
+PHLIBAPI
 BOOL
 NTAPI
 PhGetSystemParametersInfo(
@@ -544,6 +551,13 @@ VOID PhSetListViewSubItem(
     );
 
 PHLIBAPI
+VOID
+NTAPI
+PhRedrawListViewItems(
+    _In_ HWND ListViewHandle
+    );
+
+PHLIBAPI
 INT
 NTAPI
 PhAddListViewGroup(
@@ -704,6 +718,11 @@ PHLIBAPI
 VOID PhSetClipboardString(
     _In_ HWND WindowHandle,
     _In_ PPH_STRINGREF String
+    );
+
+PHLIBAPI
+PPH_STRING PhGetClipboardString(
+    _In_ HWND WindowHandle
     );
 
 #include <pshpack1.h>
@@ -1425,6 +1444,23 @@ NTAPI
 PhGetPhysicallyInstalledSystemMemory(
     _Out_ PULONGLONG TotalMemory,
     _Out_ PULONGLONG ReservedMemory
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetSessionGuiResources(
+    _In_ ULONG Flags,
+    _Out_ PULONG Total
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetProcessGuiResources(
+    _In_ HANDLE ProcessHandle,
+    _In_ ULONG Flags,
+    _Out_ PULONG Total
     );
 
 _Success_(return)

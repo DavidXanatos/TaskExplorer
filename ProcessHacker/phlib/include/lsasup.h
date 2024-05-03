@@ -215,6 +215,29 @@ PhEnumerateAccounts(
     _In_opt_ PVOID Context
     );
 
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhCreateServiceSidToBuffer(
+    _In_ PPH_STRINGREF ServiceName,
+    _Out_writes_bytes_opt_(*ServiceSidLength) PSID ServiceSid,
+    _Inout_ PULONG ServiceSidLength
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhCreateServiceSidToStringSid(
+    _In_ PPH_STRINGREF ServiceName
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhGetAzureDirectoryObjectSid(
+    _In_ PSID ActiveDirectorySid
+    );
+
 #ifdef __cplusplus
 }
 #endif

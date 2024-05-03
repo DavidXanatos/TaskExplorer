@@ -1432,3 +1432,93 @@ NTSTATUS PhEnumerateAccounts(
 //
 //    return status;
 //}
+
+NTSTATUS PhCreateServiceSidToBuffer(
+    _In_ PPH_STRINGREF ServiceName,
+    _Out_writes_bytes_opt_(*ServiceSidLength) PSID ServiceSid,
+    _Inout_ PULONG ServiceSidLength
+    )
+{
+    typedef NTSTATUS (NTAPI* _RtlCreateServiceSid)(
+        _In_ PUNICODE_STRING ServiceName,
+        _Out_writes_bytes_opt_(*ServiceSidLength) PSID ServiceSid,
+        _Inout_ PULONG ServiceSidLength
+        );
+    static _RtlCreateServiceSid RtlCreateServiceSid_I = NULL;
+    UNICODE_STRING serviceName;
+    NTSTATUS status;
+
+    if (!RtlCreateServiceSid_I)
+    {
+        if (!(RtlCreateServiceSid_I = PhGetDllProcedureAddress(L"ntdll.dll", "RtlCreateServiceSid", 0)))
+            return STATUS_PROCEDURE_NOT_FOUND;
+    }
+
+    PhStringRefToUnicodeString(ServiceName, &serviceName);
+
+    status = RtlCreateServiceSid_I(
+        &serviceName,
+        ServiceSid,
+        ServiceSidLength
+        );
+
+    return status;
+}
+
+PPH_STRING PhCreateServiceSidToStringSid(
+    _In_ PPH_STRINGREF ServiceName
+    )
+{
+    BYTE serviceSidBuffer[SECURITY_MAX_SID_SIZE] = { 0 };
+    ULONG serviceSidLength = sizeof(serviceSidBuffer);
+    PSID serviceSid = (PSID)serviceSidBuffer;
+
+    if (NT_SUCCESS(PhCreateServiceSidToBuffer(ServiceName, serviceSid, &serviceSidLength)))
+    {
+        return PhSidToStringSid(serviceSid);
+    }
+
+    return NULL;
+}
+
+PPH_STRING PhGetAzureDirectoryObjectSid(
+    _In_ PSID ActiveDirectorySid
+    )
+{
+    if (PhEqualIdentifierAuthoritySid(
+        PhIdentifierAuthoritySid(ActiveDirectorySid),
+        PhIdentifierAuthoritySid(PhSeCloudActiveDirectorySid())
+        ))
+    {
+        ULONG subAuthority = *PhSubAuthoritySid(ActiveDirectorySid, 0);
+
+        if (subAuthority == 1)
+        {
+            PPH_STRING string;
+            union
+            {
+                GUID Guid;
+                struct
+                {
+                    ULONG Data1;
+                    ULONG Data2;
+                    ULONG Data3;
+                    ULONG Data4;
+                };
+            } objectGuid;
+
+            objectGuid.Data1 = *PhSubAuthoritySid(ActiveDirectorySid, 1);
+            objectGuid.Data2 = *PhSubAuthoritySid(ActiveDirectorySid, 2);
+            objectGuid.Data3 = *PhSubAuthoritySid(ActiveDirectorySid, 3);
+            objectGuid.Data4 = *PhSubAuthoritySid(ActiveDirectorySid, 4);
+
+            if (string = PhFormatGuid(&objectGuid.Guid))
+            {
+                PhMoveReference(&string, PhSubstring(string, 1, string->Length / sizeof(WCHAR) - 2)); // Strip {}
+                return string;
+            }
+        }
+    }
+
+    return NULL;
+}
