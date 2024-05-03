@@ -13,6 +13,9 @@
 #include "stdafx.h"
 #include "ProcessHacker.h"
 #include <kphmsgdyn.h>
+extern "C" {
+#include <kphdyndata.h>
+}
 #include <settings.h>
 
 QString CastPhString(PPH_STRING phString, bool bDeRef)
@@ -258,7 +261,144 @@ static VOID NTAPI KsiCommsCallback(
 	}
 }
 
+NTSTATUS KsiReadConfiguration(
+	_In_ PWSTR FileName,
+	_Out_ PBYTE* Data,
+	_Out_ PULONG Length
+)
+{
+	NTSTATUS status;
+	PPH_STRING fileName;
+	HANDLE fileHandle;
+
+	*Data = NULL;
+	*Length = 0;
+
+	status = STATUS_NO_SUCH_FILE;
+
+	fileName = PhGetApplicationDirectoryFileNameZ(FileName, TRUE);
+	if (fileName)
+	{
+		if (NT_SUCCESS(status = PhCreateFile(
+			&fileHandle,
+			&fileName->sr,
+			FILE_GENERIC_READ,
+			FILE_ATTRIBUTE_NORMAL,
+			FILE_SHARE_READ,
+			FILE_OPEN,
+			FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+		)))
+		{
+			status = PhGetFileData(fileHandle, (PVOID*)Data, Length);
+
+			NtClose(fileHandle);
+		}
+
+		PhDereferenceObject(fileName);
+	}
+
+	return status;
 }
+
+NTSTATUS KsiValidateDynamicConfiguration(
+	_In_ PBYTE DynData,
+	_In_ ULONG DynDataLength
+)
+{
+	NTSTATUS status;
+	PPH_STRING fileName;
+	PVOID versionInfo;
+	VS_FIXEDFILEINFO* fileInfo;
+
+	status = STATUS_NO_SUCH_FILE;
+
+	if (fileName = PhGetKernelFileName2())
+	{
+		if (versionInfo = PhGetFileVersionInfoEx(&fileName->sr))
+		{
+			if (fileInfo = PhGetFileVersionFixedInfo(versionInfo))
+			{
+				status = KphDynDataGetConfiguration(
+					(PKPH_DYNDATA)DynData,
+					DynDataLength,
+					HIWORD(fileInfo->dwFileVersionMS),
+					LOWORD(fileInfo->dwFileVersionMS),
+					HIWORD(fileInfo->dwFileVersionLS),
+					LOWORD(fileInfo->dwFileVersionLS),
+					NULL
+				);
+			}
+
+			PhFree(versionInfo);
+		}
+
+		PhDereferenceObject(fileName);
+	}
+
+	return status;
+}
+
+NTSTATUS KsiGetDynData(
+	_Out_ PBYTE* DynData,
+	_Out_ PULONG DynDataLength,
+	_Out_ PBYTE* Signature,
+	_Out_ PULONG SignatureLength
+)
+{
+	NTSTATUS status;
+	PBYTE data = NULL;
+	ULONG dataLength;
+	//PBYTE sig = NULL;
+	//ULONG sigLength;
+
+	// TODO download dynamic data from server
+
+	*DynData = NULL;
+	*DynDataLength = 0;
+	*Signature = NULL;
+	*SignatureLength = 0;
+
+	status = KsiReadConfiguration(L"ksidyn.bin", &data, &dataLength);
+	if (!NT_SUCCESS(status))
+		goto CleanupExit;
+
+	status = KsiValidateDynamicConfiguration(data, dataLength);
+	if (!NT_SUCCESS(status))
+		goto CleanupExit;
+
+	//status = KsiReadConfiguration(L"ksidyn.sig", &sig, &sigLength);
+	//if (!NT_SUCCESS(status))
+	//	goto CleanupExit;
+	//
+	//if (!sigLength)
+	//{
+	//	status = STATUS_SI_DYNDATA_INVALID_SIGNATURE;
+	//	goto CleanupExit;
+	//}
+
+	*DynDataLength = dataLength;
+	*DynData = data;
+	data = NULL;
+
+	//*SignatureLength = sigLength;
+	//*Signature = sig;
+	//sig = NULL;
+
+	status = STATUS_SUCCESS;
+
+CleanupExit:
+	if (data)
+		PhFree(data);
+	//if (sig)
+	//	PhFree(sig);
+
+	return status;
+}
+
+}
+
+BOOLEAN KsiEnableLoadNative = FALSE;
+BOOLEAN KsiEnableLoadFilter = FALSE;
 
 STATUS InitKPH(QString DeviceName, QString FileName)
 {
@@ -275,10 +415,17 @@ STATUS InitKPH(QString DeviceName, QString FileName)
     if (!QFile::exists(FileName))
 		return ERR(QObject::tr("The kernel driver file '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
 
-    if (WindowsVersion < WINDOWS_10 || WindowsVersion == WINDOWS_NEW)
-        return ERR("Unsupported windows version.", STATUS_UNKNOWN_REVISION);
     if (!PhGetOwnTokenAttributes().Elevated)
         return ERR("Driver required administrative privileges.", STATUS_ELEVATION_REQUIRED);
+
+	PBYTE dynData = NULL;
+	ULONG dynDataLength;
+	PBYTE signature = NULL;
+	ULONG signatureLength;
+
+	NTSTATUS status = KsiGetDynData(&dynData, &dynDataLength, &signature, &signatureLength);
+	if (!NT_SUCCESS(status)) 
+		return ERR("Unsupported windows version.", STATUS_UNKNOWN_REVISION);
 
 	// todo: fix-me
     //if (PhDoesOldKsiExist())
@@ -304,12 +451,10 @@ STATUS InitKPH(QString DeviceName, QString FileName)
         goto CleanupExit;
 
     {
-		NTSTATUS status;
         KPH_CONFIG_PARAMETERS config = { 0 };
         PPH_STRING objectName = NULL;
         PPH_STRING portName = NULL;
-        PPH_STRING altitudeName = NULL;
-        BOOLEAN disableImageLoadProtection = TRUE; // FALSE;
+        PPH_STRING altitude = NULL;
 
         //if (PhIsNullOrEmptyString(objectName = PhGetStringSetting(L"KphObjectName")))
         //PhMoveReference((PVOID*)&objectName, PhCreateString(KPH_OBJECT_NAME));
@@ -317,21 +462,29 @@ STATUS InitKPH(QString DeviceName, QString FileName)
         //if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
         //PhMoveReference((PVOID*)&portName, PhCreateString(KPH_PORT_NAME));
 		portName = CastQString("\\" + DeviceName);
-        //if (PhIsNullOrEmptyString(altitudeName = PhGetStringSetting(L"KphAltitude")))
-        PhMoveReference((PVOID*)&altitudeName, PhCreateString(KPH_ALTITUDE_NAME));
-        //disableImageLoadProtection = !!PhGetIntegerSetting(L"KphDisableImageLoadProtection");
+        //if (PhIsNullOrEmptyString(altitude = PhGetStringSetting(L"KphAltitude")))
+        PhMoveReference((PVOID*)&altitude, PhCreateString(L"385210.5"));
 
         config.FileName = &ksiFileName->sr;
         config.ServiceName = &ksiServiceName->sr;
         config.ObjectName = &objectName->sr;
         config.PortName = &portName->sr;
-        config.Altitude = &altitudeName->sr;
-        config.DisableImageLoadProtection = disableImageLoadProtection;
+        config.Altitude = &altitude->sr;
+		config.Flags.Flags = 0;
+		//config.Flags.DisableImageLoadProtection = !!PhGetIntegerSetting(L"KsiDisableImageLoadProtection");
+		//config.Flags.RandomizedPoolTag = !!PhGetIntegerSetting(L"KsiRandomizedPoolTag");
+		//config.Flags.DynDataNoEmbedded = !!PhGetIntegerSetting(L"KsiDynDataNoEmbedded");
         config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
+
+		config.EnableNativeLoad = KsiEnableLoadNative;
+		config.EnableFilterLoad = KsiEnableLoadFilter;
+
         status = KphConnect(&config);
 
         if (NT_SUCCESS(status))
         {
+			KphActivateDynData(dynData, dynDataLength, signature, signatureLength);
+
             KPH_LEVEL level = KphLevel();
 
             if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
@@ -365,9 +518,60 @@ CleanupExit:
         PhDereferenceObject(ksiServiceName);
     if (ksiFileName)
         PhDereferenceObject(ksiFileName);
+	if (signature)
+		PhFree(signature);
+	if (dynData)
+		PhFree(dynData);
 
 	return Status;
 }
+
+//NTSTATUS PhCleanupKsi(VOID)
+//{
+//	NTSTATUS status;
+//	PPH_STRING ksiServiceName;
+//	KPH_CONFIG_PARAMETERS config = { 0 };
+//	BOOLEAN shouldUnload;
+//
+//	if (!KphCommsIsConnected())
+//		return STATUS_SUCCESS;
+//
+//	if (PhGetIntegerSetting(L"KsiEnableUnloadProtection"))
+//		KphReleaseDriverUnloadProtection(NULL, NULL);
+//
+//	if (PhGetIntegerSetting(L"KsiUnloadOnExit"))
+//	{
+//		ULONG clientCount;
+//
+//		if (!NT_SUCCESS(status = KphGetConnectedClientCount(&clientCount)))
+//			return status;
+//
+//		shouldUnload = (clientCount == 1);
+//	}
+//	else
+//	{
+//		shouldUnload = FALSE;
+//	}
+//
+//	KphCommsStop();
+//
+//#ifdef DEBUG
+//	KsiDebugLogDestroy();
+//#endif
+//
+//	if (!shouldUnload)
+//		return STATUS_SUCCESS;
+//
+//	if (!(ksiServiceName = PhGetKsiServiceName()))
+//		return STATUS_UNSUCCESSFUL;
+//
+//	config.ServiceName = &ksiServiceName->sr;
+//	config.EnableNativeLoad = KsiEnableLoadNative;
+//	config.EnableFilterLoad = KsiEnableLoadFilter;
+//	status = KphServiceStop(&config);
+//
+//	return status;
+//}
 
 bool KphSetDebugLog(bool Enable)
 {

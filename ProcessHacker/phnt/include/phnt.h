@@ -54,6 +54,7 @@
 #define PHNT_WIN11 114
 #define PHNT_WIN11_22H2 115
 #define PHNT_WIN11_23H2 116
+#define PHNT_WIN11_24H2 117
 
 #ifndef PHNT_MODE
 #define PHNT_MODE PHNT_MODE_USER
@@ -74,9 +75,9 @@ extern "C" {
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
 #include <phnt_ntdef.h>
 #include <ntnls.h>
-#include <ntkeapi.h>
 #endif
 
+#include <ntkeapi.h>
 #include <ntldr.h>
 #include <ntexapi.h>
 

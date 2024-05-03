@@ -17,4 +17,10 @@
     <QTDIR>C:\Qt\Qt5.11.2\5.11.2\msvc2015</QTDIR>
     <LocalDebuggerEnvironment>PATH=$(QTDIR)\bin%3b$(PATH)</LocalDebuggerEnvironment>
   </PropertyGroup>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <QtLastBackgroundBuild>2024-05-03T14:58:07.0995440Z</QtLastBackgroundBuild>
+  </PropertyGroup>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <QtLastBackgroundBuild>2024-05-03T15:01:33.4110388Z</QtLastBackgroundBuild>
+  </PropertyGroup>
 </Project>

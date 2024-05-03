@@ -67,8 +67,8 @@ QString GetPathFromCmd(QString CommandLine, quint32 ProcessID, QString FileName/
 	QString filePath = GetPathFromCmdLine(CommandLine);
 
 	// apparently some processes can be started without a exe name in the command line WTF, anyhow:
-	if (GetFileName(filePath).compare(FileName, Qt::CaseInsensitive) == 0 
-	&& (GetFileName(filePath) + ".exe").compare(FileName, Qt::CaseInsensitive) == 0)
+	if (GetFileName(filePath).compare(FileName, Qt::CaseInsensitive) != 0 
+	&& (GetFileName(filePath) + ".exe").compare(FileName, Qt::CaseInsensitive) != 0)
 		filePath = FileName;
             
 	// https://reverseengineering.stackexchange.com/questions/3798/c-question-marks-in-paths

@@ -3,13 +3,11 @@
  *
  * Authors:
  *
- *     jxy-s   2022
+ *     jxy-s   2022-2023
  *
  */
 
 #pragma once
-extern ULONG KphDynObDecodeShift;
-extern ULONG KphDynObAttributesShift;
 
 typedef struct _CLIENT_ID32
 {
@@ -187,9 +185,18 @@ KeInsertQueueApc(
 NTKERNELAPI
 BOOLEAN
 NTAPI
-KeTestAlertThread (
+KeTestAlertThread(
     _In_ KPROCESSOR_MODE Mode
     );
+
+typedef
+_Function_class_(KE_REMOVE_QUEUE_APC)
+BOOLEAN
+NTAPI
+KE_REMOVE_QUEUE_APC(
+    _Inout_ PKAPC Apc
+    );
+typedef KE_REMOVE_QUEUE_APC* PKE_REMOVE_QUEUE_APC;
 
 // OB
 
@@ -204,8 +211,7 @@ KeTestAlertThread (
 // GrantedAccess in the table entry is the low 25 bits
 #define OBJ_GRANTED_ACCESS_MASK 0x01ffffff
 
-#define ObpDecodeGrantedAccess(Access) \
-    ((Access) & OBJ_GRANTED_ACCESS_MASK)
+#define ObpDecodeGrantedAccess(Access) ((Access) & OBJ_GRANTED_ACCESS_MASK)
 
 FORCEINLINE
 VOID
@@ -218,49 +224,6 @@ ObpSetGrantedAccess(
     // Preserve the high bits and only set the low 25 bits.
     //
     *GrantedAccess = (Access | (*GrantedAccess & ~OBJ_GRANTED_ACCESS_MASK));
-}
-
-FORCEINLINE
-_Must_inspect_result_
-PVOID
-ObpDecodeObject(
-    _In_ PVOID Object
-    )
-{
-#if (defined _M_X64) || (defined _M_ARM64)
-    if (KphDynObDecodeShift != ULONG_MAX)
-    {
-        return (PVOID)(((LONG_PTR)Object >> KphDynObDecodeShift) & ~(ULONG_PTR)0xf);
-    }
-    else
-    {
-        return NULL;
-    }
-#else
-    return (PVOID)((ULONG_PTR)Object & ~OBJ_HANDLE_ATTRIBUTES);
-#endif
-}
-
-FORCEINLINE
-_Must_inspect_result_
-ULONG
-ObpGetHandleAttributes(
-    _In_ PHANDLE_TABLE_ENTRY HandleTableEntry
-    )
-{
-#if (defined _M_X64) || (defined _M_ARM64)
-    if (KphDynObAttributesShift != ULONG_MAX)
-    {
-        return (ULONG)(HandleTableEntry->Value >> KphDynObAttributesShift) & 0x3;
-    }
-    else
-    {
-        return 0;
-    }
-#else
-    return (HandleTableEntry->ObAttributes & (OBJ_INHERIT | OBJ_AUDIT_OBJECT_CLOSE)) |
-        ((HandleTableEntry->GrantedAccess & ObpAccessProtectCloseBit) ? OBJ_PROTECT_CLOSE : 0);
-#endif
 }
 
 typedef struct _OBJECT_CREATE_INFORMATION OBJECT_CREATE_INFORMATION, *POBJECT_CREATE_INFORMATION;
@@ -364,6 +327,21 @@ ObDuplicateObject(
     _In_ ULONG Options,
     _In_ KPROCESSOR_MODE PreviousMode
     );
+
+// CM
+
+#if (NTDDI_VERSION < NTDDI_WIN10_FE)
+typedef struct _REG_SAVE_MERGED_KEY_INFORMATION
+{
+    PVOID Object;
+    HANDLE FileHandle;
+    PVOID HighKeyObject;
+    PVOID LowKeyObject;
+    PVOID CallContext;
+    PVOID ObjectContext;
+    PVOID Reserved;
+} REG_SAVE_MERGED_KEY_INFORMATION, *PREG_SAVE_MERGED_KEY_INFORMATION;
+#endif
 
 // LDR
 
@@ -650,7 +628,7 @@ PsGetProcessInheritedFromUniqueProcessId(
     _In_ PEPROCESS Process
     );
 
-#if _WIN64
+#ifdef _WIN64
 
 NTKERNELAPI
 PVOID
@@ -667,6 +645,13 @@ PsGetCurrentProcessWow64Process(
     );
 
 #endif
+
+NTKERNELAPI
+PVOID
+NTAPI
+PsGetThreadTeb(
+    _In_ PETHREAD Thread
+    );
 
 NTKERNELAPI
 BOOLEAN
@@ -716,9 +701,9 @@ typedef struct _PROCESS_MITIGATION_POLICY_INFORMATION
         PROCESS_MITIGATION_CHILD_PROCESS_POLICY ChildProcessPolicy;
         PROCESS_MITIGATION_SIDE_CHANNEL_ISOLATION_POLICY SideChannelIsolationPolicy;
         PROCESS_MITIGATION_USER_SHADOW_STACK_POLICY UserShadowStackPolicy;
-        //PROCESS_MITIGATION_REDIRECTION_TRUST_POLICY RedirectionTrustPolicy;
-        //PROCESS_MITIGATION_USER_POINTER_AUTH_POLICY UserPointerAuthPolicy;
-        //PROCESS_MITIGATION_SEHOP_POLICY SEHOPPolicy;
+        PROCESS_MITIGATION_REDIRECTION_TRUST_POLICY RedirectionTrustPolicy;
+        PROCESS_MITIGATION_USER_POINTER_AUTH_POLICY UserPointerAuthPolicy;
+        PROCESS_MITIGATION_SEHOP_POLICY SEHOPPolicy;
     };
 } PROCESS_MITIGATION_POLICY_INFORMATION, *PPROCESS_MITIGATION_POLICY_INFORMATION;
 
@@ -728,6 +713,24 @@ NTAPI
 PsGetProcessImageFileName(
     _In_ PEPROCESS Process
     );
+
+typedef
+_Function_class_(PS_GET_PROCESS_SEQUENCE_NUMBER)
+_IRQL_requires_max_(DISPATCH_LEVEL)
+ULONGLONG
+PS_GET_PROCESS_SEQUENCE_NUMBER(
+    _In_ PEPROCESS Process
+    );
+typedef PS_GET_PROCESS_SEQUENCE_NUMBER* PPS_GET_PROCESS_SEQUENCE_NUMBER;
+
+typedef
+_Function_class_(PS_GET_PROCESS_START_KEY)
+_IRQL_requires_max_(DISPATCH_LEVEL)
+ULONGLONG
+PS_GET_PROCESS_START_KEY(
+    _In_ PEPROCESS Process
+    );
+typedef PS_GET_PROCESS_START_KEY* PPS_GET_PROCESS_START_KEY;
 
 // RTL
 
@@ -780,6 +783,8 @@ RtlFindExportedRoutineByName(
 #endif
 
 // MM
+
+#define SEC_DRIVER_IMAGE 0x00100000
 
 extern POBJECT_TYPE *MmSectionObjectType;
 
@@ -1156,6 +1161,19 @@ MiGetVadEndAddress(
     return MiGetVadShortEndAddress(&Vad->Core);
 }
 
+NTKERNELAPI
+NTSTATUS
+MmCreateSection(
+    _Out_ PVOID* SectionObject,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_opt_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_ PLARGE_INTEGER MaximumSize,
+    _In_ ULONG SectionPageProtection,
+    _In_ ULONG AllocationAttributes,
+    _In_opt_ HANDLE FileHandle,
+    _In_opt_ PFILE_OBJECT FileObject
+    );
+
 // CI
 
 #ifndef ALGIDDEF
@@ -1372,6 +1390,8 @@ typedef struct _MINCRYPT_POLICY_INFO
     LARGE_INTEGER ValidToTime;
 } MINCRYPT_POLICY_INFO, *PMINCRYPT_POLICY_INFO;
 
+// rev
+// CiFreePolicyInfo
 typedef
 _Function_class_(CI_FREE_POLICY_INFO)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -1382,6 +1402,8 @@ CI_FREE_POLICY_INFO(
     );
 typedef CI_FREE_POLICY_INFO* PCI_FREE_POLICY_INFO;
 
+// rev
+// CiCheckSignedFile (pre 6.1.7601.18519)
 typedef
 _Function_class_(CI_CHECK_SIGNED_FILE)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -1398,6 +1420,8 @@ CI_CHECK_SIGNED_FILE(
     );
 typedef CI_CHECK_SIGNED_FILE* PCI_CHECK_SIGNED_FILE;
 
+// rev
+// CiCheckSignedFile
 typedef
 _Function_class_(CI_CHECK_SIGNED_FILE_EX)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -1416,6 +1440,8 @@ CI_CHECK_SIGNED_FILE_EX(
     );
 typedef CI_CHECK_SIGNED_FILE_EX* PCI_CHECK_SIGNED_FILE_EX;
 
+// rev
+// CiVerifyHashInCatalog (pre 6.1.7601.18519)
 typedef
 _Function_class_(CI_VERIFY_HASH_IN_CATALOG)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -1434,6 +1460,8 @@ CI_VERIFY_HASH_IN_CATALOG(
     );
 typedef CI_VERIFY_HASH_IN_CATALOG* PCI_VERIFY_HASH_IN_CATALOG;
 
+// rev
+// CiVerifyHashInCatalog
 typedef
 _Function_class_(CI_VERIFY_HASH_IN_CATALOG_EX)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -1453,6 +1481,59 @@ CI_VERIFY_HASH_IN_CATALOG_EX(
     _Inout_opt_ PMINCRYPT_POLICY_INFO TimeStampPolicyInfo
     );
 typedef CI_VERIFY_HASH_IN_CATALOG_EX* PCI_VERIFY_HASH_IN_CATALOG_EX;
+
+// rev
+#define CI_POLICY_VALID_FLAGS                        0x1BE00078ul
+#define CI_POLICY_DEFAULT                            0x00000000ul
+#define CI_POLICY_REQUIRE_MICROSOFT                  0x00000001ul
+#define CI_POLICY_REQUIRE_SIGNED                     0x00000002ul
+#define CI_POLICY_ALLOW_UNSIGNED                     0x00000004ul
+#define CI_POLICY_CHECK_PROTECTED_PROCESS_EKU        0x00000008ul
+#define CI_POLICY_FORCE_PROTECTED_PROCESS_POLICY     0x00000010ul
+#define CI_POLICY_ACCEPT_ANY_ROOT_CERTIFICATE        0x00000020ul
+#define CI_POLICY_ALLOW_REVOKED_CERTIFICATE          0x00800000ul
+#define CI_POLICY_ALLOW_EXPIRED_REVOKED_CERTIFICATE  0x08000000ul
+
+// rev
+// CiValidateFileObject
+typedef
+_Function_class_(CI_VALIDATE_FILE_OBJECT)
+NTSTATUS
+NTAPI
+CI_VALIDATE_FILE_OBJECT(
+    _In_ PFILE_OBJECT FileObject,
+    _In_ ULONG PolicyFlags,
+    _In_ SE_SIGNING_LEVEL LevelCheck,
+    _Inout_ PMINCRYPT_POLICY_INFO PolicyInfo,
+    _Inout_ PMINCRYPT_POLICY_INFO TimeStampPolicyInfo,
+    _Out_ PLARGE_INTEGER SigningTime,
+    _Out_writes_bytes_to_opt_(*ThumbprintSize, *ThumbprintSize) PUCHAR Thumbprint,
+    _Inout_opt_ PULONG ThumbprintSize,
+    _Out_opt_ PULONG ThumbprintAlgorithm
+    );
+typedef CI_VALIDATE_FILE_OBJECT* PCI_VALIDATE_FILE_OBJECT;
+
+// rev
+typedef _Function_class_(CI_ALLOCATE_ROUTINE)
+PVOID
+NTAPI
+CI_ALLOCATE_ROUTINE(
+    _In_ ULONG NumberOfBytes
+    );
+typedef CI_ALLOCATE_ROUTINE* PCI_ALLOCATE_ROUTINE;
+
+// rev
+// CiGetCertPublisherName
+typedef
+_Function_class_(CI_GET_CERT_PUBLISHER_NAME)
+NTSTATUS
+NTAPI
+CI_GET_CERT_PUBLISHER_NAME(
+    _In_ PCRYPT_DER_BLOB Certificate, // MINCRYPT_POLICY_INFO.ChainInfo.ChainElements.Certificate
+    _In_ PCI_ALLOCATE_ROUTINE AllocateRoutine,
+    _Out_ PUNICODE_STRING PublisherName
+    );
+typedef CI_GET_CERT_PUBLISHER_NAME* PCI_GET_CERT_PUBLISHER_NAME;
 
 // alpc
 
@@ -1547,7 +1628,7 @@ ZwAlpcConnectPort(
     _In_ ULONG Flags,
     _In_opt_ PSID RequiredServerSid,
     _Inout_updates_bytes_to_opt_(*BufferLength, *BufferLength) PPORT_MESSAGE ConnectionMessage,
-    _Inout_opt_ PULONG BufferLength,
+    _Inout_opt_ PSIZE_T BufferLength,
     _Inout_opt_ PALPC_MESSAGE_ATTRIBUTES OutMessageAttributes,
     _Inout_opt_ PALPC_MESSAGE_ATTRIBUTES InMessageAttributes,
     _In_opt_ PLARGE_INTEGER Timeout
@@ -1637,6 +1718,20 @@ typedef struct _CFG_CALL_TARGET_LIST_INFORMATION
 
 #define SeDebugPrivilege RtlConvertUlongToLuid(SE_DEBUG_PRIVILEGE)
 #define SeCreateTokenPrivilege RtlConvertUlongToLuid(SE_CREATE_TOKEN_PRIVILEGE)
+
+#if (NTDDI_VERSION >= NTDDI_WINBLUE)
+NTKERNELAPI
+NTSTATUS
+NTAPI
+SeGetCachedSigningLevel(
+    _In_ PFILE_OBJECT FileObject,
+    _Out_ PULONG Flags,
+    _Out_ PSE_SIGNING_LEVEL SigningLevel,
+    _Out_writes_bytes_to_opt_(*ThumbprintSize, *ThumbprintSize) PUCHAR Thumbprint,
+    _Inout_opt_ PULONG ThumbprintSize,
+    _Out_opt_ PULONG ThumbprintAlgorithm
+    );
+#endif
 
 // schannel.h
 

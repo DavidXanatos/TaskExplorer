@@ -387,6 +387,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pRefreshButton->setPopupMode(QToolButton::MenuButtonPopup);
 	QMenu* pRefreshMenu = new QMenu(m_pRefreshButton);
 	m_pRefreshGroup = new QActionGroup(pRefreshMenu);
+	//MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Extremly fast (60Hz)"), 17);
+	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Extremly fast (30Hz)"), 33);
 	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Ultra fast (0.1s)"), 100);
 	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Very fast (0.25s)"), 250);
 	MakeAction(m_pRefreshGroup, pRefreshMenu, tr("Fast (0.5s)"), 500);
@@ -742,10 +744,10 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	foreach(QAction* pAction, m_pHoldGroup->actions())
 		pAction->setChecked(pAction->data().toULongLong() == Persistence);
 	m_pHoldButton->setChecked(m_pHoldAction->data().toULongLong() == Persistence);
-
+	
 	if(!m_pMenuPauseRefresh->isChecked())
 		UpdateAll();
-
+	
 	//if(m_pMainSplitter->sizes()[0] > 0)
 		m_pGraphBar->UpdateGraphs();
 
@@ -895,7 +897,7 @@ void CTaskExplorer::UpdateStatus()
 	m_pStausNET->setToolTip(NetInfo.join("\r\n"));
 
 
-
+	
 	if (!m_pTrayIcon->isVisible())
 		return;
 
@@ -930,8 +932,9 @@ void CTaskExplorer::UpdateStatus()
 		}
 		return;
 	}
-
+	
 	QImage TrayIcon = QImage(16, 16, QImage::Format_RGB32);
+	
 	{
 		QPainter qp(&TrayIcon);
 
@@ -1007,6 +1010,7 @@ void CTaskExplorer::UpdateStatus()
 		qp.drawImage(0, 0, TrayGraph);
 	}
 
+	// todo memory leak???
 	m_pTrayIcon->setIcon(QIcon(QPixmap::fromImage(TrayIcon)));
 }
 

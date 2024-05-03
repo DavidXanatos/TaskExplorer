@@ -9,8 +9,10 @@
 
 #include <pshpack4.h>
 
-#ifndef IMAGE_FILE_MACHINE_CHPE_X86
-#define IMAGE_FILE_MACHINE_CHPE_X86 0x3A64
+#if (PHNT_MODE != PHNT_MODE_KERNEL)
+#define IMAGE_FILE_MACHINE_CHPE_X86          0x3A64
+#define IMAGE_FILE_MACHINE_ARM64EC           0xA641
+#define IMAGE_FILE_MACHINE_ARM64X            0xA64E
 #endif
 
 typedef struct _IMAGE_DEBUG_POGO_ENTRY
@@ -89,6 +91,27 @@ typedef struct _IMAGE_ARM64EC_METADATA
     ULONG AuxiliaryIATCopy;
 } IMAGE_ARM64EC_METADATA, *PIMAGE_ARM64EC_METADATA;
 
+// rev
+#define IMAGE_ARM64EC_CODE_MAP_TYPE_ARM64   0
+#define IMAGE_ARM64EC_CODE_MAP_TYPE_ARM64EC 1
+#define IMAGE_ARM64EC_CODE_MAP_TYPE_AMD64   2
+
+// rev
+typedef struct _IMAGE_ARM64EC_CODE_MAP_ENTRY
+{
+    union
+    {
+        ULONG StartOffset;
+        struct
+        {
+            ULONG Type : 2;
+            ULONG AddressBits : 30;
+        } DUMMYSTRUCTNAME;
+    } DUMMYUNIONNAME;
+
+    ULONG Length;
+} IMAGE_ARM64EC_CODE_MAP_ENTRY, *PIMAGE_ARM64EC_CODE_MAP_ENTRY;
+
 typedef struct _IMAGE_ARM64EC_REDIRECTION_ENTRY
 {
     ULONG Source;
@@ -115,7 +138,7 @@ typedef struct _IMAGE_DVRT_ARM64X_FIXUP_RECORD
     USHORT Offset : 12;
     USHORT Type   :  2;
     USHORT Size   :  2;
-    // Value of varaible Size when IMAGE_DVRT_ARM64X_FIXUP_TYPE_VALUE
+    // Value of variable Size when IMAGE_DVRT_ARM64X_FIXUP_TYPE_VALUE
 } IMAGE_DVRT_ARM64X_FIXUP_RECORD, *PIMAGE_DVRT_ARM64X_FIXUP_RECORD;
 
 typedef struct _IMAGE_DVRT_ARM64X_DELTA_FIXUP_RECORD

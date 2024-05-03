@@ -18,12 +18,12 @@
     <QtLastBackgroundBuild>2023-10-20T09:37:00.7978441Z</QtLastBackgroundBuild>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <QtLastBackgroundBuild>2023-10-20T09:37:01.1151912Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-04-21T08:08:20.1111116Z</QtLastBackgroundBuild>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <QtLastBackgroundBuild>2023-10-20T09:37:01.4751793Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-05-03T14:58:07.1750681Z</QtLastBackgroundBuild>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <QtLastBackgroundBuild>2023-10-20T09:37:01.7641211Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-04-21T08:19:25.7077794Z</QtLastBackgroundBuild>
   </PropertyGroup>
 </Project>

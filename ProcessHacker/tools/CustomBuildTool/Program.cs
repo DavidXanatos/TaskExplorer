@@ -17,10 +17,10 @@ namespace CustomBuildTool
 
         public static void Main(string[] args)
         {
-            ProgramArgs = ParseArgs(args);
-
             if (!Build.InitializeBuildEnvironment())
                 return;
+
+            ProgramArgs = Utils.ParseArgs(args);
 
             if (ProgramArgs.ContainsKey("-cleanup"))
             {
@@ -40,7 +40,7 @@ namespace CustomBuildTool
             }
             else if (ProgramArgs.ContainsKey("-dyndata"))
             {
-                if (!Build.BuildDynamicHeaderFiles())
+                if (!Build.BuildDynamicData(ProgramArgs["-dyndata"]))
                 {
                     Environment.Exit(1);
                 }
@@ -58,71 +58,87 @@ namespace CustomBuildTool
                 {
                     if (ProgramArgs.ContainsKey("-release"))
                     {
-                        Build.CopySidCapsFile(BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyEtwTraceGuidsFile(BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyIconFile(BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.BuildSdk(BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyKernelDriver(BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyWow64Files(BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
+                        BuildFlags flags = BuildFlags.Build64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose;
+
+                        Build.CopySidCapsFile(flags);
+                        Build.CopyEtwTraceGuidsFile(flags);
+                        Build.CopyIconFile(flags);
+                        Build.BuildSdk(flags);
+                        Build.CopyKernelDriver(flags);
+                        Build.CopyWow64Files(flags);
                     }
                     else
                     {
-                        Build.CopySidCapsFile(BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyEtwTraceGuidsFile(BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyIconFile(BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.BuildSdk(BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyKernelDriver(BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyWow64Files(BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
+                        BuildFlags flags = BuildFlags.Build64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose;
+
+                        Build.CopySidCapsFile(flags);
+                        Build.CopyEtwTraceGuidsFile(flags);
+                        Build.CopyIconFile(flags);
+                        Build.BuildSdk(flags);
+                        Build.CopyKernelDriver(flags);
+                        Build.CopyWow64Files(flags);
                     }
                 }
                 else if (ProgramArgs.ContainsKey("-win32"))
                 {
                     if (ProgramArgs.ContainsKey("-release"))
                     {
-                        Build.CopySidCapsFile(BuildFlags.Build32bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyEtwTraceGuidsFile(BuildFlags.Build32bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyIconFile(BuildFlags.Build32bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.BuildSdk(BuildFlags.Build32bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyKernelDriver(BuildFlags.Build32bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
+                        BuildFlags flags = BuildFlags.Build32bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose;
+
+                        Build.CopySidCapsFile(flags);
+                        Build.CopyEtwTraceGuidsFile(flags);
+                        Build.CopyIconFile(flags);
+                        Build.BuildSdk(flags);
+                        Build.CopyKernelDriver(flags);
                     }
                     else
                     {
-                        Build.CopySidCapsFile(BuildFlags.Build32bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyEtwTraceGuidsFile(BuildFlags.Build32bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyIconFile(BuildFlags.Build32bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.BuildSdk(BuildFlags.Build32bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyKernelDriver(BuildFlags.Build32bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
+                        BuildFlags flags = BuildFlags.Build32bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose;
+
+                        Build.CopySidCapsFile(flags);
+                        Build.CopyEtwTraceGuidsFile(flags);
+                        Build.CopyIconFile(flags);
+                        Build.BuildSdk(flags);
+                        Build.CopyKernelDriver(flags);
                     }
                 }
                 else if (ProgramArgs.ContainsKey("-arm64"))
                 {
                     if (ProgramArgs.ContainsKey("-release"))
                     {
-                        Build.CopySidCapsFile(BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyEtwTraceGuidsFile(BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyIconFile(BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.BuildSdk(BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyKernelDriver(BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
-                        Build.CopyWow64Files(BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose);
+                        BuildFlags flags = BuildFlags.BuildArm64bit | BuildFlags.BuildRelease | BuildFlags.BuildVerbose;
+
+                        Build.CopySidCapsFile(flags);
+                        Build.CopyEtwTraceGuidsFile(flags);
+                        Build.CopyIconFile(flags);
+                        Build.BuildSdk(flags);
+                        Build.CopyKernelDriver(flags);
+                        Build.CopyWow64Files(flags);
                     }
                     else
                     {
-                        Build.CopySidCapsFile(BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyEtwTraceGuidsFile(BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyIconFile(BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.BuildSdk(BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyKernelDriver(BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
-                        Build.CopyWow64Files(BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose);
+                        BuildFlags flags = BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildVerbose;
+
+                        Build.CopySidCapsFile(flags);
+                        Build.CopyEtwTraceGuidsFile(flags);
+                        Build.CopyIconFile(flags);
+                        Build.BuildSdk(flags);
+                        Build.CopyKernelDriver(flags);
+                        Build.CopyWow64Files(flags);
                     }
                 }
                 else
                 {
-                    Build.CopySidCapsFile(BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildRelease);
-                    Build.CopyEtwTraceGuidsFile(BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildRelease);
-                    Build.CopyIconFile(BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildRelease);
-                    Build.BuildSdk(BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildRelease);
-                    Build.CopyKernelDriver(BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildRelease);
-                    Build.CopyWow64Files(BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | BuildFlags.BuildDebug | BuildFlags.BuildRelease);
+                    BuildFlags flags = 
+                        BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit | 
+                        BuildFlags.BuildDebug | BuildFlags.BuildRelease;
+
+                    Build.CopySidCapsFile(flags);
+                    Build.CopyEtwTraceGuidsFile(flags);
+                    Build.CopyIconFile(flags);
+                    Build.BuildSdk(flags);
+                    Build.CopyKernelDriver(flags);
+                    Build.CopyWow64Files(flags);
                 }
             }
             else if (ProgramArgs.ContainsKey("-sign_plugin"))
@@ -134,85 +150,78 @@ namespace CustomBuildTool
             }
             else if (ProgramArgs.ContainsKey("-cleansdk"))
             {
-                if (!Build.BuildSolution("SystemInformer.sln",
+                BuildFlags flags =
                     BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
-                {
+                    BuildFlags.BuildVerbose | BuildFlags.BuildApi;
+
+                if (!Build.BuildSolution("SystemInformer.sln", flags))
                     return;
-                }
 
                 Build.ShowBuildStats();
             }
             else if (ProgramArgs.ContainsKey("-bin"))
             {
+                BuildFlags flags =
+                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
+                    BuildFlags.BuildVerbose | BuildFlags.BuildApi;
+
                 Build.SetupBuildEnvironment(false);
 
-                if (!Build.BuildSolution("SystemInformer.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
+                if (!Build.BuildSolution("SystemInformer.sln", flags))
                     return;
-
-                if (!Build.BuildSolution("plugins\\Plugins.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
+                if (!Build.BuildSolution("plugins\\Plugins.sln", flags))
                     return;
 
                 if (!Build.CopyTextFiles(true))
                     return;
 
-                if (!Build.BuildBinZip())
-                    return;
+                foreach (var (channel, _) in BuildConfig.Build_Channels)
+                {
+                    if (!Build.BuildBinZip(channel))
+                        return;
+                }
 
                 Build.ShowBuildStats();
                 Build.CopyTextFiles(false);
             }
             else if (ProgramArgs.ContainsKey("-debug"))
             {
+                BuildFlags flags =
+                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
+                    BuildFlags.BuildVerbose | BuildFlags.BuildApi;
+
                 Build.SetupBuildEnvironment(true);
 
-                if (!Build.BuildSolution("SystemInformer.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildDebug | BuildFlags.BuildVerbose |
-                    BuildFlags.BuildApi
-                    ))
+                if (!Build.BuildSolution("SystemInformer.sln", flags))
                     return;
-
-                if (!Build.BuildSolution("plugins\\Plugins.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildDebug | BuildFlags.BuildVerbose |
-                    BuildFlags.BuildApi
-                    ))
-                {
+                if (!Build.BuildSolution("plugins\\Plugins.sln", flags))
                     return;
-                }
 
                 Build.ShowBuildStats();
             }
-            else if (ProgramArgs.ContainsKey("-nightly-build"))
+            else if (ProgramArgs.ContainsKey("-pipeline-build"))
             {
+                BuildFlags flags =
+                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
+                    BuildFlags.BuildRelease | BuildFlags.BuildVerbose |
+                    BuildFlags.BuildApi;
+
+                if (ProgramArgs.ContainsKey("-msix-build"))
+                    flags |= BuildFlags.BuildMsix;
+
                 Build.SetupBuildEnvironment(true);
 
-                if (!Build.BuildSolution("SystemInformer.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
+                Build.CopySourceLink();
+
+                if (!Build.BuildSolution("SystemInformer.sln", flags))
                     Environment.Exit(1);
 
-                if (!Build.BuildSolution("plugins\\Plugins.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
+                if (!Build.BuildSolution("plugins\\Plugins.sln", flags))
                     Environment.Exit(1);
 
-                Build.CopyWow64Files( // required after plugin build (dmex)
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildDebug | BuildFlags.BuildRelease
-                    );
+                Build.CopyWow64Files(flags); // required after plugin build (dmex)
             }
-            else if (ProgramArgs.ContainsKey("-nightly-package"))
+            else if (ProgramArgs.ContainsKey("-pipeline-package"))
             {
                 Build.SetupBuildEnvironment(true);
 
@@ -220,12 +229,16 @@ namespace CustomBuildTool
                     Environment.Exit(1);
                 if (!Build.CopyTextFiles(true))
                     Environment.Exit(1);
-                if (!Build.BuildBinZip())
-                    Environment.Exit(1);
-                if (!Build.BuildSetupExe())
-                    Environment.Exit(1);
+
+                foreach (var (channel, _) in BuildConfig.Build_Channels)
+                {
+                    if (!Build.BuildBinZip(channel))
+                        Environment.Exit(1);
+                    if (!Build.BuildSetupExe(channel))
+                        Environment.Exit(1);
+                }
             }
-            else if (ProgramArgs.ContainsKey("-nightly-deploy"))
+            else if (ProgramArgs.ContainsKey("-pipeline-deploy"))
             {
                 Build.SetupBuildEnvironment(true);
 
@@ -242,34 +255,58 @@ namespace CustomBuildTool
                 if (!Build.BuildDeployUpdateConfig())
                     Environment.Exit(1);
             }
-            else
+            else if (ProgramArgs.ContainsKey("-msix-build"))
             {
+                BuildFlags flags =
+                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
+                    BuildFlags.BuildRelease | BuildFlags.BuildVerbose | BuildFlags.BuildApi | 
+                    BuildFlags.BuildMsix;
+
                 Build.SetupBuildEnvironment(true);
 
-                if (!Build.BuildSolution("SystemInformer.sln",
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
+                if (!Build.BuildSolution("SystemInformer.sln", flags))
+                    Environment.Exit(1);
+
+                if (!Build.BuildSolution("plugins\\Plugins.sln", flags))
+                    Environment.Exit(1);
+
+                if (!Build.CopyWow64Files(flags)) // required after plugin build (dmex)
+                    return;
+                if (!Build.CopyTextFiles(true))
                     return;
 
-                if (!Build.BuildSolution("plugins\\Plugins.sln",
+                Build.BuildStorePackage(flags);
+
+                Build.BuildPdbZip(true);
+
+                Build.CopyTextFiles(false);
+            }
+            else
+            {
+                BuildFlags flags =
                     BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildVerbose | BuildFlags.BuildApi
-                    ))
+                    BuildFlags.BuildVerbose | BuildFlags.BuildApi;
+
+                Build.SetupBuildEnvironment(true);
+
+                if (!Build.BuildSolution("SystemInformer.sln", flags))
+                    return;
+                if (!Build.BuildSolution("plugins\\Plugins.sln", flags))
                     return;
 
-                Build.CopyWow64Files( // required after plugin build (dmex)
-                    BuildFlags.Build32bit | BuildFlags.Build64bit | BuildFlags.BuildArm64bit |
-                    BuildFlags.BuildDebug | BuildFlags.BuildRelease
-                    );
+                Build.CopyWow64Files(flags);
 
                 if (!Build.CopyTextFiles(true))
                     return;
 
-                if (!Build.BuildBinZip())
-                    return;
-                if (!Build.BuildSetupExe())
-                    return;
+                foreach (var (channel, _) in BuildConfig.Build_Channels)
+                {
+                    if (!Build.BuildBinZip(channel))
+                        Environment.Exit(1);
+                    if (!Build.BuildSetupExe(channel))
+                        Environment.Exit(1);
+                }
+
                 Build.BuildPdbZip(false);
                 //Build.BuildSdkZip();
                 //Build.BuildSrcZip();
@@ -277,38 +314,6 @@ namespace CustomBuildTool
                 Build.ShowBuildStats();
                 Build.CopyTextFiles(false);
             }
-        }
-
-        private static Dictionary<string, string> ParseArgs(string[] args)
-        {
-            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            string argPending = null;
-
-            foreach (string s in args)
-            {
-                if (s.StartsWith("-", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!dict.ContainsKey(s))
-                        dict.Add(s, string.Empty);
-
-                    argPending = s;
-                }
-                else
-                {
-                    if (argPending != null)
-                    {
-                        dict[argPending] = s;
-                        argPending = null;
-                    }
-                    else
-                    {
-                        if (!dict.ContainsKey(string.Empty))
-                            dict.Add(string.Empty, s);
-                    }
-                }
-            }
-
-            return dict;
         }
 
         public static void PrintColorMessage(string Message, ConsoleColor Color, bool Newline = true, BuildFlags Flags = BuildFlags.BuildVerbose)
@@ -323,19 +328,5 @@ namespace CustomBuildTool
                 Console.Write(Message);
             Console.ResetColor();
         }
-    }
-
-    [Flags]
-    public enum BuildFlags
-    {
-        None,
-        Build32bit = 1,
-        Build64bit = 2,
-        BuildArm64bit = 4,
-        BuildDebug = 8,
-        BuildRelease = 16,
-        BuildVerbose = 32,
-        BuildApi = 64,
-        BuildMsix = 128,
     }
 }

@@ -362,7 +362,7 @@ bool CDnsResolver::UpdateDnsCache()
 		DnsRecordListFree(dnsRecordRootPtr, DnsFreeRecordList);
 #else
     if (dnsCacheDataTable)
-        DnsRecordListFree(dnsCacheDataTable, DnsFreeRecordList);
+        DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat);
 #endif
 
 	emit DnsCacheUpdated();

@@ -6,20 +6,21 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2021-2022
+ *     jxy-s   2021-2023
  *
  */
 
 #include <kph.h>
-#include <dyndata.h>
 #include <informer.h>
 
 #include <trace.h>
 
-PDRIVER_OBJECT KphDriverObject = NULL;
-KPH_INFORMER_SETTINGS KphInformerSettings = { 0 };
+KPH_PROTECTED_DATA_SECTION_RO_PUSH();
+static const BYTE KphpProtectedSectionReadOnly = 0;
+KPH_PROTECTED_DATA_SECTION_RO_POP();
 KPH_PROTECTED_DATA_SECTION_PUSH();
 static BYTE KphpProtectedSection = 0;
+PDRIVER_OBJECT KphDriverObject = NULL;
 RTL_OSVERSIONINFOEXW KphOsVersionInfo = { 0 };
 KPH_FILE_VERSION KphKernelVersion = { 0 };
 BOOLEAN KphIgnoreProtectionsSuppressed = FALSE;
@@ -27,9 +28,6 @@ BOOLEAN KphIgnoreTestSigningEnabled = FALSE;
 SYSTEM_SECUREBOOT_INFORMATION KphSecureBootInfo = { 0 };
 SYSTEM_CODEINTEGRITY_INFORMATION KphCodeIntegrityInfo = { 0 };
 KPH_PROTECTED_DATA_SECTION_POP();
-KPH_PROTECTED_DATA_SECTION_RO_PUSH();
-static const BYTE KphpProtectedSectionReadOnly = 0;
-KPH_PROTECTED_DATA_SECTION_RO_POP();
 
 PAGED_FILE();
 
@@ -75,31 +73,36 @@ VOID KphpProtectSections(
 
 /**
  * \brief Cleans up the driver state.
+ *
+ * \param[in] DriverObject Driver object of this driver.
  */
 _IRQL_requires_max_(PASSIVE_LEVEL)
 VOID KphpDriverCleanup(
-    VOID
+    _In_ PDRIVER_OBJECT DriverObject
     )
 {
     PAGED_CODE_PASSIVE();
 
-    KphObjectInformerStop();
     KphDebugInformerStop();
+    KphRegistryInformerStop();
+    KphObjectInformerStop();
     KphImageInformerStop();
     KphCidMarkPopulated();
     KphThreadInformerStop();
     KphProcessInformerStop();
     KphFltUnregister();
     KphCidCleanup();
+    KphCleanupDynData();
 #ifndef KPP_NO_SECURITY
     KphCleanupSigning();
 #endif
-    KphDynamicDataCleanup();
-    KphCleanupHashing();
 #if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
     KphCleanupVerify();
 #endif
-    KphCleanupSocket();
+    KphCleanupHashing();
+    KphCleanupParameters();
+
+    KsiUninitialize(DriverObject, 0);
 }
 
 /**
@@ -118,7 +121,7 @@ VOID DriverUnload(
 
     KphTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Driver Unloading...");
 
-    KphpDriverCleanup();
+    KphpDriverCleanup(DriverObject);
 
     KphTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Driver Unloaded");
 
@@ -154,6 +157,17 @@ NTSTATUS DriverEntry(
 
     ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
 
+    status = KsiInitialize(KSIDLL_CURRENT_VERSION, DriverObject, NULL);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "KsiInitialize failed: %!STATUS!",
+                      status);
+
+        goto Exit;
+    }
+
     KphOsVersionInfo.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOEXW);
     status = RtlGetVersion((PRTL_OSVERSIONINFOW)&KphOsVersionInfo);
     if (!NT_SUCCESS(status))
@@ -188,7 +202,11 @@ NTSTATUS DriverEntry(
         KphTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Developer Mode");
     }
 
-    status = KphInitializeAlloc(RegistryPath);
+    KphDynamicImport();
+
+    KphInitializeParameters(RegistryPath);
+
+    status = KphInitializeAlloc();
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_ERROR,
@@ -198,8 +216,6 @@ NTSTATUS DriverEntry(
 
         goto Exit;
     }
-
-    KphDynamicImport();
 
     status = KphInitializeKnownDll();
     if (!NT_SUCCESS(status))
@@ -234,30 +250,6 @@ NTSTATUS DriverEntry(
                   KphKernelVersion.BuildNumber,
                   KphKernelVersion.Revision);
 
-    status = KphInitializeSocket();
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      GENERAL,
-                      "KphInitializeSocket failed: %!STATUS!",
-                      status);
-
-        goto Exit;
-    }
-
-#if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
-    status = KphInitializeVerify();
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      GENERAL,
-                      "Failed to initialize signing: %!STATUS!",
-                      status);
-
-        goto Exit;
-    }
-#endif
-
     status = KphInitializeHashing();
     if (!NT_SUCCESS(status))
     {
@@ -269,33 +261,17 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
-    status = KphDynamicDataInitialization(RegistryPath);
+#if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
+    status = KphInitializeVerify();
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_ERROR,
                       GENERAL,
-                      "Dynamic data initialization failed: %!STATUS!",
-                      status);
-        goto Exit;
-    }
-
-    status = KphInitializeStackBackTrace();
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      GENERAL,
-                      "Failed to initialize stack back trace: %!STATUS!",
+                      "Failed to initialize verify: %!STATUS!",
                       status);
 
         goto Exit;
     }
-
-#ifndef KPP_NO_SECURITY
-    KphpProtectSections();
-#endif
-
-#ifndef KPP_NO_SECURITY
-    KphInitializeProtection();
 #endif
 
 #ifndef KPP_NO_SECURITY
@@ -310,6 +286,25 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 #endif
+
+    KphInitializeDynData();
+
+#ifndef KPP_NO_SECURITY
+    KphInitializeProtection();
+#endif
+
+    KphInitializeSessionToken();
+
+    status = KphInitializeStackBackTrace();
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "Failed to initialize stack back trace: %!STATUS!",
+                      status);
+
+        goto Exit;
+    }
 
     status = KphFltRegister(DriverObject, RegistryPath);
     if (!NT_SUCCESS(status))
@@ -383,16 +378,6 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
-    status = KphDebugInformerStart();
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      GENERAL,
-                      "Failed to start debug informer: %!STATUS!",
-                      status);
-        goto Exit;
-    }
-
     status = KphObjectInformerStart();
     if (!NT_SUCCESS(status))
     {
@@ -403,6 +388,30 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
+    status = KphRegistryInformerStart();
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "Failed to start registry informer: %!STATUS!",
+                      status);
+        goto Exit;
+    }
+
+    status = KphDebugInformerStart();
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "Failed to start debug informer: %!STATUS!",
+                      status);
+        goto Exit;
+    }
+
+#ifndef KPP_NO_SECURITY
+    KphpProtectSections();
+#endif
+
 Exit:
 
     if (NT_SUCCESS(status))
@@ -411,12 +420,12 @@ Exit:
     }
     else
     {
-        KphpDriverCleanup();
-
         KphTracePrint(TRACE_LEVEL_ERROR,
                       GENERAL,
                       "Driver Load Failed: %!STATUS!",
                       status);
+
+        KphpDriverCleanup(DriverObject);
 
         WPP_CLEANUP(DriverObject);
     }
@@ -427,9 +436,11 @@ Exit:
 
 void KphTracePrint(ULONG level, ULONG event, const char* message, ...)
 {
-    //UNREFERENCED_PARAMETER(level);
-    //UNREFERENCED_PARAMETER(event);
-
+#if 1
+    UNREFERENCED_PARAMETER(level);
+    UNREFERENCED_PARAMETER(event);
+    UNREFERENCED_PARAMETER(message);
+#else
     if (level == TRACE_LEVEL_VERBOSE) {
         if (event == TRACKING)
             return;
@@ -439,10 +450,10 @@ void KphTracePrint(ULONG level, ULONG event, const char* message, ...)
     sprintf_s(format, ARRAYSIZE(format) - 1, "KphTracePrint [Level %lu][Event %lu] %s", level, event, message);
     for (char* ptr = format; (ptr = strstr(ptr, "%!")) != NULL;) 
     {
-        if (memcmp(&ptr[2], "STATUS!", 7) == 0)
-            memcpy(ptr, "0x%08X   ", 9);
-        else if (memcmp(&ptr[2], "TIME!", 5) == 0)
-            memcpy(ptr, "%I64d  ", 7);
+        if (KphCompareMemory(&ptr[2], "STATUS!", 7) == 0)
+            RtlCopyMemory(ptr, "0x%08X   ", 9);
+        else if (KphCompareMemory(&ptr[2], "TIME!", 5) == 0)
+            RtlCopyMemory(ptr, "%I64d  ", 7);
     }
 
     // Initialize a variable argument list
@@ -454,4 +465,5 @@ void KphTracePrint(ULONG level, ULONG event, const char* message, ...)
 
     // Cleanup the variable argument list
     va_end(args);
+#endif
 }

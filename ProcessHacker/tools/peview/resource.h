@@ -49,6 +49,14 @@
 #define IDD_PECLRTABLES                 172
 #define IDD_PEVERSIONINFO               173
 #define IDD_CONTAINER                   205
+#define IDB_SEARCH_REGEX_MODERN_DARK    206
+#define IDB_SEARCH_REGEX_MODERN_LIGHT   207
+#define IDB_SEARCH_CASE_MODERN_DARK     208
+#define IDB_SEARCH_CASE_MODERN_LIGHT    209
+#define IDB_SEARCH_ACTIVE_MODERN_DARK   210
+#define IDB_SEARCH_ACTIVE_MODERN_LIGHT  211
+#define IDB_SEARCH_INACTIVE_MODERN_DARK 212
+#define IDB_SEARCH_INACTIVE_MODERN_LIGHT 213
 #define IDC_TARGETMACHINE               1003
 #define IDC_LIST                        1008
 #define IDC_FILEICON                    1009
@@ -85,17 +93,23 @@
 #define IDC_MESSAGE                     1142
 #define IDC_MAXSIZEUNIT                 1144
 #define IDC_MOVEDOWN                    1176
+#define IDC_UNDO                        1201
+#define IDC_PASTE                       1204
+#define IDC_CUT                         1205
+#define IDC_COPY                        1206
 #define IDC_INACTIVE                    1207
 #define IDC_ACTIVE                      1208
 #define IDC_SHOW                        1209
 #define IDC_HIDE                        1210
 #define IDC_DBGHELPSEARCHPATH           1218
+#define IDC_SELECTALL                   1365
+#define IDC_DELETE                      1382
 #define IDC_SEARCH                      1387
 #define IDC_SECTIONTREE                 1393
 #define IDC_SETTINGS                    1399
 
 // Next default values for new objects
-// 
+//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        169

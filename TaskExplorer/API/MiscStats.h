@@ -429,7 +429,6 @@ struct SProcStats
 		LastStatUpdate = curTick;
 
 		Net.UpdateStats(time_ms);
-		Lan.UpdateStats(time_ms);
 		Disk.UpdateStats(time_ms);
 		Io.UpdateStats(time_ms);
 
@@ -439,7 +438,6 @@ struct SProcStats
 	quint64		LastStatUpdate;
 
 	SNetStats	Net;
-	SNetStats	Lan;
 	SIOStats	Disk;
 	SIOStatsEx	Io;
 };
@@ -449,6 +447,8 @@ struct SSysStats: SProcStats
 	quint64 UpdateStats()
 	{
 		quint64 time_ms = SProcStats::UpdateStats();
+
+		Lan.UpdateStats(time_ms);
 
 		MMapIo.UpdateStats(time_ms);
 
@@ -461,6 +461,8 @@ struct SSysStats: SProcStats
 
 		return time_ms;
 	}
+
+	SNetStats	Lan;
 
 	SIOStatsEx	MMapIo;
 

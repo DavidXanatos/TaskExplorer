@@ -6,12 +6,11 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2020
+ *     jxy-s   2020-2023
  *
  */
 
 #include <kph.h>
-#include <dyndata.h>
 
 #include <trace.h>
 
@@ -76,7 +75,7 @@ NTSTATUS KphOpenProcess(
         status = PsLookupProcessThreadByCid(&clientId, &process, &thread);
         if (!NT_SUCCESS(status))
         {
-            KphTracePrint(TRACE_LEVEL_ERROR,
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
                           GENERAL,
                           "PsLookupProcessThreadByCid failed: %!STATUS!",
                           status);
@@ -93,7 +92,7 @@ NTSTATUS KphOpenProcess(
         status = PsLookupProcessByProcessId(clientId.UniqueProcess, &process);
         if (!NT_SUCCESS(status))
         {
-            KphTracePrint(TRACE_LEVEL_ERROR,
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
                           GENERAL,
                           "PsLookupProcessByProcessId failed: %!STATUS!",
                           status);
@@ -111,7 +110,7 @@ NTSTATUS KphOpenProcess(
                                     AccessMode);
         if (!NT_SUCCESS(status))
         {
-            KphTracePrint(TRACE_LEVEL_ERROR,
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
                           GENERAL,
                           "KphDominationCheck failed: %!STATUS!",
                           status);
@@ -133,7 +132,7 @@ NTSTATUS KphOpenProcess(
                                    &processHandle);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObOpenObjectByPointer failed: %!STATUS!",
                       status);
@@ -218,7 +217,7 @@ NTSTATUS KphOpenProcessToken(
                                        NULL);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
@@ -230,7 +229,7 @@ NTSTATUS KphOpenProcessToken(
     primaryToken = PsReferencePrimaryToken(process);
     if (!primaryToken)
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "PsReferencePrimaryToken returned null");
 
@@ -246,7 +245,7 @@ NTSTATUS KphOpenProcessToken(
                                     AccessMode);
         if (!NT_SUCCESS(status))
         {
-            KphTracePrint(TRACE_LEVEL_ERROR,
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
                           GENERAL,
                           "KphDominationCheck failed: %!STATUS!",
                           status);
@@ -268,7 +267,7 @@ NTSTATUS KphOpenProcessToken(
                                    &tokenHandle);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObOpenObjectByPointer failed: %!STATUS!",
                       status);
@@ -357,7 +356,7 @@ NTSTATUS KphOpenProcessJob(
                                        NULL);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
@@ -381,7 +380,7 @@ NTSTATUS KphOpenProcessJob(
                                     AccessMode);
         if (!NT_SUCCESS(status))
         {
-            KphTracePrint(TRACE_LEVEL_ERROR,
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
                           GENERAL,
                           "KphDominationCheck failed: %!STATUS!",
                           status);
@@ -403,7 +402,7 @@ NTSTATUS KphOpenProcessJob(
                                    &jobHandle);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObOpenObjectByPointer failed: %!STATUS!",
                       status);
@@ -474,7 +473,7 @@ NTSTATUS KphTerminateProcess(
                                        NULL);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
@@ -484,14 +483,15 @@ NTSTATUS KphTerminateProcess(
     }
 
 #ifndef PPL_NO_SECURITY
-    status = KphDominationCheck(PsGetCurrentProcess(),
-                                process,
-                                AccessMode);
+    status = KphDominationAndPrivilegeCheck(KPH_TOKEN_PRIVILEGE_TERMINATE,
+                                            PsGetCurrentThread(),
+                                            process,
+                                            AccessMode);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
-                      "KphDominationCheck failed: %!STATUS!",
+                      "KphDominationAndPrivilegeCheck failed: %!STATUS!",
                       status);
 
         goto Exit;
@@ -500,7 +500,7 @@ NTSTATUS KphTerminateProcess(
 
     if (process == PsGetCurrentProcess())
     {
-        KphTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Can not terminate self.");
+        KphTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Can not terminate self.");
 
         status = STATUS_ACCESS_DENIED;
         goto Exit;
@@ -518,7 +518,7 @@ NTSTATUS KphTerminateProcess(
                                    &processHandle);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObOpenObjectByPointer failed: %!STATUS!",
                       status);
@@ -530,7 +530,7 @@ NTSTATUS KphTerminateProcess(
     status = ZwTerminateProcess(processHandle, ExitStatus);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ZwTerminateProcess failed: %!STATUS!",
                       status);
@@ -576,12 +576,14 @@ NTSTATUS KphQueryInformationProcess(
     )
 {
     NTSTATUS status;
+    PKPH_DYN dyn;
     PEPROCESS processObject;
     PKPH_PROCESS_CONTEXT process;
     ULONG returnLength;
 
     PAGED_CODE_PASSIVE();
 
+    dyn = NULL;
     processObject = NULL;
     process = NULL;
     returnLength = 0;
@@ -615,7 +617,7 @@ NTSTATUS KphQueryInformationProcess(
                                        NULL);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
@@ -624,12 +626,12 @@ NTSTATUS KphQueryInformationProcess(
         goto Exit;
     }
 
-    process = KphGetProcessContext(PsGetProcessId(processObject));
+    process = KphGetEProcessContext(processObject);
     if (!process)
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
-                      "KphGetProcessContext return null.");
+                      "KphGetEProcessContext return null.");
 
         status = STATUS_OBJECTID_NOT_FOUND;
         goto Exit;
@@ -655,12 +657,8 @@ NTSTATUS KphQueryInformationProcess(
             {
                 KphAcquireRWLockShared(&process->ThreadListLock);
                 KphAcquireRWLockShared(&process->ProtectionLock);
-                
-#ifndef KPP_NO_SECURITY
+
                 info->ProcessState = KphGetProcessState(process);
-#else
-                info->ProcessState = 0;
-#endif
 
                 info->CreatorClientId.UniqueProcess = process->CreatorClientId.UniqueProcess;
                 info->CreatorClientId.UniqueThread = process->CreatorClientId.UniqueThread;
@@ -736,25 +734,15 @@ NTSTATUS KphQueryInformationProcess(
         }
         case KphProcessWSLProcessId:
         {
-            PULONG processId;
+            ULONG processId;
 
             if (process->SubsystemType != SubsystemInformationTypeWSL)
             {
-                KphTracePrint(TRACE_LEVEL_WARNING,
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
                               GENERAL,
                               "Invalid subsystem for WSL process ID query.");
 
                 status = STATUS_INVALID_HANDLE;
-                goto Exit;
-            }
-
-            if (!process->WSL.ValidProcessId)
-            {
-                KphTracePrint(TRACE_LEVEL_WARNING,
-                              GENERAL,
-                              "WSL process ID is not valid.");
-
-                status = STATUS_OBJECTID_NOT_FOUND;
                 goto Exit;
             }
 
@@ -766,11 +754,19 @@ NTSTATUS KphQueryInformationProcess(
                 goto Exit;
             }
 
-            processId = ProcessInformation;
+            status = KphQueryInformationProcessContext(process,
+                                                       KphProcessContextWSLProcessId,
+                                                       &processId,
+                                                       sizeof(processId),
+                                                       NULL);
+            if (!NT_SUCCESS(status))
+            {
+                goto Exit;
+            }
 
             __try
             {
-                *processId = process->WSL.ProcessId;
+                *(PULONG)ProcessInformation = processId;
                 returnLength = sizeof(ULONG);
                 status = STATUS_SUCCESS;
             }
@@ -778,6 +774,157 @@ NTSTATUS KphQueryInformationProcess(
             {
                 status = GetExceptionCode();
                 goto Exit;
+            }
+
+            break;
+        }
+        case KphProcessSequenceNumber:
+        {
+            ULONG64 sequenceNumber;
+
+            if (!ProcessInformation ||
+                (ProcessInformationLength < sizeof(ULONG64)))
+            {
+                status = STATUS_INFO_LENGTH_MISMATCH;
+                returnLength = sizeof(ULONG64);
+                goto Exit;
+            }
+
+            sequenceNumber = KphGetProcessSequenceNumber(processObject);
+
+            __try
+            {
+                *(PULONG64)ProcessInformation = sequenceNumber;
+                returnLength = sizeof(ULONG64);
+                status = STATUS_SUCCESS;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                status = GetExceptionCode();
+                goto Exit;
+            }
+
+            break;
+        }
+        case KphProcessStartKey:
+        {
+            ULONG64 startKey;
+
+            if (!ProcessInformation ||
+                (ProcessInformationLength < sizeof(ULONG64)))
+            {
+                status = STATUS_INFO_LENGTH_MISMATCH;
+                returnLength = sizeof(ULONG64);
+                goto Exit;
+            }
+
+            startKey = KphGetProcessStartKey(processObject);
+
+            __try
+            {
+                *(PULONG64)ProcessInformation = startKey;
+                returnLength = sizeof(ULONG64);
+                status = STATUS_SUCCESS;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                status = GetExceptionCode();
+                goto Exit;
+            }
+
+            break;
+        }
+        case KphProcessImageSection:
+        {
+            PVOID processSectionObject;
+            HANDLE processSectionHandle;
+
+            dyn = KphReferenceDynData();
+            if (!dyn || (dyn->EpSectionObject == ULONG_MAX))
+            {
+                status = STATUS_NOINTERFACE;
+                goto Exit;
+            }
+
+            if (!ProcessInformation ||
+                (ProcessInformationLength < sizeof(HANDLE)))
+            {
+                status = STATUS_INFO_LENGTH_MISMATCH;
+                returnLength = sizeof(HANDLE);
+                goto Exit;
+            }
+
+            status = PsAcquireProcessExitSynchronization(processObject);
+            if (!NT_SUCCESS(status))
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              GENERAL,
+                              "PsAcquireProcessExitSynchronization failed: %!STATUS!",
+                              status);
+
+                goto Exit;
+            }
+
+            processSectionObject = *(PVOID*)Add2Ptr(processObject,
+                                                    dyn->EpSectionObject);
+
+            if (processSectionObject)
+            {
+                ObReferenceObject(processSectionObject);
+            }
+
+            PsReleaseProcessExitSynchronization(processObject);
+
+            if (!processSectionObject)
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              GENERAL,
+                              "Process section object pointer is null.");
+
+                status = STATUS_INVALID_PARAMETER;
+                goto Exit;
+            }
+
+            status = ObOpenObjectByPointer(processSectionObject,
+                                           (AccessMode ? 0 : OBJ_KERNEL_HANDLE),
+                                           NULL,
+                                           SECTION_QUERY | SECTION_MAP_READ,
+                                           *MmSectionObjectType,
+                                           KernelMode,
+                                           &processSectionHandle);
+
+            ObDereferenceObject(processSectionObject);
+
+            if (!NT_SUCCESS(status))
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              GENERAL,
+                              "ObOpenObjectByPointer failed: %!STATUS!",
+                              status);
+
+                goto Exit;
+            }
+
+            if (AccessMode != KernelMode)
+            {
+                __try
+                {
+                    *(PHANDLE)ProcessInformation = processSectionHandle;
+                    returnLength = sizeof(HANDLE);
+                    status = STATUS_SUCCESS;
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    status = GetExceptionCode();
+                    ObCloseHandle(processSectionHandle, UserMode);
+                    goto Exit;
+                }
+            }
+            else
+            {
+                *(PHANDLE)ProcessInformation = processSectionHandle;
+                returnLength = sizeof(HANDLE);
+                status = STATUS_SUCCESS;
             }
 
             break;
@@ -818,6 +965,11 @@ Exit:
     if (processObject)
     {
         ObDereferenceObject(processObject);
+    }
+
+    if (dyn)
+    {
+        KphDereferenceObject(dyn);
     }
 
     return status;
@@ -876,7 +1028,7 @@ NTSTATUS KphSetInformationProcess(
                                                   KPH_TAG_PROCESS_INFO);
             if (!processInformation)
             {
-                KphTracePrint(TRACE_LEVEL_ERROR,
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
                               GENERAL,
                               "Failed to allocate process info buffer.");
 
@@ -911,7 +1063,7 @@ NTSTATUS KphSetInformationProcess(
                                        NULL);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
@@ -947,7 +1099,7 @@ NTSTATUS KphSetInformationProcess(
                                         AccessMode);
             if (!NT_SUCCESS(status))
             {
-                KphTracePrint(TRACE_LEVEL_ERROR,
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
                               GENERAL,
                               "KphDominationCheck failed: %!STATUS!",
                               status);
@@ -968,7 +1120,7 @@ NTSTATUS KphSetInformationProcess(
                                    &processHandle);
     if (!NT_SUCCESS(status))
     {
-        KphTracePrint(TRACE_LEVEL_ERROR,
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "ObOpenObjectByPointer failed: %!STATUS!",
                       status);

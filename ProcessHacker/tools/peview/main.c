@@ -42,7 +42,7 @@ NTSTATUS PvpConnectKph(
         return status;
 
     // TODO: get the current configured port name from the main binary, settings aren't shared.
-    //if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
+    //if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KsiPortName")))
         PhMoveReference(&portName, PhCreateString(KPH_PORT_NAME));
 
     status = KphCommsStart(&portName->sr, NULL);
@@ -179,7 +179,7 @@ INT WINAPI wWinMain(
 
                     AllowSetForegroundWindow(ASFW_ANY);
 
-                    if (PhShellExecuteEx(
+                    if (NT_SUCCESS(PhShellExecuteEx(
                         NULL,
                         PhGetString(applicationFileName),
                         PvFileName->Buffer,
@@ -188,7 +188,7 @@ INT WINAPI wWinMain(
                         PH_SHELL_EXECUTE_DEFAULT,
                         0,
                         NULL
-                        ))
+                        )))
                     {
                         PhExitApplication(STATUS_SUCCESS);
                     }

@@ -2685,7 +2685,6 @@ RtlGetCurrentPeb(
     VOID
     );
 
-#ifndef PHNT_INLINE_PEB_LOCK
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -2699,27 +2698,6 @@ NTAPI
 RtlReleasePebLock(
     VOID
     );
-#else
-FORCEINLINE
-NTSTATUS
-NTAPI
-RtlAcquirePebLock(
-    VOID
-    )
-{
-    return RtlEnterCriticalSection(NtCurrentPeb()->FastPebLock)
-}
-
-FORCEINLINE
-NTSTATUS
-NTAPI
-RtlReleasePebLock(
-    VOID
-    )
-{
-    return RtlLeaveCriticalSection(NtCurrentPeb()->FastPebLock)
-}
-#endif
 
 #if (PHNT_VERSION >= PHNT_VISTA)
 // private
@@ -3910,7 +3888,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlCreateEnvironmentEx(
-    _In_ PVOID SourceEnv,
+    _In_opt_ PVOID SourceEnvironment,
     _Out_ PVOID *Environment,
     _In_ ULONG Flags
     );
@@ -3941,7 +3919,7 @@ RtlSetEnvironmentVar(
     _In_reads_(NameLength) PCWSTR Name,
     _In_ SIZE_T NameLength,
     _In_reads_(ValueLength) PCWSTR Value,
-    _In_ SIZE_T ValueLength
+    _In_opt_ SIZE_T ValueLength
     );
 #endif
 
@@ -5160,12 +5138,10 @@ typedef struct _HEAP_INFORMATION_ITEM
     };
 } HEAP_INFORMATION_ITEM, *PHEAP_INFORMATION_ITEM;
 
-_Function_class_(RTL_HEAP_EXTENDED_ENUMERATION_ROUTINE)
-typedef NTSTATUS (NTAPI RTL_HEAP_EXTENDED_ENUMERATION_ROUTINE)(
+typedef NTSTATUS (NTAPI *PRTL_HEAP_EXTENDED_ENUMERATION_ROUTINE)(
     _In_ PHEAP_INFORMATION_ITEM Information,
     _In_opt_ PVOID Context
     );
-typedef RTL_HEAP_EXTENDED_ENUMERATION_ROUTINE *PRTL_HEAP_EXTENDED_ENUMERATION_ROUTINE;
 
 // HEAP_EXTENDED_INFORMATION Level
 #define HeapExtendedProcessHeapInformationLevel 0x1
@@ -9218,7 +9194,7 @@ RtlFlsFree(
 #if (PHNT_VERSION >= PHNT_20H1)
 NTSYSAPI
 NTSTATUS
-WINAPI
+NTAPI
 RtlFlsGetValue(
     _In_ ULONG FlsIndex,
     _Out_ PVOID* FlsData
@@ -9226,7 +9202,7 @@ RtlFlsGetValue(
 
 NTSYSAPI
 NTSTATUS
-WINAPI
+NTAPI
 RtlFlsSetValue(
     _In_ ULONG FlsIndex,
     _In_ PVOID FlsData
@@ -10043,7 +10019,7 @@ RtlUnsubscribeWnfStateChangeNotification(
 
 #if (PHNT_VERSION >= PHNT_WIN11)
 
-NTSYSAPI
+NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtCopyFileChunk(
@@ -10054,8 +10030,8 @@ NtCopyFileChunk(
     _In_ ULONG Length,
     _In_ PLARGE_INTEGER SourceOffset,
     _In_ PLARGE_INTEGER DestOffset,
-    _In_opt_ PGUID SourceKey,
-    _In_opt_ PGUID DestKey,
+    _In_opt_ PULONG SourceKey,
+    _In_opt_ PULONG DestKey,
     _In_ ULONG Flags
     );
 
@@ -10130,6 +10106,38 @@ RtlWow64ChangeThreadState(
 #define RtlQueryImageFileKeyOption LdrQueryImageFileKeyOption
 #define RtlSetTimer RtlCreateTimer
 #define RtlRestoreLastWin32Error RtlSetLastWin32Error
+#endif
+
+#ifndef PHNT_INLINE_PEB_FORWARDERS
+FORCEINLINE
+PPEB
+NTAPI
+RtlGetCurrentPeb(
+    VOID
+    )
+{
+    return NtCurrentPeb();
+}
+
+FORCEINLINE
+NTSTATUS
+NTAPI
+RtlAcquirePebLock(
+    VOID
+    )
+{
+    return RtlEnterCriticalSection(NtCurrentPeb()->FastPebLock);
+}
+
+FORCEINLINE
+NTSTATUS
+NTAPI
+RtlReleasePebLock(
+    VOID
+    )
+{
+    return RtlLeaveCriticalSection(NtCurrentPeb()->FastPebLock);
+}
 #endif
 
 #ifndef PHNT_INLINE_FREE_FORWARDERS

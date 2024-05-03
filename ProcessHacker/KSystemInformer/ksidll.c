@@ -10,12 +10,31 @@
  */
 
 #include <kph.h>
+#include <sistatus.h>
 
 //
 // This library is intended to be an extension of core OS functionality which
 // enables drivers to preform operations within the system that would otherwise
 // be dangerous or impossible.
 //
+
+KPH_PROTECTED_DATA_SECTION_PUSH();
+static BYTE KsipProtectedSection = 0;
+static PMM_PROTECT_DRIVER_SECTION KsipMmProtectDriverSection = NULL;
+static PKE_REMOVE_QUEUE_APC KsipKeRemoveQueueApc = NULL;
+KPH_PROTECTED_DATA_SECTION_POP();
+
+_IRQL_requires_max_(PASSIVE_LEVEL)
+PVOID KsipGetSystemRoutineAddress(
+    _In_z_ PCWSTR SystemRoutineName
+    )
+{
+    UNICODE_STRING systemRoutineName;
+
+    RtlInitUnicodeString(&systemRoutineName, SystemRoutineName);
+
+    return MmGetSystemRoutineAddress(&systemRoutineName);
+}
 
 //
 // This is an extension of the APC functionality in Windows to enable a driver
@@ -29,11 +48,11 @@
 // accordingly in their routines.
 //
 // This extension guarantees that the cleanup routine will always be invoked.
-// Either due to normal APC rundown, immediately after the kernel routine is
-// executed, or (in the case of normal kernel APC execution) after the normal
-// kernel routine executes. KSI_KAPC_CLEANUP_REASON indicates the context
-// in which this is called. Users may choose to implement their own mechanism
-// in the cleanup routine to synchronize with DriverUnload.
+// Either due to normal APC rundown, removal, immediately after the kernel
+// routine is executed, or (in the case of normal kernel APC execution) after
+// the normal kernel routine executes. KSI_KAPC_CLEANUP_REASON indicates the
+// context in which this is called. Users may choose to implement their own
+// mechanism in the cleanup routine to synchronize with DriverUnload.
 //
 
 _Function_class_(KRUNDOWN_ROUTINE)
@@ -153,7 +172,7 @@ VOID KsiInitializeApc(
 }
 
 BOOLEAN KsiInsertQueueApc(
-    _In_ PKSI_KAPC Apc,
+    _Inout_ PKSI_KAPC Apc,
     _In_opt_ PVOID SystemArgument1,
     _In_opt_ PVOID SystemArgument2,
     _In_ KPRIORITY PriorityBoost
@@ -173,6 +192,33 @@ BOOLEAN KsiInsertQueueApc(
     }
 
     return result;
+}
+
+NTSTATUS KsiRemoveQueueApc(
+    _Inout_ PKSI_KAPC Apc
+    )
+{
+    PDRIVER_OBJECT driverObject;
+    PKSI_KCLEANUP_ROUTINE cleanupRoutine;
+
+    if (!KsipKeRemoveQueueApc)
+    {
+        return STATUS_NOINTERFACE;
+    }
+
+    if (!KsipKeRemoveQueueApc(&Apc->Apc))
+    {
+        return STATUS_INVALID_STATE_TRANSITION;
+    }
+
+    driverObject = Apc->DriverObject;
+    cleanupRoutine = (PKSI_KCLEANUP_ROUTINE)Apc->InternalCleanup;
+
+    cleanupRoutine(Apc, KsiApcCleanupRemoved);
+
+    ObDereferenceObjectDeferDelete(driverObject);
+
+    return STATUS_SUCCESS;
 }
 
 //
@@ -237,6 +283,53 @@ VOID KsiQueueWorkItem(
     ExQueueWorkItem(&WorkItem->WorkItem, QueueType);
 }
 
+//
+// General Library Functions
+//
+
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KsiInitialize(
+    _In_ ULONG Version,
+    _In_ PDRIVER_OBJECT DriverObject,
+    _In_opt_ PVOID Reserved
+    )
+{
+    UNREFERENCED_PARAMETER(DriverObject);
+    UNREFERENCED_PARAMETER(Reserved);
+
+    if (Version != KSIDLL_CURRENT_VERSION)
+    {
+        return STATUS_SI_KSIDLL_VERSION_MISMATCH;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+_IRQL_requires_max_(PASSIVE_LEVEL)
+VOID KsiUninitialize(
+    _In_ PDRIVER_OBJECT DriverObject,
+    _In_ ULONG Reserved
+    )
+{
+    UNREFERENCED_PARAMETER(DriverObject);
+    UNREFERENCED_PARAMETER(Reserved);
+}
+
+NTSTATUS DllUnload(
+    VOID
+    )
+{
+    //
+    // N.B. It used to be that not specifying a DllUnload routine would
+    // enforce that your export driver can not be unloaded by not activating
+    // the reference count mechanism. 10.0.25997.1010 changed this so if you
+    // do not specify DllUnload the driver can be unmapped. This is resolved
+    // by implementing DllUnload and returning an error.
+    //
+    return STATUS_NOT_SUPPORTED;
+}
+
 NTSTATUS DllInitialize(
     _In_ PUNICODE_STRING RegistryPath
     )
@@ -244,6 +337,14 @@ NTSTATUS DllInitialize(
     UNREFERENCED_PARAMETER(RegistryPath);
 
     ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
+
+    KsipMmProtectDriverSection = (PMM_PROTECT_DRIVER_SECTION)KsipGetSystemRoutineAddress(L"MmProtectDriverSection");
+    KsipKeRemoveQueueApc = (PKE_REMOVE_QUEUE_APC)KsipGetSystemRoutineAddress(L"KeRemoveQueueApc");
+
+    if (KsipMmProtectDriverSection)
+    {
+        KsipMmProtectDriverSection(&KsipProtectedSection, 0, 0);
+    }
 
     return STATUS_SUCCESS;
 }

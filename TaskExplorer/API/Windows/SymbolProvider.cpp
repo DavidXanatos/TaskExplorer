@@ -484,7 +484,8 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
 
 	if (NT_SUCCESS(status))
 	{
-		status = PhWalkThreadStack(m->ThreadHandle, m->SymbolProvider->ProcessHandle, &clientId, m->SymbolProvider, PH_WALK_KERNEL_STACK, PhpWalkThreadStackCallback, this);
+		status = PhWalkThreadStack(m->ThreadHandle, m->SymbolProvider->ProcessHandle, &clientId, m->SymbolProvider, 
+			PH_WALK_USER_WOW64_STACK | PH_WALK_USER_STACK | PH_WALK_KERNEL_STACK, PhpWalkThreadStackCallback, this);
 	}
 
 	// case PluginThreadStackEndDefaultWalkStack:
@@ -667,7 +668,7 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 	QString Symbol = CastPhString(symbol);
     //QString FileName = CastPhString(fileName);
 
-    if (symbol && (StackFrame->Flags & PH_THREAD_STACK_FRAME_I386) && !(StackFrame->Flags & PH_THREAD_STACK_FRAME_FPO_DATA_PRESENT))
+    if (symbol && (StackFrame->Machine == IMAGE_FILE_MACHINE_I386) && !(StackFrame->Flags & PH_THREAD_STACK_FRAME_FPO_DATA_PRESENT))
     {
         Symbol += tr(" (No unwind info)");
     }

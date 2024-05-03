@@ -202,7 +202,9 @@ typedef struct _SYSTEM_POWER_STATE_CONTEXT
             ULONG CurrentSystemState : 4;
             ULONG IgnoreHibernationPath : 1;
             ULONG PseudoTransition : 1;
-            ULONG Reserved2 : 10;
+            ULONG KernelSoftReboot : 1;
+            ULONG DirectedDripsTransition : 1;
+            ULONG Reserved2 : 8;
         };
         ULONG ContextAsUlong;
     };
@@ -258,7 +260,7 @@ typedef struct _WAKE_TIMER_INFO
     ULARGE_INTEGER DueTime;
     ULONG Period;
     DIAGNOSTIC_BUFFER ReasonContext;
-} WAKE_TIMER_INFO, * PWAKE_TIMER_INFO;
+} WAKE_TIMER_INFO, *PWAKE_TIMER_INFO;
 
 // rev
 typedef struct _PROCESSOR_PERF_CAP_HV
@@ -591,6 +593,7 @@ typedef enum _POWER_INFORMATION_LEVEL_INTERNAL
     PowerInternalManageTransitionStateRecord,
     PowerInternalGetAcpiTimeAndAlarmCapabilities, // since 22H2
     PowerInternalSuspendResumeRequest,
+    PowerInternalEnergyEstimationInfo, // since 23H2
     PowerInformationInternalMaximum
 } POWER_INFORMATION_LEVEL_INTERNAL;
 
@@ -648,7 +651,7 @@ typedef struct _POWER_PROCESSOR_LATENCY_HINT
 {
     POWER_INFORMATION_INTERNAL_HEADER PowerInformationInternalHeader;
     ULONG Type;
-} POWER_PROCESSOR_LATENCY_HINT, *PPO_PROCESSOR_LATENCY_HINT;
+} POWER_PROCESSOR_LATENCY_HINT, *PPOWER_PROCESSOR_LATENCY_HINT;
 
 // rev
 typedef struct _POWER_STANDBY_NETWORK_REQUEST
