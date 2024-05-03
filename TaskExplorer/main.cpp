@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		//QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
 
 		//new QApplication(argc, argv);
-		pApp = new QtSingleApplication(argc, argv);
+		pApp = new QtSingleApplication(IsElevated() ? "TaskExplorer" : "UTaskExplorer", argc, argv);
 	}
 
 	theConf = new CSettings("TaskExplorer");
@@ -166,8 +166,12 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			if (!BinaryPath.isEmpty())
-				QProcess::startDetached(BinaryPath, QCoreApplication::instance()->arguments());
+			if (!BinaryPath.isEmpty()) 
+			{
+				QStringList Args = QCoreApplication::instance()->arguments();
+				Args.removeFirst();
+				QProcess::startDetached(BinaryPath, Args);
+			}
 			else
 			{
 				QMessageBox::critical(NULL, "TaskExplorer", CTaskExplorer::tr(

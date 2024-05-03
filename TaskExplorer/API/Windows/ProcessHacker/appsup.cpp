@@ -682,19 +682,10 @@ VOID PhShellOpenKey(
     PhGetSystemRoot(&systemRootString);
     regeditFileName = PhConcatStringRefZ(&systemRootString, L"\\regedit.exe");
 
-    if (PhGetOwnTokenAttributes().Elevated)
+    status = PhShellExecuteEx(WindowHandle, regeditFileName->Buffer, NULL, NULL, SW_SHOW, PhGetOwnTokenAttributes().Elevated ? PH_SHELL_EXECUTE_ADMIN : 0, 0, NULL);
+    if (!NT_SUCCESS(status))
     {
-        if (!PhShellExecuteEx(WindowHandle, regeditFileName->Buffer, NULL, NULL, SW_SHOW, 0, 0, NULL))
-        {
-            PhShowStatus(WindowHandle, L"Unable to execute the program.", 0, GetLastError());
-        }
-    }
-    else
-    {
-        if (!PhShellExecuteEx(WindowHandle, regeditFileName->Buffer, NULL, NULL, SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, NULL))
-        {
-            PhShowStatus(WindowHandle, L"Unable to execute the program.", 0, GetLastError());
-        }
+        PhShowStatus(WindowHandle, L"Unable to execute the program.", status, 0);
     }
 
     PhDereferenceObject(regeditFileName);

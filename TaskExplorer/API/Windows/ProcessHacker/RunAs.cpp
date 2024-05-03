@@ -69,13 +69,13 @@ BOOLEAN PhShellProcessHackerEx(
     _Out_opt_ PHANDLE ProcessHandle
     )
 {
-    BOOLEAN result;
+    NTSTATUS status;
     PPH_STRING applicationFileName;
 
     if (!(applicationFileName = PhGetApplicationFileNameWin32()))
         return FALSE;
 
-    result = PhShellExecuteEx(
+    status = PhShellExecuteEx(
         hWnd,
         FileName ? FileName : PhGetString(applicationFileName),
         Parameters,
@@ -89,7 +89,7 @@ BOOLEAN PhShellProcessHackerEx(
 
     PhDereferenceObject(applicationFileName);
 
-    return result;
+    return NT_SUCCESS(status);
 }
 
 NTSTATUS PhExecuteRunAsCommand3(
