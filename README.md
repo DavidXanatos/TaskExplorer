@@ -1,28 +1,27 @@
 # TaskExplorer
 
-Task Explorer is an advanced Task Manager tool with emphasis on, not just monitoring what applications are running, but on finding out what applications are doing. 
-The UI focuses on expedience and getting real time data of what the processes are doing at any given moment. Relevant data are provided in easy to access (as less clicks as possible) panels, with no need to open windows or windows of sub windows, instead additional information’s for selected entries are shown in the lower half of the panel. Allowing to browse the detailed information’s using arrow keys. And most data are refreshed continuously, as seeing the dynamic of values often grants additional insight.
+Task Explorer is a powerful task management tool designed not only to monitor running applications but to provide deep insight into what those applications are doing. Its user interface prioritizes speed and efficiency, delivering real-time data on processes with minimal interaction. Instead of requiring multiple windows or sub-windows, Task Explorer displays relevant information in accessible panels. When selecting a process, detailed information is displayed in the lower half of the screen, allowing you to navigate through the data seamlessly using the arrow keys. The dynamic data refresh allows users to observe changes in real-time, offering additional clarity and insight into system performance and behavior.
 
 ## Features
 
-The Thread  Panel contains a stack trace for the selected thread giving even more insight in wat the selected application is doing right now. This is also very useful to debug deadlocks or performance issues. The processes memory can be viewed and edited from the Memory Panel, which provides an advanced memory editor and string search capability. In the Handles Panel all open handles are shown, with useful information’s like file name the current file position and size, these allow to see what a program is actually working on right now disk wise. The Socket Panel shows all open connections/sockets per process providing also data rate information, in the settings one can enable the display of pseudo UDP connections created from ETW data. That is every destination endpoint for UDP packets will be shown as an own entry in the sockets panel allowing to monitor with whom a program is communicating. The Modules Panel shows all loaded dll’s and memory mapped files, allowing to unload them as well as to inject a dll. And many more panels like Token, Environment, Windows, GDI, .NET, etc…. 
-By double clicking on a process, the Task Info panels can be opened in a separate window enabling the viewing of properties of multiple processes simultaneously.
+Task Explorer offers an array of advanced features to provide comprehensive visibility into the system. The **Thread Panel** displays a stack trace for the selected thread, offering immediate insights into the current actions of an application, which is particularly useful for diagnosing deadlocks or performance bottlenecks. The **Memory Panel** allows users to view and edit process memory, featuring an advanced memory editor with string search capabilities. In the **Handles Panel**, all open handles are displayed, including essential details such as file names, current file positions, and sizes, giving a clear view of the disk operations a program is performing. 
 
-The system monitor aspect of the application is also well developed. The toolbar provides decently sized graphs providing not just CPU usage but also usage of Objects, handles, network and IO/disk access. The system info panels show All Open Files in the system, All Open Sockets by programs, and the services Panel allows viewing and controlling all system services including drives. The performance panels for CPU, Memory, Disk I/O, Network and GPU provide large graphs showing the usage of system resources in a detailed manner.
-The System info panel can be collapsed completely providing more space for the Task info panels. So Instead being a panel of the main window, or additionally, the system info panels can be opened in an own window using the appropriate toolbar button.
+The **Socket Panel** provides visibility into all open connections or sockets for each process, with additional data rate information. It also has the option to show pseudo UDP connections based on ETW data, allowing users to monitor network communications effectively. The **Modules Panel** lists all loaded DLLs and memory-mapped files, with the ability to unload or inject DLLs as needed. Additionally, the application includes a variety of other useful panels, including **Token**, **Environment**, **Windows**, **GDI**, and **.NET** panels.
 
-## System requirements
+By double-clicking a process, you can open the **Task Info Panels** in a separate window, enabling the simultaneous inspection of multiple processes. The system monitoring capabilities are robust as well, featuring toolbar graphs that show real-time usage of system resources such as CPU, handles, network traffic, and disk access. The **System Info Panels** display all open files and sockets and allow users to control system services, including drivers. Dedicated performance panels for CPU, Memory, Disk I/O, Network, and GPU resources offer detailed graphs, making it easy to monitor and optimize system performance.
 
-Windows 7 or higher, 32-bit or 64-bit.
+For users who need more screen space, the **System Info Panel** can be fully collapsed or opened in a separate window, maximizing the available area for the task panels.
 
-## Additional information
+## System Requirements
 
-Task Explorer is created using the Qt Framework, making its UI platform independent. As at a later point I intent to port the tool to Linux, creating the first advanced GUI based task manager for Linux ever.
+Task Explorer is compatible with Windows 7 or higher, on both 32-bit and 64-bit systems.
 
-The tool is build using the process hacker library and it uses a self-compiled version of the kprocesshacker.sys driver called xprocesshacker.sys, the driver is signed using a “found” code signing certificate. However if preferred by the user the tool can also use the original kprocesshacker.sys driver however then with some limitations as the driver locks some functionality out if the accessing tool is not digitally signed by the process hacker team.
+## Additional Information
+
+Task Explorer is built using the Qt Framework, ensuring a cross-platform user interface with plans to eventually port the tool to Linux, which could make it one of the first advanced, GUI-based task managers for the platform. On Windows, Task Explorer leverages the Process Hacker library and uses a custom-compiled version of the systeminformer.sys driver from the [SystemInformer](https://github.com/winsiderss/systeminformer/) project, ensuring robust performance and system monitoring capabilities.
 
 ## Support
 
-If you like the tool please consider supporting it on Patreon: https://www.patreon.com/DavidXanatos
+If you find Task Explorer useful, please consider supporting the project on Patreon: [https://www.patreon.com/DavidXanatos](https://www.patreon.com/DavidXanatos)
 
-Icons provided by: http://icons8.com/
+Icons provided by [Icons8](http://icons8.com/).
