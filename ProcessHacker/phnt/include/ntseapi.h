@@ -7,7 +7,9 @@
 #ifndef _NTSEAPI_H
 #define _NTSEAPI_H
 
+//
 // Privileges
+//
 
 #define SE_MIN_WELL_KNOWN_PRIVILEGE (2L)
 #define SE_CREATE_TOKEN_PRIVILEGE (2L)
@@ -48,7 +50,9 @@
 #define SE_DELEGATE_SESSION_USER_IMPERSONATE_PRIVILEGE (36L)
 #define SE_MAX_WELL_KNOWN_PRIVILEGE SE_DELEGATE_SESSION_USER_IMPERSONATE_PRIVILEGE
 
+//
 // Authz
+//
 
 // begin_rev
 
@@ -103,8 +107,61 @@ typedef enum _TOKEN_INFORMATION_CLASS
     TokenIsLessPrivilegedAppContainer, // q: ULONG // since REDSTONE5
     TokenIsSandboxed, // q: ULONG // since 19H1
     TokenIsAppSilo, // q: ULONG // since WIN11 22H2 // previously TokenOriginatingProcessTrustLevel // q: TOKEN_PROCESS_TRUST_LEVEL
+    TokenLoggingInformation, // TOKEN_LOGGING_INFORMATION // since 24H2
     MaxTokenInfoClass
 } TOKEN_INFORMATION_CLASS, *PTOKEN_INFORMATION_CLASS;
+#else
+#define TOKEN_INFORMATION_CLASS ULONG
+//#define TokenUser 1 // q: TOKEN_USER, SE_TOKEN_USER
+//#define TokenGroups 2 // q: TOKEN_GROUPS
+//#define TokenPrivileges 3 // q: TOKEN_PRIVILEGES
+//#define TokenOwner 4 // q; s: TOKEN_OWNER
+#define TokenPrimaryGroup 5 // q; s: TOKEN_PRIMARY_GROUP
+#define TokenDefaultDacl 6 // q; s: TOKEN_DEFAULT_DACL
+#define TokenSource 7 // q: TOKEN_SOURCE
+//#define TokenType 8 // q: TOKEN_TYPE
+#define TokenImpersonationLevel 9 // q: SECURITY_IMPERSONATION_LEVEL
+#define TokenStatistics 10 // q: TOKEN_STATISTICS // 10
+#define TokenRestrictedSids 11 // q: TOKEN_GROUPS
+#define TokenSessionId 12 // q; s: ULONG (requires SeTcbPrivilege)
+#define TokenGroupsAndPrivileges 13 // q: TOKEN_GROUPS_AND_PRIVILEGES
+#define TokenSessionReference 14 // s: ULONG (requires SeTcbPrivilege)
+#define TokenSandBoxInert 15 // q: ULONG
+#define TokenAuditPolicy 16 // q; s: TOKEN_AUDIT_POLICY (requires SeSecurityPrivilege/SeTcbPrivilege)
+#define TokenOrigin 17 // q; s: TOKEN_ORIGIN (requires SeTcbPrivilege)
+#define TokenElevationType 18 // q: TOKEN_ELEVATION_TYPE
+#define TokenLinkedToken 19 // q; s: TOKEN_LINKED_TOKEN (requires SeCreateTokenPrivilege)
+#define TokenElevation 20 // q: TOKEN_ELEVATION // 20
+#define TokenHasRestrictions 21 // q: ULONG
+#define TokenAccessInformation 22 // q: TOKEN_ACCESS_INFORMATION
+#define TokenVirtualizationAllowed 23 // q; s: ULONG (requires SeCreateTokenPrivilege)
+#define TokenVirtualizationEnabled 24 // q; s: ULONG
+#define TokenIntegrityLevel 25 // q; s: TOKEN_MANDATORY_LABEL
+#define TokenUIAccess 26 // q; s: ULONG (requires SeTcbPrivilege)
+#define TokenMandatoryPolicy 27 // q; s: TOKEN_MANDATORY_POLICY (requires SeTcbPrivilege)
+#define TokenLogonSid 28 // q: TOKEN_GROUPS
+#define TokenIsAppContainer 29 // q: ULONG // since WIN8
+#define TokenCapabilities 30 // q: TOKEN_GROUPS // 30
+//#define TokenAppContainerSid 31 // q: TOKEN_APPCONTAINER_INFORMATION
+#define TokenAppContainerNumber 32 // q: ULONG
+#define TokenUserClaimAttributes 33 // q: CLAIM_SECURITY_ATTRIBUTES_INFORMATION
+#define TokenDeviceClaimAttributes 34 // q: CLAIM_SECURITY_ATTRIBUTES_INFORMATION
+#define TokenRestrictedUserClaimAttributes 35 // q: CLAIM_SECURITY_ATTRIBUTES_INFORMATION
+#define TokenRestrictedDeviceClaimAttributes 36 // q: CLAIM_SECURITY_ATTRIBUTES_INFORMATION
+#define TokenDeviceGroups 37 // q: TOKEN_GROUPS
+#define TokenRestrictedDeviceGroups 38 // q: TOKEN_GROUPS
+#define TokenSecurityAttributes 39 // q; s: TOKEN_SECURITY_ATTRIBUTES_[AND_OPERATION_]INFORMATION (requires SeTcbPrivilege)
+#define TokenIsRestricted 40 // q: ULONG // 40
+#define TokenProcessTrustLevel 41 // q: TOKEN_PROCESS_TRUST_LEVEL // since WINBLUE
+#define TokenPrivateNameSpace 42// q; s: ULONG  (requires SeTcbPrivilege) // since THRESHOLD
+#define TokenSingletonAttributes 43 // q: TOKEN_SECURITY_ATTRIBUTES_INFORMATION // since REDSTONE
+#define TokenBnoIsolation 44 // q: TOKEN_BNO_ISOLATION_INFORMATION // since REDSTONE2
+#define TokenChildProcessFlags 45 // s: ULONG  (requires SeTcbPrivilege) // since REDSTONE3
+#define TokenIsLessPrivilegedAppContainer 46 // q: ULONG // since REDSTONE5
+#define TokenIsSandboxed 47 // q: ULONG // since 19H1
+#define TokenIsAppSilo 48 // q: ULONG // since 22H2 // previously TokenOriginatingProcessTrustLevel // q: TOKEN_PROCESS_TRUST_LEVEL
+#define TokenLoggingInformation 49 // TOKEN_LOGGING_INFORMATION // since 24H2
+#define MaxTokenInfoClass 50
 #endif
 
 // Types
@@ -112,7 +169,11 @@ typedef enum _TOKEN_INFORMATION_CLASS
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_INVALID 0x00
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_INT64 0x01
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_UINT64 0x02
+// Case insensitive attribute value string by default.
+// Unless the flag TOKEN_SECURITY_ATTRIBUTE_VALUE_CASE_SENSITIVE
+// is set indicating otherwise.
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING 0x03
+// Fully-qualified binary name.
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_FQBN 0x04
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_SID 0x05
 #define TOKEN_SECURITY_ATTRIBUTE_TYPE_BOOLEAN 0x06
@@ -120,13 +181,18 @@ typedef enum _TOKEN_INFORMATION_CLASS
 
 // Flags
 
+// Attribute must not be inherited across process spawns.
 #define TOKEN_SECURITY_ATTRIBUTE_NON_INHERITABLE 0x0001
+// Attribute value is compared in a case sensitive way. It is valid with string value
+// or composite type containing string value. For other types of value, this flag
+// will be ignored. Currently, it is valid with the two types:
+// TOKEN_SECURITY_ATTRIBUTE_TYPE_STRING and TOKEN_SECURITY_ATTRIBUTE_TYPE_FQBN.
 #define TOKEN_SECURITY_ATTRIBUTE_VALUE_CASE_SENSITIVE 0x0002
-#define TOKEN_SECURITY_ATTRIBUTE_USE_FOR_DENY_ONLY 0x0004
-#define TOKEN_SECURITY_ATTRIBUTE_DISABLED_BY_DEFAULT 0x0008
-#define TOKEN_SECURITY_ATTRIBUTE_DISABLED 0x0010
-#define TOKEN_SECURITY_ATTRIBUTE_MANDATORY 0x0020
-#define TOKEN_SECURITY_ATTRIBUTE_COMPARE_IGNORE 0x0040
+#define TOKEN_SECURITY_ATTRIBUTE_USE_FOR_DENY_ONLY 0x0004 // Attribute is considered only for Deny Aces.
+#define TOKEN_SECURITY_ATTRIBUTE_DISABLED_BY_DEFAULT 0x0008 // Attribute is disabled by default.
+#define TOKEN_SECURITY_ATTRIBUTE_DISABLED 0x0010 // Attribute is disabled.
+#define TOKEN_SECURITY_ATTRIBUTE_MANDATORY 0x0020 // Attribute is mandatory.
+#define TOKEN_SECURITY_ATTRIBUTE_COMPARE_IGNORE 0x0040 // Attribute is ignored.
 
 #define TOKEN_SECURITY_ATTRIBUTE_VALID_FLAGS ( \
     TOKEN_SECURITY_ATTRIBUTE_NON_INHERITABLE | \
@@ -136,22 +202,24 @@ typedef enum _TOKEN_INFORMATION_CLASS
     TOKEN_SECURITY_ATTRIBUTE_DISABLED | \
     TOKEN_SECURITY_ATTRIBUTE_MANDATORY)
 
+// Reserve upper 16 bits for custom flags. These should be preserved but not
+// validated as they do not affect security in any way.
 #define TOKEN_SECURITY_ATTRIBUTE_CUSTOM_FLAGS 0xffff0000
 
 // end_rev
 
-// private
+// private // CLAIM_SECURITY_ATTRIBUTE_FQBN_VALUE
 typedef struct _TOKEN_SECURITY_ATTRIBUTE_FQBN_VALUE
 {
     ULONG64 Version;
     UNICODE_STRING Name;
 } TOKEN_SECURITY_ATTRIBUTE_FQBN_VALUE, *PTOKEN_SECURITY_ATTRIBUTE_FQBN_VALUE;
 
-// private
+// private // CLAIM_SECURITY_ATTRIBUTE_OCTET_STRING_VALUE
 typedef struct _TOKEN_SECURITY_ATTRIBUTE_OCTET_STRING_VALUE
 {
-    PVOID pValue;
-    ULONG ValueLength;
+    PVOID Value; // Pointer is BYTE aligned.
+    ULONG ValueLength; // In bytes
 } TOKEN_SECURITY_ATTRIBUTE_OCTET_STRING_VALUE, *PTOKEN_SECURITY_ATTRIBUTE_OCTET_STRING_VALUE;
 
 // private
@@ -171,6 +239,24 @@ typedef struct _TOKEN_SECURITY_ATTRIBUTE_V1
         PTOKEN_SECURITY_ATTRIBUTE_OCTET_STRING_VALUE pOctetString;
     } Values;
 } TOKEN_SECURITY_ATTRIBUTE_V1, *PTOKEN_SECURITY_ATTRIBUTE_V1;
+
+// private
+typedef struct _TOKEN_SECURITY_ATTRIBUTE_RELATIVE_V1
+{
+    UNICODE_STRING Name;
+    USHORT ValueType;
+    USHORT Reserved;
+    ULONG Flags;
+    ULONG ValueCount;
+    union
+    {
+        ULONG pInt64[ANYSIZE_ARRAY];
+        ULONG pUint64[ANYSIZE_ARRAY];
+        ULONG ppString[ANYSIZE_ARRAY];
+        ULONG pFqbn[ANYSIZE_ARRAY];
+        ULONG pOctetString[ANYSIZE_ARRAY];
+    } Values;
+} TOKEN_SECURITY_ATTRIBUTE_RELATIVE_V1, *PTOKEN_SECURITY_ATTRIBUTE_RELATIVE_V1;
 
 // rev
 #define TOKEN_SECURITY_ATTRIBUTES_INFORMATION_VERSION_V1 1

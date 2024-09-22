@@ -168,7 +168,7 @@ void CDriverWindow::Refresh()
 
 		ui.connection->setText(tr("Connected"));
 
-		ui.verification->setText(QString("%1").arg(KphLevel()));
+		ui.verification->setText(QString("%1").arg(KsiLevel()));
 		
 		//ui.features->setText(tr("0x%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 8, 16, QChar('0')));
 		ui.features->setText(tr("%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 32, 2, QChar('0')));

@@ -138,6 +138,18 @@ _Success_(return)
 PHLIBAPI
 BOOLEAN
 NTAPI
+PhGetThemeColor(
+    _In_ HTHEME ThemeHandle,
+    _In_ INT PartId,
+    _In_ INT StateId,
+    _In_ INT PropId,
+    _Out_ COLORREF* Color
+    );
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
 PhGetThemeInt(
     _In_ HTHEME ThemeHandle,
     _In_ INT PartId,
@@ -462,7 +474,9 @@ FORCEINLINE VOID PhSetListViewStyle(
 }
 
 PHLIBAPI
-INT PhAddListViewColumn(
+INT
+NTAPI
+PhAddListViewColumn(
     _In_ HWND ListViewHandle,
     _In_ INT Index,
     _In_ INT DisplayIndex,
@@ -530,20 +544,26 @@ PhSetListViewItemParam(
     );
 
 PHLIBAPI
-VOID PhRemoveListViewItem(
+VOID
+NTAPI
+PhRemoveListViewItem(
     _In_ HWND ListViewHandle,
     _In_ INT Index
     );
 
 PHLIBAPI
-VOID PhSetListViewItemImageIndex(
+VOID
+NTAPI
+PhSetListViewItemImageIndex(
     _In_ HWND ListViewHandle,
     _In_ INT Index,
     _In_ INT ImageIndex
     );
 
 PHLIBAPI
-VOID PhSetListViewSubItem(
+VOID
+NTAPI
+PhSetListViewSubItem(
     _In_ HWND ListViewHandle,
     _In_ INT Index,
     _In_ INT SubItemIndex,
@@ -568,7 +588,8 @@ PhAddListViewGroup(
 
 PHLIBAPI
 INT
-NTAPI PhAddListViewGroupItem(
+NTAPI
+PhAddListViewGroupItem(
     _In_ HWND ListViewHandle,
     _In_ INT GroupId,
     _In_ INT Index,
@@ -577,7 +598,9 @@ NTAPI PhAddListViewGroupItem(
     );
 
 PHLIBAPI
-INT PhAddTabControlTab(
+INT
+NTAPI
+PhAddTabControlTab(
     _In_ HWND TabControlHandle,
     _In_ INT Index,
     _In_ PWSTR Text
@@ -587,7 +610,9 @@ INT PhAddTabControlTab(
     PH_AUTO_T(PH_STRING, PhGetWindowText(GetDlgItem(hwndDlg, id)))
 
 PHLIBAPI
-PPH_STRING PhGetWindowText(
+PPH_STRING
+NTAPI
+PhGetWindowText(
     _In_ HWND WindowHandle
     );
 
@@ -641,45 +666,59 @@ PhAddComboBoxStringRefs(
 }
 
 PHLIBAPI
-PPH_STRING PhGetComboBoxString(
+PPH_STRING
+NTAPI
+PhGetComboBoxString(
     _In_ HWND WindowHandle,
     _In_ INT Index
     );
 
 PHLIBAPI
-INT PhSelectComboBoxString(
+INT
+NTAPI
+PhSelectComboBoxString(
     _In_ HWND WindowHandle,
     _In_ PWSTR String,
     _In_ BOOLEAN Partial
     );
 
 PHLIBAPI
-PPH_STRING PhGetListBoxString(
+PPH_STRING
+NTAPI
+PhGetListBoxString(
     _In_ HWND WindowHandle,
     _In_ INT Index
     );
 
 PHLIBAPI
-VOID PhSetStateAllListViewItems(
+VOID
+NTAPI
+PhSetStateAllListViewItems(
     _In_ HWND WindowHandle,
     _In_ ULONG State,
     _In_ ULONG Mask
     );
 
 PHLIBAPI
-PVOID PhGetSelectedListViewItemParam(
+PVOID
+NTAPI
+PhGetSelectedListViewItemParam(
     _In_ HWND WindowHandle
     );
 
 PHLIBAPI
-VOID PhGetSelectedListViewItemParams(
+VOID
+NTAPI
+PhGetSelectedListViewItemParams(
     _In_ HWND WindowHandle,
     _Out_ PVOID **Items,
     _Out_ PULONG NumberOfItems
     );
 
 PHLIBAPI
-VOID PhSetImageListBitmap(
+VOID
+NTAPI
+PhSetImageListBitmap(
     _In_ HIMAGELIST ImageList,
     _In_ INT Index,
     _In_ HINSTANCE InstanceHandle,
@@ -692,7 +731,9 @@ VOID PhSetImageListBitmap(
 #define PH_LOAD_ICON_STRICT 0x8
 
 PHLIBAPI
-HICON PhLoadIcon(
+HICON
+NTAPI
+PhLoadIcon(
     _In_opt_ PVOID ImageBaseAddress,
     _In_ PWSTR Name,
     _In_ ULONG Flags,
@@ -702,7 +743,9 @@ HICON PhLoadIcon(
     );
 
 PHLIBAPI
-VOID PhGetStockApplicationIcon(
+VOID
+NTAPI
+PhGetStockApplicationIcon(
     _Out_opt_ HICON *SmallIcon,
     _Out_opt_ HICON *LargeIcon
     );
@@ -715,13 +758,17 @@ VOID PhGetStockApplicationIcon(
 //    );
 
 PHLIBAPI
-VOID PhSetClipboardString(
+VOID
+NTAPI
+PhSetClipboardString(
     _In_ HWND WindowHandle,
     _In_ PPH_STRINGREF String
     );
 
 PHLIBAPI
-PPH_STRING PhGetClipboardString(
+PPH_STRING
+NTAPI
+PhGetClipboardString(
     _In_ HWND WindowHandle
     );
 
@@ -775,15 +822,15 @@ PhCreateDialog(
 PHLIBAPI
 HWND
 NTAPI
-PhCreateWindow(
-    _In_ ULONG ExStyle,
-    _In_opt_ PCWSTR ClassName,
+PhCreateWindowWx(
+    _In_ PCWSTR ClassName,
     _In_opt_ PCWSTR WindowName,
     _In_ ULONG Style,
-    _In_ INT X,
-    _In_ INT Y,
-    _In_ INT Width,
-    _In_ INT Height,
+    _In_ ULONG ExStyle,
+    _In_ LONG X,
+    _In_ LONG Y,
+    _In_ LONG Width,
+    _In_ LONG Height,
     _In_opt_ HWND ParentWindow,
     _In_opt_ HMENU MenuHandle,
     _In_opt_ PVOID InstanceHandle,
@@ -853,18 +900,24 @@ typedef struct _PH_LAYOUT_MANAGER
 } PH_LAYOUT_MANAGER, *PPH_LAYOUT_MANAGER;
 
 PHLIBAPI
-VOID PhInitializeLayoutManager(
+VOID
+NTAPI
+PhInitializeLayoutManager(
     _Out_ PPH_LAYOUT_MANAGER Manager,
     _In_ HWND RootWindowHandle
     );
 
 PHLIBAPI
-VOID PhDeleteLayoutManager(
+VOID
+NTAPI
+PhDeleteLayoutManager(
     _Inout_ PPH_LAYOUT_MANAGER Manager
     );
 
 PHLIBAPI
-PPH_LAYOUT_ITEM PhAddLayoutItem(
+PPH_LAYOUT_ITEM
+NTAPI
+PhAddLayoutItem(
     _Inout_ PPH_LAYOUT_MANAGER Manager,
     _In_ HWND Handle,
     _In_opt_ PPH_LAYOUT_ITEM ParentItem,
@@ -872,7 +925,9 @@ PPH_LAYOUT_ITEM PhAddLayoutItem(
     );
 
 PHLIBAPI
-PPH_LAYOUT_ITEM PhAddLayoutItemEx(
+PPH_LAYOUT_ITEM
+NTAPI
+PhAddLayoutItemEx(
     _Inout_ PPH_LAYOUT_MANAGER Manager,
     _In_ HWND Handle,
     _In_opt_ PPH_LAYOUT_ITEM ParentItem,
@@ -881,7 +936,9 @@ PPH_LAYOUT_ITEM PhAddLayoutItemEx(
     );
 
 PHLIBAPI
-VOID PhLayoutManagerLayout(
+VOID
+NTAPI
+PhLayoutManagerLayout(
     _Inout_ PPH_LAYOUT_MANAGER Manager
     );
 
@@ -889,6 +946,7 @@ VOID PhLayoutManagerLayout(
 
 PHLIBAPI
 PVOID
+NTAPI
 PhGetWindowContext(
     _In_ HWND WindowHandle,
     _In_ ULONG PropertyHash
@@ -896,6 +954,7 @@ PhGetWindowContext(
 
 PHLIBAPI
 VOID
+NTAPI
 PhSetWindowContext(
     _In_ HWND WindowHandle,
     _In_ ULONG PropertyHash,
@@ -904,6 +963,7 @@ PhSetWindowContext(
 
 PHLIBAPI
 VOID
+NTAPI
 PhRemoveWindowContext(
     _In_ HWND WindowHandle,
     _In_ ULONG PropertyHash
@@ -911,6 +971,7 @@ PhRemoveWindowContext(
 
 FORCEINLINE
 PVOID
+NTAPI
 PhGetWindowContextEx(
     _In_ HWND WindowHandle
     )
@@ -925,6 +986,7 @@ PhGetWindowContextEx(
 
 FORCEINLINE
 VOID
+NTAPI
 PhSetWindowContextEx(
     _In_ HWND WindowHandle,
     _In_ PVOID Context
@@ -940,6 +1002,7 @@ PhSetWindowContextEx(
 
 FORCEINLINE
 VOID
+NTAPI
 PhRemoveWindowContextEx(
     _In_ HWND WindowHandle
     )
@@ -1104,8 +1167,8 @@ HBITMAP
 NTAPI
 PhIconToBitmap(
     _In_ HICON Icon,
-    _In_ ULONG Width,
-    _In_ ULONG Height
+    _In_ LONG Width,
+    _In_ LONG Height
     );
 
 PHLIBAPI
@@ -1113,8 +1176,8 @@ VOID
 NTAPI
 PhBitmapSetAlpha(
     _In_ PVOID Bits,
-    _In_ ULONG Width,
-    _In_ ULONG Height
+    _In_ LONG Width,
+    _In_ LONG Height
     );
 
 // extlv
@@ -1720,8 +1783,8 @@ PhLoadImageFormatFromResource(
     _In_ PCWSTR Name,
     _In_ PCWSTR Type,
     _In_ PH_IMAGE_FORMAT_TYPE Format,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     );
 
 PHLIBAPI
@@ -1731,8 +1794,8 @@ PhLoadImageFromResource(
     _In_ PVOID DllBase,
     _In_ PCWSTR Name,
     _In_ PCWSTR Type,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     );
 
 PHLIBAPI
@@ -1740,8 +1803,8 @@ HBITMAP
 NTAPI
 PhLoadImageFromFile(
     _In_ PWSTR FileName,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     );
 
 // Acrylic support
@@ -1901,6 +1964,7 @@ PhGetCurrentThreadDesktopName(
     VOID
     );
 
+_Success_(return)
 PHLIBAPI
 BOOLEAN
 NTAPI
@@ -2044,6 +2108,7 @@ PhThemeWindowDrawToolbar(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhCreateFont(
     _In_opt_ PWSTR Name,
     _In_ ULONG Size,
@@ -2072,6 +2137,7 @@ PhCreateFont(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhCreateCommonFont(
     _In_ LONG Size,
     _In_ INT Weight,
@@ -2113,6 +2179,7 @@ PhCreateCommonFont(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhCreateIconTitleFont(
     _In_opt_ LONG WindowDpi
     )
@@ -2127,6 +2194,7 @@ PhCreateIconTitleFont(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhCreateMessageFont(
     _In_opt_ LONG WindowDpi
     )
@@ -2141,6 +2209,7 @@ PhCreateMessageFont(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhDuplicateFont(
     _In_ HFONT Font
     )
@@ -2155,6 +2224,7 @@ PhDuplicateFont(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhDuplicateFontWithNewWeight(
     _In_ HFONT Font,
     _In_ LONG NewWeight
@@ -2173,6 +2243,7 @@ PhDuplicateFontWithNewWeight(
 
 FORCEINLINE
 HFONT
+NTAPI
 PhDuplicateFontWithNewHeight(
     _In_ HFONT Font,
     _In_ LONG NewHeight,
@@ -2192,6 +2263,7 @@ PhDuplicateFontWithNewHeight(
 
 FORCEINLINE
 BOOLEAN
+NTAPI
 PhRectEmpty(
     _In_ PRECT Rect
     )
@@ -2211,6 +2283,7 @@ PhRectEmpty(
 
 FORCEINLINE
 VOID
+NTAPI
 PhInflateRect(
     _In_ PRECT Rect,
     _In_ INT dx,
@@ -2229,6 +2302,7 @@ PhInflateRect(
 
 FORCEINLINE
 VOID
+NTAPI
 PhOffsetRect(
     _In_ PRECT Rect,
     _In_ INT dx,
@@ -2247,6 +2321,7 @@ PhOffsetRect(
 
 FORCEINLINE
 BOOLEAN
+NTAPI
 PhPtInRect(
     _In_ PRECT Rect,
     _In_ POINT Point

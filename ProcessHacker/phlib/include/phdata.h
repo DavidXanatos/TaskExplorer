@@ -70,6 +70,7 @@ extern CONST PH_STRINGREF PhUnicodeByteOrderMark;
 // Characters
 
 extern CONST BOOLEAN PhCharIsPrintable[256];
+extern CONST BOOLEAN PhCharIsPrintableEx[256];
 extern CONST ULONG PhCharToInteger[256];
 extern CONST CHAR PhIntegerToChar[69];
 extern CONST CHAR PhIntegerToCharUpper[69];
@@ -80,10 +81,10 @@ extern CONST ULONG PhCrc32Table[256];
 
 // Enums
 
-extern CONST PH_STRINGREF PhIoPriorityHintNames[MaxIoPriorityTypes];
-extern CONST PH_STRINGREF PhPagePriorityNames[MEMORY_PRIORITY_NORMAL + 1];
-extern CONST PH_STRINGREF PhKThreadStateNames[MaximumThreadState];
-extern CONST PH_STRINGREF PhKWaitReasonNames[MaximumWaitReason];
+extern CONST PH_STRINGREF PhIoPriorityHintNames[];
+extern CONST PH_STRINGREF PhPagePriorityNames[];
+extern CONST PH_STRINGREF PhKThreadStateNames[];
+extern CONST PH_STRINGREF PhKWaitReasonNames[];
 
 #ifdef __cplusplus
 }

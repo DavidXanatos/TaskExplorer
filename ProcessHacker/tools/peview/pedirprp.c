@@ -46,7 +46,7 @@ typedef struct _PV_DIRECTORY_NODE
     PVOID RvaStart;
     PVOID RvaEnd;
     ULONG RvaSize;
-    DOUBLE DirectoryEntropy;
+    FLOAT DirectoryEntropy;
     PPH_STRING UniqueIdString;
     PPH_STRING DirectoryNameString;
     PPH_STRING RawStartString;
@@ -180,7 +180,7 @@ VOID PvpPeEnumerateImageDataDirectory(
     directoryNode->UniqueIdString = PhFormatUInt64(directoryNode->UniqueId, FALSE);
     directoryNode->DirectoryNameString = PhCreateString(Name);
 
-    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, Index, &directory)))
+    if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, Index, &directory)))
     {
         if (directory->VirtualAddress)
         {
@@ -260,7 +260,7 @@ VOID PvpPeEnumerateImageDataDirectory(
 
         __try
         {
-            DOUBLE imageDirectoryEntropy;
+            FLOAT imageDirectoryEntropy;
 
             if (PhCalculateEntropy(
                 imageDirectoryData,
@@ -955,7 +955,11 @@ BOOLEAN NTAPI PvDirectoryTreeNewCallback(
         return TRUE;
     case TreeNewSortChanged:
         {
-            TreeNew_GetSort(hwnd, &context->TreeNewSortColumn, &context->TreeNewSortOrder);
+            PPH_TREENEW_SORT_CHANGED_EVENT sorting = Parameter1;
+
+            context->TreeNewSortColumn = sorting->SortColumn;
+            context->TreeNewSortOrder = sorting->SortOrder;
+
             TreeNew_NodesStructured(hwnd);
         }
         return TRUE;

@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2023
+ *     jxy-s   2023-2024
  *
  */
 
@@ -298,8 +298,8 @@ NTSTATUS KphpVerifySessionToken(
 
         __try
         {
-            ProbeForRead(Signature, SignatureLength, 1);
-            RtlCopyMemory(signature, Signature, SignatureLength);
+            ProbeInputBytes(Signature, SignatureLength);
+            RtlCopyVolatileMemory(signature, Signature, SignatureLength);
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -707,8 +707,7 @@ BOOLEAN KphpSessionTokenPrivilegeCheck(
 
     KeQuerySystemTime(&systemTime);
 
-    useCount = Token->UseCount;
-    MemoryBarrier();
+    useCount = ReadAcquire(&Token->UseCount);
 
     if (Token->AccessToken.Expiry.QuadPart <= systemTime.QuadPart)
     {
@@ -745,8 +744,7 @@ BOOLEAN KphpSessionTokenPrivilegeCheck(
             break;
         }
 
-        useCount = Token->UseCount;
-        MemoryBarrier();
+        useCount = ReadAcquire(&Token->UseCount);
     }
 
 Exit:
@@ -876,6 +874,7 @@ VOID KphInitializeSessionToken(
     typeInfo.Initialize = KphpInitializeSessionToken;
     typeInfo.Delete = NULL;
     typeInfo.Free = KphpFreeSessionToken;
+    typeInfo.Flags = 0;
 
     KphCreateObjectType(&KphpSessionTokenTypeName,
                         &typeInfo,

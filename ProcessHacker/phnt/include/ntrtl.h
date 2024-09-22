@@ -22,14 +22,33 @@
 
 // Linked lists
 
-FORCEINLINE VOID InitializeListHead(
+typedef struct _LIST_ENTRY LIST_ENTRY, *PLIST_ENTRY;
+
+#define RTL_STATIC_LIST_HEAD(x) \
+    LIST_ENTRY (x) = { &(x), &(x) }
+
+FORCEINLINE
+VOID
+InitializeListHead(
     _Out_ PLIST_ENTRY ListHead
     )
 {
     ListHead->Flink = ListHead->Blink = ListHead;
 }
 
-_Check_return_ FORCEINLINE BOOLEAN IsListEmpty(
+FORCEINLINE
+VOID
+InitializeListHead32(
+    _Out_ PLIST_ENTRY32 ListHead
+    )
+{
+    ListHead->Flink = ListHead->Blink = ((ULONG)(ULONG_PTR)ListHead);
+}
+
+_Must_inspect_result_
+FORCEINLINE
+BOOLEAN
+IsListEmpty(
     _In_ PLIST_ENTRY ListHead
     )
 {
@@ -1257,29 +1276,6 @@ RtlWakeAddressSingle(
 
 // end_rev
 
-#if (PHNT_VERSION >= PHNT_WIN11_22H2)
-FORCEINLINE
-VOID
-RtlCopyVolatileMemory(
-    _Out_writes_bytes_(Size) VOID *Destination,
-    _In_reads_bytes_(Size) volatile const VOID *Source,
-    _In_ SIZE_T Size
-    )
-{
-    RtlCopyMemory(Destination, (const VOID *)Source, Size);
-    BarrierAfterRead();
-}
-#endif
-
-FORCEINLINE
-HANDLE
-RtlReadHandleNoFence(
-    _In_reads_bytes_(sizeof(HANDLE)) volatile CONST HANDLE *Address
-    )
-{
-    return (HANDLE)ReadPointerNoFence((PVOID *)Address);
-}
-
 // Strings
 
 FORCEINLINE
@@ -1299,7 +1295,7 @@ RtlInitEmptyAnsiString(
 #ifndef PHNT_NO_INLINE_INIT_STRING
 FORCEINLINE VOID RtlInitString(
     _Out_ PSTRING DestinationString,
-    _In_opt_ PCSTR SourceString
+    _In_opt_z_ PCSTR SourceString
     )
 {
     if (SourceString)
@@ -1315,7 +1311,7 @@ VOID
 NTAPI
 RtlInitString(
     _Out_ PSTRING DestinationString,
-    _In_opt_ PCSTR SourceString
+    _In_opt_z_ PCSTR SourceString
     );
 #endif
 
@@ -1332,7 +1328,7 @@ RtlInitStringEx(
 #ifndef PHNT_NO_INLINE_INIT_STRING
 FORCEINLINE VOID RtlInitAnsiString(
     _Out_ PANSI_STRING DestinationString,
-    _In_opt_ PCSTR SourceString
+    _In_opt_z_ PCSTR SourceString
     )
 {
     if (SourceString)
@@ -1348,7 +1344,7 @@ VOID
 NTAPI
 RtlInitAnsiString(
     _Out_ PANSI_STRING DestinationString,
-    _In_opt_ PCSTR SourceString
+    _In_opt_z_ PCSTR SourceString
     );
 #endif
 
@@ -1458,8 +1454,8 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlAppendAsciizToString(
-    _In_ PSTRING Destination,
-    _In_opt_ PCSTR Source
+    _Inout_ PSTRING Destination,
+    _In_opt_z_ PCSTR Source
     );
 
 NTSYSAPI
@@ -1566,7 +1562,7 @@ BOOLEAN
 NTAPI
 RtlCreateUnicodeStringFromAsciiz(
     _Out_ PUNICODE_STRING DestinationString,
-    _In_ PCSTR SourceString
+    _In_z_ PCSTR SourceString
     );
 
 NTSYSAPI
@@ -1718,7 +1714,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlAppendUnicodeStringToString(
-    _In_ PUNICODE_STRING Destination,
+    _Inout_ PUNICODE_STRING Destination,
     _In_ PCUNICODE_STRING Source
     );
 
@@ -1726,8 +1722,8 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlAppendUnicodeToString(
-    _In_ PUNICODE_STRING Destination,
-    _In_opt_ PCWSTR Source
+    _Inout_ PUNICODE_STRING Destination,
+    _In_opt_z_ PCWSTR Source
     );
 
 NTSYSAPI
@@ -2350,18 +2346,74 @@ RtlNextUnicodePrefix(
 
 // Compression
 
+#define COMPRESSION_FORMAT_NONE          (0x0000)
+#define COMPRESSION_FORMAT_DEFAULT       (0x0001)
+#define COMPRESSION_FORMAT_LZNT1         (0x0002)
+#define COMPRESSION_FORMAT_XPRESS        (0x0003)
+#define COMPRESSION_FORMAT_XPRESS_HUFF   (0x0004)
+#define COMPRESSION_FORMAT_XP10          (0x0005)
+#define COMPRESSION_FORMAT_LZ4           (0x0006)
+#define COMPRESSION_FORMAT_DEFLATE       (0x0007)
+#define COMPRESSION_FORMAT_ZLIB          (0x0008)
+#define COMPRESSION_FORMAT_MAX           (0x0008)
+
+#define COMPRESSION_ENGINE_STANDARD      (0x0000)
+#define COMPRESSION_ENGINE_MAXIMUM       (0x0100)
+#define COMPRESSION_ENGINE_HIBER         (0x0200)
+#define COMPRESSION_ENGINE_MAX           (0x0200)
+
+#define COMPRESSION_FORMAT_MASK          (0x00FF)
+#define COMPRESSION_ENGINE_MASK          (0xFF00)
+#define COMPRESSION_FORMAT_ENGINE_MASK   (COMPRESSION_FORMAT_MASK | COMPRESSION_ENGINE_MASK)
+
 typedef struct _COMPRESSED_DATA_INFO
 {
-    USHORT CompressionFormatAndEngine; // COMPRESSION_FORMAT_* and COMPRESSION_ENGINE_*
+    //
+    //  Code for the compression format (and engine) as
+    //  defined in ntrtl.h.  Note that COMPRESSION_FORMAT_NONE
+    //  and COMPRESSION_FORMAT_DEFAULT are invalid if
+    //  any of the described chunks are compressed.
+    //
+
+    USHORT CompressionFormatAndEngine;
+
+    //
+    //  Since chunks and compression units are expected to be
+    //  powers of 2 in size, we express then log2.  So, for
+    //  example (1 << ChunkShift) == ChunkSizeInBytes.  The
+    //  ClusterShift indicates how much space must be saved
+    //  to successfully compress a compression unit - each
+    //  successfully compressed compression unit must occupy
+    //  at least one cluster less in bytes than an uncompressed
+    //  compression unit.
+    //
 
     UCHAR CompressionUnitShift;
     UCHAR ChunkShift;
     UCHAR ClusterShift;
     UCHAR Reserved;
 
+    //
+    //  This is the number of entries in the CompressedChunkSizes
+    //  array.
+    //
+
     USHORT NumberOfChunks;
 
-    ULONG CompressedChunkSizes[1];
+    //
+    //  This is an array of the sizes of all chunks resident
+    //  in the compressed data buffer.  There must be one entry
+    //  in this array for each chunk possible in the uncompressed
+    //  buffer size.  A size of FSRTL_CHUNK_SIZE indicates the
+    //  corresponding chunk is uncompressed and occupies exactly
+    //  that size.  A size of 0 indicates that the corresponding
+    //  chunk contains nothing but binary 0's, and occupies no
+    //  space in the compressed data.  All other sizes must be
+    //  less than FSRTL_CHUNK_SIZE, and indicate the exact size
+    //  of the compressed data in bytes.
+    //
+
+    ULONG CompressedChunkSizes[ANYSIZE_ARRAY];
 } COMPRESSED_DATA_INFO, *PCOMPRESSED_DATA_INFO;
 
 NTSYSAPI
@@ -2791,10 +2843,9 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
     PVOID PackageDependencyData;
     ULONG ProcessGroupId;
     ULONG LoaderThreads;
-
     UNICODE_STRING RedirectionDllName; // REDSTONE4
     UNICODE_STRING HeapPartitionName; // 19H1
-    ULONG_PTR DefaultThreadpoolCpuSetMasks;
+    PULONGLONG DefaultThreadpoolCpuSetMasks;
     ULONG DefaultThreadpoolCpuSetMaskCount;
     ULONG DefaultThreadpoolThreadMaximum;
     ULONG HeapMemoryTypeMask; // WIN11
@@ -3325,6 +3376,24 @@ RtlSetExtendedFeaturesMask(
     );
 
 #ifdef _WIN64
+#ifdef PHNT_INLINE_TYPEDEFS
+FORCEINLINE
+NTSTATUS
+NTAPI
+RtlWow64GetThreadContext(
+    _In_ HANDLE ThreadHandle,
+    _Inout_ PWOW64_CONTEXT ThreadContext
+    )
+{
+    return NtQueryInformationThread(
+        ThreadHandle,
+        ThreadWow64Context,
+        ThreadContext,
+        sizeof(WOW64_CONTEXT),
+        NULL
+        );
+}
+#else
 // rev
 NTSYSAPI
 NTSTATUS
@@ -3334,8 +3403,26 @@ RtlWow64GetThreadContext(
     _Inout_ PWOW64_CONTEXT ThreadContext
     );
 #endif
+#endif
 
 #ifdef _WIN64
+#ifdef PHNT_INLINE_TYPEDEFS
+FORCEINLINE
+NTSTATUS
+NTAPI
+RtlWow64SetThreadContext(
+    _In_ HANDLE ThreadHandle,
+    _In_ PWOW64_CONTEXT ThreadContext
+    )
+{
+    return NtSetInformationThread(
+        ThreadHandle,
+        ThreadWow64Context,
+        ThreadContext,
+        sizeof(WOW64_CONTEXT)
+        );
+}
+#else
 // rev
 NTSYSAPI
 NTSTATUS
@@ -3344,6 +3431,7 @@ RtlWow64SetThreadContext(
     _In_ HANDLE ThreadHandle,
     _In_ PWOW64_CONTEXT ThreadContext
     );
+#endif
 #endif
 
 NTSYSAPI
@@ -3633,7 +3721,7 @@ RtlQueryInformationActivationContext(
     _Out_opt_ PSIZE_T ReturnLength
     );
 
-#ifdef PHNT_INLINE_ACTIVE_ACTIVATION_CONTEXT
+#ifdef PHNT_INLINE_TYPEDEFS
 // private
 FORCEINLINE
 NTSTATUS
@@ -3744,7 +3832,7 @@ PVOID
 NTAPI
 RtlFindExportedRoutineByName(
     _In_ PVOID BaseOfImage,
-    _In_ PCSTR RoutineName
+    _In_z_ PCSTR RoutineName
     );
 
 // rev
@@ -4127,6 +4215,30 @@ typedef struct _RTL_BUFFER
     SIZE_T StaticSize;
 } RTL_BUFFER, *PRTL_BUFFER;
 
+//FORCEINLINE
+//VOID
+//RtlInitBuffer(
+//    _Inout_ PRTL_BUFFER Buffer,
+//    _In_ PUCHAR Data,
+//    _In_ ULONG DataSize
+//    )
+//{
+//    Buffer->Buffer = Buffer->StaticBuffer = Data;
+//    Buffer->Size = Buffer->StaticSize = DataSize;
+//}
+//
+//FORCEINLINE
+//VOID
+//RtlFreeBuffer(
+//    _Inout_ PRTL_BUFFER Buffer
+//    )
+//{
+//    if (Buffer->Buffer != Buffer->StaticBuffer && Buffer->Buffer)
+//        RtlFreeHeap(RtlProcessHeap(), 0, Buffer->Buffer);
+//    Buffer->Buffer = Buffer->StaticBuffer;
+//    Buffer->Size = Buffer->StaticSize;
+//}
+
 // rev
 typedef struct _RTL_UNICODE_STRING_BUFFER
 {
@@ -4381,6 +4493,25 @@ RtlReplaceSystemDirectoryInPath(
     );
 #endif
 
+#if (PHNT_VERSION >= PHNT_REDSTONE)
+// rev from Wow64DetermineEnvironment
+NTSYSAPI
+USHORT
+NTAPI
+RtlWow64GetCurrentMachine(
+    VOID
+    );
+
+// rev from Wow64DetermineEnvironment
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlWow64IsWowGuestMachineSupported(
+    _In_ USHORT NativeMachine,
+    _Out_ PBOOLEAN IsWowGuestMachineSupported
+    );
+#endif
+
 #if (PHNT_VERSION >= PHNT_WIN10_21H2)
 // rev
 NTSYSAPI
@@ -4412,7 +4543,7 @@ RtlGetImageFileMachines(
 
 #if (PHNT_VERSION >= PHNT_REDSTONE2)
 
-#ifdef PHNT_INLINE_SYSTEMROOT
+#ifdef PHNT_INLINE_TYPEDEFS
 // rev
 FORCEINLINE
 PWSTR
@@ -4436,7 +4567,7 @@ RtlGetNtSystemRoot(
     );
 #endif
 
-#ifdef PHNT_INLINE_LONGPATH
+#ifdef PHNT_INLINE_TYPEDEFS
 // rev
 FORCEINLINE
 BOOLEAN
@@ -4466,6 +4597,11 @@ RtlIsThreadWithinLoaderCallout(
     VOID
     );
 
+/**
+ * Gets a value indicating whether the process is currently in the shutdown phase.
+ *
+ * @return TRUE if a shutdown of the current dll process is in progress; otherwise, FALSE.
+ */
 NTSYSAPI
 BOOLEAN
 NTAPI
@@ -4647,7 +4783,8 @@ typedef struct _RTL_SEGMENT_HEAP_MEMORY_SOURCE
 
 #define SEGMENT_HEAP_PARAMETERS_VERSION         3
 #define SEGMENT_HEAP_FLG_USE_PAGE_HEAP          0x1
-#define SEGMENT_HEAP_PARAMS_VALID_FLAGS         SEGMENT_HEAP_FLG_USE_PAGE_HEAP
+#define SEGMENT_HEAP_FLG_NO_LFH                 0x2
+#define SEGMENT_HEAP_PARAMS_VALID_FLAGS         0x3
 
 typedef struct _RTL_SEGMENT_HEAP_PARAMETERS
 {
@@ -4704,6 +4841,24 @@ typedef struct _RTL_HEAP_PARAMETERS
 #define HEAP_CLASS_8 0x00008000 // CSR port heap
 #define HEAP_CLASS_MASK 0x0000f000
 
+#define HEAP_MAXIMUM_TAG 0x0FFF
+#define HEAP_GLOBAL_TAG 0x0800
+#define HEAP_PSEUDO_TAG_FLAG 0x8000
+#define HEAP_TAG_SHIFT 18
+#define HEAP_TAG_MASK (HEAP_MAXIMUM_TAG << HEAP_TAG_SHIFT)
+
+#define HEAP_CREATE_SEGMENT_HEAP 0x00000100
+//
+// Only applies to segment heap. Applies pointer obfuscation which is
+// generally excessive and unnecessary but is necessary for certain insecure
+// heaps in win32k.
+//
+// Specifying HEAP_CREATE_HARDENED prevents the heap from using locks as
+// pointers would potentially be exposed in heap metadata lock variables.
+// Callers are therefore responsible for synchronizing access to hardened heaps.
+//
+#define HEAP_CREATE_HARDENED 0x00000200
+
 _Must_inspect_result_
 NTSYSAPI
 PVOID
@@ -4733,6 +4888,7 @@ _Ret_maybenull_
 _Post_writable_byte_size_(Size)
 __drv_allocatesMem(Mem)
 DECLSPEC_ALLOCATOR
+DECLSPEC_RESTRICT
 PVOID
 NTAPI
 RtlAllocateHeap(
@@ -4811,6 +4967,7 @@ _Ret_maybenull_
 _Post_writable_byte_size_(Size)
 _When_(Size > 0, __drv_allocatesMem(Mem))
 DECLSPEC_ALLOCATOR
+DECLSPEC_RESTRICT
 PVOID
 NTAPI
 RtlReAllocateHeap(
@@ -5529,6 +5686,36 @@ RtlConvertUlongToLuid(
     return tempLuid;
 }
 
+FORCEINLINE
+LONGLONG
+NTAPI_INLINE
+RtlConvertLuidToLonglong(
+    _In_ LUID Luid
+    )
+{
+    LONGLONG tempLuid;
+
+    tempLuid = Luid.LowPart;
+    tempLuid += ((LONGLONG)(Luid.HighPart) << 32);
+
+    return tempLuid;
+}
+
+FORCEINLINE
+ULONGLONG
+NTAPI_INLINE
+RtlConvertLuidToUlonglong(
+    _In_ LUID Luid
+    )
+{
+    ULARGE_INTEGER tempLi;
+
+    tempLi.LowPart = Luid.LowPart;
+    tempLi.HighPart = Luid.HighPart;
+
+    return tempLi.QuadPart;
+}
+
 NTSYSAPI
 VOID
 NTAPI
@@ -5808,6 +5995,8 @@ RtlNtStatusToDosError(
     _In_ NTSTATUS Status
     );
 
+_When_(Status < 0, _Out_range_(>, 0))
+_When_(Status >= 0, _Out_range_(==, 0))
 NTSYSAPI
 ULONG
 NTAPI
@@ -5972,7 +6161,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlCharToInteger(
-    _In_ PCSTR String,
+    _In_z_ PCSTR String,
     _In_opt_ ULONG Base,
     _Out_ PULONG Value
     );
@@ -5986,6 +6175,19 @@ RtlLargeIntegerToChar(
     _In_ LONG OutputLength,
     _Out_ PSTR String
     );
+
+#define RtlLargeIntegerGreaterThan(X,Y) ((((X).HighPart == (Y).HighPart) && ((X).LowPart > (Y).LowPart)) || ((X).HighPart > (Y).HighPart))
+#define RtlLargeIntegerGreaterThanOrEqualTo(X,Y) ((((X).HighPart == (Y).HighPart) && ((X).LowPart >= (Y).LowPart)) || ((X).HighPart > (Y).HighPart)))
+#define RtlLargeIntegerEqualTo(X,Y) (!(((X).LowPart ^ (Y).LowPart) | ((X).HighPart ^ (Y).HighPart)))
+#define RtlLargeIntegerNotEqualTo(X,Y) ((((X).LowPart ^ (Y).LowPart) | ((X).HighPart ^ (Y).HighPart)))
+#define RtlLargeIntegerLessThan(X,Y) ((((X).HighPart == (Y).HighPart) && ((X).LowPart < (Y).LowPart)) || ((X).HighPart < (Y).HighPart))
+#define RtlLargeIntegerLessThanOrEqualTo(X,Y) ((((X).HighPart == (Y).HighPart) && ((X).LowPart <= (Y).LowPart)) || ((X).HighPart < (Y).HighPart))
+#define RtlLargeIntegerGreaterThanZero(X) ((((X).HighPart == 0) && ((X).LowPart > 0)) || ((X).HighPart > 0 ))
+#define RtlLargeIntegerGreaterOrEqualToZero(X) ((X).HighPart >= 0)
+#define RtlLargeIntegerEqualToZero(X) (!((X).LowPart | (X).HighPart))
+#define RtlLargeIntegerNotEqualToZero(X) (((X).LowPart | (X).HighPart))
+#define RtlLargeIntegerLessThanZero(X) (((X).HighPart < 0))
+#define RtlLargeIntegerLessOrEqualToZero(X) (((X).HighPart < 0) || !((X).LowPart | (X).HighPart))
 
 NTSYSAPI
 NTSTATUS
@@ -7469,6 +7671,16 @@ RtlGetAce(
     _In_ ULONG AceIndex,
     _Outptr_ PVOID *Ace
     );
+
+#if (PHNT_VERSION >= PHNT_WIN11_24H2)
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlGetAcesBufferSize(
+    _In_ PACL Acl,
+    _Out_ PULONG AcesBufferSize
+    );
+#endif
 
 NTSYSAPI
 BOOLEAN
@@ -8972,8 +9184,25 @@ RtlSetImageMitigationPolicy(
 
 #endif
 
+//
 // session
+//
 
+#ifdef PHNT_INLINE_TYPEDEFS
+// rev
+FORCEINLINE
+ULONG
+NTAPI
+RtlGetCurrentServiceSessionId(
+    VOID
+    )
+{
+    if (NtCurrentPeb()->SharedData && NtCurrentPeb()->SharedData->ServiceSessionId)
+        return NtCurrentPeb()->SharedData->ServiceSessionId;
+    else
+        return 0;
+}
+#else
 // rev
 NTSYSAPI
 ULONG
@@ -8981,7 +9210,23 @@ NTAPI
 RtlGetCurrentServiceSessionId(
     VOID
     );
+#endif
 
+#ifdef PHNT_INLINE_TYPEDEFS
+// rev
+FORCEINLINE
+ULONG
+NTAPI
+RtlGetActiveConsoleId(
+    VOID
+    )
+{
+    if (NtCurrentPeb()->SharedData && NtCurrentPeb()->SharedData->ServiceSessionId)
+        return NtCurrentPeb()->SharedData->ActiveConsoleId;
+    else
+        return USER_SHARED_DATA->ActiveConsoleId;
+}
+#else
 // private
 NTSYSAPI
 ULONG
@@ -8989,18 +9234,39 @@ NTAPI
 RtlGetActiveConsoleId(
     VOID
     );
+#endif
 
+#ifdef PHNT_INLINE_TYPEDEFS
+#if (PHNT_VERSION >= PHNT_REDSTONE)
+// private
+FORCEINLINE
+LONGLONG
+NTAPI
+RtlGetConsoleSessionForegroundProcessId(
+    VOID
+    )
+{
+    if (NtCurrentPeb()->SharedData && NtCurrentPeb()->SharedData->ServiceSessionId)
+        return NtCurrentPeb()->SharedData->ConsoleSessionForegroundProcessId;
+    else
+        return USER_SHARED_DATA->ConsoleSessionForegroundProcessId;
+}
+#endif
+#else
 #if (PHNT_VERSION >= PHNT_REDSTONE)
 // private
 NTSYSAPI
-ULONGLONG
+LONGLONG
 NTAPI
 RtlGetConsoleSessionForegroundProcessId(
     VOID
     );
 #endif
+#endif
 
+//
 // Appcontainer
+//
 
 #if (PHNT_VERSION >= PHNT_REDSTONE2)
 // rev
@@ -9124,7 +9390,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlIsApiSetImplemented(
-    _In_ PCSTR ApiSetName
+    _In_z_ PCSTR ApiSetName
     );
 #endif
 
@@ -9198,6 +9464,13 @@ NTAPI
 RtlFlsGetValue(
     _In_ ULONG FlsIndex,
     _Out_ PVOID* FlsData
+    );
+
+NTSYSAPI
+PVOID
+WINAPI
+RtlFlsGetValue2(
+    _In_ ULONG FlsIndex
     );
 
 NTSYSAPI
@@ -9510,6 +9783,7 @@ typedef enum _RTL_BSD_ITEM_TYPE
     RtlBsdItemChecksum, // q: s: UCHAR
     RtlBsdPowerTransitionExtension,
     RtlBsdItemFeatureConfigurationState, // q; s: ULONG
+    RtlBsdItemRevocationListInfo, // 24H2
     RtlBsdItemMax
 } RTL_BSD_ITEM_TYPE;
 
@@ -9733,25 +10007,24 @@ RtlFlushSecureMemoryCache(
     _In_opt_ SIZE_T MemoryLength
     );
 
-#if (PHNT_VERSION >= PHNT_20H1)
-
 // Feature configuration
 
-typedef struct __RTL_FEATURE_USAGE_REPORT
+// private
+typedef ULONG RTL_FEATURE_ID;
+typedef ULONGLONG RTL_FEATURE_CHANGE_STAMP, *PRTL_FEATURE_CHANGE_STAMP;
+typedef UCHAR RTL_FEATURE_VARIANT;
+typedef ULONG RTL_FEATURE_VARIANT_PAYLOAD;
+typedef PVOID RTL_FEATURE_CONFIGURATION_CHANGE_REGISTRATION, *PRTL_FEATURE_CONFIGURATION_CHANGE_REGISTRATION;
+
+// private
+typedef struct _RTL_FEATURE_USAGE_REPORT
 {
     ULONG FeatureId;
     USHORT ReportingKind;
     USHORT ReportingOptions;
 } RTL_FEATURE_USAGE_REPORT, *PRTL_FEATURE_USAGE_REPORT;
 
-// rev
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlNotifyFeatureUsage(
-    _In_ PRTL_FEATURE_USAGE_REPORT FeatureUsageReport
-    );
-
+// private
 typedef enum _RTL_FEATURE_CONFIGURATION_TYPE
 {
     RtlFeatureConfigurationBoot,
@@ -9759,10 +10032,10 @@ typedef enum _RTL_FEATURE_CONFIGURATION_TYPE
     RtlFeatureConfigurationCount
 } RTL_FEATURE_CONFIGURATION_TYPE;
 
-// rev
+// private
 typedef struct _RTL_FEATURE_CONFIGURATION
 {
-    ULONG FeatureId;
+    RTL_FEATURE_ID FeatureId;
     union
     {
         ULONG Flags;
@@ -9777,100 +10050,327 @@ typedef struct _RTL_FEATURE_CONFIGURATION
             ULONG Reserved : 16;
         };
     };
-    ULONG VariantPayload;
+    RTL_FEATURE_VARIANT_PAYLOAD VariantPayload;
 } RTL_FEATURE_CONFIGURATION, *PRTL_FEATURE_CONFIGURATION;
 
-// rev
+// private
+typedef struct _RTL_FEATURE_CONFIGURATION_TABLE
+{
+    ULONG FeatureCount;
+    _Field_size_(FeatureCount) RTL_FEATURE_CONFIGURATION Features[ANYSIZE_ARRAY];
+} RTL_FEATURE_CONFIGURATION_TABLE, *PRTL_FEATURE_CONFIGURATION_TABLE;
+
+// private
+typedef enum _RTL_FEATURE_CONFIGURATION_PRIORITY
+{
+    FeatureConfigurationPriorityImageDefault   = 0,
+    FeatureConfigurationPriorityEKB            = 1,
+    FeatureConfigurationPrioritySafeguard      = 2,
+    FeatureConfigurationPriorityPersistent     = FeatureConfigurationPrioritySafeguard,
+    FeatureConfigurationPriorityReserved3      = 3,
+    FeatureConfigurationPriorityService        = 4,
+    FeatureConfigurationPriorityReserved5      = 5,
+    FeatureConfigurationPriorityDynamic        = 6,
+    FeatureConfigurationPriorityReserved7      = 7,
+    FeatureConfigurationPriorityUser           = 8,
+    FeatureConfigurationPrioritySecurity       = 9,
+    FeatureConfigurationPriorityUserPolicy     = 10,
+    FeatureConfigurationPriorityReserved11     = 11,
+    FeatureConfigurationPriorityTest           = 12,
+    FeatureConfigurationPriorityReserved13     = 13,
+    FeatureConfigurationPriorityReserved14     = 14,
+    FeatureConfigurationPriorityImageOverride  = 15,
+    FeatureConfigurationPriorityMax            = FeatureConfigurationPriorityImageOverride
+} RTL_FEATURE_CONFIGURATION_PRIORITY, *PRTL_FEATURE_CONFIGURATION_PRIORITY;
+
+// private
+typedef enum _RTL_FEATURE_ENABLED_STATE
+{
+    FeatureEnabledStateDefault,
+    FeatureEnabledStateDisabled,
+    FeatureEnabledStateEnabled
+} RTL_FEATURE_ENABLED_STATE;
+
+// private
+typedef enum _RTL_FEATURE_ENABLED_STATE_OPTIONS
+{
+    FeatureEnabledStateOptionsNone,
+    FeatureEnabledStateOptionsWexpConfig
+} RTL_FEATURE_ENABLED_STATE_OPTIONS, *PRTL_FEATURE_ENABLED_STATE_OPTIONS;
+
+// private
+typedef enum _RTL_FEATURE_VARIANT_PAYLOAD_KIND
+{
+    FeatureVariantPayloadKindNone,
+    FeatureVariantPayloadKindResident,
+    FeatureVariantPayloadKindExternal
+} RTL_FEATURE_VARIANT_PAYLOAD_KIND, *PRTL_FEATURE_VARIANT_PAYLOAD_KIND;
+
+// private
+typedef enum _RTL_FEATURE_CONFIGURATION_OPERATION
+{
+    FeatureConfigurationOperationNone         = 0,
+    FeatureConfigurationOperationFeatureState = 1,
+    FeatureConfigurationOperationVariantState = 2,
+    FeatureConfigurationOperationResetState   = 4
+} RTL_FEATURE_CONFIGURATION_OPERATION, *PRTL_FEATURE_CONFIGURATION_OPERATION;
+
+// private
+typedef struct _RTL_FEATURE_CONFIGURATION_UPDATE
+{
+    RTL_FEATURE_ID FeatureId;
+    RTL_FEATURE_CONFIGURATION_PRIORITY Priority;
+    RTL_FEATURE_ENABLED_STATE EnabledState;
+    RTL_FEATURE_ENABLED_STATE_OPTIONS EnabledStateOptions;
+    RTL_FEATURE_VARIANT Variant;
+    UCHAR Reserved[3];
+    RTL_FEATURE_VARIANT_PAYLOAD_KIND VariantPayloadKind;
+    RTL_FEATURE_VARIANT_PAYLOAD VariantPayload;
+    RTL_FEATURE_CONFIGURATION_OPERATION Operation;
+} RTL_FEATURE_CONFIGURATION_UPDATE, *PRTL_FEATURE_CONFIGURATION_UPDATE;
+
+// private
+typedef struct _RTL_FEATURE_USAGE_SUBSCRIPTION_TARGET
+{
+    ULONG Data[2];
+} RTL_FEATURE_USAGE_SUBSCRIPTION_TARGET, *PRTL_FEATURE_USAGE_SUBSCRIPTION_TARGET;
+
+// private
+typedef struct _RTL_FEATURE_USAGE_DATA
+{
+    RTL_FEATURE_ID FeatureId;
+    USHORT ReportingKind;
+    USHORT Reserved;
+} RTL_FEATURE_USAGE_DATA, *PRTL_FEATURE_USAGE_DATA;
+
+// private
+typedef struct _RTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS
+{
+    RTL_FEATURE_ID FeatureId;
+    USHORT ReportingKind;
+    USHORT ReportingOptions;
+    RTL_FEATURE_USAGE_SUBSCRIPTION_TARGET ReportingTarget;
+} RTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS, *PRTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS;
+
+// private
+typedef struct _RTL_FEATURE_USAGE_SUBSCRIPTION_TABLE
+{
+    ULONG SubscriptionCount;
+    _Field_size_(SubscriptionCount) RTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS Subscriptions[ANYSIZE_ARRAY];
+} RTL_FEATURE_USAGE_SUBSCRIPTION_TABLE, *PRTL_FEATURE_USAGE_SUBSCRIPTION_TABLE;
+
+// private
+_Function_class_(RTL_FEATURE_CONFIGURATION_CHANGE_CALLBACK)
+typedef VOID (NTAPI RTL_FEATURE_CONFIGURATION_CHANGE_CALLBACK)(
+    _In_opt_ PVOID Context
+    );
+typedef RTL_FEATURE_CONFIGURATION_CHANGE_CALLBACK *PRTL_FEATURE_CONFIGURATION_CHANGE_CALLBACK;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_QUERY
+{
+    RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType;
+    RTL_FEATURE_ID FeatureId;
+} SYSTEM_FEATURE_CONFIGURATION_QUERY, *PSYSTEM_FEATURE_CONFIGURATION_QUERY;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_INFORMATION
+{
+    RTL_FEATURE_CHANGE_STAMP ChangeStamp;
+    RTL_FEATURE_CONFIGURATION Configuration;
+} SYSTEM_FEATURE_CONFIGURATION_INFORMATION, *PSYSTEM_FEATURE_CONFIGURATION_INFORMATION;
+
+// private
+typedef enum _SYSTEM_FEATURE_CONFIGURATION_UPDATE_TYPE
+{
+  SystemFeatureConfigurationUpdateTypeUpdate = 0,
+  SystemFeatureConfigurationUpdateTypeOverwrite = 1,
+  SystemFeatureConfigurationUpdateTypeCount = 2,
+} SYSTEM_FEATURE_CONFIGURATION_UPDATE_TYPE, *PSYSTEM_FEATURE_CONFIGURATION_UPDATE_TYPE;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_UPDATE
+{
+    SYSTEM_FEATURE_CONFIGURATION_UPDATE_TYPE UpdateType;
+    union
+    {
+        struct
+        {
+            RTL_FEATURE_CHANGE_STAMP PreviousChangeStamp;
+            RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType;
+            ULONG UpdateCount;
+            _Field_size_(UpdateCount) RTL_FEATURE_CONFIGURATION_UPDATE Updates[ANYSIZE_ARRAY];
+        } Update;
+
+        struct
+        {
+            RTL_FEATURE_CHANGE_STAMP PreviousChangeStamp;
+            RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType;
+            SIZE_T BufferSize;
+            PVOID Buffer;
+        } Overwrite;
+    };
+} SYSTEM_FEATURE_CONFIGURATION_UPDATE, *PSYSTEM_FEATURE_CONFIGURATION_UPDATE;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY
+{
+    RTL_FEATURE_CHANGE_STAMP ChangeStamp;
+    PVOID Section;
+    SIZE_T Size;
+} SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY, *PSYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY;
+
+// private
+typedef enum _SYSTEM_FEATURE_CONFIGURATION_SECTION_TYPE
+{
+  SystemFeatureConfigurationSectionTypeBoot = 0,
+  SystemFeatureConfigurationSectionTypeRuntime = 1,
+  SystemFeatureConfigurationSectionTypeUsageTriggers = 2,
+  SystemFeatureConfigurationSectionTypeCount = 3,
+} SYSTEM_FEATURE_CONFIGURATION_SECTION_TYPE;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_SECTIONS_REQUEST
+{
+    RTL_FEATURE_CHANGE_STAMP PreviousChangeStamps[SystemFeatureConfigurationSectionTypeCount];
+} SYSTEM_FEATURE_CONFIGURATION_SECTIONS_REQUEST, *PSYSTEM_FEATURE_CONFIGURATION_SECTIONS_REQUEST;
+
+// private
+typedef struct _SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION
+{
+    RTL_FEATURE_CHANGE_STAMP OverallChangeStamp;
+    SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION_ENTRY Descriptors[SystemFeatureConfigurationSectionTypeCount];
+} SYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION, *PSYSTEM_FEATURE_CONFIGURATION_SECTIONS_INFORMATION;
+
+// private
+typedef struct _SYSTEM_FEATURE_USAGE_SUBSCRIPTION_DETAILS
+{
+    RTL_FEATURE_ID FeatureId;
+    USHORT ReportingKind;
+    USHORT ReportingOptions;
+    RTL_FEATURE_USAGE_SUBSCRIPTION_TARGET ReportingTarget;
+} SYSTEM_FEATURE_USAGE_SUBSCRIPTION_DETAILS, *PSYSTEM_FEATURE_USAGE_SUBSCRIPTION_DETAILS;
+
+typedef struct _SYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE_ENTRY
+{
+    ULONG Remove;
+    RTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS Details;
+} SYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE_ENTRY, *PSYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE_ENTRY;
+
+typedef struct _SYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE
+{
+    ULONG UpdateCount;
+    _Field_size_(UpdateCount) SYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE_ENTRY Updates[ANYSIZE_ARRAY];
+} SYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE, *PSYSTEM_FEATURE_USAGE_SUBSCRIPTION_UPDATE;
+
+#if (PHNT_VERSION >= PHNT_20H1)
+
+// private
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlNotifyFeatureUsage(
+    _In_ PRTL_FEATURE_USAGE_REPORT FeatureUsageReport
+    );
+
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlQueryFeatureConfiguration(
-    _In_ ULONG FeatureId,
-    _In_ RTL_FEATURE_CONFIGURATION_TYPE FeatureType,
-    _Inout_ PULONGLONG ChangeStamp,
-    _In_ PRTL_FEATURE_CONFIGURATION FeatureConfiguration
+    _In_ RTL_FEATURE_ID FeatureId,
+    _In_ RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType,
+    _Out_ PRTL_FEATURE_CHANGE_STAMP ChangeStamp,
+    _Out_ PRTL_FEATURE_CONFIGURATION FeatureConfiguration
     );
 
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlSetFeatureConfigurations(
-    _Inout_ PULONGLONG ChangeStamp,
-    _In_ RTL_FEATURE_CONFIGURATION_TYPE FeatureType,
-    _In_ PRTL_FEATURE_CONFIGURATION FeatureConfiguration,
-    _In_ ULONG FeatureConfigurationCount
+    _In_opt_ PRTL_FEATURE_CHANGE_STAMP PreviousChangeStamp,
+    _In_ RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType,
+    _In_reads_(ConfigurationUpdateCount) PRTL_FEATURE_CONFIGURATION_UPDATE ConfigurationUpdates,
+    _In_ SIZE_T ConfigurationUpdateCount
     );
 
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlQueryAllFeatureConfigurations(
-    _In_ RTL_FEATURE_CONFIGURATION_TYPE FeatureType,
-    _Inout_ PULONGLONG ChangeStamp,
-    _Out_ PRTL_FEATURE_CONFIGURATION FeatureConfigurations,
-    _Inout_ PULONG FeatureConfigurationCount
+    _In_ RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType,
+    _Out_opt_ PRTL_FEATURE_CHANGE_STAMP ChangeStamp,
+    _Out_writes_(*ConfigurationCount) PRTL_FEATURE_CONFIGURATION Configurations,
+    _Inout_ PSIZE_T ConfigurationCount
     );
 
-// rev
+// private
 NTSYSAPI
-ULONGLONG
+RTL_FEATURE_CHANGE_STAMP
 NTAPI
 RtlQueryFeatureConfigurationChangeStamp(
     VOID
     );
 
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlQueryFeatureUsageNotificationSubscriptions(
-    _Out_ PRTL_FEATURE_CONFIGURATION FeatureConfiguration,
-    _Inout_ PULONG FeatureConfigurationCount
+    _Out_writes_(*SubscriptionCount) PRTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS Subscriptions,
+    _Inout_ PSIZE_T SubscriptionCount
     );
 
-_Function_class_(RTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION)
-typedef VOID (NTAPI RTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION)(
-    _In_opt_ PVOID Context
-    );
-typedef RTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION *PRTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION;
-
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlRegisterFeatureConfigurationChangeNotification(
-    _In_ PRTL_FEATURE_CONFIGURATION_CHANGE_NOTIFICATION Callback,
+    _In_ PRTL_FEATURE_CONFIGURATION_CHANGE_CALLBACK Callback,
     _In_opt_ PVOID Context,
-    _Inout_opt_ PULONGLONG ChangeStamp,
-    _Out_ PHANDLE NotificationHandle
+    _In_opt_ PRTL_FEATURE_CHANGE_STAMP ObservedChangeStamp,
+    _Out_ PRTL_FEATURE_CONFIGURATION_CHANGE_REGISTRATION RegistrationHandle
     );
 
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlUnregisterFeatureConfigurationChangeNotification(
-    _In_ HANDLE NotificationHandle
+    _In_ RTL_FEATURE_CONFIGURATION_CHANGE_REGISTRATION RegistrationHandle
     );
 
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlSubscribeForFeatureUsageNotification(
-    _In_ PRTL_FEATURE_CONFIGURATION FeatureConfiguration,
-    _In_ ULONG FeatureConfigurationCount
+    _In_reads_(SubscriptionCount) PRTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS SubscriptionDetails,
+    _In_ SIZE_T SubscriptionCount
     );
 
-// rev
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlUnsubscribeFromFeatureUsageNotifications(
-    _In_ PRTL_FEATURE_CONFIGURATION FeatureConfiguration,
-    _In_ ULONG FeatureConfigurationCount
+    _In_reads_(SubscriptionCount) PRTL_FEATURE_USAGE_SUBSCRIPTION_DETAILS SubscriptionDetails,
+    _In_ SIZE_T SubscriptionCount
+    );
+#endif
+
+// private
+#if (PHNT_VERSION >= PHNT_WIN11)
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlOverwriteFeatureConfigurationBuffer(
+    _In_opt_ PRTL_FEATURE_CHANGE_STAMP PreviousChangeStamp,
+    _In_ RTL_FEATURE_CONFIGURATION_TYPE ConfigurationType,
+    _In_reads_bytes_opt_(ConfigurationBufferSize) PVOID ConfigurationBuffer,
+    _In_ ULONG ConfigurationBufferSize
     );
 #endif
 
@@ -10015,6 +10515,13 @@ RtlUnsubscribeWnfStateChangeNotification(
     _In_ PWNF_USER_CALLBACK Callback
     );
 
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlWnfDllUnloadCallback(
+    _In_ PVOID DllBase
+    );
+
 #endif
 
 #if (PHNT_VERSION >= PHNT_WIN11)
@@ -10034,8 +10541,10 @@ NtCopyFileChunk(
     _In_opt_ PULONG DestKey,
     _In_ ULONG Flags
     );
-
 #endif
+
+#define COPY_FILE_CHUNK_DUPLICATE_EXTENTS 0x00000001L // 24H2
+#define VALID_COPY_FILE_CHUNK_FLAGS (COPY_FILE_CHUNK_DUPLICATE_EXTENTS)
 
 #if (PHNT_VERSION >= PHNT_WIN11)
 // rev

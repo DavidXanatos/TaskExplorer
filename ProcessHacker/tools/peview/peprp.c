@@ -161,7 +161,7 @@ VOID PvPeProperties(
         PvAddPropPage(propContext, newPage);
 
         // Load Config page
-        if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG, &entry)))
+        if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG, &entry)))
         {
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_PELOADCONFIG),
@@ -233,7 +233,7 @@ VOID PvPeProperties(
         }
 
         // Resources page
-        if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_RESOURCE, &entry)))
+        if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_RESOURCE, &entry)))
         {
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_PERESOURCES),
@@ -244,7 +244,7 @@ VOID PvPeProperties(
         }
 
         // CLR page
-        if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, &entry)) &&
+        if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, &entry)) &&
             (PvImageCor20Header = PhMappedImageRvaToVa(&PvMappedImage, entry->VirtualAddress, NULL)))
         {
             NTSTATUS status = STATUS_SUCCESS;
@@ -301,7 +301,7 @@ VOID PvPeProperties(
         }
 
         // TLS page
-        if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_TLS, &entry)))
+        if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_TLS, &entry)))
         {
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_TLS),
@@ -341,7 +341,7 @@ VOID PvPeProperties(
             }
             else
             {
-                if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_EXCEPTION, &entry)))
+                if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_EXCEPTION, &entry)))
                 {
                     IMAGE_DATA_DIRECTORY entryArm64X;
 
@@ -389,7 +389,7 @@ VOID PvPeProperties(
 
         // Relocations page
         {
-            if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_BASERELOC, &entry)))
+            if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_BASERELOC, &entry)))
             {
                 newPage = PvCreatePropPageContext(
                     MAKEINTRESOURCE(IDD_PERELOCATIONS),
@@ -401,7 +401,7 @@ VOID PvPeProperties(
         }
 
         // Certificates page
-        if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &entry)))
+        if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &entry)))
         {
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_PESECURITY),
@@ -412,7 +412,7 @@ VOID PvPeProperties(
         }
 
         // Debug page
-        if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_DEBUG, &entry)))
+        if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_DEBUG, &entry)))
         {
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_PEDEBUG),
@@ -608,6 +608,16 @@ VOID PvPeProperties(
             newPage = PvCreatePropPageContext(
                 MAKEINTRESOURCE(IDD_PESYMBOLS),
                 PvpSymbolsDlgProc,
+                NULL
+                );
+            PvAddPropPage(propContext, newPage);
+        }
+
+        // Strings page
+        {
+            newPage = PvCreatePropPageContext(
+                MAKEINTRESOURCE(IDD_STRINGS),
+                PvStringsDlgProc,
                 NULL
                 );
             PvAddPropPage(propContext, newPage);
@@ -1013,7 +1023,7 @@ VOID PvpSetPeImageSize(
         //BOOLEAN success = FALSE;
         //PIMAGE_DATA_DIRECTORY dataDirectory;
         //
-        //if (NT_SUCCESS(PhGetMappedImageDataEntry(
+        //if (NT_SUCCESS(PhGetMappedImageDataDirectory(
         //    &PvMappedImage,
         //    IMAGE_DIRECTORY_ENTRY_SECURITY,
         //    &dataDirectory
@@ -1055,15 +1065,15 @@ VOID PvpSetPeImageSize(
 }
 
 VOID PvCalculateImageEntropy(
-    _Out_ DOUBLE* ImageEntropy,
-    _Out_ DOUBLE* ImageVariance
+    _Out_ FLOAT* ImageEntropy,
+    _Out_ FLOAT* ImageVariance
     )
 {
-    DOUBLE imageEntropy = 0.0;
+    FLOAT imageEntropy = 0.f;
     ULONG64 offset = 0;
     ULONG64 imageSumValue = 0;
-    DOUBLE imageMeanValue = 0;
-    //DOUBLE deviationValue = 0;
+    FLOAT imageMeanValue = 0;
+    //FLOAT deviationValue = 0;
     ULONG64 counts[UCHAR_MAX + 1];
 
     memset(counts, 0, sizeof(counts));
@@ -1078,13 +1088,13 @@ VOID PvCalculateImageEntropy(
 
     for (ULONG i = 0; i < RTL_NUMBER_OF(counts); i++)
     {
-        DOUBLE value = (DOUBLE)counts[i] / (DOUBLE)PvMappedImage.ViewSize;
+        FLOAT value = (FLOAT)counts[i] / (FLOAT)PvMappedImage.ViewSize;
 
-        if (value > 0.0)
-            imageEntropy -= value * log2(value);
+        if (value > 0.f)
+            imageEntropy -= value * log2f(value);
     }
 
-    imageMeanValue = (DOUBLE)imageSumValue / (DOUBLE)PvMappedImage.ViewSize; // 127.5 = random
+    imageMeanValue = (FLOAT)imageSumValue / (FLOAT)PvMappedImage.ViewSize; // 127.5 = random
 
     //offset = 0;
     //while (offset < PvMappedImage.Size)
@@ -1101,8 +1111,8 @@ VOID PvCalculateImageEntropy(
 
 typedef struct _PVP_ENTROPY_RESULT
 {
-    DOUBLE ImageEntropy;
-    DOUBLE ImageAvgMean;
+    FLOAT ImageEntropy;
+    FLOAT ImageAvgMean;
 } PVP_ENTROPY_RESULT, *PPVP_ENTROPY_RESULT;
 
 static NTSTATUS PvpEntropyImageThreadStart(
@@ -1111,8 +1121,8 @@ static NTSTATUS PvpEntropyImageThreadStart(
 {
     HWND windowHandle = Parameter;
     PPVP_ENTROPY_RESULT result;
-    DOUBLE imageEntropy;
-    DOUBLE imageAvgMean;
+    FLOAT imageEntropy;
+    FLOAT imageAvgMean;
 
     PvCalculateImageEntropy(&imageEntropy, &imageAvgMean);
 
@@ -1403,6 +1413,10 @@ VOID PvpSetPeImageCharacteristics(
                 PhAppendStringBuilder2(&stringBuilder, L"CET context validation (Relaxed), ");
             if (characteristicsEx & IMAGE_DLLCHARACTERISTICS_EX_CET_DYNAMIC_APIS_ALLOW_IN_PROC)
                 PhAppendStringBuilder2(&stringBuilder, L"CET dynamic APIs allowed, ");
+            if (characteristicsEx & IMAGE_DLLCHARACTERISTICS_EX_FORWARD_CFI_COMPAT)
+                PhAppendStringBuilder2(&stringBuilder, L"CFI shadow stack compatible, ");
+            if (characteristicsEx & IMAGE_DLLCHARACTERISTICS_EX_HOTPATCH_COMPATIBLE)
+                PhAppendStringBuilder2(&stringBuilder, L"Hotpatch compatible, ");
         }
     }
 

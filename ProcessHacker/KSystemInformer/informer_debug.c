@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -102,6 +102,10 @@ VOID KphpDebugPrintFlush(
  * \param SystemArgument1 Unused
  * \param SystemArgument2 Unused
  */
+_Function_class_(KDEFERRED_ROUTINE)
+_IRQL_requires_max_(DISPATCH_LEVEL)
+_IRQL_requires_min_(DISPATCH_LEVEL)
+_IRQL_requires_(DISPATCH_LEVEL)
 _IRQL_requires_same_
 VOID KphpDebugPrintDpc(
     _In_ PKDPC Dpc,

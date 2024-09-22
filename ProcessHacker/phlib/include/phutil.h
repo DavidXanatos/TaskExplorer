@@ -210,6 +210,14 @@ PhLocalSystemTimeToLargeInteger(
     _In_ PSYSTEMTIME SystemTime
     );
 
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhSystemTimeToTzSpecificLocalTime(
+    _In_ CONST SYSTEMTIME* UniversalTime,
+    _Out_ PSYSTEMTIME LocalTime
+    );
+
 // Error messages
 
 PHLIBAPI
@@ -305,6 +313,33 @@ PhShowMessageOneTime(
     ...
     );
 
+typedef struct _TASKDIALOGCONFIG TASKDIALOGCONFIG, *PTASKDIALOGCONFIG;
+
+// TDM_NAVIGATE_PAGE is not thread safe and accelerator keys crash the process
+// after navigating to the page and pressing ctrl, alt, home or insert keys. (dmex)
+FORCEINLINE
+VOID
+PhTaskDialogNavigatePage(
+    _In_ HWND WindowHandle,
+    _In_ PTASKDIALOGCONFIG Config
+    )
+{
+    assert(HandleToUlong(NtCurrentThreadId()) == GetWindowThreadProcessId(WindowHandle, NULL));
+
+    SendMessage(WindowHandle, (WM_USER + 101), 0, (LPARAM)(Config));
+}
+
+_Success_(return)
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhShowTaskDialog(
+    _In_ PTASKDIALOGCONFIG Config,
+    _Out_opt_ PULONG Button,
+    _Out_opt_ PULONG RadioButton,
+    _Out_opt_ PBOOLEAN FlagChecked
+    );
+
 PHLIBAPI
 PPH_STRING
 NTAPI
@@ -361,7 +396,7 @@ _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindIntegerSiKeyValuePairs(
-    _In_ PPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
     _In_ PWSTR String,
     _Out_ PULONG Integer
@@ -383,7 +418,7 @@ _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindIntegerSiKeyValuePairsStringRef(
-    _In_ PPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
     _In_ PPH_STRINGREF String,
     _Out_ PULONG Integer
@@ -415,7 +450,7 @@ _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindStringSiKeyValuePairs(
-    _In_ PPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
     _In_ ULONG Integer,
     _Out_ PWSTR *String
@@ -437,7 +472,7 @@ _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindStringRefSiKeyValuePairs(
-    _In_ PPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
     _In_ ULONG Integer,
     _Out_ PPH_STRINGREF* String
@@ -559,6 +594,19 @@ PhGenerateRandomAlphaString(
     _In_ SIZE_T Count
     );
 
+FORCEINLINE
+VOID
+PhGenerateRandomAlphaStringRef(
+    _Out_writes_z_(Count) PWSTR Buffer,
+    _In_ SIZE_T Count,
+    _Out_ PPH_STRINGREF String
+    )
+{
+    PhGenerateRandomAlphaString(Buffer, Count);
+    String->Buffer = Buffer;
+    String->Length = (Count * sizeof(WCHAR)) - sizeof(UNICODE_NULL);
+}
+
 PHLIBAPI
 ULONG64
 NTAPI
@@ -646,6 +694,19 @@ PhFormatDateTime(
     );
 
 #define PhaFormatDateTime(DateTime) PH_AUTO_T(PH_STRING, PhFormatDateTime(DateTime))
+
+#define PH_DATETIME_STR_LEN 256
+#define PH_DATETIME_STR_LEN_1 (PH_DATETIME_STR_LEN + 1)
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhFormatDateTimeToBuffer(
+    _In_opt_ PSYSTEMTIME DateTime,
+    _Out_writes_bytes_(BufferLength) PWSTR Buffer,
+    _In_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
+    );
 
 PHLIBAPI
 PPH_STRING
@@ -911,6 +972,21 @@ PhGetBaseNameChangeExtension(
     _In_ PPH_STRINGREF FileExtension
     );
 
+FORCEINLINE
+PPH_STRING
+NTAPI
+PhGetBaseNameChangeExtensionZ(
+    _In_ PPH_STRINGREF FileName,
+    _In_ PWSTR FileExtension
+    )
+{
+    PH_STRINGREF string;
+
+    PhInitializeStringRef(&string, FileExtension);
+
+    return PhGetBaseNameChangeExtension(FileName, &string);
+}
+
 _Success_(return)
 PHLIBAPI
 BOOLEAN
@@ -960,6 +1036,13 @@ VOID
 NTAPI
 PhGetSystemRoot(
     _Out_ PPH_STRINGREF SystemRoot
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhGetNtSystemRoot(
+    _Out_ PPH_STRINGREF NtSystemRoot
     );
 
 PHLIBAPI
@@ -1074,6 +1157,7 @@ PhGetApplicationDataFileName(
 #define PH_FOLDERID_LocalAppData 1
 #define PH_FOLDERID_RoamingAppData 2
 #define PH_FOLDERID_ProgramFiles 3
+#define PH_FOLDERID_ProgramData 4
 
 PHLIBAPI
 PPH_STRING
@@ -1102,6 +1186,7 @@ PhGetKnownLocationZ(
 DEFINE_GUID(FOLDERID_LocalAppData, 0xF1B32785, 0x6FBA, 0x4FCF, 0x9D, 0x55, 0x7B, 0x8E, 0x7F, 0x15, 0x70, 0x91);
 DEFINE_GUID(FOLDERID_RoamingAppData, 0x3EB685DB, 0x65F9, 0x4CF6, 0xA0, 0x3A, 0xE3, 0xEF, 0x65, 0x72, 0x9F, 0x3D);
 DEFINE_GUID(FOLDERID_ProgramFiles, 0x905e63b6, 0xc1bf, 0x494e, 0xb2, 0x9c, 0x65, 0xb7, 0x32, 0xd3, 0xd2, 0x1a);
+DEFINE_GUID(FOLDERID_ProgramData, 0x62AB5D82, 0xFDC1, 0x4DC3, 0xA9, 0xDD, 0x07, 0x0D, 0x1D, 0x49, 0x5D, 0x97);
 
 #define PH_KF_FLAG_FORCE_PACKAGE_REDIRECTION 0x1
 #define PH_KF_FLAG_FORCE_APPCONTAINER_REDIRECTION 0x2
@@ -1229,7 +1314,7 @@ PhCreateProcessWin32Ex(
     _In_opt_ PWSTR CommandLine,
     _In_opt_ PVOID Environment,
     _In_opt_ PWSTR CurrentDirectory,
-    _In_opt_ STARTUPINFO *StartupInfo,
+    _In_opt_ PVOID StartupInfo,
     _In_ ULONG Flags,
     _In_opt_ HANDLE TokenHandle,
     _Out_opt_ PCLIENT_ID ClientId,
@@ -1253,6 +1338,7 @@ typedef struct _PH_CREATE_PROCESS_AS_USER_INFO
             _In_ PWSTR UserName;
             _In_ PWSTR Password;
             _In_opt_ ULONG LogonType;
+            _In_opt_ ULONG LogonFlags;
         };
         _In_ HANDLE ProcessIdWithToken; // use PH_CREATE_PROCESS_USE_PROCESS_TOKEN
         _In_ ULONG SessionIdWithToken; // use PH_CREATE_PROCESS_USE_SESSION_TOKEN
@@ -1952,6 +2038,75 @@ PhQueryPerformanceFrequency(
     _Out_ PLARGE_INTEGER PerformanceFrequency
     );
 
+// Stopwatch
+
+typedef struct _PH_STOPWATCH
+{
+    LARGE_INTEGER StartCounter;
+    LARGE_INTEGER EndCounter;
+    LARGE_INTEGER Frequency;
+} PH_STOPWATCH, *PPH_STOPWATCH;
+
+FORCEINLINE
+VOID
+PhInitializeStopwatch(
+    _Out_ PPH_STOPWATCH Stopwatch
+    )
+{
+    Stopwatch->StartCounter.QuadPart = 0;
+    Stopwatch->EndCounter.QuadPart = 0;
+}
+
+FORCEINLINE
+VOID
+PhStartStopwatch(
+    _Inout_ PPH_STOPWATCH Stopwatch
+    )
+{
+    PhQueryPerformanceCounter(&Stopwatch->StartCounter);
+    PhQueryPerformanceFrequency(&Stopwatch->Frequency);
+}
+
+FORCEINLINE
+VOID
+PhStopStopwatch(
+    _Inout_ PPH_STOPWATCH Stopwatch
+    )
+{
+    PhQueryPerformanceCounter(&Stopwatch->EndCounter);
+}
+
+FORCEINLINE
+ULONG
+PhGetMillisecondsStopwatch(
+    _In_ PPH_STOPWATCH Stopwatch
+    )
+{
+    LARGE_INTEGER elapsedMilliseconds;
+
+    elapsedMilliseconds.QuadPart = Stopwatch->EndCounter.QuadPart - Stopwatch->StartCounter.QuadPart;
+    elapsedMilliseconds.QuadPart *= 1000;
+    elapsedMilliseconds.QuadPart /= Stopwatch->Frequency.QuadPart ? Stopwatch->Frequency.QuadPart  : 1;
+
+    return (ULONG)elapsedMilliseconds.QuadPart;
+}
+
+FORCEINLINE
+ULONGLONG
+PhGetMicrosecondsStopwatch(
+    _In_ PPH_STOPWATCH Stopwatch
+    )
+{
+    LARGE_INTEGER elapsedMicroseconds;
+
+    // Convert to microseconds before dividing by ticks-per-second.
+    elapsedMicroseconds.QuadPart = Stopwatch->EndCounter.QuadPart - Stopwatch->StartCounter.QuadPart;
+    elapsedMicroseconds.QuadPart *= 1000000;
+    if (Stopwatch->Frequency.QuadPart)elapsedMicroseconds.QuadPart /= Stopwatch->Frequency.QuadPart;
+
+    return elapsedMicroseconds.QuadPart;
+}
+
 PHLIBAPI
 PPH_STRING
 NTAPI
@@ -1988,8 +2143,7 @@ NTSTATUS
 NTAPI
 PhCreateProcessSnapshot(
     _Out_ PHANDLE SnapshotHandle,
-    _In_opt_ HANDLE ProcessHandle,
-    _In_opt_ HANDLE ProcessId
+    _In_ HANDLE ProcessHandle
     );
 
 PHLIBAPI

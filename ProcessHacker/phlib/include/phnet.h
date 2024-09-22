@@ -15,16 +15,19 @@
 
 EXTERN_C_START
 
-#define __WINDOT11_H__ // temporary preprocessor workaround (dmex)
-
 #ifndef PIO_APC_ROUTINE_DEFINED
 #define PIO_APC_ROUTINE_DEFINED 1
+#endif
+
+#ifndef ALIGN_SIZE
+#define ALIGN_SIZE 0x00000008
 #endif
 
 #ifndef UM_NDIS60
 #define UM_NDIS60 1
 #endif
 
+// #include <rtinfo.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <ws2def.h>
@@ -41,8 +44,8 @@ EXTERN_C CONST DECLSPEC_SELECTANY IN6_ADDR in6addr_v4mappedprefix = { 0x00, 0x00
 
 #define PH_IPV4_NETWORK_TYPE 0x1
 #define PH_IPV6_NETWORK_TYPE 0x2
-#define PH_HV_NETWORK_TYPE   0x3
-#define PH_NETWORK_TYPE_MASK 0x3
+#define PH_HV_NETWORK_TYPE   0x4
+#define PH_NETWORK_TYPE_MASK 0x8
 
 #define PH_TCP_PROTOCOL_TYPE  0x10
 #define PH_UDP_PROTOCOL_TYPE  0x20

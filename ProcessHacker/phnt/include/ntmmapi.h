@@ -96,6 +96,7 @@ typedef enum _MEMORY_INFORMATION_CLASS
     MemoryPhysicalContiguityInformation, // MEMORY_PHYSICAL_CONTIGUITY_INFORMATION // since 20H1
     MemoryBadInformation, // since WIN11
     MemoryBadInformationAllProcesses, // since 22H1
+    MemoryImageExtensionInformation, // MEMORY_IMAGE_EXTENSION_INFORMATION // since 24H2
     MaxMemoryInfoClass
 } MEMORY_INFORMATION_CLASS;
 #else
@@ -113,7 +114,42 @@ typedef enum _MEMORY_INFORMATION_CLASS
 #define MemoryPhysicalContiguityInformation 0xB
 #define MemoryBadInformation 0xC
 #define MemoryBadInformationAllProcesses 0xD
+#define MemoryImageExtensionInformation 0xE
 #endif
+
+// MEMORY_WORKING_SET_BLOCK->Protection
+#define MEMORY_BLOCK_NOT_ACCESSED 0
+#define MEMORY_BLOCK_READONLY 1
+#define MEMORY_BLOCK_EXECUTABLE 2
+#define MEMORY_BLOCK_EXECUTABLE_READONLY 3
+#define MEMORY_BLOCK_READWRITE 4
+#define MEMORY_BLOCK_COPYONWRITE 5
+#define MEMORY_BLOCK_EXECUTABLE_READWRITE 6
+#define MEMORY_BLOCK_EXECUTABLE_COPYONWRITE 7
+#define MEMORY_BLOCK_NOT_ACCESSED_2 8
+#define MEMORY_BLOCK_NON_CACHEABLE_READONLY 9
+#define MEMORY_BLOCK_NON_CACHEABLE_EXECUTABLE 10
+#define MEMORY_BLOCK_NON_CACHEABLE_EXECUTABLE_READONLY 11
+#define MEMORY_BLOCK_NON_CACHEABLE_READWRITE 12
+#define MEMORY_BLOCK_NON_CACHEABLE_COPYONWRITE 13
+#define MEMORY_BLOCK_NON_CACHEABLE_EXECUTABLE_READWRITE 14
+#define MEMORY_BLOCK_NON_CACHEABLE_EXECUTABLE_COPYONWRITE 15
+#define MEMORY_BLOCK_NOT_ACCESSED_3 16
+#define MEMORY_BLOCK_GUARD_READONLY 17
+#define MEMORY_BLOCK_GUARD_EXECUTABLE 18
+#define MEMORY_BLOCK_GUARD_EXECUTABLE_READONLY 19
+#define MEMORY_BLOCK_GUARD_READWRITE 20
+#define MEMORY_BLOCK_GUARD_COPYONWRITE 21
+#define MEMORY_BLOCK_GUARD_EXECUTABLE_READWRITE 22
+#define MEMORY_BLOCK_GUARD_EXECUTABLE_COPYONWRITE 23
+#define MEMORY_BLOCK_NOT_ACCESSED_4 24
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_READONLY 25
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_EXECUTABLE 26
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_EXECUTABLE_READONLY 27
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_READWRITE 28
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_COPYONWRITE 29
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_EXECUTABLE_READWRITE 30
+#define MEMORY_BLOCK_NON_CACHEABLE_GUARD_EXECUTABLE_COPYONWRITE 31
 
 typedef struct _MEMORY_WORKING_SET_BLOCK
 {
@@ -248,7 +284,8 @@ typedef struct _MEMORY_IMAGE_INFORMATION
             ULONG ImagePartialMap : 1;
             ULONG ImageNotExecutable : 1;
             ULONG ImageSigningLevel : 4; // REDSTONE3
-            ULONG Reserved : 26;
+            ULONG ImageExtensionPresent : 1; // since 24H2
+            ULONG Reserved : 25;
         };
     };
 } MEMORY_IMAGE_INFORMATION, *PMEMORY_IMAGE_INFORMATION;
@@ -294,6 +331,122 @@ typedef struct _MEMORY_PHYSICAL_CONTIGUITY_INFORMATION
     ULONG Flags;
     PMEMORY_PHYSICAL_CONTIGUITY_UNIT_INFORMATION ContiguityUnitInformation;
 } MEMORY_PHYSICAL_CONTIGUITY_INFORMATION, *PMEMORY_PHYSICAL_CONTIGUITY_INFORMATION;
+
+// private
+typedef struct _RTL_SCP_CFG_ARM64_HEADER
+{
+    ULONG EcInvalidCallHandlerRva;
+    ULONG EcCfgCheckRva;
+    ULONG EcCfgCheckESRva;
+    ULONG EcCallCheckRva;
+    ULONG CpuInitializationCompleteLoadRva;
+    ULONG LdrpValidateEcCallTargetInitRva;
+    ULONG SyscallFfsSizeRva;
+    ULONG SyscallFfsBaseRva;
+} RTL_SCP_CFG_ARM64_HEADER, *PRTL_SCP_CFG_ARM64_HEADER;
+
+// private
+typedef enum _RTL_SCP_CFG_PAGE_TYPE
+{
+    RtlScpCfgPageTypeNop,
+    RtlScpCfgPageTypeDefault,
+    RtlScpCfgPageTypeExportSuppression,
+    RtlScpCfgPageTypeFptr,
+    RtlScpCfgPageTypeMax,
+    RtlScpCfgPageTypeNone
+} RTL_SCP_CFG_PAGE_TYPE;
+
+// private
+typedef struct _RTL_SCP_CFG_COMMON_HEADER
+{
+    ULONG CfgDispatchRva;
+    ULONG CfgDispatchESRva;
+    ULONG CfgCheckRva;
+    ULONG CfgCheckESRva;
+    ULONG InvalidCallHandlerRva;
+    ULONG FnTableRva;
+} RTL_SCP_CFG_COMMON_HEADER, *PRTL_SCP_CFG_COMMON_HEADER;
+
+// private
+typedef struct _RTL_SCP_CFG_HEADER
+{
+    RTL_SCP_CFG_COMMON_HEADER Common;
+} RTL_SCP_CFG_HEADER, *PRTL_SCP_CFG_HEADER;
+
+// private
+typedef struct _RTL_SCP_CFG_REGION_BOUNDS
+{
+    PVOID StartAddress;
+    PVOID EndAddress;
+} RTL_SCP_CFG_REGION_BOUNDS, *PRTL_SCP_CFG_REGION_BOUNDS;
+
+// private
+typedef struct _RTL_SCP_CFG_NTDLL_EXPORTS
+{
+    RTL_SCP_CFG_REGION_BOUNDS ScpRegions[4];
+    PVOID CfgDispatchFptr;
+    PVOID CfgDispatchESFptr;
+    PVOID CfgCheckFptr;
+    PVOID CfgCheckESFptr;
+    PVOID IllegalCallHandler;
+} RTL_SCP_CFG_NTDLL_EXPORTS, *PRTL_SCP_CFG_NTDLL_EXPORTS;
+
+// private
+typedef struct _RTL_SCP_CFG_NTDLL_EXPORTS_ARM64EC
+{
+    PVOID EcInvalidCallHandler;
+    PVOID EcCfgCheckFptr;
+    PVOID EcCfgCheckESFptr;
+    PVOID EcCallCheckFptr;
+    PVOID CpuInitializationComplete;
+    PVOID LdrpValidateEcCallTargetInit;
+    struct
+    {
+        PVOID SyscallFfsSize;
+        union
+        {
+            PVOID Ptr;
+            ULONG Value;
+        };
+    };
+    PVOID SyscallFfsBase;
+} RTL_SCP_CFG_NTDLL_EXPORTS_ARM64EC, *PRTL_SCP_CFG_NTDLL_EXPORTS_ARM64EC;
+
+// private
+typedef struct _RTL_RETPOLINE_ROUTINES
+{
+    ULONG SwitchtableJump[16];
+    ULONG CfgIndirectRax;
+    ULONG NonCfgIndirectRax;
+    ULONG ImportR10;
+    ULONG JumpHpat;
+} RTL_RETPOLINE_ROUTINES, *PRTL_RETPOLINE_ROUTINES;
+
+// private
+typedef struct _RTL_KSCP_ROUTINES
+{
+    ULONG UnwindDataOffset;
+    RTL_RETPOLINE_ROUTINES RetpolineRoutines;
+    ULONG CfgDispatchSmep;
+    ULONG CfgDispatchNoSmep;
+} RTL_KSCP_ROUTINES, *PRTL_KSCP_ROUTINES;
+
+// private
+typedef enum _MEMORY_IMAGE_EXTENSION_TYPE
+{
+    MemoryImageExtensionCfgScp,
+    MemoryImageExtensionCfgEmulatedScp,
+    MemoryImageExtensionTypeMax,
+} MEMORY_IMAGE_EXTENSION_TYPE;
+
+// private
+typedef struct _MEMORY_IMAGE_EXTENSION_INFORMATION
+{
+    MEMORY_IMAGE_EXTENSION_TYPE ExtensionType;
+    ULONG Flags;
+    PVOID ExtensionImageBaseRva;
+    SIZE_T ExtensionSize;
+} MEMORY_IMAGE_EXTENSION_INFORMATION, *PMEMORY_IMAGE_EXTENSION_INFORMATION;
 
 #define MMPFNLIST_ZERO 0
 #define MMPFNLIST_FREE 1
@@ -500,7 +653,9 @@ typedef struct _SECTION_INTERNAL_IMAGE_INFORMATION
             ULONG ImageCetDynamicApisAllowInProc : 1;
             ULONG ImageCetDowngradeReserved1 : 1;
             ULONG ImageCetDowngradeReserved2 : 1;
-            ULONG Reserved : 24;
+            ULONG ImageExportSuppressionInfoPresent : 1;
+            ULONG ImageCfgEnabled : 1;
+            ULONG Reserved : 22;
         };
     };
 } SECTION_INTERNAL_IMAGE_INFORMATION, *PSECTION_INTERNAL_IMAGE_INFORMATION;
@@ -647,7 +802,7 @@ NtFlushVirtualMemory(
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
 typedef enum _VIRTUAL_MEMORY_INFORMATION_CLASS
 {
-    VmPrefetchInformation, // ULONG
+    VmPrefetchInformation, // MEMORY_PREFETCH_INFORMATION
     VmPagePriorityInformation, // OFFER_PRIORITY
     VmCfgCallTargetInformation, // CFG_CALL_TARGET_LIST_INFORMATION // REDSTONE2
     VmPageDirtyStateInformation, // REDSTONE3
@@ -675,6 +830,13 @@ typedef struct _MEMORY_RANGE_ENTRY
     PVOID VirtualAddress;
     SIZE_T NumberOfBytes;
 } MEMORY_RANGE_ENTRY, *PMEMORY_RANGE_ENTRY;
+
+#define VM_PREFETCH_TO_WORKING_SET 0x1 // since 24H4
+
+typedef struct _MEMORY_PREFETCH_INFORMATION
+{
+    ULONG Flags;
+} MEMORY_PREFETCH_INFORMATION, *PMEMORY_PREFETCH_INFORMATION;
 
 typedef struct _CFG_CALL_TARGET_LIST_INFORMATION
 {
@@ -801,7 +963,7 @@ NtMapViewOfSectionEx(
     _Inout_opt_ PLARGE_INTEGER SectionOffset,
     _Inout_ PSIZE_T ViewSize,
     _In_ ULONG AllocationType,
-    _In_ ULONG Win32Protect,
+    _In_ ULONG PageProtection,
     _Inout_updates_opt_(ExtendedParameterCount) PMEM_EXTENDED_PARAMETER ExtendedParameters,
     _In_ ULONG ExtendedParameterCount
     );
@@ -883,6 +1045,7 @@ typedef enum _PARTITION_INFORMATION_CLASS
     SystemMemoryPartitionMemoryChargeAttributes,
     SystemMemoryPartitionClearAttributes,
     SystemMemoryPartitionSetMemoryThresholds, // since WIN11
+    SystemMemoryPartitionMemoryListCommand, // since 24H2
     SystemMemoryPartitionMax
 } PARTITION_INFORMATION_CLASS, *PPARTITION_INFORMATION_CLASS;
 #else
@@ -900,7 +1063,8 @@ typedef enum _PARTITION_INFORMATION_CLASS
 #define SystemMemoryPartitionMemoryChargeAttributes 0xB
 #define SystemMemoryPartitionClearAttributes 0xC
 #define SystemMemoryPartitionSetMemoryThresholds 0xD
-#define SystemMemoryPartitionMax 0xE
+#define SystemMemoryPartitionMemoryListCommand 0xE
+#define SystemMemoryPartitionMax 0xF
 #endif
 
 // private

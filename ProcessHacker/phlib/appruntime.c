@@ -25,6 +25,13 @@ static_assert(sizeof(HSTRING_REFERENCE) == sizeof(HSTRING_HEADER), "HSTRING_REFE
 static_assert(sizeof(HSTRING_REFERENCE) == sizeof(WSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
 #endif
 
+/**
+ * Creates a string from a Windows Runtime string.
+ *
+ * @param String The Windows Runtime string.
+ *
+ * @return A pointer to the created string.
+ */
 PPH_STRING PhCreateStringFromWindowsRuntimeString(
     _In_ HSTRING String
     )
@@ -80,6 +87,42 @@ HRESULT PhCreateWindowsRuntimeStringReference(
 
     string->Flags = HSTRING_REFERENCE_FLAG;
     string->Length = (UINT32)PhCountStringZ((PWSTR)SourceString);
+    string->Buffer = SourceString;
+
+    return S_OK;
+#endif
+}
+
+// rev from WindowsCreateStringReference (dmex)
+/**
+ * \brief Creates a new string reference based on the specified string.
+ *
+ * \param SourceString A null-terminated string to use as the source for the new string.
+ * \param Length The count of characters for the string.
+ * \param String A pointer to the newly created string.
+ *
+ * \return Successful or errant status.
+ */
+HRESULT PhCreateWindowsRuntimeStringReferenceEx(
+    _In_ PCWSTR SourceString,
+    _In_ UINT32 Length,
+    _Out_ PVOID String
+    )
+{
+#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+    HSTRING stringHandle;
+
+    return WindowsCreateStringReference(
+        SourceString,
+        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        String,
+        &stringHandle
+        );
+#else
+    HSTRING_REFERENCE* string = (HSTRING_REFERENCE*)String;
+
+    string->Flags = HSTRING_REFERENCE_FLAG;
+    string->Length = Length;
     string->Buffer = SourceString;
 
     return S_OK;
@@ -837,6 +880,7 @@ FLOAT PhGetDisplayLogicalDpi(
 
 #pragma region Package Manager
 
+#include <appmodel.h>
 #include <Windows.Management.Deployment.h>
 
 // 9a7d4b65-5e8f-4fc7-a2e5-7f6925cb8b53
@@ -898,7 +942,7 @@ BOOLEAN PhGetPackageApplicationIds(
 {
     BOOLEAN success = FALSE;
     ULONG status;
-    HANDLE packageHandle;
+    PACKAGE_INFO_REFERENCE packageHandle;
     ULONG bufferCount = 0;
     ULONG bufferLength = 0;
     PBYTE buffer = NULL;

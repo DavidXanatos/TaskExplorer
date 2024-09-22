@@ -24,7 +24,7 @@ EXTERN_C_START
 #define KPH_PORT_NAME    __TEXT("\\KSystemInformer")
 
 #ifdef DEBUG
-#define KSI_COMMS_INIT_ASSERT() assert(KphCommsIsConnected())
+#define KSI_COMMS_INIT_ASSERT() assert(KphMessageFreeList.Size == sizeof(KPH_MESSAGE))
 #else
 #define KSI_COMMS_INIT_ASSERT()
 #endif
@@ -36,6 +36,7 @@ typedef struct _KPH_CONFIG_PARAMETERS
     _In_ PPH_STRINGREF ObjectName;
     _In_opt_ PPH_STRINGREF PortName;
     _In_opt_ PPH_STRINGREF Altitude;
+    _In_ ULONG FsSupportedFeatures;
     _In_ KPH_PARAMETER_FLAGS Flags;
     _In_opt_ PKPH_COMMS_CALLBACK Callback;
 
@@ -44,7 +45,7 @@ typedef struct _KPH_CONFIG_PARAMETERS
 } KPH_CONFIG_PARAMETERS, *PKPH_CONFIG_PARAMETERS;
 
 PHLIBAPI
-NTSTATUS
+VOID
 NTAPI
 KphInitialize(
     VOID
@@ -164,7 +165,7 @@ KphTerminateProcess(
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphReadVirtualMemoryUnsafe(
+KphReadVirtualMemory(
     _In_opt_ HANDLE ProcessHandle,
     _In_ PVOID BaseAddress,
     _Out_writes_bytes_(BufferSize) PVOID Buffer,
@@ -220,7 +221,7 @@ KphEnumerateProcessHandles(
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphEnumerateProcessHandles2(
+KsiEnumerateProcessHandles(
     _In_ HANDLE ProcessHandle,
     _Out_ PKPH_PROCESS_HANDLE_INFORMATION *Handles
     );
@@ -271,7 +272,7 @@ NTSTATUS
 NTAPI
 KphQueryInformationDriver(
     _In_ HANDLE DriverHandle,
-    _In_ DRIVER_INFORMATION_CLASS DriverInformationClass,
+    _In_ KPH_DRIVER_INFORMATION_CLASS DriverInformationClass,
     _Out_writes_bytes_opt_(DriverInformationLength) PVOID DriverInformation,
     _In_ ULONG DriverInformationLength,
     _Inout_opt_ PULONG ReturnLength
@@ -330,7 +331,7 @@ KphLevelEx(
 PHLIBAPI
 KPH_LEVEL
 NTAPI
-KphLevel(
+KsiLevel(
     VOID
     );
 
@@ -603,7 +604,7 @@ KphQueryVirtualMemory(
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphQueryHashInformationFile(
+KsiQueryHashInformationFile(
     _In_ HANDLE FileHandle,
     _Inout_ PKPH_HASH_INFORMATION HashInformation,
     _In_ ULONG HashInformationLength

@@ -61,12 +61,16 @@
 #endif
 
 #ifndef PHNT_VERSION
-#define PHNT_VERSION PHNT_WIN11
+#define PHNT_VERSION PHNT_WIN11_24H2
 #endif
 
 // Options
 
 //#define PHNT_NO_INLINE_INIT_STRING
+
+#ifndef PHNT_INLINE_TYPEDEFS
+#define PHNT_INLINE_TYPEDEFS
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,6 +116,7 @@ extern "C" {
 #include <ntsam.h>
 
 #include <ntmisc.h>
+#include <ntwmi.h>
 
 #include <ntzwapi.h>
 

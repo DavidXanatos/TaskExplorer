@@ -4599,222 +4599,222 @@ Please run the 64-bit version of Task Explorer instead.</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="98"/>
         <source>TaskExplorer v%1</source>
-        <translation type="unfinished"></translation>
+        <translation>TaskExplorer v. %1</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="104"/>
         <source> - [kPH]</source>
-        <translation type="unfinished"></translation>
+        <translation> - [kPH]</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="106"/>
         <source> ~ [kPH]</source>
-        <translation type="unfinished"></translation>
+        <translation> ~ [kPH]</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="112"/>
         <source> (Administrator)</source>
-        <translation type="unfinished"></translation>
+        <translation> (mministratore)</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="114"/>
         <source> (root)</source>
-        <translation type="unfinished"></translation>
+        <translation> (root)</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="187"/>
         <source>&amp;Tasks</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Attività</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="188"/>
         <source>Run...</source>
-        <translation type="unfinished"></translation>
+        <translation>Esegui...</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="190"/>
         <source>Run as...</source>
-        <translation type="unfinished"></translation>
+        <translation>Esegui come...</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="196"/>
         <source>Run as TrustedInstaller...</source>
-        <translation type="unfinished"></translation>
+        <translation>Esegui come TrustedInstaller...</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="200"/>
         <source>Computer</source>
-        <translation type="unfinished"></translation>
+        <translation>Computer</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="201"/>
         <source>Users</source>
-        <translation type="unfinished"></translation>
+        <translation>Utenti</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="203"/>
         <source>Restart Elevated</source>
-        <translation type="unfinished"></translation>
+        <translation>Riavvia elevato</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="205"/>
         <source>Exit</source>
-        <translation type="unfinished"></translation>
+        <translation>Esci</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="208"/>
         <source>Lock</source>
-        <translation type="unfinished"></translation>
+        <translation>Blocca</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="209"/>
         <source>Logout</source>
-        <translation type="unfinished"></translation>
+        <translation>Disconnetti</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="211"/>
         <source>Standby</source>
-        <translation type="unfinished"></translation>
+        <translation>Standby</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="212"/>
         <source>Hibernate</source>
-        <translation type="unfinished"></translation>
+        <translation>Iberna</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="214"/>
         <source>Restart</source>
-        <translation type="unfinished"></translation>
+        <translation>Riavvia</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="215"/>
         <source>Force Restart</source>
-        <translation type="unfinished"></translation>
+        <translation>Forza riavvio</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="216"/>
         <source>Restart to Boot Menu</source>
-        <translation type="unfinished"></translation>
+        <translation>Riavvia nel menu boot</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="218"/>
         <source>Shutdown</source>
-        <translation type="unfinished"></translation>
+        <translation>Spegni</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="219"/>
         <source>Force Shutdown</source>
-        <translation type="unfinished"></translation>
+        <translation>Forza spegnimento</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="220"/>
         <source>Hybid Shutdown</source>
-        <translation type="unfinished"></translation>
+        <translation>Spegnimento ibrido</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="224"/>
         <source>&amp;View</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Visualizza</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="225"/>
         <source>System Tabs</source>
-        <translation type="unfinished"></translation>
+        <translation>Sched sistema</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="242"/>
         <source>Task Tabs</source>
-        <translation type="unfinished"></translation>
+        <translation>Schede attività</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="252"/>
         <source>System Info</source>
-        <translation type="unfinished"></translation>
+        <translation>Info sistema</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="255"/>
         <source>Pause Refresh</source>
-        <translation type="unfinished"></translation>
+        <translation>Pausa aggiornamento</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="257"/>
         <source>Refresh Now</source>
-        <translation type="unfinished"></translation>
+        <translation>Aggiorna ora</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="258"/>
         <source>Reset all Panels</source>
-        <translation type="unfinished"></translation>
+        <translation>Ripristina tutti i pannelli</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="260"/>
         <source>Tree/List</source>
-        <translation type="unfinished"></translation>
+        <translation>Struttura/elenco</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="263"/>
         <source>Expand Process Tree</source>
-        <translation type="unfinished"></translation>
+        <translation>Espandi struttura processo</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="266"/>
         <source>&amp;Find</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Cerca</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="267"/>
         <source>Find Hidden Processes</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerca processi nascosti</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="269"/>
         <source>Find Handles</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerca handle</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="271"/>
         <source>Find Module (dll)</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerca modulo (DLL)</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="272"/>
         <source>Find String in Memory</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerca stringa nella memoria</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="274"/>
         <source>&amp;Options</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Opzioni</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="275"/>
         <source>Settings</source>
-        <translation type="unfinished"></translation>
+        <translation>Impostazioni</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="277"/>
         <source>Driver Options</source>
-        <translation type="unfinished"></translation>
+        <translation>Opzioni driver</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="281"/>
         <source>Auto Run</source>
-        <translation type="unfinished"></translation>
+        <translation>Esecuzione automatica</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="284"/>
         <source>Skip UAC</source>
-        <translation type="unfinished"></translation>
+        <translation>Salta UAC</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="290"/>
         <source>&amp;Tools</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Strumenti</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="291"/>
         <source>&amp;Services</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Servizi</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="292"/>
@@ -4895,28 +4895,28 @@ Please run the 64-bit version of Task Explorer instead.</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="345"/>
         <source>&amp;Help</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Aiuto</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="346"/>
         <source>Support TaskExplorer on Patreon</source>
-        <translation type="unfinished"></translation>
+        <translation>Supporta TaskExplorer in Patreon</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="349"/>
         <source>About ProcessHacker Library</source>
-        <translation type="unfinished"></translation>
+        <translation>Informazioni sulla libreria ProcessHacker</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="351"/>
         <source>About the Qt Framework</source>
-        <translation type="unfinished"></translation>
+        <translation>Informazioni sul framework Qt</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="353"/>
         <location filename="GUI/TaskExplorer.cpp" line="1706"/>
         <source>About TaskExplorer</source>
-        <translation type="unfinished"></translation>
+        <translation>Informazioni su TaskExplorer</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="366"/>
@@ -5322,7 +5322,7 @@ Swap: %1%</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1684"/>
         <source>&lt;h3&gt;About TaskExplorer&lt;/h3&gt;&lt;p&gt;Version %1&lt;/p&gt;&lt;p&gt;by DavidXanatos&lt;/p&gt;&lt;p&gt;Copyright (c) 2019-2020&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;h3&gt;Info su TaskExplorer&lt;/h3&gt;&lt;p&gt;Versione %1&lt;/p&gt;&lt;p&gt;di DavidXanatos&lt;/p&gt;&lt;p&gt;Copyright (c) 2019-2020&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1690"/>
@@ -6570,7 +6570,8 @@ A 64-bit dump will be created instead.</source>
     <message>
         <location filename="API/Windows/WinHandle.cpp" line="841"/>
         <source>You are about to close one or more handles for a critical process with strict handle checks enabled. This will shut down the operating system immediately!</source>
-        <translation type="unfinished"></translation>
+        <translation>Stai per chiudere uno o più handle per un processo critico con i controlli rigorosi degli handle abilitati. 
+Questo chiuderà immediatamente il sistema operativo!</translation>
     </message>
     <message>
         <location filename="API/Windows/WinHandle.cpp" line="851"/>

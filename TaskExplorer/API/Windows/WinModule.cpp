@@ -79,7 +79,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
         PPH_READ_VIRTUAL_MEMORY_CALLBACK readVirtualMemoryCallback;
 
         if (m_Type == PH_MODULE_TYPE_KERNEL_MODULE)
-            readVirtualMemoryCallback = KphReadVirtualMemoryUnsafe;
+            readVirtualMemoryCallback = KphReadVirtualMemory;
         else
             readVirtualMemoryCallback = NtReadVirtualMemory;
 

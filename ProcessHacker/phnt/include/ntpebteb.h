@@ -101,6 +101,30 @@ typedef struct _TELEMETRY_COVERAGE_HEADER
     ULONG HashTable[ANYSIZE_ARRAY];
 } TELEMETRY_COVERAGE_HEADER, *PTELEMETRY_COVERAGE_HEADER;
 
+#define GDI_HANDLE_BUFFER_SIZE32 34
+#define GDI_HANDLE_BUFFER_SIZE64 60
+
+#ifndef _WIN64
+#define GDI_HANDLE_BUFFER_SIZE GDI_HANDLE_BUFFER_SIZE32
+#else
+#define GDI_HANDLE_BUFFER_SIZE GDI_HANDLE_BUFFER_SIZE64
+#endif
+
+typedef ULONG GDI_HANDLE_BUFFER[GDI_HANDLE_BUFFER_SIZE];
+
+typedef ULONG GDI_HANDLE_BUFFER32[GDI_HANDLE_BUFFER_SIZE32];
+typedef ULONG GDI_HANDLE_BUFFER64[GDI_HANDLE_BUFFER_SIZE64];
+
+#ifndef FLS_MAXIMUM_AVAILABLE
+#define FLS_MAXIMUM_AVAILABLE 128
+#endif
+#ifndef TLS_MINIMUM_AVAILABLE
+#define TLS_MINIMUM_AVAILABLE 64
+#endif
+#ifndef TLS_EXPANSION_SLOTS
+#define TLS_EXPANSION_SLOTS 1024
+#endif
+
 // symbols
 typedef struct _PEB
 {
@@ -155,6 +179,7 @@ typedef struct _PEB
         PVOID KernelCallbackTable;
         PVOID UserSharedInfoPtr;
     };
+
     ULONG SystemReserved;
     ULONG AtlThunkSListPtr32;
     PAPI_SET_NAMESPACE ApiSetMap;
@@ -349,7 +374,11 @@ typedef struct _TEB
     ULONG FpSoftwareStatusRegister;
     PVOID ReservedForDebuggerInstrumentation[16];
 #ifdef _WIN64
-    PVOID SystemReserved1[30];
+    PVOID SystemReserved1[25];
+
+    PVOID HeapFlsData;
+
+    ULONG_PTR RngState[4];
 #else
     PVOID SystemReserved1[26];
 #endif
@@ -362,6 +391,7 @@ typedef struct _TEB
     ACTIVATION_CONTEXT_STACK ActivationStack;
 
     UCHAR WorkingOnBehalfTicket[8];
+
     NTSTATUS ExceptionCode;
 
     PACTIVATION_CONTEXT_STACK ActivationContextStackPointer;
@@ -398,10 +428,12 @@ typedef struct _TEB
     PVOID glContext;
 
     NTSTATUS LastStatusValue;
+
     UNICODE_STRING StaticUnicodeString;
     WCHAR StaticUnicodeBuffer[STATIC_UNICODE_BUFFER_LENGTH];
 
     PVOID DeallocationStack;
+
     PVOID TlsSlots[TLS_MINIMUM_AVAILABLE];
     LIST_ENTRY TlsLinks;
 
@@ -445,8 +477,8 @@ typedef struct _TEB
     PVOID ThreadPoolData;
     PVOID *TlsExpansionSlots;
 #ifdef _WIN64
-    PVOID DeallocationBStore;
-    PVOID BStoreLimit;
+    PVOID ChpeV2CpuAreaInfo; // CHPEV2_CPUAREA_INFO // previously DeallocationBStore
+    PVOID Unused; // previously BStoreLimit
 #endif
     ULONG MuiGeneration;
     ULONG IsImpersonating;
@@ -503,12 +535,18 @@ typedef struct _TEB
     ULONGLONG LastSleepCounter; // Win11
     ULONG SpinCallCount;
     ULONGLONG ExtendedFeatureDisableMask;
+    PVOID SchedulerSharedDataSlot; // 24H2
+    PVOID HeapWalkContext;
+    GROUP_AFFINITY PrimaryGroupAffinity;
+    ULONG Rcu[2];
 } TEB, *PTEB;
 
 #ifdef _WIN64
-C_ASSERT(sizeof(TEB) == 0x1850); // WIN11
+//C_ASSERT(sizeof(TEB) == 0x1850); // WIN11
+C_ASSERT(sizeof(TEB) == 0x1878); // 24H2
 #else
-C_ASSERT(sizeof(TEB) == 0x1018); // WIN11
+//C_ASSERT(sizeof(TEB) == 0x1018); // WIN11
+C_ASSERT(sizeof(TEB) == 0x1038); // 24H2
 #endif
 
 #endif

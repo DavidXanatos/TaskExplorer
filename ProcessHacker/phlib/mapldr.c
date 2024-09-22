@@ -6,11 +6,12 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2023
+ *     dmex    2017-2024
  *
  */
 
 #include <ph.h>
+#include <apiimport.h>
 #include <mapimg.h>
 #include <mapldr.h>
 
@@ -206,14 +207,23 @@ NTSTATUS PhLoadLibraryAsResource(
     )
 {
     NTSTATUS status;
+    OBJECT_ATTRIBUTES sectionAttributes;
     HANDLE sectionHandle;
     PVOID imageBaseAddress;
     SIZE_T imageBaseSize;
 
+    InitializeObjectAttributes(
+        &sectionAttributes,
+        NULL,
+        0,
+        NULL,
+        NULL
+        );
+
     status = NtCreateSection(
         &sectionHandle,
         SECTION_QUERY | SECTION_MAP_READ,
-        NULL,
+        &sectionAttributes,
         NULL,
         PAGE_READONLY,
         WindowsVersion < WINDOWS_8 ? SEC_IMAGE : SEC_IMAGE_NO_EXECUTE,
@@ -371,7 +381,7 @@ PVOID PhGetModuleProcAddress(
 PVOID PhGetProcedureAddress(
     _In_ PVOID DllHandle,
     _In_opt_ PSTR ProcedureName,
-    _In_opt_ ULONG ProcedureNumber
+    _In_opt_ USHORT ProcedureNumber
     )
 {
 #if (PHNT_NATIVE_LDR)
@@ -1255,28 +1265,15 @@ VOID PhLoaderEntryGrantSuppressedCall(
     _In_ PVOID ExportAddress
     )
 {
-#if (PH_NATIVE_LOADER_FLOWGUARD)
     static BOOLEAN PhLoaderEntryCacheInitialized = FALSE;
-    static BOOLEAN (NTAPI* LdrControlFlowGuardEnforced_I)(VOID) = NULL;
     static PPH_HASHTABLE PhLoaderEntryCacheHashtable = NULL;
 
-    if (!PhLoaderEntryCacheInitialized && PhInstanceHandle) // delay initialize (dmex)
+    if (!PhLoaderEntryCacheInitialized)
     {
         PhLoaderEntryCacheInitialized = TRUE;
 
-        if (!LdrControlFlowGuardEnforced_I && WindowsVersion >= WINDOWS_10)
-        {
-            LdrControlFlowGuardEnforced_I = PhGetDllProcedureAddress(L"ntdll.dll", "LdrControlFlowGuardEnforced", 0);
-        }
-
-        if (LdrControlFlowGuardEnforced_I && LdrControlFlowGuardEnforced_I())
-        {
-            PhGuardGrantSuppressedCallAccess(NtCurrentProcess(), (PVOID)SIZE_T_MAX); // initialize imports (dmex)
-
+        if (LdrControlFlowGuardEnforcedWithExportSuppression())
             PhLoaderEntryCacheHashtable = PhCreateSimpleHashtable(10);
-        }
-
-        return;
     }
 
     if (PhLoaderEntryCacheHashtable && !PhFindItemSimpleHashtable(PhLoaderEntryCacheHashtable, ExportAddress))
@@ -1286,7 +1283,6 @@ VOID PhLoaderEntryGrantSuppressedCall(
             PhAddItemSimpleHashtable(PhLoaderEntryCacheHashtable, ExportAddress, UlongToPtr(TRUE));
         }
     }
-#endif
 }
 
 static ULONG PhpLookupLoaderEntryImageExportFunctionIndex(
@@ -1773,7 +1769,8 @@ VOID CALLBACK LoaderEntryImageImportThunkWorkQueueCallback(
 
 NTSTATUS PhLoaderEntrySnapImportDirectory(
     _In_ PVOID BaseAddress,
-    _In_ PIMAGE_IMPORT_DESCRIPTOR ImportDirectory
+    _In_ PIMAGE_IMPORT_DESCRIPTOR ImportDirectory,
+    _In_ PSTR ImportDllName
     )
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -1786,7 +1783,7 @@ NTSTATUS PhLoaderEntrySnapImportDirectory(
     importThunk = PTR_ADD_OFFSET(BaseAddress, ImportDirectory->FirstThunk);
     originalThunk = PTR_ADD_OFFSET(BaseAddress, ImportDirectory->OriginalFirstThunk);
 
-    if (PhEqualBytesZ(importName, "SystemInformer.exe", FALSE))
+    if (PhEqualBytesZ(importName, ImportDllName, FALSE))
     {
         importBaseAddress = PhInstanceHandle;
     }
@@ -1889,6 +1886,7 @@ typedef struct _PH_LOADER_IMPORTS_WORKQUEUE_CONTEXT
 {
     PVOID BaseAddress;
     PIMAGE_IMPORT_DESCRIPTOR ImportDirectory;
+    PSTR ImportName;
 } PH_LOADER_IMPORTS_WORKQUEUE_CONTEXT, *PPH_LOADER_IMPORTS_WORKQUEUE_CONTEXT;
 
 VOID CALLBACK LoaderEntryImageImportsWorkQueueCallback(
@@ -1902,7 +1900,8 @@ VOID CALLBACK LoaderEntryImageImportsWorkQueueCallback(
 
     status = PhLoaderEntrySnapImportDirectory(
         context->BaseAddress,
-        context->ImportDirectory
+        context->ImportDirectory,
+        context->ImportName
         );
 
     if (!NT_SUCCESS(status))
@@ -1916,7 +1915,8 @@ VOID CALLBACK LoaderEntryImageImportsWorkQueueCallback(
 
 static NTSTATUS PhpFixupLoaderEntryImageImports(
     _In_ PVOID BaseAddress,
-    _In_ PIMAGE_NT_HEADERS ImageNtHeader
+    _In_ PIMAGE_NT_HEADERS ImageNtHeader,
+    _In_ PSTR ImportDllName
     )
 {
     NTSTATUS status;
@@ -1994,8 +1994,9 @@ static NTSTATUS PhpFixupLoaderEntryImageImports(
         PTP_WORK loaderThreadpoolWork;
 
         context = PhAllocateZero(sizeof(PH_LOADER_IMPORTS_WORKQUEUE_CONTEXT));
-        context->ImportDirectory = importDirectory;
         context->BaseAddress = BaseAddress;
+        context->ImportDirectory = importDirectory;
+        context->ImportName = ImportDllName;
 
         status = TpAllocWork(
             &loaderThreadpoolWork,
@@ -2011,7 +2012,8 @@ static NTSTATUS PhpFixupLoaderEntryImageImports(
 #else
         status = PhLoaderEntrySnapImportDirectory(
             BaseAddress,
-            importDirectory
+            importDirectory,
+            ImportDllName
             );
 
         if (!NT_SUCCESS(status))
@@ -2435,9 +2437,11 @@ NTSTATUS PhLoaderEntryLoadDll(
 {
     NTSTATUS status;
     HANDLE fileHandle;
+    OBJECT_ATTRIBUTES sectionAttributes;
     HANDLE sectionHandle;
     PVOID imageBaseAddress;
     SIZE_T imageBaseOffset;
+
 
     status = PhCreateFile(
         &fileHandle,
@@ -2452,10 +2456,18 @@ NTSTATUS PhLoaderEntryLoadDll(
     if (!NT_SUCCESS(status))
         return status;
 
+    InitializeObjectAttributes(
+        &sectionAttributes,
+        NULL,
+        OBJ_EXCLUSIVE,
+        NULL,
+        NULL
+        );
+
     status = NtCreateSection(
         &sectionHandle,
         SECTION_QUERY | SECTION_MAP_READ | SECTION_MAP_EXECUTE,
-        NULL,
+        &sectionAttributes,
         NULL,
         PAGE_EXECUTE,
         SEC_IMAGE,
@@ -2637,7 +2649,8 @@ NTSTATUS PhLoadPluginImage(
 
     status = PhpFixupLoaderEntryImageImports(
         imageBaseAddress,
-        imageNtHeaders
+        imageNtHeaders,
+        "SystemInformer.exe"
         );
 
     if (!NT_SUCCESS(status))
@@ -2729,11 +2742,19 @@ NTSTATUS PhGetFileBinaryTypeWin32(
 
     if (!NT_SUCCESS(status))
         goto CleanupExit;
+    
+    InitializeObjectAttributes(
+        &objectAttributes,
+        NULL,
+        0,
+        NULL,
+        NULL
+        );
 
     status = NtCreateSection(
         &sectionHandle,
         SECTION_QUERY | SECTION_MAP_READ | SECTION_MAP_EXECUTE,
-        NULL,
+        &objectAttributes,
         NULL,
         PAGE_EXECUTE,
         SEC_IMAGE,

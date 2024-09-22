@@ -285,7 +285,7 @@ PPH_LIST PvEnumSpcAuthenticodePageHashes(
     PSPC_PE_IMAGE_DATA spcPeImageDataBuffer = NULL;
     ULONG spcPeImageDataLength = 0;
 
-    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
+    if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
     {
         LPWIN_CERTIFICATE certificateDirectory = PTR_ADD_OFFSET(PvMappedImage.ViewBase, dataDirectory->VirtualAddress);
         CERT_BLOB certificateBlob = { certificateDirectory->dwLength, certificateDirectory->bCertificate };
@@ -510,7 +510,7 @@ VOID PvGetFileHashes(
     *AuthentihashSha1String = NULL;
     *AuthentihashSha256String = NULL;
 
-    if (KphLevel() == KphLevelMax)
+    if (KsiLevel() == KphLevelMax)
     {
         KPH_HASH_INFORMATION hashInfo[7];
 
@@ -522,7 +522,7 @@ VOID PvGetFileHashes(
         hashInfo[5].Algorithm = KphHashAlgorithmSha1Authenticode;
         hashInfo[6].Algorithm = KphHashAlgorithmSha256Authenticode;
 
-        if (NT_SUCCESS(KphQueryHashInformationFile(FileHandle, hashInfo, sizeof(hashInfo))))
+        if (NT_SUCCESS(KsiQueryHashInformationFile(FileHandle, hashInfo, sizeof(hashInfo))))
         {
             *Md5HashString = PhBufferToHexString(hashInfo[0].Hash, hashInfo[0].Length);
             *Sha1HashString = PhBufferToHexString(hashInfo[1].Hash, hashInfo[1].Length);
@@ -661,7 +661,7 @@ NTSTATUS PvGetMappedImageMicrosoftImpHash(
 //            return NULL;
 //    }
 //
-//    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
+//    if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
 //    {
 //        {
 //            ULONG64 offset = imageSecurityOffset + sizeof(IMAGE_DATA_DIRECTORY);
@@ -723,7 +723,7 @@ NTSTATUS PvGetMappedImageMicrosoftImpHash(
 //        return NULL;
 //    }
 //
-//    if (NT_SUCCESS(PhGetMappedImageDataEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
+//    if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_SECURITY, &dataDirectory)))
 //    {
 //        directoryAddress = dataDirectory->VirtualAddress;
 //        directorySize = dataDirectory->Size;

@@ -17,14 +17,6 @@ EXTERN_C_START
 
 // begin_phapppub
 
-typedef enum _PH_RELEASE_CHANNEL
-{
-    PhReleaseChannel = 0,
-    PhPreviewChannel = 1, // unused, reserved
-    PhCanaryChannel = 2,
-    PhDeveloperChannel = 3,
-} PH_RELEASE_CHANNEL, *PPH_RELEASE_CHANNEL;
-
 // These macros make sure the C strings can be seamlessly converted into
 // PH_STRINGREFs at compile time, for a small speed boost.
 
@@ -407,6 +399,7 @@ PhGetSetting(
     _In_ PPH_STRINGREF Name
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhLoadWindowPlacementFromSetting(
@@ -415,6 +408,7 @@ PhLoadWindowPlacementFromSetting(
     _In_ HWND WindowHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhSaveWindowPlacementToSetting(
@@ -423,6 +417,7 @@ PhSaveWindowPlacementToSetting(
     _In_ HWND WindowHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhLoadListViewColumnsFromSetting(
@@ -430,6 +425,7 @@ PhLoadListViewColumnsFromSetting(
     _In_ HWND ListViewHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhSaveListViewColumnsToSetting(
@@ -437,6 +433,7 @@ PhSaveListViewColumnsToSetting(
     _In_ HWND ListViewHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhLoadListViewSortColumnsFromSetting(
@@ -444,6 +441,7 @@ PhLoadListViewSortColumnsFromSetting(
     _In_ HWND ListViewHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhSaveListViewSortColumnsToSetting(
@@ -451,6 +449,7 @@ PhSaveListViewSortColumnsToSetting(
     _In_ HWND ListViewHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhLoadListViewGroupStatesFromSetting(
@@ -458,6 +457,7 @@ PhLoadListViewGroupStatesFromSetting(
     _In_ HWND ListViewHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhSaveListViewGroupStatesToSetting(
@@ -465,6 +465,7 @@ PhSaveListViewGroupStatesToSetting(
     _In_ HWND ListViewHandle
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhLoadCustomColorList(
@@ -473,6 +474,7 @@ PhLoadCustomColorList(
     _In_ ULONG CustomColorCount
     );
 
+PHLIBAPI
 VOID
 NTAPI
 PhSaveCustomColorList(

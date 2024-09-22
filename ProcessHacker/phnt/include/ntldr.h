@@ -625,6 +625,9 @@ typedef struct _PS_MITIGATION_AUDIT_OPTIONS_MAP
     ULONG_PTR Map[3]; // 2 < 20H1
 } PS_MITIGATION_AUDIT_OPTIONS_MAP, *PPS_MITIGATION_AUDIT_OPTIONS_MAP;
 
+#define PS_SYSTEM_DLL_INIT_BLOCK_V1 0x0F0
+#define PS_SYSTEM_DLL_INIT_BLOCK_V2 0x128
+
 // private
 typedef struct _PS_SYSTEM_DLL_INIT_BLOCK
 {
@@ -648,18 +651,23 @@ typedef struct _PS_SYSTEM_DLL_INIT_BLOCK
     ULONG_PTR Wow64CfgBitMap;
     ULONG_PTR Wow64CfgBitMapSize;
     PS_MITIGATION_AUDIT_OPTIONS_MAP MitigationAuditOptionsMap; // REDSTONE3
+    ULONG_PTR ScpCfgCheckFunction; // since 24H2
+    ULONG_PTR ScpCfgCheckESFunction;
+    ULONG_PTR ScpCfgDispatchFunction;
+    ULONG_PTR ScpCfgDispatchESFunction;
+    ULONG_PTR ScpArm64EcCallCheck;
+    ULONG_PTR ScpArm64EcCfgCheckFunction;
+    ULONG_PTR ScpArm64EcCfgCheckESFunction;
 } PS_SYSTEM_DLL_INIT_BLOCK, *PPS_SYSTEM_DLL_INIT_BLOCK;
 
-#if (PHNT_VERSION >= PHNT_THRESHOLD)
 // rev
+#if (PHNT_VERSION >= PHNT_THRESHOLD)
 NTSYSAPI PS_SYSTEM_DLL_INIT_BLOCK LdrSystemDllInitBlock;
 #endif
 
 // Load as data table
 
 #if (PHNT_VERSION >= PHNT_VISTA)
-
-typedef struct _ACTIVATION_CONTEXT *PACTIVATION_CONTEXT;
 
 // private
 NTSYSAPI
@@ -756,6 +764,127 @@ LdrFindResourceDirectory_U(
     _In_ ULONG Level,
     _Out_ PIMAGE_RESOURCE_DIRECTORY *ResourceDirectory
     );
+
+#if (PHNT_VERSION >= PHNT_WIN8)
+/**
+ * The LdrResFindResource function finds a resource in a DLL.
+ *
+ * @param DllHandle A handle to the DLL.
+ * @param Type The type of the resource.
+ * @param Name The name of the resource.
+ * @param Language The language of the resource.
+ * @param ResourceBuffer An optional pointer to receive the resource buffer.
+ * @param ResourceLength An optional pointer to receive the resource length.
+ * @param CultureName An optional buffer to receive the culture name.
+ * @param CultureNameLength An optional pointer to receive the length of the culture name.
+ * @param Flags Flags for the resource search.
+ * @return NTSTATUS Successful or errant status.
+ */
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrResFindResource(
+    _In_ PVOID DllHandle,
+    _In_ ULONG_PTR Type,
+    _In_ ULONG_PTR Name,
+    _In_ ULONG_PTR Language,
+    _Out_opt_ PVOID* ResourceBuffer,
+    _Out_opt_ PULONG ResourceLength,
+    _Out_writes_bytes_opt_(CultureNameLength) PVOID CultureName, // WCHAR buffer[6]
+    _Out_opt_ PULONG CultureNameLength,
+    _In_ ULONG Flags
+    );
+
+/**
+ * The LdrResFindResourceDirectory function finds a resource directory in a DLL.
+ *
+ * @param DllHandle A handle to the DLL.
+ * @param Type The type of the resource.
+ * @param Name The name of the resource.
+ * @param ResourceDirectory An optional pointer to receive the resource directory.
+ * @param CultureName An optional buffer to receive the culture name.
+ * @param CultureNameLength An optional pointer to receive the length of the culture name.
+ * @param Flags Flags for the resource search.
+ * @return NTSTATUS Successful or errant status.
+ */
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrResFindResourceDirectory(
+    _In_ PVOID DllHandle,
+    _In_ ULONG_PTR Type,
+    _In_ ULONG_PTR Name,
+    _Out_opt_ PIMAGE_RESOURCE_DIRECTORY* ResourceDirectory,
+    _Out_writes_bytes_opt_(CultureNameLength) PVOID CultureName, // WCHAR buffer[6]
+    _Out_opt_ PULONG CultureNameLength,
+    _In_ ULONG Flags
+    );
+
+/**
+* The LdrResSearchResource function searches for a resource in a DLL.
+*
+* @param DllHandle A handle to the DLL.
+* @param ResourceInfo A pointer to the resource information.
+* @param Level The level of the resource.
+* @param Flags Flags for the resource search.
+* @param ResourceBuffer An optional pointer to receive the resource buffer.
+* @param ResourceLength An optional pointer to receive the resource length.
+* @param CultureName An optional buffer to receive the culture name.
+* @param CultureNameLength An optional pointer to receive the length of the culture name.
+* @return NTSTATUS Successful or errant status.
+*/
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrResSearchResource(
+    _In_ PVOID DllHandle,
+    _In_ PLDR_RESOURCE_INFO ResourceInfo,
+    _In_ ULONG Level,
+    _In_ ULONG Flags,
+    _Out_opt_ PVOID* ResourceBuffer,
+    _Out_opt_ PSIZE_T ResourceLength,
+    _Out_writes_bytes_opt_(CultureNameLength) PVOID CultureName, // WCHAR buffer[6]
+    _Out_opt_ PULONG CultureNameLength
+    );
+
+/**
+ * The LdrResGetRCConfig function retrieves the RC configuration for a DLL.
+ *
+ * @param DllHandle A handle to the DLL.
+ * @param Length The length of the configuration buffer.
+ * @param Config A buffer to receive the configuration.
+ * @param Flags Flags for the operation.
+ * @param AlternateResource Indicates if an alternate resource should be loaded.
+ * @return NTSTATUS Successful or errant status.
+ */
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrResGetRCConfig(
+    _In_ PVOID DllHandle,
+    _In_ SIZE_T Length,
+    _Out_writes_bytes_opt_(Length) PVOID Config,
+    _In_ ULONG Flags,
+    _In_ BOOLEAN AlternateResource // LdrLoadAlternateResourceModule
+    );
+
+/**
+ * The LdrResRelease function releases a resource in a DLL.
+ *
+ * @param DllHandle A handle to the DLL.
+ * @param CultureNameOrId An optional culture name or ID.
+ * @param Flags Flags for the operation.
+ * @return NTSTATUS Successful or errant status.
+ */
+NTSYSAPI
+NTSTATUS
+NTAPI
+LdrResRelease(
+    _In_ PVOID DllHandle,
+    _In_opt_ ULONG_PTR CultureNameOrId, // MAKEINTRESOURCE
+    _In_ ULONG Flags
+    );
+#endif
 
 // private
 typedef struct _LDR_ENUM_RESOURCE_ENTRY
@@ -865,7 +994,23 @@ typedef struct _RTL_PROCESS_MODULES
 typedef struct _RTL_PROCESS_MODULE_INFORMATION_EX
 {
     USHORT NextOffset;
-    RTL_PROCESS_MODULE_INFORMATION BaseInfo;
+    union
+    {
+        RTL_PROCESS_MODULE_INFORMATION BaseInfo;
+        struct
+        {
+            PVOID Section;
+            PVOID MappedBase;
+            PVOID ImageBase;
+            ULONG ImageSize;
+            ULONG Flags;
+            USHORT LoadOrderIndex;
+            USHORT InitOrderIndex;
+            USHORT LoadCount;
+            USHORT OffsetToFileName;
+            UCHAR FullPathName[256];
+        };
+    };
     ULONG ImageChecksum;
     ULONG TimeDateStamp;
     PVOID DefaultBase;
@@ -1069,7 +1214,28 @@ LdrSetImplicitPathOptions(
     _In_ ULONG ImplicitPathOptions
     );
 
+#ifdef PHNT_INLINE_TYPEDEFS
+/**
+ * The LdrControlFlowGuardEnforced function checks if Control Flow Guard is enforced.
+ *
+ * @return BOOLEAN TRUE if Control Flow Guard is enforced, FALSE otherwise.
+ */
+FORCEINLINE
+BOOLEAN
+NTAPI
+LdrControlFlowGuardEnforced(
+    VOID
+    )
+{
+    return LdrSystemDllInitBlock.CfgBitMap && (LdrSystemDllInitBlock.Flags & 1) == 0;
+}
+#else
 // rev
+/**
+ * The LdrControlFlowGuardEnforced function checks if Control Flow Guard is enforced.
+ *
+ * @return BOOLEAN TRUE if Control Flow Guard is enforced, FALSE otherwise.
+ */
 NTSYSAPI
 BOOLEAN
 NTAPI
@@ -1077,6 +1243,23 @@ LdrControlFlowGuardEnforced(
     VOID
     );
 #endif
+#endif
+
+/**
+ * The LdrControlFlowGuardEnforcedWithExportSuppression function checks if Control Flow Guard is
+ * enforced with export suppression.
+ *
+ * @return BOOLEAN TRUE if Control Flow Guard is enforced, FALSE otherwise.
+ */
+FORCEINLINE
+BOOLEAN
+NTAPI
+LdrControlFlowGuardEnforcedWithExportSuppression(
+    VOID
+    )
+{
+    return LdrSystemDllInitBlock.CfgBitMap && (LdrSystemDllInitBlock.Flags & 3) == 0;
+}
 
 #if (PHNT_VERSION >= PHNT_19H1)
 // rev

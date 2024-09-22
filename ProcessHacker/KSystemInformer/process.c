@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2020-2023
+ *     jxy-s   2020-2024
  *
  */
 
@@ -53,7 +53,7 @@ NTSTATUS KphOpenProcess(
         {
             ProbeOutputType(ProcessHandle, HANDLE);
             ProbeInputType(ClientId, CLIENT_ID);
-            clientId = *ClientId;
+            RtlCopyVolatileMemory(&clientId, ClientId, sizeof(CLIENT_ID));
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -594,7 +594,7 @@ NTSTATUS KphQueryInformationProcess(
         {
             if (ProcessInformation)
             {
-                ProbeForWrite(ProcessInformation, ProcessInformationLength, 1);
+                ProbeOutputBytes(ProcessInformation, ProcessInformationLength);
             }
 
             if (ReturnLength)
@@ -660,6 +660,7 @@ NTSTATUS KphQueryInformationProcess(
 
                 info->ProcessState = KphGetProcessState(process);
 
+                info->ProcessStartKey = KphGetProcessStartKey(processObject);
                 info->CreatorClientId.UniqueProcess = process->CreatorClientId.UniqueProcess;
                 info->CreatorClientId.UniqueThread = process->CreatorClientId.UniqueThread;
 
@@ -715,12 +716,7 @@ NTSTATUS KphQueryInformationProcess(
 
             __try
             {
-#ifndef COM_NO_SECURITY
                 *state = KphGetProcessState(process);
-#else
-                // as the client checks its state when there is no com security we always fake max state
-                *state = KPH_PROCESS_STATE_MAXIMUM;
-#endif
                 returnLength = sizeof(KPH_PROCESS_STATE);
                 status = STATUS_SUCCESS;
             }
@@ -1039,10 +1035,10 @@ NTSTATUS KphSetInformationProcess(
 
         __try
         {
-            ProbeForRead(ProcessInformation, ProcessInformationLength, 1);
-            RtlCopyMemory(processInformation,
-                          ProcessInformation,
-                          ProcessInformationLength);
+            ProbeInputBytes(ProcessInformation, ProcessInformationLength);
+            RtlCopyVolatileMemory(processInformation,
+                                  ProcessInformation,
+                                  ProcessInformationLength);
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {

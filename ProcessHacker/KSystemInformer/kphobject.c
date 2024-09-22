@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -32,6 +32,52 @@
 static KPH_OBJECT_TYPE KphpObjectTypes[13] = { 0 };
 C_ASSERT(ARRAYSIZE(KphpObjectTypes) < MAXUCHAR);
 static volatile LONG KphpObjectTypeCount = 0;
+static KSI_WORK_QUEUE_ITEM KphpDeferDeleteObjectWorkItem;
+static SLIST_HEADER KphpDeferDeleteObjectList;
+
+/**
+ * \brief Carries out the deletion of an object.
+ *
+ * \param[in] Header The header of an object to delete.
+ */
+VOID KphpObjectDelete(
+    _In_freesMem_ PKPH_OBJECT_HEADER Header
+    )
+{
+    PKPH_OBJECT_TYPE type;
+
+    type = &KphpObjectTypes[Header->TypeIndex];
+
+    if (type->TypeInfo.Delete)
+    {
+        type->TypeInfo.Delete(KphObjectHeaderToObject(Header));
+    }
+
+    type->TypeInfo.Free(Header);
+
+    InterlockedDecrementSizeT(&type->TotalNumberOfObjects);
+}
+
+/**
+ * \brief Defers the deletion of an object.
+ *
+ * \param[in] Header The header of an object to defer deletion of.
+ */
+VOID KphpObjectDeferDelete(
+    _In_ PKPH_OBJECT_HEADER Header
+    )
+{
+    //
+    // Only queue the work item when the list was empty. The worker will flush
+    // the list, at that point the work item is already removed from the work
+    // queue and ready to be re-queued.
+    //
+    if (!InterlockedPushEntrySList(&KphpDeferDeleteObjectList,
+                                   &Header->ListEntry))
+    {
+        KsiQueueWorkItem(&KphpDeferDeleteObjectWorkItem, CriticalWorkQueue);
+    }
+}
 
 /**
  * \brief Creates an object type.
@@ -171,14 +217,39 @@ VOID KphDereferenceObject(
 
     type = &KphpObjectTypes[header->TypeIndex];
 
-    if (type->TypeInfo.Delete)
+    if (type->TypeInfo.DeferDelete)
     {
-        type->TypeInfo.Delete(Object);
+        KphpObjectDeferDelete(header);
+    }
+    else
+    {
+        KphpObjectDelete(header);
+    }
+}
+
+/**
+ * \brief Dereferences an object and defers deletion of the object.
+ *
+ * \param[in] Object The object to dereference.
+ */
+VOID KphDereferenceObjectDeferDelete(
+    _In_ PVOID Object
+    )
+{
+    PKPH_OBJECT_HEADER header;
+    SSIZE_T refCount;
+
+    header = KphObjectToObjectHeader(Object);
+
+    refCount = InterlockedDecrementSSizeT(&header->PointerCount);
+    if (refCount > 0)
+    {
+        return;
     }
 
-    type->TypeInfo.Free(header);
+    NT_ASSERT(refCount == 0);
 
-    InterlockedDecrementSizeT(&type->TotalNumberOfObjects);
+    KphpObjectDeferDelete(header);
 }
 
 /**
@@ -199,7 +270,7 @@ PKPH_OBJECT_TYPE KphGetObjectType(
 
     header = KphObjectToObjectHeader(Object);
     index = header->TypeIndex;
-    count = KphpObjectTypeCount;
+    count = ReadAcquire(&KphpObjectTypeCount);
 
     if (index >= count)
     {
@@ -213,29 +284,20 @@ PKPH_OBJECT_TYPE KphGetObjectType(
  * \brief Acquires the atomic object reference lock shared.
  *
  * \param[in,out] ObjectRef The object reference to acquire the lock for.
- *
- * \return The previous IRQL that should be passed when releasing the lock.
  */
 _Requires_lock_not_held_(*ObjectRef)
 _Acquires_lock_(*ObjectRef)
-_IRQL_requires_max_(DISPATCH_LEVEL)
-_IRQL_saves_
-_IRQL_raises_(DISPATCH_LEVEL)
-KIRQL KphpAtomicAcquireObjectLockShared(
+FORCEINLINE
+VOID KphpAtomicAcquireObjectLockShared(
     _Inout_ PKPH_ATOMIC_OBJECT_REF ObjectRef
     )
 {
-    KIRQL previousIrql;
-
-    previousIrql = KeRaiseIrqlToDpcLevel();
-
     for (;; YieldProcessor())
     {
         ULONG_PTR object;
         ULONG_PTR lock;
 
-        object = ObjectRef->Object;
-        MemoryBarrier();
+        object = ReadULongPtrAcquire(&ObjectRef->Object);
 
         lock = object & KPH_ATOMIC_OBJECT_REF_LOCK_MASK;
 
@@ -251,22 +313,18 @@ KIRQL KphpAtomicAcquireObjectLockShared(
             break;
         }
     }
-
-    return previousIrql;
 }
 
 /**
  * \brief Releases the atomic object reference lock shared.
  *
  * \param[in,out] ObjectRef The object reference to release the lock of.
- * \param[in] NewIrql The previous IRQL to restore from acquiring the lock.
  */
 _Requires_lock_held_(*ObjectRef)
 _Releases_lock_(*ObjectRef)
-_IRQL_requires_(DISPATCH_LEVEL)
+FORCEINLINE
 VOID KphpAtomicReleaseObjectLockShared(
-    _Inout_ PKPH_ATOMIC_OBJECT_REF ObjectRef,
-    _In_ _IRQL_restores_ KIRQL NewIrql
+    _Inout_ PKPH_ATOMIC_OBJECT_REF ObjectRef
     )
 {
     ULONG_PTR object;
@@ -276,37 +334,27 @@ VOID KphpAtomicReleaseObjectLockShared(
     object = object & KPH_ATOMIC_OBJECT_REF_SHARED_MAX;
 
     NT_ASSERT(object < KPH_ATOMIC_OBJECT_REF_SHARED_MAX);
-
-    KeLowerIrql(NewIrql);
 }
 
 /**
  * \brief Acquires the atomic object reference lock exclusive.
  *
  * \param[in,out] ObjectRef The object reference to acquire the lock for.
- *
- * \return The previous IRQL that should be passed when releasing the lock.
  */
 _Requires_lock_not_held_(*ObjectRef)
 _Acquires_lock_(*ObjectRef)
-_IRQL_requires_max_(DISPATCH_LEVEL)
-_IRQL_saves_
-_IRQL_raises_(DISPATCH_LEVEL)
-KIRQL KphpAtomicAcquireObjectLockExclusive(
+FORCEINLINE
+VOID KphpAtomicAcquireObjectLockExclusive(
     _Inout_ PKPH_ATOMIC_OBJECT_REF ObjectRef
     )
 {
-    KIRQL previousIrql;
     ULONG_PTR object;
-
-    previousIrql = KeRaiseIrqlToDpcLevel();
 
     for (;; YieldProcessor())
     {
         ULONG_PTR locked;
 
-        object = ObjectRef->Object;
-        MemoryBarrier();
+        object = ReadULongPtrAcquire(&ObjectRef->Object);
 
         if (object & KPH_ATOMIC_OBJECT_REF_EXCLUSIVE_FLAG)
         {
@@ -325,25 +373,20 @@ KIRQL KphpAtomicAcquireObjectLockExclusive(
 
     for (; object & KPH_ATOMIC_OBJECT_REF_SHARED_MAX; YieldProcessor())
     {
-        object = ObjectRef->Object;
-        MemoryBarrier();
+        object = ReadULongPtrAcquire(&ObjectRef->Object);
     }
-
-    return previousIrql;
 }
 
 /**
  * \brief Releases the atomic object reference lock shared.
  *
  * \param[in,out] ObjectRef The object reference to release the lock of.
- * \param[in] NewIrql The previous IRQL to restore from acquiring the lock.
  */
 _Requires_lock_held_(*ObjectRef)
 _Releases_lock_(*ObjectRef)
-_IRQL_requires_(DISPATCH_LEVEL)
+FORCEINLINE
 VOID KphpAtomicReleaseObjectLockExclusive(
-    _Inout_ PKPH_ATOMIC_OBJECT_REF ObjectRef,
-    _In_ _IRQL_restores_ KIRQL NewIrql
+    _Inout_ PKPH_ATOMIC_OBJECT_REF ObjectRef
     )
 {
     BOOLEAN result;
@@ -352,8 +395,6 @@ VOID KphpAtomicReleaseObjectLockExclusive(
                                                 KPH_ATOMIC_OBJECT_REF_EXCLUSIVE_BIT);
 
     NT_ASSERT(result);
-
-    KeLowerIrql(NewIrql);
 }
 
 /**
@@ -363,8 +404,7 @@ VOID KphpAtomicReleaseObjectLockExclusive(
  * \details This mechanism provides a light weight and fast way to atomically
  * managed a reference to an object. If an object is currently managed an
  * additional reference to that object is acquired and must be eventually
- * released by calling KphDereferenceObject. The atomic object reference and
- * stored object must both be allocated from non-paged pool.
+ * released by calling KphDereferenceObject.
  *
  * \param[in] ObjectRef The object reference to retrieve the object from.
  *
@@ -375,10 +415,9 @@ PVOID KphAtomicReferenceObject(
     _In_ PKPH_ATOMIC_OBJECT_REF ObjectRef
     )
 {
-    KIRQL previousIrql;
     PVOID object;
 
-    previousIrql = KphpAtomicAcquireObjectLockShared(ObjectRef);
+    KphpAtomicAcquireObjectLockShared(ObjectRef);
 
     object = (PVOID)(ObjectRef->Object & KPH_ATOMIC_OBJECT_REF_OBJECT_MASK);
     if (object)
@@ -386,7 +425,7 @@ PVOID KphAtomicReferenceObject(
         KphReferenceObject(object);
     }
 
-    KphpAtomicReleaseObjectLockShared(ObjectRef, previousIrql);
+    KphpAtomicReleaseObjectLockShared(ObjectRef);
 
     return object;
 }
@@ -405,13 +444,12 @@ PVOID KphpAtomicStoreObjectReference(
     _In_opt_ PVOID Object
     )
 {
-    KIRQL previousIrql;
     PVOID previous;
     ULONG_PTR object;
 
     NT_ASSERT(((ULONG_PTR)Object & KPH_ATOMIC_OBJECT_REF_LOCK_MASK) == 0);
 
-    previousIrql = KphpAtomicAcquireObjectLockExclusive(ObjectRef);
+    KphpAtomicAcquireObjectLockExclusive(ObjectRef);
 
     previous = (PVOID)(ObjectRef->Object & KPH_ATOMIC_OBJECT_REF_OBJECT_MASK);
 
@@ -419,7 +457,7 @@ PVOID KphpAtomicStoreObjectReference(
 
     InterlockedExchangeULongPtr(&ObjectRef->Object, object);
 
-    KphpAtomicReleaseObjectLockExclusive(ObjectRef, previousIrql);
+    KphpAtomicReleaseObjectLockExclusive(ObjectRef);
 
     return previous;
 }
@@ -431,8 +469,6 @@ PVOID KphpAtomicStoreObjectReference(
  * managed a reference to an object. Any previously managed reference will be
  * released. If an object is provided, this function will acquire an additional
  * reference to the object, the caller should still release their reference.
- * The atomic object reference and stored object must both be allocated from
- * non-paged pool.
  *
  * \param[in,out] ObjectRef The object reference to assign the object to.
  * \param[in] Object Optional object to reference and assign, if NULL the
@@ -466,8 +502,6 @@ VOID KphAtomicAssignObjectReference(
  * will assume ownership over the reference, the caller should *not* release
  * their reference. If an object is returned the ownership of it is transferred
  * to the caller, the caller is responsible for eventually releasing it.
- * The atomic object reference and stored object must both be allocated from
- * non-paged pool.
  *
  * \param[in,out] ObjectRef The object reference to move the object into.
  * \param[in] Object Optional object move into the object reference.
@@ -481,4 +515,57 @@ PVOID KphAtomicMoveObjectReference(
     )
 {
     return KphpAtomicStoreObjectReference(ObjectRef, Object);
+}
+
+PAGED_FILE();
+
+/**
+ * \brief Worker routine for deleting objects in a deferred manner.
+ *
+ * \param[in] Parameter Unused parameter.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_same_
+_Function_class_(KSI_WORK_QUEUE_ROUTINE)
+VOID KSIAPI KphpDeferDeleteObjectWorker(
+    _In_opt_ PVOID Parameter
+    )
+{
+    PSLIST_ENTRY entry;
+
+    PAGED_CODE_PASSIVE();
+
+    UNREFERENCED_PARAMETER(Parameter);
+
+    entry = InterlockedFlushSList(&KphpDeferDeleteObjectList);
+
+    while (entry)
+    {
+        PKPH_OBJECT_HEADER header;
+
+        header = CONTAINING_RECORD(entry, KPH_OBJECT_HEADER, ListEntry);
+
+        entry = entry->Next;
+
+        KphpObjectDelete(header);
+    }
+}
+
+/**
+ * \brief Initializes the object subsystem.
+ *
+ * \return Successful or errant status.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+VOID KphObjectInitialize(
+    VOID
+    )
+{
+    PAGED_CODE_PASSIVE();
+
+    InitializeSListHead(&KphpDeferDeleteObjectList);
+    KsiInitializeWorkItem(&KphpDeferDeleteObjectWorkItem,
+                          KphDriverObject,
+                          &KphpDeferDeleteObjectWorker,
+                          NULL);
 }

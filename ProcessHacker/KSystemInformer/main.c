@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2021-2023
+ *     jxy-s   2021-2024
  *
  */
 
@@ -93,9 +93,6 @@ VOID KphpDriverCleanup(
     KphFltUnregister();
     KphCidCleanup();
     KphCleanupDynData();
-#ifndef KPP_NO_SECURITY
-    KphCleanupSigning();
-#endif
 #if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
     KphCleanupVerify();
 #endif
@@ -204,6 +201,8 @@ NTSTATUS DriverEntry(
 
     KphDynamicImport();
 
+    KphObjectInitialize();
+
     KphInitializeParameters(RegistryPath);
 
     status = KphInitializeAlloc();
@@ -268,19 +267,6 @@ NTSTATUS DriverEntry(
         KphTracePrint(TRACE_LEVEL_ERROR,
                       GENERAL,
                       "Failed to initialize verify: %!STATUS!",
-                      status);
-
-        goto Exit;
-    }
-#endif
-
-#ifndef KPP_NO_SECURITY
-    status = KphInitializeSigning();
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      GENERAL,
-                      "Failed to initialize signing: %!STATUS!",
                       status);
 
         goto Exit;

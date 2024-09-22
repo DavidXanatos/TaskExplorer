@@ -1389,13 +1389,13 @@ QVariant TokenSecurityAttribute2Variant(PTOKEN_SECURITY_ATTRIBUTE_V1 Attribute, 
 		return CWinToken::tr("Version %1: %2").arg(Attribute->Values.pFqbn[ValueIndex].Version).arg(QString::fromWCharArray(Attribute->Values.pFqbn[ValueIndex].Name.Buffer, Attribute->Values.pFqbn[ValueIndex].Name.Length / sizeof(WCHAR)));
     case TOKEN_SECURITY_ATTRIBUTE_TYPE_SID:
         {
-            if (RtlValidSid(Attribute->Values.pOctetString[ValueIndex].pValue))
+            if (RtlValidSid(Attribute->Values.pOctetString[ValueIndex].Value))
             {
-                PPH_STRING name = PhGetSidFullName(Attribute->Values.pOctetString[ValueIndex].pValue, TRUE, NULL); // note this may be slow
+                PPH_STRING name = PhGetSidFullName(Attribute->Values.pOctetString[ValueIndex].Value, TRUE, NULL); // note this may be slow
                 if (name)
                     return CastPhString(name);
 
-                name = PhSidToStringSid(Attribute->Values.pOctetString[ValueIndex].pValue);
+                name = PhSidToStringSid(Attribute->Values.pOctetString[ValueIndex].Value);
                 if (name)
                     return CastPhString(name);
             }
@@ -1404,7 +1404,7 @@ QVariant TokenSecurityAttribute2Variant(PTOKEN_SECURITY_ATTRIBUTE_V1 Attribute, 
     case TOKEN_SECURITY_ATTRIBUTE_TYPE_BOOLEAN:
 		return  Attribute->Values.pInt64[ValueIndex] != 0;
     case TOKEN_SECURITY_ATTRIBUTE_TYPE_OCTET_STRING:
-        return QByteArray((char*)Attribute->Values.pOctetString->pValue, Attribute->Values.pOctetString->ValueLength).toHex();
+        return QByteArray((char*)Attribute->Values.pOctetString->Value, Attribute->Values.pOctetString->ValueLength).toHex();
     default:
         return CWinToken::tr("(Unknown)");
     }

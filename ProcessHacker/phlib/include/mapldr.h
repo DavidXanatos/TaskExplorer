@@ -66,7 +66,7 @@ NTAPI
 PhGetProcedureAddress(
     _In_ PVOID DllHandle,
     _In_opt_ PSTR ProcedureName,
-    _In_opt_ ULONG ProcedureNumber
+    _In_opt_ USHORT ProcedureNumber
     );
 
 PHLIBAPI
@@ -284,6 +284,13 @@ PhLoaderEntryImageRvaToVa(
     _In_ PVOID BaseAddress,
     _In_ ULONG Rva,
     _Out_ PVOID *Va
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhLoaderEntryGrantSuppressedCall(
+    _In_ PVOID ExportAddress
     );
 
 PHLIBAPI

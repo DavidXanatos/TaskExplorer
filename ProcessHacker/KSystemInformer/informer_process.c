@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -588,6 +588,11 @@ VOID KphpCreateProcessNotifyRoutine(
     PKPH_PROCESS_CONTEXT process;
 
     PAGED_CODE_PASSIVE();
+
+    if (!CreateInfo)
+    {
+        KphInvalidateLsass(ProcessId);
+    }
 
     process = KphpPerformProcessTracking(Process, ProcessId, CreateInfo);
     if (process)

@@ -541,11 +541,21 @@ PPH_STRING PhGetSidFullName(
         else
         {
             fullName = NULL;
+
+            if (NameUse)
+            {
+                *NameUse = SidTypeUnknown;
+            }
         }
     }
     else
     {
         fullName = NULL;
+
+        if (NameUse)
+        {
+            *NameUse = SidTypeUnknown;
+        }
     }
 
     if (referencedDomains)
@@ -594,9 +604,9 @@ PPH_STRING PhSidToStringSid(
     }
 }
 
-NTSTATUS PhSidToStringBuffer(
+NTSTATUS PhSidToBuffer(
     _In_ PSID Sid,
-    _Writable_bytes_(BufferLength) PWCHAR Buffer,
+    _Out_writes_bytes_(BufferLength) PWSTR Buffer,
     _In_ USHORT BufferLength,
     _Out_opt_ PUSHORT ReturnLength
     )

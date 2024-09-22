@@ -27,6 +27,7 @@ EXTERN_C_START
 #define PH_EMENU_SEPARATECHECKSPACE 0x100000
 #define PH_EMENU_SEPARATOR 0x200000
 #define PH_EMENU_MAINMENU 0x400000
+#define PH_EMENU_CALLBACK 0x800000
 
 #define PH_EMENU_TEXT_OWNED 0x80000000
 #define PH_EMENU_BITMAP_OWNED 0x40000000
@@ -34,6 +35,11 @@ EXTERN_C_START
 typedef struct _PH_EMENU_ITEM *PPH_EMENU_ITEM;
 
 typedef VOID (NTAPI *PPH_EMENU_ITEM_DELETE_FUNCTION)(
+    _In_ PPH_EMENU_ITEM Item
+    );
+
+typedef VOID (NTAPI *PPH_EMENU_ITEM_DELAY_FUNCTION)(
+    _In_ HMENU Menu,
     _In_ PPH_EMENU_ITEM Item
     );
 
@@ -46,8 +52,9 @@ typedef struct _PH_EMENU_ITEM
 
     PVOID Parameter;
     PVOID Context;
+
     PPH_EMENU_ITEM_DELETE_FUNCTION DeleteFunction;
-    PVOID Reserved;
+    PPH_EMENU_ITEM_DELAY_FUNCTION DelayFunction;
 
     PPH_EMENU_ITEM Parent;
     PPH_LIST Items;
@@ -62,6 +69,16 @@ PPH_EMENU_ITEM PhCreateEMenuItem(
     _In_opt_ PWSTR Text,
     _In_opt_ HBITMAP Bitmap,
     _In_opt_ PVOID Context
+    );
+
+PPH_EMENU_ITEM
+PhCreateEMenuItemCallback(
+    _In_ ULONG Flags,
+    _In_ ULONG Id,
+    _In_opt_ PWSTR Text,
+    _In_opt_ HBITMAP Bitmap,
+    _In_opt_ PVOID Context,
+    _In_opt_ PPH_EMENU_ITEM_DELAY_FUNCTION DelayFunction
     );
 
 PHLIBAPI
@@ -220,12 +237,36 @@ VOID PhSetHMenuStyle(
     _In_ BOOLEAN MainMenu
     );
 
-VOID PhSetHMenuNotify(
+BOOLEAN PhSetHMenuWindow(
+    _In_ HWND WindowHandle,
+    _In_ HMENU MenuHandle
+    );
+
+BOOLEAN PhSetHMenuNotify(
     _In_ HMENU MenuHandle
     );
 
 VOID PhDeleteHMenu(
     _In_ HMENU Menu
+    );
+
+_Success_(return)
+BOOLEAN PhGetHMenuStringToBuffer(
+    _In_ HMENU Menu,
+    _In_ ULONG Id,
+    _Out_writes_bytes_(BufferLength) PWSTR Buffer,
+    _In_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
+    );
+
+PPH_EMENU_ITEM PhGetMenuData(
+    _In_ HMENU Menu,
+    _In_ ULONG Index
+    );
+
+VOID PhMenuCallbackDispatch(
+    _In_ HMENU Menu,
+    _In_ ULONG Index
     );
 
 // Convenience functions

@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2020-2023
+ *     jxy-s   2020-2024
  *
  */
 
@@ -20,6 +20,11 @@ PPS_SET_CREATE_PROCESS_NOTIFY_ROUTINE_EX2 KphDynPsSetCreateProcessNotifyRoutineE
 PMM_PROTECT_DRIVER_SECTION KphDynMmProtectDriverSection = NULL;
 PPS_GET_PROCESS_SEQUENCE_NUMBER KphDynPsGetProcessSequenceNumber = NULL;
 PPS_GET_PROCESS_START_KEY KphDynPsGetProcessStartKey = NULL;
+PSE_REGISTER_IMAGE_VERIFICATION_CALLBACK KphSeRegisterImageVerificationCallback = NULL;
+PSE_UNREGISTER_IMAGE_VERIFICATION_CALLBACK KphSeUnregisterImageVerificationCallback = NULL;
+PCI_VALIDATE_FILE_OBJECT KphDynCiValidateFileObject = NULL;
+PCI_FREE_POLICY_INFO KphDynCiFreePolicyInfo = NULL;
+PLXP_THREAD_GET_CURRENT KphDynLxpThreadGetCurrent = NULL;
 KPH_PROTECTED_DATA_SECTION_POP();
 
 PAGED_FILE();
@@ -39,6 +44,11 @@ VOID KphDynamicImport(
     KphDynMmProtectDriverSection = (PMM_PROTECT_DRIVER_SECTION)KphGetSystemRoutineAddress(L"MmProtectDriverSection");
     KphDynPsGetProcessSequenceNumber = (PPS_GET_PROCESS_SEQUENCE_NUMBER)KphGetSystemRoutineAddress(L"PsGetProcessSequenceNumber");
     KphDynPsGetProcessStartKey = (PPS_GET_PROCESS_START_KEY)KphGetSystemRoutineAddress(L"PsGetProcessStartKey");
+    KphSeRegisterImageVerificationCallback = (PSE_REGISTER_IMAGE_VERIFICATION_CALLBACK)KphGetSystemRoutineAddress(L"SeRegisterImageVerificationCallback");
+    KphSeUnregisterImageVerificationCallback = (PSE_UNREGISTER_IMAGE_VERIFICATION_CALLBACK)KphGetSystemRoutineAddress(L"SeUnregisterImageVerificationCallback");
+    KphDynCiValidateFileObject = (PCI_VALIDATE_FILE_OBJECT)KphGetRoutineAddress(L"ci.dll", "CiValidateFileObject");
+    KphDynCiFreePolicyInfo = (PCI_FREE_POLICY_INFO)KphGetRoutineAddress(L"ci.dll", "CiFreePolicyInfo");
+    KphDynLxpThreadGetCurrent = (PLXP_THREAD_GET_CURRENT)KphGetRoutineAddress(L"lxcore.sys", "LxpThreadGetCurrent");
 }
 
 /**

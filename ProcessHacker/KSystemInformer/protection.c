@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2020-2023
+ *     jxy-s   2020-2024
  *
  */
 
@@ -103,7 +103,6 @@ NTSTATUS KSIAPI KphpInitializeImageLoadApc(
     }
 
     KphReferenceHashingInfrastructure();
-    KphReferenceSigningInfrastructure();
 
     return STATUS_SUCCESS;
 }
@@ -131,7 +130,6 @@ VOID KSIAPI KphpDeleteImageLoadApc(
         ObDereferenceObject(apc->FileObject);
     }
 
-    KphDereferenceSigningInfrastructure();
     KphDereferenceHashingInfrastructure();
 }
 
@@ -194,16 +192,12 @@ NTSTATUS KphpShouldSuppressObjectProtections(
         return STATUS_SUCCESS;
     }
 
-    status = KphQueryInformationProcessContext(Actor,
-                                               KphProcessContextIsLsass,
-                                               &isLsass,
-                                               sizeof(isLsass),
-                                               NULL);
+    status = KphProcessIsLsass(Actor->EProcess, &isLsass);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "KphQueryInformationProcessContext failed: %!STATUS!",
+                      "KphProcessIsLsass failed: %!STATUS!",
                       status);
 
         return status;
@@ -264,7 +258,7 @@ BOOLEAN KSIAPI KphpEnumProcessHandlesForProtection(
         return FALSE;
     }
 
-    objectHeader = KphObpDecodeObject(parameter->Dyn, HandleTableEntry->Object);
+    objectHeader = KphObpDecodeObject(parameter->Dyn, HandleTableEntry);
     if (!objectHeader)
     {
         //
@@ -1006,9 +1000,6 @@ VOID KSIAPI KphpImageLoadKernelRoutineFirst(
     PKPH_IMAGE_LOAD_APC firstApc;
     PKPH_IMAGE_LOAD_APC secondApc;
     KPH_IMAGE_LOAD_APC_INIT init;
-#if DBG
-    PKPH_THREAD_CONTEXT actor;
-#endif
 
     PAGED_CODE();
 
@@ -1016,15 +1007,7 @@ VOID KSIAPI KphpImageLoadKernelRoutineFirst(
 
     firstApc = CONTAINING_RECORD(Apc, KPH_IMAGE_LOAD_APC, Apc);
 
-    DBG_UNREFERENCED_PARAMETER(NormalRoutine);
-#if DBG
-    actor = KphGetCurrentThreadContext();
-    NT_ASSERT(actor && actor->ProcessContext);
-    NT_ASSERT(actor->ProcessContext->ApcNoopRoutine);
-    NT_ASSERT(*NormalRoutine == actor->ProcessContext->ApcNoopRoutine);
-    KphDereferenceObject(actor);
-    actor = NULL;
-#endif
+    UNREFERENCED_PARAMETER(NormalRoutine);
 
     *NormalContext = NULL;
     *SystemArgument1 = NULL;
@@ -1132,6 +1115,33 @@ VOID KphpHandleUntrustedImageLoad(
 
     if (KphParameterFlags.DisableImageLoadProtection)
     {
+        //
+        // Image load protections are disable. Do not deny the image load. We
+        // will still mark an untrusted image load. This will restrict access
+        // to the driver.
+        //
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Image load protections are disabled.");
+        goto Exit;
+    }
+
+    if ((Process->NumberOfImageLoads == 1) &&
+        (PsGetProcessSectionBaseAddress(Process->EProcess) == ImageBase))
+    {
+        //
+        // The primary image is being loaded. Rather than deny the image load
+        // we will allow it to go through but will still mark an untrusted
+        // image load. This will restrict access to the driver. But will allow
+        // the process to continue starting.
+        //
+        // N.B. If another untrusted image is loaded other than the primary
+        // image that is critical to starting the process, it will still fail
+        // to start.
+        //
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Image base is the process section base address.");
         goto Exit;
     }
 
@@ -1243,6 +1253,214 @@ Exit:
 }
 
 /**
+ * \brief Re-opens the image file object for the image being loaded.
+ *
+ * \details This is unfortunately necessary since the file object from the
+ * image load callback is in a state that renders I/O inoperable, due to
+ * FO_CLEANUP_COMPLETE being set.
+ *
+ * \param[in] ImageFileObject The image file object.
+ * \param[out] FileHandle Receives a handle the to the file.
+ * \param[out] FileObject Receives a reference to the file object.
+ * \param[out] Filename Receives the file name of the image, must be freed
+ * using KphFreeNameFileObject.
+ * \param[out] ImageBase Receives the base address of the image mapping in the
+ * system address space. Must be unmapped with KphUnmapViewInSystem.
+ * \param[out] ImageSize Receives the size of the image mapping.
+ * \param[out] DataBase Receives the base address of the data mapping in the
+ * system address space. Must be unmapped with KphUnmapViewInSystem.
+ * \param[out] DataSize Receives the size of the data mapping.
+ *
+ * \return Successful or errant status.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphpReOpenImageFile(
+    _In_ PFILE_OBJECT ImageFileObject,
+    _Out_ PHANDLE FileHandle,
+    _Out_ PFILE_OBJECT* FileObject,
+    _Out_ PUNICODE_STRING* FileName,
+    _Out_ PVOID* ImageBase,
+    _Out_ PSIZE_T ImageSize,
+    _Out_ PVOID* DataBase,
+    _Out_ PSIZE_T DataSize
+    )
+{
+    NTSTATUS status;
+    PUNICODE_STRING fileName;
+    OBJECT_ATTRIBUTES objectAttributes;
+    IO_STATUS_BLOCK ioStatusBlock;
+    HANDLE fileHandle;
+    PFILE_OBJECT fileObject;
+    PVOID imageBase;
+    SIZE_T imageSize;
+    PVOID dataBase;
+    SIZE_T dataSize;
+
+    PAGED_CODE_PASSIVE();
+
+    fileHandle = NULL;
+    fileObject = NULL;
+    imageBase = NULL;
+    dataBase = NULL;
+
+    *FileObject = NULL;
+    *FileName = NULL;
+    *ImageBase = NULL;
+    *ImageSize = 0;
+    *DataBase = NULL;
+    *DataSize = 0;
+
+    status = KphGetNameFileObject(ImageFileObject, &fileName);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "KphGetNameFileObject failed: %!STATUS!",
+                      status);
+
+        goto Exit;
+    }
+
+    InitializeObjectAttributes(&objectAttributes,
+                               fileName,
+                               OBJ_KERNEL_HANDLE | OBJ_DONT_REPARSE,
+                               NULL,
+                               NULL);
+
+    status = KphCreateFile(&fileHandle,
+                           FILE_READ_ACCESS | SYNCHRONIZE,
+                           &objectAttributes,
+                           &ioStatusBlock,
+                           NULL,
+                           FILE_ATTRIBUTE_NORMAL,
+                           FILE_SHARE_READ,
+                           FILE_OPEN,
+                           (FILE_NON_DIRECTORY_FILE |
+                            FILE_SYNCHRONOUS_IO_NONALERT |
+                            FILE_COMPLETE_IF_OPLOCKED),
+                           NULL,
+                           0,
+                           IO_IGNORE_SHARE_ACCESS_CHECK,
+                           KernelMode);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "KphCreateFile failed: %!STATUS!",
+                      status);
+
+        fileHandle = NULL;
+        goto Exit;
+    }
+    else if (status == STATUS_OPLOCK_BREAK_IN_PROGRESS)
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "KphCreateFile failed: %!STATUS!",
+                      status);
+
+        status = STATUS_SHARING_VIOLATION;
+        goto Exit;
+    }
+
+    status = ObReferenceObjectByHandle(fileHandle,
+                                       0,
+                                       *IoFileObjectType,
+                                       KernelMode,
+                                       &fileObject,
+                                       NULL);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "ObReferenceObjectByHandle failed: %!STATUS!",
+                      status);
+
+        fileObject = NULL;
+        goto Exit;
+    }
+
+    imageSize = 0;
+    status = KphMapViewInSystem(fileHandle,
+                                KPH_MAP_IMAGE,
+                                &imageBase,
+                                &imageSize);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "KphMapViewInSystem failed: %!STATUS!",
+                      status);
+
+        imageBase = NULL;
+        goto Exit;
+    }
+
+    dataSize = 0;
+    status = KphMapViewInSystem(fileHandle,
+                                KPH_MAP_DATA,
+                                &dataBase,
+                                &dataSize);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "KphMapViewInSystem failed: %!STATUS!",
+                      status);
+
+        imageBase = NULL;
+        goto Exit;
+    }
+
+    *FileHandle = fileHandle;
+    fileHandle = NULL;
+
+    *FileObject = fileObject;
+    fileObject = NULL;
+
+    *FileName = fileName;
+    fileName = NULL;
+
+    *ImageBase = imageBase;
+    imageBase = NULL;
+    *ImageSize = imageSize;
+
+    *DataBase = dataBase;
+    dataBase = NULL;
+    *DataSize = dataSize;
+
+Exit:
+
+    if (dataBase)
+    {
+        KphUnmapViewInSystem(dataBase);
+    }
+
+    if (imageBase)
+    {
+        KphUnmapViewInSystem(imageBase);
+    }
+
+    if (fileHandle)
+    {
+        ObCloseHandle(fileHandle, KernelMode);
+    }
+
+    if (fileObject)
+    {
+        ObDereferenceObject(fileObject);
+    }
+
+    if (fileName)
+    {
+        KphFreeNameFileObject(fileName);
+    }
+
+    return status;
+}
+
+/**
  * \brief Applies image protections on verified processes.
  *
  * \param[in,out] Process The process where the image is being loaded.
@@ -1257,54 +1475,139 @@ VOID KphpApplyImageProtections(
     )
 {
     NTSTATUS status;
-    KPH_SIGNING_INFORMATION info;
-    ANSI_STRING issuer;
-    ANSI_STRING subject;
+    volatile SIZE_T* imageLoadCounter;
+    HANDLE fileHandle;
+    PFILE_OBJECT fileObject;
     PUNICODE_STRING fileName;
+    PVOID imageBase;
+    SIZE_T imageSize;
+    PVOID dataBase;
+    SIZE_T dataSize;
+    SE_SIGNING_LEVEL signingLevel;
 
     PAGED_CODE_PASSIVE();
 
     NT_ASSERT(!KeAreAllApcsDisabled());
 
+    imageLoadCounter = NULL;
+    fileHandle = NULL;
+    fileObject = NULL;
     fileName = NULL;
+    imageBase = NULL;
+    dataBase = NULL;
+
+    if (FileObject->WriteAccess)
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "%wZ (%lu) image \"%wZ\" is writable",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      &FileObject->FileName);
+
+        goto Exit;
+    }
+
+    if (IoGetTransactionParameterBlock(FileObject))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "%wZ (%lu) image \"%wZ\" is in a transaction",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      &FileObject->FileName);
+
+        goto Exit;
+    }
 
     if (!FileObject->SectionObjectPointer ||
         MmDoesFileHaveUserWritableReferences(FileObject->SectionObjectPointer))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "%wZ (%lu) image has user writable references",
+                      "%wZ (%lu) image \"%wZ\" has user writable references",
                       &Process->ImageName,
-                      HandleToULong(Process->ProcessId));
+                      HandleToULong(Process->ProcessId),
+                      &FileObject->FileName);
 
-        KphpHandleUntrustedImageLoad(Process, ImageBase);
         goto Exit;
     }
 
-    status = KphGetNameFileObject(FileObject, &fileName);
+    status = KphpReOpenImageFile(FileObject,
+                                 &fileHandle,
+                                 &fileObject,
+                                 &fileName,
+                                 &imageBase,
+                                 &imageSize,
+                                 &dataBase,
+                                 &dataSize);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "%wZ (%lu) KphGetNameFileObject failed: %!STATUS!",
+                      "KphpReOpenImageFile: %wZ (%lu) \"%wZ\": %!STATUS!",
                       &Process->ImageName,
                       HandleToULong(Process->ProcessId),
+                      &FileObject->FileName,
                       status);
 
-        fileName = NULL;
-        KphpHandleUntrustedImageLoad(Process, ImageBase);
         goto Exit;
     }
 
-    //
-    // Do the verification since it will be a faster check than asking CI.
-    //
+    if (!KphIsSameFile(FileObject, fileObject))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "KphIsSameFile failed: %wZ (%lu) \"%wZ\" \"%wZ\"",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      &FileObject->FileName,
+                      fileName);
 
-    status = KphVerifyFile(fileName);
+        goto Exit;
+    }
+
+    status = KphGetSigningLevel(fileObject, &signingLevel);
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   PROTECTION,
-                  "KphVerifyFile: %wZ (%lu) \"%wZ\": %!STATUS!",
+                  "KphpGetSigningLevel: %wZ (%lu) \"%wZ\": 0x%02x %!STATUS!",
+                  &Process->ImageName,
+                  HandleToULong(Process->ProcessId),
+                  fileName,
+                  signingLevel,
+                  status);
+
+    if (!NT_SUCCESS(status))
+    {
+        signingLevel = SE_SIGNING_LEVEL_UNCHECKED;
+    }
+
+    switch (signingLevel)
+    {
+        case SE_SIGNING_LEVEL_MICROSOFT:
+        case SE_SIGNING_LEVEL_WINDOWS:
+        case SE_SIGNING_LEVEL_WINDOWS_TCB:
+        {
+            imageLoadCounter = &Process->NumberOfMicrosoftImageLoads;
+            goto CheckCoherency;
+        }
+        case SE_SIGNING_LEVEL_ANTIMALWARE:
+        {
+            imageLoadCounter = &Process->NumberOfAntimalwareImageLoads;
+            goto CheckCoherency;
+        }
+        default:
+        {
+            break;
+        }
+    }
+
+    status = KphVerifyFileObject(fileObject, fileName);
+
+    KphTracePrint(TRACE_LEVEL_VERBOSE,
+                  PROTECTION,
+                  "KphVerifyFileObject: %wZ (%lu) \"%wZ\": %!STATUS!",
                   &Process->ImageName,
                   HandleToULong(Process->ProcessId),
                   fileName,
@@ -1312,73 +1615,62 @@ VOID KphpApplyImageProtections(
 
     if (NT_SUCCESS(status))
     {
-        InterlockedIncrementSizeT(&Process->NumberOfVerifiedImageLoads);
-        goto Exit;
+        imageLoadCounter = &Process->NumberOfVerifiedImageLoads;
+        goto CheckCoherency;
     }
 
-    //
-    // We have to ask CI for the signing information.
-    //
+CheckCoherency:
 
-    RtlZeroMemory(&issuer, sizeof(issuer));
-    RtlZeroMemory(&subject, sizeof(subject));
-
-    status = KphGetSigningInformation(fileName, &info);
-
-    //
-    // Pull out the issuer and subject if it's there. The size check for
-    // PolicyInfo.Size is correct. Checking for when the ChainInfo started
-    // exposing the chain elements (Win10).
-    //
-    if ((info.PolicyInfo.Size >=
-         RTL_SIZEOF_THROUGH_FIELD(MINCRYPT_POLICY_INFO, ValidToTime)) &&
-        info.PolicyInfo.ChainInfo &&
-        info.PolicyInfo.ChainInfo->ChainElements &&
-        (info.PolicyInfo.ChainInfo->NumberOfChainElements > 0))
-    {
-        issuer.Buffer = info.PolicyInfo.ChainInfo->ChainElements[0].Issuer.Buffer;
-        issuer.Length = info.PolicyInfo.ChainInfo->ChainElements[0].Issuer.Length;
-        issuer.MaximumLength = issuer.Length;
-
-        subject.Buffer = info.PolicyInfo.ChainInfo->ChainElements[0].Subject.Buffer;
-        subject.Length = info.PolicyInfo.ChainInfo->ChainElements[0].Subject.Length;
-        subject.MaximumLength = subject.Length;
-    }
+    status = KphCheckImageCoherency(imageBase, imageSize, dataBase, dataSize);
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   PROTECTION,
-                  "KphGetSigningInfoByFileName: \"%wZ\" 0x%08lx \"%wZ\" "
-                  "\"%Z\" \"%Z\" %!STATUS! %!STATUS!",
+                  "KphCheckImageCoherency: %wZ (%lu) \"%wZ\": %!STATUS!",
+                  &Process->ImageName,
+                  HandleToULong(Process->ProcessId),
                   fileName,
-                  info.PolicyInfo.PolicyBits,
-                  &info.CatalogName,
-                  &subject,
-                  &issuer,
-                  info.PolicyInfo.VerificationStatus,
                   status);
 
-    if (!NT_SUCCESS(status) ||
-        !NT_SUCCESS(info.PolicyInfo.VerificationStatus) ||
-        BooleanFlagOn(info.PolicyInfo.PolicyBits,
-                      (MINCRYPT_POLICY_ERROR_FLAGS |
-                       MINCRYPT_POLICY_3RD_PARTY_ROOT |
-                       MINCRYPT_POLICY_NO_ROOT |
-                       MINCRYPT_POLICY_OTHER_ROOT)))
+    if (!NT_SUCCESS(status))
     {
-        KphpHandleUntrustedImageLoad(Process, ImageBase);
+        imageLoadCounter = NULL;
+         goto Exit;
+    }
+
+Exit:
+
+    if (dataBase)
+    {
+        KphUnmapViewInSystem(dataBase);
+    }
+
+    if (imageBase)
+    {
+        KphUnmapViewInSystem(imageBase);
+    }
+
+    if (imageLoadCounter)
+    {
+        InterlockedIncrementSizeT(imageLoadCounter);
     }
     else
     {
-        InterlockedIncrementSizeT(&Process->NumberOfMicrosoftImageLoads);
+        KphpHandleUntrustedImageLoad(Process, ImageBase);
     }
-
-    KphFreeSigningInformation(&info);
-
-Exit:
 
     if (fileName)
     {
         KphFreeNameFileObject(fileName);
+    }
+
+    if (fileObject)
+    {
+        ObDereferenceObject(fileObject);
+    }
+
+    if (fileHandle)
+    {
+        ObCloseHandle(fileHandle, KernelMode);
     }
 }
 
@@ -1755,8 +2047,7 @@ LONG KphGetDriverUnloadProtectionCount(
 
     PAGED_CODE();
 
-    count = KphpDriverUnloadProtectionRef.Count;
-    MemoryBarrier();
+    count = ReadAcquire(&KphpDriverUnloadProtectionRef.Count);
 
     return count;
 }
@@ -1943,6 +2234,7 @@ VOID KphInitializeProtection(
     typeInfo.Initialize = KphpInitializeImageLoadApc;
     typeInfo.Delete = KphpDeleteImageLoadApc;
     typeInfo.Free = KphpFreeImageLoadApc;
+    typeInfo.Flags = 0;
 
     KphCreateObjectType(&KphpImageLoadApcTypeName,
                         &typeInfo,

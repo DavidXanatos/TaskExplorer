@@ -13,6 +13,7 @@
 #include <ph.h>
 #include <apiimport.h>
 #include <guisup.h>
+#include <guisupview.h>
 #include <mapimg.h>
 #include <mapldr.h>
 #include <settings.h>
@@ -68,6 +69,7 @@ static _SetWindowTheme SetWindowTheme_I = NULL;
 static _IsThemeActive IsThemeActive_I = NULL;
 static _IsThemePartDefined IsThemePartDefined_I = NULL;
 static _GetThemeClass GetThemeClass_I = NULL;
+static _GetThemeColor GetThemeColor_I = NULL;
 static _GetThemeInt GetThemeInt_I = NULL;
 static _GetThemePartSize GetThemePartSize_I = NULL;
 static _DrawThemeBackground DrawThemeBackground_I = NULL;
@@ -110,6 +112,7 @@ VOID PhGuiSupportInitialization(
         SetWindowTheme_I = PhGetDllBaseProcedureAddress(baseAddress, "SetWindowTheme", 0);
         IsThemeActive_I = PhGetDllBaseProcedureAddress(baseAddress, "IsThemeActive", 0);
         IsThemePartDefined_I = PhGetDllBaseProcedureAddress(baseAddress, "IsThemePartDefined", 0);
+        GetThemeColor_I = PhGetDllBaseProcedureAddress(baseAddress, "GetThemeColor", 0);
         GetThemeInt_I = PhGetDllBaseProcedureAddress(baseAddress, "GetThemeInt", 0);
         GetThemePartSize_I = PhGetDllBaseProcedureAddress(baseAddress, "GetThemePartSize", 0);
         DrawThemeBackground_I = PhGetDllBaseProcedureAddress(baseAddress, "DrawThemeBackground", 0);
@@ -190,6 +193,14 @@ VOID PhInitializeMonospaceFont(
     if (oldFont) DeleteFont(oldFont);
 }
 
+/**
+ * Opens the theme data for the specified window handle, class list, and window DPI.
+ *
+ * \param WindowHandle The handle to the window for which to open the theme data. Can be NULL.
+ * \param ClassList The class list of the theme to open.
+ * \param WindowDpi The DPI of the window.
+ * \return The handle to the opened theme data, or NULL if the theme data could not be opened.
+ */
 HTHEME PhOpenThemeData(
     _In_opt_ HWND WindowHandle,
     _In_ PCWSTR ClassList,
@@ -263,6 +274,21 @@ BOOLEAN PhGetThemeClass(
         return FALSE;
 
     return SUCCEEDED(GetThemeClass_I(ThemeHandle, Class, ClassLength));
+}
+
+_Success_(return)
+BOOLEAN PhGetThemeColor(
+    _In_ HTHEME ThemeHandle,
+    _In_ INT PartId,
+    _In_ INT StateId,
+    _In_ INT PropId,
+    _Out_ COLORREF* Color
+    )
+{
+    if (!GetThemeColor_I)
+        return FALSE;
+
+    return SUCCEEDED(GetThemeColor_I(ThemeHandle, PartId, StateId, PropId, Color));
 }
 
 _Success_(return)
@@ -376,6 +402,44 @@ BOOLEAN PhGetWindowRect(
         return FALSE;
 
     return TRUE;
+}
+
+BOOLEAN PhIsHungAppWindow(
+    _In_ HWND WindowHandle,
+    _In_ HDESK DesktopHandle
+    )
+{
+    return !!IsHungAppWindow(WindowHandle);
+}
+
+BOOLEAN PhCheckWindowThreadDesktop(
+    _In_ HWND WindowHandle,
+    _In_ HANDLE ThreadId
+    )
+{
+    typedef INT32 (WINAPI* CheckWindowThreadDesktop)(
+        _In_ HWND WindowHandle,
+        _In_ ULONG ThreadId
+        );
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static CheckWindowThreadDesktop CheckWindowThreadDesktop_I = NULL;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        PVOID baseAddress;
+
+        if (baseAddress = PhLoadLibrary(L"user32.dll"))
+        {
+            CheckWindowThreadDesktop_I = PhGetDllBaseProcedureAddress(baseAddress, "CheckWindowThreadDesktop", 0);
+        }
+
+        PhEndInitOnce(&initOnce);
+    }
+
+    if (!CheckWindowThreadDesktop_I)
+        return FALSE;
+
+    return CheckWindowThreadDesktop_I(WindowHandle, HandleToUlong(ThreadId));
 }
 
 LONG PhGetDpi(
@@ -591,6 +655,13 @@ LONG PhGetDpiValue(
     return USER_DEFAULT_SCREEN_DPI;
 }
 
+/**
+ * Retrieves the system metrics for the specified index.
+ *
+ * \param Index The index of the system metric to retrieve.
+ * \param DpiValue The DPI value to use for retrieving the system metric. If not provided, the default DPI value will be used.
+ * \return The value of the system metric.
+ */
 LONG PhGetSystemMetrics(
     _In_ INT Index,
     _In_opt_ LONG DpiValue
@@ -1204,6 +1275,22 @@ VOID PhSetImageListBitmap(
     }
 }
 
+PVOID PhGetListViewInterface(
+    _In_ HWND ListViewHandle
+    )
+{
+    IListView* ListViewPtr = NULL;
+
+    DefWindowProc(
+        ListViewHandle,
+        LVM_QUERYINTERFACE,
+        (WPARAM)&IID_IListView,
+        (LPARAM)&ListViewPtr
+        );
+
+    return ListViewPtr;
+}
+
 static BOOLEAN SharedIconCacheHashtableEqualFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
@@ -1644,22 +1731,24 @@ HWND PhCreateDialog(
     return dialogHandle;
 }
 
-HWND PhCreateWindow(
-    _In_ ULONG ExStyle,
-    _In_opt_ PCWSTR ClassName,
+HWND PhCreateWindowEx(
+    _In_ PCWSTR ClassName,
     _In_opt_ PCWSTR WindowName,
     _In_ ULONG Style,
-    _In_ INT X,
-    _In_ INT Y,
-    _In_ INT Width,
-    _In_ INT Height,
+    _In_ ULONG ExStyle,
+    _In_ LONG X,
+    _In_ LONG Y,
+    _In_ LONG Width,
+    _In_ LONG Height,
     _In_opt_ HWND ParentWindow,
     _In_opt_ HMENU MenuHandle,
     _In_opt_ PVOID InstanceHandle,
     _In_opt_ PVOID Parameter
     )
 {
-    return CreateWindowEx(
+    HWND windowHandle;
+
+    windowHandle = CreateWindowEx(
         ExStyle,
         ClassName,
         WindowName,
@@ -1673,6 +1762,29 @@ HWND PhCreateWindow(
         InstanceHandle,
         Parameter
         );
+
+    return windowHandle;
+}
+
+HWND PhCreateMessageWindow(
+    VOID
+    )
+{
+    HWND windowHandle;
+
+    windowHandle = CreateWindowEx(
+        0,
+        L"Message",
+        NULL,
+        0,
+        0, 0, 0, 0,
+        HWND_MESSAGE,
+        NULL,
+        NULL,
+        NULL
+        );
+
+    return windowHandle;
 }
 
 INT_PTR PhDialogBox(
@@ -1766,12 +1878,12 @@ BOOLEAN PhModalPropertySheet(
 
     while (result = GetMessage(&message, NULL, 0, 0))
     {
-        if (result == -1)
+        if (result == INT_ERROR)
             break;
 
         if (message.message == WM_KEYDOWN /*|| message.message == WM_KEYUP*/) // forward key messages (dmex)
         {
-            SendMessage(hwnd, message.message, message.wParam, message.lParam);
+            DefWindowProc(hwnd, message.message, message.wParam, message.lParam);
         }
 
         if (!PropSheet_IsDialogMessage(hwnd, &message))
@@ -2182,6 +2294,14 @@ VOID PhEnumWindows(
     EnumWindows((WNDENUMPROC)Callback, (LPARAM)Context);
 }
 
+/**
+ * Enumerates the child windows of the specified window handle.
+ *
+ * \param WindowHandle The handle of the parent window.
+ * \param Limit The maximum number of child windows to enumerate.
+ * \param Callback The callback function to be called for each child window.
+ * \param Context An optional context parameter to be passed to the callback function.
+ */
 VOID PhEnumChildWindows(
     _In_opt_ HWND WindowHandle,
     _In_ ULONG Limit,
@@ -2710,6 +2830,13 @@ BOOLEAN PhGetPhysicallyInstalledSystemMemory(
     return FALSE;
 }
 
+/**
+ * Retrieves the GUI resources used by a session.
+ *
+ * \param Flags The flags to be used for retrieving the GUI resources.
+ * \param Total Pointer to a variable that will receive the total number of GUI resources.
+ * \return Returns the status code indicating the success or failure of the operation.
+ */
 NTSTATUS PhGetSessionGuiResources(
     _In_ ULONG Flags,
     _Out_ PULONG Total
@@ -2718,6 +2845,14 @@ NTSTATUS PhGetSessionGuiResources(
     return PhGetProcessGuiResources(GR_GLOBAL, Flags, Total);
 }
 
+/**
+ * Retrieves the GUI resources used by a process.
+ *
+ * \param ProcessHandle The handle to the process for which to retrieve the GUI resources.
+ * \param Flags The flags to be used for retrieving the GUI resources.
+ * \param Total Pointer to a variable that will receive the total number of GUI resources.
+ * \return Returns the status code indicating the success or failure of the operation.
+ */
 NTSTATUS PhGetProcessGuiResources(
     _In_ HANDLE ProcessHandle,
     _In_ ULONG Flags,
@@ -3061,9 +3196,10 @@ BOOLEAN PhGetSystemResourcesFileName(
                 return TRUE;
             }
         }
+
+        PhClearReference(&fileName);
     }
 
-    PhClearReference(&fileName);
     return FALSE;
 }
 
@@ -3102,6 +3238,12 @@ BOOLEAN PhExtractIconEx(
     PIMAGE_RESOURCE_DIRECTORY resourceDirectory;
     ULONG iconDirectoryResourceLength;
     PNEWHEADER iconDirectoryResource;
+    RTL_PATH_TYPE fileNameType;
+
+    fileNameType = PhDetermineDosPathNameType(FileName);
+
+    if (!(fileNameType == RtlPathTypeRooted || fileNameType == RtlPathTypeDriveAbsolute))
+        return FALSE;
 
     if (PhGetSystemResourcesFileName(FileName, NativeFileName, &resourceFileName))
     {
@@ -3114,7 +3256,7 @@ BOOLEAN PhExtractIconEx(
         fileName.Length = FileName->Length;
     }
 
-    if (PhIsNullOrEmptyString(&fileName))
+    if (PhIsNullOrEmptyStringRef(&fileName))
     {
         PhClearReference(&resourceFileName);
         return FALSE;
@@ -3143,7 +3285,7 @@ BOOLEAN PhExtractIconEx(
         return FALSE;
     }
 
-    status = PhGetMappedImageDataEntry(
+    status = PhGetMappedImageDataDirectory(
         &mappedImage,
         IMAGE_DIRECTORY_ENTRY_RESOURCE,
         &dataDirectory
@@ -3725,8 +3867,8 @@ HBITMAP PhLoadImageFormatFromResource(
     _In_ PCWSTR Name,
     _In_ PCWSTR Type,
     _In_ PH_IMAGE_FORMAT_TYPE Format,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     )
 {
     BOOLEAN success = FALSE;
@@ -3862,8 +4004,8 @@ CleanupExit:
 HBITMAP PhLoadImageFromAddress(
     _In_ PVOID Buffer,
     _In_ ULONG BufferLength,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     )
 {
     BOOLEAN success = FALSE;
@@ -3994,8 +4136,8 @@ HBITMAP PhLoadImageFromResource(
     _In_ PVOID DllBase,
     _In_ PCWSTR Name,
     _In_ PCWSTR Type,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     )
 {
     ULONG resourceLength = 0;
@@ -4010,8 +4152,8 @@ HBITMAP PhLoadImageFromResource(
 // Load image and auto-detect the format (dmex)
 HBITMAP PhLoadImageFromFile(
     _In_ PWSTR FileName,
-    _In_ UINT Width,
-    _In_ UINT Height
+    _In_ LONG Width,
+    _In_ LONG Height
     )
 {
     BOOLEAN success = FALSE;
@@ -4322,6 +4464,7 @@ BOOLEAN PhpInitializeMRUList(VOID)
     return FALSE;
 }
 
+_Success_(return)
 BOOLEAN PhRecentListCreate(
     _Out_ PHANDLE RecentHandle
     )

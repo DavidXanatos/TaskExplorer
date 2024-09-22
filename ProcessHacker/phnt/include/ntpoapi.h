@@ -68,7 +68,7 @@
 #define ProcessorSetIdle 55 // (debug-mode boot only)
 #define LogicalProcessorIdling 56 // (kernel-mode only)
 #define UserPresence 57 // POWER_USER_PRESENCE // not implemented
-#define PowerSettingNotificationName 58
+#define PowerSettingNotificationName 58 // in: ? (optional) // out: PWNF_STATE_NAME (RtlSubscribeWnfStateChangeNotification)
 #define GetPowerSettingValue 59 // GUID
 #define IdleResiliency 60 // POWER_IDLE_RESILIENCY
 #define SessionRITState 61 // POWER_SESSION_RIT_STATE
@@ -80,14 +80,14 @@
 #define PdcInvocation 67 // (kernel-mode only)
 #define MonitorInvocation 68 // (kernel-mode only)
 #define FirmwareTableInformationRegistered 69 // (kernel-mode only)
-#define SetShutdownSelectedTime 70 // NULL
+#define SetShutdownSelectedTime 70 // in: NULL
 #define SuspendResumeInvocation 71 // (kernel-mode only)
 #define PlmPowerRequestCreate 72 // in: COUNTED_REASON_CONTEXT, out: HANDLE
-#define ScreenOff 73 // NULL (PowerMonitorOff)
+#define ScreenOff 73 // in: NULL (PowerMonitorOff)
 #define CsDeviceNotification 74 // (kernel-mode only)
 #define PlatformRole 75 // POWER_PLATFORM_ROLE
 #define LastResumePerformance 76 // RESUME_PERFORMANCE
-#define DisplayBurst 77 // NULL (PowerMonitorOn)
+#define DisplayBurst 77 // in: NULL (PowerMonitorOn)
 #define ExitLatencySamplingPercentage 78
 #define RegisterSpmPowerSettings 79 // (kernel-mode only)
 #define PlatformIdleStates 80 // (kernel-mode only)
@@ -105,7 +105,7 @@
 #define EnergyTrackerCreate 92
 #define EnergyTrackerQuery 93
 #define UpdateBlackBoxRecorder 94
-#define SessionAllowExternalDmaDevices 95
+#define SessionAllowExternalDmaDevices 95 // POWER_SESSION_ALLOW_EXTERNAL_DMA_DEVICES
 #define SendSuspendResumeNotification 96 // since WIN11
 #define BlackBoxRecorderDirectAccessBuffer 97
 #define PowerInformationLevelMaximum 98
@@ -135,6 +135,107 @@ typedef struct _SYSTEM_HIBERFILE_INFORMATION
     LARGE_INTEGER Mcb[1];
 } SYSTEM_HIBERFILE_INFORMATION, *PSYSTEM_HIBERFILE_INFORMATION;
 
+//typedef enum POWER_USER_PRESENCE_TYPE
+//{
+//    UserNotPresent = 0,
+//    UserPresent = 1,
+//    UserUnknown = 0xff
+//} POWER_USER_PRESENCE_TYPE, *PPOWER_USER_PRESENCE_TYPE;
+
+//typedef struct _POWER_USER_PRESENCE 
+//{
+//    POWER_USER_PRESENCE_TYPE PowerUserPresence;
+//} POWER_USER_PRESENCE, *PPOWER_USER_PRESENCE;
+
+//typedef struct _POWER_SESSION_CONNECT 
+//{
+//    BOOLEAN Connected;  // TRUE - connected, FALSE - disconnected
+//    BOOLEAN Console;    // TRUE - console, FALSE - TS (not used for Connected = FALSE)
+//} POWER_SESSION_CONNECT, *PPOWER_SESSION_CONNECT;
+
+//typedef struct _POWER_SESSION_TIMEOUTS 
+//{
+//    ULONG InputTimeout;
+//    ULONG DisplayTimeout;
+//} POWER_SESSION_TIMEOUTS, *PPOWER_SESSION_TIMEOUTS;
+
+//typedef struct _POWER_SESSION_RIT_STATE 
+//{
+//    BOOLEAN Active;  // TRUE - RIT input received, FALSE - RIT timeout
+//    ULONG64 LastInputTime; // last input time held for this session
+//} POWER_SESSION_RIT_STATE, *PPOWER_SESSION_RIT_STATE;
+
+//typedef struct _POWER_SESSION_WINLOGON 
+//{
+//    ULONG SessionId; // the Win32k session identifier
+//    BOOLEAN Console; // TRUE - for console session, FALSE - for remote session
+//    BOOLEAN Locked; // TRUE - lock, FALSE - unlock
+//} POWER_SESSION_WINLOGON, *PPOWER_SESSION_WINLOGON;
+
+//typedef struct _POWER_SESSION_ALLOW_EXTERNAL_DMA_DEVICES 
+//{
+//    BOOLEAN IsAllowed;
+//} POWER_SESSION_ALLOW_EXTERNAL_DMA_DEVICES, *PPOWER_SESSION_ALLOW_EXTERNAL_DMA_DEVICES;
+//
+//typedef struct _POWER_IDLE_RESILIENCY 
+//{
+//    ULONG CoalescingTimeout;
+//    ULONG IdleResiliencyPeriod;
+//} POWER_IDLE_RESILIENCY, *PPOWER_IDLE_RESILIENCY;
+
+//typedef struct _RESUME_PERFORMANCE 
+//{
+//    ULONG PostTimeMs;
+//    ULONGLONG TotalResumeTimeMs;
+//    ULONGLONG ResumeCompleteTimestamp;
+//} RESUME_PERFORMANCE, *PRESUME_PERFORMANCE;
+
+//typedef struct _NOTIFY_USER_POWER_SETTING
+//{
+//    GUID Guid;
+//} NOTIFY_USER_POWER_SETTING, *PNOTIFY_USER_POWER_SETTING;
+
+#define POWER_PERF_SCALE    100
+#define PERF_LEVEL_TO_PERCENT(_x_) ((_x_ * 1000) / (POWER_PERF_SCALE * 10))
+#define PERCENT_TO_PERF_LEVEL(_x_) ((_x_ * POWER_PERF_SCALE * 10) / 1000)
+#define PO_REASON_STATE_STANDBY (PO_REASON_STATE_S1 | \
+                                 PO_REASON_STATE_S2 | \
+                                 PO_REASON_STATE_S3)
+
+#define PO_REASON_STATE_ALL     (PO_REASON_STATE_STANDBY | \
+                                 PO_REASON_STATE_S4 | \
+                                 PO_REASON_STATE_S4FIRM)
+
+typedef struct _SYSTEM_POWER_LOGGING_ENTRY 
+{
+    ULONG Reason;
+    ULONG States;
+} SYSTEM_POWER_LOGGING_ENTRY, *PSYSTEM_POWER_LOGGING_ENTRY;
+
+typedef enum _POWER_STATE_DISABLED_TYPE
+{
+    PoDisabledStateSleeping1 = 0,
+    PoDisabledStateSleeping2 = 1,
+    PoDisabledStateSleeping3 = 2,
+    PoDisabledStateSleeping4 = 3,
+    PoDisabledStateSleeping0Idle = 4,
+    PoDisabledStateReserved5 = 5,
+    PoDisabledStateSleeping4Firmware = 6,
+    PoDisabledStateMaximum = 7
+} POWER_STATE_DISABLED_TYPE, PPOWER_STATE_DISABLED_TYPE;
+
+#define POWER_STATE_DISABLED_TYPE_MAX  8
+
+_Struct_size_bytes_(sizeof(SYSTEM_POWER_STATE_DISABLE_REASON) + PowerReasonLength)
+typedef struct _SYSTEM_POWER_STATE_DISABLE_REASON 
+{
+    BOOLEAN AffectedState[POWER_STATE_DISABLED_TYPE_MAX];
+    ULONG PowerReasonCode;
+    ULONG PowerReasonLength;
+    //UCHAR PowerReasonInfo[ANYSIZE_ARRAY];
+} SYSTEM_POWER_STATE_DISABLE_REASON, *PSYSTEM_POWER_STATE_DISABLE_REASON;
+
+// Reason Context
 #define POWER_REQUEST_CONTEXT_NOT_SPECIFIED DIAGNOSTIC_REASON_NOT_SPECIFIED
 
 // wdm
@@ -314,6 +415,34 @@ typedef struct _PROCESSOR_IDLE_STATES
     KAFFINITY TargetProcessors;
     PROCESSOR_IDLE_STATE State[ANYSIZE_ARRAY];
 } PROCESSOR_IDLE_STATES, *PPROCESSOR_IDLE_STATES;
+//
+//#define PROCESSOR_IDLESTATE_POLICY_COUNT 0x3
+//
+//typedef struct 
+//{
+//    ULONG TimeCheck;
+//    UCHAR DemotePercent;
+//    UCHAR PromotePercent;
+//    UCHAR Spare[2];
+//} PROCESSOR_IDLESTATE_INFO, *PPROCESSOR_IDLESTATE_INFO;
+//
+//typedef struct 
+//{
+//    USHORT Revision;
+//    union 
+//    {
+//        USHORT AsUSHORT;
+//        struct
+//        {
+//            USHORT AllowScaling : 1;
+//            USHORT Disabled : 1;
+//            USHORT Reserved : 14;
+//        } DUMMYSTRUCTNAME;
+//    } Flags;
+//
+//    ULONG PolicyCount;
+//    PROCESSOR_IDLESTATE_INFO Policy[PROCESSOR_IDLESTATE_POLICY_COUNT];
+//} PROCESSOR_IDLESTATE_POLICY, *PPROCESSOR_IDLESTATE_POLICY;
 
 // rev
 typedef struct _PROCESSOR_LOAD
@@ -594,6 +723,11 @@ typedef enum _POWER_INFORMATION_LEVEL_INTERNAL
     PowerInternalGetAcpiTimeAndAlarmCapabilities, // since 22H2
     PowerInternalSuspendResumeRequest,
     PowerInternalEnergyEstimationInfo, // since 23H2
+    PowerInternalProvSocIdentifierOperation, // since 24H2
+    PowerInternalGetVmPerfPrioritySupport,
+    PowerInternalGetVmPerfPriorityConfig,
+    PowerInternalNotifyWin32kPowerRequestQueued,
+    PowerInternalNotifyWin32kPowerRequestCompleted,
     PowerInformationInternalMaximum
 } POWER_INFORMATION_LEVEL_INTERNAL;
 
@@ -708,6 +842,8 @@ typedef struct _POWER_INTERNAL_PROCESSOR_BRANDED_FREQENCY_INPUT
     PROCESSOR_NUMBER ProcessorNumber; // ULONG_MAX
 } POWER_INTERNAL_PROCESSOR_BRANDED_FREQENCY_INPUT, *PPOWER_INTERNAL_PROCESSOR_BRANDED_FREQENCY_INPUT;
 
+#define POWER_INTERNAL_PROCESSOR_BRANDED_FREQENCY_VERSION 1
+
 // rev
 typedef struct _POWER_INTERNAL_PROCESSOR_BRANDED_FREQENCY_OUTPUT
 {
@@ -723,7 +859,16 @@ typedef struct _POWER_INTERNAL_BOOTAPP_DIAGNOSTIC
 } POWER_INTERNAL_BOOTAPP_DIAGNOSTIC, *PPOWER_INTERNAL_BOOTAPP_DIAGNOSTIC;
 
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
-
+/**
+ * The NtPowerInformation routine sets or retrieves system power information.
+ * 
+ * @param InformationLevel Specifies the requested information level, which indicates the specific power information to be set or retrieved. 
+ * @param InputBuffer Optional pointer to a caller-allocated input buffer. 
+ * @param InputBufferLength Size, in bytes, of the buffer at InputBuffer. 
+ * @param OutputBuffer Optional pointer to an output buffer. The type depends on the InformationLevel requested. 
+ * @param OutputBufferLength Size, in bytes, of the output buffer. 
+ * @return Successful or errant status.
+ */
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -734,9 +879,16 @@ NtPowerInformation(
     _Out_writes_bytes_opt_(OutputBufferLength) PVOID OutputBuffer,
     _In_ ULONG OutputBufferLength
     );
-
 #endif
 
+/**
+ * Enables an application to inform the system that it is in use,
+ * thereby preventing the system from entering sleep or turning off the display while the application is running.
+ *
+ * @param NewFlags New execution state flags.
+ * @param PreviousFlags Pointer to receive the previous execution state flags.
+ * @return Successful or errant status.
+ */
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -746,6 +898,12 @@ NtSetThreadExecutionState(
     );
 
 #if (PHNT_VERSION < PHNT_WIN7)
+/**
+ * Requests the system resume latency.
+ *
+ * @param latency The desired latency time.
+ * @return Successful or errant status.
+ */
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -754,6 +912,15 @@ NtRequestWakeupLatency(
     );
 #endif
 
+/**
+ * Initiates a power action of the current system.
+ *
+ * @param SystemAction The system power action.
+ * @param LightestSystemState The lightest system power state.
+ * @param Flags Flags for the power action.
+ * @param Asynchronous Whether the action is asynchronous.
+ * @return Successful or errant status.
+ */
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -764,6 +931,15 @@ NtInitiatePowerAction(
     _In_ BOOLEAN Asynchronous
     );
 
+/**
+ * Initiates a power action of the current system. Depending on the Flags parameter, the function either 
+ * suspends operation immediately or requests permission from all applications and device drivers before doing so.
+ *
+ * @param SystemAction The system power action.
+ * @param LightestSystemState The lightest system power state.
+ * @param Flags Flags for the power action.
+ * @return Successful or errant status.
+ */
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -773,6 +949,16 @@ NtSetSystemPowerState(
     _In_ ULONG Flags // POWER_ACTION_* flags
     );
 
+/**
+ * Retrieves the current power state of the specified device. This function cannot be used to query the power state of a display device.
+ *
+ * @param Device A handle to an object on the device, such as a file or socket, or a handle to the device itself.
+ * @param State A pointer to the variable that receives the power state.
+ * @return Successful or errant status.
+ * @remarks An application can use NtGetDevicePowerState to determine whether a device is in the working state or a low-power state.
+ * If the device is in a low-power state, accessing the device may cause it to either queue or fail any I/O requests, or transition the device into the working state.
+ * The exact behavior depends on the implementation of the device.
+ */
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -781,6 +967,11 @@ NtGetDevicePowerState(
     _Out_ PDEVICE_POWER_STATE State
     );
 
+/**
+ * Checks if the system resume is automatic.
+ *
+ * @return BOOLEAN TRUE if the system resume is automatic, FALSE otherwise.
+ */
 NTSYSCALLAPI
 BOOLEAN
 NTAPI

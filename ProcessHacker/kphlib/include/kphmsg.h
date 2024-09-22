@@ -30,7 +30,7 @@ typedef enum _KPH_MESSAGE_ID
     KphMsgOpenProcessToken,
     KphMsgOpenProcessJob,
     KphMsgTerminateProcess,
-    KphMsgReadVirtualMemoryUnsafe,
+    KphMsgReadVirtualMemory,
     KphMsgOpenThread,
     KphMsgOpenThreadProcess,
     KphMsgCaptureStackBackTraceThread,
@@ -226,6 +226,7 @@ typedef enum _KPH_MESSAGE_ID
     KphMsgRegPostQueryKeyName,
     KphMsgRegPreSaveMergedKey,
     KphMsgRegPostSaveMergedKey,
+    KphMsgImageVerify,
 
     MaxKphMsg,
 
@@ -255,6 +256,11 @@ typedef enum _KPH_MESSAGE_FIELD_ID
     KphMsgFieldNewName,
     KphMsgFieldClass,
     KphMsgFieldOtherObjectName,
+    KphMsgFieldHash,
+    KphMsgFieldRegistryPath,
+    KphMsgFieldCertificatePublisher,
+    KphMsgFieldCertificateIssuer,
+    KphMsgFieldCertificateThumbprint,
 
     MaxKphMsgField
 } KPH_MESSAGE_FIELD_ID, *PKPH_MESSAGE_FIELD_ID;
@@ -310,7 +316,7 @@ typedef struct _KPH_MESSAGE
             KPHM_OPEN_PROCESS_TOKEN OpenProcessToken;
             KPHM_OPEN_PROCESS_JOB OpenProcessJob;
             KPHM_TERMINATE_PROCESS TerminateProcess;
-            KPHM_READ_VIRTUAL_MEMORY_UNSAFE ReadVirtualMemoryUnsafe;
+            KPHM_READ_VIRTUAL_MEMORY ReadVirtualMemory;
             KPHM_OPEN_THREAD OpenThread;
             KPHM_OPEN_THREAD_PROCESS OpenThreadProcess;
             KPHM_CAPTURE_STACK_BACKTRACE_THREAD CaptureStackBackTraceThread;
@@ -364,6 +370,7 @@ typedef struct _KPH_MESSAGE
             KPHM_REQUIRED_STATE_FAILURE RequiredStateFailure;
             KPHM_FILE File;
             KPHM_REGISTRY Reg;
+            KPHM_IMAGE_VERIFY ImageVerify;
         } Kernel;
 
         //

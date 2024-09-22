@@ -167,6 +167,8 @@ int InitPH(bool bSvc)
 	//if (!PhInitializeRestartPolicy())
 	//    return 1;
 
+	KphInitialize();
+
 	//PhpProcessStartupParameters();
 	PhpEnablePrivileges();
 
@@ -211,6 +213,8 @@ static VOID NTAPI KsiCommsCallback(
     _In_ PCKPH_MESSAGE Message
     )
 {
+	//static QMap<void*,int> killMap;
+	//static QMutex killMutex;
 	switch (Message->Header.MessageId)
 	{
 		case KphMsgProcessCreate:
@@ -258,6 +262,55 @@ static VOID NTAPI KsiCommsCallback(
 			}
 			break;
 		}
+		/*case KphMsgFilePreCreate:
+		{
+			PPH_FREE_LIST freelist = KphGetMessageFreeList();
+
+			PKPH_MESSAGE msg = (PKPH_MESSAGE)PhAllocateFromFreeList(freelist);
+			KphMsgInit(msg, KphMsgFilePreCreate);
+			msg->Reply.File.Pre.Create.Status = STATUS_SUCCESS;
+
+			UNICODE_STRING fileName = { 0 };
+			if (NT_SUCCESS(KphMsgDynGetUnicodeString(Message, KphMsgFieldFileName, &fileName))) {
+				QString Name = QString::fromWCharArray(fileName.Buffer, fileName.Length / sizeof(WCHAR));
+				if (Name.startsWith("\\Device\\ImDisk")) {
+					qDebug() << "BAM:" << Name;
+					QMutexLocker Lock(&killMutex);
+					killMap[Message->Kernel.File.FileObject]++;
+				}
+			}
+
+			KphCommsReplyMessage(ReplyToken, msg);
+
+			PhFreeToFreeList(freelist, msg);
+
+			break;
+		}
+		case KphMsgFilePostCreate:
+		{
+			PPH_FREE_LIST freelist = KphGetMessageFreeList();
+
+			PKPH_MESSAGE msg = (PKPH_MESSAGE)PhAllocateFromFreeList(freelist);
+			KphMsgInit(msg, KphMsgFilePostCreate);
+			msg->Reply.File.Post.Create.Status = STATUS_SUCCESS;
+
+			{
+				QMutexLocker Lock(&killMutex);
+				if (killMap[Message->Kernel.File.FileObject])
+				{
+					msg->Reply.File.Post.Create.Status = STATUS_ACCESS_DENIED;
+					killMap[Message->Kernel.File.FileObject]--;
+					qDebug() << "BAM: !!!";
+				}
+			}
+
+
+			KphCommsReplyMessage(ReplyToken, msg);
+
+			PhFreeToFreeList(freelist, msg);
+
+			break;
+		}*/
 	}
 }
 
@@ -300,7 +353,7 @@ NTSTATUS KsiReadConfiguration(
 	return status;
 }
 
-NTSTATUS KsiValidateDynamicConfiguration(
+/*NTSTATUS KsiValidateDynamicConfiguration(
 	_In_ PBYTE DynData,
 	_In_ ULONG DynDataLength
 )
@@ -336,7 +389,7 @@ NTSTATUS KsiValidateDynamicConfiguration(
 	}
 
 	return status;
-}
+}*/
 
 NTSTATUS KsiGetDynData(
 	_Out_ PBYTE* DynData,
@@ -362,9 +415,9 @@ NTSTATUS KsiGetDynData(
 	if (!NT_SUCCESS(status))
 		goto CleanupExit;
 
-	status = KsiValidateDynamicConfiguration(data, dataLength);
-	if (!NT_SUCCESS(status))
-		goto CleanupExit;
+	//status = KsiValidateDynamicConfiguration(data, dataLength);
+	//if (!NT_SUCCESS(status))
+	//	goto CleanupExit;
 
 	//status = KsiReadConfiguration(L"ksidyn.sig", &sig, &sigLength);
 	//if (!NT_SUCCESS(status))
@@ -485,7 +538,7 @@ STATUS InitKPH(QString DeviceName, QString FileName)
         {
 			KphActivateDynData(dynData, dynDataLength, signature, signatureLength);
 
-            KPH_LEVEL level = KphLevel();
+            KPH_LEVEL level = KsiLevel();
 
             if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
             {
@@ -504,6 +557,18 @@ STATUS InitKPH(QString DeviceName, QString FileName)
                 //    PhRestartSelf(&commandline);
                 //}
             }
+
+			/*KPH_INFORMER_SETTINGS filter;
+
+			filter.Flags = 0;
+			filter.Flags2 = 0;
+			filter.Flags3 = 0;
+			filter.ProcessCreate = FALSE;
+			filter.FilePreCreate = TRUE;
+			filter.FilePostCreate = TRUE;
+			filter.FileEnablePostCreateReply = TRUE;
+
+			KphSetInformerSettings(&filter);*/
         }
         else
         {

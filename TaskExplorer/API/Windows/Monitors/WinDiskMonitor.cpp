@@ -16,6 +16,8 @@
 #include <cfgmgr32.h>
 #include <devguid.h>
 #include "../../MiscHelpers/Common/Common.h"
+#include "../../MiscHelpers/Common/Settings.h"
+#include "../WindowsAPI.h"
 
 CWinDiskMonitor::CWinDiskMonitor(QObject *parent)
 	: CDiskMonitor(parent)
@@ -159,6 +161,8 @@ bool CWinDiskMonitor::UpdateDisks()
 			continue;
 
 		QString DevicePath = QString::fromWCharArray(deviceInterface);
+		if (DevicePath.left(41) == "\\\\?\\SCSI#Disk&Ven_Msft&Prod_Virtual_Disk#" && theConf->GetInt("Options/HideVirtualDisk", true))
+			continue; // skip mounted VHD/VHDX files
 		
 		SDiskInfo* diskEntry;
 		QMap<QString, SDiskInfo>::iterator I = m_DiskList.find(DevicePath);

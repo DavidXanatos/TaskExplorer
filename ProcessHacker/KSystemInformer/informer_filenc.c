@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2023
+ *     jxy-s   2023-2024
  *
  */
 
@@ -911,6 +911,7 @@ VOID KphpFltInitializeFileNameCache(
     typeInfo.Initialize = NULL;
     typeInfo.Delete = NULL;
     typeInfo.Free = KphpFltFreeCachedFileName;
+    typeInfo.Flags = 0;
 
     KphCreateObjectType(&KphpCachedFileNameTypeName,
                         &typeInfo,

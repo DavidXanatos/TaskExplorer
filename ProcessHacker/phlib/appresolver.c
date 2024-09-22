@@ -20,6 +20,11 @@
 #include <appresolverp.h>
 #include <appresolver.h>
 
+/**
+ * Queries the AppResolver interface.
+ *
+ * @return A pointer to the AppResolver interface, or NULL if the interface could not be queried.
+ */
 static PVOID PhpQueryAppResolverInterface(
     VOID
     )
@@ -40,6 +45,11 @@ static PVOID PhpQueryAppResolverInterface(
     return resolverInterface;
 }
 
+/**
+ * Queries the StartMenuCache interface.
+ *
+ * @return A pointer to the StartMenuCache interface, or NULL if the interface could not be queried.
+ */
 static PVOID PhpQueryStartMenuCacheInterface(
     VOID
     )
@@ -60,6 +70,11 @@ static PVOID PhpQueryStartMenuCacheInterface(
     return startMenuInterface;
 }
 
+/**
+ * Checks if the Kernel AppCore is initialized.
+ *
+ * @return TRUE if the Kernel AppCore is initialized, FALSE otherwise.
+ */
 static BOOLEAN PhpKernelAppCoreInitialized(
     VOID
     )
@@ -96,6 +111,14 @@ static BOOLEAN PhpKernelAppCoreInitialized(
     return kernelAppCoreInitialized;
 }
 
+/**
+ * Retrieves the Application User Model ID (AppUserModelId) for a specified process.
+ *
+ * @param ProcessId The handle to the process.
+ * @param ApplicationUserModelId A pointer to a string that receives the Application User Model ID.
+ *
+ * @return HRESULT indicating success or failure.
+ */
 HRESULT PhAppResolverGetAppIdForProcess(
     _In_ HANDLE ProcessId,
     _Out_ PPH_STRING *ApplicationUserModelId
@@ -150,15 +173,28 @@ HRESULT PhAppResolverGetAppIdForProcess(
         }
         else
         {
+            *ApplicationUserModelId = NULL;
             status = E_UNEXPECTED;
         }
 
         CoTaskMemFree(appIdText);
     }
+    else
+    {
+        *ApplicationUserModelId = NULL;
+    }
 
     return status;
 }
 
+/**
+ * Retrieves the Application User Model ID (AppUserModelId) for a specified window.
+ *
+ * @param WindowHandle The handle to the window.
+ * @param ApplicationUserModelId A pointer to a string that receives the Application User Model ID.
+ *
+ * @return HRESULT indicating success or failure.
+ */
 HRESULT PhAppResolverGetAppIdForWindow(
     _In_ HWND WindowHandle,
     _Out_ PPH_STRING *ApplicationUserModelId
@@ -194,7 +230,7 @@ HRESULT PhAppResolverGetAppIdForWindow(
             );
     }
 
-    if (HR_SUCCESS(status))
+    if (SUCCEEDED(status))
     {
         SIZE_T appIdTextLength;
 
@@ -788,7 +824,7 @@ HRESULT PhAppResolverBeginCrashDumpTask(
         &taskCompletion
         );
 
-    if (HR_SUCCESS(status))
+    if (SUCCEEDED(status))
     {
         status = IOSTaskCompletion_BeginTask(
             taskCompletion,
@@ -797,7 +833,7 @@ HRESULT PhAppResolverBeginCrashDumpTask(
             );
     }
 
-    if (HR_SUCCESS(status))
+    if (SUCCEEDED(status))
     {
         *TaskHandle = taskCompletion;
     }
@@ -824,7 +860,7 @@ HRESULT PhAppResolverBeginCrashDumpTaskByHandle(
         &taskCompletion
         );
 
-    if (HR_SUCCESS(status))
+    if (SUCCEEDED(status))
     {
         status = IOSTaskCompletion_BeginTaskByHandle(
             taskCompletion,
@@ -833,7 +869,7 @@ HRESULT PhAppResolverBeginCrashDumpTaskByHandle(
             );
     }
 
-    if (HR_SUCCESS(status))
+    if (SUCCEEDED(status))
     {
         *TaskHandle = taskCompletion;
     }
@@ -1144,7 +1180,6 @@ HRESULT PhAppResolverGetPackageResourceFilePath(
     HRESULT status;
     IMrtResourceManager* resourceManager = NULL;
     IResourceMap* resourceMap = NULL;
-    PWSTR filePath = NULL;
 
     status = PhGetClassObject(
         L"mrmcorer.dll",
@@ -1153,31 +1188,26 @@ HRESULT PhAppResolverGetPackageResourceFilePath(
         &resourceManager
         );
 
-    if (HR_FAILED(status))
+    if (FAILED(status))
         goto CleanupExit;
 
     status = IMrtResourceManager_InitializeForPackage(resourceManager, PackageFullName);
 
-    if (HR_FAILED(status))
+    if (FAILED(status))
         goto CleanupExit;
 
     status = IMrtResourceManager_GetMainResourceMap(resourceManager, &IID_IResourceMap_I, &resourceMap);
 
-    if (HR_FAILED(status))
+    if (FAILED(status))
         goto CleanupExit;
 
-    status = IResourceMap_GetFilePath(resourceMap, Key, &filePath);
+    status = IResourceMap_GetFilePath(resourceMap, Key, FilePath);
 
 CleanupExit:
     if (resourceMap)
         IResourceMap_Release(resourceMap);
     if (resourceManager)
         IMrtResourceManager_Release(resourceManager);
-
-    if (HR_SUCCESS(status))
-    {
-        *FilePath = filePath;
-    }
 
     return status;
 }
@@ -1190,14 +1220,13 @@ HRESULT PhAppResolverGetPackageStartMenuPropertyStore(
     HRESULT status;
     PVOID startMenuInterface;
     PPH_STRING applicationUserModelId;
-    IPropertyStore* propertyStore;
 
     if (!(startMenuInterface = PhpQueryStartMenuCacheInterface()))
         return HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND);
 
     status = PhAppResolverGetAppIdForProcess(ProcessId, &applicationUserModelId);
 
-    if (!HR_SUCCESS(status))
+    if (FAILED(status))
         return status;
 
     if (WindowsVersion < WINDOWS_8)
@@ -1207,7 +1236,7 @@ HRESULT PhAppResolverGetPackageStartMenuPropertyStore(
             SMAIF_DEFAULT,
             PhGetString(applicationUserModelId),
             &IID_IPropertyStore,
-            &propertyStore
+            PropertyStore
             );
     }
     else
@@ -1217,13 +1246,9 @@ HRESULT PhAppResolverGetPackageStartMenuPropertyStore(
             SMAIF_DEFAULT,
             PhGetString(applicationUserModelId),
             &IID_IPropertyStore,
-            &propertyStore
+            PropertyStore
             );
-    }
-
-    if (HR_SUCCESS(status))
-    {
-        *PropertyStore = propertyStore;
+        
     }
 
     PhDereferenceObject(applicationUserModelId);
@@ -1391,7 +1416,7 @@ HRESULT PhCreateProcessDesktopPackage(
             );
     }
 
-    if (HR_SUCCESS(status))
+    if (SUCCEEDED(status))
     {
         ULONG options = DAXAO_CHECK_FOR_APPINSTALLER_UPDATES | DAXAO_CENTENNIAL_PROCESS;
         SetFlag(options, PreventBreakaway ? DAXAO_NONPACKAGED_EXE_PROCESS_TREE : DAXAO_NONPACKAGED_EXE);

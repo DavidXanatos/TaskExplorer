@@ -66,9 +66,6 @@
     <ClCompile Include="comms_handlers.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sign.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="hash.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -130,6 +127,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="session_token.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lsa.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imgcoherency.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

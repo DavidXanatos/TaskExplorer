@@ -422,14 +422,14 @@ void CTokenView::UpdateGeneral()
 	{
 		m_pIntegrity->setCurrentIndex(InegrityIndex);
 
-		for (ULONG i = 0; i < m_pIntegrity->count(); i++)
+		/*for (ULONG i = 0; i < m_pIntegrity->count(); i++)
         {
 			bool disabled = m_pIntegrity->itemData(i).toUInt() > integrityLevelRID;
 
 			QStandardItemModel *model = qobject_cast<QStandardItemModel *>(m_pIntegrity->model());
 			QStandardItem *item = model->item(i);
 			item->setFlags(disabled ? item->flags() & ~Qt::ItemIsEnabled : item->flags() | Qt::ItemIsEnabled);
-        }
+        }*/
 	}
 
 	m_LockValues = false;

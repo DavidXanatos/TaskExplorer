@@ -15,23 +15,13 @@
 #include <kphuser.h>
 
 static PH_STRINGREF KphDefaultPortName = PH_STRINGREF_INIT(KPH_PORT_NAME);
-
-//static PH_INITONCE KphMessageInitOnce = PH_INITONCE_INIT;
 static PH_FREE_LIST KphMessageFreeList;
 
-NTSTATUS KphInitialize(
+VOID KphInitialize(
     VOID
     )
 {
-    //if (PhBeginInitOnce(&KphMessageInitOnce))
-    //{
-    //    PhInitializeFreeList(&KphMessageFreeList, sizeof(KPH_MESSAGE), 16);
-    //    PhEndInitOnce(&KphMessageInitOnce);
-    //}
-
     PhInitializeFreeList(&KphMessageFreeList, sizeof(KPH_MESSAGE), 16);
-
-    return STATUS_SUCCESS;
 }
 
 NTSTATUS KphConnect(
@@ -42,11 +32,6 @@ NTSTATUS KphConnect(
     SC_HANDLE serviceHandle;
     BOOLEAN created = FALSE;
     PPH_STRINGREF portName;
-
-    status = KphInitialize();
-
-    if (!NT_SUCCESS(status))
-        return status;
 
     portName = (Config->PortName ? Config->PortName : &KphDefaultPortName);
 
@@ -143,6 +128,71 @@ CreateAndConnectEnd:
     return status;
 }
 
+NTSTATUS KphpSetParametersService(
+    _In_ PKPH_CONFIG_PARAMETERS Config
+    )
+{
+#ifdef _WIN64
+    NTSTATUS status;
+    HANDLE servicesKeyHandle = NULL;
+    ULONG disposition;
+    SIZE_T returnLength;
+    PH_STRINGREF servicesKeyName;
+    PH_FORMAT format[2];
+    WCHAR servicesKeyNameBuffer[MAX_PATH];
+
+    PhInitFormatS(&format[0], L"System\\CurrentControlSet\\Services\\");
+    PhInitFormatSR(&format[1], *Config->ServiceName);
+
+    if (!PhFormatToBuffer(
+        format,
+        RTL_NUMBER_OF(format),
+        servicesKeyNameBuffer,
+        sizeof(servicesKeyNameBuffer),
+        &returnLength
+        ))
+    {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    servicesKeyName.Buffer = servicesKeyNameBuffer;
+    servicesKeyName.Length = returnLength - sizeof(UNICODE_NULL);
+
+    status = PhCreateKey(
+        &servicesKeyHandle,
+        KEY_WRITE | DELETE,
+        PH_KEY_LOCAL_MACHINE,
+        &servicesKeyName,
+        0,
+        0,
+        &disposition
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    status = PhSetValueKeyZ(
+        servicesKeyHandle,
+        L"SupportedFeatures",
+        REG_DWORD,
+        &Config->FsSupportedFeatures,
+        sizeof(ULONG)
+        );
+
+    if (!NT_SUCCESS(status))
+        goto CleanupExit;
+
+CleanupExit:
+
+    if (servicesKeyHandle)
+        NtClose(servicesKeyHandle);
+
+    return status;
+#else
+    return STATUS_NOT_SUPPORTED;
+#endif
+}
+
 NTSTATUS KphSetParameters(
     _In_ PKPH_CONFIG_PARAMETERS Config
     )
@@ -155,6 +205,11 @@ NTSTATUS KphSetParameters(
     PH_STRINGREF parametersKeyName;
     PH_FORMAT format[3];
     WCHAR parametersKeyNameBuffer[MAX_PATH];
+
+    // Services key parameters.
+    status = KphpSetParametersService(Config);
+    if (!NT_SUCCESS(status))
+        return status;
 
     if (!Config->PortName && !Config->Altitude && !Config->Flags.Flags)
     {
@@ -337,7 +392,6 @@ NTSTATUS KsiLoadUnloadService(
 {
 #ifdef _WIN64
     static PH_STRINGREF fullServicesKeyName = PH_STRINGREF_INIT(L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\");
-    static PH_STRINGREF fullServicesFileName = PH_STRINGREF_INIT(L"\\??\\");
     static PH_STRINGREF parametersKeyName = PH_STRINGREF_INIT(L"Parameters");
     NTSTATUS status;
     PPH_STRING fullServiceKeyName;
@@ -371,7 +425,7 @@ NTSTATUS KsiLoadUnloadService(
         {
             if (disposition == REG_CREATED_NEW_KEY)
             {
-                fullServiceFileName = PhConcatStringRef2(&fullServicesFileName, Config->FileName);
+                fullServiceFileName = PhConcatStringRef2(&PhNtDosDevicesPrefix, Config->FileName);
                 PhSetValueKeyZ(serviceKeyHandle, L"ErrorControl", REG_DWORD, &(ULONG){ SERVICE_ERROR_NORMAL }, sizeof(ULONG));
                 PhSetValueKeyZ(serviceKeyHandle, L"Type", REG_DWORD, &(ULONG){ SERVICE_KERNEL_DRIVER }, sizeof(ULONG));
                 PhSetValueKeyZ(serviceKeyHandle, L"Start", REG_DWORD, &(ULONG){ SERVICE_DISABLED }, sizeof(ULONG));
@@ -625,7 +679,7 @@ NTSTATUS KphTerminateProcess(
     return status;
 }
 
-NTSTATUS KphReadVirtualMemoryUnsafe(
+NTSTATUS KphReadVirtualMemory(
     _In_opt_ HANDLE ProcessHandle,
     _In_ PVOID BaseAddress,
     _Out_writes_bytes_(BufferSize) PVOID Buffer,
@@ -639,17 +693,17 @@ NTSTATUS KphReadVirtualMemoryUnsafe(
     KSI_COMMS_INIT_ASSERT();
 
     msg = PhAllocateFromFreeList(&KphMessageFreeList);
-    KphMsgInit(msg, KphMsgReadVirtualMemoryUnsafe);
-    msg->User.ReadVirtualMemoryUnsafe.ProcessHandle = ProcessHandle;
-    msg->User.ReadVirtualMemoryUnsafe.BaseAddress = BaseAddress;
-    msg->User.ReadVirtualMemoryUnsafe.Buffer = Buffer;
-    msg->User.ReadVirtualMemoryUnsafe.BufferSize = BufferSize;
-    msg->User.ReadVirtualMemoryUnsafe.NumberOfBytesRead = NumberOfBytesRead;
+    KphMsgInit(msg, KphMsgReadVirtualMemory);
+    msg->User.ReadVirtualMemory.ProcessHandle = ProcessHandle;
+    msg->User.ReadVirtualMemory.BaseAddress = BaseAddress;
+    msg->User.ReadVirtualMemory.Buffer = Buffer;
+    msg->User.ReadVirtualMemory.BufferSize = BufferSize;
+    msg->User.ReadVirtualMemory.NumberOfBytesRead = NumberOfBytesRead;
     status = KphCommsSendMessage(msg);
 
     if (NT_SUCCESS(status))
     {
-        status = msg->User.ReadVirtualMemoryUnsafe.Status;
+        status = msg->User.ReadVirtualMemory.Status;
     }
 
     PhFreeToFreeList(&KphMessageFreeList, msg);
@@ -776,7 +830,7 @@ NTSTATUS KphEnumerateProcessHandles(
     return status;
 }
 
-NTSTATUS KphEnumerateProcessHandles2(
+NTSTATUS KsiEnumerateProcessHandles(
     _In_ HANDLE ProcessHandle,
     _Out_ PKPH_PROCESS_HANDLE_INFORMATION *Handles
     )
@@ -955,7 +1009,7 @@ NTSTATUS KphOpenDriver(
 
 NTSTATUS KphQueryInformationDriver(
     _In_ HANDLE DriverHandle,
-    _In_ DRIVER_INFORMATION_CLASS DriverInformationClass,
+    _In_ KPH_DRIVER_INFORMATION_CLASS DriverInformationClass,
     _Out_writes_bytes_opt_(DriverInformationLength) PVOID DriverInformation,
     _In_ ULONG DriverInformationLength,
     _Inout_opt_ PULONG ReturnLength
@@ -1089,7 +1143,7 @@ KPH_LEVEL KphLevelEx(
     return level;
 }
 
-KPH_LEVEL KphLevel(
+KPH_LEVEL KsiLevel(
     VOID
     )
 {
@@ -1952,7 +2006,7 @@ NTSTATUS KphQueryVirtualMemory(
     return status;
 }
 
-NTSTATUS KphQueryHashInformationFile(
+NTSTATUS KsiQueryHashInformationFile(
     _In_ HANDLE FileHandle,
     _Inout_ PKPH_HASH_INFORMATION HashInformation,
     _In_ ULONG HashInformationLength

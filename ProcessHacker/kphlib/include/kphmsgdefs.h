@@ -63,7 +63,7 @@ typedef struct _KPHM_TERMINATE_PROCESS
     NTSTATUS ExitStatus;
 } KPHM_TERMINATE_PROCESS, *PKPHM_TERMINATE_PROCESS;
 
-typedef struct _KPHM_READ_VIRTUAL_MEMORY_UNSAFE
+typedef struct _KPHM_READ_VIRTUAL_MEMORY
 {
     NTSTATUS Status;
     HANDLE ProcessHandle;
@@ -71,7 +71,7 @@ typedef struct _KPHM_READ_VIRTUAL_MEMORY_UNSAFE
     PVOID Buffer;
     SIZE_T BufferSize;
     PSIZE_T NumberOfBytesRead;
-} KPHM_READ_VIRTUAL_MEMORY_UNSAFE, *PKPHM_READ_VIRTUAL_MEMORY_UNSAFE;
+} KPHM_READ_VIRTUAL_MEMORY, *PKPHM_READ_VIRTUAL_MEMORY;
 
 typedef struct _KPHM_OPEN_THREAD
 {
@@ -144,7 +144,7 @@ typedef struct _KPHM_QUERY_INFORMATION_DRIVER
 {
     NTSTATUS Status;
     HANDLE DriverHandle;
-    DRIVER_INFORMATION_CLASS DriverInformationClass;
+    KPH_DRIVER_INFORMATION_CLASS DriverInformationClass;
     PVOID DriverInformation;
     ULONG DriverInformationLength;
     PULONG ReturnLength;
@@ -1648,10 +1648,33 @@ typedef struct _KPHM_REGISTRY
     //     - KphMsgRegPreRenameKey
     //     - KphMsgRegPostRenameKey
     //
-    // id: KphMsgFieldOtherObjectName        type: KphMsgTypeUnicodeString
+    // id: KphMsgFieldOtherObjectName         type: KphMsgTypeUnicodeString
     //     - KphMsgRegPreSaveMergedKey
     //     - KphMsgRegPostSaveMergedKey
     //
 } KPHM_REGISTRY, *PKPHM_REGISTRY;
+
+typedef struct _KPHM_IMAGE_VERIFY
+{
+    CLIENT_ID ClientId;
+    ULONG64 ProcessStartKey;
+    PVOID ThreadSubProcessTag;
+    ULONG ImageType;               // SE_IMAGE_TYPE
+    ULONG Classification;          // BDCB_CLASSIFICATION
+    ULONG ImageFlags;
+    ULONG ImageHashAlgorithm;
+    ULONG ThumbprintHashAlgorithm;
+
+    //
+    // Dynamic
+    //
+    // id: KphMsgFieldFileName                type: KphMsgTypeUnicodeString
+    // id: KphMsgFieldHash                    type: KphMsgTypeSizedBuffer
+    // id: KphMsgFieldCertificatePublisher    type: KphMsgTypeUnicodeString
+    // id: KphMsgFieldCertificateIssuer       type: KphMsgTypeUnicodeString
+    // id: KphMsgFieldCertificateThumbprint   type: KphMsgTypeSizedBuffer
+    // id: KphMsgFieldRegistryPath            type: KphMsgTypeUnicodeString
+    //
+} KPHM_IMAGE_VERIFY, *PKPHM_IMAGE_VERIFY;
 
 #pragma warning(pop)

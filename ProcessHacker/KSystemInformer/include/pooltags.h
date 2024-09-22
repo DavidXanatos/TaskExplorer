@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -26,11 +26,12 @@
 
 // dyndata
 
-#define KPH_TAG_DYNDATA                         '0DpK'
+#define KPH_TAG_DYNDATA                         '0YpK'
 
 // object
 
 #define KPH_TAG_OBJECT_QUERY                    '0OpK'
+#define KPH_TAG_OBJECT_INFO                     '1OpK'
 
 // process
 
@@ -60,13 +61,12 @@
 // hash
 
 #define KPH_TAG_HASHING_CONTEXT                 '0HpK'
-#define KPH_TAG_AUTHENTICODE_SIG                '1HpK'
-#define KPH_TAG_HASHING_INFRA                   '2HpK'
-#define KPH_TAG_CAPTURED_HASHES                 '3HpK'
+#define KPH_TAG_HASHING_INFRA                   '1HpK'
+#define KPH_TAG_CAPTURED_HASHES                 '2HpK'
 
-// sign
+// verify
 
-#define KPH_TAG_SIGNING_INFRA                   '0SpK'
+#define KPH_TAG_VERIFY_SIGNATURE                '0VpK'
 
 // informer
 
@@ -122,7 +122,7 @@
 
 #define KPH_TAG_BACK_TRACE_OBJECT               '0BpK'
 
-// kphtoken
+// session_token
 
 #define KPH_TAG_SESSION_TOKEN_OBJECT            '0tpK'
 #define KPH_TAG_SESSION_TOKEN_SIGNATURE         '1tpK'

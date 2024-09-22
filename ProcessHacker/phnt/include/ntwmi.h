@@ -11,8 +11,23 @@ EXTERN_C_START
 
 #ifndef _TRACEHANDLE_DEFINED
 #define _TRACEHANDLE_DEFINED
+// Obsolete - prefer PROCESSTRACE_HANDLE or CONTROLTRACE_ID.
 typedef ULONG64 TRACEHANDLE, *PTRACEHANDLE;
 #endif
+
+// Used to read the events from a trace file or real-time trace session (via
+// ProcessTrace). The handle is invalid if it contains the value
+// INVALID_PROCESSTRACE_HANDLE. Obtain the handle by calling an OpenTrace
+// function (e.g.  OpenTrace, OpenTraceFromFile, OpenTraceFromRealTimeLogger).
+// Close the handle by calling CloseTrace.
+typedef ULONG64 PROCESSTRACE_HANDLE;
+
+// Used to identify a trace collection session. The id is invalid if it
+// contains the value (CONTROLTRACE_ID)0. Obtain the id from StartTrace or from
+// the Wnode.HistoricalContext field of the EVENT_TRACE_PROPERTIES returned by
+// ControlTrace(0, sessionName, ...). The id is valid until the trace stops and
+// does not need to be closed by the user.
+typedef ULONG64 CONTROLTRACE_ID;
 
 //
 // Maximum supported buffer size in KB - Win8 (16MB)
@@ -1683,7 +1698,7 @@ PerfIsGroupOnInGroupMask(
 //
 // Data structure used for WMI Kernel Events
 //
-// **NB** the hardware events are described in software traceing, if they
+// **NB** the hardware events are described in software tracing, if they
 //        change in layout please update sdktools\trace\tracefmt\default.tmf
 
 
@@ -2832,7 +2847,7 @@ typedef struct _HEAP_SUBSEGMENT_INIT
 #include <poppack.h>
 
 #include <pshpack1.h>
-typedef struct _HEAP_AFINITY_MANAGER_ENABLE
+typedef struct _HEAP_AFFINITY_MANAGER_ENABLE
 {
     SYSTEM_TRACE_HEADER Header;
     PVOID HeapHandle;
@@ -3358,11 +3373,11 @@ DEFINE_GUID( /* 3BEEF58A-6E0F-445D-B2A4-37AB737BD47E */
 //    );
 
 DEFINE_GUID( /* 3d6fa8d4-fe05-11d0-9dda-00c04fd7ba7c */
-	DiskIoGuid,
-	0x3d6fa8d4,
-	0xfe05,
-	0x11d0,
-	0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c
+    DiskIoGuid,
+    0x3d6fa8d4,
+    0xfe05,
+    0x11d0,
+    0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c
     );
 
 DEFINE_GUID( /* B3E675D7-2554-4f18-830B-2762732560DE */
@@ -3478,11 +3493,11 @@ DEFINE_GUID( /* a9152f00-3f58-4bee-92a1-70c7d079d5dd */
     );
 
 DEFINE_GUID( /* 3d6fa8d0-fe05-11d0-9dda-00c04fd7ba7c */
-	ProcessGuid,
-	0x3d6fa8d0,
-	0xfe05,
-	0x11d0,
-	0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c
+    ProcessGuid,
+    0x3d6fa8d0,
+    0xfe05,
+    0x11d0,
+    0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c
     );
 
 DEFINE_GUID( /* E43445E0-0903-48c3-B878-FF0FCCEBDD04 */
@@ -3620,11 +3635,11 @@ DEFINE_GUID( /* 00000000-0000-0000-0000-000000000000 */
 //    );
 
 DEFINE_GUID( /* 90cbdc39-4a3e-11d1-84f4-0000f80464e3 */
-	FileIoGuid,
-	0x90cbdc39,
-	0x4a3e,
-	0x11d1,
-	0x84, 0xf4, 0x00, 0x00, 0xf8, 0x04, 0x64, 0xe3
+    FileIoGuid,
+    0x90cbdc39,
+    0x4a3e,
+    0x11d1,
+    0x84, 0xf4, 0x00, 0x00, 0xf8, 0x04, 0x64, 0xe3
     );
 
 DEFINE_GUID( /* 2cb15d1d-5fc1-11d2-abe1-00a0c911f518 */
@@ -3644,35 +3659,35 @@ DEFINE_GUID( /* 3d6fa8d3-fe05-11d0-9dda-00c04fd7ba7c */
     );
 
 DEFINE_GUID( /* AE53722E-C863-11d2-8659-00C04FA321A1 */
-	RegistryGuid,
-	0xae53722e,
-	0xc863,
-	0x11d2,
-	0x86, 0x59, 0x0, 0xc0, 0x4f, 0xa3, 0x21, 0xa1
+    RegistryGuid,
+    0xae53722e,
+    0xc863,
+    0x11d2,
+    0x86, 0x59, 0x0, 0xc0, 0x4f, 0xa3, 0x21, 0xa1
     );
 
 DEFINE_GUID( /* 9a280ac0-c8e0-11d1-84e2-00c04fb998a2 */
-	TcpIpGuid,
-	0x9a280ac0,
-	0xc8e0,
-	0x11d1,
-	0x84, 0xe2, 0x00, 0xc0, 0x4f, 0xb9, 0x98, 0xa2
+    TcpIpGuid,
+    0x9a280ac0,
+    0xc8e0,
+    0x11d1,
+    0x84, 0xe2, 0x00, 0xc0, 0x4f, 0xb9, 0x98, 0xa2
     );
 
 DEFINE_GUID( /* 3d6fa8d1-fe05-11d0-9dda-00c04fd7ba7c */
-	ThreadGuid,
-	0x3d6fa8d1,
-	0xfe05,
-	0x11d0,
-	0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c
+    ThreadGuid,
+    0x3d6fa8d1,
+    0xfe05,
+    0x11d0,
+    0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c
     );
 
 DEFINE_GUID( /* bf3a50c5-a9c9-4988-a005-2df0b7c80f80 */
-	UdpIpGuid,
-	0xbf3a50c5,
-	0xa9c9,
-	0x4988,
-	0xa0, 0x05, 0x2d, 0xf0, 0xb7, 0xc8, 0x0f, 0x80
+    UdpIpGuid,
+    0xbf3a50c5,
+    0xa9c9,
+    0x4988,
+    0xa0, 0x05, 0x2d, 0xf0, 0xb7, 0xc8, 0x0f, 0x80
     );
 
 //
@@ -5432,32 +5447,6 @@ typedef struct _ETW_UMGL_KEY
 #define MEMORY_FROM_SLOWPATH                    4       //Activity from Slow C
 #define MEMORY_FROM_INVALID                     5
 #define MEMORY_FROM_SEGMENT_HEAP                6       //Activity from segment heap.
-
-//
-// Header preparation macro for UMGL
-//
-#define TRACE_HEADER_TYPE_SYSTEM32          1
-#define TRACE_HEADER_TYPE_SYSTEM64          2
-#define TRACE_HEADER_TYPE_COMPACT32         3
-#define TRACE_HEADER_TYPE_COMPACT64         4
-#define TRACE_HEADER_TYPE_FULL_HEADER32     10
-#define TRACE_HEADER_TYPE_INSTANCE32        11
-#define TRACE_HEADER_TYPE_TIMED             12  // Not used
-#define TRACE_HEADER_TYPE_ERROR             13  // Error while logging event
-#define TRACE_HEADER_TYPE_WNODE_HEADER      14  // Not used
-#define TRACE_HEADER_TYPE_MESSAGE           15
-#define TRACE_HEADER_TYPE_PERFINFO32        16
-#define TRACE_HEADER_TYPE_PERFINFO64        17
-#define TRACE_HEADER_TYPE_EVENT_HEADER32    18
-#define TRACE_HEADER_TYPE_EVENT_HEADER64    19
-#define TRACE_HEADER_TYPE_FULL_HEADER64     20
-#define TRACE_HEADER_TYPE_INSTANCE64        21
-
-#define EVENT_HEADER_SIZE_MASK              0x0000FFFF
-
-#define SYSTEM_TRACE_VERSION                 2
-
-#define TRACE_HEADER_FLAG                   0x80000000
 
 #define EVENT_HEADER_EVENT64      ((USHORT)(((TRACE_HEADER_FLAG | TRACE_HEADER_EVENT_TRACE) >> 16) | TRACE_HEADER_TYPE_EVENT_HEADER64))
 #define EVENT_HEADER_EVENT32      ((USHORT)(((TRACE_HEADER_FLAG | TRACE_HEADER_EVENT_TRACE) >> 16) | TRACE_HEADER_TYPE_EVENT_HEADER32))

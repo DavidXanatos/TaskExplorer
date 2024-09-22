@@ -1,3 +1,15 @@
+/*
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
+ *
+ * This file is part of System Informer.
+ *
+ * Authors:
+ *
+ *     wj32    2010-2016
+ *     dmex    2018-2024
+ *
+ */
+
 #ifndef _PH_PHNATINL_H
 #define _PH_PHNATINL_H
 
@@ -114,13 +126,13 @@ PhGetProcessSessionId(
  *
  * \param ProcessHandle A handle to a process. The handle must have
  * PROCESS_QUERY_LIMITED_INFORMATION access.
- * \param IsWow64 A variable which receives a boolean indicating whether the process is 32-bit.
+ * \param IsWow64Process A variable which receives a boolean indicating whether the process is 32-bit.
  */
 FORCEINLINE
 NTSTATUS
 PhGetProcessIsWow64(
     _In_ HANDLE ProcessHandle,
-    _Out_ PBOOLEAN IsWow64
+    _Out_ PBOOLEAN IsWow64Process
     )
 {
     NTSTATUS status;
@@ -136,7 +148,7 @@ PhGetProcessIsWow64(
 
     if (NT_SUCCESS(status))
     {
-        *IsWow64 = !!wow64;
+        *IsWow64Process = !!wow64;
     }
 
     return status;
@@ -262,6 +274,13 @@ PhGetProcessErrorMode(
         );
 }
 
+/**
+ * Sets the error mode for a process.
+ *
+ * \param ProcessHandle A handle to a process. The handle must have PROCESS_SET_INFORMATION access.
+ * \param ErrorMode The error mode to set for the process.
+ * \return STATUS_SUCCESS if the error mode was successfully set, otherwise an appropriate NTSTATUS error code.
+ */
 FORCEINLINE
 NTSTATUS
 PhSetProcessErrorMode(
@@ -280,8 +299,7 @@ PhSetProcessErrorMode(
 /**
  * Gets a process' no-execute status.
  *
- * \param ProcessHandle A handle to a process. The handle must have PROCESS_QUERY_INFORMATION
- * access.
+ * \param ProcessHandle A handle to a process. The handle must have PROCESS_QUERY_INFORMATION access.
  * \param ExecuteFlags A variable which receives the no-execute flags.
  */
 FORCEINLINE
@@ -599,6 +617,7 @@ PhGetProcessIsCFGuardEnabled(
     PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
 
     policyInfo.Policy = ProcessControlFlowGuardPolicy;
+    policyInfo.ControlFlowGuardPolicy.Flags = 0;
 
     status = NtQueryInformationProcess(
         ProcessHandle,
@@ -628,6 +647,7 @@ PhGetProcessIsXFGuardEnabled(
     PROCESS_MITIGATION_POLICY_INFORMATION policyInfo;
 
     policyInfo.Policy = ProcessControlFlowGuardPolicy;
+    policyInfo.ControlFlowGuardPolicy.Flags = 0;
 
     status = NtQueryInformationProcess(
         ProcessHandle,
@@ -737,6 +757,42 @@ PhGetProcessAppMemoryInformation(
     }
 
     return status;
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetProcessMitigationPolicyInformation(
+    _In_ HANDLE ProcessHandle,
+    _In_ PROCESS_MITIGATION_POLICY Policy,
+    _Out_ PPROCESS_MITIGATION_POLICY_INFORMATION MitigationPolicy
+    )
+{
+    memset(MitigationPolicy, 0, sizeof(PROCESS_MITIGATION_POLICY_INFORMATION));
+    MitigationPolicy->Policy = Policy;
+
+    return NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessMitigationPolicy,
+        MitigationPolicy,
+        sizeof(PROCESS_MITIGATION_POLICY_INFORMATION),
+        NULL
+        );
+}
+
+FORCEINLINE
+NTSTATUS
+PhGetProcesNetworkIoCounters(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PPROCESS_NETWORK_COUNTERS NetworkIoCounters
+    )
+{
+    return NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessNetworkIoCounters,
+        NetworkIoCounters,
+        sizeof(PROCESS_NETWORK_COUNTERS),
+        NULL
+        );
 }
 
 FORCEINLINE
@@ -1139,6 +1195,32 @@ PhSetThreadBreakOnTermination(
 
 FORCEINLINE
 NTSTATUS
+PhGetThreadContainerId(
+    _In_ HANDLE ThreadHandle,
+    _In_ PGUID ContainerId
+    )
+{
+    NTSTATUS status;
+    GUID threadContainerId;
+
+    status = NtQueryInformationThread(
+        ThreadHandle,
+        ThreadContainerId,
+        &threadContainerId,
+        sizeof(ULONG),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        memcpy(ContainerId, &threadContainerId, sizeof(GUID));
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
 PhGetThreadIsIoPending(
     _In_ HANDLE ThreadHandle,
     _Out_ PBOOLEAN IsIoPending
@@ -1210,6 +1292,26 @@ PhGetThreadIsTerminated(
     }
 
     return status;
+}
+
+FORCEINLINE
+BOOLEAN
+PhGetThreadIsTerminated2(
+    _In_ HANDLE ThreadHandle
+    )
+{
+    NTSTATUS status;
+    LARGE_INTEGER timeout;
+
+    memset(&timeout, 0, sizeof(LARGE_INTEGER));
+
+    status = NtWaitForSingleObject(
+        ThreadHandle,
+        FALSE,
+        &timeout
+        );
+
+    return status == STATUS_WAIT_0;
 }
 
 FORCEINLINE

@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -607,7 +607,7 @@ NTSTATUS KphAlpcQueryInformation(
         {
             if (AlpcInformation)
             {
-                ProbeForWrite(AlpcInformation, AlpcInformationLength, 1);
+                ProbeOutputBytes(AlpcInformation, AlpcInformationLength);
             }
 
             if (ReturnLength)

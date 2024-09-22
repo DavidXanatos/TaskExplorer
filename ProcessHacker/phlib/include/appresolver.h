@@ -173,6 +173,12 @@ typedef struct _HSTRING_REFERENCE // Stack
     };
 } HSTRING_REFERENCE;
 
+#ifdef __hstring_h__
+static_assert(sizeof(HSTRING_REFERENCE) == sizeof(HSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
+#else
+static_assert(sizeof(HSTRING_REFERENCE) == sizeof(WSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
+#endif
+
 typedef struct _HSTRING_INSTANCE // Heap
 {
     // Header
@@ -211,6 +217,31 @@ PhCreateWindowsRuntimeStringReference(
     _In_ PCWSTR SourceString,
     _Out_ PVOID String
     );
+
+PHLIBAPI
+HRESULT
+NTAPI
+PhCreateWindowsRuntimeStringReferenceEx(
+    _In_ PCWSTR SourceString,
+    _In_ UINT32 Length,
+    _Out_ PVOID String
+    );
+
+FORCEINLINE
+HRESULT
+NTAPI
+PhCreateWindowsRuntimeStringRef(
+    _In_ PPH_STRINGREF SourceString,
+    _Out_ PVOID String
+    )
+{
+    if (SourceString->Length >= ULONG_MAX)
+    {
+        return HRESULT_FROM_WIN32(ERROR_OUTOFMEMORY);
+    }
+
+    return PhCreateWindowsRuntimeStringReferenceEx(SourceString->Buffer, (ULONG)SourceString->Length / sizeof(WCHAR), String);
+}
 
 PHLIBAPI
 HRESULT
@@ -265,20 +296,22 @@ PhDestroyEnumPackageApplicationUserModelIds(
     _In_ PPH_LIST PackageList
     );
 
+typedef struct _PACKAGE_INFO_REFERENCE *PACKAGE_INFO_REFERENCE;
+
 typedef LONG (WINAPI* _OpenPackageInfoByFullNameForUser)(
     _In_opt_ PSID userSid,
     _In_ PCWSTR packageFullName,
     _Reserved_ const UINT32 reserved,
-    _Out_ PHANDLE packageInfoReference // PACKAGE_INFO_REFERENCE
+    _Out_ PACKAGE_INFO_REFERENCE* packageInfoReference
     );
 typedef LONG (WINAPI* _GetPackageApplicationIds)(
-    _In_ HANDLE packageInfoReference, // PACKAGE_INFO_REFERENCE
+    _In_ PACKAGE_INFO_REFERENCE packageInfoReference,
     _Inout_ PUINT32 bufferLength,
     _Out_writes_bytes_opt_(*bufferLength) PBYTE buffer,
     _Out_opt_ PUINT32 count
     );
 typedef LONG (WINAPI* _ClosePackageInfo)(
-    _In_ HANDLE packageInfoReference // PACKAGE_INFO_REFERENCE
+    _In_ PACKAGE_INFO_REFERENCE packageInfoReference
     );
 
 #pragma region Activation Factory
@@ -306,7 +339,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE GetRuntimeClassName(
         __RPC__deref_out_opt HSTRING* className) = 0;
     virtual HRESULT STDMETHODCALLTYPE GetTrustLevel(
-        __RPC__out TrustLevel* trustLevel) = 0;
+        __RPC__out ULONG* trustLevel) = 0;
 };
 #else
 typedef struct IInspectableVtbl

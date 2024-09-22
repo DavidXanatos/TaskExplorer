@@ -176,7 +176,7 @@ PhGetMappedImageSectionName(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhGetMappedImageDataEntry(
+PhGetMappedImageDataDirectory(
     _In_ PPH_MAPPED_IMAGE MappedImage,
     _In_ ULONG Index,
     _Out_ PIMAGE_DATA_DIRECTORY *Entry
@@ -946,6 +946,24 @@ PhFreeMappedImageRelocations(
     _In_opt_ PPH_MAPPED_IMAGE_RELOC Relocations
     );
 
+typedef NTSTATUS (NTAPI *PPH_MAPPED_IMAGE_RELOC_CALLBACK)(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PIMAGE_DATA_DIRECTORY DataDirectory,
+    _In_ PIMAGE_BASE_RELOCATION RelocationDirectory,
+    _In_ PIMAGE_RELOCATION_RECORD Relocations,
+    _In_ ULONG RelocationCount,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhMappedImageEnumerateRelocations(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PPH_MAPPED_IMAGE_RELOC_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
 typedef struct _PH_IMAGE_DYNAMIC_RELOC_ENTRY
 {
     ULONGLONG Symbol;
@@ -1160,8 +1178,8 @@ BOOLEAN
 NTAPI
 PhGetMappedImageEntropy(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _Out_ DOUBLE* ImageEntropy,
-    _Out_ DOUBLE* ImageVariance
+    _Out_ FLOAT* ImageEntropy,
+    _Out_ FLOAT* ImageVariance
     );
 
 PHLIBAPI

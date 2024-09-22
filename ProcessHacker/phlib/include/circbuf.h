@@ -6,6 +6,7 @@
  * Authors:
  *
  *     wj32    2010
+ *     dmex    2025
  *
  */
 
@@ -33,5 +34,7 @@
 #undef T
 #define T FLOAT
 #include "circbuf_h.h"
+
+#undef T
 
 #endif

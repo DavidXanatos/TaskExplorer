@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+
+## [1.5.6] - 2024-09-22
+
+### Changed
+- TE is no longer listing mounted VHD/VHDX files as disks, we only care for real hardware
+- updated PHlib to version 3.1.24258
+
+
+
+
 ## [1.5.5] - 2024-03-05
 
 ### Changed

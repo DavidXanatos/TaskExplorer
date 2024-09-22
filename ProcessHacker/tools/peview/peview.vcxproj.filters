@@ -180,6 +180,9 @@
     <ClCompile Include="pemuiprp.c">
       <Filter>Source Files\Pages\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="strings.c">
+      <Filter>Source Files\Pages</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\peview.h">
@@ -200,6 +203,9 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
     <ResourceCompile Include="version.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="..\..\kphlib\include\sistatus.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
