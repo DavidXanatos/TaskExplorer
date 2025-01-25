@@ -5,6 +5,7 @@
 #ifdef WIN32
 #include "../../API/Windows/WinThread.h"
 #include "../../API/Windows/WindowsAPI.h"
+#include "../WaitChainDialog.h"
 #endif
 #include "../../../MiscHelpers/Common/Finder.h"
 #include "TaskInfoWindow.h"
@@ -72,23 +73,25 @@ CThreadsView::CThreadsView(QWidget *parent)
 	//m_pMenu = new QMenu();
 	AddTaskItemsToMenu();
 
-	m_pMenu->addSeparator();
-
-	AddPriorityItemsToMenu(eThread);
-
 #ifdef WIN32
 	m_pMenu->addSeparator();
 
 	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
-		m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
-		//m_pAnalyze;
-		m_pCritical = m_pMiscMenu->addAction(tr("Critical Thread Flag"), this, SLOT(OnThreadAction()));
-		m_pCritical->setCheckable(true);
+	m_pCancelIO = m_pMiscMenu->addAction(tr("Cancel I/O"), this, SLOT(OnThreadAction()));
+	//m_pAnalyze;
+	m_pWCT = m_pMiscMenu->addAction(tr("Wait Chain Traversal"), this, SLOT(OnWCT()));
+	m_pMiscMenu->addSeparator();
+	m_pCritical = m_pMiscMenu->addAction(tr("Critical Thread Flag"), this, SLOT(OnThreadAction()));
+	m_pCritical->setCheckable(true);
 
 	m_pToken = m_pMenu->addAction(tr("Impersonation Token"), this, SLOT(OnThreadToken()));
 	m_pToken2 = m_pMenu->addAction(tr("Original Impersonation Token"), this, SLOT(OnThreadToken()));
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
+
+	m_pMenu->addSeparator();
+
+	AddPriorityItemsToMenu(eThread);
 
 	AddPanelItemsToMenu();
 
@@ -316,10 +319,12 @@ void CThreadsView::OnMenu(const QPoint &point)
 
 	m_pCancelIO->setEnabled(!pThread.isNull());
 
+	m_pWCT->setEnabled(selectedRows.count() == 1);
+
 	m_pCritical->setEnabled(!pWinThread.isNull());
 	m_pCritical->setChecked(pWinThread && pWinThread->IsCriticalThread());
 
-	m_pToken->setEnabled(pWinThread && pWinThread->HasToken());
+	m_pToken->setEnabled(pWinThread && pWinThread->GetTokenState() == CWinThread::PH_THREAD_TOKEN_STATE_PRESENT);
 	m_pToken2->setVisible(pWinThread && pWinThread->HasToken2());
 
 	m_pPermissions->setEnabled(selectedRows.count() == 1);
@@ -468,6 +473,22 @@ void CThreadsView::OnThreadToken()
 		pTokenView->ShowToken(CWinTokenPtr(pToken));
 		pTaskInfoWindow->show();
 	}
+#endif
+}
+
+void CThreadsView::OnWCT()
+{
+#ifdef WIN32
+	QList<CTaskPtr>	Tasks = GetSellectedTasks();
+	if (Tasks.count() != 1)
+		return;
+
+	QSharedPointer<CWinThread> pWinThread = Tasks.first().staticCast<CWinThread>();
+	if (!pWinThread)
+		return;
+
+	CWaitChainDialog* pWnd = new CWaitChainDialog(pWinThread);
+	pWnd->show();
 #endif
 }
 

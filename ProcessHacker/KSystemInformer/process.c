@@ -14,7 +14,7 @@
 
 #include <trace.h>
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Opens a process.
@@ -43,7 +43,7 @@ NTSTATUS KphOpenProcess(
     PEPROCESS process;
     HANDLE processHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     process = NULL;
 
@@ -102,7 +102,6 @@ NTSTATUS KphOpenProcess(
         }
     }
 
-#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_PROCESS_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -118,7 +117,6 @@ NTSTATUS KphOpenProcess(
             goto Exit;
         }
     }
-#endif
 
     //
     // Always open in KernelMode to skip ordinary access checks.
@@ -192,7 +190,7 @@ NTSTATUS KphOpenProcessToken(
     PACCESS_TOKEN primaryToken;
     HANDLE tokenHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     process = NULL;
     primaryToken = NULL;
@@ -237,7 +235,6 @@ NTSTATUS KphOpenProcessToken(
         goto Exit;
     }
 
-#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_TOKEN_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -253,7 +250,6 @@ NTSTATUS KphOpenProcessToken(
             goto Exit;
         }
     }
-#endif
 
     //
     // Always open in KernelMode to skip ordinary access checks.
@@ -332,7 +328,7 @@ NTSTATUS KphOpenProcessJob(
     PEJOB job;
     HANDLE jobHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     process = NULL;
 
@@ -372,7 +368,6 @@ NTSTATUS KphOpenProcessJob(
         goto Exit;
     }
 
-#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_JOB_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -388,7 +383,6 @@ NTSTATUS KphOpenProcessJob(
             goto Exit;
         }
     }
-#endif
 
     //
     // Always open in KernelMode to skip ordinary access checks.
@@ -460,7 +454,7 @@ NTSTATUS KphTerminateProcess(
     PEPROCESS process;
     HANDLE processHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     process = NULL;
     processHandle = NULL;
@@ -482,7 +476,6 @@ NTSTATUS KphTerminateProcess(
         goto Exit;
     }
 
-#ifndef PPL_NO_SECURITY
     status = KphDominationAndPrivilegeCheck(KPH_TOKEN_PRIVILEGE_TERMINATE,
                                             PsGetCurrentThread(),
                                             process,
@@ -496,7 +489,6 @@ NTSTATUS KphTerminateProcess(
 
         goto Exit;
     }
-#endif
 
     if (process == PsGetCurrentProcess())
     {
@@ -581,7 +573,7 @@ NTSTATUS KphQueryInformationProcess(
     PKPH_PROCESS_CONTEXT process;
     ULONG returnLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     dyn = NULL;
     processObject = NULL;
@@ -999,7 +991,7 @@ NTSTATUS KphSetInformationProcess(
     HANDLE processHandle;
     PROCESSINFOCLASS processInformationClass;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     processInformation = NULL;
     process = NULL;
@@ -1089,7 +1081,6 @@ NTSTATUS KphSetInformationProcess(
         case KphProcessPriorityClassEx:
         default:
         {
-#ifndef PPL_NO_SECURITY
             status = KphDominationCheck(PsGetCurrentProcess(),
                                         process,
                                         AccessMode);
@@ -1102,7 +1093,6 @@ NTSTATUS KphSetInformationProcess(
 
                 goto Exit;
             }
-#endif
             break;
         }
     }

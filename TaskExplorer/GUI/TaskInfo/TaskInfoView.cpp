@@ -7,6 +7,7 @@
 #include "ThreadsView.h"
 #include "ModulesView.h"
 #include "MemoryView.h"
+#include "HeapView.h"
 #ifdef WIN32
 #include "JobView.h"
 #include "TokenView.h"
@@ -78,6 +79,9 @@ void CTaskInfoView::InitializeTabs()
 
 	m_pMemoryView = new CMemoryView(this);
 	AddTab(m_pMemoryView, tr("Memory"));
+
+	m_pHeapView = new CHeapView(this);
+	AddTab(m_pHeapView, tr("Heap"));
 
 #ifdef WIN32
 	m_pTokenView = new CTokenView(this);

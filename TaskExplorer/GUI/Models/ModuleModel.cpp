@@ -3,6 +3,7 @@
 #include "ModuleModel.h"
 #include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
+#include "../API/Windows/ProcessHacker.h"
 #include "../../API/Windows/WinModule.h"
 #endif
 #include "../../API/ProcessInfo.h"
@@ -139,6 +140,7 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 				case eVerificationStatus:	Value = pWinModule->GetVerifyResultString(); break;
 				case eVerifiedSigner:		Value = pWinModule->GetVerifySignerName(); break;
 				case eMitigations:			Value = pWinModule->GetMitigationsString(); break;
+				case eImageCoherency:		Value = pWinModule->GetImageCoherency(); break;
 				case eTimeStamp:			Value = pWinModule->GetTimeStamp(); break;
 				case eLoadTime:				Value = pWinModule->GetLoadTime(); break;
 				case eLoadReason:			Value = pWinModule->GetLoadReasonString(); break;
@@ -150,6 +152,14 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 				case eService:				Value = pWinModule->GetRefServices().join(", "); break;
 #endif
 				case eParentBaseAddress:	Value = pModule->GetParentBaseAddress(); break;
+
+#ifdef WIN32
+				case eOriginalName:			Value = pWinModule->GetFileNameNt(); break;
+				case eArchitecture:			Value = pWinModule->GetImageMachine(); break;
+				//case eEnclaveType:			Value = pWinModule->GetEnclaveType(); break;
+				//case eEnclaveBaseAddress:	Value = pWinModule->GetEnclaveBaseAddress(); break;
+				//case eEnclaveSize:			Value = pWinModule->GetEnclaveSize(); break;
+#endif
 			}
 
 			SModuleNode::SValue& ColValue = pNode->Values[section];
@@ -162,7 +172,7 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 
 				switch (section)
 				{
-					case eModule:			if (!pProcess.isNull()) ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(pProcess->GetProcessId()); break;
+					case eModule:			if (!pProcess.isNull()) ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(theGUI->FormatID(pProcess->GetProcessId())); break;
 					case eBaseAddress:
 					case eParentBaseAddress:
 #ifdef WIN32
@@ -177,6 +187,14 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 					case eLoadTime:
 #endif
 					case eFileModifiedTime:	ColValue.Formated = QDateTime::fromSecsSinceEpoch(ColValue.Raw.toULongLong()).toString("dd.MM.yyyy hh:mm:ss"); break;
+
+#ifdef WIN32
+					case eImageCoherency:	ColValue.Formated = pWinModule->GetImageCoherencyString(); break;
+					case eArchitecture:		ColValue.Formated = pWinModule->GetImageMachineString(); break;
+					//case eEnclaveType:		ColValue.Formated = pWinModule->GetEnclaveType() == 0 ? "" : pWinModule->GetEnclaveTypeString(); break;
+					//case eEnclaveBaseAddress:ColValue.Formated = pWinModule->GetEnclaveType() == 0 ? "" : FormatAddress(ColValue.Raw.toULongLong()); break;
+					//case eEnclaveSize:		ColValue.Formated = pWinModule->GetEnclaveType() == 0 ? "" : FormatSize(ColValue.Raw.toULongLong()); break;
+#endif
 				}
 			}
 
@@ -193,12 +211,92 @@ QSet<quint64> CModuleModel::Sync(const QMap<quint64, CModulePtr>& ModuleList)
 		if(State && Index.isValid())
 			emit dataChanged(createIndex(Index.row(), Col, pNode), createIndex(Index.row(), columnCount()-1, pNode));
 
+
+#ifdef WIN32
+		Sync(pWinModule, pNode->Path, Added, New, Old);
+#endif
 	}
 
 	CTreeItemModel::Sync(New, Old);
 
 	return Added;
 }
+
+#ifdef WIN32
+void CModuleModel::Sync(const CWinModule* pModule, QList<QVariant> Path, QSet<quint64> &Added, QMap<QList<QVariant>, QList<STreeNode*> > &New, QHash<QVariant, STreeNode*> &Old)
+{
+	auto ModPages = pModule->GetModifiedPages();
+	Path.append(pModule->GetBaseAddress());
+
+	for (QMap<quint64, CWinModule::SModPage>::const_iterator J = ModPages.constBegin(); J != ModPages.constEnd(); ++J)
+	{
+		const CWinModule::SModPage& ModPage = J.value();
+		quint64 ID = J.key();
+
+		QModelIndex Index;
+
+		QHash<QVariant, STreeNode*>::iterator I = Old.find(ID);
+		SModuleNode* pNode = I != Old.end() ? static_cast<SModuleNode*>(I.value()) : NULL;
+		if(!pNode)
+		{
+			pNode = static_cast<SModuleNode*>(MkNode(ID));
+			pNode->Values.resize(columnCount());
+			pNode->Path = Path;
+			New[pNode->Path].append(pNode);
+			Added.insert(ID);
+		}
+		else
+		{
+			I.value() = NULL;
+			Index = Find(m_Root, pNode);
+		}
+
+		int Col = 0;
+		bool State = false;
+		int Changed = 0;
+
+		for(int section = 0; section < columnCount(); section++)
+		{
+			if (!m_Columns.contains(section))
+				continue; // ignore columns which are hidden
+
+			QVariant Value;
+			switch(section)
+			{
+			case eModule:				Value = ModPage.Name; break;
+			case eBaseAddress:			Value = ModPage.VirtualAddress; break;
+			}
+
+			SModuleNode::SValue& ColValue = pNode->Values[section];
+
+			if (ColValue.Raw != Value)
+			{
+				if(Changed == 0)
+					Changed = 1;
+				ColValue.Raw = Value;
+
+				switch (section)
+				{
+				case eBaseAddress:
+					ColValue.Formated = FormatAddress(ColValue.Raw.toULongLong()); break;
+				}
+			}
+
+			if(State != (Changed != 0))
+			{
+				if(State && Index.isValid())
+					emit dataChanged(createIndex(Index.row(), Col, pNode), createIndex(Index.row(), section-1, pNode));
+				State = (Changed != 0);
+				Col = section;
+			}
+			if(Changed == 1)
+				Changed = 0;
+		}
+		if(State && Index.isValid())
+			emit dataChanged(createIndex(Index.row(), Col, pNode), createIndex(Index.row(), columnCount()-1, pNode));
+	}
+}
+#endif
 
 CModulePtr CModuleModel::GetModule(const QModelIndex &index) const
 {
@@ -239,6 +337,7 @@ QVariant CModuleModel::headerData(int section, Qt::Orientation orientation, int 
 			case eVerificationStatus:	return tr("Verification status");
 			case eVerifiedSigner:		return tr("Verified signer");
 			case eMitigations:			return tr("Mitigations");
+			case eImageCoherency:		return tr("Image coherency");
 			case eTimeStamp:			return tr("Time stamp");
 			case eLoadTime:				return tr("Load time");
 			case eLoadReason:			return tr("Load reason");
@@ -250,6 +349,14 @@ QVariant CModuleModel::headerData(int section, Qt::Orientation orientation, int 
 			case eService:				return tr("Ref. services");
 #endif
 			case eParentBaseAddress:	return tr("Parent base address");
+
+#ifdef WIN32
+			case eOriginalName:			return tr("Original name");
+			case eArchitecture:			return tr("Architecture");
+			//case eEnclaveType:			return tr("Enclave type");
+			//case eEnclaveBaseAddress:	return tr("Enclave base address");
+			//case eEnclaveSize:			return tr("Enclave size");
+#endif
 		}
 	}
     return QVariant();

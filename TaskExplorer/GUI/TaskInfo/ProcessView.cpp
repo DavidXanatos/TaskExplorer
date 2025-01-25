@@ -41,7 +41,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pStackedWidget->setLayout(m_pStackedLayout);
 	//m_pInfoLayout->addWidget(m_pStackedWidget);
 	m_pMainLayout->addWidget(m_pStackedWidget);
-	m_pStackedWidget->setMaximumHeight(120);
+	m_pStackedWidget->setMaximumHeight(160);
 
 	m_pOneProcWidget = new QWidget();
 	m_pOneProcLayout = new QVBoxLayout();
@@ -82,6 +82,13 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pFilePath = new QLineEdit();
 	m_pFilePath->setReadOnly(true);
 	m_pFileLayout->addWidget(m_pFilePath, row++, 0, 1, 3);
+
+#ifdef WIN32
+	m_pFileLayout->addWidget(new QLabel(tr("Image NT file name:")), row++, 0, 1, 2);
+	m_pFilePathNt = new QLineEdit();
+	m_pFilePathNt->setReadOnly(true);
+	m_pFileLayout->addWidget(m_pFilePathNt, row++, 0, 1, 3);
+#endif
 
 	m_pFileLayout->addItem(new QSpacerItem(20, 30, QSizePolicy::Expanding, QSizePolicy::Expanding), row++, 1);
 
@@ -187,7 +194,7 @@ CProcessView::CProcessView(QWidget *parent)
 	m_pSecurityLayout->addWidget(pMitigation, row, 0);
 
 	m_Protecetion = new QLabel();
-	m_pSecurityLayout->addWidget(m_Protecetion, row++, 2);
+	m_pSecurityLayout->addWidget(m_Protecetion, row++, 2, 1, 2);
 
 	m_pMitigation = new CPanelWidgetEx();
 	m_pMitigation->GetView()->setItemDelegate(theGUI->GetItemDelegate());
@@ -199,7 +206,26 @@ CProcessView::CProcessView(QWidget *parent)
 	//m_pMitigation->setMinimumHeight(100);
 	//m_pMitigation->GetTree()->setAutoFitMax(200);
 
-	m_pSecurityLayout->addWidget(m_pMitigation, row++, 0, 1, 3);
+	m_pSecurityLayout->addWidget(m_pMitigation, row++, 0, 1, 4);
+
+	m_pPermissions = new QPushButton(tr("Permissions"));
+	connect(m_pPermissions, SIGNAL(pressed()), this, SLOT(OnPermissions()));
+	m_pSecurityLayout->addWidget(m_pPermissions, row, 3);
+
+	QWidget* pPolicyWidget = new QWidget(this);
+	QHBoxLayout* pPolicyLayout = new QHBoxLayout(pPolicyWidget);
+	pPolicyLayout->setContentsMargins(0, 0, 0, 0);
+	m_pSecurityLayout->addWidget(pPolicyWidget, row, 0, 1, 3);
+	pPolicyLayout->addItem(new QSpacerItem(10, 10, QSizePolicy::Expanding, QSizePolicy::Minimum));
+	m_pNoWriteUp = new QCheckBox(tr("No-Write-Up"));
+	connect(m_pNoWriteUp, SIGNAL(clicked(bool)), this, SLOT(OnPolicy()));
+	pPolicyLayout->addWidget(m_pNoWriteUp);
+	m_pNoReadUp = new QCheckBox(tr("No-Read-Up"));
+	connect(m_pNoReadUp, SIGNAL(clicked(bool)), this, SLOT(OnPolicy()));
+	pPolicyLayout->addWidget(m_pNoReadUp);
+	m_pNoExecuteUp = new QCheckBox(tr("No-Execute-Up"));
+	connect(m_pNoExecuteUp, SIGNAL(clicked(bool)), this, SLOT(OnPolicy()));
+	pPolicyLayout->addWidget(m_pNoExecuteUp);
 
 
 	if (WindowsVersion >= WINDOWS_8)
@@ -430,6 +456,12 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 
 	m_pFilePath->setText(pProcess->GetFileName());
 
+#ifdef WIN32
+	CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
+
+	m_pFilePathNt->setText(pWinProc->GetFileNameNt());
+#endif
+
 	m_pCmdLine->setText(pProcess->GetCommandLineStr());
 	m_pCurDir->setText(pProcess->GetWorkingDirectory());
 	m_pProcessId->setText(tr("%1/%2").arg(pProcess->GetProcessId()).arg(pProcess->GetParentId()));
@@ -444,8 +476,6 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 
 
 #ifdef WIN32
-	CWinProcess* pWinProc = qobject_cast<CWinProcess*>(pProcess.data());
-
 	CWinMainModule* pWinModule = qobject_cast<CWinMainModule*>(pModule.data());
 
 	quint32 Subsystem = pWinProc->GetSubsystem();
@@ -471,7 +501,8 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 	m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
 
 	//m_pMitigation->setText(pWinProc->GetMitigationString());
-	m_Protecetion->setText(tr("Protection: %1").arg(pWinProc->GetProtectionString()));
+	QString Protection = pWinProc->GetProtectionString();
+	m_Protecetion->setText(tr("Protection: %1").arg(Protection.isEmpty() ? tr("None") : Protection));
 
 	m_pMitigation->GetTree()->clear();
 	QList<QPair<QString, QString>> List = pWinProc->GetMitigationDetails();
@@ -481,6 +512,14 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 		pItem->setText(0, List[i].first);
 		pItem->setText(1, List[i].second);
 		m_pMitigation->GetTree()->addTopLevelItem(pItem);
+	}
+
+	ACCESS_MASK mandatoryPolicy = 0;
+	if (NT_SUCCESS(PhGetProcessMandatoryPolicy(pWinProc->GetQueryHandle(), &mandatoryPolicy)))
+	{
+		m_pNoWriteUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP));
+		m_pNoReadUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_READ_UP));
+		m_pNoExecuteUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP));
 	}
 
 	if (m_pAppBox)
@@ -555,5 +594,84 @@ void CProcessView::OnCertificate(const QString& Link)
 	}
 
 	PhDereferenceObject(packageFullName);
+#endif
+}
+
+CProcessPtr CProcessView::GetCurrentProcess()
+{
+	CProcessPtr pProcess;
+	if (m_Processes.count() > 1) {
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(m_pProcessList->currentIndex());
+		pProcess = m_pProcessModel->GetProcess(ModelIndex);
+	}
+	else
+		pProcess = m_Processes.first();
+	return pProcess;
+}
+
+void CProcessView::OnPolicy()
+{
+#ifdef WIN32
+	QSharedPointer<CWinProcess> pWinProcess = GetCurrentProcess().staticCast<CWinProcess>();
+	if (pWinProcess.isNull())
+		return;
+
+	if (QMessageBox::question(this, "TaskExplorer", tr("Altering the integrity label for a process may produce undesirable results, instability or data corruption."), QMessageBox::Ok | QMessageBox::Cancel) != QMessageBox::Ok)
+		return;
+
+	NTSTATUS status;
+	HANDLE processHandle = NULL;
+	status = PhOpenProcess(&processHandle, READ_CONTROL | WRITE_OWNER, (HANDLE)pWinProcess->GetProcessId());
+	if(!NT_SUCCESS(status))
+		return;
+
+	ACCESS_MASK mandatoryPolicy = 0;
+	if (NT_SUCCESS(status)) 
+		status = PhGetProcessMandatoryPolicy(processHandle, &mandatoryPolicy);
+
+	if (NT_SUCCESS(status)) 
+	{
+		if (sender() == m_pNoWriteUp)
+		{
+			if (BooleanFlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP))
+				ClearFlag(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP);
+			else
+				SetFlag(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP);
+
+			status = PhSetProcessMandatoryPolicy(processHandle, mandatoryPolicy);
+		}
+		else if (sender() == m_pNoReadUp)
+		{
+			if (BooleanFlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_READ_UP))
+				ClearFlag(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_READ_UP);
+			else
+				SetFlag(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_READ_UP);
+
+			status = PhSetProcessMandatoryPolicy(processHandle, mandatoryPolicy);
+		}
+		else if (sender() == m_pNoExecuteUp)
+		{
+			if (BooleanFlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP))
+				ClearFlag(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP);
+			else
+				SetFlag(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP);
+
+			status = PhSetProcessMandatoryPolicy(processHandle, mandatoryPolicy);
+		}
+	}
+
+	NtClose(processHandle);
+
+	if(!NT_SUCCESS(status))
+		CTaskExplorer::CheckErrors(QList<STATUS>() << ERR(status));
+#endif
+}
+
+void CProcessView::OnPermissions()
+{
+#ifdef WIN32
+
+	if (QSharedPointer<CWinProcess> pWinProcess = GetCurrentProcess().staticCast<CWinProcess>())
+		pWinProcess->OpenPermissions();
 #endif
 }

@@ -59,7 +59,7 @@ typedef struct _DIRECTORY_ENUM_CONTEXT
 
 } DIRECTORY_ENUM_CONTEXT, *PDIRECTORY_ENUM_CONTEXT;
 
-static BOOLEAN NTAPI EnumDirectoryObjectsCallback(_In_ PPH_STRINGREF Name, _In_ PPH_STRINGREF TypeName, _In_opt_ PVOID Context)
+static BOOLEAN NTAPI EnumDirectoryObjectsCallback(_In_ HANDLE RootDirectory, _In_ PPH_STRINGREF Name, _In_ PPH_STRINGREF TypeName, _In_opt_ PVOID Context)
 {
     PDIRECTORY_ENUM_CONTEXT context = (PDIRECTORY_ENUM_CONTEXT)Context;
 

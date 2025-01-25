@@ -276,7 +276,7 @@ ACCESS_ENTRIES(Process)
 
 ACCESS_ENTRIES(Process60)
 {
-    { L"Full control", STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xffff, TRUE, TRUE }, // PROCESS_ALL_ACCESS
+    { L"Full control", STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | SPECIFIC_RIGHTS_ALL, TRUE, TRUE }, // PROCESS_ALL_ACCESS
     { L"Query limited information", PROCESS_QUERY_LIMITED_INFORMATION, TRUE, TRUE },
     { L"Query information", PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION, TRUE, TRUE },
     { L"Set information", PROCESS_SET_INFORMATION, TRUE, TRUE },
@@ -450,7 +450,7 @@ ACCESS_ENTRIES(Thread)
 
 ACCESS_ENTRIES(Thread60)
 {
-    { L"Full control", STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xffff, TRUE, TRUE }, // THREAD_ALL_ACCESS
+    { L"Full control", STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | SPECIFIC_RIGHTS_ALL, TRUE, TRUE }, // THREAD_ALL_ACCESS
     { L"Query limited information", THREAD_QUERY_LIMITED_INFORMATION, TRUE, TRUE },
     { L"Query information", THREAD_QUERY_INFORMATION | THREAD_QUERY_LIMITED_INFORMATION, TRUE, TRUE },
     { L"Set limited information", THREAD_SET_LIMITED_INFORMATION, TRUE, TRUE },
@@ -709,7 +709,7 @@ static PH_SPECIFIC_TYPE PhSpecificTypes[] =
  * \a AccessEntries.
  */
 BOOLEAN PhGetAccessEntries(
-    _In_ PWSTR Type,
+    _In_ PCWSTR Type,
     _Out_ PPH_ACCESS_ENTRY *AccessEntries,
     _Out_ PULONG NumberOfAccessEntries
     )
@@ -739,6 +739,14 @@ BOOLEAN PhGetAccessEntries(
         Type = L"Thread60";
     }
     else if (PhEqualStringZ(Type, L"FileObject", TRUE))
+    {
+        Type = L"File";
+    }
+	else if (PhEqualStringZ(Type, L"Device", TRUE))
+    {
+        Type = L"File";
+    }
+    else if (PhEqualStringZ(Type, L"Driver", TRUE))
     {
         Type = L"File";
     }

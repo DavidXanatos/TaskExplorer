@@ -33,6 +33,44 @@ PhSetHandleClientIdFunction(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhGetObjectBasicInformation(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _Out_ POBJECT_BASIC_INFORMATION BasicInformation
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetEtwObjectName(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _Out_ PPH_STRING* ObjectName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetObjectName(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _In_ BOOLEAN WithTimeout,
+    _Out_ PPH_STRING* ObjectName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetObjectTypeName(
+    _In_opt_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _In_ ULONG ObjectTypeNumber,
+    _Out_ PPH_STRING* TypeName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhQueryObjectName(
     _In_ HANDLE Handle,
     _Out_ PPH_STRING* ObjectName
@@ -44,6 +82,14 @@ NTAPI
 PhQueryObjectBasicInformation(
     _In_ HANDLE Handle,
     _Out_ POBJECT_BASIC_INFORMATION BasicInformation
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhCompareObjects(
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle
     );
 
 PHLIBAPI
@@ -145,7 +191,7 @@ FORCEINLINE
 ULONG
 NTAPI
 PhGetObjectTypeNumberZ(
-    _In_ PWSTR TypeName
+    _In_ PCWSTR TypeName
     )
 {
     PH_STRINGREF typeName;
@@ -158,7 +204,7 @@ PhGetObjectTypeNumberZ(
 PHLIBAPI
 PPH_STRING
 NTAPI
-PhGetObjectTypeName(
+PhGetObjectTypeIndexName(
     _In_ ULONG TypeIndex
     );
 
@@ -222,6 +268,13 @@ PhCallKphQueryFileInformationWithTimeout(
     _In_ FILE_INFORMATION_CLASS FileInformationClass,
     _Out_writes_bytes_opt_(FileInformationLength) PVOID FileInformation,
     _In_ ULONG FileInformationLength
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhGetPnPDeviceName(
+    _In_ PPH_STRING ObjectName
     );
 
 EXTERN_C_END

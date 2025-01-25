@@ -29,7 +29,7 @@ SYSTEM_SECUREBOOT_INFORMATION KphSecureBootInfo = { 0 };
 SYSTEM_CODEINTEGRITY_INFORMATION KphCodeIntegrityInfo = { 0 };
 KPH_PROTECTED_DATA_SECTION_POP();
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Protects select sections.
@@ -41,7 +41,7 @@ VOID KphpProtectSections(
 {
     NTSTATUS status;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (!KphDynMmProtectDriverSection)
     {
@@ -81,7 +81,7 @@ VOID KphpDriverCleanup(
     _In_ PDRIVER_OBJECT DriverObject
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphDebugInformerStop();
     KphRegistryInformerStop();
@@ -93,9 +93,7 @@ VOID KphpDriverCleanup(
     KphFltUnregister();
     KphCidCleanup();
     KphCleanupDynData();
-#if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
     KphCleanupVerify();
-#endif
     KphCleanupHashing();
     KphCleanupParameters();
 
@@ -114,7 +112,7 @@ VOID DriverUnload(
     _In_ PDRIVER_OBJECT DriverObject
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Driver Unloading...");
 
@@ -143,7 +141,7 @@ NTSTATUS DriverEntry(
 {
     NTSTATUS status;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     WPP_INIT_TRACING(DriverObject, RegistryPath);
 
@@ -260,7 +258,6 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
-#if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
     status = KphInitializeVerify();
     if (!NT_SUCCESS(status))
     {
@@ -271,13 +268,10 @@ NTSTATUS DriverEntry(
 
         goto Exit;
     }
-#endif
 
     KphInitializeDynData();
 
-#ifndef KPP_NO_SECURITY
     KphInitializeProtection();
-#endif
 
     KphInitializeSessionToken();
 
@@ -394,9 +388,7 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
-#ifndef KPP_NO_SECURITY
     KphpProtectSections();
-#endif
 
 Exit:
 

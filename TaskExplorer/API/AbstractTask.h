@@ -60,6 +60,8 @@ public:
 	virtual quint64 GetUserTime()	const			{ QReadLocker Locker(&m_Mutex); return m_UserTime; }
 
 	virtual QString GetName() const = 0;
+	virtual bool HasPriorityBoost() const = 0;
+	virtual STATUS SetPriorityBoost(bool Value) = 0;
 	virtual long GetPriority()	const				{ QReadLocker Locker(&m_Mutex); return m_Priority; }
 	virtual QString GetPriorityString() const = 0;
 	virtual STATUS SetPriority(long Value) = 0;

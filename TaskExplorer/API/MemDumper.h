@@ -10,7 +10,7 @@ public:
 
 	static CMemDumper* New();
 
-	virtual STATUS	PrepareDump(const CProcessPtr& pProcess, const QString& DumpPath) = 0;
+	virtual STATUS	PrepareDump(const CProcessPtr& pProcess, quint32 DumpType, const QString& DumpPath) = 0;
 
 public slots:
 	virtual void	Cancel() = 0;

@@ -47,6 +47,7 @@
 #define KPH_TAG_REG_STRING                      '0UpK'
 #define KPH_TAG_REG_BINARY                      '1UpK'
 #define KPH_TAG_FILE_OBJECT_NAME                '2UpK'
+#define KPH_TAG_CAPTURED_UNICODE_STRING         '3UpK'
 
 // vm
 
@@ -88,6 +89,7 @@
 #define KPH_TAG_PROCESS_CONTEXT                 '2cpK'
 #define KPH_TAG_THREAD_CONTEXT                  '3cpK'
 #define KPH_TAG_CID_APC                         '4cpK'
+#define KPH_TAG_PROCESS_IMAGE_FILE_NAME         '5cpK'
 
 // protection
 

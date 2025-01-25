@@ -15,13 +15,13 @@ BOOLEAN PhShellProcessHackerEx(
 
 NTSTATUS PhExecuteRunAsCommand3(
 	_In_ HWND hWnd,
-	_In_ PWSTR Program,
-	_In_opt_ PWSTR UserName,
-	_In_opt_ PWSTR Password,
+	_In_ PCWSTR Program,
+	_In_opt_ PCWSTR UserName,
+	_In_opt_ PCWSTR Password,
 	_In_opt_ ULONG LogonType,
 	_In_opt_ HANDLE ProcessIdWithToken,
 	_In_ ULONG SessionId,
-	_In_ PWSTR DesktopName,
+	_In_ PCWSTR DesktopName,
 	_In_ BOOLEAN UseLinkedToken,
 	_In_ BOOLEAN CreateSuspendedProcess
 );

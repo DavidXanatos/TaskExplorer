@@ -4,6 +4,8 @@
 #include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include "../../API/Windows/WinService.h"
+#include "../../API/Windows/WinModule.h"
+#include <winerror.h>
 #endif
 
 CServiceModel::CServiceModel(QObject *parent)
@@ -56,6 +58,9 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 		int Changed = 0;
 
 		CModulePtr pModule = pService->GetModuleInfo();
+#ifdef WIN32
+		QSharedPointer<CWinModule> pWinModule = pModule.staticCast<CWinModule>();
+#endif
 
 		// Note: icons are loaded asynchroniusly
 #ifdef WIN32
@@ -121,6 +126,15 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 				case eGroupe:				Value = pWinService->GetGroupeName(); break;
 #endif
 				case eBinaryPath:			Value = pService->GetBinaryPath(); break;
+
+				//case eKeyModificationTime:	
+
+#ifdef WIN32
+				case eVerificationStatus:	Value = pWinModule ? pWinModule->GetVerifyResultString() : ""; break;
+				case eVerifiedSigner:		Value = pWinModule ? pWinModule->GetVerifySignerName() : ""; break;
+
+				case eExitCode:				Value = pWinService->GetWin32ExitCode() == ERROR_SERVICE_SPECIFIC_ERROR ? pWinService->GetServiceSpecificExitCode() : pWinService->GetWin32ExitCode(); break;
+#endif
 			}
 
 			SServiceNode::SValue& ColValue = pNode->Values[section];
@@ -133,7 +147,11 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 				switch (section)
 				{
-					case eService:				ColValue.Formated = pService->GetName(); break;
+					case ePID:				if (Value.toLongLong() < 0) ColValue.Formated = ""; 
+											else ColValue.Formated = theGUI->FormatID(Value.toLongLong()); 
+											break;
+
+					case eService:			ColValue.Formated = pService->GetName(); break;
 				}
 			}
 
@@ -194,6 +212,13 @@ QVariant CServiceModel::headerData(int section, Qt::Orientation orientation, int
 			case eVersion:				return tr("Version");
 #endif
 			case eBinaryPath:			return tr("Binary path");
+
+			//case eKeyModificationTime:	return tr("Modification time");
+
+			case eVerificationStatus:	return tr("Verification status");
+			case eVerifiedSigner:		return tr("Verified signer");
+
+			case eExitCode:				return tr("Exit code");
 		}
 	}
     return QVariant();

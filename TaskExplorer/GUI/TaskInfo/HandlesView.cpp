@@ -605,7 +605,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 
 		auto GetProcCon = [HandleInfo](const QString& PidName, const QString& PortName) {
 			CProcessPtr pProcess = theAPI->GetProcessByID(HandleInfo[PidName].toULongLong());
-			QString Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(HandleInfo[PidName].toString());
+			QString Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(theGUI->FormatID(HandleInfo[PidName].toULongLong()));
 			QString Port = HandleInfo[PortName].toString();
 			if (Port.isEmpty())
 				return Name;
@@ -636,7 +636,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Count"), HandleInfo["Count"].toString());
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Abandoned"), HandleInfo["Abandoned"].toBool() ? tr("True") : tr("False"));
 		CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo["TID"].toULongLong());
-		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(HandleInfo["PID"].toString()).arg(HandleInfo["TID"].toString()));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(theGUI->FormatID(HandleInfo["PID"].toULongLong())).arg(theGUI->FormatID(HandleInfo["TID"].toULongLong())));
 	}
 	else if(TypeName == "Process" || TypeName == "Thread")
 	{
@@ -644,12 +644,12 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		if (TypeName == "Process")
 		{
 			CProcessPtr pProcess = theAPI->GetProcessByID(HandleInfo["PID"].toULongLong());
-			Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(HandleInfo["PID"].toString());
+			Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(theGUI->FormatID(HandleInfo["PID"].toULongLong()));
 		}
 		else
 		{
 			CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo["TID"].toULongLong());
-			Name = tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(HandleInfo["PID"].toULongLong()).arg(HandleInfo["TID"].toULongLong());
+			Name = tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(theGUI->FormatID(HandleInfo["PID"].toULongLong())).arg(theGUI->FormatID(HandleInfo["TID"].toULongLong()));
 		}
 
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Name"), Name);

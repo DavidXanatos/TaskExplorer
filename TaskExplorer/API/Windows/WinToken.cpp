@@ -221,14 +221,14 @@ bool CWinToken::UpdateDynamicData(bool MonitorChange, bool IsOrWasRunning)
 	// if we are monitoring Token change we always update some values
 
 	// Integrity
-	MANDATORY_LEVEL_RID integrityLevel;
-	PWSTR integrityString;  // this will point to static stings so dont free it
-	if (NT_SUCCESS(PhGetTokenIntegrityLevelRID(tokenHandle, &integrityLevel, &integrityString)))
+	PH_INTEGRITY_LEVEL integrityLevel;
+	PPH_STRINGREF integrityString;
+	if (NT_SUCCESS(PhGetTokenIntegrityLevelEx(tokenHandle, &integrityLevel, &integrityString)))
 	{
-		if (m_IntegrityLevel != integrityLevel)
+		if (m_IntegrityLevel != integrityLevel.Level)
 		{
-			m_IntegrityLevel = integrityLevel;
-			m_IntegrityString = QString::fromWCharArray(integrityString);
+			m_IntegrityLevel = integrityLevel.Level;
+			m_IntegrityString = QString::fromWCharArray(integrityString->Buffer, integrityString->Length/sizeof(wchar_t));
 		}
 	}
 
@@ -404,12 +404,12 @@ bool CWinToken::UpdateExtendedData()
 		SetDangerousFlag(eSandboxInertEnabled, isSandboxInert);
     }
 
-//	BOOLEAN isUIAccess;
-//	if (NT_SUCCESS(PhGetTokenIsUIAccessEnabled(tokenHandle, &isUIAccess)))
-//	{
-//		// The presence of UIAccess flag is considered dangerous (diversenok)
-//		SetDangerousFlag(eUIAccessEnabled, isUIAccess);
-//	}
+	BOOLEAN isUIAccess;
+	if (NT_SUCCESS(PhGetTokenUIAccess(tokenHandle, &isUIAccess)))
+	{
+		// The presence of UIAccess flag is considered dangerous (diversenok)
+		SetDangerousFlag(eUIAccessEnabled, isUIAccess);
+	}
 
     //PhpUpdateTokenGroups
 	PTOKEN_GROUPS Groups = NULL;
@@ -749,10 +749,12 @@ STATUS CWinToken::GroupAction(const SGroup& Group, EAction Action)
 	return OK;
 }
 
-NTSTATUS NTAPI CWinToken__cbPermissionsClosed(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinToken__cbPermissionsClosed(_In_ HANDLE Handle, _In_ BOOLEAN Release, _In_opt_ PVOID Context)
 {
-	SWinToken* context = (SWinToken*)Context;
-	delete context;
+	if (Release) {
+		SWinToken* context = (SWinToken*)Context;
+		delete context;
+	}
 
 	return STATUS_SUCCESS;
 }

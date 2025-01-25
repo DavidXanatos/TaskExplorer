@@ -136,7 +136,9 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 				switch (section)
 				{
 					case eThread:		if (m_bExtThreadId)
-											ColValue.Formated = tr("%1 (%2): %3").arg(pWindow->GetProcessName()).arg(pWindow->GetProcessId()).arg(pWindow->GetThreadId());
+											ColValue.Formated = tr("%1 (%2): %3").arg(pWindow->GetProcessName()).arg(theGUI->FormatID(pWindow->GetProcessId())).arg(theGUI->FormatID(pWindow->GetThreadId()));
+										else
+											ColValue.Formated = theGUI->FormatID(pWindow->GetThreadId());
 										break;
 					case eHandle:		ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;
 					//case eThread:		ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;

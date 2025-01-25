@@ -11,6 +11,7 @@
  */
 
 #include <ph.h>
+#include <phconsole.h>
 #include <phintrnl.h>
 
 VOID PhInitializeSystemInformation(
@@ -30,15 +31,15 @@ BOOLEAN PhInitializeProcessorInformation(
     );
 
 PVOID PhInstanceHandle = NULL;
-PWSTR PhApplicationName = NULL;
+PCWSTR PhApplicationName = NULL;
 PVOID PhHeapHandle = NULL;
 RTL_OSVERSIONINFOEXW PhOsVersion = { 0 };
 PHLIBAPI PH_SYSTEM_BASIC_INFORMATION PhSystemBasicInformation = { 0 };
 PH_SYSTEM_PROCESSOR_INFORMATION PhSystemProcessorInformation = { 0 };
 ULONG WindowsVersion = WINDOWS_NEW;
 static WCHAR WindowsVersionStringBuffer[40] = { L'0', L'.', L'0', L'.', L'0', UNICODE_NULL };
-PWSTR WindowsVersionString = WindowsVersionStringBuffer;
-PWSTR WindowsVersionName = L"Windows";
+PCWSTR WindowsVersionString = WindowsVersionStringBuffer;
+PCWSTR WindowsVersionName = L"Windows";
 
 // Internal data
 #ifdef DEBUG
@@ -46,7 +47,7 @@ PHLIB_STATISTICS_BLOCK PhLibStatisticsBlock;
 #endif
 
 NTSTATUS PhInitializePhLib(
-    _In_ PWSTR ApplicationName,
+    _In_ PCWSTR ApplicationName,
     _In_ PVOID ImageBaseAddress
     )
 {
@@ -78,14 +79,13 @@ BOOLEAN PhIsExecutingInWow64(
     )
 {
 #ifndef _WIN64
-    static BOOLEAN valid = FALSE;
+    static volatile BOOLEAN valid = FALSE;
     static BOOLEAN isWow64 = FALSE;
 
-    if (!valid)
+    if (!ReadBooleanAcquire(&valid))
     {
         PhGetProcessIsWow64(NtCurrentProcess(), &isWow64);
-        MemoryBarrier();
-        valid = TRUE;
+        WriteBooleanRelease(&valid, TRUE);
     }
 
     return isWow64;
@@ -100,9 +100,14 @@ VOID PhInitializeSystemInformation(
 {
     SYSTEM_BASIC_INFORMATION basicInfo = { 0 };
 
+    // Note: We can't check the return of SystemBasicInformation
+    // due to third party software hooking the function and returnnig
+    // a random error status.
+
     PhSystemBasicInformation.PageSize = PAGE_SIZE;
     PhSystemBasicInformation.NumberOfProcessors = 1;
     PhSystemBasicInformation.NumberOfPhysicalPages = ULONG_MAX;
+    PhSystemBasicInformation.MaximumTimerResolution = 0x2625A;
     PhSystemBasicInformation.AllocationGranularity = 0x10000;
     PhSystemBasicInformation.MaximumUserModeAddress = 0x10000;
     PhSystemBasicInformation.ActiveProcessorsAffinityMask = USHRT_MAX;
@@ -117,6 +122,7 @@ VOID PhInitializeSystemInformation(
     PhSystemBasicInformation.PageSize = (USHORT)basicInfo.PageSize;
     PhSystemBasicInformation.NumberOfProcessors = (USHORT)basicInfo.NumberOfProcessors;
     PhSystemBasicInformation.NumberOfPhysicalPages = basicInfo.NumberOfPhysicalPages;
+    PhSystemBasicInformation.MaximumTimerResolution = basicInfo.TimerResolution;
     PhSystemBasicInformation.AllocationGranularity = basicInfo.AllocationGranularity;
     PhSystemBasicInformation.MaximumUserModeAddress = basicInfo.MaximumUserModeAddress;
     PhSystemBasicInformation.ActiveProcessorsAffinityMask = basicInfo.ActiveProcessorsAffinityMask;
@@ -189,7 +195,7 @@ VOID PhInitializeWindowsVersion(
         if (buildVersion > 26100)
         {
             WindowsVersion = WINDOWS_NEW;
-            WindowsVersionName = L"Windows";
+            WindowsVersionName = L"Windows Insider Preview";
         }
         else if (buildVersion >= 26100)
         {
@@ -279,7 +285,7 @@ VOID PhInitializeWindowsVersion(
         else if (buildVersion >= 10240)
         {
             WindowsVersion = WINDOWS_10;
-            WindowsVersionName = L"Windows 10";
+            WindowsVersionName = L"Windows 10 RTM";
         }
         else
         {
@@ -315,6 +321,8 @@ BOOLEAN PhHeapInitialization(
 
     if (!PhHeapHandle)
     {
+        static ULONG heapCompatibility = HEAP_COMPATIBILITY_LFH;
+
         PhHeapHandle = RtlCreateHeap(
             HEAP_GROWABLE | HEAP_CLASS_1,
             NULL,
@@ -330,7 +338,7 @@ BOOLEAN PhHeapInitialization(
         RtlSetHeapInformation(
             PhHeapHandle,
             HeapCompatibilityInformation,
-            &(ULONG){ HEAP_COMPATIBILITY_LFH },
+            &heapCompatibility,
             sizeof(ULONG)
             );
     }
@@ -404,4 +412,32 @@ BOOLEAN PhInitializeProcessorInformation(
     }
 
     return TRUE;
+}
+
+_Use_decl_annotations_
+VOID PhExitApplication(
+    _In_opt_ NTSTATUS Status
+    )
+{
+#define WORKAROUND_CRTBUG_EXITPROCESS
+#ifdef WORKAROUND_CRTBUG_EXITPROCESS
+    HANDLE standardHandle;
+
+    if (standardHandle = PhGetStdHandle(STD_OUTPUT_HANDLE))
+    {
+        DEVICE_TYPE deviceType;
+
+        if (NT_SUCCESS(PhGetDeviceType(NtCurrentProcess(), standardHandle, &deviceType)))
+        {
+            if (deviceType == FILE_DEVICE_CONSOLE)
+            {
+                FlushFileBuffers(standardHandle);
+            }
+        }
+    }
+
+    NtTerminateProcess(NtCurrentProcess(), Status);
+#else
+    RtlExitUserProcess(Status);
+#endif
 }

@@ -246,7 +246,7 @@ CleanupExit:
  */
 NTSTATUS PhCreateFilePool2(
     _Out_ PPH_FILE_POOL *Pool,
-    _In_ PWSTR FileName,
+    _In_ PCWSTR FileName,
     _In_ BOOLEAN ReadOnly,
     _In_ ULONG ShareAccess,
     _In_ ULONG CreateDisposition,
@@ -1338,7 +1338,7 @@ BOOLEAN PhFppInsertFreeList(
     )
 {
     ULONG oldSegmentIndex;
-    PPH_FP_BLOCK_HEADER oldSegmentFirstBlock;
+    PPH_FP_BLOCK_HEADER oldSegmentFirstBlock = NULL;
     PPH_FP_SEGMENT_HEADER oldSegmentHeader;
 
     oldSegmentIndex = Pool->Header->FreeLists[FreeListIndex];
@@ -1385,11 +1385,11 @@ BOOLEAN PhFppRemoveFreeList(
     )
 {
     ULONG flinkSegmentIndex;
-    PPH_FP_BLOCK_HEADER flinkSegmentFirstBlock;
-    PPH_FP_SEGMENT_HEADER flinkSegmentHeader;
+    PPH_FP_BLOCK_HEADER flinkSegmentFirstBlock = NULL;
+    PPH_FP_SEGMENT_HEADER flinkSegmentHeader = NULL;
     ULONG blinkSegmentIndex;
-    PPH_FP_BLOCK_HEADER blinkSegmentFirstBlock;
-    PPH_FP_SEGMENT_HEADER blinkSegmentHeader;
+    PPH_FP_BLOCK_HEADER blinkSegmentFirstBlock = NULL;
+    PPH_FP_SEGMENT_HEADER blinkSegmentHeader = NULL;
 
     flinkSegmentIndex = SegmentHeader->FreeFlink;
     blinkSegmentIndex = SegmentHeader->FreeBlink;

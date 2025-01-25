@@ -222,14 +222,14 @@ PPH_STRING PvpQueryModuleOrdinalName(
                                         if (PhLoadModuleSymbolProvider(
                                             moduleSymbolProvider,
                                             exportFileName,
-                                            (ULONG64)mappedImage.ViewBase,
+                                            mappedImage.ViewBase,
                                             (ULONG)mappedImage.ViewSize
                                             ))
                                         {
                                             // Try find the export name using symbols.
                                             exportSymbol = PhGetSymbolFromAddress(
                                                 moduleSymbolProvider,
-                                                (ULONG64)PTR_ADD_OFFSET(mappedImage.ViewBase, exportFunction.Function),
+                                                PTR_ADD_OFFSET(mappedImage.ViewBase, exportFunction.Function),
                                                 NULL,
                                                 NULL,
                                                 &exportSymbolName,
@@ -452,6 +452,7 @@ INT_PTR CALLBACK PvPeImportsDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Imports (Ctrl+K)",
                 PvpPeImportsSearchControlCallback,
@@ -464,6 +465,7 @@ INT_PTR CALLBACK PvPeImportsDlgProc(
             PvConfigTreeBorders(context->TreeNewHandle);
 
             TreeNew_SetEmptyText(context->TreeNewHandle, &LoadingImportsText, 0);
+            TreeNew_SetRowHeight(context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(hwndDlg)));
 
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
             PhAddLayoutItem(&context->LayoutManager, context->SearchHandle, NULL, PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
@@ -573,7 +575,16 @@ INT_PTR CALLBACK PvPeImportsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -929,10 +940,6 @@ BOOLEAN NTAPI PvImportTreeNewCallback(
                         PhDereferenceObject(text);
                     }
                 }
-                break;
-            case 'A':
-                if (GetKeyState(VK_CONTROL) < 0)
-                    TreeNew_SelectRange(context->TreeNewHandle, 0, -1);
                 break;
             }
         }

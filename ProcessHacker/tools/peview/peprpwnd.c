@@ -807,7 +807,7 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
                         PhLoadModuleSymbolProvider(
                             PvSymbolProvider,
                             fileName,
-                            (ULONG64)PvMappedImage.NtHeaders32->OptionalHeader.ImageBase,
+                            PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, 0),
                             PvMappedImage.NtHeaders32->OptionalHeader.SizeOfImage
                             );
                     }
@@ -816,7 +816,7 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
                         PhLoadModuleSymbolProvider(
                             PvSymbolProvider,
                             fileName,
-                            (ULONG64)PvMappedImage.NtHeaders->OptionalHeader.ImageBase,
+                            PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, 0),
                             PvMappedImage.NtHeaders->OptionalHeader.SizeOfImage
                             );
                     }
@@ -890,7 +890,7 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
                         PhGetString(PvFileName),
                         L"FileObject",
                         PhpOpenFileSecurity,
-                        NULL,
+                        PhpCloseFileSecurity,
                         NULL
                         );
                 }
@@ -923,7 +923,7 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
             //        case 1: // Old colors
             //            {
             //                SetDCBrushColor(drawInfo->hDC, RGB(0, 0, 0));
-            //                FillRect(drawInfo->hDC, &rect, GetStockBrush(DC_BRUSH));
+            //                FillRect(drawInfo->hDC, &rect, PhGetStockBrush(DC_BRUSH));
             //            }
             //            break;
             //        }
@@ -945,6 +945,19 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
 
             switch (header->code)
             {
+            case TVN_KEYDOWN:
+                {
+                    LPNMTVKEYDOWN keydown = (LPNMTVKEYDOWN)lParam;
+
+                    if (keydown->wVKey == 'K' && GetKeyState(VK_CONTROL) < 0)
+                    {
+                        PPV_WINDOW_SECTION section;
+
+                        if (section = PvGetSelectedTabSection(NULL))
+                            SendMessage(section->DialogHandle, WM_KEYDOWN, keydown->wVKey, 0);
+                    }
+                }
+                break;
             case TVN_SELCHANGED:
                 {
                     LPNMTREEVIEW treeview = (LPNMTREEVIEW)lParam;

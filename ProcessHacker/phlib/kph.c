@@ -334,8 +334,8 @@ VOID KphSetServiceSecurity(
     securityDescriptor = (PSECURITY_DESCRIPTOR)securityDescriptorBuffer;
     dacl = PTR_ADD_OFFSET(securityDescriptor, SECURITY_DESCRIPTOR_MIN_LENGTH);
 
-    RtlCreateSecurityDescriptor(securityDescriptor, SECURITY_DESCRIPTOR_REVISION);
-    RtlCreateAcl(dacl, sdAllocationLength - SECURITY_DESCRIPTOR_MIN_LENGTH, ACL_REVISION);
+    PhCreateSecurityDescriptor(securityDescriptor, SECURITY_DESCRIPTOR_REVISION);
+    PhCreateAcl(dacl, sdAllocationLength - SECURITY_DESCRIPTOR_MIN_LENGTH, ACL_REVISION);
     RtlAddAccessAllowedAce(dacl, ACL_REVISION, SERVICE_ALL_ACCESS, (PSID)&PhSeServiceSid);
     RtlAddAccessAllowedAce(dacl, ACL_REVISION, SERVICE_ALL_ACCESS, administratorsSid);
     RtlAddAccessAllowedAce(dacl, ACL_REVISION,
@@ -347,7 +347,7 @@ VOID KphSetServiceSecurity(
         DELETE,
         (PSID)&PhSeInteractiveSid
         );
-    RtlSetDaclSecurityDescriptor(securityDescriptor, TRUE, dacl, FALSE);
+    PhSetDaclSecurityDescriptor(securityDescriptor, TRUE, dacl, FALSE);
 
     PhSetServiceObjectSecurity(ServiceHandle, DACL_SECURITY_INFORMATION, securityDescriptor);
 
@@ -425,10 +425,15 @@ NTSTATUS KsiLoadUnloadService(
         {
             if (disposition == REG_CREATED_NEW_KEY)
             {
+                ULONG regValue;
+
                 fullServiceFileName = PhConcatStringRef2(&PhNtDosDevicesPrefix, Config->FileName);
-                PhSetValueKeyZ(serviceKeyHandle, L"ErrorControl", REG_DWORD, &(ULONG){ SERVICE_ERROR_NORMAL }, sizeof(ULONG));
-                PhSetValueKeyZ(serviceKeyHandle, L"Type", REG_DWORD, &(ULONG){ SERVICE_KERNEL_DRIVER }, sizeof(ULONG));
-                PhSetValueKeyZ(serviceKeyHandle, L"Start", REG_DWORD, &(ULONG){ SERVICE_DISABLED }, sizeof(ULONG));
+                regValue = SERVICE_ERROR_NORMAL;
+                PhSetValueKeyZ(serviceKeyHandle, L"ErrorControl", REG_DWORD, &regValue, sizeof(ULONG));
+                regValue = SERVICE_KERNEL_DRIVER;
+                PhSetValueKeyZ(serviceKeyHandle, L"Type", REG_DWORD, &regValue, sizeof(ULONG));
+                regValue = SERVICE_DISABLED;
+                PhSetValueKeyZ(serviceKeyHandle, L"Start", REG_DWORD, &regValue, sizeof(ULONG));
                 PhSetValueKeyZ(serviceKeyHandle, L"ImagePath", REG_SZ, fullServiceFileName->Buffer, (ULONG)fullServiceFileName->Length + sizeof(UNICODE_NULL));
                 PhSetValueKeyZ(serviceKeyHandle, L"ObjectName", REG_SZ, Config->ObjectName->Buffer, (ULONG)Config->ObjectName->Length + sizeof(UNICODE_NULL));
                 PhDereferenceObject(fullServiceFileName);
@@ -440,14 +445,14 @@ NTSTATUS KsiLoadUnloadService(
         }
 
         if (Config->EnableFilterLoad)
-            status = KphFilterLoadUnload(Config->ServiceName, TRUE);
+            status = PhFilterLoadUnload(Config->ServiceName, TRUE);
         else
             status = NtLoadDriver(&driverServiceKeyName);
     }
     else
     {
         if (Config->EnableFilterLoad)
-            status = KphFilterLoadUnload(Config->ServiceName, FALSE);
+            status = PhFilterLoadUnload(Config->ServiceName, FALSE);
         else
             status = NtUnloadDriver(&driverServiceKeyName);
     }
@@ -905,6 +910,56 @@ NTSTATUS KphQueryInformationObject(
     return status;
 }
 
+NTSTATUS KphQueryObjectThreadName(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _Out_ PPH_STRING* ThreadName
+    )
+{
+    NTSTATUS status;
+    ULONG bufferSize;
+    ULONG returnLength;
+    PTHREAD_NAME_INFORMATION buffer;
+
+    returnLength = 0;
+    bufferSize = 0x100;
+    buffer = PhAllocate(bufferSize);
+
+    status = KphQueryInformationObject(
+        ProcessHandle,
+        Handle,
+        KphObjectThreadNameInformation,
+        buffer,
+        bufferSize,
+        &returnLength
+        );
+
+    if (status == STATUS_BUFFER_TOO_SMALL && returnLength > 0)
+    {
+        PhFree(buffer);
+        bufferSize = returnLength;
+        buffer = PhAllocate(returnLength);
+
+        status = KphQueryInformationObject(
+            ProcessHandle,
+            Handle,
+            KphObjectThreadNameInformation,
+            buffer,
+            bufferSize,
+            &returnLength
+            );
+    }
+
+    if (NT_SUCCESS(status))
+    {
+        *ThreadName = PhCreateStringFromUnicodeString(&buffer->ThreadName);
+    }
+
+    PhFree(buffer);
+
+    return status;
+}
+
 NTSTATUS KphQueryObjectSectionMappingsInfo(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
@@ -983,7 +1038,7 @@ NTSTATUS KphSetInformationObject(
 NTSTATUS KphOpenDriver(
     _Out_ PHANDLE DriverHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes
     )
 {
     NTSTATUS status;
@@ -995,7 +1050,7 @@ NTSTATUS KphOpenDriver(
     KphMsgInit(msg, KphMsgOpenDriver);
     msg->User.OpenDriver.DriverHandle = DriverHandle;
     msg->User.OpenDriver.DesiredAccess = DesiredAccess;
-    msg->User.OpenDriver.ObjectAttributes = ObjectAttributes;
+    msg->User.OpenDriver.ObjectAttributes = (POBJECT_ATTRIBUTES)ObjectAttributes;
     status = KphCommsSendMessage(msg);
 
     if (NT_SUCCESS(status))
@@ -1147,10 +1202,7 @@ KPH_LEVEL KsiLevel(
     VOID
     )
 {
-    //return KphLevelEx(TRUE);
-    if (!KphCommsIsConnected())
-        return KphLevelNone;
-    return KphLevelMax;
+    return KphLevelEx(TRUE);
 }
 
 NTSTATUS KphSetInformationProcess(
@@ -1471,7 +1523,7 @@ NTSTATUS KphQueryPerformanceCounter(
 NTSTATUS KphCreateFile(
     _Out_ PHANDLE FileHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes,
     _Out_ PIO_STATUS_BLOCK IoStatusBlock,
     _In_opt_ PLARGE_INTEGER AllocationSize,
     _In_ ULONG FileAttributes,
@@ -1492,7 +1544,7 @@ NTSTATUS KphCreateFile(
     KphMsgInit(msg, KphMsgCreateFile);
     msg->User.CreateFile.FileHandle = FileHandle;
     msg->User.CreateFile.DesiredAccess = DesiredAccess;
-    msg->User.CreateFile.ObjectAttributes = ObjectAttributes;
+    msg->User.CreateFile.ObjectAttributes = (POBJECT_ATTRIBUTES)ObjectAttributes;
     msg->User.CreateFile.IoStatusBlock = IoStatusBlock;
     msg->User.CreateFile.AllocationSize = AllocationSize;
     msg->User.CreateFile.FileAttributes = FileAttributes;
@@ -2031,4 +2083,86 @@ NTSTATUS KsiQueryHashInformationFile(
 
     PhFreeToFreeList(&KphMessageFreeList, msg);
     return status;
+}
+
+NTSTATUS KphOpenDevice(
+    _Out_ PHANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    )
+{
+    NTSTATUS status;
+    PKPH_MESSAGE msg;
+
+    KSI_COMMS_INIT_ASSERT();
+
+    msg = PhAllocateFromFreeList(&KphMessageFreeList);
+    KphMsgInit(msg, KphMsgOpenDevice);
+    msg->User.OpenDevice.DeviceHandle = DeviceHandle;
+    msg->User.OpenDevice.DesiredAccess = DesiredAccess;
+    msg->User.OpenDevice.ObjectAttributes = ObjectAttributes;
+    status = KphCommsSendMessage(msg);
+
+    if (NT_SUCCESS(status))
+    {
+        status = msg->User.OpenDevice.Status;
+    }
+
+    PhFreeToFreeList(&KphMessageFreeList, msg);
+    return status;
+}
+
+NTSTATUS KphOpenDeviceDriver(
+    _In_ HANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _Out_ PHANDLE DriverHandle
+    )
+{
+    NTSTATUS status;
+    PKPH_MESSAGE msg;
+
+    KSI_COMMS_INIT_ASSERT();
+
+    msg = PhAllocateFromFreeList(&KphMessageFreeList);
+    KphMsgInit(msg, KphMsgOpenDeviceDriver);
+    msg->User.OpenDeviceDriver.DeviceHandle = DeviceHandle;
+    msg->User.OpenDeviceDriver.DesiredAccess = DesiredAccess;
+    msg->User.OpenDeviceDriver.DriverHandle = DriverHandle;
+    status = KphCommsSendMessage(msg);
+
+    if (!NT_SUCCESS(status))
+    {
+        status = msg->User.OpenDeviceDriver.Status;
+    }
+
+    PhFreeToFreeList(&KphMessageFreeList, msg);
+    return status;
+}
+
+NTSTATUS KphOpenDeviceBaseDevice(
+    _In_ HANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _Out_ PHANDLE BaseDeviceHandle
+    )
+{
+    NTSTATUS status;
+    PKPH_MESSAGE msg;
+
+    KSI_COMMS_INIT_ASSERT();
+
+    msg = PhAllocateFromFreeList(&KphMessageFreeList);
+    KphMsgInit(msg, KphMsgOpenDeviceBaseDevice);
+    msg->User.OpenDeviceBaseDevice.DeviceHandle = DeviceHandle;
+    msg->User.OpenDeviceBaseDevice.DesiredAccess = DesiredAccess;
+    msg->User.OpenDeviceBaseDevice.BaseDeviceHandle = BaseDeviceHandle;
+    status = KphCommsSendMessage(msg);
+
+    if (!NT_SUCCESS(status))
+    {
+        status = msg->User.OpenDeviceDriver.Status;
+    }
+
+    PhFreeToFreeList(&KphMessageFreeList, msg);
+    return status;
+
 }

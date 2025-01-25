@@ -97,7 +97,9 @@ public:
 
 	static int			GetGraphLimit(bool bLong = false);
 
-	static void			CheckErrors(QList<STATUS> Errors);
+	static bool			CheckErrors(QList<STATUS> Errors);
+
+	QString				FormatID(quint64 ID) const;
 
 	static QString		GetVersion();
 
@@ -161,7 +163,7 @@ private slots:
 	void				OnFindMemory();
 
 	void				OnSettings();
-	void				OnDriverConf();
+	//void				OnDriverConf();
 	void				OnAutoRun();
 	void				OnSkipUAC();
 
@@ -264,7 +266,7 @@ private:
 	QMenu*				m_pMenuOptions;
 	QAction*			m_pMenuSettings;
 #ifdef WIN32
-	QAction*			m_pMenuDriverConf;
+	//QAction*			m_pMenuDriverConf;
 	QAction*			m_pMenuAutoRun;
 	QAction*			m_pMenuUAC;
 #endif

@@ -487,6 +487,38 @@ PhGetProcessConsoleHostProcessId(
 
 FORCEINLINE
 NTSTATUS
+PhGetProcessConsoleHostProcess(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PHANDLE ConsoleHostProcessId,
+    _Out_opt_ PBOOLEAN ConsoleApplication
+    )
+{
+    NTSTATUS status;
+    ULONG_PTR consoleHostProcess;
+
+    status = NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessConsoleHostProcess,
+        &consoleHostProcess,
+        sizeof(ULONG_PTR),
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *ConsoleHostProcessId = (HANDLE)(consoleHostProcess & ~3);
+    }
+
+    if (ConsoleApplication)
+    {
+        *ConsoleApplication = !!(ULONG_PTR)(consoleHostProcess & 2);
+    }
+
+    return status;
+}
+
+FORCEINLINE
+NTSTATUS
 PhGetProcessProtection(
     _In_ HANDLE ProcessHandle,
     _Out_ PPS_PROTECTION Protection
@@ -1989,8 +2021,13 @@ PhGetProcessIsCetEnabled(
 
     if (NT_SUCCESS(status))
     {
+#if !defined(NTDDI_WIN10_CO) || (NTDDI_VERSION < NTDDI_WIN10_CO)
+        *IsCetEnabled = _bittest((const PLONG)&policyInfo.ControlFlowGuardPolicy.Flags, 0);
+        *IsCetStrictModeEnabled = _bittest((const PLONG)&policyInfo.ControlFlowGuardPolicy.Flags, 4);
+#else
         *IsCetEnabled = !!policyInfo.UserShadowStackPolicy.EnableUserShadowStack;
         *IsCetStrictModeEnabled = !!policyInfo.UserShadowStackPolicy.EnableUserShadowStackStrictMode;
+#endif
     }
 
     return status;
@@ -2000,7 +2037,7 @@ FORCEINLINE
 NTSTATUS
 NTAPI
 PhGetSystemHypervisorSharedPageInformation(
-    _Out_ PPVOID HypervisorSharedUserVa
+    _Out_ PSYSTEM_HYPERVISOR_USER_SHARED_DATA* HypervisorSharedUserVa
     )
 {
     NTSTATUS status;
@@ -2111,10 +2148,17 @@ PhGetSystemUptime(
 FORCEINLINE
 NTSTATUS PhWaitForSingleObject(
     _In_ HANDLE Handle,
-    _In_opt_ PLARGE_INTEGER Timeout
+    _In_opt_ ULONG Timeout
     )
 {
-    return NtWaitForSingleObject(Handle, FALSE, Timeout);
+    LARGE_INTEGER timeout;
+
+    if (Timeout)
+    {
+        timeout.QuadPart = -(LONGLONG)UInt32x32To64(Timeout, PH_TIMEOUT_MS);
+    }
+
+    return NtWaitForSingleObject(Handle, FALSE, Timeout ? &timeout : NULL);
 }
 
 #endif

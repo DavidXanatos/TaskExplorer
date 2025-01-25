@@ -13,6 +13,11 @@
 #ifndef _PH_APIIMPORT_H
 #define _PH_APIIMPORT_H
 
+#include <sddl.h>
+//#include <shlwapi.h>
+#include <userenv.h>
+#include <ntuser.h>
+
 // ntdll
 
 typedef NTSTATUS (NTAPI *_NtQueryInformationEnlistment)(
@@ -56,6 +61,14 @@ typedef NTSTATUS (NTAPI* _NtSetInformationVirtualMemory)(
     _In_ ULONG VmInformationLength
     );
 
+#if (PHNT_VERSION >= PHNT_THRESHOLD)
+typedef NTSTATUS (NTAPI* _LdrControlFlowGuardEnforcedWithExportSuppression)(
+    VOID
+    );
+#endif
+
+typedef PS_SYSTEM_DLL_INIT_BLOCK* _LdrSystemDllInitBlock;
+
 typedef NTSTATUS (NTAPI* _NtCreateProcessStateChange)(
     _Out_ PHANDLE ProcessStateChangeHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -72,6 +85,40 @@ typedef NTSTATUS (NTAPI* _NtChangeProcessState)(
     _In_opt_ SIZE_T ExtendedInformationLength,
     _In_opt_ ULONG64 Reserved
     );
+
+#if (PHNT_VERSION >= PHNT_WIN11)
+typedef NTSTATUS (NTAPI* _NtCopyFileChunk)(
+    _In_ HANDLE SourceHandle,
+    _In_ HANDLE DestinationHandle,
+    _In_opt_ HANDLE EventHandle,
+    _Out_ PIO_STATUS_BLOCK IoStatusBlock,
+    _In_ ULONG Length,
+    _In_ PLARGE_INTEGER SourceOffset,
+    _In_ PLARGE_INTEGER DestOffset,
+    _In_opt_ PULONG SourceKey,
+    _In_opt_ PULONG DestKey,
+    _In_ ULONG Flags
+);
+#endif
+
+#if (PHNT_VERSION >= PHNT_REDSTONE5)
+typedef NTSTATUS (NTAPI* _NtAllocateVirtualMemoryEx)(
+    _In_ HANDLE ProcessHandle,
+    _Inout_ _At_(*BaseAddress, _Readable_bytes_(*RegionSize) _Writable_bytes_(*RegionSize) _Post_readable_byte_size_(*RegionSize)) PVOID *BaseAddress,
+    _Inout_ PSIZE_T RegionSize,
+    _In_ ULONG AllocationType,
+    _In_ ULONG PageProtection,
+    _Inout_updates_opt_(ExtendedParameterCount) PMEM_EXTENDED_PARAMETER ExtendedParameters,
+    _In_ ULONG ExtendedParameterCount
+);
+#endif
+
+#if (PHNT_VERSION >= PHNT_THRESHOLD)
+typedef NTSTATUS (NTAPI* _NtCompareObjects)(
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle
+);
+#endif
 
 typedef NTSTATUS (NTAPI* _RtlDefaultNpAcl)(
     _Out_ PACL* Acl
@@ -115,6 +162,12 @@ typedef HRESULT (WINAPI* _GetAppContainerFolderPath)(
     _In_ PCWSTR pszAppContainerSid,
     _Out_ PWSTR* ppszPath
     );
+
+typedef NTSTATUS (NTAPI* _ConsoleControl)(
+    _In_ CONSOLECONTROL Command,
+    _In_reads_bytes_(ConsoleInformationLength) PVOID ConsoleInformation,
+    _In_ ULONG ConsoleInformationLength
+);
 
 typedef NTSTATUS (WINAPI* _PssNtCaptureSnapshot)(
     _Out_ PHANDLE SnapshotHandle,
@@ -191,7 +244,7 @@ typedef ULONG (WINAPI* _PssQuerySnapshot)(
     );
 
 typedef LONG (WINAPI* _DnsQuery_W)(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ USHORT Type,
     _In_ ULONG Options,
     _Inout_opt_ PVOID Extra,
@@ -220,7 +273,7 @@ typedef LONG (WINAPI* _DnsExtractRecordsFromMessage_W)(
 typedef BOOL (WINAPI* _DnsWriteQuestionToBuffer_W)(
     _Inout_ PDNS_MESSAGE_BUFFER DnsBuffer,
     _Inout_ PULONG BufferSize,
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ USHORT Type,
     _In_ USHORT Xid,
     _In_ BOOL RecursionDesired
@@ -276,9 +329,16 @@ PH_DECLARE_IMPORT(NtQueryInformationEnlistment);
 PH_DECLARE_IMPORT(NtQueryInformationResourceManager);
 PH_DECLARE_IMPORT(NtQueryInformationTransaction);
 PH_DECLARE_IMPORT(NtQueryInformationTransactionManager);
-PH_DECLARE_IMPORT(NtSetInformationVirtualMemory);
+//PH_DECLARE_IMPORT(NtSetInformationVirtualMemory);
 PH_DECLARE_IMPORT(NtCreateProcessStateChange);
 PH_DECLARE_IMPORT(NtChangeProcessState);
+PH_DECLARE_IMPORT(NtCopyFileChunk);
+PH_DECLARE_IMPORT(NtAllocateVirtualMemoryEx);
+PH_DECLARE_IMPORT(NtCompareObjects);
+
+PH_DECLARE_IMPORT(NtSetInformationVirtualMemory);
+PH_DECLARE_IMPORT(LdrControlFlowGuardEnforcedWithExportSuppression);
+PH_DECLARE_IMPORT(LdrSystemDllInitBlock);
 
 PH_DECLARE_IMPORT(RtlDefaultNpAcl);
 PH_DECLARE_IMPORT(RtlGetTokenNamedObjectPath);
@@ -302,9 +362,9 @@ PH_DECLARE_IMPORT(ConvertStringSecurityDescriptorToSecurityDescriptorW);
 
 PH_DECLARE_IMPORT(SHAutoComplete);
 
-PH_DECLARE_IMPORT(PssCaptureSnapshot);
-PH_DECLARE_IMPORT(PssQuerySnapshot);
-PH_DECLARE_IMPORT(PssFreeSnapshot);
+//PH_DECLARE_IMPORT(PssCaptureSnapshot);
+//PH_DECLARE_IMPORT(PssQuerySnapshot);
+//PH_DECLARE_IMPORT(PssFreeSnapshot);
 
 PH_DECLARE_IMPORT(CreateEnvironmentBlock);
 PH_DECLARE_IMPORT(DestroyEnvironmentBlock);
@@ -313,6 +373,7 @@ PH_DECLARE_IMPORT(GetAppContainerFolderPath);
 
 // User32
 
-PH_DECLARE_IMPORT(SetWindowDisplayAffinity);
+//PH_DECLARE_IMPORT(SetWindowDisplayAffinity);
+PH_DECLARE_IMPORT(ConsoleControl);
 
 #endif

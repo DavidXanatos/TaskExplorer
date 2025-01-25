@@ -41,6 +41,14 @@ public:
 		eVersion,
 #endif
 		eBinaryPath,
+
+		//eKeyModificationTime,
+
+		eVerificationStatus,
+		eVerifiedSigner,
+
+		eExitCode,
+
 		eCount
 	};
 

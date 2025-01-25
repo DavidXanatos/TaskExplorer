@@ -308,10 +308,12 @@ STATUS CWinJob::AddProcess(quint64 ProcessId)
 	return OK;
 }
 
-NTSTATUS NTAPI CWinJob__cbPermissionsClosed(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinJob__cbPermissionsClosed(_In_ HANDLE Handle, _In_ BOOLEAN Release, _In_opt_ PVOID Context)
 {
-	SWinJob* context = (SWinJob*)Context;
-	delete context;
+	if (Release) {
+		SWinJob* context = (SWinJob*)Context;
+		delete context;
+	}
 
 	return STATUS_SUCCESS;
 }

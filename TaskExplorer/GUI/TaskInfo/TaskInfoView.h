@@ -10,6 +10,7 @@ class CThreadsView;
 class CModulesView;
 class CWindowsView;
 class CMemoryView;
+class CHeapView;
 class CTokenView;
 class CJobView;
 //class CServicesView;
@@ -71,6 +72,7 @@ private:
 	CModulesView*		m_pModulesView;
 	CWindowsView*		m_pWindowsView;
 	CMemoryView*		m_pMemoryView;
+	CHeapView*			m_pHeapView;
 #ifdef WIN32
 	CTokenView*			m_pTokenView;
 	CJobView*			m_pJobView;

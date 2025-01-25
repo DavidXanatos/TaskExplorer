@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2022
+ *     dmex    2017-2025
  *
  */
 
@@ -17,15 +17,13 @@
 extern "C" {
 #endif
 
-#define _User_set_
-
-extern _User_set_ PVOID PhInstanceHandle;
-extern _User_set_ PWSTR PhApplicationName;
-extern PVOID PhHeapHandle;
-extern RTL_OSVERSIONINFOEXW PhOsVersion;
-extern ULONG WindowsVersion;
-extern PWSTR WindowsVersionString;
-extern PWSTR WindowsVersionName;
+EXTERN_C PVOID PhInstanceHandle;
+EXTERN_C PCWSTR PhApplicationName;
+EXTERN_C PVOID PhHeapHandle;
+EXTERN_C RTL_OSVERSIONINFOEXW PhOsVersion;
+EXTERN_C ULONG WindowsVersion;
+EXTERN_C PCWSTR WindowsVersionString;
+EXTERN_C PCWSTR WindowsVersionName;
 
 #define WINDOWS_ANCIENT 0
 #define WINDOWS_XP 51 // August, 2001
@@ -51,10 +49,11 @@ extern PWSTR WindowsVersionName;
 #define WINDOWS_11 114 // October, 2021
 #define WINDOWS_11_22H2 115 // September, 2022
 #define WINDOWS_11_23H2 116 // October, 2023
-#define WINDOWS_11_24H2 117 // TBA
+#define WINDOWS_11_24H2 117 // October, 2024
 #define WINDOWS_NEW ULONG_MAX
 
 #ifdef DEBUG
+//#define dprintf(format, ...) DbgPrint(format __VA_OPT__(,) __VA_ARGS__)
 #define dprintf(format, ...) DbgPrint(format, ##__VA_ARGS__)
 #else
 #define dprintf(format, ...)
@@ -64,7 +63,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhInitializePhLib(
-    _In_ PWSTR ApplicationName,
+    _In_ PCWSTR ApplicationName,
     _In_ PVOID ImageBaseAddress
     );
 
@@ -75,15 +74,13 @@ PhIsExecutingInWow64(
     VOID
     );
 
+_Analysis_noreturn_
 DECLSPEC_NORETURN
-FORCEINLINE
 VOID
+NTAPI
 PhExitApplication(
     _In_opt_ NTSTATUS Status
-    )
-{
-    RtlExitUserProcess(Status);
-}
+    );
 
 // Processor group support (dmex)
 
@@ -91,6 +88,7 @@ typedef struct _PH_SYSTEM_BASIC_INFORMATION
 {
     USHORT PageSize;
     USHORT NumberOfProcessors;
+    ULONG MaximumTimerResolution;
     ULONG NumberOfPhysicalPages;
     ULONG AllocationGranularity;
     ULONG_PTR MaximumUserModeAddress;

@@ -65,6 +65,8 @@ void CTaskView::AddPriority(EPriorityType Type, const QString& Name, int Value)
 void CTaskView::AddPriorityItemsToMenu(EPriorityType Style)
 {
 	m_pAffinity = m_pMenu->addAction(tr("Affinity"), this, SLOT(OnAffinity()));
+	m_pBoost = m_pMenu->addAction(tr("Boost"), this, SLOT(OnBoost()));
+	m_pBoost->setCheckable(true);
 
 	m_pPriority = m_pMenu->addMenu(tr("Priority"));
 	switch (Style)
@@ -118,6 +120,7 @@ void CTaskView::OnMenu(const QPoint& Point)
 	QList<CTaskPtr>	Tasks = GetSellectedTasks();
 
 	int SuspendedCount = 0;
+	bool Boost = false;
 	int Priority = INVALID_PRIORITY;
 	int IoPriority = INVALID_PRIORITY;
 	int PagePriority = INVALID_PRIORITY;
@@ -125,6 +128,9 @@ void CTaskView::OnMenu(const QPoint& Point)
 	{
 		if (pTask->IsSuspended())
 			SuspendedCount++;
+
+		if(pTask->HasPriorityBoost())
+			Boost = true;
 
 		if (Priority == INVALID_PRIORITY)
 			Priority = pTask->GetPriority();
@@ -151,6 +157,8 @@ void CTaskView::OnMenu(const QPoint& Point)
 
 	// Priority Items
 	m_pAffinity->setEnabled(Tasks.count() > 0);
+	m_pBoost->setEnabled(Tasks.count() > 0);
+	m_pBoost->setChecked(Boost);
 
 
 	m_pPriority->setEnabled(Tasks.count() > 0);
@@ -267,6 +275,23 @@ void CTaskView::OnAffinity()
 
 		STATUS Status = pTask->SetAffinityMask(AffinityMask);
 		if (Status.IsError())
+			Errors.append(Status);
+	}
+
+	CTaskExplorer::CheckErrors(Errors);
+}
+
+void CTaskView::OnBoost()
+{
+	bool Boost = m_pBoost->isChecked();
+
+	QList<CTaskPtr>	Tasks = GetSellectedTasks();
+
+	QList<STATUS> Errors;
+	foreach(const CTaskPtr& pTask, Tasks)
+	{
+		STATUS Status = pTask->SetPriorityBoost(Boost);
+		if(Status.IsError())
 			Errors.append(Status);
 	}
 

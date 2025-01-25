@@ -123,19 +123,32 @@ private:
 	//QMenu*					m_pMenu;
 
 	//QAction*				m_pTerminateTree;
-	QAction*				m_pBringInFront;
 	QAction*				m_pShowProperties;
 	QAction*				m_pOpenPath;
 	QAction*				m_pViewPE;
-	QAction*				m_pClose;
 	QAction*				m_pStop;
+	QAction*				m_pFreeze;
+	QAction*				m_pUnFreeze;
+	QMenu*					m_pWindowMenu;
+	QAction*				m_pBringInFront;
+	QAction*				m_pRestore;
+	QAction*				m_pMinimize;
+	QAction*				m_pMaximize;
+	QAction*				m_pClose;
 	QAction*				m_pPreset;
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pQuit;
 	QAction*				m_pRunAsThis;
-	QAction*				m_pCreateDump;
+	QMenu*					m_pDumpMenu;
+	QAction*				m_pMinimalDump;
+	QAction*				m_pLimitedDump;
+	QAction*				m_pNormalDump;
+	QAction*				m_pFullDump;
+	//QAction*				m_pCustomDump;
 	QAction*				m_pDebug; // []
 #ifdef WIN32
+	QAction*				m_pEfficiency;
+	QAction*				m_pExecRequired;
 	//QAction*				m_pVirtualization; // []
 	QAction*				m_pCritical; // []
 	QAction*				m_pProtected; // []

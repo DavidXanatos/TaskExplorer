@@ -187,8 +187,16 @@ PDNS_RECORD TraverseDnsCacheTable(SDnsResolver* m)
 
 CleanupExit:
 
-    if (dnsCacheDataTable)
-        DnsRecordListFree(dnsCacheDataTable, DnsFreeRecordList);
+	//if (dnsCacheDataTable)
+	//	DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat); // memleak
+
+	for (PDNS_CACHE_ENTRY tablePtr = dnsCacheDataTable; tablePtr != NULL; )
+	{
+		PDNS_CACHE_ENTRY entryPtr = tablePtr;
+		tablePtr = tablePtr->Next;
+		GlobalFree((void*)entryPtr->Name);
+		GlobalFree(entryPtr);
+	}
 
     return root;
 }
@@ -361,8 +369,16 @@ bool CDnsResolver::UpdateDnsCache()
 	if (dnsRecordRootPtr)
 		DnsRecordListFree(dnsRecordRootPtr, DnsFreeRecordList);
 #else
-    if (dnsCacheDataTable)
-        DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat);
+	//if (dnsCacheDataTable)
+	//	DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat); // memleak
+
+	for (PDNS_CACHE_ENTRY tablePtr = dnsCacheDataTable; tablePtr != NULL; )
+	{
+		PDNS_CACHE_ENTRY entryPtr = tablePtr;
+		tablePtr = tablePtr->Next;
+		GlobalFree((void*)entryPtr->Name);
+		GlobalFree(entryPtr);
+	}
 #endif
 
 	emit DnsCacheUpdated();

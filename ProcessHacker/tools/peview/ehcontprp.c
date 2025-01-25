@@ -54,7 +54,7 @@ VOID PvEnumerateEHContinuationEntries(
             {
                 if (!(symbol = PhGetSymbolFromAddress(
                     PvSymbolProvider,
-                    (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, rva),
+                    PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, rva),
                     &symbolResolveLevel,
                     NULL,
                     &symbolName,
@@ -68,7 +68,7 @@ VOID PvEnumerateEHContinuationEntries(
             {
                 if (!(symbol = PhGetSymbolFromAddress(
                     PvSymbolProvider,
-                    (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, rva),
+                    PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, rva),
                     &symbolResolveLevel,
                     NULL,
                     &symbolName,
@@ -214,7 +214,7 @@ INT_PTR CALLBACK PvpPeEhContDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

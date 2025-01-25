@@ -578,6 +578,21 @@
     <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.c">
       <Filter>API\Windows\ProcessHacker</Filter>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\ksyscall.c">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\HeapModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\HeapView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\HeapInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHeap.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -738,6 +753,9 @@
     </ClInclude>
     <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dukmdt.h">
       <Filter>API\Windows\Monitors\d3dkmt</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\heapstruct.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1126,6 +1144,18 @@
       <Filter>TaskExplorer\Models</Filter>
     </QtMoc>
     <QtMoc Include="API\Windows\RpcEndpoint.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\Models\HeapModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\HeapView.h">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\HeapInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinHeap.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
   </ItemGroup>

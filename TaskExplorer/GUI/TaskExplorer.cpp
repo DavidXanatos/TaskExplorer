@@ -4,7 +4,7 @@
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "SecurityExplorer.h"
-#include "DriverWindow.h"
+//#include "DriverWindow.h"
 #include "../API/Windows/WinAdmin.h"
 extern "C" {
 #include <winsta.h>
@@ -108,7 +108,20 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 #ifdef WIN32
 	if (KphCommsIsConnected())
-		appTitle.append(tr(" - [root]"));
+	{
+		QString sLevel;
+		KPH_LEVEL level = KphLevelEx(FALSE);
+		switch (level)
+		{
+			case KphLevelNone: sLevel = tr("None"); break;
+			case KphLevelMin: sLevel = tr("Minimal"); break;
+			case KphLevelLow: sLevel = tr("Low"); break;
+			case KphLevelMed: sLevel = tr("Medium"); break;
+			case KphLevelHigh: sLevel = tr("High"); break;
+			case KphLevelMax: sLevel = tr("Maximum"); break;
+		}
+		appTitle.append(tr(" - [KSI Level %1]").arg(sLevel));
+	}
 #endif
 
 	if (theAPI->RootAvaiable())
@@ -291,8 +304,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pMenuOptions = menuBar()->addMenu(tr("&Options"));
 		m_pMenuSettings = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Settings"), tr("Settings"), this, SLOT(OnSettings()));
 #ifdef WIN32
-		m_pMenuDriverConf = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Driver"), tr("Driver Options"), this, SLOT(OnDriverConf()));
-		m_pMenuDriverConf->setEnabled(!PhIsExecutingInWow64());
+		//m_pMenuDriverConf = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Driver"), tr("Driver Options"), this, SLOT(OnDriverConf()));
+		//m_pMenuDriverConf->setEnabled(!PhIsExecutingInWow64());
 
         m_pMenuOptions->addSeparator();
         m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
@@ -569,21 +582,21 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	{
 		statusBar()->showMessage(tr("TaskExplorer with kernel driver is ready..."), 30000);
 	}
-	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
-	{
-		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
-			"Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features."
-		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
+	//else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
+	//{
+	//	QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
+	//		"Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features."
+	//	).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
 
-		bool State = false;
-		CCheckableMessageBox::question(this, "TaskExplorer", Message
-			, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
+	//	bool State = false;
+	//	CCheckableMessageBox::question(this, "TaskExplorer", Message
+	//		, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
 
-		if (State)
-			theConf->SetValue("Options/UseDriver", false);
+	//	if (State)
+	//		theConf->SetValue("Options/UseDriver", false);
 
-		statusBar()->showMessage(tr("TaskExplorer failed to load driver %1").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 180000);
-	}
+	//	statusBar()->showMessage(tr("TaskExplorer failed to load driver %1").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 180000);
+	//}
 	else
 #endif
 		statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
@@ -1014,13 +1027,18 @@ void CTaskExplorer::UpdateStatus()
 	m_pTrayIcon->setIcon(QIcon(QPixmap::fromImage(TrayIcon)));
 }
 
-void CTaskExplorer::CheckErrors(QList<STATUS> Errors)
+bool CTaskExplorer::CheckErrors(QList<STATUS> Errors)
 {
 	if (Errors.isEmpty())
-		return;
+		return true;
 
 	CMultiErrorDialog Dialog(tr("Operation failed for %1 item(s).").arg(Errors.size()), Errors);
-	Dialog.exec();
+	return !!Dialog.exec();
+}
+
+QString CTaskExplorer::FormatID(quint64 ID) const
+{
+	return QString("%1 [0x%2]").arg(ID).arg(ID, 0, 16);
 }
 
 /*
@@ -1309,13 +1327,13 @@ void CTaskExplorer::OnSettings()
 	pSettingsWindow->show();
 }
 
-void CTaskExplorer::OnDriverConf()
-{
-#ifdef WIN32
-	CDriverWindow* pDriverWindow = new CDriverWindow();
-	pDriverWindow->show();
-#endif
-}
+//void CTaskExplorer::OnDriverConf()
+//{
+//#ifdef WIN32
+//	CDriverWindow* pDriverWindow = new CDriverWindow();
+//	pDriverWindow->show();
+//#endif
+//}
 
 void CTaskExplorer::OnMessage(const QString& Message)
 {
@@ -1563,7 +1581,7 @@ void CTaskExplorer::OnMonitorDbg()
 			Mode = CWinDbgMonitor::eLocal;
 			if (theAPI->RootAvaiable())
 				Mode |= CWinDbgMonitor::eGlobal;
-			if ((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0)
+			if (KphCommsIsConnected())
 				Mode |= CWinDbgMonitor::eKernel;
 		}
 	}

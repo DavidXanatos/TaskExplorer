@@ -15,7 +15,7 @@ private slots:
 	void					OnTaskAction();
 
 	void					OnAffinity();
-
+	void					OnBoost();
 	void					OnPriority();
 
 protected:
@@ -43,6 +43,7 @@ protected:
 
 	// Priority Items
 	QAction*				m_pAffinity;
+	QAction*				m_pBoost;
 
 	QMenu*					m_pPriority;
 	

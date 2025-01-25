@@ -38,6 +38,8 @@ private slots:
 	void					OnThreadAction();
 	void					OnThreadToken();
 
+	void					OnWCT();
+
 	void					OnPermissions();
 
 	void					ShowStack(const CStackTracePtr& StackTrace);
@@ -91,6 +93,7 @@ private:
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pCancelIO;
 	//QAction*				m_pAnalyze;
+	QAction*				m_pWCT;
 	QAction*				m_pCritical;
 	QAction*				m_pToken;
 	QAction*				m_pToken2;

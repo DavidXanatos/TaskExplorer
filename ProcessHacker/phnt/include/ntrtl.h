@@ -13,9 +13,9 @@
 #define RTL_PTR_ADD(Pointer, Value) ((PVOID)((ULONG_PTR)(Pointer) + (ULONG_PTR)(Value)))
 #define RTL_PTR_SUBTRACT(Pointer, Value) ((PVOID)((ULONG_PTR)(Pointer) - (ULONG_PTR)(Value)))
 
-#define RTL_MILLISEC_TO_100NANOSEC(m) ((m) * 10000ui64)
-#define RTL_SEC_TO_100NANOSEC(s) ((s) * 10000000ui64)
-#define RTL_SEC_TO_MILLISEC(s) ((s) * 1000ui64)
+#define RTL_MILLISEC_TO_100NANOSEC(m) ((m) * 10000ULL)
+#define RTL_SEC_TO_100NANOSEC(s) ((s) * 10000000ULL)
+#define RTL_SEC_TO_MILLISEC(s) ((s) * 1000ULL)
 
 #define RTL_MEG (1024UL * 1024UL)
 #define RTL_IMAGE_MAX_DOS_HEADER (256UL * RTL_MEG)
@@ -26,6 +26,9 @@ typedef struct _LIST_ENTRY LIST_ENTRY, *PLIST_ENTRY;
 
 #define RTL_STATIC_LIST_HEAD(x) \
     LIST_ENTRY (x) = { &(x), &(x) }
+
+#define RTL_LIST_FOREACH(Entry, ListHead) \
+    for ((Entry) = &(ListHead); (Entry) != &(ListHead); (Entry) = (Entry)->Flink)
 
 FORCEINLINE
 VOID
@@ -612,7 +615,37 @@ RtlRbRemoveNode(
     _In_ PRTL_RB_TREE Tree,
     _In_ PRTL_BALANCED_NODE Node
     );
+#endif
 
+#if (PHNT_VERSION >= PHNT_WIN11)
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlCompareExchangePointerMapping( 
+    _In_ PRTL_BALANCED_NODE Node1,
+    _In_ PRTL_BALANCED_NODE Node2,
+    _Out_ PRTL_BALANCED_NODE *Node3,
+    _Out_ PRTL_BALANCED_NODE *Node4
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlQueryPointerMapping(
+    _In_ PRTL_RB_TREE Tree,
+    _Inout_ PRTL_BALANCED_NODE Children
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlRemovePointerMapping(
+    _In_ PRTL_RB_TREE Tree,
+    _Inout_ PRTL_BALANCED_NODE Children
+    );
 #endif
 
 // Hash tables
@@ -750,6 +783,18 @@ RtlCreateHashTable(
     _Inout_ _When_(*HashTable == NULL, __drv_allocatesMem(Mem)) PRTL_DYNAMIC_HASH_TABLE *HashTable,
     _In_ ULONG Shift,
     _In_ _Reserved_ ULONG Flags
+    );
+
+_Must_inspect_result_
+_Success_(return != 0)
+NTSYSAPI
+BOOLEAN
+NTAPI
+RtlCreateHashTableEx(
+    _Inout_ _When_(NULL == *HashTable, _At_(*HashTable, __drv_allocatesMem(Mem))) PRTL_DYNAMIC_HASH_TABLE *HashTable,
+    _In_ ULONG InitialSize,
+    _In_ ULONG Shift,
+    _Reserved_ ULONG Flags
     );
 
 NTSYSAPI
@@ -894,7 +939,45 @@ RtlEndStrongEnumerationHashTable(
 
 // end_ntddk
 
+//
 // Critical sections
+//
+
+// These flags define the upper byte of the critical section SpinCount field
+#define RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO         0x01000000
+#define RTL_CRITICAL_SECTION_FLAG_DYNAMIC_SPIN          0x02000000
+#define RTL_CRITICAL_SECTION_FLAG_STATIC_INIT           0x04000000
+#define RTL_CRITICAL_SECTION_FLAG_RESOURCE_TYPE         0x08000000
+#define RTL_CRITICAL_SECTION_FLAG_FORCE_DEBUG_INFO      0x10000000
+#define RTL_CRITICAL_SECTION_ALL_FLAG_BITS              0xFF000000
+#define RTL_CRITICAL_SECTION_FLAG_RESERVED              (RTL_CRITICAL_SECTION_ALL_FLAG_BITS & (~(RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO | RTL_CRITICAL_SECTION_FLAG_DYNAMIC_SPIN | RTL_CRITICAL_SECTION_FLAG_STATIC_INIT | RTL_CRITICAL_SECTION_FLAG_RESOURCE_TYPE | RTL_CRITICAL_SECTION_FLAG_FORCE_DEBUG_INFO)))
+// These flags define possible values stored in the Flags field of a critsec debuginfo.
+#define RTL_CRITICAL_SECTION_DEBUG_FLAG_STATIC_INIT 0x00000001
+
+// typedef struct _RTL_CRITICAL_SECTION_DEBUG
+// {
+//     USHORT Type;
+//     USHORT CreatorBackTraceIndex;
+//     struct _RTL_CRITICAL_SECTION *CriticalSection;
+//     LIST_ENTRY ProcessLocksList;
+//     ULONG EntryCount;
+//     ULONG ContentionCount;
+//     ULONG Flags;
+//     USHORT CreatorBackTraceIndexHigh;
+//     USHORT Identifier;
+// } RTL_CRITICAL_SECTION_DEBUG, *PRTL_CRITICAL_SECTION_DEBUG, RTL_RESOURCE_DEBUG, *PRTL_RESOURCE_DEBUG;
+//
+// #pragma pack(push, 8)
+// typedef struct _RTL_CRITICAL_SECTION
+// {
+//     PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
+//     LONG LockCount;
+//     LONG RecursionCount;
+//     HANDLE OwningThread;
+//     HANDLE LockSemaphore;
+//     SIZE_T SpinCount;
+// } RTL_CRITICAL_SECTION, *PRTL_CRITICAL_SECTION;
+// #pragma pack(pop)
 
 NTSYSAPI
 NTSTATUS
@@ -997,6 +1080,22 @@ RtlCheckForOrphanedCriticalSections(
     _In_ HANDLE ThreadHandle
     );
 
+/**
+ * Enables the creation of early critical section events.
+ *
+ * This function allows the system to create critical section events early in the process
+ * initialization. It is typically used to ensure that critical sections are properly
+ * initialized and can be used safely during the early stages of process startup.
+ * @remarks This function sets the FLG_CRITSEC_EVENT_CREATION flag in the PEB flags field.
+ * @return A pointer to the Process Environment Block (PEB).
+ */
+NTSYSAPI
+PPEB
+NTAPI
+RtlEnableEarlyCriticalSectionEventCreation(
+    VOID
+    );
+
 // Resources
 
 typedef struct _RTL_RESOURCE
@@ -1066,6 +1165,13 @@ NTSYSAPI
 VOID
 NTAPI
 RtlConvertExclusiveToShared(
+    _Inout_ PRTL_RESOURCE Resource
+    );
+
+NTSYSAPI
+ULONG
+NTAPI
+RtlDumpResource(
     _Inout_ PRTL_RESOURCE Resource
     );
 
@@ -1145,9 +1251,68 @@ RtlAcquireReleaseSRWLockExclusive(
     );
 #endif
 
+#if (PHNT_VERSION >= PHNT_WIN10)
+// rev
+NTSYSAPI
+BOOLEAN
+NTAPI
+RtlConvertSRWLockExclusiveToShared(
+    _Inout_ PRTL_SRWLOCK SRWLock
+    );
+#endif
+
+//
+// Read-Copy Update. 
+//
+// RCU synchronization allows concurrent access to shared data structures, 
+// such as linked lists, trees, or hash tables, without using traditional locking methods 
+// in scenarios where read operations are frequent and need to be fast.
+// @remarks RCU synchronization is not for general-purpose synchronization.
+// Teb->Rcu is used to store the RCU state.
+
+NTSYSAPI
+PVOID
+NTAPI
+RtlRcuAllocate(
+    _In_ SIZE_T Size
+    );
+
+NTSYSAPI
+LOGICAL
+NTAPI
+RtlRcuFree(
+    _In_ PULONG Rcu
+    );
+
+NTSYSAPI
+VOID
+NTAPI
+RtlRcuReadLock(
+    _Inout_ PRTL_SRWLOCK SRWLock, 
+    _Out_ PULONG Rcu
+    );
+
+NTSYSAPI
+VOID
+NTAPI
+RtlRcuReadUnlock(
+    _Inout_ PRTL_SRWLOCK SRWLock, 
+    _Inout_ PULONG* Rcu
+    );
+
+NTSYSAPI
+LONG
+NTAPI
+RtlRcuSynchronize(
+    _Inout_ PRTL_SRWLOCK SRWLock
+    );
+
 #endif
 
 #if (PHNT_VERSION >= PHNT_VISTA)
+
+#define RTL_CONDITION_VARIABLE_INIT {0}
+#define RTL_CONDITION_VARIABLE_LOCKMODE_SHARED 0x1
 
 // winbase:InitializeConditionVariable
 NTSYSAPI
@@ -1268,7 +1433,21 @@ RtlWakeAddressAll(
 NTSYSAPI
 VOID
 NTAPI
+RtlWakeAddressAllNoFence(
+    _In_ PVOID Address
+    );
+
+NTSYSAPI
+VOID
+NTAPI
 RtlWakeAddressSingle(
+    _In_ PVOID Address
+    );
+
+NTSYSAPI
+VOID
+NTAPI
+RtlWakeAddressSingleNoFence(
     _In_ PVOID Address
     );
 
@@ -1756,9 +1935,26 @@ NTSTATUS
 NTAPI
 RtlAnsiStringToUnicodeString(
     _Inout_ PUNICODE_STRING DestinationString,
-    _In_ PANSI_STRING SourceString,
+    _In_ PCANSI_STRING SourceString,
     _In_ BOOLEAN AllocateDestinationString
     );
+
+NTSYSAPI
+ULONG
+NTAPI
+RtlxAnsiStringToUnicodeSize(
+    _In_ PCANSI_STRING AnsiString
+    );
+
+// NTSYSAPI
+// ULONG
+// NTAPI
+// RtlAnsiStringToUnicodeSize(
+//     _In_ PCANSI_STRING AnsiString
+//     );
+
+#define RtlAnsiStringToUnicodeSize(STRING) \
+    RtlxAnsiStringToUnicodeSize(STRING)
 
 NTSYSAPI
 NTSTATUS
@@ -2676,7 +2872,7 @@ NTSTATUS
 NTAPI
 RtlGetSystemPreferredUILanguages(
     _In_ ULONG Flags, // MUI_LANGUAGE_NAME
-    _In_ PCWSTR LocaleName,
+    _In_opt_ PCWSTR LocaleName,
     _Out_ PULONG NumberOfLanguages,
     _Out_writes_opt_(*ReturnLength) PZZWSTR Languages,
     _Inout_ PULONG ReturnLength
@@ -2697,7 +2893,7 @@ NTSTATUS
 NTAPI
 RtlGetUserPreferredUILanguages(
     _In_ ULONG Flags, // MUI_LANGUAGE_NAME
-    _In_ PCWSTR LocaleName,
+    _In_opt_ PCWSTR LocaleName,
     _Out_ PULONG NumberOfLanguages,
     _Out_writes_opt_(*ReturnLength) PZZWSTR Languages,
     _Inout_ PULONG ReturnLength
@@ -2779,7 +2975,9 @@ RtlFreeToPeb(
     );
 #endif
 
+//
 // Processes
+//
 
 typedef struct _CURDIR
 {
@@ -2787,6 +2985,7 @@ typedef struct _CURDIR
     HANDLE Handle;
 } CURDIR, *PCURDIR;
 
+// CURDIR Handle | Flags
 #define RTL_USER_PROC_CURDIR_CLOSE 0x00000002
 #define RTL_USER_PROC_CURDIR_INHERIT 0x00000003
 
@@ -2798,6 +2997,7 @@ typedef struct _RTL_DRIVE_LETTER_CURDIR
     STRING DosPath;
 } RTL_DRIVE_LETTER_CURDIR, *PRTL_DRIVE_LETTER_CURDIR;
 
+// RTL_DRIVE_LETTER_CURDIR Flags
 #define RTL_MAX_DRIVE_LETTERS 32
 #define RTL_DRIVE_LETTER_VALID (USHORT)0x0001
 
@@ -2851,18 +3051,25 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
     ULONG HeapMemoryTypeMask; // WIN11
 } RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
 
-#define RTL_USER_PROC_PARAMS_NORMALIZED 0x00000001
-#define RTL_USER_PROC_PROFILE_USER 0x00000002
-#define RTL_USER_PROC_PROFILE_KERNEL 0x00000004
-#define RTL_USER_PROC_PROFILE_SERVER 0x00000008
-#define RTL_USER_PROC_RESERVE_1MB 0x00000020
-#define RTL_USER_PROC_RESERVE_16MB 0x00000040
-#define RTL_USER_PROC_CASE_SENSITIVE 0x00000080
-#define RTL_USER_PROC_DISABLE_HEAP_DECOMMIT 0x00000100
-#define RTL_USER_PROC_DLL_REDIRECTION_LOCAL 0x00001000
-#define RTL_USER_PROC_APP_MANIFEST_PRESENT 0x00002000
-#define RTL_USER_PROC_IMAGE_KEY_MISSING 0x00004000
-#define RTL_USER_PROC_OPTIN_PROCESS 0x00020000
+// RTL_USER_PROCESS_PARAMETERS Flags
+#define RTL_USER_PROC_PARAMS_NORMALIZED                 0x00000001
+#define RTL_USER_PROC_PROFILE_USER                      0x00000002
+#define RTL_USER_PROC_PROFILE_KERNEL                    0x00000004
+#define RTL_USER_PROC_PROFILE_SERVER                    0x00000008
+#define RTL_USER_PROC_RESERVE_1MB                       0x00000020
+#define RTL_USER_PROC_RESERVE_16MB                      0x00000040
+#define RTL_USER_PROC_CASE_SENSITIVE                    0x00000080
+#define RTL_USER_PROC_DISABLE_HEAP_DECOMMIT             0x00000100
+#define RTL_USER_PROC_DLL_REDIRECTION_LOCAL             0x00001000
+#define RTL_USER_PROC_APP_MANIFEST_PRESENT              0x00002000
+#define RTL_USER_PROC_IMAGE_KEY_MISSING                 0x00004000
+#define RTL_USER_PROC_DEV_OVERRIDE_ENABLED              0x00008000
+#define RTL_USER_PROC_OPTIN_PROCESS                     0x00020000
+#define RTL_USER_PROC_OPTIN_PROCESS                     0x00020000
+#define RTL_USER_PROC_SESSION_OWNER                     0x00040000
+#define RTL_USER_PROC_HANDLE_USER_CALLBACK_EXCEPTIONS   0x00080000
+#define RTL_USER_PROC_PROTECTED_PROCESS                 0x00400000
+#define RTL_USER_PROC_SECURE_PROCESS                    0x80000000
 
 NTSYSAPI
 NTSTATUS
@@ -2896,6 +3103,27 @@ RtlCreateProcessParametersEx(
     _In_opt_ PUNICODE_STRING DesktopInfo,
     _In_opt_ PUNICODE_STRING ShellInfo,
     _In_opt_ PUNICODE_STRING RuntimeData,
+    _In_ ULONG Flags // pass RTL_USER_PROC_PARAMS_NORMALIZED to keep parameters normalized
+    );
+#endif
+
+#if (PHNT_VERSION >= PHNT_WIN10_RS4)
+// private
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlCreateProcessParametersWithTemplate(
+    _Out_ PRTL_USER_PROCESS_PARAMETERS *pProcessParameters,
+    _In_ PUNICODE_STRING ImagePathName,
+    _In_opt_ PUNICODE_STRING DllPath,
+    _In_opt_ PUNICODE_STRING CurrentDirectory,
+    _In_opt_ PUNICODE_STRING CommandLine,
+    _In_opt_ PVOID Environment,
+    _In_opt_ PUNICODE_STRING WindowTitle,
+    _In_opt_ PUNICODE_STRING DesktopInfo,
+    _In_opt_ PUNICODE_STRING ShellInfo,
+    _In_opt_ PUNICODE_STRING RuntimeData,
+    _In_opt_ PUNICODE_STRING RedirectionDllName,
     _In_ ULONG Flags // pass RTL_USER_PROC_PARAMS_NORMALIZED to keep parameters normalized
     );
 #endif
@@ -2936,7 +3164,7 @@ NTSTATUS
 NTAPI
 RtlCreateUserProcess(
     _In_ PUNICODE_STRING NtImagePathName,
-    _In_ ULONG AttributesDeprecated,
+    _In_ ULONG ExtendedParameters, // HIWORD(NumaNodeNumber), LOWORD(Reserved)
     _In_ PRTL_USER_PROCESS_PARAMETERS ProcessParameters,
     _In_opt_ PSECURITY_DESCRIPTOR ProcessSecurityDescriptor,
     _In_opt_ PSECURITY_DESCRIPTOR ThreadSecurityDescriptor,
@@ -2946,8 +3174,6 @@ RtlCreateUserProcess(
     _In_opt_ HANDLE TokenHandle, // used to be ExceptionPort
     _Out_ PRTL_USER_PROCESS_INFORMATION ProcessInformation
     );
-
-#if (PHNT_VERSION >= PHNT_REDSTONE2)
 
 #define RTL_USER_PROCESS_EXTENDED_PARAMETERS_VERSION 1
 
@@ -2964,6 +3190,7 @@ typedef struct _RTL_USER_PROCESS_EXTENDED_PARAMETERS
     HANDLE JobHandle;
 } RTL_USER_PROCESS_EXTENDED_PARAMETERS, *PRTL_USER_PROCESS_EXTENDED_PARAMETERS;
 
+#if (PHNT_VERSION >= PHNT_REDSTONE2)
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -2974,10 +3201,10 @@ RtlCreateUserProcessEx(
     _In_opt_ PRTL_USER_PROCESS_EXTENDED_PARAMETERS ProcessExtendedParameters,
     _Out_ PRTL_USER_PROCESS_INFORMATION ProcessInformation
     );
-
 #endif
 
 #if (PHNT_VERSION >= PHNT_VISTA)
+_Analysis_noreturn_
 DECLSPEC_NORETURN
 NTSYSAPI
 VOID
@@ -2985,18 +3212,6 @@ NTAPI
 RtlExitUserProcess(
     _In_ NTSTATUS ExitStatus
     );
-#else
-
-#define RtlExitUserProcess RtlExitUserProcess_R
-
-DECLSPEC_NORETURN
-FORCEINLINE VOID RtlExitUserProcess_R(
-    _In_ NTSTATUS ExitStatus
-    )
-{
-    ExitProcess(ExitStatus);
-}
-
 #endif
 
 #if (PHNT_VERSION >= PHNT_VISTA)
@@ -3017,6 +3232,22 @@ RtlCloneUserProcess(
     _In_opt_ PSECURITY_DESCRIPTOR ThreadSecurityDescriptor,
     _In_opt_ HANDLE DebugPort,
     _Out_ PRTL_USER_PROCESS_INFORMATION ProcessInformation
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlPrepareForProcessCloning(
+    VOID
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlCompleteProcessCloning(
+    _In_ LOGICAL Completed
     );
 
 // private
@@ -3152,7 +3383,8 @@ RtlCreateUserThread(
     _Out_opt_ PCLIENT_ID ClientId
     );
 
-#if (PHNT_VERSION >= PHNT_VISTA) // should be PHNT_WINXP, but is PHNT_VISTA for consistency with RtlExitUserProcess
+#if (PHNT_VERSION >= PHNT_WINXP)
+_Analysis_noreturn_
 DECLSPEC_NORETURN
 NTSYSAPI
 VOID
@@ -3160,22 +3392,9 @@ NTAPI
 RtlExitUserThread(
     _In_ NTSTATUS ExitStatus
     );
-#else
-
-#define RtlExitUserThread RtlExitUserThread_R
-
-DECLSPEC_NORETURN
-FORCEINLINE VOID RtlExitUserThread_R(
-    _In_ NTSTATUS ExitStatus
-    )
-{
-    ExitThread(ExitStatus);
-}
-
 #endif
 
 #if (PHNT_VERSION >= PHNT_VISTA)
-
 // rev
 NTSYSAPI
 BOOLEAN
@@ -3183,11 +3402,9 @@ NTAPI
 RtlIsCurrentThreadAttachExempt(
     VOID
     );
-
 #endif
 
 #if (PHNT_VERSION >= PHNT_VISTA)
-
 // private
 NTSYSAPI
 NTSTATUS
@@ -3208,7 +3425,6 @@ NTAPI
 RtlFreeUserStack(
     _In_ PVOID AllocationBase
     );
-
 #endif
 
 // Extended thread context
@@ -3447,8 +3663,18 @@ RtlRemoteCall(
     _In_ BOOLEAN AlreadySuspended
     );
 
+//
 // Vectored Exception Handlers
+//
 
+/**
+ * Registers a vectored exception handler.
+ * 
+ * @param First If this parameter is TRUE, the handler is the first handler in the list.
+ * @param Handler A pointer to the vectored exception handler to be called.
+ * @return A handle to the vectored exception handler.
+ * @see https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-addvectoredexceptionhandler
+ */
 NTSYSAPI
 PVOID
 NTAPI
@@ -3457,6 +3683,13 @@ RtlAddVectoredExceptionHandler(
     _In_ PVECTORED_EXCEPTION_HANDLER Handler
     );
 
+/**
+ * Removes a vectored exception handler.
+ * 
+ * @param Handle A handle to the vectored exception handler to remove.
+ * @return The function returns 0 if the handler is removed, or -1 if the handler is not found.
+ * @see https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-removevectoredexceptionhandler
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -3464,6 +3697,14 @@ RtlRemoveVectoredExceptionHandler(
     _In_ PVOID Handle
     );
 
+/**
+ * Registers a vectored continue handler.
+ * 
+ * @param First If this parameter is TRUE, the handler is the first handler in the list.
+ * @param Handler A pointer to the vectored exception handler to be called.
+ * @return A handle to the vectored continue handler.
+ * @see https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-addvectoredcontinuehandler
+ */
 NTSYSAPI
 PVOID
 NTAPI
@@ -3472,6 +3713,13 @@ RtlAddVectoredContinueHandler(
     _In_ PVECTORED_EXCEPTION_HANDLER Handler
     );
 
+/**
+ * Removes a vectored continue handler.
+ * 
+ * @param Handle A handle to the vectored continue handler to remove.
+ * @return The function returns 0 if the handler is removed, or -1 if the handler is not found.
+ * @see https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-removevectoredcontinuehandler
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -3556,7 +3804,67 @@ RtlGetFunctionTableListHead(
 
 #endif
 
+//
+// Linked lists
+//
+
+NTSYSAPI
+VOID
+NTAPI
+RtlInitializeSListHead(
+    _Out_ PSLIST_HEADER ListHead
+    );
+
+_Must_inspect_result_
+NTSYSAPI
+PSLIST_ENTRY
+NTAPI
+RtlFirstEntrySList(
+    _In_ const SLIST_HEADER *ListHead
+    );
+
+NTSYSAPI
+PSLIST_ENTRY
+NTAPI
+RtlInterlockedPopEntrySList(
+    _Inout_ PSLIST_HEADER ListHead
+    );
+
+NTSYSAPI
+PSLIST_ENTRY
+NTAPI
+RtlInterlockedPushEntrySList(
+    _Inout_ PSLIST_HEADER ListHead,
+    _Inout_ __drv_aliasesMem PSLIST_ENTRY ListEntry
+    );
+
+NTSYSAPI
+PSLIST_ENTRY
+NTAPI
+RtlInterlockedPushListSListEx(
+    _Inout_ PSLIST_HEADER ListHead,
+    _Inout_ __drv_aliasesMem PSLIST_ENTRY List,
+    _Inout_ PSLIST_ENTRY ListEnd,
+    _In_ DWORD Count
+    );
+
+NTSYSAPI
+PSLIST_ENTRY
+NTAPI
+RtlInterlockedFlushSList(
+    _Inout_ PSLIST_HEADER ListHead
+    );
+
+NTSYSAPI
+WORD  
+NTAPI
+RtlQueryDepthSList(
+    _In_ PSLIST_HEADER ListHead
+    );
+
+//
 // Activation Contexts
+//
 
 #define INVALID_ACTIVATION_CONTEXT ((HANDLE)(LONG_PTR)-1)
 #define ACTCTX_PROCESS_DEFAULT ((HANDLE)(LONG_PTR)0)
@@ -3686,8 +3994,8 @@ NTAPI
 RtlQueryActivationContextApplicationSettings(
     _Reserved_ ULONG Flags,
     _In_ PACTIVATION_CONTEXT ActivationContext,
-    _In_ PWSTR SettingsNameSpace,
-    _In_ PWSTR SettingName,
+    _In_ PCWSTR SettingsNameSpace,
+    _In_ PCWSTR SettingName,
     _Out_writes_bytes_(BufferLength) PWSTR Buffer,
     _In_ SIZE_T BufferLength,
     _Out_opt_ PSIZE_T RequiredLength
@@ -3857,7 +4165,19 @@ RtlValidateUserCallTarget(
     );
 #endif
 
+//
 // Memory
+//
+
+_Check_return_
+NTSYSAPI
+SIZE_T
+NTAPI
+RtlCompareMemory(
+    _In_ const VOID* Source1,
+    _In_ const VOID* Source2,
+    _In_ SIZE_T Length
+    );
 
 _Must_inspect_result_
 NTSYSAPI
@@ -3954,7 +4274,66 @@ RtlIsZeroMemory(
     );
 #endif
 
+NTSYSAPI
+ULONG
+NTAPI
+RtlCrc32(
+    _In_reads_bytes_(Size) const void *Buffer,
+    _In_ size_t Size,
+    _In_ ULONG InitialCrc
+    );
+
+NTSYSAPI
+ULONGLONG
+NTAPI
+RtlCrc64(
+    _In_reads_bytes_(Size) const void *Buffer,
+    _In_ size_t Size,
+    _In_ ULONGLONG InitialCrc
+    );
+
+// RTL_SYSTEM_GLOBAL_DATA_ID
+#define GlobalDataIdUnknown 0
+#define GlobalDataIdRngSeedVersion 1
+#define GlobalDataIdInterruptTime 2
+#define GlobalDataIdTimeZoneBias 3
+#define GlobalDataIdImageNumberLow 4
+#define GlobalDataIdImageNumberHigh 5
+#define GlobalDataIdTimeZoneId 6
+#define GlobalDataIdNtMajorVersion 7
+#define GlobalDataIdNtMinorVersion 8
+#define GlobalDataIdSystemExpirationDate 9
+#define GlobalDataIdKdDebuggerEnabled 10
+#define GlobalDataIdCyclesPerYield 11
+#define GlobalDataIdSafeBootMode 12
+#define GlobalDataIdLastSystemRITEventTickCount 13
+#define GlobalDataIdConsoleSharedDataFlags 14
+#define GlobalDataIdNtSystemRootDrive 15
+#define GlobalDataIdQpcBypassEnabled 16
+#define GlobalDataIdQpcData 17
+#define GlobalDataIdQpcBias 18
+
+NTSYSAPI
+ULONG   
+NTAPI
+RtlGetSystemGlobalData(
+    _In_ RTL_SYSTEM_GLOBAL_DATA_ID DataId,
+    _Inout_ PVOID Buffer,
+    _In_ ULONG Size
+    );
+
+NTSYSAPI
+ULONG
+NTAPI
+RtlSetSystemGlobalData(
+    _In_ RTL_SYSTEM_GLOBAL_DATA_ID DataId,
+    _In_ PVOID Buffer,
+    _In_ ULONG Size
+    );
+
+//
 // Environment
+//
 
 NTSYSAPI
 NTSTATUS
@@ -4073,7 +4452,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlSetEnvironmentStrings(
-    _In_ PCWCHAR NewEnvironment,
+    _In_ PCWSTR NewEnvironment,
     _In_ SIZE_T NewEnvironmentSize
     );
 
@@ -4106,7 +4485,7 @@ typedef enum _RTL_PATH_TYPE
 
 // Data exports (ntdll.lib/ntdllp.lib)
 
-NTSYSAPI PWSTR RtlNtdllName;
+NTSYSAPI PCWSTR RtlNtdllName;
 NTSYSAPI UNICODE_STRING RtlDosPathSeperatorsString;
 NTSYSAPI UNICODE_STRING RtlAlternateDosPathSeperatorString;
 NTSYSAPI UNICODE_STRING RtlNtPathSeperatorString;
@@ -4475,7 +4854,7 @@ NTSYSAPI
 VOID
 NTAPI
 RtlReleasePath(
-    _In_ PWSTR Path
+    _In_ PCWSTR Path
     );
 
 #endif
@@ -4520,7 +4899,7 @@ NTAPI
 RtlWow64GetProcessMachines(
     _In_ HANDLE ProcessHandle,
     _Out_ PUSHORT ProcessMachine,
-    _Out_ PUSHORT NativeMachine
+    _Out_opt_ PUSHORT NativeMachine
     );
 #endif
 
@@ -4881,6 +5260,14 @@ RtlDestroyHeap(
     _In_ _Post_invalid_ PVOID HeapHandle
     );
 
+#ifndef DECLSPEC_NOALIAS
+#if _MSC_VER < 1900
+#define DECLSPEC_NOALIAS
+#else
+#define DECLSPEC_NOALIAS __declspec(noalias)
+#endif
+#endif
+
 NTSYSAPI
 _Success_(return != 0)
 _Must_inspect_result_
@@ -4888,6 +5275,7 @@ _Ret_maybenull_
 _Post_writable_byte_size_(Size)
 __drv_allocatesMem(Mem)
 DECLSPEC_ALLOCATOR
+DECLSPEC_NOALIAS
 DECLSPEC_RESTRICT
 PVOID
 NTAPI
@@ -4905,7 +5293,7 @@ NTAPI
 RtlFreeHeap(
     _In_ PVOID HeapHandle,
     _In_opt_ ULONG Flags,
-    _Frees_ptr_opt_ PVOID BaseAddress
+    _Frees_ptr_opt_ _Post_invalid_ PVOID BaseAddress
     );
 #else
 _Success_(return)
@@ -4967,6 +5355,7 @@ _Ret_maybenull_
 _Post_writable_byte_size_(Size)
 _When_(Size > 0, __drv_allocatesMem(Mem))
 DECLSPEC_ALLOCATOR
+DECLSPEC_NOALIAS
 DECLSPEC_RESTRICT
 PVOID
 NTAPI
@@ -5024,8 +5413,8 @@ NTAPI
 RtlCreateTagHeap(
     _In_ PVOID HeapHandle,
     _In_ ULONG Flags,
-    _In_opt_ PWSTR TagPrefix,
-    _In_ PWSTR TagNames
+    _In_opt_ PCWSTR TagPrefix,
+    _In_ PCWSTR TagNames
     );
 
 NTSYSAPI
@@ -5622,7 +6011,8 @@ NTSYSAPI
 HANDLE
 NTAPI
 RtlGetCurrentTransaction(
-    VOID
+    _In_opt_ PCWSTR ExistingFileName,
+    _In_opt_ PCWSTR NewFileName
     );
 #endif
 
@@ -5662,11 +6052,9 @@ RtlConvertLongToLuid(
     )
 {
     LUID tempLuid;
-    LARGE_INTEGER tempLi;
 
-    tempLi.QuadPart = Long;
-    tempLuid.LowPart = tempLi.LowPart;
-    tempLuid.HighPart = tempLi.HighPart;
+    tempLuid.LowPart = Long;
+    tempLuid.HighPart = 0;
 
     return tempLuid;
 }
@@ -5693,12 +6081,12 @@ RtlConvertLuidToLonglong(
     _In_ LUID Luid
     )
 {
-    LONGLONG tempLuid;
+    LARGE_INTEGER tempLi;
 
-    tempLuid = Luid.LowPart;
-    tempLuid += ((LONGLONG)(Luid.HighPart) << 32);
+    tempLi.LowPart = Luid.LowPart;
+    tempLi.HighPart = Luid.HighPart;
 
-    return tempLuid;
+    return tempLi.QuadPart;
 }
 
 FORCEINLINE
@@ -5762,6 +6150,40 @@ RtlUlonglongByteSwap(
     _In_ ULONGLONG Source
     );
 #endif
+
+DECLSPEC_DEPRECATED
+NTSYSAPI
+LARGE_INTEGER 
+NTAPI
+RtlConvertUlongToLargeInteger(
+    _In_ ULONG UnsignedInteger
+    );
+
+DECLSPEC_DEPRECATED
+NTSYSAPI
+LARGE_INTEGER 
+NTAPI
+RtlConvertLongToLargeInteger(
+    _In_ LONG SignedInteger
+    );
+
+DECLSPEC_DEPRECATED
+NTSYSAPI
+LARGE_INTEGER
+NTAPI
+RtlEnlargedIntegerMultiply(
+    _In_ LONG Multiplicand,
+    _In_ LONG Multiplier
+    );
+
+DECLSPEC_DEPRECATED
+NTSYSAPI
+LARGE_INTEGER
+NTAPI_INLINE
+RtlEnlargedUnsignedMultiply(
+    _In_ ULONG Multiplicand,
+    _In_ ULONG Multiplier
+    );
 
 // Debugging
 
@@ -5899,7 +6321,17 @@ RtlIsAnyDebuggerPresent(
     return result;
 }
 
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlDebugPrintTimes(
+    VOID
+    );
+
+//
 // Messages
+//
 
 NTSYSAPI
 NTSTATUS
@@ -5916,7 +6348,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlFormatMessage(
-    _In_ PWSTR MessageFormat,
+    _In_ PCWSTR MessageFormat,
     _In_ ULONG MaximumWidth,
     _In_ BOOLEAN IgnoreInserts,
     _In_ BOOLEAN ArgumentsAreAnsi,
@@ -5946,7 +6378,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlFormatMessageEx(
-    _In_ PWSTR MessageFormat,
+    _In_ PCWSTR MessageFormat,
     _In_ ULONG MaximumWidth,
     _In_ BOOLEAN IgnoreInserts,
     _In_ BOOLEAN ArgumentsAreAnsi,
@@ -5964,7 +6396,7 @@ NTAPI
 RtlGetFileMUIPath(
     _In_ ULONG Flags,
     _In_ PCWSTR FilePath,
-    _Inout_opt_ PWSTR Language,
+    _Inout_opt_ PCWSTR Language,
     _Inout_ PULONG LanguageLength,
     _Out_opt_ PWSTR FileMUIPath,
     _Inout_ PULONG FileMUIPathLength,
@@ -5988,6 +6420,8 @@ RtlLoadString(
 
 // Errors
 
+_When_(Status < 0, _Out_range_(>, 0))
+_When_(Status >= 0, _Out_range_(==, 0))
 NTSYSAPI
 ULONG
 NTAPI
@@ -6415,7 +6849,7 @@ RtlSecondsSince1970ToTime(
 
 #if (PHNT_VERSION >= PHNT_WIN8)
 NTSYSAPI
-LARGE_INTEGER
+ULONGLONG
 NTAPI
 RtlGetSystemTimePrecise(
     VOID
@@ -6435,7 +6869,7 @@ RtlGetSystemTimeAndBias(
 
 #if (PHNT_VERSION >= PHNT_THRESHOLD)
 NTSYSAPI
-LARGE_INTEGER
+ULONGLONG
 NTAPI
 RtlGetInterruptTimePrecise(
     _Out_ PLARGE_INTEGER PerformanceCounter
@@ -6450,6 +6884,23 @@ RtlQueryUnbiasedInterruptTime(
     _Out_ PLARGE_INTEGER InterruptTime
     );
 #endif
+
+FORCEINLINE
+ULONGLONG
+NTAPI
+RtlBeginReadTickLock(
+    _In_ PULONGLONG TimeUpdateLock // USER_SHARED_DATA->TimeUpdateLock
+    )
+{
+    ULONGLONG result;
+
+    for (result = *TimeUpdateLock; (*TimeUpdateLock & 1) != 0; result = *TimeUpdateLock)
+    {
+        YieldProcessor();
+    }
+
+    return result;
+}
 
 // Time zones
 
@@ -6500,6 +6951,9 @@ RtlSetTimeZoneInformation(
 
 #define RtlInterlockedClearBitsDiscardReturn(Flags, Flag) \
     RtlInterlockedAndBitsDiscardReturn(Flags, ~(Flag))
+
+#define RtlInterlockedTestBits(Flags, Flag) \
+    ((InterlockedOr((PLONG)(Flags), 0) & (Flag)) == (Flag)) // dmex
 
 // Bitmaps
 
@@ -6995,7 +7449,7 @@ NTSTATUS
 NTAPI
 RtlAddAtomToAtomTable(
     _In_ PVOID AtomTableHandle,
-    _In_ PWSTR AtomName,
+    _In_ PCWSTR AtomName,
     _Inout_opt_ PRTL_ATOM Atom
     );
 
@@ -7004,7 +7458,7 @@ NTSTATUS
 NTAPI
 RtlLookupAtomInAtomTable(
     _In_ PVOID AtomTableHandle,
-    _In_ PWSTR AtomName,
+    _In_ PCWSTR AtomName,
     _Out_opt_ PRTL_ATOM Atom
     );
 
@@ -7042,7 +7496,7 @@ NTSYSAPI
 BOOLEAN
 NTAPI
 RtlGetIntegerAtom(
-    _In_ PWSTR AtomName,
+    _In_ PCWSTR AtomName,
     _Out_opt_ PUSHORT IntegerAtom
     );
 #endif
@@ -7344,8 +7798,19 @@ RtlDeriveCapabilitySidsFromName(
     );
 #endif
 
+//
 // Security Descriptors
+//
 
+/**
+ * The RtlCreateSecurityDescriptor routine initializes a new absolute-format security descriptor.
+ * On return, the security descriptor is initialized with no system ACL, no discretionary ACL, no owner, no primary group, and all control flags set to zero.
+ * 
+ * \param SecurityDescriptor Pointer to the buffer for the \ref SECURITY_DESCRIPTOR to be initialized.
+ * \param Revision Specifies the revision level to assign to the security descriptor. Set this parameter to SECURITY_DESCRIPTOR_REVISION.
+ * @return NTSTATUS Successful or errant status.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlcreatesecuritydescriptor
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -7354,6 +7819,14 @@ RtlCreateSecurityDescriptor(
     _In_ ULONG Revision
     );
 
+/**
+ * The RtlValidSecurityDescriptor routine checks a given security descriptor's validity.
+ * 
+ * \param SecurityDescriptor Pointer to the \ref SECURITY_DESCRIPTOR to be checked.
+ * @return Returns TRUE if the security descriptor is valid, or FALSE otherwise.
+ * @remarks The routine checks the validity of an absolute-format security descriptor. To check the validity of a self-relative security descriptor, use the \ref RtlValidRelativeSecurityDescriptor routine instead.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlvalidsecuritydescriptor
+ */
 _Check_return_
 NTSYSAPI
 BOOLEAN
@@ -7362,6 +7835,13 @@ RtlValidSecurityDescriptor(
     _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
     );
 
+/**
+ * The RtlLengthSecurityDescriptor routine returns the size of a given security descriptor.
+ * 
+ * \param SecurityDescriptor A pointer to a \ref SECURITY_DESCRIPTOR structure whose length the function retrieves.
+ * @return Returns the length, in bytes, of the SECURITY_DESCRIPTOR structure.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtllengthsecuritydescriptor
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -7369,6 +7849,16 @@ RtlLengthSecurityDescriptor(
     _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
     );
 
+/**
+ * The RtlValidRelativeSecurityDescriptor routine checks the validity of a self-relative security descriptor.
+ *
+ * \param SecurityDescriptorInput A pointer to the buffer that contains the security descriptor in self-relative format.
+ * The buffer must begin with a SECURITY_DESCRIPTOR structure, which is followed by the rest of the security descriptor data.
+ * \param SecurityDescriptorLength The size of the SecurityDescriptorInput structure.
+ * \param RequiredInformation A SECURITY_INFORMATION value that specifies the information that is required to be contained in the security descriptor.
+ * @return RtlValidRelativeSecurityDescriptor returns TRUE if the security descriptor is valid and includes the information that the RequiredInformation parameter specifies. Otherwise, this routine returns FALSE.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlvalidrelativesecuritydescriptor
+ */
 _Check_return_
 NTSYSAPI
 BOOLEAN
@@ -7462,6 +7952,19 @@ RtlGetSaclSecurityDescriptor(
     _Out_ PBOOLEAN SaclDefaulted
     );
 
+/**
+ * The RtlSetOwnerSecurityDescriptor routine sets the owner information of an absolute-format security descriptor. It replaces any owner information that is already present in the security descriptor.
+ *
+ * \param SecurityDescriptor Pointer to the SECURITY_DESCRIPTOR structure whose owner is to be set. RtlSetOwnerSecurityDescriptor replaces any existing owner with the new owner.
+ * \param Owner Pointer to a security identifier (SID) structure for the security descriptor's new primary owner.
+ * \li \c This pointer, not the SID structure itself, is copied into the security descriptor.
+ * \li \c If this parameter is NULL, RtlSetOwnerSecurityDescriptor clears the security descriptor's owner information. This marks the security descriptor as having no owner.
+ * \param OwnerDefaulted Set to TRUE if the owner information is derived from a default mechanism.
+ * \li \c If this value is TRUE, it is default information. RtlSetOwnerSecurityDescriptor sets the SE_OWNER_DEFAULTED flag in the security descriptor's SECURITY_DESCRIPTOR_CONTROL field.
+ * \li \c If this parameter is FALSE, the SE_OWNER_DEFAULTED flag is cleared.
+ * @return NTSTATUS Successful or errant status.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-rtlsetownersecuritydescriptor
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -7471,6 +7974,15 @@ RtlSetOwnerSecurityDescriptor(
     _In_ BOOLEAN OwnerDefaulted
     );
 
+/**
+ * The RtlGetOwnerSecurityDescriptor routine returns the owner information for a given security descriptor.
+ *
+ * \param SecurityDescriptor Pointer to the SECURITY_DESCRIPTOR structure.
+ * \param Owner Pointer to an address to receive a pointer to the owner security identifier (SID). If the security descriptor does not currently contain an owner SID, Owner receives NULL.
+ * \param OwnerDefaulted Pointer to a Boolean variable that receives TRUE if the owner information is derived from a default mechanism, FALSE otherwise. Valid only if Owner receives a non-NULL value.
+ * @return NTSTATUS Successful or errant status.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-rtlgetownersecuritydescriptor
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -7480,6 +7992,19 @@ RtlGetOwnerSecurityDescriptor(
     _Out_ PBOOLEAN OwnerDefaulted
     );
 
+/**
+ * The RtlSetGroupSecurityDescriptor routine sets the primary group information of an absolute-format security descriptor. It replaces any primary group information that is already present in the security descriptor.
+ *
+ * \param SecurityDescriptor Pointer to the SECURITY_DESCRIPTOR structure whose primary group is to be set. RtlSetGroupSecurityDescriptor replaces any existing primary group with the new primary group.
+ * \param Group Pointer to a security identifier (SID) structure for the security descriptor's new primary owner.
+ * \li \c This pointer, not the SID structure itself, is copied into the security descriptor.
+ * \li \c If Group is NULL, RtlSetGroupSecurityDescriptor clears the security descriptor's primary group information. This marks the security descriptor as having no primary group.
+ * \param GroupDefaulted Set this Boolean variable to TRUE if the primary group information is derived from a default mechanism.
+ * \li \c If this parameter is TRUE, RtlSetGroupSecurityDescriptor sets the SE_GROUP_DEFAULTED flag in the security descriptor's SECURITY_DESCRIPTOR_CONTROL field.
+ * \li \c If this parameter is FALSE, RtlSetGroupSecurityDescriptor clears the SE_GROUP_DEFAULTED flag.
+ * @return NTSTATUS Successful or errant status.
+ * @see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-rtlsetgroupsecuritydescriptor
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -7559,6 +8084,16 @@ RtlNormalizeSecurityDescriptor(
 // Access masks
 
 #ifndef PHNT_NO_INLINE_ACCESSES_GRANTED
+/**
+ * Checks if all desired accesses are granted.
+ *
+ * This function determines whether all the accesses specified in the DesiredAccess
+ * mask are granted by the GrantedAccess mask.
+ *
+ * \param GrantedAccess The access mask that specifies the granted accesses.
+ * \param DesiredAccess The access mask that specifies the desired accesses.
+ * @return Returns TRUE if all desired accesses are granted, otherwise FALSE.
+ */
 FORCEINLINE
 BOOLEAN
 NTAPI
@@ -7570,6 +8105,16 @@ RtlAreAllAccessesGranted(
     return (~GrantedAccess & DesiredAccess) == 0;
 }
 
+/**
+ * Checks if any of the desired accesses are granted.
+ *
+ * This function determines if any of the access rights specified in the DesiredAccess
+ * mask are present in the GrantedAccess mask.
+ *
+ * \param GrantedAccess The access mask that specifies the granted access rights.
+ * \param DesiredAccess The access mask that specifies the desired access rights.
+ * @return Returns TRUE if any of the desired access rights are granted, otherwise FALSE.
+ */
 FORCEINLINE
 BOOLEAN
 NTAPI
@@ -7581,6 +8126,16 @@ RtlAreAnyAccessesGranted(
     return (GrantedAccess & DesiredAccess) != 0;
 }
 #else
+/**
+ * Checks if all desired accesses are granted.
+ *
+ * This function determines whether all the accesses specified in the DesiredAccess
+ * mask are granted by the GrantedAccess mask.
+ *
+ * \param GrantedAccess The access mask that specifies the granted accesses.
+ * \param DesiredAccess The access mask that specifies the desired accesses.
+ * @return Returns TRUE if all desired accesses are granted, otherwise FALSE.
+ */
 NTSYSAPI
 BOOLEAN
 NTAPI
@@ -7589,6 +8144,16 @@ RtlAreAllAccessesGranted(
     _In_ ACCESS_MASK DesiredAccess
     );
 
+/**
+ * Checks if any of the desired accesses are granted.
+ *
+ * This function determines if any of the access rights specified in the DesiredAccess
+ * mask are present in the GrantedAccess mask.
+ *
+ * \param GrantedAccess The access mask that specifies the granted access rights.
+ * \param DesiredAccess The access mask that specifies the desired access rights.
+ * @return Returns TRUE if any of the desired access rights are granted, otherwise FALSE.
+ */
 NTSYSAPI
 BOOLEAN
 NTAPI
@@ -8468,7 +9033,7 @@ NTSTATUS
 NTAPI
 RtlCreateRegistryKey(
     _In_ ULONG RelativeTo,
-    _In_ PWSTR Path
+    _In_ PCWSTR Path
     );
 
 NTSYSAPI
@@ -8476,12 +9041,12 @@ NTSTATUS
 NTAPI
 RtlCheckRegistryKey(
     _In_ ULONG RelativeTo,
-    _In_ PWSTR Path
+    _In_ PCWSTR Path
     );
 
 _Function_class_(RTL_QUERY_REGISTRY_ROUTINE)
 typedef NTSTATUS (NTAPI RTL_QUERY_REGISTRY_ROUTINE)(
-    _In_ PWSTR ValueName,
+    _In_ PCWSTR ValueName,
     _In_ ULONG ValueType,
     _In_ PVOID ValueData,
     _In_ ULONG ValueLength,
@@ -8613,13 +9178,26 @@ RtlReadThreadProfilingData(
 
 #endif
 
+//
 // WOW64
+//
 
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlGetNativeSystemInformation(
-    _In_ ULONG SystemInformationClass,
+    _In_ SYSTEM_INFORMATION_CLASS SystemInformationClass,
+    _In_ PVOID NativeSystemInformation,
+    _In_ ULONG InformationLength,
+    _Out_opt_ PULONG ReturnLength
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+NtWow64GetNativeSystemInformation(
+    _In_ SYSTEM_INFORMATION_CLASS SystemInformationClass,
     _In_ PVOID NativeSystemInformation,
     _In_ ULONG InformationLength,
     _Out_opt_ PULONG ReturnLength
@@ -8825,6 +9403,11 @@ RtlLocateSupervisorFeature(
 
 #endif
 
+#define ELEVATION_FLAG_TOKEN_CHECKS 0x00000001
+#define ELEVATION_FLAG_VIRTUALIZATION 0x00000002
+#define ELEVATION_FLAG_SHORTCUT_REDIR 0x00000004
+#define ELEVATION_FLAG_NO_SIGNATURE_CHECK 0x00000008
+
 // private
 typedef union _RTL_ELEVATION_FLAGS
 {
@@ -8834,7 +9417,8 @@ typedef union _RTL_ELEVATION_FLAGS
         ULONG ElevationEnabled : 1;
         ULONG VirtualizationEnabled : 1;
         ULONG InstallerDetectEnabled : 1;
-        ULONG ReservedBits : 29;
+        ULONG AdminApprovalModeType : 2;
+        ULONG ReservedBits : 27;
     };
 } RTL_ELEVATION_FLAGS, *PRTL_ELEVATION_FLAGS;
 
@@ -8946,7 +9530,7 @@ RtlGetUnloadEventTrace(
 
 #if (PHNT_VERSION >= PHNT_VISTA)
 NTSYSAPI
-VOID
+PRTL_UNLOAD_EVENT_TRACE
 NTAPI
 RtlGetUnloadEventTraceEx(
     _Out_ PULONG *ElementSize,
@@ -8954,6 +9538,131 @@ RtlGetUnloadEventTraceEx(
     _Out_ PVOID *EventTrace // works across all processes
     );
 #endif
+
+
+NTSYSAPI
+_Success_(return != 0)
+USHORT  
+NTAPI
+RtlCaptureStackBackTrace(
+    _In_ ULONG FramesToSkip,
+    _In_ ULONG FramesToCapture,
+    _Out_writes_to_(FramesToCapture,return) PVOID* BackTrace,
+    _Out_opt_ PULONG BackTraceHash
+    );
+
+NTSYSAPI
+VOID
+NTAPI
+RtlCaptureContext(
+    _Out_ PCONTEXT ContextRecord
+    );
+
+#if (PHNT_VERSION >= PHNT_WIN10_20H1)
+NTSYSAPI
+VOID
+NTAPI
+RtlCaptureContext2(
+    _Inout_ PCONTEXT ContextRecord
+    );
+#endif
+
+#if (PHNT_VERSION >= PHNT_WIN11)
+NTSYSAPI
+VOID
+__cdecl
+RtlRestoreContext(
+    _In_ PCONTEXT ContextRecord,
+    _In_opt_ struct _EXCEPTION_RECORD* ExceptionRecord
+    );
+#endif
+
+
+NTSYSAPI
+VOID
+NTAPI
+RtlUnwind(
+    _In_opt_ PVOID TargetFrame,
+    _In_opt_ PVOID TargetIp,
+    _In_opt_ PEXCEPTION_RECORD ExceptionRecord,
+    _In_ PVOID ReturnValue
+    );
+
+#if defined(_M_AMD64) && defined(_M_ARM64EC)
+NTSYSAPI
+BOOLEAN
+__cdecl
+RtlAddFunctionTable(
+    _In_reads_(EntryCount) PRUNTIME_FUNCTION FunctionTable,
+    _In_ DWORD EntryCount,
+    _In_ DWORD64 BaseAddress
+    );
+
+NTSYSAPI
+BOOLEAN
+__cdecl
+RtlDeleteFunctionTable(
+    _In_ PRUNTIME_FUNCTION FunctionTable
+    );
+
+NTSYSAPI
+BOOLEAN
+__cdecl
+RtlInstallFunctionTableCallback(
+    _In_ DWORD64 TableIdentifier,
+    _In_ DWORD64 BaseAddress,
+    _In_ DWORD Length,
+    _In_ PGET_RUNTIME_FUNCTION_CALLBACK Callback,
+    _In_opt_ PVOID Context,
+    _In_opt_ PCWSTR OutOfProcessCallbackDll
+    );
+
+#if (PHNT_VERSION >= PHNT_WIN8)
+NTSYSAPI
+DWORD   
+NTAPI
+RtlAddGrowableFunctionTable(
+    _Out_ PVOID* DynamicTable,
+    _In_reads_(MaximumEntryCount) PRUNTIME_FUNCTION FunctionTable,
+    _In_ DWORD EntryCount,
+    _In_ DWORD MaximumEntryCount,
+    _In_ ULONG_PTR RangeBase,
+    _In_ ULONG_PTR RangeEnd
+    );
+
+NTSYSAPI
+VOID
+NTAPI
+RtlGrowFunctionTable(
+    _Inout_ PVOID DynamicTable,
+    _In_ DWORD NewEntryCount
+    );
+
+NTSYSAPI
+VOID
+NTAPI
+RtlDeleteGrowableFunctionTable(
+    _In_ PVOID DynamicTable
+    );
+#endif
+#endif
+
+#if defined(_M_ARM64EC)
+NTSYSAPI
+BOOLEAN
+NTAPI
+RtlIsEcCode(
+    _In_ ULONG64 CodePointer
+    );
+#endif
+
+NTSYSAPI
+PVOID
+NTAPI
+RtlPcToFileHeader(
+    _In_ PVOID PcValue,
+    _Out_ PVOID* BaseOfImage
+    );
 
 // end_msdn
 
@@ -9163,7 +9872,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlQueryImageMitigationPolicy(
-    _In_opt_ PWSTR ImagePath, // NULL for system-wide defaults
+    _In_opt_ PCWSTR ImagePath, // NULL for system-wide defaults
     _In_ IMAGE_MITIGATION_POLICY Policy,
     _In_ ULONG Flags,
     _Inout_ PVOID Buffer,
@@ -9175,7 +9884,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlSetImageMitigationPolicy(
-    _In_opt_ PWSTR ImagePath, // NULL for system-wide defaults
+    _In_opt_ PCWSTR ImagePath, // NULL for system-wide defaults
     _In_ IMAGE_MITIGATION_POLICY Policy,
     _In_ ULONG Flags,
     _Inout_ PVOID Buffer,
@@ -9350,6 +10059,11 @@ RtlCheckTokenMembership(
     _Out_ PBOOLEAN IsMember
     );
 
+// RtlCheckTokenMembershipEx Flags
+#define CTMF_INCLUDE_APPCONTAINER 0x00000001UL
+#define CTMF_INCLUDE_LPAC 0x00000002UL
+#define CTMF_VALID_FLAGS (CTMF_INCLUDE_APPCONTAINER | CTMF_INCLUDE_LPAC)
+
 // rev
 NTSYSAPI
 NTSTATUS
@@ -9450,6 +10164,16 @@ RtlFlsAlloc(
     _Out_ PULONG FlsIndex
     );
 
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlFlsAllocEx(
+    _In_ PFLS_CALLBACK_FUNCTION Callback,
+    _Out_ PULONG,
+    _Out_ PULONG FlsIndex
+    );
+
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -9480,9 +10204,46 @@ RtlFlsSetValue(
     _In_ ULONG FlsIndex,
     _In_ PVOID FlsData
     );
+
+NTSYSAPI
+NTSTATUS 
+NTAPI 
+RtlProcessFlsData(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PVOID* FlsData
+    );
 #endif
 
+#if (PHNT_VERSION >= PHNT_WIN11)
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlTlsAlloc(
+    _Out_ PULONG TlsIndex
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlTlsFree(
+    _In_ ULONG TlsIndex
+    );
+
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlTlsSetValue(
+    _In_ ULONG TlsIndex,
+    _In_ PVOID TlsData
+    );
+#endif
+
+//
 // State isolation
+//
 
 typedef enum _STATE_LOCATION_TYPE
 {
@@ -9579,12 +10340,12 @@ RtlSetThreadPlaceholderCompatibilityMode(
     );
 #endif
 
-#if (PHNT_VERSION >= PHNT_REDSTONE4)
-
 #undef PHCM_MAX
 #define PHCM_DISGUISE_FULL_PLACEHOLDERS ((CHAR)3)
 #define PHCM_MAX ((CHAR)3)
 #define PHCM_ERROR_NO_PEB ((CHAR)-3)
+
+#if (PHNT_VERSION >= PHNT_REDSTONE4)
 
 NTSYSAPI
 CHAR
@@ -9624,24 +10385,25 @@ RtlAppxIsFileOwnedByTrustedInstaller(
 #endif
 
 // Windows Internals book
-#define PSM_ACTIVATION_TOKEN_PACKAGED_APPLICATION 0x1
-#define PSM_ACTIVATION_TOKEN_SHARED_ENTITY 0x2
-#define PSM_ACTIVATION_TOKEN_FULL_TRUST 0x4
-#define PSM_ACTIVATION_TOKEN_NATIVE_SERVICE 0x8
-#define PSM_ACTIVATION_TOKEN_DEVELOPMENT_APP 0x10
-#define PSM_ACTIVATION_TOKEN_BREAKAWAY_INHIBITED 0x20
-#define PSM_ACTIVATION_TOKEN_RUNTIME_BROKER 0x40 // rev
-#define PSM_ACTIVATION_TOKEN_UNIVERSAL_CONSOLE 0x200 // rev
-#define PSM_ACTIVATION_TOKEN_WIN32ALACARTE_PROCESS 0x10000 // rev
+#define PSM_ACTIVATION_TOKEN_PACKAGED_APPLICATION       0x00000001UL // AppX package format
+#define PSM_ACTIVATION_TOKEN_SHARED_ENTITY              0x00000002UL // Shared token, multiple binaries in the same package
+#define PSM_ACTIVATION_TOKEN_FULL_TRUST                 0x00000004UL // Trusted (Centennial), converted Win32 application
+#define PSM_ACTIVATION_TOKEN_NATIVE_SERVICE             0x00000008UL // Packaged service created by SCM
+//#define PSM_ACTIVATION_TOKEN_DEVELOPMENT_APP          0x00000010UL
+#define PSM_ACTIVATION_TOKEN_MULTIPLE_INSTANCES_ALLOWED 0x00000010UL
+#define PSM_ACTIVATION_TOKEN_BREAKAWAY_INHIBITED        0x00000020UL // Cannot create non-packaged child processes
+#define PSM_ACTIVATION_TOKEN_RUNTIME_BROKER             0x00000040UL // rev
+#define PSM_ACTIVATION_TOKEN_UNIVERSAL_CONSOLE          0x00000200UL // rev
+#define PSM_ACTIVATION_TOKEN_WIN32ALACARTE_PROCESS      0x00010000UL // rev
 
 // PackageOrigin appmodel.h
-//#define PackageOrigin_Unknown 0
-//#define PackageOrigin_Unsigned 1
-//#define PackageOrigin_Inbox 2
-//#define PackageOrigin_Store 3
+//#define PackageOrigin_Unknown           0
+//#define PackageOrigin_Unsigned          1
+//#define PackageOrigin_Inbox             2
+//#define PackageOrigin_Store             3
 //#define PackageOrigin_DeveloperUnsigned 4
-//#define PackageOrigin_DeveloperSigned 5
-//#define PackageOrigin_LineOfBusiness 6
+//#define PackageOrigin_DeveloperSigned   5
+//#define PackageOrigin_LineOfBusiness    6
 
 #define PSMP_MINIMUM_SYSAPP_CLAIM_VALUES 2
 #define PSMP_MAXIMUM_SYSAPP_CLAIM_VALUES 4
@@ -10374,7 +11136,15 @@ RtlOverwriteFeatureConfigurationBuffer(
     );
 #endif
 
-#if (PHNT_VERSION >= PHNT_VISTA)
+// rev
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlNotifyFeatureToggleUsage(
+    _In_ PRTL_FEATURE_USAGE_REPORT FeatureUsageReport,
+    _In_ RTL_FEATURE_ID FeatureId,
+    _In_ ULONG Flags
+    );
 
 #ifndef _RTL_RUN_ONCE_DEF
 #define _RTL_RUN_ONCE_DEF
@@ -10400,6 +11170,8 @@ typedef union _RTL_RUN_ONCE
 } RTL_RUN_ONCE, *PRTL_RUN_ONCE;
 #endif
 
+#if (PHNT_VERSION >= PHNT_VISTA)
+
 NTSYSAPI
 VOID
 NTAPI
@@ -10408,7 +11180,9 @@ RtlRunOnceInitialize(
     );
 
 typedef _Function_class_(RTL_RUN_ONCE_INIT_FN)
-LOGICAL NTAPI RTL_RUN_ONCE_INIT_FN(
+LOGICAL 
+NTAPI 
+RTL_RUN_ONCE_INIT_FN(
     _Inout_ PRTL_RUN_ONCE RunOnce,
     _Inout_opt_ PVOID Parameter,
     _Inout_opt_ PVOID *Context
@@ -10462,7 +11236,9 @@ RtlEqualWnfChangeStamps(
 
 _Always_(_Post_satisfies_(return == STATUS_NO_MEMORY || return == STATUS_RETRY || return == STATUS_SUCCESS))
 typedef _Function_class_(WNF_USER_CALLBACK)
-NTSTATUS NTAPI WNF_USER_CALLBACK(
+NTSTATUS 
+NTAPI 
+WNF_USER_CALLBACK(
     _In_ WNF_STATE_NAME StateName,
     _In_ WNF_CHANGE_STAMP ChangeStamp,
     _In_opt_ PWNF_TYPE_ID TypeId,
@@ -10525,7 +11301,6 @@ RtlWnfDllUnloadCallback(
 #endif
 
 #if (PHNT_VERSION >= PHNT_WIN11)
-
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -10594,6 +11369,31 @@ RtlWow64ChangeThreadState(
     );
 #endif
 
+#ifdef PHNT_INLINE_TYPEDEFS
+#if (PHNT_VERSION >= PHNT_WIN11)
+// rev
+FORCEINLINE
+USHORT
+NTAPI
+RtlGetCurrentThreadPrimaryGroup(
+    VOID
+    )
+{
+    return NtCurrentTeb()->PrimaryGroupAffinity.Group;
+}
+#endif
+#else
+#if (PHNT_VERSION >= PHNT_REDSTONE)
+// rev
+NTSYSAPI
+USHORT
+NTAPI
+RtlGetCurrentThreadPrimaryGroup(
+    VOID
+    );
+#endif
+#endif
+
 #endif // _NTRTL_H
 
 /*
@@ -10603,6 +11403,8 @@ RtlWow64ChangeThreadState(
  */
 #ifndef _NTRTL_FWD_H
 #define _NTRTL_FWD_H
+
+// Note: ntdll symbols and exports define these forwarders:
 
 // begin_forwarders
 #ifndef PHNT_INLINE_NAME_FORWARDERS

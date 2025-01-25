@@ -348,7 +348,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
 
             __try
             {
-                PPH_STRING ssdeepHashString = NULL;
+                char* ssdeepHashString = NULL;
 
                 if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, PvMappedImage.Sections[i].VirtualAddress, NULL))
                 {
@@ -360,7 +360,8 @@ NTSTATUS PvpPeSectionsEnumerateThread(
 
                     if (ssdeepHashString)
                     {
-                        sectionNode->SsdeepString = ssdeepHashString;
+                        sectionNode->SsdeepString = PhConvertUtf8ToUtf16(ssdeepHashString);
+                        free(ssdeepHashString);
                     }
                 }
             }
@@ -372,7 +373,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
 
             __try
             {
-                PPH_STRING tlshHashString = NULL;
+                char* tlshHashString = NULL;
 
                 if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, PvMappedImage.Sections[i].VirtualAddress, NULL))
                 {
@@ -386,9 +387,10 @@ NTSTATUS PvpPeSectionsEnumerateThread(
                         &tlshHashString
                         );
 
-                    if (!PhIsNullOrEmptyString(tlshHashString))
+                    if (tlshHashString)
                     {
-                        sectionNode->TlshString = tlshHashString;
+                        sectionNode->TlshString = PhConvertUtf8ToUtf16(tlshHashString);
+                        free(tlshHashString);
                     }
                 }
             }
@@ -466,6 +468,7 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Sections (Ctrl+K)",
                 PvpPeSectionsSearchControlCallback,
@@ -666,7 +669,16 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -1273,7 +1285,7 @@ VOID PvInitializeSectionTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_SECTION_TREE_COLUMN_ITEM_SSDEEP, TRUE, L"SSDEEP", 80, PH_ALIGN_LEFT, PV_SECTION_TREE_COLUMN_ITEM_SSDEEP, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_SECTION_TREE_COLUMN_ITEM_TLSH, TRUE, L"TLSH", 80, PH_ALIGN_LEFT, PV_SECTION_TREE_COLUMN_ITEM_TLSH, 0, 0);
 
-    TreeNew_SetRowHeight(TreeNewHandle, 22);
+    TreeNew_SetRowHeight(TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(ParentWindowHandle)));
 
     TreeNew_SetRedraw(TreeNewHandle, TRUE);
     TreeNew_SetSort(TreeNewHandle, PV_SECTION_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);

@@ -572,7 +572,7 @@ PPH_STRING PvLayoutPeFormatDateTime(
 }
 
 PPH_STRING PvLayoutGetRelativeTimeString(
-    _In_ PLARGE_INTEGER Time
+    _In_ PLONGLONG Time
     )
 {
     LARGE_INTEGER time;
@@ -581,7 +581,7 @@ PPH_STRING PvLayoutGetRelativeTimeString(
     PPH_STRING timeRelativeString;
     PPH_STRING timeString;
 
-    time = *Time;
+    time.QuadPart = *Time;
     PhQuerySystemTime(&currentTime);
     timeRelativeString = PH_AUTO(PhFormatTimeSpanRelative(currentTime.QuadPart - time.QuadPart));
 
@@ -1096,13 +1096,13 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
             fileLayoutSteamEntry = PTR_ADD_OFFSET(fileLayoutEntry, fileLayoutEntry->FirstStreamOffset);
             fileLayoutInfoEntry = PTR_ADD_OFFSET(fileLayoutEntry, fileLayoutEntry->ExtraInfoOffset);
 
-            PvAddChildLayoutNode(Context, NULL, L"File reference number", PhFormatString(L"%I64u (0x%I64x)", fileLayoutEntry->FileReferenceNumber, fileLayoutEntry->FileReferenceNumber));
+            PvAddChildLayoutNode(Context, NULL, L"File reference number", PhFormatString(L"%llu (0x%llx)", fileLayoutEntry->FileReferenceNumber, fileLayoutEntry->FileReferenceNumber));
             PvAddChildLayoutNode(Context, NULL, L"File attributes", PhFormatUInt64(fileLayoutEntry->FileAttributes, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"File entry flags", PhFormatUInt64(fileLayoutEntry->Flags, FALSE));
-            PvAddChildLayoutNode(Context, NULL, L"Creation time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.CreationTime));
-            //PvAddChildLayoutNode(Context, NULL, L"Access time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastAccessTime));
-            PvAddChildLayoutNode(Context, NULL, L"Write time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastWriteTime));
-            PvAddChildLayoutNode(Context, NULL, L"Change time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.ChangeTime));
+            PvAddChildLayoutNode(Context, NULL, L"Creation time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.CreationTime.QuadPart));
+            //PvAddChildLayoutNode(Context, NULL, L"Access time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastAccessTime.QuadPart));
+            PvAddChildLayoutNode(Context, NULL, L"Write time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.LastWriteTime.QuadPart));
+            PvAddChildLayoutNode(Context, NULL, L"Change time", PvLayoutGetRelativeTimeString(&fileLayoutInfoEntry->BasicInformation.ChangeTime.QuadPart));
             PvAddChildLayoutNode(Context, NULL, L"LastUsn", PhFormatUInt64(fileLayoutInfoEntry->Usn, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"OwnerId", PhFormatUInt64(fileLayoutInfoEntry->OwnerId, FALSE));
             PvAddChildLayoutNode(Context, NULL, L"SecurityId", PhFormatUInt64(fileLayoutInfoEntry->SecurityId, FALSE));
@@ -1131,7 +1131,7 @@ NTSTATUS PvLayoutEnumerateFileLayouts(
                     parentNode = PvAddChildLayoutNode(Context, NULL, L"Filename", NULL);
                     PvAddChildLayoutNode(Context, parentNode, PvLayoutNameFlagsToString(fileLayoutNameEntry->Flags), layoutFileName);
                     //PvAddChildLayoutNode(Context, parentNode, L"Parent Name", PvLayoutGetParentIdName(fileHandle, fileLayoutNameEntry->ParentFileReferenceNumber));
-                    PvAddChildLayoutNode(Context, parentNode, L"Parent ID", PhFormatString(L"%I64u (0x%I64x)", fileLayoutNameEntry->ParentFileReferenceNumber, fileLayoutNameEntry->ParentFileReferenceNumber));
+                    PvAddChildLayoutNode(Context, parentNode, L"Parent ID", PhFormatString(L"%llu (0x%llx)", fileLayoutNameEntry->ParentFileReferenceNumber, fileLayoutNameEntry->ParentFileReferenceNumber));
 
                     if (fileLayoutNameEntry->NextNameOffset == 0)
                         break;
@@ -1305,6 +1305,7 @@ INT_PTR CALLBACK PvpPeLayoutDlgProc(
             context->SearchHandle = GetDlgItem(hwndDlg, IDC_TREESEARCH);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Layout (Ctrl+K)",
                 PvpPeLayoutSearchControlCallback,
@@ -1434,7 +1435,16 @@ INT_PTR CALLBACK PvpPeLayoutDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }

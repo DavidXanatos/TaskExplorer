@@ -178,7 +178,7 @@ void CPersistenceConfig::LoadPersistentList()
 {
 	m_pPresets->clear();
 
-	m_pPresets->setHorizontalHeaderLabels(tr("Path/Command Line (with wildcards)|Execution|CPU Priority|CPU Affinity|I/O Priority|Page Priority|").split("|"));
+	m_pPresets->setHorizontalHeaderLabels(tr("Path/Command Line (with wildcards)|Execution|CPU Priority|CPU Affinity|CPU Affinity|I/O Priority|Page Priority|").split("|"));
 
 	QPushButton* pButton = new QPushButton(tr("Add new entry"));
 	connect(pButton, SIGNAL(clicked(bool)), this, SLOT(OnAddPreset()));

@@ -401,10 +401,8 @@ NTSTATUS KsiGetDynData(
 	NTSTATUS status;
 	PBYTE data = NULL;
 	ULONG dataLength;
-	//PBYTE sig = NULL;
-	//ULONG sigLength;
-
-	// TODO download dynamic data from server
+	PBYTE sig = NULL;
+	ULONG sigLength;
 
 	*DynData = NULL;
 	*DynDataLength = 0;
@@ -419,23 +417,23 @@ NTSTATUS KsiGetDynData(
 	//if (!NT_SUCCESS(status))
 	//	goto CleanupExit;
 
-	//status = KsiReadConfiguration(L"ksidyn.sig", &sig, &sigLength);
-	//if (!NT_SUCCESS(status))
-	//	goto CleanupExit;
-	//
-	//if (!sigLength)
-	//{
-	//	status = STATUS_SI_DYNDATA_INVALID_SIGNATURE;
-	//	goto CleanupExit;
-	//}
+	status = KsiReadConfiguration(L"ksidyn.sig", &sig, &sigLength);
+	if (!NT_SUCCESS(status))
+		goto CleanupExit;
+	
+	if (!sigLength)
+	{
+		status = STATUS_SI_DYNDATA_INVALID_SIGNATURE;
+		goto CleanupExit;
+	}
 
 	*DynDataLength = dataLength;
 	*DynData = data;
 	data = NULL;
 
-	//*SignatureLength = sigLength;
-	//*Signature = sig;
-	//sig = NULL;
+	*SignatureLength = sigLength;
+	*Signature = sig;
+	sig = NULL;
 
 	status = STATUS_SUCCESS;
 
@@ -453,136 +451,429 @@ CleanupExit:
 BOOLEAN KsiEnableLoadNative = FALSE;
 BOOLEAN KsiEnableLoadFilter = FALSE;
 
-STATUS InitKPH(QString DeviceName, QString FileName)
+//STATUS InitKPH(QString DeviceName, QString FileName)
+//{
+//	if (DeviceName.isEmpty())
+//		DeviceName = QString::fromWCharArray(KPH_SERVICE_NAME);
+//	if (FileName.isEmpty())
+//		FileName = "systeminformer.sys";
+//
+//	// if the file name is not a full path Add the application directory
+//	if (!FileName.contains("\\"))
+//		FileName = QApplication::applicationDirPath() + "/" + FileName;
+//
+//	FileName = FileName.replace("/", "\\");
+//    if (!QFile::exists(FileName))
+//		return ERR(QObject::tr("The kernel driver file '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
+//
+//    if (!PhGetOwnTokenAttributes().Elevated)
+//        return ERR("Driver required administrative privileges.", STATUS_ELEVATION_REQUIRED);
+//
+//	PBYTE dynData = NULL;
+//	ULONG dynDataLength;
+//	PBYTE signature = NULL;
+//	ULONG signatureLength;
+//
+//	NTSTATUS status = KsiGetDynData(&dynData, &dynDataLength, &signature, &signatureLength);
+//	if (!NT_SUCCESS(status)) 
+//		return ERR("Unsupported windows version.", STATUS_UNKNOWN_REVISION);
+//
+//	// todo: fix-me
+//    //if (PhDoesOldKsiExist())
+//    //{
+//    //    if (PhGetIntegerSetting(L"EnableKphWarnings") && !PhStartupParameters.PhSvc)
+//    //    {
+//    //        PhShowKsiError(
+//    //            L"Unable to load kernel driver, the last System Informer update requires a reboot.",
+//    //            STATUS_PENDING 
+//    //            );
+//    //    }
+//    //    return;
+//    //}
+//
+//	STATUS Status = OK;
+//	PPH_STRING ksiFileName = NULL;
+//    PPH_STRING ksiServiceName = NULL;
+//
+//    //if (!(ksiServiceName = PhCreateString(KPH_SERVICE_NAME)))
+//	if (!(ksiServiceName = CastQString(DeviceName)))
+//        goto CleanupExit;
+//    if (!(ksiFileName = CastQString(FileName)))
+//        goto CleanupExit;
+//
+//    {
+//        KPH_CONFIG_PARAMETERS config = { 0 };
+//        PPH_STRING objectName = NULL;
+//        PPH_STRING portName = NULL;
+//        PPH_STRING altitude = NULL;
+//
+//        //if (PhIsNullOrEmptyString(objectName = PhGetStringSetting(L"KphObjectName")))
+//        //PhMoveReference((PVOID*)&objectName, PhCreateString(KPH_OBJECT_NAME));
+//		objectName = CastQString("\\Driver\\" + DeviceName);
+//        //if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
+//        //PhMoveReference((PVOID*)&portName, PhCreateString(KPH_PORT_NAME));
+//		portName = CastQString("\\" + DeviceName);
+//        //if (PhIsNullOrEmptyString(altitude = PhGetStringSetting(L"KphAltitude")))
+//        PhMoveReference((PVOID*)&altitude, PhCreateString(L"385210.5"));
+//
+//        config.FileName = &ksiFileName->sr;
+//        config.ServiceName = &ksiServiceName->sr;
+//        config.ObjectName = &objectName->sr;
+//        config.PortName = &portName->sr;
+//        config.Altitude = &altitude->sr;
+//		config.Flags.Flags = 0;
+//		//config.Flags.DisableImageLoadProtection = !!PhGetIntegerSetting(L"KsiDisableImageLoadProtection");
+//		//config.Flags.RandomizedPoolTag = !!PhGetIntegerSetting(L"KsiRandomizedPoolTag");
+//		//config.Flags.DynDataNoEmbedded = !!PhGetIntegerSetting(L"KsiDynDataNoEmbedded");
+//        config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
+//
+//		config.EnableNativeLoad = KsiEnableLoadNative;
+//		config.EnableFilterLoad = KsiEnableLoadFilter;
+//
+//        status = KphConnect(&config);
+//
+//        if (NT_SUCCESS(status))
+//        {
+//			KphActivateDynData(dynData, dynDataLength, signature, signatureLength);
+//
+//            KPH_LEVEL level = KsiLevel();
+//
+//            if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
+//            {
+//                //if ((level == KphLevelHigh) &&
+//                //    !PhStartupParameters.KphStartupMax)
+//                //{
+//                //    PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kx");
+//                //    PhRestartSelf(&commandline);
+//                //}
+//
+//                //if ((level < KphLevelHigh) &&
+//                //    !PhStartupParameters.KphStartupMax &&
+//                //    !PhStartupParameters.KphStartupHigh)
+//                //{
+//                //    PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kh");
+//                //    PhRestartSelf(&commandline);
+//                //}
+//            }
+//
+//			/*KPH_INFORMER_SETTINGS filter;
+//
+//			filter.Flags = 0;
+//			filter.Flags2 = 0;
+//			filter.Flags3 = 0;
+//			filter.ProcessCreate = FALSE;
+//			filter.FilePreCreate = TRUE;
+//			filter.FilePostCreate = TRUE;
+//			filter.FileEnablePostCreateReply = TRUE;
+//
+//			KphSetInformerSettings(&filter);*/
+//        }
+//        else
+//        {
+//			Status = ERR("Unable to load the kernel driver service.", status);
+//        }
+//
+//        PhClearReference((PVOID*)&objectName);
+//    }
+//
+//CleanupExit:
+//    if (ksiServiceName)
+//        PhDereferenceObject(ksiServiceName);
+//    if (ksiFileName)
+//        PhDereferenceObject(ksiFileName);
+//	if (signature)
+//		PhFree(signature);
+//	if (dynData)
+//		PhFree(dynData);
+//
+//	return Status;
+//}
+
+BOOLEAN g_KphStartupMax = FALSE;
+BOOLEAN g_KphStartupHigh = FALSE;
+
+NTSTATUS PhRestartSelf(
+	_In_ PPH_STRINGREF AdditionalCommandLine
+)
 {
-	if (DeviceName.isEmpty())
-		DeviceName = QString::fromWCharArray(KPH_SERVICE_NAME);
-	if (FileName.isEmpty())
-		FileName = "systeminformer.sys";
+#ifndef DEBUG
+	static ULONG64 mitigationFlags[] =
+	{
+		(PROCESS_CREATION_MITIGATION_POLICY_HEAP_TERMINATE_ALWAYS_ON |
+			PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON |
+			PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_ON |
+			PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON |
+			PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON |
+			PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_PREFER_SYSTEM32_ALWAYS_ON),
+			(PROCESS_CREATION_MITIGATION_POLICY2_LOADER_INTEGRITY_CONTINUITY_ALWAYS_ON |
+				PROCESS_CREATION_MITIGATION_POLICY2_STRICT_CONTROL_FLOW_GUARD_ALWAYS_ON |
+				// PROCESS_CREATION_MITIGATION_POLICY2_BLOCK_NON_CET_BINARIES_ALWAYS_ON |
+				// PROCESS_CREATION_MITIGATION_POLICY2_XTENDED_CONTROL_FLOW_GUARD_ALWAYS_ON |
+				PROCESS_CREATION_MITIGATION_POLICY2_MODULE_TAMPERING_PROTECTION_ALWAYS_ON)
+	};
+#endif
+	NTSTATUS status;
+	PPROC_THREAD_ATTRIBUTE_LIST attributeList = NULL;
+	PH_STRINGREF commandlineSr;
+	PPH_STRING commandline;
+	STARTUPINFOEX startupInfo;
+
+	status = PhGetProcessCommandLineStringRef(&commandlineSr);
+
+	if (!NT_SUCCESS(status))
+		return status;
+
+	commandline = PhConcatStringRef2(
+		&commandlineSr,
+		AdditionalCommandLine
+	);
+
+	// todo: fix-me
+/*#ifndef DEBUG
+	status = PhInitializeProcThreadAttributeList(&attributeList, 1);
+
+	if (!NT_SUCCESS(status))
+		return status;
+
+	if (WindowsVersion >= WINDOWS_10_22H2)
+	{
+		status = PhUpdateProcThreadAttribute(
+			attributeList,
+			PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY,
+			mitigationFlags,
+			sizeof(ULONG64) * 2
+		);
+	}
+	else
+	{
+		status = PhUpdateProcThreadAttribute(
+			attributeList,
+			PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY,
+			mitigationFlags,
+			sizeof(ULONG64) * 1
+		);
+	}
+#endif*/
+
+	if (!NT_SUCCESS(status))
+		return status;
+
+	memset(&startupInfo, 0, sizeof(STARTUPINFOEX));
+	startupInfo.StartupInfo.cb = sizeof(STARTUPINFOEX);
+	startupInfo.lpAttributeList = attributeList;
+
+	status = PhCreateProcessWin32Ex(
+		NULL,
+		PhGetString(commandline),
+		NULL,
+		NULL,
+		&startupInfo,
+		PH_CREATE_PROCESS_DEFAULT_ERROR_MODE | PH_CREATE_PROCESS_EXTENDED_STARTUPINFO,
+		NULL,
+		NULL,
+		NULL,
+		NULL
+	);
+
+	if (NT_SUCCESS(status))
+	{
+		PhExitApplication(STATUS_SUCCESS);
+	}
+
+	if (attributeList)
+		PhDeleteProcThreadAttributeList(attributeList);
+
+	PhDereferenceObject(commandline);
+
+	return status;
+}
+
+BOOLEAN PhDoesOldKsiExist(
+	VOID
+)
+{
+	static PH_STRINGREF ksiOld = PH_STRINGREF_INIT(L"ksi.dll-old");
+	BOOLEAN result = FALSE;
+	PPH_STRING applicationDirectory;
+	PPH_STRING fileName;
+
+	if (!(applicationDirectory = PhGetApplicationDirectory()))
+		return FALSE;
+
+	if (fileName = PhConcatStringRef2(&applicationDirectory->sr, &ksiOld))
+	{
+		if (result = PhDoesFileExist(&fileName->sr))
+		{
+			// If the file exists try to delete it. If we can't a reboot is
+			// still required since it's likely still mapped into the kernel.
+			if (NT_SUCCESS(PhDeleteFile(&fileName->sr)))
+				result = FALSE;
+		}
+
+		PhDereferenceObject(fileName);
+	}
+
+	PhDereferenceObject(applicationDirectory);
+	return result;
+}
+
+STATUS InitKSI(const QString& AppDir)
+{
+	QString DeviceName = QString::fromWCharArray(KPH_SERVICE_NAME);
+	QString FileName = "systeminformer.sys";
+	//QString DeviceName = "KTaskExplorer";
+	//QString FileName = "taskexplorer.sys";
 
 	// if the file name is not a full path Add the application directory
 	if (!FileName.contains("\\"))
-		FileName = QApplication::applicationDirPath() + "/" + FileName;
+		FileName = AppDir + "/" + FileName;
 
 	FileName = FileName.replace("/", "\\");
-    if (!QFile::exists(FileName))
+	if (!QFile::exists(FileName))
 		return ERR(QObject::tr("The kernel driver file '%1' was not found.").arg(FileName), STATUS_NOT_FOUND);
 
-    if (!PhGetOwnTokenAttributes().Elevated)
-        return ERR("Driver required administrative privileges.", STATUS_ELEVATION_REQUIRED);
+	if (!PhGetOwnTokenAttributes().Elevated)
+		return ERR("Driver required administrative privileges.", STATUS_ELEVATION_REQUIRED);
+
+	if(PhIsExecutingInWow64())
+		return ERR("Driver only supports 64 bit.", STATUS_IMAGE_MACHINE_TYPE_MISMATCH);
+
+	// TODO download dynamic data from server
+
+	NTSTATUS status;
 
 	PBYTE dynData = NULL;
 	ULONG dynDataLength;
 	PBYTE signature = NULL;
 	ULONG signatureLength;
 
-	NTSTATUS status = KsiGetDynData(&dynData, &dynDataLength, &signature, &signatureLength);
+	status = KsiGetDynData(&dynData, &dynDataLength, &signature, &signatureLength);
 	if (!NT_SUCCESS(status)) 
 		return ERR("Unsupported windows version.", STATUS_UNKNOWN_REVISION);
 
 	// todo: fix-me
-    //if (PhDoesOldKsiExist())
-    //{
-    //    if (PhGetIntegerSetting(L"EnableKphWarnings") && !PhStartupParameters.PhSvc)
-    //    {
-    //        PhShowKsiError(
-    //            L"Unable to load kernel driver, the last System Informer update requires a reboot.",
-    //            STATUS_PENDING 
-    //            );
-    //    }
-    //    return;
-    //}
+	//if (PhDoesOldKsiExist())
+	//{
+	//    if (PhGetIntegerSetting(L"EnableKphWarnings") && !PhStartupParameters.PhSvc)
+	//    {
+	//        PhShowKsiError(
+	//            L"Unable to load kernel driver, the last System Informer update requires a reboot.",
+	//            STATUS_PENDING 
+	//            );
+	//    }
+	//    return;
+	//}
 
 	STATUS Status = OK;
-	PPH_STRING ksiFileName = NULL;
-    PPH_STRING ksiServiceName = NULL;
+	//PPH_STRING ksiServiceName = PhCreateString(KPH_SERVICE_NAME);
+	PPH_STRING ksiServiceName = CastQString(DeviceName);
+	PPH_STRING ksiFileName = CastQString(FileName);
 
-    //if (!(ksiServiceName = PhCreateString(KPH_SERVICE_NAME)))
-	if (!(ksiServiceName = CastQString(DeviceName)))
-        goto CleanupExit;
-    if (!(ksiFileName = CastQString(FileName)))
-        goto CleanupExit;
+	KPH_CONFIG_PARAMETERS config = { 0 };
+	PPH_STRING objectName = NULL;
+	//PPH_STRING portName = NULL;
+	//PPH_STRING altitude = NULL;
 
-    {
-        KPH_CONFIG_PARAMETERS config = { 0 };
-        PPH_STRING objectName = NULL;
-        PPH_STRING portName = NULL;
-        PPH_STRING altitude = NULL;
+	//if (PhIsNullOrEmptyString(objectName = PhGetStringSetting(L"KphObjectName")))
+	//PhMoveReference((PVOID*)&objectName, PhCreateString(KPH_OBJECT_NAME));
+	objectName = CastQString("\\Driver\\" + DeviceName);
+	////if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
+	////PhMoveReference((PVOID*)&portName, PhCreateString(KPH_PORT_NAME));
+	//portName = CastQString("\\" + DeviceName);
+	////if (PhIsNullOrEmptyString(altitude = PhGetStringSetting(L"KphAltitude")))
+	//PhMoveReference((PVOID*)&altitude, PhCreateString(L"385210.5"));
 
-        //if (PhIsNullOrEmptyString(objectName = PhGetStringSetting(L"KphObjectName")))
-        //PhMoveReference((PVOID*)&objectName, PhCreateString(KPH_OBJECT_NAME));
-		objectName = CastQString("\\Driver\\" + DeviceName);
-        //if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
-        //PhMoveReference((PVOID*)&portName, PhCreateString(KPH_PORT_NAME));
-		portName = CastQString("\\" + DeviceName);
-        //if (PhIsNullOrEmptyString(altitude = PhGetStringSetting(L"KphAltitude")))
-        PhMoveReference((PVOID*)&altitude, PhCreateString(L"385210.5"));
+	config.FileName = &ksiFileName->sr;
+	config.ServiceName = &ksiServiceName->sr;
+	config.ObjectName = &objectName->sr;
+	config.PortName = NULL; //&portName->sr;
+	config.Altitude = NULL; //&altitude->sr;
+	config.Flags.Flags = 0;
+	// todo
+#ifdef _DEBUG 
+	config.Flags.DisableImageLoadProtection = TRUE;
+#endif
+	//config.Flags.DisableImageLoadProtection = !!PhGetIntegerSetting(L"KsiDisableImageLoadProtection");
+	//config.Flags.RandomizedPoolTag = !!PhGetIntegerSetting(L"KsiRandomizedPoolTag");
+	//config.Flags.DynDataNoEmbedded = !!PhGetIntegerSetting(L"KsiDynDataNoEmbedded");
+	config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
 
-        config.FileName = &ksiFileName->sr;
-        config.ServiceName = &ksiServiceName->sr;
-        config.ObjectName = &objectName->sr;
-        config.PortName = &portName->sr;
-        config.Altitude = &altitude->sr;
-		config.Flags.Flags = 0;
-		//config.Flags.DisableImageLoadProtection = !!PhGetIntegerSetting(L"KsiDisableImageLoadProtection");
-		//config.Flags.RandomizedPoolTag = !!PhGetIntegerSetting(L"KsiRandomizedPoolTag");
-		//config.Flags.DynDataNoEmbedded = !!PhGetIntegerSetting(L"KsiDynDataNoEmbedded");
-        config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
+	config.EnableNativeLoad = KsiEnableLoadNative;
+	config.EnableFilterLoad = KsiEnableLoadFilter;
 
-		config.EnableNativeLoad = KsiEnableLoadNative;
-		config.EnableFilterLoad = KsiEnableLoadFilter;
+	status = KphConnect(&config);
+	if (!NT_SUCCESS(status))
+		Status = ERR("KphConnect Failed.", status);
+	else
+	{
+		status = KphActivateDynData(dynData, dynDataLength, signature, signatureLength);
+		if (!NT_SUCCESS(status))
+			Status = ERR("KphActivateDynData Failed.", status);
+		else
+		{
+			KPH_LEVEL level = KphLevelEx(FALSE);
 
-        status = KphConnect(&config);
+#ifdef _DEBUG
+			if ((level != KphLevelMax))
+#else
+			if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
+#endif
+			{
+				if ((level == KphLevelHigh) &&
+					!g_KphStartupMax)
+				{
+					PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kx");
+					status = PhRestartSelf(&commandline);
+				}
 
-        if (NT_SUCCESS(status))
-        {
-			KphActivateDynData(dynData, dynDataLength, signature, signatureLength);
+				if ((level < KphLevelHigh) &&
+					!g_KphStartupMax &&
+					!g_KphStartupHigh)
+				{
+					PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kh");
+					status = PhRestartSelf(&commandline);
+				}
 
-            KPH_LEVEL level = KsiLevel();
+				if (!NT_SUCCESS(status))
+					Status = ERR("PhRestartSelf failed.", STATUS_ACCESS_DENIED);
+				else
+				{
+					QStringList Info;
 
-            if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
-            {
-                //if ((level == KphLevelHigh) &&
-                //    !PhStartupParameters.KphStartupMax)
-                //{
-                //    PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kx");
-                //    PhRestartSelf(&commandline);
-                //}
+					KPH_PROCESS_STATE processState = KphGetCurrentProcessState();
+					if ((processState != 0) && (processState & KPH_PROCESS_STATE_MAXIMUM) != KPH_PROCESS_STATE_MAXIMUM)
+					{
+						if (!BooleanFlagOn(processState, KPH_PROCESS_SECURELY_CREATED))
+							Info.append("not securely created\r\n");
+						if (!BooleanFlagOn(processState, KPH_PROCESS_VERIFIED_PROCESS))
+							Info.append("unverified primary image\r\n");
+						if (!BooleanFlagOn(processState, KPH_PROCESS_PROTECTED_PROCESS))
+							Info.append("inactive protections\r\n");
+						if (!BooleanFlagOn(processState, KPH_PROCESS_NO_UNTRUSTED_IMAGES))
+							Info.append("unsigned images (likely an unsigned plugin)\r\n");
+						if (!BooleanFlagOn(processState, KPH_PROCESS_NOT_BEING_DEBUGGED))
+							Info.append("process is being debugged\r\n");
+						if ((processState & KPH_PROCESS_STATE_MINIMUM) != KPH_PROCESS_STATE_MINIMUM)
+							Info.append("tampered primary image\r\n");
+					}
 
-                //if ((level < KphLevelHigh) &&
-                //    !PhStartupParameters.KphStartupMax &&
-                //    !PhStartupParameters.KphStartupHigh)
-                //{
-                //    PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kh");
-                //    PhRestartSelf(&commandline);
-                //}
-            }
+					Status = ERR(QString("Unable to access the kernel driver: %1.").arg(Info.join(", ")), STATUS_ACCESS_DENIED);
+				}
+			}
+		}
+	}
 
-			/*KPH_INFORMER_SETTINGS filter;
+	if (objectName)
+		PhDereferenceObject(objectName);
+	//if (altitude)
+	//	PhDereferenceObject(altitude);
+	//if (portName)
+	//	PhDereferenceObject(portName);
 
-			filter.Flags = 0;
-			filter.Flags2 = 0;
-			filter.Flags3 = 0;
-			filter.ProcessCreate = FALSE;
-			filter.FilePreCreate = TRUE;
-			filter.FilePostCreate = TRUE;
-			filter.FileEnablePostCreateReply = TRUE;
-
-			KphSetInformerSettings(&filter);*/
-        }
-        else
-        {
-			Status = ERR("Unable to load the kernel driver service.", status);
-        }
-
-        PhClearReference((PVOID*)&objectName);
-    }
-
-CleanupExit:
-    if (ksiServiceName)
-        PhDereferenceObject(ksiServiceName);
-    if (ksiFileName)
-        PhDereferenceObject(ksiFileName);
+	if (ksiServiceName)
+		PhDereferenceObject(ksiServiceName);
+	if (ksiFileName)
+		PhDereferenceObject(ksiFileName);
 	if (signature)
 		PhFree(signature);
 	if (dynData)

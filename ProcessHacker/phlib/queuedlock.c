@@ -97,7 +97,7 @@ BOOLEAN PhQueuedLockInitialization(
         )))
         return FALSE;
 
-    if ((ULONG)PhSystemBasicInformation.NumberOfProcessors > 1)
+    if (PhSystemBasicInformation.NumberOfProcessors > 1)
         PhQueuedLockSpinCount = 4000;
     else
         PhQueuedLockSpinCount = 0;
@@ -203,8 +203,8 @@ FORCEINLINE BOOLEAN PhpPushQueuedWaitBlock(
     *Optimize = optimize;
     *CurrentValue = newValue;
 
-    newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-        (PVOID *)&QueuedLock->Value,
+    newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+        (volatile PVOID *)&QueuedLock->Value,
         (PVOID)newValue,
         (PVOID)Value
         );
@@ -280,7 +280,7 @@ _May_raise_ FORCEINLINE NTSTATUS PhpBlockOnQueuedWaitBlock(
 
         for (i = PhQueuedLockSpinCount; i != 0; i--)
         {
-            if (!(*(volatile ULONG *)&WaitBlock->Flags & PH_QUEUED_WAITER_SPINNING))
+            if (!(ReadULongAcquire(&WaitBlock->Flags) & PH_QUEUED_WAITER_SPINNING))
                 return STATUS_SUCCESS;
 
             YieldProcessor();
@@ -360,7 +360,7 @@ FORCEINLINE VOID PhpOptimizeQueuedLockListEx(
     PPH_QUEUED_WAIT_BLOCK lastWaitBlock;
     PPH_QUEUED_WAIT_BLOCK previousWaitBlock;
 
-    value = Value;
+    value = ReadULongPtrAcquire(&Value);
 
     while (TRUE)
     {
@@ -403,8 +403,8 @@ FORCEINLINE VOID PhpOptimizeQueuedLockListEx(
 
         newValue = value - PH_QUEUED_LOCK_TRAVERSING;
 
-        if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-            (PVOID *)&QueuedLock->Value,
+        if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+            (volatile PVOID *)&QueuedLock->Value,
             (PVOID)newValue,
             (PVOID)value
             )) == value)
@@ -456,7 +456,7 @@ FORCEINLINE PPH_QUEUED_WAIT_BLOCK PhpPrepareToWakeQueuedLock(
     PPH_QUEUED_WAIT_BLOCK lastWaitBlock;
     PPH_QUEUED_WAIT_BLOCK previousWaitBlock;
 
-    value = Value;
+    value = ReadULongPtrAcquire(&Value);
 
     while (TRUE)
     {
@@ -472,8 +472,8 @@ FORCEINLINE PPH_QUEUED_WAIT_BLOCK PhpPrepareToWakeQueuedLock(
         {
             newValue = value - PH_QUEUED_LOCK_TRAVERSING;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -538,8 +538,8 @@ FORCEINLINE PPH_QUEUED_WAIT_BLOCK PhpPrepareToWakeQueuedLock(
 
             newValue = 0;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -635,14 +635,14 @@ VOID FASTCALL PhfAcquireQueuedLockExclusive(
     BOOLEAN optimize;
     PH_QUEUED_WAIT_BLOCK waitBlock;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (TRUE)
     {
         if (!(value & PH_QUEUED_LOCK_OWNED))
         {
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)(value + PH_QUEUED_LOCK_OWNED),
                 (PVOID)value
                 )) == value)
@@ -687,7 +687,7 @@ VOID FASTCALL PhfAcquireQueuedLockShared(
     BOOLEAN optimize;
     PH_QUEUED_WAIT_BLOCK waitBlock;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (TRUE)
     {
@@ -702,8 +702,8 @@ VOID FASTCALL PhfAcquireQueuedLockShared(
         {
             newValue = (value + PH_QUEUED_LOCK_SHARED_INC) | PH_QUEUED_LOCK_OWNED;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -746,7 +746,7 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
     ULONG_PTR newValue;
     ULONG_PTR currentValue;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (TRUE)
     {
@@ -762,8 +762,8 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
 
             newValue = value - PH_QUEUED_LOCK_OWNED;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -777,8 +777,8 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
             newValue = value - PH_QUEUED_LOCK_OWNED + PH_QUEUED_LOCK_TRAVERSING;
             currentValue = newValue;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -811,8 +811,8 @@ VOID FASTCALL PhfWakeForReleaseQueuedLock(
 
     newValue = Value + PH_QUEUED_LOCK_TRAVERSING;
 
-    if ((ULONG_PTR)_InterlockedCompareExchangePointer(
-        (PVOID *)&QueuedLock->Value,
+    if ((ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+        (volatile PVOID *)&QueuedLock->Value,
         (PVOID)newValue,
         (PVOID)Value
         ) == Value)
@@ -835,7 +835,7 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
     ULONG_PTR currentValue;
     PPH_QUEUED_WAIT_BLOCK waitBlock;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (!(value & PH_QUEUED_LOCK_WAITERS))
     {
@@ -847,8 +847,8 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
         else
             newValue = 0;
 
-        if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-            (PVOID *)&QueuedLock->Value,
+        if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+            (volatile PVOID *)&QueuedLock->Value,
             (PVOID)newValue,
             (PVOID)value
             )) == value)
@@ -872,8 +872,8 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
         {
             newValue = value & ~(PH_QUEUED_LOCK_OWNED | PH_QUEUED_LOCK_MULTIPLE_SHARED);
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -885,8 +885,8 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
                 PH_QUEUED_LOCK_TRAVERSING;
             currentValue = newValue;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -950,7 +950,7 @@ VOID FASTCALL PhfWaitForCondition(
     PH_QUEUED_WAIT_BLOCK waitBlock;
     BOOLEAN optimize;
 
-    value = Condition->Value;
+    value = ReadULongPtrAcquire(&Condition->Value);
 
     while (TRUE)
     {
@@ -1001,7 +1001,7 @@ VOID FASTCALL PhfWaitForConditionEx(
     PH_QUEUED_WAIT_BLOCK waitBlock;
     BOOLEAN optimize;
 
-    value = Condition->Value;
+    value = ReadULongPtrAcquire(&Condition->Value);
 
     while (TRUE)
     {
@@ -1091,14 +1091,14 @@ VOID FASTCALL PhfQueueWakeEvent(
 
     WaitBlock->Flags = PH_QUEUED_WAITER_SPINNING;
 
-    value = (PPH_QUEUED_WAIT_BLOCK)WakeEvent->Value;
+    value = _InterlockedCompareExchangePointer((volatile PVOID *)&WakeEvent->Value, NULL, NULL);
 
     while (TRUE)
     {
         WaitBlock->Next = value;
 
         if ((newValue = _InterlockedCompareExchangePointer(
-            (PVOID *)&WakeEvent->Value,
+            (volatile PVOID *)&WakeEvent->Value,
             WaitBlock,
             value
             )) == value)
@@ -1124,7 +1124,7 @@ VOID FASTCALL PhfSetWakeEvent(
 
     // Pop all waiters and unblock them.
 
-    waitBlock = _InterlockedExchangePointer((PVOID *)&WakeEvent->Value, NULL);
+    waitBlock = _InterlockedExchangePointer((volatile PVOID *)&WakeEvent->Value, NULL);
 
     while (waitBlock)
     {

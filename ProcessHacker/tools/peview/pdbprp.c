@@ -184,6 +184,9 @@ VOID PvSetOptionsSymbolsList(
     case PV_SYMBOL_TREE_MENU_ITEM_HIDE_READ:
         Context->HideReadSection = !Context->HideReadSection;
         break;
+    case PV_SYMBOL_TREE_MENU_ITEM_FILTER_WRITE:
+        Context->FilterNonWriteSections = !Context->FilterNonWriteSections;
+        break;
     case PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_WRITE:
         Context->HighlightWriteSection = !Context->HighlightWriteSection;
         break;
@@ -259,7 +262,7 @@ END_SORT_FUNCTION
 
 BEGIN_SORT_FUNCTION(Data)
 {
-    sortResult = PhCompareStringWithNull(node1->Data, node2->Data, TRUE);
+    sortResult = PhCompareStringRefWithNullSortOrder(node1->Data, node2->Data, ((PPDB_SYMBOL_CONTEXT)_context)->TreeNewSortOrder, TRUE);
 }
 END_SORT_FUNCTION
 
@@ -414,7 +417,17 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
                 getCellText->Text = PhGetStringRef(node->Name);
                 break;
             case TREE_COLUMN_ITEM_SYMBOL:
-                getCellText->Text = PhGetStringRef(node->Data);
+                {
+                    if (node->Data)
+                    {
+                        getCellText->Text.Buffer = node->Data->Buffer;
+                        getCellText->Text.Length = node->Data->Length;
+                    }
+                    else
+                    {
+                        PhInitializeEmptyStringRef(&getCellText->Text);
+                    }
+                }
                 break;
             case TREE_COLUMN_ITEM_SIZE:
                 {
@@ -493,14 +506,6 @@ BOOLEAN NTAPI PvSymbolTreeNewCallback(
                         text = PhGetTreeNewText(hwnd, 0);
                         PhSetClipboardString(hwnd, &text->sr);
                         PhDereferenceObject(text);
-                    }
-                }
-                break;
-            case 'A':
-                {
-                    if (GetKeyState(VK_CONTROL) < 0)
-                    {
-                        TreeNew_SelectRange(hwnd, 0, -1);
                     }
                 }
                 break;
@@ -647,14 +652,22 @@ BOOLEAN PvSymbolTreeFilterCallback(
     //if (node->Address == 0)
     //    return TRUE;
 
-    if (context->HideWriteSection && node->Characteristics & IMAGE_SCN_MEM_WRITE)
-        return FALSE;
-    if (context->HideExecuteSection && node->Characteristics & IMAGE_SCN_MEM_EXECUTE)
-        return FALSE;
-    if (context->HideCodeSection && node->Characteristics & IMAGE_SCN_CNT_CODE)
-        return FALSE;
-    if (context->HideReadSection && node->Characteristics & IMAGE_SCN_MEM_READ)
-        return FALSE;
+    if (context->FilterNonWriteSections)
+    {
+        if (!FlagOn(node->Characteristics, IMAGE_SCN_MEM_WRITE))
+            return FALSE;
+    }
+    else
+    {
+        if (context->HideWriteSection && FlagOn(node->Characteristics, IMAGE_SCN_MEM_WRITE))
+            return FALSE;
+        if (context->HideExecuteSection && node->Characteristics & IMAGE_SCN_MEM_EXECUTE)
+            return FALSE;
+        if (context->HideCodeSection && node->Characteristics & IMAGE_SCN_CNT_CODE)
+            return FALSE;
+        if (context->HideReadSection && node->Characteristics & IMAGE_SCN_MEM_READ)
+            return FALSE;
+    }
 
     if (!context->SearchMatchHandle)
         return TRUE;
@@ -715,7 +728,7 @@ BOOLEAN PvSymbolTreeFilterCallback(
 
     if (!PhIsNullOrEmptyString(node->Data))
     {
-        if (PvSearchControlMatch(context->SearchMatchHandle, &node->Data->sr))
+        if (PvSearchControlMatch(context->SearchMatchHandle, node->Data))
             return TRUE;
     }
 
@@ -845,6 +858,7 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             context->SearchHandle = GetDlgItem(hwndDlg, IDC_TREESEARCH);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Symbols (Ctrl+K)",
                 PvpSymbolsSearchControlCallback,
@@ -924,6 +938,7 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
                     PPH_EMENU_ITEM executableMenuItem;
                     PPH_EMENU_ITEM codeMenuItem;
                     PPH_EMENU_ITEM readMenuItem;
+                    PPH_EMENU_ITEM filterWriteMenuItem;
                     PPH_EMENU_ITEM highlightWriteMenuItem;
                     PPH_EMENU_ITEM highlightExecuteMenuItem;
                     PPH_EMENU_ITEM highlightCodeMenuItem;
@@ -936,6 +951,7 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
                     executableMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_HIDE_EXECUTE, L"Hide executable", NULL, NULL);
                     codeMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_HIDE_CODE, L"Hide code", NULL, NULL);
                     readMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_HIDE_READ, L"Hide readable", NULL, NULL);
+                    filterWriteMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_FILTER_WRITE, L"Filter non-writable", NULL, NULL);
                     highlightWriteMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_WRITE, L"Highlight writable", NULL, NULL);
                     highlightExecuteMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_EXECUTE, L"Highlight executable", NULL, NULL);
                     highlightCodeMenuItem = PhCreateEMenuItem(0, PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_CODE, L"Highlight code", NULL, NULL);
@@ -946,6 +962,7 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
                     PhInsertEMenuItem(menu, executableMenuItem, ULONG_MAX);
                     PhInsertEMenuItem(menu, codeMenuItem, ULONG_MAX);
                     PhInsertEMenuItem(menu, readMenuItem, ULONG_MAX);
+                    PhInsertEMenuItem(menu, filterWriteMenuItem, ULONG_MAX);
                     PhInsertEMenuItem(menu, PhCreateEMenuSeparator(), ULONG_MAX);
                     PhInsertEMenuItem(menu, highlightWriteMenuItem, ULONG_MAX);
                     PhInsertEMenuItem(menu, highlightExecuteMenuItem, ULONG_MAX);
@@ -960,6 +977,8 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
                         codeMenuItem->Flags |= PH_EMENU_CHECKED;
                     if (context->HideReadSection)
                         readMenuItem->Flags |= PH_EMENU_CHECKED;
+                    if (context->FilterNonWriteSections)
+                        filterWriteMenuItem->Flags |= PH_EMENU_CHECKED;
                     if (context->HighlightWriteSection)
                         highlightWriteMenuItem->Flags |= PH_EMENU_CHECKED;
                     if (context->HighlightExecuteSection)
@@ -1072,7 +1091,16 @@ INT_PTR CALLBACK PvpSymbolsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }

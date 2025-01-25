@@ -92,7 +92,7 @@ PixmapEntryList extractIcons(const QString &sourceFile, bool large)
 {
 	const QString nativeName = QDir::toNativeSeparators(sourceFile);
 	const auto *sourceFileC = reinterpret_cast<const wchar_t *>(nativeName.utf16());
-	const UINT iconCount = ExtractIconEx(sourceFileC, -1, nullptr, nullptr, 0);
+	const UINT iconCount = ExtractIconExW(sourceFileC, -1, nullptr, nullptr, 0);
 	if (!iconCount) {
 		//std::wcerr << sourceFile << " does not appear to contain icons.\n";
 		return PixmapEntryList();
@@ -100,8 +100,8 @@ PixmapEntryList extractIcons(const QString &sourceFile, bool large)
 
 	QScopedArrayPointer<HICON> icons(new HICON[iconCount]);
 	const UINT extractedIconCount = large ?
-		ExtractIconEx(sourceFileC, 0, icons.data(), nullptr, iconCount) :
-		ExtractIconEx(sourceFileC, 0, nullptr, icons.data(), iconCount);
+		ExtractIconExW(sourceFileC, 0, icons.data(), nullptr, iconCount) :
+		ExtractIconExW(sourceFileC, 0, nullptr, icons.data(), iconCount);
 	if (!extractedIconCount) {
 		qErrnoWarning("Failed to extract icons from %s", qPrintable(sourceFile));
 		return PixmapEntryList();
@@ -128,7 +128,7 @@ PixmapEntryList extractIcons(const QString &sourceFile, bool large)
 
 // Helper for extracting large/jumbo icons available from Windows Vista onwards
 // via SHGetImageList().
-QPixmap pixmapFromShellImageList(int iImageList, const SHFILEINFO &info)
+QPixmap pixmapFromShellImageList(int iImageList, const SHFILEINFOW &info)
 {
 	QPixmap result;
 	// For MinGW:
@@ -175,7 +175,7 @@ PixmapEntryList extractShellIcons(const QString &sourceFile, bool addOverlays)
 	const QString nativeName = QDir::toNativeSeparators(sourceFile);
 	const auto *sourceFileC = reinterpret_cast<const wchar_t *>(nativeName.utf16());
 
-	SHFILEINFO info;
+	SHFILEINFOW info;
 	unsigned int baseFlags = SHGFI_ICON | SHGFI_SYSICONINDEX | SHGFI_ICONLOCATION;
 	if (addOverlays)
 		baseFlags |= SHGFI_ADDOVERLAYS | SHGFI_OVERLAYINDEX;
@@ -193,7 +193,7 @@ PixmapEntryList extractShellIcons(const QString &sourceFile, bool addOverlays)
 			const QString prefix = modePrefix + QLatin1String(standardSizeEntry.name)
 				+ u'_';
 			ZeroMemory(&info, sizeof(SHFILEINFO));
-			const HRESULT hr = SHGetFileInfo(sourceFileC, 0, &info, sizeof(SHFILEINFO), flags);
+			const HRESULT hr = SHGetFileInfoW(sourceFileC, 0, &info, sizeof(SHFILEINFO), flags);
 			if (FAILED(hr)) {
 				_com_error error(hr);
 				//std::wcerr << "SHGetFileInfo() failed for \"" << nativeName << "\", "

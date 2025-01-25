@@ -13,7 +13,7 @@
 #include <mapldr.h>
 #include <appresolver.h>
 
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
 #pragma comment(lib, "runtimeobject.lib")
 #include <roapi.h>
 #include <winstring.h>
@@ -36,7 +36,7 @@ PPH_STRING PhCreateStringFromWindowsRuntimeString(
     _In_ HSTRING String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     UINT32 stringLength;
     PCWSTR string;
 
@@ -44,7 +44,7 @@ PPH_STRING PhCreateStringFromWindowsRuntimeString(
     {
         if (stringLength >= sizeof(UNICODE_NULL))
         {
-            return PhCreateStringEx((PWCHAR)string, stringLength * sizeof(WCHAR));
+            return PhCreateStringEx(string, stringLength * sizeof(WCHAR));
         }
     }
 #else
@@ -52,7 +52,7 @@ PPH_STRING PhCreateStringFromWindowsRuntimeString(
 
     if (string && string->Length >= sizeof(UNICODE_NULL))
     {
-        return PhCreateStringEx((PWCHAR)string->Buffer, string->Length * sizeof(WCHAR));
+        return PhCreateStringEx(string->Buffer, string->Length * sizeof(WCHAR));
     }
 #endif
 
@@ -73,12 +73,12 @@ HRESULT PhCreateWindowsRuntimeStringReference(
     _Out_ PVOID String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     HSTRING stringHandle;
 
     return WindowsCreateStringReference(
         SourceString,
-        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        (UINT32)PhCountStringZ(SourceString),
         String,
         &stringHandle
         );
@@ -86,7 +86,7 @@ HRESULT PhCreateWindowsRuntimeStringReference(
     HSTRING_REFERENCE* string = (HSTRING_REFERENCE*)String;
 
     string->Flags = HSTRING_REFERENCE_FLAG;
-    string->Length = (UINT32)PhCountStringZ((PWSTR)SourceString);
+    string->Length = (UINT32)PhCountStringZ(SourceString);
     string->Buffer = SourceString;
 
     return S_OK;
@@ -109,12 +109,12 @@ HRESULT PhCreateWindowsRuntimeStringReferenceEx(
     _Out_ PVOID String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     HSTRING stringHandle;
 
     return WindowsCreateStringReference(
         SourceString,
-        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        (UINT32)PhCountStringZ(SourceString),
         String,
         &stringHandle
         );
@@ -143,10 +143,10 @@ HRESULT PhCreateWindowsRuntimeString(
     _Out_ HSTRING* String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     return WindowsCreateString(
         SourceString,
-        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        (UINT32)PhCountStringZ(SourceString),
         String
         );
 #else
@@ -154,7 +154,7 @@ HRESULT PhCreateWindowsRuntimeString(
     SIZE_T bufferLength;
     HSTRING_INSTANCE* string;
 
-    stringLength = PhCountStringZ((PWSTR)SourceString) * sizeof(WCHAR);
+    stringLength = PhCountStringZ(SourceString) * sizeof(WCHAR);
     bufferLength = sizeof(HSTRING_INSTANCE) + stringLength + sizeof(UNICODE_NULL);
 
     if (bufferLength > UINT_MAX)
@@ -189,7 +189,7 @@ VOID PhDeleteWindowsRuntimeString(
     _In_opt_ HSTRING String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     WindowsDeleteString(String);
 #else
     HSTRING_INSTANCE* string = (HSTRING_INSTANCE*)String;
@@ -217,11 +217,11 @@ VOID PhDeleteWindowsRuntimeString(
  *
  * \return Successful or errant status.
  */
-UINT32 PhGetWindowsRuntimeStringLength(
+ULONG PhGetWindowsRuntimeStringLength(
     _In_opt_ HSTRING String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     return WindowsGetStringLen(String);
 #else
     HSTRING_INSTANCE* string = (HSTRING_INSTANCE*)String;
@@ -246,10 +246,10 @@ UINT32 PhGetWindowsRuntimeStringLength(
  */
 PCWSTR PhGetWindowsRuntimeStringBuffer(
     _In_opt_ HSTRING String,
-    _Out_opt_ PUINT32 Length
+    _Out_opt_ PULONG Length
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     return WindowsGetStringRawBuffer(String, Length);
 #else
     HSTRING_INSTANCE* string = (HSTRING_INSTANCE*)String;
@@ -323,7 +323,7 @@ PPH_STRING PhDataReaderBufferToHexString(
     PPH_STRING string = NULL;
     __x_ABI_CWindows_CStorage_CStreams_CIDataReaderStatics* dataReaderStatics;
     __x_ABI_CWindows_CStorage_CStreams_CIDataReader* dataReader;
-    UINT32 dataBufferLength = 0;
+    ULONG dataBufferLength = 0;
     UCHAR dataBuffer[128] = { 0 };
 
     if (SUCCEEDED(__x_ABI_CWindows_CStorage_CStreams_CIBuffer_get_Length(Buffer, &dataBufferLength)) && dataBufferLength < sizeof(dataBuffer))

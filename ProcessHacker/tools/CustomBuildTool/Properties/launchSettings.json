@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CustomBuildTool": {
+      "commandName": "Project",
+      "commandLineArgs": "-kph-sign \"C:\\Projects\\TaskExplorer\\x64\\Debug\\TaskExplorer.exe\""
+    }
+  }
+}

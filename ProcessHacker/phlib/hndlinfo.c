@@ -6,15 +6,15 @@
  * Authors:
  *
  *     wj32    2010-2015
- *     dmex    2017-2023
+ *     dmex    2017-2024
  *
  */
 
 #include <ph.h>
+#include <apiimport.h>
 #include <hndlinfo.h>
 #include <json.h>
 #include <kphuser.h>
-#include <mapldr.h>
 #include <lsasup.h>
 
 #include <devquery.h>
@@ -128,7 +128,7 @@ PPH_GET_CLIENT_ID_NAME PhSetHandleClientIdFunction(
         );
 }
 
-NTSTATUS PhpGetObjectBasicInformation(
+NTSTATUS PhGetObjectBasicInformation(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _Out_ POBJECT_BASIC_INFORMATION BasicInformation
@@ -178,7 +178,7 @@ NTSTATUS PhpGetObjectBasicInformation(
     return status;
 }
 
-NTSTATUS PhpGetObjectTypeName(
+NTSTATUS PhGetObjectTypeName(
     _In_opt_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _In_ ULONG ObjectTypeNumber,
@@ -320,7 +320,7 @@ NTSTATUS PhpGetObjectTypeName(
     return status;
 }
 
-NTSTATUS PhpGetObjectName(
+NTSTATUS PhGetObjectName(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _In_ BOOLEAN WithTimeout,
@@ -403,7 +403,7 @@ NTSTATUS PhQueryObjectName(
     if (Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
         return STATUS_INVALID_HANDLE;
 
-    return PhpGetObjectName(NtCurrentProcess(), Handle, FALSE, ObjectName);
+    return PhGetObjectName(NtCurrentProcess(), Handle, FALSE, ObjectName);
 }
 
 NTSTATUS PhQueryObjectBasicInformation(
@@ -414,10 +414,32 @@ NTSTATUS PhQueryObjectBasicInformation(
     if (Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
         return STATUS_INVALID_HANDLE;
 
-    return PhpGetObjectBasicInformation(NtCurrentProcess(), Handle, BasicInformation);
+    return PhGetObjectBasicInformation(NtCurrentProcess(), Handle, BasicInformation);
 }
 
-NTSTATUS PhpGetEtwObjectName(
+NTSTATUS PhCompareObjects(
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle
+    )
+{
+    NTSTATUS status;
+
+    if (NtCompareObjects_Import())
+    {
+        status = NtCompareObjects_Import()(
+            FirstObjectHandle,
+            SecondObjectHandle
+            );
+    }
+    else
+    {
+        status = STATUS_NOT_SUPPORTED;
+    }
+
+    return status;
+}
+
+NTSTATUS PhGetEtwObjectName(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _Out_ PPH_STRING *ObjectName
@@ -458,9 +480,8 @@ VOID PhInitializeEtwTraceGuidCache(
     PVOID jsonObject;
     ULONG arrayLength;
 
-    if (guidListFileName = PhGetApplicationDirectory())
+    if (guidListFileName = PhGetApplicationDirectoryFileNameZ(L"Resources\\EtwGuids.txt", TRUE))
     {
-        PhMoveReference(&guidListFileName, PhConcatStringRefZ(&guidListFileName->sr, L"etwguids.txt"));
         guidListString = PhFileReadAllText(&guidListFileName->sr, TRUE);
         PhDereferenceObject(guidListFileName);
     }
@@ -802,7 +823,7 @@ NTSTATUS PhGetSectionFileName(
     SIZE_T viewSize;
     PVOID viewBase;
 
-    viewSize = 1;
+    viewSize = PAGE_SIZE;
     viewBase = NULL;
 
     status = NtMapViewOfSection(
@@ -992,12 +1013,15 @@ NTSTATUS PhpGetBestObjectName(
     _In_ HANDLE Handle,
     _In_ PPH_STRING ObjectName,
     _In_ PPH_STRING TypeName,
-    _Out_ PPH_STRING *BestObjectName
+    _Out_ PPH_STRING *BestObjectName,
+    _Out_ PPH_STRING *ResolvedObjectName
     )
 {
     NTSTATUS status;
     PPH_STRING bestObjectName = NULL;
     PPH_GET_CLIENT_ID_NAME handleGetClientIdName = PhHandleGetClientIdName;
+
+    PhSetReference(ResolvedObjectName, ObjectName);
 
     if (PhEqualString2(TypeName, L"EtwRegistration", TRUE))
     {
@@ -1190,7 +1214,7 @@ NTSTATUS PhpGetBestObjectName(
     else if (PhEqualString2(TypeName, L"Section", TRUE))
     {
         HANDLE dupHandle = NULL;
-        PPH_STRING fileName;
+        PPH_STRING fileName = NULL;
 
         if (!PhIsNullOrEmptyString(ObjectName))
             goto CleanupExit;
@@ -1664,6 +1688,9 @@ NTSTATUS PhpGetBestObjectName(
         if (namesInfo && namesInfo->ConnectionPort.Length > 0)
         {
             PhInitFormatUCS(&format[formatCount++], &namesInfo->ConnectionPort);
+
+            if (PhIsNullOrEmptyString(*ResolvedObjectName))
+                PhMoveReference(ResolvedObjectName, PhCreateStringFromUnicodeString(&namesInfo->ConnectionPort));
         }
 
         if (formatCount > 0)
@@ -1789,6 +1816,7 @@ NTSTATUS PhGetHandleInformationEx(
     PPH_STRING typeName = NULL;
     PPH_STRING objectName = NULL;
     PPH_STRING bestObjectName = NULL;
+    PPH_STRING resolvedObjectName = NULL;
     BOOLEAN useKph;
 
     if (ProcessHandle == NULL || Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
@@ -1831,7 +1859,7 @@ NTSTATUS PhGetHandleInformationEx(
     // Get basic information.
     if (BasicInformation)
     {
-        status = PhpGetObjectBasicInformation(
+        status = PhGetObjectBasicInformation(
             ProcessHandle,
             objectHandle,
             BasicInformation
@@ -1846,7 +1874,7 @@ NTSTATUS PhGetHandleInformationEx(
         goto CleanupExit;
 
     // Get the type name.
-    status = PhpGetObjectTypeName(
+    status = PhGetObjectTypeName(
         ProcessHandle,
         objectHandle,
         ObjectTypeNumber,
@@ -1864,7 +1892,7 @@ NTSTATUS PhGetHandleInformationEx(
     // If we're dealing with a file handle we must take special precautions so we don't hang.
     if (PhEqualString2(typeName, L"File", TRUE) && !useKph)
     {
-        status = PhpGetObjectName(
+        status = PhGetObjectName(
             ProcessHandle,
             objectHandle,
             TRUE,
@@ -1873,7 +1901,7 @@ NTSTATUS PhGetHandleInformationEx(
     }
     else if (PhEqualString2(typeName, L"EtwRegistration", TRUE) && useKph)
     {
-        status = PhpGetEtwObjectName(
+        status = PhGetEtwObjectName(
             ProcessHandle,
             Handle,
             &objectName
@@ -1882,7 +1910,7 @@ NTSTATUS PhGetHandleInformationEx(
     else
     {
         // Query the object normally.
-        status = PhpGetObjectName(
+        status = PhGetObjectName(
             ProcessHandle,
             objectHandle,
             FALSE,
@@ -1915,7 +1943,8 @@ NTSTATUS PhGetHandleInformationEx(
         Handle,
         objectName,
         typeName,
-        &bestObjectName
+        &bestObjectName,
+        &resolvedObjectName
         );
 
     if (!NT_SUCCESS(status))
@@ -1924,6 +1953,8 @@ NTSTATUS PhGetHandleInformationEx(
         status = STATUS_SUCCESS;
         goto CleanupExit;
     }
+
+    PhMoveReference(&objectName, resolvedObjectName);
 
 CleanupExit:
 
@@ -2067,7 +2098,7 @@ ULONG PhGetObjectTypeNumber(
     return objectIndex;
 }
 
-PPH_STRING PhGetObjectTypeName(
+PPH_STRING PhGetObjectTypeIndexName(
     _In_ ULONG TypeIndex
     )
 {
@@ -2210,6 +2241,7 @@ NTSTATUS PhpCallWithTimeout(
         if (!NT_SUCCESS(status = PhCreateUserThread(
             NtCurrentProcess(),
             NULL,
+            THREAD_ALL_ACCESS,
             0,
             0,
             UInt32x32To64(32, 1024),

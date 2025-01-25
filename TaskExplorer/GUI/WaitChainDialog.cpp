@@ -94,33 +94,7 @@ private:
 CWaitChainDialog::CWaitChainDialog(const CProcessPtr& pProcess, QWidget *parent)
 	: QMainWindow(parent)
 {
-	this->setWindowTitle("Wait Chain Traversal");
-
-	m_pMainWidget = new QWidget();
-    m_pMainWidget->setMinimumSize(QSize(430, 210));
-
-    m_pMainLayout = new QGridLayout();
-	m_pMainWidget->setLayout(m_pMainLayout);
-
-	m_pWaitTree = new CPanelWidgetEx();
-	m_pWaitTree->GetTree()->setHeaderLabels(tr("Type|ThreadId|ProcessId|Status|Context Switches|WaitTime|Timeout|Alertable|Name").split("|"));
-	m_pWaitTree->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	m_pWaitTree->GetTree()->setSortingEnabled(true);
-    m_pMainLayout->addWidget(m_pWaitTree, 0, 0, 1, 4);
-
-    m_pButtonBox = new QDialogButtonBox();
-    m_pButtonBox->setStandardButtons(QDialogButtonBox::Close);
-    m_pMainLayout->addWidget(m_pButtonBox, 1, 0, 1, 4);
-
-	this->setCentralWidget(m_pMainWidget);
-
-	//connect(m_pButtonBox, SIGNAL(accepted()), this, SLOT(accept()));
-	connect(m_pButtonBox, SIGNAL(rejected()), this, SLOT(reject()));
-
-	restoreGeometry(theConf->GetBlob("WaitChainWindow/Window_Geometry"));
-	m_pWaitTree->GetTree()->header()->restoreState(theConf->GetBlob("WaitChainWindow/WaitTree_Columns"));
-
-	m_TimerId = -1;
+	InitGUI();
 
 	m = new SWaitChainTraversal();
 	m->ProcessId = (HANDLE)pProcess->GetProcessId();
@@ -142,6 +116,65 @@ CWaitChainDialog::CWaitChainDialog(const CProcessPtr& pProcess, QWidget *parent)
 		m_TimerId = startTimer(1000);
 		Refresh();
 	}
+}
+
+CWaitChainDialog::CWaitChainDialog(const CThreadPtr& pThread, QWidget* parent)
+	: QMainWindow(parent)
+{
+	InitGUI();
+
+	m = new SWaitChainTraversal();
+	m->ProcessId = (HANDLE)pThread->GetProcessId();
+	m->ThreadId = (HANDLE)pThread->GetThreadId();
+	m->QueryHandle = ((CWinProcess*)pThread->GetProcess().data())->GetQueryHandle();
+
+	STATUS status = InitWCT();
+	if (status.IsError())
+	{
+		QMessageBox::critical(this, tr("Wait Chain Traversal"), status.GetText());
+		m_TimerId = -1;
+		m_pWorker = NULL;
+	}
+	else
+	{
+		m_pWorker = new QThread();
+		m_pWorker->moveToThread(m_pWorker);
+		m_pWorker->start();
+
+		m_TimerId = startTimer(1000);
+		Refresh();
+	}
+}
+
+void CWaitChainDialog::InitGUI()
+{
+	this->setWindowTitle("Wait Chain Traversal");
+
+	m_pMainWidget = new QWidget();
+	m_pMainWidget->setMinimumSize(QSize(430, 210));
+
+	m_pMainLayout = new QGridLayout();
+	m_pMainWidget->setLayout(m_pMainLayout);
+
+	m_pWaitTree = new CPanelWidgetEx();
+	m_pWaitTree->GetTree()->setHeaderLabels(tr("Type|ThreadId|ProcessId|Status|Context Switches|WaitTime|Timeout|Alertable|Name").split("|"));
+	m_pWaitTree->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_pWaitTree->GetTree()->setSortingEnabled(true);
+	m_pMainLayout->addWidget(m_pWaitTree, 0, 0, 1, 4);
+
+	m_pButtonBox = new QDialogButtonBox();
+	m_pButtonBox->setStandardButtons(QDialogButtonBox::Close);
+	m_pMainLayout->addWidget(m_pButtonBox, 1, 0, 1, 4);
+
+	this->setCentralWidget(m_pMainWidget);
+
+	//connect(m_pButtonBox, SIGNAL(accepted()), this, SLOT(accept()));
+	connect(m_pButtonBox, SIGNAL(rejected()), this, SLOT(reject()));
+
+	restoreGeometry(theConf->GetBlob("WaitChainWindow/Window_Geometry"));
+	m_pWaitTree->GetTree()->header()->restoreState(theConf->GetBlob("WaitChainWindow/WaitTree_Columns"));
+
+	m_TimerId = -1;
 }
 
 CWaitChainDialog::~CWaitChainDialog()

@@ -117,8 +117,13 @@ INT WINAPI wWinMain(
 #ifndef DEBUG
     if (PhIsExecutingInWow64())
     {
-        PhShowWarning(
+        PhGuiSupportInitialization();
+        PhSettingsInitialization();
+        PvInitializeSettings();
+        PvInitializeSuperclassControls();
+        PhShowWarning2(
             NULL,
+            L"Warning.",
             L"%s",
             L"You are attempting to run the 32-bit version of PE Viewer on 64-bit Windows. "
             L"Most features will not work correctly.\n\n"
@@ -365,7 +370,7 @@ BOOLEAN PvInitializeExceptionPolicy(
         PhSetProcessErrorMode(NtCurrentProcess(), errorMode);
     }
 
-    RtlSetUnhandledExceptionFilter(PvUnhandledExceptionCallback);
+    SetUnhandledExceptionFilter(PvUnhandledExceptionCallback);
 #endif
     return TRUE;
 }

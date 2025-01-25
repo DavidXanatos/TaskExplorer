@@ -17,18 +17,21 @@ public:
 
 	virtual void SetParentId(quint64 PID)				{ QWriteLocker Locker(&m_Mutex); m_ParentProcessId = PID; }
 	virtual void SetName(const QString& Name)			{ QWriteLocker Locker(&m_Mutex); m_ProcessName = Name; }
-	virtual void SetFileName(const QString& FileName);
+	virtual void SetFileName(const QString& FileName, const QString& FileNameNt);
+	virtual QString GetFileNameNt() const				{ QReadLocker Locker(&m_Mutex); return m_FileNameNt; }
 	virtual void SetCommandLineStr(const QString& CommandLine)	{ QWriteLocker Locker(&m_Mutex); m_CommandLine = CommandLine; }
 	virtual void MarkAsHidden();
 
-	virtual bool IsFullyInitialized() const			{ QReadLocker Locker(&m_Mutex); return m_IsFullyInitialized; }
+	virtual quint64 GetStartKey() const					{ QReadLocker Locker(&m_Mutex); return m_StartKey; }
+
+	virtual bool IsFullyInitialized() const				{ QReadLocker Locker(&m_Mutex); return m_IsFullyInitialized; }
 
 	// Basic
 	virtual void* GetQueryHandle() const;
 	virtual bool IsWoW64() const;
 	virtual QString GetArchString() const;
 	virtual quint64 GetSessionID() const;
-	virtual CWinTokenPtr GetToken() const			{ QReadLocker Locker(&m_Mutex); return m_pToken; }
+	virtual CWinTokenPtr GetToken() const				{ QReadLocker Locker(&m_Mutex); return m_pToken; }
 	virtual quint16 GetSubsystem() const;
 	virtual QString GetSubsystemString() const;
 	virtual void SetRawCreateTime(quint64 TimeStamp);
@@ -49,6 +52,7 @@ public:
 	virtual quint64 GetShareableWorkingSetSize() const;
 	virtual quint64 GetMinimumWS() const;
 	virtual quint64 GetMaximumWS() const;
+	virtual quint64 GetShareableCommitSize() const;
 
 	virtual quint32	GetPeakNumberOfHandles() const;
 	virtual quint64 GetUpTime() const;
@@ -69,6 +73,21 @@ public:
 	virtual STATUS SetPagePriority(long Value);
 	virtual STATUS SetIOPriority(long Value);
 
+	virtual bool HasPriorityBoost() const			{ QReadLocker Locker(&m_Mutex); return m_PriorityBoost; }
+	virtual STATUS SetPriorityBoost(bool Value);
+	virtual bool IsPowerThrottled() const;			//{ QReadLocker Locker(&m_Mutex); return m_IsPowerThrottled; }
+	virtual STATUS SetPowerThrottled(bool Value);
+
+	virtual quint16 GetCodePage() const;
+	virtual quint16 GetTlsBitmapCount() const; 
+	virtual QString GetTlsBitmapCountString() const; 
+	virtual quint32 GetErrorMode() const; 
+	virtual QString GetErrorModeString() const; 
+
+	virtual quint32 GetReferenceCount();
+	virtual quint32 GetAccessMask();
+	virtual QString GetAccessMaskString();
+
 	virtual STATUS SetAffinityMask(quint64 Value);
 
 	virtual STATUS Terminate(bool bForce);
@@ -76,6 +95,12 @@ public:
 	virtual bool IsSuspended() const;
 	virtual STATUS Suspend();
 	virtual STATUS Resume();
+
+	virtual bool IsFrozen() const;
+	virtual STATUS Freeze();
+	virtual STATUS UnFreeze();
+
+	virtual bool IsReflectedProcess() const;
 
 	virtual void AddService(const QString& Name)	{ QWriteLocker Locker(&m_Mutex); if(!m_ServiceList.contains(Name)) m_ServiceList.append(Name); }
 	virtual void RemoveService(const QString& Name)	{ QWriteLocker Locker(&m_Mutex); m_ServiceList.removeAll(Name); }
@@ -123,6 +148,7 @@ public:
 	virtual bool IsInJob() const;
 	virtual bool IsImmersiveProcess() const;
 	virtual bool IsNetProcess() const;
+	virtual bool IsPackagedProcess() const;
 	virtual quint64 GetConsoleHostId() const;
 
 	virtual QString GetPackageName() const; 
@@ -156,6 +182,8 @@ public:
 	virtual CWinJobPtr		GetJob() const;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const;
+	virtual QMap<quint64, CHeapPtr> GetHeapList() const;
+	virtual STATUS FlushHeaps();
 
 	virtual QList<CWndPtr> GetWindows() const;
 	virtual CWndPtr	GetMainWindow() const;
@@ -190,7 +218,8 @@ public:
 public slots:
 	virtual bool	UpdateThreads();
 	virtual bool	UpdateHandles();
-	virtual bool	UpdateModules();
+	virtual bool	UpdateModules()				{ return UpdateModulesList(false); }
+	virtual bool	UpdateModulesAndModPages()	{ return UpdateModulesList(true); }
 	virtual bool	UpdateWindows();
 
 	void			OnAsyncDataDone(bool IsPacked, quint32 ImportFunctions, quint32 ImportModules);
@@ -213,8 +242,21 @@ protected:
 	void UpdateCPUCycles(quint64 sysTotalTime, quint64 sysTotalCycleTime);
 	void UnInit();
 
+	bool UpdateModulesList(bool bWithModPages);
+
 	void AddNetworkIO(int Type, quint32 TransferSize);
 	void AddDiskIO(int Type, quint32 TransferSize);
+
+	QString							m_FileNameNt;
+
+	union {
+		quint32 m_MiscStates;
+		struct {
+			quint32 
+				m_PriorityBoost : 1,
+				m_Reserved : 31;
+		};
+	};
 
 	// Other fields
 	QList<QString>					m_ServiceList;
@@ -231,6 +273,8 @@ protected:
 	quint32							m_WndHandles;
 
 	bool							m_IsCritical;
+
+	quint64							m_StartKey;	
 
 	// Token
 	CWinTokenPtr					m_pToken;
@@ -252,3 +296,4 @@ private:
 };
 
 QVariantList GetProcessUnloadedDlls(quint64 ProcessId);
+QVariantList GetProcessHeaps(quint64 ProcessId);

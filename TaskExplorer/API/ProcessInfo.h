@@ -8,6 +8,7 @@
 #include "AbstractTask.h"
 #include "MiscStats.h"
 #include "MemoryInfo.h"
+#include "HeapInfo.h"
 #include "SocketInfo.h"
 #include "DNSEntry.h"
 #include "PersistentPreset.h"
@@ -94,6 +95,7 @@ public:
 	virtual bool IsServiceProcess() const = 0;
 	virtual bool IsUserProcess() const = 0;
 	virtual bool IsElevated() const = 0;
+	virtual bool IsPowerThrottled() const = 0; 
 
 	virtual void SetNetworkUsageFlag(quint64 uFlag)			{ QWriteLocker Locker(&m_StatsMutex); m_NetworkUsageFlags |= uFlag; }
 	virtual int GetNetworkUsageFlags() const				{ QReadLocker Locker(&m_StatsMutex); return m_NetworkUsageFlags; }
@@ -167,6 +169,8 @@ public:
 	virtual STATUS					EditEnvVariable(const QString& Name, const QString& Value) = 0;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const = 0;
+	virtual QMap<quint64, CHeapPtr> GetHeapList() const = 0;
+	virtual STATUS FlushHeaps() = 0;
 
 	virtual QList<CWndPtr> GetWindows() const = 0;
 	virtual CWndPtr	GetMainWindow() const = 0;

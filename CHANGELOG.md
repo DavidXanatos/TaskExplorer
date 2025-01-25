@@ -5,11 +5,49 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+
+## [1.6.0] - 2025-01-??
+
+### Added
+- Added permissions button to the Process security tab
+- Added options to confugire No-[Write|Read|Execute]-Up policy
+- Added more columns to the memory panel: Signing level, Original protection, Region type, Priority
+- added more info to token panel
+- added more columns to service tab
+- added more columns to module tab
+- added more columns to threads tab
+- added more columns to process tree
+- added options to change thread/process priority boost
+- added options to change process efficiency mode
+- added option to freeze processes
+- added more dump options
+- added heaps info tab
+- added modified pages info to module panel
+
+### Changed
+- updated PHlib to version 3.2.25011
+- updated Integrity levels
+- now all PIDs/TIDs ate displayed booth in decimal and hex 1234 [0x4D2]
+- reordered the process and thread menus
+- moved TaskExplorer data folder from C:\\Users\\[User]\\AppData\\Local\\TaskExplorer to C:\\Users\\[User]\\AppData\\Local\\Xanasoft\\TaskExplorer
+  - Note: the folder will be moved automatically, when downgrading to an older version you would need to move it back manually.
+
+### Fixed
+- fixed issues with processes started from a voluem without a drive letter
+- fixed service delete confirmation prompt was missing
+- fixed issue listing net assemblies
+- 
+
+
+
 ## [1.5.6] - 2024-09-22
 
 ### Changed
 - TE is no longer listing mounted VHD/VHDX files as disks, we only care for real hardware
 - updated PHlib to version 3.1.24258
+
+### Fixed
+- fixed dnscache related memory leak
 
 
 

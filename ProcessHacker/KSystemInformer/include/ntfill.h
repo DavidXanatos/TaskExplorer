@@ -401,6 +401,8 @@ typedef struct _REG_SAVE_MERGED_KEY_INFORMATION
 
 #define VS_FFI_SIGNATURE        0xFEEF04BDL
 
+typedef struct _IMAGE_RESOURCE_DATA_ENTRY IMAGE_RESOURCE_DATA_ENTRY, *PIMAGE_RESOURCE_DATA_ENTRY;
+
 NTKERNELAPI
 NTSTATUS
 NTAPI
@@ -457,6 +459,8 @@ typedef struct _FIXEDFILEINFO
     DWORD   dwFileDateMS;
     DWORD   dwFileDateLS;
 } VS_FIXEDFILEINFO, *PVS_FIXEDFILEINFO;
+
+typedef struct _NON_PAGED_DEBUG_INFO NON_PAGED_DEBUG_INFO, *PNON_PAGED_DEBUG_INFO;
 
 typedef struct _KLDR_DATA_TABLE_ENTRY
 {
@@ -1793,6 +1797,26 @@ typedef struct _CFG_CALL_TARGET_LIST_INFORMATION
 
 #define SeDebugPrivilege RtlConvertUlongToLuid(SE_DEBUG_PRIVILEGE)
 #define SeCreateTokenPrivilege RtlConvertUlongToLuid(SE_CREATE_TOKEN_PRIVILEGE)
+
+NTKERNELAPI
+NTSTATUS
+NTAPI
+SeCaptureSecurityDescriptor(
+    _In_ PSECURITY_DESCRIPTOR OriginalSecurityDescriptor,
+    _In_ KPROCESSOR_MODE CurrentMode,
+    _In_ POOL_TYPE PoolType,
+    _In_ BOOLEAN CaptureIfKernel,
+    _Out_ PSECURITY_DESCRIPTOR *CapturedSecurityDescriptor
+    );
+
+NTKERNELAPI
+NTSTATUS
+NTAPI
+SeReleaseSecurityDescriptor(
+    _In_ PSECURITY_DESCRIPTOR CapturedSecurityDescriptor,
+    _In_ KPROCESSOR_MODE CurrentMode,
+    _In_ BOOLEAN CaptureIfKernelMode
+    );
 
 #if (NTDDI_VERSION >= NTDDI_WINBLUE)
 NTKERNELAPI

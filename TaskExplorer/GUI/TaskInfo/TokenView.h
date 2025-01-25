@@ -56,6 +56,8 @@ private:
 		eStatus,
 		eDescription,
 		eSID,
+		eType,
+		eUse,
 		eCount
 	};
 

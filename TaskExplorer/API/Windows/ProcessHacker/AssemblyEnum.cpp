@@ -819,7 +819,7 @@ void CAssemblyEnum::run()
 
 	//if (isDotNet)
 	{
-		PhGetProcessIsDotNetEx(context->ProcessId, NULL, 0, NULL, &context->ClrVersions);
+		PhGetProcessIsDotNetEx(context->ProcessId, NULL, PH_CLR_USE_SECTION_CHECK, NULL, &context->ClrVersions);
 
 		// DotNetTraceQueryThreadStart
 		LARGE_INTEGER timeout;
@@ -891,6 +891,131 @@ void CAssemblyEnum::run()
 	}
 
 	DestroyDotNetTraceQuery(context);
+
+    // todo use this method
+/*
+    PCLR_PROCESS_SUPPORT support;
+    PPH_LIST appdomainlist = NULL;
+    BOOLEAN success = FALSE;
+
+#ifdef _WIN64
+    if (Context->IsWow64Process)
+    {
+        if (PhUiConnectToPhSvcEx(NULL, Wow64PhSvcMode, FALSE))
+        {
+            appdomainlist = CallGetClrAppDomainAssemblyList(Context->ProcessId);
+            PhUiDisconnectFromPhSvc();
+        }
+    }
+    else
+#endif
+    {
+        if (support = CreateClrProcessSupport(Context->ProcessId))
+        {
+            appdomainlist = DnGetClrAppDomainAssemblyList(support);
+            FreeClrProcessSupport(support);
+        }
+    }
+
+    if (!appdomainlist)
+        goto CleanupExit;
+
+    for (ULONG i = 0; i < appdomainlist->Count; i++)
+    {
+        PDN_PROCESS_APPDOMAIN_ENTRY entry = appdomainlist->Items[i];
+        PDNA_NODE parentNode;
+
+        //if (!entry->AssemblyList)
+        //    continue;
+
+        parentNode = AddNode(Context);
+        parentNode->Type = DNA_TYPE_APPDOMAIN;
+        parentNode->u.AppDomain.AppDomainID = entry->AppDomainID;
+        parentNode->u.AppDomain.AppDomainType = entry->AppDomainType;
+        parentNode->u.AppDomain.DisplayName = PhConcatStrings2(L"AppDomain: ", entry->AppDomainName->Buffer);
+        parentNode->StructureText = parentNode->u.AppDomain.DisplayName->sr;
+        parentNode->IdText = FormatToHexString(entry->AppDomainID);
+        parentNode->RootNode = TRUE;
+        PhAddItemList(Context->NodeRootList, parentNode);
+
+        if (entry->AssemblyList)
+        {
+            for (ULONG j = 0; j < entry->AssemblyList->Count; j++)
+            {
+                PDN_DOTNET_ASSEMBLY_ENTRY assembly = entry->AssemblyList->Items[j];
+                PDNA_NODE childNode;
+
+                //if (FindAssemblyNode3(Context, assembly->AssemblyID))
+                //    continue;
+
+                childNode = AddNode(Context);
+                childNode->Type = DNA_TYPE_ASSEMBLY;
+                childNode->u.Assembly.AssemblyID = assembly->AssemblyID;
+                PhSetReference(&childNode->u.Assembly.DisplayName, assembly->DisplayName);
+                PhSetReference(&childNode->u.Assembly.FullyQualifiedAssemblyName, assembly->ModuleName);
+                childNode->u.Assembly.BaseAddress = assembly->BaseAddress;
+                childNode->StructureText = PhGetStringRef(assembly->DisplayName);
+                PhSetReference(&childNode->PathText, assembly->ModuleName);
+                PhSetReference(&childNode->NativePathText, assembly->NativeFileName);
+                childNode->MvidText = PhFormatGuid(&assembly->Mvid);
+                childNode->IdText = FormatToHexString(assembly->AssemblyID);
+
+                if (assembly->IsDynamicAssembly || assembly->ModuleFlag & CLRDATA_MODULE_IS_DYNAMIC || assembly->IsReflection)
+                {
+                    childNode->u.Assembly.AssemblyFlags = 0x2;
+                }
+                else if (!PhIsNullOrEmptyString(assembly->NativeFileName))
+                {
+                    childNode->u.Assembly.AssemblyFlags = 0x4;
+                }
+
+                childNode->FlagsText = FlagsToString(
+                    childNode->u.Assembly.AssemblyFlags,
+                    AssemblyFlagsMap,
+                    sizeof(AssemblyFlagsMap)
+                    );
+
+                if (assembly->BaseAddress)
+                {
+                    WCHAR value[PH_INT64_STR_LEN_1];
+                    PhPrintPointer(value, assembly->BaseAddress);
+                    childNode->BaseAddressText = PhCreateString(value);
+                }
+
+                PhAddItemList(parentNode->Children, childNode);
+            }
+        }
+    }
+
+    DnDestroyProcessDotNetAppDomainList(appdomainlist);
+
+    // Check whether we got any data.
+    {
+        for (ULONG i = 0; i < Context->NodeList->Count; i++)
+        {
+            PDNA_NODE node = Context->NodeList->Items[i];
+
+            if (node->Type != DNA_TYPE_CLR)
+            {
+                success = TRUE;
+                break;
+            }
+        }
+
+        if (success && !Context->PageContext->CancelQueryContext && Context->PageContext->WindowHandle)
+        {
+            SendMessage(Context->PageContext->WindowHandle, DN_ASM_UPDATE_MSG, 0, (LPARAM)Context);
+        }
+    }
+
+CleanupExit:
+    if (!success && !Context->PageContext->CancelQueryContext && Context->PageContext->WindowHandle)
+    {
+        SendMessage(Context->PageContext->WindowHandle, DN_ASM_UPDATE_ERROR, 0, (LPARAM)Context);
+    }
+
+    PhDereferenceObject(Context);
+*/
 
 	emit Finished();
 }

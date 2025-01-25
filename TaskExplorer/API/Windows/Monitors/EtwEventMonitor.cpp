@@ -87,7 +87,7 @@ struct SEtwEventMonitor
 		auto file_callback = [](CEtwEventMonitor* This, const EVENT_RECORD &record) {
 			//qDebug() << "file event";
 			krabs::schema schema(record);
-			/*
+			
 			qDebug() << QString("EventId: %1").arg(schema.event_id());
 			qDebug() << QString("EventOpcode: %1").arg(schema.event_opcode());
 			qDebug() << QString("ProcessId: %1").arg(schema.process_id());
@@ -104,7 +104,7 @@ struct SEtwEventMonitor
 
 				bool bOk = false;
 			
-				try { Info += QString::fromStdWString(parser.parse<wstring>(I->name()));	bOk = true; }
+				try { Info += QString::fromStdWString(parser.parse<std::wstring>(I->name()));	bOk = true; }
 				catch (...) {}
 			
 				if(!bOk) try { Info += QString::number(parser.parse<uint64_t>(I->name()));	bOk = true; }
@@ -125,7 +125,7 @@ struct SEtwEventMonitor
 				qDebug() << Info;
 			}
 
-			qDebug() << "";*/
+			qDebug() << "";
 
 			int Type = EventTypeUnknow;
 

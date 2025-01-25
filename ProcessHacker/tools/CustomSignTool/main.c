@@ -134,6 +134,7 @@ static VOID CstExportKey(
     PVOID blob;
     HANDLE fileHandle;
     IO_STATUS_BLOCK iosb;
+    LARGE_INTEGER allocationSize;
 
     if (!NT_SUCCESS(status = BCryptExportKey(
         KeyHandle,
@@ -161,11 +162,13 @@ static VOID CstExportKey(
         CstFailWithStatus(status, L"failed to export %ls, unable to get blob data", Description);
     }
 
+    allocationSize.QuadPart = blobSize;
+
     if (!NT_SUCCESS(status = PhCreateFileWin32Ex(
         &fileHandle,
         FileName,
         FILE_GENERIC_WRITE,
-        &(LARGE_INTEGER){.QuadPart = blobSize},
+        &allocationSize,
         FILE_ATTRIBUTE_NORMAL,
         0,
         FILE_OVERWRITE_IF,
@@ -187,6 +190,90 @@ static VOID CstExportKey(
     {
         CstFailWithStatus(status, L"failed to write blob to \"%ls\"", FileName);
     }
+
+    NtClose(fileHandle);
+
+    RtlSecureZeroMemory(blob, blobSize);
+    PhFree(blob);
+}
+
+static VOID CstExportKeyAsHex(
+    _In_ BCRYPT_KEY_HANDLE KeyHandle,
+    _In_ PWSTR BlobType,
+    _In_ PWSTR FileName,
+    _In_ PWSTR Description
+)
+{
+    NTSTATUS status;
+    ULONG blobSize;
+    PVOID blob;
+    HANDLE fileHandle;
+    IO_STATUS_BLOCK iosb;
+    LARGE_INTEGER allocationSize;
+
+    if (!NT_SUCCESS(status = BCryptExportKey(
+        KeyHandle,
+        NULL,
+        BlobType,
+        NULL,
+        0,
+        &blobSize,
+        0)))
+    {
+        CstFailWithStatus(status, L"failed to export %ls, unable to get blob size", Description);
+    }
+
+    blob = PhAllocate(blobSize);
+
+    if (!NT_SUCCESS(status = BCryptExportKey(
+        KeyHandle,
+        NULL,
+        BlobType,
+        blob,
+        blobSize,
+        &blobSize,
+        0)))
+    {
+        CstFailWithStatus(status, L"failed to export %ls, unable to get blob data", Description);
+    }
+
+    allocationSize.QuadPart = blobSize;
+
+    if (!NT_SUCCESS(status = PhCreateFileWin32Ex(
+        &fileHandle,
+        FileName,
+        FILE_GENERIC_WRITE,
+        &allocationSize,
+        FILE_ATTRIBUTE_NORMAL,
+        0,
+        FILE_OVERWRITE_IF,
+        FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE,
+        NULL)))
+    {
+        CstFailWithStatus(status, L"failed to create \"%ls\"", FileName);
+    }
+
+    char* Buffer = PhAllocate(blobSize * 10);
+    char* BufferPtr = Buffer;
+    for (ULONG i = 0; i < blobSize; i += 16) {
+        for (ULONG j = 0; j < 16; j += 1)
+            BufferPtr += sprintf(BufferPtr, "0x%02X, ", (unsigned int)((unsigned char*)blob)[i + j]);
+        BufferPtr += sprintf(BufferPtr, "\r\n");
+    }
+
+    if (!NT_SUCCESS(status = NtWriteFile(
+        fileHandle,
+        NULL,
+        NULL, NULL,
+        &iosb,
+        Buffer,
+        (ULONG)(BufferPtr - Buffer),
+        NULL,
+        NULL)))
+    {
+        CstFailWithStatus(status, L"failed to write text to \"%ls\"", FileName);
+    }
+    PhFree(Buffer);
 
     NtClose(fileHandle);
 
@@ -432,6 +519,9 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         CstExportKey(keyHandle, CST_BLOB_PRIVATE, CstArgument1->Buffer, L"private key");
         CstExportKey(keyHandle, CST_BLOB_PUBLIC, CstArgument2->Buffer, L"public key");
 
+        PPH_STRING CstArgument2b = PhConcatStrings2(CstArgument2->Buffer, L".txt");
+        CstExportKeyAsHex(keyHandle, CST_BLOB_PUBLIC, CstArgument2b->Buffer, L"public key");
+
         BCryptDestroyKey(keyHandle);
     }
     else if (PhEqualString2(CstCommand, L"sign", TRUE))
@@ -446,6 +536,7 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         PVOID signature;
         PPH_STRING string;
         HANDLE fileHandle;
+        LARGE_INTEGER allocationSize;
 
         if (!CstArgument1 || !CstKeyFileName || (!CstSigFileName && !CstHex))
             CstFailWith(L"%ls", CstHelpMessage);
@@ -510,11 +601,13 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         }
         else
         {
+            allocationSize.QuadPart = signatureSize;
+
             if (!NT_SUCCESS(status = PhCreateFileWin32Ex(
                 &fileHandle,
                 CstSigFileName->Buffer,
                 FILE_GENERIC_WRITE,
-                &(LARGE_INTEGER){.QuadPart = signatureSize},
+                &allocationSize,
                 FILE_ATTRIBUTE_NORMAL,
                 0,
                 FILE_OVERWRITE_IF,

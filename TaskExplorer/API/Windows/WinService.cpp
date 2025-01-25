@@ -53,6 +53,9 @@ CWinService::CWinService(QObject *parent)
 	m_StartType = 0;
 	m_ErrorControl = 0;
 
+	m_Win32ExitCode = 0;
+	m_ServiceSpecificExitCode = 0;
+
 	m_KeyLastWriteTime = 0;
 
 	m = new SWinService();
@@ -111,6 +114,8 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 		m_Type != service->ServiceStatusProcess.dwServiceType ||
 		m_State != service->ServiceStatusProcess.dwCurrentState ||
 		m_ControlsAccepted != service->ServiceStatusProcess.dwControlsAccepted ||
+		m_Win32ExitCode != service->ServiceStatusProcess.dwWin32ExitCode ||
+		m_ServiceSpecificExitCode != service->ServiceStatusProcess.dwServiceSpecificExitCode ||
 		m_Flags != service->ServiceStatusProcess.dwServiceFlags ||
 		m->NeedsConfigUpdate)
 	{
@@ -119,6 +124,8 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 		m_Type = service->ServiceStatusProcess.dwServiceType;
 		m_State = service->ServiceStatusProcess.dwCurrentState;
 		m_ControlsAccepted = service->ServiceStatusProcess.dwControlsAccepted;
+		m_Win32ExitCode = service->ServiceStatusProcess.dwWin32ExitCode;
+		m_ServiceSpecificExitCode = service->ServiceStatusProcess.dwServiceSpecificExitCode;
 		m_Flags = service->ServiceStatusProcess.dwServiceFlags;
 
 
@@ -176,8 +183,11 @@ bool CWinService::UpdateDynamicData(void* pscManagerHandle, struct _ENUM_SERVICE
 				if (m_FileName != FileName)
 				{
 					m_FileName = FileName;
-					if(!m_FileName.isEmpty() && !m_pModuleInfo.isNull())
-						qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData(m_FileName);
+					if (!m_FileName.isEmpty() && !m_pModuleInfo.isNull()) 
+					{
+						qobject_cast<CWinModule*>(m_pModuleInfo)->InitStaticData(m_FileName);
+						qobject_cast<CWinModule*>(m_pModuleInfo)->InitAsyncData();
+					}
 				}
 
 				PhFree(config);
@@ -473,7 +483,7 @@ STATUS CWinService::Delete(bool bForce)
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	if(bForce)
+	if (!bForce)
 		return ERR(tr("Deleting a service can prevent the system from starting or functioning properly."), ERROR_CONFIRM);
 
 #ifdef SAFE_MODE
@@ -521,10 +531,12 @@ NTSTATUS NTAPI CWinService__OpenService(_Out_ PHANDLE Handle, _In_ ACCESS_MASK D
 	return PhGetLastWin32ErrorAsNtStatus();
 }
 
-NTSTATUS NTAPI CWinService__cbPermissionsClosed(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinService__cbPermissionsClosed(_In_ HANDLE Handle, _In_ BOOLEAN Release, _In_opt_ PVOID Context)
 {
-	std::wstring* pName = ((std::wstring*)Context);
-	delete pName;
+	if (Release) {
+		std::wstring* pName = ((std::wstring*)Context);
+		delete pName;
+	}
 
 	return STATUS_SUCCESS;
 }

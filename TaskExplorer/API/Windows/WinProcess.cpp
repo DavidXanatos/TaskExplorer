@@ -22,6 +22,7 @@
 #include "WinHandle.h"
 #include "WinModule.h"
 #include "WinWnd.h"
+#include "WinHeap.h"
 #include "ProcessHacker/memprv.h"
 #include "ProcessHacker/appsup.h"
 #include "../../MiscHelpers/Common/Common.h"
@@ -35,12 +36,13 @@ struct SWinProcess
 	SWinProcess()
 	{
 		UniqueProcessId = NULL;
+		LxssProcessId = NULL;
 		QueryHandle = NULL;
 
 		SessionId = -1;
 		CreateTime.QuadPart = 0;
 
-		Flags = NULL;
+		Flags = 0;
 		AsyncFinished = false;
 
 		ConsoleHostProcessId = NULL;
@@ -57,6 +59,7 @@ struct SWinProcess
 		Protection.Level = 0;
 		ProcessSequenceNumber = -1;
 		JobObjectId = 0;
+		SharedCommitCharge = 0;
 		DpiAwareness = -1;
 
 		// Signature, Packed
@@ -70,14 +73,24 @@ struct SWinProcess
 		// Misc.
 		DepStatus = 0;
 
+		CodePage = 0;
+		TlsBitmapCount = 0;
+		ErrorMode = 0;
+
 		KnownProcessType = -1;
 
 		KphProcessState = 0;
+
+		ReferenceCount = 0;
+		AccessMask = 0;
+
+		FreezeHandle = NULL;
 	}
 
 	
 	// Handles
 	HANDLE UniqueProcessId;
+	ULONG LxssProcessId;
 	HANDLE QueryHandle;
 
 	// Basic
@@ -87,39 +100,51 @@ struct SWinProcess
 	// Flags
 	union
 	{
-		ULONG Flags;
+		quint64 Flags;
 		struct
 		{
-			ULONG
+			quint64
 			//UpdateIsDotNet : 1,
 			IsBeingDebugged : 1,
 			IsDotNet : 1,
 			IsElevated : 1,
 			IsInJob : 1,
-			//IsInSignificantJob : 1,
+			IsInSignificantJob : 1,
 			IsPacked : 1,
-			IsHandleValid : 1, // if this is true we can querry handles
+			IsHandleFull : 1, // IsHandleValid - if this is true we can querry handles
 			IsSuspended : 1,
-			IsWow64 : 1,
+			IsWow64Process : 1,
 			IsImmersive : 1,
-			IsWow64Valid : 1,
 			IsPartiallySuspended : 1,
 			IsProtectedHandle : 1,
 			IsProtectedProcess : 1,
-			IsProcessDeleting : 1,
-			IsCrossSessionCreate : 1,
-			IsFrozen : 1,
-			IsBackground : 1,
-			IsStronglyNamed : 1,
 			IsSecureProcess : 1,
 			IsSubsystemProcess : 1,
+			IsPackagedProcess : 1,
+			IsBackgroundProcess : 1,
+			IsCrossSessionProcess : 1,
+			IsReflectedProcess : 1,
+			IsFrozenProcess : 1,
+			IsUIAccessEnabled : 1,
 			IsControlFlowGuardEnabled : 1,
+			IsCetEnabled : 1,
+			IsXfgEnabled : 1,
+			IsXfgAuditEnabled : 1,
+			IsPowerThrottling : 1, 
+			IsSystemProcess : 1,
+			IsSecureSystem : 1,
+			Spare1 : 4,
+
+
+			IsHandleVmRead : 1,
+			IsProcessDeleting : 1,
 			IsOrWasRunning : 1,
 			TokenHasChanged : 1,
 			IsHiddenProcess : 1,
 			IsSandBoxed : 1,
-			IsCetEnabled : 1,
-			Spare : 6;
+			IsCetStrictModeEnabled : 1,
+			ModPagesLoaded : 1,
+			Spare2 : 24;
 		};
 	};
 	bool AsyncFinished;
@@ -141,6 +166,7 @@ struct SWinProcess
 	PS_PROTECTION Protection;
 	quint64 ProcessSequenceNumber;
 	quint32 JobObjectId;
+	SIZE_T SharedCommitCharge;
 	QString PackageFullName;
 	QString AppID;
 	ULONG DpiAwareness;
@@ -156,11 +182,20 @@ struct SWinProcess
 	// Misc.
 	ULONG DepStatus;
 
+	USHORT CodePage;
+	USHORT TlsBitmapCount;
+	ULONG ErrorMode;
+
 	int KnownProcessType;
 
 	KPH_PROCESS_STATE KphProcessState;
 
+	ULONG ReferenceCount;
+	ULONG AccessMask;
+
 	QString DesktopInfo;
+
+	HANDLE FreezeHandle;
 };
 
 
@@ -184,6 +219,10 @@ CWinProcess::CWinProcess(QObject *parent) : CProcessInfo(parent)
 	m_WndHandles = 0;
 
 	m_IsCritical = false;
+
+	m_StartKey = 0;
+
+	m_MiscStates = 0;
 
 	//m_lastExtUpdate = 0;
 
@@ -238,13 +277,11 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 		if (bFullProcessInfo)
 		{
 			PPH_STRING fileName = PhCreateStringFromUnicodeString(&Process->ImageName);
-			PPH_STRING newFileName = PhGetFileName(fileName);
-			PhDereferenceObject(fileName);
+			//m_FileName = CastPhString(PhGetFileName(fileName));
+			m_FileNameNt = CastPhString(fileName);
 
-			m_FileName = CastPhString(newFileName);
-
-			int pos = m_FileName.lastIndexOf("\\");
-			m_ProcessName = m_FileName.mid(pos+1);
+			int pos = m_FileNameNt.lastIndexOf("\\");
+			m_ProcessName = m_FileNameNt.mid(pos+1);
 		}
 		else
 			m_ProcessName = QString::fromWCharArray(Process->ImageName.Buffer, Process->ImageName.Length / sizeof(wchar_t));
@@ -262,6 +299,8 @@ bool CWinProcess::InitStaticData(struct _SYSTEM_PROCESS_INFORMATION* Process, bo
 	// which will not terminate if we have a handle open. (wj32)
 	if (Process->NumberOfThreads == 0 && m->QueryHandle)
 	{
+		m->IsReflectedProcess = TRUE;
+
 		NtClose(m->QueryHandle);
 		m->QueryHandle = NULL;
 	}
@@ -390,17 +429,29 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 	// Open a handle to the Process for later usage.
 	if (PH_IS_REAL_PROCESS_ID(m->UniqueProcessId))
 	{
-		if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_INFORMATION, m->UniqueProcessId)))
+		// READ_CONTROL required for PhGetProcessMandatoryPolicy
+		if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | READ_CONTROL, m->UniqueProcessId))
+		 || NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
 		{
-			m->IsHandleValid = TRUE;
+			m->IsHandleFull = TRUE;
+			m->IsHandleVmRead = TRUE;
 		}
-
-		if (!m->QueryHandle)
+		else if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ | READ_CONTROL, m->UniqueProcessId))
+			|| NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
 		{
-			PhOpenProcess(&m->QueryHandle, PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId);
+			m->IsHandleVmRead = TRUE;
 		}
+		else if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_INFORMATION | READ_CONTROL, m->UniqueProcessId))
+		      || NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_INFORMATION, m->UniqueProcessId)))
+		{
+			m->IsHandleFull = TRUE;
+		}
+		else if (NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_LIMITED_INFORMATION | READ_CONTROL, m->UniqueProcessId))
+			  || NT_SUCCESS(PhOpenProcess(&m->QueryHandle, m->AccessMask = PROCESS_QUERY_LIMITED_INFORMATION, m->UniqueProcessId)))
+		{
 
-		if (!m->QueryHandle)
+		}
+		else
 			qDebug() << "failed to open QueryHandle for" << m_ProcessId;
 	}
 
@@ -413,15 +464,20 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 		{
 			m->IsProtectedProcess = basicInfo.IsProtectedProcess;
 			m->IsProcessDeleting = basicInfo.IsProcessDeleting;
-			m->IsCrossSessionCreate = basicInfo.IsCrossSessionCreate;
-			m->IsFrozen = basicInfo.IsFrozen;
-			m->IsBackground = basicInfo.IsBackground;
-			m->IsStronglyNamed = basicInfo.IsStronglyNamed;
+			m->IsCrossSessionProcess = basicInfo.IsCrossSessionCreate;
+			m->IsFrozenProcess = basicInfo.IsFrozen;
+			m->IsBackgroundProcess = basicInfo.IsBackground;
+			m->IsPackagedProcess= basicInfo.IsStronglyNamed;
 			m->IsSecureProcess = basicInfo.IsSecureProcess;
 			m->IsSubsystemProcess = basicInfo.IsSubsystemProcess;
-			m->IsWow64 = basicInfo.IsWow64Process;
-			m->IsWow64Valid = TRUE;
+			m->IsWow64Process = basicInfo.IsWow64Process;
 		}
+	}
+
+	ULONGLONG processStartKey;
+	if (NT_SUCCESS(PhGetProcessStartKey(m->QueryHandle, &processStartKey)))
+	{
+		m_StartKey = processStartKey;
 	}
 
 	// Process information
@@ -434,28 +490,32 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 		if (fileName)
 		{
 			m_FileName = CastPhString(PhGetFileName(fileName));
-			PhDereferenceObject(fileName);
+			m_FileNameNt = CastPhString(fileName);
 		}
 	}
-	else if (bLoadFileName)
+	else
 	{
-		NTSTATUS status = STATUS_UNSUCCESSFUL;
-
-		PPH_STRING fileName;
-		if (m->QueryHandle && !m->IsSubsystemProcess)
-		{
-			status = PhGetProcessImageFileNameWin32(m->QueryHandle, &fileName);
+		PPH_STRING fileNameWin32 = NULL;
+		if (m->QueryHandle) {
+			if(NT_SUCCESS(PhGetProcessImageFileNameWin32(m->QueryHandle, &fileNameWin32)))
+				m_FileName = CastPhString(fileNameWin32);
 		}
 
-		if (!NT_SUCCESS(status))
+		if (bLoadFileName)
 		{
-			status = PhGetProcessImageFileNameByProcessId(m->UniqueProcessId, &fileName);
-		}
+			NTSTATUS status = STATUS_UNSUCCESSFUL;
 
-		if (NT_SUCCESS(status))
-		{
-			m_FileName = CastPhString(PhGetFileName(fileName));
-			PhDereferenceObject(fileName);
+			PPH_STRING fileName;
+			if (m->QueryHandle && !m->IsSubsystemProcess)
+				status = PhGetProcessImageFileName(m->QueryHandle, &fileName);
+			if (!NT_SUCCESS(status))
+				status = PhGetProcessImageFileNameByProcessId(m->UniqueProcessId, &fileName);
+			if (NT_SUCCESS(status))
+			{
+				if(fileNameWin32 == NULL)
+					m_FileName = CastPhString(PhGetFileName(fileName));
+				m_FileNameNt = CastPhString(fileName);
+			}
 		}
 	}
 
@@ -502,19 +562,60 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 		{
 			m->IsControlFlowGuardEnabled = cfguardEnabled;
 		}
+
+		if (WindowsVersion >= WINDOWS_11)
+		{
+			BOOLEAN xfguardEnabled;
+			BOOLEAN xfguardAuditEnabled;
+
+			if (NT_SUCCESS(PhGetProcessIsXFGuardEnabled(m->QueryHandle, &xfguardEnabled, &xfguardAuditEnabled)))
+			{
+				m->IsXfgEnabled = xfguardEnabled;
+				m->IsXfgAuditEnabled = xfguardAuditEnabled;
+			}
+		}
 	}
 
-    // CET
-    if (WindowsVersion >= WINDOWS_10_20H1 && m->QueryHandle)
-    {
-        BOOLEAN cetEnabled;
-		BOOLEAN IsCetStrictModeEnabled; // todo
+	// CET
+	if (WindowsVersion >= WINDOWS_10_20H1)
+	{
+		if (m_ProcessId == (quint64)SYSTEM_PROCESS_ID)
+		{
+			SYSTEM_SHADOW_STACK_INFORMATION shadowStackInformation;
 
-        if (NT_SUCCESS(PhGetProcessIsCetEnabled(m->QueryHandle, &cetEnabled, &IsCetStrictModeEnabled)))
-        {
-            m->IsCetEnabled = cetEnabled;
-        }
-    }
+			if (NT_SUCCESS(PhGetSystemShadowStackInformation(&shadowStackInformation)))
+			{
+				m->IsCetEnabled = shadowStackInformation.KernelCetEnabled; // Kernel CET is always strict (TheEragon)
+			}
+		}
+		else
+		{
+			if (m->QueryHandle)
+			{
+				BOOLEAN cetEnabled;
+				BOOLEAN cetStrictModeEnabled;
+
+				if (NT_SUCCESS(PhGetProcessIsCetEnabled(m->QueryHandle, &cetEnabled, &cetStrictModeEnabled)))
+				{
+					m->IsCetEnabled = cetEnabled;
+					m->IsCetStrictModeEnabled = cetStrictModeEnabled;
+				}
+			}
+		}
+	}
+
+	// WSL
+	if (WindowsVersion >= WINDOWS_10_22H2 && m->QueryHandle)
+	{
+		if (m->IsSubsystemProcess && KsiLevel() >= KphLevelMed)
+		{
+			ULONG lxssProcessId;
+			if (NT_SUCCESS(KphQueryInformationProcess(m->QueryHandle, KphProcessWSLProcessId, &lxssProcessId, sizeof(ULONG), NULL)))
+			{
+				m->LxssProcessId = lxssProcessId;
+			}
+		}
+	}
 
 	// PhpFillProcessItemExtension is done in UpdateDynamicData which is to be called right after InitStaticData
 
@@ -530,25 +631,21 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
     if (m->QueryHandle && !m->IsSubsystemProcess)
     {
         BOOLEAN isDotNet = FALSE;
-        HANDLE processHandle = NULL;
         ULONG processQueryFlags = 0;
 
         if (WindowsVersion >= WINDOWS_8_1)
         {
-            processHandle = m->QueryHandle;
             processQueryFlags |= PH_CLR_USE_SECTION_CHECK;
             status = STATUS_SUCCESS;
         }
-        else
-        {
-            status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId);
-        }
+        else if(!m->IsHandleVmRead)
+            status = STATUS_UNSUCCESSFUL;
 
         if (NT_SUCCESS(status))
         {
             PPH_STRING commandLine;
 
-            if (NT_SUCCESS(PhGetProcessCommandLine(processHandle, &commandLine)))
+            if (NT_SUCCESS(PhGetProcessCommandLine(m->QueryHandle, &commandLine)))
             {
                 // Some command lines (e.g. from taskeng.exe) have nulls in them. Since Windows
                 // can't display them, we'll replace them with spaces.
@@ -564,18 +661,15 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 
         if (NT_SUCCESS(status))
         {
-            PhGetProcessIsDotNetEx(m->UniqueProcessId, processHandle,
+            PhGetProcessIsDotNetEx(m->UniqueProcessId, m->QueryHandle,
 #ifdef _WIN64
-                processQueryFlags | PH_CLR_NO_WOW64_CHECK | (m->IsWow64 ? PH_CLR_KNOWN_IS_WOW64 : 0),
+                processQueryFlags | PH_CLR_NO_WOW64_CHECK | (m->IsWow64Process ? PH_CLR_KNOWN_IS_WOW64 : 0),
 #else
                 processQueryFlags,
 #endif
                 &isDotNet, NULL);
             m->IsDotNet = isDotNet;
         }
-
-        if (!(processQueryFlags & PH_CLR_USE_SECTION_CHECK) && processHandle)
-            NtClose(processHandle);
     }
 
     // Job
@@ -587,7 +681,7 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 
 	// UWP...
 
-    if (m->QueryHandle && m->IsHandleValid)
+    if (m->QueryHandle && m->IsHandleFull)
     {
         OBJECT_BASIC_INFORMATION basicInfo;
         if (NT_SUCCESS(PhGetHandleInformationEx(NtCurrentProcess(), m->QueryHandle, ULONG_MAX, 0, NULL, &basicInfo, NULL, NULL, NULL, NULL)))
@@ -605,11 +699,10 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 
 	if (!m->IsSubsystemProcess)
 	{	
-		HANDLE processHandle = NULL;
-		if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
+		if (m->IsHandleVmRead)
 		{
 			// OS context
-			if (NT_SUCCESS(PhGetProcessSwitchContext(processHandle, &m->OsContextGuid)))
+			if (NT_SUCCESS(PhGetProcessSwitchContext(m->QueryHandle, &m->OsContextGuid)))
 			{
 				if (IsEqualGUID(m->OsContextGuid, WIN10_CONTEXT_GUID))
 					m->OsContextVersion = WINDOWS_10;
@@ -627,12 +720,10 @@ bool CWinProcess::InitStaticData(bool bLoadFileName)
 
 			// desktop
 			PPH_STRING desktopinfo;
-			if (NT_SUCCESS(PhGetProcessDesktopInfo(processHandle, &desktopinfo)))
+			if (NT_SUCCESS(PhGetProcessDesktopInfo(m->QueryHandle, &desktopinfo)))
 			{
 				m_UsedDesktop = CastPhString(desktopinfo);
 			}
-
-			NtClose(processHandle);
 		}
 	}
 
@@ -654,14 +745,15 @@ void CWinProcess::UpdateModuleInfo()
 	CWinMainModule* pModule = new CWinMainModule();
 	m_pModuleInfo = CModulePtr(pModule);
 	connect(pModule, SIGNAL(AsyncDataDone(bool, quint32, quint32)), this, SLOT(OnAsyncDataDone(bool, quint32, quint32)));
-	pModule->InitStaticData(m_ProcessId, m_FileName, m->IsSubsystemProcess, m->IsWow64);
+	pModule->InitStaticData(m_ProcessId, (quint64)m->QueryHandle, m_FileName, m_FileNameNt, m->IsSubsystemProcess, m->IsWow64Process);
 	pModule->InitAsyncData(m->PackageFullName);
 }
 
-void CWinProcess::SetFileName(const QString& FileName)
+void CWinProcess::SetFileName(const QString& FileName, const QString& FileNameNt)
 { 
 	QWriteLocker Locker(&m_Mutex); 
 	m_FileName = FileName; 
+	m_FileNameNt = FileNameNt;
 
 	if (m_pModuleInfo.isNull())
 		UpdateModuleInfo();
@@ -753,7 +845,7 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		bool PriorityChanged = false;
 
 		UCHAR PriorityClass;
-		if (NT_SUCCESS(PhGetProcessPriority(m->QueryHandle, &PriorityClass)) && m_Priority != PriorityClass)
+		if (NT_SUCCESS(PhGetProcessPriorityClass(m->QueryHandle, &PriorityClass)) && m_Priority != PriorityClass)
 		{
 			PriorityChanged = true;
 			m_Priority = PriorityClass;
@@ -825,7 +917,10 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 	if (processExtension)
 	{
 		m->JobObjectId = processExtension->JobObjectId;
+		m->SharedCommitCharge = processExtension->SharedCommitCharge;
 		m->ProcessSequenceNumber = processExtension->ProcessSequenceNumber;
+		m->IsSystemProcess = processExtension->Classification != SystemProcessClassificationNormal;
+		m->IsSecureSystem = processExtension->Classification == SystemProcessClassificationSecureSystem;
 	}
 
 	if (m->QueryHandle)
@@ -836,14 +931,14 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 		// Job
 		if (!processExtension || m->JobObjectId != 0) // Note: if we don't have the processExtension we need to try every process
 		{
-			//BOOLEAN isInSignificantJob = FALSE;
+			BOOLEAN isInSignificantJob = FALSE;
 			BOOLEAN isInJob = FALSE;
 
-			/*if (KphCommsIsConnected())
+			if (KsiLevel() >= KphLevelMed)
 			{
 				HANDLE jobHandle = NULL;
 
-				status = KphOpenProcessJob(m->QueryHandle, JOB_OBJECT_QUERY, &jobHandle);
+				NTSTATUS status = KphOpenProcessJob(m->QueryHandle, JOB_OBJECT_QUERY, &jobHandle);
 
 				if (NT_SUCCESS(status) && status != STATUS_PROCESS_NOT_IN_JOB)
 				{
@@ -861,18 +956,18 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 				if (jobHandle)
 					NtClose(jobHandle);
 			}
-			else*/
+			else
 			{
 				NTSTATUS status = NtIsProcessInJob(m->QueryHandle, NULL);
 				if (NT_SUCCESS(status))
 					isInJob = (status == STATUS_PROCESS_IN_JOB);
 			}
 
-			/*if (m->IsInSignificantJob != isInSignificantJob)
+			if (m->IsInSignificantJob != isInSignificantJob)
 			{
 				m->IsInSignificantJob = isInSignificantJob;
 				modified = TRUE;
-			}*/
+			}
 
 			if (m->IsInJob != isInJob)
 			{
@@ -937,6 +1032,69 @@ bool CWinProcess::UpdateDynamicData(struct _SYSTEM_PROCESS_INFORMATION* Process,
 
 		if (WindowsVersion >= WINDOWS_10_RS3)
 			PhGetProcessUptime(m->QueryHandle, &m->UptimeInfo);
+
+		BOOLEAN priorityBoostDisabled;
+		if (NT_SUCCESS(PhGetProcessPriorityBoost(m->QueryHandle, &priorityBoostDisabled))) 
+		{
+			m_PriorityBoost = !priorityBoostDisabled;
+		}
+
+		if (WindowsVersion >= WINDOWS_11_22H2 && !m->IsSubsystemProcess)
+		{
+			POWER_THROTTLING_PROCESS_STATE powerThrottlingState;
+			if (NT_SUCCESS(PhGetProcessPowerThrottlingState(m->QueryHandle, &powerThrottlingState)))
+			{
+				m->IsPowerThrottling = FALSE;
+
+				if (FlagOn(powerThrottlingState.ControlMask, POWER_THROTTLING_PROCESS_EXECUTION_SPEED) &&
+					FlagOn(powerThrottlingState.StateMask, POWER_THROTTLING_PROCESS_EXECUTION_SPEED))
+				{
+					m->IsPowerThrottling = TRUE;
+				}
+
+				if (FlagOn(powerThrottlingState.ControlMask, POWER_THROTTLING_PROCESS_DELAYTIMERS) &&
+					FlagOn(powerThrottlingState.StateMask, POWER_THROTTLING_PROCESS_DELAYTIMERS))
+				{
+					m->IsPowerThrottling = TRUE;
+				}
+
+				if (FlagOn(powerThrottlingState.ControlMask, POWER_THROTTLING_PROCESS_IGNORE_TIMER_RESOLUTION) &&
+					FlagOn(powerThrottlingState.StateMask, POWER_THROTTLING_PROCESS_IGNORE_TIMER_RESOLUTION))
+				{
+					m->IsPowerThrottling = TRUE;
+				}
+			}
+		}
+
+		ULONG errorMode;
+		if (NT_SUCCESS(PhGetProcessErrorMode(m->QueryHandle, &errorMode)) && errorMode > 0)
+		{
+			m->ErrorMode = errorMode;
+		}
+
+		if (m->IsHandleVmRead)
+		{
+			USHORT codePage;
+			if (NT_SUCCESS(PhGetProcessCodePage(m->QueryHandle, &codePage)))
+			{
+				m->CodePage = codePage;
+			}
+
+
+			ULONG bitmapCount;
+			ULONG bitmapExpansionCount;
+			if (NT_SUCCESS(PhGetProcessTlsBitMapCounters(m->QueryHandle, &bitmapCount, &bitmapExpansionCount)))
+			{
+				m->TlsBitmapCount = (USHORT)(bitmapCount + bitmapExpansionCount);
+			}
+		}
+
+		m->ReferenceCount = 0;
+		OBJECT_BASIC_INFORMATION basicInfo;
+		if (NT_SUCCESS(PhQueryObjectBasicInformation(m->QueryHandle, &basicInfo)))
+		{
+			m->ReferenceCount = basicInfo.HandleCount;
+		}
 	}
     else
     {
@@ -1055,9 +1213,6 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 
 	bool HaveFirst = OldThreads.count() > 0;
 
-	HANDLE processHandle = NULL;
-	NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)); // PROCESS_VM_READ needed to resolve service tag
-
 	// handle threads
 	for (int i = 0; i < Process->NumberOfThreads; i++)
 	{
@@ -1072,7 +1227,7 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 			pWinThread = QSharedPointer<CWinThread>(new CWinThread());
 			if (m->IsSandBoxed)
 				pWinThread->SetSandboxed();
-			bAdd = pWinThread->InitStaticData(processHandle, Thread);
+			bAdd = pWinThread->InitStaticData(m->QueryHandle, Thread);
 			theAPI->AddThread(pWinThread);
 			if (!HaveFirst)
 			{
@@ -1095,9 +1250,6 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 		else if (bChanged)
 			Changed.insert(ThreadID);
 	}
-
-	if(processHandle != NULL)
-		NtClose(processHandle);
 
 	//if (!HaveFirst)
 	//	qDebug() << "No Main ThreadIn:" << m_ProcessName;
@@ -1229,10 +1381,10 @@ bool CWinProcess::UpdateHandles()
 		PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX handle = &handleInfo->Handles[i];
 
 		// Skip irrelevant handles.
-		if (filterNeeded && handle->UniqueProcessId != (ULONG_PTR)m->UniqueProcessId)
+		if (filterNeeded && handle->UniqueProcessId != m->UniqueProcessId)
 			continue;
 
-		quint64 HandleID = CWinHandle::MakeID(handle->HandleValue, handle->UniqueProcessId);
+		quint64 HandleID = CWinHandle::MakeID((quint64)handle->HandleValue, (quint64)handle->UniqueProcessId);
 
 		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).staticCast<CWinHandle>();
 
@@ -1337,22 +1489,135 @@ static BOOLEAN NTAPI EnumModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 	return Modules.end();
 }*/
 
-bool CWinProcess::UpdateModules()
+typedef struct _PH_IMAGE_MAPPED_BASE_ENTRY
+{
+	PVOID ImageBase;
+	SIZE_T SizeOfImage;
+	//QString FileName;
+} PH_IMAGE_MAPPED_BASE_ENTRY, *PPH_IMAGE_MAPPED_BASE_ENTRY;
+
+typedef struct _PH_IMAGE_MAPPED_FAILURE_ENTRY
+{
+	PVOID BaseAddress;
+	SIZE_T SizeOfImage;
+	PVOID VirtualAddress;
+	union
+	{
+		ULONG Flags;
+		struct
+		{
+			ULONG Valid : 1;
+			ULONG Unused : 31;
+		};
+	};
+} PH_IMAGE_MAPPED_FAILURE_ENTRY, *PPH_IMAGE_MAPPED_FAILURE_ENTRY;
+
+struct SEnumImagesForTamperingContext
+{
+	QList<PH_IMAGE_MAPPED_BASE_ENTRY> ImageAddressList;
+	QList<PH_IMAGE_MAPPED_FAILURE_ENTRY> PageTamperingList;
+	int ImageQueryFailures = 0;
+};
+
+NTSTATUS NTAPI PhEnumImagesForTamperingCallback(
+	_In_ HANDLE ProcessHandle,
+	_In_ PMEMORY_BASIC_INFORMATION BasicInformation,
+	_In_ PVOID Context
+)
+{
+	SEnumImagesForTamperingContext* context = (SEnumImagesForTamperingContext*)Context;
+
+	if (
+		BasicInformation->Type == MEM_IMAGE &&
+		BasicInformation->AllocationBase == BasicInformation->BaseAddress
+		)
+	{
+		PVOID imageBase;
+		SIZE_T imageSize;
+
+		if (NT_SUCCESS(PhGetProcessMappedImageBaseFromAddress(
+			ProcessHandle,
+			BasicInformation->BaseAddress,
+			&imageBase,
+			&imageSize
+		)))
+		{
+			BOOLEAN found = FALSE;
+
+			for (ULONG i = 0; i < context->ImageAddressList.count(); i++)
+			{
+				PPH_IMAGE_MAPPED_BASE_ENTRY entry = &context->ImageAddressList[i];
+
+				if (entry->ImageBase == imageBase)
+				{
+					found = TRUE;
+					break;
+				}
+			}
+
+			if (!found)
+			{
+				PH_IMAGE_MAPPED_BASE_ENTRY entry;
+				entry.ImageBase = imageBase;
+				entry.SizeOfImage = imageSize;
+
+				//PPH_STRING fileName;
+				//if (NT_SUCCESS(PhGetProcessMappedFileName(ProcessHandle, imageBase, &fileName)))
+				//{
+				//	entry.FileName = CastPhString(fileName);
+				//}
+
+				context->ImageAddressList.append(entry);
+			}
+		}
+		else
+		{
+			context->ImageQueryFailures++;
+		}
+	}
+
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS NTAPI PhpEnumVirtualMemoryAttributesCallback(
+	_In_ HANDLE ProcessHandle,
+	_In_ PVOID BaseAddress,
+	_In_ SIZE_T SizeOfImage,
+	_In_ ULONG_PTR NumberOfEntries,
+	_In_ PMEMORY_WORKING_SET_EX_INFORMATION Blocks,
+	_In_ PVOID Context
+)
+{
+	SEnumImagesForTamperingContext* context = (SEnumImagesForTamperingContext*)Context;
+
+	for (ULONG_PTR i = 0; i < NumberOfEntries; i++)
+	{
+		PMEMORY_WORKING_SET_EX_INFORMATION page = &Blocks[i];
+		PMEMORY_WORKING_SET_EX_BLOCK block = &page->VirtualAttributes;
+
+		if (!block->SharedOriginal)
+		{
+			PH_IMAGE_MAPPED_FAILURE_ENTRY entry;
+			entry.BaseAddress = BaseAddress;
+			entry.SizeOfImage = SizeOfImage;
+			entry.VirtualAddress = page->VirtualAddress;
+			entry.Valid = !!block->Valid;
+
+			context->PageTamperingList.append(entry);
+		}
+	}
+
+	return STATUS_SUCCESS;
+}
+
+bool CWinProcess::UpdateModulesList(bool bWithModPages)
 {
 	HANDLE ProcessId = (HANDLE)GetProcessId();
-
-	HANDLE ProcessHandle = NULL;
-    // Try to get a handle with query information + vm read access.
-    if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, ProcessId)))
-    {
-        // Try to get a handle with query limited information + vm read access.
-        PhOpenProcess(&ProcessHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, ProcessId);
-    }
 
 	// If we didn't get a handle when we created the provider,
     // abort (unless this is the System process - in that case
     // we don't need a handle).
-    if (!ProcessHandle && ProcessId != SYSTEM_PROCESS_ID)
+    if (!m->IsHandleVmRead && ProcessId != SYSTEM_PROCESS_ID)
         return false;
 
 	QSet<quint64> Added;
@@ -1362,7 +1627,7 @@ bool CWinProcess::UpdateModules()
 	PPH_LIST modules;
 	modules = PhCreateList(100);
 
-	PhEnumGenericModules(ProcessId, ProcessHandle, PH_ENUM_GENERIC_MAPPED_FILES | PH_ENUM_GENERIC_MAPPED_IMAGES, EnumModulesCallback, modules);
+	PhEnumGenericModules(ProcessId, m->QueryHandle, PH_ENUM_GENERIC_MAPPED_FILES | PH_ENUM_GENERIC_MAPPED_IMAGES, EnumModulesCallback, modules);
 
 	QMap<quint64, CModulePtr> OldModules = GetModuleList();
 
@@ -1386,7 +1651,7 @@ bool CWinProcess::UpdateModules()
 		if (I == OldModules.end())
 		{
 			pModule = QSharedPointer<CWinModule>(new CWinModule(m_ProcessId, m->IsSubsystemProcess));
-			bAdd = pModule->InitStaticData(module, (quint64)ProcessHandle);
+			bAdd = pModule->InitStaticData(module, (quint64)m->QueryHandle);
 			
 			if (pModule->GetType() != PH_MODULE_TYPE_ELF_MAPPED_IMAGE)
 				pModule->InitAsyncData();
@@ -1399,6 +1664,11 @@ bool CWinProcess::UpdateModules()
 			if (!m->IsControlFlowGuardEnabled)
 				pModule->ClearControlFlowGuardEnabled();
 
+			// Add CET flag when strict mode is enabled for the process.
+			if (!m->IsCetStrictModeEnabled)
+				pModule->SetCetEnabled();
+
+			// Remove CET flag when CET is not enabled for the process.
 			if (!m->IsCetEnabled)
 				pModule->ClearCetEnabled();
 
@@ -1458,10 +1728,7 @@ bool CWinProcess::UpdateModules()
 	{
 		QVariantList UnloadedDLLs;
 #ifdef _WIN64
-		BOOLEAN isWow64;
-		PhGetProcessIsWow64(ProcessHandle, &isWow64);
-
-		if (isWow64)
+		if (m->IsWow64Process)
 		{
 			QString SocketName = CTaskService::RunWorker(false, true);
 
@@ -1544,7 +1811,60 @@ bool CWinProcess::UpdateModules()
 	}*/
 	Locker.unlock();
 
-	NtClose(ProcessHandle);
+	if (bWithModPages)
+	{
+		SEnumImagesForTamperingContext context;
+
+		NTSTATUS status = PhEnumVirtualMemory(m->QueryHandle, PhEnumImagesForTamperingCallback, &context);
+
+		if (NT_SUCCESS(status))
+		{
+			m->ModPagesLoaded = true;
+
+			for (ULONG i = 0; i < context.ImageAddressList.count(); i++)
+			{
+				PPH_IMAGE_MAPPED_BASE_ENTRY entry = &context.ImageAddressList[i];
+
+				// PhCheckImagePagesForTampering
+				status = PhEnumVirtualMemoryAttributes(m->QueryHandle, entry->ImageBase, entry->SizeOfImage, PhpEnumVirtualMemoryAttributesCallback, &context);
+				if (!NT_SUCCESS(status))
+					context.ImageQueryFailures++;
+			}
+
+			for (ULONG i = 0; i < context.PageTamperingList.count(); i++)
+			{
+				PPH_IMAGE_MAPPED_FAILURE_ENTRY entry = &context.PageTamperingList[i];
+
+				/*for (ULONG j = 0; j < context.ImageAddressList.count(); j++)
+				{
+					PPH_IMAGE_MAPPED_BASE_ENTRY image = &context.ImageAddressList[j];
+					if (!image->FileName.isEmpty() && image->ImageBase == entry->BaseAddress && image->SizeOfImage == entry->SizeOfImage )
+					{
+						break;
+					}
+				}*/
+
+				QReadLocker Locker(&m_ModuleMutex);
+				auto pWinModule = m_ModuleList[(quint64)entry->BaseAddress].objectCast<CWinModule>();
+				if (pWinModule)
+				{
+					//quint64 Offset = PTR_SUB_OFFSET(entry->VirtualAddress, entry->BaseAddress)
+					pWinModule->SetModifiedPage((quint64)entry->VirtualAddress);
+				}
+				else
+					qDebug() << "Module not found for modified page";
+			}
+		}
+	}
+	else if(m->ModPagesLoaded)
+	{
+		m->ModPagesLoaded = false;
+		foreach(const CModulePtr & pModule, m_ModuleList)
+		{
+			auto pWinModule = pModule.objectCast<CWinModule>();
+			pWinModule->ClearModifiedPages();
+		}
+	}
 
 	emit ModulesUpdated(Added, Changed, Removed);
 
@@ -1668,13 +1988,13 @@ void* CWinProcess::GetQueryHandle() const
 bool CWinProcess::IsWoW64() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	return m->IsWow64Valid && m->IsWow64;
+	return m->IsWow64Process;
 }
 
 QString CWinProcess::GetArchString() const
 {
 	QReadLocker Locker(&m_Mutex); 
-	if (m->IsWow64Valid && !m->IsWow64)
+	if (!m->IsWow64Process)
 		return tr("x86_64");
 	return tr("x86");
 }
@@ -1735,8 +2055,7 @@ QString CWinProcess::GetWorkingDirectory() const
 {
 	QReadLocker Locker(&m_Mutex); 
 
-	HANDLE processHandle = NULL;
-	if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
+	if (m->IsHandleVmRead)
 	{
 		// Note: this call is a bit slow updating it for all processes all the time is not nececery 
 		//		if we only show this in the process general tab
@@ -1745,15 +2064,13 @@ QString CWinProcess::GetWorkingDirectory() const
 #ifdef _WIN64
 		// Tell the function to get the WOW64 current directory, because that's the one that
 		// actually gets updated.
-		if (m->IsWow64)
+		if (m->IsWow64Process)
 			pebOffset |= PhpoWow64;
 #endif
 
 		PPH_STRING curDir = NULL;
-		PhGetProcessPebString(processHandle, (PH_PEB_OFFSET)pebOffset, &curDir);
+		PhGetProcessPebString(m->QueryHandle, (PH_PEB_OFFSET)pebOffset, &curDir);
 		return CastPhString(curDir);
-
-		NtClose(processHandle);
 	}
 	return QString();
 }
@@ -1869,10 +2186,20 @@ QString CWinProcess::GetMitigationsString() const
         //else
             Strs.append(tr("DEP"));
 	}
+
 	if (m->IsControlFlowGuardEnabled)
 		Strs.append(tr("CFG"));
-	if (m->IsCetEnabled)
+
+	if (m->IsXfgAuditEnabled)
+		Strs.append(tr("XFG Audit"));
+	else if (m->IsXfgEnabled)
+		Strs.append(tr("XFG"));
+	
+	if (m->IsCetStrictModeEnabled)
+		Strs.append(tr("CET strict"));
+	else if (m->IsCetEnabled)
 		Strs.append(tr("CET"));
+
 	return Strs.join(", ");
 }
 
@@ -1883,35 +2210,28 @@ QMap<QString, CWinProcess::SEnvVar>	CWinProcess::GetEnvVariables() const
     PVOID SystemDefaultEnvironment = NULL;
     PVOID UserDefaultEnvironment = NULL;
 
-	HANDLE processHandle;
 	PVOID environment;
     ULONG environmentLength;
 	ULONG enumerationKey;
     PH_ENVIRONMENT_VARIABLE variable;
 
-	if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
+	if (m->IsHandleVmRead)
 	{
 
 		HANDLE tokenHandle;
-		ULONG flags = 0;
 
 		if (CreateEnvironmentBlock != NULL)
 		{
 			CreateEnvironmentBlock(&SystemDefaultEnvironment, NULL, FALSE);
 
-			if (NT_SUCCESS(PhOpenProcessToken(processHandle, TOKEN_QUERY | TOKEN_DUPLICATE, &tokenHandle)))
+			if (NT_SUCCESS(PhOpenProcessToken(m->QueryHandle, TOKEN_QUERY | TOKEN_DUPLICATE, &tokenHandle)))
 			{
 				CreateEnvironmentBlock(&UserDefaultEnvironment, tokenHandle, FALSE);
 				NtClose(tokenHandle);
 			}
 		}
 
-#ifdef _WIN64
-		if (m->IsWow64)
-			flags |= PH_GET_PROCESS_ENVIRONMENT_WOW64;
-#endif
-
-		if (NT_SUCCESS(PhGetProcessEnvironment(processHandle, flags, &environment, &environmentLength)))
+		if (NT_SUCCESS(PhGetProcessEnvironment(m->QueryHandle, m->IsWow64Process, &environment, &environmentLength)))
 		{
 			enumerationKey = 0;
 			while (PhEnumProcessEnvironmentVariables(environment, environmentLength, &enumerationKey, &variable))
@@ -1957,8 +2277,6 @@ QMap<QString, CWinProcess::SEnvVar>	CWinProcess::GetEnvVariables() const
 
 			PhFreePage(environment);
 		}
-
-		NtClose(processHandle);
 	}
 
     if (DestroyEnvironmentBlock != NULL)
@@ -2046,14 +2364,14 @@ QString CWinProcess::GetStatusString() const
         Status.append(tr("Elevated"));
     if (m->IsSubsystemProcess) // Set when the type of the process subsystem is other than Win32 (like *NIX, such as Ubuntu.)
         Status.append(tr("Pico"));
-	if (m->IsCrossSessionCreate) // Process was created across terminal sessions. Ex: Read CreateProcessAsUser for details.
+	if (m->IsCrossSessionProcess) // Process was created across terminal sessions. Ex: Read CreateProcessAsUser for details.
 		Status.append(tr("Cross Session"));
-	if (m->IsFrozen) // Immersive process is suspended (applies only to UWP processes.)
+	if (m->IsFrozenProcess) // Immersive process is suspended (applies only to UWP processes.)
 		Status.append(tr("Frozen"));
-	if (m->IsBackground) // Immersive process is in the Background task mode. UWP process may temporarily switch into performing a background task
+	if (m->IsBackgroundProcess) // Immersive process is in the Background task mode. UWP process may temporarily switch into performing a background task
 		Status.append(tr("Background"));
-	if (m->IsStronglyNamed) // UWP Strongly named process. The UWP package is digitally signed. Any modifications to files inside the package can be tracked.
-		Status.append(tr("Strongly Named"));
+	if (m->IsPackagedProcess) // UWP Strongly named process. The UWP package is digitally signed. Any modifications to files inside the package can be tracked.
+		Status.append(tr("Packaged (UWP)"));
 	if (m->IsSecureProcess) // Isolated User Mode process -- new security mode in Windows 10, with more stringent restrictions on what can "tap" into this process
 		Status.append(tr("Secure"));
     if (m->IsImmersive)
@@ -2062,8 +2380,17 @@ QString CWinProcess::GetStatusString() const
         Status.append(tr("DotNet"));
     if (m->IsPacked)
         Status.append(tr("Packed"));
-    if (m->IsWow64)
+    if (m->IsWow64Process)
         Status.append(tr("Wow64"));
+	if (m->IsInSignificantJob)
+		Status.append(tr("InSignificantJob"));
+	if (m->IsReflectedProcess)
+		Status.append(tr("Reflected"));
+	if (m->IsSystemProcess)
+		Status.append(tr("System Process"));
+	if (m->IsSecureSystem)
+		Status.append(tr("Secure System"));
+
 
 	Locker.unlock();
 
@@ -2104,7 +2431,7 @@ STATUS CWinProcess::AttachDebugger()
 
     status = PhOpenKey(&keyHandle, KEY_READ, PH_KEY_LOCAL_MACHINE,
 #ifdef _WIN64
-        m->IsWow64 ? &aeDebugWow64KeyName : &aeDebugKeyName,
+        m->IsWow64Process ? &aeDebugWow64KeyName : &aeDebugKeyName,
 #else
         &aeDebugKeyName,
 #endif
@@ -2289,6 +2616,12 @@ bool CWinProcess::IsNetProcess() const
 	return m->IsDotNet;
 }
 
+bool CWinProcess::IsPackagedProcess() const
+{
+	QReadLocker Locker(&m_Mutex); 
+	return m->IsPackagedProcess;
+}
+
 quint64 CWinProcess::GetConsoleHostId() const
 {
 	QReadLocker Locker(&m_Mutex); 
@@ -2470,18 +2803,11 @@ STATUS CWinProcess::SetProtectionFlag(quint8 Flag, bool bForce)
 QList<QPair<QString, QString>> CWinProcess::GetMitigationDetails() const
 {
 	QList<QPair<QString, QString>> List;
-
-	HANDLE ProcessId = (HANDLE)GetProcessId();
-
-	HANDLE processHandle = NULL;
-	if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, m->UniqueProcessId)))
-	{
-		if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION, ProcessId)))
-			return List;
-	}
+	if(!m->IsHandleFull)
+		return List;
 
 	PH_PROCESS_MITIGATION_POLICY_ALL_INFORMATION information;
-    if (NT_SUCCESS(PhGetProcessMitigationPolicy(processHandle, &information)))
+    if (NT_SUCCESS(PhGetProcessMitigationPolicy(m->QueryHandle, &information)))
     {
         for (int policy = 0; policy < MaxProcessMitigationPolicy; policy++)
         {
@@ -2494,8 +2820,9 @@ QList<QPair<QString, QString>> CWinProcess::GetMitigationDetails() const
         }
     }
 
-	PPS_SYSTEM_DLL_INIT_BLOCK systemDllInitBlock = NULL; // this requiers PROCESS_VM_READ
-    if (NT_SUCCESS(PhGetProcessSystemDllInitBlock(processHandle, &systemDllInitBlock)))
+	PS_SYSTEM_DLL_INIT_BLOCK sysDllInitBlock = {0};
+	PPS_SYSTEM_DLL_INIT_BLOCK systemDllInitBlock = &sysDllInitBlock; // this requiers PROCESS_VM_READ
+    if (NT_SUCCESS(PhGetProcessSystemDllInitBlock(m->QueryHandle, &sysDllInitBlock)))
     {
 		if (systemDllInitBlock && RTL_CONTAINS_FIELD(systemDllInitBlock, systemDllInitBlock->Size, MitigationOptionsMap))
         {
@@ -2524,11 +2851,7 @@ QList<QPair<QString, QString>> CWinProcess::GetMitigationDetails() const
 				List.append(qMakePair(tr("Speculative store bypass"),tr("Disables spectre mitigations for the process.")));
             }
         }
-
-		PhFree(systemDllInitBlock);
     }
-
-    NtClose(processHandle);
 
 	return List;
 }
@@ -2579,6 +2902,12 @@ quint64 CWinProcess::GetMaximumWS() const
 	UpdateWsCounters();
 	QReadLocker Locker(&m_Mutex); 
 	return m->QuotaLimits.MaximumWorkingSetSize;
+}
+
+quint64 CWinProcess::GetShareableCommitSize() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->SharedCommitCharge;
 }
 
 quint32 CWinProcess::GetPeakNumberOfHandles() const
@@ -2657,6 +2986,86 @@ QString CWinProcess::GetIOPriorityString(quint32 value)
     }
 }
 
+STATUS CWinProcess::SetPriorityBoost(bool Value)
+{
+	NTSTATUS status;
+	HANDLE processHandle;
+
+	if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, m->UniqueProcessId)))
+	{
+		status = PhSetProcessPriorityBoost(processHandle, !Value);
+		NtClose(processHandle);
+	}
+
+	if (NT_SUCCESS(status))
+		m_PriorityBoost = Value;
+	else
+	{
+		if(CTaskService::CheckStatus(status))
+		{
+			if (CTaskService::TaskAction(m_ProcessId, "SetPriorityBoost", Value))
+				return OK;
+		}
+
+		return ERR(tr("Failed to set Process priority boost"), status);
+	}
+	return OK;
+}
+
+STATUS CWinProcess::SetPowerThrottled(bool Value)
+{
+	NTSTATUS status;
+	HANDLE processHandle;
+	POWER_THROTTLING_PROCESS_STATE powerThrottlingState;
+
+	status = PhOpenProcess( &processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION, m->UniqueProcessId);
+
+	if (NT_SUCCESS(status))
+	{
+		status = PhGetProcessPowerThrottlingState(processHandle, &powerThrottlingState);
+
+		if (NT_SUCCESS(status))
+		{
+			if (!(
+				FlagOn(powerThrottlingState.ControlMask, POWER_THROTTLING_PROCESS_EXECUTION_SPEED) &&
+				FlagOn(powerThrottlingState.StateMask, POWER_THROTTLING_PROCESS_EXECUTION_SPEED)
+				))
+			{
+
+				// Taskmgr sets the process priority to idle before enabling 'Eco mode'. (dmex)
+				PhSetProcessPriorityClass(processHandle, PROCESS_PRIORITY_CLASS_IDLE);
+
+				//
+				// Turn PROCESS_EXECUTION_SPEED throttling on.
+				//
+				status = PhSetProcessPowerThrottlingState(
+					processHandle,
+					POWER_THROTTLING_PROCESS_EXECUTION_SPEED,
+					POWER_THROTTLING_PROCESS_EXECUTION_SPEED
+				);
+			}
+			else
+			{
+				// Taskmgr does not properly restore the original priority after it has exited
+				// and you later decide to disable 'Eco mode', so we'll restore normal priority
+				// which isn't quite correct but still way better than what taskmgr does. (dmex)
+				PhSetProcessPriorityClass(processHandle, PROCESS_PRIORITY_CLASS_NORMAL);
+
+				//
+				// Let system manage all power throttling.
+				//
+				status = PhSetProcessPowerThrottlingState(processHandle, 0, 0);
+			}
+		}
+
+		NtClose(processHandle);
+	}
+
+	if (!NT_SUCCESS(status))
+		return ERR(tr("Failed to set Process efficiency"), status);
+	return OK;
+}
+
 STATUS CWinProcess::SetPriority(long Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
@@ -2671,7 +3080,7 @@ STATUS CWinProcess::SetPriority(long Value)
     {
         if (m->UniqueProcessId != SYSTEM_PROCESS_ID)
         {
-            status = PhSetProcessPriority(processHandle, (UCHAR)Value);
+            status = PhSetProcessPriorityClass(processHandle, (UCHAR)Value);
         }
         else
         {
@@ -2776,6 +3185,83 @@ STATUS CWinProcess::SetIOPriority(long Value)
 		return ERR(tr("Failed to set I/O priority"), status);
     }
 	return OK;
+}
+
+bool CWinProcess::IsPowerThrottled() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->IsPowerThrottling;
+}
+
+quint16 CWinProcess::GetCodePage() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->CodePage;
+}
+
+quint16 CWinProcess::GetTlsBitmapCount() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->TlsBitmapCount;
+}
+
+QString CWinProcess::GetTlsBitmapCountString() const
+{
+	QReadLocker Locker(&m_Mutex);
+
+	QString Info;
+	if (m->TlsBitmapCount != 0)
+	{
+		if (m->TlsBitmapCount > TLS_MINIMUM_AVAILABLE)
+		{
+			Info = tr("64 (100%%) | %1 (%2%%)").arg(m->TlsBitmapCount - TLS_MINIMUM_AVAILABLE).arg((m->TlsBitmapCount - TLS_MINIMUM_AVAILABLE) * 100.f / TLS_EXPANSION_SLOTS, 0, 'f', 2);
+		}
+		else
+		{
+			Info = tr("%1 (%2%%) | 0 (0%%)").arg(m->TlsBitmapCount).arg(m->TlsBitmapCount * 100.f / TLS_MINIMUM_AVAILABLE, 0, 'f', 2);
+		}
+	}
+	return Info;
+}
+
+quint32 CWinProcess::GetErrorMode() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->ErrorMode;
+}
+
+QString CWinProcess::GetErrorModeString() const
+{
+	QStringList Info;
+
+	if (m->ErrorMode & SEM_FAILCRITICALERRORS)
+		Info.append(tr("Fail critical"));
+	if (m->ErrorMode & SEM_NOGPFAULTERRORBOX)
+		Info.append(tr("GP faults"));
+	if (m->ErrorMode & SEM_NOALIGNMENTFAULTEXCEPT)
+		Info.append(tr("Alignment faults"));
+	if (m->ErrorMode & SEM_NOOPENFILEERRORBOX)
+		Info.append(tr("Openfile faults"));
+
+	return Info.join(", ");
+}
+
+quint32 CWinProcess::GetReferenceCount()
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->ReferenceCount;
+}
+
+quint32 CWinProcess::GetAccessMask()
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->AccessMask;
+}
+
+QString CWinProcess::GetAccessMaskString()
+{
+	QReadLocker Locker(&m_Mutex);
+	return tr("0x%1").arg(m->AccessMask, 0, 16);
 }
 
 STATUS CWinProcess::SetAffinityMask(quint64 Value)
@@ -2906,6 +3392,48 @@ STATUS CWinProcess::Resume()
 		return ERR(tr("Failed to resume process"), status);
     }
 	return OK;
+}
+
+bool CWinProcess::IsFrozen() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->FreezeHandle != NULL;
+}
+
+STATUS CWinProcess::Freeze()
+{
+	if (ReadPointerAcquire(&m->FreezeHandle))
+		return ERR(tr("Process already frozen"), STATUS_UNSUCCESSFUL);
+
+	HANDLE freezeHandle;
+	NTSTATUS status = PhFreezeProcess(&freezeHandle, m->UniqueProcessId);
+	if (!NT_SUCCESS(status))
+		return ERR(tr("Failed to freeze process"), status);
+
+	InterlockedExchangePointer(&m->FreezeHandle, freezeHandle);
+
+	return OK;
+}
+
+STATUS CWinProcess::UnFreeze()
+{
+	if (!ReadPointerAcquire(&m->FreezeHandle))
+		return ERR(tr("Process is not frozen"), STATUS_UNSUCCESSFUL);
+	
+	NTSTATUS status = PhThawProcess(m->FreezeHandle, m->UniqueProcessId);
+	if (!NT_SUCCESS(status))
+		return ERR(tr("Failed to un-freeze process"), status);
+
+	if (HANDLE freezeHandle = InterlockedExchangePointer(&m->FreezeHandle, NULL))
+		NtClose(freezeHandle);
+
+	return OK;
+}
+
+bool CWinProcess::IsReflectedProcess() const
+{
+	QReadLocker Locker(&m_Mutex);
+	return m->IsReflectedProcess;
 }
 
 bool CWinProcess::IsCriticalProcess() const
@@ -3050,7 +3578,7 @@ NTSTATUS CWinProcess__LoadModule(HANDLE ProcessHandle, const QString& Path)
 			PhGetSystemRoot(&systemRoot);
 			kernel32FileName = PhConcatStringRefZ(&systemRoot, L"\\SysWow64\\kernel32.dll");
 
-			status = PhGetProcedureAddressRemoteZ(ProcessHandle, kernel32FileName->Buffer, "LoadLibraryW", 0, &loadLibraryW32, NULL);
+			status = PhGetProcedureAddressRemoteZ(ProcessHandle, kernel32FileName->Buffer, "LoadLibraryW", &loadLibraryW32, NULL);
 			PhDereferenceObject(kernel32FileName);
 
 			if (!NT_SUCCESS(status))
@@ -3134,6 +3662,186 @@ QMap<quint64, CMemoryPtr> CWinProcess::GetMemoryMap() const
 	QMap<quint64, CMemoryPtr> MemoryMap;
 	PhQueryMemoryItemList((HANDLE)GetProcessId(), Flags, MemoryMap);
 	return MemoryMap;
+}
+
+QMap<quint64, CHeapPtr> CWinProcess::GetHeapList() const
+{
+	QVariantList Heaps;
+#ifdef _WIN64
+	if (m->IsWow64Process)
+	{
+		QString SocketName = CTaskService::RunWorker(false, true);
+
+		if (!SocketName.isEmpty())
+		{
+			QVariantMap Parameters;
+			Parameters["ProcessId"] = GetProcessId();
+
+			QVariantMap Request;
+			Request["Command"] = "GetProcessHeaps";
+			Request["Parameters"] = Parameters;
+
+			QVariant Response = CTaskService::SendCommand(SocketName, Request);
+			Heaps = Response.toList();
+		}
+	}
+	else
+	{
+#endif
+		Heaps = GetProcessHeaps(m_ProcessId);
+#ifdef _WIN64
+	}
+#endif
+
+	QMap<quint64, CHeapPtr> HeapList;
+
+	foreach(const QVariant & vHeap, Heaps)
+	{
+		QVariantMap Heap = vHeap.toMap();
+
+		CWinHeapPtr pHeapInfo = CWinHeapPtr(new CWinHeap());
+		HeapList.insert(Heap["BaseAddress"].toULongLong(), pHeapInfo);
+
+		pHeapInfo->m_Flags = Heap["Flags"].toUInt();
+		pHeapInfo->m_Signature = Heap["Signature"].toUInt();
+		pHeapInfo->m_HeapFrontEndType = Heap["HeapFrontEndType"].toUInt();
+		pHeapInfo->m_NumberOfEntries = Heap["NumberOfEntries"].toUInt();
+		pHeapInfo->m_BaseAddress = Heap["BaseAddress"].toULongLong();
+		pHeapInfo->m_BytesAllocated = Heap["BytesAllocated"].toULongLong();
+		pHeapInfo->m_BytesCommitted = Heap["BytesCommitted"].toULongLong();
+	}
+
+	return HeapList;
+}
+
+QVariantList GetProcessHeaps(quint64 ProcessId)
+{
+	QVariantList List;
+
+	QMap<quint64, CHeapPtr> HeapList;
+
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	HANDLE processHandle = NULL;
+	HANDLE powerRequestHandle = NULL;
+	PROCESS_REFLECTION_INFORMATION reflectionInfo = { 0 };
+	HANDLE clientProcessId = (HANDLE)ProcessId;
+
+	PVOID DebugBuffer = NULL;
+	PVOID ProcessHeap = NULL;
+
+	if (WindowsVersion >= WINDOWS_8 && WindowsVersion <= WINDOWS_8_1)
+	{
+		// Windows 8 requires ALL_ACCESS for PLM execution requests. (dmex)
+		status = PhOpenProcess(
+			&processHandle,
+			PROCESS_ALL_ACCESS,
+			clientProcessId
+		);
+	}
+	else
+	{
+		// Windows 10 and above require SET_LIMITED for PLM execution requests. (dmex)
+		status = PhOpenProcess(
+			&processHandle,
+			PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_LIMITED_INFORMATION | // PLM
+			PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE, // Reflection
+			clientProcessId
+		);
+	}
+
+	if (processHandle)
+	{
+		PhCreateExecutionRequiredRequest(processHandle, &powerRequestHandle);
+
+		// todo add setting
+		/*if (PhGetIntegerSetting(L"EnableHeapReflection")) 
+		{
+			// NOTE: RtlQueryProcessDebugInformation injects a thread into the process causing deadlocks and other issues in rare cases.
+			// We mitigate these problems by reflecting the process and querying heap information from the clone. (dmex)
+
+			status = PhCreateProcessReflection(
+				&reflectionInfo,
+				processHandle
+			);
+
+			if (NT_SUCCESS(status))
+			{
+				clientProcessId = reflectionInfo.ReflectionClientId.UniqueProcess;
+			}
+		}*/
+	}
+
+	PPH_PROCESS_DEBUG_HEAP_INFORMATION heapDebugInfo;
+
+	status = PhQueryProcessHeapInformation(
+		clientProcessId,
+		&heapDebugInfo
+	);
+
+	if (!NT_SUCCESS(status))
+	{
+		//PhShowStatus(Context->WindowHandle, L"Unable to query heap information.", status, 0);
+		goto CleanupExit;
+	}
+
+	DebugBuffer = heapDebugInfo;
+	ProcessHeap = heapDebugInfo->DefaultHeap;
+
+	for (ULONG i = 0; i < heapDebugInfo->NumberOfHeaps; i++)
+	{
+		PPH_PROCESS_DEBUG_HEAP_ENTRY entry = &heapDebugInfo->Heaps[i];
+
+		QVariantMap Heap;
+		Heap["Flags"] = (quint32)entry->Flags;
+		Heap["Signature"] = (quint32)entry->Signature;
+		Heap["HeapFrontEndType"] = (quint8)entry->HeapFrontEndType;
+		Heap["NumberOfEntries"] = (quint32)entry->NumberOfEntries;
+		Heap["BaseAddress"] = (quint64)entry->BaseAddress;
+		Heap["BytesAllocated"] = (quint64)entry->BytesAllocated;
+		Heap["BytesCommitted"] = (quint64)entry->BytesCommitted;
+		List.append(Heap);
+	}
+
+CleanupExit:
+	PhFreeProcessReflection(&reflectionInfo);
+
+	if (processHandle)
+		NtClose(processHandle);
+
+	if (powerRequestHandle)
+		PhDestroyExecutionRequiredRequest(powerRequestHandle);
+
+	if (DebugBuffer)
+		PhFree(DebugBuffer);
+
+	return List;
+}
+
+STATUS CWinProcess::FlushHeaps()
+{
+	LARGE_INTEGER timeout;
+	NTSTATUS status;
+	HANDLE processHandle;
+
+	status = PhOpenProcess(
+		&processHandle,
+		PROCESS_CREATE_THREAD | PROCESS_QUERY_LIMITED_INFORMATION |
+		PROCESS_SET_LIMITED_INFORMATION | PROCESS_VM_READ,
+		m->UniqueProcessId
+	);
+
+	if (NT_SUCCESS(status))
+	{
+		status = PhFlushProcessHeapsRemote(processHandle, PhTimeoutFromMilliseconds(&timeout, 4000));
+		NtClose(processHandle);
+	}
+
+	if (!NT_SUCCESS(status))
+	{
+		return ERR(tr("Failed Flush Heaps"), status);
+	}
+
+	return OK;
 }
 
 QList<CWndPtr> CWinProcess::GetWindows() const
@@ -3314,23 +4022,15 @@ QList<CWinProcess::SDriver> CWinProcess::GetUmdfDrivers() const
     static PH_STRINGREF activeDevices = PH_STRINGREF_INIT(L"ACTIVE_DEVICES");
     static PH_STRINGREF currentControlSetEnum = PH_STRINGREF_INIT(L"System\\CurrentControlSet\\Enum\\");
 
-    HANDLE processHandle;
-    ULONG flags = 0;
     PVOID environment;
     ULONG environmentLength;
     ULONG enumerationKey;
     PH_ENVIRONMENT_VARIABLE variable;
 
-    if (!NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, (HANDLE)GetProcessId())))
+    if (!m->IsHandleVmRead)
         return Drivers;
 
-#ifdef _WIN64
-    // Just in case.
-    if (IsWoW64())
-        flags |= PH_GET_PROCESS_ENVIRONMENT_WOW64;
-#endif
-
-    if (NT_SUCCESS(PhGetProcessEnvironment(processHandle, flags, &environment, &environmentLength)))
+    if (NT_SUCCESS(PhGetProcessEnvironment(m->QueryHandle, IsWoW64(), &environment, &environmentLength)))
     {
         enumerationKey = 0;
 
@@ -3403,8 +4103,6 @@ QList<CWinProcess::SDriver> CWinProcess::GetUmdfDrivers() const
 
         PhFreePage(environment);
     }
-
-    NtClose(processHandle);
 
 	return Drivers;
 }

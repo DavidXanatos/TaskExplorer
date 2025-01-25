@@ -43,6 +43,43 @@ QString CWinMemory::GetMemoryTypeString() const
     return tr("Unknown");
 }
 
+QString CWinMemory::GetRegionTypeExStr() const
+{
+    if (!m_RegionTypeEx)
+        return "";
+
+	QStringList regionTypes;
+
+    if (m_Private)
+        regionTypes.append(tr("Private"));
+    if (m_MappedDataFile)
+        regionTypes.append(tr("MappedDataFile"));
+    if (m_MappedImage)
+        regionTypes.append(tr("MappedImage"));
+    if (m_MappedPageFile)
+        regionTypes.append(tr("MappedPageFile"));
+    if (m_MappedPhysical)
+        regionTypes.append(tr("MappedPhysical"));
+    if (m_DirectMapped)
+        regionTypes.append(tr("DirectMapped"));
+    if (m_SoftwareEnclave)
+        regionTypes.append(tr("Software enclave"));
+    if (m_PageSize64K)
+        regionTypes.append(tr("PageSize64K"));
+    if (m_PlaceholderReservation)
+        regionTypes.append(tr("Placeholder"));
+    if (m_MappedAwe)
+        regionTypes.append(tr("Mapped AWE"));
+    if (m_MappedWriteWatch)
+        regionTypes.append(tr("MappedWriteWatch"));
+    if (m_PageSizeLarge)
+        regionTypes.append(tr("PageSizeLarge"));
+    if (m_PageSizeHuge)
+        regionTypes.append(tr("PageSizeHuge"));
+
+    return regionTypes.join(tr(", "));
+}
+
 QString CWinMemory::GetMemoryStateString() const
 {
 	QReadLocker Locker(&m_Mutex);
@@ -75,10 +112,8 @@ QString CWinMemory::GetTypeString() const
 	}
 }
 
-QString CWinMemory::GetProtectString() const
+QString CWinMemory::GetProtectionString(quint32 Protect)
 {
-	quint32 Protect = GetProtect();
-
 	if (!Protect)
 		return "";
 
@@ -114,9 +149,19 @@ QString CWinMemory::GetProtectString() const
 	return str;
 }
 
+QString CWinMemory::GetProtectionString() const
+{
+	return GetProtectionString(GetProtection());
+}
+
+QString CWinMemory::GetAllocProtectionString() const
+{
+	return GetProtectionString(GetAllocProtection());
+}
+
 bool CWinMemory::IsExecutable() const
 {
-	return (GetProtect() & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
+	return (GetProtection() & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
 }
 
 bool CWinMemory::IsBitmapRegion() const
@@ -181,6 +226,51 @@ QString CWinMemory::GetUseString() const
         return tr("ApiSetMap");
     default:
         return "";
+    }
+}
+
+quint8 CWinMemory::GetSigningLevel() const 
+{ 
+    QReadLocker Locker(&m_Mutex);
+    return u.MappedFile.SigningLevel; 
+}
+
+QString CWinMemory::GetSigningLevelString() const
+{
+	SE_SIGNING_LEVEL SigningLevel = (SE_SIGNING_LEVEL)GetSigningLevel();
+
+    switch (SigningLevel)
+    {
+        case SE_SIGNING_LEVEL_UNCHECKED:
+            return tr("Unchecked");
+        case SE_SIGNING_LEVEL_UNSIGNED:
+            return tr("Unsigned");
+        case SE_SIGNING_LEVEL_ENTERPRISE:
+            return tr("Enterprise");
+        case SE_SIGNING_LEVEL_DEVELOPER:
+            return tr("Developer");
+        case SE_SIGNING_LEVEL_AUTHENTICODE:
+            return tr("Authenticode");
+        case SE_SIGNING_LEVEL_STORE:
+            return tr("StoreApp");
+        case SE_SIGNING_LEVEL_ANTIMALWARE:
+            return tr("Antimalware");
+        case SE_SIGNING_LEVEL_MICROSOFT:
+            return tr("Microsoft");
+        case SE_SIGNING_LEVEL_DYNAMIC_CODEGEN:
+            return tr("CodeGen");
+        case SE_SIGNING_LEVEL_WINDOWS:
+            return tr("Windows");
+        case SE_SIGNING_LEVEL_WINDOWS_TCB:
+            return tr("WinTcb");
+        case SE_SIGNING_LEVEL_CUSTOM_2:
+        case SE_SIGNING_LEVEL_CUSTOM_4:
+        case SE_SIGNING_LEVEL_CUSTOM_5:
+        case SE_SIGNING_LEVEL_CUSTOM_6:
+        case SE_SIGNING_LEVEL_CUSTOM_7:
+            return tr("Custom");
+        default:
+            return tr("");
     }
 }
 

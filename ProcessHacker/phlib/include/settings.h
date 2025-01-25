@@ -173,7 +173,7 @@ FORCEINLINE
 ULONG
 NTAPI
 PhGetIntegerSetting(
-    _In_ PWSTR Name
+    _In_ PCWSTR Name
     )
 {
     PH_STRINGREF name;
@@ -187,7 +187,7 @@ FORCEINLINE
 PH_INTEGER_PAIR
 NTAPI
 PhGetIntegerPairSetting(
-    _In_ PWSTR Name
+    _In_ PCWSTR Name
     )
 {
     PH_STRINGREF name;
@@ -201,7 +201,7 @@ FORCEINLINE
 PH_SCALABLE_INTEGER_PAIR
 NTAPI
 PhGetScalableIntegerPairSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ BOOLEAN ScaleToCurrent,
     _In_ LONG dpiValue
     )
@@ -217,7 +217,7 @@ FORCEINLINE
 PPH_STRING
 NTAPI
 PhGetStringSetting(
-    _In_ PWSTR Name
+    _In_ PCWSTR Name
     )
 {
     PH_STRINGREF name;
@@ -233,7 +233,7 @@ FORCEINLINE
 PPH_STRING
 NTAPI
 PhGetExpandStringSetting(
-    _In_ PWSTR Name
+    _In_ PCWSTR Name
     )
 {
     PPH_STRING setting;
@@ -251,7 +251,7 @@ FORCEINLINE
 VOID
 NTAPI
 PhSetIntegerSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ ULONG Value
     )
 {
@@ -266,8 +266,8 @@ FORCEINLINE
 VOID
 NTAPI
 PhSetStringSetting(
-    _In_ PWSTR Name,
-    _In_ PWSTR Value
+    _In_ PCWSTR Name,
+    _In_ PCWSTR Value
     )
 {
     PH_STRINGREF name;
@@ -283,7 +283,7 @@ FORCEINLINE
 VOID
 NTAPI
 PhSetStringSetting2(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ PPH_STRINGREF Value
     )
 {
@@ -298,7 +298,7 @@ FORCEINLINE
 VOID
 NTAPI
 PhSetIntegerPairSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ PH_INTEGER_PAIR Value
     )
 {
@@ -313,7 +313,7 @@ FORCEINLINE
 VOID
 NTAPI
 PhSetScalableIntegerPairSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ PH_SCALABLE_INTEGER_PAIR Value
     )
 {
@@ -328,7 +328,7 @@ FORCEINLINE
 VOID
 NTAPI
 PhSetScalableIntegerPairSetting2(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ PH_INTEGER_PAIR Value,
     _In_ LONG dpiValue
     )
@@ -403,8 +403,8 @@ PHLIBAPI
 VOID
 NTAPI
 PhLoadWindowPlacementFromSetting(
-    _In_opt_ PWSTR PositionSettingName,
-    _In_opt_ PWSTR SizeSettingName,
+    _In_opt_ PCWSTR PositionSettingName,
+    _In_opt_ PCWSTR SizeSettingName,
     _In_ HWND WindowHandle
     );
 
@@ -412,8 +412,8 @@ PHLIBAPI
 VOID
 NTAPI
 PhSaveWindowPlacementToSetting(
-    _In_opt_ PWSTR PositionSettingName,
-    _In_opt_ PWSTR SizeSettingName,
+    _In_opt_ PCWSTR PositionSettingName,
+    _In_opt_ PCWSTR SizeSettingName,
     _In_ HWND WindowHandle
     );
 
@@ -421,7 +421,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhLoadListViewColumnsFromSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ HWND ListViewHandle
     );
 
@@ -429,7 +429,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhSaveListViewColumnsToSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ HWND ListViewHandle
     );
 
@@ -437,7 +437,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhLoadListViewSortColumnsFromSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ HWND ListViewHandle
     );
 
@@ -445,7 +445,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhSaveListViewSortColumnsToSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ HWND ListViewHandle
     );
 
@@ -453,7 +453,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhLoadListViewGroupStatesFromSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ HWND ListViewHandle
     );
 
@@ -461,7 +461,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhSaveListViewGroupStatesToSetting(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ HWND ListViewHandle
     );
 
@@ -469,7 +469,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhLoadCustomColorList(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ PULONG CustomColorList,
     _In_ ULONG CustomColorCount
     );
@@ -478,13 +478,14 @@ PHLIBAPI
 VOID
 NTAPI
 PhSaveCustomColorList(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ PULONG CustomColorList,
     _In_ ULONG CustomColorCount
     );
 // end_phapppub
 
-#define PH_SET_INTEGER_CACHED_SETTING(Name, Value) (PhSetIntegerSetting(TEXT(#Name), PhCs##Name = (Value)))
+#define PH_GET_INTEGER_CACHED_SETTING(Name) ((PhCs##Name) = PhGetIntegerSetting(TEXT(#Name)))
+#define PH_SET_INTEGER_CACHED_SETTING(Name, Value) (PhSetIntegerSetting(TEXT(#Name), (PhCs##Name) = (Value)))
 
 EXTERN_C_END
 

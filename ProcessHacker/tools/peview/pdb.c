@@ -22,128 +22,128 @@ ULONG SearchResultsAddIndex = 0;
 PPH_LIST SearchResults = NULL;
 PH_QUEUED_LOCK SearchResultsLock = PH_QUEUED_LOCK_INIT;
 
-PWSTR rgBaseType[] =
+PPH_STRINGREF rgBaseType[] =
 {
-    L"<NoType>",                         // btNoType = 0,
-    L"void",                             // btVoid = 1,
-    L"char",                             // btChar = 2,
-    L"wchar_t",                          // btWChar = 3,
-    L"signed char",
-    L"unsigned char",
-    L"int",                              // btInt = 6,
-    L"unsigned int",                     // btUInt = 7,
-    L"float",                            // btFloat = 8,
-    L"<BCD>",                            // btBCD = 9,
-    L"bool",                             // btBool = 10,
-    L"short",
-    L"unsigned short",
-    L"long",                             // btLong = 13,
-    L"unsigned long",                    // btULong = 14,
-    L"__int8",
-    L"__int16",
-    L"__int32",
-    L"__int64",
-    L"__int128",
-    L"unsigned __int8",
-    L"unsigned __int16",
-    L"unsigned __int32",
-    L"unsigned __int64",
-    L"unsigned __int128",
-    L"<currency>",                       // btCurrency = 25,
-    L"<date>",                           // btDate = 26,
-    L"VARIANT",                          // btVariant = 27,
-    L"<complex>",                        // btComplex = 28,
-    L"<bit>",                            // btBit = 29,
-    L"BSTR",                             // btBSTR = 30,
-    L"HRESULT",                          // btHresult = 31
-    L"char16_t",                         // btChar16 = 32
-    L"char32_t"                          // btChar32 = 33
-    L"char8_t",                          // btChar8  = 34
+    SREF(L"<NoType>"),                         // btNoType = 0,
+    SREF(L"void"),                             // btVoid = 1,
+    SREF(L"char"),                             // btChar = 2,
+    SREF(L"wchar_t"),                          // btWChar = 3,
+    SREF(L"signed char"),
+    SREF(L"unsigned char"),
+    SREF(L"int"),                              // btInt = 6,
+    SREF(L"unsigned int"),                     // btUInt = 7,
+    SREF(L"float"),                            // btFloat = 8,
+    SREF(L"<BCD>"),                            // btBCD = 9,
+    SREF(L"bool"),                             // btBool = 10,
+    SREF(L"short"),
+    SREF(L"unsigned short"),
+    SREF(L"long"),                             // btLong = 13,
+    SREF(L"unsigned long"),                    // btULong = 14,
+    SREF(L"__int8"),
+    SREF(L"__int16"),
+    SREF(L"__int32"),
+    SREF(L"__int64"),
+    SREF(L"__int128"),
+    SREF(L"unsigned __int8"),
+    SREF(L"unsigned __int16"),
+    SREF(L"unsigned __int32"),
+    SREF(L"unsigned __int64"),
+    SREF(L"unsigned __int128"),
+    SREF(L"<currency>"),                       // btCurrency = 25,
+    SREF(L"<date>"),                           // btDate = 26,
+    SREF(L"VARIANT"),                          // btVariant = 27,
+    SREF(L"<complex>"),                        // btComplex = 28,
+    SREF(L"<bit>"),                            // btBit = 29,
+    SREF(L"BSTR"),                             // btBSTR = 30,
+    SREF(L"HRESULT"),                          // btHresult = 31
+    SREF(L"char16_t"),                         // btChar16 = 32
+    SREF(L"char32_t"),                         // btChar32 = 33
+    SREF(L"char8_t")                           // btChar8  = 34
 };
 
-PWSTR rgTags[] =
+PPH_STRINGREF rgTags[] =
 {
-    L"(SymTagNull)",                     // SymTagNull
-    L"Executable (Global)",              // SymTagExe
-    L"Compiland",                        // SymTagCompiland
-    L"CompilandDetails",                 // SymTagCompilandDetails
-    L"CompilandEnv",                     // SymTagCompilandEnv
-    L"Function",                         // SymTagFunction
-    L"Block",                            // SymTagBlock
-    L"Data",                             // SymTagData
-    L"Annotation",                       // SymTagAnnotation
-    L"Label",                            // SymTagLabel
-    L"PublicSymbol",                     // SymTagPublicSymbol
-    L"UserDefinedType",                  // SymTagUDT
-    L"Enum",                             // SymTagEnum
-    L"FunctionType",                     // SymTagFunctionType
-    L"PointerType",                      // SymTagPointerType
-    L"ArrayType",                        // SymTagArrayType
-    L"BaseType",                         // SymTagBaseType
-    L"Typedef",                          // SymTagTypedef
-    L"BaseClass",                        // SymTagBaseClass
-    L"Friend",                           // SymTagFriend
-    L"FunctionArgType",                  // SymTagFunctionArgType
-    L"FuncDebugStart",                   // SymTagFuncDebugStart
-    L"FuncDebugEnd",                     // SymTagFuncDebugEnd
-    L"UsingNamespace",                   // SymTagUsingNamespace
-    L"VTableShape",                      // SymTagVTableShape
-    L"VTable",                           // SymTagVTable
-    L"Custom",                           // SymTagCustom
-    L"Thunk",                            // SymTagThunk
-    L"CustomType",                       // SymTagCustomType
-    L"ManagedType",                      // SymTagManagedType
-    L"Dimension",                        // SymTagDimension
-    L"CallSite",                         // SymTagCallSite
-    L"InlineSite",                       // SymTagInlineSite
-    L"BaseInterface",                    // SymTagBaseInterface
-    L"VectorType",                       // SymTagVectorType
-    L"MatrixType",                       // SymTagMatrixType
-    L"HLSLType",                         // SymTagHLSLType
-    L"Caller",                           // SymTagCaller,
-    L"Callee",                           // SymTagCallee,
-    L"Export",                           // SymTagExport,
-    L"HeapAllocationSite",               // SymTagHeapAllocationSite
-    L"CoffGroup",                        // SymTagCoffGroup
-    L"Inlinee",                          // SymTagInlinee
+    SREF(L"(SymTagNull)"),                     // SymTagNull
+    SREF(L"Executable (Global)"),              // SymTagExe
+    SREF(L"Compiland"),                        // SymTagCompiland
+    SREF(L"CompilandDetails"),                 // SymTagCompilandDetails
+    SREF(L"CompilandEnv"),                     // SymTagCompilandEnv
+    SREF(L"Function"),                         // SymTagFunction
+    SREF(L"Block"),                            // SymTagBlock
+    SREF(L"Data"),                             // SymTagData
+    SREF(L"Annotation"),                       // SymTagAnnotation
+    SREF(L"Label"),                            // SymTagLabel
+    SREF(L"PublicSymbol"),                     // SymTagPublicSymbol
+    SREF(L"UserDefinedType"),                  // SymTagUDT
+    SREF(L"Enum"),                             // SymTagEnum
+    SREF(L"FunctionType"),                     // SymTagFunctionType
+    SREF(L"PointerType"),                      // SymTagPointerType
+    SREF(L"ArrayType"),                        // SymTagArrayType
+    SREF(L"BaseType"),                         // SymTagBaseType
+    SREF(L"Typedef"),                          // SymTagTypedef
+    SREF(L"BaseClass"),                        // SymTagBaseClass
+    SREF(L"Friend"),                           // SymTagFriend
+    SREF(L"FunctionArgType"),                  // SymTagFunctionArgType
+    SREF(L"FuncDebugStart"),                   // SymTagFuncDebugStart
+    SREF(L"FuncDebugEnd"),                     // SymTagFuncDebugEnd
+    SREF(L"UsingNamespace"),                   // SymTagUsingNamespace
+    SREF(L"VTableShape"),                      // SymTagVTableShape
+    SREF(L"VTable"),                           // SymTagVTable
+    SREF(L"Custom"),                           // SymTagCustom
+    SREF(L"Thunk"),                            // SymTagThunk
+    SREF(L"CustomType"),                       // SymTagCustomType
+    SREF(L"ManagedType"),                      // SymTagManagedType
+    SREF(L"Dimension"),                        // SymTagDimension
+    SREF(L"CallSite"),                         // SymTagCallSite
+    SREF(L"InlineSite"),                       // SymTagInlineSite
+    SREF(L"BaseInterface"),                    // SymTagBaseInterface
+    SREF(L"VectorType"),                       // SymTagVectorType
+    SREF(L"MatrixType"),                       // SymTagMatrixType
+    SREF(L"HLSLType"),                         // SymTagHLSLType
+    SREF(L"Caller"),                           // SymTagCaller
+    SREF(L"Callee"),                           // SymTagCallee
+    SREF(L"Export"),                           // SymTagExport
+    SREF(L"HeapAllocationSite"),               // SymTagHeapAllocationSite
+    SREF(L"CoffGroup"),                        // SymTagCoffGroup
+    SREF(L"Inlinee"),                          // SymTagInlinee
 };
 
-PWSTR rgLocationTypeString[] =
+PPH_STRINGREF rgLocationTypeString[] =
 {
-    L"NULL",
-    L"static",
-    L"TLS",
-    L"RegRel",
-    L"ThisRel",
-    L"Enregistered",
-    L"BitField",
-    L"Slot",
-    L"IL Relative",
-    L"In MetaData",
-    L"Constant",
-    L"RegRelAliasIndir"
+    SREF(L"NULL"),
+    SREF(L"static"),
+    SREF(L"TLS"),
+    SREF(L"RegRel"),
+    SREF(L"ThisRel"),
+    SREF(L"Enregistered"),
+    SREF(L"BitField"),
+    SREF(L"Slot"),
+    SREF(L"IL Relative"),
+    SREF(L"In MetaData"),
+    SREF(L"Constant"),
+    SREF(L"RegRelAliasIndir")
 };
 
-PWSTR rgUdtKind[] =
+PPH_STRINGREF rgUdtKind[] =
 {
-    L"struct",
-    L"class",
-    L"union",
-    L"interface",
+    SREF(L"struct"),
+    SREF(L"class"),
+    SREF(L"union"),
+    SREF(L"interface"),
 };
 
-PWSTR rgDataKind[] =
+PPH_STRINGREF rgDataKind[] =
 {
-    L"Unknown",
-    L"Local",
-    L"Static Local",
-    L"Param",
-    L"Object Ptr",
-    L"File Static",
-    L"Global",
-    L"Member",
-    L"Static Member",
-    L"Constant",
+    SREF(L"Unknown"),
+    SREF(L"Local"),
+    SREF(L"Static Local"),
+    SREF(L"Param"),
+    SREF(L"Object Ptr"),
+    SREF(L"File Static"),
+    SREF(L"Global"),
+    SREF(L"Member"),
+    SREF(L"Static Member"),
+    SREF(L"Constant"),
 };
 
 VOID PrintSymbolType(
@@ -156,7 +156,8 @@ VOID PrintSymTag(
     _In_ ULONG SymbolTag
     )
 {
-    PhAppendFormatStringBuilder(StringBuilder, L"%s: ", rgTags[SymbolTag]);
+    PhAppendStringBuilder(StringBuilder, rgTags[SymbolTag]);
+    PhAppendStringBuilder2(StringBuilder, L": ");
 }
 
 VOID PrintVariant(
@@ -223,7 +224,8 @@ VOID PrintLocation(
             (IDiaSymbol_get_addressSection(IDiaSymbol, &dwSect) == S_OK) &&
             (IDiaSymbol_get_addressOffset(IDiaSymbol, &dwOff) == S_OK))
         {
-            PhAppendFormatStringBuilder(StringBuilder, L"%s, [%08X][%04X:%08X]", rgLocationTypeString[dwLocType], dwRVA, dwSect, dwOff);
+            PhAppendStringBuilder(StringBuilder,rgLocationTypeString[dwLocType]);
+            PhAppendFormatStringBuilder(StringBuilder, L", [%08X][%04X:%08X]", dwRVA, dwSect, dwOff);
         }
         break;
 
@@ -234,7 +236,8 @@ VOID PrintLocation(
             (IDiaSymbol_get_addressSection(IDiaSymbol, &dwSect) == S_OK) &&
             (IDiaSymbol_get_addressOffset(IDiaSymbol, &dwOff) == S_OK))
         {
-            PhAppendFormatStringBuilder(StringBuilder, L"%s, [%08X][%04X:%08X]", rgLocationTypeString[dwLocType], dwRVA, dwSect, dwOff);
+            PhAppendStringBuilder(StringBuilder, rgLocationTypeString[dwLocType]);
+            PhAppendFormatStringBuilder(StringBuilder, L", [%08X][%04X:%08X]", dwRVA, dwSect, dwOff);
         }
         break;
 
@@ -272,7 +275,8 @@ VOID PrintLocation(
         {
             if (IDiaSymbol_get_slot(IDiaSymbol, &dwSlot) == S_OK)
             {
-                PhAppendFormatStringBuilder(StringBuilder, L"%s, [%08X]", rgLocationTypeString[dwLocType], dwSlot);
+                PhAppendStringBuilder(StringBuilder, rgLocationTypeString[dwLocType]);
+                PhAppendFormatStringBuilder(StringBuilder, L", [%08X]", dwSlot);
             }
         }
         break;
@@ -314,18 +318,19 @@ VOID PrintName(
     {
         if (wcscmp(bstrName, bstrUndName) == 0)
         {
-            PhAppendFormatStringBuilder(StringBuilder, L"%s", bstrName);
+            PhAppendStringBuilder2(StringBuilder, bstrName);
         }
         else
         {
-            PhAppendFormatStringBuilder(StringBuilder, L"%s(%s)", bstrUndName, bstrName);
+            PhAppendStringBuilder2(StringBuilder, bstrUndName);
+            PhAppendFormatStringBuilder(StringBuilder, L"(%s)", bstrName);
         }
 
         PhSymbolProviderFreeDiaString(bstrUndName);
     }
     else
     {
-        PhAppendFormatStringBuilder(StringBuilder, L"%s", bstrName);
+        PhAppendStringBuilder2(StringBuilder, bstrName);
     }
 
     PhSymbolProviderFreeDiaString(bstrName);
@@ -346,13 +351,13 @@ VOID PrintData(
         return;
     }
 
-    PhAppendFormatStringBuilder(StringBuilder, L"%s", rgDataKind[dwDataKind]);
+    PhAppendStringBuilder(StringBuilder, rgDataKind[dwDataKind]);
     PrintSymbolType(StringBuilder, IDiaSymbol);
 
-    PhAppendFormatStringBuilder(StringBuilder, L", ");
+    PhAppendStringBuilder2(StringBuilder, L", ");
     PrintName(StringBuilder, IDiaSymbol);
 
-    PhAppendFormatStringBuilder(StringBuilder, L" = ");
+    PhAppendStringBuilder2(StringBuilder, L" = ");
     PrintLocation(StringBuilder, IDiaSymbol);
 }
 
@@ -365,7 +370,8 @@ VOID PrintUdtKind(
 
     if (IDiaSymbol_get_udtKind(pSymbol, &dwKind) == S_OK)
     {
-        PhAppendFormatStringBuilder(StringBuilder, L"%s ", rgUdtKind[dwKind]);
+        PhAppendStringBuilder(StringBuilder, rgUdtKind[dwKind]);
+        PhAppendStringBuilder2(StringBuilder, L" ");
     }
 }
 
@@ -920,8 +926,7 @@ VOID PePdbPrintDiaSymbol(
             symbol->Address = symbolRva;
             symbol->Size = symbolLength;
             symbol->Name = PhCreateString(bstrUndname ? bstrUndname : bstrName);
-
-            symbol->Data = PhCreateString(rgTags[symbolTag]);
+            symbol->Data = rgTags[symbolTag];
             //symbol->Data = SymbolInfo_GetTypeName(
             //    context,
             //    SymbolInfo->TypeIndex,
@@ -1036,7 +1041,7 @@ VOID PePdbPrintDiaSymbol(
             symbol->Size = symbolLength;
             symbol->Name = PhCreateString(bstrUndname ? bstrUndname : bstrName);
             //PhCreateStringEx(SymbolInfo->Name, SymbolInfo->NameLen * sizeof(WCHAR));
-            symbol->Data = PhCreateString(rgTags[symbolTag]);
+            symbol->Data = rgTags[symbolTag];
             //symbol->Data = SymbolInfo_GetTypeName(context, SymbolInfo->TypeIndex, SymbolInfo->Name);
             //SymbolInfo_SymbolLocationStr(SymbolInfo, symbol->Pointer);
             PhPrintPointer(symbol->Pointer, UlongToPtr(symbolRva));
@@ -1079,7 +1084,7 @@ VOID PePdbPrintDiaSymbol(
             symbol->Address = symbolRva;
             symbol->Size = symbolLength;
             symbol->Name = PhCreateString(bstrUndname ? bstrUndname : bstrName);
-            symbol->Data = PhCreateString(rgTags[symbolTag]);
+            symbol->Data = rgTags[symbolTag];
             //symbol->Data = SymbolInfo_GetTypeName(context, SymbolInfo->TypeIndex, SymbolInfo->Name);
             //SymbolInfo_SymbolLocationStr(SymbolInfo, symbol->Pointer);
             PhPrintPointer(symbol->Pointer, UlongToPtr(symbolRva));
@@ -1255,16 +1260,16 @@ NTSTATUS PeDumpFileSymbols(
     _In_ PPDB_SYMBOL_CONTEXT Context
     )
 {
-    ULONG64 baseOfDll = ULLONG_MAX;
+    PVOID baseOfDll = NULL;
     IDiaSession* idiaSession;
     IDiaSymbol* idiaSymbol;
 
     if (PvMappedImage.Signature) // HACK: Null when opening a pdb file.
     {
         if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-            baseOfDll = (ULONG64)PvMappedImage.NtHeaders32->OptionalHeader.ImageBase;
+            baseOfDll = PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, 0);
         else
-            baseOfDll = (ULONG64)PvMappedImage.NtHeaders->OptionalHeader.ImageBase;
+            baseOfDll = PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, 0);
     }
     else
     {
@@ -1304,11 +1309,11 @@ NTSTATUS PeDumpFileSymbols(
                 if (PhLoadFileNameSymbolProvider(
                     PvSymbolProvider,
                     PvFileName,
-                    (ULONG64)viewBase,
+                    viewBase,
                     (ULONG)size
                     ))
                 {
-                    baseOfDll = (ULONG64)viewBase;
+                    baseOfDll = viewBase;
                 }
             }
 
@@ -1322,7 +1327,7 @@ NTSTATUS PeDumpFileSymbols(
         }
     }
 
-    if (baseOfDll == ULLONG_MAX)
+    if (!baseOfDll)
     {
         PostMessage(Context->WindowHandle, WM_PV_SEARCH_FINISHED, 0, 0);
         PhShowStatus(NULL, L"Unable to load the file.", STATUS_UNSUCCESSFUL, 0);
@@ -1353,7 +1358,7 @@ NTSTATUS PeDumpFileSymbols(
         IDiaSymbol_Release(idiaSymbol);
     }
 
-    IDiaSession_Release(idiaSession);
+    //IDiaSession_Release(idiaSession);
 
     PostMessage(Context->WindowHandle, WM_PV_SEARCH_FINISHED, 0, 0);
     return STATUS_SUCCESS;

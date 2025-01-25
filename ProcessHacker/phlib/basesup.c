@@ -52,16 +52,23 @@
  */
 
 #include <phbase.h>
-
-#include <math.h>
-#include <objbase.h>
-
 #include <phintrnl.h>
-#include <phnative.h>
 #include <phintrin.h>
 #include <circbuf.h>
+#include <thirdparty.h>
+#include <ntintsafe.h>
 
+#ifndef PH_NATIVE_STRING_CONVERSION
 #define PH_NATIVE_STRING_CONVERSION 1
+#endif
+
+#ifndef PH_NATIVE_THREAD_CREATE
+#define PH_NATIVE_THREAD_CREATE 1
+#endif
+
+#ifndef PHNT_NATIVE_TIME
+#define PHNT_NATIVE_TIME 1
+#endif
 
 typedef struct _PHP_BASE_THREAD_CONTEXT
 {
@@ -201,11 +208,12 @@ NTSTATUS PhpBaseThreadStart(
 }
 
 /**
- * \brief Creates a thread.
+ * Creates a thread.
  *
  * \param ProcessHandle A handle to the process in which the thread is to be created.
  * \param ThreadSecurityDescriptor A pointer to a security descriptor for the new thread and
  * \a determines whether child processes can inherit the thread handle.
+ * \param DesiredAccess The desired access to the thread.
  * \param CreateFlags The flags that control the creation of the thread.
  * \param ZeroBits The number of high-order address bits that must be zero.
  * \a If this parameter is zero, the new thread uses the default for the executable.
@@ -223,6 +231,7 @@ NTSTATUS PhpBaseThreadStart(
 NTSTATUS PhCreateUserThread(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PSECURITY_DESCRIPTOR ThreadSecurityDescriptor,
+    _In_ ACCESS_MASK DesiredAccess,
     _In_opt_ ULONG CreateFlags,
     _In_opt_ SIZE_T ZeroBits,
     _In_opt_ SIZE_T StackSize,
@@ -233,20 +242,7 @@ NTSTATUS PhCreateUserThread(
     _Out_opt_ PCLIENT_ID ClientId
     )
 {
-#if (PH_NATIVE_THREAD_CREATE)
-    return RtlCreateUserThread(
-        ProcessHandle,
-        ThreadSecurityDescriptor,
-        BooleanFlagOn(CreateFlags, THREAD_CREATE_FLAGS_CREATE_SUSPENDED),
-        (ULONG)ZeroBits,
-        MaximumStackSize,
-        StackSize,
-        StartRoutine,
-        Argument,
-        ThreadHandle,
-        ClientId
-        );
-#else
+#if defined(PH_NATIVE_THREAD_CREATE)
     NTSTATUS status;
     HANDLE threadHandle;
     OBJECT_ATTRIBUTES objectAttributes;
@@ -263,7 +259,7 @@ NTSTATUS PhCreateUserThread(
 
     status = NtCreateThreadEx(
         &threadHandle,
-        THREAD_ALL_ACCESS,
+        DesiredAccess,
         &objectAttributes,
         ProcessHandle,
         StartRoutine,
@@ -293,6 +289,19 @@ NTSTATUS PhCreateUserThread(
     }
 
     return status;
+#else
+    return RtlCreateUserThread(
+        ProcessHandle,
+        ThreadSecurityDescriptor,
+        BooleanFlagOn(CreateFlags, THREAD_CREATE_FLAGS_CREATE_SUSPENDED),
+        (ULONG)ZeroBits,
+        MaximumStackSize,
+        StackSize,
+        StartRoutine,
+        Argument,
+        ThreadHandle,
+        ClientId
+        );
 #endif
 }
 
@@ -320,6 +329,7 @@ HANDLE PhCreateThread(
     status = PhCreateUserThread(
         NtCurrentProcess(),
         NULL,
+        THREAD_ALL_ACCESS,
         0,
         0,
         0,
@@ -360,6 +370,7 @@ NTSTATUS PhCreateThreadEx(
     status = PhCreateUserThread(
         NtCurrentProcess(),
         NULL,
+        THREAD_ALL_ACCESS,
         0,
         0,
         0,
@@ -399,6 +410,7 @@ NTSTATUS PhCreateThread2(
     status = PhCreateUserThread(
         NtCurrentProcess(),
         NULL,
+        THREAD_ALL_ACCESS,
         0,
         0,
         0,
@@ -468,17 +480,91 @@ NTSTATUS PhQueueUserWorkItem(
 }
 
 /**
+ * Reads the time stamp counter.
+ *
+ * This function reads the time stamp counter using the `__rdtscp` instruction,
+ * which is a serializing variant of the `rdtsc` instruction. It also includes
+ * a memory fence to ensure proper ordering of memory operations.
+ * @return The current value of the time stamp counter.
+ */
+ULONGLONG PhReadTimeStampCounter(
+    VOID
+    )
+{
+#if defined(PHNT_NATIVE_TIME)
+    ULONG64 value;
+
+    value = ReadTimeStampCounter();
+
+#if !defined(NTDDI_WIN11_GE) || (NTDDI_VERSION < NTDDI_WIN11_GE)
+    MemoryBarrier();
+#else
+    SpeculationFence();
+#endif
+
+#else
+    ULONG64 value;
+    ULONG index;
+
+    value = __rdtscp(&index);
+#endif
+
+    return value;
+}
+
+// rev from QueryPerformanceCounter (dmex)
+/**
+ * Retrieves the current value of the performance counter, which is a high resolution (<1us) time stamp that can be used for time-interval measurements.
+ *
+ * \param PerformanceCounter A pointer to a variable that receives the current performance-counter value, in counts.
+ * \return Successful or errant status.
+ * \remarks On systems that run Windows XP or later, the function will always succeed and will thus never return zero.
+ */
+BOOLEAN PhQueryPerformanceCounter(
+    _Out_ PLARGE_INTEGER PerformanceCounter
+    )
+{
+#if defined(PH_WIN32_PERFCOUNTER)
+    return !!QueryPerformanceCounter(PerformanceCounter);
+#elif defined(PH_NATIVE_PERFCOUNTER)
+    return NT_SUCCESS(NtQueryPerformanceCounter(PerformanceCounter, NULL));
+#else
+    return !!RtlQueryPerformanceCounter(PerformanceCounter);
+#endif
+}
+
+// rev from QueryPerformanceFrequency (dmex)
+/**
+ * Retrieves the frequency of the performance counter.
+ * The frequency of the performance counter is fixed at system boot and is consistent across all processors.
+ * Therefore, the frequency need only be queried upon application initialization, and the result can be cached.
+ *
+ * \param PerformanceFrequency A pointer to a variable that receives the current performance-counter frequency, in counts per second.
+ * \return Successful or errant status.
+ * \remarks On systems that run Windows XP or later, the function will always succeed and will thus never return zero.
+ */
+BOOLEAN PhQueryPerformanceFrequency(
+    _Out_ PLARGE_INTEGER PerformanceFrequency
+    )
+{
+#if defined(PH_WIN32_PERFCOUNTER)
+    return !!QueryPerformanceFrequency(PerformanceFrequency);
+#elif defined(PH_NATIVE_PERFCOUNTER)
+    LARGE_INTEGER performanceCounter;
+    return NT_SUCCESS(NtQueryPerformanceCounter(&performanceCounter, PerformanceFrequency));
+#else
+    return !!RtlQueryPerformanceFrequency(PerformanceFrequency);
+#endif
+}
+
+/**
  * Gets the current interrupt-time count.
  */
 VOID PhQueryInterruptTime(
     _Out_ PULARGE_INTEGER InterruptTime
     )
 {
-#ifdef _WIN64
-
-    InterruptTime->QuadPart = *(volatile ULONG64*)&USER_SHARED_DATA->InterruptTime;
-
-#else
+#if defined(PHNT_NATIVE_TIME)
 
     while (TRUE)
     {
@@ -490,6 +576,22 @@ VOID PhQueryInterruptTime(
 
         YieldProcessor();
     }
+
+#elif defined(PHNT_SYSTEM_TIME)
+
+    ULONGLONG interruptTime;
+
+    QueryInterruptTime(&interruptTime);
+
+    InterruptTime->QuadPart = interruptTime;
+
+#else
+
+    do
+    {
+        InterruptTime->HighPart = (ULONG)UUSER_SHARED_DATA->InterruptTime.High1Time;
+        InterruptTime->LowPart = USER_SHARED_DATA->InterruptTime.LowPart;
+    } while (InterruptTime->HighPart != (ULONG)UUSER_SHARED_DATA->InterruptTime.High2Time);
 
 #endif
 }
@@ -503,12 +605,7 @@ VOID PhQuerySystemTime(
     _Out_ PLARGE_INTEGER SystemTime
     )
 {
-#ifndef PHNT_NATIVE_TIME
-#ifdef _WIN64
-
-    SystemTime->QuadPart = *(volatile ULONG64*)&USER_SHARED_DATA->SystemTime;
-
-#else
+#if defined(PHNT_NATIVE_TIME)
 
     while (TRUE)
     {
@@ -521,7 +618,17 @@ VOID PhQuerySystemTime(
         YieldProcessor();
     }
 
-#endif
+#elif defined(PHNT_SYSTRM_TIME)
+
+    SYSTEMTIME systemTime;
+    FILETIME fileTime;
+
+    GetSystemTime(&systemTime);
+    SystemTimeToFileTime(&systemTime, &fileTime);
+
+    SystemTime->LowPart = fileTime.dwLowDateTime;
+    SystemTime->HighPart = fileTime.dwHighDateTime;
+
 #else
 
     do
@@ -542,12 +649,7 @@ VOID PhQueryTimeZoneBias(
     _Out_ PLARGE_INTEGER TimeZoneBias
     )
 {
-#ifndef PHNT_NATIVE_TIME
-#ifdef _WIN64
-
-    TimeZoneBias->QuadPart = *(volatile ULONG64*)&USER_SHARED_DATA->TimeZoneBias;
-
-#else
+#if defined(PHNT_NATIVE_TIME)
 
     while (TRUE)
     {
@@ -560,21 +662,19 @@ VOID PhQueryTimeZoneBias(
         YieldProcessor();
     }
 
-#endif
-#else
+#elif defined(PHNT_SYSTEM_TIME)
 
-#if (PHNT_NATIVE_TIME)
-    SYSTEM_TIMEOFDAY_INFORMATION timeOfDayInfo;
+    SYSTEM_TIMEOFDAY_INFORMATION timeOfDayInfo = { 0 };
 
-    if (NT_SUCCESS(NtQuerySystemInformation(
+    NtQuerySystemInformation(
         SystemTimeOfDayInformation,
         &timeOfDayInfo,
         sizeof(SYSTEM_TIMEOFDAY_INFORMATION),
         NULL
-        )))
-    {
-        TimeZoneBias->QuadPart = timeOfDayInfo.TimeZoneBias.QuadPart;
-    }
+        );
+
+    TimeZoneBias->QuadPart = timeOfDayInfo.TimeZoneBias.QuadPart;
+
 #else
 
     do
@@ -582,8 +682,6 @@ VOID PhQueryTimeZoneBias(
         TimeZoneBias->HighPart = USER_SHARED_DATA->TimeZoneBias.High1Time;
         TimeZoneBias->LowPart = USER_SHARED_DATA->TimeZoneBias.LowPart;
     } while (TimeZoneBias->HighPart != USER_SHARED_DATA->TimeZoneBias.High2Time);
-
-#endif
 
 #endif
 }
@@ -603,15 +701,15 @@ VOID PhSystemTimeToLocalTime(
     _Out_ PLARGE_INTEGER LocalTime
     )
 {
-#if (PHNT_NATIVE_TIME)
-    RtlSystemTimeToLocalTime(SystemTime, LocalTime);
-#else
+#if defined(PHNT_NATIVE_TIME)
 
     LARGE_INTEGER timeZoneBias;
 
     PhQueryTimeZoneBias(&timeZoneBias);
     LocalTime->QuadPart = SystemTime->QuadPart - timeZoneBias.QuadPart;
 
+#else
+    RtlSystemTimeToLocalTime(SystemTime, LocalTime);
 #endif
 }
 
@@ -630,15 +728,15 @@ VOID PhLocalTimeToSystemTime(
     _Out_ PLARGE_INTEGER SystemTime
     )
 {
-#if (PHNT_NATIVE_TIME)
-    RtlLocalTimeToSystemTime(LocalTime, SystemTime);
-#else
+#if defined(PHNT_NATIVE_TIME)
 
     LARGE_INTEGER timeZoneBias;
 
     PhQueryTimeZoneBias(&timeZoneBias);
     SystemTime->QuadPart = LocalTime->QuadPart + timeZoneBias.QuadPart;
 
+#else
+    RtlLocalTimeToSystemTime(LocalTime, SystemTime);
 #endif
 }
 
@@ -647,13 +745,11 @@ BOOLEAN PhTimeToSecondsSince1980(
     _Out_ PULONG ElapsedSeconds
     )
 {
-#if (PHNT_NATIVE_TIME)
-    return RtlTimeToSecondsSince1980(Time, ElapsedSeconds);
-#else
-    ULARGE_INTEGER time;
+#if defined(PHNT_NATIVE_TIME)
+    LARGE_INTEGER time;
 
     time.QuadPart = Time->QuadPart - (SecondsToStartOf1980 * PH_TICKS_PER_SEC);
-    time.QuadPart = time.QuadPart / PH_TICKS_PER_SEC;
+    time.QuadPart /= PH_TICKS_PER_SEC;
 
     if (time.HighPart)
     {
@@ -663,6 +759,8 @@ BOOLEAN PhTimeToSecondsSince1980(
 
     *ElapsedSeconds = time.LowPart;
     return TRUE;
+#else
+    return RtlTimeToSecondsSince1980(Time, ElapsedSeconds);
 #endif
 }
 
@@ -671,13 +769,11 @@ BOOLEAN PhTimeToSecondsSince1970(
     _Out_ PULONG ElapsedSeconds
     )
 {
-#if (PHNT_NATIVE_TIME)
-    return RtlTimeToSecondsSince1970(Time, ElapsedSeconds);
-#else
-    ULARGE_INTEGER time;
+#if defined(PHNT_NATIVE_TIME)
+    LARGE_INTEGER time;
 
     time.QuadPart = Time->QuadPart - (SecondsToStartOf1970 * PH_TICKS_PER_SEC);
-    time.QuadPart = time.QuadPart / PH_TICKS_PER_SEC;
+    time.QuadPart /= PH_TICKS_PER_SEC;
 
     if (time.HighPart)
     {
@@ -687,6 +783,8 @@ BOOLEAN PhTimeToSecondsSince1970(
 
     *ElapsedSeconds = time.LowPart;
     return TRUE;
+#else
+    return RtlTimeToSecondsSince1970(Time, ElapsedSeconds);
 #endif
 }
 
@@ -695,10 +793,10 @@ VOID PhSecondsSince1980ToTime(
     _Out_ PLARGE_INTEGER Time
     )
 {
-#if (PHNT_NATIVE_TIME)
-    RtlSecondsSince1980ToTime(ElapsedSeconds, Time);
-#else
+#if defined(PHNT_NATIVE_TIME)
     Time->QuadPart = PH_TICKS_PER_SEC * (SecondsToStartOf1980 + ElapsedSeconds);
+#else
+    RtlSecondsSince1980ToTime(ElapsedSeconds, Time);
 #endif
 }
 
@@ -707,10 +805,10 @@ VOID PhSecondsSince1970ToTime(
     _Out_ PLARGE_INTEGER Time
     )
 {
-#if (PHNT_NATIVE_TIME)
-    RtlSecondsSince1970ToTime(ElapsedSeconds, Time);
-#else
+#if defined(PHNT_NATIVE_TIME)
     Time->QuadPart = PH_TICKS_PER_SEC * (SecondsToStartOf1970 + ElapsedSeconds);
+#else
+    RtlSecondsSince1970ToTime(ElapsedSeconds, Time);
 #endif
 }
 
@@ -724,8 +822,7 @@ VOID PhSecondsSince1970ToTime(
  * \remarks If the function fails to allocate the block of memory, it raises an exception. The block
  * is guaranteed to be aligned at MEMORY_ALLOCATION_ALIGNMENT bytes.
  */
-_May_raise_
-_Post_writable_byte_size_(Size)
+_Use_decl_annotations_
 PVOID PhAllocate(
     _In_ SIZE_T Size
     )
@@ -745,9 +842,7 @@ PVOID PhAllocate(
  *
  * \return A pointer to the allocated block of memory, or NULL if the block could not be allocated.
  */
-_Must_inspect_result_
-_Ret_maybenull_
-_Post_writable_byte_size_(Size)
+_Use_decl_annotations_
 PVOID PhAllocateSafe(
     _In_ SIZE_T Size
     )
@@ -768,9 +863,7 @@ PVOID PhAllocateSafe(
  *
  * \return A pointer to the allocated block of memory, or NULL if the block could not be allocated.
  */
-_Must_inspect_result_
-_Ret_maybenull_
-_Post_writable_byte_size_(Size)
+_Use_decl_annotations_
 PVOID PhAllocateExSafe(
     _In_ SIZE_T Size,
     _In_ ULONG Flags
@@ -789,6 +882,7 @@ PVOID PhAllocateExSafe(
  *
  * \param Memory A pointer to a block of memory.
  */
+_Use_decl_annotations_
 VOID PhFree(
     _Frees_ptr_opt_ PVOID Memory
     )
@@ -811,8 +905,7 @@ VOID PhFree(
  *
  * \remarks If the function fails to allocate the block of memory, it raises an exception.
  */
-_May_raise_
-_Post_writable_byte_size_(Size)
+_Use_decl_annotations_
 PVOID PhReAllocate(
     _Frees_ptr_opt_ PVOID Memory,
     _In_ SIZE_T Size
@@ -822,13 +915,18 @@ PVOID PhReAllocate(
 #if defined(PH_DEBUG_HEAP)
     return realloc(Memory, Size);
 #else
-    // RtlReAllocateHeap does not behave the same as realloc when Memory is NULL.
-    // For consistency with realloc above and easier drop-in replacements for
-    // realloc, produce the same behavior as realloc. If Memory is NULL, then
-    // allocate a new block.
-    if (!Memory) return RtlAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Size);
+    if (Size == 0)
+    {
+        if (Memory)
+            PhFree(Memory);
+        return NULL;
+    }
+    if (Memory)
+    {
+        return RtlReAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Memory, Size);
+    }
 
-    return RtlReAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Memory, Size);
+    return RtlAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Size);
 #endif
 }
 
@@ -841,11 +939,9 @@ PVOID PhReAllocate(
  * \return A pointer to the new block of memory, or NULL if the block could not be allocated. The
  * existing contents of the memory block are copied to the new block.
  */
-_Must_inspect_result_
-_Ret_maybenull_
-_Post_writable_byte_size_(Size)
+_Use_decl_annotations_
 PVOID PhReAllocateSafe(
-    _In_ PVOID Memory,
+    _In_opt_ PVOID Memory,
     _In_ SIZE_T Size
     )
 {
@@ -853,13 +949,30 @@ PVOID PhReAllocateSafe(
 #if defined(PH_DEBUG_HEAP)
     return realloc(Memory, Size);
 #else
-    // RtlReAllocateHeap does not behave the same as realloc when Memory is NULL.
-    // For consistency with realloc above and easier drop-in replacements for
-    // realloc, produce the same behavior as realloc. If Memory is NULL, then
-    // allocate a new block.
-    if (!Memory) return RtlAllocateHeap(PhHeapHandle, 0, Size);
+    if (Size == 0)
+    {
+        if (Memory)
+            PhFree(Memory);
+        return NULL;
+    }
+    if (Memory)
+    {
+        return RtlReAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Memory, Size);
+    }
 
-    return RtlReAllocateHeap(PhHeapHandle, 0, Memory, Size);
+    return RtlAllocateHeap(PhHeapHandle, HEAP_GENERATE_EXCEPTIONS, Size);
+#endif
+}
+
+_Use_decl_annotations_
+SIZE_T PhSizeHeap(
+    _In_ PVOID Memory
+    )
+{
+#if defined(PH_DEBUG_HEAP)
+    return _msize(Memory);
+#else
+    return RtlSizeHeap(PhHeapHandle, 0, Memory);
 #endif
 }
 
@@ -873,30 +986,29 @@ PVOID PhReAllocateSafe(
  *
  * \return A pointer to the allocated block of memory, or NULL if the block could not be allocated.
  */
-_Must_inspect_result_
-_Ret_maybenull_
-_Post_writable_byte_size_(Size)
-_Success_(return != NULL)
+_Use_decl_annotations_
 PVOID PhAllocatePage(
     _In_ SIZE_T Size,
     _Out_opt_ PSIZE_T NewSize
     )
 {
     PVOID baseAddress;
+    SIZE_T regionSize;
 
     baseAddress = NULL;
+    regionSize = Size;
 
     if (NT_SUCCESS(NtAllocateVirtualMemory(
         NtCurrentProcess(),
         &baseAddress,
         0,
-        &Size,
+        &regionSize,
         MEM_COMMIT,
         PAGE_READWRITE
         )))
     {
         if (NewSize)
-            *NewSize = Size;
+            *NewSize = regionSize;
 
         return baseAddress;
     }
@@ -906,57 +1018,77 @@ PVOID PhAllocatePage(
     }
 }
 
-//NTSTATUS PhAllocatePageAligned(
-//    _In_ SIZE_T Size,
-//    _In_ SIZE_T Alignment,
-//    _Out_opt_ PSIZE_T NewSize,
-//    _Out_ PVOID* BaseAddress
-//    )
-//{
-//    NTSTATUS status;
-//    PVOID baseAddress = NULL;
-//    MEM_EXTENDED_PARAMETER extended[1];
-//    MEM_ADDRESS_REQUIREMENTS requirements;
-//
-//    memset(&requirements, 0, sizeof(MEM_ADDRESS_REQUIREMENTS));
-//    requirements.HighestEndingAddress = (PVOID)(ULONG_PTR)0x7fffffff; // Below 2GB
-//    requirements.Alignment = Alignment;
-//
-//    memset(extended, 0, sizeof(extended));
-//    extended[0].Type = MemExtendedParameterAddressRequirements;
-//    extended[0].Pointer = &requirements;
-//
-//    status = NtAllocateVirtualMemoryEx(
-//        NtCurrentProcess(),
-//        &baseAddress,
-//        &Size,
-//        MEM_RESERVE | MEM_COMMIT,
-//        PAGE_READWRITE,
-//        extended,
-//        RTL_NUMBER_OF(extended)
-//        );
-//
-//    if (NT_SUCCESS(status))
-//    {
-//        if (NewSize)
-//            *NewSize = Size;
-//        if (BaseAddress)
-//            *BaseAddress = baseAddress;
-//    }
-//
-//    return status;
-//}
-
 /**
  * Frees pages of memory allocated with PhAllocatePage().
  *
  * \param Memory A pointer to a block of memory.
  */
 VOID PhFreePage(
-    _In_ _Post_invalid_ PVOID Memory
+    _In_ _Frees_ptr_ PVOID Memory
     )
 {
     PhFreeVirtualMemory(NtCurrentProcess(), Memory, MEM_RELEASE);
+}
+
+/**
+ * Allocates pages of memory.
+ * 
+ * \param Size The number of bytes to allocate. The number of pages allocated will be large enough to contain \a Size bytes.
+ * \param Alignment The alignment value, which must be an integer power of 2.
+ * \return A pointer to the allocated block of memory, or NULL if the block could not be allocated.
+ */
+_Use_decl_annotations_
+PVOID PhAllocatePageAligned(
+    _In_ SIZE_T Size,
+    _In_ SIZE_T Alignment
+    )
+{
+    return _aligned_malloc(Size, Alignment);;
+
+    //NTSTATUS status;
+    //PVOID baseAddress = NULL;
+    //MEM_EXTENDED_PARAMETER extended[1];
+    //MEM_ADDRESS_REQUIREMENTS requirements;
+    //
+    //memset(&requirements, 0, sizeof(MEM_ADDRESS_REQUIREMENTS));
+    ////requirements.HighestEndingAddress = (PVOID)(ULONG_PTR)0x7fffffff; // Below 2GB
+    //requirements.Alignment = Alignment;
+    //
+    //memset(extended, 0, sizeof(extended));
+    //extended[0].Type = MemExtendedParameterAddressRequirements;
+    //extended[0].Pointer = &requirements;
+    //
+    //status = NtAllocateVirtualMemoryEx(
+    //    NtCurrentProcess(),
+    //    &baseAddress,
+    //    &Size,
+    //    MEM_RESERVE | MEM_COMMIT,
+    //    PAGE_READWRITE,
+    //    extended,
+    //    RTL_NUMBER_OF(extended)
+    //    );
+    //
+    //if (NT_SUCCESS(status))
+    //{
+    //    if (NewSize)
+    //        *NewSize = Size;
+    //    if (BaseAddress)
+    //        *BaseAddress = baseAddress;
+    //}
+    //
+    //return status;
+}
+
+/**
+ * Frees pages of memory allocated with PhAllocatePageAligned().
+ *
+ * \param Memory A pointer to a block of memory.
+ */
+VOID PhFreePageAligned(
+    _In_ _Frees_ptr_ PVOID Memory
+    )
+{
+    _aligned_free(Memory);
 }
 
 /**
@@ -969,7 +1101,6 @@ VOID PhFreePage(
  * \param AllocationSize The size of the region of memory to allocate, in bytes. If BaseAddress is NULL, the function rounds Size up to the next page boundary.
  * \param AllocationType The type of memory allocation.
  * \param Protection The type of memory protection.
- *
  * \return Successful or errant status.
  */
 NTSTATUS PhAllocateVirtualMemory(
@@ -1007,7 +1138,6 @@ NTSTATUS PhAllocateVirtualMemory(
  * \param ProcessHandle A handle to the process.
  * \param BaseAddress The pointer that specifies a desired starting address for the region of pages that you want to allocate.
  * \param FreeType A bitmask containing flags that describe the type of free operation.
- *
  * \return Successful or errant status.
  */
 NTSTATUS PhFreeVirtualMemory(
@@ -1016,14 +1146,114 @@ NTSTATUS PhFreeVirtualMemory(
     _In_ ULONG FreeType
     )
 {
-    PVOID baseAddress = BaseAddress;
-    SIZE_T allocationSize = 0;
+    NTSTATUS status;
+    PVOID regionAddress = BaseAddress;
+    SIZE_T regionSize = 0;
 
-    return NtFreeVirtualMemory(
+    status = NtFreeVirtualMemory(
         ProcessHandle,
-        &baseAddress,
-        &allocationSize,
+        &regionAddress,
+        &regionSize,
         FreeType
+        );
+
+    //if (status == STATUS_INVALID_PAGE_PROTECTION)
+    //{
+    //    if (RtlFlushSecureMemoryCache(regionAddress, regionSize))
+    //    {
+    //        status = NtFreeVirtualMemory(
+    //            ProcessHandle,
+    //            &regionAddress,
+    //            &regionSize,
+    //            FreeType
+    //            );
+    //    }
+    //}
+
+    return status;
+}
+
+NTSTATUS PhProtectVirtualMemory(
+    _In_ HANDLE ProcessHandle,
+    _In_ PVOID BaseAddress,
+    _In_ SIZE_T RegionSize,
+    _In_ ULONG NewProtection,
+    _Out_opt_ PULONG OldProtection
+    )
+{
+    NTSTATUS status;
+    PVOID regionAddress = BaseAddress;
+    SIZE_T regionSize = RegionSize;
+    ULONG oldProtection = 0;
+
+    status = NtProtectVirtualMemory(
+        ProcessHandle,
+        &regionAddress,
+        &regionSize,
+        NewProtection,
+        &oldProtection
+        );
+
+    if (NT_SUCCESS(status) && OldProtection)
+    {
+        *OldProtection = oldProtection;
+        return STATUS_SUCCESS;
+    }
+
+    //if (status == STATUS_INVALID_PAGE_PROTECTION)
+    //{
+    //    if (RtlFlushSecureMemoryCache(regionAddress, regionSize))
+    //    {
+    //        status = NtProtectVirtualMemory(
+    //            ProcessHandle,
+    //            &regionAddress,
+    //            &regionSize,
+    //            NewProtection,
+    //            &oldProtection
+    //            );
+    //
+    //        if (NT_SUCCESS(status) && OldProtection)
+    //        {
+    //            *OldProtection = oldProtection;
+    //            return STATUS_SUCCESS;
+    //        }
+    //    }
+    //}
+
+    return status;
+}
+
+/**
+ * Reads virtual memory from a specified process.
+ *
+ * @param ProcessHandle Handle to the process from which the memory is to be read.
+ * @param BaseAddress Optional pointer to the base address in the specified process from which to read.
+ * @param Buffer Pointer to a buffer that receives the contents from the address space of the specified process.
+ * @param BufferSize Size of the buffer, in bytes.
+ * @param NumberOfBytesRead Optional pointer to a variable that receives the number of bytes read into the buffer.
+ * \return Successful or errant status.
+ */
+NTSTATUS PhReadVirtualMemory(
+    _In_ HANDLE ProcessHandle,
+    _In_opt_ PVOID BaseAddress,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferSize,
+    _Out_opt_ PSIZE_T NumberOfBytesRead
+    )
+{
+    if (ProcessHandle == NtCurrentProcess())
+    {
+        RtlMoveMemory(Buffer, BaseAddress, BufferSize);
+        *NumberOfBytesRead = BufferSize;
+        return STATUS_SUCCESS;
+    }
+
+    return NtReadVirtualMemory(
+        ProcessHandle,
+        BaseAddress,
+        Buffer,
+        BufferSize,
+        NumberOfBytesRead
         );
 }
 
@@ -1033,7 +1263,7 @@ NTSTATUS PhFreeVirtualMemory(
  * \param String The string.
  */
 SIZE_T PhCountStringZ(
-    _In_ PWSTR String
+    _In_ PCWSTR String
     )
 {
     if (PhHasIntrinsics)
@@ -1087,7 +1317,7 @@ SIZE_T PhCountStringZ(
  * \return The new string, which can be freed using PhFree().
  */
 PSTR PhDuplicateBytesZ(
-    _In_ PSTR String
+    _In_ PCSTR String
     )
 {
     PSTR newString;
@@ -1110,7 +1340,7 @@ PSTR PhDuplicateBytesZ(
  * allocated.
  */
 PSTR PhDuplicateBytesZSafe(
-    _In_ PSTR String
+    _In_ PCSTR String
     )
 {
     PSTR newString;
@@ -1136,7 +1366,7 @@ PSTR PhDuplicateBytesZSafe(
  * \return The new string, which can be freed using PhFree().
  */
 PWSTR PhDuplicateStringZ(
-    _In_ PWSTR String
+    _In_ PCWSTR String
     )
 {
     PWSTR newString;
@@ -1170,7 +1400,7 @@ PWSTR PhDuplicateStringZ(
  */
 _Success_(return)
 BOOLEAN PhCopyBytesZ(
-    _In_ PSTR InputBuffer,
+    _In_ PCSTR InputBuffer,
     _In_ SIZE_T InputCount,
     _Out_writes_opt_z_(OutputCount) PSTR OutputBuffer,
     _In_ SIZE_T OutputCount,
@@ -1233,7 +1463,7 @@ BOOLEAN PhCopyBytesZ(
  */
 _Success_(return)
 BOOLEAN PhCopyStringZ(
-    _In_ PWSTR InputBuffer,
+    _In_ PCWSTR InputBuffer,
     _In_ SIZE_T InputCount,
     _Out_writes_opt_z_(OutputCount) PWSTR OutputBuffer,
     _In_ SIZE_T OutputCount,
@@ -1296,7 +1526,7 @@ BOOLEAN PhCopyStringZ(
  */
 _Success_(return)
 BOOLEAN PhCopyStringZFromBytes(
-    _In_ PSTR InputBuffer,
+    _In_ PCSTR InputBuffer,
     _In_ SIZE_T InputCount,
     _Out_writes_opt_z_(OutputCount) PWSTR OutputBuffer,
     _In_ SIZE_T OutputCount,
@@ -1359,7 +1589,7 @@ BOOLEAN PhCopyStringZFromBytes(
  */
 _Success_(return)
 BOOLEAN PhCopyStringZFromMultiByte(
-    _In_ PSTR InputBuffer,
+    _In_ PCSTR InputBuffer,
     _In_ SIZE_T InputCount,
     _Out_writes_opt_z_(OutputCount) PWSTR OutputBuffer,
     _In_ SIZE_T OutputCount,
@@ -1368,6 +1598,7 @@ BOOLEAN PhCopyStringZFromMultiByte(
 {
     NTSTATUS status;
     SIZE_T i;
+    ULONG inputBytes;
     ULONG unicodeBytes;
     BOOLEAN copied;
 
@@ -1385,12 +1616,22 @@ BOOLEAN PhCopyStringZFromMultiByte(
         i = strlen(InputBuffer);
     }
 
+    status = RtlSizeTToULong(i, &inputBytes);
+
+    if (!NT_SUCCESS(status))
+    {
+        if (ReturnCount)
+            *ReturnCount = SIZE_MAX;
+
+        return FALSE;
+    }
+
     // Determine the length of the output string.
 
     status = RtlMultiByteToUnicodeSize(
         &unicodeBytes,
         InputBuffer,
-        (ULONG)i
+        inputBytes
         );
 
     if (!NT_SUCCESS(status))
@@ -1410,7 +1651,7 @@ BOOLEAN PhCopyStringZFromMultiByte(
             unicodeBytes,
             NULL,
             InputBuffer,
-            (ULONG)i
+            inputBytes
             );
 
         if (NT_SUCCESS(status))
@@ -1437,7 +1678,7 @@ BOOLEAN PhCopyStringZFromMultiByte(
 
 _Success_(return)
 BOOLEAN PhCopyStringZFromUtf8(
-    _In_ PSTR InputBuffer,
+    _In_ PCSTR InputBuffer,
     _In_ SIZE_T InputCount,
     _Out_writes_opt_z_(OutputCount) PWSTR OutputBuffer,
     _In_ SIZE_T OutputCount,
@@ -1446,6 +1687,7 @@ BOOLEAN PhCopyStringZFromUtf8(
 {
     NTSTATUS status;
     SIZE_T i;
+    ULONG inputBytes;
     ULONG unicodeBytes;
     BOOLEAN copied;
 
@@ -1463,6 +1705,16 @@ BOOLEAN PhCopyStringZFromUtf8(
         i = strlen(InputBuffer);
     }
 
+    status = RtlSizeTToULong(i, &inputBytes);
+
+    if (!NT_SUCCESS(status))
+    {
+        if (ReturnCount)
+            *ReturnCount = SIZE_MAX;
+
+        return FALSE;
+    }
+
     // Determine the length of the output string.
 
     status = RtlUTF8ToUnicodeN(
@@ -1470,7 +1722,7 @@ BOOLEAN PhCopyStringZFromUtf8(
         0,
         &unicodeBytes,
         InputBuffer,
-        (ULONG)i
+        inputBytes
         );
 
     if (!NT_SUCCESS(status))
@@ -1490,7 +1742,7 @@ BOOLEAN PhCopyStringZFromUtf8(
             unicodeBytes,
             NULL,
             InputBuffer,
-            (ULONG)i
+            inputBytes
             );
 
         if (NT_SUCCESS(status))
@@ -1516,8 +1768,8 @@ BOOLEAN PhCopyStringZFromUtf8(
 }
 
 FORCEINLINE LONG PhpCompareRightNatural(
-    _In_ PWSTR A,
-    _In_ PWSTR B
+    _In_ PCWSTR A,
+    _In_ PCWSTR B
     )
 {
     LONG bias = 0;
@@ -1556,8 +1808,8 @@ FORCEINLINE LONG PhpCompareRightNatural(
 }
 
 FORCEINLINE LONG PhpCompareLeftNatural(
-    _In_ PWSTR A,
-    _In_ PWSTR B
+    _In_ PCWSTR A,
+    _In_ PCWSTR B
     )
 {
     for (; ; A++, B++)
@@ -1588,8 +1840,8 @@ FORCEINLINE LONG PhpCompareLeftNatural(
 }
 
 FORCEINLINE LONG PhpCompareStringZNatural(
-    _In_ PWSTR A,
-    _In_ PWSTR B,
+    _In_ PCWSTR A,
+    _In_ PCWSTR B,
     _In_ BOOLEAN IgnoreCase
     )
 {
@@ -1683,8 +1935,8 @@ FORCEINLINE LONG PhpCompareStringZNatural(
  * \param IgnoreCase Whether to ignore character cases.
  */
 LONG PhCompareStringZNatural(
-    _In_ PWSTR A,
-    _In_ PWSTR B,
+    _In_ PCWSTR A,
+    _In_ PCWSTR B,
     _In_ BOOLEAN IgnoreCase
     )
 {
@@ -2714,32 +2966,45 @@ CharFound2:
 }
 
 /**
- * Creates a string object from an existing null-terminated string.
- *
- * \param Buffer A null-terminated Unicode string.
- */
-PPH_STRING PhCreateString(
-    _In_ PWSTR Buffer
-    )
-{
-    return PhCreateStringEx(Buffer, PhCountStringZ(Buffer) * sizeof(WCHAR));
-}
-
-/**
  * Creates a string object using a specified length.
  *
  * \param Buffer A null-terminated Unicode string.
  * \param Length The length, in bytes, of the string.
  */
 PPH_STRING PhCreateStringEx(
-    _In_opt_ PWCHAR Buffer,
+    _In_opt_ PCWCHAR Buffer,
     _In_ SIZE_T Length
     )
 {
-    PH_STRINGREF sr;
-    sr.Buffer = Buffer;
-    sr.Length = Length;
-    return PhCreateString3(&sr, 0, NULL);
+    PPH_STRING string;
+
+    string = PhCreateObject(
+        UFIELD_OFFSET(PH_STRING, Data) + Length + sizeof(UNICODE_NULL),
+        PhStringType
+        );
+
+    assert(!(Length & 1));
+    string->Length = Length;
+    string->Buffer = string->Data;
+    *(PWCHAR)PTR_ADD_OFFSET(string->Buffer, Length) = UNICODE_NULL;
+
+    if (Buffer)
+    {
+        memcpy(string->Buffer, Buffer, Length);
+    }
+
+    if (Buffer)
+    {
+        SIZE_T len = string->Length;
+        SIZE_T len2 = PhCountStringZ(string->Buffer) * sizeof(WCHAR);
+
+        if (len != len2)
+        {
+            dprintf("PhTrimToNullTerminatorString\n");
+        }
+    }
+
+    return string;
 }
 
 /**
@@ -2799,16 +3064,14 @@ PPH_STRING PhReferenceEmptyString(
     PPH_STRING string;
     PPH_STRING newString;
 
-    string = InterlockedCompareExchangePointer(
-        &PhSharedEmptyString,
-        NULL,
-        NULL
-        );
+    // Initial lightweight atomic read
+    string = ReadPointerAcquire(&PhSharedEmptyString);
 
     if (!string)
     {
         newString = PhCreateStringEx(NULL, 0);
 
+        // Final atomic compare-and-swap
         string = InterlockedCompareExchangePointer(
             &PhSharedEmptyString,
             newString,
@@ -2914,8 +3177,8 @@ PPH_STRING PhConcatStrings_V(
  * \param String2 The second string.
  */
 PPH_STRING PhConcatStrings2(
-    _In_ PWSTR String1,
-    _In_ PWSTR String2
+    _In_ PCWSTR String1,
+    _In_ PCWSTR String2
     )
 {
     PPH_STRING string;
@@ -3050,7 +3313,7 @@ PPH_STRING PhConcatStringRef4(
  * \param Format The format-control string.
  */
 PPH_STRING PhFormatString(
-    _In_ _Printf_format_string_ PWSTR Format,
+    _In_ _Printf_format_string_ PCWSTR Format,
     ...
     )
 {
@@ -3068,12 +3331,12 @@ PPH_STRING PhFormatString(
  * \param ArgPtr A pointer to the list of arguments.
  */
 PPH_STRING PhFormatString_V(
-    _In_ _Printf_format_string_ PWSTR Format,
+    _In_ _Printf_format_string_ PCWSTR Format,
     _In_ va_list ArgPtr
     )
 {
     PPH_STRING string;
-    INT length;
+    LONG length;
 
     length = _vscwprintf(Format, ArgPtr);
 
@@ -3092,7 +3355,7 @@ PPH_STRING PhFormatString_V(
  * \param Buffer A null-terminated byte string.
  */
 PPH_BYTES PhCreateBytes(
-    _In_ PSTR Buffer
+    _In_ PCSTR Buffer
     )
 {
     return PhCreateBytesEx(Buffer, strlen(Buffer) * sizeof(CHAR));
@@ -3105,7 +3368,7 @@ PPH_BYTES PhCreateBytes(
  * \param Length The length of \a Buffer, in bytes.
  */
 PPH_BYTES PhCreateBytesEx(
-    _In_opt_ PCHAR Buffer,
+    _In_opt_ PCCH Buffer,
     _In_ SIZE_T Length
     )
 {
@@ -3129,12 +3392,12 @@ PPH_BYTES PhCreateBytesEx(
 }
 
 PPH_BYTES PhFormatBytes_V(
-    _In_ _Printf_format_string_ PSTR Format,
+    _In_ _Printf_format_string_ PCSTR Format,
     _In_ va_list ArgPtr
     )
 {
     PPH_BYTES string;
-    INT length;
+    LONG length;
 
     length = _vscprintf(Format, ArgPtr);
 
@@ -3148,7 +3411,7 @@ PPH_BYTES PhFormatBytes_V(
 }
 
 PPH_BYTES PhFormatBytes(
-    _In_ _Printf_format_string_ PSTR Format,
+    _In_ _Printf_format_string_ PCSTR Format,
     ...
     )
 {
@@ -3580,7 +3843,7 @@ BOOLEAN PhEncodeUnicode(
  * \param Output A buffer which will contain the converted string.
  */
 VOID PhZeroExtendToUtf16Buffer(
-    _In_reads_bytes_(InputLength) PCH Input,
+    _In_reads_bytes_(InputLength) PCCH Input,
     _In_ SIZE_T InputLength,
     _Out_writes_bytes_(InputLength * sizeof(WCHAR)) PWCH Output
     )
@@ -3615,7 +3878,7 @@ VOID PhZeroExtendToUtf16Buffer(
 }
 
 PPH_STRING PhZeroExtendToUtf16Ex(
-    _In_reads_bytes_(InputLength) PCH Input,
+    _In_reads_bytes_(InputLength) PCCH Input,
     _In_ SIZE_T InputLength
     )
 {
@@ -3628,7 +3891,7 @@ PPH_STRING PhZeroExtendToUtf16Ex(
 }
 
 PPH_BYTES PhConvertUtf16ToAsciiEx(
-    _In_ PWCH Buffer,
+    _In_ PCWCH Buffer,
     _In_ SIZE_T Length,
     _In_opt_ CHAR Replacement
     )
@@ -3643,7 +3906,7 @@ PPH_BYTES PhConvertUtf16ToAsciiEx(
 
     bytes = PhCreateBytesEx(NULL, Length / sizeof(WCHAR));
     PhInitializeUnicodeDecoder(&decoder, PH_UNICODE_UTF16);
-    in = Buffer;
+    in = (PWCH)Buffer;
     inRemaining = Length / sizeof(WCHAR);
     out = bytes->Buffer;
     outLength = 0;
@@ -3681,7 +3944,7 @@ PPH_BYTES PhConvertUtf16ToAsciiEx(
  * \param Buffer A null-terminated multi-byte string.
  */
 PPH_STRING PhConvertMultiByteToUtf16(
-    _In_ PSTR Buffer
+    _In_ PCSTR Buffer
     )
 {
     return PhConvertMultiByteToUtf16Ex(
@@ -3697,18 +3960,24 @@ PPH_STRING PhConvertMultiByteToUtf16(
  * \param Length The number of bytes to use.
  */
 PPH_STRING PhConvertMultiByteToUtf16Ex(
-    _In_ PCHAR Buffer,
+    _In_ PCSTR Buffer,
     _In_ SIZE_T Length
     )
 {
     NTSTATUS status;
     PPH_STRING string;
+    ULONG bufferLength;
     ULONG unicodeBytes;
+
+    status = RtlSizeTToULong(Length, &bufferLength);
+
+    if (!NT_SUCCESS(status))
+        return NULL;
 
     status = RtlMultiByteToUnicodeSize(
         &unicodeBytes,
         Buffer,
-        (ULONG)Length
+        bufferLength
         );
 
     if (!NT_SUCCESS(status))
@@ -3720,7 +3989,7 @@ PPH_STRING PhConvertMultiByteToUtf16Ex(
         (ULONG)string->Length,
         NULL,
         Buffer,
-        (ULONG)Length
+        bufferLength
         );
 
     if (!NT_SUCCESS(status))
@@ -3738,7 +4007,7 @@ PPH_STRING PhConvertMultiByteToUtf16Ex(
  * \param Buffer A null-terminated UTF-16 string.
  */
 PPH_BYTES PhConvertUtf16ToMultiByte(
-    _In_ PWSTR Buffer
+    _In_ PCWSTR Buffer
     )
 {
     return PhConvertUtf16ToMultiByteEx(
@@ -3754,18 +4023,24 @@ PPH_BYTES PhConvertUtf16ToMultiByte(
  * \param Length The number of bytes to use.
  */
 PPH_BYTES PhConvertUtf16ToMultiByteEx(
-    _In_ PWCHAR Buffer,
+    _In_ PCWCH Buffer,
     _In_ SIZE_T Length
     )
 {
     NTSTATUS status;
     PPH_BYTES bytes;
+    ULONG bufferLength;
     ULONG multiByteLength;
+
+    status = RtlSizeTToULong(Length, &bufferLength);
+
+    if (!NT_SUCCESS(status))
+        return NULL;
 
     status = RtlUnicodeToMultiByteSize(
         &multiByteLength,
         Buffer,
-        (ULONG)Length
+        bufferLength
         );
 
     if (!NT_SUCCESS(status))
@@ -3777,7 +4052,7 @@ PPH_BYTES PhConvertUtf16ToMultiByteEx(
         (ULONG)bytes->Length,
         NULL,
         Buffer,
-        (ULONG)Length
+        bufferLength
         );
 
     if (!NT_SUCCESS(status))
@@ -3792,7 +4067,7 @@ PPH_BYTES PhConvertUtf16ToMultiByteEx(
 _Success_(return)
 BOOLEAN PhConvertUtf8ToUtf16Size(
     _Out_ PSIZE_T BytesInUtf16String,
-    _In_reads_bytes_(BytesInUtf8String) PCH Utf8String,
+    _In_reads_bytes_(BytesInUtf8String) PCCH Utf8String,
     _In_ SIZE_T BytesInUtf8String
     )
 {
@@ -3854,7 +4129,7 @@ BOOLEAN PhConvertUtf8ToUtf16Buffer(
     _Out_writes_bytes_to_(MaxBytesInUtf16String, *BytesInUtf16String) PWCH Utf16String,
     _In_ SIZE_T MaxBytesInUtf16String,
     _Out_opt_ PSIZE_T BytesInUtf16String,
-    _In_reads_bytes_(BytesInUtf8String) PCH Utf8String,
+    _In_reads_bytes_(BytesInUtf8String) PCCH Utf8String,
     _In_ SIZE_T BytesInUtf8String
     )
 {
@@ -3936,7 +4211,7 @@ BOOLEAN PhConvertUtf8ToUtf16Buffer(
 }
 
 PPH_STRING PhConvertUtf8ToUtf16(
-    _In_ PSTR Buffer
+    _In_ PCSTR Buffer
     )
 {
     return PhConvertUtf8ToUtf16Ex(
@@ -3946,7 +4221,7 @@ PPH_STRING PhConvertUtf8ToUtf16(
 }
 
 PPH_STRING PhConvertUtf8ToUtf16Ex(
-    _In_ PCHAR Buffer,
+    _In_ PCCH Buffer,
     _In_ SIZE_T Length
     )
 {
@@ -3982,7 +4257,7 @@ PPH_STRING PhConvertUtf8ToUtf16Ex(
 _Success_(return)
 BOOLEAN PhConvertUtf16ToUtf8Size(
     _Out_ PSIZE_T BytesInUtf8String,
-    _In_reads_bytes_(BytesInUtf16String) PWCH Utf16String,
+    _In_reads_bytes_(BytesInUtf16String) PCWCH Utf16String,
     _In_ SIZE_T BytesInUtf16String
     )
 {
@@ -4044,7 +4319,7 @@ BOOLEAN PhConvertUtf16ToUtf8Buffer(
     _Out_writes_bytes_to_(MaxBytesInUtf8String, *BytesInUtf8String) PCH Utf8String,
     _In_ SIZE_T MaxBytesInUtf8String,
     _Out_opt_ PSIZE_T BytesInUtf8String,
-    _In_reads_bytes_(BytesInUtf16String) PWCH Utf16String,
+    _In_reads_bytes_(BytesInUtf16String) PCWCH Utf16String,
     _In_ SIZE_T BytesInUtf16String
     )
 {
@@ -4130,7 +4405,7 @@ BOOLEAN PhConvertUtf16ToUtf8Buffer(
 }
 
 PPH_BYTES PhConvertUtf16ToUtf8(
-    _In_ PWSTR Buffer
+    _In_ PCWSTR Buffer
     )
 {
     return PhConvertUtf16ToUtf8Ex(
@@ -4140,7 +4415,7 @@ PPH_BYTES PhConvertUtf16ToUtf8(
 }
 
 PPH_BYTES PhConvertUtf16ToUtf8Ex(
-    _In_ PWCHAR Buffer,
+    _In_ PCWCH Buffer,
     _In_ SIZE_T Length
     )
 {
@@ -4374,7 +4649,7 @@ VOID PhAppendCharStringBuilder2(
  */
 VOID PhAppendFormatStringBuilder(
     _Inout_ PPH_STRING_BUILDER StringBuilder,
-    _In_ _Printf_format_string_ PWSTR Format,
+    _In_ _Printf_format_string_ PCWSTR Format,
     ...
     )
 {
@@ -4387,11 +4662,11 @@ VOID PhAppendFormatStringBuilder(
 
 VOID PhAppendFormatStringBuilder_V(
     _Inout_ PPH_STRING_BUILDER StringBuilder,
-    _In_ _Printf_format_string_ PWSTR Format,
+    _In_ _Printf_format_string_ PCWSTR Format,
     _In_ va_list ArgPtr
     )
 {
-    INT length;
+    LONG length;
     SIZE_T lengthInBytes;
 
     length = _vscwprintf(Format, ArgPtr);
@@ -4446,7 +4721,7 @@ VOID PhInsertStringBuilder(
 VOID PhInsertStringBuilder2(
     _Inout_ PPH_STRING_BUILDER StringBuilder,
     _In_ SIZE_T Index,
-    _In_ PWSTR String
+    _In_ PCWSTR String
     )
 {
     PhInsertStringBuilderEx(
@@ -4468,7 +4743,7 @@ VOID PhInsertStringBuilder2(
 VOID PhInsertStringBuilderEx(
     _Inout_ PPH_STRING_BUILDER StringBuilder,
     _In_ SIZE_T Index,
-    _In_opt_ PWCHAR String,
+    _In_opt_ PCWCHAR String,
     _In_ SIZE_T Length
     )
 {
@@ -4704,11 +4979,11 @@ Done:
 
 VOID PhAppendFormatBytesBuilder_V(
     _Inout_ PPH_BYTES_BUILDER BytesBuilder,
-    _In_ _Printf_format_string_ PSTR Format,
+    _In_ _Printf_format_string_ PCSTR Format,
     _In_ va_list ArgPtr
     )
 {
-    INT length;
+    LONG length;
     SIZE_T lengthInBytes;
 
     length = _vscprintf(Format, ArgPtr);
@@ -4734,7 +5009,7 @@ VOID PhAppendFormatBytesBuilder_V(
 
 VOID PhAppendFormatBytesBuilder(
     _Inout_ PPH_BYTES_BUILDER BytesBuilder,
-    _In_ _Printf_format_string_ PSTR Format,
+    _In_ _Printf_format_string_ PCSTR Format,
     ...
     )
 {
@@ -4778,21 +5053,6 @@ VOID PhDeleteArray(
     )
 {
     PhFree(Array->Items);
-}
-
-/**
- * Obtains a copy of the array constructed by an array object and frees resources used by the
- * object.
- *
- * \param Array An array object.
- *
- * \return The array buffer.
- */
-PVOID PhFinalArrayItems(
-    _Inout_ PPH_ARRAY Array
-    )
-{
-    return Array->Items;
 }
 
 /**
@@ -5894,6 +6154,18 @@ ULONG PhHashStringRefEx(
 
             return hash;
         }
+    case PH_STRING_HASH_XXH32:
+        {
+            if (IgnoreCase)
+            {
+                NOTHING;
+            }
+
+            if (String->Length == 0)
+                return 0;
+
+            return PhHashStringRefXXH32(String, 0);
+        }
     }
 
     return 0;
@@ -6371,7 +6643,7 @@ BOOLEAN PhHexStringToBuffer(
 
 BOOLEAN PhHexStringToBufferEx(
     _In_ PPH_STRINGREF String,
-    _In_ ULONG BufferLength,
+    _In_ SIZE_T BufferLength,
     _Out_writes_bytes_(BufferLength) PVOID Buffer
     )
 {
@@ -6395,7 +6667,6 @@ BOOLEAN PhHexStringToBufferEx(
 
     return TRUE;
 }
-
 /**
  * Converts a byte array into a sequence of hexadecimal digits.
  *
@@ -6406,7 +6677,7 @@ BOOLEAN PhHexStringToBufferEx(
  */
 PPH_STRING PhBufferToHexString(
     _In_reads_bytes_(Length) PUCHAR Buffer,
-    _In_ ULONG Length
+    _In_ SIZE_T Length
     )
 {
     return PhBufferToHexStringEx(Buffer, Length, FALSE);
@@ -6423,13 +6694,13 @@ PPH_STRING PhBufferToHexString(
  */
 PPH_STRING PhBufferToHexStringEx(
     _In_reads_bytes_(Length) PUCHAR Buffer,
-    _In_ ULONG Length,
+    _In_ SIZE_T Length,
     _In_ BOOLEAN UpperCase
     )
 {
     PPH_STRING string;
     PCCH table;
-    ULONG i;
+    SIZE_T i;
 
     if (UpperCase)
         table = PhIntegerToCharUpper;
@@ -6461,7 +6732,11 @@ BOOLEAN PhBufferToHexStringBuffer(
     ULONG i;
 
     if (OutputLength < InputLength * sizeof(WCHAR) * 2)
+    {
+        if (ReturnLength)
+            *ReturnLength = InputLength * sizeof(WCHAR) * 2;
         return FALSE;
+    }
 
     if (UpperCase)
         table = PhIntegerToCharUpper;
@@ -6492,7 +6767,7 @@ BOOLEAN PhBufferToHexStringBuffer(
 BOOLEAN PhpStringToInteger64(
     _In_ PPH_STRINGREF String,
     _In_ ULONG Base,
-    _Out_ PULONG64 Integer
+    _Out_opt_ PULONG64 Integer
     )
 {
     BOOLEAN valid = TRUE;
@@ -6515,7 +6790,10 @@ BOOLEAN PhpStringToInteger64(
             valid = FALSE;
     }
 
-    *Integer = result;
+    if (Integer)
+    {
+        *Integer = result;
+    }
 
     return valid;
 }
@@ -6869,7 +7147,7 @@ BOOLEAN PhPrintTimeSpanToBuffer(
         {
             PH_FORMAT format[7];
 
-            // %I64u:%02I64u:%02I64u:%02I64u
+            // %llu:%02I64u:%02I64u:%02I64u
             PhInitFormatI64U(&format[0], PH_TICKS_PARTIAL_DAYS(Ticks));
             PhInitFormatC(&format[1], L':');
             PhInitFormatI64UWithWidth(&format[2], PH_TICKS_PARTIAL_HOURS(Ticks), 2);
@@ -6885,7 +7163,7 @@ BOOLEAN PhPrintTimeSpanToBuffer(
         {
             PH_FORMAT format[9];
 
-            // %I64u:%02I64u:%02I64u:%02I64u
+            // %llu:%02I64u:%02I64u:%02I64u
             PhInitFormatI64U(&format[0], PH_TICKS_PARTIAL_DAYS(Ticks));
             PhInitFormatC(&format[1], L':');
             PhInitFormatI64UWithWidth(&format[2], PH_TICKS_PARTIAL_HOURS(Ticks), 2);
@@ -7756,7 +8034,7 @@ ULONG PhCountBitsUlongPtr(
 #ifdef _WIN64
     if (PhHasPopulationCount)
     {
-        return PhPopulationCount64(Value);
+        return (ULONG)PhPopulationCount64(Value);
     }
     else
 #endif

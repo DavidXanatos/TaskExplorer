@@ -19,10 +19,24 @@ CWinModule::CWinModule(quint64 ProcessId, bool IsSubsystemProcess, QObject *pare
 	m_LoadTime = 0;
     m_LoadReason = 0;
     m_LoadCount = 0;
-	m_ImageTimeStamp = 0;
+
+	m_EnclaveType = 0;
+	m_EnclaveBaseAddress = 0;
+	m_EnclaveSize = 0;
+
+	m_StateFlags = 0;
+
+	m_ImageMachine = 0;
+	m_ImageCHPEVersion = 0;
+	m_ImageTimeDateStamp = 0;
 	m_ImageCharacteristics = 0;
 	m_ImageDllCharacteristics = 0;
 	m_ImageDllCharacteristicsEx = 0;
+	m_ImageFlags = 0;
+	m_GuardFlags = 0;
+
+	m_ImageCoherencyStatus = 0;
+	m_ImageCoherency = -1.0F;
 
 	m_VerifyResult = VrUnknown;
 
@@ -40,6 +54,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	QWriteLocker Locker(&m_Mutex);
 
 	m_IsLoaded = true;
+	m_FileNameNt = CastPhString(module->FileName, false);
 	m_FileName = CastPhString(PhGetFileName(module->FileName));
 	m_ModuleName = CastPhString(module->Name, false);
 
@@ -52,7 +67,9 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 	m_LoadCount = module->LoadCount;
 	m_LoadTime = FILETIME2time(module->LoadTime.QuadPart);
 	m_ParentBaseAddress = (quint64)module->ParentBaseAddress;
-
+	m_EnclaveType = module->EnclaveType;
+	m_EnclaveBaseAddress = (quint64)module->EnclaveBaseAddress;
+	m_EnclaveSize = module->EnclaveSize;
 
 	if (m_IsSubsystemProcess)
     {
@@ -70,10 +87,13 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
         }
     }
 
-	if (m_Type == PH_MODULE_TYPE_MODULE ||
-        m_Type == PH_MODULE_TYPE_WOW64_MODULE ||
-        m_Type == PH_MODULE_TYPE_MAPPED_IMAGE ||
-        m_Type == PH_MODULE_TYPE_KERNEL_MODULE)
+	if (
+		m_Type == PH_MODULE_TYPE_MODULE ||
+		m_Type == PH_MODULE_TYPE_WOW64_MODULE ||
+		m_Type == PH_MODULE_TYPE_MAPPED_IMAGE ||
+		m_Type == PH_MODULE_TYPE_ENCLAVE_MODULE ||
+		(m_Type == PH_MODULE_TYPE_KERNEL_MODULE &&
+		(KsiLevel() == KphLevelMax)))
     {
         PH_REMOTE_MAPPED_IMAGE remoteMappedImage;
         PPH_READ_VIRTUAL_MEMORY_CALLBACK readVirtualMemoryCallback;
@@ -95,61 +115,177 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* module, quint64 ProcessH
 
         if (NT_SUCCESS(PhLoadRemoteMappedImageEx((HANDLE)ProcessHandle, &m_BaseAddress, m_Size, readVirtualMemoryCallback, &remoteMappedImage)))
         {
-            ULONG_PTR imageBase = 0;
-            ULONG entryPoint = 0;
+			PIMAGE_DATA_DIRECTORY dataDirectory;
+			PVOID imageBase = 0;
+			ULONG entryPoint = 0;
+			ULONG debugEntryLength;
+			PVOID debugEntry;
 
-            m_ImageTimeStamp = remoteMappedImage.NtHeaders->FileHeader.TimeDateStamp;
+            m_ImageTimeDateStamp = remoteMappedImage.NtHeaders->FileHeader.TimeDateStamp;
             m_ImageCharacteristics = remoteMappedImage.NtHeaders->FileHeader.Characteristics;
 
             if (remoteMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
             {
                 PIMAGE_OPTIONAL_HEADER32 optionalHeader = (PIMAGE_OPTIONAL_HEADER32)&remoteMappedImage.NtHeaders->OptionalHeader;
 
-                imageBase = (ULONG_PTR)optionalHeader->ImageBase;
+                imageBase = (PVOID)optionalHeader->ImageBase;
                 entryPoint = optionalHeader->AddressOfEntryPoint;
-                m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
+				m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
+				m_ImageMachine = remoteMappedImage.NtHeaders32->FileHeader.Machine;
+				m_ImageTimeDateStamp = remoteMappedImage.NtHeaders32->FileHeader.TimeDateStamp;
+				m_ImageCharacteristics = remoteMappedImage.NtHeaders32->FileHeader.Characteristics;
             }
             else if (remoteMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
             {
                 PIMAGE_OPTIONAL_HEADER64 optionalHeader = (PIMAGE_OPTIONAL_HEADER64)&remoteMappedImage.NtHeaders->OptionalHeader;
 
-                imageBase = (ULONG_PTR)optionalHeader->ImageBase;
+                imageBase = (PVOID)optionalHeader->ImageBase;
                 entryPoint = optionalHeader->AddressOfEntryPoint;
-                m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
+				m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
+				m_ImageMachine = remoteMappedImage.NtHeaders64->FileHeader.Machine;
+				m_ImageTimeDateStamp = remoteMappedImage.NtHeaders64->FileHeader.TimeDateStamp;
+				m_ImageCharacteristics = remoteMappedImage.NtHeaders64->FileHeader.Characteristics;
             }
 
-            //if (imageBase != (ULONG_PTR)m_BaseAddress)
-            //    m_Flags |= LDRP_IMAGE_NOT_AT_BASE;
+			if (m_BaseAddress != (quint64)imageBase)
+				m_ImageNotAtBase = TRUE;
 
             if (entryPoint != 0)
                 m_EntryPoint = (quint64)PTR_ADD_OFFSET(m_BaseAddress, entryPoint);
 
-            ULONG debugEntryLength;
-            PVOID debugEntry;
-            /*if (/->CetEnabled &&/ PhGetRemoteMappedImageDebugEntryByTypeEx(
-                (HANDLE)ProcessHandle,
-                &remoteMappedImage,
-                IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS,
-                readVirtualMemoryCallback,
-                &debugEntryLength,
-                &debugEntry
-                ))
-            {
-                ULONG characteristics = ULONG_MAX;
+			if (NT_SUCCESS(PhGetRemoteMappedImageDataEntry(
+				&remoteMappedImage,
+				IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR,
+				&dataDirectory
+			)))
+			{
+				SetFlag(m_ImageFlags, LDRP_COR_IMAGE);
+			}
 
-                if (debugEntryLength == sizeof(ULONG))
-                    characteristics = *(ULONG*)debugEntry;
+			if (NT_SUCCESS(PhGetRemoteMappedImageDebugEntryByTypeEx(
+				&remoteMappedImage,
+				IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS,
+				readVirtualMemoryCallback,
+				&debugEntryLength,
+				&debugEntry
+			)))
+			{
+				ULONG characteristics = ULONG_MAX;
 
-                if (characteristics != ULONG_MAX)
-                    m_ImageDllCharacteristicsEx = characteristics;
+				if (debugEntryLength == sizeof(ULONG))
+					characteristics = *(PULONG)debugEntry;
 
-                PhFree(debugEntry);
-            }
-			*/
+				if (characteristics != ULONG_MAX)
+					m_ImageDllCharacteristicsEx = characteristics;
+
+				PhFree(debugEntry);
+			}
+
+			if (!NT_SUCCESS(PhGetRemoteMappedImageGuardFlagsEx(
+				&remoteMappedImage,
+				readVirtualMemoryCallback,
+				(PULONG)&m_GuardFlags
+			)))
+			{
+				m_GuardFlags = 0;
+			}
 
             PhUnloadRemoteMappedImage(&remoteMappedImage);
         }
+		else
+		{
+			PH_MAPPED_IMAGE mappedImage;
+
+			// Query the file since we're unable to query memory. (dmex)
+
+
+			PH_STRINGREF fileName;
+			fileName.Buffer = (wchar_t*)m_FileNameNt.utf16();
+			fileName.Length = m_FileNameNt.length() * sizeof(wchar_t);
+
+			if (NT_SUCCESS(PhLoadMappedImageEx(&fileName, NULL, &mappedImage)))
+			{
+				ULONG entryPoint = 0;
+				USHORT characteristics = 0;
+				PIMAGE_DATA_DIRECTORY dataDirectory;
+				PH_MAPPED_IMAGE_CFG cfgConfig = { NULL };
+
+				m_ImageMachine = mappedImage.NtHeaders->FileHeader.Machine;
+				m_ImageCHPEVersion = PhGetMappedImageCHPEVersion(&mappedImage);
+
+				if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+				{
+					PIMAGE_OPTIONAL_HEADER32 optionalHeader = (PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders32->OptionalHeader;
+
+					entryPoint = optionalHeader->AddressOfEntryPoint;
+					characteristics = optionalHeader->DllCharacteristics;
+				}
+				else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+				{
+					PIMAGE_OPTIONAL_HEADER64 optionalHeader = (PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders64->OptionalHeader;
+
+					entryPoint = optionalHeader->AddressOfEntryPoint;
+					characteristics = optionalHeader->DllCharacteristics;
+				}
+
+				if (entryPoint != 0)
+					m_EntryPoint = (quint64)PTR_ADD_OFFSET(m_BaseAddress, entryPoint);
+
+				if (characteristics != 0)
+					m_ImageDllCharacteristics = characteristics;
+
+				if (NT_SUCCESS(PhGetMappedImageDataDirectory(
+					&mappedImage,
+					IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR,
+					&dataDirectory
+				)))
+				{
+					SetFlag(m_ImageFlags, LDRP_COR_IMAGE);
+				}
+
+				if (NT_SUCCESS(PhGetMappedImageCfg(&cfgConfig, &mappedImage)))
+				{
+					m_GuardFlags = cfgConfig.GuardFlags;
+				}
+
+				PhUnloadMappedImage(&mappedImage);
+			}
+		}
     }
+
+	if (m_Type == PH_MODULE_TYPE_MODULE ||
+		m_Type == PH_MODULE_TYPE_WOW64_MODULE ||
+		m_Type == PH_MODULE_TYPE_MAPPED_IMAGE ||
+		m_Type == PH_MODULE_TYPE_KERNEL_MODULE)
+	{
+		if (m_Type == PH_MODULE_TYPE_KERNEL_MODULE && (KsiLevel() < KphLevelMax))
+		{
+			// The driver wasn't available or we failed verification preventing
+			// us from checking driver coherency. Pass a special value so we
+			// don't highlight incorrect entries by default. (dmex)
+		}
+		else if (!m_FileNameNt.isEmpty())
+		{
+			PPH_STRING Name = PhCreateString((wchar_t*)m_FileNameNt.utf16());
+			m_ImageCoherencyStatus = PhGetProcessModuleImageCoherency(
+				Name,
+				(HANDLE)ProcessHandle,
+				(PVOID)m_BaseAddress,
+				m_Size,
+				m_Type == PH_MODULE_TYPE_KERNEL_MODULE,
+				PhImageCoherencyQuick, // todo add option to change level
+				&m_ImageCoherency
+			);
+			PhDereferenceObject(Name);
+		}
+	}
+
+	if (!m_FileNameNt.isEmpty())
+	{
+		PPH_STRING Name = PhCreateString((wchar_t*)m_FileNameNt.utf16());
+		m_ImageKnownDll = PhIsKnownDllFileName(Name);
+		PhDereferenceObject(Name);
+	}
 
 	InitFileInfo();
 
@@ -162,6 +298,7 @@ bool CWinModule::InitStaticData(const QString& FileName)
 
 	m_IsLoaded = true;
 	m_FileName = FileName;
+	m_FileNameNt = "\\??\\" + FileName; // fixme
 	
 	InitFileInfo();
 
@@ -213,7 +350,7 @@ bool CWinModule::ResolveRefServices()
 
 	m_Services.clear();
 
-	PWSTR serviceName = namesReferencingModule.OutParams.pmszNames;
+	PCWSTR serviceName = namesReferencingModule.OutParams.pmszNames;
 	while (TRUE)
 	{
 		ULONG nameLength = (ULONG)PhCountStringZ(serviceName);
@@ -225,7 +362,7 @@ bool CWinModule::ResolveRefServices()
 		serviceName += nameLength + 1;
 	}
 
-	LocalFree(namesReferencingModule.OutParams.pmszNames);
+	LocalFree((HLOCAL)namesReferencingModule.OutParams.pmszNames);
 	
 	return true;
 }
@@ -251,10 +388,16 @@ void CWinModule::ClearControlFlowGuardEnabled()
 	m_ImageDllCharacteristics &= ~IMAGE_DLLCHARACTERISTICS_GUARD_CF;
 }
 
+void CWinModule::SetCetEnabled()
+{
+	QReadLocker Locker(&m_Mutex);
+	m_ImageDllCharacteristicsEx |= IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT;
+}
+
 void CWinModule::ClearCetEnabled()
 {
 	QReadLocker Locker(&m_Mutex);
-	m_ImageDllCharacteristicsEx &= IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT;
+	m_ImageDllCharacteristicsEx &= ~IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT;
 }
 
 bool CWinModule::UpdateDynamicData(struct _PH_MODULE_INFO* module)
@@ -284,6 +427,7 @@ void CWinModule::InitAsyncData(const QString& PackageFullName)
 
 	QVariantMap Params;
 	Params["FileName"] = m_FileName;
+	Params["FileNameNt"] = m_FileNameNt;
 	Params["PackageFullName"] = PackageFullName;
 	Params["IsSubsystemProcess"] = m_IsSubsystemProcess;
 
@@ -306,8 +450,8 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 {
 	QVariantMap Result;
 
-	PPH_STRING FileName = CastQString(Params["FileName"].toString());
-	PPH_STRING FileNameWin32 = CastQString("\\??\\" + Params["FileName"].toString());
+	PPH_STRING FileNameWin32 = CastQString(Params["FileName"].toString());
+	PPH_STRING FileName = CastQString(Params["FileNameNt"].toString());
 	PPH_STRING PackageFullName = CastQString(Params["PackageFullName"].toString());
 	BOOLEAN IsSubsystemProcess = Params["IsSubsystemProcess"].toBool();
 
@@ -320,7 +464,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	{
 		HICON SmallIcon;
 		HICON LargeIcon;
-		if (!PhExtractIcon(FileName->Buffer, &LargeIcon, &SmallIcon))
+		if (!PhExtractIcon(FileNameWin32->Buffer, &LargeIcon, &SmallIcon))
 		{
 			LargeIcon = NULL;
 			SmallIcon = NULL;
@@ -348,7 +492,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 
 		// Version info.
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
-		PhInitializeImageVersionInfoCached(&VersionInfo, FileNameWin32, FALSE, theConf->GetBool("Options/EnableVersionSupport", true));
+		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, FALSE, theConf->GetBool("Options/EnableVersionSupport", true));
 	}
 	// PhpProcessQueryStage1 End
 
@@ -360,9 +504,9 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 		VERIFY_RESULT VerifyResult = VERIFY_RESULT(0); //VrUnknown
 		PPH_STRING VerifySignerName = NULL;
 		if(theConf->GetBool("Options/VerifySignatures", true))
-			VerifyResult = PhVerifyFileCached(FileName, PackageFullName, &VerifySignerName, FALSE, FALSE);
+			VerifyResult = PhVerifyFileCached(FileName, PackageFullName, &VerifySignerName, TRUE, FALSE);
 
-		BOOLEAN IsPacked;
+		BOOLEAN IsPacked = FALSE;
 		ulong ImportFunctions;
 		ulong ImportModules;
 		status = PhIsExecutablePacked(FileName, &IsPacked, &ImportModules, &ImportFunctions);
@@ -385,7 +529,7 @@ QVariantMap CWinModule::InitAsyncData(QVariantMap Params)
 	if (/*PhEnableLinuxSubsystemSupport &&*/ IsSubsystemProcess)
 	{
 		QMutexLocker Lock(&g_ModuleVersionInfoCachedMutex);
-		PhInitializeImageVersionInfoCached(&VersionInfo, FileNameWin32, TRUE, theConf->GetBool("Options/EnableVersionSupport", true));
+		PhInitializeImageVersionInfoCached(&VersionInfo, FileName, TRUE, theConf->GetBool("Options/EnableVersionSupport", true));
 	}
 	// PhpProcessQueryStage2 End
 
@@ -452,6 +596,40 @@ QString CWinModule::GetTypeString() const
     }
 }
 
+QString CWinModule::GetEnclaveTypeString() const
+{
+	QReadLocker Locker(&m_Mutex);
+
+	switch (m_EnclaveType)
+	{
+	case ENCLAVE_TYPE_SGX: return tr("SGX");
+	case ENCLAVE_TYPE_SGX2: return tr("SGX2");
+	case ENCLAVE_TYPE_VBS: return tr("VBS");
+	default: return tr("Unknown");
+	}
+}
+
+QString CWinModule::GetImageMachineString() const
+{
+	// We read the remote process memory for ImageMachine when possible. For
+	// ARM64X/CHPE the OS will fix up the image haeder in the process, this
+	// should generally reflect the module machine correctly (unless we can't
+	// read the remote process address space).
+	switch (m_ImageMachine)
+	{
+	case IMAGE_FILE_MACHINE_I386:
+		return m_ImageCHPEVersion ? tr("x86 (CHPE)") : tr("x86");
+	case IMAGE_FILE_MACHINE_AMD64:
+		return m_ImageCHPEVersion ? tr("x64 (ARM64X)") : tr("x64");
+	case IMAGE_FILE_MACHINE_ARMNT:
+		return tr("ARM");
+	case IMAGE_FILE_MACHINE_ARM64:
+		return m_ImageCHPEVersion ? tr("ARM64 (ARM64X)") : tr("ARM64");
+	default:
+		return "";
+	}
+}
+
 QString CWinModule::GetVerifyResultString() const
 {
 	QReadLocker Locker(&m_Mutex);
@@ -512,6 +690,13 @@ QString CWinModule::GetLoadReasonString() const
 	return QString();
 }
 
+QString CWinModule::GetImageCoherencyString() const
+{
+	QReadLocker Locker(&m_Mutex);
+
+	return m_ImageCoherency != -1 ? QString::number(m_ImageCoherency * 100.0F, 'f', 2) : ""; 
+}
+
 STATUS CWinModule::Unload(bool bForce)
 {
 	HANDLE ProcessId = (HANDLE)m_ProcessId;
@@ -528,10 +713,7 @@ STATUS CWinModule::Unload(bool bForce)
 
         if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, ProcessId)))
         {
-            LARGE_INTEGER timeout;
-
-            timeout.QuadPart = -(LONGLONG)UInt32x32To64(5, PH_TIMEOUT_SEC);
-            status = PhUnloadDllProcess(processHandle, (PVOID)m_BaseAddress, &timeout);
+            status = PhUnloadDllProcess(processHandle, (PVOID)m_BaseAddress, 5000);
 
             NtClose(processHandle);
         }
@@ -589,6 +771,25 @@ STATUS CWinModule::Unload(bool bForce)
     return OK;
 }
 
+void CWinModule::SetModifiedPage(quint64 VirtualAddress)	
+{ 
+	QWriteLocker Locker(&m_Mutex); 
+	SModPage& Page = m_ModifiedPages[VirtualAddress];
+	if (!Page.VirtualAddress) {
+		Page.VirtualAddress = VirtualAddress;
+		qobject_cast<CWindowsAPI*>(theAPI)->GetSymbolProvider()->GetSymbolFromAddress(m_ProcessId, VirtualAddress, this, SLOT(OnSymbolFromAddress(quint64, quint64, int, const QString&, const QString&, const QString&)));
+	}
+}
+
+void CWinModule::OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName)
+{
+	QWriteLocker Locker(&m_Mutex);
+	SModPage& Page = m_ModifiedPages[Address];
+	if (!Page.VirtualAddress)
+		Page.VirtualAddress = Address;
+	Page.Name = StartAddressString;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // CWinMainModule 
 
@@ -600,13 +801,14 @@ CWinMainModule::CWinMainModule(QObject *parent)
 	m_PebBaseAddress32 = 0;
 }
 
-bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, bool IsSubsystemProcess, bool IsWow64)
+bool CWinMainModule::InitStaticData(quint64 ProcessId, quint64 ProcessHandle, const QString& FileName, const QString& FileNameNt, bool IsSubsystemProcess, bool IsWow64)
 {
 	QWriteLocker Locker(&m_Mutex);
 
 	m_IsLoaded = true;
 	m_ProcessId = ProcessId;
 	m_FileName = FileName;
+	m_FileNameNt = FileNameNt;
 	m_IsSubsystemProcess = IsSubsystemProcess;
 
 	// subsystem
@@ -614,56 +816,72 @@ bool CWinMainModule::InitStaticData(quint64 ProcessId, const QString& FileName, 
     {
         m_ImageSubsystem = IMAGE_SUBSYSTEM_POSIX_CUI;
     }
-    else
+    else if(ProcessHandle)
     {
-		HANDLE ProcessHandle = NULL;
-		// Try to get a handle with query information + vm read access.
-		if (!NT_SUCCESS(PhOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, (HANDLE)ProcessId)))
+		PROCESS_BASIC_INFORMATION basicInfo;
+		if (NT_SUCCESS(PhGetProcessBasicInformation((HANDLE)ProcessHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
 		{
-			// Try to get a handle with query limited information + vm read access.
-			PhOpenProcess(&ProcessHandle, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, (HANDLE)ProcessId);
+			m_PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
+			if (IsWow64)
+			{
+				PVOID peb32;
+				PhGetProcessPeb32((HANDLE)ProcessHandle, &peb32);
+				m_PebBaseAddress32 = (quint64)peb32;
+			}
+
+			PVOID imageBaseAddress;
+			PH_REMOTE_MAPPED_IMAGE mappedImage;
+			if (NT_SUCCESS(NtReadVirtualMemory((HANDLE)ProcessHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL)))
+			{
+				if (NT_SUCCESS(PhLoadRemoteMappedImage((HANDLE)ProcessHandle, imageBaseAddress, -1, &mappedImage))) // todo: xxx
+				{
+					PVOID imageBase = 0;
+					ULONG entryPoint = 0;
+
+					if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+					{
+						PIMAGE_OPTIONAL_HEADER32 optionalHeader = (PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader;
+
+						imageBase = (PVOID)optionalHeader->ImageBase;
+						entryPoint = optionalHeader->AddressOfEntryPoint;
+						m_ImageSubsystem = optionalHeader->Subsystem;
+						m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
+						m_ImageMachine = mappedImage.NtHeaders32->FileHeader.Machine;
+						m_ImageTimeDateStamp = mappedImage.NtHeaders32->FileHeader.TimeDateStamp;
+						m_ImageCharacteristics = mappedImage.NtHeaders32->FileHeader.Characteristics;
+					}
+					else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+					{
+						PIMAGE_OPTIONAL_HEADER64 optionalHeader = (PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader;
+
+						imageBase = (PVOID)optionalHeader->ImageBase;
+						entryPoint = optionalHeader->AddressOfEntryPoint;
+						m_ImageSubsystem = optionalHeader->Subsystem;
+						m_ImageDllCharacteristics = optionalHeader->DllCharacteristics;
+						m_ImageMachine = mappedImage.NtHeaders64->FileHeader.Machine;
+						m_ImageTimeDateStamp = mappedImage.NtHeaders64->FileHeader.TimeDateStamp;
+						m_ImageCharacteristics = mappedImage.NtHeaders64->FileHeader.Characteristics;
+					}
+
+					if (m_BaseAddress != (quint64)imageBase)
+						m_ImageNotAtBase = TRUE;
+
+					if (entryPoint != 0)
+						m_EntryPoint = (quint64)PTR_ADD_OFFSET(m_BaseAddress, entryPoint);
+
+					PhUnloadRemoteMappedImage(&mappedImage);
+				}
+			}
 		}
 
-		if(ProcessHandle)
-		{
-			PROCESS_BASIC_INFORMATION basicInfo;
-			if (NT_SUCCESS(PhGetProcessBasicInformation((HANDLE)ProcessHandle, &basicInfo)) && basicInfo.PebBaseAddress != 0)
-			{
-				m_PebBaseAddress = (quint64)basicInfo.PebBaseAddress;
-				if (IsWow64)
-				{
-					PVOID peb32;
-					PhGetProcessPeb32((HANDLE)ProcessHandle, &peb32);
-					m_PebBaseAddress32 = (quint64)peb32;
-				}
-
-				PVOID imageBaseAddress;
-				PH_REMOTE_MAPPED_IMAGE mappedImage;
-                if (NT_SUCCESS(NtReadVirtualMemory((HANDLE)ProcessHandle, PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, ImageBaseAddress)), &imageBaseAddress, sizeof(PVOID), NULL)))
-                {
-                    if (NT_SUCCESS(PhLoadRemoteMappedImage((HANDLE)ProcessHandle, imageBaseAddress, -1, &mappedImage))) // todo: xxx
-                    {
-                        m_ImageTimeStamp = mappedImage.NtHeaders->FileHeader.TimeDateStamp;
-                        m_ImageCharacteristics = mappedImage.NtHeaders->FileHeader.Characteristics;
-
-                        if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-                        {
-                            m_ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
-                            m_ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER32)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
-                        }
-                        else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
-                        {
-                            m_ImageSubsystem = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->Subsystem;
-                            m_ImageDllCharacteristics = ((PIMAGE_OPTIONAL_HEADER64)&mappedImage.NtHeaders->OptionalHeader)->DllCharacteristics;
-                        }
-
-                        PhUnloadRemoteMappedImage(&mappedImage);
-                    }
-                }
-            }
-
-			NtClose(ProcessHandle);
-        }
+		PPH_STRING Name = PhCreateString((wchar_t*)m_FileNameNt.utf16());
+		m_ImageCoherencyStatus = PhGetProcessImageCoherency(
+			Name,
+			(HANDLE)ProcessId,
+			PhImageCoherencyQuick, // todo add option to change level
+			&m_ImageCoherency
+		);
+		PhDereferenceObject(Name);
     }
 
 	InitFileInfo();

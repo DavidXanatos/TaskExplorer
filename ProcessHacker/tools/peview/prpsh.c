@@ -136,7 +136,7 @@ LRESULT CALLBACK PvpButtonWndProc(
                     PhGetString(PvFileName),
                     L"FileObject",
                     PhpOpenFileSecurity,
-                    NULL,
+                    PhpCloseFileSecurity,
                     NULL
                     );
             }
@@ -164,7 +164,7 @@ static HWND PvpCreateOptionsButton(
         // Create the Reset button.
         GetClientRect(optionsWindow, &clientRect);
         GetWindowRect(GetDlgItem(optionsWindow, IDCANCEL), &rect);
-        MapWindowPoints(NULL, optionsWindow, (POINT*)& rect, 2);
+        MapWindowRect(NULL, optionsWindow, &rect);
         OptionsButton = CreateWindowEx(
             WS_EX_NOPARENTNOTIFY,
             WC_BUTTON,
@@ -202,14 +202,14 @@ static HWND PvpCreateSecurityButton(
         // Create the Reset button.
         GetClientRect(optionsWindow, &clientRect);
         GetWindowRect(OptionsButton, &rect);
-        MapWindowPoints(NULL, optionsWindow, (POINT*)& rect, 2);
+        MapWindowPoints(NULL, optionsWindow, (POINT*)&rect, 2);
 
         SecurityButton = CreateWindowEx(
             WS_EX_NOPARENTNOTIFY,
             WC_BUTTON,
-            L"Security",
+            L"Permissions",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-            rect.right,
+            rect.right + 3,
             rect.top,
             rect.right - rect.left,
             rect.bottom - rect.top,
@@ -218,13 +218,11 @@ static HWND PvpCreateSecurityButton(
             PhInstanceHandle,
             NULL
             );
-
         SetWindowFont(SecurityButton, GetWindowFont(GetDlgItem(optionsWindow, IDCANCEL)), TRUE);
     }
 
     return SecurityButton;
 }
-
 
 static HFONT PvpCreateFont(
     _In_ PWSTR Name,
@@ -315,9 +313,9 @@ INT CALLBACK PvpPropSheetProc(
             context = PhAllocateZero(sizeof(PV_PROPSHEETCONTEXT));
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
 
-            context->DefaultWindowProc = (WNDPROC)GetWindowLongPtr(hwndDlg, GWLP_WNDPROC);
+            context->DefaultWindowProc = PhGetWindowProcedure(hwndDlg);
             PhSetWindowContext(hwndDlg, UCHAR_MAX, context);
-            SetWindowLongPtr(hwndDlg, GWLP_WNDPROC, (LONG_PTR)PvpPropSheetWndProc);
+            PhSetWindowProcedure(hwndDlg, PvpPropSheetWndProc);
 
             if (MinimumSize.left == -1)
             {

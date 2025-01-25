@@ -103,10 +103,10 @@ PPH_STRING PvResolveReparsePointTarget(
             } AppExecLinkReparseBuffer, *PAppExecLinkReparseBuffer;
 
             PAppExecLinkReparseBuffer appexeclink;
-            PWSTR string;
+            PCWSTR string;
 
             appexeclink = (PAppExecLinkReparseBuffer)reparseBuffer->GenericReparseBuffer.DataBuffer;
-            string = (PWSTR)appexeclink->StringList;
+            string = (PCWSTR)appexeclink->StringList;
 
             for (ULONG i = 0; i < appexeclink->StringCount; i++)
             {
@@ -910,25 +910,23 @@ VOID PvSetTreeViewImageList(
     HIMAGELIST treeViewImageList;
     LONG dpiValue = PhGetWindowDpi(WindowHandle);
 
-    if (treeViewImageList = TreeView_GetImageList(TreeViewHandle, TVSIL_NORMAL))
+    if (treeViewImageList = PhImageListCreate(
+        2,
+        PhGetDpi(24, dpiValue),
+        ILC_MASK | ILC_COLORDDB,
+        1,
+        1
+        ))
     {
-        PhImageListSetIconSize(
+        // Update the imagelist and return the previous handle.
+        if (treeViewImageList = TreeView_SetImageList(
+            TreeViewHandle,
             treeViewImageList,
-            2,
-            PhGetDpi(24, dpiValue)
-            );
-    }
-    else
-    {
-        if (treeViewImageList = PhImageListCreate(
-            2,
-            PhGetDpi(24, dpiValue),
-            ILC_MASK | ILC_COLOR32,
-            1,
-            1
+            TVSIL_NORMAL
             ))
         {
-            TreeView_SetImageList(TreeViewHandle, treeViewImageList, TVSIL_NORMAL);
+            // Cleanup the previous imagelist.
+            PhImageListDestroy(treeViewImageList);
         }
     }
 }

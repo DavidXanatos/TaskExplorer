@@ -150,7 +150,7 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 									{
 										quint64 ProcessId = pRecord->GetProcessId();
 										if (ProcessId)	
-											ColValue.Formated = tr("%1 (%2)").arg(pRecord->GetProcessName()).arg(ProcessId); 
+											ColValue.Formated = tr("%1 (%2)").arg(pRecord->GetProcessName()).arg(theGUI->FormatID(ProcessId)); 
 									}
 									break;*/
 				case eType:			ColValue.Formated = pEntry->GetTypeString(); break;

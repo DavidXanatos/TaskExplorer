@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -13,7 +13,7 @@
 
 #include <trace.h>
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Performs generic system control actions.
@@ -37,7 +37,7 @@ NTSTATUS KphSystemControl(
     NTSTATUS status;
     HANDLE processHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(SystemControlInfo);
     UNREFERENCED_PARAMETER(SystemControlInfoLength);

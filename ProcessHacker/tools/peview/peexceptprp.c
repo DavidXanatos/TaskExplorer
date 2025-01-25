@@ -79,7 +79,7 @@ VOID PvEnumerateExceptionEntries(
 
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, entry),
+                PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, entry),
                 NULL,
                 NULL,
                 &symbolName,
@@ -143,7 +143,7 @@ VOID PvEnumerateExceptionEntries(
 
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, entry->BeginAddress),
+                PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, entry->BeginAddress),
                 NULL,
                 NULL,
                 &symbolName,
@@ -250,7 +250,7 @@ VOID PvEnumerateExceptionEntries(
 
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, entry->BeginAddress),
+                PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, entry->BeginAddress),
                 NULL,
                 NULL,
                 &symbolName,
@@ -474,7 +474,7 @@ INT_PTR CALLBACK PvpPeExceptionDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

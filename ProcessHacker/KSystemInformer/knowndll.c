@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2024
  *
  */
 
@@ -44,7 +44,7 @@ static KPH_KNOWN_DLL_INFORMATION KphpKnownDllInformation[] =
 };
 KPH_PROTECTED_DATA_SECTION_POP();
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Populates known DLL information.
@@ -60,7 +60,7 @@ NTSTATUS KphInitializeKnownDll(
     PVOID baseAddress;
     SIZE_T viewSize;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE_PASSIVE();
 
     sectionHandle = NULL;
     sectionObject = NULL;

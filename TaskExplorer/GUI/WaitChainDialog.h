@@ -10,6 +10,7 @@ class CWaitChainDialog : public QMainWindow
 
 public:
 	CWaitChainDialog(const CProcessPtr& pProcess, QWidget *parent = Q_NULLPTR);
+	CWaitChainDialog(const CThreadPtr& pThread, QWidget *parent = Q_NULLPTR);
 	~CWaitChainDialog();
 
 public slots:
@@ -21,6 +22,7 @@ protected slots:
 	void				UpdateThreads();
 
 protected:
+	void				InitGUI();
 	STATUS				InitWCT();
 	void				UnInitWCT();
 	//void				UpdateThread(void* ThreadId, QMap<quint64, QTreeWidgetItem*>& OldNodes);

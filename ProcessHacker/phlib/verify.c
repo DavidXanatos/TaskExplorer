@@ -452,7 +452,7 @@ VERIFY_RESULT PhpVerifyFile(
     if (UnionChoice == WTD_CHOICE_CATALOG)
         trustData.pCatalog = UnionData;
 
-    if (Information->Flags & PH_VERIFY_PREVENT_NETWORK_ACCESS)
+    if (FlagOn(Information->Flags, PH_VERIFY_PREVENT_NETWORK_ACCESS))
     {
         trustData.fdwRevocationChecks = WTD_REVOKE_NONE;
         trustData.dwProvFlags |= WTD_CACHE_ONLY_URL_RETRIEVAL;
@@ -483,10 +483,16 @@ BOOLEAN PhpCalculateFileHash(
     HANDLE catAdminHandle;
     PUCHAR fileHash;
     ULONG fileHashLength;
+    CERT_STRONG_SIGN_PARA strongSigPolicy;
+
+    memset(&strongSigPolicy, 0, sizeof(CERT_STRONG_SIGN_PARA));
+    strongSigPolicy.cbSize = sizeof(CERT_STRONG_SIGN_PARA);
+    strongSigPolicy.dwInfoChoice = CERT_STRONG_SIGN_OID_INFO_CHOICE;
+    strongSigPolicy.pszOID = szOID_CERT_STRONG_SIGN_OS_CURRENT;
 
     if (CryptCATAdminAcquireContext2)
     {
-        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, NULL, 0))
+        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, &strongSigPolicy, 0))
             return FALSE;
     }
     else
@@ -548,10 +554,16 @@ BOOLEAN PhpVerifyGetHashFromFileHandle(
     )
 {
     HANDLE catAdminHandle;
+    CERT_STRONG_SIGN_PARA strongSigPolicy;
+
+    memset(&strongSigPolicy, 0, sizeof(CERT_STRONG_SIGN_PARA));
+    strongSigPolicy.cbSize = sizeof(CERT_STRONG_SIGN_PARA);
+    strongSigPolicy.dwInfoChoice = CERT_STRONG_SIGN_OID_INFO_CHOICE;
+    strongSigPolicy.pszOID = szOID_CERT_STRONG_SIGN_OS_CURRENT;
 
     if (CryptCATAdminAcquireContext2)
     {
-        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, NULL, 0))
+        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, &strongSigPolicy, 0))
             return FALSE;
     }
     else
@@ -981,7 +993,7 @@ PH_STRINGREF PhVerifyResultToStringRef(
  * \return A VERIFY_RESULT value.
  */
 VERIFY_RESULT PhVerifyFile(
-    _In_ PWSTR FileName,
+    _In_ PCWSTR FileName,
     _Out_opt_ PPH_STRING *SignerName
     )
 {
@@ -1215,6 +1227,7 @@ VERIFY_RESULT PhVerifyFileWithAdditionalCatalog(
  * \param SignerName A variable which receives a pointer to a string containing the signer name. You
  * must free the string using PhDereferenceObject() when you no longer need it. Note that the signer
  * name may be NULL if it is not valid.
+ * \param NativeFileName Specify TRUE if the file name is a native path.
  * \param CachedOnly Specify TRUE to fail the function when no cached result exists.
  *
  * \return A VERIFY_RESULT value.
@@ -1551,7 +1564,7 @@ PPH_STRING PhGetProgramNameFromMessage(
 
             if (opusInfo->pwszProgramName)
             {
-                signerName = PhCreateString((PWSTR)opusInfo->pwszProgramName);
+                signerName = PhCreateString(opusInfo->pwszProgramName);
             }
 
             LocalFree(opusInfo);

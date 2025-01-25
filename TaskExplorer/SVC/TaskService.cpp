@@ -58,9 +58,9 @@ CTaskService::~CTaskService()
 
 void CTaskService::start()
 {
-#ifdef WIN32
-	InitPH(true);
-#endif
+//#ifdef WIN32
+//	InitPH(true);
+//#endif
 	m_pServer = new QLocalServer(this);
 	QObject::connect(m_pServer, SIGNAL(newConnection()), SLOT(receiveConnection()));
 	m_pServer->listen(serviceName());
@@ -175,6 +175,10 @@ void CTaskService::receiveConnection()
 	else if (Command == "GetProcessUnloadedDlls")
 	{
 		Response = GetProcessUnloadedDlls(Parameters["ProcessId"].toULongLong());
+	}
+	else if (Command == "GetProcessHeaps")
+	{
+		Response = GetProcessHeaps(Parameters["ProcessId"].toULongLong());
 	}
 	else if (Command == "ExecTaskAction")
 	{
@@ -370,9 +374,13 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, cons
 		}
 		else if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, (HANDLE)ProcessId)))
 		{
-			if (Action == "SetPriority")
+			if (Action == "SetPriorityBoost")
 			{
-				status = PhSetProcessPriority(processHandle, (UCHAR)Data.toUInt());
+				status = PhSetProcessPriorityBoost(processHandle, !Data.toBool());
+			}
+			else if (Action == "SetPriority")
+			{
+				status = PhSetProcessPriorityClass(processHandle, (UCHAR)Data.toUInt());
 			}
 			else if (Action == "SetPagePriority")
 			{
@@ -426,7 +434,11 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QSt
 	{
 		if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_SET_INFORMATION, (HANDLE)ThreadId)))
 		{
-			if (Action == "SetPriority")
+			if (Action == "SetPriorityBoost")
+			{
+				status = PhSetThreadPriorityBoost(threadHandle, !Data.toBool());
+			}
+			else if (Action == "SetPriority")
 			{
 				status = PhSetThreadBasePriority(threadHandle, Data.toInt());
 			}

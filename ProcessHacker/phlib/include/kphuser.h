@@ -19,9 +19,9 @@
 
 EXTERN_C_START
 
-#define KPH_SERVICE_NAME __TEXT("KSystemInformer")
-#define KPH_OBJECT_NAME  __TEXT("\\Driver\\KSystemInformer")
-#define KPH_PORT_NAME    __TEXT("\\KSystemInformer")
+#define KPH_SERVICE_NAME TEXT("KSystemInformer")
+#define KPH_OBJECT_NAME  TEXT("\\Driver\\KSystemInformer")
+#define KPH_PORT_NAME    TEXT("\\KSystemInformer")
 
 #ifdef DEBUG
 #define KSI_COMMS_INIT_ASSERT() assert(KphMessageFreeList.Size == sizeof(KPH_MESSAGE))
@@ -38,10 +38,9 @@ typedef struct _KPH_CONFIG_PARAMETERS
     _In_opt_ PPH_STRINGREF Altitude;
     _In_ ULONG FsSupportedFeatures;
     _In_ KPH_PARAMETER_FLAGS Flags;
-    _In_opt_ PKPH_COMMS_CALLBACK Callback;
-
     _In_ BOOLEAN EnableNativeLoad;
     _In_ BOOLEAN EnableFilterLoad;
+    _In_opt_ PKPH_COMMS_CALLBACK Callback;
 } KPH_CONFIG_PARAMETERS, *PKPH_CONFIG_PARAMETERS;
 
 PHLIBAPI
@@ -241,6 +240,15 @@ KphQueryInformationObject(
 PHLIBAPI
 NTSTATUS
 NTAPI
+KphQueryObjectThreadName(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _Out_ PPH_STRING* ThreadName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 KphQueryObjectSectionMappingsInfo(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
@@ -264,7 +272,7 @@ NTAPI
 KphOpenDriver(
     _Out_ PHANDLE DriverHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes
     );
 
 PHLIBAPI
@@ -437,7 +445,7 @@ NTAPI
 KphCreateFile(
     _Out_ PHANDLE FileHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes,
     _Out_ PIO_STATUS_BLOCK IoStatusBlock,
     _In_opt_ PLARGE_INTEGER AllocationSize,
     _In_ ULONG FileAttributes,
@@ -608,6 +616,33 @@ KsiQueryHashInformationFile(
     _In_ HANDLE FileHandle,
     _Inout_ PKPH_HASH_INFORMATION HashInformation,
     _In_ ULONG HashInformationLength
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphOpenDevice(
+    _Out_ PHANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphOpenDeviceDriver(
+    _In_ HANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _Out_ PHANDLE DriverHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphOpenDeviceBaseDevice(
+    _In_ HANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _Out_ PHANDLE BaseDeviceHandle
     );
 
 EXTERN_C_END

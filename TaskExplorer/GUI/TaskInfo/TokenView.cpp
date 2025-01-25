@@ -75,7 +75,7 @@ CTokenView::CTokenView(QWidget *parent)
 	// Variables List
 	m_pTokenList = new QTreeWidgetEx();
 	m_pTokenList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pTokenList->setHeaderLabels(tr("Name|Status|Description|SID").split("|"));
+	m_pTokenList->setHeaderLabels(tr("Name|Status|Description|SID|Type|Use").split("|"));
 	m_pTokenList->setMinimumHeight(50);
 
 	m_pTokenList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -282,6 +282,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pIntegrity->addItem(tr("Protected"), MandatorySecureProcessRID);
 	m_pIntegrity->addItem(tr("System"), MandatorySystemRID);
 	m_pIntegrity->addItem(tr("High"), MandatoryHighRID);
+	m_pIntegrity->addItem(tr("Medium +"), MandatoryMediumPlusRID);
 	m_pIntegrity->addItem(tr("Medium"), MandatoryMediumRID);
 	m_pIntegrity->addItem(tr("Low"), MandatoryLowRID);
 	m_pIntegrity->addItem(tr("Untrusted"), MandatoryUntrustedRID);
@@ -554,7 +555,32 @@ void CTokenView::UpdateGeneral()
 				sSID = CastPhString(stringUserSid);
 
 			pItem->setText(eSID, sSID);
+
 			pItem->setText(eDescription, CWinToken::GetGroupDescription(Group.Attributes));
+
+			pItem->setText(eType, QString::fromWCharArray(PhGetSidAccountTypeString((PSID)Group.Sid.data())));
+
+			SID_NAME_USE sidUse;
+			if (NT_SUCCESS(PhLookupSid((PSID)Group.Sid.data(), NULL, NULL, &sidUse)))
+			{
+				QString Use;
+				switch (sidUse)
+				{
+				case SidTypeUser:				Use = tr("User"); break;
+				case SidTypeGroup:				Use = tr("Group"); break;
+				case SidTypeDomain:				Use = tr("Domain"); break;
+				case SidTypeAlias:				Use = tr("Alias"); break;
+				case SidTypeWellKnownGroup:		Use = tr("Well Known Group"); break;
+				case SidTypeDeletedAccount:		Use = tr("Deleted Account"); break;
+				case SidTypeInvalid:			Use = tr("Yes (Limited)"); break;
+				case SidTypeUnknown:			Use = tr("Unknown"); break;
+				case SidTypeComputer:			Use = tr("Computer"); break;
+				case SidTypeLabel:				Use = tr("Label"); break;
+				case SidTypeLogonSession:		Use = tr("Logon Session"); break;
+				}
+				pItem->setText(eUse, Use);
+			}
+
 			if(Group.Restricted)
 				m_pRestrictingSIDs->addChild(pItem);
 			else

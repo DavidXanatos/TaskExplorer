@@ -34,6 +34,11 @@ public:
 		eLockedWS,
 		eCommitted,
 		ePrivate,
+		eSigningLevel,
+		eOriginalProtection,
+		//eOriginalPages,
+		eRegionType,
+		ePriprity,
 		eCount
 	};
 

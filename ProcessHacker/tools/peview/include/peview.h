@@ -29,6 +29,7 @@
 #include <kphcomms.h>
 #include <kphuser.h>
 #include <hndlinfo.h>
+#include <searchbox.h>
 
 #include <shlobj.h>
 
@@ -44,11 +45,11 @@ extern HICON PvImageSmallIcon;
 extern HICON PvImageLargeIcon;
 extern PH_IMAGE_VERSION_INFO PvImageVersionInfo;
 
-FORCEINLINE PWSTR PvpGetStringOrNa(
+FORCEINLINE PCWSTR PvpGetStringOrNa(
     _In_ PPH_STRING String
     )
 {
-    return PhGetStringOrDefault(String, (PWSTR)L"N/A");
+    return PhGetStringOrDefault(String, L"N/A");
 }
 
 BOOLEAN PvpLoadDbgHelp(
@@ -72,6 +73,12 @@ VOID PvShowPePropertiesWindow(
 NTSTATUS PhpOpenFileSecurity(
     _Out_ PHANDLE Handle,
     _In_ ACCESS_MASK DesiredAccess,
+    _In_opt_ PVOID Context
+    );
+
+NTSTATUS PhpCloseFileSecurity(
+    _In_opt_ HANDLE Handle,
+    _In_opt_ BOOLEAN Release,
     _In_opt_ PVOID Context
     );
 
@@ -182,48 +189,64 @@ VOID PvShowOptionsWindow(
 
 // searchbox
 
-typedef
-VOID
-NTAPI
-PV_SEARCHCONTROL_CALLBACK(
-    _In_ ULONG_PTR MatchHandle,
-    _In_opt_ PVOID Context
-    );
-typedef PV_SEARCHCONTROL_CALLBACK* PPV_SEARCHCONTROL_CALLBACK;
-
 VOID PvCreateSearchControl(
+    _In_ HWND ParentWindowHandle,
     _In_ HWND WindowHandle,
-    _In_opt_ PWSTR BannerText,
-    _In_ PPV_SEARCHCONTROL_CALLBACK Callback,
+    _In_opt_ PCWSTR BannerText,
+    _In_ PPH_SEARCHCONTROL_CALLBACK Callback,
     _In_opt_ PVOID Context
     );
 
-BOOLEAN PvSearchControlMatch(
+FORCEINLINE
+BOOLEAN
+PvSearchControlMatch(
     _In_ ULONG_PTR MatchHandle,
     _In_ PPH_STRINGREF Text
-    );
+    )
+{
+    return PhSearchControlMatch(MatchHandle, Text);
+}
 
-BOOLEAN PvSearchControlMatchZ(
+FORCEINLINE
+BOOLEAN
+PvSearchControlMatchZ(
     _In_ ULONG_PTR MatchHandle,
-    _In_ PWSTR Text
-    );
+    _In_ PCWSTR Text
+    )
+{
+    return PhSearchControlMatchZ(MatchHandle, Text);
+}
 
-BOOLEAN PvSearchControlMatchLongHintZ(
+FORCEINLINE
+BOOLEAN
+PvSearchControlMatchLongHintZ(
     _In_ ULONG_PTR MatchHandle,
-    _In_ PWSTR Text
-    );
+    _In_ PCWSTR Text
+    )
+{
+    return PhSearchControlMatchLongHintZ(MatchHandle, Text);
+}
 
-BOOLEAN PvSearchControlMatchPointer(
+FORCEINLINE
+BOOLEAN
+PvSearchControlMatchPointer(
     _In_ ULONG_PTR MatchHandle,
     _In_ PVOID Pointer
-    );
+    )
+{
+    return PhSearchControlMatchPointer(MatchHandle, Pointer);
+}
 
-BOOLEAN PvSearchControlMatchPointerRange(
+FORCEINLINE
+BOOLEAN
+PvSearchControlMatchPointerRange(
     _In_ ULONG_PTR MatchHandle,
     _In_ PVOID Pointer,
     _In_ SIZE_T Size
-    );
-
+    )
+{
+    return PhSearchControlMatchPointerRange(MatchHandle, Pointer, Size);
+}
 
 // symbols
 
@@ -274,8 +297,8 @@ typedef struct _PV_SYMBOL_NODE
     ULONG64 Size;
     ULONG64 Address;
     PPH_STRING Name;
-    PPH_STRING Data;
     PPH_STRING SizeText;
+    PPH_STRINGREF Data;
     WCHAR Index[PH_INT64_STR_LEN_1];
     WCHAR Pointer[PH_PTR_STR_LEN_1];
 
@@ -304,6 +327,7 @@ typedef enum PV_SYMBOL_TREE_MENU_ITEM
     PV_SYMBOL_TREE_MENU_ITEM_HIDE_EXECUTE,
     PV_SYMBOL_TREE_MENU_ITEM_HIDE_CODE,
     PV_SYMBOL_TREE_MENU_ITEM_HIDE_READ,
+    PV_SYMBOL_TREE_MENU_ITEM_FILTER_WRITE,
     PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_WRITE,
     PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_EXECUTE,
     PV_SYMBOL_TREE_MENU_ITEM_HIGHLIGHT_CODE,
@@ -450,7 +474,8 @@ typedef struct _PDB_SYMBOL_CONTEXT
             ULONG HighlightExecuteSection : 1;
             ULONG HighlightCodeSection : 1;
             ULONG HighlightReadSection : 1;
-            ULONG Spare : 24;
+            ULONG FilterNonWriteSections : 1;
+            ULONG Spare : 23;
         };
     };
 } PDB_SYMBOL_CONTEXT, *PPDB_SYMBOL_CONTEXT;

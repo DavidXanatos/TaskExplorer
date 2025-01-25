@@ -78,45 +78,68 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pShowProperties = m_pMenu->addAction(tr("Properties"), this, SLOT(OnShowProperties()));
 	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
 	m_pViewPE = m_pMenu->addAction(tr("View PE info"), this, SLOT(OnProcessAction()));
-	m_pBringInFront = m_pMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
 	m_pMenu->addSeparator();
 
-	m_pClose = m_pMenu->addAction(tr("Close"), this, SLOT(OnProcessAction()));
 	m_pStop = m_pMenu->addAction(tr("Stop"), this, SLOT(OnProcessAction()));
 
 	AddTaskItemsToMenu();
+
+	m_pFreeze = m_pMenu->addAction(tr("Freeze"), this, SLOT(OnProcessAction()));
+	m_pUnFreeze = m_pMenu->addAction(tr("UnFreeze"), this, SLOT(OnProcessAction()));
+
 	//QAction*				m_pTerminateTree;
-	
-	m_pMenu->addSeparator();
-
-	m_pPreset = m_pMenu->addAction(tr("Persistent Preset"), this, SLOT(OnPresetAction()));
-	m_pPreset->setCheckable(true);
-
-	AddPriorityItemsToMenu(eProcess);
-
 
 	m_pMenu->addSeparator();
+	m_pWindowMenu = m_pMenu->addMenu(tr("Main Window"));
+		m_pBringInFront = m_pWindowMenu->addAction(tr("Bring in front"), this, SLOT(OnProcessAction()));
+		m_pWindowMenu->addSeparator();
+		m_pRestore = m_pWindowMenu->addAction(tr("Restore"), this, SLOT(OnProcessAction()));
+		m_pMinimize = m_pWindowMenu->addAction(tr("Minimize"), this, SLOT(OnProcessAction()));
+		m_pMaximize = m_pWindowMenu->addAction(tr("Maximize"), this, SLOT(OnProcessAction()));
+		m_pWindowMenu->addSeparator();
+		m_pClose = m_pWindowMenu->addAction(tr("Close (WM_CLOSE)"), this, SLOT(OnProcessAction()));
+		m_pQuit = m_pWindowMenu->addAction(tr("Quit (WM_QUIT)"), this, SLOT(OnProcessAction()));
+
 	m_pMiscMenu = m_pMenu->addMenu(tr("Miscellaneous"));
-	m_pRunAsThis = m_pMiscMenu->addAction(tr("Run as this User"), this, SLOT(OnRunAsThis()));
-	m_pQuit = m_pMiscMenu->addAction(tr("Quit (WM_QUIT)"), this, SLOT(OnProcessAction()));
-	m_pCreateDump = m_pMiscMenu->addAction(tr("Create Crash Dump"), this, SLOT(OnCrashDump()));
-	m_pDebug = m_pMiscMenu->addAction(tr("Debug"), this, SLOT(OnProcessAction()));
-	m_pDebug->setCheckable(true);
 #ifdef WIN32
-	m_pReduceWS = m_pMiscMenu->addAction(tr("Reduce Working Set"), this, SLOT(OnProcessAction()));
-	m_pWatchWS = m_pMiscMenu->addAction(tr("Working Set Watch"), this, SLOT(OnWsWatch()));
-	m_pWCT = m_pMiscMenu->addAction(tr("Wait Chain Traversal"), this, SLOT(OnWCT()));
-	//m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
-	//m_pVirtualization->setCheckable(true);
-	m_pMiscMenu->addSeparator();
-	m_pCritical = m_pMiscMenu->addAction(tr("Critical Process Flag"), this, SLOT(OnProcessAction()));
-	m_pCritical->setCheckable(true);
-	// todo: xxxx si
-	//m_pProtected = m_pMiscMenu->addAction(tr("Protected Process"), this, SLOT(OnProcessAction()));
-	//m_pProtected->setCheckable(true);
+		m_pEfficiency = m_pMiscMenu->addAction(tr("Efficiency Mode"), this, SLOT(OnProcessAction()));
+		m_pEfficiency->setCheckable(true);
+		
+		m_pExecRequired = m_pMiscMenu->addAction(tr("Execution Required"), this, SLOT(OnProcessAction()));
+		m_pExecRequired->setCheckable(true);
+#endif
+		m_pRunAsThis = m_pMiscMenu->addAction(tr("Run as this User"), this, SLOT(OnRunAsThis()));
+		m_pDumpMenu = m_pMiscMenu->addMenu(tr("Create Crash Dump"));
+			m_pMinimalDump = m_pDumpMenu->addAction(tr("Minimal"), this, SLOT(OnCrashDump()));
+			m_pLimitedDump = m_pDumpMenu->addAction(tr("Limited"), this, SLOT(OnCrashDump()));
+			m_pNormalDump = m_pDumpMenu->addAction(tr("Normal"), this, SLOT(OnCrashDump()));
+			m_pFullDump = m_pDumpMenu->addAction(tr("Full"), this, SLOT(OnCrashDump()));
+			//m_pCustomDump = m_pDumpMenu->addAction(tr("Custom"), this, SLOT(OnCrashDump()));
+
+		m_pDebug = m_pMiscMenu->addAction(tr("Debug"), this, SLOT(OnProcessAction()));
+		m_pDebug->setCheckable(true);
+#ifdef WIN32
+		m_pReduceWS = m_pMiscMenu->addAction(tr("Reduce Working Set"), this, SLOT(OnProcessAction()));
+		m_pWatchWS = m_pMiscMenu->addAction(tr("Working Set Watch"), this, SLOT(OnWsWatch()));
+		m_pWCT = m_pMiscMenu->addAction(tr("Wait Chain Traversal"), this, SLOT(OnWCT()));
+		//m_pVirtualization = m_pMiscMenu->addAction(tr("Virtualization"), this, SLOT(OnProcessAction()));
+		//m_pVirtualization->setCheckable(true);
+		m_pMiscMenu->addSeparator();
+		m_pCritical = m_pMiscMenu->addAction(tr("Critical Process Flag"), this, SLOT(OnProcessAction()));
+		m_pCritical->setCheckable(true);
+		// todo: xxxx si
+		//m_pProtected = m_pMiscMenu->addAction(tr("Protected Process"), this, SLOT(OnProcessAction()));
+		//m_pProtected->setCheckable(true);
 
 	m_pPermissions = m_pMenu->addAction(tr("Permissions"), this, SLOT(OnPermissions()));
 #endif
+
+	m_pMenu->addSeparator();
+
+	m_pPreset = m_pMenu->addAction(tr("Persistent Preset"), this, SLOT(OnPresetAction()));
+	m_pPreset->setCheckable(true); 
+
+	AddPriorityItemsToMenu(eProcess);
 
 	AddPanelItemsToMenu(m_pMenu);
 
@@ -157,19 +180,6 @@ CProcessTree::~CProcessTree()
 
 void CProcessTree::OnResetColumns()
 {
-	/*QByteArray PackedDefault = 
-		"eNrt19dOVGEUhuHZKmIDlGajo1hQsXfsBTsgTcGCLnvvvXAtXoiHHnpk9BK8AE91fEdfdMdIlEQjRid5_P4hAfbs9c0aOdjRdSOTySSZTME"
-		"7Mpv5_EiUn_tnIPXFAhSiApUowiTcwm2MwWTkYSymYBRGoxglKEUZyjEV0zAdM3K_EBMxE-NQhfGoRg0moBZ1qMcszEYD5mAu5mE-GrEAC7"
-		"EITViMJViKZViJVViNNViLdViPZmzARmzCFmzFNmzHDuxEC3ZhN_ZgL_ZhPw6gFW1ox0F0oBNd6EYPDuEwetGHIziKYziOfpzASQRO4TTO4"
-		"CzO4Tw2Yzku4CIu4TKu4Cqu4TpyQ7-JFbiDu7iH-3iAh3iEx3iCp9_0oMg5T3D-Bc6v0lnVOcP81PzHOttCe_GjPlTYpzx7UOPsf8Xcl_va"
-		"L9jb4fRg8D6P9D78zPxv-T4bP5we5L3Ivsxmiz5kebzPPs8m_oJFXkyTOdecZ843G81Z5myzwZxj1pi1Zp03ut7nfeYR86h5zOwxD5mHzV6"
-		"zw-w0u8xus9VsM9vN3NCeOdhwuOGAwyGHRQjLEBYiLEVYnPA1hQUKSxSWLSxbp4ULSxcOJxxQOKRwUOEww4GGQw0HGxYgLEG3BQiLEpYlLE"
-		"xYmrBYYbnCgoUdCAsYljB8w0TKKfO0ecbsN0-Yg-WuMCu951U-r_aeTfP5dLPULDPLzanmFLPYLDELzSI7PM7nE03KX_LGRRbuwnyXW7gsw"
-		"oURLo1wcYSLJVwu4YIJl1G4kMJlFS6scGmFiytcbuGCI2fmFu9AknxazF8ekXt3prZ2entnvIj0N3zv6y2pc3PqvDV1bhvi5wx1bk2dr3w9"
-		"J-XD_Dkj4fwqde77C6__d5_bh5j7utR5feq84f99-1fOSc-_-9o_fYj84WsY_XbwQqr9uy_5_F_1JPep-zrJfXr4V-BHg7SxPA";
-
-	m_pProcessList->restoreState(Unpack(QByteArray::fromBase64(PackedDefault.replace("-","+").replace("_","/"))));*/
-
 	for (int i = 1; i < m_pProcessModel->columnCount(); i++)
 		m_pProcessList->GetView()->setColumnHidden(i, true);
 
@@ -676,6 +686,11 @@ void CProcessTree::OnMenu(const QPoint &point)
 
 	QList<CWndPtr> Windows;
 	bool HasService = false;
+#ifdef WIN32
+	bool EfficiencyMode = false;
+	bool ExecRequired = false;
+	int Frozen = 0;
+#endif
 
 	foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
 	{
@@ -685,23 +700,44 @@ void CProcessTree::OnMenu(const QPoint &point)
 		Windows.append(pCurProcess->GetWindows());
 		if (pCurProcess->IsServiceProcess())
 			HasService = true;
+
+#ifdef WIN32
+		QSharedPointer<CWinProcess> pWinProcess = pProcess.staticCast<CWinProcess>();
+		if(pWinProcess->IsPowerThrottled())
+			EfficiencyMode = true;
+		if(PhIsProcessExecutionRequired((HANDLE)pWinProcess->GetProcessId()))
+			ExecRequired = true;
+		if(pWinProcess->IsFrozen())
+			Frozen++;
+#endif
 	}
 
-	m_pShowProperties->setEnabled(selectedRows.count() > 0);
-	m_pBringInFront->setEnabled(selectedRows.count() == 1 && !Windows.isEmpty());
-	
 	m_pStop->setVisible(HasService);
 
-	m_pClose->setVisible(!HasService);
-	m_pClose->setEnabled(!Windows.isEmpty());
+	m_pShowProperties->setEnabled(selectedRows.count() > 0);
+
+	m_pWindowMenu->setEnabled(!Windows.isEmpty());
+
+	m_pBringInFront->setEnabled(Windows.count() == 1);
+	m_pClose->setEnabled(!HasService && !Windows.isEmpty());
+	m_pQuit->setEnabled(!Windows.isEmpty());
 	
+	m_pFreeze->setVisible(selectedRows.count() > Frozen);
+	m_pUnFreeze->setVisible(Frozen > 0);
 
 	m_pPreset->setEnabled(selectedRows.count() == 1);
 	m_pPreset->setChecked(!pProcess->GetPresets().isNull());
 
-	m_pQuit->setEnabled(!Windows.isEmpty());
+#ifdef WIN32
+	m_pEfficiency->setEnabled(selectedRows.count() > 0);
+	m_pEfficiency->setChecked(EfficiencyMode);
+
+	m_pExecRequired->setEnabled(selectedRows.count() > 0);
+	m_pExecRequired->setChecked(ExecRequired);
+#endif
+
 	m_pRunAsThis->setEnabled(selectedRows.count() == 1);
-	m_pCreateDump->setEnabled(selectedRows.count() == 1);
+	m_pDumpMenu->setEnabled(selectedRows.count() == 1);
 	m_pDebug->setEnabled(selectedRows.count() == 1);
 	m_pDebug->setChecked(pProcess && pProcess->HasDebugger());
 
@@ -731,6 +767,55 @@ void CProcessTree::OnMenu(const QPoint &point)
 
 void CProcessTree::OnCrashDump()
 {
+	quint32 DumpType;
+	if (sender() == m_pMinimalDump)
+		DumpType = 
+			MiniDumpWithDataSegs |
+			MiniDumpWithUnloadedModules |
+			MiniDumpWithThreadInfo |
+			MiniDumpIgnoreInaccessibleMemory;
+	else if (sender() == m_pLimitedDump)
+		DumpType = 
+			MiniDumpWithFullMemory |
+			MiniDumpWithUnloadedModules |
+			MiniDumpWithFullMemoryInfo |
+			MiniDumpWithThreadInfo |
+			MiniDumpIgnoreInaccessibleMemory;
+	else if (sender() == m_pNormalDump)
+		DumpType = 
+			MiniDumpWithFullMemory |
+			MiniDumpWithHandleData |
+			MiniDumpWithUnloadedModules |
+			MiniDumpWithFullMemoryInfo |
+			MiniDumpWithThreadInfo |
+			MiniDumpIgnoreInaccessibleMemory |
+			MiniDumpWithIptTrace;
+	else if (sender() == m_pFullDump)
+		DumpType = 
+			MiniDumpWithDataSegs |
+			MiniDumpWithFullMemory |
+			MiniDumpWithHandleData |
+			MiniDumpWithUnloadedModules |
+			MiniDumpWithIndirectlyReferencedMemory |
+			MiniDumpWithProcessThreadData |
+			MiniDumpWithPrivateReadWriteMemory |
+			MiniDumpWithFullMemoryInfo |
+			MiniDumpWithCodeSegs |
+			MiniDumpWithFullAuxiliaryState |
+			MiniDumpWithPrivateWriteCopyMemory |
+			MiniDumpIgnoreInaccessibleMemory |
+			MiniDumpWithTokenInformation |
+			MiniDumpWithModuleHeaders |
+			MiniDumpWithAvxXStateContext |
+			MiniDumpWithIptTrace;
+	/*else if (sender() == m_pCustomDump)
+	{
+		QMessageBox::warning(this, "TaskExplorer", "Not implemented yet.");
+		return;
+	}*/
+	else
+		return;
+
 	QString DumpPath = QFileDialog::getSaveFileName(this, tr("Create dump"), "", tr("Dump files (*.dmp);;All files (*.*)"));
 	if (DumpPath.isEmpty())
 		return;
@@ -740,7 +825,7 @@ void CProcessTree::OnCrashDump()
 	CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
 
 	CMemDumper* pDumper = CMemDumper::New();
-	STATUS status = pDumper->PrepareDump(pProcess, DumpPath);
+	STATUS status = pDumper->PrepareDump(pProcess, DumpType, DumpPath);
 	if(status.IsError())
 		QMessageBox::warning(this, "TaskExplorer", tr("Failed to create dump file, reason: %1").arg(status.GetText()));
 	else
@@ -786,6 +871,24 @@ void CProcessTree::OnProcessAction()
 			// todo: xxxx si
 			//else if (sender() == m_pProtected)
 			//	Status = pWinProcess->SetProtectionFlag(m_pProtected->isChecked() ? -1 : 0, Force == 1);
+			else if (sender() == m_pEfficiency)
+				Status = pWinProcess->SetPowerThrottled(m_pEfficiency->isChecked());
+			else if (sender() == m_pExecRequired)
+			{
+				NTSTATUS status;
+				if (PhIsProcessExecutionRequired((HANDLE)pWinProcess->GetProcessId()))
+					status = PhProcessExecutionRequiredDisable((HANDLE)pWinProcess->GetProcessId());
+				else
+					status = PhProcessExecutionRequiredEnable((HANDLE)pWinProcess->GetProcessId());
+				if (!NT_SUCCESS(status))
+					Status = ERR(tr("Failed to set Process execution required"), status);
+				else
+					Status = OK;
+			}
+			else if (sender() == m_pFreeze)
+				Status = pWinProcess->Freeze();
+			else if (sender() == m_pUnFreeze)
+				Status = pWinProcess->UnFreeze();
 			else if (sender() == m_pReduceWS)
 				Status = pWinProcess->ReduceWS();
 			else if (sender() == m_pDebug)
@@ -806,6 +909,30 @@ void CProcessTree::OnProcessAction()
 					pService->Stop();
 				}
 			}
+			else if (sender() == m_pBringInFront)
+			{
+				CWndPtr pWnd = pProcess->GetMainWindow();
+				if (!pWnd.isNull())
+					pWnd->BringToFront();
+			}
+			else if (sender() == m_pRestore)
+			{
+				CWndPtr pWnd = pProcess->GetMainWindow();
+				if (!pWnd.isNull())
+					pWnd->Restore();
+			}
+			else if (sender() == m_pMinimize)
+			{
+				CWndPtr pWnd = pProcess->GetMainWindow();
+				if (!pWnd.isNull())
+					pWnd->Minimize();
+			}
+			else if (sender() == m_pMaximize)
+			{
+				CWndPtr pWnd = pProcess->GetMainWindow();
+				if (!pWnd.isNull())
+					pWnd->Maximize();
+			}
 			else if (sender() == m_pClose || sender() == m_pQuit)
 			{
 				QList<CWndPtr> Windows = pProcess->GetWindows();
@@ -814,12 +941,6 @@ void CProcessTree::OnProcessAction()
 					if (QSharedPointer<CWinWnd> pWinWnd = pWnd.staticCast<CWinWnd>())
 						pWinWnd->PostWndMessage(sender() == m_pQuit ? WM_QUIT : WM_CLOSE);
 				}
-			}
-			else if (sender() == m_pBringInFront)
-			{
-				CWndPtr pWnd = pProcess->GetMainWindow();
-				if (!pWnd.isNull())
-					pWnd->BringToFront();
 			}
 			else if (sender() == m_pOpenPath)
 			{

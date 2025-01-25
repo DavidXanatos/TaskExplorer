@@ -114,16 +114,18 @@ VOID PvEnumerateImagePogoSections(
 
             __try
             {
-                PPH_STRING ssdeepHashString = NULL;
+                char* ssdeepHashString = NULL;
 
                 if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, entry->Rva, NULL))
                 {
                     fuzzy_hash_buffer(imageSectionData, entry->Size, &ssdeepHashString);
 
-                    if (!PhIsNullOrEmptyString(ssdeepHashString))
+                    if (ssdeepHashString)
                     {
-                        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 8, ssdeepHashString->Buffer);
-                        PhDereferenceObject(ssdeepHashString);
+                        PPH_STRING ssdeepString = PhConvertUtf8ToUtf16(ssdeepHashString);
+                        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 8, ssdeepString->Buffer);
+                        PhDereferenceObject(ssdeepString);
+                        free(ssdeepHashString);
                     }
                 }
             }
@@ -139,7 +141,7 @@ VOID PvEnumerateImagePogoSections(
 
             __try
             {
-                PPH_STRING tlshHashString = NULL;
+                char* tlshHashString = NULL;
 
                 if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, entry->Rva, NULL))
                 {
@@ -149,10 +151,12 @@ VOID PvEnumerateImagePogoSections(
                     //
                     PvGetTlshBufferHash(imageSectionData, entry->Size, &tlshHashString);
 
-                    if (!PhIsNullOrEmptyString(tlshHashString))
+                    if (tlshHashString)
                     {
-                        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 9, tlshHashString->Buffer);
-                        PhDereferenceObject(tlshHashString);
+                        PPH_STRING hashString = PhConvertUtf8ToUtf16(tlshHashString);
+                        PhSetListViewSubItem(ListViewHandle, lvItemIndex, 9, hashString->Buffer);
+                        PhDereferenceObject(hashString);
+                        free(tlshHashString);
                     }
                 }
             }
@@ -276,7 +280,7 @@ INT_PTR CALLBACK PvpPeDebugPogoDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }
@@ -397,7 +401,7 @@ VOID PvEnumerateCrtInitializers(
 
         initSymbol = PhGetSymbolFromAddress(
             PvSymbolProvider,
-            (ULONG64)PTR_ADD_OFFSET(baseAddress, PTR_ADD_OFFSET(array, UInt32x32To64(i, size))),
+            PTR_ADD_OFFSET(baseAddress, PTR_ADD_OFFSET(array, UInt32x32To64(i, size))),
             &symbolResolveLevel,
             NULL,
             &initSymbolName,
@@ -541,7 +545,7 @@ INT_PTR CALLBACK PvpPeDebugCrtDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

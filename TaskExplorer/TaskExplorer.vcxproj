@@ -99,7 +99,7 @@
     <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <QtInstall>5.15.2_msvc2019</QtInstall>
+    <QtInstall>msvc2019</QtInstall>
     <QtModules>core;network;gui;widgets;winextras;concurrent</QtModules>
     <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
@@ -109,7 +109,7 @@
     <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <QtInstall>5.15.2_msvc2019</QtInstall>
+    <QtInstall>msvc2019</QtInstall>
     <QtModules>core;network;gui;widgets;winextras;concurrent</QtModules>
     <QtExcludedOptions>-Zc:strictStrings</QtExcludedOptions>
   </PropertyGroup>
@@ -160,6 +160,9 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
+    <PostBuildEvent>
+      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin\Release\$(PROCESSOR_ARCHITECTURE)\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -207,6 +210,9 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
+    <PostBuildEvent>
+      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin\Release\$(PROCESSOR_ARCHITECTURE)\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -247,6 +253,9 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
+    <PostBuildEvent>
+      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin\Release\$(PROCESSOR_ARCHITECTURE)\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -289,6 +298,9 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
+    <PostBuildEvent>
+      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin\Release\$(PROCESSOR_ARCHITECTURE)\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="API\AbstractTask.cpp" />
@@ -297,6 +309,7 @@
     <ClCompile Include="API\Finders\AbstractFinder.cpp" />
     <ClCompile Include="API\HandleInfo.cpp" />
     <ClCompile Include="API\DnsEntry.cpp" />
+    <ClCompile Include="API\HeapInfo.cpp" />
     <ClCompile Include="API\MemDumper.cpp" />
     <ClCompile Include="API\MemoryInfo.cpp" />
     <ClCompile Include="API\ModuleInfo.cpp" />
@@ -358,6 +371,12 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\ksyscall.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="API\Windows\ProcessHacker\memprv.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\ndis.cpp" />
     <ClCompile Include="API\Windows\ProcessHacker\PhSvc.cpp" />
@@ -379,6 +398,7 @@
     <ClCompile Include="API\Windows\WinAdmin.cpp" />
     <ClCompile Include="API\Windows\WindowsAPI.cpp" />
     <ClCompile Include="API\Windows\WindowsHelpers.cpp" />
+    <ClCompile Include="API\Windows\WinHeap.cpp" />
     <ClCompile Include="API\Windows\WinHelpers\InjectDll\injdll32.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -427,7 +447,12 @@
     <ClCompile Include="API\WndInfo.cpp" />
     <ClCompile Include="Common\IncrementalPlot.cpp" />
     <ClCompile Include="GUI\AffinityDialog.cpp" />
-    <ClCompile Include="GUI\DriverWindow.cpp" />
+    <ClCompile Include="GUI\DriverWindow.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="GUI\Filters\ProcessFilterModel.cpp" />
     <ClCompile Include="GUI\GraphBar.cpp" />
     <ClCompile Include="GUI\MemoryEditor.cpp" />
@@ -435,6 +460,7 @@
     <ClCompile Include="GUI\Models\DriverModel.cpp" />
     <ClCompile Include="GUI\Models\GDIModel.cpp" />
     <ClCompile Include="GUI\Models\HandleModel.cpp" />
+    <ClCompile Include="GUI\Models\HeapModel.cpp" />
     <ClCompile Include="GUI\Models\MemoryModel.cpp" />
     <ClCompile Include="GUI\Models\ModuleModel.cpp" />
     <ClCompile Include="GUI\Models\NtObjectModel.cpp" />
@@ -509,6 +535,7 @@
       <OutputFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\$(ConfigurationName)\%(Filename).moc</OutputFile>
       <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Release|x64'">input</DynamicSource>
     </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\HeapView.cpp" />
     <ClCompile Include="GUI\TaskInfo\JobView.cpp" />
     <ClCompile Include="GUI\TaskInfo\MemoryView.cpp" />
     <ClCompile Include="GUI\TaskInfo\ModulesView.cpp" />
@@ -640,6 +667,7 @@
     <QtMoc Include="API\Finders\AbstractFinder.h" />
     <ClInclude Include="API\AssemblyList.h" />
     <QtMoc Include="API\DnsEntry.h" />
+    <QtMoc Include="API\HeapInfo.h" />
     <ClInclude Include="API\MiscStats.h" />
     <QtMoc Include="API\AbstractInfo.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../API/%(Filename)%(Extension)</ForceInclude>
@@ -768,6 +796,7 @@
     <ClInclude Include="API\Windows\ProcessHacker\devices.h" />
     <ClInclude Include="API\Windows\ProcessHacker\DotNet.h" />
     <ClInclude Include="API\Windows\ProcessHacker\GpuCounters.h" />
+    <ClInclude Include="API\Windows\ProcessHacker\heapstruct.h" />
     <ClInclude Include="API\Windows\ProcessHacker\memprv.h" />
     <ClInclude Include="API\Windows\ProcessHacker\PhSvc.h" />
     <ClInclude Include="API\Windows\ProcessHacker\pooltable.h" />
@@ -963,6 +992,7 @@
     <QtMoc Include="GUI\Models\MemoryModel.h" />
     <QtMoc Include="GUI\MemoryEditor.h" />
     <QtMoc Include="GUI\SettingsWindow.h" />
+    <QtMoc Include="API\Windows\WinHeap.h" />
     <ClInclude Include="API\Windows\WinHelpers\InjectDll\injdll.h" />
     <ClInclude Include="GUI\CustomItemDelegate.h" />
     <QtMoc Include="GUI\Models\StringModel.h" />
@@ -970,11 +1000,17 @@
     <QtMoc Include="GUI\Models\DnsModel.h" />
     <QtMoc Include="GUI\Models\PoolModel.h" />
     <QtMoc Include="GUI\Models\NtObjectModel.h" />
-    <QtMoc Include="GUI\DriverWindow.h" />
+    <QtMoc Include="GUI\DriverWindow.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </QtMoc>
     <QtMoc Include="GUI\MultiErrorDialog.h" />
     <QtMoc Include="GUI\PersistenceConfig.h" />
     <ClInclude Include="GUI\Filters\ProcessFilterModel.h" />
     <QtMoc Include="GUI\Models\RpcModel.h" />
+    <QtMoc Include="GUI\Models\HeapModel.h" />
     <ClInclude Include="GUI\ProcessPicker.h" />
     <QtMoc Include="GUI\SystemInfo\WinSvcWindow.h">
       <ForceInclude Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;../../GUI/SystemInfo/%(Filename)%(Extension)</ForceInclude>
@@ -1032,6 +1068,7 @@
     <QtMoc Include="GUI\RunDialog.h" />
     <QtMoc Include="GUI\TaskInfo\SbieView.h" />
     <QtMoc Include="GUI\SystemInfo\RpcView.h" />
+    <QtMoc Include="GUI\TaskInfo\HeapView.h" />
     <ClInclude Include="Resources\resource.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>

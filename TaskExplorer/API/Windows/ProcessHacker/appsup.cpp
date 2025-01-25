@@ -307,11 +307,14 @@ BOOLEAN PhaGetProcessKnownCommandLine(
 
             // Lookup the GUID in the registry to determine the name and file name.
 
+            PPH_STRING clsidString = PhaConcatStrings2(L"CLSID\\", guidString->Buffer);
+            PPH_STRING appidString = PhaConcatStrings2(L"AppID\\", guidString->Buffer);
+
             if (NT_SUCCESS(PhOpenKey(
                 &rootKeyHandle,
                 KEY_READ,
                 PH_KEY_CLASSES_ROOT,
-                &PhaConcatStrings2(L"CLSID\\", guidString->Buffer)->sr,
+                &clsidString->sr,
                 0
                 )))
             {
@@ -345,7 +348,7 @@ BOOLEAN PhaGetProcessKnownCommandLine(
                 &rootKeyHandle,
                 KEY_READ,
                 PH_KEY_CLASSES_ROOT,
-                &PhaConcatStrings2(L"AppID\\", guidString->Buffer)->sr,
+                &appidString->sr,
                 0
                 )))
             {
@@ -353,6 +356,9 @@ BOOLEAN PhaGetProcessKnownCommandLine(
                     (PPH_STRING)PH_AUTO(PhQueryRegistryString(rootKeyHandle, NULL));
                 NtClose(rootKeyHandle);
             }
+
+            PhDereferenceObject(clsidString);
+            PhDereferenceObject(appidString);
         }
         break;
     default:
@@ -442,7 +448,7 @@ NTSTATUS PhGetProcessSwitchContext(
         {
             if (!NT_SUCCESS(status = NtReadVirtualMemory(
                 ProcessHandle,
-                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pUnused)),
+                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pContextData)),
                 &data,
                 sizeof(PVOID),
                 NULL

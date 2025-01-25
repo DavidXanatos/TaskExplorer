@@ -93,10 +93,15 @@ extern "C" {
 	VERIFY_RESULT NTAPI PhVerifyFileWithAdditionalCatalog(_In_ PPH_VERIFY_FILE_INFO Information, _In_opt_ PPH_STRING PackageFullName, _Out_opt_ PPH_STRING *SignerName);
 }
 
+extern BOOLEAN g_KphStartupMax;
+extern BOOLEAN g_KphStartupHigh;
+
 // initialization call
 int InitPH(bool bSvc = false);
 
-STATUS InitKPH(QString DeviceName, QString FileName);
+//STATUS InitKPH(QString DeviceName, QString FileName);
+
+STATUS InitKSI(const QString& AppDir);
 
 bool KphSetDebugLog(bool Enable);
 bool KphSetSystemMon(bool Enable);

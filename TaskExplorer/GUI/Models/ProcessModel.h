@@ -26,6 +26,11 @@ public:
 	{
 		eProcess = 0,
 		ePID,
+		//ePID_LXSS,
+		eParentPID,
+		eConsolePID,
+		eSequenceNumber, 
+		eStartKey, 
 		eStaus,
 		eUserName,
 #ifdef WIN32
@@ -68,6 +73,7 @@ public:
 		eHardFaults,
 		eHardFaultsDelta,
 #ifdef WIN32
+		eTLS,
 		ePagedPool,
 		ePeakPagedPool,
 		eNonPagedPool,
@@ -75,6 +81,9 @@ public:
 #endif
 		eSharedWS,
 		eShareableWS,
+#ifdef WIN32
+		eShareableCommit,
+#endif
 		eMinimumWS,
 		eMaximumWS,
 		ePrivateBytesDelta,
@@ -88,6 +97,9 @@ public:
 		// Priority
 		ePriorityClass,
 		eBasePriority,
+#ifdef WIN32
+		ePriorityBoost,
+#endif
 		ePagePriority,
 		eIO_Priority,
 
@@ -108,6 +120,7 @@ public:
 		eVerificationStatus,
 		eVerifiedSigner,
 		eMitigations,
+		eImageCoherency,
 		eProtection,
 		eCritical,
 #endif
@@ -164,10 +177,16 @@ public:
 		eJobObjectID,
 		eDesktop,
 
+		ePowerThrottling, 
 		eRunningTime,
 		eSuspendedTime,
 		eHangCount,
 		eGhostCount,
+
+		eErrorMode,
+		eCodePage, 
+		eReferences,
+		eGrantedAccess,
 #endif
 		eDebugTotal,
 		//eDebugDelte,

@@ -120,7 +120,7 @@ VOID PvPeProperties(
                 PhLoadModuleSymbolProvider(
                     PvSymbolProvider,
                     fileName,
-                    (ULONG64)PvMappedImage.NtHeaders32->OptionalHeader.ImageBase,
+                    PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, 0),
                     PvMappedImage.NtHeaders32->OptionalHeader.SizeOfImage
                     );
             }
@@ -129,7 +129,7 @@ VOID PvPeProperties(
                 PhLoadModuleSymbolProvider(
                     PvSymbolProvider,
                     fileName,
-                    (ULONG64)PvMappedImage.NtHeaders->OptionalHeader.ImageBase,
+                    PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, 0),
                     PvMappedImage.NtHeaders->OptionalHeader.SizeOfImage
                     );
             }
@@ -994,7 +994,7 @@ VOID PvpSetPeImageBaseAddress(
     else
         imagebase = PvMappedImage.NtHeaders->OptionalHeader.ImageBase;
 
-    string = PhFormatString(L"0x%I64x", imagebase);
+    string = PhFormatString(L"0x%llx", imagebase);
     PhSetListViewSubItem(ListViewHandle, PVP_IMAGE_GENERAL_INDEX_IMAGEBASE, 1, string->Buffer);
     PhDereferenceObject(string);
 }
@@ -1168,7 +1168,7 @@ static NTSTATUS PvpEntryPointImageThreadStart(
         {
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, addressOfEntryPoint),
+                PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, addressOfEntryPoint),
                 &symbolResolveLevel,
                 &fileName,
                 &symbolName,
@@ -1179,7 +1179,7 @@ static NTSTATUS PvpEntryPointImageThreadStart(
         {
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, addressOfEntryPoint),
+                PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, addressOfEntryPoint),
                 &symbolResolveLevel,
                 &fileName,
                 &symbolName,
@@ -1956,6 +1956,16 @@ NTSTATUS PhpOpenFileSecurity(
     return status;
 }
 
+NTSTATUS PhpCloseFileSecurity(
+    _In_opt_ HANDLE Handle,
+    _In_opt_ BOOLEAN Release,
+    _In_opt_ PVOID Context
+    )
+{
+    if (Handle) NtClose(Handle);
+    return STATUS_SUCCESS;
+}
+
 static COLORREF NTAPI PvpPeCharacteristicsColorFunction(
     _In_ INT Index,
     _In_ PVOID Param,
@@ -2246,7 +2256,7 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

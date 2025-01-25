@@ -16,7 +16,9 @@
 extern "C" {
 #endif
 
+//
 // Configuration
+//
 
 #define PH_OBJECT_SMALL_OBJECT_SIZE 48
 #define PH_OBJECT_SMALL_OBJECT_COUNT 512
@@ -25,7 +27,9 @@ extern "C" {
 #define PH_OBJECT_TYPE_USE_FREE_LIST 0x00000001
 #define PH_OBJECT_TYPE_VALID_FLAGS 0x00000001
 
+//
 // Object type callbacks
+//
 
 /**
  * The delete procedure for an object type, called when an object of the type is being freed.
@@ -38,11 +42,11 @@ typedef VOID (NTAPI *PPH_TYPE_DELETE_PROCEDURE)(
     _In_ ULONG Flags
     );
 
-struct _PH_OBJECT_TYPE;
-typedef struct _PH_OBJECT_TYPE *PPH_OBJECT_TYPE;
+typedef struct _PH_OBJECT_TYPE PH_OBJECT_TYPE;
+typedef PH_OBJECT_TYPE* PPH_OBJECT_TYPE;
 
-struct _PH_QUEUED_LOCK;
-typedef struct _PH_QUEUED_LOCK PH_QUEUED_LOCK, *PPH_QUEUED_LOCK;
+typedef struct _PH_QUEUED_LOCK PH_QUEUED_LOCK;
+typedef PH_QUEUED_LOCK* PPH_QUEUED_LOCK;
 
 #ifdef DEBUG
 typedef VOID (NTAPI *PPH_CREATE_OBJECT_HOOK)(
@@ -61,7 +65,7 @@ typedef struct _PH_OBJECT_TYPE_PARAMETERS
 
 typedef struct _PH_OBJECT_TYPE_INFORMATION
 {
-    PWSTR Name;
+    PCWSTR Name;
     ULONG NumberOfObjects;
     USHORT Flags;
     UCHAR TypeIndex;
@@ -192,7 +196,7 @@ PHLIBAPI
 PPH_OBJECT_TYPE
 NTAPI
 PhCreateObjectType(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ PPH_TYPE_DELETE_PROCEDURE DeleteProcedure
     );
@@ -201,7 +205,7 @@ PHLIBAPI
 PPH_OBJECT_TYPE
 NTAPI
 PhCreateObjectTypeEx(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ PPH_TYPE_DELETE_PROCEDURE DeleteProcedure,
     _In_opt_ PPH_OBJECT_TYPE_PARAMETERS Parameters
@@ -222,7 +226,9 @@ PhCreateAlloc(
     _In_ SIZE_T Size
     );
 
+//
 // Object reference functions
+//
 
 FORCEINLINE
 VOID
@@ -276,7 +282,9 @@ PhClearReference(
     PhMoveReference(ObjectReference, NULL);
 }
 
+//
 // Convenience functions
+//
 
 FORCEINLINE
 PVOID
@@ -293,7 +301,9 @@ PhCreateObjectZero(
     return object;
 }
 
+//
 // Auto-dereference pool
+//
 
 /** The size of the static array in an auto-release pool. */
 #define PH_AUTO_POOL_STATIC_SIZE 64

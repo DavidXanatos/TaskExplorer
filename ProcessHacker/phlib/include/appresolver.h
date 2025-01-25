@@ -26,7 +26,7 @@ HRESULT NTAPI PhAppResolverGetAppIdForWindow(
 
 HRESULT NTAPI PhAppResolverActivateAppId(
     _In_ PPH_STRING ApplicationUserModelId,
-    _In_opt_ PWSTR CommandLine,
+    _In_opt_ PCWSTR CommandLine,
     _Out_opt_ HANDLE *ProcessId
     );
 
@@ -53,7 +53,7 @@ PPH_STRING NTAPI PhGetAppContainerName(
     );
 
 PPH_STRING NTAPI PhGetAppContainerSidFromName(
-    _In_ PWSTR AppContainerName
+    _In_ PCWSTR AppContainerName
     );
 
 PPH_STRING NTAPI PhGetAppContainerPackageName(
@@ -70,7 +70,7 @@ PPH_STRING NTAPI PhGetPackagePath(
     );
 
 PPH_LIST NTAPI PhGetPackageAssetsFromResourceFile(
-    _In_ PWSTR FilePath
+    _In_ PCWSTR FilePath
     );
 
 typedef struct _PH_APPUSERMODELID_ENUM_ENTRY
@@ -123,9 +123,9 @@ HRESULT NTAPI PhAppResolverEndCrashDumpTask(
 // Desktop Bridge
 
 HRESULT NTAPI PhCreateProcessDesktopPackage(
-    _In_ PWSTR ApplicationUserModelId,
-    _In_ PWSTR Executable,
-    _In_ PWSTR Arguments,
+    _In_ PCWSTR ApplicationUserModelId,
+    _In_ PCWSTR Executable,
+    _In_ PCWSTR Arguments,
     _In_ BOOLEAN PreventBreakaway,
     _In_opt_ HANDLE ParentProcessId,
     _Out_opt_ PHANDLE ProcessHandle
@@ -259,7 +259,7 @@ PhDeleteWindowsRuntimeString(
     );
 
 PHLIBAPI
-UINT32
+ULONG
 NTAPI
 PhGetWindowsRuntimeStringLength(
     _In_opt_ HSTRING String
@@ -270,7 +270,7 @@ PCWSTR
 NTAPI
 PhGetWindowsRuntimeStringBuffer(
     _In_opt_ HSTRING String,
-    _Out_opt_ PUINT32 Length
+    _Out_opt_ PULONG Length
     );
 
 PHLIBAPI

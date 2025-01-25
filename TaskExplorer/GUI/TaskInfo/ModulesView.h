@@ -58,6 +58,7 @@ private:
 	QWidget*				m_pFilterWidget;
 	QHBoxLayout*			m_pFilterLayout;
 	QPushButton*			m_pLoadModule;
+	QCheckBox*				m_pShowModPages;
 
 	QTreeViewEx*			m_pModuleList;
 	CModuleModel*			m_pModuleModel;

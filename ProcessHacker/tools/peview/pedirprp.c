@@ -281,7 +281,7 @@ VOID PvpPeEnumerateImageDataDirectory(
 
         __try
         {
-            PPH_STRING ssdeepHashString = NULL;
+            char* ssdeepHashString = NULL;
 
             fuzzy_hash_buffer(
                 imageDirectoryData,
@@ -291,7 +291,8 @@ VOID PvpPeEnumerateImageDataDirectory(
 
             if (ssdeepHashString)
             {
-                directoryNode->SsdeepString = ssdeepHashString;
+                directoryNode->SsdeepString = PhConvertUtf8ToUtf16(ssdeepHashString);
+                free(ssdeepHashString);
             }
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
@@ -302,7 +303,7 @@ VOID PvpPeEnumerateImageDataDirectory(
 
         __try
         {
-            PPH_STRING tlshHashString = NULL;
+            char* tlshHashString = NULL;
 
             //
             // This can fail in TLSH library during finalization when
@@ -314,9 +315,10 @@ VOID PvpPeEnumerateImageDataDirectory(
                 &tlshHashString
                 );
 
-            if (!PhIsNullOrEmptyString(tlshHashString))
+            if (tlshHashString)
             {
-                directoryNode->TlshString = tlshHashString;
+                directoryNode->TlshString = PhConvertUtf8ToUtf16(tlshHashString);
+                free(tlshHashString);
             }
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
@@ -351,6 +353,7 @@ NTSTATUS PvpPeDirectoryEnumerateThread(
     PvpPeEnumerateImageDataDirectory(Context, IMAGE_DIRECTORY_ENTRY_IAT, L"IAT");
     PvpPeEnumerateImageDataDirectory(Context, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, L"Delay load imports");
     PvpPeEnumerateImageDataDirectory(Context, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, L"CLR");
+    PvpPeEnumerateImageDataDirectory(Context, 15, L"Reserved");
 
     PostMessage(Context->DialogHandle, WM_PV_SEARCH_FINISHED, 0, 0);
     return STATUS_SUCCESS;
@@ -414,6 +417,7 @@ INT_PTR CALLBACK PvPeDirectoryDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Directories (Ctrl+K)",
                 PvpPeDirectorySearchControl,
@@ -535,7 +539,16 @@ INT_PTR CALLBACK PvPeDirectoryDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -1089,7 +1102,7 @@ VOID PvInitializeDirectoryTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_DIRECTORY_TREE_COLUMN_ITEM_SSDEEP, TRUE, L"SSDEEP", 80, PH_ALIGN_LEFT, PV_DIRECTORY_TREE_COLUMN_ITEM_SSDEEP, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_DIRECTORY_TREE_COLUMN_ITEM_TLSH, TRUE, L"TLSH", 80, PH_ALIGN_LEFT, PV_DIRECTORY_TREE_COLUMN_ITEM_TLSH, 0, 0);
 
-    TreeNew_SetRowHeight(TreeNewHandle, 22);
+    TreeNew_SetRowHeight(Context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(ParentWindowHandle)));
 
     TreeNew_SetRedraw(TreeNewHandle, TRUE);
     TreeNew_SetSort(TreeNewHandle, PV_DIRECTORY_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);

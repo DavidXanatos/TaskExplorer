@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2012
- *     dmex    2017-2023
+ *     dmex    2017-2024
  *
  */
 
@@ -46,12 +46,14 @@ typedef struct _PH_EXTLV_CONTEXT
     // Misc.
 
     LONG EnableRedraw;
+    LONG WindowDpi;
     HCURSOR Cursor;
+    IListView* ListViewClass;
 } PH_EXTLV_CONTEXT, *PPH_EXTLV_CONTEXT;
 
 LRESULT CALLBACK PhpExtendedListViewWndProc(
-    _In_ HWND hwnd,
-    _In_ UINT uMsg,
+    _In_ HWND WindowHandle,
+    _In_ UINT WindowMessage,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     );
@@ -70,8 +72,8 @@ INT PhpExtendedListViewCompareFastFunc(
 
 INT PhpCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
-    _In_ INT X,
-    _In_ INT Y,
+    _In_ LONG X,
+    _In_ LONG Y,
     _In_ PVOID XParam,
     _In_ PVOID YParam,
     _In_ ULONG Column,
@@ -80,9 +82,17 @@ INT PhpCompareListViewItems(
 
 INT PhpDefaultCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
-    _In_ INT X,
-    _In_ INT Y,
+    _In_ LONG X,
+    _In_ LONG Y,
     _In_ ULONG Column
+    );
+
+HWND PhGetExtendedListViewHeader(
+    _In_ PPH_EXTLV_CONTEXT Context
+    );
+
+HWND PhGetExtendedListViewTooltips(
+    _In_ PPH_EXTLV_CONTEXT Context
     );
 
 /**
@@ -120,16 +130,18 @@ VOID PhSetExtendedListViewEx(
     context->EnableRedraw = 1;
     context->Cursor = NULL;
 
-    context->OldWndProc = (WNDPROC)GetWindowLongPtr(WindowHandle, GWLP_WNDPROC);
+    context->ListViewClass = PhGetListViewInterface(WindowHandle);
+
+    context->OldWndProc = PhGetWindowProcedure(WindowHandle);
     PhSetWindowContext(WindowHandle, MAXCHAR, context);
-    SetWindowLongPtr(WindowHandle, GWLP_WNDPROC, (LONG_PTR)PhpExtendedListViewWndProc);
+    PhSetWindowProcedure(WindowHandle, PhpExtendedListViewWndProc);
 
     ExtendedListView_Init(WindowHandle);
 }
 
 LRESULT CALLBACK PhpExtendedListViewWndProc(
-    _In_ HWND hwnd,
-    _In_ UINT uMsg,
+    _In_ HWND WindowHandle,
+    _In_ UINT WindowMessage,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     )
@@ -137,19 +149,26 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
     PPH_EXTLV_CONTEXT context;
     WNDPROC oldWndProc;
 
-    context = PhGetWindowContext(hwnd, MAXCHAR);
+    context = PhGetWindowContext(WindowHandle, MAXCHAR);
 
     if (!context)
         return 0;
 
     oldWndProc = context->OldWndProc;
 
-    switch (uMsg)
+    switch (WindowMessage)
     {
-    case WM_DESTROY:
+    case WM_NCDESTROY:
         {
-            SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)oldWndProc);
-            PhRemoveWindowContext(hwnd, MAXCHAR);
+            PhRemoveWindowContext(WindowHandle, MAXCHAR);
+            PhSetWindowProcedure(WindowHandle, oldWndProc);
+
+            if (context->ListViewClass)
+            {
+                IListView_Release(context->ListViewClass);
+                context->ListViewClass = NULL;
+            }
+
             PhFree(context);
         }
         break;
@@ -163,7 +182,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                 {
                     HWND headerHandle;
 
-                    headerHandle = (HWND)CallWindowProc(oldWndProc, hwnd, LVM_GETHEADER, 0, 0);
+                    headerHandle = PhGetExtendedListViewHeader(context);
 
                     if (header->hwndFrom == headerHandle)
                     {
@@ -195,7 +214,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                         }
 
                         PhSetHeaderSortIcon(headerHandle, context->SortColumn, context->SortOrder);
-                        ExtendedListView_SortItems(hwnd);
+                        ExtendedListView_SortItems(WindowHandle);
                     }
                 }
                 break;
@@ -210,7 +229,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
             {
             case NM_CUSTOMDRAW:
                 {
-                    if (header->hwndFrom == hwnd)
+                    if (header->hwndFrom == WindowHandle)
                     {
                         LPNMLVCUSTOMDRAW customDraw = (LPNMLVCUSTOMDRAW)header;
 
@@ -221,6 +240,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                         case CDDS_ITEMPREPAINT:
                             {
                                 BOOLEAN colorChanged = FALSE;
+                                BOOLEAN selected = FALSE;
                                 HFONT newFont = NULL;
 
                                 if (context->ItemColorFunction)
@@ -245,7 +265,45 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                                 if (newFont)
                                     SelectFont(customDraw->nmcd.hdc, newFont);
 
-                                if (colorChanged)
+                                // Fix text readability for hot and selected colored items (Dart Vanya)
+
+                                if (PhEnableThemeSupport)
+                                {
+                                    ULONG state;
+
+                                    if (context->ListViewClass && SUCCEEDED(IListView_GetItemState(
+                                        context->ListViewClass,
+                                        (INT)customDraw->nmcd.dwItemSpec,
+                                        0,
+                                        LVIS_SELECTED,
+                                        &state
+                                        )))
+                                    {
+                                        if (FlagOn(customDraw->nmcd.uItemState, CDIS_HOT) || FlagOn(state, LVIS_SELECTED))
+                                        {
+                                            selected = TRUE;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (FlagOn(customDraw->nmcd.uItemState, CDIS_HOT) || FlagOn(CallWindowProc(
+                                            oldWndProc,
+                                            WindowHandle,
+                                            LVM_GETITEMSTATE,
+                                            customDraw->nmcd.dwItemSpec,
+                                            LVIS_SELECTED
+                                            ), LVIS_SELECTED))
+                                        {
+                                            selected = TRUE;
+                                        }
+                                    }
+                                }
+
+                                if (selected)
+                                {
+                                    customDraw->clrText = PhThemeWindowTextColor;
+                                }
+                                else if (colorChanged)
                                 {
                                     if (PhGetColorBrightness(customDraw->clrTextBk) > 100) // slightly less than half
                                         customDraw->clrText = RGB(0x00, 0x00, 0x00);
@@ -253,10 +311,10 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                                         customDraw->clrText = RGB(0xff, 0xff, 0xff);
                                 }
 
-                                if (!newFont)
-                                    return CDRF_DODEFAULT;
-                                else
+                                if (newFont)
                                     return CDRF_NEWFONT;
+                                else
+                                    return CDRF_DODEFAULT;
                             }
                             break;
                         }
@@ -320,14 +378,15 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
         return TRUE;
     case ELVM_INIT:
         {
-            PhSetHeaderSortIcon(ListView_GetHeader(hwnd), context->SortColumn, context->SortOrder);
+            context->WindowDpi = PhGetWindowDpi(WindowHandle);
 
-            // HACK to fix tooltips showing behind Always On Top windows.
-            SetWindowPos(ListView_GetToolTips(hwnd), HWND_TOPMOST, 0, 0, 0, 0,
-                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+            PhSetHeaderSortIcon(PhGetExtendedListViewHeader(context), context->SortColumn, context->SortOrder);
+
+            // Fix tooltips showing behind Always On Top windows.
+            SetWindowPos(PhGetExtendedListViewTooltips(context), HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
 
             // Make sure focus rectangles are disabled.
-            SendMessage(hwnd, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
+            SendMessage(WindowHandle, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
         }
         return TRUE;
     case ELVM_SETCOLUMNWIDTH:
@@ -342,7 +401,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                 ULONG i;
                 LVCOLUMN lvColumn;
 
-                GetClientRect(hwnd, &clientRect);
+                GetClientRect(WindowHandle, &clientRect);
                 availableWidth = clientRect.right;
                 i = 0;
                 lvColumn.mask = LVCF_WIDTH;
@@ -351,13 +410,27 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                 {
                     if (i != column)
                     {
-                        if (CallWindowProc(oldWndProc, hwnd, LVM_GETCOLUMN, i, (LPARAM)&lvColumn))
+                        if (context->ListViewClass)
                         {
-                            availableWidth -= lvColumn.cx;
+                            if (SUCCEEDED(IListView_GetColumn(context->ListViewClass, i, &lvColumn)))
+                            {
+                                availableWidth -= lvColumn.cx;
+                            }
+                            else
+                            {
+                                break;
+                            }
                         }
                         else
                         {
-                            break;
+                            if (CallWindowProc(oldWndProc, WindowHandle, LVM_GETCOLUMN, i, (LPARAM)&lvColumn))
+                            {
+                                availableWidth -= lvColumn.cx;
+                            }
+                            else
+                            {
+                                break;
+                            }
                         }
                     }
 
@@ -365,10 +438,18 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                 }
 
                 if (availableWidth >= 40)
-                    return CallWindowProc(oldWndProc, hwnd, LVM_SETCOLUMNWIDTH, column, availableWidth);
+                {
+                    if (context->ListViewClass && SUCCEEDED(IListView_SetColumnWidth(context->ListViewClass, column, availableWidth)))
+                        return TRUE;
+
+                    return CallWindowProc(oldWndProc, WindowHandle, LVM_SETCOLUMNWIDTH, column, availableWidth);
+                }
             }
 
-            return CallWindowProc(oldWndProc, hwnd, LVM_SETCOLUMNWIDTH, column, width);
+            if (context->ListViewClass && SUCCEEDED(IListView_SetColumnWidth(context->ListViewClass, column, width)))
+                return TRUE;
+
+            return CallWindowProc(oldWndProc, WindowHandle, LVM_SETCOLUMNWIDTH, column, width);
         }
         break;
     case ELVM_SETCOMPAREFUNCTION:
@@ -411,12 +492,12 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
 
             if (context->EnableRedraw == 1)
             {
-                SendMessage(hwnd, WM_SETREDRAW, TRUE, 0);
-                InvalidateRect(hwnd, NULL, FALSE);
+                SendMessage(WindowHandle, WM_SETREDRAW, TRUE, 0);
+                InvalidateRect(WindowHandle, NULL, FALSE);
             }
             else if (context->EnableRedraw == 0)
             {
-                SendMessage(hwnd, WM_SETREDRAW, FALSE, 0);
+                SendMessage(WindowHandle, WM_SETREDRAW, FALSE, 0);
             }
         }
         return TRUE;
@@ -436,7 +517,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
             context->SortColumn = (ULONG)wParam;
             context->SortOrder = (PH_SORT_ORDER)lParam;
 
-            PhSetHeaderSortIcon(ListView_GetHeader(hwnd), context->SortColumn, context->SortOrder);
+            PhSetHeaderSortIcon(PhGetExtendedListViewHeader(context), context->SortColumn, context->SortOrder);
         }
         return TRUE;
     case ELVM_SETSORTFAST:
@@ -465,50 +546,129 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                 // values. The disadvantage of this method is that default sorting is not available
                 // - if a column doesn't have a comparison function, it doesn't get sorted at all.
 
-                result = (BOOL)CallWindowProc( // ListView_SortItems
-                    oldWndProc,
-                    hwnd,
-                    LVM_SORTITEMS,
-                    (WPARAM)context,
-                    (LPARAM)(PFNLVCOMPARE)PhpExtendedListViewCompareFastFunc
-                    );
+                if (context->ListViewClass)
+                {
+                    result = SUCCEEDED(IListView_SortItems(
+                        context->ListViewClass,
+                        FALSE,
+                        (WPARAM)context,
+                        (PFNLVCOMPARE)PhpExtendedListViewCompareFastFunc
+                        ));
+                }
+                else
+                {
+                    result = (BOOL)CallWindowProc( // ListView_SortItems
+                        oldWndProc,
+                        WindowHandle,
+                        LVM_SORTITEMS,
+                        (WPARAM)context,
+                        (LPARAM)(PFNLVCOMPARE)PhpExtendedListViewCompareFastFunc
+                        );
+                }
             }
             else
             {
-                result = (BOOL)CallWindowProc( // ListView_SortItemsEx
-                    oldWndProc,
-                    hwnd,
-                    LVM_SORTITEMSEX,
-                    (WPARAM)context,
-                    (LPARAM)(PFNLVCOMPARE)PhpExtendedListViewCompareFunc
-                    );
+                if (context->ListViewClass)
+                {
+                    result = SUCCEEDED(IListView_SortItems(
+                        context->ListViewClass,
+                        TRUE,
+                        (WPARAM)context,
+                        (PFNLVCOMPARE)PhpExtendedListViewCompareFunc
+                        ));
+                }
+                else
+                {
+                    result = (BOOL)CallWindowProc( // ListView_SortItemsEx
+                        oldWndProc,
+                        WindowHandle,
+                        LVM_SORTITEMSEX,
+                        (WPARAM)context,
+                        (LPARAM)(PFNLVCOMPARE)PhpExtendedListViewCompareFunc
+                        );
+                }
             }
 
             return result;
         }
         break;
+    case WM_DPICHANGED_AFTERPARENT:
+        {
+            LONG listviewDpi;
+            LVCOLUMN lvColumn;
+            ULONG i;
+
+            i = 0;
+            lvColumn.mask = LVCF_WIDTH;
+            listviewDpi = PhGetWindowDpi(WindowHandle);
+
+            if (context->WindowDpi == 0)
+                break;
+
+            // Workaround the ListView using incorrect widths for header columns by re-setting the width. (dmex)
+            // Note: This resets the width a second time after the header control has already set the width.
+
+            ExtendedListView_SetRedraw(WindowHandle, FALSE);
+
+            while (TRUE)
+            {
+                if (context->ListViewClass)
+                {
+                    if (SUCCEEDED(IListView_GetColumn(context->ListViewClass, i, &lvColumn)))
+                    {
+                        lvColumn.cx = PhMultiplyDivideSigned(lvColumn.cx, listviewDpi, context->WindowDpi);
+
+                        IListView_SetColumn(context->ListViewClass, i, &lvColumn);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    if (CallWindowProc(oldWndProc, WindowHandle, LVM_GETCOLUMN, i, (LPARAM)&lvColumn))
+                    {
+                        lvColumn.cx = PhMultiplyDivideSigned(lvColumn.cx, listviewDpi, context->WindowDpi);
+
+                        CallWindowProc(oldWndProc, WindowHandle, LVM_SETCOLUMN, i, (WPARAM)&lvColumn);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                i++;
+            }
+
+            ExtendedListView_SetRedraw(WindowHandle, TRUE);
+
+            context->WindowDpi = listviewDpi;
+        }
+        break;
     }
 
-    return CallWindowProc(oldWndProc, hwnd, uMsg, wParam, lParam);
+    return CallWindowProc(oldWndProc, WindowHandle, WindowMessage, wParam, lParam);
 }
 
 /**
  * Visually indicates the sort order of a header control item.
  *
- * \param hwnd A handle to the header control.
+ * \param WindowHandle A handle to the header control.
  * \param Index The index of the item.
  * \param Order The sort order of the item.
  */
 VOID PhSetHeaderSortIcon(
-    _In_ HWND hwnd,
-    _In_ INT Index,
+    _In_ HWND WindowHandle,
+    _In_ LONG Index,
     _In_ PH_SORT_ORDER Order
     )
 {
-    INT count;
-    INT i;
+    LONG count;
+    LONG i;
 
-    count = Header_GetItemCount(hwnd);
+    count = Header_GetItemCount(WindowHandle);
 
     if (count == INT_ERROR)
         return;
@@ -518,7 +678,7 @@ VOID PhSetHeaderSortIcon(
         HDITEM item;
 
         item.mask = HDI_FORMAT;
-        Header_GetItem(hwnd, i, &item);
+        Header_GetItem(WindowHandle, i, &item);
 
         if (Order != NoSortOrder && i == Index)
         {
@@ -538,7 +698,7 @@ VOID PhSetHeaderSortIcon(
             item.fmt &= ~(HDF_SORTDOWN | HDF_SORTUP);
         }
 
-        Header_SetItem(hwnd, i, &item);
+        Header_SetItem(WindowHandle, i, &item);
     }
 }
 
@@ -549,9 +709,9 @@ INT PhpExtendedListViewCompareFunc(
     )
 {
     PPH_EXTLV_CONTEXT context = (PPH_EXTLV_CONTEXT)lParamSort;
-    INT result;
-    INT x = (INT)lParam1;
-    INT y = (INT)lParam2;
+    LONG result;
+    LONG x = (LONG)lParam1;
+    LONG y = (LONG)lParam2;
     ULONG i;
     PULONG fallbackColumns;
     LVITEM xItem;
@@ -567,10 +727,20 @@ INT PhpExtendedListViewCompareFunc(
     yItem.iItem = y;
     yItem.iSubItem = 0;
 
-    if (!CallWindowProc(context->OldWndProc, context->Handle, LVM_GETITEM, 0, (LPARAM)&xItem))
-        return 0;
-    if (!CallWindowProc(context->OldWndProc, context->Handle, LVM_GETITEM, 0, (LPARAM)&yItem))
-        return 0;
+    if (context->ListViewClass)
+    {
+        if (FAILED(IListView_GetItem(context->ListViewClass, &xItem)))
+            return 0;
+        if (FAILED(IListView_GetItem(context->ListViewClass, &yItem)))
+            return 0;
+    }
+    else
+    {
+        if (!CallWindowProc(context->OldWndProc, context->Handle, LVM_GETITEM, 0, (LPARAM)&xItem))
+            return 0;
+        if (!CallWindowProc(context->OldWndProc, context->Handle, LVM_GETITEM, 0, (LPARAM)&yItem))
+            return 0;
+    }
 
     // First, do tri-state sorting.
 
@@ -674,8 +844,8 @@ INT PhpExtendedListViewCompareFastFunc(
 
 FORCEINLINE INT PhpCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
-    _In_ INT X,
-    _In_ INT Y,
+    _In_ LONG X,
+    _In_ LONG Y,
     _In_ PVOID XParam,
     _In_ PVOID YParam,
     _In_ ULONG Column,
@@ -713,8 +883,8 @@ FORCEINLINE INT PhpCompareListViewItems(
 
 INT PhpDefaultCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
-    _In_ INT X,
-    _In_ INT Y,
+    _In_ LONG X,
+    _In_ LONG Y,
     _In_ ULONG Column
     )
 {
@@ -731,7 +901,11 @@ INT PhpDefaultCompareListViewItems(
     item.cchTextMax = MAX_PATH;
 
     xText[0] = UNICODE_NULL;
-    CallWindowProc(Context->OldWndProc, Context->Handle, LVM_GETITEM, 0, (LPARAM)&item);
+
+    if (Context->ListViewClass)
+        IListView_GetItem(Context->ListViewClass, &item);
+    else
+        CallWindowProc(Context->OldWndProc, Context->Handle, LVM_GETITEM, 0, (LPARAM)&item);
 
     // Get the Y item text.
 
@@ -740,7 +914,11 @@ INT PhpDefaultCompareListViewItems(
     item.cchTextMax = MAX_PATH;
 
     yText[0] = UNICODE_NULL;
-    CallWindowProc(Context->OldWndProc, Context->Handle, LVM_GETITEM, 0, (LPARAM)&item);
+
+    if (Context->ListViewClass)
+        IListView_GetItem(Context->ListViewClass, &item);
+    else
+        CallWindowProc(Context->OldWndProc, Context->Handle, LVM_GETITEM, 0, (LPARAM)&item);
 
     // Compare them.
 
@@ -749,4 +927,38 @@ INT PhpDefaultCompareListViewItems(
 #else
     return _wcsicmp(xText, yText);
 #endif
+}
+
+HWND PhGetExtendedListViewHeader(
+    _In_ PPH_EXTLV_CONTEXT Context
+    )
+{
+    if (Context->ListViewClass)
+    {
+        HWND headerHandle;
+
+        if (HR_SUCCESS(IListView_GetHeaderControl(Context->ListViewClass, &headerHandle)))
+        {
+            return headerHandle;
+        }
+    }
+
+    return ListView_GetHeader(Context->Handle);
+}
+
+HWND PhGetExtendedListViewTooltips(
+    _In_ PPH_EXTLV_CONTEXT Context
+    )
+{
+    if (Context->ListViewClass)
+    {
+        HWND tooltipHandle;
+
+        if (HR_SUCCESS(IListView_GetToolTip(Context->ListViewClass, &tooltipHandle)))
+        {
+            return tooltipHandle;
+        }
+    }
+
+    return ListView_GetToolTips(Context->Handle);
 }

@@ -117,7 +117,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 				switch (section)
 				{
-					case eProcess:			ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(pHandle->GetProcessId()); break;	
+					case eProcess:			ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(theGUI->FormatID(pHandle->GetProcessId())); break;	
 					case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
 					case eType:				ColValue.Formated = pHandle->GetTypeString(); break;
 					case eGrantedAccess:	ColValue.Formated = pHandle->GetGrantedAccessString(); break;

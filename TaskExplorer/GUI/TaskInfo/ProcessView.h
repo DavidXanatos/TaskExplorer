@@ -26,10 +26,13 @@ private slots:
 	void					OnResetColumns();
 	void					OnColumnsChanged();
 
+
 	//void					OnClicked(const QModelIndex& Index);
 	void					OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
 
 	void					OnCertificate(const QString& Link);
+	void					OnPolicy();
+	void					OnPermissions();
 
 protected:
 	//virtual void				OnMenu(const QPoint& Point);
@@ -37,6 +40,8 @@ protected:
 	//virtual QAbstractItemModel* GetModel()	{ return m_pStatsList->model(); }
 
 	void					SyncModel();
+
+	CProcessPtr				GetCurrentProcess();
 
 	QList<CProcessPtr>		m_Processes;
 
@@ -62,6 +67,9 @@ private:
 	QLabel*					m_pProcessVersion;
 	QLabel*					m_pSubSystem;
 	QLineEdit*				m_pFilePath;
+#ifdef WIN32
+	QLineEdit*				m_pFilePathNt;
+#endif
 
 	QTabWidget*				m_pTabWidget;
 
@@ -101,6 +109,10 @@ private:
 
 	CPanelWidgetEx*			m_pMitigation;
 	QLabel*					m_Protecetion;
+	QCheckBox*				m_pNoWriteUp;
+	QCheckBox*				m_pNoReadUp;
+	QCheckBox*				m_pNoExecuteUp;
+	QPushButton*			m_pPermissions;
 
 	//QGroupBox*				m_pAppBox;
 	QWidget*				m_pAppBox;

@@ -12,7 +12,6 @@ public:
 	CModuleInfo(QObject *parent = nullptr);
 	virtual ~CModuleInfo();
 
-	virtual void SetFileName(const QString& FileName)		{ QWriteLocker Locker(&m_Mutex); m_FileName = FileName; }
 	virtual QString GetFileName() const						{ QReadLocker Locker(&m_Mutex); return m_FileName; }
 
 	virtual quint64 GetFileSize() const						{ QReadLocker Locker(&m_Mutex); return m_FileSize; }
@@ -52,6 +51,7 @@ protected:
 	quint64						m_BaseAddress;
 	quint64						m_Size;
     quint64						m_ParentBaseAddress;
+
 	bool						m_IsFirst;
 	bool						m_IsLoaded;
 

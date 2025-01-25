@@ -14,7 +14,7 @@
 
 #include <trace.h>
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Opens a thread.
@@ -42,7 +42,7 @@ NTSTATUS KphOpenThread(
     PETHREAD thread;
     HANDLE threadHandle = NULL;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     thread = NULL;
 
@@ -96,7 +96,6 @@ NTSTATUS KphOpenThread(
         }
     }
 
-#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_THREAD_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -112,7 +111,6 @@ NTSTATUS KphOpenThread(
             goto Exit;
         }
     }
-#endif
 
     //
     // Always open in KernelMode to skip access checks.
@@ -184,7 +182,7 @@ NTSTATUS KphOpenThreadProcess(
     PETHREAD thread;
     HANDLE processHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     thread = NULL;
 
@@ -217,7 +215,6 @@ NTSTATUS KphOpenThreadProcess(
         goto Exit;
     }
 
-#ifndef PPL_NO_SECURITY
     if ((DesiredAccess & KPH_PROCESS_READ_ACCESS) != DesiredAccess)
     {
         status = KphDominationCheck(PsGetCurrentProcess(),
@@ -233,7 +230,6 @@ NTSTATUS KphOpenThreadProcess(
             goto Exit;
         }
     }
-#endif
 
     //
     // Always open in KernelMode to skip access checks.
@@ -317,7 +313,7 @@ NTSTATUS KphCaptureStackBackTraceThreadByHandle(
     ULONG backTraceHash;
     LARGE_INTEGER timeout;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     backTrace = NULL;
     thread = NULL;
@@ -491,7 +487,7 @@ NTSTATUS KphSetInformationThread(
     HANDLE threadHandle;
     THREADINFOCLASS threadInformationClass;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     threadInformation = NULL;
     thread = NULL;
@@ -560,7 +556,6 @@ NTSTATUS KphSetInformationThread(
         goto Exit;
     }
 
-#ifndef PPL_NO_SECURITY
     status = KphDominationCheck(PsGetCurrentProcess(),
                                 PsGetThreadProcess(thread),
                                 AccessMode);
@@ -573,7 +568,6 @@ NTSTATUS KphSetInformationThread(
 
         goto Exit;
     }
-#endif
 
     status = ObOpenObjectByPointer(thread,
                                    OBJ_KERNEL_HANDLE,
@@ -724,7 +718,7 @@ NTSTATUS KphQueryInformationThread(
     PKPH_THREAD_CONTEXT thread;
     ULONG returnLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     dyn = NULL;
     threadObject = NULL;

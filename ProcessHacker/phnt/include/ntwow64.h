@@ -240,7 +240,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS32
 
     UNICODE_STRING32 RedirectionDllName; // REDSTONE4
     UNICODE_STRING32 HeapPartitionName; // 19H1
-    WOW64_POINTER(ULONG_PTR) DefaultThreadpoolCpuSetMasks;
+    WOW64_POINTER(ULONGLONG) DefaultThreadpoolCpuSetMasks;
     ULONG DefaultThreadpoolCpuSetMaskCount;
     ULONG DefaultThreadpoolThreadMaximum;
 } RTL_USER_PROCESS_PARAMETERS32, *PRTL_USER_PROCESS_PARAMETERS32;
@@ -645,8 +645,8 @@ FORCEINLINE VOID UStrToUStr32(
 //
 // Get the 32-bit TEB without doing a memory reference.
 //
-#define WOW64_GET_TEB32(teb64) ((PTEB32)(PVOID)RtlOffsetToPointer((teb64), WOW64_ROUND_TO_PAGES(sizeof(TEB))))
-#define WOW64_TEB32_POINTER_ADDRESS(teb64) (PVOID)&((teb64)->NtTib.ExceptionList)
+#define WOW64_GET_TEB32(teb64) ((PTEB32)(((ULONG_PTR)(teb64)) + ((ULONG_PTR)WOW64_ROUND_TO_PAGES(sizeof(TEB)))))
+#define WOW64_TEB32_POINTER_ADDRESS(teb64) ((PVOID)&(((PTEB)(teb64))->NtTib.ExceptionList))
 
 typedef union _WOW64_EXECUTE_OPTIONS
 {
@@ -758,7 +758,7 @@ Wow64CurrentNativeTeb(
     else
     {
         //
-        // Called while runnign under WoW Host, so calculate the position of the
+        // Called while running under WoW Host, so calculate the position of the
         // host teb relative to the current (guest) teb.
         //
 

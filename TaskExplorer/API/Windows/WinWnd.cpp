@@ -3,6 +3,7 @@
 #include "WinWnd.h"
 #include "WinThread.h"
 #include "WindowsAPI.h"
+#include "../../GUI/TaskExplorer.h"
 
 #define NOSHLWAPI
 #include <shellapi.h>
@@ -49,10 +50,14 @@ bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, 
         {
             if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, instanceHandle, &fileName)))
             {
-                PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
-                PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
+				PPH_STRING newFileName = PhResolveDevicePrefix(&fileName->sr);
+				if (newFileName) {
+					PPH_STRING newFileName2 = PhGetBaseName(newFileName);
 
-				m_ModuleString = CastPhString(fileName);
+					m_ModuleString = CastPhString(newFileName2);
+					PhDereferenceObject(newFileName);
+					PhDereferenceObject(fileName);
+				}
             }
         }
     }
@@ -423,7 +428,7 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 	WndInfo.Text = CastPhString(windowText);
 
 	CThreadPtr pThread = theAPI->GetThreadByID(ThreadId);
-	WndInfo.Thread = tr("%1 (%2): %3").arg(pThread ? pThread->GetStartAddressString() : tr("unknown")).arg(ProcessId).arg(ThreadId);
+	WndInfo.Thread = tr("%1 (%2): %3").arg(pThread ? pThread->GetStartAddressString() : tr("unknown")).arg(theGUI->FormatID(ProcessId)).arg(theGUI->FormatID(ThreadId));
 	
     WINDOWINFO windowInfo = { sizeof(WINDOWINFO) };
     WINDOWPLACEMENT windowPlacement = { sizeof(WINDOWPLACEMENT) };

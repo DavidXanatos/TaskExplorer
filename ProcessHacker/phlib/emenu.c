@@ -18,7 +18,8 @@ static const PH_FLAG_MAPPING EMenuTypeMappings[] =
 {
     { PH_EMENU_MENUBARBREAK, MFT_MENUBARBREAK },
     { PH_EMENU_MENUBREAK, MFT_MENUBREAK },
-    { PH_EMENU_RADIOCHECK, MFT_RADIOCHECK }
+    { PH_EMENU_RADIOCHECK, MFT_RADIOCHECK },
+    { PH_EMENU_RIGHTORDER, MFT_RIGHTORDER },
 };
 
 static const PH_FLAG_MAPPING EMenuStateMappings[] =
@@ -49,7 +50,7 @@ static const PH_FLAG_MAPPING EMenuStateMappings[] =
 PPH_EMENU_ITEM PhCreateEMenuItem(
     _In_ ULONG Flags,
     _In_ ULONG Id,
-    _In_opt_ PWSTR Text,
+    _In_opt_ PCWSTR Text,
     _In_opt_ HBITMAP Bitmap,
     _In_opt_ PVOID Context
     )
@@ -61,7 +62,7 @@ PPH_EMENU_ITEM PhCreateEMenuItem(
 
     item->Flags = Flags;
     item->Id = Id;
-    item->Text = Text;
+    item->Text = (PWSTR)Text;
     item->Bitmap = Bitmap;
     item->Context = Context;
 
@@ -71,7 +72,7 @@ PPH_EMENU_ITEM PhCreateEMenuItem(
 PPH_EMENU_ITEM PhCreateEMenuItemCallback(
     _In_ ULONG Flags,
     _In_ ULONG Id,
-    _In_opt_ PWSTR Text,
+    _In_opt_ PCWSTR Text,
     _In_opt_ HBITMAP Bitmap,
     _In_opt_ PVOID Context,
     _In_opt_ PPH_EMENU_ITEM_DELAY_FUNCTION DelayFunction
@@ -83,7 +84,7 @@ PPH_EMENU_ITEM PhCreateEMenuItemCallback(
     item = PhAllocateZero(sizeof(PH_EMENU_ITEM));
     item->Flags = Flags;
     item->Id = Id;
-    item->Text = Text;
+    item->Text = (PWSTR)Text;
     item->Bitmap = Bitmap;
     item->Context = Context;
     item->DelayFunction = DelayFunction;
@@ -160,7 +161,7 @@ VOID PhDestroyEMenuItem(
 PPH_EMENU_ITEM PhFindEMenuItem(
     _In_ PPH_EMENU_ITEM Item,
     _In_ ULONG Flags,
-    _In_opt_ PWSTR Text,
+    _In_opt_ PCWSTR Text,
     _In_opt_ ULONG Id
     )
 {
@@ -187,7 +188,7 @@ _Success_(return != NULL)
 PPH_EMENU_ITEM PhFindEMenuItemEx(
     _In_ PPH_EMENU_ITEM Item,
     _In_ ULONG Flags,
-    _In_opt_ PWSTR Text,
+    _In_opt_ PCWSTR Text,
     _In_opt_ ULONG Id,
     _Out_opt_ PPH_EMENU_ITEM *FoundParent,
     _Out_opt_ PULONG FoundIndex
@@ -527,7 +528,7 @@ VOID PhEMenuToHMenu2(
 
         menuItemInfo.fMask = MIIM_FTYPE | MIIM_STATE;
 
-        if (item->Flags & PH_EMENU_SEPARATOR)
+        if (FlagOn(item->Flags, PH_EMENU_SEPARATOR))
         {
             menuItemInfo.fType = MFT_SEPARATOR;
         }
@@ -554,22 +555,24 @@ VOID PhEMenuToHMenu2(
             if (WindowsVersion < WINDOWS_10_19H2)
             {
                 if (!PhEnableThemeSupport)
-                    menuItemInfo.fMask |= MIIM_BITMAP;
+                {
+                    SetFlag(menuItemInfo.fMask, MIIM_BITMAP);
+                }
             }
             else
             {
-                menuItemInfo.fMask |= MIIM_BITMAP;
+                SetFlag(menuItemInfo.fMask, MIIM_BITMAP);
             }
         }
 
         // Id
 
-        if (Flags & PH_EMENU_CONVERT_ID)
+        if (FlagOn(Flags, PH_EMENU_CONVERT_ID))
         {
-            ULONG id;
-
             if (Data)
             {
+                ULONG id;
+
                 PhAddItemList(Data->IdToItem, item);
                 id = Data->IdToItem->Count;
 
@@ -579,7 +582,7 @@ VOID PhEMenuToHMenu2(
         }
         else
         {
-            if (!(Menu->Flags & PH_EMENU_SEPARATOR) && !(Menu->Flags & PH_EMENU_MAINMENU))
+            if (!FlagOn(Menu->Flags, PH_EMENU_SEPARATOR) && !FlagOn(Menu->Flags, PH_EMENU_MAINMENU))
             {
                 if (item->Id)
                 {
@@ -616,21 +619,26 @@ VOID PhEMenuToHMenu2(
         {
             if (PhEnableThemeSupport)
             {
-                menuItemInfo.fType |= MFT_OWNERDRAW;
+                SetFlag(menuItemInfo.fType, MFT_OWNERDRAW);
             }
         }
         else
         {
-            if (item->Flags & PH_EMENU_MAINMENU)
+            if (FlagOn(item->Flags, PH_EMENU_MAINMENU))
             {
                 if (PhEnableThemeSupport)
                 {
-                    menuItemInfo.fType |= MFT_OWNERDRAW;
+                    SetFlag(menuItemInfo.fType, MFT_OWNERDRAW);
                 }
             }
         }
 
-        InsertMenuItem(MenuHandle, MAXUINT, TRUE, &menuItemInfo);
+        if (FlagOn(Flags, PH_EMENU_RIGHTORDER))
+        {
+            SetFlag(menuItemInfo.fType, MFT_RIGHTORDER);
+        }
+
+        InsertMenuItem(MenuHandle, ULONG_MAX, TRUE, &menuItemInfo);
     }
 }
 
@@ -709,8 +717,8 @@ VOID PhHMenuToEMenuItem(
 VOID PhLoadResourceEMenuItem(
     _Inout_ PPH_EMENU_ITEM MenuItem,
     _In_ HINSTANCE InstanceHandle,
-    _In_ PWSTR Resource,
-    _In_ INT SubMenuIndex
+    _In_ PCWSTR Resource,
+    _In_ LONG SubMenuIndex
     )
 {
     HMENU menu;
@@ -981,8 +989,8 @@ BOOLEAN PhGetHMenuStringToBuffer(
 
     if (GetMenuItemInfo(Menu, Id, TRUE, &menuInfo))
     {
-        if (ReturnLength)
-            *ReturnLength = menuInfo.cch;
+        if (ReturnLength) *ReturnLength = menuInfo.cch;
+        Buffer[menuInfo.cch] = UNICODE_NULL;
         return TRUE;
     }
 

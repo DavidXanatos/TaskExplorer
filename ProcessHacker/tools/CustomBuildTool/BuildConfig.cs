@@ -87,6 +87,7 @@ namespace CustomBuildTool
             "phnt.h",
             "phnt_ntdef.h",
             "phnt_windows.h",
+            "smbios.h",
             "subprocesstag.h",
             "winsta.h"
         ];
@@ -106,6 +107,7 @@ namespace CustomBuildTool
             "filestream.h",
             "graph.h",
             "guisup.h",
+            "guisupview.h",
             "hexedit.h",
             "hndlinfo.h",
             "json.h",
@@ -118,7 +120,9 @@ namespace CustomBuildTool
             "phbase.h",
             "phbasesup.h",
             "phconfig.h",
+            "phconsole.h",
             "phdata.h",
+            "phfirmware.h",
             "phnative.h",
             "phnativeinl.h",
             "phnet.h",
@@ -127,6 +131,7 @@ namespace CustomBuildTool
             "provider.h",
             "queuedlock.h",
             "ref.h",
+            "searchbox.h",
             "secedit.h",
             "settings.h",
             "svcsup.h",

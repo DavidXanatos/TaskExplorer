@@ -76,7 +76,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 				switch (section)
 				{
-					case eProcess:	ColValue.Formated = tr("%1 (%2)").arg(pGDI->GetProcessName()).arg(pGDI->GetProcessId()); 
+					case eProcess:	ColValue.Formated = tr("%1 (%2)").arg(pGDI->GetProcessName()).arg(theGUI->FormatID(pGDI->GetProcessId())); 
 					case eHandle:	ColValue.Formated = "0x" + QString::number(Value.toUInt(), 16); break;
                     case eObject:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;
 				}

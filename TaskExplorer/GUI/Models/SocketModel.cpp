@@ -149,7 +149,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 					case eProcess:			{
 												quint64 ProcessId = pSocket->GetProcessId();
 												if (ProcessId)
-													ColValue.Formated = tr("%1 (%2)").arg(pSocket->GetProcessName()).arg(ProcessId);
+													ColValue.Formated = tr("%1 (%2)").arg(pSocket->GetProcessName()).arg(theGUI->FormatID(ProcessId));
 												break;
 											}
 

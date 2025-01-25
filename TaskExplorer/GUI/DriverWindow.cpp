@@ -49,7 +49,13 @@ CDriverWindow::CDriverWindow(QWidget *parent)
 
 	Refresh();
 
-	ui.signingPolicy->setText(((CWindowsAPI*)theAPI)->IsTestSigning() ? tr("Test Signing Enabled") : tr("Signature Required"));
+	if(((CWindowsAPI*)theAPI)->IsTestSigning())
+		ui.signingPolicy->setText(tr("Test Signing Enabled"));
+	else if(((CWindowsAPI*)theAPI)->IsCKSEnabled())
+		ui.signingPolicy->setText(tr("Signature Required (CKS Enabled)"));
+	else
+		ui.signingPolicy->setText(tr("Signature Required"));
+	
 
 	restoreGeometry(theConf->GetBlob("DriverWindow/Window_Geometry"));
 
@@ -169,9 +175,6 @@ void CDriverWindow::Refresh()
 		ui.connection->setText(tr("Connected"));
 
 		ui.verification->setText(QString("%1").arg(KsiLevel()));
-		
-		//ui.features->setText(tr("0x%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 8, 16, QChar('0')));
-		ui.features->setText(tr("%1").arg(((CWindowsAPI*)theAPI)->GetDriverFeatures(), 32, 2, QChar('0')));
 	}
 	else
 	{
@@ -184,7 +187,6 @@ void CDriverWindow::Refresh()
 			ui.connection->setText(tr("Disconnected"));
 
 		ui.verification->setText(tr("N/A"));
-		ui.features->setText(tr("N/A"));
 	}
 }
 

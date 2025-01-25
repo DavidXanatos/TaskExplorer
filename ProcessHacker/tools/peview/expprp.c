@@ -304,7 +304,7 @@ NTSTATUS PvpPeExportsEnumerateThread(
                     {
                         exportSymbol = PhGetSymbolFromAddress(
                             PvSymbolProvider,
-                            (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, exportFunction.Function),
+                            PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, exportFunction.Function),
                             NULL,
                             NULL,
                             &exportSymbolName,
@@ -315,7 +315,7 @@ NTSTATUS PvpPeExportsEnumerateThread(
                     {
                         exportSymbol = PhGetSymbolFromAddress(
                             PvSymbolProvider,
-                            (ULONG64)PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, exportFunction.Function),
+                            PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, exportFunction.Function),
                             NULL,
                             NULL,
                             &exportSymbolName,
@@ -434,6 +434,7 @@ INT_PTR CALLBACK PvPeExportsDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Exports (Ctrl+K)",
                 PvpPeExportsSearchControlCallback,
@@ -555,7 +556,16 @@ INT_PTR CALLBACK PvPeExportsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -927,10 +937,6 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
                     }
                 }
                 break;
-            case 'A':
-                if (GetKeyState(VK_CONTROL) < 0)
-                    TreeNew_SelectRange(context->TreeNewHandle, 0, -1);
-                break;
             }
         }
         return TRUE;
@@ -1051,6 +1057,8 @@ VOID PvInitializeExportTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL, TRUE, L"Symbol name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_UNDECORATED, TRUE, L"Undecorated name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_UNDECORATED, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION, TRUE, L"CFG export suppression", 80, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION, 0, 0);
+
+    TreeNew_SetRowHeight(Context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(Context->WindowHandle)));
 
     TreeNew_SetSort(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);
     TreeNew_SetRedraw(TreeNewHandle, TRUE);

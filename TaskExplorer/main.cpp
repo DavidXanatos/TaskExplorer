@@ -41,6 +41,10 @@ int main(int argc, char *argv[])
 			if(++i < argc)
 				svcName =  argv[i];
 		}
+		else if (strcmp(argv[i], "-kx") == 0)
+			g_KphStartupMax = TRUE;
+		else if (strcmp(argv[i], "-kh") == 0)
+			g_KphStartupHigh = TRUE;
 		else if (strcmp(argv[i], "-multi") == 0)
 			bMulti = true;
 		else if (strcmp(argv[i], "-no_elevate") == 0)
@@ -88,6 +92,35 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE; // 1
 	}
 
+	wchar_t szPath[MAX_PATH];
+	GetModuleFileNameW(NULL, szPath, ARRAYSIZE(szPath));
+	*wcsrchr(szPath, L'\\') = L'\0';
+	QString AppDir = QString::fromWCharArray(szPath);
+
+	QStringList dirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+	if (dirs.count() > 2) { // Note: last 2 are AppDir and AppDir/data
+		QString OldPath;
+		QString NewPath;
+		if (dirs.count() > 3 && QFile::exists((OldPath = dirs[1] + "/TaskExplorer") + "/TaskExplorer.ini"))
+			NewPath = dirs[1] + "/Xanasoft";
+		else if (QFile::exists((OldPath = dirs[0] + "/TaskExplorer") + "/TaskExplorer.ini"))
+			NewPath = dirs[0] + "/Xanasoft";
+
+		if (!NewPath.isEmpty() && !QFile::exists(NewPath + "/TaskExplorer" + "/TaskExplorer.ini")){
+			QDir().mkpath(NewPath);
+			QDir().rename(OldPath, NewPath + "/TaskExplorer");
+		}
+	}
+	theConf = new CSettings(AppDir, "Xanasoft", "TaskExplorer");
+
+	InitPH(bSvc);
+
+	STATUS DrvStatus = OK;
+	if (theConf->GetBool("Options/UseDriver", true) && IsElevated() && !PhIsExecutingInWow64())
+	{
+		DrvStatus = InitKSI(AppDir);
+	}
+
 	QtSingleApplication* pApp = NULL;
 	if (bSvc || bWrk)	
 		new QCoreApplication(argc, argv);
@@ -102,8 +135,6 @@ int main(int argc, char *argv[])
 		pApp = new QtSingleApplication(IsElevated() ? "TaskExplorer" : "UTaskExplorer", argc, argv);
 	}
 
-	theConf = new CSettings("TaskExplorer");
-
 	if (pApp && !theConf->GetBool("Options/AllowMultipleInstances", false) && !bMulti && pApp->sendMessage("ShowWnd"))
 		return 0;
 
@@ -111,13 +142,18 @@ int main(int argc, char *argv[])
 #ifndef _DEBUG
     // Set the default priority.
     {
-        PhSetProcessPriority(NtCurrentProcess(), PROCESS_PRIORITY_CLASS_ABOVE_NORMAL);
+        PhSetProcessPriorityClass(NtCurrentProcess(), PROCESS_PRIORITY_CLASS_ABOVE_NORMAL);
 
 		PhSetProcessPagePriority(NtCurrentProcess(), MEMORY_PRIORITY_NORMAL);
 		PhSetProcessIoPriority(NtCurrentProcess(), IoPriorityNormal);
     }
 #endif
 #endif // Q_OS_WIN
+
+	if (DrvStatus.IsError()) {
+		if (!CTaskExplorer::CheckErrors(QList<STATUS>() << DrvStatus))
+			return -1;
+	}
 
 	QThreadPool::globalInstance()->setMaxThreadCount(theConf->GetInt("Options/MaxThreadPool", 10));
 

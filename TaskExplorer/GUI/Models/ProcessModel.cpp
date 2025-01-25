@@ -95,6 +95,12 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 	foreach (const CProcessPtr& pProcess, ProcessList)
 	{
+#ifdef WIN32
+		QSharedPointer<CWinProcess> pWinProc = pProcess.staticCast<CWinProcess>();
+		if (pWinProc->IsReflectedProcess())
+			continue;
+#endif
+
 		quint64 ID = pProcess->GetProcessId();
 
 		QModelIndex Index;
@@ -122,7 +128,6 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 		
         CModulePtr pModule = pProcess->GetModuleInfo();
 #ifdef WIN32
-		QSharedPointer<CWinProcess> pWinProc = pProcess.staticCast<CWinProcess>();
 		CWinTokenPtr pToken = pWinProc->GetToken();
 		QSharedPointer<CWinModule> pWinModule = pModule.staticCast<CWinModule>();
 #endif
@@ -230,7 +235,11 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					}
 											Value = Name; break;
 				}
-				case ePID:					Value = (qint64)pProcess->GetProcessId(); break;
+				case ePID:					Value = pProcess->GetProcessId(); break;
+				case eParentPID:			Value = pProcess->GetParentId(); break;
+				case eConsolePID:			Value = pWinProc->GetConsoleHostId(); break;
+				case eSequenceNumber:		Value = pWinProc->GetProcessSequenceNumber(); break;
+				case eStartKey:				Value = pWinProc->GetStartKey(); break;
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; CurIntValue = 10000 * Value.toDouble(); break;
 				case eIO_History:			Value = qMax(IoStats.Disk.ReadRate.Get(), IoStats.Io.ReadRate.Get()) + qMax(IoStats.Disk.WriteRate.Get(), IoStats.Io.WriteRate.Get()) + IoStats.Io.OtherRate.Get(); break;
@@ -262,12 +271,18 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case ePrivateWS:			Value = CurIntValue = pProcess->GetPrivateWorkingSetSize(); break;
 				case eSharedWS:				Value = CurIntValue = pProcess->GetSharedWorkingSetSize(); break;
 				case eShareableWS:			Value = CurIntValue = pProcess->GetShareableWorkingSetSize(); break;
+#ifdef WIN32
+				case eShareableCommit:		Value = CurIntValue = pWinProc->GetShareableCommitSize(); break;
+#endif
 				case eVirtualSize:			Value = CurIntValue = pProcess->GetVirtualSize(); break;
 				case ePeakVirtualSize:		Value = CurIntValue = pProcess->GetPeakVirtualSize(); break;
 				case eSessionID:			Value = pProcess->GetSessionID(); break;
 				case eDebugTotal:			Value = pProcess->GetDebugMessageCount(); break;
 				case ePriorityClass:		Value = (quint32)pProcess->GetPriority(); break;
 				case eBasePriority:			Value = (quint32)pProcess->GetBasePriority(); break;
+#ifdef WIN32
+				case ePriorityBoost:		Value = pWinProc->HasPriorityBoost(); break;
+#endif
 
 				case eThreads:				Value = CurIntValue = (quint32)pProcess->GetNumberOfThreads(); break;
 				case ePeakThreads:			Value = CurIntValue = (quint32)pProcess->GetPeakNumberOfThreads(); break;
@@ -289,6 +304,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eVerificationStatus:	Value = pWinModule ? pWinModule->GetVerifyResultString() : ""; break;
 				case eVerifiedSigner:		Value = pWinModule ? pWinModule->GetVerifySignerName() : ""; break;
 				case eMitigations:			Value = pWinProc->GetMitigationsString(); break;
+				case eImageCoherency:		Value = pWinModule ? pWinModule->GetImageCoherency() : -1.0F; break;
 #endif
 				case eUpTime:				Value = pProcess->GetCreateTimeStamp() != 0 ? (curTime - pProcess->GetCreateTimeStamp() / 1000) : 0; break; // we must update the value to refresh the display
 				case eArch:					Value = pProcess->GetArchString(); break;
@@ -337,6 +353,7 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 #ifdef WIN32
 				case eOS_Context:			Value = (quint32)pWinProc->GetOsContextVersion(); break;
 				case ePagedPool:			Value = CurIntValue = pWinProc->GetPagedPool(); break;
+				case eTLS:					Value = CurIntValue = pWinProc->GetTlsBitmapCount(); break;
 				case ePeakPagedPool:		Value = CurIntValue = pWinProc->GetPeakPagedPool(); break;
 				case eNonPagedPool:			Value = CurIntValue = pWinProc->GetNonPagedPool(); break;
 				case ePeakNonPagedPool:		Value = CurIntValue = pWinProc->GetPeakNonPagedPool(); break;
@@ -359,10 +376,17 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 				case eDesktop:				Value = pWinProc->GetUsedDesktop(); break;
 				case eCritical:				Value = pWinProc->IsCriticalProcess(); break;
 
+				case ePowerThrottling:		Value = pWinProc->IsPowerThrottled(); break;
+
 				case eRunningTime:			Value = pWinProc->GetUpTime(); break;
 				case eSuspendedTime:		Value = pWinProc->GetSuspendTime(); break;
 				case eHangCount:			Value = pWinProc->GetHangCount(); break;
 				case eGhostCount:			Value = pWinProc->GetGhostCount(); break;
+
+				case eErrorMode:			Value = pWinProc->GetErrorMode(); break;
+				case eCodePage:				Value = pWinProc->GetCodePage(); break;
+				case eReferences:			Value = pWinProc->GetReferenceCount(); break;
+				case eGrantedAccess:		Value = pWinProc->GetAccessMask(); break;
 #endif
 
 				// Network IO
@@ -444,8 +468,13 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 				switch(section)
 				{
-					case ePID:				if (Value.toLongLong() < 0) ColValue.Formated = ""; break;
-
+					case ePID:				
+					case eParentPID:
+					case eConsolePID:
+											if (Value.toLongLong() < 0) ColValue.Formated = ""; 
+											else ColValue.Formated = theGUI->FormatID(Value.toLongLong()); 
+											break;
+					case eStartKey:			ColValue.Formated = tr("0x%1").arg(Value.toULongLong(), 0, 16); break;
 					case eCPU:
 											if(!bClearZeros || Value.toDouble() > 0.00004)
 											{
@@ -471,6 +500,9 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 					case ePrivateWS:
 					case eSharedWS:
 					case eShareableWS:
+#ifdef WIN32
+					case eShareableCommit:
+#endif
 					case eVirtualSize:
 					case ePeakVirtualSize:
 #ifdef WIN32
@@ -484,6 +516,13 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 
 					case eFileSize:
 											ColValue.Formated = FormatSize(Value.toULongLong()); break;
+
+#ifdef WIN32
+					case eTLS:				ColValue.Formated = pWinProc->GetTlsBitmapCountString(); break;
+
+					case eErrorMode:		ColValue.Formated = pWinProc->GetErrorModeString(); break;
+					case eGrantedAccess:	ColValue.Formated = pWinProc->GetAccessMaskString(); break;
+#endif
 
 					// since not all programs use GPU memory, make this value clearable
 					case eGPU_Dedicated:
@@ -557,12 +596,18 @@ QSet<quint64> CProcessModel::Sync(QMap<quint64, CProcessPtr> ProcessList)
 											ColValue.Formated = FormatTime(Value.toULongLong()); break;
 
 					case ePriorityClass:	ColValue.Formated = pProcess->GetPriorityString(); break;
+#ifdef WIN32
+					case ePriorityBoost:	ColValue.Formated = pWinProc->HasPriorityBoost() ? tr("Yes") : ""; break;
+#endif
 					case eBasePriority:		ColValue.Formated = pProcess->GetBasePriorityString(); break;
 					case ePagePriority:		ColValue.Formated = pProcess->GetPagePriorityString(); break;
 					case eIO_Priority:		ColValue.Formated = pProcess->GetIOPriorityString(); break;
 #ifdef WIN32
 					case eIntegrity:		ColValue.Formated = pToken ? pToken->GetIntegrityString() : "";  break;
+					case eImageCoherency:	ColValue.Formated = pWinModule ? pWinModule->GetImageCoherencyString() : ""; break;
 					case eCritical:			ColValue.Formated = pWinProc->IsCriticalProcess() ? tr("Critical") : ""; break;
+
+					case ePowerThrottling:	ColValue.Formated = pWinProc->IsPowerThrottled() ? tr("Yes") : ""; break;
 #endif
 					case eSubsystem:		ColValue.Formated = pProcess->GetSubsystemString(); break;
 #ifdef WIN32
@@ -723,6 +768,11 @@ QString CProcessModel::GetColumHeader(int section) const
 	{
 		case eProcess:				return tr("Process");
 		case ePID:					return tr("PID");
+		//case ePID_LXSS:				return tr("PID (LXSS)");
+		case eParentPID:			return tr("Parent PID");
+		case eConsolePID:			return tr("Console PID");
+		case eSequenceNumber:		return tr("Seq. number");
+		case eStartKey:				return tr("Start key");
 		case eCPU:					return tr("CPU");
 		case eIO_TotalRate:			return tr("I/O total rate");
 		case eStaus:				return tr("Status");
@@ -744,6 +794,9 @@ QString CProcessModel::GetColumHeader(int section) const
 		case ePrivateWS:			return tr("Private WS");
 		case eSharedWS:				return tr("Shared WS (slow)");
 		case eShareableWS:			return tr("Shareable WS (slow)");
+#ifdef WIN32
+		case eShareableCommit:		return tr("Shared commit");
+#endif
 		case eVirtualSize:			return tr("Virtual size");
 		case ePeakVirtualSize:		return tr("Peak virtual size");
 		case eDebugTotal:			return tr("Debug Messages");
@@ -751,6 +804,9 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eSessionID:			return tr("Session ID");
 		case ePriorityClass:		return tr("Priority class");
 		case eBasePriority:			return tr("Base priority");
+#ifdef WIN32
+		case ePriorityBoost:		return tr("Priority boost");
+#endif
 
 		case eGPU_Usage:			return tr("GPU");
 		case eGPU_Shared:			return tr("Shared");
@@ -795,6 +851,7 @@ QString CProcessModel::GetColumHeader(int section) const
 
 #ifdef WIN32
 		case eMitigations:			return tr("Mitigations");
+		case eImageCoherency:		return tr("Image coherency");
 		case eVirtualized:			return tr("Virtualized");
 #endif
 		case eContextSwitches:		return tr("Context switches");
@@ -827,6 +884,7 @@ QString CProcessModel::GetColumHeader(int section) const
 
 #ifdef WIN32
 		case eOS_Context:			return tr("OS context");
+		case eTLS:					return tr("Thread local storage");
 		case ePagedPool:			return tr("Paged pool");
 		case ePeakPagedPool:		return tr("Peak paged pool");
 		case eNonPagedPool:			return tr("Non-paged pool");
@@ -850,10 +908,16 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eDesktop:				return tr("Desktop");
 		case eCritical:				return tr("Critical Process");
 
+		case ePowerThrottling:		return tr("Power throttling");
 		case eRunningTime:			return tr("Running Time");
 		case eSuspendedTime:		return tr("Suspended Time");
 		case eHangCount:			return tr("Hang Count");
 		case eGhostCount:			return tr("Ghost Count");
+
+		case eErrorMode:			return tr("Error mode");
+		case eCodePage:				return tr("Code page");
+		case eReferences:			return tr("References");
+		case eGrantedAccess:		return tr("Granted access");
 #endif
 
 

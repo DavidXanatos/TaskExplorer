@@ -144,8 +144,10 @@ CWindowsAPI::CWindowsAPI(QObject *parent) : CSystemAPI(parent)
 	m_pSandboxieAPI = NULL;
 
 	m_bTestSigning = false;
-	m_uDriverStatus = 0;
-	m_uDriverFeatures = 0;
+	m_bCKSEnabled = false;
+
+	//m_uDriverStatus = 0;
+	//m_uDriverFeatures = 0;
 
 	//m_RpcUpdatePending = false;
 
@@ -171,10 +173,10 @@ bool KernelProcessMonitor(quint64 ProcessId, quint64 ParrentId, const QString& F
 
 bool CWindowsAPI::Init()
 {
+//	InitPH();
+
 	//if(WindowsVersion >= WINDOWS_10_RS1)
 	//	SetThreadDescription(GetCurrentThread(), L"Process Enumerator");
-
-	InitPH();
 
 	SYSTEM_CODEINTEGRITY_INFORMATION sci = {sizeof(SYSTEM_CODEINTEGRITY_INFORMATION)};
 	if(NT_SUCCESS(NtQuerySystemInformation(SystemCodeIntegrityInformation, &sci, sizeof(sci), NULL)))
@@ -184,12 +186,21 @@ bool CWindowsAPI::Init()
 
 		m_bTestSigning = (!bCodeIntegrityEnabled || bTestSigningEnabled);
 	}
-	
-	if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseDriver", true))
+
+	HANDLE keyHandle;
+	static PH_STRINGREF keyName = PH_STRINGREF_INIT(L"SYSTEM\\CurrentControlSet\\Control\\CI\\Protected");
+	if (NT_SUCCESS(PhOpenKey(&keyHandle, KEY_READ, PH_KEY_LOCAL_MACHINE, &keyName, 0 )))
 	{
-		QPair<QString, QString> Driver = SellectDriver();
-		InitDriver(Driver.first, Driver.second);
+		m_bCKSEnabled = PhQueryRegistryUlongZ(keyHandle, L"Licensed") == 1;
+
+		NtClose(keyHandle);
 	}
+	
+	//if (!PhIsExecutingInWow64() && theConf->GetBool("Options/UseDriver", true))
+	//{
+	//	QPair<QString, QString> Driver = SellectDriver();
+	//	InitDriver(Driver.first, Driver.second);
+	//}
 
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
 	if (PhBeginInitOnce(&initOnce))
@@ -289,65 +300,65 @@ bool CWindowsAPI::Init()
 	return true;
 }
 
-QPair<QString, QString> CWindowsAPI::SellectDriver()
-{
-	QString DeviceName;
-	QString FileName = theConf->GetString("Options/DriverFile");
-	if (!FileName.isEmpty())
-		DeviceName = theConf->GetString("Options/DriverDevice");
-	else
-	{
-		if (QFile::exists(QApplication::applicationDirPath() + "/systeminformer.sys"))
-		{
-			DeviceName = "KSystemInformer";
-			FileName = "systeminformer.sys";
-		}
-	}
-	return qMakePair(DeviceName, FileName);
-}
+//QPair<QString, QString> CWindowsAPI::SellectDriver()
+//{
+//	QString DeviceName;
+//	QString FileName = theConf->GetString("Options/DriverFile");
+//	if (!FileName.isEmpty())
+//		DeviceName = theConf->GetString("Options/DriverDevice");
+//	else
+//	{
+//		if (QFile::exists(QApplication::applicationDirPath() + "/systeminformer.sys"))
+//		{
+//			DeviceName = "KSystemInformer";
+//			FileName = "systeminformer.sys";
+//		}
+//	}
+//	return qMakePair(DeviceName, FileName);
+//}
 
-STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName)
-{
-	if (KphCommsIsConnected())
-		return OK;
-
-	m_DriverFileName = FileName;
-	m_DriverDeviceName = DeviceName;
-
-	STATUS Status = InitKPH(DeviceName, FileName);
-	/*if (!Status.IsError())  // todo: xxxx si
-	{
-		CLIENT_ID clientId;
-
-		clientId.UniqueProcess = NtCurrentProcessId();
-		clientId.UniqueThread = NULL;
-
-		// Note: when KphSecuritySignatureCheck is enabled the connection does not fail only the later atempt to use teh driver,
-		//			hence we have to test if the driver is usable and if not disconnect.
-		HANDLE ProcessHandle = NULL;
-		NTSTATUS status = KphOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION, &clientId);
-		if (NT_SUCCESS(status))
-			NtClose(ProcessHandle);
-		else
-		{
-			Status = ERR(QObject::tr("Unable to access the kernel driver, Error: %1").arg(CastPhString(PhGetNtMessage(status))), status);
-
-			KphDisconnect();
-		}
-	}*/
-
-	m_uDriverStatus = Status.GetStatus();
-	if (Status.IsError())
-		qDebug() << Status.GetText();
-	else
-	{
-		ULONG Features = 0;
-		//KphGetFeatures(&Features); // todo: xxxx si
-		m_uDriverFeatures = Features;
-	}
-
-	return Status;
-}
+//STATUS CWindowsAPI::InitDriver(QString DeviceName, QString FileName)
+//{
+//	if (KphCommsIsConnected())
+//		return OK;
+//
+//	m_DriverFileName = FileName;
+//	m_DriverDeviceName = DeviceName;
+//
+//	STATUS Status = InitKPH(DeviceName, FileName);
+//	/*if (!Status.IsError())  // todo: xxxx si
+//	{
+//		CLIENT_ID clientId;
+//
+//		clientId.UniqueProcess = NtCurrentProcessId();
+//		clientId.UniqueThread = NULL;
+//
+//		// Note: when KphSecuritySignatureCheck is enabled the connection does not fail only the later atempt to use teh driver,
+//		//			hence we have to test if the driver is usable and if not disconnect.
+//		HANDLE ProcessHandle = NULL;
+//		NTSTATUS status = KphOpenProcess(&ProcessHandle, PROCESS_QUERY_INFORMATION, &clientId);
+//		if (NT_SUCCESS(status))
+//			NtClose(ProcessHandle);
+//		else
+//		{
+//			Status = ERR(QObject::tr("Unable to access the kernel driver, Error: %1").arg(CastPhString(PhGetNtMessage(status))), status);
+//
+//			KphDisconnect();
+//		}
+//	}*/
+//
+//	m_uDriverStatus = Status.GetStatus();
+//	if (Status.IsError())
+//		qDebug() << Status.GetText();
+//	else
+//	{
+//		ULONG Features = 0;
+//		//KphGetFeatures(&Features); // todo: xxxx si
+//		m_uDriverFeatures = Features;
+//	}
+//
+//	return Status;
+//}
 
 CWindowsAPI::~CWindowsAPI()
 {
@@ -1071,10 +1082,12 @@ int CWindowsAPI::FindHiddenProcesses()
 				PPH_STRING fileName;
 				if (NT_SUCCESS(PhGetProcessImageFileName(processHandle, &fileName)))
 				{
-					QString FileName = CastPhString(fileName);
+					QString FileName = CastPhString(PhGetFileName(fileName));
+					QString FileNameNt = CastPhString(fileName);
+					pProcess->SetFileName(FileName, FileNameNt);
+
 					int pos = FileName.lastIndexOf("\\");
 					pProcess->SetName(FileName.mid(pos + 1));
-					pProcess->SetFileName(FileName);
 				}
 			}
 		}
@@ -1491,6 +1504,16 @@ void CWindowsAPI::OnDiskEvent(int Type, quint64 FileId, quint64 ProcessId, quint
 	qDebug() << "FileName:" << FileName;
 #endif
 
+	/*QReadLocker Locker(&m_OpenFilesMutex);
+	qint64 shortest_distance = LLONG_MAX;
+	for (auto I = m_HandleByObject.begin(); I != m_HandleByObject.end(); ++I)
+	{
+		qint64 distance = abs((long long)(I.key() - FileId));
+		if(distance < shortest_distance)
+			shortest_distance = distance;
+	}
+	qDebug() << "shortest_distance" << shortest_distance;*/
+
 	//if (m_UseDiskCounters == eUseForSystem)
 	if (m_UseDiskCounters)
 		return;
@@ -1538,7 +1561,7 @@ void CWindowsAPI::OnProcessEvent(int Type, quint32 ProcessId, QString CommandLin
 				
 				QString FilePath = GetPathFromCmd(CommandLine, ProcessId, FileName, ParentId);
 				if (!FilePath.isEmpty())
-					pProcess->SetFileName(FilePath);
+					pProcess->SetFileName(FilePath, "\\??\\" + FilePath);
 			}
 		}
 	}
@@ -1567,7 +1590,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 	//	return false;
 	//}
 
-	QMap<quint64, HANDLE> ProcessHandles;
+	QMap<HANDLE, HANDLE> ProcessHandles;
 
 	for (int i = 0; i < handleInfo->NumberOfHandles; i++)
 	{
@@ -1580,7 +1603,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 		if (handle->ObjectTypeIndex != g_fileObjectTypeIndex)
 			continue;
 
-		quint64 HandleID = CWinHandle::MakeID(handle->HandleValue, handle->UniqueProcessId);
+		quint64 HandleID = CWinHandle::MakeID((quint64)handle->HandleValue, (quint64)handle->UniqueProcessId);
 
 		QSharedPointer<CWinHandle> pWinHandle = OldHandles.take(HandleID).staticCast<CWinHandle>();
 
@@ -1629,7 +1652,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 				QWriteLocker Locker(&m_OpenFilesMutex);
 				ASSERT(!m_OpenFilesList.contains(HandleID));
 				m_OpenFilesList.insert(HandleID, pWinHandle);
-				//m_HandleByObject.insertMulti(pWinHandle->GetObject(), pWinHandle);
+				//m_HandleByObject.insertMulti(pWinHandle->GetObjectAddress(), pWinHandle);
 			}
 		}
 		
@@ -1656,7 +1679,7 @@ bool CWindowsAPI::UpdateOpenFileList()
 		QSharedPointer<CWinHandle> pWinHandle = OldHandles.value(HandleID).staticCast<CWinHandle>();
 		if (pWinHandle->CanBeRemoved())
 		{
-			//m_HandleByObject.remove(pWinHandle->GetObject(), pWinHandle);
+			//m_HandleByObject.remove(pWinHandle->GetObjectAddress(), pWinHandle);
 			m_OpenFilesList.remove(HandleID);
 			Removed.insert(HandleID);
 		}

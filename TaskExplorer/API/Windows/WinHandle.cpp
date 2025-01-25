@@ -42,8 +42,8 @@ bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handl
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_ProcessId = handle->UniqueProcessId;
-	m_HandleId = handle->HandleValue;
+	m_ProcessId = (quint64)handle->UniqueProcessId;
+	m_HandleId = (quint64)handle->HandleValue;
 	m_Object = (quint64)handle->Object;
 	m_Attributes = handle->HandleAttributes;
 	m_GrantedAccess = handle->GrantedAccess;
@@ -75,7 +75,7 @@ bool CWinHandle::InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, 
 		{
 			PPH_STRING typeName;
 
-			if (typeName = PhGetObjectTypeName(m_TypeIndex))
+			if (typeName = PhGetObjectTypeIndexName(m_TypeIndex))
 			{
 				PhMoveReference((PVOID*)&TypeName, typeName);
 			}
@@ -337,8 +337,8 @@ NTSTATUS PhEnumHandlesGeneric(
 		for (i = 0; i < handles->HandleCount; i++)
 		{
 			convertedHandles->Handles[i].Object = handles->Handles[i].Object;
-			convertedHandles->Handles[i].UniqueProcessId = (ULONG_PTR)ProcessId;
-			convertedHandles->Handles[i].HandleValue = (ULONG_PTR)handles->Handles[i].Handle;
+			convertedHandles->Handles[i].UniqueProcessId = (HANDLE)ProcessId;
+			convertedHandles->Handles[i].HandleValue = (HANDLE)handles->Handles[i].Handle;
 			convertedHandles->Handles[i].GrantedAccess = (ULONG)handles->Handles[i].GrantedAccess;
 			convertedHandles->Handles[i].CreatorBackTraceIndex = 0;
 			convertedHandles->Handles[i].ObjectTypeIndex = handles->Handles[i].ObjectTypeIndex;
@@ -356,7 +356,7 @@ NTSTATUS PhEnumHandlesGeneric(
 		PSYSTEM_HANDLE_INFORMATION_EX convertedHandles;
 		ULONG i;
 
-		if (!NT_SUCCESS(status = PhEnumHandlesEx2(ProcessHandle, &handles)))
+		if (!NT_SUCCESS(status = PhEnumProcessHandles(ProcessHandle, &handles)))
 			goto FAILED;
 
 		convertedHandles = (PSYSTEM_HANDLE_INFORMATION_EX)PhAllocate(
@@ -369,8 +369,8 @@ NTSTATUS PhEnumHandlesGeneric(
 		for (i = 0; i < handles->NumberOfHandles; i++)
 		{
 			convertedHandles->Handles[i].Object = 0;
-			convertedHandles->Handles[i].UniqueProcessId = (ULONG_PTR)ProcessId;
-			convertedHandles->Handles[i].HandleValue = (ULONG_PTR)handles->Handles[i].HandleValue;
+			convertedHandles->Handles[i].UniqueProcessId = (HANDLE)ProcessId;
+			convertedHandles->Handles[i].HandleValue = (HANDLE)handles->Handles[i].HandleValue;
 			convertedHandles->Handles[i].GrantedAccess = handles->Handles[i].GrantedAccess;
 			convertedHandles->Handles[i].CreatorBackTraceIndex = 0;
 			convertedHandles->Handles[i].ObjectTypeIndex = (USHORT)handles->Handles[i].ObjectTypeIndex;
@@ -548,7 +548,7 @@ BOOLEAN NTAPI EnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 {
 	if (Module->Type == PH_MODULE_TYPE_MODULE || Module->Type == PH_MODULE_TYPE_WOW64_MODULE) {
 		PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
-		PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Name, (ULONG64)Module->BaseAddress, Module->Size);
+		PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Name, (PVOID)Module->BaseAddress, Module->Size);
 		PhDereferenceObject(Name);
 	}
     return TRUE;
@@ -1039,10 +1039,12 @@ NTSTATUS NTAPI CWinHandle__DuplicateHandle(_Out_ PHANDLE Handle, _In_ ACCESS_MAS
 	return PhpDuplicateHandleFromProcess(Handle, DesiredAccess, pPair->first, pPair->second);
 }
 
-NTSTATUS NTAPI CWinHandle__cbPermissionsClosed(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinHandle__cbPermissionsClosed(_In_ HANDLE Handle, _In_ BOOLEAN Release, _In_opt_ PVOID Context)
 {
-	QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
-	delete pPair;
+	if (Release) {
+		QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
+		delete pPair;
+	}
 
 	return STATUS_SUCCESS;
 }
