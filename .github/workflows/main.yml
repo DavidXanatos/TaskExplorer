@@ -23,23 +23,23 @@ jobs:
         
       - name: Build Kernel Isolator x64
         run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=x64
-        
-      - name: Build Kernel Isolator arm64
-        run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=ARM64
 
       - name: Upload Build
         uses: actions/upload-artifact@v4.4.3
         with:
-          name: KSystemInformer_x64
+          name: TaskExplorer_x64
           path: |
             ProcessHacker/KSystemInformer/bin/Release64/*.sys
             ProcessHacker/KSystemInformer/bin/Release64/*.dll
             ProcessHacker/KSystemInformer/bin/Release64/*.pdb
+        
+      - name: Build Kernel Isolator arm64
+        run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=ARM64
             
       - name: Upload Build
         uses: actions/upload-artifact@v4.4.3
         with:
-          name: KSystemInformer_ARM64
+          name: TaskExplorer_ARM64
           path: |
             ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.sys
             ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.dll
