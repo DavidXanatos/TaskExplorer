@@ -33,6 +33,7 @@ jobs:
           name: KSystemInformer_x64
           path: |
             ProcessHacker/KSystemInformer/bin/Release64/*.sys
+            ProcessHacker/KSystemInformer/bin/Release64/*.dll
             ProcessHacker/KSystemInformer/bin/Release64/*.pdb
             
       - name: Upload Build
@@ -41,4 +42,5 @@ jobs:
           name: KSystemInformer_ARM64
           path: |
             ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.sys
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.dll
             ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.pdb
