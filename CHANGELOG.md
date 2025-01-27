@@ -3,10 +3,7 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-
-
-
-## [1.6.0] - 2025-01-??
+## [1.6.0] - 2025-01-27
 
 ### Added
 - Added permissions button to the Process security tab
