@@ -16,6 +16,7 @@
     <message>
         <location filename="GUI/AffinityDialog.cpp" line="24"/>
         <source>Select all</source>
+        <oldsource>Sselect all</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -470,6 +471,162 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="GUI/GraphBar.cpp" line="664"/>
+        <source>System Memory Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="665"/>
+        <source>    Commited memory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="666"/>
+        <source>    Swapped memory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="667"/>
+        <source>    Cache memory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="668"/>
+        <source>    Physical memory used: %1/%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="676"/>
+        <source>%1 Memory Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="677"/>
+        <source>    Dedicated memory: %1/%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="678"/>
+        <source>    Shared memory: %1/%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="685"/>
+        <source>Object Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="686"/>
+        <source>    Gdi objects: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="687"/>
+        <source>    User objects: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="693"/>
+        <source>Window Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="694"/>
+        <source>    Window objects: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="714"/>
+        <source>Disk I/O:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="715"/>
+        <location filename="GUI/GraphBar.cpp" line="722"/>
+        <location filename="GUI/GraphBar.cpp" line="728"/>
+        <source>    Read rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="716"/>
+        <location filename="GUI/GraphBar.cpp" line="723"/>
+        <location filename="GUI/GraphBar.cpp" line="729"/>
+        <source>    Write rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="721"/>
+        <source>Memory mapped I/O:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="730"/>
+        <source>    Other rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="735"/>
+        <location filename="GUI/GraphBar.cpp" line="744"/>
+        <source>Samba client:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="737"/>
+        <location filename="GUI/GraphBar.cpp" line="740"/>
+        <location filename="GUI/GraphBar.cpp" line="746"/>
+        <location filename="GUI/GraphBar.cpp" line="752"/>
+        <location filename="GUI/GraphBar.cpp" line="762"/>
+        <location filename="GUI/GraphBar.cpp" line="771"/>
+        <source>    Send rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="738"/>
+        <location filename="GUI/GraphBar.cpp" line="750"/>
+        <source>Samba server:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="760"/>
+        <source>RAS &amp; VPN Traffic:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="769"/>
+        <source>TCP/IP Traffic:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="775"/>
+        <source>    LAN Receive rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="776"/>
+        <source>    LAN Send rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="785"/>
+        <source>GPU Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="791"/>
+        <source>CPU Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="792"/>
+        <source>    User usage: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/GraphBar.cpp" line="793"/>
+        <source>    Kernel usage: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="GUI/GraphBar.cpp" line="573"/>
         <source>Graph Rows</source>
         <translation type="unfinished"></translation>
@@ -560,73 +717,9 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/GraphBar.cpp" line="664"/>
-        <source>System Memory Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="665"/>
-        <source>    Commited memory: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="666"/>
-        <source>    Swapped memory: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="667"/>
-        <source>    Cache memory: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="668"/>
-        <source>    Physical memory used: %1/%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="676"/>
-        <source>%1 Memory Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="677"/>
-        <source>    Dedicated memory: %1/%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="678"/>
-        <source>    Shared memory: %1/%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="685"/>
-        <source>Object Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="686"/>
-        <source>    Gdi objects: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="687"/>
-        <source>    User objects: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="693"/>
-        <source>Window Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="694"/>
-        <source>    Window objects: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/GraphBar.cpp" line="699"/>
         <source>Handle Usage:</source>
+        <oldsource>&lt;h3&gt;Disk Usage:&lt;/h3&gt;</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -643,46 +736,13 @@
         <location filename="GUI/GraphBar.cpp" line="710"/>
         <location filename="GUI/GraphBar.cpp" line="787"/>
         <source>    %1 usage: %2%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="714"/>
-        <source>Disk I/O:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="715"/>
-        <location filename="GUI/GraphBar.cpp" line="722"/>
-        <location filename="GUI/GraphBar.cpp" line="728"/>
-        <source>    Read rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="716"/>
-        <location filename="GUI/GraphBar.cpp" line="723"/>
-        <location filename="GUI/GraphBar.cpp" line="729"/>
-        <source>    Write rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="721"/>
-        <source>Memory mapped I/O:</source>
+        <oldsource>&lt;li&gt;&lt;b&gt;%1&lt;/b&gt; usage: %2%&lt;/li&gt;</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="GUI/GraphBar.cpp" line="727"/>
         <source>File I/O:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="730"/>
-        <source>    Other rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="735"/>
-        <location filename="GUI/GraphBar.cpp" line="744"/>
-        <source>Samba client:</source>
+        <oldsource>&lt;h3&gt;File I/O:&lt;/h3&gt;</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -693,67 +753,13 @@
         <location filename="GUI/GraphBar.cpp" line="761"/>
         <location filename="GUI/GraphBar.cpp" line="770"/>
         <source>    Receive rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="737"/>
-        <location filename="GUI/GraphBar.cpp" line="740"/>
-        <location filename="GUI/GraphBar.cpp" line="746"/>
-        <location filename="GUI/GraphBar.cpp" line="752"/>
-        <location filename="GUI/GraphBar.cpp" line="762"/>
-        <location filename="GUI/GraphBar.cpp" line="771"/>
-        <source>    Send rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="738"/>
-        <location filename="GUI/GraphBar.cpp" line="750"/>
-        <source>Samba server:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="760"/>
-        <source>RAS &amp; VPN Traffic:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="769"/>
-        <source>TCP/IP Traffic:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="775"/>
-        <source>    LAN Receive rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="776"/>
-        <source>    LAN Send rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="785"/>
-        <source>GPU Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="791"/>
-        <source>CPU Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="792"/>
-        <source>    User usage: %1%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/GraphBar.cpp" line="793"/>
-        <source>    Kernel usage: %1%</source>
+        <oldsource>&lt;li&gt;&lt;b&gt;Client Receive&lt;/b&gt; rate: %1&lt;/li&gt;</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="GUI/GraphBar.cpp" line="794"/>
         <source>    DPC/IRQ usage: %1%</source>
+        <oldsource>&lt;h3&gt;CPU Usage:&lt;/h3&gt;</oldsource>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1808,11 +1814,6 @@ Modifiers:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="408"/>
-        <source>N/A</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/Models/ProcessModel.cpp" line="565"/>
         <source>Critical</source>
         <translation type="unfinished"></translation>
@@ -1873,11 +1874,6 @@ Modifiers:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="737"/>
-        <source>Network</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/Models/ProcessModel.cpp" line="739"/>
         <source>File name</source>
         <translation type="unfinished"></translation>
@@ -1908,16 +1904,6 @@ Modifiers:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="745"/>
-        <source>Shared WS (slow)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="746"/>
-        <source>Shareable WS (slow)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/Models/ProcessModel.cpp" line="747"/>
         <source>Virtual size</source>
         <translation type="unfinished"></translation>
@@ -1928,13 +1914,48 @@ Modifiers:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="749"/>
-        <source>Debug Messages</source>
+        <location filename="GUI/Models/ProcessModel.cpp" line="781"/>
+        <source>CPU Arch.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="797"/>
+        <source>Mitigations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="802"/>
+        <source>Page faults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="GUI/Models/ProcessModel.cpp" line="751"/>
         <source>Session ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="408"/>
+        <source>N/A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="737"/>
+        <source>Network</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="745"/>
+        <source>Shared WS (slow)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="746"/>
+        <source>Shareable WS (slow)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ProcessModel.cpp" line="749"/>
+        <source>Debug Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2048,18 +2069,8 @@ Modifiers:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="797"/>
-        <source>Mitigations</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/Models/ProcessModel.cpp" line="780"/>
         <source>Up Time</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="781"/>
-        <source>CPU Arch.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2130,11 +2141,6 @@ Modifiers:
     <message>
         <location filename="GUI/Models/ProcessModel.cpp" line="801"/>
         <source>Context switches delta</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/Models/ProcessModel.cpp" line="802"/>
-        <source>Page faults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2456,6 +2462,26 @@ Modifiers:
 <context>
     <name>CProcessTree</name>
     <message>
+        <location filename="GUI/ProcessTree.cpp" line="102"/>
+        <source>Create Crash Dump</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/ProcessTree.cpp" line="103"/>
+        <source>Debug</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/ProcessTree.cpp" line="106"/>
+        <source>Reduce Working Set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/ProcessTree.cpp" line="100"/>
+        <source>Run as this User</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="GUI/ProcessTree.cpp" line="78"/>
         <source>Properties</source>
         <translation type="unfinished"></translation>
@@ -2496,28 +2522,8 @@ Modifiers:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/ProcessTree.cpp" line="100"/>
-        <source>Run as this User</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/ProcessTree.cpp" line="101"/>
         <source>Quit (WM_QUIT)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/ProcessTree.cpp" line="102"/>
-        <source>Create Crash Dump</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/ProcessTree.cpp" line="103"/>
-        <source>Debug</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/ProcessTree.cpp" line="106"/>
-        <source>Reduce Working Set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3543,14 +3549,14 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="API/SocketInfo.cpp" line="138"/>
-        <location filename="API/SocketInfo.cpp" line="145"/>
-        <source>Closed</source>
+        <location filename="API/SocketInfo.cpp" line="139"/>
+        <source>Open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="API/SocketInfo.cpp" line="139"/>
-        <source>Open</source>
+        <location filename="API/SocketInfo.cpp" line="138"/>
+        <location filename="API/SocketInfo.cpp" line="145"/>
+        <source>Closed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3766,11 +3772,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
 <context>
     <name>CStatsView</name>
     <message>
-        <location filename="GUI/StatsView.cpp" line="26"/>
-        <source>Name|Count|Size|Rate|Delta|Peak</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/StatsView.cpp" line="69"/>
         <source>CPU</source>
         <translation type="unfinished"></translation>
@@ -3801,6 +3802,66 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="GUI/StatsView.cpp" line="106"/>
+        <source>Memory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="110"/>
+        <source>Commit Charge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="131"/>
+        <source>Private bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="135"/>
+        <source>Working set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="138"/>
+        <source>Page faults</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="144"/>
+        <source>Private working set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="148"/>
+        <source>Shared working set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="160"/>
+        <source>Peak process usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="162"/>
+        <source>Peak job usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="167"/>
+        <source>I/O</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="173"/>
+        <source>Other I/O</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/StatsView.cpp" line="26"/>
+        <source>Name|Count|Size|Rate|Delta|Peak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="GUI/StatsView.cpp" line="98"/>
         <source>Interrupts</source>
         <translation type="unfinished"></translation>
@@ -3813,16 +3874,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
     <message>
         <location filename="GUI/StatsView.cpp" line="102"/>
         <source>System calls</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="106"/>
-        <source>Memory</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="110"/>
-        <source>Commit Charge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3862,23 +3913,8 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/StatsView.cpp" line="131"/>
-        <source>Private bytes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/StatsView.cpp" line="133"/>
         <source>Virtual size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="135"/>
-        <source>Working set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="138"/>
-        <source>Page faults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3887,38 +3923,13 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/StatsView.cpp" line="144"/>
-        <source>Private working set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/StatsView.cpp" line="146"/>
         <source>Shareable working set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/StatsView.cpp" line="148"/>
-        <source>Shared working set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/StatsView.cpp" line="151"/>
         <source>Paged pool usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="160"/>
-        <source>Peak process usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="162"/>
-        <source>Peak job usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="167"/>
-        <source>I/O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3929,11 +3940,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
     <message>
         <location filename="GUI/StatsView.cpp" line="171"/>
         <source>File I/O writes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/StatsView.cpp" line="173"/>
-        <source>Other I/O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4227,21 +4233,6 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskExplorer.cpp" line="116"/>
-        <source> (Administrator)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="118"/>
-        <source> (root)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="191"/>
-        <source>&amp;Tasks</source>
-        <translation type="unfinished">&amp;Zadanie</translation>
-    </message>
-    <message>
         <location filename="GUI/TaskExplorer.cpp" line="192"/>
         <source>Run...</source>
         <translation type="unfinished"></translation>
@@ -4257,16 +4248,6 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskExplorer.cpp" line="201"/>
-        <source>Computer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="202"/>
-        <source>Users</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/TaskExplorer.cpp" line="204"/>
         <source>Restart Elevated</source>
         <translation type="unfinished"></translation>
@@ -4274,6 +4255,41 @@ Please run the 64-bit version of Task Explorer instead.</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="206"/>
         <source>Exit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="225"/>
+        <source>&amp;View</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="226"/>
+        <source>System Tabs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="116"/>
+        <source> (Administrator)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="118"/>
+        <source> (root)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="191"/>
+        <source>&amp;Tasks</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="201"/>
+        <source>Computer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="202"/>
+        <source>Users</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4322,24 +4338,9 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskExplorer.cpp" line="220"/>
-        <source>Force Shutdown</source>
-        <oldsource>Hybid Shutdown</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/TaskExplorer.cpp" line="221"/>
         <source>Hybrid Shutdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="225"/>
-        <source>&amp;View</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="226"/>
-        <source>System Tabs</source>
+        <oldsource>Hybid Shutdown</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4501,27 +4502,6 @@ Please run the 64-bit version of Task Explorer instead.</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="317"/>
         <source>Empty Modified pages</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="318"/>
-        <source>Empty Standby std::list</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="319"/>
-        <source>Empty Priority 0 std::list</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="568"/>
-        <source>TaskExplorer with kernel driver is ready...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="572"/>
-        <source>Failed to load %1 driver, this could have various causes.<byte value="xd"/>
-Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4767,16 +4747,6 @@ Currently the driver is not signed, pelase enable test signing (bcdedit /set tes
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskExplorer.cpp" line="887"/>
-        <source>D: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="889"/>
-        <source>U: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/TaskExplorer.cpp" line="893"/>
         <source>TCP/IP; Download: %1; Upload: %2</source>
         <translation type="unfinished"></translation>
@@ -4784,31 +4754,6 @@ Currently the driver is not signed, pelase enable test signing (bcdedit /set tes
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="894"/>
         <source>VPN/RAS; Download: %1; Upload: %2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="825"/>
-        <source>CPU: %1%    </source>
-        <oldsource>
-Swap: %1%</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="902"/>
-        <source>Task Explorer<byte value="xd"/>
-CPU: %1%<byte value="xd"/>
-Ram: %2%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="905"/>
-        <source><byte value="xd"/>
-Swap: %1%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="1018"/>
-        <source>Operation failed for %1 item(s).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4987,6 +4932,55 @@ Swap: %1%</source>
         <source>&lt;p&gt;TaskExplorer is a powerfull multi-purpose Task Manager that helps you monitor system resources, debug software and detect malware.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;On Windows TaskExplorer is powered by the ProsessHacker Library.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;Visit &lt;a href=&quot;https://github.com/DavidXanatos/TaskExplorer&quot;&gt;TaskExplorer on github&lt;/a&gt; for more information.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;Icons from &lt;a href=&quot;https://icons8.com&quot;&gt;icons8.com&lt;/a&gt;&lt;/p&gt;&lt;p&gt;&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="887"/>
+        <source>D: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="318"/>
+        <source>Empty Standby std::list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="319"/>
+        <source>Empty Priority 0 std::list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="568"/>
+        <source>TaskExplorer with kernel driver is ready...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="572"/>
+        <source>Failed to load %1 driver, this could have various causes.<byte value="xd"/>
+Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="889"/>
+        <source>U: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="902"/>
+        <source>Task Explorer<byte value="xd"/>
+CPU: %1%<byte value="xd"/>
+Ram: %2%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="905"/>
+        <source><byte value="xd"/>
+Swap: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="1018"/>
+        <source>Operation failed for %1 item(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>CTaskInfoView</name>
@@ -5041,16 +5035,6 @@ Swap: %1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskInfo/TaskInfoView.cpp" line="93"/>
-        <source>.NET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskInfo/TaskInfoView.cpp" line="96"/>
-        <source>GDI</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/TaskInfo/TaskInfoView.cpp" line="103"/>
         <source>Debug</source>
         <translation type="unfinished"></translation>
@@ -5058,6 +5042,16 @@ Swap: %1%</source>
     <message>
         <location filename="GUI/TaskInfo/TaskInfoView.cpp" line="111"/>
         <source>Sandboxie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskInfo/TaskInfoView.cpp" line="93"/>
+        <source>.NET</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskInfo/TaskInfoView.cpp" line="96"/>
+        <source>GDI</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5207,16 +5201,6 @@ Swap: %1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/Models/ThreadModel.cpp" line="143"/>
-        <source>%1 (%2): %3</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/Models/ThreadModel.cpp" line="165"/>
-        <source>True</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/Models/ThreadModel.cpp" line="208"/>
         <source>Thread</source>
         <translation type="unfinished"></translation>
@@ -5242,8 +5226,23 @@ Swap: %1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="GUI/Models/ThreadModel.cpp" line="224"/>
+        <source>Priority</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="GUI/Models/ThreadModel.cpp" line="214"/>
         <source>Service</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ThreadModel.cpp" line="143"/>
+        <source>%1 (%2): %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/Models/ThreadModel.cpp" line="165"/>
+        <source>True</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5274,11 +5273,6 @@ Swap: %1%</source>
     <message>
         <location filename="GUI/Models/ThreadModel.cpp" line="223"/>
         <source>Context switches delta</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/Models/ThreadModel.cpp" line="224"/>
-        <source>Priority</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5371,13 +5365,13 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskInfo/ThreadsView.cpp" line="336"/>
-        <source>Do you want to cancel I/O for the selected thread(s)?</source>
+        <location filename="GUI/TaskInfo/ThreadsView.cpp" line="467"/>
+        <source>Token</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskInfo/ThreadsView.cpp" line="467"/>
-        <source>Token</source>
+        <location filename="GUI/TaskInfo/ThreadsView.cpp" line="336"/>
+        <source>Do you want to cancel I/O for the selected thread(s)?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5720,20 +5714,8 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="Forms/SettingsWindow.ui" line="256"/>
-        <source>Append &quot;*32&quot; to WoW64 processes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="Forms/SettingsWindow.ui" line="112"/>
         <source>Show empty cells instead of zero</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="119"/>
-        <location filename="Forms/SettingsWindow.ui" line="525"/>
-        <location filename="Forms/SettingsWindow.ui" line="532"/>
-        <source>milliseconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5742,23 +5724,8 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="Forms/SettingsWindow.ui" line="132"/>
-        <source>General options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="156"/>
-        <source>seconds</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="Forms/SettingsWindow.ui" line="139"/>
         <source>Use cycle count to calculate CPU Usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="146"/>
-        <source>Graph length:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5767,8 +5734,29 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="Forms/SettingsWindow.ui" line="371"/>
-        <source>Show Sys-Tray</source>
+        <location filename="Forms/SettingsWindow.ui" line="394"/>
+        <source>Infos in tray:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="146"/>
+        <source>Graph length:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="32"/>
+        <source>TaskExplorer Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="132"/>
+        <source>General options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="163"/>
+        <location filename="Forms/SettingsWindow.ui" line="710"/>
+        <source>Restart required (!)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5779,22 +5767,6 @@ You can change this option later on in the settings.</source>
     <message>
         <location filename="Forms/SettingsWindow.ui" line="236"/>
         <source>Use Dark Theme</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="206"/>
-        <source>Refresh interval:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="32"/>
-        <source>TaskExplorer Settings</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="163"/>
-        <location filename="Forms/SettingsWindow.ui" line="710"/>
-        <source>Restart required (!)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5813,11 +5785,6 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="Forms/SettingsWindow.ui" line="394"/>
-        <source>Infos in tray:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="Forms/SettingsWindow.ui" line="404"/>
         <source>On main window close:</source>
         <translation type="unfinished"></translation>
@@ -5833,11 +5800,6 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="Forms/SettingsWindow.ui" line="445"/>
-        <source>List item colors</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="Forms/SettingsWindow.ui" line="452"/>
         <source>Old item persistence time:</source>
         <translation type="unfinished"></translation>
@@ -5845,11 +5807,6 @@ You can change this option later on in the settings.</source>
     <message>
         <location filename="Forms/SettingsWindow.ui" line="479"/>
         <source>Max cell width:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="518"/>
-        <source>Double-click on an item to change its color.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5895,11 +5852,6 @@ You can change this option later on in the settings.</source>
     <message>
         <location filename="Forms/SettingsWindow.ui" line="587"/>
         <source>Trace unloaded modules</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="Forms/SettingsWindow.ui" line="573"/>
-        <source>Symbol options</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5955,6 +5907,48 @@ You can change this option later on in the settings.</source>
     <message>
         <location filename="Forms/SettingsWindow.ui" line="337"/>
         <source>Show LAN only TCP/IP Traffic (ETW)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="206"/>
+        <source>Refresh interval:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="573"/>
+        <source>Symbol options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="156"/>
+        <source>seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="119"/>
+        <location filename="Forms/SettingsWindow.ui" line="525"/>
+        <location filename="Forms/SettingsWindow.ui" line="532"/>
+        <source>milliseconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="256"/>
+        <source>Append &quot;*32&quot; to WoW64 processes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="371"/>
+        <source>Show Sys-Tray</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="445"/>
+        <source>List item colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="Forms/SettingsWindow.ui" line="518"/>
+        <source>Double-click on an item to change its color.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
