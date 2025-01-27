@@ -116,10 +116,22 @@ int main(int argc, char *argv[])
 	InitPH(bSvc);
 
 	STATUS DrvStatus = OK;
-	if (theConf->GetBool("Options/UseDriver", true) && IsElevated() && !PhIsExecutingInWow64())
+	if (theConf->GetBool("OptionsKSI/KsiEnable", true) && IsElevated() && !PhIsExecutingInWow64())
 	{
 		DrvStatus = InitKSI(AppDir);
 	}
+
+#ifdef Q_OS_WIN
+#ifndef _DEBUG
+	// Set the default priority.
+	{
+		PhSetProcessPriorityClass(NtCurrentProcess(), PROCESS_PRIORITY_CLASS_ABOVE_NORMAL);
+
+		PhSetProcessPagePriority(NtCurrentProcess(), MEMORY_PRIORITY_NORMAL);
+		PhSetProcessIoPriority(NtCurrentProcess(), IoPriorityNormal);
+	}
+#endif
+#endif // Q_OS_WIN
 
 	QtSingleApplication* pApp = NULL;
 	if (bSvc || bWrk)	
@@ -137,18 +149,6 @@ int main(int argc, char *argv[])
 
 	if (pApp && !theConf->GetBool("Options/AllowMultipleInstances", false) && !bMulti && pApp->sendMessage("ShowWnd"))
 		return 0;
-
-#ifdef Q_OS_WIN
-#ifndef _DEBUG
-    // Set the default priority.
-    {
-        PhSetProcessPriorityClass(NtCurrentProcess(), PROCESS_PRIORITY_CLASS_ABOVE_NORMAL);
-
-		PhSetProcessPagePriority(NtCurrentProcess(), MEMORY_PRIORITY_NORMAL);
-		PhSetProcessIoPriority(NtCurrentProcess(), IoPriorityNormal);
-    }
-#endif
-#endif // Q_OS_WIN
 
 	if (DrvStatus.IsError()) {
 		if (!CTaskExplorer::CheckErrors(QList<STATUS>() << DrvStatus))
@@ -232,6 +232,8 @@ int main(int argc, char *argv[])
 
 		CTaskService::TerminateWorkers();
 	}
+
+	CleanupKSI();
 
 	// note: if ran as a service teh instance wil have already been delted, but delete NULL is ok
 	delete QCoreApplication::instance();

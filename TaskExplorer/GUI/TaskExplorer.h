@@ -164,6 +164,7 @@ private slots:
 
 	void				OnSettings();
 	//void				OnDriverConf();
+	void				OnUseDriver();
 	void				OnAutoRun();
 	void				OnSkipUAC();
 
@@ -267,6 +268,7 @@ private:
 	QAction*			m_pMenuSettings;
 #ifdef WIN32
 	//QAction*			m_pMenuDriverConf;
+	QAction*			m_pMenuUseDriver;
 	QAction*			m_pMenuAutoRun;
 	QAction*			m_pMenuUAC;
 #endif

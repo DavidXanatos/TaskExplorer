@@ -102,6 +102,7 @@ int InitPH(bool bSvc = false);
 //STATUS InitKPH(QString DeviceName, QString FileName);
 
 STATUS InitKSI(const QString& AppDir);
+STATUS CleanupKSI();
 
 bool KphSetDebugLog(bool Enable);
 bool KphSetSystemMon(bool Enable);

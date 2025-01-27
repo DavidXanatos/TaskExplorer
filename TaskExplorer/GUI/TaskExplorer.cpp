@@ -307,6 +307,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		//m_pMenuDriverConf = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Driver"), tr("Driver Options"), this, SLOT(OnDriverConf()));
 		//m_pMenuDriverConf->setEnabled(!PhIsExecutingInWow64());
 
+		m_pMenuUseDriver = m_pMenuOptions->addAction(tr("Use Driver"), this, SLOT(OnUseDriver()));
+		m_pMenuUseDriver->setCheckable(true);
+		m_pMenuUseDriver->setChecked(theConf->GetBool("OptionsKSI/KsiEnable", true));
+
         m_pMenuOptions->addSeparator();
         m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
         m_pMenuAutoRun->setCheckable(true);
@@ -1387,6 +1391,11 @@ void CTaskExplorer::ResetAll()
 	emit ReloadPanels();
 
 	QTimer::singleShot(0, this, SLOT(UpdateAll()));
+}
+
+void CTaskExplorer::OnUseDriver()
+{
+	theConf->SetValue("OptionsKSI/KsiEnable", m_pMenuUseDriver->isChecked());
 }
 
 void CTaskExplorer::OnAutoRun()

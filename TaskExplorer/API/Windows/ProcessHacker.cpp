@@ -11,6 +11,7 @@
  */
 
 #include "stdafx.h"
+#include "../../../MiscHelpers/Common/Settings.h"
 #include "ProcessHacker.h"
 #include <kphmsgdyn.h>
 extern "C" {
@@ -448,9 +449,6 @@ CleanupExit:
 
 }
 
-BOOLEAN KsiEnableLoadNative = FALSE;
-BOOLEAN KsiEnableLoadFilter = FALSE;
-
 //STATUS InitKPH(QString DeviceName, QString FileName)
 //{
 //	if (DeviceName.isEmpty())
@@ -527,9 +525,6 @@ BOOLEAN KsiEnableLoadFilter = FALSE;
 //		//config.Flags.DynDataNoEmbedded = !!PhGetIntegerSetting(L"KsiDynDataNoEmbedded");
 //        config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
 //
-//		config.EnableNativeLoad = KsiEnableLoadNative;
-//		config.EnableFilterLoad = KsiEnableLoadFilter;
-//
 //        status = KphConnect(&config);
 //
 //        if (NT_SUCCESS(status))
@@ -589,6 +584,13 @@ BOOLEAN KsiEnableLoadFilter = FALSE;
 //	return Status;
 //}
 
+
+PPH_STRING KsiServiceName = NULL;
+BOOLEAN KsiEnableLoadNative = FALSE;
+BOOLEAN KsiEnableLoadFilter = FALSE;
+
+BOOLEAN KsiEnableUnloadProtection = FALSE;
+
 BOOLEAN g_KphStartupMax = FALSE;
 BOOLEAN g_KphStartupHigh = FALSE;
 
@@ -600,16 +602,16 @@ NTSTATUS PhRestartSelf(
 	static ULONG64 mitigationFlags[] =
 	{
 		(PROCESS_CREATION_MITIGATION_POLICY_HEAP_TERMINATE_ALWAYS_ON |
-			PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON |
-			PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_ON |
-			PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON |
-			PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON |
-			PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_PREFER_SYSTEM32_ALWAYS_ON),
-			(PROCESS_CREATION_MITIGATION_POLICY2_LOADER_INTEGRITY_CONTINUITY_ALWAYS_ON |
-				PROCESS_CREATION_MITIGATION_POLICY2_STRICT_CONTROL_FLOW_GUARD_ALWAYS_ON |
-				// PROCESS_CREATION_MITIGATION_POLICY2_BLOCK_NON_CET_BINARIES_ALWAYS_ON |
-				// PROCESS_CREATION_MITIGATION_POLICY2_XTENDED_CONTROL_FLOW_GUARD_ALWAYS_ON |
-				PROCESS_CREATION_MITIGATION_POLICY2_MODULE_TAMPERING_PROTECTION_ALWAYS_ON)
+		PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON |
+		PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_ON |
+		PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON |
+		PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON |
+		PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_PREFER_SYSTEM32_ALWAYS_ON),
+		(PROCESS_CREATION_MITIGATION_POLICY2_LOADER_INTEGRITY_CONTINUITY_ALWAYS_ON |
+		//PROCESS_CREATION_MITIGATION_POLICY2_STRICT_CONTROL_FLOW_GUARD_ALWAYS_ON |
+		// PROCESS_CREATION_MITIGATION_POLICY2_BLOCK_NON_CET_BINARIES_ALWAYS_ON |
+		// PROCESS_CREATION_MITIGATION_POLICY2_XTENDED_CONTROL_FLOW_GUARD_ALWAYS_ON |
+		PROCESS_CREATION_MITIGATION_POLICY2_MODULE_TAMPERING_PROTECTION_ALWAYS_ON)
 	};
 #endif
 	NTSTATUS status;
@@ -628,8 +630,7 @@ NTSTATUS PhRestartSelf(
 		AdditionalCommandLine
 	);
 
-	// todo: fix-me
-/*#ifndef DEBUG
+#ifndef DEBUG
 	status = PhInitializeProcThreadAttributeList(&attributeList, 1);
 
 	if (!NT_SUCCESS(status))
@@ -653,7 +654,7 @@ NTSTATUS PhRestartSelf(
 			sizeof(ULONG64) * 1
 		);
 	}
-#endif*/
+#endif
 
 	if (!NT_SUCCESS(status))
 		return status;
@@ -719,10 +720,14 @@ BOOLEAN PhDoesOldKsiExist(
 
 STATUS InitKSI(const QString& AppDir)
 {
-	QString DeviceName = QString::fromWCharArray(KPH_SERVICE_NAME);
-	QString FileName = "systeminformer.sys";
-	//QString DeviceName = "KTaskExplorer";
-	//QString FileName = "taskexplorer.sys";
+	QString FileName = theConf->GetString("OptionsKSI/FileName", "SystemInformer.sys");
+	QString ServiceName = theConf->GetString("OptionsKSI/DeviceName", "KTaskExplorer");
+	QString ObjectName = "\\Driver\\" + ServiceName;
+	QString PortName = "\\" + ServiceName;
+	QString Altitude = theConf->GetString("OptionsKSI/Altitude", "385210.8");
+
+	KsiEnableLoadNative = theConf->GetBool("OptionsKSI/EnableLoadNative", false);
+	KsiEnableLoadFilter = theConf->GetBool("OptionsKSI/EnableLoadFilter", false);
 
 	// if the file name is not a full path Add the application directory
 	if (!FileName.contains("\\"))
@@ -765,41 +770,42 @@ STATUS InitKSI(const QString& AppDir)
 	//}
 
 	STATUS Status = OK;
-	//PPH_STRING ksiServiceName = PhCreateString(KPH_SERVICE_NAME);
-	PPH_STRING ksiServiceName = CastQString(DeviceName);
+	KsiServiceName = CastQString(ServiceName);
 	PPH_STRING ksiFileName = CastQString(FileName);
+	PPH_STRING objectName = CastQString(ObjectName);
+	PPH_STRING portName = CastQString(PortName);
+	PPH_STRING altitude = CastQString(Altitude);
 
 	KPH_CONFIG_PARAMETERS config = { 0 };
-	PPH_STRING objectName = NULL;
-	//PPH_STRING portName = NULL;
-	//PPH_STRING altitude = NULL;
-
-	//if (PhIsNullOrEmptyString(objectName = PhGetStringSetting(L"KphObjectName")))
-	//PhMoveReference((PVOID*)&objectName, PhCreateString(KPH_OBJECT_NAME));
-	objectName = CastQString("\\Driver\\" + DeviceName);
-	////if (PhIsNullOrEmptyString(portName = PhGetStringSetting(L"KphPortName")))
-	////PhMoveReference((PVOID*)&portName, PhCreateString(KPH_PORT_NAME));
-	//portName = CastQString("\\" + DeviceName);
-	////if (PhIsNullOrEmptyString(altitude = PhGetStringSetting(L"KphAltitude")))
-	//PhMoveReference((PVOID*)&altitude, PhCreateString(L"385210.5"));
-
 	config.FileName = &ksiFileName->sr;
-	config.ServiceName = &ksiServiceName->sr;
+	config.ServiceName = &KsiServiceName->sr;
 	config.ObjectName = &objectName->sr;
-	config.PortName = NULL; //&portName->sr;
-	config.Altitude = NULL; //&altitude->sr;
+	config.PortName = &portName->sr;
+	config.Altitude = &altitude->sr;
+
+	config.FsSupportedFeatures = 0; // not yet in driver?
+	if (theConf->GetBool("OptionsKSI/EnableFsFeatureOffloadRead", false))
+		SetFlag(config.FsSupportedFeatures, SUPPORTED_FS_FEATURES_OFFLOAD_READ);
+	if (theConf->GetBool("OptionsKSI/EnableFsFeatureOffloadWrite", false))
+		SetFlag(config.FsSupportedFeatures, SUPPORTED_FS_FEATURES_OFFLOAD_WRITE);
+	if (theConf->GetBool("OptionsKSI/EnableFsFeatureQueryOpen", false))
+		SetFlag(config.FsSupportedFeatures, SUPPORTED_FS_FEATURES_QUERY_OPEN);
+	if (theConf->GetBool("OptionsKSI/EnableFsFeatureBypassIO", false))
+		SetFlag(config.FsSupportedFeatures, SUPPORTED_FS_FEATURES_BYPASS_IO);
+
 	config.Flags.Flags = 0;
-	// todo
 #ifdef _DEBUG 
-	config.Flags.DisableImageLoadProtection = TRUE;
+	config.Flags.DisableImageLoadProtection = theConf->GetBool("OptionsKSI/DisableImageLoadProtection", true);
+#else
+	config.Flags.DisableImageLoadProtection = theConf->GetBool("OptionsKSI/DisableImageLoadProtection", false);
 #endif
-	//config.Flags.DisableImageLoadProtection = !!PhGetIntegerSetting(L"KsiDisableImageLoadProtection");
-	//config.Flags.RandomizedPoolTag = !!PhGetIntegerSetting(L"KsiRandomizedPoolTag");
-	//config.Flags.DynDataNoEmbedded = !!PhGetIntegerSetting(L"KsiDynDataNoEmbedded");
-	config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
+	config.Flags.RandomizedPoolTag = theConf->GetBool("OptionsKSI/RandomizedPoolTag", false);
+	config.Flags.DynDataNoEmbedded = theConf->GetBool("OptionsKSI/DynDataNoEmbedded", false);
 
 	config.EnableNativeLoad = KsiEnableLoadNative;
 	config.EnableFilterLoad = KsiEnableLoadFilter;
+
+	config.Callback = (PKPH_COMMS_CALLBACK)KsiCommsCallback;
 
 	status = KphConnect(&config);
 	if (!NT_SUCCESS(status))
@@ -813,30 +819,31 @@ STATUS InitKSI(const QString& AppDir)
 		{
 			KPH_LEVEL level = KphLevelEx(FALSE);
 
-#ifdef _DEBUG
 			if ((level != KphLevelMax))
-#else
-			if (!NtCurrentPeb()->BeingDebugged && (level != KphLevelMax))
-#endif
 			{
-				if ((level == KphLevelHigh) &&
-					!g_KphStartupMax)
+#ifndef _DEBUG
+				if (!NtCurrentPeb()->BeingDebugged)
 				{
-					PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kx");
-					status = PhRestartSelf(&commandline);
-				}
+					if ((level == KphLevelHigh) &&
+						!g_KphStartupMax)
+					{
+						PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kx");
+						status = PhRestartSelf(&commandline);
+					}
 
-				if ((level < KphLevelHigh) &&
-					!g_KphStartupMax &&
-					!g_KphStartupHigh)
-				{
-					PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kh");
-					status = PhRestartSelf(&commandline);
-				}
+					if ((level < KphLevelHigh) &&
+						!g_KphStartupMax &&
+						!g_KphStartupHigh)
+					{
+						PH_STRINGREF commandline = PH_STRINGREF_INIT(L" -kh");
+						status = PhRestartSelf(&commandline);
+					}
 
-				if (!NT_SUCCESS(status))
-					Status = ERR("PhRestartSelf failed.", STATUS_ACCESS_DENIED);
+					if (!NT_SUCCESS(status))
+						Status = ERR("PhRestartSelf failed.", STATUS_ACCESS_DENIED);
+				}
 				else
+#endif
 				{
 					QStringList Info;
 
@@ -844,90 +851,125 @@ STATUS InitKSI(const QString& AppDir)
 					if ((processState != 0) && (processState & KPH_PROCESS_STATE_MAXIMUM) != KPH_PROCESS_STATE_MAXIMUM)
 					{
 						if (!BooleanFlagOn(processState, KPH_PROCESS_SECURELY_CREATED))
-							Info.append("not securely created\r\n");
+							Info.append("not securely created");
 						if (!BooleanFlagOn(processState, KPH_PROCESS_VERIFIED_PROCESS))
-							Info.append("unverified primary image\r\n");
+							Info.append("unverified primary image");
 						if (!BooleanFlagOn(processState, KPH_PROCESS_PROTECTED_PROCESS))
-							Info.append("inactive protections\r\n");
+							Info.append("inactive protections");
 						if (!BooleanFlagOn(processState, KPH_PROCESS_NO_UNTRUSTED_IMAGES))
-							Info.append("unsigned images (likely an unsigned plugin)\r\n");
+							Info.append("unsigned images (likely an unsigned plugin)");
 						if (!BooleanFlagOn(processState, KPH_PROCESS_NOT_BEING_DEBUGGED))
-							Info.append("process is being debugged\r\n");
+							Info.append("process is being debugged");
 						if ((processState & KPH_PROCESS_STATE_MINIMUM) != KPH_PROCESS_STATE_MINIMUM)
-							Info.append("tampered primary image\r\n");
+							Info.append("tampered primary image");
 					}
 
 					Status = ERR(QString("Unable to access the kernel driver: %1.").arg(Info.join(", ")), STATUS_ACCESS_DENIED);
 				}
 			}
+
+			if (level == KphLevelMax)
+			{
+				ACCESS_MASK process = 0;
+				ACCESS_MASK thread = 0;
+
+				if (theConf->GetBool("OptionsKSI/EnableUnloadProtection", false)) {
+					if(NT_SUCCESS(KphAcquireDriverUnloadProtection(NULL, NULL)))
+						KsiEnableUnloadProtection = TRUE;
+				}
+
+				switch (theConf->GetInt("OptionsKSI/ClientProcessProtectionLevel", 0))
+				{
+				case 2:
+					process |= (PROCESS_VM_READ | PROCESS_QUERY_INFORMATION);
+					thread |= (THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION);
+					__fallthrough;
+				case 1:
+					process |= (PROCESS_TERMINATE | PROCESS_SUSPEND_RESUME);
+					thread |= (THREAD_TERMINATE | THREAD_SUSPEND_RESUME | THREAD_RESUME);
+					__fallthrough;
+				case 0:
+				default:
+					break;
+				}
+
+				if (process != 0 || thread != 0)
+					KphStripProtectedProcessMasks(NtCurrentProcess(), process, thread);
+			}
 		}
 	}
 
-	if (objectName)
-		PhDereferenceObject(objectName);
-	//if (altitude)
-	//	PhDereferenceObject(altitude);
-	//if (portName)
-	//	PhDereferenceObject(portName);
-
-	if (ksiServiceName)
-		PhDereferenceObject(ksiServiceName);
 	if (ksiFileName)
 		PhDereferenceObject(ksiFileName);
+	if (objectName)
+		PhDereferenceObject(objectName);
+	if (altitude)
+		PhDereferenceObject(altitude);
+	if (portName)
+		PhDereferenceObject(portName);
+
 	if (signature)
 		PhFree(signature);
 	if (dynData)
 		PhFree(dynData);
 
+//#ifdef DEBUG
+//	KsiDebugLogInitialize();
+//#endif
+
 	return Status;
 }
 
-//NTSTATUS PhCleanupKsi(VOID)
-//{
-//	NTSTATUS status;
-//	PPH_STRING ksiServiceName;
-//	KPH_CONFIG_PARAMETERS config = { 0 };
-//	BOOLEAN shouldUnload;
-//
-//	if (!KphCommsIsConnected())
-//		return STATUS_SUCCESS;
-//
-//	if (PhGetIntegerSetting(L"KsiEnableUnloadProtection"))
-//		KphReleaseDriverUnloadProtection(NULL, NULL);
-//
-//	if (PhGetIntegerSetting(L"KsiUnloadOnExit"))
-//	{
-//		ULONG clientCount;
-//
-//		if (!NT_SUCCESS(status = KphGetConnectedClientCount(&clientCount)))
-//			return status;
-//
-//		shouldUnload = (clientCount == 1);
-//	}
-//	else
-//	{
-//		shouldUnload = FALSE;
-//	}
-//
-//	KphCommsStop();
-//
+STATUS CleanupKSI()
+{
+	NTSTATUS status;
+	KPH_CONFIG_PARAMETERS config = { 0 };
+	BOOLEAN shouldUnload;
+
+	if (!KphCommsIsConnected())
+		return OK;
+
+	if (KsiEnableUnloadProtection) {
+		KphReleaseDriverUnloadProtection(NULL, NULL);
+		KsiEnableUnloadProtection = FALSE;
+	}
+
+	if (theConf->GetBool("OptionsKSI/UnloadOnExit", true))
+	{
+		ULONG clientCount;
+
+		if (!NT_SUCCESS(status = KphGetConnectedClientCount(&clientCount)))
+			return status;
+
+		shouldUnload = (clientCount == 1);
+	}
+	else
+	{
+		shouldUnload = FALSE;
+	}
+
+	KphCommsStop();
 //#ifdef DEBUG
-//	KsiDebugLogDestroy();
+//	KsiDebugLogFinalize();
 //#endif
-//
-//	if (!shouldUnload)
-//		return STATUS_SUCCESS;
-//
-//	if (!(ksiServiceName = PhGetKsiServiceName()))
-//		return STATUS_UNSUCCESSFUL;
-//
-//	config.ServiceName = &ksiServiceName->sr;
-//	config.EnableNativeLoad = KsiEnableLoadNative;
-//	config.EnableFilterLoad = KsiEnableLoadFilter;
-//	status = KphServiceStop(&config);
-//
-//	return status;
-//}
+
+	if (!shouldUnload)
+		return OK;
+
+	if (KsiServiceName)
+	{
+		config.ServiceName = &KsiServiceName->sr;
+		config.EnableNativeLoad = KsiEnableLoadNative;
+		config.EnableFilterLoad = KsiEnableLoadFilter;
+		status = KphServiceStop(&config);
+
+		PhDereferenceObject(KsiServiceName);
+	}
+
+	if(!NT_SUCCESS(status))
+		return ERR("KphServiceStop Failed.", status);
+	return OK;
+}
 
 bool KphSetDebugLog(bool Enable)
 {
