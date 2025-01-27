@@ -4338,14 +4338,9 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskExplorer.cpp" line="220"/>
-        <source>Force Shutdown</source>
-        <oldsource>Hybid Shutdown</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/TaskExplorer.cpp" line="221"/>
         <source>Hybrid Shutdown</source>
+        <oldsource>Hybid Shutdown</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4762,26 +4757,6 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="GUI/TaskExplorer.cpp" line="825"/>
-        <source>CPU: %1%    </source>
-        <oldsource>
-Swap: %1%</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="902"/>
-        <source>Task Explorer<byte value="xd"/>
-CPU: %1%<byte value="xd"/>
-Ram: %2%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="GUI/TaskExplorer.cpp" line="905"/>
-        <source><byte value="xd"/>
-Swap: %1%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="GUI/TaskExplorer.cpp" line="1086"/>
         <source>Do you really want to %1?</source>
         <translation type="unfinished"></translation>
@@ -4986,6 +4961,19 @@ Currently the driver is not signed, pelase enable test signing (bcdedit /set tes
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="889"/>
         <source>U: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="902"/>
+        <source>Task Explorer<byte value="xd"/>
+CPU: %1%<byte value="xd"/>
+Ram: %2%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="GUI/TaskExplorer.cpp" line="905"/>
+        <source><byte value="xd"/>
+Swap: %1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
