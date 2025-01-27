@@ -33,7 +33,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - fixed issues with processes started from a voluem without a drive letter
 - fixed service delete confirmation prompt was missing
 - fixed issue listing net assemblies
-- 
 
 
 
