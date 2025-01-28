@@ -1,31 +1,39 @@
-﻿[Setup]
-AppId=TaskExplorer
+﻿#define MyAppName       "TaskExplorer"
+;#define MyAppVersion   "1.6.0"
+#define MyAppAuthor     "DavidXanatos"
+#define CurrentYear     GetDateTimeString('yyyy','','')
+#define MyAppCopyright  "(c) 2019-" + CurrentYear + " " + MYAppAuthor
+#define MyAppURL         "https://github.com/DavidXanatos/TaskExplorer"
 
-AppName=TaskExplorer
+[Setup]
+AppId={#MyAppName}
+
+AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-AppVerName=TaskExplorer {#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 
-VersionInfoDescription=TaskExplorer installer
-VersionInfoProductName=TaskExplorer
+VersionInfoDescription={#MyAppName} installer
+VersionInfoProductName={#MyAppName}
 VersionInfoVersion={#MyAppVersion}
 
-AppPublisher=https://github.com/DavidXanatos/TaskExplorer
-AppPublisherURL=https://github.com/DavidXanatos/TaskExplorer
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
 
-AppCopyright=(c) 2019-2025 DavidXanatos
+AppCopyright={#MyAppCopyright}
 
-UninstallDisplayName=TaskExplorer {#MyAppVersion}
+UninstallDisplayName=T{#MyAppName} {#MyAppVersion}
 UninstallDisplayIcon={app}\x86\TaskExplorer.exe
-AppPublisher=DavidXanatos
+AppPublisher={#MyAppAuthor}
 
 ShowLanguageDialog=yes
 UsePreviousLanguage=no
 LanguageDetectionMethod=uilanguage
 
 AppMutex=TASKEXPLORER_MUTEX
-DefaultDirName={pf}\TaskExplorer
-DefaultGroupName=TaskExplorer
-OutputBaseFilename=TaskExplorer-v{#MyAppVersion}
+DefaultDirName={pf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+OutputBaseFilename={#MyAppName}-v{#MyAppVersion}
 Compression=lzma
 ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
