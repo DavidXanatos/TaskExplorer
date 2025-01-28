@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="zh_CN">
+<TS version="2.1" language="zn_CH">
 <context>
     <name>CAffinityDialog</name>
     <message>
@@ -286,65 +286,6 @@
     </message>
 </context>
 <context>
-    <name>CDriverWindow</name>
-    <message>
-        <source>(Auto Selection)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Test Signing Enabled</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Signature Required (CKS Enabled)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Signature Required</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Start</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Not installed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Stop</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Disconnect</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Connected</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Install</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Error: 0x%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Disconnected</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>N/A</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>CEnvironmentView</name>
     <message>
         <source>Name|Type|Value</source>
@@ -520,6 +461,122 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>System Memory Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Commited memory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Swapped memory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Cache memory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Physical memory used: %1/%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 Memory Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Dedicated memory: %1/%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Shared memory: %1/%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Object Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Gdi objects: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    User objects: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Window Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Window objects: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disk I/O:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Read rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Write rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Memory mapped I/O:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Other rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Samba client:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Send rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Samba server:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RAS &amp; VPN Traffic:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TCP/IP Traffic:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    LAN Receive rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    LAN Send rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GPU Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CPU Usage:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    User usage: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>    Kernel usage: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Graph Rows</source>
         <translation type="unfinished"></translation>
     </message>
@@ -592,58 +649,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>System Memory Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Commited memory: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Swapped memory: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Cache memory: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Physical memory used: %1/%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>%1 Memory Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Dedicated memory: %1/%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Shared memory: %1/%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Object Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Gdi objects: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    User objects: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Window Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Window objects: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Handle Usage:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -660,75 +665,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Disk I/O:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Read rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Write rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Memory mapped I/O:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>File I/O:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>    Other rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Samba client:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>    Receive rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Send rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Samba server:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>RAS &amp; VPN Traffic:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>TCP/IP Traffic:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    LAN Receive rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    LAN Send rate: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>GPU Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>CPU Usage:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    User usage: %1%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>    Kernel usage: %1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1021,14 +962,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 (%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>unknown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Connection</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1094,6 +1027,14 @@
     </message>
     <message>
         <source>%1 (%2): %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1446,6 +1387,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>InvalidInput</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Possible values:<byte value="xd"/>
 <byte value="xd"/>
 0x01 - PAGE_NOACCESS<byte value="xd"/>
@@ -1461,10 +1406,6 @@ Modifiers:<byte value="xd"/>
 0x200 - PAGE_NOCACHE<byte value="xd"/>
 0x400 - PAGE_WRITECOMBINE<byte value="xd"/>
 </source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>InvalidInput</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1818,18 +1759,6 @@ Modifiers:<byte value="xd"/>
 <context>
     <name>CProcessInfo</name>
     <message>
-        <source>TCP/Server</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>TCP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>UDP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>System</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1841,23 +1770,23 @@ Modifiers:<byte value="xd"/>
         <source>Process</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>TCP/Server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TCP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>UDP</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>CProcessModel</name>
     <message>
         <source>, </source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>N/A</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>0x%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Yes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1870,22 +1799,6 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>PID</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Parent PID</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Console PID</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Seq. number</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Start key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1925,10 +1838,6 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Network</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>File name</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1953,6 +1862,62 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Virtual size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Peak virtual size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CPU Arch.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mitigations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Page faults</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Session ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>N/A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>0x%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Parent PID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Console PID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Seq. number</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Network</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Shared WS (slow)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1965,19 +1930,7 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Virtual size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Peak virtual size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Debug Messages</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Session ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2077,10 +2030,6 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>CPU Arch.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Elevation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2125,10 +2074,6 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Mitigations</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Image coherency</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2142,10 +2087,6 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>Context switches delta</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Page faults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2428,6 +2369,22 @@ Modifiers:<byte value="xd"/>
 <context>
     <name>CProcessTree</name>
     <message>
+        <source>Create Crash Dump</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Debug</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reduce Working Set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Run as this User</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Properties</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2440,7 +2397,19 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Bring in front</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Stop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Persistent Preset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Miscellaneous</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2453,10 +2422,6 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>Main Window</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Bring in front</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2480,23 +2445,11 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Miscellaneous</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Efficiency Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Execution Required</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Run as this User</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Create Crash Dump</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2516,14 +2469,6 @@ Modifiers:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Debug</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Reduce Working Set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Working Set Watch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2537,10 +2482,6 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>Permissions</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Persistent Preset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2888,6 +2829,10 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source> console</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3565,11 +3510,6 @@ To change the limit adjust the option &apos;Options/ResultLimit&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Linux CPU Usage shows 100% per core, i.e. if a process is using 2 cores to 100% it will show as 200% total cpu usage.<byte value="xd"/>
-PartiallyChecked state means apply only to thread std::list.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Close to Tray</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3613,6 +3553,11 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <source>Binary name only</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Linux CPU Usage shows 100% per core, i.e. if a process is using 2 cores to 100% it will show as 200% total cpu usage.<byte value="xd"/>
+PartiallyChecked state means apply only to thread std::list.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>CSidResolver</name>
@@ -3648,11 +3593,11 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Closed</source>
+        <source>Open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open</source>
+        <source>Closed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3847,10 +3792,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
 <context>
     <name>CStatsView</name>
     <message>
-        <source>Name|Count|Size|Rate|Delta|Peak</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>CPU</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3875,6 +3816,54 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Memory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Commit Charge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Private bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Working set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Page faults</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Private working set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Shared working set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Peak process usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Peak job usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>I/O</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Other I/O</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name|Count|Size|Rate|Delta|Peak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Interrupts</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3884,14 +3873,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>System calls</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Memory</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Commit Charge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3923,19 +3904,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Private bytes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Virtual size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Working set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Page faults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3943,31 +3912,11 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Private working set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Shareable working set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Shared working set</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Paged pool usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Peak process usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Peak job usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>I/O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3976,10 +3925,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>File I/O writes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Other I/O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4205,7 +4150,45 @@ PartiallyChecked state means apply only to thread std::list.</source>
 <context>
     <name>CTaskExplorer</name>
     <message>
+        <source>You are attempting to run the 32-bit version of Task Explorer on 64-bit Windows. Most features will not work correctly.
+
+Please run the 64-bit version of Task Explorer instead.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>TaskExplorer v%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Run...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Run as...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Run as TrustedInstaller...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Restart Elevated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;View</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>System Tabs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (Administrator)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4237,10 +4220,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source> (Administrator)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source> (root)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4249,31 +4228,11 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Run...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Run as...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Run as TrustedInstaller...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Computer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Users</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Restart Elevated</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Exit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4314,14 +4273,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>Hybrid Shutdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&amp;View</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>System Tabs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4377,10 +4328,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Processes of the Current User</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>&amp;Find</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4406,10 +4353,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>Settings</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Use Driver</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4453,11 +4396,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Empty Standby std::list</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Empty Priority 0 std::list</source>
+        <source>Found %1 hidden processes and added them to the process std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4581,10 +4520,6 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>TaskExplorer with kernel driver is ready...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>TaskExplorer is ready...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4645,34 +4580,11 @@ PartiallyChecked state means apply only to thread std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>D: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>U: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>TCP/IP; Download: %1; Upload: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>VPN/RAS; Download: %1; Upload: %2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Task Explorer<byte value="xd"/>
-CPU: %1%<byte value="xd"/>
-Ram: %2%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source><byte value="xd"/>
-Swap: %1%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Operation failed for %1 item(s).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4709,10 +4621,6 @@ Swap: %1%</source>
     </message>
     <message>
         <source>Memory opertion failed; Error: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Found %1 hidden processes and added them to the process std::list.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4824,9 +4732,46 @@ Swap: %1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>You are attempting to run the 32-bit version of Task Explorer on 64-bit Windows. Most features will not work correctly.
-
-Please run the 64-bit version of Task Explorer instead.</source>
+        <source>D: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processes of the Current User</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Driver</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Empty Standby std::list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Empty Priority 0 std::list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TaskExplorer with kernel driver is ready...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>U: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Operation failed for %1 item(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Task Explorer<byte value="xd"/>
+CPU: %1%<byte value="xd"/>
+Ram: %2%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source><byte value="xd"/>
+Swap: %1%</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4877,19 +4822,19 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>.NET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>GDI</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Debug</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Sandboxie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>.NET</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GDI</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5013,10 +4958,6 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 (%2): %3</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Yes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5041,7 +4982,15 @@ Please run the 64-bit version of Task Explorer instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Priority</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Service</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (%2): %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5066,10 +5015,6 @@ Please run the 64-bit version of Task Explorer instead.</source>
     </message>
     <message>
         <source>Context switches delta</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Priority</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5245,11 +5190,11 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Do you want to cancel I/O for the selected thread(s)?</source>
+        <source>Token</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Token</source>
+        <source>Do you want to cancel I/O for the selected thread(s)?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5821,11 +5766,6 @@ You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The 32-bit version of TaskExplorer failed to create the memory dump, Error: %1<byte value="xd"/>
-A 64-bit dump will be created instead.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Unable to create kernel minidump. Kernel minidump of processes require administrative privileges.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5835,6 +5775,11 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source>Failed to create Dump.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The 32-bit version of TaskExplorer failed to create the memory dump, Error: %1<byte value="xd"/>
+A 64-bit dump will be created instead.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6465,6 +6410,10 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source>Custom</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7276,6 +7225,10 @@ A 64-bit dump will be created instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Not supported type or state</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7428,11 +7381,6 @@ A 64-bit dump will be created instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The service has %1 failure actions configured, but this program only supports editing 3.<byte value="xd"/>
-If you save the recovery information using this program, the additional failure actions will be lost.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Unable to query service recovery information: %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7496,6 +7444,11 @@ If you save the recovery information using this program, the additional failure 
         <source>Do you want to delete the sellected privileg</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>The service has %1 failure actions configured, but this program only supports editing 3.<byte value="xd"/>
+If you save the recovery information using this program, the additional failure actions will be lost.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>CWinThread</name>
@@ -7553,6 +7506,10 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Idle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8499,15 +8456,7 @@ If you save the recovery information using this program, the additional failure 
 <context>
     <name>SettingsWindow</name>
     <message>
-        <source>TaskExplorer Settings</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>UI Options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Highlight high load cells</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8515,11 +8464,7 @@ If you save the recovery information using this program, the additional failure 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>milliseconds</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>General options</source>
+        <source>Highlight high load cells</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8527,11 +8472,23 @@ If you save the recovery information using this program, the additional failure 
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Tray options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Infos in tray:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Graph length:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>seconds</source>
+        <source>TaskExplorer Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>General options</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8543,18 +8500,6 @@ If you save the recovery information using this program, the additional failure 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Refresh interval:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Retain parrent processes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Process options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Use Dark Theme</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8563,51 +8508,11 @@ If you save the recovery information using this program, the additional failure 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Append &quot;*32&quot; to WoW64 processes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Process name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Show also highest thread CPU usage in CPU column</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Misc Options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Use Reverse DNS for remote host name resolution</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Network Options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Show LAN only TCP/IP Traffic (ETW)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Use DNS cache for remote host name resolution</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Show Pseudo UDP Connections (ETW)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Tray options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Show Sys-Tray</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Infos in tray:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8623,19 +8528,11 @@ If you save the recovery information using this program, the additional failure 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>List item colors</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Old item persistence time:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Max cell width:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Double-click on an item to change its color.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8651,27 +8548,7 @@ If you save the recovery information using this program, the additional failure 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Symbol options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Use soft force, hold CTRL to use hard force</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Trace unloaded modules</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Download Symbols:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Other Options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Undecorate symbols</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8688,6 +8565,86 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Support Sandboxie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Trace unloaded modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Symbols:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Other Options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Pseudo UDP Connections (ETW)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use DNS cache for remote host name resolution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Process name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Retain parrent processes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Undecorate symbols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Reverse DNS for remote host name resolution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Process options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Network Options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show LAN only TCP/IP Traffic (ETW)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Refresh interval:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Symbol options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>milliseconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Append &quot;*32&quot; to WoW64 processes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Sys-Tray</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>List item colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Double-click on an item to change its color.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
