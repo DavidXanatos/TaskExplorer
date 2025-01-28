@@ -75,9 +75,6 @@
     <ClCompile Include="Common\SplitTreeView.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="Common\TabPanel.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="Common\TreeItemModel.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -94,6 +91,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\CollapsibleGroupBox.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\CustomTheme.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
@@ -135,6 +135,12 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\CollapsibleGroupBox.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CustomStyles.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CustomTheme.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -184,9 +190,6 @@
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="Common\SplitTreeView.h">
-      <Filter>Common</Filter>
-    </QtMoc>
-    <QtMoc Include="Common\TabPanel.h">
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="Common\TreeItemModel.h">

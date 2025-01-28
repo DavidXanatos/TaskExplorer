@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "Settings.h"
-#include "qzlib.h"
+//#include "qzlib.h"
 #include "Common.h"
 #include <QStandardPaths>
 
@@ -94,10 +94,10 @@ QVariant CSettings::GetValue(const QString &key, const QVariant& preset)
 void CSettings::SetBlob(const QString& key, const QByteArray& value)
 {
 	QString str;
-	QByteArray data = Pack(value);
-	if(data.size() < value.size())
-		str = ":PackedArray:" + data.toBase64().replace("+","-").replace("/","_").replace("=","");
-	else
+	//QByteArray data = Pack(value);
+	//if(data.size() < value.size())
+	//	str = ":PackedArray:" + data.toBase64().replace("+","-").replace("/","_").replace("=","");
+	//else
 		str = ":ByteArray:" + value.toBase64().replace("+","-").replace("/","_").replace("=","");
 	SetValue(key, str);
 }
@@ -108,8 +108,8 @@ QByteArray CSettings::GetBlob(const QString& key)
 	QByteArray str = GetValue(key).toByteArray();
 	if(str.left(11) == ":ByteArray:")
 		value = QByteArray::fromBase64(str.mid(11).replace("-","+").replace("_","/"));
-	else if(str.left(13) == ":PackedArray:")
-		value = Unpack(QByteArray::fromBase64(str.mid(13).replace("-","+").replace("_","/")));
+	//else if(str.left(13) == ":PackedArray:")
+	//	value = Unpack(QByteArray::fromBase64(str.mid(13).replace("-","+").replace("_","/")));
 	return value;
 }
 

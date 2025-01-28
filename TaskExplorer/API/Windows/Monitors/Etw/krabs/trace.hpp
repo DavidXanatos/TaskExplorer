@@ -8,7 +8,8 @@
 #include "compiler_check.hpp"
 #include "guid.hpp"
 #include "provider.hpp"
-#include "nightmare.hpp"
+#include "trace_context.hpp"
+#include "etw.hpp"
 
 
 namespace krabs { namespace details {
@@ -94,6 +95,77 @@ namespace krabs {
 
         /**
          * <summary>
+         * Sets the trace properties for a session.
+         * Must be called before open()/start().
+         * See https://docs.microsoft.com/en-us/windows/win32/etw/event-trace-properties
+         * for important details and restrictions.
+         * Configurable properties are ->
+         *  - BufferSize.  In KB. The maximum buffer size is 1024 KB.
+         *  - MinimumBuffers. Minimum number of buffers is two per processor*.
+         *  - MaximumBuffers.
+         *  - FlushTimer. How often, in seconds, the trace buffers are forcibly flushed.
+         *  - LogFileMode. EVENT_TRACE_NO_PER_PROCESSOR_BUFFERING simulates a *single* sequential processor.
+         * </summary>
+         * <example>
+         *    krabs::trace trace;
+         *    EVENT_TRACE_PROPERTIES properties = { 0 };
+         *    properties.BufferSize = 256;
+         *    properties.MinimumBuffers = 12;
+         *    properties.MaximumBuffers = 48;
+         *    properties.FlushTimer = 1;
+         *    properties.LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
+         *    trace.set_trace_properties(&properties);
+         *    krabs::guid id(L"{A0C1853B-5C40-4B15-8766-3CF1C58F985A}");
+         *    provider<> powershell(id);
+         *    trace.enable(powershell);
+         *    trace.start();
+         * </example>
+         */
+        void set_trace_properties(const PEVENT_TRACE_PROPERTIES properties);
+
+        /**
+         * <summary>
+         * Configures trace session settings.
+         * Must be called after open().
+         * See https://docs.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-tracesetinformation
+         * for more information.
+         * </summary>
+         * <example>
+         *    krabs::trace trace;
+         *    // Adjust SE_SYSTEM_PROFILE_NAME token privilege through AdjustTokenPrivileges(...)
+         *    // to enable stack tracing (not done in this example). Then:
+         *    STACK_TRACING_EVENT_ID event_id = {0};
+         *    event_id.EventGuid = krabs::guids::perf_info;
+         *    event_id.Type = 46; // SampleProfile
+         *    trace.open();
+         *    trace.set_trace_information(TraceStackTracingInfo, &event_id, sizeof(STACK_TRACING_EVENT_ID));
+         *    krabs::kernel_provider stack_walk_provider(EVENT_TRACE_FLAG_PROFILE, krabs::guids::stack_walk);
+         *    trace.enable(stack_walk_provider);
+         *    trace.process();
+         * </example>
+         */
+        void set_trace_information(
+            TRACE_INFO_CLASS information_class,
+            PVOID trace_information,
+            ULONG information_length);
+
+        /**
+         * <summary>
+         * Configures trace to read from a file instead of realtime
+         * Must be called before open().
+         * See https://docs.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-tracesetinformation
+         * for more information.
+         * </summary>
+         * <example>
+         *    krabs::trace trace;
+         *    trace.set_trace_filename(L"C:\merged.etl");
+         *    trace.process();
+         * </example>
+         */
+        void set_trace_filename(const std::wstring& filename);
+
+        /**
+         * <summary>
          * Enables the provider on the given user trace.
          * </summary>
          * <example>
@@ -137,6 +209,8 @@ namespace krabs {
         /**
         * <summary>
         * Opens a trace session.
+        * This is an optional call before start() if you need the trace
+        * registered with the ETW subsystem before you start processing events.
         * </summary>
         * <example>
         *    krabs::trace trace;
@@ -150,18 +224,19 @@ namespace krabs {
 
         /**
         * <summary>
-        * Initiates the processing loop for a trace session.
+        * Start processing events for an already opened session.
         * </summary>
         * <example>
         *    krabs::trace trace;
         *    krabs::guid id(L"{A0C1853B-5C40-4B15-8766-3CF1C58F985A}");
         *    provider<> powershell(id);
         *    trace.enable(powershell);
-        *    auto logfile = trace.open();
+        *    trace.open();
         *    trace.process();
         * </example>
         */
         void process();
+
         /**
          * <summary>
          * Queries the trace session to get stats about
@@ -186,6 +261,27 @@ namespace krabs {
          */
         size_t buffers_processed() const;
 
+        /**
+         * <summary>
+         * Adds a function to call when an event is fired which has no corresponding provider.
+         * </summary>
+         *
+         * <param name="callback">the function to call into</param>
+         * <example>
+         *    void my_fun(const EVENT_RECORD &record) { ... }
+         *    // ...
+         *    krabs::trace trace;
+         *    trace.set_default_event_callback(my_fun);
+         * </example>
+         *
+         * <example>
+         *    auto fun = [&](const EVENT_RECORD &record) {...}
+         *    krabs::trace trace;
+         *    trace.set_default_event_callback(fun);
+         * </example>
+         */
+        void set_default_event_callback(c_provider_callback callback);
+
     private:
 
         /**
@@ -197,6 +293,7 @@ namespace krabs {
 
     private:
         std::wstring name_;
+        std::wstring logFilename_;
         std::deque<std::reference_wrapper<const typename T::provider_type>> providers_;
 
         TRACEHANDLE registrationHandle_;
@@ -204,6 +301,12 @@ namespace krabs {
 
         size_t buffersRead_;
         uint64_t eventsHandled_;
+
+        EVENT_TRACE_PROPERTIES properties_;
+
+        const trace_context context_;
+
+        provider_callback default_callback_ = nullptr;
 
     private:
         template <typename T>
@@ -224,8 +327,10 @@ namespace krabs {
     , sessionHandle_(INVALID_PROCESSTRACE_HANDLE)
     , eventsHandled_(0)
     , buffersRead_(0)
+    , context_()
     {
         name_ = T::enforce_name_policy(name);
+        ZeroMemory(&properties_, sizeof(EVENT_TRACE_PROPERTIES));
     }
 
     template <typename T>
@@ -234,14 +339,42 @@ namespace krabs {
     , sessionHandle_(INVALID_PROCESSTRACE_HANDLE)
     , eventsHandled_(0)
     , buffersRead_(0)
+    , context_()
     {
         name_ = T::enforce_name_policy(name);
+        ZeroMemory(&properties_, sizeof(EVENT_TRACE_PROPERTIES));
     }
 
     template <typename T>
     trace<T>::~trace()
     {
         stop();
+    }
+
+    template <typename T>
+    void trace<T>::set_trace_properties(const PEVENT_TRACE_PROPERTIES properties)
+    {
+        properties_.BufferSize = properties->BufferSize;
+        properties_.MinimumBuffers = properties->MinimumBuffers;
+        properties_.MaximumBuffers = properties->MaximumBuffers;
+        properties_.FlushTimer = properties->FlushTimer;
+        properties_.LogFileMode = properties->LogFileMode;
+    }
+
+    template <typename T>
+    void trace<T>::set_trace_information(
+        TRACE_INFO_CLASS information_class,
+        PVOID trace_information,
+        ULONG information_length)
+    {
+        details::trace_manager<trace> manager(*this);
+        manager.set_trace_information(information_class, trace_information, information_length);
+    }
+
+    template <typename T>
+    void trace<T>::set_trace_filename(const std::wstring& filename)
+    {
+        logFilename_ = filename;
     }
 
     template <typename T>
@@ -285,8 +418,10 @@ namespace krabs {
     template <typename T>
     void trace<T>::process()
     {
+        eventsHandled_ = 0;
+
         details::trace_manager<trace> manager(*this);
-        return manager.process();
+        manager.process();
     }
 
     template <typename T>
@@ -300,6 +435,12 @@ namespace krabs {
     size_t trace<T>::buffers_processed() const
     {
         return buffersRead_;
+    }
+
+    template <typename T>
+    void trace<T>::set_default_event_callback(c_provider_callback callback)
+    {
+        default_callback_ = callback;
     }
 
 }

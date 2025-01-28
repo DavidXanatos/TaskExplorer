@@ -129,5 +129,3 @@
 #endif
 
 #include "Common/DebugHelpers.h"
-
-#define USE_QEXTWIDGETS

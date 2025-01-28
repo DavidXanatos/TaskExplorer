@@ -17,16 +17,16 @@ public:
 	bool		bTerminate;
 
 	bool		bPriority;
-	long		iPriority;
+	qint32		iPriority;
 
 	bool		bAffinity;
 	quint64		uAffinity;
 
 	bool		bIOPriority;
-	long		iIOPriority;
+	qint32		iIOPriority;
 
 	bool		bPagePriority;
-	long		iPagePriority;
+	qint32		iPagePriority;
 };
 
 typedef QSharedDataPointer<CPersistentPresetData> CPersistentPresetDataPtr;
@@ -44,10 +44,10 @@ public:
 
 	QString GetPattern() const								{ QReadLocker Locker(&m_Mutex); return m_Data->sPattern; }
 
-	void SetPriority(long Value)							{ QWriteLocker Locker(&m_Mutex); m_Data->bPriority = true; m_Data->iPriority = Value; }
+	void SetPriority(qint32 Value)							{ QWriteLocker Locker(&m_Mutex); m_Data->bPriority = true; m_Data->iPriority = Value; }
 	void SetAffinityMask(quint64 Value)						{ QWriteLocker Locker(&m_Mutex); m_Data->bAffinity = true; m_Data->uAffinity = Value; }
-	void SetIOPriority(long Value)							{ QWriteLocker Locker(&m_Mutex); m_Data->bIOPriority = true; m_Data->iIOPriority = Value; }
-	void SetPagePriority(long Value)						{ QWriteLocker Locker(&m_Mutex); m_Data->bPagePriority = true; m_Data->iPagePriority = Value; }
+	void SetIOPriority(qint32 Value)						{ QWriteLocker Locker(&m_Mutex); m_Data->bIOPriority = true; m_Data->iIOPriority = Value; }
+	void SetPagePriority(qint32 Value)						{ QWriteLocker Locker(&m_Mutex); m_Data->bPagePriority = true; m_Data->iPagePriority = Value; }
 
 	bool Test(const QString& FileName, const QString& CommandLine = QString());
 

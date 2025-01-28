@@ -15,6 +15,7 @@ public slots:
 	void					UpdateGraphs();
 	void					CustomizeGraphs();
 	void					ReConfigurePlots();
+	void					SetDarkMode(bool bDark);
 
 private slots:	
 	void					OnMenu(const QPoint& Point);

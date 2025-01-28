@@ -10,6 +10,9 @@
 
 #include "compiler_check.hpp"
 #include "filtering/event_filter.hpp"
+#include "perfinfo_groupmask.hpp"
+#include "trace_context.hpp"
+#include "wstring_convert.hpp"
 
 #include <evntcons.h>
 #include <guiddef.h>
@@ -35,8 +38,10 @@ namespace krabs {
     template <typename T>
     class trace;
 
-    typedef void(*c_provider_callback)(const EVENT_RECORD &);
-    typedef std::function<void(const EVENT_RECORD &)> provider_callback;
+    typedef void(*c_provider_callback)(const EVENT_RECORD &, const krabs::trace_context &);
+    typedef void(*c_provider_error_callback)(const EVENT_RECORD&, const std::string&);
+    typedef std::function<void(const EVENT_RECORD &, const krabs::trace_context &)> provider_callback;
+    typedef std::function<void(const EVENT_RECORD&, const std::string&)> provider_error_callback;
 
     namespace details {
 
@@ -57,7 +62,7 @@ namespace krabs {
              *
              * <param name="callback">the function to call into</param>
              * <example>
-             *    void my_fun(const EVENT_RECORD &record) { ... }
+             *    void my_fun(const EVENT_RECORD &record, const krabs::trace_context &trace_context) { ... }
              *    // ...
              *    krabs::guid id(L"{A0C1853B-5C40-4B15-8766-3CF1C58F985A}");
              *    provider<> powershell(id);
@@ -65,7 +70,7 @@ namespace krabs {
              * </example>
              *
              * <example>
-             *    auto fun = [&](const EVENT_RECORD &record) {...}
+             *    auto fun = [&](const EVENT_RECORD &record, const krabs::trace_context &trace_context) {...}
              *    krabs::guid id(L"{A0C1853B-5C40-4B15-8766-3CF1C58F985A}");
              *    provider<> powershell(id);
              *    provider.add_on_event_callback(fun);
@@ -81,6 +86,19 @@ namespace krabs {
 
             /**
              * <summary>
+             * Adds a function to call when an error occurs when this provider handles an event.
+             * </summary>
+             */
+            void add_on_error_callback(c_provider_error_callback callback);
+
+            template <typename U>
+            void add_on_error_callback(U& callback);
+
+            template <typename U>
+            void add_on_error_callback(const U& callback);
+
+            /**
+             * <summary>
              *   Adds a new filter to a provider, where the filter is expected
              *   to have callbacks attached to it.
              * </summary>
@@ -88,7 +106,7 @@ namespace krabs {
              *   krabs::guid id(L"{A0C1853B-5C40-4B15-8766-3CF1C58F985A}");
              *   krabs::provider<> powershell(id);
              *   krabs::event_filter filter(krabs::filtering::any_event);
-             *   filter.add_on_event_callback([&](const EVENT_RECORD &record) {});
+             *   filter.add_on_event_callback([&](const EVENT_RECORD &record, const krabs::trace_context &trace_context) {...});
              *   powershell.add_filter(filter);
              * </example>
              */
@@ -101,10 +119,11 @@ namespace krabs {
              *   Called when an event occurs, forwards to callbacks and filters.
              * </summary>
              */
-            void on_event(const EVENT_RECORD &record) const;
+            void on_event(const EVENT_RECORD &record, const krabs::trace_context &context) const;
 
         protected:
             std::deque<provider_callback> callbacks_;
+            std::deque<provider_error_callback> error_callbacks_;
             std::deque<event_filter> filters_;
 
         private:
@@ -223,6 +242,37 @@ namespace krabs {
         void trace_flags(T trace_flags);
 
         /**
+        * <summary>
+        * Gets the configured value for the "EnableProperty" flag on the 
+        * ENABLE_TRACE_PARAMETER struct. See void trace_flags(T trace_flags)
+        * for details on what the values mean.
+        * </summary>
+        * <returns>The value to set when the provider is enabled.</returns>
+        * <example>
+        *    krabs::guid id(L"{A0C1853B-5C40-4B15-8766-3CF1C58F985A}");
+        *    provider<> powershell(id);
+        *    powershell.trace_flags(EVENT_ENABLE_PROPERTY_STACK_TRACE);
+        *    auto flags = powershell.get_trace_flags(); 
+        *    assert(flags == EVENT_ENABLE_PROPERTY_STACK_TRACE);
+        * </example>
+        */
+        T trace_flags() const;
+
+        /**
+        * <summary>
+        * Requests that the provider log its state information. See:
+        *   https://docs.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-enabletraceex2
+        * </summary>
+        *
+        * <example>
+        *     krabs::provider<> process_provider(L"Microsoft-Windows-Kernel-Process");
+        *     process_provider.any(0x10);  // WINEVENT_KEYWORD_PROCESS
+        *     process_provider.enable_rundown_events();
+        * </example>
+        */
+        void enable_rundown_events();
+
+        /**
          * <summary>
          * Turns a strongly typed provider<T> to provider<> (useful for
          * creating collections of providers).
@@ -242,6 +292,7 @@ namespace krabs {
         T all_;
         T level_;
         T trace_flags_;
+        bool rundown_enabled_;
 
     private:
         template <typename T>
@@ -275,14 +326,47 @@ namespace krabs {
         kernel_provider(unsigned long flags, const GUID &id)
         : p_(flags)
         , id_(id)
+        , gm_(0)
+        , r_(0)
+        , rundown_enabled_(false)
         {}
 
         /**
          * <summary>
-         * Retrieves the GUID associated with this provider.
+         *   Constructs a kernel_provider that enables events of the given
+         *   group mask.
+         * </summary>
+         * <remarks>
+         *   Only supported on Windows 8 and newer.
+         * </remarks>
+         */
+        kernel_provider(const GUID& id, PERFINFO_MASK group_mask)
+        : p_(0)
+        , id_(id)
+        , gm_(group_mask)
+        , r_(0)
+        , rundown_enabled_(false)
+        {}
+
+        /**
+         * <summary>
+         *   Retrieves the GUID associated with this provider.
          * </summary>
          */
          const krabs::guid &id() const;
+
+         /**
+         * <summary>
+         *   Sets flags to be enabled for the kernel rundown GUID.
+         * </summary>
+         * <remarks>
+         *   This ETW feature is undocumented and should be used with caution.
+         * </remarks>
+         */
+         void set_rundown_flags(unsigned long rundown_flags) {
+             r_ = rundown_flags;
+             rundown_enabled_ = true;
+         };
 
     private:
 
@@ -293,9 +377,33 @@ namespace krabs {
          */
         unsigned long flags() const { return p_; }
 
+        /**
+         * <summary>
+         *   Retrieves the group mask value associated with this provider.
+         * </summary>
+         */
+        PERFINFO_MASK group_mask() const { return gm_; }
+
+        /**
+         * <summary>
+         *   Retrieves the rundown flag value associated with this provider.
+         * </summary>
+         */
+        unsigned long rundown_flags() const { return r_; }
+
+        /**
+         * <summary>
+         *   Have rundown flags been set for this this provider?
+         * </summary>
+         */
+        bool rundown_enabled() const { return rundown_enabled_; }
+
     private:
         unsigned long p_;
         const krabs::guid id_;
+        PERFINFO_MASK gm_;
+        unsigned long r_;
+        bool rundown_enabled_;
 
     private:
         friend struct details::kt;
@@ -338,23 +446,61 @@ namespace krabs {
         }
 
         template <typename T>
+        void base_provider<T>::add_on_error_callback(c_provider_error_callback callback)
+        {
+            // C function pointers don't interact well with std::ref, so we
+            // overload to take care of this scenario.
+            error_callbacks_.push_back(callback);
+        }
+
+        template <typename T>
+        template <typename U>
+        void base_provider<T>::add_on_error_callback(U& callback)
+        {
+            // std::function copies its argument -- because our callbacks list
+            // is a list of std::function, this causes problems when a user
+            // intended for their particular instance to be called.
+            // std::ref lets us get around this and point to a specific instance
+            // that they handed us.
+            error_callbacks_.push_back(std::ref(callback));
+        }
+
+        template <typename T>
+        template <typename U>
+        void base_provider<T>::add_on_error_callback(const U& callback)
+        {
+            // This is where temporaries bind to. Temporaries can't be wrapped in
+            // a std::ref because they'll go away very quickly. We are forced to
+            // actually copy these.
+            error_callbacks_.push_back(callback);
+        }
+
+        template <typename T>
         void base_provider<T>::add_filter(const event_filter &f)
         {
             filters_.push_back(f);
         }
 
         template <typename T>
-        void base_provider<T>::on_event(const EVENT_RECORD &record) const
+        void base_provider<T>::on_event(const EVENT_RECORD &record, const krabs::trace_context &trace_context) const
         {
-            for (auto &callback : callbacks_) {
-                callback(record);
-            }
+            try
+            {
+                for (auto& callback : callbacks_) {
+                    callback(record, trace_context);
+                }
 
-            for (auto &filter : filters_) {
-                filter.on_event(record);
+                for (auto& filter : filters_) {
+                    filter.on_event(record, trace_context);
+                }
+            }
+            catch (krabs::could_not_find_schema& ex)
+            {
+                for (auto& error_callback : error_callbacks_) {
+                    error_callback(record, ex.what());
+                }
             }
         }
-
     } // namespace details
 
     // ------------------------------------------------------------------------
@@ -368,6 +514,7 @@ namespace krabs {
     , all_(0)
     , level_(5)
     , trace_flags_(0)
+    , rundown_enabled_(false)
     {}
 
 
@@ -385,7 +532,7 @@ namespace krabs {
         if (FAILED(hr)) {
             std::stringstream stream;
             stream << "Error in constructing guid from provider name (";
-            stream << providerName.c_str();
+            stream << from_wstring(providerName);
             stream << "), hr = 0x";
             stream << std::hex << hr;
             throw std::runtime_error(stream.str());
@@ -445,7 +592,7 @@ namespace krabs {
             {
                 std::stringstream stream;
                 stream << "Provider name does not exist. (";
-                stream << providerName.c_str();
+                stream << from_wstring(providerName);
                 stream << "), hr = 0x";
                 stream << std::hex << hr;
                 throw std::runtime_error(stream.str());
@@ -456,6 +603,7 @@ namespace krabs {
             all_ = 0;
             level_ = 5;
             trace_flags_ = 0;
+            rundown_enabled_ = false;
         }
 
         CoUninitialize();
@@ -486,13 +634,25 @@ namespace krabs {
     }
 
     template <typename T>
+    T provider<T>::trace_flags() const
+    {
+        return static_cast<T>(trace_flags_);
+    }
+
+    template <typename T>
+    void provider<T>::enable_rundown_events()
+    {
+        rundown_enabled_ = true;
+    }
+
+    template <typename T>
     provider<T>::operator provider<>() const
     {
         provider<> tmp(guid_);
         tmp.any_            = static_cast<ULONGLONG>(any_);
         tmp.all_            = static_cast<ULONGLONG>(all_);
         tmp.level_          = static_cast<UCHAR>(level_);
-        tmp.trace_flags_    = static_cast<UCHAR>(trace_flags_);
+        tmp.trace_flags_    = static_cast<ULONG>(trace_flags_);
         tmp.callbacks_      = this.callbacks_;
 
         return tmp;

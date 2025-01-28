@@ -104,7 +104,6 @@
 #include <QColorDialog>
 #include <QToolButton>
 #include <QScreen>
-#include <QRegExp>
 #include <QActionGroup>
 #include <QRegularExpression>
 

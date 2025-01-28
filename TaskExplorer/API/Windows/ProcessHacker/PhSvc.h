@@ -25,14 +25,14 @@ typedef struct _ES_TRIGGER_INFO
 typedef struct _TYPE_ENTRY
 {
 	ULONG Type;
-	PWSTR Name;
+	PCWSTR Name;
 } TYPE_ENTRY, PTYPE_ENTRY;
 
 typedef struct _SUBTYPE_ENTRY
 {
 	ULONG Type;
 	PGUID Guid;
-	PWSTR Name;
+	PCWSTR Name;
 } SUBTYPE_ENTRY, PSUBTYPE_ENTRY;
 
 extern GUID NetworkManagerFirstIpAddressArrivalGuid;

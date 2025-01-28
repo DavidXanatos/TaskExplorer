@@ -2,7 +2,7 @@
 #include "../TaskExplorer.h"
 #include "TokenView.h"
 #include "TaskInfoWindow.h"
-#include "../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/ProcessHacker.h"
 #undef GetUserName
 
 CTokenView::CTokenView(QWidget *parent)

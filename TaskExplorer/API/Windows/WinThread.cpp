@@ -596,7 +596,7 @@ STATUS CWinThread::SetPriorityBoost(bool Value)
 	return OK;
 }
 
-STATUS CWinThread::SetPriority(long Value)
+STATUS CWinThread::SetPriority(qint32 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -627,7 +627,7 @@ STATUS CWinThread::SetPriority(long Value)
 	return OK;
 }
 
-STATUS CWinThread::SetPagePriority(long Value)
+STATUS CWinThread::SetPagePriority(qint32 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -652,7 +652,7 @@ STATUS CWinThread::SetPagePriority(long Value)
 	return OK;
 }
 
-STATUS CWinThread::SetIOPriority(long Value)
+STATUS CWinThread::SetIOPriority(qint32 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 

@@ -146,7 +146,7 @@ struct SWinDbgMonitor
         if (!(DataReadyEvent = CreateEvent(&SecurityAttributes, FALSE, FALSE, (std::wstring(bGlobal ? L"Global\\" : L"Local\\") + DBWIN_DATA_READY).c_str())))
 			return ERR("DBWIN_DATA_READY", GetLastError());
 
-        DbgFormatObjectName(bGlobal ? FALSE : TRUE, DBWIN_BUFFER_SECTION_NAME, &objectName);
+        DbgFormatObjectName(bGlobal ? FALSE : TRUE, (PWSTR)DBWIN_BUFFER_SECTION_NAME, &objectName);
         InitializeObjectAttributes(
             &objectAttributes,
             &objectName,

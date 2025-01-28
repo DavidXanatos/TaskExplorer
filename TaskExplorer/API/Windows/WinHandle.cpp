@@ -512,12 +512,12 @@ QString CWinHandle::GetGrantedAccessString() const
 
 PH_ACCESS_ENTRY FileModeAccessEntries[6] = 
 {
-    { L"FILE_FLAG_OVERLAPPED", PH_FILEMODE_ASYNC, FALSE, FALSE, L"Asynchronous" },
-    { L"FILE_FLAG_WRITE_THROUGH", FILE_WRITE_THROUGH, FALSE, FALSE, L"Write through" },
-    { L"FILE_FLAG_SEQUENTIAL_SCAN", FILE_SEQUENTIAL_ONLY, FALSE, FALSE, L"Sequental" },
-    { L"FILE_FLAG_NO_BUFFERING", FILE_NO_INTERMEDIATE_BUFFERING, FALSE, FALSE, L"No buffering" },
-    { L"FILE_SYNCHRONOUS_IO_ALERT", FILE_SYNCHRONOUS_IO_ALERT, FALSE, FALSE, L"Synchronous alert" },
-    { L"FILE_SYNCHRONOUS_IO_NONALERT", FILE_SYNCHRONOUS_IO_NONALERT, FALSE, FALSE, L"Synchronous non-alert" },
+    { (PWSTR)L"FILE_FLAG_OVERLAPPED", PH_FILEMODE_ASYNC, FALSE, FALSE, (PWSTR)L"Asynchronous" },
+    { (PWSTR)L"FILE_FLAG_WRITE_THROUGH", FILE_WRITE_THROUGH, FALSE, FALSE, (PWSTR)L"Write through" },
+    { (PWSTR)L"FILE_FLAG_SEQUENTIAL_SCAN", FILE_SEQUENTIAL_ONLY, FALSE, FALSE, (PWSTR)L"Sequental" },
+    { (PWSTR)L"FILE_FLAG_NO_BUFFERING", FILE_NO_INTERMEDIATE_BUFFERING, FALSE, FALSE, (PWSTR)L"No buffering" },
+    { (PWSTR)L"FILE_SYNCHRONOUS_IO_ALERT", FILE_SYNCHRONOUS_IO_ALERT, FALSE, FALSE, (PWSTR)L"Synchronous alert" },
+    { (PWSTR)L"FILE_SYNCHRONOUS_IO_NONALERT", FILE_SYNCHRONOUS_IO_NONALERT, FALSE, FALSE, (PWSTR)L"Synchronous non-alert" },
 };
 
 QString CWinHandle::GetFileAccessMode(quint32 Mode)
@@ -731,7 +731,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 
 			if (NT_SUCCESS(PhGetMutantBasicInformation(mutantHandle, &mutantInfo)))
 			{
-				HandleInfo["Count"] = mutantInfo.CurrentCount;
+				HandleInfo["Count"] = (qint32)mutantInfo.CurrentCount;
 				HandleInfo["Abandoned"] = mutantInfo.AbandonedState;
 			}
 
@@ -761,7 +761,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 			{
 				HandleInfo["PID"] = (quint64)procInfo.UniqueProcessId;
 
-				HandleInfo["ExitStatus"] = procInfo.ExitStatus;
+				HandleInfo["ExitStatus"] = (qint32)procInfo.ExitStatus;
 			}
 
 			KERNEL_USER_TIMES times;
@@ -793,7 +793,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 				HandleInfo["PID"] = (quint64)threadInfo.ClientId.UniqueProcess;
 				HandleInfo["TID"] = (quint64)threadInfo.ClientId.UniqueThread;
 
-				HandleInfo["ExitStatus"] = threadInfo.ExitStatus;
+				HandleInfo["ExitStatus"] = (qint32)threadInfo.ExitStatus;
 
 				//if (NT_SUCCESS(PhOpenProcess(
 				//    &processHandle,

@@ -410,7 +410,7 @@ NTSTATUS KsiGetDynData(
 	*Signature = NULL;
 	*SignatureLength = 0;
 
-	status = KsiReadConfiguration(L"ksidyn.bin", &data, &dataLength);
+	status = KsiReadConfiguration((PWSTR)L"ksidyn.bin", &data, &dataLength);
 	if (!NT_SUCCESS(status))
 		goto CleanupExit;
 
@@ -418,7 +418,7 @@ NTSTATUS KsiGetDynData(
 	//if (!NT_SUCCESS(status))
 	//	goto CleanupExit;
 
-	status = KsiReadConfiguration(L"ksidyn.sig", &sig, &sigLength);
+	status = KsiReadConfiguration((PWSTR)L"ksidyn.sig", &sig, &sigLength);
 	if (!NT_SUCCESS(status))
 		goto CleanupExit;
 	

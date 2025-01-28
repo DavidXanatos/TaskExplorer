@@ -240,7 +240,7 @@ private:
 	void UpdateCPUCycles(quint64 TotalCycleTime, quint64 IdleCycleTime);
 	bool InitCpuCount();
 
-	bool CWindowsAPI::UpdateRpcList(void* server, void* protocol, QMap<QString, CRpcEndpointPtr>& OldRpcTableList, QSet<QString>& Added, QSet<QString>& Changed);
+	bool UpdateRpcList(void* server, void* protocol, QMap<QString, CRpcEndpointPtr>& OldRpcTableList, QSet<QString>& Added, QSet<QString>& Changed);
 
 	bool m_bTestSigning;
 	bool m_bCKSEnabled;

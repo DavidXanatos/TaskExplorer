@@ -18,7 +18,7 @@
 #include "RunAsDialog.h"
 #include "../../MiscHelpers/Common/Finder.h"
 #include "PersistenceConfig.h"
-#include "../../MiscHelpers/Common/qzlib.h"
+//#include "../../MiscHelpers/Common/qzlib.h"
 #include "Filters/ProcessFilterModel.h"
 
 CProcessTree::CProcessTree(QWidget *parent)
@@ -166,7 +166,7 @@ CProcessTree::CProcessTree(QWidget *parent)
 	}
 
 	m_PlotBackground = Qt::white;
-	if(theConf->GetBool("MainWindow/DarkTheme", false))
+	if(theGUI->GetTheme()->IsDarkTheme())
 		m_PlotBackground = Qt::black;
 
 	//connect(m_pProcessList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
@@ -267,7 +267,7 @@ void CProcessTree::OnClear()
 
 
 	QColor PlotBackground = Qt::white;
-	if(theConf->GetBool("MainWindow/DarkTheme", false))
+	if(theGUI->GetTheme()->IsDarkTheme())
 		PlotBackground = Qt::black;
 
 	if(m_PlotBackground != PlotBackground)
@@ -945,7 +945,7 @@ void CProcessTree::OnProcessAction()
 			else if (sender() == m_pOpenPath)
 			{
 				PPH_STRING phFileName = CastQString(pWinProcess->GetFileName());
-				PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+				PhShellExecuteUserString(NULL, (PWSTR)L"FileBrowseExecutable", phFileName->Buffer, FALSE, (PWSTR)L"Make sure the Explorer executable file is present." );
 				PhDereferenceObject(phFileName);
 			}
 			else if (sender() == m_pViewPE)

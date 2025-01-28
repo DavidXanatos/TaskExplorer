@@ -23,10 +23,10 @@ namespace krabs {
         {}
     };
 
-    class start_trace_failure : public std::runtime_error {
+    class open_trace_failure : public std::runtime_error {
     public:
-        start_trace_failure()
-            : std::runtime_error("Failure to start trace")
+        open_trace_failure()
+            : std::runtime_error("Failure to open trace")
         {}
     };
 
@@ -41,6 +41,10 @@ namespace krabs {
     public:
         could_not_find_schema()
         : std::runtime_error("Could not find the schema")
+        {}
+
+        could_not_find_schema(const std::string& context)
+            : std::runtime_error(std::string("Could not find the schema: ") + context)
         {}
     };
 
@@ -62,6 +66,38 @@ namespace krabs {
         {}
     };
 
+    class function_not_supported : public std::runtime_error {
+    public:
+        function_not_supported()
+            : std::runtime_error("This function is not supported on this system.")
+        {}
+    };
+
+    class unexpected_error : public std::runtime_error {
+    public:
+        unexpected_error(ULONG status)
+            : std::runtime_error(std::string("An unexpected error occurred: status_code=") +
+                std::to_string(status))
+        {}
+
+        unexpected_error(const std::string &context)
+            : std::runtime_error(std::string("An unexpected error occurred: ") + context)
+        {}
+    };
+
+    inline std::string get_status_and_record_context(ULONG status, const EVENT_RECORD& record)
+    {
+        std::stringstream message;
+        message << "status_code="
+            << status
+            << " provider_id="
+            << std::to_string(record.EventHeader.ProviderId)
+            << " event_id="
+            << record.EventHeader.EventDescriptor.Id;
+
+        return message.str();
+    }
+
     /**
      * <summary>Checks for common ETW API error codes.</summary>
      */
@@ -82,8 +118,39 @@ namespace krabs {
                 throw krabs::could_not_find_schema();
             case ERROR_NO_SYSTEM_RESOURCES:
                 throw krabs::no_trace_sessions_remaining();
+            case ERROR_NOT_SUPPORTED:
+                throw krabs::function_not_supported();
             default:
-                throw std::runtime_error("Unexpected error");
+                throw krabs::unexpected_error(status);
+        }
+    }
+
+    /**
+     * <summary>Checks for common ETW API error codes and includes properties from the event record.</summary>
+     */
+    inline void error_check_common_conditions(ULONG status, const EVENT_RECORD &record)
+    {
+        if (status == ERROR_SUCCESS) {
+            return;
+        }
+
+        auto context = get_status_and_record_context(status, record);
+
+        switch (status) {
+        case ERROR_ALREADY_EXISTS:
+            throw krabs::trace_already_registered();
+        case ERROR_INVALID_PARAMETER:
+            throw krabs::invalid_parameter();
+        case ERROR_ACCESS_DENIED:
+            throw krabs::need_to_be_admin_failure();
+        case ERROR_NOT_FOUND:
+            throw krabs::could_not_find_schema(context);
+        case ERROR_NO_SYSTEM_RESOURCES:
+            throw krabs::no_trace_sessions_remaining();
+        case ERROR_NOT_SUPPORTED:
+            throw krabs::function_not_supported();
+        default:
+            throw krabs::unexpected_error(context);
         }
     }
 }

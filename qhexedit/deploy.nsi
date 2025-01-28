@@ -80,7 +80,6 @@
 
   !insertmacro MUI_LANGUAGE "English" ;first language is the default Language
   !insertmacro MUI_LANGUAGE "German"
-  !insertmacro MUI_LANGUAGE "Italian"
 
 ;--------------------------------
 ;Reserve Files
@@ -131,21 +130,15 @@ FunctionEnd
 #LicenseLangString license ${LANG_ENGLISH} license.rtf
 #LicenseLangString license ${LANG_GERMAN} license_de.rtf
 
-LangString startmenu       ${LANG_ENGLISH}  "Add to Start Menu"
-LangString startmenu       ${LANG_GERMAN}   "Eintrag ins Startmenü"
-LangString startmenu       ${LANG_ITALIAN}  "Aggiungi al menu Start"
+LangString startmenu ${LANG_ENGLISH} "Add to Start Menu"
+LangString startmenu ${LANG_GERMAN} "Eintrag ins Startmenü"
+LangString DESC_Startmenu ${LANG_ENGLISH} "Add an Entry to the Start Menu"
+LangString DESC_Startmenu ${LANG_GERMAN} "Einen Eintrag ins Startmenü hinzufügen"
 
-LangString DESC_Startmenu  ${LANG_ENGLISH}  "Add an Entry to the Start Menu"
-LangString DESC_Startmenu  ${LANG_GERMAN}   "Einen Eintrag ins Startmenü hinzufügen"
-LangString DESC_Startmenu  ${LANG_ITALIAN}  "Aggiungi una voce al menu Start"
-
-LangString desktop         ${LANG_ENGLISH}  "Add a Desktop Icon"
-LangString desktop         ${LANG_GERMAN}   "Zum Desktop hinzufügen"
-LangString desktop         ${LANG_ITALIAN}  "Aggiungi un'icona sul desktop"
-
-LangString DESC_Desktop    ${LANG_ENGLISH}  "Add an Icon to the Desktop"
-LangString DESC_Desktop    ${LANG_GERMAN}   "Einen Eintrag zum Desktop hinzufügen"
-LangString DESC_Desktop    ${LANG_ITALIAN}  "Aggiungi un'icona sul desktop"
+LangString desktop ${LANG_ENGLISH} "Add a Desktop Icon"
+LangString desktop ${LANG_GERMAN} "Zum Desktop hinzufügen"
+LangString DESC_Desktop ${LANG_ENGLISH} "Add an Icon to the Desktop"
+LangString DESC_Desktop ${LANG_GERMAN} "Einen Eintrag zum Desktop hinzufügen"
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
    !insertmacro MUI_DESCRIPTION_TEXT ${Startmenu} $(DESC_Startmenu)

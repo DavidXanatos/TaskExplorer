@@ -2679,7 +2679,7 @@ QString CWinProcess::GetPPLProtectionString() const
     {
         if (WindowsVersion >= WINDOWS_8_1)
         {
-			static PWSTR ProtectedSignerStrings[] = { L"", L"(Authenticode)", L"(CodeGen)", L"(Antimalware)", L"(Lsa)", L"(Windows)", L"(WinTcb)", L"(WinSystem)", L"(StoreApp)" };
+			static PCWSTR ProtectedSignerStrings[] = { L"", L"(Authenticode)", L"(CodeGen)", L"(Antimalware)", L"(Lsa)", L"(Windows)", L"(WinTcb)", L"(WinSystem)", L"(StoreApp)" };
 
 			QString Signer;
 			if (m->Protection.Signer < sizeof(ProtectedSignerStrings) / sizeof(PWSTR))
@@ -3066,7 +3066,7 @@ STATUS CWinProcess::SetPowerThrottled(bool Value)
 	return OK;
 }
 
-STATUS CWinProcess::SetPriority(long Value)
+STATUS CWinProcess::SetPriority(qint32 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -3107,7 +3107,7 @@ STATUS CWinProcess::SetPriority(long Value)
 	return OK;
 }
 
-STATUS CWinProcess::SetPagePriority(long Value)
+STATUS CWinProcess::SetPagePriority(qint32 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -3147,7 +3147,7 @@ STATUS CWinProcess::SetPagePriority(long Value)
 	return OK;
 }
 
-STATUS CWinProcess::SetIOPriority(long Value)
+STATUS CWinProcess::SetIOPriority(qint32 Value)
 {
 	QWriteLocker Locker(&m_Mutex); 
 
@@ -4127,7 +4127,7 @@ QString CWinProcess__QueryWmiFileName(const QString& ProviderNameSpace, const QS
 
     queryString = PhFormatString(L"SELECT clsid FROM __Win32Provider WHERE Name = '%s'", (wchar_t*)ProviderName.toStdWString().c_str());
 
-    if (FAILED(status = IWbemServices_ExecQuery(wbemServices, L"WQL", queryString->Buffer, WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &wbemEnumerator)))
+    if (FAILED(status = IWbemServices_ExecQuery(wbemServices, (PWSTR)L"WQL", queryString->Buffer, WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &wbemEnumerator)))
         goto CleanupExit;
 
     if (SUCCEEDED(status = IEnumWbemClassObject_Next(wbemEnumerator, WBEM_INFINITE,  1,  &wbemClassObject,  &count)))
@@ -4211,12 +4211,12 @@ QList<CWinProcess::SWmiProvider> CWinProcess::QueryWmiProviders() const
     if (FAILED(status = CoCreateInstance(*(_GUID*)&CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, *(_GUID*)&IID_IWbemLocator, (PVOID*)&wbemLocator)))
         goto CleanupExit;
 
-    if (FAILED(status = IWbemLocator_ConnectServer(wbemLocator, L"root\\CIMV2", NULL, NULL, NULL, 0, 0, NULL, &wbemServices)))
+    if (FAILED(status = IWbemLocator_ConnectServer(wbemLocator, (PWSTR)L"root\\CIMV2", NULL, NULL, NULL, 0, 0, NULL, &wbemServices)))
         goto CleanupExit;
 
     queryString = PhConcatStrings2(L"SELECT Namespace,Provider,User FROM Msft_Providers WHERE HostProcessIdentifier = ", (wchar_t*)QString::number(GetProcessId()).toStdWString().c_str());
 
-    if (FAILED(status = IWbemServices_ExecQuery(wbemServices, L"WQL", queryString->Buffer, WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &wbemEnumerator)))
+    if (FAILED(status = IWbemServices_ExecQuery(wbemServices, (PWSTR)L"WQL", queryString->Buffer, WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &wbemEnumerator)))
         goto CleanupExit;
 
     while (TRUE)

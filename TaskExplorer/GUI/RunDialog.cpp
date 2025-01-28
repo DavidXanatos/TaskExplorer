@@ -72,19 +72,19 @@ void CRunDialog::accept()
 
 	NTSTATUS status;
 
-	if (!ui.elevated->isChecked() && theAPI->RootAvaiable() && !ui.injectDll->isChecked() && !ui.suspended->isChecked())
-	{
-		if (NT_SUCCESS(status = RunAsLimitedUser((wchar_t*)filePath.c_str())))
-			goto done;
-	}
-
-    HANDLE tokenHandle = NULL;
+	HANDLE tokenHandle = NULL;
 	HANDLE newTokenHandle = NULL;
 	HANDLE threadHandle = NULL;
 	HANDLE processHandle = NULL;
 #ifdef _WIN64
 	BOOLEAN isWow64 = FALSE;
 #endif
+
+	if (!ui.elevated->isChecked() && theAPI->RootAvaiable() && !ui.injectDll->isChecked() && !ui.suspended->isChecked())
+	{
+		if (NT_SUCCESS(status = RunAsLimitedUser((wchar_t*)filePath.c_str())))
+			goto done;
+	}
 
 	if (!NT_SUCCESS(status = PhOpenProcessToken(
 		NtCurrentProcess(),

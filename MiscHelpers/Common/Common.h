@@ -91,10 +91,6 @@ MISCHELPERS_EXPORT QAction* MakeAction(QMenu* pParent, const QString& Text, cons
 MISCHELPERS_EXPORT QAction* MakeAction(QActionGroup* pGroup, QMenu* pParent, const QString& Text, const QVariant& Data);
 MISCHELPERS_EXPORT QAction* MakeActionCheck(QMenu* pParent, const QString& Text, const QVariant& Data, bool bTriState);
 
-#ifdef WIN32
-MISCHELPERS_EXPORT bool InitConsole(bool bCreateIfNeeded = true);
-#endif
-
 template <typename T>
 QSet<T> ListToSet(const QList<T>& qList) { return QSet<QString>(qList.begin(), qList.end()); }
 
@@ -103,4 +99,9 @@ QList<T> SetToList(const QSet<T>& qSet) { return QList<QString>(qSet.begin(), qS
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 bool MISCHELPERS_EXPORT operator < (const QVariant& l, const QVariant& r);
+#endif
+
+
+#ifdef WIN32
+MISCHELPERS_EXPORT bool InitConsole(bool bCreateIfNeeded = true);
 #endif

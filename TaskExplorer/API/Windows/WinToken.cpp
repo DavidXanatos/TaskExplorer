@@ -544,12 +544,12 @@ QString CWinToken::GetGroupStatusString(quint32 Attributes, bool Restricted)
 
 PH_ACCESS_ENTRY GroupDescriptionEntries[6] =
 {
-    { NULL, SE_GROUP_INTEGRITY | SE_GROUP_INTEGRITY_ENABLED, FALSE, FALSE, L"Integrity" },
-    { NULL, SE_GROUP_LOGON_ID, FALSE, FALSE, L"Logon Id" },
-    { NULL, SE_GROUP_OWNER, FALSE, FALSE, L"Owner" },
-    { NULL, SE_GROUP_MANDATORY, FALSE, FALSE, L"Mandatory" },
-    { NULL, SE_GROUP_USE_FOR_DENY_ONLY, FALSE, FALSE, L"Use for deny only" },
-    { NULL, SE_GROUP_RESOURCE, FALSE, FALSE, L"Resource" }
+    { NULL, SE_GROUP_INTEGRITY | SE_GROUP_INTEGRITY_ENABLED, FALSE, FALSE, (PWSTR)L"Integrity" },
+    { NULL, SE_GROUP_LOGON_ID, FALSE, FALSE, (PWSTR)L"Logon Id" },
+    { NULL, SE_GROUP_OWNER, FALSE, FALSE, (PWSTR)L"Owner" },
+    { NULL, SE_GROUP_MANDATORY, FALSE, FALSE, (PWSTR)L"Mandatory" },
+    { NULL, SE_GROUP_USE_FOR_DENY_ONLY, FALSE, FALSE, (PWSTR)L"Use for deny only" },
+    { NULL, SE_GROUP_RESOURCE, FALSE, FALSE, (PWSTR)L"Resource" }
 };
 
 QString CWinToken::GetGroupDescription(quint32 Attributes)

@@ -2,8 +2,8 @@
 #include "NetworkView.h"
 #include "../TaskExplorer.h"
 #ifdef WIN32
-#include "../API/Windows/WindowsAPI.h"
-#include "../API/Windows/Monitors/WinNetMonitor.h"
+#include "../../API/Windows/WindowsAPI.h"
+#include "../../API/Windows/Monitors/WinNetMonitor.h"
 #endif
 
 

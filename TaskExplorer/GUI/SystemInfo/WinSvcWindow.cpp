@@ -1061,7 +1061,7 @@ void CWinSvcWindow::SaveOther()
 			QTreeWidgetItem *item = ui.privilegs->topLevelItem(i);
 
 			sb.append(item->text(0).toStdWString());
-			sb.append('\0');
+			sb.push_back(L'\0');
         }
 
         requiredPrivilegesInfo.pmszRequiredPrivileges = (wchar_t*)sb.c_str();

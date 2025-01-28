@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../../../MiscHelpers/Common/TabPanel.h"
+#include "../../Common/TabPanel.h"
 #include "../../API/ProcessInfo.h"
 
 class CProcessView;

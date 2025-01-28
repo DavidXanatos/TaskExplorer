@@ -2,6 +2,7 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -9,15 +10,31 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <QtLastBackgroundBuild>2024-05-03T14:58:07.0640444Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-09-20T00:54:56.3670403Z</QtLastBackgroundBuild>
+    <QtTouchProperty>
+    </QtTouchProperty>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <QtLastBackgroundBuild>2024-05-26T11:54:28.7203423Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2025-01-28T18:27:39.5168335Z</QtLastBackgroundBuild>
+    <QtTouchProperty>
+    </QtTouchProperty>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="QtSettings">
+    <QtLastBackgroundBuild>2025-01-27T07:54:16.2442486Z</QtLastBackgroundBuild>
+    <QtTouchProperty />
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <QtLastBackgroundBuild>2024-05-03T18:32:58.6530306Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2025-01-27T07:54:00.6694877Z</QtLastBackgroundBuild>
+    <QtTouchProperty>
+    </QtTouchProperty>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <QtLastBackgroundBuild>2024-05-26T11:43:54.8183166Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2025-01-28T18:27:39.3500501Z</QtLastBackgroundBuild>
+    <QtTouchProperty>
+    </QtTouchProperty>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="QtSettings">
+    <QtLastBackgroundBuild>2025-01-27T07:54:16.1801764Z</QtLastBackgroundBuild>
+    <QtTouchProperty />
   </PropertyGroup>
 </Project>

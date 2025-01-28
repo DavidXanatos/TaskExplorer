@@ -7,6 +7,7 @@
 #include "API/SystemAPI.h"
 #include "../MiscHelpers/Common/Settings.h"
 #include "../MiscHelpers/Common/FlexError.h"
+#include "../MiscHelpers/Common/CustomTheme.h"
 
 #define VERSION_MJR		1
 #define VERSION_MIN 	6
@@ -25,7 +26,7 @@ public:
 	CTaskExplorer(QWidget *parent = Q_NULLPTR);
 	virtual ~CTaskExplorer();
 
-	void SetDarkTheme(bool bDark);
+	void SetUITheme();
 
 	QStyledItemDelegate*	GetItemDelegate();
 	int						GetCellHeight();
@@ -72,12 +73,12 @@ public:
 	struct SColor
 	{
 		SColor() : Enabled(false) {}
-		SColor(const QString& name, const QString& description, const QString& default)
+		SColor(const QString& name, const QString& description, const QString& def_value)
 		{
 			Name = name;
 			Description = description;
-			Default = default;
-			Value = QColor(default);
+			Default = def_value;
+			Value = QColor(def_value);
 			Enabled = false;
 		}
 
@@ -94,6 +95,8 @@ public:
 	void				InitColors();
 	void				ReloadColors();
 	QList<SColor>		GetAllColors() { return m_Colors.values(); }
+
+	CCustomTheme* GetTheme() { return &m_CustomTheme; }
 
 	static int			GetGraphLimit(bool bLong = false);
 
@@ -125,8 +128,7 @@ protected:
 	int					m_uTimerID;
 	quint64				m_LastTimer;
 
-	QString				m_DefaultStyle;
-	QPalette			m_DefaultPalett;
+	CCustomTheme		m_CustomTheme;
 
 	QMap<EColor, SColor> m_Colors;
 

@@ -32,9 +32,9 @@ struct SEtwEventMonitor
 		// usually be found with various ETW tools (like wevutil).
 	 , dns_res_provider(krabs::guid(L"{55404E71-4DB9-4DEB-A5F5-8F86E46DDE56}")) // Microsoft-Windows-Winsock-NameResolution
 	{
-		disk_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
+		disk_provider.add_on_event_callback([This](const EVENT_RECORD &record, const krabs::trace_context& trace_context) {
 			//qDebug() << "disk event";
-			krabs::schema schema(record);
+			krabs::schema schema(record, trace_context.schema_locator);
 
 			int Type = EventTypeUnknow;
 
@@ -176,9 +176,9 @@ struct SEtwEventMonitor
 		kernel_rundown.enable(file_provider_rd);
 #endif
 
-		proc_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
+		proc_provider.add_on_event_callback([This](const EVENT_RECORD &record, const krabs::trace_context& trace_context) {
 			//qDebug() << "process event";
-			krabs::schema schema(record);
+			krabs::schema schema(record, trace_context.schema_locator);
 
 			if (schema.event_id() != 0)
 				return;
@@ -207,7 +207,7 @@ struct SEtwEventMonitor
 		kernel_trace.enable(proc_provider);
 
 
-		auto net_callback = [](CEtwEventMonitor* This, const EVENT_RECORD &record) {
+		auto net_callback = [](CEtwEventMonitor* This, const EVENT_RECORD &record, const krabs::trace_context& trace_context) {
 			//qDebug() << "net event";
 
 			// TcpIp/UdpIp
@@ -316,8 +316,8 @@ struct SEtwEventMonitor
 			emit This->NetworkEvent(Type, ProcessId, -1, ProtocolType, TransferSize, LocalAddress, LocalPort, RemoteAddress, RemotePort);
 		};
 
-		tcp_provider.add_on_event_callback([This, net_callback](const EVENT_RECORD &record) { net_callback(This, record); });
-		udp_provider.add_on_event_callback([This, net_callback](const EVENT_RECORD &record) { net_callback(This, record); });
+		tcp_provider.add_on_event_callback([This, net_callback](const EVENT_RECORD &record, const krabs::trace_context& trace_context) { net_callback(This, record, trace_context); });
+		udp_provider.add_on_event_callback([This, net_callback](const EVENT_RECORD &record, const krabs::trace_context& trace_context) { net_callback(This, record, trace_context); });
 
 		kernel_trace.enable(tcp_provider);
 		kernel_trace.enable(udp_provider);
@@ -327,8 +327,8 @@ struct SEtwEventMonitor
 		// unique to the specific providers that are being invoked. To understand these
 		// flags, you'll need to look to the ETW event producer.
 		dns_res_provider.any(0xf0010000000003ff);
-		dns_res_provider.add_on_event_callback([This](const EVENT_RECORD &record) {
-			krabs::schema schema(record);
+		dns_res_provider.add_on_event_callback([This](const EVENT_RECORD &record, const krabs::trace_context& trace_context) {
+			krabs::schema schema(record, trace_context.schema_locator);
 
 			if (schema.event_id() != 1001)
 				return;

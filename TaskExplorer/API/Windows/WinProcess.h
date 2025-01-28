@@ -68,10 +68,10 @@ public:
 	static QString GetBasePriorityString(quint32 value);
 	static QString GetPagePriorityString(quint32 value);
 	static QString GetIOPriorityString(quint32 value);
-	virtual STATUS SetPriority(long Value);
-	virtual STATUS SetBasePriority(long Value)		{ return ERR(); }
-	virtual STATUS SetPagePriority(long Value);
-	virtual STATUS SetIOPriority(long Value);
+	virtual STATUS SetPriority(qint32 Value);
+	virtual STATUS SetBasePriority(qint32 Value)		{ return ERR(); }
+	virtual STATUS SetPagePriority(qint32 Value);
+	virtual STATUS SetIOPriority(qint32 Value);
 
 	virtual bool HasPriorityBoost() const			{ QReadLocker Locker(&m_Mutex); return m_PriorityBoost; }
 	virtual STATUS SetPriorityBoost(bool Value);

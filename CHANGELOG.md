@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+### Changed
+- updated code to be qt6 comaptible
+- greately improved dark mode
+
+
+
 ## [1.6.0] - 2025-01-27
 
 ### Added

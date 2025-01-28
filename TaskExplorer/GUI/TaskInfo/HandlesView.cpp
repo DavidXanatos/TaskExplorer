@@ -886,7 +886,7 @@ void CHandlesView::OnDoubleClicked()
 		// PhShellProperties(hWnd, Info->BestObjectName->Buffer);
            
 		PPH_STRING phFileName = CastQString(pHandle->GetFileName());
-		PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+		PhShellExecuteUserString(NULL, (PWSTR)L"FileBrowseExecutable", phFileName->Buffer, FALSE, (PWSTR)L"Make sure the Explorer executable file is present." );
 		PhDereferenceObject(phFileName);
 	}
 	else if (Type == "Key")

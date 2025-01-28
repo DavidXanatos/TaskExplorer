@@ -509,9 +509,6 @@
     <ClCompile Include="GUI\MultiErrorDialog.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\Monitors\Etw\krabs.cpp">
-      <Filter>API\Windows\Monitors\Etw</Filter>
-    </ClCompile>
     <ClCompile Include="API\Windows\Monitors\EtwEventMonitor.cpp">
       <Filter>API\Windows\Monitors</Filter>
     </ClCompile>
@@ -592,6 +589,9 @@
     </ClCompile>
     <ClCompile Include="API\Windows\WinHeap.cpp">
       <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TabPanel.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -679,12 +679,6 @@
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\kt.hpp">
       <Filter>API\Windows\Monitors\Etw\krabs</Filter>
     </ClInclude>
-    <ClInclude Include="API\Windows\Monitors\Etw\krabs\lock.hpp">
-      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
-    </ClInclude>
-    <ClInclude Include="API\Windows\Monitors\Etw\krabs\nightmare.hpp">
-      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
-    </ClInclude>
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\parse_types.hpp">
       <Filter>API\Windows\Monitors\Etw\krabs</Filter>
     </ClInclude>
@@ -756,6 +750,18 @@
     </ClInclude>
     <ClInclude Include="API\Windows\ProcessHacker\heapstruct.h">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\etw.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\perfinfo_groupmask.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\trace_context.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\wstring_convert.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1158,6 +1164,9 @@
     <QtMoc Include="API\Windows\WinHeap.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
+    <QtMoc Include="Common\TabPanel.h">
+      <Filter>Common</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -1234,5 +1243,10 @@
     <Manifest Include="Resources\TaskExplorer.manifest">
       <Filter>Resource Files</Filter>
     </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <QtTranslation Include="taskexplorer_zh_CN.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
   </ItemGroup>
 </Project>

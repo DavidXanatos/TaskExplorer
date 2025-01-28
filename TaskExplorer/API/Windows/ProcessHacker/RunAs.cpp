@@ -237,7 +237,7 @@ NTSTATUS PhInvokeRunAsService(
 }
 
 
-long SvcApiInvokeRunAsService(const QVariantMap& Parameters)
+qint32 SvcApiInvokeRunAsService(const QVariantMap& Parameters)
 {
 	NTSTATUS status = STATUS_INVALID_PARAMETER;
 	PH_RUNAS_SERVICE_PARAMETERS parameters;

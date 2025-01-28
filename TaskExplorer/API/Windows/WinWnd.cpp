@@ -320,7 +320,7 @@ QRect WinRect2Q(RECT rect)
 
 typedef struct _STRING_INTEGER_PAIR
 {
-    PWSTR String;
+    PCWSTR String;
     ULONG Integer;
 } STRING_INTEGER_PAIR, *PSTRING_INTEGER_PAIR;
 

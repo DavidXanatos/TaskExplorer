@@ -83,6 +83,7 @@ void CRunAsDialog::accept()
 	PPH_STRING password = NULL;
 	PPH_STRING desktopName = NULL;
 	HANDLE ProcessId = (HANDLE)m_PID;
+	ULONG currentSessionId = ULONG_MAX;
 
 	program = CastQString(ui.binaryPath->currentText());
 	username = CastQString(ui.userName->currentText());
@@ -133,8 +134,6 @@ void CRunAsDialog::accept()
 	//        NULL
 	//        );
 	//}
-
-	ULONG currentSessionId = ULONG_MAX;
 
 	PhGetProcessSessionId(NtCurrentProcess(), &currentSessionId);
 

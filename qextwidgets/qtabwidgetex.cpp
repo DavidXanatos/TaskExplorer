@@ -43,8 +43,9 @@
 #include "qtabbarex_p.h"
 #include "qapplication.h"
 #include "qbitmap.h"
-#include "qdesktopwidget.h"
-#include <private/qdesktopwidget_p.h>
+#include "qscreen.h"
+//#include "qdesktopwidget.h"
+//#include <private/qdesktopwidget_p.h>
 #include "qevent.h"
 #include "qlayout.h"
 #include "qstackedwidget.h"
@@ -328,7 +329,11 @@ void QTabWidgetEx::initStyleOption(QStyleOptionTabWidgetFrame *option) const
     Constructs a tabbed widget with parent \a parent.
 */
 QTabWidgetEx::QTabWidgetEx(QWidget *parent)
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     : QWidget(*new QTabWidgetExPrivate, parent, 0)
+#else
+    : QWidget(*new QTabWidgetExPrivate, parent, {})
+#endif
 {
     Q_D(QTabWidgetEx);
     d->init();
@@ -833,8 +838,12 @@ QSize QTabWidgetEx::sizeHint() const
 
     QSize sz = basicSize(d->pos == North || d->pos == South, lc, rc, s, t);
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     return style()->sizeFromContents(QStyle::CT_TabWidget, &opt, sz, this)
                     .expandedTo(QApplication::globalStrut());
+#else
+    return style()->sizeFromContents(QStyle::CT_TabWidget, &opt, sz, this);
+#endif
 }
 
 
@@ -867,8 +876,12 @@ QSize QTabWidgetEx::minimumSizeHint() const
     initStyleOption(&opt);
     opt.palette = palette();
     opt.state = QStyle::State_None;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     return style()->sizeFromContents(QStyle::CT_TabWidget, &opt, sz, this)
                     .expandedTo(QApplication::globalStrut());
+#else
+    return style()->sizeFromContents(QStyle::CT_TabWidget, &opt, sz, this);
+#endif
 }
 
 /*!
@@ -882,8 +895,12 @@ int QTabWidgetEx::heightForWidth(int width) const
     opt.state = QStyle::State_None;
 
     QSize zero(0,0);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     const QSize padding = style()->sizeFromContents(QStyle::CT_TabWidget, &opt, zero, this)
                                   .expandedTo(QApplication::globalStrut());
+#else
+    const QSize padding = style()->sizeFromContents(QStyle::CT_TabWidget, &opt, zero, this);
+#endif
 
     QSize lc(0, 0), rc(0, 0);
     if (d->leftCornerWidget)
@@ -913,7 +930,11 @@ int QTabWidgetEx::heightForWidth(int width) const
     QSize s(stackWidth, stackHeight);
 
     QSize contentSize = basicSize(tabIsHorizontal, lc, rc, s, t);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     return (contentSize + padding).expandedTo(QApplication::globalStrut()).height();
+#else
+    return (contentSize + padding).height();
+#endif
 }
 
 

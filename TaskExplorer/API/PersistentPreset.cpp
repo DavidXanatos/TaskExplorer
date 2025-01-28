@@ -14,9 +14,17 @@ CPersistentPreset::~CPersistentPreset()
 bool CPersistentPreset::Test(const QString& FileName, const QString& CommandLine)
 {
 	QReadLocker Locker(&m_Mutex);
-	
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	QRegExp RegExp(m_Data->sPattern, Qt::CaseInsensitive, QRegExp::WildcardUnix);
 	return RegExp.exactMatch(FileName) || RegExp.exactMatch(CommandLine);
+#else
+	QString ExpStr = QRegularExpression::escape(m_Data->sPattern);
+	ExpStr = ".*" + ExpStr.replace("\\*",".*").replace("\\?",".") + ".*";
+	QRegularExpression RegExp(ExpStr, QRegularExpression::CaseInsensitiveOption);
+
+	return FileName.contains(RegExp) || CommandLine.contains(RegExp);
+#endif	
 }
 
 QVariantMap CPersistentPreset::Store() const

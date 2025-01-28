@@ -336,14 +336,31 @@ QAction* MakeActionCheck(QMenu* pParent, const QString& Text, const QVariant& Da
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 bool operator < (const QVariant& l, const QVariant& r)
 {
-	/*auto lt = l.type();
-	auto lv = l.isValid();
-	auto ln = l.isNull();
+	auto lt = l.type();
+	//auto lv = l.isValid();
+	//auto ln = l.isNull();
 	auto rt = r.type();
-	auto rv = r.isValid();
-	auto rn = r.isNull();*/
+	//auto rv = r.isValid();
+	//auto rn = r.isNull();
+	if(lt != rt)
+		return lt < rt;
+	if (lt == QVariant::List)
+	{
+		auto lList = l.toList();
+		auto rList = r.toList();
+		if (lList.size() != rList.size())
+			return lList.size() < rList.size();
+		for (int i = 0; i < lList.size(); i++)
+		{
+			if (lList[i] < rList[i])
+				return true;
+			if (rList[i] < lList[i])
+				return false;
+		}
+		return false;
+	}
 	auto ret = QVariant::compare(l, r);
-	//Q_ASSERT(ret != QPartialOrdering::Unordered);
+	Q_ASSERT(ret != QPartialOrdering::Unordered);
 	return ret == QPartialOrdering::Less;
 }
 #endif

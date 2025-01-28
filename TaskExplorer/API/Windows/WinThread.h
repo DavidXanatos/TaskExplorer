@@ -23,10 +23,10 @@ public:
 	virtual QString GetBasePriorityString() const;
 	virtual QString GetPagePriorityString() const;
 	virtual QString GetIOPriorityString() const;
-	virtual STATUS SetPriority(long Value);
-	virtual STATUS SetBasePriority(long Value) { return ERR(); }
-	virtual STATUS SetPagePriority(long Value);
-	virtual STATUS SetIOPriority(long Value);
+	virtual STATUS SetPriority(qint32 Value);
+	virtual STATUS SetBasePriority(qint32 Value) { return ERR(); }
+	virtual STATUS SetPagePriority(qint32 Value);
+	virtual STATUS SetIOPriority(qint32 Value);
 
 	virtual STATUS SetAffinityMask(quint64 Value);
 

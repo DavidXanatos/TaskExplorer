@@ -7,7 +7,6 @@ QString QTreeViewEx::m_ResetColumns = "Reset Columns";
 
 bool CTreeItemModel::m_DarkMode = false;
 
-
 CTreeItemModel::CTreeItemModel(QObject *parent)
 : QAbstractItemModelEx(parent)
 {

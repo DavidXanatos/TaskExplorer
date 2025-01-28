@@ -3,6 +3,26 @@
 #include "TaskExplorer.h"
 #include "../../MiscHelpers/Common/Settings.h"
 
+int CSettingsWindow__Chk2Int(Qt::CheckState state)
+{
+	switch (state) {
+	case Qt::Unchecked: return 0;
+	case Qt::Checked: return 1;
+	default:
+	case Qt::PartiallyChecked: return 2;
+	}
+}
+
+Qt::CheckState CSettingsWindow__Int2Chk(int state)
+{
+	switch (state) {
+	case 0: return Qt::Unchecked;
+	case 1: return Qt::Checked;
+	default:
+	case 2: return Qt::PartiallyChecked;
+	}
+}
+
 CSettingsWindow::CSettingsWindow(QWidget *parent)
 	: QMainWindow(parent)
 {
@@ -37,7 +57,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkShow32->setChecked(theConf->GetBool("Options/Show32", true));
 
-	ui.chkDarkTheme->setChecked(theConf->GetBool("MainWindow/DarkTheme", false));
+	ui.chkDarkTheme->setCheckState(CSettingsWindow__Int2Chk(theConf->GetInt("MainWindow/DarkTheme", 2)));
 
 	ui.highlightCount->setValue(theConf->GetInt("Options/HighLoadHighlightCount", 5));
 
@@ -164,7 +184,7 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/Show32", ui.chkShow32->isChecked());
 
-	theConf->SetValue("MainWindow/DarkTheme", ui.chkDarkTheme->isChecked());
+	theConf->SetValue("MainWindow/DarkTheme", CSettingsWindow__Chk2Int(ui.chkDarkTheme->checkState()));
 
 	theConf->SetValue("Options/HighLoadHighlightCount", ui.highlightCount->value());
 

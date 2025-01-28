@@ -62,18 +62,18 @@ public:
 	virtual QString GetName() const = 0;
 	virtual bool HasPriorityBoost() const = 0;
 	virtual STATUS SetPriorityBoost(bool Value) = 0;
-	virtual long GetPriority()	const				{ QReadLocker Locker(&m_Mutex); return m_Priority; }
+	virtual qint32 GetPriority()	const				{ QReadLocker Locker(&m_Mutex); return m_Priority; }
 	virtual QString GetPriorityString() const = 0;
-	virtual STATUS SetPriority(long Value) = 0;
-	virtual long GetBasePriority()	const			{ QReadLocker Locker(&m_Mutex); return m_BasePriority; }
+	virtual STATUS SetPriority(qint32 Value) = 0;
+	virtual qint32 GetBasePriority()	const			{ QReadLocker Locker(&m_Mutex); return m_BasePriority; }
 	virtual QString GetBasePriorityString() const = 0;
-	virtual STATUS SetBasePriority(long Value) = 0;
-	virtual long GetPagePriority() const			{ QReadLocker Locker(&m_Mutex); return m_PagePriority; }
+	virtual STATUS SetBasePriority(qint32 Value) = 0;
+	virtual qint32 GetPagePriority() const			{ QReadLocker Locker(&m_Mutex); return m_PagePriority; }
 	virtual QString GetPagePriorityString() const = 0;
-	virtual STATUS SetPagePriority(long Value) = 0;
-	virtual long GetIOPriority() const				{ QReadLocker Locker(&m_Mutex); return m_IOPriority; }
+	virtual STATUS SetPagePriority(qint32 Value) = 0;
+	virtual qint32 GetIOPriority() const				{ QReadLocker Locker(&m_Mutex); return m_IOPriority; }
 	virtual QString GetIOPriorityString() const = 0;
-	virtual STATUS SetIOPriority(long Value) = 0;
+	virtual STATUS SetIOPriority(qint32 Value) = 0;
 
 	virtual quint64 GetAffinityMask() const				{ QReadLocker Locker(&m_Mutex); return m_AffinityMask; }
 	virtual STATUS SetAffinityMask(quint64 Value) = 0;

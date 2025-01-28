@@ -391,7 +391,7 @@ void CThreadsView::OnThreadAction()
 void CThreadsView::OnUpdateHistory()
 {
 	QColor PlotBackground = Qt::white;
-	if(theConf->GetBool("MainWindow/DarkTheme", false))
+	if(theGUI->GetTheme()->IsDarkTheme())
 		PlotBackground = Qt::black;
 
 	if (!m_pThreadList->isColumnHidden(CThreadModel::eCPU_History))

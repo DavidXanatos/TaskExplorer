@@ -221,7 +221,7 @@ void CDotNetView::OnDoubleClicked()
 	{
 #ifdef WIN32
 		PPH_STRING phFileName = CastQString(FileName);
-		PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present.");
+		PhShellExecuteUserString(NULL, (PWSTR)L"FileBrowseExecutable", phFileName->Buffer, FALSE, (PWSTR)L"Make sure the Explorer executable file is present.");
 		PhDereferenceObject(phFileName);
 #endif
 	}

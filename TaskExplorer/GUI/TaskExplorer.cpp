@@ -93,14 +93,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 {
 	theGUI = this;
 
-	//QApplication::setStyle(QStyleFactory::create("Fusion"));
-
-	m_DefaultStyle = QApplication::style()->objectName();
-	m_DefaultPalett = QApplication::palette();
-
 	LoadLanguage();
-	if(theConf->GetBool("MainWindow/DarkTheme", false))
-		SetDarkTheme(true);
 
 	CSystemAPI::InitAPI();
 
@@ -146,6 +139,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	LoadDefaultIcons();
 	InitColors();
 
+	m_pGraphBar = NULL;
+
+	SetUITheme();
+
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
 	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
@@ -163,6 +160,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pGraphSplitter->setStretchFactor(0, 0);
 	m_pGraphSplitter->setSizes(QList<int>() << 80); // default size of 80
 	connect(m_pGraphBar, SIGNAL(Resized(int)), this, SLOT(OnGraphsResized(int)));
+	m_pGraphBar->SetDarkMode(m_CustomTheme.IsDarkTheme());
 
 	m_pMainSplitter = new QSplitter();
 	m_pMainSplitter->setOrientation(Qt::Horizontal);
@@ -630,37 +628,21 @@ CTaskExplorer::~CTaskExplorer()
 	theGUI = NULL;
 }
 
-void CTaskExplorer::SetDarkTheme(bool bDark)
+void CTaskExplorer::SetUITheme()
 {
-	if (bDark)
-	{
-		QApplication::setStyle(QStyleFactory::create("Fusion"));
-		QPalette palette;
-		palette.setColor(QPalette::Window, QColor(53, 53, 53));
-		palette.setColor(QPalette::WindowText, Qt::white);
-		palette.setColor(QPalette::Base, QColor(25, 25, 25));
-		palette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
-		palette.setColor(QPalette::ToolTipBase, Qt::white);
-		palette.setColor(QPalette::ToolTipText, Qt::white);
-		palette.setColor(QPalette::Text, Qt::white);
-		palette.setColor(QPalette::Button, QColor(53, 53, 53));
-		palette.setColor(QPalette::ButtonText, Qt::white);
-		palette.setColor(QPalette::BrightText, Qt::red);
-		palette.setColor(QPalette::Link, QColor(218, 130, 42));
-		palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
-		palette.setColor(QPalette::HighlightedText, Qt::black);
-		palette.setColor(QPalette::Disabled, QPalette::WindowText, Qt::darkGray);
-		palette.setColor(QPalette::Disabled, QPalette::Text, Qt::darkGray);
-		palette.setColor(QPalette::Disabled, QPalette::Light, Qt::black);
-		palette.setColor(QPalette::Disabled, QPalette::ButtonText, Qt::darkGray);
-		QApplication::setPalette(palette);
-	}
-	else
-	{
-		QApplication::setStyle(QStyleFactory::create(m_DefaultStyle));
-		QApplication::setPalette(m_DefaultPalett);
-	}
+	int iDark = theConf->GetInt("MainWindow/DarkTheme", 2);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+	// Qt6's new windows theme is to windows 11i lets use fustion instead
+	int iFusion = theConf->GetInt("MainWindow/UseFusionTheme", 1);
+#else
+	int iFusion = theConf->GetInt("MainWindow/UseFusionTheme", 2);
+#endif
+	bool bDark = iDark == 2 ? m_CustomTheme.IsSystemDark() : (iDark == 1);
+	m_CustomTheme.SetUITheme(bDark, iFusion);
+	//CPopUpWindow::SetDarkMode(bDark);
 
+	if(m_pGraphBar)
+		m_pGraphBar->SetDarkMode(bDark);
 	CTreeItemModel::SetDarkMode(bDark);
 	CListItemModel::SetDarkMode(bDark);
 }
@@ -1087,14 +1069,14 @@ void CTaskExplorer::OnRunSys()
 {
 #ifdef WIN32
     SelectedRunAsMode = RUNAS_MODE_SYS;
-    PhShowRunFileDialog(PhMainWndHandle, NULL, NULL, NULL, L"Type the name of a program that will be opened as system with the TrustedInstaller token.", 0);
+    PhShowRunFileDialog(PhMainWndHandle, NULL, NULL, NULL, (PWSTR)L"Type the name of a program that will be opened as system with the TrustedInstaller token.", 0);
 #endif
 }
 
 void CTaskExplorer::OnElevate()
 {
 #ifdef WIN32
-	if (PhShellProcessHackerEx(NULL, NULL, L"", SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, 0, NULL))
+	if (PhShellProcessHackerEx(NULL, NULL, (PWSTR)L"", SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, 0, NULL))
 		OnExit();
 #endif
 }
@@ -1371,7 +1353,7 @@ void CTaskExplorer::UpdateOptions()
 
 	ReloadColors();
 
-	SetDarkTheme(theConf->GetBool("MainWindow/DarkTheme", false));
+	SetUITheme();
 
 	if(theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->show();
@@ -1828,7 +1810,7 @@ void CTaskExplorer::OnAbout()
 			"<h3>About TaskExplorer</h3>"
 			"<p>Version %1</p>"
 			"<p>by DavidXanatos</p>"
-			"<p>Copyright (c) 2019-2022</p>"
+			"<p>Copyright (c) 2019-2025</p>"
 		).arg(GetVersion());
 		QString AboutText = tr(
 			"<p>TaskExplorer is a powerfull multi-purpose Task Manager that helps you monitor system resources, debug software and detect malware.</p>"

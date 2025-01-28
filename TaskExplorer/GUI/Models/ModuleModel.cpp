@@ -3,7 +3,7 @@
 #include "ModuleModel.h"
 #include "../../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
-#include "../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/ProcessHacker.h"
 #include "../../API/Windows/WinModule.h"
 #endif
 #include "../../API/ProcessInfo.h"

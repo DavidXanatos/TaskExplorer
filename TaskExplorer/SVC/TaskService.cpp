@@ -281,7 +281,7 @@ void CTaskService::receiveConnection()
 	else if (Command == "FreeMemory")
 	{
 		SYSTEM_MEMORY_LIST_COMMAND command = (SYSTEM_MEMORY_LIST_COMMAND)Parameters["Command"].toInt();
-		Response = NtSetSystemInformation(SystemMemoryListInformation, &command, sizeof(SYSTEM_MEMORY_LIST_COMMAND));
+		Response = (qint32)NtSetSystemInformation(SystemMemoryListInformation, &command, sizeof(SYSTEM_MEMORY_LIST_COMMAND));
 	}
 	else
 #endif
@@ -334,7 +334,7 @@ bool CTaskService::TaskAction(quint64 ProcessId, quint64 ThreadId, const QString
 	return false;	
 }
 
-long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data)
+qint32 CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data)
 {
 #ifdef WIN32
     NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
@@ -404,7 +404,7 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, cons
 #endif
 }
 
-long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
+qint32 CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
 {
 #ifdef WIN32
     NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
@@ -487,7 +487,7 @@ bool CTaskService::ServiceAction(const QString& Name, const QString& Action, con
 	return false;	
 }
 
-long CTaskService::ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
+qint32 CTaskService::ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
 {
 #ifdef WIN32
     NTSTATUS status = 0;
@@ -583,7 +583,7 @@ QString CTaskService::RunWorker(bool bElevanted)
 #ifdef WIN64
 	if (b32Bit)
 	{
-		static char* relativeFileNames[] =
+		static const char* relativeFileNames[] =
 		{
 			"\\x86\\TaskExplorer.exe",
 			"\\..\\x86\\TaskExplorer.exe",
@@ -614,7 +614,7 @@ QString CTaskService::RunWorker(bool bElevanted)
 	{
 		wchar_t szPath[MAX_PATH];
 		if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
-			return false;
+			return QString();
 		BinaryPath = QString::fromWCharArray(szPath);
 	}
 

@@ -206,6 +206,10 @@ static BOOL CALLBACK PhpProcessMiniDumpCallback(
 
 void CWinDumper::run()
 {
+    HANDLE packageTaskHandle = NULL;
+    HANDLE processSnapshotHandle = NULL;
+    HANDLE processHandle = NULL;
+
 	MINIDUMP_CALLBACK_INFORMATION callbackInfo;
 
     callbackInfo.CallbackRoutine = PhpProcessMiniDumpCallback;
@@ -267,7 +271,6 @@ void CWinDumper::run()
     }
 #endif
 
-    HANDLE packageTaskHandle = NULL;
     if (m_pProcess->IsPackagedProcess())
     {
         // Set the task completion notification (based on taskmgr.exe) (dmex)
@@ -275,7 +278,6 @@ void CWinDumper::run()
         PhAppResolverBeginCrashDumpTaskByHandle(m->ProcessHandle, &packageTaskHandle);
     }
 
-    HANDLE processSnapshotHandle = NULL;
     if (m->EnableKernelSnapshot)
     {
         if (!PhGetOwnTokenAttributes().Elevated)
@@ -300,7 +302,6 @@ void CWinDumper::run()
         }
     }
 
-    HANDLE processHandle;
     if (m->EnableProcessSnapshot && m->IsProcessSnapshot && processSnapshotHandle)
         processHandle = processSnapshotHandle;
     else

@@ -22,7 +22,6 @@
 #include ".\Common\SmartGridWidget.h"
 #include ".\Common\SortFilterProxyModel.h"
 #include ".\Common\SplitTreeView.h"
-#include ".\Common\TabPanel.h"
 #include ".\Common\TreeItemModel.h"
 #include ".\Common\TreeViewEx.h"
 #include ".\Common\TreeWidgetEx.h"

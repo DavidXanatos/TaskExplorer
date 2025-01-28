@@ -8,7 +8,7 @@
 #include "Monitors/WinGpuMonitor.h"
 #include "Monitors/WinNetMonitor.h"
 #include "Monitors/WinDiskMonitor.h"
-#include "../SVC/TaskService.h"
+#include "../../SVC/TaskService.h"
 #include "../../MiscHelpers/Common/Settings.h"
 
 extern "C" {
@@ -760,7 +760,7 @@ void CWindowsAPI::UpdateSambaStats()
 	QWriteLocker Locker(&m_StatsMutex);
 
 	STAT_WORKSTATION_0* wrkStat = NULL;
-	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanWorkstation", 0, 0, (LPBYTE*)&wrkStat)) && wrkStat != NULL)
+	if (NT_SUCCESS(NetStatisticsGet(NULL, (PWSTR)L"LanmanWorkstation", 0, 0, (LPBYTE*)&wrkStat)) && wrkStat != NULL)
 	{
 		m_Stats.SambaClient.SetReceive(wrkStat->BytesReceived.QuadPart, 0 /*wrkStat->SmbsReceived*/);
 		m_Stats.SambaClient.SetSend(wrkStat->BytesTransmitted.QuadPart, 0 /*wrkStat->SmbsTransmitted*/);
@@ -769,7 +769,7 @@ void CWindowsAPI::UpdateSambaStats()
 	}
 
 	_STAT_SERVER_0* srvStat = NULL;
-	if (NT_SUCCESS(NetStatisticsGet(NULL, L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)) && srvStat != NULL)
+	if (NT_SUCCESS(NetStatisticsGet(NULL, (PWSTR)L"LanmanServer", 0, 0, (LPBYTE*)&srvStat)) && srvStat != NULL)
 	{
 		m_Stats.SambaServer.SetReceive((LARGE_INTEGER { srvStat->sts0_bytesrcvd_low, (LONG)srvStat->sts0_bytesrcvd_high }).QuadPart, 0 /*???*/);
 		m_Stats.SambaServer.SetSend((LARGE_INTEGER { srvStat->sts0_bytessent_low, (LONG)srvStat->sts0_bytessent_high }).QuadPart, 0 /*???*/);
@@ -2005,7 +2005,7 @@ bool CWindowsAPI::UpdateRpcList()
 
 	QMap<QString, CRpcEndpointPtr> OldRpcTableList = GetRpcTableList();
 
-	UpdateRpcList(NULL, L"ncalrpc", OldRpcTableList, Added, Changed);
+	UpdateRpcList(NULL, (PWSTR)L"ncalrpc", OldRpcTableList, Added, Changed);
 
 	/*RPC_WSTR protocols[] = {
 		(RPC_WSTR)L"ncacn_ip_tcp",

@@ -55,9 +55,9 @@ protected:
 		return QCoreApplication::exec(); 
 	}
 
-	long ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data);
-	long ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data);
-	long ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data);
+	qint32 ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data);
+	qint32 ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data);
+	qint32 ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data);
 
 	void timerEvent(QTimerEvent *e);
 

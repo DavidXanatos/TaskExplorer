@@ -467,7 +467,7 @@ BOOLEAN QueryInterfaceRow(
     return result;
 }
 
-PWSTR MediumTypeToString(
+PCWSTR MediumTypeToString(
     _In_ NDIS_PHYSICAL_MEDIUM MediumType
     )
 {

@@ -68,17 +68,17 @@ CFwEventMonitor::~CFwEventMonitor()
 	delete m;
 }
 
-QString GetWinVariantString(const EVT_VARIANT& value, const QString& default = QString())
+QString GetWinVariantString(const EVT_VARIANT& value, const QString& def_value = QString())
 {
 	if (value.Type == EvtVarTypeString && value.StringVal != NULL)
 		return QString::fromWCharArray(value.StringVal);
 	if (value.Type == EvtVarTypeAnsiString && value.StringVal != NULL)
 		return QString(value.AnsiStringVal);
-	return default;
+	return def_value;
 }
 
 template <class T>
-T GetWinVariantNumber(const EVT_VARIANT& value, T default = 0)
+T GetWinVariantNumber(const EVT_VARIANT& value, T def_value = 0)
 {
 	switch (value.Type)
 	{
@@ -98,7 +98,7 @@ T GetWinVariantNumber(const EVT_VARIANT& value, T default = 0)
     case EvtVarTypeSingle:	return value.SingleVal;
     case EvtVarTypeDouble:	return value.DoubleVal;
 	}
-	return default;
+	return def_value;
 }
 
 DWORD CALLBACK CFwEventMonitor__Callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pContext, EVT_HANDLE hEvent) 
@@ -222,7 +222,11 @@ DWORD CALLBACK CFwEventMonitor__Callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVO
 		if (error != ERROR_INSUFFICIENT_BUFFER || buffSize > reqSize)
 		{
 			qDebug() << "CFwEventMonitor: Call to EvtRender failed:" << (quint32)error;
-			goto cleanup;
+			{
+				EvtClose(renderContext);
+				free(buffer);
+				return 0;
+			}
 		}
 
 		free(buffer);
@@ -325,7 +329,6 @@ DWORD CALLBACK CFwEventMonitor__Callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVO
 	////////////////////////////////
 	// cleanup
 
-cleanup:
 	EvtClose(renderContext);
 	if (buffer)
 		free(buffer);

@@ -134,53 +134,53 @@ static GUID ClrRundownProviderGuid = { 0xa669021c, 0xc450, 0x4609, { 0xa0, 0x35,
 
 static FLAG_DEFINITION AppDomainFlagsMap[] =
 {
-    { L"Default", 0x1 },
-    { L"Executable", 0x2 },
-    { L"Shared", 0x4 }
+    { (PWSTR)L"Default", 0x1 },
+    { (PWSTR)L"Executable", 0x2 },
+    { (PWSTR)L"Shared", 0x4 }
 };
 
 static FLAG_DEFINITION AssemblyFlagsMap[] =
 {
-    { L"DomainNeutral", 0x1 },
-    { L"Dynamic", 0x2 },
-    { L"Native", 0x4 },
-    { L"Collectible", 0x8 }
+    { (PWSTR)L"DomainNeutral", 0x1 },
+    { (PWSTR)L"Dynamic", 0x2 },
+    { (PWSTR)L"Native", 0x4 },
+    { (PWSTR)L"Collectible", 0x8 }
 };
 
 static FLAG_DEFINITION ModuleFlagsMap[] =
 {
-    { L"DomainNeutral", 0x1 },
-    { L"Native", 0x2 },
-    { L"Dynamic", 0x4 },
-    { L"Manifest", 0x8 }
+    { (PWSTR)L"DomainNeutral", 0x1 },
+    { (PWSTR)L"Native", 0x2 },
+    { (PWSTR)L"Dynamic", 0x4 },
+    { (PWSTR)L"Manifest", 0x8 }
 };
 
 static FLAG_DEFINITION StartupModeMap[] =
 {
-    { L"ManagedExe", 0x1 },
-    { L"HostedCLR", 0x2 },
-    { L"IjwDll", 0x4 },
-    { L"ComActivated", 0x8 },
-    { L"Other", 0x10 }
+    { (PWSTR)L"ManagedExe", 0x1 },
+    { (PWSTR)L"HostedCLR", 0x2 },
+    { (PWSTR)L"IjwDll", 0x4 },
+    { (PWSTR)L"ComActivated", 0x8 },
+    { (PWSTR)L"Other", 0x10 }
 };
 
 static FLAG_DEFINITION StartupFlagsMap[] =
 {
-    { L"CONCURRENT_GC", 0x1 },
-    { L"LOADER_OPTIMIZATION_SINGLE_DOMAIN", 0x2 },
-    { L"LOADER_OPTIMIZATION_MULTI_DOMAIN", 0x4 },
-    { L"LOADER_SAFEMODE", 0x10 },
-    { L"LOADER_SETPREFERENCE", 0x100 },
-    { L"SERVER_GC", 0x1000 },
-    { L"HOARD_GC_VM", 0x2000 },
-    { L"SINGLE_VERSION_HOSTING_INTERFACE", 0x4000 },
-    { L"LEGACY_IMPERSONATION", 0x10000 },
-    { L"DISABLE_COMMITTHREADSTACK", 0x20000 },
-    { L"ALWAYSFLOW_IMPERSONATION", 0x40000 },
-    { L"TRIM_GC_COMMIT", 0x80000 },
-    { L"ETW", 0x100000 },
-    { L"SERVER_BUILD", 0x200000 },
-    { L"ARM", 0x400000 }
+    { (PWSTR)L"CONCURRENT_GC", 0x1 },
+    { (PWSTR)L"LOADER_OPTIMIZATION_SINGLE_DOMAIN", 0x2 },
+    { (PWSTR)L"LOADER_OPTIMIZATION_MULTI_DOMAIN", 0x4 },
+    { (PWSTR)L"LOADER_SAFEMODE", 0x10 },
+    { (PWSTR)L"LOADER_SETPREFERENCE", 0x100 },
+    { (PWSTR)L"SERVER_GC", 0x1000 },
+    { (PWSTR)L"HOARD_GC_VM", 0x2000 },
+    { (PWSTR)L"SINGLE_VERSION_HOSTING_INTERFACE", 0x4000 },
+    { (PWSTR)L"LEGACY_IMPERSONATION", 0x10000 },
+    { (PWSTR)L"DISABLE_COMMITTHREADSTACK", 0x20000 },
+    { (PWSTR)L"ALWAYSFLOW_IMPERSONATION", 0x40000 },
+    { (PWSTR)L"TRIM_GC_COMMIT", 0x80000 },
+    { (PWSTR)L"ETW", 0x100000 },
+    { (PWSTR)L"SERVER_BUILD", 0x200000 },
+    { (PWSTR)L"ARM", 0x400000 }
 };
 
 PPH_STRING FlagsToString(
@@ -258,7 +258,7 @@ VOID DotNetAsmDestroyNode(
 
 PDNA_NODE AddFakeClrNode(
     _In_ PASMPAGE_QUERY_CONTEXT Context,
-    _In_ PWSTR DisplayName
+    _In_ PCWSTR DisplayName
     )
 {
     PDNA_NODE node;

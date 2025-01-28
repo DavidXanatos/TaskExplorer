@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <sddl.h>
 
 #include <vector>
 #include <type_traits>
@@ -181,11 +182,13 @@ namespace krabs {
             struct sockaddr_in6 sa_in6;
             struct sockaddr_storage sa_stor;
         };
+        size_t size;
 
         static socket_address from_bytes(const BYTE* bytes, size_t size_in_bytes)
         {
             socket_address sa;
             memcpy_s(&(sa.sa_stor), sizeof sa.sa_stor, bytes, size_in_bytes);
+            sa.size = size_in_bytes;
             return sa;
         }
     };
@@ -222,6 +225,73 @@ namespace krabs {
     };
 
     /**
+    * <summary>
+    * Used to handle parsing of SIDs from either a
+    * SID or WBEMSID property
+    * </summary>
+    */
+    struct sid {
+        // SIDs are variable-length
+        // So the 'best' way to store them is to convert to a string
+        // The other-end can either print the string or call ConvertStringSidToSidA
+        // to get the SID back
+        std::string sid_string;
+
+        static sid from_bytes(const BYTE* bytes, size_t size_in_bytes)
+        {
+            sid ws;
+            LPSTR temp_sid_string;
+            UNREFERENCED_PARAMETER(size_in_bytes);
+
+            if (!ConvertSidToStringSidA((PSID)bytes, &temp_sid_string)) {
+                throw std::runtime_error(
+                    "Failed to get a SID from a property");
+            }
+            ws.sid_string = temp_sid_string;
+            LocalFree(temp_sid_string);
+            return ws;
+        }
+
+    private:
+    };
+
+    /**
+    * <summary>
+    * Used to handle parsing of Pointer Address types.
+    * </summary>
+    */
+    struct pointer {
+        /**
+        * We store the pointer as an uint64_t, as it is highly unlikley
+        * to be pointing to somewhere accessible to our process
+        */
+        uint64_t address;
+
+        static pointer from_bytes(const BYTE* bytes, size_t size_in_bytes)
+        {
+            pointer pt;
+
+            // If 32-Bit, first parse as a uint32
+            // Then we can 'cast' that to our uint64_t
+            if (size_in_bytes == sizeof(uint32_t)) {
+                pt.address = *reinterpret_cast<const uint32_t*>(bytes);
+            }
+            else if (size_in_bytes == sizeof(uint64_t)) {
+                pt.address = *reinterpret_cast<const uint64_t*>(bytes);
+            }
+            else {
+                throw std::runtime_error(
+                    "Failed to get a POINTER from a property");
+            }
+
+            return pt;
+        }
+
+    private:
+    };
+
+
+    /**
      * <summary>
      * Used to handle parsing of CountedStrings in an ETW Record.
      * This is used in the parser class in a template specialization.
@@ -255,6 +325,6 @@ namespace krabs {
     };
 #pragma pack(pop)
 
-    static_assert(std::is_pod<counted_string>::value, "Do not modify counted_string");
+    static_assert(std::is_trivial<counted_string>::value && std::is_standard_layout<counted_string>::value , "Do not modify counted_string");
 
 } /* namespace krabs */

@@ -4,8 +4,8 @@
 #include "../../MiscHelpers/Common/HistoryGraph.h"
 #include "../API/ProcessInfo.h"
 #include "TaskView.h"
+#include "./Models/ProcessModel.h"
 
-class CProcessModel;
 class CProcessFilterModel;
 
 class CProcessTree : public CTaskView

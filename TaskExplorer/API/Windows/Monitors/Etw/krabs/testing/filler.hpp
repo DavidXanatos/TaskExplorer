@@ -40,7 +40,7 @@ namespace krabs { namespace testing { namespace details {
         case TDH_INTYPE_POINTER:       return sizeof(char*);
         case TDH_INTYPE_FILETIME:      return sizeof(FILETIME);
         case TDH_INTYPE_SYSTEMTIME:    return sizeof(SYSTEMTIME);
-        case TDH_INTYPE_SID:           return sizeof(SID);
+        case TDH_INTYPE_SID:           return sizeof(PSID);
         case TDH_INTYPE_HEXINT32:      return sizeof(uint32_t);
         case TDH_INTYPE_HEXINT64:      return sizeof(uint64_t);
         default: break;
