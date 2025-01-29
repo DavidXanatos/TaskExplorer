@@ -1376,74 +1376,74 @@
     </message>
     <message>
         <source>Mapped</source>
-        <translation></translation>
+        <translation>已映射</translation>
     </message>
     <message>
         <source>TaskExplorer</source>
-        <translation></translation>
+        <translation>TaskExplorer</translation>
     </message>
     <message>
         <source>Invalid Hex String, or shorter than 2 bytes.</source>
-        <translation></translation>
+        <translation>无效的16进制字符串，或者少于2字节</translation>
     </message>
 </context>
 <context>
     <name>CMemoryView</name>
     <message>
         <source>Hide Free</source>
-        <translation></translation>
+        <translation>隐藏已释放</translation>
     </message>
     <message>
         <source>Refresh</source>
-        <translation></translation>
+        <translation>刷新</translation>
     </message>
     <message>
         <source>Search</source>
-        <translation></translation>
+        <translation>搜索</translation>
     </message>
     <message>
         <source>Edit memory</source>
-        <translation></translation>
+        <translation>编辑内存</translation>
     </message>
     <message>
         <source>Dump memory</source>
-        <translation></translation>
+        <translation>转储内存</translation>
     </message>
     <message>
         <source>Change protection</source>
-        <translation></translation>
+        <translation>更改保护</translation>
     </message>
     <message>
         <source>Free</source>
-        <translation></translation>
+        <translation>释放</translation>
     </message>
     <message>
         <source>Decommit</source>
-        <translation></translation>
+        <translation>反提交</translation>
     </message>
     <message>
         <source>This memory region can not be edited</source>
-        <translation></translation>
+        <translation>这个内存区域不能被编辑</translation>
     </message>
     <message>
         <source>Memory Editor: %1 (%2) 0x%3</source>
-        <translation></translation>
+        <translation>内存编辑器：%1（%2）0x%3</translation>
     </message>
     <message>
         <source>Dump files (*.dmp);;All files (*.*)</source>
-        <translation></translation>
+        <translation>z转储文件(*.dmp);;全部文件(*.*)</translation>
     </message>
     <message>
         <source>Unmapping a section view may cause the process to crash.</source>
-        <translation></translation>
+        <translation>取消映射一个内存节可能会导致进程崩溃</translation>
     </message>
     <message>
         <source>Freeing memory regions may cause the process to crash.</source>
-        <translation></translation>
+        <translation>释放内存区域可能导致进程崩溃</translation>
     </message>
     <message>
         <source>Decommitting memory regions may cause the process to crash.</source>
-        <translation></translation>
+        <translation>反提交内存区域可能导致进程崩溃</translation>
     </message>
     <message>
         <source>Possible values:<byte value="xd"/>
@@ -1461,696 +1461,710 @@ Modifiers:<byte value="xd"/>
 0x200 - PAGE_NOCACHE<byte value="xd"/>
 0x400 - PAGE_WRITECOMBINE<byte value="xd"/>
 </source>
-        <translation></translation>
+        <translation>可能值：<byte value="xd"/>
+<byte value="xd"/>
+0x01 - PAGE_NOACCESS<byte value="xd"/>
+0x02 - PAGE_READONLY<byte value="xd"/>
+0x04 - PAGE_READWRITE<byte value="xd"/>
+0x08 - PAGE_WRITECOPY<byte value="xd"/>
+0x10 - PAGE_EXECUTE<byte value="xd"/>
+0x20 - PAGE_EXECUTE_READ<byte value="xd"/>
+0x40 - PAGE_EXECUTE_READWRITE<byte value="xd"/>
+0x80 - PAGE_EXECUTE_WRITECOPY<byte value="xd"/>
+Modifiers:<byte value="xd"/>
+0x100 - PAGE_GUARD<byte value="xd"/>
+0x200 - PAGE_NOCACHE<byte value="xd"/>
+0x400 - PAGE_WRITECOMBINE<byte value="xd"/>
+</translation>
     </message>
     <message>
         <source>InvalidInput</source>
-        <translation></translation>
+        <translation>无效输入</translation>
     </message>
 </context>
 <context>
     <name>CModuleModel</name>
     <message>
         <source>%1 (%2)</source>
-        <translation></translation>
+        <translation>%1 (%2)</translation>
     </message>
     <message>
         <source>Unknown process</source>
-        <translation></translation>
+        <translation>无效进程</translation>
     </message>
     <message>
         <source>Process</source>
-        <translation></translation>
+        <translation>进程</translation>
     </message>
     <message>
         <source>Name</source>
-        <translation></translation>
+        <translation>名称</translation>
     </message>
     <message>
         <source>Base address</source>
-        <translation></translation>
+        <translation>基址</translation>
     </message>
     <message>
         <source>Size</source>
-        <translation></translation>
+        <translation>大小</translation>
     </message>
     <message>
         <source>Description</source>
-        <translation></translation>
+        <translation>解释</translation>
     </message>
     <message>
         <source>Company name</source>
-        <translation></translation>
+        <translation>公司名</translation>
     </message>
     <message>
         <source>Version</source>
-        <translation></translation>
+        <translation>版本</translation>
     </message>
     <message>
         <source>File name</source>
-        <translation></translation>
+        <translation>文件名</translation>
     </message>
     <message>
         <source>Type</source>
-        <translation></translation>
+        <translation>类型</translation>
     </message>
     <message>
         <source>Load count</source>
-        <translation></translation>
+        <translation>加载数</translation>
     </message>
     <message>
         <source>Verification status</source>
-        <translation></translation>
+        <translation>验证状态</translation>
     </message>
     <message>
         <source>Verified signer</source>
-        <translation></translation>
+        <translation>验证的签名者</translation>
     </message>
     <message>
         <source>Mitigations</source>
-        <translation></translation>
+        <translation>缓解</translation>
     </message>
     <message>
         <source>Image coherency</source>
-        <translation></translation>
+        <translation>映像连贯性</translation>
     </message>
     <message>
         <source>Time stamp</source>
-        <translation></translation>
+        <translation>时间戳</translation>
     </message>
     <message>
         <source>Load time</source>
-        <translation></translation>
+        <translation>加载时间</translation>
     </message>
     <message>
         <source>Load reason</source>
-        <translation></translation>
+        <translation>加载原因</translation>
     </message>
     <message>
         <source>File modified time</source>
-        <translation></translation>
+        <translation>文件修改时间</translation>
     </message>
     <message>
         <source>File size</source>
-        <translation></translation>
+        <translation>文件大小</translation>
     </message>
     <message>
         <source>Entry point</source>
-        <translation></translation>
+        <translation>入口点</translation>
     </message>
     <message>
         <source>Ref. services</source>
-        <translation></translation>
+        <translation>Ref. 服务</translation>
     </message>
     <message>
         <source>Parent base address</source>
-        <translation></translation>
+        <translation>父基址</translation>
     </message>
     <message>
         <source>Original name</source>
-        <translation></translation>
+        <translation>原始名称</translation>
     </message>
     <message>
         <source>Architecture</source>
-        <translation></translation>
+        <translation>架构</translation>
     </message>
 </context>
 <context>
     <name>CModuleSearch</name>
     <message>
         <source>Module search...</source>
-        <translation></translation>
+        <translation>模块搜索...</translation>
     </message>
     <message>
         <source>DLLs and Mapped Files</source>
-        <translation></translation>
+        <translation>动态链接库与已映射文件</translation>
     </message>
     <message>
         <source>DLLs Only</source>
-        <translation></translation>
+        <translation>仅动态链接库</translation>
     </message>
 </context>
 <context>
     <name>CModulesView</name>
     <message>
         <source>Inject DLL</source>
-        <translation></translation>
+        <translation>注入动态链接库</translation>
     </message>
     <message>
         <source>Show Modified Pages</source>
-        <translation></translation>
+        <translation>显示已更改页面</translation>
     </message>
     <message>
         <source>Open</source>
-        <translation></translation>
+        <translation>打开</translation>
     </message>
     <message>
         <source>Unload</source>
-        <translation></translation>
+        <translation>取消加载</translation>
     </message>
     <message>
         <source>Do you want to unload the selected Module(s)</source>
-        <translation></translation>
+        <translation>你想要取消加载所选模块吗</translation>
     </message>
     <message>
         <source>Select DLL&apos;s</source>
-        <translation></translation>
+        <translation>选择动态链接库&apos;s</translation>
     </message>
     <message>
         <source>DLL files (*.dll)</source>
-        <translation></translation>
+        <translation>动态链接库文件 (*.dll)</translation>
     </message>
 </context>
 <context>
     <name>CMultiErrorDialog</name>
     <message>
         <source>TaskExplorer - Error</source>
-        <translation></translation>
+        <translation>TaskExplorer - 错误</translation>
     </message>
     <message>
         <source>Message|Status|Error</source>
-        <translation></translation>
+        <translation>消息|状态|错误</translation>
     </message>
     <message>
         <source>0x%1</source>
-        <translation></translation>
+        <translation>0x%1</translation>
     </message>
 </context>
 <context>
     <name>CNetworkView</name>
     <message>
         <source>Network</source>
-        <translation></translation>
+        <translation>网络</translation>
     </message>
     <message>
         <source>Download Rate</source>
-        <translation></translation>
+        <translation>下载速率</translation>
     </message>
     <message>
         <source>Upload Rate</source>
-        <translation></translation>
+        <translation>上传速率</translation>
     </message>
     <message>
         <source>Adapter|State|Speed|Receive Rate|Bytes Receive Delta|Bytes Receive|Receives Delta|Receives|Send Rate|Bytes Sent Delta|Bytes Sent|Send Delta|Sent|Address|Gateway|DNS|Domain|Interface</source>
-        <translation></translation>
+        <translation>适配器|状态|速度|接收速率|接收字节数差异|接收字节|接收差异|接收|发送速率|发送字节数差异|发送字节|发送差异|发送|地址|网关|DNS|域|接口</translation>
     </message>
     <message>
         <source>Connected</source>
-        <translation></translation>
+        <translation>已连接</translation>
     </message>
     <message>
         <source>Disconnected</source>
-        <translation></translation>
+        <translation>已断开连接</translation>
     </message>
     <message>
         <source>Unknown</source>
-        <translation></translation>
+        <translation>未知</translation>
     </message>
 </context>
 <context>
     <name>CNewService</name>
     <message>
         <source>Failed to create service, error: %1</source>
-        <translation></translation>
+        <translation>不能创建服务，错误：%1</translation>
     </message>
     <message>
         <source>Successfully creted service: %1</source>
-        <translation></translation>
+        <translation>成功创建服务：%1</translation>
     </message>
     <message>
         <source>Select binary</source>
-        <translation></translation>
+        <translation>选择二进制文件</translation>
     </message>
     <message>
         <source>All files (*.*)</source>
-        <translation></translation>
+        <translation>所有文件 (*.*)</translation>
     </message>
 </context>
 <context>
     <name>CNtObjectModel</name>
     <message>
         <source>Name</source>
-        <translation></translation>
+        <translation>名称</translation>
     </message>
     <message>
         <source>Type</source>
-        <translation></translation>
+        <translation>类型</translation>
     </message>
 </context>
 <context>
     <name>CPersistenceConfig</name>
     <message>
         <source>Permited|Terminate</source>
-        <translation></translation>
+        <translation>受许可的终止</translation>
     </message>
     <message>
         <source>Unconfigured</source>
-        <translation></translation>
+        <translation>未配置</translation>
     </message>
     <message>
         <source>Real time</source>
-        <translation></translation>
+        <translation>实时</translation>
     </message>
     <message>
         <source>High</source>
-        <translation></translation>
+        <translation>高</translation>
     </message>
     <message>
         <source>Above normal</source>
-        <translation></translation>
+        <translation>高于正常</translation>
     </message>
     <message>
         <source>Normal</source>
-        <translation></translation>
+        <translation>正常</translation>
     </message>
     <message>
         <source>Below normal</source>
-        <translation></translation>
+        <translation>低于正常</translation>
     </message>
     <message>
         <source>Idle</source>
-        <translation></translation>
+        <translation>空闲</translation>
     </message>
     <message>
         <source>Custom</source>
-        <translation></translation>
+        <translation>自定义</translation>
     </message>
     <message>
         <source>Critical</source>
-        <translation></translation>
+        <translation>关键</translation>
     </message>
     <message>
         <source>Low</source>
-        <translation></translation>
+        <translation>低</translation>
     </message>
     <message>
         <source>Very low</source>
-        <translation></translation>
+        <translation>很低</translation>
     </message>
     <message>
         <source>Medium</source>
-        <translation></translation>
+        <translation>中等</translation>
     </message>
     <message>
         <source>Lowest</source>
-        <translation></translation>
+        <translation>最低</translation>
     </message>
     <message>
         <source>X</source>
-        <translation></translation>
+        <translation>X</translation>
     </message>
     <message>
         <source>Path/Command Line (with wildcards)|Execution|CPU Priority|CPU Affinity|CPU Affinity|I/O Priority|Page Priority|</source>
-        <translation></translation>
+        <translation>路径/命令行（带通配符）|执行|CPU优先级|CPU偏好|CPU偏好|读写优先级|页面优先级|</translation>
     </message>
     <message>
         <source>Add new entry</source>
-        <translation></translation>
+        <translation>添加新实体</translation>
     </message>
 </context>
 <context>
     <name>CPoolModel</name>
     <message>
         <source>Tag Name</source>
-        <translation></translation>
+        <translation>标签名</translation>
     </message>
     <message>
         <source>Driver</source>
-        <translation></translation>
+        <translation>驱动</translation>
     </message>
     <message>
         <source>Description</source>
-        <translation></translation>
+        <translation>解释</translation>
     </message>
     <message>
         <source>Paged Allocations</source>
-        <translation></translation>
+        <translation>已分页分配</translation>
     </message>
     <message>
         <source>Paged Frees</source>
-        <translation></translation>
+        <translation>已分页释放</translation>
     </message>
     <message>
         <source>Paged Current</source>
-        <translation></translation>
+        <translation>已分页当前</translation>
     </message>
     <message>
         <source>Paged Bytes Total</source>
-        <translation></translation>
+        <translation>已分页总字节</translation>
     </message>
     <message>
         <source>Non-paged Allocations</source>
-        <translation></translation>
+        <translation>未分页分配</translation>
     </message>
     <message>
         <source>Non-paged Frees</source>
-        <translation></translation>
+        <translation>未分页释放</translation>
     </message>
     <message>
         <source>Non-paged Current</source>
-        <translation></translation>
+        <translation>未分页当前</translation>
     </message>
     <message>
         <source>Non-paged Bytes Total</source>
-        <translation></translation>
+        <translation>未分页总字节</translation>
     </message>
 </context>
 <context>
     <name>CProcessInfo</name>
     <message>
         <source>TCP/Server</source>
-        <translation></translation>
+        <translation>TCP/服务端</translation>
     </message>
     <message>
         <source>TCP</source>
-        <translation></translation>
+        <translation>TCP</translation>
     </message>
     <message>
         <source>UDP</source>
-        <translation></translation>
+        <translation>UDP</translation>
     </message>
     <message>
         <source>System</source>
-        <translation></translation>
+        <translation>系统</translation>
     </message>
     <message>
         <source>User</source>
-        <translation></translation>
+        <translation>用户</translation>
     </message>
     <message>
         <source>Process</source>
-        <translation></translation>
+        <translation>进程</translation>
     </message>
 </context>
 <context>
     <name>CProcessModel</name>
     <message>
         <source>, </source>
-        <translation></translation>
+        <translation>， </translation>
     </message>
     <message>
         <source>N/A</source>
-        <translation></translation>
+        <translation>无有效数值</translation>
     </message>
     <message>
         <source>0x%1</source>
-        <translation></translation>
+        <translation>0x%1</translation>
     </message>
     <message>
         <source>Yes</source>
-        <translation></translation>
+        <translation>是</translation>
     </message>
     <message>
         <source>Critical</source>
-        <translation></translation>
+        <translation>关键</translation>
     </message>
     <message>
         <source>Process</source>
-        <translation></translation>
+        <translation>进程</translation>
     </message>
     <message>
         <source>PID</source>
-        <translation></translation>
+        <translation>进程标识符</translation>
     </message>
     <message>
         <source>Parent PID</source>
-        <translation></translation>
+        <translation>父进程标识符</translation>
     </message>
     <message>
         <source>Console PID</source>
-        <translation></translation>
+        <translation>控制台进程标识符</translation>
     </message>
     <message>
         <source>Seq. number</source>
-        <translation></translation>
+        <translation>序列号</translation>
     </message>
     <message>
         <source>Start key</source>
-        <translation></translation>
+        <translation>启动键</translation>
     </message>
     <message>
         <source>CPU</source>
-        <translation></translation>
+        <translation>CPU</translation>
     </message>
     <message>
         <source>I/O total rate</source>
-        <translation></translation>
+        <translation>读写总速率</translation>
     </message>
     <message>
         <source>Status</source>
-        <translation></translation>
+        <translation>状态</translation>
     </message>
     <message>
         <source>Private bytes</source>
-        <translation></translation>
+        <translation>私有字节</translation>
     </message>
     <message>
         <source>User name</source>
-        <translation></translation>
+        <translation>用户名</translation>
     </message>
     <message>
         <source>Services</source>
-        <translation></translation>
+        <translation>服务</translation>
     </message>
     <message>
         <source>Description</source>
-        <translation></translation>
+        <translation>解释</translation>
     </message>
     <message>
         <source>Company name</source>
-        <translation></translation>
+        <translation>公司名</translation>
     </message>
     <message>
         <source>Version</source>
-        <translation></translation>
+        <translation>版本</translation>
     </message>
     <message>
         <source>Network</source>
-        <translation></translation>
+        <translation>网络</translation>
     </message>
     <message>
         <source>File name</source>
-        <translation></translation>
+        <translation>文件名</translation>
     </message>
     <message>
         <source>Command line</source>
-        <translation></translation>
+        <translation>命令行</translation>
     </message>
     <message>
         <source>Peak private bytes</source>
-        <translation></translation>
+        <translation>峰值私有字节</translation>
     </message>
     <message>
         <source>Working set</source>
-        <translation></translation>
+        <translation>工作集</translation>
     </message>
     <message>
         <source>Peak working set</source>
-        <translation></translation>
+        <translation>峰值工作集</translation>
     </message>
     <message>
         <source>Private WS</source>
-        <translation></translation>
+        <translation>私有WS</translation>
     </message>
     <message>
         <source>Shared WS (slow)</source>
-        <translation></translation>
+        <translation>已共享WS（慢）</translation>
     </message>
     <message>
         <source>Shareable WS (slow)</source>
-        <translation></translation>
+        <translation>可共享WS（慢）</translation>
     </message>
     <message>
         <source>Shared commit</source>
-        <translation></translation>
+        <translation>已共享提交</translation>
     </message>
     <message>
         <source>Virtual size</source>
-        <translation></translation>
+        <translation>虚拟大小</translation>
     </message>
     <message>
         <source>Peak virtual size</source>
-        <translation></translation>
+        <translation>峰值虚拟大小</translation>
     </message>
     <message>
         <source>Debug Messages</source>
-        <translation></translation>
+        <translation>调试消息</translation>
     </message>
     <message>
         <source>Session ID</source>
-        <translation></translation>
+        <translation>会话标识符</translation>
     </message>
     <message>
         <source>Priority class</source>
-        <translation></translation>
+        <translation>优先级类别</translation>
     </message>
     <message>
         <source>Base priority</source>
-        <translation></translation>
+        <translation>基础优先级</translation>
     </message>
     <message>
         <source>Priority boost</source>
-        <translation></translation>
+        <translation>优先级增强</translation>
     </message>
     <message>
         <source>GPU</source>
-        <translation></translation>
+        <translation>GPU</translation>
     </message>
     <message>
         <source>Shared</source>
-        <translation></translation>
+        <translation>共享的</translation>
     </message>
     <message>
         <source>Dedicated</source>
-        <translation></translation>
+        <translation>独占的</translation>
     </message>
     <message>
         <source>GPU Adapter</source>
-        <translation></translation>
+        <translation>GPU适配器</translation>
     </message>
     <message>
         <source>Threads</source>
-        <translation></translation>
+        <translation>线程</translation>
     </message>
     <message>
         <source>Peak threads</source>
-        <translation></translation>
+        <translation>峰值线程</translation>
     </message>
     <message>
         <source>Handles</source>
-        <translation></translation>
+        <translation>句柄</translation>
     </message>
     <message>
         <source>Peak handles</source>
-        <translation></translation>
+        <translation>峰值句柄</translation>
     </message>
     <message>
         <source>Windows</source>
-        <translation></translation>
+        <translation>窗口</translation>
     </message>
     <message>
         <source>GDI handles</source>
-        <translation></translation>
+        <translation>GDI句柄</translation>
     </message>
     <message>
         <source>USER handles</source>
-        <translation></translation>
+        <translation>用户句柄</translation>
     </message>
     <message>
         <source>Integrity</source>
-        <translation></translation>
+        <translation>完整级</translation>
     </message>
     <message>
         <source>I/O priority</source>
-        <translation></translation>
+        <translation>读写优先级</translation>
     </message>
     <message>
         <source>Page priority</source>
-        <translation></translation>
+        <translation>页面优先级</translation>
     </message>
     <message>
         <source>Start time</source>
-        <translation></translation>
+        <translation>启动时间</translation>
     </message>
     <message>
         <source>Total CPU time</source>
-        <translation></translation>
+        <translation>总CPU时间</translation>
     </message>
     <message>
         <source>Kernel CPU time</source>
-        <translation></translation>
+        <translation>内核态CPU时间</translation>
     </message>
     <message>
         <source>User CPU time</source>
-        <translation></translation>
+        <translation>用户态CPU时间</translation>
     </message>
     <message>
         <source>Verification status</source>
-        <translation></translation>
+        <translation>验证状态</translation>
     </message>
     <message>
         <source>Verified signer</source>
-        <translation></translation>
+        <translation>已验证签名者</translation>
     </message>
     <message>
         <source>Up Time</source>
-        <translation></translation>
+        <translation>上时间</translation>
     </message>
     <message>
         <source>CPU Arch.</source>
-        <translation></translation>
+        <translation>CPU架构</translation>
     </message>
     <message>
         <source>Elevation</source>
-        <translation></translation>
+        <translation>提权</translation>
     </message>
     <message>
         <source>Window title</source>
-        <translation></translation>
+        <translation>窗口标题</translation>
     </message>
     <message>
         <source>Window status</source>
-        <translation></translation>
+        <translation>窗口状态</translation>
     </message>
     <message>
         <source>Cycles</source>
-        <translation></translation>
+        <translation>周期</translation>
     </message>
     <message>
         <source>Cycles delta</source>
-        <translation></translation>
+        <translation>周期差异</translation>
     </message>
     <message>
         <source>CPU graph</source>
-        <translation></translation>
+        <translation>CPU图表</translation>
     </message>
     <message>
         <source>Mem. graph</source>
-        <translation></translation>
+        <translation>内存图表</translation>
     </message>
     <message>
         <source>I/O graph</source>
-        <translation></translation>
+        <translation>读写图表</translation>
     </message>
     <message>
         <source>Net. graph</source>
-        <translation></translation>
+        <translation>网络图表</translation>
     </message>
     <message>
         <source>GPU graph</source>
-        <translation></translation>
+        <translation>GPU图表</translation>
     </message>
     <message>
         <source>V. Mem. graph</source>
-        <translation></translation>
+        <translation>虚拟内存图表</translation>
     </message>
     <message>
         <source>Mitigations</source>
-        <translation></translation>
+        <translation>缓解</translation>
     </message>
     <message>
         <source>Image coherency</source>
-        <translation></translation>
+        <translation>映像连贯性</translation>
     </message>
     <message>
         <source>Virtualized</source>
-        <translation></translation>
+        <translation>已虚拟化</translation>
     </message>
     <message>
         <source>Context switches</source>
-        <translation></translation>
+        <translation>上下文切换</translation>
     </message>
     <message>
         <source>Context switches delta</source>
-        <translation></translation>
+        <translation>上下文切换周期</translation>
     </message>
     <message>
         <source>Page faults</source>
-        <translation></translation>
+        <translation>页面错误差异</translation>
     </message>
     <message>
         <source>Page faults delta</source>
-        <translation></translation>
+        <translation>页面错误差异</translation>
     </message>
     <message>
         <source>Hard faults</source>
