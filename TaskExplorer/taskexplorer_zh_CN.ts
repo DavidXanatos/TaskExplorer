@@ -71,7 +71,7 @@
     </message>
     <message>
         <source>Utilization:</source>
-        <translation>利用</translation>
+        <translation>利用：</translation>
     </message>
     <message>
         <source>Clock Speed:</source>
@@ -173,7 +173,7 @@
     </message>
     <message>
         <source>Disk Name|Usage|Latency|Queue|Read Rate|Bytes Read Delta|Bytes Read|Reads Delta|Reads|Write Rate|Bytes Writen Delta|Bytes Writen|Writes Delta|Writes|Device Path</source>
-        <translation>分区名|使用额|延迟|队列|读取速率|读取字节数差异|读取字节数|读取|写入速率|写入字节速率|已写入字节|写入|设备路径></translation>
+        <translation>分区名|使用额|延迟|队列|读取速率|读取字节数差异|读取字节数|读取|写入速率|写入字节速率|已写入字节|写入|设备路径&gt;</translation>
     </message>
     <message>
         <source>%1 %</source>
@@ -266,7 +266,7 @@
     </message>
     <message>
         <source>Image size</source>
-        <translation>映像大小></translation>
+        <translation>映像大小&gt;</translation>
     </message>
     <message>
         <source>Description</source>
@@ -525,7 +525,7 @@
     </message>
     <message>
         <source>Select graphs that will be displayed in the graph bar.</source>
-        <translation>选择将在图标面板显示的图表</translation>
+        <translation>选择将在图标面板显示的图表。</translation>
     </message>
     <message>
         <source>Graph Chooser</source>
@@ -621,7 +621,7 @@
     </message>
     <message>
         <source>    Shared memory: %1/%2</source>
-        <translation>共享内存:%1/%2</translation>
+        <translation>    共享内存:%1/%2</translation>
     </message>
     <message>
         <source>Object Usage:</source>
@@ -693,7 +693,7 @@
     </message>
     <message>
         <source>    Send rate: %1</source>
-        <translation>发送速率：%1</translation>
+        <translation>    发送速率：%1</translation>
     </message>
     <message>
         <source>Samba server:</source>
@@ -701,11 +701,11 @@
     </message>
     <message>
         <source>RAS &amp; VPN Traffic:</source>
-        <translation>RAS &amp; VPN 通讯</translation>
+        <translation>RAS &amp; VPN 通讯：</translation>
     </message>
     <message>
         <source>TCP/IP Traffic:</source>
-        <translation>TCP/IP通讯</translation>
+        <translation>TCP/IP通讯：</translation>
     </message>
     <message>
         <source>    LAN Receive rate: %1</source>
@@ -713,7 +713,7 @@
     </message>
     <message>
         <source>    LAN Send rate: %1</source>
-        <translation>    LAN发送速率</translation>
+        <translation>    LAN发送速率： %1</translation>
     </message>
     <message>
         <source>GPU Usage:</source>
@@ -1118,7 +1118,7 @@
     </message>
     <message>
         <source>Do you want to close the selected handle(s)</source>
-        <translation>你想要关闭选中的句柄吗？</translation>
+        <translation>你想要关闭选中的句柄吗</translation>
     </message>
     <message>
         <source>Token</source>
@@ -1203,7 +1203,7 @@
     </message>
     <message>
         <source>Processes in job:</source>
-        <translation>Job中的进程</translation>
+        <translation>Job中的进程：</translation>
     </message>
     <message>
         <source>Add process</source>
@@ -1247,15 +1247,15 @@
     </message>
     <message>
         <source>Failed to terminate job.</source>
-        <translation>不能终止Job</translation>
+        <translation>不能终止Job.</translation>
     </message>
     <message>
         <source>Failed to freeze job.</source>
-        <translation>不能冷冻Job</translation>
+        <translation>不能冷冻Job.</translation>
     </message>
     <message>
         <source>Failed to un freeze job.</source>
-        <translation>不能取消冷冻Job</translation>
+        <translation>不能解冻Job.</translation>
     </message>
 </context>
 <context>
@@ -1384,7 +1384,7 @@
     </message>
     <message>
         <source>Invalid Hex String, or shorter than 2 bytes.</source>
-        <translation>无效的16进制字符串，或者少于2字节</translation>
+        <translation>无效的16进制字符串，或者少于2字节。</translation>
     </message>
 </context>
 <context>
@@ -1435,15 +1435,15 @@
     </message>
     <message>
         <source>Unmapping a section view may cause the process to crash.</source>
-        <translation>取消映射一个内存节可能会导致进程崩溃</translation>
+        <translation>取消映射一个内存节可能会导致进程崩溃。</translation>
     </message>
     <message>
         <source>Freeing memory regions may cause the process to crash.</source>
-        <translation>释放内存区域可能导致进程崩溃</translation>
+        <translation>释放内存区域可能导致进程崩溃。</translation>
     </message>
     <message>
         <source>Decommitting memory regions may cause the process to crash.</source>
-        <translation>反提交内存区域可能导致进程崩溃</translation>
+        <translation>反提交内存区域可能导致进程崩溃。</translation>
     </message>
     <message>
         <source>Possible values:<byte value="xd"/>
@@ -2092,7 +2092,7 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>CPU Arch.</source>
-        <translation>CPU架构</translation>
+        <translation>CPU架构.</translation>
     </message>
     <message>
         <source>Elevation</source>
@@ -2619,7 +2619,7 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>    %1 %2</source>
-        <translation>    %1%2</translation>
+        <translation>    %1 %2</translation>
     </message>
     <message>
         <source>Service group name:</source>
@@ -2703,7 +2703,7 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>    Image is probably packed (%1 imports over %2 modules).</source>
-        <translation>    映像可能被打包（%1导入了超过%2个模块）</translation>
+        <translation>    映像可能被打包（%1导入了超过%2个模块）。</translation>
     </message>
     <message>
         <source>Console host</source>
@@ -2826,11 +2826,11 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>Verification: </source>
-        <translation>验证：</translation>
+        <translation>验证： </translation>
     </message>
     <message>
         <source>Signer: </source>
-        <translation>签名者：</translation>
+        <translation>签名者： </translation>
     </message>
     <message>
         <source>Mitigation policies:</source>
@@ -3466,11 +3466,11 @@ To change the limit adjust the option &apos;Options/ResultLimit&apos;.</source>
     </message>
     <message>
         <source>This service is already added.</source>
-        <translation>服务已添加</translation>
+        <translation>服务已添加。</translation>
     </message>
     <message>
         <source>This service does not exist.</source>
-        <translation>服务不存在</translation>
+        <translation>服务不存在。</translation>
     </message>
     <message>
         <source>Do you want to delete the sellected service</source>
@@ -3640,7 +3640,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>Not resolved...</source>
-        <translation>未解决</translation>
+        <translation>未解决...</translation>
     </message>
 </context>
 <context>
@@ -3836,7 +3836,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     <name>CStackProviderJob</name>
     <message>
         <source> (No unwind info)</source>
-        <translation>(无释放信息)</translation>
+        <translation> (无释放信息)</translation>
     </message>
     <message>
         <source> + 0x%1</source>
@@ -4256,11 +4256,11 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source> (Administrator)</source>
-        <translation>(内置管理员)</translation>
+        <translation> (内置管理员)</translation>
     </message>
     <message>
         <source> (root)</source>
-        <translation>(根)</translation>
+        <translation> (根)</translation>
     </message>
     <message>
         <source>&amp;Tasks</source>
@@ -4272,7 +4272,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>Run as...</source>
-        <translation>作为...运行</translation>
+        <translation>运行，作为...</translation>
     </message>
     <message>
         <source>Run as TrustedInstaller...</source>
@@ -4656,7 +4656,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>MMapIO; Read: %1; Write: %2</source>
-        <translation>NMap读写; 读: %1; 写: %3</translation>
+        <translation>NMap读写; 读: %1; 写: %2</translation>
     </message>
     <message>
         <source>DiskIO; Read: %1; Write: %2</source>
@@ -4734,11 +4734,11 @@ Swap: %1%</source>
     </message>
     <message>
         <source>Found %1 hidden processes and added them to the process std::list.</source>
-        <translation>发现了 %1 个隐藏进程并且将它们添加到了进程 std::list</translation>
+        <translation>发现了 %1 个隐藏进程并且将它们添加到了进程 std::list.</translation>
     </message>
     <message>
         <source>No hidden processes found.</source>
-        <translation>没有找到隐藏进程</translation>
+        <translation>没有找到隐藏进程。</translation>
     </message>
     <message>
         <source>Graph background</source>
@@ -4928,7 +4928,7 @@ Please run the 64-bit version of Task Explorer instead.</source>
     </message>
     <message>
         <source>, </source>
-        <translation>，</translation>
+        <translation>， </translation>
     </message>
 </context>
 <context>
@@ -5019,7 +5019,7 @@ Please run the 64-bit version of Task Explorer instead.</source>
     </message>
     <message>
         <source>Do you want to %1 the selected task(s)</source>
-        <translation>你想要去%1选定的任务吗？</translation>
+        <translation>你想要去%1选定的任务吗</translation>
     </message>
 </context>
 <context>
@@ -5557,7 +5557,7 @@ You can change this option later on in the settings.</source>
     </message>
     <message>
         <source>No-Write-Up Policy Disabled</source>
-        <translation>"无向上写"策略已被禁用</translation>
+        <translation>&quot;无向上写&quot;策略已被禁用</translation>
     </message>
     <message>
         <source>Prevents the process from modifying objects with a higher integrity</source>
@@ -5677,7 +5677,7 @@ You can change this option later on in the settings.</source>
     </message>
     <message>
         <source>Once lowered, the integrity level of the token cannot be raised again.</source>
-        <translation>一旦降低，令牌的完整性级别将不能被再次升高</translation>
+        <translation>一旦降低，令牌的完整性级别将不能被再次升高。</translation>
     </message>
     <message>
         <source>Unable to set the integrity level, error: %1</source>
@@ -5696,11 +5696,11 @@ You can change this option later on in the settings.</source>
     </message>
     <message>
         <source>Failed to WaitChainRegisterCallbacks</source>
-        <translation>不能调用"WaitChainRegisterCallbacks"（等待链注册回调）</translation>
+        <translation>不能调用&quot;WaitChainRegisterCallbacks&quot;（等待链注册回调）</translation>
     </message>
     <message>
         <source>Failed to OpenThreadWaitChainSession</source>
-        <translation>不能调用"OpenThreadWaitChainSession"（打开线程等待链会话）</translation>
+        <translation>不能调用&quot;OpenThreadWaitChainSession&quot;（打开线程等待链会话）</translation>
     </message>
     <message>
         <source>True</source>
@@ -6014,7 +6014,7 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source>You are about to close one or more handles for a critical process with strict handle checks enabled. This will shut down the operating system immediately!</source>
-        <translation>你正试图为一个启用了严格句柄检查的关键进程关闭一个或更多的句柄。这将会立刻关闭操作系统！（引发蓝屏）</translation>
+        <translation>你正试图为一个启用了严格句柄检查的关键进程关闭一个或更多的句柄。这将会立刻关闭操作系统（引发蓝屏）！</translation>
     </message>
     <message>
         <source>Failed To close Handle</source>
@@ -6419,7 +6419,7 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source> 32-bit</source>
-        <translation>32位</translation>
+        <translation> 32位</translation>
     </message>
     <message>
         <source>TEB%1 (thread %2)</source>
@@ -7268,7 +7268,7 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source>Deleting a service can prevent the system from starting or functioning properly.</source>
-        <translation>删除一个服务可能导致系统不能正常启动或执行功能</translation>
+        <translation>删除一个服务可能导致系统不能正常启动或执行功能。</translation>
     </message>
     <message>
         <source>Failed to delete service</source>
@@ -7356,23 +7356,23 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source>(binary data) </source>
-        <translation>（二进制数据）</translation>
+        <translation>(二进制数据) </translation>
     </message>
     <message>
         <source>(level) </source>
-        <translation>（级别）</translation>
+        <translation>(级别) </translation>
     </message>
     <message>
         <source>(keyword any) </source>
-        <translation>（任何关键词）</translation>
+        <translation>(任何关键词) </translation>
     </message>
     <message>
         <source>(keyword all) </source>
-        <translation>（所有关键词）</translation>
+        <translation>(所有关键词) </translation>
     </message>
     <message>
         <source>(unknown type)</source>
-        <translation>（未知类型）</translation>
+        <translation>(未知类型)</translation>
     </message>
     <message>
         <source>Unable to find the ETW publisher GUID.</source>
@@ -7839,7 +7839,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source> (restricted)</source>
-        <translation>（受限制的）</translation>
+        <translation> (受限制的)</translation>
     </message>
     <message>
         <source>Failed to set process virtualization</source>
@@ -7847,7 +7847,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Could not open token.</source>
-        <translation>不能打开令牌</translation>
+        <translation>不能打开令牌。</translation>
     </message>
     <message>
         <source>failed to Set Token Information</source>
@@ -7943,35 +7943,35 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Mandatory, </source>
-        <translation>强制的，</translation>
+        <translation>强制的, </translation>
     </message>
     <message>
         <source>Disabled, </source>
-        <translation>禁用的，</translation>
+        <translation>禁用的, </translation>
     </message>
     <message>
         <source>Default disabled, </source>
-        <translation>默认禁用的，</translation>
+        <translation>默认禁用的, </translation>
     </message>
     <message>
         <source>Use for deny only, </source>
-        <translation>仅为拒绝使用，</translation>
+        <translation>仅为拒绝使用, </translation>
     </message>
     <message>
         <source>Case-sensitive, </source>
-        <translation>大小写敏感，</translation>
+        <translation>大小写敏感, </translation>
     </message>
     <message>
         <source>Non-inheritable, </source>
-        <translation>不可继承的，</translation>
+        <translation>不可继承的, </translation>
     </message>
     <message>
         <source>Compare-ignore, </source>
-        <translation>忽略比较的，</translation>
+        <translation>忽略比较的, </translation>
     </message>
     <message>
         <source>(None)</source>
-        <translation>（无）</translation>
+        <translation>(无)</translation>
     </message>
 </context>
 <context>
@@ -8123,7 +8123,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Opacity:</source>
-        <translation>不透明度</translation>
+        <translation>不透明度:</translation>
     </message>
     <message>
         <source>Always on top</source>
@@ -8231,7 +8231,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Menu name</source>
-        <translation>菜单名称/translation>
+        <translation>菜单名称</translation>
     </message>
     <message>
         <source>Properties</source>
@@ -8441,7 +8441,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Enter the command to start.</source>
-        <translation>输入将要启动的命令</translation>
+        <translation>输入将要启动的命令。</translation>
     </message>
     <message>
         <source>Browse</source>
@@ -8691,7 +8691,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Download Symbols:</source>
-        <translation>下载符号L</translation>
+        <translation>下载符号:</translation>
     </message>
     <message>
         <source>Other Options</source>
@@ -8711,7 +8711,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Forced Shutdown/Reboot:</source>
-        <translation>强制的关机/重启</translation>
+        <translation>强制的关机/重启:</translation>
     </message>
     <message>
         <source>Support Sandboxie</source>
@@ -8757,7 +8757,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Action:</source>
-        <translation>行为</translation>
+        <translation>行为:</translation>
     </message>
     <message>
         <source>New ...</source>
@@ -8880,7 +8880,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Restart service after</source>
-        <translation>在此之后重启服务:</translation>
+        <translation>重启服务，先于</translation>
     </message>
     <message>
         <source>Second failure:</source>
