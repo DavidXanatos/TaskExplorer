@@ -173,7 +173,7 @@
     </message>
     <message>
         <source>Disk Name|Usage|Latency|Queue|Read Rate|Bytes Read Delta|Bytes Read|Reads Delta|Reads|Write Rate|Bytes Writen Delta|Bytes Writen|Writes Delta|Writes|Device Path</source>
-        <translation>分区名|使用额|延迟|队列|读取速率|读取字节数差异|读取字节数|读取|写入速率|写入字节速率|已写入字节|写入|设备路径&gt;</translation>
+        <translation>分区名|使用额|延迟|队列|读取速率|读取字节数差异|读取字节数|读取|写入速率|写入字节速率|已写入字节|写入|设备路径</translation>
     </message>
     <message>
         <source>%1 %</source>
@@ -266,7 +266,7 @@
     </message>
     <message>
         <source>Image size</source>
-        <translation>映像大小&gt;</translation>
+        <translation>映像大小</translation>
     </message>
     <message>
         <source>Description</source>
