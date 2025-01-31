@@ -5916,7 +5916,7 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <source>Pen</source>
-        <translation画笔</translation>
+        <translation>画笔</translation>
     </message>
     <message>
         <source>Region</source>
@@ -8231,7 +8231,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <source>Menu name</source>
-        <translation><菜单名称/translation>
+        <translation>菜单名称/translation>
     </message>
     <message>
         <source>Properties</source>
