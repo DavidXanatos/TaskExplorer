@@ -169,7 +169,7 @@
     </message>
     <message>
         <source>MMap IO</source>
-        <translation>NMAP读写</translation>
+        <translation>MMAP(内存映射)读写</translation>
     </message>
     <message>
         <source>Disk Name|Usage|Latency|Queue|Read Rate|Bytes Read Delta|Bytes Read|Reads Delta|Reads|Write Rate|Bytes Writen Delta|Bytes Writen|Writes Delta|Writes|Device Path</source>
@@ -485,7 +485,7 @@
     </message>
     <message>
         <source>MMapIO&lt;%1</source>
-        <translation>NMAP读写&lt;%1</translation>
+        <translation>MMAP(内存映射)读写&lt;%1</translation>
     </message>
     <message>
         <source>FileIO&lt;%1</source>
@@ -4656,7 +4656,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <source>MMapIO; Read: %1; Write: %2</source>
-        <translation>NMap读写; 读: %1; 写: %2</translation>
+        <translation>MMap(内存映射)读写; 读: %1; 写: %2</translation>
     </message>
     <message>
         <source>DiskIO; Read: %1; Write: %2</source>
