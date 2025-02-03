@@ -2503,7 +2503,7 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <source>Execution Required</source>
-        <translation>需要执行</translation>
+        <translation>需要执行(Win11可用，作用未知）</translation>
     </message>
     <message>
         <source>Run as this User</source>
