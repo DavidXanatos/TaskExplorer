@@ -12,6 +12,12 @@ By double-clicking a process, you can open the **Task Info Panels** in a separat
 
 For users who need more screen space, the **System Info Panel** can be fully collapsed or opened in a separate window, maximizing the available area for the task panels.
 
+## Screen Shots
+
+![image](./.github/images/thread_view.png)
+![image](./.github/images/handle_view.png)
+
+
 ## System Requirements
 
 Task Explorer is compatible with Windows 7 or higher, on both 32-bit and 64-bit systems.
