@@ -485,48 +485,69 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 	else
 		m_pSubSystem->setText(tr("Subsystem: %1").arg(pWinProc->GetSubsystemString()));
 
-	m_pVerification->setText(pWinModule ? pWinModule->GetVerifyResultString() : "");
-	m_pSigner->setText(QString("<a href=\"%1\">%2</a>").arg(pProcess->GetFileName()).arg((pWinModule ? pWinModule->GetVerifySignerName() : "")));
-
-	m_pDesktop->setText(pWinProc->GetUsedDesktop());
-	m_pDPIAware->setText(tr("DPI Scaling: %1").arg(pWinProc->GetDPIAwarenessString()));
-
-	if (!pWinModule)
-		m_pPEBAddress->setText("");
-	else if (pWinProc->IsWoW64())
-		m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinModule->GetPebBaseAddress())).arg(FormatAddress(pWinModule->GetPebBaseAddress(true))));
-	else
-		m_pPEBAddress->setText(FormatAddress(pWinModule->GetPebBaseAddress()));
+	bool bFakeProcess = pWinProc->GetProcessId() == SYSTEM_IDLE_PROCESS_ID || pWinProc->GetProcessId() == SYSTEM_PROCESS_ID;
 
 	m_ImageType->setText(tr("Image type: %1").arg(pProcess->GetArchString()));
 
-	//m_pMitigation->setText(pWinProc->GetMitigationString());
-	QString Protection = pWinProc->GetProtectionString();
-	m_Protecetion->setText(tr("Protection: %1").arg(Protection.isEmpty() ? tr("None") : Protection));
-
-	m_pMitigation->GetTree()->clear();
-	QList<QPair<QString, QString>> List = pWinProc->GetMitigationDetails();
-	for (int i = 0; i < List.count(); i++)
+	if (!bFakeProcess)
 	{
-		QTreeWidgetItem* pItem = new QTreeWidgetItem();
-		pItem->setText(0, List[i].first);
-		pItem->setText(1, List[i].second);
-		m_pMitigation->GetTree()->addTopLevelItem(pItem);
+		m_pVerification->setText(pWinModule ? pWinModule->GetVerifyResultString() : "");
+		m_pSigner->setText(QString("<a href=\"%1\">%2</a>").arg(pProcess->GetFileName()).arg((pWinModule ? pWinModule->GetVerifySignerName() : "")));
+
+		m_pDesktop->setText(pWinProc->GetUsedDesktop());
+		m_pDPIAware->setText(tr("DPI Scaling: %1").arg(pWinProc->GetDPIAwarenessString()));
+
+		if (!pWinModule)
+			m_pPEBAddress->setText("");
+		else if (pWinProc->IsWoW64())
+			m_pPEBAddress->setText(tr("%1 (32-bit: %2)").arg(FormatAddress(pWinModule->GetPebBaseAddress())).arg(FormatAddress(pWinModule->GetPebBaseAddress(true))));
+		else
+			m_pPEBAddress->setText(FormatAddress(pWinModule->GetPebBaseAddress()));
+
+		//m_pMitigation->setText(pWinProc->GetMitigationString());
+		QString Protection = pWinProc->GetProtectionString();
+		m_Protecetion->setText(tr("Protection: %1").arg(Protection.isEmpty() ? tr("None") : Protection));
+
+		m_pMitigation->GetTree()->clear();
+		QList<QPair<QString, QString>> List = pWinProc->GetMitigationDetails();
+		for (int i = 0; i < List.count(); i++)
+		{
+			QTreeWidgetItem* pItem = new QTreeWidgetItem();
+			pItem->setText(0, List[i].first);
+			pItem->setText(1, List[i].second);
+			m_pMitigation->GetTree()->addTopLevelItem(pItem);
+		}
+
+		ACCESS_MASK mandatoryPolicy = 0;
+		if (NT_SUCCESS(PhGetProcessMandatoryPolicy(pWinProc->GetQueryHandle(), &mandatoryPolicy)))
+		{
+			m_pNoWriteUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP));
+			m_pNoReadUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_READ_UP));
+			m_pNoExecuteUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP));
+		}
+
+		if (m_pAppBox)
+		{
+			m_pAppID->setText(pWinProc->GetAppID());
+			m_pPackageName->setText(pWinProc->GetPackageName());
+			//m_pPackageDataDir->setText(pWinProc->GetAppDataDirectory());
+		}
 	}
-
-	ACCESS_MASK mandatoryPolicy = 0;
-	if (NT_SUCCESS(PhGetProcessMandatoryPolicy(pWinProc->GetQueryHandle(), &mandatoryPolicy)))
+	else
 	{
-		m_pNoWriteUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP));
-		m_pNoReadUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_READ_UP));
-		m_pNoExecuteUp->setChecked(FlagOn(mandatoryPolicy, SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP));
-	}
-
-	if (m_pAppBox)
-	{
-		m_pAppID->setText(pWinProc->GetAppID());
-		m_pPackageName->setText(pWinProc->GetPackageName());
-		//m_pPackageDataDir->setText(pWinProc->GetAppDataDirectory());
+		m_pVerification->setText("");
+		m_pSigner->setText("");
+		m_pPEBAddress->setText("");
+		m_pMitigation->GetTree()->clear();
+		m_pNoWriteUp->setChecked(false);
+		m_pNoReadUp->setChecked(false);
+		m_pNoExecuteUp->setChecked(false);
+		if (m_pAppBox)
+		{
+			m_pAppID->setText("");
+			m_pPackageName->setText("");
+		}
+		m_Protecetion->setText(tr("Protection: %1").arg(tr("None")));
 	}
 #endif
 
