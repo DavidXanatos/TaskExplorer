@@ -23,7 +23,7 @@ void CDnsModel::Sync(QMultiMap<QString, CDnsCacheEntryPtr> List)
 		SyncEntry(New, Old, pEntry);
 
 		/*QMap<QPair<QString, quint64>, CDnsProcRecordPtr> Records = pEntry->GetProcessRecords();
-		if (Records.isEmpty() || !m_Columns.contains(eProcess))
+		if (Records.isEmpty() || m_ColumnsOff.contains(eProcess))
 		{
 			SyncEntry(New, Old, pEntry);
 		}
@@ -87,7 +87,7 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 	int Changed = 0;
 
 	// Note: icons are loaded asynchroniusly
-	/*if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess) && pRecord)
+	/*if (m_bUseIcons && !pNode->Icon.isValid() && !m_ColumnsOff.contains(eProcess) && pRecord)
 	{
 		CProcessPtr pProcess = pRecord->GetProcess().toStrongRef().staticCast<CProcessInfo>();
 		CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
@@ -119,7 +119,7 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 
 	for(int section = 0; section < columnCount(); section++)
 	{
-		if (!m_Columns.contains(section))
+		if (m_ColumnsOff.contains(section))
 			continue; // ignore columns which are hidden
 
 		QVariant Value;
@@ -150,12 +150,12 @@ void CDnsModel::SyncEntry(QList<SListNode*>& New, QHash<QVariant, SListNode*>& O
 									{
 										quint64 ProcessId = pRecord->GetProcessId();
 										if (ProcessId)	
-											ColValue.Formated = tr("%1 (%2)").arg(pRecord->GetProcessName()).arg(ProcessId); 
+											ColValue.Formatted = tr("%1 (%2)").arg(pRecord->GetProcessName()).arg(theGUI->FormatID(ProcessId)); 
 									}
 									break;*/
-				case eType:			ColValue.Formated = pEntry->GetTypeString(); break;
-                case eTTL:			ColValue.Formated = FormatNumber(Value.toULongLong() / 1000); break; // in seconds
-				case eTimeStamp:	if(Value.toULongLong() != 0) ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong() / 1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+				case eType:			ColValue.Formatted = pEntry->GetTypeString(); break;
+                case eTTL:			ColValue.Formatted = FormatNumber(Value.toULongLong() / 1000); break; // in seconds
+				case eTimeStamp:	if(Value.toULongLong() != 0) ColValue.Formatted = QDateTime::fromSecsSinceEpoch(Value.toULongLong() / 1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 			}
 		}
 

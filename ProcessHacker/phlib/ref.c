@@ -36,7 +36,7 @@ PPH_CREATE_OBJECT_HOOK PhDbgCreateObjectHook = NULL;
 /**
  * Initializes the object manager module.
  */
-BOOLEAN PhRefInitialization(
+NTSTATUS PhRefInitialization(
     VOID
     )
 {
@@ -71,9 +71,9 @@ BOOLEAN PhRefInitialization(
     PhpAutoPoolTlsIndex = PhTlsAlloc();
 
     if (PhpAutoPoolTlsIndex == TLS_OUT_OF_INDEXES)
-        return FALSE;
+        return STATUS_NO_MEMORY;
 
-    return TRUE;
+    return STATUS_SUCCESS;
 }
 
 /**
@@ -118,7 +118,7 @@ _May_raise_ PVOID PhCreateObject(
     }
 
     PhAcquireQueuedLockExclusive(&PhDbgObjectListLock);
-    InsertTailList(&PhDbgObjectListHead, &objectHeader->ObjectListEntry);
+    InsertTailListNoFence(&PhDbgObjectListHead, &objectHeader->ObjectListEntry);
     PhReleaseQueuedLockExclusive(&PhDbgObjectListLock);
 
     {
@@ -177,7 +177,7 @@ _May_raise_ PVOID PhReferenceObjectEx(
     PPH_OBJECT_HEADER objectHeader;
     LONG oldRefCount;
 
-    assert(!(RefCount < 0));
+    assert(RefCount >= 0);
 
     objectHeader = PhObjectToObjectHeader(Object);
     // Increase the reference count.
@@ -187,18 +187,22 @@ _May_raise_ PVOID PhReferenceObjectEx(
 }
 
 /**
- * Attempts to reference an object and fails if it is being destroyed.
+ * Unsafely attempts to reference an object and fails if it is being destroyed.
  *
  * \param Object The object to reference if it is not being deleted.
  *
  * \return The object itself if the object was referenced, NULL if it was being deleted and was not
  * referenced.
  *
- * \remarks This function is useful if a reference to an object is held, protected by a mutex, and
+ * \remarks This function is unsafe because it is the responsibility of the caller to ensure the
+ * memory pointed to by \a Object remains valid outside of the object's reference counting. The
+ * caller must property synchronize with the delete procedure of the object's type to avoid
+ * use-after-free bugs. The function itself provides you no safety or guarantees without correct
+ * usage. This function is useful if a reference to an object is held, protected by a mutex, and
  * the delete procedure of the object's type attempts to acquire the mutex. If this function is
  * called while the mutex is owned, you can avoid referencing an object that is being destroyed.
  */
-PVOID PhReferenceObjectSafe(
+PVOID PhReferenceObjectUnsafe(
     _In_ PVOID Object
     )
 {
@@ -220,7 +224,7 @@ PVOID PhReferenceObjectSafe(
  * \param Object A pointer to the object to dereference.
  */
 VOID PhDereferenceObject(
-    _In_ PVOID Object
+    _In_ _Post_invalid_ PVOID Object
     )
 {
     PPH_OBJECT_HEADER objectHeader;
@@ -230,7 +234,6 @@ VOID PhDereferenceObject(
     // Decrement the reference count.
     newRefCount = _InterlockedDecrement(&objectHeader->RefCount);
     ASSUME_ASSERT(newRefCount >= 0);
-    ASSUME_ASSERT(!(newRefCount < 0));
 
     // Free the object if it has 0 references.
     if (newRefCount == 0)
@@ -246,7 +249,7 @@ VOID PhDereferenceObject(
  * \param Object A pointer to the object to dereference.
  */
 VOID PhDereferenceObjectDeferDelete(
-    _In_ PVOID Object
+    _In_ _Post_invalid_ PVOID Object
     )
 {
     PhDereferenceObjectEx(Object, 1, TRUE);
@@ -338,7 +341,7 @@ PPH_OBJECT_TYPE PhGetObjectType(
  * \remarks Do not reference or dereference the object type once it is created.
  */
 PPH_OBJECT_TYPE PhCreateObjectType(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ PPH_TYPE_DELETE_PROCEDURE DeleteProcedure
     )
@@ -355,7 +358,7 @@ PPH_OBJECT_TYPE PhCreateObjectType(
  * Creates an object type.
  *
  * \param Name The name of the type.
- * \param Flags A combination of flags affecting the behaviour of the object type.
+ * \param Flags A combination of flags affecting the behavior of the object type.
  * \param DeleteProcedure A callback function that is executed when an object of this type is about
  * to be freed (i.e. when its reference count is 0).
  * \param Parameters A structure containing additional parameters for the object type.
@@ -365,7 +368,7 @@ PPH_OBJECT_TYPE PhCreateObjectType(
  * \remarks Do not reference or dereference the object type once it is created.
  */
 PPH_OBJECT_TYPE PhCreateObjectTypeEx(
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _In_ ULONG Flags,
     _In_opt_ PPH_TYPE_DELETE_PROCEDURE DeleteProcedure,
     _In_opt_ PPH_OBJECT_TYPE_PARAMETERS Parameters
@@ -376,7 +379,9 @@ PPH_OBJECT_TYPE PhCreateObjectTypeEx(
     // Check the flags.
     if ((Flags & PH_OBJECT_TYPE_VALID_FLAGS) != Flags) /* Valid flag mask */
         PhRaiseStatus(STATUS_INVALID_PARAMETER_3);
-    if ((Flags & PH_OBJECT_TYPE_USE_FREE_LIST) && !Parameters)
+    if ((Flags & (PH_OBJECT_TYPE_USE_FREE_LIST | PH_OBJECT_TYPE_TRY_USE_FREE_LIST)) == (PH_OBJECT_TYPE_USE_FREE_LIST | PH_OBJECT_TYPE_TRY_USE_FREE_LIST))
+        PhRaiseStatus(STATUS_INVALID_PARAMETER_3);
+    if ((Flags & (PH_OBJECT_TYPE_USE_FREE_LIST | PH_OBJECT_TYPE_TRY_USE_FREE_LIST)) && !Parameters)
         PhRaiseStatus(STATUS_INVALID_PARAMETER_MIX);
 
     // Create the type object.
@@ -389,13 +394,13 @@ PPH_OBJECT_TYPE PhCreateObjectTypeEx(
     objectType->DeleteProcedure = DeleteProcedure;
     objectType->Name = Name;
 
-    assert(PhObjectTypeCount < PH_OBJECT_TYPE_TABLE_SIZE);
+    assert(InterlockedCompareExchange(&PhObjectTypeCount, 0, 0) < PH_OBJECT_TYPE_TABLE_SIZE);
 
     PhObjectTypeTable[objectType->TypeIndex] = objectType;
 
     if (Parameters)
     {
-        if (Flags & PH_OBJECT_TYPE_USE_FREE_LIST)
+        if (Flags & (PH_OBJECT_TYPE_USE_FREE_LIST | PH_OBJECT_TYPE_TRY_USE_FREE_LIST))
         {
             PhInitializeFreeList(
                 &objectType->FreeList,
@@ -452,6 +457,13 @@ PPH_OBJECT_HEADER PhpAllocateObject(
         objectHeader->Flags = PH_OBJECT_FROM_SMALL_FREE_LIST;
         REF_STAT_UP(RefObjectsAllocatedFromSmallFreeList);
     }
+    else if (ObjectType->Flags & PH_OBJECT_TYPE_TRY_USE_FREE_LIST &&
+             PhAddObjectHeaderSize(ObjectSize) <= ObjectType->FreeList.Size)
+    {
+        objectHeader = PhAllocateFromFreeList(&ObjectType->FreeList);
+        objectHeader->Flags = PH_OBJECT_FROM_TYPE_FREE_LIST;
+        REF_STAT_UP(RefObjectsAllocatedFromTypeFreeList);
+    }
     else
     {
         objectHeader = PhAllocate(PhAddObjectHeaderSize(ObjectSize));
@@ -480,7 +492,7 @@ VOID PhpFreeObject(
 
 #ifdef DEBUG
     PhAcquireQueuedLockExclusive(&PhDbgObjectListLock);
-    RemoveEntryList(&ObjectHeader->ObjectListEntry);
+    RemoveEntryListNoFence(&ObjectHeader->ObjectListEntry);
     PhReleaseQueuedLockExclusive(&PhDbgObjectListLock);
 #endif
 
@@ -522,7 +534,12 @@ VOID PhpDeferDeleteObject(
 
     // Save TypeIndex and Flags since they get overwritten when we push the object onto the defer
     // delete list.
+
+PH_CLANG_DIAGNOSTIC_PUSH();
+PH_CLANG_DIAGNOSTIC_IGNORED("-Wsingle-bit-bitfield-constant-conversion");
     ObjectHeader->DeferDelete = 1;
+PH_CLANG_DIAGNOSTIC_POP();
+
     MemoryBarrier();
     ObjectHeader->SavedTypeIndex = ObjectHeader->TypeIndex;
     ObjectHeader->SavedFlags = ObjectHeader->Flags;
@@ -541,6 +558,7 @@ VOID PhpDeferDeleteObject(
 /**
  * Removes and frees objects from the to-free list.
  */
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PhpDeferDeleteObjectRoutine(
     _In_ PVOID Parameter
     )
@@ -604,7 +622,7 @@ _May_raise_ FORCEINLINE VOID PhpSetCurrentAutoPool(
     {
         PPHP_BASE_THREAD_DBG dbg;
 
-        dbg = (PPHP_BASE_THREAD_DBG)TlsGetValue(PhDbgThreadDbgTlsIndex);
+        dbg = (PPHP_BASE_THREAD_DBG)PhTlsGetValue(PhDbgThreadDbgTlsIndex);
 
         if (dbg)
         {
@@ -644,7 +662,7 @@ VOID PhInitializeAutoPool(
  * \param AutoPool The auto-dereference pool to delete.
  */
 _May_raise_ VOID PhDeleteAutoPool(
-    _Inout_ PPH_AUTO_POOL AutoPool
+    _In_ _Post_invalid_ PPH_AUTO_POOL AutoPool
     )
 {
     PhDrainAutoPool(AutoPool);

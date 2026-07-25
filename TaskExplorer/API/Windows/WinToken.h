@@ -13,6 +13,8 @@
 class CWinToken : public CAbstractInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinToken)
 public:
 	CWinToken(QObject *parent = nullptr);
 	virtual ~CWinToken();

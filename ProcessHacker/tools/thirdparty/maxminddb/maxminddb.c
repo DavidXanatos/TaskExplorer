@@ -47,7 +47,7 @@ typedef ADDRESS_FAMILY sa_family_t;
             abort();                                                           \
         }                                                                      \
         fprintf(stderr, fmt "\n", binary);                                     \
-        PhFree(binary);                                                          \
+        free(binary);                                                          \
     } while (0)
 #define DEBUG_NL fprintf(stderr, "\n")
 #else
@@ -59,11 +59,10 @@ typedef ADDRESS_FAMILY sa_family_t;
 
 #ifdef MMDB_DEBUG
 char *byte_to_binary(uint8_t byte) {
-    char *bits = PhAllocateSafe(9 * sizeof(char));
+    char* bits = calloc(9, sizeof(char));
     if (NULL == bits) {
         return bits;
     }
-    memset(bits, 0, 9 * sizeof(char));
 
     for (uint8_t i = 0; i < 8; i++) {
         bits[i] = byte & (128 >> i) ? '1' : '0';
@@ -139,7 +138,7 @@ typedef struct record_info_s {
 // 64 leads us to allocating 4 KiB on a 64bit system.
 #define MMDB_POOL_INIT_SIZE 64
 
-static int map_file(MMDB_s *const mmdb, PPH_STRINGREF filename);
+static int map_file(MMDB_s *const mmdb, PCPH_STRINGREF filename);
 static const uint8_t *find_metadata(const uint8_t *file_content,
                                     ssize_t file_size,
                                     uint32_t *metadata_size);
@@ -238,11 +237,11 @@ static char *bytes_to_hex(uint8_t const *bytes, uint32_t size);
 
 #define FREE_AND_SET_NULL(p)                                                   \
     {                                                                          \
-        PhFree((void *)(p));                                                     \
+        free((void *)(p));                                                     \
         (p) = NULL;                                                            \
     }
 
-int MMDB_open(PPH_STRINGREF filename, uint32_t flags, MMDB_s *const mmdb) {
+int MMDB_open(PCPH_STRINGREF filename, uint32_t flags, MMDB_s *const mmdb) {
     int status = MMDB_SUCCESS;
 
     mmdb->file_content = NULL;
@@ -351,45 +350,67 @@ cleanup:
 
 static LPWSTR utf8_to_utf16(const char *utf8_str) {
     int wide_chars = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, NULL, 0);
-    wchar_t *utf16_str = (wchar_t *)PhAllocateSafe(wide_chars * sizeof(wchar_t));
+    wchar_t* utf16_str = (wchar_t*)calloc(wide_chars, sizeof(wchar_t));
     if (!utf16_str) {
         return NULL;
     }
 
-    //memset(utf16_str, 0, wide_chars * sizeof(wchar_t));
-
     if (MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, utf16_str, wide_chars) <
         1) {
-        PhFree(utf16_str);
+        free(utf16_str);
         return NULL;
     }
 
     return utf16_str;
 }
 
-static int map_file(MMDB_s* const mmdb, PPH_STRINGREF filename) // dmex: modified for NTAPI
+static int map_file(MMDB_s* const mmdb, PCPH_STRINGREF filename) // dmex: modified for NTAPI
 {
     NTSTATUS status;
     HANDLE fileHandle;
     HANDLE sectionHandle;
-    LARGE_INTEGER fileSize;
+    FILE_STANDARD_INFORMATION basicInfo;
+    UNICODE_STRING fileName;
+    OBJECT_ATTRIBUTES objectAttributes;
+    IO_STATUS_BLOCK ioStatusBlock;
     SIZE_T viewSize;
     PVOID viewBase;
 
-    status = PhCreateFile(
+    if (!PhStringRefToUnicodeString(filename, &fileName))
+        return MMDB_FILE_OPEN_ERROR;
+
+    InitializeObjectAttributes(
+        &objectAttributes,
+        &fileName,
+        OBJ_CASE_INSENSITIVE,
+        NULL,
+        NULL
+        );
+
+    status = NtCreateFile(
         &fileHandle,
-        filename,
         FILE_READ_ATTRIBUTES | FILE_READ_DATA | SYNCHRONIZE,
+        &objectAttributes,
+        &ioStatusBlock,
+        NULL,
         FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_DELETE,
         FILE_OPEN,
-        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+        NULL,
+        0
         );
 
     if (!NT_SUCCESS(status))
         return MMDB_FILE_OPEN_ERROR;
 
-    status = PhGetFileSize(fileHandle, &fileSize);
+    status = NtQueryInformationFile(
+        fileHandle,
+        &ioStatusBlock,
+        &basicInfo,
+        sizeof(FILE_STANDARD_INFORMATION),
+        FileStandardInformation
+        );
 
     if (!NT_SUCCESS(status))
     {
@@ -401,7 +422,7 @@ static int map_file(MMDB_s* const mmdb, PPH_STRINGREF filename) // dmex: modifie
         &sectionHandle,
         SECTION_QUERY | SECTION_MAP_READ,
         NULL,
-        &fileSize,
+        &basicInfo.EndOfFile,
         PAGE_READONLY,
         SEC_COMMIT,
         fileHandle
@@ -412,7 +433,7 @@ static int map_file(MMDB_s* const mmdb, PPH_STRINGREF filename) // dmex: modifie
     if (!NT_SUCCESS(status))
         return MMDB_FILE_OPEN_ERROR;
 
-    viewSize = (SIZE_T)fileSize.QuadPart;
+    viewSize = (SIZE_T)basicInfo.EndOfFile.QuadPart;
     viewBase = NULL;
 
     status = NtMapViewOfSection(
@@ -760,12 +781,14 @@ static int populate_languages_metadata(MMDB_s *mmdb,
     mmdb->metadata.languages.count = 0;
     mmdb->metadata.languages.names = calloc(array_size, sizeof(char *));
     if (NULL == mmdb->metadata.languages.names) {
+        MMDB_free_entry_data_list(first_member);
         return MMDB_OUT_OF_MEMORY_ERROR;
     }
 
     for (uint32_t i = 0; i < array_size; i++) {
         member = member->next;
         if (MMDB_DATA_TYPE_UTF8_STRING != member->entry_data.type) {
+            MMDB_free_entry_data_list(first_member);
             return MMDB_INVALID_METADATA_ERROR;
         }
 
@@ -773,6 +796,7 @@ static int populate_languages_metadata(MMDB_s *mmdb,
             member->entry_data.utf8_string, member->entry_data.data_size);
 
         if (NULL == mmdb->metadata.languages.names[i]) {
+            MMDB_free_entry_data_list(first_member);
             return MMDB_OUT_OF_MEMORY_ERROR;
         }
         // We assign this as we go so that if we fail a calloc and need to
@@ -827,21 +851,19 @@ static int populate_description_metadata(MMDB_s *mmdb,
                               MMDB_INVALID_METADATA_ERROR);
 
     mmdb->metadata.description.descriptions =
-        PhAllocateSafe(map_size * sizeof(MMDB_description_s *));
+        calloc(map_size, sizeof(MMDB_description_s*));
     if (NULL == mmdb->metadata.description.descriptions) {
         status = MMDB_OUT_OF_MEMORY_ERROR;
         goto cleanup;
     }
-    memset(mmdb->metadata.description.descriptions, 0, map_size * sizeof(MMDB_description_s*));
 
     for (uint32_t i = 0; i < map_size; i++) {
         mmdb->metadata.description.descriptions[i] =
-            PhAllocateSafe(sizeof(MMDB_description_s));
+            calloc(1, sizeof(MMDB_description_s));
         if (NULL == mmdb->metadata.description.descriptions[i]) {
             status = MMDB_OUT_OF_MEMORY_ERROR;
             goto cleanup;
         }
-        memset(mmdb->metadata.description.descriptions[i], 0, sizeof(MMDB_description_s));
 
         mmdb->metadata.description.count = i + 1;
         mmdb->metadata.description.descriptions[i]->language = NULL;
@@ -884,39 +906,53 @@ cleanup:
     return status;
 }
 
+#ifdef _WIN32
+#pragma comment(lib, "ntdll.lib")
+DECLSPEC_IMPORT NTSTATUS WINAPI RtlIpv6StringToAddressExA(PCSTR AddressString, IN6_ADDR* Address, PULONG ScopeId, PUSHORT Port);
+DECLSPEC_IMPORT NTSTATUS WINAPI RtlIpv4StringToAddressExA(PCSTR AddressString, BOOLEAN Strict, IN_ADDR* Address, PUSHORT Port);
+#endif
+
 MMDB_lookup_result_s MMDB_lookup_string(const MMDB_s *const mmdb,
                                         const char *const ipstr,
                                         int *const gai_error,
                                         int *const mmdb_error) {
     MMDB_lookup_result_s result = {.found_entry = false,
-                                   .netmask = 0,
+                               .netmask = 0,
                                    .entry = {.mmdb = mmdb, .offset = 0}};
 
-    struct addrinfo *addresses = NULL;
-    *gai_error = resolve_any_address(ipstr, &addresses);
+    SOCKADDR_IN6 addr6;
+    SOCKADDR_IN addr4;
 
-    if (!*gai_error) {
-        result = MMDB_lookup_sockaddr(mmdb, addresses->ai_addr, mmdb_error);
+    memset(&addr6, 0, sizeof(addr6));
+    addr6.sin6_family = AF_INET6;
+
+    if (RtlIpv6StringToAddressExA(ipstr, &addr6.sin6_addr, &addr6.sin6_scope_id, &addr6.sin6_port) == 0)
+    {
+        return MMDB_lookup_sockaddr(mmdb, (struct sockaddr*)&addr6, mmdb_error);
     }
 
-    if (NULL != addresses) {
-        freeaddrinfo(addresses);
+    memset(&addr4, 0, sizeof(addr4));
+    addr4.sin_family = AF_INET;
+
+    if (RtlIpv4StringToAddressExA(ipstr, TRUE, &addr4.sin_addr, &addr4.sin_port) == 0)
+    {
+        return MMDB_lookup_sockaddr(mmdb, (struct sockaddr*)&addr4, mmdb_error);
     }
 
     return result;
 }
 
 static int resolve_any_address(const char *ipstr, struct addrinfo **addresses) {
-    struct addrinfo hints = {
-        .ai_family = AF_UNSPEC,
-        .ai_flags = AI_NUMERICHOST,
-        // We set ai_socktype so that we only get one result back
-        .ai_socktype = SOCK_STREAM};
-
-    int gai_status = getaddrinfo(ipstr, NULL, &hints, addresses);
-    if (gai_status) {
-        return gai_status;
-    }
+    //struct addrinfo hints = {
+    //    .ai_family = AF_UNSPEC,
+    //    .ai_flags = AI_NUMERICHOST,
+    //    // We set ai_socktype so that we only get one result back
+    //    .ai_socktype = SOCK_STREAM};
+    //
+    //int gai_status = getaddrinfo(ipstr, NULL, &hints, addresses);
+    //if (gai_status) {
+    //    return gai_status;
+    //}
 
     return 0;
 }
@@ -965,7 +1001,7 @@ static int find_address_in_search_tree(const MMDB_s *const mmdb,
         return MMDB_UNKNOWN_DATABASE_FORMAT_ERROR;
     }
 
-    uint32_t value = 0;
+    uint64_t value = 0;
     uint16_t current_bit = 0;
     if (mmdb->metadata.ip_version == 6 && address_family == AF_INET) {
         value = mmdb->ipv4_start_node.node_value;
@@ -979,6 +1015,7 @@ static int find_address_in_search_tree(const MMDB_s *const mmdb,
         uint8_t bit =
             1U & (address[current_bit >> 3] >> (7 - (current_bit % 8)));
 
+        // Note that value*record_info.record_length can be larger than 2**32
         record_pointer = &search_tree[value * record_info.record_length];
         if (record_pointer + record_info.record_length > mmdb->data_section) {
             return MMDB_CORRUPT_SEARCH_TREE_ERROR;
@@ -1167,7 +1204,7 @@ int MMDB_vget_value(MMDB_entry_s *const start,
         return MMDB_INVALID_METADATA_ERROR;
     }
 
-    const char **path = PhAllocateSafe((length + 1) * sizeof(const char *));
+    const char** path = calloc(length + 1, sizeof(const char*));
     if (NULL == path) {
         return MMDB_OUT_OF_MEMORY_ERROR;
     }
@@ -1180,7 +1217,7 @@ int MMDB_vget_value(MMDB_entry_s *const start,
 
     int status = MMDB_aget_value(start, entry_data, path);
 
-    PhFree(path);
+    free(path);
 
     return status;
 }
@@ -1602,7 +1639,7 @@ static int decode_one(const MMDB_s *const mmdb,
             abort();
         }
         DEBUG_MSGF("string value: %s", string);
-        PhFree(string);
+        free(string);
 #endif
     } else if (type == MMDB_DATA_TYPE_BYTES) {
         entry_data->bytes = &mem[offset];
@@ -1650,6 +1687,8 @@ int MMDB_get_metadata_as_entry_data_list(
 
 int MMDB_get_entry_data_list(MMDB_entry_s *start,
                              MMDB_entry_data_list_s **const entry_data_list) {
+    *entry_data_list = NULL;
+
     MMDB_data_pool_s *const pool = data_pool_new(MMDB_POOL_INIT_SIZE);
     if (!pool) {
         return MMDB_OUT_OF_MEMORY_ERROR;
@@ -1663,6 +1702,10 @@ int MMDB_get_entry_data_list(MMDB_entry_s *start,
 
     int const status =
         get_entry_data_list(start->mmdb, start->offset, list, pool, 0);
+    if (MMDB_SUCCESS != status) {
+        data_pool_destroy(pool);
+        return status;
+    }
 
     *entry_data_list = data_pool_to_list(pool);
     if (!*entry_data_list) {
@@ -1988,7 +2031,7 @@ dump_entry_data_list(FILE *stream,
 
                 print_indentation(stream, indent);
                 fprintf(stream, "\"%s\": \n", key);
-                PhFree(key);
+                free(key);
 
                 entry_data_list = entry_data_list->next;
                 entry_data_list = dump_entry_data_list(
@@ -2033,7 +2076,7 @@ dump_entry_data_list(FILE *stream,
             }
             print_indentation(stream, indent);
             fprintf(stream, "\"%s\" <utf8_string>\n", string);
-            PhFree(string);
+            free(string);
             entry_data_list = entry_data_list->next;
         } break;
         case MMDB_DATA_TYPE_BYTES: {
@@ -2048,7 +2091,7 @@ dump_entry_data_list(FILE *stream,
 
             print_indentation(stream, indent);
             fprintf(stream, "%s <bytes>\n", hex_string);
-            PhFree(hex_string);
+            free(hex_string);
 
             entry_data_list = entry_data_list->next;
         } break;
@@ -2102,7 +2145,7 @@ dump_entry_data_list(FILE *stream,
                 return NULL;
             }
             fprintf(stream, "0x%s <uint128>\n", hex_string);
-            PhFree(hex_string);
+            free(hex_string);
 #else
             uint64_t high = entry_data_list->entry_data.uint128 >> 64;
             uint64_t low = (uint64_t)entry_data_list->entry_data.uint128;
@@ -2139,11 +2182,10 @@ static char *bytes_to_hex(uint8_t const *bytes, uint32_t size) {
     char *hex_string;
     MAYBE_CHECK_SIZE_OVERFLOW(size, SIZE_MAX / 2 - 1, NULL);
 
-    hex_string = PhAllocateSafe(((size * 2) + 1) * sizeof(char));
+    hex_string = calloc((size * 2) + 1, sizeof(char));
     if (NULL == hex_string) {
         return NULL;
     }
-    memset(hex_string, 0, ((size * 2) + 1) * sizeof(char));
 
     for (uint32_t i = 0; i < size; i++) {
         sprintf(hex_string + (2 * i), "%02X", bytes[i]);

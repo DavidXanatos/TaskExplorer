@@ -15,56 +15,121 @@
 
 // This header file provides some useful definitions specific to phlib.
 
+//
+// Workaround for macro redefinition conflicts between Clang and MSVC.
+// Save and restore these definitions.
+//
+// See: https://github.com/llvm/llvm-project/issues/36748
+//
+// C:\Program Files\LLVM\lib\clang\20\include\xmmintrin.h(2195,9): error: '_MM_HINT_T0' macro redefined [-Werror,-Wmacro-redefined]
+//  2195 | #define _MM_HINT_T0  3
+//       |         ^
+// C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um\winnt.h(3649,9): note: previous definition is here
+//  3649 | #define _MM_HINT_T0     1
+//       |
+//
+// Workaround for unused function warnings.
+// Narrowly suppress -Wunused-function warnings.
+//
+// C:\Program Files\LLVM\lib\clang\20\include\amxcomplexintrin.h(139,13): error: unused function '__tile_cmmimfp16ps' [-Werror,-Wunused-function]
+//   139 | static void __tile_cmmimfp16ps(__tile1024i *dst, __tile1024i src0,
+//       |             ^~~~~~~~~~~~~~~~~~
+// C:\Program Files\LLVM\lib\clang\20\include\amxcomplexintrin.h(162,13): error: unused function '__tile_cmmrlfp16ps' [-Werror,-Wunused-function]
+//   162 | static void __tile_cmmrlfp16ps(__tile1024i *dst, __tile1024i src0,
+//       |             ^~~~~~~~~~~~~~~~~~
+//
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+#ifdef _MM_HINT_T0
+#pragma push_macro("_MM_HINT_T0")
+#pragma push_macro("_MM_HINT_T1")
+#pragma push_macro("_MM_HINT_T2")
+#undef _MM_HINT_T0
+#undef _MM_HINT_T1
+#undef _MM_HINT_T2
+#define PH_SAVED_MM_HINT_MACROS
+#endif // _MM_HINT_T0
+#endif // __clang__
 #include <intrin.h>
+#ifdef __clang__
+#pragma clang diagnostic pop
+#ifdef PH_SAVED_MM_HINT_MACROS
+#pragma pop_macro("_MM_HINT_T2")
+#pragma pop_macro("_MM_HINT_T1")
+#pragma pop_macro("_MM_HINT_T0")
+#undef PH_SAVED_MM_HINT_MACROS
+#endif // PH_SAVED_MM_HINT_MACROS
+#endif // __clang__
+
 #include <wchar.h>
 #include <assert.h>
-#include <stdint.h>
+#include <stdalign.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <locale.h>
+#include <inttypes.h>
+#include <math.h>
 #include <malloc.h>
+#include <float.h>
 
+//
 // Memory
-#define PTR_ADD_OFFSET(Pointer, Offset) ((PVOID)((ULONG_PTR)(Pointer) + (ULONG_PTR)(Offset)))
-#define PTR_SUB_OFFSET(Pointer, Offset) ((PVOID)((ULONG_PTR)(Pointer) - (ULONG_PTR)(Offset)))
+//
 
-#define ALIGN_UP_BY(Address, Align) (((ULONG_PTR)(Address) + (Align) - 1) & ~((Align) - 1))
-#define ALIGN_UP_POINTER_BY(Pointer, Align) ((PVOID)ALIGN_UP_BY(Pointer, Align))
-#define ALIGN_UP(Address, Type) ALIGN_UP_BY(Address, sizeof(Type))
-#define ALIGN_UP_POINTER(Pointer, Type) ((PVOID)ALIGN_UP(Pointer, Type))
-#define ALIGN_DOWN_BY(Address, Align) ((ULONG_PTR)(Address) & ~((ULONG_PTR)(Align) - 1))
-#define ALIGN_DOWN_POINTER_BY(Pointer, Align) ((PVOID)ALIGN_DOWN_BY(Pointer, Align))
-#define ALIGN_DOWN(Address, Type) ALIGN_DOWN_BY(Address, sizeof(Type))
-#define ALIGN_DOWN_POINTER(Pointer, Type) ((PVOID)ALIGN_DOWN(Pointer, Type))
-#define IS_ALIGNED(Pointer, Alignment) ((((ULONG_PTR)(Pointer)) & ((Alignment) - 1)) == 0)
+#if defined(_cplusplus)
+template <class T>
+FORCEINLINE T* PTR_ADD_OFFSET(
+    _In_ const T* Pointer,
+    _In_ const T* Offset
+    )
+{
+    return reinterpret_cast<T*>(
+        static_cast<const unsigned char*>(Pointer) +
+        static_cast<const unsigned long long>(Offset)
+        );
+}
 
-#define PAGE_SIZE 0x1000
-#define PAGE_MASK 0xFFF
-#define PAGE_SHIFT 0xC
-
-#define BYTE_OFFSET(Address) ((SIZE_T)((ULONG_PTR)(Address) & PAGE_MASK))
-#define PAGE_ALIGN(Address) ((PVOID)((ULONG_PTR)(Address) & ~PAGE_MASK))
-#define PAGE_OFFSET(p) ((PAGE_MASK) & (ULONG_PTR)(p))
-
-#define ADDRESS_AND_SIZE_TO_SPAN_PAGES(Address, Size) ((BYTE_OFFSET(Address) + ((SIZE_T)(Size)) + PAGE_MASK) >> PAGE_SHIFT)
-#define ROUND_TO_SIZE(Size, Alignment) ((((ULONG_PTR)(Size))+((Alignment)-1)) & ~(ULONG_PTR)((Alignment)-1))
-#define ROUND_TO_PAGES(Size) (((ULONG_PTR)(Size) + PAGE_MASK) & ~PAGE_MASK)
-#define BYTES_TO_PAGES(Size) (((Size) >> PAGE_SHIFT) + (((Size) & PAGE_MASK) != 0))
+template <class T>
+FORCEINLINE T* PTR_SUB_OFFSET(
+    _In_ const T* Pointer,
+    _In_ const T* Offset
+    )
+{
+    return reinterpret_cast<T*>(
+        static_cast<const unsigned char*>(Pointer) -
+        static_cast<const unsigned long long>(Pointer)
+        );
+}
+#else
+#define PTR_ADD_OFFSET(Pointer, Offset) ((PVOID)((PUCHAR)(Pointer) + (ULONG_PTR)(Offset)))
+#define PTR_SUB_OFFSET(Pointer, Offset) ((PVOID)((PUCHAR)(Pointer) - (ULONG_PTR)(Offset)))
+#endif
 
 #define PH_LARGE_BUFFER_SIZE (256 * 1024 * 1024)
 
 #define XMM_SIZE sizeof(__m128i)
-#define XMM_OFFSET(p) ((XMM_SIZE - 1) & (ULONG_PTR)(p))
+#define XMM_OFFSET(Payload) ((XMM_SIZE - 1) & (ULONG_PTR)(Payload))
 #define XMM_CHARS (XMM_SIZE / sizeof(wchar_t))
-#define XMM_CHAR_ALIGNED(p) (0 == (((ULONG_PTR)(p) + sizeof(wchar_t) - 1) & (0-sizeof(wchar_t)) & (XMM_SIZE-1)))
-#define XMM_PAGE_SAFE(p) (PAGE_OFFSET(p) <= (PAGE_SIZE - XMM_SIZE))
+#define XMM_CHAR_ALIGNED(Payload) (0 == (((ULONG_PTR)(Payload) + sizeof(wchar_t) - 1) & (0-sizeof(wchar_t)) & (XMM_SIZE-1)))
+#define XMM_PAGE_SAFE(Payload) (PAGE_OFFSET(Payload) <= (PAGE_SIZE - XMM_SIZE))
 
+//
 // Exceptions
+//
 
 #define PhRaiseStatus(Status) RtlRaiseStatus(Status)
 
 #define SIMPLE_EXCEPTION_FILTER(Condition) \
     ((Condition) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
 
+//
 // Compiler
+//
 
 #ifdef DEBUG
 #define ASSUME_ASSERT(Expression) assert(Expression)
@@ -74,36 +139,55 @@
 #define ASSUME_NO_DEFAULT __assume(FALSE)
 #endif
 
+#if defined(__clang__) || defined(__GNUC__)
+#define PH_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#define PH_RESTRICT __restrict
+#else
+#define PH_RESTRICT
+#endif
+
+//
 // Math
+//
 
 #if defined(_M_IX86)
 #define UInt32Add32To64(a, b) ((unsigned __int64)(((unsigned __int64)((unsigned int)(a))) + ((unsigned int)(b)))) // Avoids warning C26451 (dmex)
 #define UInt32Sub32To64(a, b) ((unsigned __int64)(((unsigned __int64)((unsigned int)(a))) - ((unsigned int)(b))))
+#define UInt32Div32To64(a, b) ((unsigned __int64)(((unsigned __int64)((unsigned int)(a))) / ((unsigned int)(b))))
+#define UInt32Mul32To64(a, b) ((unsigned __int64)(((unsigned __int64)((unsigned int)(a))) * ((unsigned int)(b))))
 #else
 #define UInt32Add32To64(a, b) (((unsigned __int64)((unsigned int)(a))) + ((unsigned __int64)((unsigned int)(b)))) // from UInt32x32To64 (dmex)
 #define UInt32Sub32To64(a, b) (((unsigned __int64)((unsigned int)(a))) - ((unsigned __int64)((unsigned int)(b))))
+#define UInt32Div32To64(a, b) (((unsigned __int64)((unsigned int)(a))) / ((unsigned __int64)((unsigned int)(b))))
+#define UInt32Mul32To64(a, b) (((unsigned __int64)((unsigned int)(a))) * ((unsigned __int64)((unsigned int)(b))))
 #endif
 
+//
 // Time
+//
 
-#define PH_TICKS_PER_NS ((LONG64)1 * 10)
-#define PH_TICKS_PER_MS (PH_TICKS_PER_NS * 1000)
-#define PH_TICKS_PER_SEC (PH_TICKS_PER_MS * 1000)
-#define PH_TICKS_PER_MIN (PH_TICKS_PER_SEC * 60)
-#define PH_TICKS_PER_HOUR (PH_TICKS_PER_MIN * 60)
-#define PH_TICKS_PER_DAY (PH_TICKS_PER_HOUR * 24)
+#define PH_TICKS_PER_NS   (LONG64_C(1)       * LONG64_C(10))   // 10 ticks (1 tick = 0.1 ns = 100 picoseconds)
+#define PH_TICKS_PER_MS   (PH_TICKS_PER_NS   * LONG64_C(1000)) // 10 * 1,000 = 10,000 ticks/ms
+#define PH_TICKS_PER_SEC  (PH_TICKS_PER_MS   * LONG64_C(1000)) // 10,000 * 1,000 = 10,000,000 ticks/s
+#define PH_TICKS_PER_MIN  (PH_TICKS_PER_SEC  * LONG64_C(60))   // 10,000,000 * 60
+#define PH_TICKS_PER_HOUR (PH_TICKS_PER_MIN  * LONG64_C(60))   // previous * 60
+#define PH_TICKS_PER_DAY  (PH_TICKS_PER_HOUR * LONG64_C(24))   // previous * 24
 
-#define PH_TICKS_PARTIAL_NS(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_NS) % 1000000)
-#define PH_TICKS_PARTIAL_MS(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_MS) % 1000)
-#define PH_TICKS_PARTIAL_SEC(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_SEC) % 60)
-#define PH_TICKS_PARTIAL_MIN(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_MIN) % 60)
-#define PH_TICKS_PARTIAL_HOURS(Ticks) (((ULONG64)(Ticks) / PH_TICKS_PER_HOUR) % 24)
-#define PH_TICKS_PARTIAL_DAYS(Ticks) ((ULONG64)(Ticks) / PH_TICKS_PER_DAY)
+#define PH_TICKS_PARTIAL_NS(Ticks)    ((((ULONG64)(Ticks)) / ((ULONG64)PH_TICKS_PER_NS))   % ULONG64_C(1000000))
+#define PH_TICKS_PARTIAL_MS(Ticks)    ((((ULONG64)(Ticks)) / ((ULONG64)PH_TICKS_PER_MS))   % ULONG64_C(1000))
+#define PH_TICKS_PARTIAL_SEC(Ticks)   ((((ULONG64)(Ticks)) / ((ULONG64)PH_TICKS_PER_SEC))  % ULONG64_C(60))
+#define PH_TICKS_PARTIAL_MIN(Ticks)   ((((ULONG64)(Ticks)) / ((ULONG64)PH_TICKS_PER_MIN))  % ULONG64_C(60))
+#define PH_TICKS_PARTIAL_HOURS(Ticks) ((((ULONG64)(Ticks)) / ((ULONG64)PH_TICKS_PER_HOUR)) % ULONG64_C(24))
+#define PH_TICKS_PARTIAL_DAYS(Ticks)   (((ULONG64)(Ticks)) / ((ULONG64)PH_TICKS_PER_DAY))
+
 
 #define PH_TIMEOUT_MS PH_TICKS_PER_MS
 #define PH_TIMEOUT_SEC PH_TICKS_PER_SEC
 
+//
 // Annotations
+//
 
 /**
  * Indicates that a function assumes the specified number of references are available for the
@@ -127,13 +211,9 @@
  */
 #define _May_raise_
 
-/**
- * Indicates that a function requires the specified value to be aligned at the specified number of
- * bytes.
- */
-#define _Needs_align_(align)
-
+//
 // Casts
+//
 
 // Zero extension and sign extension macros
 #define C_1uTo2(x) ((unsigned short)(unsigned char)(x))
@@ -145,7 +225,9 @@
 #define C_4uTo8(x) ((unsigned __int64)(unsigned int)(x))
 #define C_4sTo8(x) ((unsigned __int64)(signed int)(x))
 
+//
 // Sorting
+//
 
 typedef enum _PH_SORT_ORDER
 {
@@ -154,6 +236,13 @@ typedef enum _PH_SORT_ORDER
     DescendingSortOrder
 } PH_SORT_ORDER, *PPH_SORT_ORDER;
 
+/**
+ * Adjusts a comparison result to match the requested sort order.
+ *
+ * \param Result The original comparison result.
+ * \param Order The sort order to apply.
+ * \return The adjusted comparison result.
+ */
 FORCEINLINE LONG PhModifySort(
     _In_ LONG Result,
     _In_ PH_SORT_ORDER Order
@@ -178,6 +267,13 @@ FORCEINLINE LONG PhModifySort(
     \
     return 0
 
+/**
+ * Compares two signed 8-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int charcmp(
     _In_ signed char value1,
     _In_ signed char value2
@@ -186,6 +282,13 @@ FORCEINLINE int charcmp(
     return C_1sTo4(value1 - value2);
 }
 
+/**
+ * Compares two unsigned 8-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int ucharcmp(
     _In_ unsigned char value1,
     _In_ unsigned char value2
@@ -194,6 +297,13 @@ FORCEINLINE int ucharcmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two signed 16-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int shortcmp(
     _In_ signed short value1,
     _In_ signed short value2
@@ -202,6 +312,13 @@ FORCEINLINE int shortcmp(
     return C_2sTo4(value1 - value2);
 }
 
+/**
+ * Compares two unsigned 16-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int ushortcmp(
     _In_ unsigned short value1,
     _In_ unsigned short value2
@@ -210,6 +327,13 @@ FORCEINLINE int ushortcmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two signed 32-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int intcmp(
     _In_ int value1,
     _In_ int value2
@@ -218,6 +342,13 @@ FORCEINLINE int intcmp(
     return value1 - value2;
 }
 
+/**
+ * Compares two unsigned 32-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int uintcmp(
     _In_ unsigned int value1,
     _In_ unsigned int value2
@@ -226,6 +357,13 @@ FORCEINLINE int uintcmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two signed 64-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int int64cmp(
     _In_ __int64 value1,
     _In_ __int64 value2
@@ -234,6 +372,13 @@ FORCEINLINE int int64cmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two unsigned 64-bit values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int uint64cmp(
     _In_ unsigned __int64 value1,
     _In_ unsigned __int64 value2
@@ -242,6 +387,13 @@ FORCEINLINE int uint64cmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two signed pointer-sized values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int intptrcmp(
     _In_ LONG_PTR value1,
     _In_ LONG_PTR value2
@@ -250,6 +402,13 @@ FORCEINLINE int intptrcmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two unsigned pointer-sized values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int uintptrcmp(
     _In_ ULONG_PTR value1,
     _In_ ULONG_PTR value2
@@ -258,6 +417,13 @@ FORCEINLINE int uintptrcmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two single-precision floating-point values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int singlecmp(
     _In_ float value1,
     _In_ float value2
@@ -266,6 +432,13 @@ FORCEINLINE int singlecmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two double-precision floating-point values.
+ *
+ * \param value1 The first value.
+ * \param value2 The second value.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int doublecmp(
     _In_ double value1,
     _In_ double value2
@@ -274,9 +447,16 @@ FORCEINLINE int doublecmp(
     PH_BUILTIN_COMPARE(value1, value2);
 }
 
+/**
+ * Compares two optional Unicode strings without regard to case.
+ *
+ * \param Value1 The first string, or NULL.
+ * \param Value2 The second string, or NULL.
+ * \return A negative, zero, or positive value depending on the comparison result.
+ */
 FORCEINLINE int wcsicmp2(
-    _In_opt_ PWSTR Value1,
-    _In_opt_ PWSTR Value2
+    _In_opt_ PCWSTR Value1,
+    _In_opt_ PCWSTR Value2
     )
 {
     if (Value1 && Value2)
@@ -289,70 +469,111 @@ FORCEINLINE int wcsicmp2(
 
 typedef int (__cdecl *PC_COMPARE_FUNCTION)(void *, const void *, const void *);
 
+//
 // Synchronization
+//
 
+/**
+ * Atomically adds a pointer-sized value and returns the previous value.
+ *
+ * \param Addend The target value to update.
+ * \param Value The value to add.
+ * \return The original value before the addition.
+ */
 FORCEINLINE LONG_PTR __InterlockedExchangeAddPointer(
     _Inout_ _Interlocked_operand_ LONG_PTR volatile *Addend,
     _In_ LONG_PTR Value
     )
 {
 #ifdef _WIN64
-    return (LONG_PTR)_InterlockedExchangeAdd64((PLONG64)Addend, (LONG64)Value);
+    return (LONG_PTR)_InterlockedExchangeAdd64((volatile LONG64*)Addend, (LONG64)Value);
 #else
-    return (LONG_PTR)_InterlockedExchangeAdd((PLONG)Addend, (LONG)Value);
+    return (LONG_PTR)_InterlockedExchangeAdd((volatile LONG*)Addend, (LONG)Value);
 #endif
 }
 
 #define _InterlockedExchangeAddPointer __InterlockedExchangeAddPointer
 
+/**
+ * Atomically increments a pointer-sized value.
+ *
+ * \param Addend The target value to update.
+ * \return The incremented value.
+ */
 FORCEINLINE LONG_PTR _InterlockedIncrementPointer(
     _Inout_ _Interlocked_operand_ LONG_PTR volatile *Addend
     )
 {
 #ifdef _WIN64
-    return (LONG_PTR)_InterlockedIncrement64((PLONG64)Addend);
+    return (LONG_PTR)_InterlockedIncrement64((volatile LONG64*)Addend);
 #else
-    return (LONG_PTR)_InterlockedIncrement((PLONG)Addend);
+    return (LONG_PTR)_InterlockedIncrement((volatile LONG*)Addend);
 #endif
 }
 
+/**
+ * Atomically decrements a pointer-sized value.
+ *
+ * \param Addend The target value to update.
+ * \return The decremented value.
+ */
 FORCEINLINE LONG_PTR __InterlockedDecrementPointer(
     _Inout_ _Interlocked_operand_ LONG_PTR volatile *Addend
     )
 {
 #ifdef _WIN64
-    return (LONG_PTR)_InterlockedDecrement64((PLONG64)Addend);
+    return (LONG_PTR)_InterlockedDecrement64((volatile LONG64*)Addend);
 #else
-    return (LONG_PTR)_InterlockedDecrement((PLONG)Addend);
+    return (LONG_PTR)_InterlockedDecrement((volatile LONG*)Addend);
 #endif
 }
 
 #define _InterlockedDecrementPointer __InterlockedDecrementPointer
 
+/**
+ * Atomically clears the specified bit in a pointer-sized value.
+ *
+ * \param Base The target value to update.
+ * \param Bit The zero-based bit index to clear.
+ * \return TRUE if the bit was previously set; otherwise, FALSE.
+ */
 FORCEINLINE BOOLEAN _InterlockedBitTestAndResetPointer(
     _Inout_ _Interlocked_operand_ LONG_PTR volatile *Base,
     _In_ LONG_PTR Bit
     )
 {
 #ifdef _WIN64
-    return _interlockedbittestandreset64((PLONG64)Base, (LONG64)Bit);
+    return _interlockedbittestandreset64((volatile LONG64*)Base, (LONG64)Bit);
 #else
-    return _interlockedbittestandreset((PLONG)Base, (LONG)Bit);
+    return _interlockedbittestandreset((volatile LONG*)Base, (LONG)Bit);
 #endif
 }
 
+/**
+ * Atomically sets the specified bit in a pointer-sized value.
+ *
+ * \param Base The target value to update.
+ * \param Bit The zero-based bit index to set.
+ * \return TRUE if the bit was previously set; otherwise, FALSE.
+ */
 FORCEINLINE BOOLEAN _InterlockedBitTestAndSetPointer(
     _Inout_ _Interlocked_operand_ LONG_PTR volatile *Base,
     _In_ LONG_PTR Bit
     )
 {
 #ifdef _WIN64
-    return _interlockedbittestandset64((PLONG64)Base, (LONG64)Bit);
+    return _interlockedbittestandset64((volatile LONG64*)Base, (LONG64)Bit);
 #else
-    return _interlockedbittestandset((PLONG)Base, (LONG)Bit);
+    return _interlockedbittestandset((volatile LONG*)Base, (LONG)Bit);
 #endif
 }
 
+/**
+ * Atomically increments a value unless it is zero.
+ *
+ * \param Addend The target value to update.
+ * \return TRUE if the increment succeeded; otherwise, FALSE.
+ */
 FORCEINLINE BOOLEAN _InterlockedIncrementNoZero(
     _Inout_ _Interlocked_operand_ LONG volatile *Addend
     )
@@ -380,6 +601,12 @@ FORCEINLINE BOOLEAN _InterlockedIncrementNoZero(
     }
 }
 
+/**
+ * Atomically increments a value only while it remains positive.
+ *
+ * \param Addend The target value to update.
+ * \return TRUE if the increment succeeded; otherwise, FALSE.
+ */
 FORCEINLINE BOOLEAN _InterlockedIncrementPositive(
     _Inout_ _Interlocked_operand_ LONG volatile *Addend
     )
@@ -407,7 +634,48 @@ FORCEINLINE BOOLEAN _InterlockedIncrementPositive(
     }
 }
 
+/**
+ * Atomically reads a pointer value.
+ *
+ * \param Base The pointer to read.
+ * \return The current pointer value.
+ */
+FORCEINLINE
+PVOID
+_InterlockedReadPointer(
+    _Inout_ _Interlocked_operand_ volatile PVOID *Base
+    )
+{
+    return _InterlockedCompareExchangePointer(Base, NULL, NULL);
+}
+
+/**
+ * Atomically writes a pointer value.
+ *
+ * \param Base The pointer to update.
+ * \param Value The new value to store.
+ * \return The previous pointer value.
+ */
+FORCEINLINE
+PVOID
+_InterlockedWritePointer(
+    _Inout_ _Interlocked_operand_ volatile PVOID* Base,
+    _In_ PVOID Value
+    )
+{
+    return _InterlockedExchangePointer(Base, Value);
+}
+
+#ifndef InterlockedReadPointer
+#define InterlockedReadPointer _InterlockedReadPointer
+#endif
+#ifndef InterlockedWritePointer
+#define InterlockedWritePointer _InterlockedWritePointer
+#endif
+
+//
 // Strings
+//
 
 #define PH_INT32_STR_LEN 12
 #define PH_INT32_STR_LEN_1 (PH_INT32_STR_LEN + 1)
@@ -423,47 +691,95 @@ FORCEINLINE BOOLEAN _InterlockedIncrementPositive(
 #pragma warning(push)
 #pragma warning(disable:4996)
 
-FORCEINLINE VOID PhPrintInt32(
-    _Out_writes_(PH_INT32_STR_LEN_1) PWSTR Destination,
-    _In_ LONG Int32
+/**
+ * Formats a signed 32-bit integer as a decimal string.
+ *
+ * \param Destination The destination buffer.
+ * \param Int32 The value to format.
+ */
+FORCEINLINE
+VOID
+PhPrintInt32(
+    _Out_writes_(PH_INT32_STR_LEN_1) CONST PWSTR Destination,
+    _In_ CONST LONG Int32
     )
 {
     _ltow(Int32, Destination, 10);
 }
 
-FORCEINLINE VOID PhPrintUInt32(
-    _Out_writes_(PH_INT32_STR_LEN_1) PWSTR Destination,
-    _In_ ULONG UInt32
+/**
+ * Formats an unsigned 32-bit integer as a decimal string.
+ *
+ * \param Destination The destination buffer.
+ * \param UInt32 The value to format.
+ */
+FORCEINLINE
+VOID
+PhPrintUInt32(
+    _Out_writes_(PH_INT32_STR_LEN_1) CONST PWSTR Destination,
+    _In_ CONST ULONG UInt32
     )
 {
     _ultow(UInt32, Destination, 10);
 }
 
-FORCEINLINE VOID PhPrintUInt32IX(
-    _Out_writes_(PH_PTR_STR_LEN_1) PWSTR Destination,
-    _In_ ULONG UInt32
+/**
+ * Formats an unsigned 32-bit integer as a hexadecimal string.
+ *
+ * \param Destination The destination buffer.
+ * \param UInt32 The value to format.
+ */
+FORCEINLINE
+VOID
+PhPrintUInt32IX(
+    _Out_writes_(PH_PTR_STR_LEN_1) CONST PWSTR Destination,
+    _In_ CONST ULONG UInt32
     )
 {
     _ultow(UInt32, Destination, 16);
 }
 
-FORCEINLINE VOID PhPrintInt64(
-    _Out_writes_(PH_INT64_STR_LEN_1) PWSTR Destination,
-    _In_ LONG64 Int64
+/**
+ * Formats a signed 64-bit integer as a decimal string.
+ *
+ * \param Destination The destination buffer.
+ * \param Int64 The value to format.
+ */
+FORCEINLINE
+VOID
+PhPrintInt64(
+    _Out_writes_(PH_INT64_STR_LEN_1) CONST PWSTR Destination,
+    _In_ CONST LONG64 Int64
     )
 {
     _i64tow(Int64, Destination, 10);
 }
 
-FORCEINLINE VOID PhPrintUInt64(
-    _Out_writes_(PH_INT64_STR_LEN_1) PWSTR Destination,
-    _In_ ULONG64 UInt64
+/**
+ * Formats an unsigned 64-bit integer as a decimal string.
+ *
+ * \param Destination The destination buffer.
+ * \param UInt64 The value to format.
+ */
+FORCEINLINE
+VOID
+PhPrintUInt64(
+    _Out_writes_(PH_INT64_STR_LEN_1) CONST PWSTR Destination,
+    _In_ CONST ULONG64 UInt64
     )
 {
     _ui64tow(UInt64, Destination, 10);
 }
 
-FORCEINLINE VOID PhPrintPointer(
+/**
+ * Formats a pointer with a hexadecimal prefix.
+ *
+ * \param Destination The destination buffer.
+ * \param Pointer The pointer to format.
+ */
+FORCEINLINE
+VOID
+PhPrintPointer(
     _Out_writes_(PH_PTR_STR_LEN_1) PWSTR Destination,
     _In_opt_ PVOID Pointer
     )
@@ -479,7 +795,15 @@ FORCEINLINE VOID PhPrintPointer(
 
 #pragma warning(pop)
 
-FORCEINLINE VOID PhPrintPointerPadZeros(
+/**
+ * Formats a pointer with a hexadecimal prefix and zero-padded digits.
+ *
+ * \param Destination The destination buffer.
+ * \param Pointer The pointer to format.
+ */
+FORCEINLINE
+VOID
+PhPrintPointerPadZeros(
     _Out_writes_(PH_PTR_STR_LEN_1) PWSTR Destination,
     _In_ PVOID Pointer
     )
@@ -521,62 +845,257 @@ FORCEINLINE VOID PhPrintPointerPadZeros(
     *dest = UNICODE_NULL;
 }
 
+//
 // Misc.
+//
 
-FORCEINLINE ULONG64 PhRoundNumber(
-    _In_ ULONG64 Value,
-    _In_ ULONG64 Granularity
+/**
+ * Rounds the given value to the nearest multiple of the specified granularity.
+ *
+ * \param Value The value to round.
+ * \param Granularity The granularity to which the value should be rounded.
+ * \return The value rounded to the nearest multiple of granularity.
+ */
+FORCEINLINE
+ULONG64
+PhRoundNumber(
+    _In_ CONST ULONG64 Value,
+    _In_ CONST ULONG64 Granularity
     )
 {
     return (Value + Granularity / 2) / Granularity * Granularity;
 }
 
-FORCEINLINE ULONG PhMultiplyDivide(
-    _In_ ULONG Number,
-    _In_ ULONG Numerator,
-    _In_ ULONG Denominator
+/**
+ * Multiplies a number by a numerator and divides by a denominator, with rounding.
+ *
+ * This function performs the operation: ((Number * Numerator) + (Denominator / 2)) / Denominator
+ * using 32-bit unsigned integers, avoiding overflow and providing rounding.
+ *
+ * \param Number The base number to multiply.
+ * \param Numerator The numerator for multiplication.
+ * \param Denominator The denominator for division.
+ * \return The result of the multiply-divide operation, rounded to the nearest integer.
+ */
+FORCEINLINE
+ULONG
+PhMultiplyDivide(
+    _In_ CONST ULONG Number,
+    _In_ CONST ULONG Numerator,
+    _In_ CONST ULONG Denominator
     )
 {
-    return (ULONG)(((ULONG64)Number * (ULONG64)Numerator + Denominator / 2) / (ULONG64)Denominator);
+    //return (((ULONG64)Number * (ULONG64)Numerator + (ULONG64)Denominator / 2) / (ULONG64)Denominator);
+    return UInt32Div32To64(UInt32Add32To64(UInt32Mul32To64(Number, Numerator), UInt32Div32To64(Denominator, 2)), Denominator);
 }
 
-FORCEINLINE LONG PhMultiplyDivideSigned(
-    _In_ LONG Number,
-    _In_ ULONG Numerator,
-    _In_ ULONG Denominator
+/**
+ * Multiplies a signed number by a numerator and divides by a denominator, with rounding.
+ *
+ * This function performs the operation: ((Number * Numerator) + (Denominator / 2)) / Denominator
+ * for signed numbers, preserving the sign and providing rounding.
+ *
+ * \param Number The signed base number to multiply.
+ * \param Numerator The numerator for multiplication.
+ * \param Denominator The denominator for division.
+ * \return The result of the signed multiply-divide operation, rounded to the nearest integer.
+ */
+FORCEINLINE
+LONG
+PhMultiplyDivideSigned(
+    _In_ CONST LONG Number,
+    _In_ CONST ULONG Numerator,
+    _In_ CONST ULONG Denominator
     )
 {
     if (Number >= 0)
-        return PhMultiplyDivide(Number, Numerator, Denominator);
+        return (LONG)PhMultiplyDivide(Number, Numerator, Denominator);
     else
         return -(LONG)PhMultiplyDivide(-Number, Numerator, Denominator);
 }
 
-FORCEINLINE VOID PhProbeAddress(
-    _In_ PVOID UserAddress,
-    _In_ SIZE_T UserLength,
-    _In_ PVOID BufferAddress,
-    _In_ SIZE_T BufferLength,
-    _In_ ULONG Alignment
+/**
+ * Probes a user-supplied address for validity and alignment within a specified buffer.
+ *
+ * This function checks that the given `UserAddress` is properly aligned to the specified `Alignment`,
+ * and that the memory region defined by `UserAddress` and `UserLength` is fully contained within
+ * the buffer defined by `BufferAddress` and `BufferLength`. If any of these checks fail, a software
+ * exception is raised.
+ *
+ * \param UserAddress    The starting address of the user-supplied memory region to probe.
+ * \param UserLength     The length, in bytes, of the memory region to probe.
+ * \param BufferAddress  The base address of the buffer within which the user region must reside.
+ * \param BufferLength   The length, in bytes, of the buffer.
+ * \param Alignment      The required alignment, in bytes, for the user address.
+ * \remarks
+ * This function does not actually access the memory at `UserAddress`; it only performs pointer arithmetic
+ * and alignment checks. Use this function before reading from or writing to user-supplied memory to ensure
+ * safety and prevent access violations.
+ */
+FORCEINLINE
+VOID
+PhProbeAddress(
+    _In_ CONST PVOID UserAddress,
+    _In_ CONST SIZE_T UserLength,
+    _In_ CONST PVOID BufferAddress,
+    _In_ CONST SIZE_T BufferLength,
+    _In_ CONST ULONG Alignment
     )
 {
     if (UserLength != 0)
     {
-        if (((ULONG_PTR)UserAddress & (Alignment - 1)) != 0)
+        if (!IS_ALIGNED(UserAddress, Alignment))
+        {
             PhRaiseStatus(STATUS_DATATYPE_MISALIGNMENT);
+        }
+
+        ULONG_PTR userStartAddress = (ULONG_PTR)UserAddress;
+        ULONG_PTR userEndAddress = userStartAddress + UserLength;
+        ULONG_PTR bufferStartAddress = (ULONG_PTR)BufferAddress;
+        ULONG_PTR bufferEndAddress = bufferStartAddress + BufferLength;
 
         if (
-            ((ULONG_PTR)UserAddress + UserLength < (ULONG_PTR)UserAddress) ||
-            ((ULONG_PTR)UserAddress < (ULONG_PTR)BufferAddress) ||
-            ((ULONG_PTR)UserAddress + UserLength > (ULONG_PTR)BufferAddress + BufferLength)
+            (userEndAddress < userStartAddress) ||
+            (bufferEndAddress < bufferStartAddress) ||
+            (userStartAddress < bufferStartAddress) ||
+            (userEndAddress > bufferEndAddress)
             )
+        {
             PhRaiseStatus(STATUS_ACCESS_VIOLATION);
+        }
     }
 }
 
-FORCEINLINE PLARGE_INTEGER PhTimeoutFromMilliseconds(
-    _Out_ PLARGE_INTEGER Timeout,
-    _In_ ULONG Milliseconds
+/**
+ * Probes a user address for read access and checks if the specified user address is readable
+ * and within the bounds of the buffer.
+ *
+ * \param UserAddress The address to probe.
+ * \param UserLength The length of the memory to probe.
+ * \param BufferAddress The base address of the buffer.
+ * \param BufferLength The length of the buffer.
+ * \param Alignment The required alignment of the address.
+ */
+FORCEINLINE
+VOID
+PhProbeForRead(
+    _In_ CONST PVOID UserAddress,
+    _In_ CONST SIZE_T UserLength,
+    _In_ CONST PVOID BufferAddress,
+    _In_ CONST SIZE_T BufferLength,
+    _In_ CONST ULONG Alignment
+    )
+{
+    ULONG_PTR startAddress;
+    ULONG_PTR endAddress;
+    ULONG_PTR p;
+
+    if (UserLength != 0)
+    {
+        // Validate the requested span before touching the memory.
+        PhProbeAddress(UserAddress, UserLength, BufferAddress, BufferLength, Alignment);
+
+        startAddress = (ULONG_PTR)UserAddress;
+        endAddress = startAddress + UserLength;
+        p = startAddress;
+
+        // Probe the first byte in the range to verify the initial page is readable.
+        *((volatile UCHAR*)p);
+
+        // Stop if rounding up by one page would wrap the address space.
+        if (p > (ULONG_PTR_MAX - PAGE_SIZE))
+            return;
+
+        // Round up to the first byte of the next page.
+        p = (ULONG_PTR)PAGE_ALIGN(p) + PAGE_SIZE;
+
+        // Probe the first byte of each remaining page that intersects the range.
+        while (p < endAddress)
+        {
+            // Verify the current page is readable.
+            *(volatile UCHAR*)p;
+
+            // Stop before adding another page would wrap the address space.
+            if (p > (ULONG_PTR_MAX - PAGE_SIZE))
+                break;
+
+            // Advance to the first byte of the next page.
+            p += PAGE_SIZE;
+        }
+    }
+}
+
+/**
+ * Probes a user address for write access and checks if the specified user address is writable
+ * and within the bounds of the buffer.
+ *
+ * \param UserAddress The address to probe.
+ * \param UserLength The length of the memory to probe.
+ * \param BufferAddress The base address of the buffer.
+ * \param BufferLength The length of the buffer.
+ * \param Alignment The required alignment of the address.
+ */
+FORCEINLINE
+VOID
+PhProbeForWrite(
+    _In_ CONST PVOID UserAddress,
+    _In_ CONST SIZE_T UserLength,
+    _In_ CONST PVOID BufferAddress,
+    _In_ CONST SIZE_T BufferLength,
+    _In_ CONST ULONG Alignment
+    )
+{
+    ULONG_PTR startAddress;
+    ULONG_PTR endAddress;
+    ULONG_PTR p;
+
+    if (UserLength != 0)
+    {
+        // Validate the address span, alignment, boundaries, and overflow before touching the address.
+        PhProbeAddress(UserAddress, UserLength, BufferAddress, BufferLength, Alignment);
+
+        startAddress = (ULONG_PTR)UserAddress;
+        endAddress = startAddress + UserLength;
+        p = startAddress;
+
+        // Probe the first byte in the range with a self-assignment to verify writability.
+        *(volatile UCHAR*)p = *(volatile UCHAR*)p;
+
+        // Stop if rounding up by one page would wrap the address space.
+        if (p > (ULONG_PTR_MAX - PAGE_SIZE))
+            return;
+
+        // Round up to the first byte of the next page.
+        p = (ULONG_PTR)PAGE_ALIGN(p) + PAGE_SIZE; //  p = (p + PAGE_SIZE) & ~((ULONG_PTR)PAGE_MASK);
+
+        // Probe the first byte of each remaining page that intersects the range.
+        while (p < endAddress)
+        {
+            // Verify the page is writable by performing a volatile read‑modify‑write.
+            *(volatile UCHAR*)p = *(volatile UCHAR*)p;
+
+            // Prevent wraparound before adding PAGE_SIZE.
+            if (p > (ULONG_PTR_MAX - PAGE_SIZE))
+                break;
+
+            // Advance to the first byte of the next page.
+            p += PAGE_SIZE;
+        }
+    }
+}
+
+/**
+ * Converts a millisecond timeout to a relative or infinite NT timeout value.
+ *
+ * \param Timeout Receives the converted timeout.
+ * \param Milliseconds The timeout, in milliseconds, or `INFINITE`.
+ * \return The `Timeout` pointer.
+ */
+FORCEINLINE
+PLARGE_INTEGER
+PhTimeoutFromMilliseconds(
+    _Out_ CONST PLARGE_INTEGER Timeout,
+    _In_ CONST ULONG Milliseconds
     )
 {
     if (Milliseconds == INFINITE)
@@ -587,7 +1106,42 @@ FORCEINLINE PLARGE_INTEGER PhTimeoutFromMilliseconds(
     return Timeout;
 }
 
-#define PhTimeoutFromMillisecondsEx(Milliseconds) \
-    &(LARGE_INTEGER) { .QuadPart = -(LONGLONG)UInt32x32To64(((ULONG)(Milliseconds)), PH_TIMEOUT_MS) }
+/**
+ * Clamps a single-precision floating-point value to the specified range.
+ *
+ * \param Value The value to clamp.
+ * \param Min The lower bound.
+ * \param Max The upper bound.
+ * \return The clamped value.
+ */
+FORCEINLINE
+FLOAT
+PhClampSingle(
+    _In_ FLOAT Value,
+    _In_ FLOAT Min,
+    _In_ FLOAT Max
+    )
+{
+    return fminf(fmaxf(Value, Min), Max);
+}
+
+/**
+ * Clamps a double-precision floating-point value to the specified range.
+ *
+ * \param Value The value to clamp.
+ * \param Min The lower bound.
+ * \param Max The upper bound.
+ * \return The clamped value.
+ */
+FORCEINLINE
+DOUBLE
+PhClampDouble(
+    _In_ DOUBLE Value,
+    _In_ DOUBLE Min,
+    _In_ DOUBLE Max
+    )
+{
+    return fmin(fmax(Value, Min), Max);
+}
 
 #endif

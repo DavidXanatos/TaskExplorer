@@ -19,7 +19,7 @@ CServiceListWidget::CServiceListWidget(bool bEditable, QWidget *parent)
 	m_pServiceList = new QTreeWidget();
 	m_pServiceList->setHeaderLabels(tr("Name|Display name|File name").split("|"));
     m_pMainLayout->addWidget(m_pServiceList, 1, 0, 1, 1);
-	connect(m_pServiceList, SIGNAL(currentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)), this, SLOT(OnItemSellected(QTreeWidgetItem*)));
+	connect(m_pServiceList, SIGNAL(currentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)), this, SLOT(OnItemSelected(QTreeWidgetItem*)));
 
     m_pDescription = new QLabel();
     QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
@@ -133,7 +133,7 @@ QStringList CServiceListWidget::GetServicesList() const
 	return ServiceNames;
 }
 
-void CServiceListWidget::OnItemSellected(QTreeWidgetItem* item)
+void CServiceListWidget::OnItemSelected(QTreeWidgetItem* item)
 {
 	QString Name = item->data(eName, Qt::UserRole).toString();
 	CServicePtr pService = m_Services.value(Name);
@@ -225,7 +225,7 @@ void CServiceListWidget::OnRemove()
 		return;
 	QString Name = item->data(eName, Qt::UserRole).toString();
 
-	if(QMessageBox("TaskExplorer", tr("Do you want to delete the sellected service"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+	if(QMessageBox("TaskExplorer", tr("Do you want to delete the selected service"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
 	m_Services.remove(Name);

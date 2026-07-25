@@ -17,29 +17,27 @@
 
 // Code originally from http://www.codeguru.com/Cpp/controls/editctrl/article.php/c539
 
-BOOLEAN PhHexEditInitialization(
+RTL_ATOM PhHexEditInitialization(
     VOID
     )
 {
-    WNDCLASSEX c;
+    WNDCLASSEX wcex;
 
-    memset(&c, 0, sizeof(WNDCLASSEX));
-    c.cbSize = sizeof(WNDCLASSEX);
-    c.lpszClassName = PH_HEXEDIT_CLASSNAME;
-    c.style = CS_GLOBALCLASS;
-    c.cbWndExtra = sizeof(PVOID);
-    c.hInstance = PhInstanceHandle;
-    c.lpfnWndProc = PhpHexEditWndProc;
-    c.hCursor = PhLoadCursor(NULL, IDC_ARROW);
+    memset(&wcex, 0, sizeof(WNDCLASSEX));
+    wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.style = CS_GLOBALCLASS | CS_DBLCLKS;
+    wcex.lpfnWndProc = PhpHexEditWndProc;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = sizeof(PVOID);
+    wcex.hInstance = NtCurrentImageBase();
+    wcex.hCursor = PhLoadCursor(NULL, IDC_ARROW);
+    wcex.lpszClassName = PH_HEXEDIT_CLASSNAME;
 
-    if (!RegisterClassEx(&c))
-        return FALSE;
-
-    return TRUE;
+    return RegisterClassEx(&wcex);
 }
 
-VOID PhpCreateHexEditContext(
-    _Out_ PPHP_HEXEDIT_CONTEXT *Context
+PPHP_HEXEDIT_CONTEXT PhpCreateHexEditContext(
+    VOID
     )
 {
     PPHP_HEXEDIT_CONTEXT context;
@@ -75,7 +73,7 @@ VOID PhpCreateHexEditContext(
     context->SelStart = -1;
     context->SelEnd = -1;
 
-    *Context = context;
+    return context;
 }
 
 VOID PhpFreeHexEditContext(
@@ -99,9 +97,9 @@ LRESULT CALLBACK PhpHexEditWndProc(
 
     context = PhGetWindowContextEx(hwnd);
 
-    if (uMsg == WM_CREATE)
+    if (uMsg == WM_NCCREATE)
     {
-        PhpCreateHexEditContext(&context);
+        context = PhpCreateHexEditContext();
         PhSetWindowContextEx(hwnd, context);
     }
 
@@ -112,12 +110,10 @@ LRESULT CALLBACK PhpHexEditWndProc(
     {
     case WM_CREATE:
         {
-            LONG dpiValue;
-
-            dpiValue = PhGetWindowDpi(hwnd);
+            context->WindowDpi = PhGetWindowDpi(hwnd);
 
             context->Font = CreateFont(
-                -(LONG)PhGetDpi(12, dpiValue),
+                -(LONG)PhGetDpi(12, context->WindowDpi),
                 0,
                 0,
                 0,
@@ -155,6 +151,11 @@ LRESULT CALLBACK PhpHexEditWndProc(
     case WM_SIZE:
         {
             PhpHexEditUpdateMetrics(hwnd, context, FALSE, NULL);
+        }
+        break;
+    case WM_DPICHANGED_AFTERPARENT:
+        {
+            context->WindowDpi = PhGetWindowDpi(hwnd);
         }
         break;
     case WM_SETFOCUS:
@@ -269,12 +270,11 @@ LRESULT CALLBACK PhpHexEditWndProc(
             if (context->Data)
             {
                 ULONG wheelScrollLines;
-                LONG dpiValue;
 
-                dpiValue = PhGetWindowDpi(hwnd);
-
-                if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &wheelScrollLines, dpiValue))
-                    wheelScrollLines = PhGetDpi(3, dpiValue);
+                if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &wheelScrollLines, 0))
+                {
+                    wheelScrollLines = PhGetDpi(3, context->WindowDpi);
+                }
 
                 context->TopIndex += context->BytesPerRow * (LONG)wheelScrollLines * -wheelDelta / WHEEL_DELTA;
 
@@ -402,7 +402,7 @@ LRESULT CALLBACK PhpHexEditWndProc(
 
                 GetClientRect(hwnd, &rect);
 
-                if (!PtInRect(&rect, cursorPos))
+                if (!PhPtInRect(&rect, &cursorPos))
                 {
                     if (cursorPos.y < 0)
                     {
@@ -1073,7 +1073,7 @@ VOID PhpHexEditOnPaint(
     oldBufferBitmap = SelectBitmap(bufferDc, bufferBitmap);
 
     SetDCBrushColor(bufferDc, GetSysColor(COLOR_WINDOW));
-    FillRect(bufferDc, &clientRect, GetStockBrush(DC_BRUSH));
+    FillRect(bufferDc, &clientRect, PhGetStockBrush(DC_BRUSH));
     SelectFont(bufferDc, Context->Font);
     SetBoundsRect(bufferDc, &clientRect, DCB_DISABLE);
 
@@ -1404,7 +1404,7 @@ VOID PhpHexEditRepositionCaret(
 
     GetClientRect(hwnd, &rect);
 
-    if (PtInRect(&rect, Context->EditPosition))
+    if (PhPtInRect(&rect, &Context->EditPosition))
     {
         SetCaretPos(Context->EditPosition.x, Context->EditPosition.y);
         ShowCaret(hwnd);

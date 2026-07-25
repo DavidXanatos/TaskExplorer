@@ -4,6 +4,8 @@
 class CWinThread : public CThreadInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinThread)
 public:
 	CWinThread(QObject *parent = nullptr);
 	virtual ~CWinThread();
@@ -16,17 +18,18 @@ public:
 	virtual QString GetStartAddressString() const;
 	virtual QString GetStartAddressFileName() const		{ QReadLocker Locker(&m_Mutex); return m_StartAddressFileName; }
 
-	virtual quint64 GetBasePriorityIncrement() const	{ QReadLocker Locker(&m_Mutex); return m_BasePriorityIncrement; }
-
 	virtual QString GetStateString() const;
+
+	virtual quint64 GetBasePriorityIncrement() const	{ QReadLocker Locker(&m_Mutex); return m_BasePriorityIncrement; }
+	virtual QString GetBasePriorityIncrementString() const;
 	virtual QString GetPriorityString() const;
 	virtual QString GetBasePriorityString() const;
 	virtual QString GetPagePriorityString() const;
 	virtual QString GetIOPriorityString() const;
-	virtual STATUS SetPriority(long Value);
-	virtual STATUS SetBasePriority(long Value) { return ERR(); }
-	virtual STATUS SetPagePriority(long Value);
-	virtual STATUS SetIOPriority(long Value);
+	virtual STATUS SetPriority(qint32 Value);
+	virtual STATUS SetBasePriority(qint32 Value) { return ERR(); }
+	virtual STATUS SetPagePriority(qint32 Value);
+	virtual STATUS SetIOPriority(qint32 Value);
 
 	virtual STATUS SetAffinityMask(quint64 Value);
 
@@ -41,10 +44,21 @@ public:
 
 	virtual bool IsGuiThread() const					{ QReadLocker Locker(&m_Mutex); return m_IsGuiThread; }
 	virtual bool IsCriticalThread() const				{ QReadLocker Locker(&m_Mutex); return m_IsCritical; }
-	virtual bool HasToken() const						{ QReadLocker Locker(&m_Mutex); return m_HasToken; }
+
+	enum ETokenState
+	{
+		PH_THREAD_TOKEN_STATE_UNKNOWN,
+		PH_THREAD_TOKEN_STATE_NOT_PRESENT,
+		PH_THREAD_TOKEN_STATE_ANONYMOUS,
+		PH_THREAD_TOKEN_STATE_PRESENT
+	};
+
+	virtual ETokenState GetTokenState() const			{ QReadLocker Locker(&m_Mutex); return m_TokenState; }
+	virtual QString GetTokenStateString() const;
 	virtual bool HasToken2() const						{ QReadLocker Locker(&m_Mutex); return m_HasToken2; }
 	virtual void SetSandboxed()							{ QWriteLocker Locker(&m_Mutex); m_IsSandboxed = true; }
 	virtual bool IsSandboxed() const					{ QReadLocker Locker(&m_Mutex); return m_IsSandboxed; }
+
 	virtual STATUS SetCriticalThread(bool bSet, bool bForce = false);
 	virtual STATUS CancelIO();
 	virtual QString GetAppDomain() const;
@@ -56,6 +70,25 @@ public:
 	virtual quint64 TraceStack();
 
 	virtual void OpenPermissions();
+
+	virtual bool HasPendingIrp() const		{ QReadLocker Locker(&m_Mutex); return m_PendingIrp; }
+	virtual bool IsFiber() const			{ QReadLocker Locker(&m_Mutex); return m_IsFiber; }
+	virtual bool HasPriorityBoost() const	{ QReadLocker Locker(&m_Mutex); return m_PriorityBoost; }
+	virtual STATUS SetPriorityBoost(bool Value);
+	virtual bool IsPowerThrottled() const	{ QReadLocker Locker(&m_Mutex); return m_IsPowerThrottled; }
+
+
+	virtual int GetApartmentType() const;
+	virtual QString GetApartmentTypeString() const;
+	virtual int GetApartmentFlags() const;
+	virtual QString GetApartmentFlagsString() const;
+
+	virtual QString GetLastSysCallInfoString() const;
+	virtual QString GetLastSysCallStatusString() const;
+
+	virtual bool HasRpcState() const { QReadLocker Locker(&m_Mutex); return m_bHasRpcState; }
+
+	virtual quint64 GetLXSSThreadId() const;
 
 private slots:
 	void		OnSymbolFromAddress(quint64 ProcessId, quint64 Address, int ResolveLevel, const QString& StartAddressString, const QString& FileName, const QString& SymbolName);
@@ -82,13 +115,26 @@ protected:
 
 	long		m_BasePriorityIncrement;
 
-	bool		m_IsGuiThread;
-	bool		m_IsCritical;
-	bool		m_HasToken;
+	union {
+				quint32 m_MiscStates;
+				struct {
+					quint32 m_IsGuiThread : 1,
+							m_IsCritical : 1,
+							m_IsSandboxed : 1,
+							m_PendingIrp : 1,
+							m_IsFiber : 1,
+							m_PriorityBoost : 1,
+							m_IsPowerThrottled : 1,
+							m_Reserved : 25;
+				};
+	};
+	
+	ETokenState	m_TokenState;
 	bool		m_HasToken2;
-	bool		m_IsSandboxed;
 
 	QString		m_AppDomain;
+
+	bool		m_bHasRpcState;
 
 	struct SWinThread*	m;
 };

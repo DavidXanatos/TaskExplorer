@@ -7,6 +7,7 @@
 #include "ThreadsView.h"
 #include "ModulesView.h"
 #include "MemoryView.h"
+#include "HeapView.h"
 #ifdef WIN32
 #include "JobView.h"
 #include "TokenView.h"
@@ -79,6 +80,9 @@ void CTaskInfoView::InitializeTabs()
 	m_pMemoryView = new CMemoryView(this);
 	AddTab(m_pMemoryView, tr("Memory"));
 
+	m_pHeapView = new CHeapView(this);
+	AddTab(m_pHeapView, tr("Heap"));
+
 #ifdef WIN32
 	m_pTokenView = new CTokenView(this);
 	AddTab(m_pTokenView, tr("Token"));
@@ -127,10 +131,10 @@ void CTaskInfoView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	OnTab(m_pTabs->currentIndex());
 }
 
-void CTaskInfoView::SellectThread(quint64 ThreadId)
+void CTaskInfoView::SelectThread(quint64 ThreadId)
 {
 	m_pTabs->setCurrentWidget(m_pThreadsView);
-	m_pThreadsView->SellectThread(ThreadId);
+	m_pThreadsView->SelectThread(ThreadId);
 }
 
 void CTaskInfoView::OnTab(int tabIndex)

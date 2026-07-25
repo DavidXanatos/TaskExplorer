@@ -129,7 +129,7 @@ PPH_LIST PhaFormatTextTable(
     PPH_LIST lines;
     // The tab count array contains the number of tabs need to fill the biggest
     // row cell in each column.
-    PULONG tabCount;
+    PULONG tabCount = NULL;
     ULONG i;
     ULONG j;
 
@@ -168,7 +168,7 @@ PPH_LIST PhaFormatTextTable(
     {
         PH_STRING_BUILDER stringBuilder;
 
-        PhInitializeStringBuilder(&stringBuilder, 100);
+        PhInitializeStringBuilder(&stringBuilder, 0x100);
 
         switch (Mode)
         {
@@ -242,13 +242,15 @@ PPH_LIST PhaFormatTextTable(
     return lines;
 }
 
-VOID PhMapDisplayIndexTreeNew(
+_Use_decl_annotations_
+BOOLEAN PhMapDisplayIndexTreeNew(
     _In_ HWND TreeNewHandle,
     _Out_opt_ PULONG *DisplayToId,
     _Out_opt_ PWSTR **DisplayToText,
     _Out_ PULONG NumberOfColumns
     )
 {
+    BOOLEAN result = TRUE;
     PPH_TREENEW_COLUMN fixedColumn;
     ULONG numberOfColumns;
     PULONG displayToId;
@@ -279,19 +281,31 @@ VOID PhMapDisplayIndexTreeNew(
         {
             if (TreeNew_GetColumn(TreeNewHandle, displayToId[i], &column))
             {
-                displayToText[i] = column.Text;
+                displayToText[i] = (PWSTR)column.Text;
+            }
+            else
+            {
+                result = FALSE;
+                break;
             }
         }
 
         *DisplayToText = displayToText;
     }
 
-    if (DisplayToId)
-        *DisplayToId = displayToId;
-    else
-        PhFree(displayToId);
+    if (result)
+    {
+        if (DisplayToId)
+            *DisplayToId = displayToId;
+        else
+            PhFree(displayToId);
 
-    *NumberOfColumns = numberOfColumns;
+        *NumberOfColumns = numberOfColumns;
+        return TRUE;
+    }
+
+    PhFree(displayToId);
+    return FALSE;
 }
 
 PPH_STRING PhGetTreeNewText(
@@ -415,7 +429,8 @@ PPH_LIST PhGetGenericTreeNewLines(
     return lines;
 }
 
-VOID PhaMapDisplayIndexListView(
+_Use_decl_annotations_
+BOOLEAN PhaMapDisplayIndexListView(
     _In_ HWND ListViewHandle,
     _Out_writes_(Count) PULONG DisplayToId,
     _Out_writes_opt_(Count) PPH_STRING *DisplayToText,
@@ -455,12 +470,13 @@ VOID PhaMapDisplayIndexListView(
     }
 
     *NumberOfColumns = count;
+    return TRUE;
 }
 
 PPH_STRING PhGetListViewItemText(
     _In_ HWND ListViewHandle,
-    _In_ INT Index,
-    _In_ INT SubItemIndex
+    _In_ LONG Index,
+    _In_ LONG SubItemIndex
     )
 {
     PPH_STRING buffer;
@@ -478,15 +494,12 @@ PPH_STRING PhGetListViewItemText(
 
     while (count >= allocatedCount)
     {
-        if (buffer)
-            PhDereferenceObject(buffer);
-
         allocatedCount *= 2;
-        buffer = PhCreateStringEx(NULL, allocatedCount * sizeof(WCHAR));
-        buffer->Buffer[0] = UNICODE_NULL;
+        if (buffer) PhDereferenceObject(buffer);
+        buffer = PhCreateStringEx(NULL, (allocatedCount + 1) * sizeof(WCHAR));
 
         lvItem.iSubItem = SubItemIndex;
-        lvItem.cchTextMax = (INT)allocatedCount + 1;
+        lvItem.cchTextMax = (LONG)allocatedCount;
         lvItem.pszText = buffer->Buffer;
         count = SendMessage(ListViewHandle, LVM_GETITEMTEXT, Index, (LPARAM)&lvItem);
     }
@@ -523,7 +536,7 @@ PPH_STRING PhGetListViewSelectedItemText(
     _In_ HWND ListViewHandle
     )
 {
-    INT index;
+    LONG index;
 
     index = PhFindListViewItemByFlags(
         ListViewHandle,
@@ -541,8 +554,8 @@ PPH_STRING PhGetListViewSelectedItemText(
 
 PPH_STRING PhaGetListViewItemText(
     _In_ HWND ListViewHandle,
-    _In_ INT Index,
-    _In_ INT SubItemIndex
+    _In_ LONG Index,
+    _In_ LONG SubItemIndex
     )
 {
     PPH_STRING value;

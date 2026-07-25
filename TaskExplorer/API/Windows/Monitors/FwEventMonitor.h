@@ -4,6 +4,7 @@ class CFwEventMonitor : public QObject//QThread
 {
     Q_OBJECT
 
+	TRACK_OBJECT(CFwEventMonitor)
 public:
 	CFwEventMonitor(QObject *parent = nullptr);
     virtual ~CFwEventMonitor();

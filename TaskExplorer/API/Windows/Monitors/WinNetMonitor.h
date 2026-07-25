@@ -5,6 +5,8 @@
 class CWinNetMonitor : public CNetMonitor
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinNetMonitor)
 public:
 	CWinNetMonitor(QObject *parent = nullptr);
 	virtual ~CWinNetMonitor();

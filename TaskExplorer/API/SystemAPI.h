@@ -67,6 +67,7 @@ class CSystemAPI : public QObject
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CSystemAPI)
 public:
 	CSystemAPI(QObject *parent = nullptr);
 	virtual ~CSystemAPI();
@@ -76,6 +77,7 @@ public:
 	virtual bool RootAvaiable() = 0;
 
 	virtual QMap<quint64, CProcessPtr> GetProcessList();
+	virtual QMap<SProcessUID, CProcessPtr> GetProcessMap();
 	virtual CProcessPtr GetProcessByID(quint64 ProcessId, bool bAddIfNew = false);
 	virtual CThreadPtr  GetThreadByID(quint64 ThreadId);
 	virtual CProcessPtr GetProcessByThreadID(quint64 ThreadId);
@@ -175,7 +177,10 @@ public:
 	virtual bool AddPersistentPreset(const QString& FileName);
 	virtual bool RemovePersistentPreset(const QString& FileName);
 
+	virtual void ResetAll();
+
 public slots:
+	virtual bool UpdateAll() = 0;
 	virtual bool UpdateSysStats() = 0;
 	virtual bool UpdateProcessList() = 0;
 	virtual bool UpdateSocketList() = 0;
@@ -208,7 +213,8 @@ protected:
 	//virtual void				UpdateStats();
 
 	mutable QReadWriteLock		m_ProcessMutex;
-	QMap<quint64, CProcessPtr>	m_ProcessList;
+	QMap<quint64, CProcessPtr>	m_ProcessByPID;
+	QMap<SProcessUID, CProcessPtr>	m_ProcessMap;
 
 	mutable QReadWriteLock		m_SocketMutex;
 	QMultiMap<quint64, CSocketPtr>	m_SocketList;

@@ -44,7 +44,7 @@ VOID PvEnumerateRelocationEntries(
             //PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
             //PhPrintPointer(value, UlongToPtr(entry->Offset));
             //PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, value);
-            PhPrintPointer(value, PTR_ADD_OFFSET(entry->BlockRva, entry->Record.Offset));
+            PhPrintPointer(value, (PVOID)(ULONG_PTR)UInt32Add32To64(entry->BlockRva, entry->Record.Offset));
             PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
 
             switch (entry->Record.Type)
@@ -78,19 +78,14 @@ VOID PvEnumerateRelocationEntries(
 
                 directorySection = PhMappedImageRvaToSection(
                     &PvMappedImage,
-                    PtrToUlong(PTR_ADD_OFFSET(entry->BlockRva, entry->Record.Offset))
+                    (entry->BlockRva - entry->Record.Offset)
                     );
 
                 if (directorySection)
                 {
                     WCHAR sectionName[IMAGE_SIZEOF_SHORT_NAME + 1];
 
-                    if (PhGetMappedImageSectionName(
-                        directorySection,
-                        sectionName,
-                        RTL_NUMBER_OF(sectionName),
-                        NULL
-                        ))
+                    if (NT_SUCCESS(PhGetMappedImageSectionName(directorySection, sectionName, RTL_NUMBER_OF(sectionName), NULL)))
                     {
                         PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3, sectionName);
                     }
@@ -99,7 +94,7 @@ VOID PvEnumerateRelocationEntries(
 
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)entry->ImageBaseVa,
+                entry->ImageBaseVa,
                 NULL,
                 NULL,
                 NULL,
@@ -136,7 +131,7 @@ VOID PvEnumerateRelocationEntries(
                 {
                     symbol = PhGetSymbolFromAddress(
                         PvSymbolProvider,
-                        reloc,
+                        (PVOID)reloc,
                         NULL,
                         NULL,
                         NULL,
@@ -256,7 +251,7 @@ INT_PTR CALLBACK PvpPeRelocationDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

@@ -17,18 +17,15 @@ public slots:
 	void accept();
 	void reject();
 
-	void OnDriverFile();
 	void Refresh();
-	void OnConnect();
-	void OnStop();
+
+	void GetDynData();
 
 protected:
 	void closeEvent(QCloseEvent *e);
 	void timerEvent(QTimerEvent *e);
 
 	int					m_TimerId;
-
-	bool				m_HoldValues;
 
 private:
 	Ui::DriverWindow ui;

@@ -175,7 +175,7 @@ CRAMView::CRAMView(QWidget *parent)
 	m_pSwapList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pSwapList->GetTree()->setSortingEnabled(true);
 	m_pSwapList->GetTree()->setMinimumHeight(60);
-	m_pSwapList->GetTree()->setAutoFitMax(200);
+	((QTreeWidgetEx*)m_pSwapList->GetTree())->setAutoFitMax(200);
 
 	m_pSwapBox = new QGroupBox(tr("Swap Files"));
 	m_pSwapBox->setMinimumWidth(150);

@@ -33,10 +33,10 @@ _CryptCATAdminReleaseContext CryptCATAdminReleaseContext;
 //_WTHelperProvDataFromStateData WTHelperProvDataFromStateData_I;
 //_WTHelperGetProvSignerFromChain WTHelperGetProvSignerFromChain_I;
 _WinVerifyTrust WinVerifyTrust_I;
-_CertNameToStr CertNameToStr_I;
-_CertGetEnhancedKeyUsage CertGetEnhancedKeyUsage_I;
-_CertDuplicateCertificateContext CertDuplicateCertificateContext_I;
-_CertFreeCertificateContext CertFreeCertificateContext_I;
+typeof(&CertNameToStrW) CertNameToStr_I;
+typeof(&CertGetEnhancedKeyUsage) CertGetEnhancedKeyUsage_I;
+typeof(&CertDuplicateCertificateContext) CertDuplicateCertificateContext_I;
+typeof(&CertFreeCertificateContext) CertFreeCertificateContext_I;
 
 static PH_INITONCE PhpVerifyInitOnce = PH_INITONCE_INIT;
 static CONST GUID WinTrustActionGenericVerifyV2 = WINTRUST_ACTION_GENERIC_VERIFY_V2;
@@ -53,10 +53,7 @@ static VOID PhpVerifyInitialization(
     PVOID wintrust;
     PVOID crypt32;
 
-    wintrust = PhLoadLibrary(L"wintrust.dll");
-    crypt32 = PhLoadLibrary(L"crypt32.dll");
-
-    if (wintrust)
+    if (wintrust = PhLoadLibrary(L"wintrust.dll"))
     {
         CryptCATAdminCalcHashFromFileHandle = PhGetDllBaseProcedureAddress(wintrust, "CryptCATAdminCalcHashFromFileHandle", 0);
         CryptCATAdminCalcHashFromFileHandle2 = PhGetDllBaseProcedureAddress(wintrust, "CryptCATAdminCalcHashFromFileHandle2", 0);
@@ -71,7 +68,7 @@ static VOID PhpVerifyInitialization(
         WinVerifyTrust_I = PhGetDllBaseProcedureAddress(wintrust, "WinVerifyTrust", 0);
     }
 
-    if (crypt32)
+    if (crypt32 = PhLoadLibrary(L"crypt32.dll"))
     {
         CertNameToStr_I = PhGetDllBaseProcedureAddress(crypt32, "CertNameToStrW", 0);
         CertGetEnhancedKeyUsage_I = PhGetDllBaseProcedureAddress(crypt32, "CertGetEnhancedKeyUsage", 0);
@@ -168,42 +165,12 @@ BOOLEAN PhIsChainedToMicrosoft(
     )
 {
     static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static HCERTSTORE (WINAPI* CertOpenStore_I)(
-        _In_ LPCSTR lpszStoreProvider,
-        _In_ ULONG dwEncodingType,
-        _In_opt_ HCRYPTPROV_LEGACY hCryptProv,
-        _In_ ULONG dwFlags,
-        _In_opt_ const void* pvPara
-        ) = NULL;
-    static BOOL (WINAPI* CertAddStoreToCollection_I)(
-        _In_ HCERTSTORE hCollectionStore,
-        _In_opt_ HCERTSTORE hSiblingStore,
-        _In_ ULONG dwUpdateFlags,
-        _In_ ULONG dwPriority
-        ) = NULL;
-    static BOOL (WINAPI* CertGetCertificateChain_I)(
-        _In_opt_ HCERTCHAINENGINE hChainEngine,
-        _In_ PCCERT_CONTEXT pCertContext,
-        _In_opt_ LPFILETIME pTime,
-        _In_opt_ HCERTSTORE hAdditionalStore,
-        _In_ PCERT_CHAIN_PARA pChainPara,
-        _In_ ULONG dwFlags,
-        _Reserved_ LPVOID pvReserved,
-        _Out_ PCCERT_CHAIN_CONTEXT * ppChainContext
-        ) = NULL;
-    static BOOL (WINAPI* CertVerifyCertificateChainPolicy_I)(
-        _In_ LPCSTR pszPolicyOID,
-        _In_ PCCERT_CHAIN_CONTEXT pChainContext,
-        _In_ PCERT_CHAIN_POLICY_PARA pPolicyPara,
-        _Inout_ PCERT_CHAIN_POLICY_STATUS pPolicyStatus
-        ) = NULL;
-    static VOID (WINAPI* CertFreeCertificateChain_I)(
-        _In_ PCCERT_CHAIN_CONTEXT pChainContext
-        ) = NULL;
-    static BOOL (WINAPI* CertCloseStore_I)(
-        _In_opt_ HCERTSTORE hCertStore,
-        _In_ ULONG dwFlags
-        ) = NULL;
+    static typeof(&CertOpenStore) CertOpenStore_I = NULL;
+    static typeof(&CertAddStoreToCollection) CertAddStoreToCollection_I = NULL;
+    static typeof(&CertGetCertificateChain) CertGetCertificateChain_I = NULL;
+    static typeof(&CertVerifyCertificateChainPolicy) CertVerifyCertificateChainPolicy_I = NULL;
+    static typeof(&CertFreeCertificateChain) CertFreeCertificateChain_I = NULL;
+    static typeof(&CertCloseStore) CertCloseStore_I = NULL;
     BOOLEAN status = FALSE;
     HCERTSTORE cryptStoreHandle;
     CERT_CHAIN_POLICY_PARA policyPara = { sizeof(CERT_CHAIN_POLICY_PARA) };
@@ -327,8 +294,7 @@ BOOLEAN PhIsChainedToMicrosoft(
     return status;
 }
 
-_Success_(return)
-BOOLEAN PhpGetSignaturesFromStateData(
+NTSTATUS PhpGetSignaturesFromStateData(
     _In_ HANDLE StateData,
     _Out_ PCERT_CONTEXT **Signatures,
     _Out_ PULONG NumberOfSignatures
@@ -347,7 +313,7 @@ BOOLEAN PhpGetSignaturesFromStateData(
     {
         *Signatures = NULL;
         *NumberOfSignatures = 0;
-        return FALSE;
+        return STATUS_UNSUCCESSFUL;
     }
 
     i = 0;
@@ -382,8 +348,7 @@ BOOLEAN PhpGetSignaturesFromStateData(
 
     *Signatures = signatures;
     *NumberOfSignatures = numberOfSignatures;
-
-    return TRUE;
+    return STATUS_SUCCESS;
 }
 
 VOID PhpViewSignerInfo(
@@ -452,7 +417,7 @@ VERIFY_RESULT PhpVerifyFile(
     if (UnionChoice == WTD_CHOICE_CATALOG)
         trustData.pCatalog = UnionData;
 
-    if (Information->Flags & PH_VERIFY_PREVENT_NETWORK_ACCESS)
+    if (FlagOn(Information->Flags, PH_VERIFY_PREVENT_NETWORK_ACCESS))
     {
         trustData.fdwRevocationChecks = WTD_REVOKE_NONE;
         trustData.dwProvFlags |= WTD_CACHE_ONLY_URL_RETRIEVAL;
@@ -471,8 +436,7 @@ VERIFY_RESULT PhpVerifyFile(
     return PhpStatusToVerifyResult(status);
 }
 
-_Success_(return)
-BOOLEAN PhpCalculateFileHash(
+NTSTATUS PhpCalculateFileHash(
     _In_ HANDLE FileHandle,
     _In_opt_ PCWSTR HashAlgorithm,
     _Out_ PUCHAR *FileHash,
@@ -483,16 +447,22 @@ BOOLEAN PhpCalculateFileHash(
     HANDLE catAdminHandle;
     PUCHAR fileHash;
     ULONG fileHashLength;
+    CERT_STRONG_SIGN_PARA strongSigPolicy;
+
+    memset(&strongSigPolicy, 0, sizeof(CERT_STRONG_SIGN_PARA));
+    strongSigPolicy.cbSize = sizeof(CERT_STRONG_SIGN_PARA);
+    strongSigPolicy.dwInfoChoice = CERT_STRONG_SIGN_OID_INFO_CHOICE;
+    strongSigPolicy.pszOID = szOID_CERT_STRONG_SIGN_OS_CURRENT;
 
     if (CryptCATAdminAcquireContext2)
     {
-        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, NULL, 0))
-            return FALSE;
+        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, &strongSigPolicy, 0))
+            return PhGetLastWin32ErrorAsNtStatus();
     }
     else
     {
         if (!CryptCATAdminAcquireContext(&catAdminHandle, &DriverActionVerify, 0))
-            return FALSE;
+            return PhGetLastWin32ErrorAsNtStatus();
     }
 
     fileHashLength = 32;
@@ -509,7 +479,7 @@ BOOLEAN PhpCalculateFileHash(
             {
                 CryptCATAdminReleaseContext(catAdminHandle, 0);
                 PhFree(fileHash);
-                return FALSE;
+                return PhGetLastWin32ErrorAsNtStatus();
             }
         }
     }
@@ -524,7 +494,7 @@ BOOLEAN PhpCalculateFileHash(
             {
                 CryptCATAdminReleaseContext(catAdminHandle, 0);
                 PhFree(fileHash);
-                return FALSE;
+                return PhGetLastWin32ErrorAsNtStatus();
             }
         }
     }
@@ -532,12 +502,10 @@ BOOLEAN PhpCalculateFileHash(
     *FileHash = fileHash;
     *FileHashLength = fileHashLength;
     *CatAdminHandle = catAdminHandle;
-
-    return TRUE;
+    return STATUS_SUCCESS;
 }
 
-_Success_(return)
-BOOLEAN PhpVerifyGetHashFromFileHandle(
+NTSTATUS PhpVerifyGetHashFromFileHandle(
     _In_ HANDLE FileHandle,
     _In_opt_ PCWSTR HashAlgorithm,
     _Out_writes_bytes_(HashTagLength) PWSTR HashTagBuffer,
@@ -548,16 +516,25 @@ BOOLEAN PhpVerifyGetHashFromFileHandle(
     )
 {
     HANDLE catAdminHandle;
+    CERT_STRONG_SIGN_PARA strongSigPolicy;
+
+    memset(&strongSigPolicy, 0, sizeof(CERT_STRONG_SIGN_PARA));
+    strongSigPolicy.cbSize = sizeof(CERT_STRONG_SIGN_PARA);
+    strongSigPolicy.dwInfoChoice = CERT_STRONG_SIGN_OID_INFO_CHOICE;
+    strongSigPolicy.pszOID = szOID_CERT_STRONG_SIGN_OS_CURRENT;
 
     if (CryptCATAdminAcquireContext2)
     {
-        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, NULL, 0))
-            return FALSE;
+        if (!CryptCATAdminAcquireContext2(&catAdminHandle, &DriverActionVerify, HashAlgorithm, &strongSigPolicy, 0))
+        {
+            if (!CryptCATAdminAcquireContext(&catAdminHandle, &DriverActionVerify, 0))
+                return PhGetLastWin32ErrorAsNtStatus();
+        }
     }
     else
     {
         if (!CryptCATAdminAcquireContext(&catAdminHandle, &DriverActionVerify, 0))
-            return FALSE;
+            return PhGetLastWin32ErrorAsNtStatus();
     }
 
     if (CryptCATAdminCalcHashFromFileHandle2)
@@ -565,7 +542,7 @@ BOOLEAN PhpVerifyGetHashFromFileHandle(
         if (!CryptCATAdminCalcHashFromFileHandle2(catAdminHandle, FileHandle, FileHashLength, FileHashBuffer, 0))
         {
             CryptCATAdminReleaseContext(catAdminHandle, 0);
-            return FALSE;
+            return PhGetLastWin32ErrorAsNtStatus();
         }
     }
     else
@@ -573,19 +550,18 @@ BOOLEAN PhpVerifyGetHashFromFileHandle(
         if (!CryptCATAdminCalcHashFromFileHandle(FileHandle, FileHashLength, FileHashBuffer, 0))
         {
             CryptCATAdminReleaseContext(catAdminHandle, 0);
-            return FALSE;
+            return PhGetLastWin32ErrorAsNtStatus();
         }
     }
 
     if (!PhBufferToHexStringBuffer(FileHashBuffer, *FileHashLength, TRUE, HashTagBuffer, HashTagLength, NULL))
     {
         CryptCATAdminReleaseContext(catAdminHandle, 0);
-        return FALSE;
+        return PhGetLastWin32ErrorAsNtStatus();
     }
 
     *CatAdminHandle = catAdminHandle;
-
-    return TRUE;
+    return STATUS_SUCCESS;
 }
 
 VERIFY_RESULT PhpVerifyFileFromCatalog(
@@ -629,7 +605,7 @@ VERIFY_RESULT PhpVerifyFileFromCatalog(
             return VrNoSignature;
     }
 
-    if (!PhpVerifyGetHashFromFileHandle(
+    if (!NT_SUCCESS(PhpVerifyGetHashFromFileHandle(
         FileHandle,
         HashAlgorithm,
         fileHashTag,
@@ -637,8 +613,10 @@ VERIFY_RESULT PhpVerifyFileFromCatalog(
         fileHash,
         &fileHashLength,
         &catAdminHandle
-        ))
+        )))
+    {
         return VrBadSignature;
+    }
 
     // Search the system catalogs.
 
@@ -795,11 +773,9 @@ VOID PhFreeVerifySignatures(
     _In_ ULONG NumberOfSignatures
     )
 {
-    ULONG i;
-
     if (Signatures)
     {
-        for (i = 0; i < NumberOfSignatures; i++)
+        for (ULONG i = 0; i < NumberOfSignatures; i++)
             CertFreeCertificateContext_I(Signatures[i]);
 
         PhFree(Signatures);
@@ -919,40 +895,33 @@ PPH_STRING PhGetSignerNameFromCertificate(
     return value;
 }
 
-BOOLEAN PhGetSystemComponentFromCertificate(
+NTSTATUS PhGetSystemComponentFromCertificate(
     _In_ PCERT_CONTEXT Certificate
     )
 {
-    BOOLEAN found;
     UCHAR usageBuffer[256];
     ULONG usageLength = sizeof(usageBuffer);
     PCERT_ENHKEY_USAGE usage = (PCERT_ENHKEY_USAGE)usageBuffer;
 
     if (!CertGetEnhancedKeyUsage_I(Certificate, CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG, usage, &usageLength))
-    {
-        assert(FALSE);
-        return FALSE;
-    }
-
-    found = FALSE;
+        return PhGetLastWin32ErrorAsNtStatus();
 
     for (ULONG i = 0; i < usage->cUsageIdentifier; i++)
     {
         if (PhEqualBytesZ(usage->rgpszUsageIdentifier[i], szOID_NT5_CRYPTO, FALSE)) // Windows System Component Verification (dmex)
         {
-            found = TRUE;
-            break;
+            return STATUS_SUCCESS;
         }
     }
 
-    return found;
+    return STATUS_NOT_FOUND;
 }
 
 PH_STRINGREF PhVerifyResultToStringRef(
     _In_ VERIFY_RESULT Result
     )
 {
-    static PH_STRINGREF Results[] =
+    static CONST PH_STRINGREF Results[] =
     {
         { 0, NULL },
         PH_STRINGREF_INIT(L"No signature"),
@@ -981,7 +950,7 @@ PH_STRINGREF PhVerifyResultToStringRef(
  * \return A VERIFY_RESULT value.
  */
 VERIFY_RESULT PhVerifyFile(
-    _In_ PWSTR FileName,
+    _In_ PCWSTR FileName,
     _Out_opt_ PPH_STRING *SignerName
     )
 {
@@ -1038,7 +1007,7 @@ VERIFY_RESULT PhVerifyFile(
 }
 
 BOOLEAN PhVerifyFileIsChainedToMicrosoft(
-    _In_ PPH_STRINGREF FileName,
+    _In_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN NativeFileName
     )
 {
@@ -1102,6 +1071,7 @@ BOOLEAN PhVerifyFileIsChainedToMicrosoft(
     return result;
 }
 
+_Function_class_(PH_HASHTABLE_EQUAL_FUNCTION)
 BOOLEAN PhpVerifyCacheHashtableEqualFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
@@ -1110,16 +1080,19 @@ BOOLEAN PhpVerifyCacheHashtableEqualFunction(
     PPH_VERIFY_CACHE_ENTRY entry1 = Entry1;
     PPH_VERIFY_CACHE_ENTRY entry2 = Entry2;
 
-    return entry1->SequenceNumber == entry2->SequenceNumber && PhEqualString(entry1->FileName, entry2->FileName, FALSE);
+    return entry1->SequenceNumber == entry2->SequenceNumber &&
+        PhEqualString(entry1->FileName, entry2->FileName, FALSE);
 }
 
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PhpVerifyCacheHashtableHashFunction(
     _In_ PVOID Entry
     )
 {
     PPH_VERIFY_CACHE_ENTRY entry = Entry;
 
-    return PhHashInt64(entry->SequenceNumber) ^ PhHashStringRefEx(&entry->FileName->sr, FALSE, PH_STRING_HASH_X65599);
+    return PhHashInt64(entry->SequenceNumber) ^
+        PhHashStringRefEx(&entry->FileName->sr, FALSE, PH_STRING_HASH_XXH32);
 }
 
 VOID PhFlushVerifyCache(
@@ -1161,7 +1134,7 @@ VERIFY_RESULT PhVerifyFileWithAdditionalCatalog(
     _Out_opt_ PPH_STRING *SignerName
     )
 {
-    static PH_STRINGREF codeIntegrityFileName = PH_STRINGREF_INIT(L"\\AppxMetadata\\CodeIntegrity.cat");
+    static CONST PH_STRINGREF codeIntegrityFileName = PH_STRINGREF_INIT(L"\\AppxMetadata\\CodeIntegrity.cat");
     VERIFY_RESULT result;
     PPH_STRING additionalCatalogFileName = NULL;
     PCERT_CONTEXT *signatures;
@@ -1215,6 +1188,7 @@ VERIFY_RESULT PhVerifyFileWithAdditionalCatalog(
  * \param SignerName A variable which receives a pointer to a string containing the signer name. You
  * must free the string using PhDereferenceObject() when you no longer need it. Note that the signer
  * name may be NULL if it is not valid.
+ * \param NativeFileName Specify TRUE if the file name is a native path.
  * \param CachedOnly Specify TRUE to fail the function when no cached result exists.
  *
  * \return A VERIFY_RESULT value.
@@ -1275,6 +1249,8 @@ VERIFY_RESULT PhVerifyFileCached(
             return VrUnknown;
         }
     }
+
+    PhSetFileIoPriorityHint(fileHandle, IoPriorityVeryLow);
 
     {
         PPH_VERIFY_CACHE_ENTRY entry;
@@ -1551,7 +1527,7 @@ PPH_STRING PhGetProgramNameFromMessage(
 
             if (opusInfo->pwszProgramName)
             {
-                signerName = PhCreateString((PWSTR)opusInfo->pwszProgramName);
+                signerName = PhCreateString(opusInfo->pwszProgramName);
             }
 
             LocalFree(opusInfo);

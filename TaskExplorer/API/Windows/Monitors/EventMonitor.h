@@ -4,6 +4,7 @@ class CEventMonitor : public QThread
 {
     Q_OBJECT
 
+	TRACK_OBJECT(CEventMonitor)
 public:
 	CEventMonitor(QObject *parent = nullptr);
     virtual ~CEventMonitor();

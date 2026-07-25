@@ -69,33 +69,29 @@ LRESULT CALLBACK PhpGraphWndProc(
 RECT PhNormalGraphTextMargin = { 5, 5, 5, 5 };
 RECT PhNormalGraphTextPadding = { 3, 3, 3, 3 };
 
-BOOLEAN PhGraphControlInitialization(
-    VOID
+RTL_ATOM PhGraphControlInitialization(
     )
 {
     WNDCLASSEX wcex;
 
     memset(&wcex, 0, sizeof(WNDCLASSEX));
     wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style = CS_GLOBALCLASS | CS_DBLCLKS | CS_PARENTDC;
+    wcex.style = CS_GLOBALCLASS | CS_DBLCLKS;
     wcex.lpfnWndProc = PhpGraphWndProc;
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = sizeof(PVOID);
-    wcex.hInstance = PhInstanceHandle;
+    wcex.hInstance = NtCurrentImageBase();
     wcex.hCursor = PhLoadCursor(NULL, IDC_ARROW);
     wcex.lpszClassName = PH_GRAPH_CLASSNAME;
 
-    if (RegisterClassEx(&wcex) == INVALID_ATOM)
-        return FALSE;
-
-    return TRUE;
+    return RegisterClassEx(&wcex);
 }
 
 FORCEINLINE VOID PhpGetGraphPoint(
-    _In_ PPH_GRAPH_DRAW_INFO DrawInfo,
+    _In_ PPH_GRAPH_DRAW_INFO PH_RESTRICT DrawInfo,
     _In_ ULONG Index,
-    _Out_ PULONG H1,
-    _Out_ PULONG H2
+    _Out_ PULONG PH_RESTRICT H1,
+    _Out_ PULONG PH_RESTRICT H2
     )
 {
     if (Index < DrawInfo->LineDataCount)
@@ -151,11 +147,11 @@ FORCEINLINE VOID PhpGetGraphPoint(
  */
 VOID PhDrawGraphDirect(
     _In_ HDC hdc,
-    _In_ PVOID Bits,
-    _In_ PPH_GRAPH_DRAW_INFO DrawInfo
+    _In_ PVOID PH_RESTRICT Bits,
+    _In_ PPH_GRAPH_DRAW_INFO PH_RESTRICT DrawInfo
     )
 {
-    PULONG bits = Bits;
+    PULONG PH_RESTRICT bits = Bits;
     LONG width = DrawInfo->Width;
     LONG height = DrawInfo->Height;
     LONG numberOfPixels = width * height;
@@ -549,6 +545,7 @@ VOID PhDrawGraphDirect(
     if (DrawInfo->Text.Buffer)
     {
         HFONT oldFont = NULL;
+        HBRUSH brush;
 
         if (DrawInfo->TextFont)
             oldFont = SelectFont(hdc, DrawInfo->TextFont);
@@ -556,12 +553,35 @@ VOID PhDrawGraphDirect(
         SetBkMode(hdc, TRANSPARENT);
 
         // Fill in the text box.
+        brush = PhGetStockBrush(DC_BRUSH);
+        SelectBrush(hdc, brush);
         SetDCBrushColor(hdc, DrawInfo->TextBoxColor);
-        FillRect(hdc, &DrawInfo->TextBoxRect, GetStockBrush(DC_BRUSH));
+        FillRect(hdc, &DrawInfo->TextBoxRect, brush);
 
         // Draw the text.
         SetTextColor(hdc, DrawInfo->TextColor);
         DrawText(hdc, DrawInfo->Text.Buffer, (ULONG)DrawInfo->Text.Length / sizeof(WCHAR), &DrawInfo->TextRect, DT_NOCLIP);
+
+        if (oldFont)
+            SelectFont(hdc, oldFont);
+    }
+
+    if (DrawInfo->Text2.Buffer)
+    {
+        HFONT oldFont = NULL;
+
+        if (DrawInfo->TextFont)
+            oldFont = SelectFont(hdc, DrawInfo->TextFont);
+
+        //SetBkMode(hdc, TRANSPARENT);
+
+        // Fill in the text box.
+        SetDCBrushColor(hdc, DrawInfo->TextBoxColor);
+        FillRect(hdc, &DrawInfo->TextBoxRect2, PhGetStockBrush(DC_BRUSH));
+
+        // Draw the text.
+        SetTextColor(hdc, DrawInfo->TextColor);
+        DrawText(hdc, DrawInfo->Text2.Buffer, (ULONG)DrawInfo->Text2.Length / sizeof(WCHAR), &DrawInfo->TextRect2, DT_NOCLIP);
 
         if (oldFont)
             SelectFont(hdc, oldFont);
@@ -612,14 +632,14 @@ VOID PhSetGraphText(
     else if (Align & PH_ALIGN_RIGHT)
         boxRectangle.Left = DrawInfo->Width - boxRectangle.Width - Margin->right;
     else
-        boxRectangle.Left = (DrawInfo->Width - boxRectangle.Width) / (LONG)sizeof(WCHAR);
+        boxRectangle.Left = (DrawInfo->Width - boxRectangle.Width) / 2;
 
     if (Align & PH_ALIGN_TOP)
         boxRectangle.Top = Margin->top;
     else if (Align & PH_ALIGN_BOTTOM)
         boxRectangle.Top = DrawInfo->Height - boxRectangle.Height - Margin->bottom;
     else
-        boxRectangle.Top = (DrawInfo->Height - boxRectangle.Height) / (LONG)sizeof(WCHAR);
+        boxRectangle.Top = (DrawInfo->Height - boxRectangle.Height) / 2;
 
     // Calculate the text rectangle.
 
@@ -629,8 +649,86 @@ VOID PhSetGraphText(
     textRectangle.Height = textSize.cy;
 
     // Save the rectangles.
-    DrawInfo->TextRect = PhRectangleToRect(textRectangle);
-    DrawInfo->TextBoxRect = PhRectangleToRect(boxRectangle);
+    PhRectangleToRect(&DrawInfo->TextRect, &textRectangle);
+    PhRectangleToRect(&DrawInfo->TextBoxRect, &boxRectangle);
+}
+
+VOID PhSetGraphText2(
+    _In_ HDC hdc,
+    _Inout_ PPH_GRAPH_DRAW_INFO DrawInfo,
+    _In_ PPH_STRINGREF Text,
+    _In_ PRECT Margin,
+    _In_ PRECT Padding,
+    _In_ ULONG Align
+    )
+{
+    HFONT oldFont = NULL;
+    RECT calcRect = { 0, 0, DrawInfo->Width, DrawInfo->Height };
+    UINT flags = DT_NOPREFIX | DT_WORDBREAK | DT_EDITCONTROL;
+    PH_RECTANGLE boxRectangle;
+    PH_RECTANGLE textRectangle;
+
+    // Horizontal alignment
+    if (FlagOn(Align, PH_ALIGN_LEFT))
+        flags |= DT_LEFT;
+    else if (FlagOn(Align, PH_ALIGN_RIGHT))
+        flags |= DT_RIGHT;
+    else
+        flags |= DT_CENTER;
+
+    // Vertical alignment (handled manually after measuring)
+    // DT_TOP is default; DT_VCENTER/DT_BOTTOM don't work with CALCRECT
+    flags |= DT_TOP;
+
+    // Select font for measurement
+    if (DrawInfo->TextFont)
+        oldFont = SelectFont(hdc, DrawInfo->TextFont);
+
+    // Measure multi-line text
+    DrawInfo->Text2 = *Text;
+    DrawText(
+        hdc,
+        Text->Buffer,
+        (LONG)(Text->Length / sizeof(WCHAR)),
+        &calcRect,
+        flags | DT_CALCRECT
+        );
+
+    if (oldFont)
+        SelectFont(hdc, oldFont);
+
+    // Compute box size
+    LONG textWidth = calcRect.right - calcRect.left;
+    LONG textHeight = calcRect.bottom - calcRect.top;
+
+    boxRectangle.Width = textWidth + Padding->left + Padding->right;
+    boxRectangle.Height = textHeight + Padding->top + Padding->bottom;
+
+    // Horizontal positioning
+    if (FlagOn(Align, PH_ALIGN_LEFT))
+        boxRectangle.Left = Margin->left;
+    else if (FlagOn(Align, PH_ALIGN_RIGHT))
+        boxRectangle.Left = DrawInfo->Width - boxRectangle.Width - Margin->right;
+    else
+        boxRectangle.Left = (DrawInfo->Width - boxRectangle.Width) / 2;
+
+    // Vertical positioning
+    if (FlagOn(Align, PH_ALIGN_TOP))
+        boxRectangle.Top = Margin->top;
+    else if (FlagOn(Align, PH_ALIGN_BOTTOM))
+        boxRectangle.Top = DrawInfo->Height - boxRectangle.Height - Margin->bottom;
+    else
+        boxRectangle.Top = (DrawInfo->Height - boxRectangle.Height) / 2;
+
+    // Compute final text rectangle
+    textRectangle.Left = boxRectangle.Left + Padding->left;
+    textRectangle.Top = boxRectangle.Top + Padding->top;
+    textRectangle.Width = textWidth;
+    textRectangle.Height = textHeight;
+
+    // Save rectangles
+    PhRectangleToRect(&DrawInfo->TextRect2, &textRectangle);
+    PhRectangleToRect(&DrawInfo->TextBoxRect2, &boxRectangle);
 }
 
 PPHP_GRAPH_CONTEXT PhCreateGraphContext(
@@ -682,67 +780,87 @@ static VOID PhpDeleteBufferedContext(
     _In_ PPHP_GRAPH_CONTEXT Context
     )
 {
+    if (Context->BufferedContext && Context->BufferedOldBitmap)
+    {
+        SelectBitmap(Context->BufferedContext, Context->BufferedOldBitmap);
+        Context->BufferedOldBitmap = NULL;
+    }
+
+    if (Context->BufferedBitmap)
+    {
+        DeleteBitmap(Context->BufferedBitmap);
+        Context->BufferedBitmap = NULL;
+    }
+
     if (Context->BufferedContext)
     {
-        // The original bitmap must be selected back into the context, otherwise the bitmap can't be
-        // deleted.
-        SelectBitmap(Context->BufferedContext, Context->BufferedOldBitmap);
-        DeleteBitmap(Context->BufferedBitmap);
         DeleteDC(Context->BufferedContext);
-
         Context->BufferedContext = NULL;
-        Context->BufferedBitmap = NULL;
-        Context->BufferedBits = NULL;
     }
+
+    Context->BufferedBits = NULL;
 }
 
 static VOID PhpCreateBufferedContext(
     _In_ PPHP_GRAPH_CONTEXT Context
     )
 {
-    BITMAPINFO bitmapInfo;
-
     PhpDeleteBufferedContext(Context);
 
-    if (!GetClientRect(Context->Handle, &Context->BufferedContextRect))
+    if (!PhGetClientRect(Context->Handle, &Context->BufferedContextRect))
         return;
-    if (!(Context->BufferedContextRect.right && Context->BufferedContextRect.bottom))
-        return;
-
-    memset(&bitmapInfo, 0, sizeof(BITMAPINFO));
-    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bitmapInfo.bmiHeader.biPlanes = 1;
-    bitmapInfo.bmiHeader.biCompression = BI_RGB;
-    bitmapInfo.bmiHeader.biWidth = Context->BufferedContextRect.right;
-    bitmapInfo.bmiHeader.biHeight = Context->BufferedContextRect.bottom;
-    bitmapInfo.bmiHeader.biBitCount = 32;
 
     Context->BufferedContext = CreateCompatibleDC(NULL);
-    Context->BufferedBitmap = CreateDIBSection(Context->BufferedContext, &bitmapInfo, DIB_RGB_COLORS, &Context->BufferedBits, NULL, 0);
-    Context->BufferedOldBitmap = SelectBitmap(Context->BufferedContext, Context->BufferedBitmap);
+
+    if (!Context->BufferedContext)
+        return;
+
+    Context->BufferedBitmap = PhCreateDIBSection(
+        Context->BufferedContext,
+        PHBF_DIB,
+        Context->BufferedContextRect.right,
+        Context->BufferedContextRect.bottom,
+        &Context->BufferedBits
+        );
+
+    if (!Context->BufferedBitmap)
+        return;
+
+    Context->BufferedOldBitmap = SelectBitmap(
+        Context->BufferedContext,
+        Context->BufferedBitmap
+        );
 }
 
 static VOID PhpDeleteFadeOutContext(
     _In_ PPHP_GRAPH_CONTEXT Context
     )
 {
-    if (Context->FadeOutContext)
+    if (Context->FadeOutContext && Context->FadeOutOldBitmap)
     {
         SelectBitmap(Context->FadeOutContext, Context->FadeOutOldBitmap);
-        DeleteBitmap(Context->FadeOutBitmap);
-        DeleteDC(Context->FadeOutContext);
-
-        Context->FadeOutContext = NULL;
-        Context->FadeOutBitmap = NULL;
-        Context->FadeOutBits = NULL;
+        Context->FadeOutOldBitmap = NULL;
     }
+
+    if (Context->FadeOutBitmap)
+    {
+        DeleteBitmap(Context->FadeOutBitmap);
+        Context->FadeOutBitmap = NULL;
+    }
+
+    if (Context->FadeOutContext)
+    {
+        DeleteDC(Context->FadeOutContext);
+        Context->FadeOutContext = NULL;
+    }
+
+    Context->FadeOutBits = NULL;
 }
 
 static VOID PhpCreateFadeOutContext(
     _In_ PPHP_GRAPH_CONTEXT Context
     )
 {
-    BITMAPINFO bitmapInfo;
     ULONG i;
     ULONG j;
     ULONG height;
@@ -754,22 +872,29 @@ static VOID PhpCreateFadeOutContext(
 
     PhpDeleteFadeOutContext(Context);
 
-    GetClientRect(Context->Handle, &Context->FadeOutContextRect);
+    if (!PhGetClientRect(Context->Handle, &Context->FadeOutContextRect))
+        return;
     Context->FadeOutContextRect.right = Context->Options.FadeOutWidth;
 
-    memset(&bitmapInfo, 0, sizeof(BITMAPINFO));
-    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bitmapInfo.bmiHeader.biPlanes = 1;
-    bitmapInfo.bmiHeader.biCompression = BI_RGB;
-    bitmapInfo.bmiHeader.biWidth = Context->FadeOutContextRect.right;
-    bitmapInfo.bmiHeader.biHeight = Context->FadeOutContextRect.bottom;
-    bitmapInfo.bmiHeader.biBitCount = 32;
-
     Context->FadeOutContext = CreateCompatibleDC(NULL);
-    Context->FadeOutBitmap = CreateDIBSection(Context->FadeOutContext, &bitmapInfo, DIB_RGB_COLORS, &Context->FadeOutBits, NULL, 0);
+
+    if (!Context->FadeOutContext)
+        return;
+
+    Context->FadeOutBitmap = PhCreateDIBSection(
+        Context->FadeOutContext,
+        PHBF_DIB,
+        Context->FadeOutContextRect.right,
+        Context->FadeOutContextRect.bottom,
+        &Context->FadeOutBits
+        );
+
+    if (!Context->FadeOutBitmap || !Context->FadeOutBits)
+        return;
+
     Context->FadeOutOldBitmap = SelectBitmap(Context->FadeOutContext, Context->FadeOutBitmap);
 
-    if (!Context->FadeOutBits)
+    if (!Context->FadeOutOldBitmap)
         return;
 
     height = Context->FadeOutContextRect.bottom;
@@ -968,6 +1093,7 @@ LRESULT CALLBACK PhpGraphWndProc(
     case WM_SIZE:
         {
             // Force a re-create of the buffered context.
+            PhpDeleteBufferedContext(context);
             PhpCreateBufferedContext(context);
             PhpDeleteFadeOutContext(context);
 
@@ -983,8 +1109,11 @@ LRESULT CALLBACK PhpGraphWndProc(
                 toolInfo.cbSize = sizeof(TOOLINFO);
                 toolInfo.hwnd = hwnd;
                 toolInfo.uId = 1;
-                GetClientRect(hwnd, &toolInfo.rect);
-                SendMessage(context->TooltipHandle, TTM_NEWTOOLRECT, 0, (LPARAM)&toolInfo);
+
+                if (PhGetClientRect(hwnd, &toolInfo.rect))
+                {
+                    SendMessage(context->TooltipHandle, TTM_NEWTOOLRECT, 0, (LPARAM)&toolInfo);
+                }
             }
         }
         break;
@@ -1057,7 +1186,7 @@ LRESULT CALLBACK PhpGraphWndProc(
     //                rect.right += 2;
     //                rect.bottom += 2;
     //                SetDCBrushColor(hdc, RGB(0x8f, 0x8f, 0x8f));
-    //                FrameRect(hdc, &rect, GetStockBrush(DC_BRUSH));
+    //                FrameRect(hdc, &rect, PhGetStockBrush(DC_BRUSH));
     //
     //                ReleaseDC(hwnd, hdc);
     //                return 0;
@@ -1083,9 +1212,10 @@ LRESULT CALLBACK PhpGraphWndProc(
                         RECT clientRect;
                         PH_GRAPH_GETTOOLTIPTEXT getTooltipText;
 
-                        GetCursorPos(&point);
-                        ScreenToClient(hwnd, &point);
-                        GetClientRect(hwnd, &clientRect);
+                        if (!PhGetClientPos(hwnd, &point))
+                            break;
+                        if (!PhGetClientRect(hwnd, &clientRect))
+                            break;
 
                         memset(&getTooltipText, 0, sizeof(PH_GRAPH_GETTOOLTIPTEXT));
                         getTooltipText.Header.hwndFrom = hwnd;
@@ -1197,7 +1327,8 @@ LRESULT CALLBACK PhpGraphWndProc(
                 SendMessage(context->TooltipHandle, TTM_RELAYEVENT, 0, (LPARAM)&message);
             }
 
-            GetClientRect(hwnd, &clientRect);
+            if (!PhGetClientRect(hwnd, &clientRect))
+                break;
 
             memset(&mouseEvent, 0, sizeof(PH_GRAPH_MOUSEEVENT));
             mouseEvent.Header.hwndFrom = hwnd;
@@ -1273,13 +1404,19 @@ LRESULT CALLBACK PhpGraphWndProc(
         {
             if (wParam)
             {
-                TOOLINFO toolInfo = { sizeof(toolInfo) };
+                TOOLINFO toolInfo;
 
-                context->TooltipHandle = CreateWindowEx(
-                    WS_EX_TRANSPARENT,
+                if (context->TooltipHandle)
+                {
+                    DestroyWindow(context->TooltipHandle);
+                    context->TooltipHandle = NULL;
+                }
+
+                context->TooltipHandle = PhCreateWindowEx(
                     TOOLTIPS_CLASS,
                     NULL,
                     WS_POPUP | TTS_NOPREFIX | TTS_NOANIMATE | TTS_NOFADE | TTS_ALWAYSTIP,
+                    WS_EX_TOPMOST | WS_EX_TRANSPARENT,
                     CW_USEDEFAULT,
                     CW_USEDEFAULT,
                     CW_USEDEFAULT,
@@ -1291,15 +1428,16 @@ LRESULT CALLBACK PhpGraphWndProc(
                     );
 
                 SetWindowPos(context->TooltipHandle, HWND_TOPMOST, 0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOREDRAW);
 
+                memset(&toolInfo, 0, sizeof(TOOLINFO));
+                toolInfo.cbSize = sizeof(TOOLINFO);
                 toolInfo.uFlags = 0;
                 toolInfo.hwnd = hwnd;
                 toolInfo.uId = 1;
                 toolInfo.lpszText = LPSTR_TEXTCALLBACK;
-                GetClientRect(hwnd, &toolInfo.rect);
-                SendMessage(context->TooltipHandle, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
 
+                SendMessage(context->TooltipHandle, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
                 SendMessage(context->TooltipHandle, TTM_SETDELAYTIME, TTDT_INITIAL, 0);
                 SendMessage(context->TooltipHandle, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAXSHORT);
                 // Allow newlines (-1 doesn't work)
@@ -1313,8 +1451,11 @@ LRESULT CALLBACK PhpGraphWndProc(
             }
             else
             {
-                DestroyWindow(context->TooltipHandle);
-                context->TooltipHandle = NULL;
+                if (context->TooltipHandle)
+                {
+                    DestroyWindow(context->TooltipHandle);
+                    context->TooltipHandle = NULL;
+                }
             }
         }
         return TRUE;
@@ -1353,8 +1494,7 @@ LRESULT CALLBACK PhpGraphWndProc(
                 SendMessage(context->TooltipHandle, TTM_UPDATE, 0, 0);
             }
 
-            InvalidateRect(hwnd, NULL, TRUE);
-            UpdateWindow(hwnd);
+            InvalidateRect(hwnd, NULL, FALSE);
         }
         return TRUE;
     case GCM_SETCALLBACK:
@@ -1452,6 +1592,7 @@ VOID PhInitializeGraphState(
     State->Text = NULL;
     State->TooltipText = NULL;
     State->TooltipIndex = ULONG_MAX;
+    State->TextLine2 = NULL;
 }
 
 VOID PhDeleteGraphState(
@@ -1461,6 +1602,7 @@ VOID PhDeleteGraphState(
     PhDeleteGraphBuffers(&State->Buffers);
     if (State->Text) PhDereferenceObject(State->Text);
     if (State->TooltipText) PhDereferenceObject(State->TooltipText);
+    if (State->TextLine2) PhDereferenceObject(State->TextLine2);
 }
 
 VOID PhGraphStateGetDrawInfo(

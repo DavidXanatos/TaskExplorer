@@ -1,0 +1,10 @@
+# top-most EditorConfig file
+root = true
+
+[*]
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.mc]
+charset = utf-8-bom
+

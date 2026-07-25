@@ -24,6 +24,9 @@ CMemoryInfo::CMemoryInfo(QObject *parent) : CAbstractInfoEx(parent)
     m_SharedWorkingSet = 0;
     m_ShareableWorkingSet = 0;
     m_LockedWorkingSet = 0;
+
+	m_SharedOriginalPages = 0;
+	m_Priority = 0;
 }
 
 CMemoryInfo::~CMemoryInfo()

@@ -42,7 +42,7 @@ VOID PvEnumerateDynamicRelocationEntries(
 
             if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_ARM64X)
             {
-                PhPrintPointer(value, PTR_ADD_OFFSET(entry->ARM64X.BlockRva, entry->ARM64X.RecordFixup.Offset));
+                PhPrintPointer(value, UlongToPtr(entry->ARM64X.BlockRva + entry->ARM64X.RecordFixup.Offset));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"ARM64X");
 
@@ -95,10 +95,32 @@ VOID PvEnumerateDynamicRelocationEntries(
                     break;
                 }
             }
+            else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_GUARD_RF_PROLOGUE)
+            {
+                PhPrintPointer(value, UlongToPtr(entry->RFPrologue.BlockRva));
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"RF_PROLOGUE");
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3,
+                                     PhFormatString(L"%u bytes", entry->RFPrologue.PrologueByteCount)->Buffer);
+            }
+            else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_GUARD_RF_EPILOGUE)
+            {
+                PhPrintPointer(value, UlongToPtr(entry->RFEpilogue.BlockRva));
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"RF_EPILOGUE");
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3,
+                                     PhFormatString(
+                                         L"%u epilogues, %u bytes, %u branches (%u byte elems)",
+                                         entry->RFEpilogue.EpilogueCount,
+                                         entry->RFEpilogue.EpilogueByteCount,
+                                         entry->RFEpilogue.BranchDescriptorCount,
+                                         entry->RFEpilogue.BranchDescriptorElementSize
+                                         )->Buffer);
+            }
             else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_GUARD_IMPORT_CONTROL_TRANSFER)
             {
                 ULONG iatIndex = entry->ImportControl.Record.IATIndex;
-                PhPrintPointer(value, PTR_ADD_OFFSET(entry->ImportControl.BlockRva, entry->ImportControl.Record.PageRelativeOffset));
+                PhPrintPointer(value, UlongToPtr(entry->ImportControl.BlockRva + entry->ImportControl.Record.PageRelativeOffset));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"IMPORT");
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3,
@@ -108,9 +130,24 @@ VOID PvEnumerateDynamicRelocationEntries(
                                          (entry->ImportControl.Record.IndirectCall ? L" call" : L" branch")
                                          )->Buffer);
             }
+            else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_ARM64_KERNEL_IMPORT_CALL_TRANSFER)
+            {
+                ULONG iatIndex = entry->ARM64ImportControl.Record.IATIndex;
+                PhPrintPointer(value, UlongToPtr(entry->ARM64ImportControl.BlockRva + (entry->ARM64ImportControl.Record.PageRelativeOffset << 2)));
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"ARM64_IMPORT");
+                PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3,
+                                     PhFormatString(
+                                         L"IAT %05x reg x%u%ls%ls",
+                                         iatIndex,
+                                         entry->ARM64ImportControl.Record.RegisterIndex,
+                                         (entry->ARM64ImportControl.Record.IndirectCall ? L" BLR" : L" BR"),
+                                         (entry->ARM64ImportControl.Record.ImportType ? L" delay" : L"")
+                                         )->Buffer);
+            }
             else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_GUARD_INDIR_CONTROL_TRANSFER)
             {
-                PhPrintPointer(value, PTR_ADD_OFFSET(entry->IndirControl.BlockRva, entry->IndirControl.Record.PageRelativeOffset));
+                PhPrintPointer(value, UlongToPtr(entry->IndirControl.BlockRva + entry->IndirControl.Record.PageRelativeOffset));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"INDIRECT");
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3,
@@ -123,7 +160,7 @@ VOID PvEnumerateDynamicRelocationEntries(
             }
             else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_GUARD_SWITCHTABLE_BRANCH)
             {
-                PhPrintPointer(value, PTR_ADD_OFFSET(entry->SwitchBranch.BlockRva, entry->SwitchBranch.Record.PageRelativeOffset));
+                PhPrintPointer(value, UlongToPtr(entry->SwitchBranch.BlockRva + entry->SwitchBranch.Record.PageRelativeOffset));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"BRANCH");
                 // TODO(jxy-s) map register numbers to names
@@ -131,7 +168,7 @@ VOID PvEnumerateDynamicRelocationEntries(
             }
             else if (entry->Symbol == IMAGE_DYNAMIC_RELOCATION_FUNCTION_OVERRIDE)
             {
-                PhPrintPointer(value, PTR_ADD_OFFSET(entry->FuncOverride.BlockRva, entry->FuncOverride.Record.Offset));
+                PhPrintPointer(value, UlongToPtr(entry->FuncOverride.BlockRva + entry->FuncOverride.Record.Offset));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, L"FUNCTION");
                 switch (entry->FuncOverride.Record.Type)
@@ -152,7 +189,7 @@ VOID PvEnumerateDynamicRelocationEntries(
             }
             else
             {
-                PhPrintPointer(value, PTR_ADD_OFFSET(entry->Other.BlockRva, entry->Other.Record.Offset));
+                PhPrintPointer(value, UlongToPtr(entry->Other.BlockRva + entry->Other.Record.Offset));
                 PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, value);
                 switch (entry->Other.Record.Type)
                 {
@@ -196,12 +233,7 @@ VOID PvEnumerateDynamicRelocationEntries(
                 {
                     WCHAR sectionName[IMAGE_SIZEOF_SHORT_NAME + 1];
 
-                    if (PhGetMappedImageSectionName(
-                        section,
-                        sectionName,
-                        RTL_NUMBER_OF(sectionName),
-                        NULL
-                        ))
+                    if (NT_SUCCESS(PhGetMappedImageSectionName(section, sectionName, RTL_NUMBER_OF(sectionName), NULL)))
                     {
                         PhSetListViewSubItem(ListViewHandle, lvItemIndex, 4, sectionName);
                     }
@@ -209,7 +241,7 @@ VOID PvEnumerateDynamicRelocationEntries(
 
                 symbol = PhGetSymbolFromAddress(
                     PvSymbolProvider,
-                    (ULONG64)entry->ImageBaseVa,
+                    entry->ImageBaseVa,
                     NULL,
                     NULL,
                     NULL,
@@ -327,7 +359,7 @@ INT_PTR CALLBACK PvpPeDynamicRelocationDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

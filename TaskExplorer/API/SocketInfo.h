@@ -25,6 +25,7 @@ class CSocketInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CSocketInfo)
 public:
 	CSocketInfo(QObject *parent = nullptr);
 	virtual ~CSocketInfo();

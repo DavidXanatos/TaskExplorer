@@ -26,12 +26,20 @@ typedef struct _PV_STRINGS_SETTINGS
             ULONG Ansi : 1;
             ULONG Unicode : 1;
             ULONG ExtendedCharSet : 1;
-            ULONG Spare : 29;
+            ULONG SkipTextSection : 1;
+            ULONG SkipHighEntropySections : 1;
+            ULONG Spare : 27;
         };
 
         ULONG Flags;
     };
 } PV_STRINGS_SETTINGS, *PPV_STRINGS_SETTINGS;
+
+typedef struct _PV_STRINGS_REGION_SKIP
+{
+    PVOID Start;
+    PVOID End;
+} PV_STRINGS_REGION_SKIP, *PPV_STRINGS_REGION_SKIP;
 
 typedef struct _PV_STRINGS_CONTEXT
 {
@@ -42,6 +50,8 @@ typedef struct _PV_STRINGS_CONTEXT
     PH_LAYOUT_MANAGER LayoutManager;
     PPV_PROPPAGECONTEXT PropSheetContext;
     PH_TN_FILTER_SUPPORT FilterSupport;
+    PPH_TN_FILTER_ENTRY TreeFilterEntry;
+
     PH_CM_MANAGER Cm;
     ULONG TreeNewSortColumn;
     PH_SORT_ORDER TreeNewSortOrder;
@@ -55,6 +65,11 @@ typedef struct _PV_STRINGS_CONTEXT
     PH_QUEUED_LOCK SearchResultsLock;
 
     PV_STRINGS_SETTINGS Settings;
+
+    PVOID ReadPointer;
+    PVOID EndPointer;
+    ULONG SkipCounter;
+    PPH_LIST RegionSkips;
 } PV_STRINGS_CONTEXT, *PPV_STRINGS_CONTEXT;
 
 typedef enum _PV_STRINGS_TREE_COLUMN_ITEM
@@ -77,6 +92,9 @@ typedef struct _PV_STRINGS_NODE
     ULONG_PTR Rva;
     PPH_STRING String;
 
+    PH_STRINGREF IndexStringRef;
+    PH_STRINGREF RvaStringRef;
+
     WCHAR IndexString[PH_INT64_STR_LEN_1];
     WCHAR RvaString[PH_PTR_STR_LEN_1];
     WCHAR LengthString[PH_INT64_STR_LEN_1];
@@ -93,18 +111,38 @@ NTSTATUS NTAPI PvpStringSearchNextBuffer(
     _In_opt_ PVOID Context
     )
 {
-    UNREFERENCED_PARAMETER(Context);
+    PPV_STRINGS_CONTEXT context;
+    PVOID buffer;
+    SIZE_T length;
+    PPV_STRINGS_REGION_SKIP skip;
 
-    if (*Buffer)
+    assert(Context);
+
+    context = Context;
+
+    buffer = context->ReadPointer;
+    length = (ULONG_PTR)context->EndPointer - (ULONG_PTR)context->ReadPointer;
+
+    while (context->SkipCounter < context->RegionSkips->Count)
     {
-        *Buffer = NULL;
-        *Length = 0;
+        skip = context->RegionSkips->Items[context->SkipCounter];
+
+        if (buffer < skip->Start)
+        {
+            length = (ULONG_PTR)skip->Start - (ULONG_PTR)buffer;
+            break;
+        }
+
+        context->SkipCounter++;
+
+        buffer = skip->End;
+        length = (ULONG_PTR)context->EndPointer - (ULONG_PTR)skip->End;
     }
-    else
-    {
-        *Buffer = PvMappedImage.ViewBase;
-        *Length = PvMappedImage.ViewSize;
-    }
+
+    *Buffer = buffer;
+    *Length = length;
+
+    context->ReadPointer = PTR_ADD_OFFSET(buffer, length);
 
     return STATUS_SUCCESS;
 }
@@ -112,45 +150,105 @@ NTSTATUS NTAPI PvpStringSearchNextBuffer(
 _Function_class_(PH_STRING_SEARCH_CALLBACK)
 BOOLEAN NTAPI PvpStringSearchCallback(
     _In_ PPH_STRING_SEARCH_RESULT Result,
-    _In_opt_ PVOID Context
+    _In_ PPV_STRINGS_CONTEXT Context
     )
 {
-    PPV_STRINGS_CONTEXT context = Context;
     PPV_STRINGS_NODE node;
     PIMAGE_SECTION_HEADER section;
 
-    assert(Context);
-
     node = PhAllocateZero(sizeof(PV_STRINGS_NODE));
-
-    node->Index = ++context->StringsCount;
-    PhPrintUInt64(node->IndexString, node->Index);
-
+    node->Index = ++Context->StringsCount;
     node->Rva = (ULONG_PTR)PTR_SUB_OFFSET(Result->Address, PvMappedImage.ViewBase);
-    PhPrintPointer(node->RvaString, (PVOID)node->Rva);
     node->Unicode = Result->Unicode;
-    node->String = PhReferenceObject(Result->String);
-    PhPrintUInt64(node->LengthString, node->String->Length / 2);
+    node->String = PhCreateString2(&Result->String);
 
-    PhAcquireQueuedLockExclusive(&context->SearchResultsLock);
-    PhAddItemList(context->SearchResults, node);
-    PhReleaseQueuedLockExclusive(&context->SearchResultsLock);
+    PhPrintUInt64(node->IndexString, node->Index);
+    PhPrintPointer(node->RvaString, (PVOID)node->Rva);
+    PhPrintUInt64(node->LengthString, node->String->Length / sizeof(WCHAR));
 
-    if (section = PhMappedImageRvaToSection(&PvMappedImage, (ULONG)node->Rva))
+    PhInitializeStringRefLongHint(&node->IndexStringRef, node->IndexString);
+
+    section = PhMappedImageRvaToSection(&PvMappedImage, (ULONG)(ULONG_PTR)PTR_SUB_OFFSET(Result->Address, PvMappedImage.ViewBase));
+    if (section)
     {
-        for (ULONG i = 0; i < IMAGE_SIZEOF_SHORT_NAME; i++)
-        {
-            node->SectionName[i] = section->Name[i];
-        }
+        PhCopyStringZFromUtf8(
+            (PCSTR)section->Name,
+            SIZE_MAX,
+            node->SectionName,
+            RTL_NUMBER_OF(node->SectionName),
+            NULL
+            );
     }
 
-    return !!context->StopSearch;
+    PhAcquireQueuedLockExclusive(&Context->SearchResultsLock);
+    PhAddItemList(Context->SearchResults, node);
+    PhReleaseQueuedLockExclusive(&Context->SearchResultsLock);
+
+    return !!Context->StopSearch;
+}
+
+static int __cdecl PvpStringsRegionSkipCompare(
+    _In_ void *context,
+    _In_ const void *elem1,
+    _In_ const void *elem2
+    )
+{
+    PPV_STRINGS_REGION_SKIP region1 = *(PVOID*)elem1;
+    PPV_STRINGS_REGION_SKIP region2 = *(PVOID*)elem2;
+
+    return uintptrcmp((ULONG_PTR)region1->Start, (ULONG_PTR)region2->Start);
 }
 
 NTSTATUS PvpSearchStringsThread(
     _In_ PPV_STRINGS_CONTEXT Context
     )
 {
+    for (ULONG i = 0; i < PvMappedImage.NumberOfSections; i++)
+    {
+        PIMAGE_SECTION_HEADER section;
+        PPV_STRINGS_REGION_SKIP skip;
+        PVOID sectionData;
+        FLOAT entropy;
+
+        section = &PvMappedImage.Sections[i];
+        sectionData = PhMappedImageRvaToVa(&PvMappedImage, section->VirtualAddress, NULL);
+        if (!sectionData)
+            continue;
+
+        if (Context->Settings.SkipTextSection &&
+            FlagOn(section->Characteristics, IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE) &&
+            PhEqualBytesZ((PCSTR)section->Name, ".text", FALSE))
+        {
+            goto SkipSection;
+        }
+
+        if (Context->Settings.SkipHighEntropySections &&
+            PhCalculateEntropy(sectionData, section->SizeOfRawData, &entropy, NULL, NULL) &&
+            entropy > 7.5) // Likely encrypted or compressed data.
+        {
+            goto SkipSection;
+        }
+
+        continue;
+
+SkipSection:
+
+        skip = PhAllocate(sizeof(PV_STRINGS_REGION_SKIP));
+
+        skip->Start = sectionData;
+        skip->End = PTR_ADD_OFFSET(sectionData, section->SizeOfRawData);
+
+        PhAddItemList(Context->RegionSkips, skip);
+    }
+
+    qsort_s(
+        Context->RegionSkips->Items,
+        Context->RegionSkips->Count,
+        sizeof(PVOID),
+        PvpStringsRegionSkipCompare,
+        NULL
+        );
+
     PhSearchStrings(
         Context->Settings.MinimumLength,
         !!Context->Settings.ExtendedCharSet,
@@ -206,52 +304,6 @@ VOID PvpAddPendingStringsNodes(
     if (needsFullUpdate)
         TreeNew_NodesStructured(Context->TreeNewHandle);
     TreeNew_SetRedraw(Context->TreeNewHandle, TRUE);
-}
-
-VOID PvpDeleteStringsTree(
-    _In_ PPV_STRINGS_CONTEXT Context
-    )
-{
-    Context->StopSearch = TRUE;
-    if (Context->SearchThreadHandle)
-    {
-        NtWaitForSingleObject(Context->SearchThreadHandle, FALSE, NULL);
-        NtClose(Context->SearchThreadHandle);
-        Context->SearchThreadHandle = NULL;
-    }
-    Context->StopSearch = FALSE;
-
-    PvpAddPendingStringsNodes(Context);
-
-    for (ULONG i = 0; i < Context->NodeList->Count; i++)
-    {
-        PPV_STRINGS_NODE node = (PPV_STRINGS_NODE)Context->NodeList->Items[i];
-
-        PhClearReference(&node->String);
-        PhFree(node);
-    }
-
-    PhClearReference(&Context->NodeList);
-    PhClearReference(&Context->SearchResults);
-    Context->SearchResultsAddIndex = 0;
-    Context->StringsCount = 0;
-}
-
-VOID PvpSearchStrings(
-    _In_ PPV_STRINGS_CONTEXT Context
-    )
-{
-    TreeNew_SetRedraw(Context->TreeNewHandle, FALSE);
-
-    PvpDeleteStringsTree(Context);
-    Context->NodeList = PhCreateList(100);
-    Context->SearchResults = PhCreateList(100);
-
-    TreeNew_SetEmptyText(Context->TreeNewHandle, &LoadingStringsText, 0);
-    TreeNew_NodesStructured(Context->TreeNewHandle);
-    TreeNew_SetRedraw(Context->TreeNewHandle, TRUE);
-
-    PhCreateThreadEx(&Context->SearchThreadHandle, PvpSearchStringsThread, Context);
 }
 
 VOID PvpLoadSettingsStrings(
@@ -343,6 +395,7 @@ BOOLEAN PvpStringsTreeFilterCallback(
     return PvSearchControlMatch(context->SearchMatchHandle, &node->String->sr);
 }
 
+_Function_class_(PH_SEARCHCONTROL_CALLBACK)
 VOID NTAPI PvpStringsSearchControlCallback(
     _In_ ULONG_PTR MatchHandle,
     _In_opt_ PVOID Context
@@ -544,10 +597,6 @@ BOOLEAN NTAPI PvpStringsTreeNewCallback(
                     }
                 }
                 break;
-            case 'A':
-                if (GetKeyState(VK_CONTROL) < 0)
-                    TreeNew_SelectRange(context->TreeNewHandle, 0, -1);
-                break;
             }
         }
         return TRUE;
@@ -582,6 +631,70 @@ BOOLEAN NTAPI PvpStringsTreeNewCallback(
     return FALSE;
 }
 
+VOID PvpDeleteStringsTree(
+    _In_ PPV_STRINGS_CONTEXT Context
+    )
+{
+    Context->StopSearch = TRUE;
+    if (Context->SearchThreadHandle)
+    {
+        NtWaitForSingleObject(Context->SearchThreadHandle, FALSE, NULL);
+        NtClose(Context->SearchThreadHandle);
+        Context->SearchThreadHandle = NULL;
+    }
+    Context->StopSearch = FALSE;
+
+    PvpAddPendingStringsNodes(Context);
+
+    for (ULONG i = 0; i < Context->NodeList->Count; i++)
+    {
+        PPV_STRINGS_NODE node = (PPV_STRINGS_NODE)Context->NodeList->Items[i];
+
+        PhClearReference(&node->String);
+        PhFree(node);
+    }
+
+    for (ULONG i = 0; i < Context->RegionSkips->Count; i++)
+    {
+        PhFree(Context->RegionSkips->Items[i]);
+    }
+
+    PhClearReference(&Context->NodeList);
+    PhClearReference(&Context->SearchResults);
+    PhClearReference(&Context->RegionSkips);
+
+    Context->SearchResultsAddIndex = 0;
+    Context->StringsCount = 0;
+    Context->SkipCounter = 0;
+
+    PhRemoveTreeNewFilter(&Context->FilterSupport, Context->TreeFilterEntry);
+    PhDeleteTreeNewFilterSupport(&Context->FilterSupport);
+}
+
+VOID PvpSearchStrings(
+    _In_ PPV_STRINGS_CONTEXT Context
+    )
+{
+    TreeNew_SetRedraw(Context->TreeNewHandle, FALSE);
+
+    PvpDeleteStringsTree(Context);
+    Context->NodeList = PhCreateList(100);
+    Context->SearchResults = PhCreateList(100);
+
+    Context->ReadPointer = PvMappedImage.ViewBase;
+    Context->EndPointer = PTR_ADD_OFFSET(Context->ReadPointer, PvMappedImage.ViewSize);
+    Context->RegionSkips = PhCreateList(5);
+
+    TreeNew_SetEmptyText(Context->TreeNewHandle, &LoadingStringsText, 0);
+    TreeNew_NodesStructured(Context->TreeNewHandle);
+    TreeNew_SetRedraw(Context->TreeNewHandle, TRUE);
+
+    PhInitializeTreeNewFilterSupport(&Context->FilterSupport, Context->TreeNewHandle, Context->NodeList);
+    Context->TreeFilterEntry = PhAddTreeNewFilter(&Context->FilterSupport, PvpStringsTreeFilterCallback, Context);
+
+    PhCreateThreadEx(&Context->SearchThreadHandle, PvpSearchStringsThread, Context);
+}
+
 VOID PvpInitializeStringsTree(
     _In_ PPV_STRINGS_CONTEXT Context,
     _In_ HWND WindowHandle,
@@ -592,6 +705,7 @@ VOID PvpInitializeStringsTree(
     Context->TreeNewHandle = TreeNewHandle;
     Context->NodeList = PhCreateList(1);
     Context->SearchResults = PhCreateList(1);
+    Context->RegionSkips = PhCreateList(1);
 
     PhSetControlTheme(TreeNewHandle, L"explorer");
 
@@ -613,6 +727,7 @@ VOID PvpInitializeStringsTree(
     PvpLoadSettingsStrings(Context);
 
     PhInitializeTreeNewFilterSupport(&Context->FilterSupport, TreeNewHandle, Context->NodeList);
+    Context->TreeFilterEntry = PhAddTreeNewFilter(&Context->FilterSupport, PvpStringsTreeFilterCallback, Context);
 }
 
 INT_PTR CALLBACK PvpStringsMinimumLengthDlgProc(
@@ -620,7 +735,7 @@ INT_PTR CALLBACK PvpStringsMinimumLengthDlgProc(
     _In_ UINT uMsg,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
-)
+    )
 {
     PULONG length;
 
@@ -673,7 +788,7 @@ INT_PTR CALLBACK PvpStringsMinimumLengthDlgProc(
 
                     if (!minimumLength || minimumLength > MAXULONG32)
                     {
-                        PhShowError(hwndDlg, L"%s", L"Invalid minimum length");
+                        PhShowError2(hwndDlg, L"Invalid minimum length", L"%s", L"");
                         break;
                     }
 
@@ -698,7 +813,7 @@ INT_PTR CALLBACK PvpStringsMinimumLengthDlgProc(
 ULONG PvpStringsMinimumLengthDialog(
     _In_ HWND WindowHandle,
     _In_ ULONG CurrentMinimumLength
-)
+    )
 {
     ULONG length;
 
@@ -749,6 +864,7 @@ INT_PTR CALLBACK PvStringsDlgProc(
         {
             context->SearchHandle = GetDlgItem(hwndDlg, IDC_TREESEARCH);
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Strings (Ctrl+K)",
                 PvpStringsSearchControlCallback,
@@ -756,7 +872,6 @@ INT_PTR CALLBACK PvStringsDlgProc(
                 );
 
             PvpInitializeStringsTree(context, hwndDlg, GetDlgItem(hwndDlg, IDC_TREELIST));
-            PhAddTreeNewFilter(&context->FilterSupport, PvpStringsTreeFilterCallback, context);
             PvConfigTreeBorders(context->TreeNewHandle);
 
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
@@ -788,6 +903,11 @@ INT_PTR CALLBACK PvStringsDlgProc(
 
                 context->PropSheetContext->LayoutInitialized = TRUE;
             }
+        }
+        break;
+    case WM_DPICHANGED:
+        {
+            PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
         }
         break;
     case WM_SIZE:
@@ -876,6 +996,8 @@ INT_PTR CALLBACK PvStringsDlgProc(
                     PPH_EMENU_ITEM unicode;
                     PPH_EMENU_ITEM extendedUnicode;
                     PPH_EMENU_ITEM minimumLength;
+                    PPH_EMENU_ITEM skipExecutableSection;
+                    PPH_EMENU_ITEM skipHighEntropySections;
                     PPH_EMENU_ITEM refresh;
 
                     GetWindowRect(GetDlgItem(hwndDlg, IDC_SETTINGS), &rect);
@@ -883,13 +1005,17 @@ INT_PTR CALLBACK PvStringsDlgProc(
                     ansi = PhCreateEMenuItem(0, 1, L"ANSI", NULL, NULL);
                     unicode = PhCreateEMenuItem(0, 2, L"Unicode", NULL, NULL);
                     extendedUnicode = PhCreateEMenuItem(0, 3, L"Extended character set", NULL, NULL);
-                    minimumLength = PhCreateEMenuItem(0, 4, L"Minimum length...", NULL, NULL);
-                    refresh = PhCreateEMenuItem(0, 5, L"Refresh", NULL, NULL);
+                    skipExecutableSection = PhCreateEMenuItem(0, 4, L"Skip .text section", NULL, NULL);
+                    skipHighEntropySections = PhCreateEMenuItem(0, 5, L"Skip high entropy sections", NULL, NULL);
+                    minimumLength = PhCreateEMenuItem(0, 6, L"Minimum length...", NULL, NULL);
+                    refresh = PhCreateEMenuItem(0, 7, L"Refresh", NULL, NULL);
 
                     menu = PhCreateEMenu();
                     PhInsertEMenuItem(menu, ansi, ULONG_MAX);
                     PhInsertEMenuItem(menu, unicode, ULONG_MAX);
                     PhInsertEMenuItem(menu, extendedUnicode, ULONG_MAX);
+                    PhInsertEMenuItem(menu, skipExecutableSection, ULONG_MAX);
+                    PhInsertEMenuItem(menu, skipHighEntropySections, ULONG_MAX);
                     PhInsertEMenuItem(menu, PhCreateEMenuSeparator(), ULONG_MAX);
                     PhInsertEMenuItem(menu, minimumLength, ULONG_MAX);
                     PhInsertEMenuItem(menu, PhCreateEMenuSeparator(), ULONG_MAX);
@@ -901,6 +1027,10 @@ INT_PTR CALLBACK PvStringsDlgProc(
                         unicode->Flags |= PH_EMENU_CHECKED;
                     if (context->Settings.ExtendedCharSet)
                         extendedUnicode->Flags |= PH_EMENU_CHECKED;
+                    if (context->Settings.SkipTextSection)
+                        skipExecutableSection->Flags |= PH_EMENU_CHECKED;
+                    if (context->Settings.SkipHighEntropySections)
+                        skipHighEntropySections->Flags |= PH_EMENU_CHECKED;
 
                     selectedItem = PhShowEMenu(
                         menu,
@@ -931,6 +1061,18 @@ INT_PTR CALLBACK PvStringsDlgProc(
                             PvpSaveSettingsStrings(context);
                             PvpSearchStrings(context);
                         }
+                        else if (selectedItem == skipExecutableSection)
+                        {
+                            context->Settings.SkipTextSection = !context->Settings.SkipTextSection;
+                            PvpSaveSettingsStrings(context);
+                            PvpSearchStrings(context);
+                        }
+                        else if (selectedItem == skipHighEntropySections)
+                        {
+                            context->Settings.SkipHighEntropySections = !context->Settings.SkipHighEntropySections;
+                            PvpSaveSettingsStrings(context);
+                            PvpSearchStrings(context);
+                        }
                         else if (selectedItem == minimumLength)
                         {
                             ULONG length = PvpStringsMinimumLengthDialog(hwndDlg, context->Settings.MinimumLength);
@@ -952,6 +1094,7 @@ INT_PTR CALLBACK PvStringsDlgProc(
                 break;
             }
         }
+        break;
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORDLG:
     case WM_CTLCOLORSTATIC:
@@ -960,7 +1103,16 @@ INT_PTR CALLBACK PvStringsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }

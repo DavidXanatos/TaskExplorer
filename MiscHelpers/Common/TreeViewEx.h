@@ -83,36 +83,51 @@ public:
 
 	bool IsColumnEnabled(int column)
 	{
-		return m_Columns.contains(column);
+		return !m_ColumnsOff.contains(column);
 	}
 
 	void SetColumnEnabled(int column, bool set)
 	{
 		if (!set)
-			m_Columns.remove(column);
+			m_ColumnsOff.insert(column);
 		else
-			m_Columns.insert(column);
+			m_ColumnsOff.remove(column);
 	}
 
 protected:
 
-	QSet<int>				m_Columns;
+	QSet<int>				m_ColumnsOff;
 };
 
-class MISCHELPERS_EXPORT QTreeViewEx: public QTreeView
+class MISCHELPERS_EXPORT QTreeViewEx : public QTreeView
 {
 	Q_OBJECT
 public:
-	QTreeViewEx(QWidget *parent = 0) : QTreeView(parent) 
+	QTreeViewEx(QWidget* parent = 0) : QTreeView(parent)
 	{
 		setUniformRowHeights(true);
 
 		m_ColumnReset = 1;
 
 		header()->setContextMenuPolicy(Qt::CustomContextMenu);
-		connect(header(), SIGNAL(customContextMenuRequested( const QPoint& )), this, SLOT(OnMenuRequested(const QPoint &)));
+		connect(header(), SIGNAL(customContextMenuRequested(const QPoint&)), this, SLOT(OnMenuRequested(const QPoint&)));
 
 		m_pMenu = new QMenu(this);
+
+		m_SelectionPending = false;
+	}
+
+	virtual void setSelectionModel(QItemSelectionModel* selectionModel)
+	{
+		disconnect(this, SLOT(OnCurrentChanged(QModelIndex, QModelIndex)));
+		disconnect(this, SLOT(OnSelectionChanged(QItemSelection, QItemSelection)));
+
+		if (selectionModel) {
+			connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this, SLOT(OnCurrentChanged(QModelIndex, QModelIndex)));
+			connect(selectionModel, SIGNAL(selectionChanged(QItemSelection, QItemSelection)), SLOT(OnSelectionChanged(QItemSelection, QItemSelection)));
+		}
+
+		QTreeView::setSelectionModel(selectionModel);
 	}
 
 	void setColumnReset(int iMode)
@@ -120,7 +135,7 @@ public:
 		m_ColumnReset = iMode;
 	}
 
-	void setColumnFixed(int column, bool fixed) 
+	void setColumnFixed(int column, bool fixed)
 	{
 		if (fixed)
 			m_FixedColumns.insert(column);
@@ -147,7 +162,7 @@ public:
 		}
 
 		QModelIndexList IndexList;
-		foreach(const QModelIndex& Index, selectedIndexes())
+		foreach(const QModelIndex & Index, selectedIndexes())
 		{
 			if (Index.column() == Column)
 				IndexList.append(Index);
@@ -158,9 +173,9 @@ public:
 	template<class T>
 	void StartUpdatingWidgets(T& OldMap, T& Map)
 	{
-		for(typename T::iterator I = Map.begin(); I != Map.end();)
+		for (typename T::iterator I = Map.begin(); I != Map.end();)
 		{
-			if(I.value().first == NULL)
+			if (I.value().first == NULL)
 				I = Map.erase(I);
 			else
 			{
@@ -173,18 +188,18 @@ public:
 	template<class T>
 	void EndUpdatingWidgets(T& OldMap, T& Map)
 	{
-		for(typename T::iterator I = OldMap.begin(); I != OldMap.end(); I++)
+		for (typename T::iterator I = OldMap.begin(); I != OldMap.end(); I++)
 		{
 			Map.remove(I.key());
-			if(I.value().second.isValid())
+			if (I.value().second.isValid())
 				setIndexWidget(I.value().second, NULL);
 		}
 	}
 
-	bool restoreState(const QByteArray &state)
+	bool restoreState(const QByteArray& state)
 	{
 		bool bRet = header()->restoreState(state);
-		
+
 		SyncColumnsWithModel();
 
 		return bRet;
@@ -201,7 +216,7 @@ public:
 		if (!pModel)
 		{
 			QSortFilterProxyModel* pProxyModel = qobject_cast<QSortFilterProxyModel*>(model());
-			if(pProxyModel)
+			if (pProxyModel)
 				pModel = qobject_cast<QAbstractItemModelEx*>(pProxyModel->sourceModel());
 		}
 		return pModel;
@@ -214,7 +229,7 @@ public:
 
 		setColumnHidden(column, hide);
 
-		if(QAbstractItemModelEx* pModel = modelEx())
+		if (QAbstractItemModelEx* pModel = modelEx())
 			pModel->SetColumnEnabled(column, !hide);
 
 		if (fixed)
@@ -229,10 +244,12 @@ signals:
 	void ColumnChanged(int column, bool visible);
 	void ResetColumns();
 
+	void SelectionChanged(const QModelIndexList& Selection);
+
 public slots:
 	void SyncColumnsWithModel()
 	{
-		if(QAbstractItemModelEx* pModel = modelEx())
+		if (QAbstractItemModelEx* pModel = modelEx())
 		{
 			for (int i = 0; i < pModel->columnCount(); i++)
 				pModel->SetColumnEnabled(i, !isColumnHidden(i));
@@ -249,16 +266,16 @@ public slots:
 	}
 
 private slots:
-	void OnMenuRequested(const QPoint &point)
+	void OnMenuRequested(const QPoint& point)
 	{
 		QAbstractItemModel* pModel = model();
 
-		if(m_Columns.isEmpty())
+		if (m_pMenu->actions().isEmpty())
 		{
-			for(int i=0; i < pModel->columnCount(); i++)
+			for (int i = 0; i < pModel->columnCount(); i++)
 			{
 				QString Label = pModel->headerData(i, Qt::Horizontal, Qt::DisplayRole).toString();
-				if(Label.isEmpty() || m_FixedColumns.contains(i))
+				if (Label.isEmpty() || m_FixedColumns.contains(i))
 					continue;
 				QAction* pAction = new QAction(Label, m_pMenu);
 				pAction->setCheckable(true);
@@ -272,17 +289,17 @@ private slots:
 			{
 				m_pMenu->addSeparator();
 				QAction* pAction = m_pMenu->addAction(m_ResetColumns);
-				if(m_ColumnReset == 1)
+				if (m_ColumnReset == 1)
 					connect(pAction, SIGNAL(triggered()), this, SLOT(OnResetColumns()));
 				else
 					connect(pAction, SIGNAL(triggered()), this, SIGNAL(ResetColumns()));
 			}
 		}
 
-		for(QMap<QAction*, int>::iterator I = m_Columns.begin(); I != m_Columns.end(); I++)
+		for (QMap<QAction*, int>::iterator I = m_Columns.begin(); I != m_Columns.end(); I++)
 			I.key()->setChecked(!isColumnHidden(I.value()));
 
-		m_pMenu->popup(QCursor::pos());	
+		m_pMenu->popup(QCursor::pos());
 	}
 
 	void OnMenu()
@@ -292,11 +309,26 @@ private slots:
 		SetColumnHidden(Column, !pAction->isChecked());
 	}
 
+	void EmitSelectionChanged() { emit SelectionChanged(selectedRows()); m_SelectionPending = false; }
+
+	void OnCurrentChanged(const QModelIndex& current, const QModelIndex& previous) { ScheduleSelectionChanged(); }
+	void OnSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected) { if (!selected.isEmpty()) ScheduleSelectionChanged(); }
+
 protected:
+
+	void ScheduleSelectionChanged()
+	{
+		if (!m_SelectionPending) {
+			m_SelectionPending = true;
+			QTimer::singleShot(100, this, SLOT(EmitSelectionChanged()));
+		}
+	}
+
 	QMenu*				m_pMenu;
 	QMap<QAction*, int>	m_Columns;
 	QSet<int>			m_FixedColumns;
 	int					m_ColumnReset;
+	bool				m_SelectionPending;
 };
 
 class MISCHELPERS_EXPORT QStyledItemDelegateMaxH : public QStyledItemDelegate

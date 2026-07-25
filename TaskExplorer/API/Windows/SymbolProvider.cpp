@@ -48,6 +48,10 @@ struct SSymbolProvider
 			PhDereferenceObject(SymbolProvider);
 			SymbolProvider = NULL;
 		}
+		if (ThreadHandle) {
+			NtClose(ThreadHandle);
+			ThreadHandle = NULL;
+		}
 	}
 
 	HANDLE ProcessId;
@@ -247,7 +251,7 @@ BOOLEAN __stdcall LoadSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Mod
     }
 
     PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
-    PhLoadModuleSymbolProvider(symbolProvider, Name, (ULONG64)Module->BaseAddress, Module->Size);
+    PhLoadModuleSymbolProvider(symbolProvider, Name, Module->BaseAddress, Module->Size);
     PhDereferenceObject(Name);
 
     return TRUE;
@@ -266,7 +270,7 @@ BOOLEAN LoadBasicSymbolsEnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, 
         PhEqualString2(Module->Name, L"kernel32.dll", TRUE))
     {
         PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
-        PhLoadModuleSymbolProvider(symbolProvider, Name, (ULONG64)Module->BaseAddress, Module->Size);
+        PhLoadModuleSymbolProvider(symbolProvider, Name, Module->BaseAddress, Module->Size);
         PhDereferenceObject(Name);
     }
 
@@ -314,7 +318,7 @@ VOID PhLoadSymbolsThreadProvider(SSymbolProvider* m)
             if (kernelModules->NumberOfModules > 0)
             {
                 PPH_STRING fileName = PhConvertMultiByteToUtf16((PSTR)kernelModules->Modules[0].FullPathName);
-                PhLoadModuleSymbolProvider(m->SymbolProvider, fileName, (ULONG64)kernelModules->Modules[0].ImageBase, kernelModules->Modules[0].ImageSize);
+                PhLoadModuleSymbolProvider(m->SymbolProvider, fileName, kernelModules->Modules[0].ImageBase, kernelModules->Modules[0].ImageSize);
                 PhDereferenceObject(fileName);
             }
 
@@ -399,13 +403,13 @@ void CSymbolProviderJob::Run(struct SSymbolProvider* m)
 	PH_SYMBOL_RESOLVE_LEVEL StartAddressResolveLevel = PhsrlAddress;
 	PPH_STRING fileName = NULL;
 	PPH_STRING symbolName = NULL;
-	PPH_STRING AddressString = PhGetSymbolFromAddress(m->SymbolProvider, m_Address, &StartAddressResolveLevel, &fileName, &symbolName, NULL);
+	PPH_STRING AddressString = PhGetSymbolFromAddress(m->SymbolProvider, (PVOID)m_Address, &StartAddressResolveLevel, &fileName, &symbolName, NULL);
 
 	if (StartAddressResolveLevel == PhsrlAddress /*&& data->ThreadProvider->SymbolsLoadedRunId < data->RunId*/)
 	{
 		// The process may have loaded new modules, so load symbols for those and try again.
 		PhLoadSymbolsThreadProvider(m);
-		AddressString = PhGetSymbolFromAddress(m->SymbolProvider, m_Address, &StartAddressResolveLevel, &fileName, &symbolName, NULL);
+		AddressString = PhGetSymbolFromAddress(m->SymbolProvider, (PVOID)m_Address, &StartAddressResolveLevel, &fileName, &symbolName, NULL);
 	}
 
 	emit SymbolFromAddress(m_ProcessId, m_Address, (int)StartAddressResolveLevel, CastPhString(AddressString), CastPhString(fileName), CastPhString(symbolName));
@@ -434,37 +438,47 @@ BOOLEAN NTAPI PhpWalkThreadStackCallback(_In_ PPH_THREAD_STACK_FRAME StackFrame,
 void CStackProviderJob::Run(struct SSymbolProvider* m)
 {
 	this->m = m;
+	if (m->ThreadId != (HANDLE)m_ThreadId)
+	{
+		if (m->ThreadHandle) {
+			NtClose(m->ThreadHandle);
+			m->ThreadHandle = NULL;
+		}
+	}
 	m->ThreadId = (HANDLE)m_ThreadId;
 
 	m_StackTrace = CStackTracePtr(new CStackTrace(m_ProcessId, m_ThreadId));
 
-	NTSTATUS status;
+	NTSTATUS status = STATUS_SUCCESS;
 	CLIENT_ID clientId;
 
     clientId.UniqueProcess = (HANDLE)m_ProcessId;
     clientId.UniqueThread = (HANDLE)m_ThreadId;
 
+	if (!m->ThreadHandle)
+	{
 	// case PluginThreadStackInitializing:
-#ifdef WIN64
-    HANDLE processHandle;
+#ifdef _WIN64
+		HANDLE processHandle;
 
-    if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, clientId.UniqueProcess)))
-    {
-        PhGetProcessIsWow64(processHandle, &m->IsWow64);
-        NtClose(processHandle);
-    }
+		if (NT_SUCCESS(PhOpenProcess(&processHandle, PROCESS_QUERY_LIMITED_INFORMATION, clientId.UniqueProcess)))
+		{
+			PhGetProcessIsWow64(processHandle, &m->IsWow64);
+			NtClose(processHandle);
+		}
 #endif
 	//
 
-	PhLoadSymbolsThreadProvider(m);
+		PhLoadSymbolsThreadProvider(m);
 
-	if (!NT_SUCCESS(status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, (HANDLE)m_ThreadId)))
-    {
-        if (KphCommsIsConnected())
-        {
-            status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)m_ThreadId);
-        }
-    }
+		if (!NT_SUCCESS(status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, (HANDLE)m_ThreadId)))
+		{
+			if (KphCommsIsConnected())
+			{
+				status = PhOpenThread(&m->ThreadHandle, THREAD_QUERY_LIMITED_INFORMATION, (HANDLE)m_ThreadId);
+			}
+		}
+	}
 
 	//case PluginThreadStackBeginDefaultWalkStack:
 	if (theConf->GetBool("Options/DbgTraceDotNet", true))
@@ -474,7 +488,7 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
 		{
 			m->Support = (PCLR_PROCESS_SUPPORT)CreateClrProcessSupport(clientId.UniqueProcess);
 
-#ifdef WIN64
+#ifdef _WIN64
 			if (m->IsWow64)
 				m->SocketName = CTaskService::RunWorker(false, true);
 #endif
@@ -495,7 +509,7 @@ void CStackProviderJob::Run(struct SSymbolProvider* m)
         m->Support = NULL;
     }
 
-#ifdef WIN64
+#ifdef _WIN64
     //if (!m->SocketName.isEmpty())
     //	CTaskService::TerminateService(m->SocketName);
 #endif
@@ -660,7 +674,7 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 
     // PhFormatString(L"Processing stack frame %u...", threadStackContext->NewList->Count)
 
-    PPH_STRING symbol = PhGetSymbolFromAddress(m->SymbolProvider, (ULONG64)StackFrame->PcAddress, NULL, NULL, NULL, NULL);
+    PPH_STRING symbol = PhGetSymbolFromAddress(m->SymbolProvider, StackFrame->PcAddress, NULL, NULL, NULL, NULL);
     //PPH_STRING fileName = NULL;
     //ULONG64 moduleBaseAddress = 0;
     //PPH_STRING symbol = PhGetSymbolFromInlineContext(m->SymbolProvider, StackFrame, NULL, &fileName, NULL, NULL, &moduleBaseAddress);
@@ -679,7 +693,7 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 
     if (m->Support)
     {
-#ifndef WIN64
+#ifndef _WIN64
         PVOID predictedEip = m->PredictedEip;
         PVOID predictedEbp = m->PredictedEbp;
         PVOID predictedEsp = m->PredictedEsp;
@@ -734,7 +748,7 @@ void CStackProviderJob::OnCallBack(struct _PH_THREAD_STACK_FRAME* StackFrame)
 
     PPH_STRING lineFileName;
     PH_SYMBOL_LINE_INFORMATION lineInfo;
-	if(PhGetLineFromAddress(m->SymbolProvider, (ULONG64)StackFrame->PcAddress, &lineFileName, NULL, &lineInfo))
+	if(PhGetLineFromAddress(m->SymbolProvider, StackFrame->PcAddress, &lineFileName, NULL, &lineInfo))
 	{
 		FileInfo = tr("File: %1: line %2").arg(CastPhString(lineFileName)).arg(lineInfo.LineNumber);
 	}

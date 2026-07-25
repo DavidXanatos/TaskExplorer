@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "StackTrace.h"
 
-int _CStackTracePtr_type = qRegisterMetaType<CStackTracePtr>("CStackTracePtr");
-
 CStackTrace::CStackTrace(quint64 ProcessId, quint64 ThreadId)
 {
 	m_ProcessId = ProcessId;

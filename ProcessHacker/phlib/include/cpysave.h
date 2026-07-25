@@ -36,8 +36,11 @@ PPH_LIST PhaFormatTextTable(
     _In_ ULONG Mode
     );
 
+_Success_(return)
 PHLIBAPI
-VOID PhMapDisplayIndexTreeNew(
+BOOLEAN
+NTAPI
+PhMapDisplayIndexTreeNew(
     _In_ HWND TreeNewHandle,
     _Out_opt_ PULONG *DisplayToId,
     _Out_opt_ PWSTR **DisplayToText,
@@ -56,8 +59,11 @@ PPH_LIST PhGetGenericTreeNewLines(
     _In_ ULONG Mode
     );
 
+_Success_(return)
 PHLIBAPI
-VOID PhaMapDisplayIndexListView(
+BOOLEAN
+NTAPI
+PhaMapDisplayIndexListView(
     _In_ HWND ListViewHandle,
     _Out_writes_(Count) PULONG DisplayToId,
     _Out_writes_opt_(Count) PPH_STRING *DisplayToText,
@@ -70,8 +76,8 @@ PPH_STRING
 NTAPI
 PhGetListViewItemText(
     _In_ HWND ListViewHandle,
-    _In_ INT Index,
-    _In_ INT SubItemIndex
+    _In_ LONG Index,
+    _In_ LONG SubItemIndex
     );
 
 PHLIBAPI
@@ -86,12 +92,14 @@ PPH_STRING
 NTAPI
 PhaGetListViewItemText(
     _In_ HWND ListViewHandle,
-    _In_ INT Index,
-    _In_ INT SubItemIndex
+    _In_ LONG Index,
+    _In_ LONG SubItemIndex
     );
 
 PHLIBAPI
-PPH_STRING PhGetListViewText(
+PPH_STRING
+NTAPI
+PhGetListViewText(
     _In_ HWND ListViewHandle
     );
 

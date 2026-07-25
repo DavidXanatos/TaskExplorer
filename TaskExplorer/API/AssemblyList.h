@@ -8,14 +8,14 @@ public:
 
 	void Clear()							{ m_Assemblies.clear(); }
 
-	void AddAssembly(quint64 ID, quint64 ParrentID, QString Structure, QString FileName, QString Flags, QString NativePath);
+	void AddAssembly(quint64 ID, quint64 ParentID, QString Structure, QString FileName, QString Flags, QString NativePath);
 
 	int	GetCount() const					{ return m_Assemblies.count(); }
 
 	struct SAssembly
 	{
 		quint64 ID;
-		quint64 ParrentID;
+		quint64 ParentID;
 
 		QString Structure;
 		QString FileName;

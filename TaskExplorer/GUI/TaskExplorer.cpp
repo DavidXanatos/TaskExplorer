@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
+#include "Version.h"
 #ifdef WIN32
 #include "../API/Windows/WindowsAPI.h"
+#include "../API/Windows/ProcessHacker.h"
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "SecurityExplorer.h"
 #include "DriverWindow.h"
@@ -27,6 +29,11 @@ extern "C" {
 #include "MultiErrorDialog.h"
 #include "PersistenceConfig.h"
 #include "Filters/ProcessFilterModel.h"
+#include "../../MiscHelpers/Archive/Archive.h"
+#include "../../MiscHelpers/Archive/ArchiveFS.h"
+#include "TaskInfo/TaskInfoWindow.h"
+#include "OnlineUpdater.h"
+#include "API\AssemblyList.h"
 
 
 QIcon g_ExeIcon;
@@ -93,14 +100,21 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 {
 	theGUI = this;
 
-	//QApplication::setStyle(QStyleFactory::create("Fusion"));
+	qRegisterMetaType<CAssemblyListPtr>("CAssemblyListPtr");
+	qRegisterMetaType<QList<QSharedPointer<QObject>>>("QList<QSharedPointer<QObject>>");
+	qRegisterMetaType<CStackTracePtr>("CStackTracePtr");
+	qRegisterMetaType<QHostAddress>("QHostAddress");
+	qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
+	qRegisterMetaType<QSet<QString>>("QSet<QString>");
+	qRegisterMetaType<QMap<QVariant, QVariantMap>>("QMap<QVariant, QVariantMap>");
 
-	m_DefaultStyle = QApplication::style()->objectName();
-	m_DefaultPalett = QApplication::palette();
+	m_DefaultFontSize = QApplication::font().pointSizeF();
 
 	LoadLanguage();
-	if(theConf->GetBool("MainWindow/DarkTheme", false))
-		SetDarkTheme(true);
+
+	CFinder::m_CaseInsensitiveIcon = QIcon(":/Actions/CaseSensitive");
+	CFinder::m_RegExpStrIcon = QIcon(":/Actions/RegExp");
+	CFinder::m_HighlightIcon = QIcon(":/Actions/Highlight");
 
 	CSystemAPI::InitAPI();
 
@@ -108,7 +122,20 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 #ifdef WIN32
 	if (KphCommsIsConnected())
-		appTitle.append(tr(" - [root]"));
+	{
+		QString sLevel;
+		KPH_LEVEL level = KphLevelEx(FALSE);
+		switch (level)
+		{
+			case KphLevelNone: sLevel = tr("---"); break;
+			case KphLevelMin: sLevel =	tr("--"); break;
+			case KphLevelLow: sLevel =	tr("-"); break;
+			case KphLevelMed: sLevel =	tr("~"); break;
+			case KphLevelHigh: sLevel = tr("+"); break;
+			case KphLevelMax: sLevel =	tr("++"); break;
+		}
+		appTitle.append(tr(" - [%1KTE%2]").arg(g_KsiDynDataLoaded ? "" : tr("Limited ")).arg(sLevel));
+	}
 #endif
 
 	if (theAPI->RootAvaiable())
@@ -130,8 +157,14 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	// a shared item deleagate for all lists
 	m_pCustomItemDelegate = new CCustomItemDelegate(GetCellHeight() + 1, this);
 
+	// Initialize progress dialog for async operations
+
 	LoadDefaultIcons();
 	InitColors();
+
+	m_pGraphBar = NULL;
+
+	SetUITheme();
 
 	m_pMainWidget = new QWidget();
 	m_pMainLayout = new QVBoxLayout(m_pMainWidget);
@@ -150,6 +183,7 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	m_pGraphSplitter->setStretchFactor(0, 0);
 	m_pGraphSplitter->setSizes(QList<int>() << 80); // default size of 80
 	connect(m_pGraphBar, SIGNAL(Resized(int)), this, SLOT(OnGraphsResized(int)));
+	m_pGraphBar->SetDarkMode(m_CustomTheme.IsDarkTheme());
 
 	m_pMainSplitter = new QSplitter();
 	m_pMainSplitter->setOrientation(Qt::Horizontal);
@@ -200,6 +234,8 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuProcess->addSeparator();
 		m_pMenuComputer = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Computer"), tr("Computer"));
 		m_pMenuUsers = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Users"), tr("Users"));
+		m_pMenuProcess->addSeparator();
+		m_pMenuFindWnd = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/Finder"), tr("Window Finder"), this, SLOT(OnWndFinder()));
 		m_pMenuProcess->addSeparator();
 		m_pMenuElevate = m_pMenuProcess->addAction(MakeActionIcon(":/Icons/Shield.png"), tr("Restart Elevated"), this, SLOT(OnElevate()));
 		m_pMenuElevate->setVisible(!theAPI->RootAvaiable());
@@ -292,7 +328,12 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuSettings = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Settings"), tr("Settings"), this, SLOT(OnSettings()));
 #ifdef WIN32
 		m_pMenuDriverConf = m_pMenuOptions->addAction(MakeActionIcon(":/Actions/Driver"), tr("Driver Options"), this, SLOT(OnDriverConf()));
-		m_pMenuDriverConf->setEnabled(!PhIsExecutingInWow64());
+		m_pMenuDriverConf->setEnabled(theAPI->RootAvaiable());
+
+		//m_pMenuUseDriver = m_pMenuOptions->addAction(tr("Use KSystemInformer"), this, SLOT(OnUseDriver()));
+		//m_pMenuUseDriver->setEnabled(theAPI->RootAvaiable());
+		//m_pMenuUseDriver->setCheckable(true);
+		//m_pMenuUseDriver->setChecked(theConf->GetBool("OptionsKSI/KsiEnable", true));
 
         m_pMenuOptions->addSeparator();
         m_pMenuAutoRun = m_pMenuOptions->addAction(tr("Auto Run"), this, SLOT(OnAutoRun()));
@@ -363,13 +404,15 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 #endif
 
 	m_pMenuHelp = menuBar()->addMenu(tr("&Help"));
-		m_pMenuSupport = m_pMenuHelp->addAction(tr("Support TaskExplorer on Patreon"), this, SLOT(OnAbout()));
+		m_pMenuSupport = m_pMenuHelp->addAction(MakeActionIcon(":/Actions/Support"), tr("Support TaskExplorer on Patreon"), this, SLOT(OnHelp()));
+		m_pMenuForum = m_pMenuHelp->addAction(MakeActionIcon(":/Actions/Forum"), tr("Visit Support Forum"), this, SLOT(OnHelp()));
+		m_pMenuHelp->addSeparator();
+		m_pMenuCheckUpdates = m_pMenuHelp->addAction(MakeActionIcon(":/Actions/Refresh"), tr("Check for Updates"), this, SLOT(OnCheckForUpdates()));
 		m_pMenuHelp->addSeparator();
 #ifdef WIN32
 		m_pMenuAboutPH = m_pMenuHelp->addAction(tr("About ProcessHacker Library"), this, SLOT(OnAbout()));
 #endif
 		m_pMenuAboutQt = m_pMenuHelp->addAction(tr("About the Qt Framework"), this, SLOT(OnAbout()));
-		//m_pMenuHelp->addSeparator();
 		m_pMenuAbout = m_pMenuHelp->addAction(QIcon(":/TaskExplorer.png"), tr("About TaskExplorer"), this, SLOT(OnAbout()));
 
 	m_pToolBar = new QToolBar();
@@ -507,10 +550,10 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 
 	m_pToolBar->addSeparator();
 	m_pToolBar->addWidget(new QLabel("        "));
-	QLabel* pSupport = new QLabel("<a href=\"https://www.patreon.com/DavidXanatos\">Support TaskExplorer on Patreon</a>");
-	pSupport->setTextInteractionFlags(Qt::TextBrowserInteraction);
-	connect(pSupport, SIGNAL(linkActivated(const QString&)), this, SLOT(OnAbout()));
-	m_pToolBar->addWidget(pSupport);
+	m_pUpdateLabel = new QLabel("<a href=\"https://xanasoft.com/go.php?to=patreon\">Support TaskExplorer on Patreon</a>");
+	m_pUpdateLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
+	connect(m_pUpdateLabel, SIGNAL(linkActivated(const QString&)), this, SLOT(OnHelp()));
+	m_pToolBar->addWidget(m_pUpdateLabel);
 	m_pToolBar->addWidget(new QLabel("        "));
 
 	
@@ -569,26 +612,31 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 	{
 		statusBar()->showMessage(tr("TaskExplorer with kernel driver is ready..."), 30000);
 	}
-	else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
-	{
-		QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
-			"Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features."
-		).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
+	//else if (((CWindowsAPI*)theAPI)->HasDriverFailed() && theAPI->RootAvaiable())
+	//{
+	//	QString Message = tr("Failed to load %1 driver, this could have various causes.\r\n"
+	//		"Currently the driver is not signed, pelase enable test signing (bcdedit /set testsigning on) to use kernel features."
+	//	).arg(((CWindowsAPI*)theAPI)->GetDriverFileName());
 
-		bool State = false;
-		CCheckableMessageBox::question(this, "TaskExplorer", Message
-			, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
+	//	bool State = false;
+	//	CCheckableMessageBox::question(this, "TaskExplorer", Message
+	//		, tr("Don't use the driver. WARNING: this will limit the aplications functionality!"), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
 
-		if (State)
-			theConf->SetValue("Options/UseDriver", false);
+	//	if (State)
+	//		theConf->SetValue("Options/UseDriver", false);
 
-		statusBar()->showMessage(tr("TaskExplorer failed to load driver %1").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 180000);
-	}
+	//	statusBar()->showMessage(tr("TaskExplorer failed to load driver %1").arg(((CWindowsAPI*)theAPI)->GetDriverFileName()), 180000);
+	//}
 	else
 #endif
 		statusBar()->showMessage(tr("TaskExplorer is ready..."), 30000);
 
 	ApplyOptions();
+
+	// Initialize Online Updater
+	m_pUpdater = new COnlineUpdater(this);
+	connect(m_pUpdater, SIGNAL(StateChanged()), this, SLOT(UpdateLabel()));
+	UpdateLabel(); // Initial label update
 
 	m_LastTimer = 0;
 	//m_uTimerCounter = 0;
@@ -613,39 +661,30 @@ CTaskExplorer::~CTaskExplorer()
 	theGUI = NULL;
 }
 
-void CTaskExplorer::SetDarkTheme(bool bDark)
+void CTaskExplorer::SetUITheme()
 {
-	if (bDark)
-	{
-		QApplication::setStyle(QStyleFactory::create("Fusion"));
-		QPalette palette;
-		palette.setColor(QPalette::Window, QColor(53, 53, 53));
-		palette.setColor(QPalette::WindowText, Qt::white);
-		palette.setColor(QPalette::Base, QColor(25, 25, 25));
-		palette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
-		palette.setColor(QPalette::ToolTipBase, Qt::white);
-		palette.setColor(QPalette::ToolTipText, Qt::white);
-		palette.setColor(QPalette::Text, Qt::white);
-		palette.setColor(QPalette::Button, QColor(53, 53, 53));
-		palette.setColor(QPalette::ButtonText, Qt::white);
-		palette.setColor(QPalette::BrightText, Qt::red);
-		palette.setColor(QPalette::Link, QColor(218, 130, 42));
-		palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
-		palette.setColor(QPalette::HighlightedText, Qt::black);
-		palette.setColor(QPalette::Disabled, QPalette::WindowText, Qt::darkGray);
-		palette.setColor(QPalette::Disabled, QPalette::Text, Qt::darkGray);
-		palette.setColor(QPalette::Disabled, QPalette::Light, Qt::black);
-		palette.setColor(QPalette::Disabled, QPalette::ButtonText, Qt::darkGray);
-		QApplication::setPalette(palette);
-	}
-	else
-	{
-		QApplication::setStyle(QStyleFactory::create(m_DefaultStyle));
-		QApplication::setPalette(m_DefaultPalett);
-	}
+	int iDark = theConf->GetInt("MainWindow/DarkTheme", 2);
+	int iFusion = theConf->GetInt("MainWindow/UseFusionTheme", 2);
+	bool bDark = iDark == 2 ? m_CustomTheme.IsSystemDark() : (iDark == 1);
+	m_CustomTheme.SetUITheme(bDark, iFusion);
+	//CPopUpWindow::SetDarkMode(bDark);
 
+	if(m_pGraphBar)
+		m_pGraphBar->SetDarkMode(bDark);
 	CTreeItemModel::SetDarkMode(bDark);
 	CListItemModel::SetDarkMode(bDark);
+
+	QFont font = QApplication::font();
+	QString customFontStr = theConf->GetString("Options/UIFont", "");
+	if (customFontStr != "") {
+		font.setFamily(customFontStr);
+		QApplication::setFont(font);
+	}
+	double newFontSize = m_DefaultFontSize * theConf->GetInt("Options/FontScaling", 100) / 100.0;
+	if (newFontSize != font.pointSizeF()) {
+		font.setPointSizeF(newFontSize);
+		QApplication::setFont(font);
+	}
 }
 
 void CTaskExplorer::OnGraphsResized(int Size)
@@ -714,10 +753,110 @@ void CTaskExplorer::closeEvent(QCloseEvent *e)
 	QApplication::quit();
 }
 
+#ifdef _DEBUG
+size_t getHeapUsage() 
+{
+	_HEAPINFO heapInfo;
+	heapInfo._pentry = nullptr;
+	size_t usedMemory = 0;
+
+	while (_heapwalk(&heapInfo) == _HEAPOK) {
+		if (heapInfo._useflag == _USEDENTRY) {
+			usedMemory += heapInfo._size;
+		}
+	}
+
+	return usedMemory;
+}
+
+FORCEINLINE ULONG PhpGetObjectTypeObjectCount(
+	_In_ PPH_OBJECT_TYPE ObjectType
+)
+{
+	PH_OBJECT_TYPE_INFORMATION info;
+
+	memset(&info, 0, sizeof(PH_OBJECT_TYPE_INFORMATION));
+	if (ObjectType) PhGetObjectTypeInformation(ObjectType, &info);
+
+	return info.NumberOfObjects;
+}
+
+#endif
+
 void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 {
 	if (pEvent->timerId() != m_uTimerID)
 		return;
+
+#ifdef _DEBUG
+	static quint64 LastObjectDump = GetTickCount64();
+	if (LastObjectDump + 6 * 1000 < GetTickCount64()) 
+	{
+		LastObjectDump = GetTickCount64();
+		ObjectTrackerBase::PrintCounts();
+
+
+		//size_t memoryUsed = getHeapUsage();
+		//DbgPrint("USED MEMORY: %llu bytes\n", memoryUsed);
+
+
+
+		PH_STRING_BUILDER stringBuilder;
+		PhInitializeStringBuilder(&stringBuilder, 50);
+		PhAppendStringBuilder2(&stringBuilder, L"OBJECT INFORMATION\r\n");
+
+#define OBJECT_TYPE_COUNT(Type) PhAppendFormatStringBuilder(&stringBuilder, \
+    TEXT(#Type) L": %lu objects\r\n", PhpGetObjectTypeObjectCount(Type))
+
+		// ref
+		OBJECT_TYPE_COUNT(PhObjectTypeObject);
+
+		// basesup
+		OBJECT_TYPE_COUNT(PhStringType);
+		OBJECT_TYPE_COUNT(PhBytesType);
+		OBJECT_TYPE_COUNT(PhListType);
+		OBJECT_TYPE_COUNT(PhPointerListType);
+		OBJECT_TYPE_COUNT(PhHashtableType);
+		OBJECT_TYPE_COUNT(PhFileStreamType);
+
+		// ph
+		OBJECT_TYPE_COUNT(PhSymbolProviderType);
+
+#ifdef DEBUG
+		PhAppendStringBuilder2(&stringBuilder, L"STATISTIC INFORMATION\r\n");
+
+#define PRINT_STATISTIC(Name) PhAppendFormatStringBuilder(&stringBuilder, \
+    TEXT(#Name) L": %u\r\n", PhLibStatisticsBlock.Name)
+
+		PRINT_STATISTIC(BaseThreadsCreated);
+		PRINT_STATISTIC(BaseThreadsCreateFailed);
+		PRINT_STATISTIC(BaseStringBuildersCreated);
+		PRINT_STATISTIC(BaseStringBuildersResized);
+		PRINT_STATISTIC(RefObjectsCreated);
+		PRINT_STATISTIC(RefObjectsDestroyed);
+		PRINT_STATISTIC(RefObjectsAllocated);
+		PRINT_STATISTIC(RefObjectsFreed);
+		PRINT_STATISTIC(RefObjectsAllocatedFromSmallFreeList);
+		PRINT_STATISTIC(RefObjectsFreedToSmallFreeList);
+		PRINT_STATISTIC(RefObjectsAllocatedFromTypeFreeList);
+		PRINT_STATISTIC(RefObjectsFreedToTypeFreeList);
+		PRINT_STATISTIC(RefObjectsDeleteDeferred);
+		PRINT_STATISTIC(RefAutoPoolsCreated);
+		PRINT_STATISTIC(RefAutoPoolsDestroyed);
+		PRINT_STATISTIC(RefAutoPoolsDynamicAllocated);
+		PRINT_STATISTIC(RefAutoPoolsDynamicResized);
+		PRINT_STATISTIC(QlBlockSpins);
+		PRINT_STATISTIC(QlBlockWaits);
+		PRINT_STATISTIC(QlAcquireExclusiveBlocks);
+		PRINT_STATISTIC(QlAcquireSharedBlocks);
+		PRINT_STATISTIC(WqWorkQueueThreadsCreated);
+		PRINT_STATISTIC(WqWorkQueueThreadsCreateFailed);
+		PRINT_STATISTIC(WqWorkItemsQueued);
+#endif
+
+		DbgPrint(L"%s\n", CastPhString(PhFinalStringBuilderString(&stringBuilder)).utf16());
+	}
+#endif
 
 	quint64 Interval = theConf->GetInt("Options/RefreshInterval", 1000);
 	if (GetCurTick() - m_LastTimer < Interval / 2)
@@ -747,7 +886,10 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	
 	if(!m_pMenuPauseRefresh->isChecked())
 		UpdateAll();
-	
+
+	// Process online updater
+	m_pUpdater->Process();
+
 	//if(m_pMainSplitter->sizes()[0] > 0)
 		m_pGraphBar->UpdateGraphs();
 
@@ -761,12 +903,7 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 
 void CTaskExplorer::UpdateAll()
 {
-	QTimer::singleShot(0, theAPI, SLOT(UpdateProcessList()));
-	QTimer::singleShot(0, theAPI, SLOT(UpdateSocketList()));
-
-	QTimer::singleShot(0, theAPI, SLOT(UpdateSysStats()));
-
-	QTimer::singleShot(0, theAPI, SLOT(UpdateServiceList()));
+	QTimer::singleShot(0, theAPI, SLOT(UpdateAll()));
 
 	if (!isVisible() || windowState().testFlag(Qt::WindowMinimized))
 		return;
@@ -1014,13 +1151,18 @@ void CTaskExplorer::UpdateStatus()
 	m_pTrayIcon->setIcon(QIcon(QPixmap::fromImage(TrayIcon)));
 }
 
-void CTaskExplorer::CheckErrors(QList<STATUS> Errors)
+bool CTaskExplorer::CheckErrors(QList<STATUS> Errors)
 {
 	if (Errors.isEmpty())
-		return;
+		return true;
 
 	CMultiErrorDialog Dialog(tr("Operation failed for %1 item(s).").arg(Errors.size()), Errors);
-	Dialog.exec();
+	return !!Dialog.exec();
+}
+
+QString CTaskExplorer::FormatID(quint64 ID) const
+{
+	return QString("%1 [0x%2]").arg(ID).arg(ID, 0, 16);
 }
 
 /*
@@ -1065,14 +1207,14 @@ void CTaskExplorer::OnRunSys()
 {
 #ifdef WIN32
     SelectedRunAsMode = RUNAS_MODE_SYS;
-    PhShowRunFileDialog(PhMainWndHandle, NULL, NULL, NULL, L"Type the name of a program that will be opened as system with the TrustedInstaller token.", 0);
+    PhShowRunFileDialog(PhMainWndHandle, NULL, NULL, NULL, (PWSTR)L"Type the name of a program that will be opened as system with the TrustedInstaller token.", 0);
 #endif
 }
 
 void CTaskExplorer::OnElevate()
 {
 #ifdef WIN32
-	if (PhShellProcessHackerEx(NULL, NULL, L"", SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, 0, NULL))
+	if (PhShellProcessHackerEx(NULL, NULL, (PWSTR)L"", SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, 0, NULL))
 		OnExit();
 #endif
 }
@@ -1349,7 +1491,7 @@ void CTaskExplorer::UpdateOptions()
 
 	ReloadColors();
 
-	SetDarkTheme(theConf->GetBool("MainWindow/DarkTheme", false));
+	SetUITheme();
 
 	if(theConf->GetBool("SysTray/Show", true))
 		m_pTrayIcon->show();
@@ -1366,10 +1508,17 @@ void CTaskExplorer::UpdateOptions()
 
 void CTaskExplorer::ResetAll()
 {
+	theAPI->ResetAll();
+
 	emit ReloadPanels();
 
 	QTimer::singleShot(0, this, SLOT(UpdateAll()));
 }
+
+//void CTaskExplorer::OnUseDriver()
+//{
+//	theConf->SetValue("OptionsKSI/KsiEnable", m_pMenuUseDriver->isChecked());
+//}
 
 void CTaskExplorer::OnAutoRun()
 {
@@ -1563,7 +1712,7 @@ void CTaskExplorer::OnMonitorDbg()
 			Mode = CWinDbgMonitor::eLocal;
 			if (theAPI->RootAvaiable())
 				Mode |= CWinDbgMonitor::eGlobal;
-			if ((((CWindowsAPI*)theAPI)->GetDriverFeatures() & (1 << 30)) != 0)
+			if (KphCommsIsConnected())
 				Mode |= CWinDbgMonitor::eKernel;
 		}
 	}
@@ -1596,6 +1745,12 @@ void CTaskExplorer::OnMonitorDbg()
 
 	theConf->SetValue("Options/MonitorDbg", DbgMode);
 #endif
+}
+
+void CTaskExplorer::OpenTaskInfoWnd(quint64 PID)
+{
+	CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << theAPI->GetProcessByID(PID));
+	pTaskInfoWindow->show();
 }
 
 void CTaskExplorer::OnSplitterMoved()
@@ -1769,6 +1924,88 @@ void CTaskExplorer::OnStatusMessage(const QString& Message)
 	statusBar()->showMessage(Message, 5000); // show for 5 seconds
 }
 
+void CTaskExplorer::LoadLanguage()
+{
+	m_Language = theConf->GetString("General/Language");
+	if(m_Language.isEmpty())
+		m_Language = QLocale::system().name();
+
+	if (m_Language.compare("native", Qt::CaseInsensitive) == 0)
+#ifdef _DEBUG
+		m_Language = "en";
+#else
+		m_Language.clear();
+#endif
+
+	//m_LanguageId = LocaleNameToLCID(m_Language.toStdWString().c_str(), 0);
+	//if (!m_LanguageId)
+	//	m_LanguageId = 1033; // default to English
+
+	LoadLanguage(m_Language, "taskexplorer", 0);
+	LoadLanguage(m_Language, "qt", 1);
+
+	QTreeViewEx::m_ResetColumns = tr("Reset Columns");
+	CPanelView::m_CopyCell = tr("Copy Cell");
+	CPanelView::m_CopyRow = tr("Copy Row");
+	CPanelView::m_CopyPanel = tr("Copy Panel");
+	CFinder::m_CaseInsensitive = tr("Case Sensitive");
+	CFinder::m_RegExpStr = tr("RegExp");
+	CFinder::m_Highlight = tr("Highlight");
+	CFinder::m_CloseStr = tr("Close");
+	CFinder::m_FindStr = tr("&Find ...");
+	CFinder::m_AllColumns = tr("All columns");
+}
+
+void CTaskExplorer::LoadLanguage(const QString& Lang, const QString& Module, int Index)
+{
+	qApp->removeTranslator(&m_Translator[Index]);
+
+	if (Lang.isEmpty())
+		return;
+
+	QString LangAux = Lang; // Short version as fallback
+	LangAux.truncate(LangAux.lastIndexOf('_'));
+
+	QString LangDir;
+	C7zFileEngineHandler LangFS("lang", this);
+	if (LangFS.Open(QApplication::applicationDirPath() + "/translations.7z"))
+		LangDir = LangFS.Prefix() + "/";
+	else
+		LangDir = QApplication::applicationDirPath() + "/translations/";
+
+	bool bOk = false;
+	QString LangPath = LangDir + Module + "_";
+	bool bAux = false;
+	if (QFile::exists(LangPath + Lang + ".qm") || (bAux = QFile::exists(LangPath + LangAux + ".qm")))
+	{
+		if(m_Translator[Index].load(LangPath + (bAux ? LangAux : Lang) + ".qm", LangDir))
+			bOk = qApp->installTranslator(&m_Translator[Index]);
+	}
+}
+
+void CTaskExplorer::OnCheckForUpdates()
+{
+	m_pUpdater->CheckForUpdates(true);
+}
+
+void CTaskExplorer::UpdateLabel()
+{
+	QString PendingUpdate = theConf->GetString("Updater/PendingUpdate");
+
+	if (!PendingUpdate.isEmpty()) {
+		// Show update available message
+		m_pUpdateLabel->setText(tr("<a href=\"#update\">Update to TaskExplorer %1 available!</a>").arg(PendingUpdate));
+		m_pUpdateLabel->disconnect();
+		connect(m_pUpdateLabel, SIGNAL(linkActivated(const QString&)), this, SLOT(OnCheckForUpdates()));
+	}
+	else {
+		// Show default Patreon support message
+		m_pUpdateLabel->setText("<a href=\"https://xanasoft.com/go.php?to=patreon\">Support TaskExplorer on Patreon</a>");
+		m_pUpdateLabel->disconnect();
+		connect(m_pUpdateLabel, SIGNAL(linkActivated(const QString&)), this, SLOT(OnHelp()));
+	}
+}
+
 QString CTaskExplorer::GetVersion()
 {
 	QString Version = QString::number(VERSION_MJR) + "." + QString::number(VERSION_MIN) //.rightJustified(2, '0')
@@ -1780,6 +2017,14 @@ QString CTaskExplorer::GetVersion()
 #endif
 		;
 	return Version;
+}
+
+void CTaskExplorer::OnHelp()
+{
+	if (sender() == m_pMenuForum)
+		QDesktopServices::openUrl(QUrl("https://xanasoft.com/go.php?to=forum"));
+	else
+		QDesktopServices::openUrl(QUrl("https://xanasoft.com/go.php?to=patreon"));
 }
 
 void CTaskExplorer::OnAbout()
@@ -1800,8 +2045,7 @@ void CTaskExplorer::OnAbout()
 		QString AboutCaption = tr(
 			"<h3>About TaskExplorer</h3>"
 			"<p>Version %1</p>"
-			"<p>by DavidXanatos</p>"
-			"<p>Copyright (c) 2019-2022</p>"
+			"<p>Copyright (C) 2019-2025 David Xanatos (xanasoft.com)</p>"
 		).arg(GetVersion());
 		QString AboutText = tr(
 			"<p>TaskExplorer is a powerfull multi-purpose Task Manager that helps you monitor system resources, debug software and detect malware.</p>"
@@ -1812,11 +2056,11 @@ void CTaskExplorer::OnAbout()
 #endif
 			"<p>Visit <a href=\"https://github.com/DavidXanatos/TaskExplorer\">TaskExplorer on github</a> for more information.</p>"
 			"<p></p>"
-			"<p></p>"
+			"<p>Config Dir: %1</p>"
 			"<p></p>"
 			"<p>Icons from <a href=\"https://icons8.com\">icons8.com</a></p>"
 			"<p></p>"
-		);
+		).arg(theConf->GetConfigDir());
 		QMessageBox *msgBox = new QMessageBox(this);
 		msgBox->setAttribute(Qt::WA_DeleteOnClose);
 		msgBox->setWindowTitle(tr("About TaskExplorer"));
@@ -1843,31 +2087,4 @@ void CTaskExplorer::OnAbout()
 #endif
 	else if (sender() == m_pMenuAboutQt)
 		QMessageBox::aboutQt(this);
-	else
-		QDesktopServices::openUrl(QUrl("https://www.patreon.com/DavidXanatos"));
-}
-
-void CTaskExplorer::LoadLanguage()
-{
-	qApp->removeTranslator(&m_Translator);
-	m_Translation.clear();
-
-	QString Lang = theConf->GetString("General/Language");
-	if(!Lang.isEmpty())
-	{
-		QString LangAux = Lang; // Short version as fallback
-		LangAux.truncate(LangAux.lastIndexOf('_'));
-
-		QString LangPath = QApplication::applicationDirPath() + "/translations/taskexplorer_";
-		bool bAux = false;
-		if(QFile::exists(LangPath + Lang + ".qm") || (bAux = QFile::exists(LangPath + LangAux + ".qm")))
-		{
-			QFile File(LangPath + (bAux ? LangAux : Lang) + ".qm");
-			File.open(QFile::ReadOnly);
-			m_Translation = File.readAll();
-		}
-
-		if(!m_Translation.isEmpty() && m_Translator.load((const uchar*)m_Translation.data(), m_Translation.size()))
-			qApp->installTranslator(&m_Translator);
-	}
 }

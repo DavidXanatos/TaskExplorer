@@ -13,7 +13,7 @@ public:
 
 	void			SetUseDescr(int iDescr)	{ m_iUseDescr = iDescr; }
 
-	QSet<quint64>	Sync(QMap<quint64, CProcessPtr> ProcessList);
+	QSet<quint64>	Sync(QMap<SProcessUID, CProcessPtr> ProcessList);
 
 	CProcessPtr		GetProcess(const QModelIndex &index) const;
 
@@ -26,6 +26,11 @@ public:
 	{
 		eProcess = 0,
 		ePID,
+		ePID_LXSS,
+		eParentPID,
+		eConsolePID,
+		eSequenceNumber, 
+		eStartKey, 
 		eStaus,
 		eUserName,
 #ifdef WIN32
@@ -68,6 +73,7 @@ public:
 		eHardFaults,
 		eHardFaultsDelta,
 #ifdef WIN32
+		eTLS,
 		ePagedPool,
 		ePeakPagedPool,
 		eNonPagedPool,
@@ -75,6 +81,9 @@ public:
 #endif
 		eSharedWS,
 		eShareableWS,
+#ifdef WIN32
+		eShareableCommit,
+#endif
 		eMinimumWS,
 		eMaximumWS,
 		ePrivateBytesDelta,
@@ -86,8 +95,12 @@ public:
 		eGPU_Adapter,
 
 		// Priority
+		eAffinity,
 		ePriorityClass,
 		eBasePriority,
+#ifdef WIN32
+		ePriorityBoost,
+#endif
 		ePagePriority,
 		eIO_Priority,
 
@@ -108,6 +121,7 @@ public:
 		eVerificationStatus,
 		eVerifiedSigner,
 		eMitigations,
+		eImageCoherency,
 		eProtection,
 		eCritical,
 #endif
@@ -150,7 +164,7 @@ public:
 		// Other
 		eSubsystem, // WSL or Wine
 		eVirtualized,
-		eArch,
+		eArchitecture,
 #ifdef WIN32
 		eOS_Context,
 
@@ -164,10 +178,16 @@ public:
 		eJobObjectID,
 		eDesktop,
 
+		ePowerThrottling, 
 		eRunningTime,
 		eSuspendedTime,
 		eHangCount,
 		eGhostCount,
+
+		eErrorMode,
+		eCodePage, 
+		eReferences,
+		eGrantedAccess,
 #endif
 		eDebugTotal,
 		//eDebugDelte,
@@ -223,8 +243,8 @@ protected:
 
 	virtual STreeNode*		MkNode(const QVariant& Id) { return new SProcessNode(Id); }
 		
-	QList<QVariant>			MakeProcPath(const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList);
-	bool					TestProcPath(const QList<QVariant>& Path, const CProcessPtr& pProcess, const QMap<quint64, CProcessPtr>& ProcessList, int Index = 0);
+	QList<QVariant>			MakeProcPath(const CProcessPtr& pProcess, const QMap<SProcessUID, CProcessPtr>& ProcessList);
+	bool					TestProcPath(const QList<QVariant>& Path, const CProcessPtr& pProcess, const QMap<SProcessUID, CProcessPtr>& ProcessList, int Index = 0);
 	
 	int						m_iUseDescr;
 

@@ -170,13 +170,13 @@ VOID PvPeGetMuiInfo(
     PhAddListViewGroup(ListViewHandle, 4, L"TypeNames");
     PhAddListViewGroup(ListViewHandle, 5, L"TypeIDs");
 
-    if (PhLoadResource(
+    if (NT_SUCCESS(PhLoadResource(
         PvMappedImage.ViewBase,
         MUI_NAME,
         MUI_TYPE,
         &resourceLength,
         &resourceBuffer
-        ))
+        )))
     {
         PvAddMuiResourceInfo(ListViewHandle, resourceBuffer);
     }
@@ -367,7 +367,7 @@ INT_PTR CALLBACK PvpPeMuiResourceDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

@@ -502,7 +502,7 @@ void CWinSvcTrigger::OnDeleteTrigger()
 	if (!item)
 		return;
 
-	if(QMessageBox("TaskExplorer", tr("Do you want to delete the sellected data"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+	if(QMessageBox("TaskExplorer", tr("Do you want to delete the selected data"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
 	PES_TRIGGER_INFO info = (PES_TRIGGER_INFO)m_pInfo;

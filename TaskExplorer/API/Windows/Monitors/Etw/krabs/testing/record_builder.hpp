@@ -19,6 +19,7 @@
 #include "filler.hpp"
 #include "synth_record.hpp"
 #include "record_property_thunk.hpp"
+#include "extended_data_builder.hpp"
 
 namespace krabs { namespace testing {
 
@@ -81,6 +82,7 @@ namespace krabs { namespace testing {
             size_t id,
             size_t version,
             size_t opcode = 0,
+            size_t level = 0,
             bool trim_string_null_terminator = false);
 
         /**
@@ -134,6 +136,13 @@ namespace krabs { namespace testing {
          */
          const std::vector<record_property_thunk> &properties() const;
 
+         /**
+         * <summary>
+         * Adds extended data representing a GUID for an Windows container ID
+         * </summary>
+         */
+         void add_container_id_extended_data(const GUID& container_id);
+
         /**
          * <summary>
          * Gives direct access to the EVENT_HEADER that will be packed into
@@ -142,8 +151,6 @@ namespace krabs { namespace testing {
          */
         EVENT_HEADER &header();
 
-    private:
-
         /**
          * <summary>
          *   Fills an EVENT_RECORD with the info necessary to grab its schema
@@ -151,6 +158,8 @@ namespace krabs { namespace testing {
          * </summary>
          */
          EVENT_RECORD create_stub_record() const;
+
+    private:
 
         /**
          * <summary>
@@ -170,9 +179,12 @@ namespace krabs { namespace testing {
         const size_t id_;
         const size_t version_;
         const size_t opcode_;
+        const size_t level_;
         EVENT_HEADER header_;
         std::vector<record_property_thunk> properties_;
         bool trim_string_null_terminator_;
+        extended_data_builder extended_data_;
+
         friend struct details::property_adder;
     };
 
@@ -201,17 +213,20 @@ namespace krabs { namespace testing {
         size_t id,
         size_t version,
         size_t opcode,
+        size_t level,
         bool trim_string_null_terminator)
     : providerId_(providerId)
     , id_(id)
     , version_(version)
     , opcode_(opcode)
+    , level_(level)
     , trim_string_null_terminator_(trim_string_null_terminator)
     {
         ZeroMemory(&header_, sizeof(EVENT_HEADER));
         header_.EventDescriptor.Id      = static_cast<USHORT>(id_);
         header_.EventDescriptor.Version = static_cast<UCHAR>(version_);
         header_.EventDescriptor.Opcode  = static_cast<UCHAR>(opcode_);
+        header_.EventDescriptor.Level   = static_cast<UCHAR>(level_);
         memcpy(&header_.ProviderId, (const GUID *)&providerId_, sizeof(GUID));
     }
 
@@ -233,20 +248,37 @@ namespace krabs { namespace testing {
         if (!results.second.empty()) {
             std::string msg = "Not all the properties of the event were filled:";
 
-            for (auto& s : results.second)
+            for (auto& s : results.second) {
+#pragma warning(push)
+#pragma warning(disable: 4244) // narrowing property name wchar_t to char for this error message
                 msg += " " + std::string(s.begin(), s.end());
+#pragma warning(pop)
+            }
 
             throw std::invalid_argument(msg);
         }
 
-        return krabs::testing::synth_record(record, results.first);
+        // If it's a size 0 list, pack() will return (nullptr, 0) and no buffer is allocated.
+        auto extended_data_buffer = extended_data_.pack();
+        record.ExtendedData = reinterpret_cast<EVENT_HEADER_EXTENDED_DATA_ITEM*>(extended_data_buffer.first.get());
+        record.ExtendedDataCount = static_cast<USHORT>(extended_data_.count());
+
+        // Pass shared_ptr of the extended data buffer to make sure the buffer isn't deleted before the synth_record is.
+        return krabs::testing::synth_record(record, results.first, extended_data_buffer.first);
     }
 
     inline synth_record record_builder::pack_incomplete() const
     {
         EVENT_RECORD record = create_stub_record();
         auto results = pack_impl(record);
-        return krabs::testing::synth_record(record, results.first);
+
+        // If it's a size 0 list, pack() will return (nullptr, 0) and no buffer is allocated.
+        auto extended_data_buffer = extended_data_.pack();
+        record.ExtendedData = reinterpret_cast<EVENT_HEADER_EXTENDED_DATA_ITEM*>(extended_data_buffer.first.get());
+        record.ExtendedDataCount = static_cast<USHORT>(extended_data_.count());
+
+        // Pass shared_ptr of the extended data buffer to make sure the buffer isn't deleted before the synth_record is.
+        return krabs::testing::synth_record(record, results.first, extended_data_buffer.first);
     }
 
     inline EVENT_RECORD record_builder::create_stub_record() const
@@ -266,11 +298,17 @@ namespace krabs { namespace testing {
         return properties_;
     }
 
+    inline void record_builder::add_container_id_extended_data(const GUID& container_id)
+    {
+        extended_data_.add_container_id(container_id);
+    }
+
     inline std::pair<std::vector<BYTE>, std::vector<std::wstring>>
     record_builder::pack_impl(const EVENT_RECORD &record) const
     {
         std::pair<std::vector<BYTE>, std::vector<std::wstring>> results;
-        krabs::schema event_schema(record);
+        krabs::schema_locator schema_locator;
+        krabs::schema event_schema(record, schema_locator);
         krabs::parser event_parser(event_schema);
 
         // When the last property in a record is of string type (ansi or unicode), 

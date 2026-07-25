@@ -93,28 +93,28 @@ bool CDnsResolver::Init()
 	return m->DnsApiHandle != NULL;
 }
 
-QMultiMap<QString, CDnsCacheEntryPtr>::iterator FindDnsEntry(QMultiMap<QString, CDnsCacheEntryPtr> &Entries, const QString& HostName, const QHostAddress& Address)
+QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator FindDnsEntry(QMultiMap<QString, CDnsCacheEntryPtr> &Entries, const QString& HostName, const QHostAddress& Address)
 {
-	for (QMultiMap<QString, CDnsCacheEntryPtr>::iterator I = Entries.find(HostName); I != Entries.end() && I.key() == HostName; I++)
+	for (QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator I = Entries.constFind(HostName); I != Entries.constEnd() && I.key() == HostName; I++)
 	{
 		if (I.value()->GetAddress() == Address)
 			return I;
 	}
 
 	// no matching entry
-	return Entries.end();
+	return Entries.constEnd();
 }
 
-QMultiMap<QString, CDnsCacheEntryPtr>::iterator FindDnsEntry(QMultiMap<QString, CDnsCacheEntryPtr> &Entries, const QString& HostName, int Type, const QString& ResolvedString)
+QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator FindDnsEntry(QMultiMap<QString, CDnsCacheEntryPtr> &Entries, const QString& HostName, int Type, const QString& ResolvedString)
 {
-	for (QMultiMap<QString, CDnsCacheEntryPtr>::iterator I = Entries.find(HostName); I != Entries.end() && I.key() == HostName; I++)
+	for (QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator I = Entries.constFind(HostName); I != Entries.constEnd() && I.key() == HostName; I++)
 	{
 		if (I.value()->GetType() == Type && I.value()->GetResolvedString() == ResolvedString)
 			return I;
 	}
 
 	// no matching entry
-	return Entries.end();
+	return Entries.constEnd();
 }
 
 QHostAddress RevDnsHost2Address(const QString& HostName)
@@ -187,8 +187,16 @@ PDNS_RECORD TraverseDnsCacheTable(SDnsResolver* m)
 
 CleanupExit:
 
-    if (dnsCacheDataTable)
-        DnsRecordListFree(dnsCacheDataTable, DnsFreeRecordList);
+	//if (dnsCacheDataTable)
+	//	DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat); // memleak
+
+	for (PDNS_CACHE_ENTRY tablePtr = dnsCacheDataTable; tablePtr != NULL; )
+	{
+		PDNS_CACHE_ENTRY entryPtr = tablePtr;
+		tablePtr = tablePtr->Next;
+		GlobalFree((void*)entryPtr->Name);
+		GlobalFree(entryPtr);
+	}
 
     return root;
 }
@@ -240,7 +248,7 @@ bool CDnsResolver::UpdateDnsCache()
 			QHostAddress Address;
 			QString ResolvedString;
 
-			QMultiMap<QString, CDnsCacheEntryPtr>::iterator I;
+			QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator I;
 			if (Type == DNS_TYPE_A || Type == DNS_TYPE_AAAA)
 			{
 				switch (Type)
@@ -256,10 +264,10 @@ bool CDnsResolver::UpdateDnsCache()
 				I = FindDnsEntry(OldEntries, HostName, Address);
 
 				// Note the table may contain duplicates, filter them out
-				if (I == OldEntries.end())
+				if (I == OldEntries.constEnd())
 				{
 					QReadLocker Locker(&m_Mutex);
-					if (FindDnsEntry(m_DnsCache, HostName, Address) != m_DnsCache.end())
+					if (FindDnsEntry(m_DnsCache, HostName, Address) != m_DnsCache.constEnd())
 						continue;
 				}
 			}
@@ -283,10 +291,10 @@ bool CDnsResolver::UpdateDnsCache()
 				I = FindDnsEntry(OldEntries, HostName, Type, ResolvedString);
 
 				// Note the table may contain duplicates, filter them out
-				if (I == OldEntries.end())
+				if (I == OldEntries.constEnd())
 				{
 					QReadLocker Locker(&m_Mutex);
-					if (FindDnsEntry(m_DnsCache, HostName, Type, ResolvedString) != m_DnsCache.end())
+					if (FindDnsEntry(m_DnsCache, HostName, Type, ResolvedString) != m_DnsCache.constEnd())
 						continue;
 				}
 			}
@@ -296,7 +304,7 @@ bool CDnsResolver::UpdateDnsCache()
 #endif
 
 			CDnsCacheEntryPtr pEntry;
-			if (I == OldEntries.end())
+			if (I == OldEntries.constEnd())
 			{
 				pEntry = CDnsCacheEntryPtr(new CDnsCacheEntry(HostName, Type, Address, ResolvedString));
 				QWriteLocker Locker(&m_Mutex);
@@ -361,8 +369,16 @@ bool CDnsResolver::UpdateDnsCache()
 	if (dnsRecordRootPtr)
 		DnsRecordListFree(dnsRecordRootPtr, DnsFreeRecordList);
 #else
-    if (dnsCacheDataTable)
-        DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat);
+	//if (dnsCacheDataTable)
+	//	DnsRecordListFree(dnsCacheDataTable, DnsFreeFlat); // memleak
+
+	for (PDNS_CACHE_ENTRY tablePtr = dnsCacheDataTable; tablePtr != NULL; )
+	{
+		PDNS_CACHE_ENTRY entryPtr = tablePtr;
+		tablePtr = tablePtr->Next;
+		GlobalFree((void*)entryPtr->Name);
+		GlobalFree(entryPtr);
+	}
 #endif
 
 	emit DnsCacheUpdated();
@@ -408,7 +424,7 @@ QString CDnsResolver::GetHostName(const QHostAddress& Address, QObject *receiver
 	QReadLocker ReadLocker(&m_Mutex);
 	//int ValidReverseEntries = 0;
 	QStringList RevHostNames;
-	for (QMultiMap<QHostAddress, CDnsCacheEntryPtr>::iterator I = m_AddressCache.find(Address); I != m_AddressCache.end() && I.key() == Address; ++I)
+	for (QMultiMap<QHostAddress, CDnsCacheEntryPtr>::const_iterator I = m_AddressCache.constFind(Address); I != m_AddressCache.constEnd() && I.key() == Address; ++I)
 	{
 		//qDebug() << I.key().toString() << I.value()->GetResolvedString();
 		if (I.value()->GetType() != DNS_TYPE_PTR)
@@ -465,7 +481,7 @@ QString CDnsResolver::GetHostNamesSmart(const QString& HostName, int Limit)
 	if (Limit > 0)  // in case 1.a.com -> 2.a.com -> 3.a.com -> 1.a.com
 	{
 		// use maps to sort newest entries (biggest creation timestamp) first
-		for (QMultiMap<QString, CDnsCacheEntryPtr>::iterator I = m_RedirectionCache.find(HostName); I != m_RedirectionCache.end() && I.key() == HostName; ++I)
+		for (QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator I = m_RedirectionCache.constFind(HostName); I != m_RedirectionCache.constEnd() && I.key() == HostName; ++I)
 		{
 			CDnsCacheEntryPtr pEntry = I.value();
 			quint16 Type = pEntry->GetType();
@@ -498,7 +514,7 @@ QString CDnsResolver::GetHostNameSmart(const QHostAddress& Address, const QStrin
 		QReadLocker Locker(&m_Mutex);
 
 		// use maps to sort newest entries (biggest creation timestamp) first
-		for (QMultiMap<QHostAddress, CDnsCacheEntryPtr>::iterator I = m_AddressCache.find(Address); I != m_AddressCache.end() && I.key() == Address; ++I)
+		for (QMultiMap<QHostAddress, CDnsCacheEntryPtr>::const_iterator I = m_AddressCache.constFind(Address); I != m_AddressCache.constEnd() && I.key() == Address; ++I)
 		{
 			CDnsCacheEntryPtr pEntry = I.value();
 
@@ -596,8 +612,8 @@ void CDnsResolver::run()
 				QWriteLocker Locker(&m_Mutex);
 
 				CDnsCacheEntryPtr pEntry = NULL;
-				QMultiMap<QString, CDnsCacheEntryPtr>::iterator I = FindDnsEntry(m_DnsCache, AddressReverse, DNS_TYPE_PTR, ResolvedString);
-				if (I == m_DnsCache.end())
+				QMultiMap<QString, CDnsCacheEntryPtr>::const_iterator I = FindDnsEntry(m_DnsCache, AddressReverse, DNS_TYPE_PTR, ResolvedString);
+				if (I == m_DnsCache.constEnd())
 				{
 					pEntry = CDnsCacheEntryPtr(new CDnsCacheEntry(AddressReverse, DNS_TYPE_PTR, Address, ResolvedString));
 					m_DnsCache.insertMulti(AddressReverse, pEntry);

@@ -51,7 +51,7 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
@@ -79,8 +79,8 @@ void CDriverModel::Sync(QMap<QString, CDriverPtr> DriverList)
 				{
                     case eDriver: break;
 #ifdef WIN32
-					case eImageBase:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;
-					case eImageSize:	ColValue.Formated = FormatSize(Value.toULongLong()); break;			
+					case eImageBase:	ColValue.Formatted = FormatAddress(Value.toULongLong()); break;
+					case eImageSize:	ColValue.Formatted = FormatSize(Value.toULongLong()); break;			
 #endif
 				}
 			}

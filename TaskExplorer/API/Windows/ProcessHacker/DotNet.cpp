@@ -621,7 +621,7 @@ void UpdateDotNetStatTree(CWinProcess* pProcess, const QMap<int, QTreeWidgetItem
 	PhInitializeAutoPool(&autoPool);
 
 	HANDLE ProcessId = (HANDLE)pProcess->GetProcessId();
-#ifdef WIN64
+#ifdef _WIN64
 	BOOLEAN IsWow64 = pProcess->IsWoW64();
 #else
 	// HACK: Work-around for Appdomain enumeration on 32bit.

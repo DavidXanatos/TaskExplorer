@@ -208,16 +208,18 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             FLOAT imageDosStubEntropy = 0;
             FLOAT imageDosStubMean = 0;
+            FLOAT imageDosStubVariance = 0;
             PPH_STRING entropyString;
 
             if (PhCalculateEntropy(
                 imageDosStubData,
                 imageDosStubActualDataLength,
                 &imageDosStubEntropy,
-                &imageDosStubMean
+                &imageDosStubMean,
+                &imageDosStubVariance
                 ))
             {
-                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4);
+                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4, imageDosStubVariance, 4);
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_STUBENTROPY, 1, PhGetStringOrEmpty(entropyString));
                 PhDereferenceObject(entropyString);
             }
@@ -243,7 +245,7 @@ VOID PvSetPeImageDosStubHeaderProperties(
     if (imageDosStubRichLength)
     {
         PhPrintPointer(value, UlongToPtr(imageDosStubRichStart));
-        PhPrintPointer(size, PTR_ADD_OFFSET(imageDosStubRichStart, imageDosStubRichLength));
+        PhPrintPointer(size, UlongToPtr(imageDosStubRichStart + imageDosStubRichLength));
         string = PhaFormatString(L"%s-%s", value, size);
         PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_RICHSIZE, 1, PhaFormatString(
             L"%s (%s)",
@@ -255,16 +257,18 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             FLOAT imageDosStubEntropy = 0;
             FLOAT imageDosStubMean = 0;
+            FLOAT imageDosStubVariance = 0;
             PPH_STRING entropyString;
 
             if (PhCalculateEntropy(
                 imageDosStubRichData,
                 imageDosStubRichLength,
                 &imageDosStubEntropy,
-                &imageDosStubMean
+                &imageDosStubMean,
+                &imageDosStubVariance
                 ))
             {
-                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4);
+                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4, imageDosStubVariance, 4);
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_RICHENTROPY, 1, PhGetStringOrEmpty(entropyString));
                 PhDereferenceObject(entropyString);
             }
@@ -302,16 +306,18 @@ VOID PvSetPeImageDosStubHeaderProperties(
         {
             FLOAT imageDosStubEntropy = 0;
             FLOAT imageDosStubMean = 0;
+            FLOAT imageDosStubVariance = 0;
             PPH_STRING entropyString;
 
             if (PhCalculateEntropy(
                 imageDosStubData,
                 imageDosStubDataLength,
                 &imageDosStubEntropy,
-                &imageDosStubMean
+                &imageDosStubMean,
+                &imageDosStubVariance
                 ))
             {
-                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4);
+                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4, imageDosStubVariance, 4);
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_DOS_ENTROPY, 1, PhGetStringOrEmpty(entropyString));
                 PhDereferenceObject(entropyString);
             }
@@ -373,6 +379,9 @@ VOID PvSetPeImageOptionalHeaderProperties(
     _In_ PPVP_PE_HEADER_CONTEXT Context
     )
 {
+    PPH_STRING symbol = NULL;
+    PPH_STRING symbolName = NULL;
+
     if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
     {
         PIMAGE_NT_HEADERS32 imageNtHeader = PvMappedImage.NtHeaders32;
@@ -397,8 +406,39 @@ VOID PvSetPeImageOptionalHeaderProperties(
         string = PhaFormatString(L"%s (%s)", value, PhaFormatSize(imageNtHeader->OptionalHeader.SizeOfUninitializedData, ULONG_MAX)->Buffer);
         PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_UNINITSIZE, 1, PhGetString(string));
 
-        PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.AddressOfEntryPoint));
-        PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_ENTRYPOINT, 1, value);
+        if (imageNtHeader->OptionalHeader.AddressOfEntryPoint)
+        {
+            symbol = PhGetSymbolFromAddress(
+                PvSymbolProvider,
+                PTR_ADD_OFFSET(UlongToPtr(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase), imageNtHeader->OptionalHeader.AddressOfEntryPoint),
+                NULL,
+                NULL,
+                &symbolName,
+                NULL
+                );
+        }
+
+        if (symbolName)
+        {
+            PH_FORMAT format[5];
+
+            PhInitFormatS(&format[0], L"0x");
+            PhInitFormatIX(&format[1], imageNtHeader->OptionalHeader.AddressOfEntryPoint);
+            PhInitFormatS(&format[2], L" (");
+            PhInitFormatSR(&format[3], symbolName->sr);
+            PhInitFormatC(&format[4], L')');
+            string = PhFormat(format, 5, 10);
+
+            PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_ENTRYPOINT, 1, PhGetString(string));
+        }
+        else
+        {
+            PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.AddressOfEntryPoint));
+            PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_ENTRYPOINT, 1, value);
+        }
+
+        PhClearReference(&symbolName);
+        PhClearReference(&symbol);
 
         PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.BaseOfCode));
         PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_BASEOFCODE, 1, value);
@@ -487,9 +527,41 @@ VOID PvSetPeImageOptionalHeaderProperties(
         PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.SizeOfUninitializedData));
         string = PhaFormatString(L"%s (%s)", value, PhaFormatSize(imageNtHeader->OptionalHeader.SizeOfUninitializedData, ULONG_MAX)->Buffer);
         PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_UNINITSIZE, 1, PhGetString(string));
+         
+        if (imageNtHeader->OptionalHeader.AddressOfEntryPoint)
+        {
+            symbol = PhGetSymbolFromAddress(
+                PvSymbolProvider,
+                PTR_ADD_OFFSET(
+                    PvMappedImage.NtHeaders64->OptionalHeader.ImageBase,
+                    imageNtHeader->OptionalHeader.AddressOfEntryPoint),
+                NULL,
+                NULL,
+                &symbolName,
+                NULL
+                );
+        }
+        if (symbolName)
+        {
+            PH_FORMAT format[5];
 
-        PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.AddressOfEntryPoint));
-        PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_ENTRYPOINT, 1, value);
+            PhInitFormatS(&format[0], L"0x");
+            PhInitFormatIX(&format[1], imageNtHeader->OptionalHeader.AddressOfEntryPoint);
+            PhInitFormatS(&format[2], L" (");
+            PhInitFormatSR(&format[3], symbolName->sr);
+            PhInitFormatC(&format[4], L')');
+            string = PhFormat(format, 5, 10);
+
+            PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_ENTRYPOINT, 1, PhGetString(string));
+        }
+        else
+        {
+            PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.AddressOfEntryPoint));
+            PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_ENTRYPOINT, 1, value);
+        }
+
+        PhClearReference(&symbolName);
+        PhClearReference(&symbol);
 
         PhPrintPointer(value, UlongToPtr(imageNtHeader->OptionalHeader.BaseOfCode));
         PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_OPT_BASEOFCODE, 1, value);
@@ -565,15 +637,15 @@ VOID PvSetPeImageOverlayHeaderProperties(
     _In_ PPVP_PE_HEADER_CONTEXT Context
     )
 {
-    ULONG lastRawDataAddress = 0;
+    ULONG64 lastRawDataAddress = 0;
     ULONG64 lastRawDataOffset = 0;
 
-    for (ULONG i = 0; i < PvMappedImage.NumberOfSections; i++)
+    for (USHORT i = 0; i < PvMappedImage.NumberOfSections; i++)
     {
         if (PvMappedImage.Sections[i].PointerToRawData > lastRawDataAddress)
         {
             lastRawDataAddress = PvMappedImage.Sections[i].PointerToRawData;
-            lastRawDataOffset = (ULONG64)PTR_ADD_OFFSET(lastRawDataAddress, PvMappedImage.Sections[i].SizeOfRawData);
+            lastRawDataOffset = lastRawDataAddress + PvMappedImage.Sections[i].SizeOfRawData;
         }
     }
 
@@ -602,16 +674,18 @@ VOID PvSetPeImageOverlayHeaderProperties(
         {
             FLOAT imageDosStubEntropy = 0;
             FLOAT imageDosStubMean = 0;
+            FLOAT imageDosStubVariance = 0;
             PPH_STRING entropyString;
 
             if (PhCalculateEntropy(
                 imageOverlayData,
                 imageOverlayDataLength,
                 &imageDosStubEntropy,
-                &imageDosStubMean
+                &imageDosStubMean,
+                &imageDosStubVariance
                 ))
             {
-                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4);
+                entropyString = PhFormatEntropy(imageDosStubEntropy, 6, imageDosStubMean, 4, imageDosStubVariance, 4);
                 PhSetListViewSubItem(Context->ListViewHandle, PVP_IMAGE_HEADER_INDEX_PE_OVERLAY_ENTROPY, 1, PhGetStringOrEmpty(entropyString));
                 PhDereferenceObject(entropyString);
             }
@@ -838,7 +912,7 @@ INT_PTR CALLBACK PvPeHeadersDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

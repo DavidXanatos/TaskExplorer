@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <codecvt>
 #include <Shlwapi.h>
+#include "..\Common\Strings.h"
 
 // Note: we want to restart early before initlaizzing PHlib so we need some standalone functions 
 
@@ -320,9 +321,9 @@ bool SkipUacEnable (bool is_enable)
 	return result;
 }
 
-bool SkipUacRun (bool test_only)
+int SkipUacRun(bool test_only)
 {
-	bool result = false;
+	int result = 0;
 
 	ITaskService* service = nullptr;
 	ITaskFolder* folder = nullptr;
@@ -337,7 +338,7 @@ bool SkipUacRun (bool test_only)
 
 	wchar_t szPath[MAX_PATH];
 	if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
-		return false;
+		return result;
 
 	MBSTR root (L"\\");
 	MBSTR name (SKIP_UAC_TASK_NAME);
@@ -375,7 +376,7 @@ bool SkipUacRun (bool test_only)
 											{
 												if (test_only)
 												{
-													result = true;
+													result = 1;
 												}
 												else
 												{
@@ -383,16 +384,14 @@ bool SkipUacRun (bool test_only)
 
 													// get arguments
 													{
-														INT numargs = 0;
-														LPWSTR* arga = CommandLineToArgvW(GetCommandLine(), &numargs);
+														int argc = __argc;
+														char **argv = __argv;
 
-														for (INT i = 1; i < numargs; i++) {
+														for (INT i = 1; i < argc; i++) {
 															if (i > 1)
 																args.append(L" ");
-															args.append(arga[i]);
+															args.append(charArrayToWString(argv[i]));
 														}
-
-														LocalFree(arga);
 													}
 
 													variant_t params = args.c_str();
@@ -400,12 +399,11 @@ bool SkipUacRun (bool test_only)
 													if (SUCCEEDED(registered_task->RunEx(params, TASK_RUN_NO_FLAGS, 0, nullptr, &running_task)))
 													{
 														UINT8 count = 3; // try count
+														TASK_STATE state = TASK_STATE_UNKNOWN;
 
 														do
 														{
 															QThread::msleep(250);
-
-															TASK_STATE state = TASK_STATE_UNKNOWN;
 
 															running_task->Refresh();
 															running_task->get_State(&state);
@@ -421,12 +419,15 @@ bool SkipUacRun (bool test_only)
 																	state == TASK_STATE_READY
 																	)
 																{
-																	result = true;
+																	result = 1;
 																}
 
 																break;
 															}
 														} while (count--);
+
+														if(state == TASK_STATE_UNKNOWN)
+															result = -1;
 
 														running_task->Release();
 													}

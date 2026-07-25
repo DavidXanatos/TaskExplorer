@@ -1,0 +1,133 @@
+#
+# Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
+#
+# This file is part of System Informer.
+#
+
+set(_clang_version)
+execute_process(
+    COMMAND clang-cl --version
+    OUTPUT_VARIABLE _clang_output
+    RESULT_VARIABLE _clang_result
+)
+if(_clang_result EQUAL 0)
+    if(_clang_output MATCHES "clang version ([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+        set(_clang_major ${CMAKE_MATCH_1})
+        set(_clang_minor ${CMAKE_MATCH_2})
+        set(_clang_patch ${CMAKE_MATCH_3})
+        math(EXPR _clang_version "${_clang_major} * 10000 + ${_clang_minor} * 100 + ${_clang_patch}")
+    endif()
+endif()
+if(NOT _clang_version)
+    message(FATAL_ERROR "Failed to resolve clang version: ${_clang_result}\n${_clang_output}")
+endif()
+
+include(${CMAKE_CURRENT_LIST_DIR}/msvc.cmake)
+
+#
+# Clang-cl does not have support for a -std:c23 flag. Pass the standard through
+# to clang directly. Note that the VS generator has a special case to map back
+# to -std:clatest in .vcxproj files. The same is true for CXX standard. Though
+# note that VS generators are broken for clang-cl in other ways, so it is not
+# supported either way.
+# See the CMake source code for more details:
+# https://github.com/Kitware/CMake/blob/bad6831d5a504168cec407cf3f8bea7bdf14d679/Modules/Compiler/Clang-C.cmake#L77-L87
+# https://github.com/Kitware/CMake/blob/bad6831d5a504168cec407cf3f8bea7bdf14d679/Modules/Compiler/Clang.cmake#L264-L273
+# https://github.com/Kitware/CMake/blob/bad6831d5a504168cec407cf3f8bea7bdf14d679/Source/cmVisualStudio10TargetGenerator.cxx#L3590-L3600
+#
+set(SI_C_STANDARD_FLAG   -clang:-std=c23)
+set(SI_CXX_STANDARD_FLAG -clang:-std=c++23)
+
+set(CMAKE_RC_FLAGS_INIT "/nologo")
+
+set(_remove "__SI_REMOVE")
+set(SI_CLANG_MSVC_REPLACE_COMPILE_FLAGS
+    /MP                 ${_remove}
+    /Gm-                ${_remove}
+    /Zc:preprocessor    ${_remove}
+    /d1nodatetime       ${_remove}
+    /guard:xfg          ${_remove}
+    /ZI                 /Z7
+    # TODO(jxy-s) Investigate failures related to this flag.
+    /Qspectre           ${_remove} # -mspeculative-load-hardening
+    /guard:signret      -msign-return-address=all
+)
+list(LENGTH SI_CLANG_MSVC_REPLACE_COMPILE_FLAGS _replace_total)
+math(EXPR _max_idx "${_replace_total} - 1")
+foreach(_idx RANGE 0 ${_max_idx} 2)
+    math(EXPR _next_idx "${_idx} + 1")
+    list(GET SI_CLANG_MSVC_REPLACE_COMPILE_FLAGS ${_idx} _old_flag)
+    list(GET SI_CLANG_MSVC_REPLACE_COMPILE_FLAGS ${_next_idx} _new_flag)
+
+    if(_new_flag STREQUAL "${_remove}")
+        message(VERBOSE "clang-msvc removing: ${_old_flag}")
+        list(REMOVE_ITEM SI_COMPILE_FLAGS_INIT ${_old_flag})
+        list(REMOVE_ITEM SI_COMPILE_FLAGS_DEBUG_INIT ${_old_flag})
+        list(REMOVE_ITEM SI_COMPILE_FLAGS_RELEASE_INIT ${_old_flag})
+    else()
+        message(VERBOSE "clang-msvc replacing: ${_old_flag} ${_new_flag}")
+        list(TRANSFORM SI_COMPILE_FLAGS_INIT REPLACE "${_old_flag}" "${_new_flag}")
+        list(TRANSFORM SI_COMPILE_FLAGS_DEBUG_INIT REPLACE "${_old_flag}" "${_new_flag}")
+        list(TRANSFORM SI_COMPILE_FLAGS_RELEASE_INIT REPLACE "${_old_flag}" "${_new_flag}")
+    endif()
+endforeach()
+
+list(APPEND SI_COMPILE_FLAGS_INIT
+    -fcolor-diagnostics               # Quality of life compiler output
+    -fansi-escape-codes               # Quality of life compiler output
+)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64")
+    list(APPEND SI_COMPILE_FLAGS_INIT
+        -mcrc                         # Enable ARM64 CRC32 instructions
+    )
+else()
+    list(APPEND SI_COMPILE_FLAGS_INIT
+        -mavx                         # Enable AVX instructions
+        -mavx2                        # Enable AVX2 instructions
+        -mavx512vl                    # Enable AVX512VL instructions
+        -mrdrnd                       # Enable RDRAND instructions
+    )
+endif()
+
+#
+# Only suppress here if Microsoft code ends up needing it.
+#
+list(APPEND SI_COMPILE_FLAGS_INIT
+    -fms-compatibility
+    -fms-extensions
+    -Wno-comment
+    -Wno-extern-c-compat
+    -Wno-extern-initializer
+    -Wno-ignored-attributes
+    -Wno-ignored-pragma-intrinsic
+    -Wno-microsoft-anon-tag
+    -Wno-microsoft-enum-forward-reference
+    -Wno-microsoft-include
+    -Wno-overloaded-virtual
+    -Wno-pragma-pack
+    -Wno-unknown-pragmas
+    -Wno-unused-local-typedef
+    -Wno-unused-value
+    -Wno-defaulted-function-deleted
+    -Wno-class-conversion
+    -Wno-microsoft-explicit-constructor-call
+
+    # TODO(jxy-s) Needs investigation. Works locally, but fails on CI.
+    -Wno-int-to-void-pointer-cast
+    -Wno-void-pointer-to-int-cast
+)
+if(_clang_version LESS 210100)
+    list(APPEND SI_COMPILE_FLAGS_INIT
+        -Wno-microsoft-static-assert
+    )
+endif()
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64")
+    list(APPEND SI_COMPILE_FLAGS_INIT
+        -Wno-implicit-function-declaration
+    )
+endif()
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86")
+    list(APPEND SI_COMPILE_FLAGS_INIT
+        -Wno-missing-prototype-for-cc
+    )
+endif()

@@ -20,6 +20,19 @@
 #include <QwtPlotRenderer>
 
 #include <QLocale>
+#include <QDebug>
+
+static inline bool isHorizontal( Plot::Direction direction )
+{
+    return ( direction == Plot::LeftToRight )
+        || ( direction == Plot::RightToLeft );
+}
+
+static inline bool isInverted( Plot::Direction direction )
+{
+    return ( direction == Plot::RightToLeft )
+        || ( direction == Plot::TopToBottom );
+}
 
 namespace
 {
@@ -74,16 +87,30 @@ namespace
 
 Plot::Plot( QWidget* parent )
     : QwtPlot( parent )
+    , m_direction( LeftToRight )
 {
     setObjectName( "FriedbergPlot" );
     setTitle( "Temperature of Friedberg/Germany" );
 
-    setAxisTitle( QwtAxis::XBottom, "2007" );
-    setAxisScaleDiv( QwtAxis::XBottom, yearScaleDiv() );
-    setAxisScaleDraw( QwtAxis::XBottom, new YearScaleDraw() );
+    int timeAxis = QwtAxis::XBottom;
+    int valueAxis = QwtAxis::YLeft;
 
-    setAxisTitle( QwtAxis::YLeft,
+    if ( !isHorizontal( m_direction ) )
+        qSwap( timeAxis, valueAxis );
+
+    setAxisTitle( timeAxis, "2007" );
+    setAxisScaleDraw( timeAxis, new YearScaleDraw() );
+
+    QwtScaleDiv scaleDiv = yearScaleDiv();
+    if ( isInverted( m_direction ) )
+        scaleDiv.invert();
+
+    setAxisScaleDiv( timeAxis, scaleDiv );
+
+    setAxisTitle( valueAxis,
         QString( "Temperature [%1C]" ).arg( QChar( 0x00B0 ) ) );
+
+    setSizePolicy( QSizePolicy::Ignored, QSizePolicy::Ignored );
 
     QwtPlotCanvas* canvas = new QwtPlotCanvas();
     canvas->setPalette( Qt::darkGray );
@@ -104,7 +131,12 @@ Plot::Plot( QWidget* parent )
     for ( int i = 0; i < numDays; i++ )
     {
         const Temperature& t = friedberg2007[i];
-        averageData[i] = QPointF( double( i ), t.averageValue );
+
+        if ( isHorizontal( m_direction ) )
+            averageData[i] = QPointF( double( i ), t.averageValue );
+        else
+            averageData[i] = QPointF( t.averageValue, double( i ) );
+
         rangeData[i] = QwtIntervalSample( double( i ),
             QwtInterval( t.minValue, t.maxValue ) );
     }
@@ -179,6 +211,9 @@ void Plot::insertErrorBars(
     m_intervalCurve->setRenderHint( QwtPlotItem::RenderAntialiased );
     m_intervalCurve->setPen( Qt::white );
 
+    m_intervalCurve->setOrientation(
+        isHorizontal( m_direction ) ? Qt::Vertical : Qt::Horizontal );
+
     QColor bg( color );
     bg.setAlpha( 150 );
     m_intervalCurve->setBrush( QBrush( bg ) );
@@ -212,6 +247,17 @@ void Plot::setMode( int style )
     }
 
     replot();
+}
+
+void Plot::setUseLines()
+{
+    const bool useLines = !m_intervalCurve->testPaintAttribute( 
+        QwtPlotIntervalCurve::TubeAsLines );
+
+    m_intervalCurve->setPaintAttribute( QwtPlotIntervalCurve::TubeAsLines, useLines );
+    replot();
+
+    qDebug() << useLines;
 }
 
 void Plot::exportPlot()

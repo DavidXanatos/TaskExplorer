@@ -44,6 +44,7 @@ typedef struct _PV_PE_HASH_RESULTS
     BOOLEAN ImageHasImports;
 
     PPH_STRING Crc32HashString;
+    PPH_STRING Crc32CHashString;
     PPH_STRING Md5HashString;
     PPH_STRING Sha1HashString;
     PPH_STRING Sha2HashString;
@@ -90,6 +91,7 @@ typedef enum _PV_HASHLIST_CATEGORY
 typedef enum _PV_HASHLIST_INDEX
 {
     PV_HASHLIST_INDEX_CRC32,
+    PV_HASHLIST_INDEX_CRC32C,
     PV_HASHLIST_INDEX_MD5,
     PV_HASHLIST_INDEX_SHA1,
     PV_HASHLIST_INDEX_SHA256,
@@ -192,11 +194,11 @@ VOID PvDestroyHashHandle(
     _In_ PPV_HASH_CONTEXT Context
     )
 {
-    if (Context->HashAlgHandle)
-        BCryptCloseAlgorithmProvider(Context->HashAlgHandle, 0);
-
     if (Context->HashHandle)
         BCryptDestroyHash(Context->HashHandle);
+
+    if (Context->HashAlgHandle)
+        BCryptCloseAlgorithmProvider(Context->HashAlgHandle, 0);
 
     if (Context->KeyHandle)
         BCryptDestroyKey(Context->KeyHandle);
@@ -487,6 +489,7 @@ CleanupExit:
 VOID PvGetFileHashes(
     _In_ HANDLE FileHandle,
     _Out_ PPH_STRING* CrcHashString,
+    _Out_ PPH_STRING* Crc32CHashString,
     _Out_ PPH_STRING* Md5HashString,
     _Out_ PPH_STRING* Sha1HashString,
     _Out_ PPH_STRING* Sha2HashString,
@@ -502,6 +505,7 @@ VOID PvGetFileHashes(
     PPV_HASH_CONTEXT hashContextSha384 = NULL;
     PPV_HASH_CONTEXT hashContextSha512 = NULL;
     ULONG crc32Hash = 0;
+    ULONG crc32CHash = 0;
     ULONG returnLength;
     IO_STATUS_BLOCK isb;
     PBYTE buffer;
@@ -563,6 +567,7 @@ VOID PvGetFileHashes(
             break;
 
         crc32Hash = PhCrc32(crc32Hash, buffer, returnLength);
+        crc32CHash = PhCrc32C(crc32CHash, buffer, returnLength);
         if (!kphSuccess)
         {
             PvHashMappedImageData(hashContextMd5, buffer, returnLength);
@@ -574,7 +579,9 @@ VOID PvGetFileHashes(
     }
 
     crc32Hash = _byteswap_ulong(crc32Hash);
+    crc32CHash = _byteswap_ulong(crc32CHash);
     *CrcHashString = PhBufferToHexString((PUCHAR)&crc32Hash, sizeof(ULONG));
+    *Crc32CHashString = PhBufferToHexString((PUCHAR)&crc32CHash, sizeof(ULONG));
     if (!kphSuccess)
     {
         *Md5HashString = PvGetFinalHash(hashContextMd5);
@@ -599,7 +606,7 @@ NTSTATUS PvGetMappedImageMicrosoftImpHash(
     )
 {
     NTSTATUS status;
-    BYTE importTableMd5Hash[16];
+    UCHAR importTableMd5Hash[16];
 
     status = RtlComputeImportTableHash(
         FileHandle,
@@ -1100,8 +1107,8 @@ BOOLEAN PvGetMappedImageImphash(
     if (!PhIsNullOrEmptyString(stringBuilder.String))
     {
         PPH_STRING importStringFinal;
-        PPH_STRING importStringFuzzy;
         PPH_BYTES importStringUtf8;
+        char* importStringFuzzy;
 
         importStringFinal = PhFinalStringBuilderString(&stringBuilder);
         importStringUtf8 = PhConvertUtf16ToUtf8Ex(importStringFinal->Buffer, importStringFinal->Length);
@@ -1115,7 +1122,8 @@ BOOLEAN PvGetMappedImageImphash(
 
         if (fuzzy_hash_buffer((PBYTE)importStringUtf8->Buffer, importStringUtf8->Length, &importStringFuzzy))
         {
-            hashFuzzyString = importStringFuzzy;
+            hashFuzzyString = PhConvertUtf8ToUtf16(importStringFuzzy);
+            free(importStringFuzzy);
         }
 
         PhDereferenceObject(importStringUtf8);
@@ -1138,6 +1146,7 @@ BOOLEAN PvGetMappedImageImphash(
     return TRUE;
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PvPeFileHashThread(
     _In_ PPV_PE_HASHWND_CONTEXT Context
     )
@@ -1146,6 +1155,7 @@ NTSTATUS PvPeFileHashThread(
     BOOLEAN checkImports = !!PhGetMappedImageDirectoryEntry(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_IMPORT);
     PPH_LIST pagehashesList = NULL;
     PPH_STRING crc32HashString = NULL;
+    PPH_STRING crc32CHashString = NULL;
     PPH_STRING md5HashString = NULL;
     PPH_STRING sha1HashString = NULL;
     PPH_STRING sha2HashString = NULL;
@@ -1159,7 +1169,8 @@ NTSTATUS PvPeFileHashThread(
     PPH_STRING imphashFuzzyString = NULL;
     PPH_STRING impMsftHashString = NULL;
     PPH_STRING ssdeepHashString = NULL;
-    PPH_STRING tlshHashString = NULL;
+    char* tlshHashString = NULL;
+    char* ssdeepHashStringUtf8 = NULL;
 
     // File hashes
 
@@ -1176,6 +1187,7 @@ NTSTATUS PvPeFileHashThread(
         PvGetFileHashes(
             fileHandle,
             &crc32HashString,
+            &crc32CHashString,
             &md5HashString,
             &sha1HashString,
             &sha2HashString,
@@ -1192,7 +1204,7 @@ NTSTATUS PvPeFileHashThread(
         }
 
         PhSetFilePosition(fileHandle, NULL);
-        fuzzy_hash_file(fileHandle, &ssdeepHashString);
+        fuzzy_hash_file(fileHandle, &ssdeepHashStringUtf8);
 
         PhSetFilePosition(fileHandle, NULL);
         PvGetTlshFileHash(fileHandle, &tlshHashString);
@@ -1209,12 +1221,12 @@ NTSTATUS PvPeFileHashThread(
 
     // Fuzzy hashes
 
-    if (PhIsNullOrEmptyString(ssdeepHashString))
+    if (!ssdeepHashStringUtf8)
     {
-        fuzzy_hash_buffer(PvMappedImage.ViewBase, PvMappedImage.ViewSize, &ssdeepHashString);
+        fuzzy_hash_buffer(PvMappedImage.ViewBase, PvMappedImage.ViewSize, &ssdeepHashStringUtf8);
     }
 
-    if (PhIsNullOrEmptyString(tlshHashString))
+    if (!tlshHashString)
     {
         PvGetTlshBufferHash(PvMappedImage.ViewBase, PvMappedImage.ViewSize, &tlshHashString);
     }
@@ -1222,14 +1234,26 @@ NTSTATUS PvPeFileHashThread(
     // Authentihash (Authenticode)
 
     if (!authentihashSha1String)
-        authentihashSha1String = PhGetMappedImageAuthenticodeHash(&PvMappedImage, Sha1HashAlgorithm);
+    {
+        PhGetMappedImageAuthenticodeHash(&PvMappedImage, Sha1HashAlgorithm, &authentihashSha1String);
+    }
+
     if (!authentihashSha256String)
-        authentihashSha256String = PhGetMappedImageAuthenticodeHash(&PvMappedImage, Sha256HashAlgorithm);
+    {
+        PhGetMappedImageAuthenticodeHash(&PvMappedImage, Sha256HashAlgorithm, &authentihashSha256String);
+    }
 
     // Page hash (WDAC)
 
-    wdaghashSha1String = PhGetMappedImageWdacHash(&PvMappedImage, Sha1HashAlgorithm);
-    wdaghashSha256String = PhGetMappedImageWdacHash(&PvMappedImage, Sha256HashAlgorithm);
+    if (!wdaghashSha1String)
+    {
+        PhGetMappedImageWdacHash(&PvMappedImage, Sha1HashAlgorithm, &wdaghashSha1String);
+    }
+
+    if (!wdaghashSha256String)
+    {
+        PhGetMappedImageWdacHash(&PvMappedImage, Sha256HashAlgorithm, &wdaghashSha256String);
+    }
 
     // Page hash (Authenticode)
 
@@ -1242,6 +1266,7 @@ NTSTATUS PvPeFileHashThread(
         results = PhAllocateZero(sizeof(PV_PE_HASH_RESULTS));
         results->ImageHasImports = checkImports;
         results->Crc32HashString = crc32HashString;
+        results->Crc32CHashString = crc32CHashString;
         results->Md5HashString = md5HashString;
         results->Sha1HashString = sha1HashString;
         results->Sha2HashString = sha2HashString;
@@ -1254,9 +1279,11 @@ NTSTATUS PvPeFileHashThread(
         results->ImphashString = imphashString;
         results->ImphashFuzzyString = imphashFuzzyString;
         results->ImpMsftHashString = impMsftHashString;
-        results->SsdeepHashString = ssdeepHashString;
-        results->TlshHashString = tlshHashString;
+        results->SsdeepHashString = PhConvertUtf8ToUtf16(ssdeepHashStringUtf8);
+        results->TlshHashString = PhConvertUtf8ToUtf16(tlshHashString);
         results->PageHashList = pagehashesList;
+        free(ssdeepHashStringUtf8);
+        free(tlshHashString);
 
         PostMessage(Context->WindowHandle, WM_PV_HASH_FINISHED, 0, (LPARAM)results);
     }
@@ -1420,7 +1447,7 @@ INT_PTR CALLBACK PvpPeHashesDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     case WM_PV_HASH_FINISHED:
@@ -1434,6 +1461,7 @@ INT_PTR CALLBACK PvpPeHashesDlgProc(
             // File hashes
 
             PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_FILEHASH, PV_HASHLIST_INDEX_CRC32, &count, TRUE, NULL, L"CRC32", results->Crc32HashString);
+            PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_FILEHASH, PV_HASHLIST_INDEX_CRC32C, &count, TRUE, NULL, L"CRC32C", results->Crc32CHashString);
             PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_FILEHASH, PV_HASHLIST_INDEX_MD5, &count, TRUE, NULL, L"MD5", results->Md5HashString);
             PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_FILEHASH, PV_HASHLIST_INDEX_SHA1, &count, TRUE, NULL, L"SHA-1", results->Sha1HashString);
             PvPeHashesAddListViewItem(context->ListViewHandle, PV_HASHLIST_CATEGORY_FILEHASH, PV_HASHLIST_INDEX_SHA256, &count, TRUE, NULL, L"SHA-256", results->Sha2HashString);
@@ -1489,6 +1517,8 @@ INT_PTR CALLBACK PvpPeHashesDlgProc(
 
                 PhDereferenceObject(results->PageHashList);
             }
+
+            PhFree(results);
 
             ExtendedListView_SetRedraw(context->ListViewHandle, TRUE);
         }

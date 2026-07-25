@@ -21,6 +21,7 @@ private slots:
 	void					OnColumnsChanged();
 
 	void					OnDoubleClicked();
+	void					OnEditString();
 
 	//void					OnMenu(const QPoint &point);
 	void					OnSaveString();

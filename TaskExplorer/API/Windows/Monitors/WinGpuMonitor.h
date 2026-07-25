@@ -5,6 +5,8 @@
 class CWinGpuMonitor : public CGpuMonitor
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinGpuMonitor)
 public:
 	CWinGpuMonitor(QObject *parent = nullptr);
     virtual ~CWinGpuMonitor();

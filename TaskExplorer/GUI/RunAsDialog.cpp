@@ -83,6 +83,7 @@ void CRunAsDialog::accept()
 	PPH_STRING password = NULL;
 	PPH_STRING desktopName = NULL;
 	HANDLE ProcessId = (HANDLE)m_PID;
+	ULONG currentSessionId = ULONG_MAX;
 
 	program = CastQString(ui.binaryPath->currentText());
 	username = CastQString(ui.userName->currentText());
@@ -90,14 +91,14 @@ void CRunAsDialog::accept()
 	createSuspended = ui.suspended->isChecked();
 
 	if (PhIsNullOrEmptyString(program))
-		goto cleanup;
+		goto CleanupExit;
 
 	logonType = ui.loginType->currentData().toUInt();
 	sessionId = ui.session->currentData().toUInt();
 	desktopName = CastQString(ui.desktop->currentText());
 
 	if (sessionId == ULONG_MAX)
-		goto cleanup;
+		goto CleanupExit;
 
 	// Fix up the user name if it doesn't have a domain.
 	if (PhFindCharInString(username, 0, '\\') == -1)
@@ -108,7 +109,7 @@ void CRunAsDialog::accept()
 		if (NT_SUCCESS(PhLookupName(&username->sr, &sid, NULL, NULL)))
 		{
 			if (newUserName = PhGetSidFullName(sid, TRUE, NULL))
-				PhSwapReference((PVOID*)&username, newUserName);
+				PhSwapReference(&username, newUserName);
 
 			PhFree(sid);
 		}
@@ -134,8 +135,6 @@ void CRunAsDialog::accept()
 	//        );
 	//}
 
-	ULONG currentSessionId = ULONG_MAX;
-
 	PhGetProcessSessionId(NtCurrentProcess(), &currentSessionId);
 
 	if (logonType == LOGON32_LOGON_INTERACTIVE && !ProcessId && sessionId == currentSessionId && !useLinkedToken)
@@ -147,6 +146,7 @@ void CRunAsDialog::accept()
 		PH_CREATE_PROCESS_AS_USER_INFO createInfo;
 		PPH_STRING domainPart = NULL;
 		PPH_STRING userPart = NULL;
+		HANDLE newProcessHandle;
 
 		PhpSplitUserName(username->Buffer, &domainPart, &userPart);
 
@@ -160,33 +160,83 @@ void CRunAsDialog::accept()
 		if (!PhIsNullOrEmptyString(desktopName) && !PhEqualString2(desktopName, L"WinSta0\\Default", TRUE))
 			createInfo.DesktopName = PhGetString(desktopName);
 
-		PhSetDesktopWinStaAccess();
+		//PhSetDesktopWinStaAccess();
 
 		status = PhCreateProcessAsUser(
 			&createInfo,
 			PH_CREATE_PROCESS_WITH_PROFILE | (createSuspended ? PH_CREATE_PROCESS_SUSPENDED : 0),
 			NULL,
 			NULL,
-			NULL
-			);
+			&newProcessHandle,
+			NULL);
+
+		if (NT_SUCCESS(status))
+		{
+			PROCESS_BASIC_INFORMATION basicInfo;
+			PSID userSid, logonSid;
+
+			if (PhRunAsGetLogonSid(newProcessHandle, &userSid, &logonSid))
+			{
+				status = PhRunAsUpdateDesktop(userSid);
+
+				if (!NT_SUCCESS(status))
+					goto CleanupExit;
+
+				status = PhRunAsUpdateWindowStation(userSid, logonSid);
+
+				if (!NT_SUCCESS(status))
+					goto CleanupExit;
+			}
+
+			if (!createSuspended)
+			{
+				if (NT_SUCCESS(PhGetProcessBasicInformation(newProcessHandle, &basicInfo)))
+				{
+					AllowSetForegroundWindow(HandleToUlong(basicInfo.UniqueProcessId));
+				}
+
+				PhConsoleSetForeground(newProcessHandle, TRUE);
+
+				NtResumeProcess(newProcessHandle);
+			}
+
+			NtClose(newProcessHandle);
+		}
 
 		if (domainPart) PhDereferenceObject(domainPart);
 		if (userPart) PhDereferenceObject(userPart);
 	}
 	else
 	{
-		status = PhExecuteRunAsCommand3(
-			PhMainWndHandle,
-			PhGetString(program),
-			PhGetString(username),
-			PhGetStringOrEmpty(password),
-			logonType,
-			ProcessId,
-			sessionId,
-			PhGetString(desktopName),
-			useLinkedToken,
-			createSuspended
+		if (ProcessId)
+		{
+			status = PhRunAsExecutionAlias(program);
+
+			if (!NT_SUCCESS(status))
+			{
+				status = PhRunAsExecuteParentCommand(
+					PhMainWndHandle,
+					PhGetString(program),
+					ProcessId,
+					createSuspended
+				);
+			}
+		}
+		else
+		{
+			status = PhExecuteRunAsCommand3(
+				PhMainWndHandle,
+				PhGetString(program),
+				PhGetString(username),
+				PhGetStringOrEmpty(password),
+				logonType,
+				ProcessId,
+				sessionId,
+				PhGetString(desktopName),
+				useLinkedToken,
+				createSuspended
 			);
+		}
 	}
 
 	if (!NT_SUCCESS(status))
@@ -203,7 +253,7 @@ void CRunAsDialog::accept()
 		this->close();
 	}
 
-cleanup:
+CleanupExit:
 	if (program)
 		PhDereferenceObject(program);
 	if (username)

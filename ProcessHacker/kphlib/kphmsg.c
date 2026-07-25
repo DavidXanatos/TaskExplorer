@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022
+ *     jxy-s   2022-2026
  *     dmex    2022
  *
  */
@@ -13,7 +13,7 @@
 #include <kphlibbase.h>
 #include <kphmsg.h>
 
-#define KPH_MESSAGE_VERSION 4
+#define KPH_MESSAGE_VERSION 8
 
 /**
  * Gets the current system time (UTC).
@@ -27,11 +27,16 @@ VOID KphMsgQuerySystemTime(
 #ifdef _KERNEL_MODE
     KeQuerySystemTime(SystemTime);
 #else
-    do
+    while (TRUE)
     {
         SystemTime->HighPart = USER_SHARED_DATA->SystemTime.High1Time;
         SystemTime->LowPart = USER_SHARED_DATA->SystemTime.LowPart;
-    } while (SystemTime->HighPart != USER_SHARED_DATA->SystemTime.High2Time);
+
+        if (SystemTime->HighPart == USER_SHARED_DATA->SystemTime.High2Time)
+            break;
+
+        YieldProcessor();
+    }
 #endif
 }
 

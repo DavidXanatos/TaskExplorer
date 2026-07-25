@@ -13,9 +13,25 @@
 #ifndef _PH_SVCSUP_H
 #define _PH_SVCSUP_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+typedef struct _PH_SVC_HOST_POLICY_INFO
+{
+    ULONG AuthenticationCapabilities;
+    ULONG AuthenticationLevel;
+    ULONG BinarySignaturePolicy;
+    ULONG CoInitializeSecurityAllowComCapability;
+    ULONG CoInitializeSecurityAllowCrossContainer;
+    ULONG CoInitializeSecurityAllowInteractiveUsers;
+    ULONG CoInitializeSecurityAllowLowBox;
+    ULONG CoInitializeSecurityParam;
+    ULONG COM_UnmarshalingPolicy;
+    ULONG DefaultRpcStackSize;
+    ULONG DynamicCodePolicy;
+    ULONG ImpersonationLevel;
+    ULONG RedirectionTrustPolicy;
+    ULONG RpcExceptionFilterMode;
+} PH_SVC_HOST_POLICY_INFO, *PPH_SVC_HOST_POLICY_INFO;
+
+EXTERN_C_START
 
 extern CONST PPH_STRINGREF PhServiceTypeStrings[12];
 extern CONST PPH_STRINGREF PhServiceStartTypeStrings[5];
@@ -62,7 +78,7 @@ NTAPI
 PhOpenService(
     _Out_ PSC_HANDLE ServiceHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ PWSTR ServiceName
+    _In_ PCWSTR ServiceName
     );
 
 PHLIBAPI
@@ -75,7 +91,7 @@ PhOpenServiceKey(
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhCloseServiceHandle(
     _In_ SC_HANDLE ServiceHandle
@@ -143,17 +159,6 @@ PhQueryServiceConfig2(
     _Out_writes_bytes_opt_(BufferLength) PVOID Buffer,
     _In_ ULONG BufferLength,
     _Out_opt_ PULONG ReturnLength
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhQueryServiceObjectSecurity(
-    _In_ SC_HANDLE ServiceHandle,
-    _In_ SECURITY_INFORMATION SecurityInformation,
-    _Out_writes_bytes_opt_(SecurityDescriptorLength) PSECURITY_DESCRIPTOR SecurityDescriptor,
-    _In_ ULONG SecurityDescriptorLength,
-    _Out_ PULONG ReturnLength
     );
 
 PHLIBAPI
@@ -243,9 +248,15 @@ PhGetServiceDescription(
     _In_ SC_HANDLE ServiceHandle
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+PPH_STRING
+NTAPI
+PhGetServiceDescriptionKey(
+    _In_ PPH_STRINGREF ServiceName
+    );
+
+PHLIBAPI
+NTSTATUS
 NTAPI
 PhGetServiceDelayedAutoStart(
     _In_ SC_HANDLE ServiceHandle,
@@ -253,16 +264,15 @@ PhGetServiceDelayedAutoStart(
     );
 
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhSetServiceDelayedAutoStart(
     _In_ SC_HANDLE ServiceHandle,
     _In_ BOOLEAN DelayedAutoStart
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhGetServiceTriggerInfo(
     _In_ SC_HANDLE ServiceHandle,
@@ -270,14 +280,14 @@ PhGetServiceTriggerInfo(
     );
 
 PHLIBAPI
-PPH_STRINGREF
+PCPH_STRINGREF
 NTAPI
 PhGetServiceStateString(
     _In_ ULONG ServiceState
     );
 
 PHLIBAPI
-PPH_STRINGREF
+PCPH_STRINGREF
 NTAPI
 PhGetServiceTypeString(
     _In_ ULONG ServiceType
@@ -291,7 +301,7 @@ PhGetServiceTypeInteger(
     );
 
 PHLIBAPI
-PPH_STRINGREF
+PCPH_STRINGREF
 NTAPI
 PhGetServiceStartTypeString(
     _In_ ULONG ServiceStartType
@@ -305,7 +315,7 @@ PhGetServiceStartTypeInteger(
     );
 
 PHLIBAPI
-PPH_STRINGREF
+PCPH_STRINGREF
 NTAPI
 PhGetServiceErrorControlString(
     _In_ ULONG ServiceErrorControl
@@ -331,7 +341,7 @@ PPH_STRING
 NTAPI
 PhGetServiceNameForModuleReference(
     _In_ HANDLE ProcessId,
-    _In_ PWSTR ModuleName
+    _In_ PCWSTR ModuleName
     );
 
 PHLIBAPI
@@ -339,7 +349,7 @@ NTSTATUS
 NTAPI
 PhGetThreadServiceTag(
     _In_ HANDLE ThreadHandle,
-    _In_opt_ HANDLE ProcessHandle,
+    _In_ HANDLE ProcessHandle,
     _Out_ PVOID *ServiceTag
     );
 
@@ -362,16 +372,17 @@ PPH_STRING
 NTAPI
 PhGetServiceConfigFileName(
     _In_ ULONG ServiceType,
-    _In_ PWSTR ServicePathName,
+    _In_opt_ PCWSTR ServicePathName,
     _In_ PPH_STRINGREF ServiceName
     );
 
 PHLIBAPI
-PPH_STRING
+NTSTATUS
 NTAPI
 PhGetServiceHandleFileName(
     _In_ SC_HANDLE ServiceHandle,
-    _In_ PPH_STRINGREF ServiceName
+    _In_ PPH_STRINGREF ServiceName,
+    _Out_ PPH_STRING* ServiceFileName
     );
 
 PHLIBAPI
@@ -406,10 +417,33 @@ PhGetServiceBootFlags(
     );
 
 PHLIBAPI
+ULONG
+NTAPI
+PhGetServiceUserFlags(
+    _In_ PPH_STRINGREF ServiceName
+    );
+
+PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetServicePackageFullName(
     _In_ PPH_STRINGREF ServiceName
+    );
+
+PHLIBAPI
+PPH_SVC_HOST_POLICY_INFO
+NTAPI
+PhGetSvchostGroupPolicy(
+    _In_ PPH_STRINGREF ServiceName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWaitForServiceStatus(
+    _In_ SC_HANDLE ServiceHandle,
+    _In_ ULONG WaitForState,
+    _In_ ULONG Timeout
     );
 
 FORCEINLINE
@@ -426,8 +460,6 @@ PhServiceWorkaroundWindowsServiceTypeBug(
         ServiceEntry->ServiceStatusProcess.dwServiceType = SERVICE_USER_SHARE_PROCESS | SERVICE_USERSERVICE_INSTANCE;
 }
 
-#ifdef __cplusplus
-}
-#endif
+EXTERN_C_END
 
 #endif

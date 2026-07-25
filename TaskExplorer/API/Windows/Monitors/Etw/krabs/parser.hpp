@@ -142,7 +142,9 @@ namespace krabs {
         assert((pBufferIndex_ <= pEndBuffer_ && pBufferIndex_ >= schema_.record_.UserData) &&
                "invariant: we should've already thrown for falling off the edge");
 
-        assert((pBufferIndex_ == pEndBuffer_ ? lastPropertyIndex_ == totalPropCount
+        // accept that last property can be omitted from buffer. this happens if last property
+        // is string but empty and the provider strips the null terminator
+        assert((pBufferIndex_ == pEndBuffer_ ? ((totalPropCount - lastPropertyIndex_) <= 1)
                                              : true)
                && "invariant: if we've exhausted our buffer, then we must've"
                   "exhausted the properties as well");
@@ -265,6 +267,18 @@ namespace krabs {
         return *(T*)propInfo.pPropertyIndex_;
     }
 
+    template<>
+    inline bool parser::parse<bool>(const std::wstring& name)
+    {
+        auto propInfo = find_property(name);
+        throw_if_property_not_found(propInfo);
+
+        krabs::debug::assert_valid_assignment<bool>(name, propInfo);
+
+        // Boolean in ETW is 4 bytes long
+        return static_cast<bool>(*(unsigned*)propInfo.pPropertyIndex_);
+    }
+
     template <>
     inline std::wstring parser::parse<std::wstring>(const std::wstring &name)
     {
@@ -348,6 +362,56 @@ namespace krabs {
         krabs::debug::assert_valid_assignment<socket_address>(name, propInfo);
 
         return socket_address::from_bytes(propInfo.pPropertyIndex_, propInfo.length_);
+    }
+
+    template<>
+    inline sid parser::parse<sid>(
+        const std::wstring& name)
+    {
+        auto propInfo = find_property(name);
+        throw_if_property_not_found(propInfo);
+
+        krabs::debug::assert_valid_assignment<sid>(name, propInfo);
+        auto InType = propInfo.pEventPropertyInfo_->nonStructType.InType;
+
+        // A WBEMSID is actually a TOKEN_USER structure followed by the SID.
+        // We only care about the SID. From MSDN:
+        //
+        //      The size of the TOKEN_USER structure differs
+        //      depending on whether the events were generated on a 32 - bit
+        //      or 64 - bit architecture. Also the structure is aligned
+        //      on an 8 - byte boundary, so its size is 8 bytes on a
+        //      32 - bit computer and 16 bytes on a 64 - bit computer.
+        //      Doubling the pointer size handles both cases.
+        ULONG sid_start = 16;
+        if (EVENT_HEADER_FLAG_32_BIT_HEADER == (schema_.record_.EventHeader.Flags & EVENT_HEADER_FLAG_32_BIT_HEADER)) {
+            sid_start = 8;
+        }
+        switch (InType) {
+        case TDH_INTYPE_SID:
+            return sid::from_bytes(propInfo.pPropertyIndex_, propInfo.length_);
+        case TDH_INTYPE_WBEMSID:
+            // Safety measure to make sure we don't overflow
+            if (propInfo.length_ <= sid_start) {
+                throw std::runtime_error(
+                    "Requested a WBEMSID property but data is too small");
+            }
+            return sid::from_bytes(propInfo.pPropertyIndex_ + sid_start, propInfo.length_ - sid_start);
+
+        default:
+            throw std::runtime_error("SID was not a SID or WBEMSID");
+        }
+    }
+
+    template<>
+    inline pointer parser::parse<pointer>(const std::wstring& name)
+    {
+        auto propInfo = find_property(name);
+        throw_if_property_not_found(propInfo);
+
+        krabs::debug::assert_valid_assignment<pointer>(name, propInfo);
+
+        return pointer::from_bytes(propInfo.pPropertyIndex_, propInfo.length_);
     }
 
     // view_of

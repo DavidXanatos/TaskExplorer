@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2026
  *
  */
 
@@ -22,7 +22,7 @@ typedef enum _KPH_THREAD_NOTIFY_TYPE
     KphThreadNotifyExit
 } KPH_THREAD_NOTIFY_TYPE;
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Performing thread tracking.
@@ -35,18 +35,18 @@ PAGED_FILE();
  * \return Pointer to the thread context, may be null, the caller should
  * dereference this object if it is non-null.
  */
-_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_max_(APC_LEVEL)
 _Must_inspect_result_
 PKPH_THREAD_CONTEXT KphpPerformThreadTracking(
     _In_ HANDLE ProcessId,
     _In_ HANDLE ThreadId,
     _In_ BOOLEAN Create,
-    _In_ PETHREAD Thread
+    _In_opt_ PETHREAD Thread
     )
 {
     PKPH_THREAD_CONTEXT thread;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE();
 
     if (!Create)
     {
@@ -68,7 +68,16 @@ PKPH_THREAD_CONTEXT KphpPerformThreadTracking(
         return thread;
     }
 
-    NT_ASSERT(Create);
+    if (!Thread)
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      TRACKING,
+                      "Failed to track thread %lu in process %lu",
+                      HandleToULong(ThreadId),
+                      HandleToULong(ProcessId));
+
+        return NULL;
+    }
 
     thread = KphTrackThreadContext(Thread);
     if (!thread)
@@ -106,8 +115,7 @@ PKPH_THREAD_CONTEXT KphpPerformThreadTracking(
  * \param[in] Create If true the thread is being created, if false the thread
  * is being destroyed.
  */
-_Function_class_(PCREATE_THREAD_NOTIFY_ROUTINE)
-_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_max_(APC_LEVEL)
 VOID KphpCreateThreadNotifyInformer(
     _In_ PKPH_THREAD_CONTEXT Thread,
     _In_ HANDLE ProcessId,
@@ -116,16 +124,17 @@ VOID KphpCreateThreadNotifyInformer(
     )
 {
     PKPH_MESSAGE msg;
-    PKPH_PROCESS_CONTEXT actorProcess;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE();
+
+    KPH_INFORMER_CONTEXT_ENTER();
 
     msg = NULL;
-    actorProcess = KphGetCurrentProcessContext();
+    KphInformerAdd(Thread->ProcessContext);
 
     if (Type == KphThreadNotifyCreate)
     {
-        if (!KphInformerEnabled2(ThreadCreate, actorProcess, Thread->ProcessContext))
+        if (!KphInformerEnabled(ThreadCreate))
         {
             goto Exit;
         }
@@ -140,10 +149,7 @@ VOID KphpCreateThreadNotifyInformer(
         }
 
         KphMsgInit(msg, KphMsgThreadCreate);
-        msg->Kernel.ThreadCreate.CreatingClientId.UniqueProcess = PsGetCurrentProcessId();
-        msg->Kernel.ThreadCreate.CreatingClientId.UniqueThread = PsGetCurrentThreadId();
-        msg->Kernel.ThreadCreate.CreatingProcessStartKey = KphGetCurrentProcessStartKey();
-        msg->Kernel.ThreadCreate.CreatingThreadSubProcessTag = KphGetCurrentThreadSubProcessTag();
+        KphCaptureCurrentContext(&msg->Kernel.ThreadCreate.Context);
         msg->Kernel.ThreadCreate.TargetClientId.UniqueProcess = ProcessId;
         msg->Kernel.ThreadCreate.TargetClientId.UniqueThread = ThreadId;
         msg->Kernel.ThreadCreate.TargetProcessStartKey = KphGetThreadProcessStartKey(Thread->EThread);
@@ -158,7 +164,7 @@ VOID KphpCreateThreadNotifyInformer(
         //
         subProcessTag = KphGetCurrentThreadSubProcessTag();
 
-        if (!KphInformerEnabled2(ThreadExecute, actorProcess, Thread->ProcessContext))
+        if (!KphInformerEnabled(ThreadExecute))
         {
             goto Exit;
         }
@@ -173,17 +179,15 @@ VOID KphpCreateThreadNotifyInformer(
         }
 
         KphMsgInit(msg, KphMsgThreadExecute);
-        msg->Kernel.ThreadExecute.ClientId.UniqueProcess = ProcessId;
-        msg->Kernel.ThreadExecute.ClientId.UniqueThread = ThreadId;
-        NT_ASSERT(ProcessId == PsGetCurrentProcessId());
-        msg->Kernel.ThreadExecute.ProcessStartKey = KphGetCurrentProcessStartKey();
-        msg->Kernel.ThreadExecute.ThreadSubProcessTag = subProcessTag;
+        NT_ASSERT(ProcessId == PsGetProcessId(PsGetCurrentProcess()));
+        KphCaptureCurrentContext(&msg->Kernel.ThreadExecute.Context);
+        NT_ASSERT(msg->Kernel.ThreadExecute.Context.ThreadSubProcessTag == subProcessTag);
     }
     else
     {
         NT_ASSERT(Type == KphThreadNotifyExit);
 
-        if (!KphInformerEnabled2(ThreadExit, actorProcess, Thread->ProcessContext))
+        if (!KphInformerEnabled(ThreadExit))
         {
             goto Exit;
         }
@@ -198,15 +202,12 @@ VOID KphpCreateThreadNotifyInformer(
         }
 
         KphMsgInit(msg, KphMsgThreadExit);
-        msg->Kernel.ThreadExit.ClientId.UniqueProcess = ProcessId;
-        msg->Kernel.ThreadExit.ClientId.UniqueThread = ThreadId;
+        NT_ASSERT(ProcessId == PsGetProcessId(PsGetCurrentProcess()));
+        KphCaptureCurrentContext(&msg->Kernel.ThreadExit.Context);
         msg->Kernel.ThreadExit.ExitStatus = PsGetThreadExitStatus(Thread->EThread);
-        NT_ASSERT(ProcessId == PsGetCurrentProcessId());
-        msg->Kernel.ThreadExit.ProcessStartKey = KphGetCurrentProcessStartKey();
-        msg->Kernel.ThreadExit.ThreadSubProcessTag = KphGetCurrentThreadSubProcessTag();
     }
 
-    if (KphInformerEnabled2(EnableStackTraces, actorProcess, Thread->ProcessContext))
+    if (KphInformerOpts().EnableStackTraces)
     {
         KphCaptureStackInMessage(msg);
     }
@@ -221,10 +222,7 @@ Exit:
         KphFreeMessage(msg);
     }
 
-    if (actorProcess)
-    {
-        KphDereferenceObject(actorProcess);
-    }
+    KPH_INFORMER_CONTEXT_EXIT();
 }
 
 /**
@@ -236,7 +234,7 @@ Exit:
  * \param[in] Create Unused
  */
 _Function_class_(PCREATE_THREAD_NOTIFY_ROUTINE)
-_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_max_(APC_LEVEL)
 VOID KphpExecuteThreadNotifyRoutine(
     _In_ HANDLE ProcessId,
     _In_ HANDLE ThreadId,
@@ -245,7 +243,7 @@ VOID KphpExecuteThreadNotifyRoutine(
 {
     PKPH_THREAD_CONTEXT thread;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE();
 
     UNREFERENCED_PARAMETER(Create);
 
@@ -273,20 +271,29 @@ VOID KphpExecuteThreadNotifyRoutine(
  * is being destroyed.
  */
 _Function_class_(PCREATE_THREAD_NOTIFY_ROUTINE)
-_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_max_(APC_LEVEL)
 VOID KphpCreateThreadNotifyRoutine(
     _In_ HANDLE ProcessId,
     _In_ HANDLE ThreadId,
     _In_ BOOLEAN Create
     )
 {
+    NTSTATUS status;
     PKPH_THREAD_CONTEXT thread;
     PETHREAD threadObject;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE();
 
-    NT_VERIFY(NT_SUCCESS(PsLookupThreadByThreadId(ThreadId, &threadObject)));
-    NT_ASSERT(threadObject);
+    status = PsLookupThreadByThreadId(ThreadId, &threadObject);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      INFORMER,
+                      "PsLookupThreadByThreadId failed: %!STATUS!",
+                      status);
+
+        threadObject = NULL;
+    }
 
     if (Create)
     {
@@ -326,7 +333,10 @@ VOID KphpCreateThreadNotifyRoutine(
         KphDereferenceObject(thread);
     }
 
-    ObDereferenceObject(threadObject);
+    if (threadObject)
+    {
+        ObDereferenceObject(threadObject);
+    }
 }
 
 /**
@@ -342,7 +352,7 @@ NTSTATUS KphThreadInformerStart(
 {
     NTSTATUS status;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     status = PsSetCreateThreadNotifyRoutineEx(PsCreateThreadNotifySubsystems,
                                               (PVOID)KphpCreateThreadNotifyRoutine);
@@ -377,7 +387,7 @@ VOID KphThreadInformerStop(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     PsRemoveCreateThreadNotifyRoutine(KphpExecuteThreadNotifyRoutine);
     PsRemoveCreateThreadNotifyRoutine(KphpCreateThreadNotifyRoutine);

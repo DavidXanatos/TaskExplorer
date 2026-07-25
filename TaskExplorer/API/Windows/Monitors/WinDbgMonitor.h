@@ -5,6 +5,8 @@
 class CWinDbgMonitor : public QObject
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinDbgMonitor)
 public:
 	CWinDbgMonitor(QObject *parent = nullptr);
     virtual ~CWinDbgMonitor();

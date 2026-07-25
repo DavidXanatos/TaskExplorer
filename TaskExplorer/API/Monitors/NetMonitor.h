@@ -6,6 +6,8 @@
 class CNetMonitor : public QObject
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CNetMonitor)
 public:
 	CNetMonitor(QObject *parent = nullptr);
 	virtual ~CNetMonitor();

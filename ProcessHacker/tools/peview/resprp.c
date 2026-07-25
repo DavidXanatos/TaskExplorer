@@ -91,11 +91,13 @@ typedef struct _PV_RESOURCES_CONTEXT
     PH_MAPPED_IMAGE MuiMappedImage;
 } PV_RESOURCES_CONTEXT, *PPV_RESOURCES_CONTEXT;
 
+_Function_class_(PH_HASHTABLE_EQUAL_FUNCTION)
 BOOLEAN PvResourcesNodeHashtableCompareFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
     );
 
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PvResourcesNodeHashtableHashFunction(
     _In_ PVOID Entry
     );
@@ -170,37 +172,37 @@ PPH_STRING PvpGetResourceTypeString(
 {
     switch (Type)
     {
-    case RT_CURSOR:
+    case (ULONG_PTR)RT_CURSOR:
         return PhCreateString(L"RT_CURSOR");
-    case RT_BITMAP:
+    case (ULONG_PTR)RT_BITMAP:
         return PhCreateString(L"RT_BITMAP");
-    case RT_ICON:
+    case (ULONG_PTR)RT_ICON:
         return PhCreateString(L"RT_ICON");
-    case RT_MENU:
+    case (ULONG_PTR)RT_MENU:
         return PhCreateString(L"RT_MENU");
-    case RT_DIALOG:
+    case (ULONG_PTR)RT_DIALOG:
         return PhCreateString(L"RT_DIALOG");
-    case RT_STRING:
+    case (ULONG_PTR)RT_STRING:
         return PhCreateString(L"RT_STRING");
-    case RT_FONTDIR:
+    case (ULONG_PTR)RT_FONTDIR:
         return PhCreateString(L"RT_FONTDIR");
-    case RT_FONT:
+    case (ULONG_PTR)RT_FONT:
         return PhCreateString(L"RT_FONT");
-    case RT_ACCELERATOR:
+    case (ULONG_PTR)RT_ACCELERATOR:
         return PhCreateString(L"RT_ACCELERATOR");
-    case RT_RCDATA:
+    case (ULONG_PTR)RT_RCDATA:
         return PhCreateString(L"RT_RCDATA");
-    case RT_MESSAGETABLE:
+    case (ULONG_PTR)RT_MESSAGETABLE:
         return PhCreateString(L"RT_MESSAGETABLE");
-    case RT_GROUP_CURSOR:
+    case (ULONG_PTR)RT_GROUP_CURSOR:
         return PhCreateString(L"RT_GROUP_CURSOR");
-    case RT_GROUP_ICON:
+    case (ULONG_PTR)RT_GROUP_ICON:
         return PhCreateString(L"RT_GROUP_ICON");
-    case RT_VERSION:
+    case (ULONG_PTR)RT_VERSION:
         return PhCreateString(L"RT_VERSION");
-    case RT_ANICURSOR:
+    case (ULONG_PTR)RT_ANICURSOR:
         return PhCreateString(L"RT_ANICURSOR");
-    case RT_MANIFEST:
+    case (ULONG_PTR)RT_MANIFEST:
         return PhCreateString(L"RT_MANIFEST");
     }
 
@@ -354,7 +356,7 @@ VOID PvpPeEnumMappedImageResources(
             resourceNode->RvaStart = UlongToPtr(entry.Offset);
             PhPrintPointer(value, resourceNode->RvaStart);
             resourceNode->RvaStartString = PhCreateString(value);
-            resourceNode->RvaEnd = PTR_ADD_OFFSET(entry.Offset, entry.Size);
+            resourceNode->RvaEnd = (PVOID)(ULONG_PTR)UInt32Add32To64(entry.Offset, entry.Size);
             PhPrintPointer(value, resourceNode->RvaEnd);
             resourceNode->RvaEndString = PhCreateString(value);
             resourceNode->RvaSize = entry.Size;
@@ -446,11 +448,12 @@ VOID PvpPeEnumMappedImageResources(
                             resourceData,
                             entry.Size,
                             &imageResourceEntropy,
+                            NULL,
                             NULL
                             ))
                         {
                             resourceNode->ResourcesEntropy = imageResourceEntropy;
-                            resourceNode->EntropyString = PhFormatEntropy(imageResourceEntropy, 2, 0, 0);
+                            resourceNode->EntropyString = PhFormatEntropy(imageResourceEntropy, 2, 0, 0, 0, 0);
                         }
                     }
                     __except (EXCEPTION_EXECUTE_HANDLER)
@@ -512,6 +515,7 @@ VOID PvpPeEnumAlternateMappedImageResources(
     }
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PvpPeResourcesEnumerateThread(
     _In_ PPV_RESOURCES_CONTEXT Context
     )
@@ -526,6 +530,7 @@ NTSTATUS PvpPeResourcesEnumerateThread(
     return STATUS_SUCCESS;
 }
 
+_Function_class_(PH_SEARCHCONTROL_CALLBACK)
 VOID NTAPI PvpPeResourcesSearchControlCallback(
     _In_ ULONG_PTR MatchHandle,
     _In_opt_ PVOID Context
@@ -584,6 +589,7 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Resources (Ctrl+K)",
                 PvpPeResourcesSearchControlCallback,
@@ -716,7 +722,16 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -791,6 +806,7 @@ LONG PvResourcesTreeNewPostSortFunction(
     return PhModifySort(Result, SortOrder);
 }
 
+_Function_class_(PH_HASHTABLE_EQUAL_FUNCTION)
 BOOLEAN PvResourcesNodeHashtableCompareFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
@@ -802,6 +818,7 @@ BOOLEAN PvResourcesNodeHashtableCompareFunction(
     return sectionNode1->UniqueId == sectionNode2->UniqueId;
 }
 
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PvResourcesNodeHashtableHashFunction(
     _In_ PVOID Entry
     )
@@ -967,7 +984,7 @@ BOOLEAN NTAPI PvResourcesTreeNewCallback(
 
             if (!getChildren->Node)
             {
-                static PVOID sortFunctions[] =
+                static CONST _CoreCrtSecureSearchSortCompareFunction sortFunctions[] =
                 {
                     SORT_FUNCTION(Index),
                     SORT_FUNCTION(Type),
@@ -979,7 +996,7 @@ BOOLEAN NTAPI PvResourcesTreeNewCallback(
                     SORT_FUNCTION(Hash),
                     SORT_FUNCTION(Entropy),
                 };
-                int (__cdecl *sortFunction)(void *, const void *, const void *);
+                _CoreCrtSecureSearchSortCompareFunction sortFunction;
 
                 static_assert(RTL_NUMBER_OF(sortFunctions) == PV_RESOURCES_TREE_COLUMN_ITEM_MAXIMUM, "SortFunctions must equal maximum.");
 

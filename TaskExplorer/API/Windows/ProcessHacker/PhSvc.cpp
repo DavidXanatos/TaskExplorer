@@ -13,7 +13,8 @@
 #include "stdafx.h"
 #include "PhSvc.h"
 
-#define SIP(String, Integer) { (String), (PVOID)(Integer) }
+#undef SIP
+#define SIP(String, Integer) { (PWSTR)(String), (PVOID)(Integer) }
 
 PH_KEY_VALUE_PAIR PhpServiceTypePairs[] =
 {
@@ -207,8 +208,8 @@ VOID EspFormatTriggerInfo(
 )
 {
 	PPH_STRING stringUsed = NULL;
-	PWSTR triggerString = NULL;
-	PWSTR actionString;
+	PCWSTR triggerString = NULL;
+	PCWSTR actionString;
 	ULONG i;
 	BOOLEAN typeFound;
 	BOOLEAN subTypeFound;
@@ -317,8 +318,8 @@ VOID EspFormatTriggerInfo(
 		break;
 	}
 
-	*TriggerString = triggerString;
-	*ActionString = actionString;
+	*TriggerString = (PWSTR)triggerString;
+	*ActionString = (PWSTR)actionString;
 	*StringUsed = stringUsed;
 }
 

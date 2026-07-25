@@ -53,7 +53,7 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eThread))
+		if (m_bUseIcons && !pNode->Icon.isValid() && !m_ColumnsOff.contains(eThread))
 		{
 			CProcessPtr pProcess = pNode->pThread->GetProcess().staticCast<CProcessInfo>();
 			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
@@ -88,16 +88,20 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 		}
 
 		STaskStats CpuStats = pThread->GetCpuStats();
+		SIOStatsEx IoStats = pThread->GetIoStats();
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
 			switch(section)
 			{
 				case eThread:				Value = pThread->GetThreadId(); break;
+#ifdef WIN32
+				case eTID_LXSS:				Value = pWinThread->GetLXSSThreadId(); break;
+#endif
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; break;
 #ifdef WIN32
@@ -113,7 +117,12 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eContextSwitches:		Value = CpuStats.ContextSwitchesDelta.Value; break;
 				case eContextSwitchesDelta:	Value = CpuStats.ContextSwitchesDelta.Delta; break;
                 case ePriority:				Value = (quint32)pThread->GetPriority(); break;
-                case eBasePriority:			Value = (quint32)pThread->GetBasePriority(); break;
+#ifdef WIN32
+				case eBasePriority:			Value = (quint32)pWinThread->GetBasePriorityIncrement(); break;
+				case eBasePriorityActual:	Value = (quint32)pThread->GetBasePriority(); break;
+#else
+				case eBasePriority:			Value = (quint32)pThread->GetBasePriority(); break;
+#endif
                 case ePagePriority:			Value = (quint32)pThread->GetPagePriority(); break;
                 case eIOPriority:			Value = (quint32)pThread->GetIOPriority(); break;
 				case eCycles:				Value = CpuStats.CycleDelta.Value; break;
@@ -123,9 +132,41 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				case eUserTime:				Value = CpuStats.CpuUserDelta.Value;
 #ifdef WIN32
 				case eIdealProcessor:		Value = pWinThread->GetIdealProcessor(); break;
-				case eHasToken:				Value = pWinThread->IsSandboxed() ? pWinThread->HasToken2() : pWinThread->HasToken(); break;
+				case eImpersonation:		Value = pWinThread->IsSandboxed() ? (pWinThread->HasToken2() ? 1 : 0) : (int)pWinThread->GetTokenState(); break;
 				case eCritical:				Value = pWinThread->IsCriticalThread() ? tr("Critical") : ""; break;
 				case eAppDomain:			Value = pWinThread->GetAppDomain(); break;
+
+				case ePendingIRP:			Value = pWinThread->HasPendingIrp(); break;
+				case eLastSystemCall:		Value = pWinThread->GetLastSysCallInfoString(); break;
+				case eLastStatusCode:		Value = pWinThread->GetLastSysCallStatusString(); break;
+				case eCOM_Apartment:		Value = pWinThread->GetApartmentType(); break;
+				case eCOM_Flags: 			Value = pWinThread->GetApartmentFlags(); break;
+				case eFiber:				Value = pWinThread->IsFiber(); break;
+				case ePriorityBoost:		Value = pWinThread->HasPriorityBoost(); break;
+				case eStackUsage:			Value = pWinThread->GetStackUsagePercent(); break;
+				//case eWaitTime:				
+				case eIO_Reads:				Value = IoStats.ReadCount; break;
+				case eIO_Writes:			Value = IoStats.WriteCount; break;
+				case eIO_Other:				Value = IoStats.OtherCount; break;
+				case eIO_ReadBytes:			Value = IoStats.ReadRaw; break;
+				case eIO_WriteBytes:		Value = IoStats.WriteRaw; break;
+				case eIO_OtherBytes:		Value = IoStats.OtherRaw; break;		
+				//case eIO_TotalBytes:		Value = ; break;
+				case eIO_ReadsDelta:		Value = IoStats.ReadDelta.Delta; break;
+				case eIO_WritesDelta:		Value = IoStats.WriteDelta.Delta; break;
+				case eIO_OtherDelta:		Value = IoStats.OtherDelta.Delta; break;
+					//case eIO_TotalDelta:		Value = ; break;
+				case eIO_ReadBytesDelta:	Value = IoStats.ReadRawDelta.Delta; break;
+				case eIO_WriteBytesDelta:	Value = IoStats.WriteRawDelta.Delta; break;
+				case eIO_OtherBytesDelta:	Value = IoStats.OtherRawDelta.Delta; break;
+					//case eIO_TotalBytesDelta:	Value = ; break;
+				case eIO_ReadRate:			Value = IoStats.ReadRate.Get(); break;
+				case eIO_WriteRate:			Value = IoStats.WriteRate.Get(); break;
+				case eIO_OtherRate:			Value = IoStats.OtherRate.Get(); break;
+					//case eIO_TotalRate:		Value = ; break;
+				case ePowerThrottling:		Value = pWinThread->IsPowerThrottled(); break;
+				//case eContainerID:			
+				case eRPC_Usage:			Value = pWinThread->HasRpcState(); break;
 #endif
 			}
 
@@ -140,29 +181,73 @@ void CThreadModel::Sync(QMap<quint64, CThreadPtr> ThreadList)
 				switch (section)
 				{
 					case eThread:				if (m_bExtThreadId)
-													ColValue.Formated = tr("%1 (%2): %3").arg(pThread->GetName()).arg(pThread->GetProcessId()).arg(pThread->GetThreadId());
+													ColValue.Formatted = tr("%1 (%2): %3").arg(pThread->GetName()).arg(theGUI->FormatID(pThread->GetProcessId())).arg(theGUI->FormatID(pThread->GetThreadId()));
+												else
+													ColValue.Formatted = theGUI->FormatID(pThread->GetThreadId());
 												break;
-					//case eThread:				ColValue.Formated = "0x" + QString::number(pThread->GetThreadId()); break;
-					case eCPU:					ColValue.Formated = (!bClearZeros || CpuStats.CpuUsage > 0.00004) ? QString::number(CpuStats.CpuUsage*100, 10, 2) + "%" : ""; break;
+					//case eThread:				ColValue.Formatted = "0x" + QString::number(pThread->GetThreadId()); break;
+					case eCPU:					ColValue.Formatted = (!bClearZeros || CpuStats.CpuUsage > 0.00004) ? QString::number(CpuStats.CpuUsage*100, 10, 2) + "%" : ""; break;
 
-					case ePriority:				ColValue.Formated = pThread->GetPriorityString(); break;
-					case eBasePriority:			ColValue.Formated = pThread->GetBasePriorityString(); break;
-					case ePagePriority:			ColValue.Formated = pThread->GetPagePriorityString(); break;
-					case eIOPriority:			ColValue.Formated = pThread->GetIOPriorityString(); break;
-
-					case eCreated:				ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case ePriority:				ColValue.Formatted = pThread->GetPriorityString(); break;
 #ifdef WIN32
-					case eType:					ColValue.Formated = pWinThread->GetTypeString(); break;
+					case eBasePriority:			ColValue.Formatted = pWinThread->GetBasePriorityIncrementString(); break;
+					case eBasePriorityActual:	ColValue.Formatted = pThread->GetBasePriorityString(); break;
+#else
+					case eBasePriority:			ColValue.Formatted = pThread->GetBasePriorityString(); break;
 #endif
-					case eState:				ColValue.Formated = pThread->GetStateString(); break;
+					case ePagePriority:			ColValue.Formatted = pThread->GetPagePriorityString(); break;
+					case eIOPriority:			ColValue.Formatted = pThread->GetIOPriorityString(); break;
+
+					case eCreated:				ColValue.Formatted = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+#ifdef WIN32
+					case eType:					ColValue.Formatted = pWinThread->GetTypeString(); break;
+#endif
+					case eState:				ColValue.Formatted = pThread->GetStateString(); break;
 					case eCycles:
 					case eContextSwitches:
-												ColValue.Formated = FormatNumber(Value.toULongLong()); break;
+												ColValue.Formatted = FormatNumber(Value.toULongLong()); break;
 					case eCyclesDelta:
 					case eContextSwitchesDelta:
-												ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
+												ColValue.Formatted = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
 #ifdef WIN32
-					case eHasToken:				ColValue.Formated = Value.toBool() ? tr("True") : ""; break;
+					case eImpersonation:		ColValue.Formatted = pWinThread->GetTokenStateString(); break;
+
+					case ePendingIRP:			ColValue.Formatted = pWinThread->HasPendingIrp() ? tr("Yes") : ""; break;
+					case eFiber:				ColValue.Formatted = pWinThread->IsFiber() ? tr("Yes") : ""; break;
+					case ePriorityBoost:		ColValue.Formatted = pWinThread->HasPriorityBoost() ? tr("Yes") : ""; break;
+					case eStackUsage:			ColValue.Formatted = pWinThread->GetStackUsageString(); break;
+					case ePowerThrottling:		ColValue.Formatted = pWinThread->IsPowerThrottled() ? tr("Yes") : ""; break;
+					case eRPC_Usage:			ColValue.Formatted = pWinThread->HasRpcState() ? tr("Yes") : ""; break;
+
+					case eCOM_Apartment:		ColValue.Formatted = pWinThread->GetApartmentTypeString(); break;
+					case eCOM_Flags:			ColValue.Formatted = pWinThread->GetApartmentFlagsString(); break;
+
+					case eIO_Reads:
+					case eIO_Writes:
+					case eIO_Other:
+												ColValue.Formatted = FormatNumber(Value.toULongLong()); break;
+
+					case eIO_ReadsDelta:
+					case eIO_WritesDelta:
+					case eIO_OtherDelta:
+												ColValue.Formatted = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
+
+					case eIO_ReadBytes:
+					case eIO_WriteBytes:
+					case eIO_OtherBytes:
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatSize(Value.toULongLong()); break; 
+
+					case eIO_ReadBytesDelta:
+					case eIO_WriteBytesDelta:
+					case eIO_OtherBytesDelta:
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatSizeEx(Value.toULongLong(), bClearZeros); break; 
+
+					//case eIO_TotalRate:
+					case eIO_ReadRate:
+					case eIO_WriteRate:
+					case eIO_OtherRate:
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatRateEx(Value.toULongLong(), bClearZeros); break; 
+
 #endif
 				}
 			}
@@ -206,6 +291,9 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 		switch(section)
 		{
 			case eThread:				return tr("Thread");
+#ifdef WIN32
+			case eTID_LXSS:				return tr("LXSS TID");
+#endif
 			case eCPU_History:			return tr("CPU graph");
 			case eCPU:					return tr("CPU");
 			case eCyclesDelta:			return tr("Cycles delta");
@@ -223,6 +311,9 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 			case eContextSwitchesDelta:	return tr("Context switches delta");
 			case ePriority:				return tr("Priority");
 			case eBasePriority:			return tr("Base priority");
+#ifdef WIN32
+			case eBasePriorityActual: 	return tr("Base priority (actual)");
+#endif
 			case ePagePriority:			return tr("Page priority");
 			case eIOPriority:			return tr("I/O priority");
 			case eCycles:				return tr("Cycles");
@@ -232,8 +323,41 @@ QVariant CThreadModel::headerData(int section, Qt::Orientation orientation, int 
 #ifdef WIN32
 			case eIdealProcessor:		return tr("Ideal processor");
 			case eCritical:				return tr("Critical");
-			case eHasToken:				return tr("Impersonation Token");
+			case eImpersonation:		return tr("Impersonation Token");
 			case eAppDomain:			return tr("App Domain");
+
+			case ePendingIRP:			return tr("Pending IRP");	
+			case eLastSystemCall:		return tr("Last system call");
+			case eLastStatusCode:		return tr("Last status code");
+			case eCOM_Apartment:		return tr("COM apartment");
+			case eCOM_Flags:			return tr("COM flags");
+			case eFiber:				return tr("Fiber");	
+			case ePriorityBoost:		return tr("Priority boost");
+			case eStackUsage:			return tr("Stack usage");
+			case eWaitTime:				return tr("Wait time");
+			case eIO_Reads:				return tr("I/O reads");
+			case eIO_Writes:			return tr("I/O writes");
+			case eIO_Other:				return tr("I/O other");
+			case eIO_ReadBytes:			return tr("I/O read bytes");
+			case eIO_WriteBytes:		return tr("I/O write bytes");
+			case eIO_OtherBytes:		return tr("I/O other bytes");
+			//case eIO_TotalBytes:		return tr("I/O total bytes");
+			case eIO_ReadsDelta:		return tr("I/O reads delta");
+			case eIO_WritesDelta:		return tr("I/O writes delta");
+			case eIO_OtherDelta:		return tr("I/O other delta");
+			//case eIO_TotalDelta:		return tr("I/O total delta");
+			case eIO_ReadBytesDelta:	return tr("I/O read bytes delta");
+			case eIO_WriteBytesDelta:	return tr("I/O write bytes delta");
+			case eIO_OtherBytesDelta:	return tr("I/O other bytes delta");
+			//case eIO_TotalBytesDelta:	return tr("I/O total bytes delta");
+			case eIO_ReadRate:			return tr("I/O read rate");
+			case eIO_WriteRate:			return tr("I/O write rate");
+			case eIO_OtherRate:			return tr("I/O other rate");
+			//case eIO_TotalRate:		return tr("I/O total rate");
+			case ePowerThrottling:		return tr("Power throttling");
+			//case eContainerID:			return tr("Container ID");
+			case eRPC_Usage:				return tr("RPC usage");
+
 #endif
 		}
 	}

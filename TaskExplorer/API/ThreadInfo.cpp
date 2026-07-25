@@ -19,6 +19,11 @@ CThreadInfo::~CThreadInfo()
 	theAPI->ClearThread(m_ThreadId);
 }
 
+QString CThreadInfo::GetStackUsageString() const
+{
+	return tr("%1/%2 (%3 %%)").arg(FormatSize(m_StackUsage)).arg(FormatSize(m_StackLimit)).arg(m_StackUsageFloat, 0, 'f', 2);
+}
+
 QSharedPointer<QObject>	CThreadInfo::GetProcess() const
 {
 	QReadLocker Locker(&m_Mutex); 

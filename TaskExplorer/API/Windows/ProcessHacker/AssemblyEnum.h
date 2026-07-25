@@ -5,6 +5,7 @@ class CAssemblyEnum : public QThread
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CAssemblyEnum)
 public:
 	CAssemblyEnum(quint64 ProcessId, QObject *parent = nullptr);
 	virtual ~CAssemblyEnum();
@@ -21,5 +22,5 @@ protected:
 	quint64				m_ProcessId;
 
 private:
-	static void			AddNodes(CAssemblyListPtr& List, struct _PH_LIST* NodeList, quint64 ParrentId = 0);
+	static void			AddNodes(CAssemblyListPtr& List, struct _PH_LIST* NodeList, quint64 ParentId = 0);
 };

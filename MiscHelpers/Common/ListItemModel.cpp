@@ -57,7 +57,7 @@ void CSimpleListModel::Sync(QList<QVariantMap> List)
 		QVariantMap Values = Cur["Values"].toMap();
 		for(int section = FIRST_COLUMN; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (!IsColumnEnabled(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value = Values[QString::number(section)];
@@ -69,7 +69,7 @@ void CSimpleListModel::Sync(QList<QVariantMap> List)
 				Changed = true;
 				ColValue.Raw = Value;
 
-				//ColValue.Formated = 
+				//ColValue.Formatted = 
 			}
 
 			if(State != Changed)
@@ -186,7 +186,7 @@ QVariant CListItemModel::Data(const QModelIndex &index, int role, int section) c
         return QVariant();
 
     //if(role == Qt::SizeHintRole )
-    //    return QSize(64,16); // for fixing height
+    //    return QSize(16,16); // for fixing height
 
 	SListNode* pNode = static_cast<SListNode*>(index.internalPointer());
 
@@ -195,7 +195,7 @@ QVariant CListItemModel::Data(const QModelIndex &index, int role, int section) c
 		case Qt::DisplayRole:
 		{
 			SListNode::SValue& Value = pNode->Values[section];
-			return Value.Formated.isValid() ? Value.Formated : Value.Raw;
+			return Value.Formatted.isValid() ? Value.Formatted : Value.Raw;
 		}
 		case Qt::EditRole: // sort role
 		{

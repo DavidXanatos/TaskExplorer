@@ -124,10 +124,8 @@
 #define Min(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
 
-#ifdef _DEBUG
-#define SAFE_MODE
-#endif
+//#ifdef _DEBUG
+//#define SAFE_MODE
+//#endif
 
 #include "Common/DebugHelpers.h"
-
-#define USE_QEXTWIDGETS

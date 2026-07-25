@@ -18,14 +18,11 @@ extern "C" {
 #include <winsock2.h>
 #include <ws2tcpip.h>
 /* libmaxminddb package version from configure */
-#define PACKAGE_VERSION "1.9.1"
+#define PACKAGE_VERSION "1.12.2"
 
 #if defined(_MSC_VER)
 /* MSVC doesn't define signed size_t, copy it from configure */
 #define ssize_t SSIZE_T
-
-/* MSVC doesn't support restricted pointers */
-#define restrict
 #endif
 #else
 #include <netdb.h>
@@ -203,7 +200,7 @@ typedef struct MMDB_search_node_s {
 } MMDB_search_node_s;
 
 extern int
-MMDB_open(PPH_STRINGREF filename, uint32_t flags, MMDB_s *const mmdb);
+MMDB_open(PCPH_STRINGREF filename, uint32_t flags, MMDB_s *const mmdb);
 extern MMDB_lookup_result_s MMDB_lookup_string(const MMDB_s *const mmdb,
                                                const char *const ipstr,
                                                int *const gai_error,

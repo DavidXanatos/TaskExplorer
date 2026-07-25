@@ -10,7 +10,7 @@
 /*class CHandleFilterModel: public CSortFilterProxyModel
 {
 public:
-	CHandleFilterModel(bool bAlternate, QObject* parrent = 0) : CSortFilterProxyModel(bAlternate, parrent) 
+	CHandleFilterModel(bool bAlternate, QObject* parent = 0) : CSortFilterProxyModel(bAlternate, parent) 
 	{
 		m_bHideUnnmed = false;
 		m_bHideEtwReg = false;
@@ -86,6 +86,7 @@ private slots:
 	void					ShowOpenFiles(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnItemSelected(const QModelIndex &current);
 	void					OnDoubleClicked();
+	void					OnOpenHandle();
 
 	//void					OnMenu(const QPoint &point);
 

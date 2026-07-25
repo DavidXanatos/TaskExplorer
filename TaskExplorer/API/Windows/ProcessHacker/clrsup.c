@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2011-2015
- *     dmex    2011-2022
+ *     dmex    2011-2024
  *
  */
 
@@ -14,6 +14,7 @@
 #include "../Processhacker.h"
 #include <appresolver.h>
 #include <mapimg.h>
+#include <mapldr.h>
 #include <symprv.h>
 #include <verify.h>
 #include <json.h>
@@ -29,7 +30,30 @@
 #include "clr/corsym.h"
 #endif
 
-static ICLRDataTargetVtbl DnCLRDataTarget_VTable =
+static CONST PH_STRINGREF DnAppDomainStageStrings[] =
+{
+    PH_STRINGREF_INIT(L"Creating"),           // STAGE_CREATING
+    PH_STRINGREF_INIT(L"ReadyForManagedCode"),// STAGE_READYFORMANAGEDCODE
+    PH_STRINGREF_INIT(L"Active"),             // STAGE_ACTIVE
+    PH_STRINGREF_INIT(L"Open"),               // STAGE_OPEN
+    PH_STRINGREF_INIT(L"UnloadRequested"),    // STAGE_UNLOAD_REQUESTED
+    PH_STRINGREF_INIT(L"Exiting"),            // STAGE_EXITING
+    PH_STRINGREF_INIT(L"Exited"),             // STAGE_EXITED
+    PH_STRINGREF_INIT(L"Finalizing"),         // STAGE_FINALIZING
+    PH_STRINGREF_INIT(L"Finalized"),          // STAGE_FINALIZED
+    PH_STRINGREF_INIT(L"HandleTableNoAccess"),// STAGE_HANDLETABLE_NOACCESS
+    PH_STRINGREF_INIT(L"Cleared"),            // STAGE_CLEARED
+    PH_STRINGREF_INIT(L"Collected"),          // STAGE_COLLECTED
+    PH_STRINGREF_INIT(L"Closed"),             // STAGE_CLOSED
+};
+
+static CONST PH_STRINGREF DnAppDomainTypeSharedString = PH_STRINGREF_INIT(L"SharedDomain");
+static CONST PH_STRINGREF DnAppDomainTypeSystemString = PH_STRINGREF_INIT(L"SystemDomain");
+
+static CONST PH_STRINGREF DnCoreClrModuleName = PH_STRINGREF_INIT(L"coreclr.dll");
+static CONST PH_STRINGREF DnClrModuleName = PH_STRINGREF_INIT(L"clr.dll");
+
+static CONST ICLRDataTargetVtbl DnCLRDataTarget_VTable =
 {
     DnCLRDataTarget_QueryInterface,
     DnCLRDataTarget_AddRef,
@@ -47,6 +71,13 @@ static ICLRDataTargetVtbl DnCLRDataTarget_VTable =
     DnCLRDataTarget_Request
 };
 
+/**
+ * Creates a CLR process support object for inspecting a .NET process via the DAC.
+ *
+ * \param ProcessId The process identifier of the target .NET process.
+ * \return A pointer to the allocated CLR_PROCESS_SUPPORT, or NULL on failure.
+ * \remarks The caller must release the support object with FreeClrProcessSupport.
+ */
 PCLR_PROCESS_SUPPORT CreateClrProcessSupport(
     _In_ HANDLE ProcessId
     )
@@ -80,18 +111,32 @@ PCLR_PROCESS_SUPPORT CreateClrProcessSupport(
     return support;
 }
 
+/**
+ * Releases a CLR process support object and frees all associated resources.
+ *
+ * \param Support The CLR process support object to free.
+ */
 VOID FreeClrProcessSupport(
     _In_ PCLR_PROCESS_SUPPORT Support
     )
 {
     if (Support->DataProcess) IXCLRDataProcess_Release(Support->DataProcess);
     // Free the library here so we can cleanup in ICLRDataTarget_Release. (dmex)
-    if (Support->DacDllBase) FreeLibrary(Support->DacDllBase);
+    if (Support->DacDllBase) PhFreeLibrary(Support->DacDllBase);
     if (Support->DataTarget) ICLRDataTarget_Release(Support->DataTarget);
 
     PhFree(Support);
 }
 
+/**
+ * Resolves the managed runtime method name at the specified address using the CLR DAC.
+ *
+ * \param Support The CLR process support object for the target process.
+ * \param Address The virtual address within the target process to look up.
+ * \param Displacement Optionally receives the byte offset from the start of the identified method.
+ * \return The managed method name string, or NULL if the address could not be resolved.
+ * \remarks Uses a stack buffer for the common case to avoid a heap allocation.
+ */
 _Success_(return != NULL)
 PPH_STRING GetRuntimeNameByAddressClrProcess(
     _In_ PCLR_PROCESS_SUPPORT Support,
@@ -100,20 +145,44 @@ PPH_STRING GetRuntimeNameByAddressClrProcess(
     )
 {
     PPH_STRING buffer;
-    ULONG bufferLength;
-    ULONG returnLength;
+    ULONG returnLength = 0;
     ULONG64 displacement;
+    WCHAR stackBuffer[256];
 
-    bufferLength = 33;
-    buffer = PhCreateStringEx(NULL, (bufferLength - 1) * sizeof(WCHAR));
-
-    returnLength = 0;
-
-    if (!SUCCEEDED(IXCLRDataProcess_GetRuntimeNameByAddress(
+    // Try with stack buffer first to avoid heap allocation in common case.
+    if (HR_FAILED(IXCLRDataProcess_GetRuntimeNameByAddress(
         Support->DataProcess,
         Address,
         0,
-        bufferLength,
+        RTL_NUMBER_OF(stackBuffer),
+        &returnLength,
+        stackBuffer,
+        &displacement
+        )))
+    {
+        return NULL;
+    }
+
+    if (returnLength < sizeof(UNICODE_NULL))
+        return NULL;
+
+    if (returnLength <= RTL_NUMBER_OF(stackBuffer))
+    {
+        // Common case: name fits in stack buffer.
+        if (Displacement)
+            *Displacement = displacement;
+
+        return PhCreateStringEx(stackBuffer, (returnLength - 1) * sizeof(WCHAR));
+    }
+
+    // Rare case: name exceeds stack buffer, allocate exact size needed.
+    buffer = PhCreateStringEx(NULL, (returnLength - 1) * sizeof(WCHAR));
+
+    if (HR_FAILED(IXCLRDataProcess_GetRuntimeNameByAddress(
+        Support->DataProcess,
+        Address,
+        0,
+        returnLength,
         &returnLength,
         buffer->Buffer,
         &displacement
@@ -121,28 +190,6 @@ PPH_STRING GetRuntimeNameByAddressClrProcess(
     {
         PhDereferenceObject(buffer);
         return NULL;
-    }
-
-    // Try again if our buffer was too small.
-    if (returnLength > bufferLength)
-    {
-        PhDereferenceObject(buffer);
-        bufferLength = returnLength;
-        buffer = PhCreateStringEx(NULL, (bufferLength - 1) * sizeof(WCHAR));
-
-        if (!SUCCEEDED(IXCLRDataProcess_GetRuntimeNameByAddress(
-            Support->DataProcess,
-            Address,
-            0,
-            bufferLength,
-            &returnLength,
-            buffer->Buffer,
-            &displacement
-            )))
-        {
-            PhDereferenceObject(buffer);
-            return NULL;
-        }
     }
 
     if (Displacement)
@@ -153,6 +200,13 @@ PPH_STRING GetRuntimeNameByAddressClrProcess(
     return buffer;
 }
 
+/**
+ * Retrieves the file name of the module containing the managed method at the given address.
+ *
+ * \param Support The CLR process support object for the target process.
+ * \param Address The virtual address within the target process to look up.
+ * \return The file name of the containing module, or NULL if not found.
+ */
 PPH_STRING DnGetFileNameByAddressClrProcess(
     _In_ PCLR_PROCESS_SUPPORT Support,
     _In_ ULONG64 Address
@@ -171,19 +225,19 @@ PPH_STRING DnGetFileNameByAddressClrProcess(
         &clrDataEnumHandle
         );
 
-    if (status == S_OK)
+    if (HR_SUCCESS(status))
     {
         status = IXCLRDataProcess_EnumMethodInstanceByAddress(Support->DataProcess, &clrDataEnumHandle, &xclrDataMethod);
         IXCLRDataProcess_EndEnumMethodInstancesByAddress(Support->DataProcess, clrDataEnumHandle);
     }
 
-    if (status == S_OK)
+    if (HR_SUCCESS(status))
     {
         status = IXCLRDataMethodInstance_GetTokenAndScope(xclrDataMethod, NULL, &xclrDataModule);
         IXCLRDataMethodInstance_Release(xclrDataMethod);
     }
 
-    if (status == S_OK)
+    if (HR_SUCCESS(status))
     {
         ULONG fileNameLength = 0;
         WCHAR fileNameBuffer[MAX_LONGPATH];
@@ -195,7 +249,7 @@ PPH_STRING DnGetFileNameByAddressClrProcess(
             fileNameBuffer
             );
 
-        if (status == S_OK && fileNameLength >= 1)
+        if (HR_SUCCESS(status) && fileNameLength >= 1)
         {
             buffer = PhCreateStringEx(fileNameBuffer, (fileNameLength - 1) * sizeof(WCHAR));
         }
@@ -206,40 +260,44 @@ PPH_STRING DnGetFileNameByAddressClrProcess(
     return buffer;
 }
 
+/**
+ * Retrieves the display name of a CLR AppDomain via the IXCLRDataAppDomain interface.
+ *
+ * \param AppDomain A pointer to the IXCLRDataAppDomain interface.
+ * \return The AppDomain name string, or NULL on failure.
+ * \remarks Uses a stack buffer for the common case to avoid a heap allocation.
+ */
 PPH_STRING GetNameXClrDataAppDomain(
     _In_ PVOID AppDomain
     )
 {
-    IXCLRDataAppDomain *appDomain;
+    IXCLRDataAppDomain *appDomain = AppDomain;
     PPH_STRING buffer;
-    ULONG bufferLength;
-    ULONG returnLength;
+    ULONG returnLength = 0;
+    WCHAR stackBuffer[256];
 
-    appDomain = AppDomain;
-
-    bufferLength = 33;
-    buffer = PhCreateStringEx(NULL, (bufferLength - 1) * sizeof(WCHAR));
-
-    returnLength = 0;
-
-    if (!SUCCEEDED(IXCLRDataAppDomain_GetName(appDomain, bufferLength, &returnLength, buffer->Buffer)))
+    // Try with stack buffer first to avoid heap allocation in common case.
+    if (HR_FAILED(IXCLRDataAppDomain_GetName(appDomain, RTL_NUMBER_OF(stackBuffer), &returnLength, stackBuffer)))
     {
-        PhDereferenceObject(buffer);
         return NULL;
     }
 
-    // Try again if our buffer was too small.
-    if (returnLength > bufferLength)
+    if (returnLength < sizeof(UNICODE_NULL))
+        return NULL;
+
+    if (returnLength <= RTL_NUMBER_OF(stackBuffer))
+    {
+        // Common case: name fits in stack buffer.
+        return PhCreateStringEx(stackBuffer, (returnLength - 1) * sizeof(WCHAR));
+    }
+
+    // Rare case: name exceeds stack buffer, allocate exact size needed.
+    buffer = PhCreateStringEx(NULL, (returnLength - 1) * sizeof(WCHAR));
+
+    if (HR_FAILED(IXCLRDataAppDomain_GetName(appDomain, returnLength, &returnLength, buffer->Buffer)))
     {
         PhDereferenceObject(buffer);
-        bufferLength = returnLength;
-        buffer = PhCreateStringEx(NULL, (bufferLength - 1) * sizeof(WCHAR));
-
-        if (!SUCCEEDED(IXCLRDataAppDomain_GetName(appDomain, bufferLength, &returnLength, buffer->Buffer)))
-        {
-            PhDereferenceObject(buffer);
-            return NULL;
-        }
+        return NULL;
     }
 
     buffer->Length = (returnLength - 1) * sizeof(WCHAR);
@@ -247,6 +305,13 @@ PPH_STRING GetNameXClrDataAppDomain(
     return buffer;
 }
 
+/**
+ * Retrieves the current AppDomain name for the specified managed thread.
+ *
+ * \param Support The CLR process support object for the target process.
+ * \param ThreadId The OS thread identifier.
+ * \return The AppDomain display name, or NULL if the thread has no current AppDomain.
+ */
 PPH_STRING DnGetClrThreadAppDomain(
     _In_ PCLR_PROCESS_SUPPORT Support,
     _In_ HANDLE ThreadId
@@ -256,9 +321,9 @@ PPH_STRING DnGetClrThreadAppDomain(
     IXCLRDataTask* task;
     IXCLRDataAppDomain* appDomain;
 
-    if (SUCCEEDED(IXCLRDataProcess_GetTaskByOSThreadID(Support->DataProcess, HandleToUlong(ThreadId), &task)))
+    if (HR_SUCCESS(IXCLRDataProcess_GetTaskByOSThreadID(Support->DataProcess, HandleToUlong(ThreadId), &task)))
     {
-        if (SUCCEEDED(IXCLRDataTask_GetCurrentAppDomain(task, &appDomain)))
+        if (HR_SUCCESS(IXCLRDataTask_GetCurrentAppDomain(task, &appDomain)))
         {
             appDomainText = GetNameXClrDataAppDomain(appDomain);
             IXCLRDataAppDomain_Release(appDomain);
@@ -270,6 +335,13 @@ PPH_STRING DnGetClrThreadAppDomain(
     return appDomainText;
 }
 
+/**
+ * Retrieves the full AppDomain and assembly list for a process using the ISOSDacInterface.
+ *
+ * \param Support The CLR process support object for the target process.
+ * \return A list of DN_PROCESS_APPDOMAIN_ENTRY objects, or NULL on failure.
+ * \remarks The caller is responsible for freeing the list with DnDestroyProcessDotNetAppDomainList.
+ */
 PPH_LIST DnGetClrAppDomainAssemblyList(
     _In_ PCLR_PROCESS_SUPPORT Support
     )
@@ -277,15 +349,22 @@ PPH_LIST DnGetClrAppDomainAssemblyList(
     PPH_LIST processAppdomainList = NULL;
     ISOSDacInterface* sosInterface;
 
-    if (SUCCEEDED(IXCLRDataProcess_QueryInterface(Support->DataProcess, &IID_ISOSDacInterface, &sosInterface)))
+    if (HR_SUCCESS(IXCLRDataProcess_QueryInterface(Support->DataProcess, &IID_ISOSDacInterface, &sosInterface)))
     {
         DnGetProcessDotNetAppDomainList(Support->DataTarget, sosInterface, &processAppdomainList);
-        IXCLRDataProcess_Release(sosInterface);
+        ISOSDacInterface_Release(sosInterface);
     }
 
     return processAppdomainList;
 }
 
+/**
+ * Walks the CLR thread store and iterates all managed threads using the ISOSDacInterface.
+ *
+ * \param DacInterface The ISOSDacInterface for the target process.
+ * \return An HRESULT indicating success or the point of failure.
+ * \remarks This function is currently used for diagnostics only; it does not return the thread list.
+ */
 HRESULT DnGetProcessDotNetThreadList(
     _In_ ISOSDacInterface* DacInterface
     )
@@ -299,7 +378,7 @@ HRESULT DnGetProcessDotNetThreadList(
         &threadStoreData
         );
 
-    if (status != S_OK)
+    if (HR_FAILED(status))
         return status;
 
     currentThread = threadStoreData.firstThread;
@@ -314,7 +393,7 @@ HRESULT DnGetProcessDotNetThreadList(
             &threadData
             );
 
-        if (status != S_OK)
+        if (HR_FAILED(status))
             return status;
 
         currentThread = threadData.nextThread;
@@ -323,6 +402,14 @@ HRESULT DnGetProcessDotNetThreadList(
     return status;
 }
 
+/**
+ * Retrieves the file name of a CLR module based on its extent type.
+ *
+ * \param ClrDataTarget The ICLRDataTarget for the target process.
+ * \param ClrDataModule The IXCLRDataModule whose extents are inspected.
+ * \param ModuleExtentType The extent type to match (e.g., CLRDATA_MODULE_PREJIT_FILE for native images).
+ * \return The mapped file name of the matching module extent, or NULL if not found.
+ */
 PPH_STRING DnGetClrModuleTypeFileName(
     _In_ ICLRDataTarget* ClrDataTarget,
     _In_ IXCLRDataModule* ClrDataModule,
@@ -334,9 +421,9 @@ PPH_STRING DnGetClrModuleTypeFileName(
     CLRDATA_ENUM clrDataEnumHandle;
     CLRDATA_MODULE_EXTENT clrDataModuleExtent;
 
-    if (IXCLRDataModule_StartEnumExtents(ClrDataModule, &clrDataEnumHandle) == S_OK)
+    if (HR_SUCCESS(IXCLRDataModule_StartEnumExtents(ClrDataModule, &clrDataEnumHandle)))
     {
-        while (IXCLRDataModule_EnumExtent(ClrDataModule, &clrDataEnumHandle, &clrDataModuleExtent) == S_OK)
+        while (HR_SUCCESS(IXCLRDataModule_EnumExtent(ClrDataModule, &clrDataEnumHandle, &clrDataModuleExtent)))
         {
             if (clrDataModuleExtent.type == ModuleExtentType)
             {
@@ -357,6 +444,14 @@ PPH_STRING DnGetClrModuleTypeFileName(
     return clrDataModuleFileName;
 }
 
+/**
+ * Allocates and populates a DN_DOTNET_ASSEMBLY_ENTRY from the module at the given CLR address.
+ *
+ * \param ClrDataTarget The ICLRDataTarget for the target process.
+ * \param DacInterface The ISOSDacInterface for the target process.
+ * \param ModuleAddress The CLRDATA_ADDRESS of the module to query.
+ * \return A pointer to a newly allocated DN_DOTNET_ASSEMBLY_ENTRY. The caller must free it.
+ */
 PDN_DOTNET_ASSEMBLY_ENTRY DnGetDotNetAssemblyModuleDataFromAddress(
     _In_ ICLRDataTarget* ClrDataTarget,
     _In_ ISOSDacInterface* DacInterface,
@@ -366,7 +461,6 @@ PDN_DOTNET_ASSEMBLY_ENTRY DnGetDotNetAssemblyModuleDataFromAddress(
     PDN_DOTNET_ASSEMBLY_ENTRY entry;
     DacpModuleData moduleData = { 0 };
     IXCLRDataModule* xclrDataModule = NULL;
-    ULONG32 xclrDataModuleRequestVersion = 0;
     CLRDATA_ADDRESS pefileBaseAddress = 0;
     ULONG moduleFlags = 0;
     GUID moduleId;
@@ -391,18 +485,18 @@ PDN_DOTNET_ASSEMBLY_ENTRY DnGetDotNetAssemblyModuleDataFromAddress(
     entry->ModuleID = moduleData.dwModuleID;
     entry->ModuleIndex = moduleData.dwModuleIndex;
 
-    if (ISOSDacInterface_GetPEFileBase(
+    if (HR_SUCCESS(ISOSDacInterface_GetPEFileBase(
         DacInterface,
-        moduleData.File,
+        moduleData.PEAssembly,
         &pefileBaseAddress
-        ) == S_OK)
+        )))
     {
         entry->BaseAddress = (PVOID)pefileBaseAddress;
     }
 
     if (ISOSDacInterface_GetPEFileName(
         DacInterface,
-        moduleData.File,
+        moduleData.PEAssembly,
         RTL_NUMBER_OF(buffer),
         buffer,
         &bufferLength
@@ -474,6 +568,16 @@ CleanupExit:
     return entry;
 }
 
+/**
+ * Retrieves the list of module entries for all assemblies loaded into the given AppDomain.
+ *
+ * \param ClrDataTarget The ICLRDataTarget for the target process.
+ * \param DacInterface The ISOSDacInterface for the target process.
+ * \param AppDomainAddress The CLRDATA_ADDRESS of the AppDomain.
+ * \param AssemblyAddress The CLRDATA_ADDRESS of the assembly within the AppDomain.
+ * \return A list of DN_DOTNET_ASSEMBLY_ENTRY objects for the assembly's modules, or NULL on failure.
+ * \remarks The caller is responsible for freeing each entry and the list itself.
+ */
 PPH_LIST DnGetDotNetAppDomainAssemblyDataFromAddress(
     _In_ ICLRDataTarget* ClrDataTarget,
     _In_ ISOSDacInterface* DacInterface,
@@ -549,6 +653,15 @@ PPH_LIST DnGetDotNetAppDomainAssemblyDataFromAddress(
     return assemblyList;
 }
 
+/**
+ * Allocates and populates a DN_PROCESS_APPDOMAIN_ENTRY for the AppDomain at the given address.
+ *
+ * \param ClrDataTarget The ICLRDataTarget for the target process.
+ * \param DacInterface The ISOSDacInterface for the target process.
+ * \param AppDomainAddress The CLRDATA_ADDRESS of the AppDomain.
+ * \param AppDomainType The classification of this AppDomain (shared, system, or dynamic).
+ * \return A pointer to a newly allocated DN_PROCESS_APPDOMAIN_ENTRY. The caller must free it.
+ */
 PDN_PROCESS_APPDOMAIN_ENTRY DnGetDotNetAppDomainDataFromAddress(
     _In_ ICLRDataTarget* ClrDataTarget,
     _In_ ISOSDacInterface* DacInterface,
@@ -567,10 +680,10 @@ PDN_PROCESS_APPDOMAIN_ENTRY DnGetDotNetAppDomainDataFromAddress(
     switch (AppDomainType)
     {
     case DN_CLR_APPDOMAIN_TYPE_SHARED:
-        entry->AppDomainName = PhCreateString(L"SharedDomain");
+        entry->AppDomainName = PhCreateString2(&DnAppDomainTypeSharedString);
         break;
     case DN_CLR_APPDOMAIN_TYPE_SYSTEM:
-        entry->AppDomainName = PhCreateString(L"SystemDomain");
+        entry->AppDomainName = PhCreateString2(&DnAppDomainTypeSystemString);
         break;
     case DN_CLR_APPDOMAIN_TYPE_DYNAMIC:
         {
@@ -597,10 +710,15 @@ PDN_PROCESS_APPDOMAIN_ENTRY DnGetDotNetAppDomainDataFromAddress(
         &appdomainAddressData
         );
 
-    if (entry->Status == S_OK)
+    if (HR_SUCCESS(entry->Status))
     {
         entry->AppDomainNumber = appdomainAddressData.dwId;
         entry->AppDomainID = (ULONG64)appdomainAddressData.AppDomainPtr;
+
+        if (appdomainAddressData.appDomainStage < RTL_NUMBER_OF(DnAppDomainStageStrings))
+        {
+            entry->AppDomainStage = PhCreateString2(&DnAppDomainStageStrings[appdomainAddressData.appDomainStage]);
+        }
     }
     else
     {
@@ -644,6 +762,15 @@ PDN_PROCESS_APPDOMAIN_ENTRY DnGetDotNetAppDomainDataFromAddress(
     return entry;
 }
 
+/**
+ * Enumerates all AppDomains in a .NET process and builds a list of their data entries.
+ *
+ * \param ClrDataTarget The ICLRDataTarget for the target process.
+ * \param DacInterface The ISOSDacInterface for the target process.
+ * \param ProcessAppdomainList Receives the list of DN_PROCESS_APPDOMAIN_ENTRY objects on success.
+ * \return An HRESULT indicating success or failure.
+ * \remarks The caller is responsible for freeing the list with DnDestroyProcessDotNetAppDomainList.
+ */
 HRESULT DnGetProcessDotNetAppDomainList(
     _In_ ICLRDataTarget* ClrDataTarget,
     _In_ ISOSDacInterface* DacInterface,
@@ -658,7 +785,7 @@ HRESULT DnGetProcessDotNetAppDomainList(
 
     status = ISOSDacInterface_GetAppDomainStoreData(DacInterface, &appdomainStoreData);
 
-    if (status == S_OK)
+    if (HR_SUCCESS(status))
     {
         appdomainAddressList = PhAllocateZero(sizeof(CLRDATA_ADDRESS) * appdomainStoreData.DomainCount);
 
@@ -670,7 +797,7 @@ HRESULT DnGetProcessDotNetAppDomainList(
             );
     }
 
-    if (status == S_OK)
+    if (HR_SUCCESS(status))
     {
         processAppdomainList = PhCreateList(appdomainStoreData.DomainCount + 2);
 
@@ -702,7 +829,7 @@ HRESULT DnGetProcessDotNetAppDomainList(
             PhAddItemList(processAppdomainList, appdomainEntry);
         }
 
-        for (LONG i = 0; i < appdomainStoreData.DomainCount; i++)
+        for (LONG i = 0; i < appdomainAddressCount; i++)
         {
             PDN_PROCESS_APPDOMAIN_ENTRY appdomainEntry;
 
@@ -722,9 +849,14 @@ HRESULT DnGetProcessDotNetAppDomainList(
     if (appdomainAddressList)
         PhFree(appdomainAddressList);
 
-    return S_OK;
+    return status;
 }
 
+/**
+ * Frees a list of DN_PROCESS_APPDOMAIN_ENTRY objects and all their associated resources.
+ *
+ * \param ProcessAppdomainList The list of AppDomain entries returned by DnGetProcessDotNetAppDomainList.
+ */
 VOID DnDestroyProcessDotNetAppDomainList(
     _In_ PPH_LIST ProcessAppdomainList
     )
@@ -734,13 +866,13 @@ VOID DnDestroyProcessDotNetAppDomainList(
 
     for (ULONG i = 0; i < ProcessAppdomainList->Count; i++)
     {
-        appdomain = ProcessAppdomainList->Items[i];
+        appdomain = PhItemList(ProcessAppdomainList, i);
 
         if (appdomain->AssemblyList)
         {
             for (ULONG j = 0; j < appdomain->AssemblyList->Count; j++)
             {
-                assembly = appdomain->AssemblyList->Items[j];
+                assembly = PhItemList(appdomain->AssemblyList, j);
 
                 if (assembly->AssemblyName)
                     PhDereferenceObject(assembly->AssemblyName);
@@ -759,6 +891,8 @@ VOID DnDestroyProcessDotNetAppDomainList(
 
         if (appdomain->AppDomainName)
             PhDereferenceObject(appdomain->AppDomainName);
+        if (appdomain->AppDomainStage)
+            PhDereferenceObject(appdomain->AppDomainStage);
 
         PhFree(appdomain);
     }
@@ -766,6 +900,13 @@ VOID DnDestroyProcessDotNetAppDomainList(
     PhDereferenceObject(ProcessAppdomainList);
 }
 
+/**
+ * Serializes a list of DN_PROCESS_APPDOMAIN_ENTRY objects to a JSON byte string.
+ *
+ * \param ProcessAppdomainList The list of AppDomain entries to serialize.
+ * \return A PPH_BYTES containing the JSON-encoded representation. The caller must dereference it.
+ * \remarks Used to transfer AppDomain data across the 32-bit/64-bit PhSvc boundary.
+ */
 PPH_BYTES DnProcessAppDomainListSerialize(
     _In_ PPH_LIST ProcessAppdomainList
     )
@@ -778,7 +919,7 @@ PPH_BYTES DnProcessAppDomainListSerialize(
 
     for (i = 0; i < ProcessAppdomainList->Count; i++)
     {
-        PDN_PROCESS_APPDOMAIN_ENTRY appdomain = ProcessAppdomainList->Items[i];
+        PDN_PROCESS_APPDOMAIN_ENTRY appdomain = PhItemList(ProcessAppdomainList, i);
         PVOID appdomainEntry;
         PPH_BYTES valueUtf8;
 
@@ -787,9 +928,19 @@ PPH_BYTES DnProcessAppDomainListSerialize(
         PhAddJsonObjectUInt64(appdomainEntry, "AppDomainNumber", appdomain->AppDomainNumber);
         PhAddJsonObjectUInt64(appdomainEntry, "AppDomainID", appdomain->AppDomainID);
 
-        valueUtf8 = PhConvertUtf16ToUtf8Ex(appdomain->AppDomainName->Buffer, appdomain->AppDomainName->Length);
-        PhAddJsonObject2(appdomainEntry, "AppDomainName", valueUtf8->Buffer, valueUtf8->Length);
-        PhDereferenceObject(valueUtf8);
+        if (appdomain->AppDomainName)
+        {
+            valueUtf8 = PhConvertUtf16ToUtf8Ex(appdomain->AppDomainName->Buffer, appdomain->AppDomainName->Length);
+            PhAddJsonObject2(appdomainEntry, "AppDomainName", valueUtf8->Buffer, valueUtf8->Length);
+            PhDereferenceObject(valueUtf8);
+        }
+
+        if (appdomain->AppDomainStage)
+        {
+            valueUtf8 = PhConvertUtf16ToUtf8Ex(appdomain->AppDomainStage->Buffer, appdomain->AppDomainStage->Length);
+            PhAddJsonObject2(appdomainEntry, "AppDomainStage", valueUtf8->Buffer, valueUtf8->Length);
+            PhDereferenceObject(valueUtf8);
+        }
 
         if (appdomain->AssemblyList)
         {
@@ -797,7 +948,7 @@ PPH_BYTES DnProcessAppDomainListSerialize(
 
             for (ULONG j = 0; j < appdomain->AssemblyList->Count; j++)
             {
-                PDN_DOTNET_ASSEMBLY_ENTRY assembly = appdomain->AssemblyList->Items[j];
+                PDN_DOTNET_ASSEMBLY_ENTRY assembly = PhItemList(appdomain->AssemblyList, j);
                 PVOID assemblyEntry;
 
                 assemblyEntry = PhCreateJsonObject();
@@ -860,6 +1011,13 @@ PPH_BYTES DnProcessAppDomainListSerialize(
     return string;
 }
 
+/**
+ * Deserializes a JSON byte string into a list of DN_PROCESS_APPDOMAIN_ENTRY objects.
+ *
+ * \param String The JSON-encoded byte string produced by DnProcessAppDomainListSerialize.
+ * \return A list of DN_PROCESS_APPDOMAIN_ENTRY objects, or NULL if parsing fails.
+ * \remarks The caller is responsible for freeing the list with DnDestroyProcessDotNetAppDomainList.
+ */
 PPH_LIST DnProcessAppDomainListDeserialize(
     _In_ PPH_BYTES String
     )
@@ -868,7 +1026,7 @@ PPH_LIST DnProcessAppDomainListDeserialize(
     PVOID jsonArray;
     ULONG arrayLength;
 
-    if (!(jsonArray = PhCreateJsonParserEx(String, FALSE)))
+    if (!NT_SUCCESS(PhCreateJsonParserEx(&jsonArray, String, FALSE)))
         return NULL;
     if (PhGetJsonObjectType(jsonArray) != PH_JSON_OBJECT_TYPE_ARRAY)
         goto CleanupExit;
@@ -892,6 +1050,7 @@ PPH_LIST DnProcessAppDomainListDeserialize(
         appdomain->AppDomainNumber = (ULONG32)PhGetJsonValueAsUInt64(jsonArrayObject, "AppDomainNumber");
         appdomain->AppDomainID = PhGetJsonValueAsUInt64(jsonArrayObject, "AppDomainID");
         appdomain->AppDomainName = PhGetJsonValueAsString(jsonArrayObject, "AppDomainName");
+        appdomain->AppDomainStage = PhGetJsonValueAsString(jsonArrayObject, "AppDomainStage");
 
         if (jsonAssemblyArray = PhGetJsonObject(jsonArrayObject, "assemblies"))
         {
@@ -909,8 +1068,8 @@ PPH_LIST DnProcessAppDomainListDeserialize(
 
                     assembly = PhAllocateZero(sizeof(DN_DOTNET_ASSEMBLY_ENTRY));
                     assembly->Status = (HRESULT)PhGetJsonValueAsUInt64(jsonAssemblyObject, "Status");
-                    assembly->ModuleFlag = PhGetJsonValueAsUInt64(jsonAssemblyObject, "ModuleFlag");
-                    assembly->Flags = (BOOLEAN)PhGetJsonValueAsUInt64(jsonAssemblyObject, "Flags");
+                    assembly->ModuleFlag = (CLRDataModuleFlag)PhGetJsonValueAsUInt64(jsonAssemblyObject, "ModuleFlag");
+                    assembly->Flags = (ULONG)PhGetJsonValueAsUInt64(jsonAssemblyObject, "Flags");
                     assembly->BaseAddress = (PVOID)PhGetJsonValueAsUInt64(jsonAssemblyObject, "BaseAddress");
                     assembly->AssemblyID = PhGetJsonValueAsUInt64(jsonAssemblyObject, "AssemblyID");
                     assembly->ModuleID = PhGetJsonValueAsUInt64(jsonAssemblyObject, "ModuleID");
@@ -922,15 +1081,10 @@ PPH_LIST DnProcessAppDomainListDeserialize(
 
                     {
                         PPH_STRING mvidString;
-                        GUID mvid = { 0 };
 
                         if (mvidString = PhGetJsonValueAsString(jsonAssemblyObject, "mvid"))
                         {
-                            if (PhHexStringToBufferEx(&mvidString->sr, sizeof(mvid), &mvid))
-                            {
-                                memcpy_s(&assembly->Mvid, sizeof(assembly->Mvid), &mvid, sizeof(mvid));
-                            }
-
+                            PhHexStringToBufferEx(&mvidString->sr, sizeof(assembly->Mvid), &assembly->Mvid);
                             PhDereferenceObject(mvidString);
                         }
                     }
@@ -956,32 +1110,37 @@ typedef struct _DN_PROCESS_CLR_RUNTIME_ENTRY
     PVOID DllBase;
 } DN_PROCESS_CLR_RUNTIME_ENTRY, *PDN_PROCESS_CLR_RUNTIME_ENTRY;
 
-typedef struct _DN_PROCESS_CLR_RUNTIME_CONTEXT
+typedef struct _DN_ENUM_CLR_RUNTIME_CONTEXT
 {
     PH_STRINGREF ImageName;
     PPH_LIST RuntimeList;
-} DN_PROCESS_CLR_RUNTIME_CONTEXT, *PDN_PROCESS_CLR_RUNTIME_CONTEXT;
+} DN_ENUM_CLR_RUNTIME_CONTEXT, *PDN_ENUM_CLR_RUNTIME_CONTEXT;
 
-static BOOLEAN NTAPI DnpGetClrRuntimeCallback(
-    _In_ PLDR_DATA_TABLE_ENTRY Module,
+/**
+ * Module enumeration callback that collects CLR runtime module entries matching a target image name.
+ *
+ * \param Module The module info entry provided by the enumerator.
+ * \param Context A pointer to a DN_ENUM_CLR_RUNTIME_CONTEXT structure.
+ * \return Always TRUE to continue enumeration.
+ */
+_Function_class_(PH_ENUM_GENERIC_MODULES_CALLBACK)
+static BOOLEAN NTAPI DnGetClrRuntimeCallback(
+    _In_ PPH_MODULE_INFO Module,
     _In_ PVOID Context
     )
 {
-    PDN_PROCESS_CLR_RUNTIME_CONTEXT context = Context;
-    PH_STRINGREF baseDllName;
+    PDN_ENUM_CLR_RUNTIME_CONTEXT context = Context;
 
-    PhUnicodeStringToStringRef(&Module->BaseDllName, &baseDllName);
-
-    if (PhEqualStringRef(&baseDllName, &context->ImageName, TRUE))
+    if (PhEqualStringRef(&Module->Name->sr, &context->ImageName, TRUE))
     {
         PDN_PROCESS_CLR_RUNTIME_ENTRY entry;
         PH_IMAGE_VERSION_INFO versionInfo;
 
         entry = PhAllocateZero(sizeof(DN_PROCESS_CLR_RUNTIME_ENTRY));
-        entry->FileName = PhCreateStringFromUnicodeString(&Module->FullDllName);
-        entry->DllBase = Module->DllBase;
+        entry->FileName = PhReferenceObject(Module->FileName);
+        entry->DllBase = Module->BaseAddress;
 
-        if (PhInitializeImageVersionInfo(&versionInfo, entry->FileName->Buffer))
+        if (PhInitializeImageVersionInfoEx(&versionInfo, &entry->FileName->sr, FALSE))
         {
             entry->RuntimeVersion = PhReferenceObject(versionInfo.FileVersion);
             PhDeleteImageVersionInfo(&versionInfo);
@@ -993,6 +1152,12 @@ static BOOLEAN NTAPI DnpGetClrRuntimeCallback(
     return TRUE;
 }
 
+/**
+ * Enumerates all CLR runtime modules (coreclr.dll and clr.dll) loaded in the target process and logs their version information.
+ *
+ * \param DataTarget The ICLRDataTarget for the target process.
+ * \remarks This function is used for diagnostics only; version information is printed via dprintf.
+ */
 // Note: The CLR debuggers query the process runtimes by enumerating the process modules
 // and creating a list of clr/coreclr image base addresses and version numbers. (dmex)
 VOID DnGetProcessDotNetRuntimes(
@@ -1000,36 +1165,38 @@ VOID DnGetProcessDotNetRuntimes(
     )
 {
     DnCLRDataTarget* dataTarget = (DnCLRDataTarget*)DataTarget;
-    DN_PROCESS_CLR_RUNTIME_CONTEXT context = { 0 };
+    DN_ENUM_CLR_RUNTIME_CONTEXT context = { 0 };
 
     context.RuntimeList = PhCreateList(1);
 
-    PhInitializeStringRefLongHint(&context.ImageName, L"coreclr.dll");
-    PhEnumProcessModules(dataTarget->ProcessHandle, DnpGetClrRuntimeCallback, &context);
+    context.ImageName = DnCoreClrModuleName;
+    PhEnumGenericModules(
+        dataTarget->ProcessId,
+        dataTarget->ProcessHandle,
+        PH_ENUM_GENERIC_MAPPED_IMAGES,
+        DnGetClrRuntimeCallback,
+        &context
+        );
 
-#ifdef _WIN64
-    if (dataTarget->IsWow64)
-        PhEnumProcessModules32(dataTarget->ProcessHandle, DnpGetClrRuntimeCallback, &context);
-#endif
-
-    PhInitializeStringRefLongHint(&context.ImageName, L"clr.dll");
-    PhEnumProcessModules(dataTarget->ProcessHandle, DnpGetClrRuntimeCallback, &context);
-
-#ifdef _WIN64
-    if (dataTarget->IsWow64)
-        PhEnumProcessModules32(dataTarget->ProcessHandle, DnpGetClrRuntimeCallback, &context);
-#endif
+    context.ImageName = DnClrModuleName;
+    PhEnumGenericModules(
+        dataTarget->ProcessId,
+        dataTarget->ProcessHandle,
+        PH_ENUM_GENERIC_MAPPED_IMAGES,
+        DnGetClrRuntimeCallback,
+        &context
+        );
 
     for (ULONG i = 0; i < context.RuntimeList->Count; i++)
     {
-        PDN_PROCESS_CLR_RUNTIME_ENTRY entry = context.RuntimeList->Items[i];
+        PDN_PROCESS_CLR_RUNTIME_ENTRY entry = PhItemList(context.RuntimeList, i);
 
-        dprintf(
+        /*dprintf(
             "Runtime version: %S @ 0x%I64x [%S]\n",
             entry->RuntimeVersion->Buffer,
             entry->DllBase,
             entry->FileName->Buffer
-            );
+            );*/
 
         PhClearReference(&entry->FileName);
         PhClearReference(&entry->RuntimeVersion);
@@ -1039,12 +1206,12 @@ VOID DnGetProcessDotNetRuntimes(
     PhDereferenceObject(context.RuntimeList);
 }
 
-typedef struct _DNP_GET_IMAGE_BASE_CONTEXT
+typedef struct _DN_ENUM_CLR_PATH_CONTEXT
 {
-    PH_STRINGREF ImageName;
+    PH_STRINGREF BaseName;
     PPH_STRING FileName;
-    PVOID DllBase;
-} DNP_GET_IMAGE_BASE_CONTEXT, *PDNP_GET_IMAGE_BASE_CONTEXT;
+    PVOID BaseAddress;
+} DN_ENUM_CLR_PATH_CONTEXT, *PDN_ENUM_CLR_PATH_CONTEXT;
 
 typedef struct _CLR_DEBUG_RESOURCE
 {
@@ -1069,26 +1236,41 @@ typedef struct _CLR_RUNTIME_INFO
     SYMBOL_INDEX DbiModuleIndex[24];
 } CLR_RUNTIME_INFO, *PCLR_RUNTIME_INFO;
 
-static BOOLEAN NTAPI DnpGetCoreClrPathCallback(
-    _In_ PLDR_DATA_TABLE_ENTRY Module,
+/**
+ * Module enumeration callback that locates the first CLR module matching a target base name.
+ *
+ * \param Module The module info entry provided by the enumerator.
+ * \param Context A pointer to a DN_ENUM_CLR_PATH_CONTEXT structure.
+ * \return FALSE when the target module is found to stop enumeration; TRUE to continue.
+ */
+_Function_class_(PH_ENUM_GENERIC_MODULES_CALLBACK)
+static BOOLEAN NTAPI DnGetCoreClrPathCallback(
+    _In_ PPH_MODULE_INFO Module,
     _In_ PVOID Context
     )
 {
-    PDNP_GET_IMAGE_BASE_CONTEXT context = Context;
-    PH_STRINGREF baseDllName;
+    PDN_ENUM_CLR_PATH_CONTEXT context = Context;
 
-    PhUnicodeStringToStringRef(&Module->BaseDllName, &baseDllName);
-
-    if (PhEqualStringRef(&baseDllName, &context->ImageName, TRUE))
+    if (PhEqualStringRef(&Module->Name->sr, &context->BaseName, TRUE))
     {
-        context->FileName = PhCreateStringFromUnicodeString(&Module->FullDllName);
-        context->DllBase = Module->DllBase;
+        context->FileName = PhReferenceObject(Module->FileName);
+        context->BaseAddress = Module->BaseAddress;
         return FALSE;
     }
 
     return TRUE;
 }
 
+/**
+ * Resolves the file path of the CLR module (coreclr.dll or clr.dll) loaded in the target process.
+ *
+ * \param ProcessId The process identifier of the target process.
+ * \param DataTarget The ICLRDataTarget for the target process.
+ * \param FileName Receives the file path of the CLR module on success.
+ * \return TRUE if the path was found, FALSE otherwise.
+ * \remarks For self-contained .NET applications that do not load coreclr.dll, the path of the
+ * executable itself is returned so that the embedded CLRDEBUGINFO resource can be inspected.
+ */
 _Success_(return)
 BOOLEAN DnGetProcessCoreClrPath(
     _In_ HANDLE ProcessId,
@@ -1097,32 +1279,30 @@ BOOLEAN DnGetProcessCoreClrPath(
     )
 {
     DnCLRDataTarget* dataTarget = (DnCLRDataTarget*)DataTarget;
-    DNP_GET_IMAGE_BASE_CONTEXT context = { 0 };
-    PH_ENUM_PROCESS_MODULES_PARAMETERS parameters;
+    DN_ENUM_CLR_PATH_CONTEXT context = { 0 };
 
-    PhInitializeStringRefLongHint(&context.ImageName, L"coreclr.dll");
-    parameters.Callback = DnpGetCoreClrPathCallback;
-    parameters.Context = &context;
-    parameters.Flags = PH_ENUM_PROCESS_MODULES_TRY_MAPPED_FILE_NAME;
-    PhEnumProcessModulesEx(dataTarget->ProcessHandle, &parameters);
+    context.BaseName = DnCoreClrModuleName;
+    PhEnumGenericModules(
+        dataTarget->ProcessId,
+        dataTarget->ProcessHandle,
+        PH_ENUM_GENERIC_MAPPED_IMAGES,
+        DnGetCoreClrPathCallback,
+        &context
+        );
 
-#ifdef _WIN64
-    if (dataTarget->IsWow64)
-        PhEnumProcessModules32Ex(dataTarget->ProcessHandle, &parameters);
-#endif
-
-    if (!context.FileName)
+    if (PhIsNullOrEmptyString(context.FileName))
     {
-        PhInitializeStringRefLongHint(&context.ImageName, L"clr.dll");
-        PhEnumProcessModulesEx(dataTarget->ProcessHandle, &parameters);
-
-#ifdef _WIN64
-        if (dataTarget->IsWow64)
-            PhEnumProcessModules32Ex(dataTarget->ProcessHandle, &parameters);
-#endif
+        context.BaseName = DnClrModuleName;
+        PhEnumGenericModules(
+            dataTarget->ProcessId,
+            dataTarget->ProcessHandle,
+            PH_ENUM_GENERIC_MAPPED_IMAGES,
+            DnGetCoreClrPathCallback,
+            &context
+            );
     }
 
-    if (!context.FileName)
+    if (PhIsNullOrEmptyString(context.FileName))
     {
         // This image is probably 'SelfContained' since we couldn't find coreclr.dll,
         // return the path to the executable so we can check the embedded CLRDEBUGINFO. (dmex)
@@ -1163,6 +1343,13 @@ BOOLEAN DnGetProcessCoreClrPath(
     return TRUE;
 }
 
+/**
+ * Deletes the temporary directory or file created to hold an embedded DAC auxiliary provider.
+ *
+ * \param DataTarget The ICLRDataTarget whose associated temporary DAC path should be cleaned up.
+ * \remarks Only performs cleanup when the target is a self-contained .NET application with an
+ * embedded MINIDUMP_EMBEDDED_AUXILIARY_PROVIDER resource.
+ */
 static VOID DnCleanupDacAuxiliaryProvider(
     _In_ ICLRDataTarget* DataTarget
     )
@@ -1176,6 +1363,7 @@ static VOID DnCleanupDacAuxiliaryProvider(
         if (directoryPath = PhGetBaseDirectory(dataTarget->DaccorePath))
         {
             PhDeleteDirectoryWin32(&directoryPath->sr);
+
             PhDereferenceObject(directoryPath);
         }
         else
@@ -1187,7 +1375,37 @@ static VOID DnCleanupDacAuxiliaryProvider(
     PhClearReference(&dataTarget->DaccorePath);
 }
 
+/**
+ * Verifies that a file's digital signature chains to a Microsoft root certificate if verification is enabled.
+ *
+ * \param FileName The file name to verify.
+ * \param NativeFileName TRUE if the path is a native NT path.
+ * \return TRUE if verification is disabled or the signature chains to Microsoft; FALSE otherwise.
+ */
+static BOOLEAN DnClrVerifyFileIsChainedToMicrosoft(
+    _In_ PCPH_STRINGREF FileName,
+    _In_ BOOLEAN NativeFileName
+    )
+{
+    //if (PhGetIntegerSetting(SETTING_DBGHELP_VERIFY_MICROSOFT_CHAIN))
+    {
+        return PhVerifyFileIsChainedToMicrosoft(FileName, NativeFileName);
+    }
+
+    return TRUE;
+}
+
+/**
+ * Directory enumeration callback that collects subdirectory names for mscordaccore.dll lookup.
+ *
+ * \param RootDirectory The directory handle (unused).
+ * \param Information The file directory entry for the current item.
+ * \param DirectoryList The list to which subdirectory name strings are added.
+ * \return Always TRUE to continue enumeration.
+ */
+_Function_class_(PH_ENUM_DIRECTORY_FILE)
 static BOOLEAN DnpMscordaccoreDirectoryCallback(
+    _In_ HANDLE RootDirectory,
     _In_ PFILE_DIRECTORY_INFORMATION Information,
     _In_ PPH_LIST DirectoryList
     )
@@ -1197,25 +1415,34 @@ static BOOLEAN DnpMscordaccoreDirectoryCallback(
     baseName.Buffer = Information->FileName;
     baseName.Length = Information->FileNameLength;
 
-    if (PhEqualStringRef2(&baseName, L".", TRUE) || PhEqualStringRef2(&baseName, L"..", TRUE))
-        return TRUE;
-
-    if (Information->FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+    if (FlagOn(Information->FileAttributes, FILE_ATTRIBUTE_DIRECTORY))
     {
+        if (PATH_IS_WIN32_RELATIVE_PREFIX(&baseName))
+            return TRUE;
+
         PhAddItemList(DirectoryList, PhCreateString2(&baseName));
     }
 
     return TRUE;
 }
 
+/**
+ * Locates and loads the mscordaccore.dll matching the target process's CoreCLR runtime.
+ *
+ * \param ProcessId The process identifier of the target .NET process.
+ * \param DataTarget The ICLRDataTarget for the target process.
+ * \return The base address of the loaded mscordaccore.dll, or NULL on failure.
+ * \remarks Searches the system .NET install path first, then falls back to the application-local
+ * copy and finally to an embedded auxiliary provider resource for self-contained applications.
+ */
 PVOID DnLoadMscordaccore(
     _In_ HANDLE ProcessId,
     _In_ ICLRDataTarget *DataTarget
     )
 {
     // \dotnet\shared\Microsoft.NETCore.App\ is the same path used by the CLR for DAC detection. (dmex)
-    static PH_STRINGREF mscordaccorePath = PH_STRINGREF_INIT(L"%ProgramFiles%\\dotnet\\shared\\Microsoft.NETCore.App\\");
-    static PH_STRINGREF mscordaccoreName = PH_STRINGREF_INIT(L"\\mscordaccore.dll");
+    static CONST PH_STRINGREF mscordaccorePath = PH_STRINGREF_INIT(L"%ProgramFiles%\\dotnet\\shared\\Microsoft.NETCore.App\\");
+    static CONST PH_STRINGREF mscordaccoreName = PH_STRINGREF_INIT(L"\\mscordaccore.dll");
     DnCLRDataTarget* dataTarget = (DnCLRDataTarget*)DataTarget;
     PVOID mscordacBaseAddress = NULL;
     HANDLE directoryHandle;
@@ -1230,7 +1457,7 @@ PVOID DnLoadMscordaccore(
     {
         PVOID imageBaseAddress;
 
-        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, TRUE, &imageBaseAddress)))
+        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, FALSE, &imageBaseAddress)))
         {
             PCLR_DEBUG_RESOURCE debugVersionInfo;
 
@@ -1273,40 +1500,65 @@ PVOID DnLoadMscordaccore(
         FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
         )))
     {
-        PhEnumDirectoryFile(directoryHandle, NULL, (PPH_ENUM_DIRECTORY_FILE)DnpMscordaccoreDirectoryCallback, directoryList);
+        PhEnumDirectoryFile(directoryHandle, NULL, DnpMscordaccoreDirectoryCallback, directoryList);
         NtClose(directoryHandle);
     }
 
     for (ULONG i = 0; i < directoryList->Count; i++)
     {
-        PPH_STRING directoryName = directoryList->Items[i];
+        PPH_STRING directoryName = PhItemList(directoryList, i);
         PPH_STRING fileName;
+        PPH_STRING nativeName;
 
-        fileName = PhConcatStringRef3(
+        fileName = PhConcatStringRef4(
+            &PhWin32ExtendedPathPrefix,
             &directoryPath->sr,
             &directoryName->sr,
             &mscordaccoreName
             );
 
-        if (PhDoesFileExistWin32(PhGetString(fileName)))
+        nativeName = PhDosPathNameToNtPathName(&fileName->sr);
+
+        if (!PhIsNullOrEmptyString(nativeName) && PhDoesFileExist(&nativeName->sr))
         {
             PH_MAPPED_IMAGE mappedImage;
+            ULONG timeDateStamp = ULONG_MAX;
+            ULONG sizeOfImage = ULONG_MAX;
 
-            if (NT_SUCCESS(PhLoadMappedImage(PhGetString(fileName), NULL, &mappedImage)))
+            if (NT_SUCCESS(PhLoadMappedImageHeaderPageSize(&nativeName->sr, NULL, &mappedImage)))
             {
-                if (
-                    dataTargetTimeStamp == mappedImage.NtHeaders->FileHeader.TimeDateStamp &&
-                    dataTargetSizeOfImage == mappedImage.NtHeaders->OptionalHeader.SizeOfImage
-                    )
+                __try
                 {
-                    mscordacBaseAddress = PhLoadLibrary(PhGetString(fileName));
+                    if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+                    {
+                        timeDateStamp = mappedImage.NtHeaders32->FileHeader.TimeDateStamp;
+                        sizeOfImage = mappedImage.NtHeaders32->OptionalHeader.SizeOfImage;
+                    }
+                    else if (mappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+                    {
+                        timeDateStamp = mappedImage.NtHeaders->FileHeader.TimeDateStamp;
+                        sizeOfImage = mappedImage.NtHeaders->OptionalHeader.SizeOfImage;
+                    }
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    NOTHING;
                 }
 
                 PhUnloadMappedImage(&mappedImage);
             }
+
+            if (
+                dataTargetTimeStamp == timeDateStamp &&
+                dataTargetSizeOfImage == sizeOfImage
+                )
+            {
+                mscordacBaseAddress = PhLoadLibrary(PhGetString(fileName));
+            }
         }
 
-        PhDereferenceObject(fileName);
+        PhClearReference(&nativeName);
+        PhClearReference(&fileName);
 
         if (mscordacBaseAddress)
             break;
@@ -1319,13 +1571,11 @@ PVOID DnLoadMscordaccore(
 TryAppLocal:
     if (!mscordacBaseAddress && dataTargetDirectory)
     {
-        VERIFY_RESULT verifyResult;
-        PPH_STRING signerName;
         PPH_STRING fileName;
-
+ 
         // We couldn't find any compatible versions of the CLR installed. Try loading
         // the version of the CLR included with the application after checking the
-        // digitial signature was from Microsoft. (dmex)
+        // digital signature was from Microsoft. (dmex)
 
         fileName = PhConcatStringRef2(
             &dataTargetDirectory->sr,
@@ -1334,15 +1584,7 @@ TryAppLocal:
 
         PhMoveReference(&fileName, PhGetFileName(fileName));
 
-        verifyResult = PhVerifyFile(
-            PhGetString(fileName),
-            &signerName
-            );
-
-        if (
-            verifyResult == VrTrusted &&
-            signerName && PhEqualString2(signerName, L"Microsoft Corporation", TRUE)
-            )
+        if (DnClrVerifyFileIsChainedToMicrosoft(&fileName->sr, FALSE))
         {
             HANDLE processHandle;
             HANDLE tokenHandle = NULL;
@@ -1355,9 +1597,12 @@ TryAppLocal:
                 ProcessId
                 )))
             {
-                PPH_STRING packageName = PhGetProcessPackageFullName(processHandle);
+                PROCESS_EXTENDED_BASIC_INFORMATION basicInformation;
 
-                if (!PhIsNullOrEmptyString(packageName))
+                if (
+                    NT_SUCCESS(PhGetProcessExtendedBasicInformation(processHandle, &basicInformation)) &&
+                    basicInformation.IsStronglyNamed // IsPackagedProcess
+                    )
                 {
                     if (NT_SUCCESS(PhOpenProcessToken(
                         processHandle,
@@ -1369,7 +1614,6 @@ TryAppLocal:
                     }
                 }
 
-                PhClearReference(&packageName);
                 NtClose(processHandle);
             }
 
@@ -1383,7 +1627,6 @@ TryAppLocal:
             }
         }
 
-        PhClearReference(&signerName);
         PhClearReference(&fileName);
     }
 
@@ -1393,7 +1636,7 @@ TryAppLocal:
         PVOID mscordacResourceBuffer;
         ULONG mscordacResourceLength;
 
-        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, TRUE, &imageBaseAddress)))
+        if (NT_SUCCESS(PhLoadLibraryAsImageResource(&dataTargetFileName->sr, FALSE, &imageBaseAddress)))
         {
             if (PhLoadResource(
                 imageBaseAddress,
@@ -1443,18 +1686,7 @@ TryAppLocal:
 
                 if (NT_SUCCESS(status))
                 {
-                    VERIFY_RESULT verifyResult;
-                    PPH_STRING signerName;
-
-                    verifyResult = PhVerifyFile(
-                        PhGetString(fileName),
-                        &signerName
-                        );
-
-                    if (
-                        verifyResult == VrTrusted &&
-                        signerName && PhEqualString2(signerName, L"Microsoft Corporation", TRUE)
-                        )
+                    if (DnClrVerifyFileIsChainedToMicrosoft(&fileName->sr, FALSE))
                     {
                         mscordacBaseAddress = PhLoadLibrary(PhGetString(fileName));
                     }
@@ -1463,8 +1695,6 @@ TryAppLocal:
                         PhSetReference(&dataTarget->DaccorePath, fileName);
                     else
                         PhDeleteFileWin32(PhGetString(fileName));
-
-                    PhClearReference(&signerName);
                 }
 
                 PhClearReference(&fileName);
@@ -1480,43 +1710,47 @@ TryAppLocal:
     return mscordacBaseAddress;
 }
 
+/**
+ * Loads mscordacwks.dll for .NET Framework v2 or v4 from the system-installed location.
+ *
+ * \param IsClrV4 TRUE to load the v4.0.30319 version; FALSE to load the v2.0.50727 version.
+ * \return The base address of the loaded mscordacwks.dll, or NULL on failure.
+ */
 PVOID DnLoadMscordacwks(
     _In_ BOOLEAN IsClrV4
     )
 {
+#ifdef _WIN64
+    static CONST PH_STRINGREF mscordacwksV4Path = PH_STRINGREF_INIT(L"\\Microsoft.NET\\Framework64\\v4.0.30319\\mscordacwks.dll");
+    static CONST PH_STRINGREF mscordacwksV2Path = PH_STRINGREF_INIT(L"\\Microsoft.NET\\Framework64\\v2.0.50727\\mscordacwks.dll");
+#else
+    static CONST PH_STRINGREF mscordacwksV4Path = PH_STRINGREF_INIT(L"\\Microsoft.NET\\Framework\\v4.0.30319\\mscordacwks.dll");
+    static CONST PH_STRINGREF mscordacwksV2Path = PH_STRINGREF_INIT(L"\\Microsoft.NET\\Framework\\v2.0.50727\\mscordacwks.dll");
+#endif
     PVOID dllBase;
     PH_STRINGREF systemRootString;
-    PH_STRINGREF mscordacwksPathString;
     PPH_STRING mscordacwksFileName;
 
     // This was required in the past for legacy runtimes, unsure if still required. (dmex)
     //PhLoadLibrary(L"mscoree.dll");
 
-    if (IsClrV4)
-    {
-#ifdef _WIN64
-        PhInitializeStringRef(&mscordacwksPathString, L"\\Microsoft.NET\\Framework64\\v4.0.30319\\mscordacwks.dll");
-#else
-        PhInitializeStringRef(&mscordacwksPathString, L"\\Microsoft.NET\\Framework\\v4.0.30319\\mscordacwks.dll");
-#endif
-    }
-    else
-    {
-#ifdef _WIN64
-        PhInitializeStringRef(&mscordacwksPathString, L"\\Microsoft.NET\\Framework64\\v2.0.50727\\mscordacwks.dll");
-#else
-        PhInitializeStringRef(&mscordacwksPathString, L"\\Microsoft.NET\\Framework\\v2.0.50727\\mscordacwks.dll");
-#endif
-    }
-
     PhGetSystemRoot(&systemRootString);
-    mscordacwksFileName = PhConcatStringRef2(&systemRootString, &mscordacwksPathString);
+    mscordacwksFileName = PhConcatStringRef2(&systemRootString, IsClrV4 ? &mscordacwksV4Path : &mscordacwksV2Path);
     dllBase = PhLoadLibrary(PhGetString(mscordacwksFileName));
     PhDereferenceObject(mscordacwksFileName);
 
     return dllBase;
 }
 
+/**
+ * Loads the appropriate DAC DLL and creates an IXCLRDataProcess instance for the target process.
+ *
+ * \param ProcessId The process identifier of the target .NET process.
+ * \param Target The ICLRDataTarget implementation providing memory access to the target process.
+ * \param DataProcess Receives the created IXCLRDataProcess interface on success.
+ * \param BaseAddress Receives the base address of the loaded DAC DLL on success.
+ * \return S_OK on success, or an HRESULT error code on failure.
+ */
 HRESULT CreateXCLRDataProcess(
     _In_ HANDLE ProcessId,
     _In_ ICLRDataTarget *Target,
@@ -1554,7 +1788,7 @@ HRESULT CreateXCLRDataProcess(
 
     if (!ClrDataCreateInstance)
     {
-        FreeLibrary(dllBase);
+        PhFreeLibrary(dllBase);
         return E_FAIL;
     }
 
@@ -1564,16 +1798,32 @@ HRESULT CreateXCLRDataProcess(
         DataProcess
         );
 
-    if (status != S_OK)
+    if (HR_FAILED(status))
     {
-        FreeLibrary(dllBase);
-        return status;
+        PhFreeLibrary(dllBase);
+        return E_FAIL;
+    }
+
+    /* Cache a reference to the IXCLRDataProcess in the data target so Request
+     * can forward calls. AddRef to keep an independent reference. */
+    if (Target)
+    {
+        DnCLRDataTarget* dt = (DnCLRDataTarget*)Target;
+        dt->DataProcess = *DataProcess;
+        IXCLRDataProcess_AddRef(dt->DataProcess);
     }
 
     *BaseAddress = dllBase;
     return S_OK;
 }
 
+/**
+ * Allocates and initializes a DnCLRDataTarget for the specified process.
+ *
+ * \param ProcessId The process identifier of the target process.
+ * \return A pointer to the ICLRDataTarget interface, or NULL if the process could not be opened.
+ * \remarks The returned object has an initial reference count of 1; release it with ICLRDataTarget_Release.
+ */
 ICLRDataTarget *DnCLRDataTarget_Create(
     _In_ HANDLE ProcessId
     )
@@ -1601,11 +1851,19 @@ ICLRDataTarget *DnCLRDataTarget_Create(
 
     dataTarget->ProcessId = ProcessId;
     dataTarget->ProcessHandle = processHandle;
-    dataTarget->IsWow64 = isWow64;
+    dataTarget->IsWow64Process = isWow64;
 
     return (ICLRDataTarget *)dataTarget;
 }
 
+/**
+ * ICLRDataTarget::QueryInterface implementation that supports IUnknown and ICLRDataTarget.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param Riid The IID of the requested interface.
+ * \param Object Receives the interface pointer on success, or NULL on failure.
+ * \return S_OK if the interface is supported, or E_NOINTERFACE otherwise.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_QueryInterface(
     _In_ ICLRDataTarget *This,
     _In_ REFIID Riid,
@@ -1628,27 +1886,47 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_QueryInterface(
     return E_NOINTERFACE;
 }
 
+/**
+ * ICLRDataTarget::AddRef implementation that atomically increments the reference count.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \return The new reference count.
+ */
 ULONG STDMETHODCALLTYPE DnCLRDataTarget_AddRef(
     _In_ ICLRDataTarget *This
     )
 {
     DnCLRDataTarget *this = (DnCLRDataTarget *)This;
 
-    this->RefCount++;
-
-    return this->RefCount;
+    return InterlockedIncrement((volatile LONG*)&this->RefCount);
 }
 
+/**
+ * ICLRDataTarget::Release implementation that decrements the reference count and frees the object when it reaches zero.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \return The new reference count, or 0 if the object was freed.
+ * \remarks When the reference count reaches zero, the process handle is closed, any temporary
+ * DAC auxiliary provider files are deleted, and the object is freed.
+ */
 ULONG STDMETHODCALLTYPE DnCLRDataTarget_Release(
     _In_ ICLRDataTarget *This
     )
 {
     DnCLRDataTarget *this = (DnCLRDataTarget *)This;
+    ULONG count;
 
-    this->RefCount--;
+    count = InterlockedDecrement((volatile LONG*)&this->RefCount);
 
-    if (this->RefCount == 0)
+    if (count == 0)
     {
+        /* Release any cached IXCLRDataProcess reference held by the data target. */
+        if (this->DataProcess)
+        {
+            IXCLRDataProcess_Release(this->DataProcess);
+            this->DataProcess = NULL;
+        }
+
         NtClose(this->ProcessHandle);
 
         DnCleanupDacAuxiliaryProvider(This);
@@ -1658,9 +1936,16 @@ ULONG STDMETHODCALLTYPE DnCLRDataTarget_Release(
         return 0;
     }
 
-    return this->RefCount;
+    return count;
 }
 
+/**
+ * ICLRDataTarget::GetMachineType implementation that returns the target process machine architecture.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param machineType Receives the IMAGE_FILE_MACHINE_* constant for the target process.
+ * \return S_OK.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetMachineType(
     _In_ ICLRDataTarget *This,
     _Out_ ULONG32 *machineType
@@ -1669,7 +1954,7 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetMachineType(
     DnCLRDataTarget *this = (DnCLRDataTarget *)This;
 
 #ifdef _WIN64
-    if (!this->IsWow64)
+    if (!this->IsWow64Process)
         *machineType = IMAGE_FILE_MACHINE_AMD64;
     else
         *machineType = IMAGE_FILE_MACHINE_I386;
@@ -1680,6 +1965,13 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetMachineType(
     return S_OK;
 }
 
+/**
+ * ICLRDataTarget::GetPointerSize implementation that returns the pointer size of the target process.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param pointerSize Receives 4 for a 32-bit target process or 8 for a 64-bit target process.
+ * \return S_OK.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetPointerSize(
     _In_ ICLRDataTarget *This,
     _Out_ ULONG32 *pointerSize
@@ -1688,7 +1980,7 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetPointerSize(
     DnCLRDataTarget *this = (DnCLRDataTarget *)This;
 
 #ifdef _WIN64
-    if (!this->IsWow64)
+    if (!this->IsWow64Process)
 #endif
         *pointerSize = sizeof(PVOID);
 #ifdef _WIN64
@@ -1699,37 +1991,49 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetPointerSize(
     return S_OK;
 }
 
-typedef struct _PHP_GET_IMAGE_BASE_CONTEXT
+typedef struct _DN_CLRDT_ENUM_IMAGE_BASE_CONTEXT
 {
-    PH_STRINGREF ImagePath;
+    PPH_STRING FullName;
+    PPH_STRING BaseName;
     PVOID BaseAddress;
-} PHP_GET_IMAGE_BASE_CONTEXT, *PPHP_GET_IMAGE_BASE_CONTEXT;
+} DN_CLRDT_ENUM_IMAGE_BASE_CONTEXT, *PDN_CLRDT_ENUM_IMAGE_BASE_CONTEXT;
 
-BOOLEAN NTAPI PhpGetImageBaseCallback(
-    _In_ PLDR_DATA_TABLE_ENTRY Module,
-    _In_opt_ PVOID Context
+/**
+ * Module enumeration callback that resolves a module base address by matching full path or base name.
+ *
+ * \param Module The module info entry provided by the enumerator.
+ * \param Context A pointer to a DN_CLRDT_ENUM_IMAGE_BASE_CONTEXT structure.
+ * \return FALSE when the target module is found to stop enumeration; TRUE to continue.
+ */
+_Function_class_(PH_ENUM_GENERIC_MODULES_CALLBACK)
+BOOLEAN NTAPI DnClrDataTarget_EnumImageBaseCallback(
+    _In_ PPH_MODULE_INFO Module,
+    _In_ PVOID Context
     )
 {
-    PPHP_GET_IMAGE_BASE_CONTEXT context = Context;
-    PH_STRINGREF fullDllName;
-    PH_STRINGREF baseDllName;
+    PDN_CLRDT_ENUM_IMAGE_BASE_CONTEXT context = Context;
 
-    if (!context)
-        return TRUE;
-
-    PhUnicodeStringToStringRef(&Module->FullDllName, &fullDllName);
-    PhUnicodeStringToStringRef(&Module->BaseDllName, &baseDllName);
-
-    if (PhEqualStringRef(&fullDllName, &context->ImagePath, TRUE) ||
-        PhEqualStringRef(&baseDllName, &context->ImagePath, TRUE))
+    if (
+        (context->FullName && PhEqualString(Module->FileName, context->FullName, TRUE)) ||
+        (context->BaseName && PhEqualString(Module->Name, context->BaseName, TRUE))
+        )
     {
-        context->BaseAddress = Module->DllBase;
+        context->BaseAddress = Module->BaseAddress;
         return FALSE;
     }
 
     return TRUE;
 }
 
+/**
+ * ICLRDataTarget::GetImageBase implementation that locates a module's base address in the target process.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param imagePath The full or base file name of the image to locate.
+ * \param baseAddress Receives the base address of the located image.
+ * \return S_OK if found, or E_FAIL otherwise.
+ * \remarks For self-contained applications, falls back to matching the process executable name.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetImageBase(
     _In_ ICLRDataTarget *This,
     _In_ LPCWSTR imagePath,
@@ -1737,21 +2041,25 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetImageBase(
     )
 {
     DnCLRDataTarget *this = (DnCLRDataTarget *)This;
-    PHP_GET_IMAGE_BASE_CONTEXT context;
+    DN_CLRDT_ENUM_IMAGE_BASE_CONTEXT context = { 0 };
 
-    PhInitializeStringRefLongHint(&context.ImagePath, (PWSTR)imagePath);
-    context.BaseAddress = NULL;
-    PhEnumProcessModules(this->ProcessHandle, PhpGetImageBaseCallback, &context);
+    context.FullName = PhCreateString(imagePath);
+    context.BaseName = PhGetBaseName(context.FullName);
 
-#ifdef _WIN64
-    if (this->IsWow64)
-        PhEnumProcessModules32(this->ProcessHandle, PhpGetImageBaseCallback, &context);
-#endif
+    PhEnumGenericModules(
+        this->ProcessId,
+        this->ProcessHandle,
+        PH_ENUM_GENERIC_MAPPED_IMAGES,
+        DnClrDataTarget_EnumImageBaseCallback,
+        &context
+        );
+
+    PhClearReference(&context.BaseName);
+    PhClearReference(&context.FullName);
 
     if (context.BaseAddress)
     {
         *baseAddress = (CLRDATA_ADDRESS)context.BaseAddress;
-
         return S_OK;
     }
     else
@@ -1760,24 +2068,32 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetImageBase(
         {
 //#ifdef _WIN64
 //            PPH_PROCESS_ITEM processItem;
-//            PPH_STRING baseName;
 //
 //            if (processItem = PhReferenceProcessItem(this->ProcessId))
 //            {
 //                if (!PhIsNullOrEmptyString(processItem->FileName))
 //                {
-//                    if (baseName = PhGetBaseName(processItem->FileName))
-//                    {
-//                        context.ImagePath = baseName->sr;
-//                        PhEnumProcessModules(this->ProcessHandle, PhpGetImageBaseCallback, &context);
-//                        PhDereferenceObject(baseName);
+//                    DN_CLRDT_ENUM_IMAGE_BASE_CONTEXT selfContext = { 0 };
 //
-//                        if (context.BaseAddress)
-//                        {
-//                            *baseAddress = (CLRDATA_ADDRESS)context.BaseAddress;
-//                            PhDereferenceObject(processItem);
-//                            return S_OK;
-//                        }
+//                    selfContext.FullName = PhReferenceObject(processItem->FileName);
+//                    selfContext.BaseName = PhGetBaseName(selfContext.FullName);
+//
+//                    PhEnumGenericModules(
+//                        this->ProcessId,
+//                        this->ProcessHandle,
+//                        PH_ENUM_GENERIC_MAPPED_IMAGES,
+//                        DnClrDataTarget_EnumImageBaseCallback,
+//                        &selfContext
+//                        );
+//
+//                    PhClearReference(&selfContext.BaseName);
+//                    PhClearReference(&selfContext.FullName);
+//
+//                    if (selfContext.BaseAddress)
+//                    {
+//                        *baseAddress = (CLRDATA_ADDRESS)selfContext.BaseAddress;
+//                        PhDereferenceObject(processItem);
+//                        return S_OK;
 //                    }
 //                }
 //
@@ -1785,25 +2101,30 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetImageBase(
 //            }
 //#else
             PPH_STRING fileName;
-            PPH_STRING baseName;
 
             if (NT_SUCCESS(PhGetProcessImageFileNameByProcessId(this->ProcessId, &fileName)))
             {
-                if (baseName = PhGetBaseName(fileName))
+                DN_CLRDT_ENUM_IMAGE_BASE_CONTEXT selfContext = { 0 };
+
+                selfContext.FullName = fileName;
+                selfContext.BaseName = PhGetBaseName(fileName);
+
+                PhEnumGenericModules(
+                    this->ProcessId,
+                    this->ProcessHandle,
+                    PH_ENUM_GENERIC_MAPPED_IMAGES,
+                    DnClrDataTarget_EnumImageBaseCallback,
+                    &selfContext
+                    );
+
+                PhClearReference(&selfContext.BaseName);
+                PhClearReference(&selfContext.FullName);
+
+                if (selfContext.BaseAddress)
                 {
-                    context.ImagePath = baseName->sr;
-                    PhEnumProcessModules(this->ProcessHandle, PhpGetImageBaseCallback, &context);
-                    PhDereferenceObject(baseName);
-
-                    if (context.BaseAddress)
-                    {
-                        *baseAddress = (CLRDATA_ADDRESS)context.BaseAddress;
-                        PhDereferenceObject(fileName);
-                        return S_OK;
-                    }
+                    *baseAddress = (CLRDATA_ADDRESS)selfContext.BaseAddress;
+                    return S_OK;
                 }
-
-                PhDereferenceObject(fileName);
             }
 //#endif
         }
@@ -1812,12 +2133,22 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetImageBase(
     }
 }
 
+/**
+ * ICLRDataTarget::ReadVirtual implementation that reads memory from the target process.
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param address The virtual address in the target process to read from.
+ * \param buffer The buffer to receive the data.
+ * \param bytesRequested The number of bytes to read.
+ * \param bytesRead Receives the number of bytes actually read.
+ * \return S_OK on success, or an HRESULT derived from the NT status on failure.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_ReadVirtual(
     _In_ ICLRDataTarget *This,
-    _In_ CLRDATA_ADDRESS address,
-    _Out_ BYTE *buffer,
-    _In_ ULONG32 bytesRequested,
-    _Out_ ULONG32 *bytesRead
+    _In_ CLRDATA_ADDRESS Address,
+    _Out_ BYTE *Buffer,
+    _In_ ULONG32 BytesRequested,
+    _Out_ ULONG32 *BytesRead
     )
 {
     DnCLRDataTarget *this = (DnCLRDataTarget *)This;
@@ -1826,47 +2157,256 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_ReadVirtual(
 
     if (NT_SUCCESS(status = NtReadVirtualMemory(
         this->ProcessHandle,
-        (PVOID)address,
-        buffer,
-        bytesRequested,
+        (PVOID)Address,
+        Buffer,
+        (SIZE_T)BytesRequested,
         &numberOfBytesRead
         )))
     {
-        *bytesRead = (ULONG32)numberOfBytesRead;
-
+        *BytesRead = (ULONG32)numberOfBytesRead;
         return S_OK;
     }
     else
     {
-        ULONG result;
-
-        result = PhNtStatusToDosError(status);
-
-        return HRESULT_FROM_WIN32(result);
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
     }
 }
 
+/**
+ * ICLRDataTarget::WriteVirtual implementation (not implemented).
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param address The virtual address to write to (unused).
+ * \param buffer The data to write (unused).
+ * \param bytesRequested The number of bytes to write (unused).
+ * \param bytesWritten Receives the bytes written (unused).
+ * \return E_NOTIMPL.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_WriteVirtual(
     _In_ ICLRDataTarget *This,
-    _In_ CLRDATA_ADDRESS address,
-    _In_ BYTE *buffer,
-    _In_ ULONG32 bytesRequested,
-    _Out_ ULONG32 *bytesWritten
+    _In_ CLRDATA_ADDRESS Address,
+    _In_ BYTE *Buffer,
+    _In_ ULONG32 BytesRequested,
+    _Out_ ULONG32 *BytesWritten
     )
 {
-    return E_NOTIMPL;
+    DnCLRDataTarget* this = (DnCLRDataTarget*)This;
+    NTSTATUS status;
+    SIZE_T numberOfBytesWritten = 0;
+
+    status = NtWriteVirtualMemory(
+        this->ProcessHandle,
+        (PVOID)Address,
+        Buffer,
+        (SIZE_T)BytesRequested,
+        &numberOfBytesWritten
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        if (BytesWritten)
+            *BytesWritten = (ULONG32)numberOfBytesWritten;
+        return S_OK;
+    }
+
+    return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
 }
 
+
+/**
+ * ICLRDataTarget::GetTLSValue implementation (not implemented).
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param threadID The OS thread identifier (unused).
+ * \param index The TLS slot index (unused).
+ * \param TlsValue Receives the TLS value (unused).
+ * \return E_NOTIMPL.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetTLSValue(
     _In_ ICLRDataTarget *This,
-    _In_ ULONG32 threadID,
+    _In_ ULONG32 ThreadID,
     _In_ ULONG32 index,
-    _Out_ CLRDATA_ADDRESS *value
+    _Out_ CLRDATA_ADDRESS *TlsValue
     )
 {
-    return E_NOTIMPL;
+    DnCLRDataTarget* this = (DnCLRDataTarget*)This;
+    NTSTATUS status;
+    HANDLE threadHandle = NULL;
+    THREAD_BASIC_INFORMATION basicInfo = { 0 };
+    BOOLEAN isWow64 = FALSE;
+    CLRDATA_ADDRESS tlsValue = 0;
+
+    if (!TlsValue)
+        return E_INVALIDARG;
+
+    *TlsValue = 0;
+
+    status = PhOpenThread(
+        &threadHandle,
+        THREAD_QUERY_LIMITED_INFORMATION,
+        UlongToHandle(ThreadID)
+        );
+
+    if (!NT_SUCCESS(status))
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+
+    status = PhGetThreadBasicInformation(
+        threadHandle,
+        &basicInfo
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        NtClose(threadHandle);
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+    }
+
+#ifdef _WIN64
+    // Determine if the target process is Wow64
+    if (!NT_SUCCESS(PhGetProcessIsWow64(this->ProcessHandle, &isWow64)))
+    {
+        NtClose(threadHandle);
+        return E_FAIL;
+    }
+#endif
+
+    // TLS layout:
+    // - First TLS_MINIMUM_AVAILABLE (usually 64) slots are inline at TEB->TlsSlots[index]
+    // - Larger indices use TEB->TlsExpansionSlots -> array
+
+    if (index < TLS_MINIMUM_AVAILABLE)
+    {
+#ifdef _WIN64
+        if (isWow64)
+        {
+            ULONG slot32 = 0;
+
+            // 32-bit TEB
+            status = NtReadVirtualMemory(
+                this->ProcessHandle,
+                PTR_ADD_OFFSET(WOW64_GET_TEB32(basicInfo.TebBaseAddress), UFIELD_OFFSET(TEB32, TlsSlots) + (index * sizeof(ULONG))),
+                &slot32,
+                sizeof(slot32),
+                NULL
+                );
+
+            if (NT_SUCCESS(status))
+            {
+                tlsValue = (CLRDATA_ADDRESS)(ULONG_PTR)slot32;
+            }
+        }
+        else
+#endif
+        {
+            ULONG_PTR slot = 0;
+
+            status = NtReadVirtualMemory(
+                this->ProcessHandle,
+                PTR_ADD_OFFSET(basicInfo.TebBaseAddress, UFIELD_OFFSET(TEB, TlsSlots) + (index * sizeof(PVOID))),
+                &slot,
+                sizeof(slot),
+                NULL
+                );
+
+            if (NT_SUCCESS(status))
+            {
+                tlsValue = (CLRDATA_ADDRESS)slot;
+            }
+        }
+    }
+    else
+    {
+        // Expansion slots
+#ifdef _WIN64
+        if (isWow64)
+        {
+            ULONG expansionPtr32 = 0;
+
+            status = NtReadVirtualMemory(
+                this->ProcessHandle,
+                PTR_ADD_OFFSET(WOW64_GET_TEB32(basicInfo.TebBaseAddress), UFIELD_OFFSET(TEB32, TlsExpansionSlots)),
+                &expansionPtr32,
+                sizeof(expansionPtr32),
+                NULL
+                );
+
+            if (!NT_SUCCESS(status) || expansionPtr32 == 0)
+            {
+                NtClose(threadHandle);
+                return E_FAIL;
+            }
+
+            ULONG slot32 = 0;
+            ULONG idx = index - TLS_MINIMUM_AVAILABLE;
+
+            status = NtReadVirtualMemory(
+                this->ProcessHandle,
+                PTR_ADD_OFFSET(UlongToPtr(expansionPtr32), (idx * sizeof(ULONG))),
+                &slot32,
+                sizeof(slot32),
+                NULL
+                );
+
+            if (NT_SUCCESS(status))
+            {
+                tlsValue = (CLRDATA_ADDRESS)(ULONG_PTR)slot32;
+            }
+        }
+        else
+#endif
+        {
+            ULONG_PTR expansionPtr = 0;
+
+            status = NtReadVirtualMemory(
+                this->ProcessHandle,
+                PTR_ADD_OFFSET(basicInfo.TebBaseAddress, UFIELD_OFFSET(TEB, TlsExpansionSlots)),
+                &expansionPtr,
+                sizeof(expansionPtr),
+                NULL
+                );
+
+            if (!NT_SUCCESS(status) || expansionPtr == 0)
+            {
+                NtClose(threadHandle);
+                return E_FAIL;
+            }
+
+            ULONG_PTR slot = 0;
+            ULONG idx = index - TLS_MINIMUM_AVAILABLE;
+
+            status = NtReadVirtualMemory(
+                this->ProcessHandle,
+                PTR_ADD_OFFSET(expansionPtr, (idx * sizeof(PVOID))),
+                &slot,
+                sizeof(slot),
+                NULL
+                );
+
+            if (NT_SUCCESS(status))
+            {
+                tlsValue = (CLRDATA_ADDRESS)slot;
+            }
+        }
+    }
+
+    NtClose(threadHandle);
+
+    if (!NT_SUCCESS(status))
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+
+    *TlsValue = tlsValue;
+    return S_OK;
 }
 
+/**
+ * ICLRDataTarget::SetTLSValue implementation (not implemented).
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param threadID The OS thread identifier (unused).
+ * \param index The TLS slot index (unused).
+ * \param value The TLS value to set (unused).
+ * \return E_NOTIMPL.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_SetTLSValue(
     _In_ ICLRDataTarget *This,
     _In_ ULONG32 threadID,
@@ -1874,7 +2414,41 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_SetTLSValue(
     _In_ CLRDATA_ADDRESS value
     )
 {
-    return E_NOTIMPL;
+    DnCLRDataTarget* this = (DnCLRDataTarget*)This;
+    NTSTATUS status;
+    HANDLE threadHandle = NULL;
+    THREAD_BASIC_INFORMATION basicInfo = { 0 };
+
+    status = PhOpenThread(
+        &threadHandle,
+        THREAD_SET_CONTEXT | THREAD_SUSPEND_RESUME,
+        UlongToHandle(threadID)
+        );
+
+    if (!NT_SUCCESS(status))
+    {
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+    }
+
+    status = NtSuspendThread(threadHandle, NULL);
+
+    if (NT_SUCCESS(status))
+    {
+        ULONG_PTR local = (ULONG_PTR)value;
+
+        status = NtSetContextThread(threadHandle, (PCONTEXT)&local);
+
+        NtResumeThread(threadHandle, NULL);
+    }
+
+    if (NT_SUCCESS(status))
+    {
+        return S_OK;
+    }
+    else
+    {
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+    }
 }
 
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetCurrentThreadID(
@@ -1890,54 +2464,159 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_GetThreadContext(
     _In_ ULONG32 threadID,
     _In_ ULONG32 contextFlags,
     _In_ ULONG32 contextSize,
-    _Out_ BYTE *context
+    _Out_ PBYTE context
     )
 {
     NTSTATUS status;
     HANDLE threadHandle;
-    CONTEXT buffer;
+    PCONTEXT buffer;
+    BOOLEAN suspended = FALSE;
+    HANDLE stateChangeHandle = NULL;
+    BOOLEAN deepfreeze = FALSE;
+    BOOLEAN isCurrentThread = threadID == HandleToUlong(NtCurrentThreadId());
+    BOOLEAN canSuspend = FALSE;
+    ULONG desiredAccess = THREAD_GET_CONTEXT;
+    ULONG optionalAccess = THREAD_SUSPEND_RESUME | THREAD_SET_INFORMATION;
 
     if (contextSize < sizeof(CONTEXT))
         return E_INVALIDARG;
 
-    memset(&buffer, 0, sizeof(CONTEXT));
-    buffer.ContextFlags = contextFlags;
+    buffer = PhAllocateZero(contextSize);
+    buffer->ContextFlags = contextFlags;
 
-    if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_GET_CONTEXT, UlongToHandle(threadID))))
+    status = PhOpenThread(
+        &threadHandle,
+        desiredAccess | optionalAccess,
+        UlongToHandle(threadID)
+        );
+
+    if (!NT_SUCCESS(status))
     {
-        status = NtGetContextThread(threadHandle, &buffer);
+        status = PhOpenThread(
+            &threadHandle,
+            desiredAccess,
+            UlongToHandle(threadID)
+            );
+    }
+    else
+    {
+        canSuspend = TRUE;
+    }
+
+    if (NT_SUCCESS(status))
+    {
+        if (!isCurrentThread && canSuspend)
+        {
+            if (WindowsVersion >= WINDOWS_11)
+            {
+                if (NT_SUCCESS(PhFreezeThread(&stateChangeHandle, threadHandle)))
+                {
+                    deepfreeze = TRUE;
+                }
+            }
+
+            if (NT_SUCCESS(NtSuspendThread(threadHandle, NULL)))
+            {
+                suspended = TRUE;
+            }
+        }
+
+        status = PhGetContextThread(threadHandle, buffer);
+
+        if (suspended)
+        {
+            NtResumeThread(threadHandle, NULL);
+        }
+
+        if (deepfreeze)
+        {
+            PhThawThread(stateChangeHandle, threadHandle);
+            NtClose(stateChangeHandle);
+        }
+
         NtClose(threadHandle);
     }
 
     if (NT_SUCCESS(status))
     {
-#pragma warning(push)
-#pragma warning(disable: 6386)
-        memcpy_s(context, contextSize, &buffer, sizeof(CONTEXT));
-#pragma warning(pop)
-
+        memcpy(context, buffer, contextSize);
+        PhFree(buffer);
         return S_OK;
     }
     else
     {
-        ULONG result;
-
-        result = PhNtStatusToDosError(status);
-
-        return HRESULT_FROM_WIN32(result);
+        PhFree(buffer);
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
     }
 }
 
+/**
+ * ICLRDataTarget::SetThreadContext implementation (not implemented).
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param threadID The OS thread identifier (unused).
+ * \param contextSize The size of the context buffer (unused).
+ * \param context The context data to set (unused).
+ * \return E_NOTIMPL.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_SetThreadContext(
     _In_ ICLRDataTarget *This,
     _In_ ULONG32 threadID,
     _In_ ULONG32 contextSize,
-    _In_ BYTE *context
+    _In_ PBYTE context
     )
 {
-    return E_NOTIMPL;
+    DnCLRDataTarget* this = (DnCLRDataTarget*)This;
+    NTSTATUS status;
+    HANDLE threadHandle = NULL;
+    BOOLEAN suspended = FALSE;
+
+    if (!context || contextSize < sizeof(CONTEXT))
+        return E_INVALIDARG;
+
+    // Open thread with rights to set context.
+    status = PhOpenThread(
+        &threadHandle,
+        THREAD_SET_CONTEXT | THREAD_SUSPEND_RESUME,
+        UlongToHandle(threadID)
+        );
+
+    if (!NT_SUCCESS(status))
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+
+    // Suspend, set context, resume to minimize races (similar to GetThreadContext pattern).
+    status = NtSuspendThread(threadHandle, NULL);
+
+    if (NT_SUCCESS(status))
+        suspended = TRUE;
+
+    // Use NtSetContextThread directly (context pointer is process-local memory - DAC provides context buffer).
+    status = NtSetContextThread(threadHandle, (PCONTEXT)context);
+
+    if (suspended)
+    {
+        NtResumeThread(threadHandle, NULL);
+    }
+
+    NtClose(threadHandle);
+
+    if (!NT_SUCCESS(status))
+        return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
+
+    return S_OK;
 }
 
+/**
+ * ICLRDataTarget::Request implementation (not implemented).
+ *
+ * \param This The ICLRDataTarget instance.
+ * \param reqCode The request code (unused).
+ * \param inBufferSize The input buffer size (unused).
+ * \param inBuffer The input buffer (unused).
+ * \param outBufferSize The output buffer size (unused).
+ * \param outBuffer The output buffer (unused).
+ * \return E_NOTIMPL.
+ */
 HRESULT STDMETHODCALLTYPE DnCLRDataTarget_Request(
     _In_ ICLRDataTarget *This,
     _In_ ULONG32 reqCode,
@@ -1947,5 +2626,19 @@ HRESULT STDMETHODCALLTYPE DnCLRDataTarget_Request(
     _Out_ BYTE *outBuffer
     )
 {
+    DnCLRDataTarget* this = (DnCLRDataTarget*)This;
+
+    // If an IXCLRDataProcess (DAC) is associated with this data target, forward the Request
+    // to the DAC. This lets the DAC handle host-specific or custom queries that it
+    // understands and returns the DAC-provided result directly.
+    if (this->DataProcess)
+    {
+        // Forward to the DAC's Request implementation and return its HRESULT.
+        // The IXCLRDataProcess Request signature mirrors the classic layout:
+        // HRESULT Request(ULONG reqCode, ULONG inBufferSize, BYTE* inBuffer, ULONG outBufferSize, BYTE* outBuffer)
+        return IXCLRDataProcess_Request(this->DataProcess, reqCode, inBufferSize, inBuffer, outBufferSize, outBuffer);
+    }
+
+    // Conservative default: unknown request codes are not implemented for this target.
     return E_NOTIMPL;
 }

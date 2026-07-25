@@ -83,7 +83,6 @@
 #include <QTreeWidget>
 #include <QFormLayout>
 #include <QLineEdit>
-#include <QTextEdit>
 #include <QWidgetAction>
 #include <QCheckBox>
 #include <QScrollArea>
@@ -97,14 +96,12 @@
 #include <QPushButton>
 #include <QSystemTrayIcon>
 #include <QDesktopServices>
-#include <QFileDialog>
 #include <QProgressBar>
 #include <QInputDialog>
 #include <QToolTip>
 #include <QColorDialog>
 #include <QToolButton>
 #include <QScreen>
-#include <QRegExp>
 #include <QActionGroup>
 #include <QRegularExpression>
 
@@ -130,6 +127,10 @@
 #endif
 
 #include "../MiscHelpers/Common/DebugHelpers.h"
+
+#include "../MiscHelpers/Common/ObjectTracker.h"
+
+#define USING_QT
 
 #define USE_QEXTWIDGETS
 

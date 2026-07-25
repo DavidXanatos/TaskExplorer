@@ -101,6 +101,8 @@ void CGraphBar::ReConfigurePlots()
 {
 	m_PlotLimit = theGUI->GetGraphLimit();
 	QColor Back = theGUI->GetColor(CTaskExplorer::eGraphBack);
+	if (theGUI->GetTheme()->IsDarkTheme())
+		Back = Qt::black;
 	QColor Front = theGUI->GetColor(CTaskExplorer::eGraphFront);
 
 	foreach(const SGraph& Graph, m_Graphs) {
@@ -108,6 +110,20 @@ void CGraphBar::ReConfigurePlots()
 		Graph.pPlot->SetColors(Back);
 		Graph.pPlot->SetTextColor(Front);
 	}
+}
+
+void CGraphBar::SetDarkMode(bool bDark)
+{
+	QPalette pal = palette();
+	pal.setColor(QPalette::Window, bDark ? Qt::darkGray : Qt::gray);
+	this->setPalette(pal);
+
+	QColor Back = theGUI->GetColor(CTaskExplorer::eGraphBack);
+	if (theGUI->GetTheme()->IsDarkTheme())
+		Back = Qt::black;
+
+	foreach(const SGraph& Graph, m_Graphs)
+		Graph.pPlot->SetColors(Back);
 }
 
 void CGraphBar::AddGraph(EGraph Graph, int row, int column)

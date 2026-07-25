@@ -964,7 +964,7 @@ class QwtSplineCubic::PrivateData
    The default setting is a non closing natural spline with no parametrization.
  */
 QwtSplineCubic::QwtSplineCubic()
-    : m_data( nullptr )
+    : m_data( NULL )
 {
     // a natural spline
 

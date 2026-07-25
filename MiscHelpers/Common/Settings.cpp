@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "Settings.h"
-#include "qzlib.h"
+//#include "qzlib.h"
 #include "Common.h"
 #include <QStandardPaths>
 
@@ -13,16 +13,21 @@ bool TestWriteRight(const QString& Path)
 	return TestFile.remove();
 }
 
-CSettings::CSettings(const QString& AppName, QMap<QString, SSetting> DefaultValues, QObject* qObject) : QObject(qObject)
+CSettings::CSettings(const QString& AppDir, const QString& AppName, const QString& GroupName, QMap<QString, SSetting> DefaultValues, QObject* qObject) : QObject(qObject)
 {
-	m_ConfigDir = QCoreApplication::applicationDirPath();
+	m_ConfigDir = AppDir;
 	if (!(m_bPortable = QFile::exists(m_ConfigDir + "/" + AppName + ".ini")))
 	{
 		QStringList dirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
 		if (dirs.isEmpty())
-			m_ConfigDir = QDir::homePath() + "/." + AppName;
+			m_ConfigDir = QDir::homePath() + "/." + GroupName + "/" + AppName;
+		//
+		// if ini is present in the shared location it take precedence over an ini in a user location
+		//
+		else if(dirs.count() > 2 && QFile::exists(dirs[1] + "/" + GroupName + "/" + AppName + "/" + AppName + ".ini"))
+			m_ConfigDir = dirs[1] + "/" + GroupName + "/" + AppName;
 		else
-			m_ConfigDir = dirs.first() + "/" + AppName;
+			m_ConfigDir = dirs[0] + "/" + GroupName + "/" + AppName;
 		QDir().mkpath(m_ConfigDir);
 	}
 
@@ -30,18 +35,18 @@ CSettings::CSettings(const QString& AppName, QMap<QString, SSetting> DefaultValu
 
 	m_pConf->sync();
 
-	m_DefaultValues = DefaultValues;
-	foreach (const QString& Key, m_DefaultValues.keys())
-	{
-		const SSetting& Setting = m_DefaultValues[Key];
-		if(!m_pConf->contains(Key) || !Setting.Check(m_pConf->value(Key)))
-		{
-			if(Setting.IsBlob())
-				m_pConf->setValue(Key, Setting.Value.toByteArray().toBase64().replace("+","-").replace("/","_").replace("=",""));
-			else
-				m_pConf->setValue(Key, Setting.Value);
-		}
-	}
+	//m_DefaultValues = DefaultValues;
+	//foreach (const QString& Key, m_DefaultValues.keys())
+	//{
+	//	const SSetting& Setting = m_DefaultValues[Key];
+	//	if(!m_pConf->contains(Key) || !Setting.Check(m_pConf->value(Key)))
+	//	{
+	//		if(Setting.IsBlob())
+	//			m_pConf->setValue(Key, Setting.Value.toByteArray().toBase64().replace("+","-").replace("/","_").replace("=",""));
+	//		else
+	//			m_pConf->setValue(Key, Setting.Value);
+	//	}
+	//}
 }
 
 CSettings::~CSettings()
@@ -49,18 +54,27 @@ CSettings::~CSettings()
 	m_pConf->sync();
 }
 
+void CSettings::DelValue(const QString& key)
+{
+	QMutexLocker Locker(&m_Mutex);
+
+	m_pConf->remove(key);
+
+	m_ValueCache.clear();
+}
+
 bool CSettings::SetValue(const QString &key, const QVariant &value)
 {
 	QMutexLocker Locker(&m_Mutex);
 
-	if (!m_DefaultValues.isEmpty())
-	{
-		ASSERT(m_pConf->contains(key));
-#ifndef _DEBUG
-		if (!m_DefaultValues[key].Check(value))
-			return false;
-#endif
-	}
+//	if (!m_DefaultValues.isEmpty())
+//	{
+//		ASSERT(m_pConf->contains(key));
+//#ifndef _DEBUG
+//		if (!m_DefaultValues[key].Check(value))
+//			return false;
+//#endif
+//	}
 
 	m_pConf->setValue(key, value);
 
@@ -72,7 +86,7 @@ QVariant CSettings::GetValue(const QString &key, const QVariant& preset)
 {
 	QMutexLocker Locker(&m_Mutex);
 
-	ASSERT(m_DefaultValues.isEmpty() || m_pConf->contains(key));	
+//	ASSERT(m_DefaultValues.isEmpty() || m_pConf->contains(key));	
 
 	return m_pConf->value(key, preset);
 }
@@ -80,10 +94,10 @@ QVariant CSettings::GetValue(const QString &key, const QVariant& preset)
 void CSettings::SetBlob(const QString& key, const QByteArray& value)
 {
 	QString str;
-	QByteArray data = Pack(value);
-	if(data.size() < value.size())
-		str = ":PackedArray:" + data.toBase64().replace("+","-").replace("/","_").replace("=","");
-	else
+	//QByteArray data = Pack(value);
+	//if(data.size() < value.size())
+	//	str = ":PackedArray:" + data.toBase64().replace("+","-").replace("/","_").replace("=","");
+	//else
 		str = ":ByteArray:" + value.toBase64().replace("+","-").replace("/","_").replace("=","");
 	SetValue(key, str);
 }
@@ -94,12 +108,12 @@ QByteArray CSettings::GetBlob(const QString& key)
 	QByteArray str = GetValue(key).toByteArray();
 	if(str.left(11) == ":ByteArray:")
 		value = QByteArray::fromBase64(str.mid(11).replace("-","+").replace("_","/"));
-	else if(str.left(13) == ":PackedArray:")
-		value = Unpack(QByteArray::fromBase64(str.mid(13).replace("-","+").replace("_","/")));
+	//else if(str.left(13) == ":PackedArray:")
+	//	value = Unpack(QByteArray::fromBase64(str.mid(13).replace("-","+").replace("_","/")));
 	return value;
 }
 
-const QStringList CSettings::ListKeys(const QString& Root)
+QStringList CSettings::ListKeys(const QString& Root)
 {
 	QMutexLocker Locker(&m_Mutex); 
 	QStringList Keys;

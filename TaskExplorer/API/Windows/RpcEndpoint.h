@@ -6,6 +6,7 @@ class CRpcEndpoint: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CRpcEndpoint)
 public:
 	CRpcEndpoint(QObject *parent = nullptr);
 	virtual ~CRpcEndpoint();

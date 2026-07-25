@@ -10,6 +10,7 @@
  */
 
 #include <peview.h>
+#include <json.h>
 
 typedef struct _PV_PE_VERSIONINFO_CONTEXT
 {
@@ -24,8 +25,8 @@ VOID PvAddVersionInfoItem(
     _In_ HWND ListViewHandle,
     _Inout_ PULONG Count,
     _In_ INT GroupId,
-    _In_ PWSTR Name,
-    _In_ PWSTR Value
+    _In_ PCWSTR Name,
+    _In_ PCWSTR Value
     )
 {
     INT lvItemIndex;
@@ -41,7 +42,7 @@ PVOID PvGetFileVersionInfoValue(
     _In_ PVS_VERSION_INFO_STRUCT32 VersionInfo
     )
 {
-    PWSTR offset = VersionInfo->Key + PhCountStringZ(VersionInfo->Key) + 1;
+    PCWSTR offset = VersionInfo->Key + PhCountStringZ(VersionInfo->Key) + 1;
 
     return PTR_ADD_OFFSET(VersionInfo, ALIGN_UP(PTR_SUB_OFFSET(offset, VersionInfo), ULONG));
 }
@@ -95,12 +96,12 @@ BOOLEAN PvDumpFileVersionInfo(
     PH_FORMAT format[3];
     WCHAR langNameString[65];
 
-    if (!PhGetFileVersionInfoKey(
+    if (!NT_SUCCESS(PhGetFileVersionInfoKey(
         VersionInfo,
         blockInfoName.Length / sizeof(WCHAR),
         blockInfoName.Buffer,
         &blockStringInfo
-        ))
+        )))
     {
         return FALSE;
     }
@@ -112,12 +113,12 @@ BOOLEAN PvDumpFileVersionInfo(
     if (!PhFormatToBuffer(format, 1, langNameString, sizeof(langNameString), &returnLength))
         return FALSE;
 
-    if (!PhGetFileVersionInfoKey(
+    if (!NT_SUCCESS(PhGetFileVersionInfoKey(
         blockStringInfo,
         returnLength / sizeof(WCHAR) - sizeof(ANSI_NULL),
         langNameString,
         &blockLangInfo
-        ))
+        )))
     {
         return FALSE;
     }
@@ -161,9 +162,9 @@ PPH_STRING PvVersionInfoFlagsToString(
     return PhFinalStringBuilderString(&stringBuilder);
 }
 
-static wchar_t* PvVersionInfoFileOSHostToString(
+static PCWSTR PvVersionInfoFileOSHostToString(
     _In_ ULONG FileOS
-)
+    )
 {
     switch (HIWORD(FileOS))
     {
@@ -177,9 +178,9 @@ static wchar_t* PvVersionInfoFileOSHostToString(
     }
 }
 
-static wchar_t* PvVersionInfoFileOSGuestToString(
+static PCWSTR PvVersionInfoFileOSGuestToString(
     _In_ ULONG FileOS
-)
+    )
 {
     switch (LOWORD(FileOS))
     {
@@ -189,6 +190,120 @@ static wchar_t* PvVersionInfoFileOSGuestToString(
     case 3:  return L"32-bit Presentation Manager";
     case 4:  return L"32-bit Windows";
     default: return L"Unknown";
+    }
+}
+
+VOID PvLoadVersionBuildMetadata(
+     _In_ HWND ListViewHandle,
+    _Inout_ PULONG Count
+    )
+{
+    static CONST PH_STRINGREF string = PH_STRINGREF_INIT(L"\\AppxManifest.xml");
+    NTSTATUS status;
+    HANDLE fileHandle;
+    LARGE_INTEGER fileSize;
+    PPH_BYTES fileContent;
+    PVOID topNode;
+    PPH_STRING fileName;
+    PH_STRINGREF BasePathName;
+
+    if (!PhGetBasePath(&PvFileName->sr, &BasePathName, NULL))
+        return;
+
+    fileName = PhConcatStringRef2(&BasePathName, &string);
+    fileName = PhDosPathNameToNtPathName(&fileName->sr);
+
+    status = PhCreateFile(
+        &fileHandle,
+        &fileName->sr,
+        FILE_GENERIC_READ,
+        FILE_ATTRIBUTE_NORMAL,
+        FILE_SHARE_READ,
+        FILE_OPEN,
+        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT
+        );
+
+    if (!NT_SUCCESS(status))
+        return;
+
+    if (NT_SUCCESS(PhGetFileSize(fileHandle, &fileSize)) && fileSize.QuadPart == 0)
+    {
+        NtClose(fileHandle);
+        return;
+    }
+
+    if (NT_SUCCESS(status = PhGetFileText(&fileContent, fileHandle, FALSE)))
+    {
+        if (topNode = PhLoadXmlObjectFromString2(fileContent->Buffer))
+        {
+            PVOID propertiesNode;
+            PVOID buildMetadata;
+
+            if (propertiesNode = PhFindXmlObject(topNode, topNode, "Properties", NULL, NULL))
+            {
+                for (PVOID child = PhGetXmlNodeFirstChild(propertiesNode); child; child = PhGetXmlNodeNextChild(child))
+                {
+                    PCSTR name = PhGetXmlNodeElementText(child);
+                    PPH_STRING value = PhGetXmlNodeOpaqueText(child);
+
+                    if (name && value && (
+                        PhEqualBytesZ(name, "DisplayName", TRUE) ||
+                        PhEqualBytesZ(name, "PublisherDisplayName", TRUE) ||
+                        PhEqualBytesZ(name, "Logo", TRUE)
+                        ))
+                    {
+                        PPH_STRING nameUtf16 = PhZeroExtendToUtf16(name);
+
+                        PvAddVersionInfoItem(
+                            ListViewHandle,
+                            Count,
+                            3,
+                            PhGetString(nameUtf16),
+                            PhGetString(value)
+                            );
+
+                        PhClearReference(&nameUtf16);
+                    }
+
+                    PhClearReference(&value);
+                }
+            }
+
+            if (buildMetadata = PhFindXmlObject(topNode, topNode, "build:Metadata", NULL, NULL))
+            {
+                for (PVOID child = PhGetXmlNodeFirstChild(buildMetadata); child; child = PhGetXmlNodeNextChild(child))
+                {
+                    SIZE_T attributeCount = PhGetXmlNodeAttributeCount(child);
+                    const char* name = PhGetXmlNodeElementText(child);
+                    PPH_STRING value = PhGetXmlNodeOpaqueText(child);
+
+                    if (name && value)
+                    {
+                        PPH_STRING attributeName = PhGetXmlNodeAttributeText(child, "Name");
+                        PPH_STRING attributeValue = PhGetXmlNodeAttributeText(child, "Value");
+                        PPH_STRING attributeVersion = PhGetXmlNodeAttributeText(child, "Version");
+
+                        PvAddVersionInfoItem(
+                            ListViewHandle,
+                            Count,
+                            3,
+                            PhGetString(attributeName),
+                            attributeValue ? PhGetString(attributeValue) : PhGetString(attributeVersion)
+                            );
+
+                        PhClearReference(&attributeVersion);
+                        PhClearReference(&attributeValue);
+                        PhClearReference(&attributeName);
+                    }
+
+                    PhClearReference(&value);
+                }
+            }
+
+            PhDereferenceObject(fileContent);
+
+            PhFreeXmlObject(topNode);
+        }
     }
 }
 
@@ -255,19 +370,90 @@ PPH_STRING PvVersionInfoFileTypeToString(
     return PhFinalStringBuilderString(&stringBuilder);
 }
 
+PVOID PvGetFileVersionInfoValue2(
+    _In_ PVS_VERSION_INFO_STRUCT32 VersionInfo
+    )
+{
+    const PCWSTR keyOffset = VersionInfo->Key + PhCountStringZ(VersionInfo->Key) + 1;
+
+    return PTR_ADD_OFFSET(VersionInfo, ALIGN_UP(PTR_SUB_OFFSET(keyOffset, VersionInfo), ULONG));
+}
+
+VOID PvEnumFileVersionInfo(
+    _In_ HWND ListViewHandle,
+    _Inout_ PULONG Count,
+    _In_ PVOID VersionBlock,
+    _In_ PPH_STRING CurrentName,
+    _In_ ULONG Depth)
+{
+    PVOID value;
+    ULONG valueOffset;
+    PVS_VERSION_INFO_STRUCT32 child;
+    PVS_VERSION_INFO_STRUCT32 VersionInfo = VersionBlock;
+
+    if (!(value = PvGetFileVersionInfoValue2(VersionInfo)))
+        return;
+
+    valueOffset = VersionInfo->ValueLength * (VersionInfo->Type ? sizeof(WCHAR) : sizeof(CHAR));
+    child = PTR_ADD_OFFSET(value, ALIGN_UP(valueOffset, ULONG));
+
+    while ((ULONG_PTR)child < (ULONG_PTR)PTR_ADD_OFFSET(VersionInfo, VersionInfo->Length))
+    {
+        if (CurrentName)
+        {
+            PPH_STRING string;
+
+            string = PhFormatString(
+                L"\\%s\\%s",
+                PhGetString(CurrentName),
+                child->Key
+                );
+
+            PvEnumFileVersionInfo(
+                ListViewHandle,
+                Count,
+                child,
+                string,
+                Depth + 1
+                );
+
+            PvAddVersionInfoItem(
+                ListViewHandle,
+                Count,
+                1,
+                PhGetString(string),
+                child->ValueLength ? PvGetFileVersionInfoValue(child) : L""
+                );
+
+            PhDereferenceObject(string);
+        }
+        else
+        {
+            PPH_STRING nameString = PhFormatString(L"%s", child->Key);
+            PvEnumFileVersionInfo(ListViewHandle, Count, child, nameString, Depth + 1);
+            PhDereferenceObject(nameString);
+        }
+
+        if (child->Length == 0)
+            break;
+
+        child = PTR_ADD_OFFSET(child, ALIGN_UP(child->Length, ULONG));
+    }
+}
+
 // Enumerate any custom strings in the StringFileInfo (dmex)
 VOID PvEnumVersionInfo(
     _In_ HWND ListViewHandle
     )
 {
+    NTSTATUS status;
     ULONG count = 0;
     VS_FIXEDFILEINFO* rootBlock;
     PVOID versionInfo;
-    ULONG langCodePage;
 
-    versionInfo = PhGetFileVersionInfo(PvFileName->Buffer);
+    status = PhGetFileVersionInfo(PvFileName->Buffer, &versionInfo);
 
-    if (!versionInfo)
+    if (!NT_SUCCESS(status))
         return;
 
     if (rootBlock = PhGetFileVersionFixedInfo(versionInfo))
@@ -284,25 +470,48 @@ VOID PvEnumVersionInfo(
         PvAddVersionInfoItem(ListViewHandle, &count, 0, L"FileDate", PhaFormatString(L"%lu.%lu.%lu.%lu", HIWORD(rootBlock->dwFileDateMS), LOWORD(rootBlock->dwFileDateMS), HIWORD(rootBlock->dwFileDateLS), LOWORD(rootBlock->dwFileDateLS))->Buffer);
     }
 
-    // TODO: Enumerate the language block.
-    langCodePage = PhGetFileVersionInfoLangCodePage(versionInfo);
+    static PH_STRINGREF blockStringInfoName = PH_STRINGREF_INIT(L"StringFileInfo");
+    PVS_VERSION_INFO_STRUCT32 blockStringInfo;
 
-    // Use the default language code page.
-    if (!PvDumpFileVersionInfo(versionInfo, langCodePage, ListViewHandle, &count))
+    //PvEnumFileVersionInfo(ListViewHandle, &count, versionInfo, NULL, 0);
+
+    if (NT_SUCCESS(PhGetFileVersionInfoKey(
+        versionInfo,
+        blockStringInfoName.Length / sizeof(WCHAR),
+        blockStringInfoName.Buffer,
+        &blockStringInfo
+        )))
     {
-        // Use the windows-1252 code page.
-        if (!PvDumpFileVersionInfo(versionInfo, (langCodePage & 0xffff0000) + 1252, ListViewHandle, &count))
+        PvEnumFileVersionInfo(ListViewHandle, &count, blockStringInfo, NULL, 0);
+    }
+
+    {
+        PLANGANDCODEPAGE codePage;
+        ULONG codePageLength;
+
+        if (NT_SUCCESS(PhGetFileVersionVarFileInfoValueZ(versionInfo, L"Translation", &codePage, &codePageLength)))
         {
-            // Use the default language (US English).
-            if (!PvDumpFileVersionInfo(versionInfo, (MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US) << 16) + 1252, ListViewHandle, &count))
+            for (ULONG i = 0; i < (codePageLength / sizeof(LANGANDCODEPAGE)); i++)
             {
-                // Use the default language (US English).
-                PvDumpFileVersionInfo(versionInfo, (MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US) << 16) + 0, ListViewHandle, &count);
+                SIZE_T returnLength;
+                PH_FORMAT format[3];
+                WCHAR langNameString[65];
+
+                PhInitFormatX(&format[0], ((ULONG)codePage[i].Language << 16) + codePage[i].CodePage);
+                format[0].Type |= FormatPadZeros | FormatUpperCase;
+                format[0].Width = 8;
+
+                if (PhFormatToBuffer(format, 1, langNameString, sizeof(langNameString), &returnLength))
+                {
+                    PvAddVersionInfoItem(ListViewHandle, &count, 2, L"Translation", langNameString);
+                }
             }
         }
     }
 
     PhFree(versionInfo);
+
+    PvLoadVersionBuildMetadata(ListViewHandle, &count);
 }
 
 INT_PTR CALLBACK PvpPeVersionInfoDlgProc(
@@ -355,6 +564,8 @@ INT_PTR CALLBACK PvpPeVersionInfoDlgProc(
             ListView_EnableGroupView(context->ListViewHandle, TRUE);
             PhAddListViewGroup(context->ListViewHandle, 0, L"FixedFileInfo");
             PhAddListViewGroup(context->ListViewHandle, 1, L"StringFileInfo");
+            PhAddListViewGroup(context->ListViewHandle, 2, L"VarFileInfo");
+            PhAddListViewGroup(context->ListViewHandle, 3, L"AppxManifest");
 
             PvEnumVersionInfo(context->ListViewHandle);
 
@@ -380,6 +591,11 @@ INT_PTR CALLBACK PvpPeVersionInfoDlgProc(
 
                 context->PropSheetContext->LayoutInitialized = TRUE;
             }
+        }
+        break;
+    case WM_DPICHANGED:
+        {
+            PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
         }
         break;
     case WM_SIZE:
@@ -414,7 +630,7 @@ INT_PTR CALLBACK PvpPeVersionInfoDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

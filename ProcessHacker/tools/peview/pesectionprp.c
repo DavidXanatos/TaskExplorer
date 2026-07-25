@@ -135,6 +135,7 @@ BOOLEAN PvSectionNodeHashtableCompareFunction(
     _In_ PVOID Entry2
     );
 
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PvSectionNodeHashtableHashFunction(
     _In_ PVOID Entry
     );
@@ -265,6 +266,7 @@ PPH_STRING PvGetSectionCharacteristics(
     return PhFinalStringBuilderString(&stringBuilder);
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PvpPeSectionsEnumerateThread(
     _In_ PPV_SECTION_CONTEXT Context
     )
@@ -281,12 +283,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
         sectionNode->UniqueIdString = PhFormatUInt64(sectionNode->UniqueId, FALSE);
         sectionNode->SectionHeader = &PvMappedImage.Sections[i];
 
-        if (PhGetMappedImageSectionName(
-            &PvMappedImage.Sections[i],
-            sectionName,
-            RTL_NUMBER_OF(sectionName),
-            &sectionNameLength
-            ))
+        if (NT_SUCCESS(PhGetMappedImageSectionName(&PvMappedImage.Sections[i], sectionName, RTL_NUMBER_OF(sectionName), &sectionNameLength)))
         {
             sectionNode->SectionNameString = PhCreateStringEx(sectionName, sectionNameLength * sizeof(WCHAR) - sizeof(UNICODE_NULL));
         }
@@ -295,7 +292,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
         sectionNode->RawStart = UlongToPtr(PvMappedImage.Sections[i].PointerToRawData);
         PhPrintPointer(value, sectionNode->RawStart);
         sectionNode->RawStartString = PhCreateString(value);
-        sectionNode->RawEnd = PTR_ADD_OFFSET(PvMappedImage.Sections[i].PointerToRawData, PvMappedImage.Sections[i].SizeOfRawData);
+        sectionNode->RawEnd = (PVOID)(ULONG_PTR)UInt32Add32To64(PvMappedImage.Sections[i].PointerToRawData, PvMappedImage.Sections[i].SizeOfRawData);
         PhPrintPointer(value, sectionNode->RawEnd);
         sectionNode->RawEndString = PhCreateString(value);
         sectionNode->RawSize = PvMappedImage.Sections[i].SizeOfRawData;
@@ -304,7 +301,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
         sectionNode->RvaStart = UlongToPtr(PvMappedImage.Sections[i].VirtualAddress);
         PhPrintPointer(value, sectionNode->RvaStart);
         sectionNode->RvaStartString = PhCreateString(value);
-        sectionNode->RvaEnd = PTR_ADD_OFFSET(PvMappedImage.Sections[i].VirtualAddress, PvMappedImage.Sections[i].Misc.VirtualSize);
+        sectionNode->RvaEnd = (PVOID)(ULONG_PTR)UInt32Add32To64(PvMappedImage.Sections[i].VirtualAddress, PvMappedImage.Sections[i].Misc.VirtualSize);
         PhPrintPointer(value, sectionNode->RvaEnd);
         sectionNode->RvaEndString = PhCreateString(value);
         sectionNode->RvaSize = PvMappedImage.Sections[i].Misc.VirtualSize;
@@ -332,11 +329,12 @@ NTSTATUS PvpPeSectionsEnumerateThread(
                         imageSectionData,
                         PvMappedImage.Sections[i].SizeOfRawData,
                         &imageSectionEntropy,
+                        NULL,
                         NULL
                         ))
                     {
                         sectionNode->SectionEntropy = imageSectionEntropy;
-                        sectionNode->EntropyString = PhFormatEntropy(imageSectionEntropy, 2, 0, 0);
+                        sectionNode->EntropyString = PhFormatEntropy(imageSectionEntropy, 2, 0, 0, 0, 0);
                     }
                 }
             }
@@ -348,7 +346,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
 
             __try
             {
-                PPH_STRING ssdeepHashString = NULL;
+                char* ssdeepHashString = NULL;
 
                 if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, PvMappedImage.Sections[i].VirtualAddress, NULL))
                 {
@@ -360,7 +358,8 @@ NTSTATUS PvpPeSectionsEnumerateThread(
 
                     if (ssdeepHashString)
                     {
-                        sectionNode->SsdeepString = ssdeepHashString;
+                        sectionNode->SsdeepString = PhConvertUtf8ToUtf16(ssdeepHashString);
+                        free(ssdeepHashString);
                     }
                 }
             }
@@ -372,7 +371,7 @@ NTSTATUS PvpPeSectionsEnumerateThread(
 
             __try
             {
-                PPH_STRING tlshHashString = NULL;
+                char* tlshHashString = NULL;
 
                 if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, PvMappedImage.Sections[i].VirtualAddress, NULL))
                 {
@@ -386,9 +385,10 @@ NTSTATUS PvpPeSectionsEnumerateThread(
                         &tlshHashString
                         );
 
-                    if (!PhIsNullOrEmptyString(tlshHashString))
+                    if (tlshHashString)
                     {
-                        sectionNode->TlshString = tlshHashString;
+                        sectionNode->TlshString = PhConvertUtf8ToUtf16(tlshHashString);
+                        free(tlshHashString);
                     }
                 }
             }
@@ -466,6 +466,7 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Sections (Ctrl+K)",
                 PvpPeSectionsSearchControlCallback,
@@ -542,7 +543,8 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
                     PPH_EMENU_ITEM highlightReadMenuItem;
                     PPH_EMENU_ITEM selectedItem;
 
-                    GetWindowRect(GetDlgItem(hwndDlg, IDC_SETTINGS), &rect);
+                    if (!PhGetWindowRect(GetDlgItem(hwndDlg, IDC_SETTINGS), &rect))
+                        break;
 
                     writableMenuItem = PhCreateEMenuItem(0, SECTION_TREE_MENU_ITEM_HIDE_WRITE, L"Hide writable", NULL, NULL);
                     executableMenuItem = PhCreateEMenuItem(0, SECTION_TREE_MENU_ITEM_HIDE_EXECUTE, L"Hide executable", NULL, NULL);
@@ -666,7 +668,16 @@ INT_PTR CALLBACK PvPeSectionsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -752,6 +763,7 @@ BOOLEAN PvSectionNodeHashtableCompareFunction(
     return sectionNode1->UniqueId == sectionNode2->UniqueId;
 }
 
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PvSectionNodeHashtableHashFunction(
     _In_ PVOID Entry
     )
@@ -1009,7 +1021,7 @@ BOOLEAN NTAPI PvSectionTreeNewCallback(
 
             if (!getChildren->Node)
             {
-                static PVOID sortFunctions[] =
+                static CONST _CoreCrtSecureSearchSortCompareFunction sortFunctions[] =
                 {
                     SORT_FUNCTION(Index),
                     SORT_FUNCTION(Name),
@@ -1025,7 +1037,7 @@ BOOLEAN NTAPI PvSectionTreeNewCallback(
                     SORT_FUNCTION(Ssdeep),
                     SORT_FUNCTION(Tlsh),
                 };
-                int (__cdecl *sortFunction)(void *, const void *, const void *);
+                _CoreCrtSecureSearchSortCompareFunction sortFunction;
 
                 static_assert(RTL_NUMBER_OF(sortFunctions) == PV_SECTION_TREE_COLUMN_ITEM_MAXIMUM, "SortFunctions must equal maximum.");
 
@@ -1273,7 +1285,7 @@ VOID PvInitializeSectionTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_SECTION_TREE_COLUMN_ITEM_SSDEEP, TRUE, L"SSDEEP", 80, PH_ALIGN_LEFT, PV_SECTION_TREE_COLUMN_ITEM_SSDEEP, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_SECTION_TREE_COLUMN_ITEM_TLSH, TRUE, L"TLSH", 80, PH_ALIGN_LEFT, PV_SECTION_TREE_COLUMN_ITEM_TLSH, 0, 0);
 
-    TreeNew_SetRowHeight(TreeNewHandle, 22);
+    TreeNew_SetRowHeight(TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(ParentWindowHandle)));
 
     TreeNew_SetRedraw(TreeNewHandle, TRUE);
     TreeNew_SetSort(TreeNewHandle, PV_SECTION_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);

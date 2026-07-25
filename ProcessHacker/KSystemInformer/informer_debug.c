@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2024
+ *     jxy-s   2022-2026
  *
  */
 
@@ -20,7 +20,7 @@ typedef struct _KPH_DBG_PRINT_SLOT
 {
     KDPC Dpc;
     LARGE_INTEGER TimeStamp;
-    CLIENT_ID ContextClientId;
+    KPHM_CONTEXT Context;
     ULONG ComponentId;
     ULONG Level;
     USHORT Length;
@@ -36,10 +36,16 @@ static PKPH_DBG_PRINT_SLOT KphpDbgPrintSlots = NULL;
 /**
  * \brief Flushes the debug print slots to the communication port.
  */
+_IRQL_requires_max_(DISPATCH_LEVEL)
+_IRQL_requires_min_(DISPATCH_LEVEL)
+_IRQL_requires_(DISPATCH_LEVEL)
+_Requires_lock_held_(KphpDbgPrintLock)
 VOID KphpDebugPrintFlush(
     VOID
     )
 {
+    KPH_NPAGED_CODE_DISPATCH();
+
     for (ULONG i = 0; i < KphpDbgPrintSlotNext; i++)
     {
         NTSTATUS status;
@@ -61,8 +67,7 @@ VOID KphpDebugPrintFlush(
 
         KphMsgInit(msg, KphMsgDebugPrint);
         msg->Header.TimeStamp.QuadPart = slot->TimeStamp.QuadPart;
-        msg->Kernel.DebugPrint.ContextClientId.UniqueProcess = slot->ContextClientId.UniqueProcess;
-        msg->Kernel.DebugPrint.ContextClientId.UniqueThread = slot->ContextClientId.UniqueThread;
+        msg->Kernel.DebugPrint.Context = slot->Context;
         msg->Kernel.DebugPrint.ComponentId = slot->ComponentId;
         msg->Kernel.DebugPrint.Level = slot->Level;
 
@@ -125,9 +130,9 @@ VOID KphpDebugPrintDpc(
     // We use threaded DPCs so we could be invoked at passive or dispatch.
     //
 
-    KeAcquireSpinLock(&KphpDbgPrintLock, &oldIrql);
+    oldIrql = KeAcquireSpinLockForDpc(&KphpDbgPrintLock);
     KphpDebugPrintFlush();
-    KeReleaseSpinLock(&KphpDbgPrintLock, oldIrql);
+    KeReleaseSpinLockForDpc(&KphpDbgPrintLock, oldIrql);
 }
 
 /**
@@ -144,13 +149,22 @@ VOID KphpDebugPrintCallback(
     _In_ ULONG Level
     )
 {
+    BOOLEAN enabled;
     PKPH_DBG_PRINT_SLOT slot;
 
-    NPAGED_CODE_DISPATCH_MIN();
+    KPH_NPAGED_CODE_DISPATCH_MIN();
 
     slot = NULL;
 
     if (!Output->Buffer || (Output->Length == 0))
+    {
+        return;
+    }
+
+    KPH_INFORMER_CONTEXT_ENTER();
+    enabled = KphInformerEnabled(DebugPrint);
+    KPH_INFORMER_CONTEXT_EXIT();
+    if (!enabled)
     {
         return;
     }
@@ -168,8 +182,7 @@ VOID KphpDebugPrintCallback(
     slot = &KphpDbgPrintSlots[KphpDbgPrintSlotNext++];
 
     KeQuerySystemTime(&slot->TimeStamp);
-    slot->ContextClientId.UniqueProcess = PsGetCurrentProcessId();
-    slot->ContextClientId.UniqueThread = PsGetCurrentThreadId();
+    KphCaptureCurrentContextEx(&slot->Context, TRUE);
     slot->ComponentId = ComponentId;
     slot->Level = Level;
     slot->Length = min(Output->Length, ARRAYSIZE(slot->Buffer));
@@ -206,7 +219,7 @@ NTSTATUS KphDebugInformerStart(
     NTSTATUS status;
     ULONG count;
 
-    NPAGED_CODE_PASSIVE();
+    KPH_NPAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphpDbgPrintSlotNext == 0);
     NT_ASSERT(!KphpDbgPrintInitialized);
@@ -279,7 +292,7 @@ VOID KphDebugInformerStop(
 {
     KIRQL oldIrql;
 
-    NPAGED_CODE_PASSIVE();
+    KPH_NPAGED_CODE_PASSIVE();
 
     if (!KphpDbgPrintInitialized)
     {

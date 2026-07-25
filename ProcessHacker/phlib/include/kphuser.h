@@ -19,29 +19,27 @@
 
 EXTERN_C_START
 
-#define KPH_SERVICE_NAME __TEXT("KSystemInformer")
-#define KPH_OBJECT_NAME  __TEXT("\\Driver\\KSystemInformer")
-#define KPH_PORT_NAME    __TEXT("\\KSystemInformer")
-
-#ifdef DEBUG
-#define KSI_COMMS_INIT_ASSERT() assert(KphMessageFreeList.Size == sizeof(KPH_MESSAGE))
-#else
-#define KSI_COMMS_INIT_ASSERT()
-#endif
+#define KPH_SERVICE_NAME TEXT("KSystemInformer")
+#define KPH_OBJECT_NAME  TEXT("\\Driver\\KSystemInformer")
+#define KPH_PORT_NAME    TEXT("\\KSystemInformer")
 
 typedef struct _KPH_CONFIG_PARAMETERS
 {
     _In_ PPH_STRINGREF FileName;
     _In_ PPH_STRINGREF ServiceName;
     _In_ PPH_STRINGREF ObjectName;
-    _In_opt_ PPH_STRINGREF PortName;
-    _In_opt_ PPH_STRINGREF Altitude;
+    _In_opt_ PCPH_STRINGREF PortName;
+    _In_opt_ PCPH_STRINGREF Altitude;
+    _In_opt_ PCPH_STRINGREF SystemProcessName;
     _In_ ULONG FsSupportedFeatures;
     _In_ KPH_PARAMETER_FLAGS Flags;
-    _In_opt_ PKPH_COMMS_CALLBACK Callback;
-
+#ifdef IS_KTE
+    _In_opt_ PCPH_STRINGREF ClientPath;
+#endif
     _In_ BOOLEAN EnableNativeLoad;
     _In_ BOOLEAN EnableFilterLoad;
+    _In_ ULONG RingBufferLength;
+    _In_opt_ PKPH_COMMS_CALLBACK Callback;
 } KPH_CONFIG_PARAMETERS, *PKPH_CONFIG_PARAMETERS;
 
 PHLIBAPI
@@ -66,7 +64,7 @@ KphSetParameters(
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 KphSetServiceSecurity(
     _In_ SC_HANDLE ServiceHandle
@@ -107,10 +105,10 @@ KphServiceStop(
 //    );
 
 PHLIBAPI
-PPH_FREE_LIST
+PKPH_MESSAGE
 NTAPI
-KphGetMessageFreeList(
-    VOID
+KphCreateMessage(
+    _In_ SIZE_T Size
     );
 
 PHLIBAPI
@@ -170,7 +168,7 @@ KphReadVirtualMemory(
     _In_ PVOID BaseAddress,
     _Out_writes_bytes_(BufferSize) PVOID Buffer,
     _In_ SIZE_T BufferSize,
-    _Inout_opt_ PSIZE_T NumberOfBytesRead
+    _Out_opt_ PSIZE_T NumberOfBytesRead
     );
 
 PHLIBAPI
@@ -241,6 +239,15 @@ KphQueryInformationObject(
 PHLIBAPI
 NTSTATUS
 NTAPI
+KphQueryObjectThreadName(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE Handle,
+    _Out_ PPH_STRING* ThreadName
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 KphQueryObjectSectionMappingsInfo(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
@@ -264,7 +271,7 @@ NTAPI
 KphOpenDriver(
     _Out_ PHANDLE DriverHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes
     );
 
 PHLIBAPI
@@ -311,7 +318,6 @@ typedef enum _KPH_LEVEL
     KphLevelMed,
     KphLevelHigh,
     KphLevelMax
-
 } KPH_LEVEL;
 
 PHLIBAPI
@@ -379,7 +385,7 @@ KphAlpcQueryInformation(
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphAlpcQueryComminicationsNamesInfo(
+KphAlpcQueryCommunicationsNamesInfo(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE PortHandle,
     _Out_ PKPH_ALPC_COMMUNICATION_NAMES_INFORMATION* Names
@@ -437,7 +443,7 @@ NTAPI
 KphCreateFile(
     _Out_ PHANDLE FileHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes,
     _Out_ PIO_STATUS_BLOCK IoStatusBlock,
     _In_opt_ PLARGE_INTEGER AllocationSize,
     _In_ ULONG FileAttributes,
@@ -491,15 +497,15 @@ KphCompareObjects(
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphGetMessageTimeouts(
-    _Out_ PKPH_MESSAGE_TIMEOUTS Timeouts
+KphGetInformerClientSettings(
+    _Out_ PKPH_INFORMER_CLIENT_SETTINGS Settings
     );
 
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphSetMessageTimeouts(
-    _In_ PKPH_MESSAGE_TIMEOUTS Timeouts
+KphSetInformerClientSettings(
+    _Out_ PKPH_INFORMER_CLIENT_SETTINGS Settings
     );
 
 PHLIBAPI
@@ -538,6 +544,13 @@ KphActivateDynData(
 PHLIBAPI
 NTSTATUS
 NTAPI
+KphIsDynDataActive(
+    _Out_ PBOOLEAN IsActive
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 KphRequestSessionAccessToken(
     _Out_ PKPH_SESSION_ACCESS_TOKEN AccessToken,
     _In_ PLARGE_INTEGER Expiry,
@@ -566,17 +579,17 @@ KphAssignThreadSessionToken(
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphGetInformerProcessFilter(
+KphGetInformerProcessSettings(
     _In_ HANDLE ProcessHandle,
-    _Out_ PKPH_INFORMER_SETTINGS Filter
+    _Out_ PKPH_INFORMER_SETTINGS Settings
     );
 
 PHLIBAPI
 NTSTATUS
 NTAPI
-KphSetInformerProcessFilter(
+KphSetInformerProcessSettings(
     _In_opt_ HANDLE ProcessHandle,
-    _In_ PKPH_INFORMER_SETTINGS Filter
+    _In_ PKPH_INFORMER_SETTINGS Settings
     );
 
 PHLIBAPI
@@ -608,6 +621,48 @@ KsiQueryHashInformationFile(
     _In_ HANDLE FileHandle,
     _Inout_ PKPH_HASH_INFORMATION HashInformation,
     _In_ ULONG HashInformationLength
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphOpenDevice(
+    _Out_ PHANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphOpenDeviceDriver(
+    _In_ HANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _Out_ PHANDLE DriverHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphOpenDeviceBaseDevice(
+    _In_ HANDLE DeviceHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _Out_ PHANDLE BaseDeviceHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphGetInformerStats(
+    _In_opt_ HANDLE ProcessHandle,
+    _Out_ PKPH_INFORMER_STATS Stats
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+KphGetInformerClientStats(
+    _Out_ PKPH_INFORMER_CLIENT_STATS Stats
     );
 
 EXTERN_C_END

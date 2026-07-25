@@ -8,7 +8,7 @@
 ################################################################
 
 QWT_VER_MAJ      = 6
-QWT_VER_MIN      = 2
+QWT_VER_MIN      = 3
 QWT_VER_PAT      = 0
 QWT_VERSION      = $${QWT_VER_MAJ}.$${QWT_VER_MIN}.$${QWT_VER_PAT}
 

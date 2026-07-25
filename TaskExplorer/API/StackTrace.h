@@ -3,6 +3,7 @@
 
 class CStackTrace : public QSharedData
 {
+	TRACK_OBJECT(CStackTrace)
 public:
 	CStackTrace(quint64 ProcessId, quint64 ThreadId);
 

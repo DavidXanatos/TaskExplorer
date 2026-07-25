@@ -6,19 +6,20 @@
  * Authors:
  *
  *     wj32    2010-2015
- *     dmex    2017-2023
+ *     dmex    2017-2024
  *
  */
 
 #include <ph.h>
+#include <apiimport.h>
 #include <hndlinfo.h>
 #include <json.h>
 #include <kphuser.h>
-#include <mapldr.h>
 #include <lsasup.h>
 
 #include <devquery.h>
 #include <devpkey.h>
+#include <phafd.h>
 
 #define PH_QUERY_HACK_MAX_THREADS 20
 
@@ -106,6 +107,7 @@ NTSTATUS PhpCallWithTimeout(
     _In_ PLARGE_INTEGER Timeout
     );
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PhpCallWithTimeoutThreadStart(
     _In_ PVOID Parameter
     );
@@ -128,15 +130,15 @@ PPH_GET_CLIENT_ID_NAME PhSetHandleClientIdFunction(
         );
 }
 
-NTSTATUS PhpGetObjectBasicInformation(
-    _In_ HANDLE ProcessHandle,
+NTSTATUS PhGetObjectBasicInformation(
+    _In_opt_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _Out_ POBJECT_BASIC_INFORMATION BasicInformation
     )
 {
     NTSTATUS status;
 
-    if (KsiLevel() >= KphLevelMed)
+    if (KsiLevel() >= KphLevelMed && ProcessHandle)
     {
         status = KphQueryInformationObject(
             ProcessHandle,
@@ -178,7 +180,7 @@ NTSTATUS PhpGetObjectBasicInformation(
     return status;
 }
 
-NTSTATUS PhpGetObjectTypeName(
+NTSTATUS PhGetObjectTypeName(
     _In_opt_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _In_ ULONG ObjectTypeNumber,
@@ -306,8 +308,10 @@ NTSTATUS PhpGetObjectTypeName(
                 );
 
             // Add a reference if we stored the type name successfully.
-            if (!oldTypeName)
+            if (PhIsNullOrEmptyString(oldTypeName))
+            {
                 PhReferenceObject(typeName);
+            }
         }
 
         PhFree(buffer);
@@ -320,7 +324,7 @@ NTSTATUS PhpGetObjectTypeName(
     return status;
 }
 
-NTSTATUS PhpGetObjectName(
+NTSTATUS PhGetObjectName(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _In_ BOOLEAN WithTimeout,
@@ -387,7 +391,14 @@ NTSTATUS PhpGetObjectName(
 
     if (NT_SUCCESS(status))
     {
-        *ObjectName = PhCreateStringFromUnicodeString(&buffer->Name);
+        if (RtlIsNullOrEmptyUnicodeString(&buffer->Name))
+        {
+            status = STATUS_OBJECT_NAME_INVALID;
+        }
+        else
+        {
+            *ObjectName = PhCreateStringFromUnicodeString(&buffer->Name);
+        }
     }
 
     PhFree(buffer);
@@ -403,7 +414,7 @@ NTSTATUS PhQueryObjectName(
     if (Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
         return STATUS_INVALID_HANDLE;
 
-    return PhpGetObjectName(NtCurrentProcess(), Handle, FALSE, ObjectName);
+    return PhGetObjectName(NtCurrentProcess(), Handle, FALSE, ObjectName);
 }
 
 NTSTATUS PhQueryObjectBasicInformation(
@@ -414,10 +425,62 @@ NTSTATUS PhQueryObjectBasicInformation(
     if (Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
         return STATUS_INVALID_HANDLE;
 
-    return PhpGetObjectBasicInformation(NtCurrentProcess(), Handle, BasicInformation);
+    return PhGetObjectBasicInformation(NtCurrentProcess(), Handle, BasicInformation);
 }
 
-NTSTATUS PhpGetEtwObjectName(
+NTSTATUS PhQueryCloseHandle(
+    _In_ _Post_ptr_invalid_ HANDLE Handle
+    )
+{
+    NTSTATUS status;
+    OBJECT_HANDLE_FLAG_INFORMATION objectInfo = { 0 };
+
+    status = NtQueryObject(
+        Handle,
+        ObjectHandleFlagInformation,
+        &objectInfo,
+        sizeof(objectInfo),
+        NULL
+        );
+
+    if (NT_SUCCESS(status) && objectInfo.ProtectFromClose)
+    {
+        objectInfo.ProtectFromClose = FALSE;
+        NtSetInformationObject(
+            Handle,
+            ObjectHandleFlagInformation,
+            &objectInfo,
+            sizeof(objectInfo)
+            );
+    }
+
+    status = NtClose(Handle);
+    return status;
+}
+
+NTSTATUS PhCompareObjects(
+    _In_ HANDLE FirstObjectHandle,
+    _In_ HANDLE SecondObjectHandle
+    )
+{
+    NTSTATUS status;
+
+    if (NtCompareObjects_Import())
+    {
+        status = NtCompareObjects_Import()(
+            FirstObjectHandle,
+            SecondObjectHandle
+            );
+    }
+    else
+    {
+        status = STATUS_NOT_SUPPORTED;
+    }
+
+    return status;
+}
+
+NTSTATUS PhGetEtwObjectName(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
     _Out_ PPH_STRING *ObjectName
@@ -426,14 +489,21 @@ NTSTATUS PhpGetEtwObjectName(
     NTSTATUS status;
     KPH_ETWREG_BASIC_INFORMATION basicInfo;
 
-    status = KphQueryInformationObject(
-        ProcessHandle,
-        Handle,
-        KphObjectEtwRegBasicInformation,
-        &basicInfo,
-        sizeof(KPH_ETWREG_BASIC_INFORMATION),
-        NULL
-        );
+    if (KsiLevel() >= KphLevelMed)
+    {
+        status = KphQueryInformationObject(
+            ProcessHandle,
+            Handle,
+            KphObjectEtwRegBasicInformation,
+            &basicInfo,
+            sizeof(KPH_ETWREG_BASIC_INFORMATION),
+            NULL
+            );
+    }
+    else
+    {
+        status = STATUS_UNSUCCESSFUL;
+    }
 
     if (NT_SUCCESS(status))
     {
@@ -458,10 +528,9 @@ VOID PhInitializeEtwTraceGuidCache(
     PVOID jsonObject;
     ULONG arrayLength;
 
-    if (guidListFileName = PhGetApplicationDirectory())
+    if (guidListFileName = PhGetApplicationDirectoryFileNameZ(L"Resources\\EtwGuids.txt", TRUE))
     {
-        PhMoveReference(&guidListFileName, PhConcatStringRefZ(&guidListFileName->sr, L"etwguids.txt"));
-        guidListString = PhFileReadAllText(&guidListFileName->sr, TRUE);
+        PhFileReadAllText(&guidListString, &guidListFileName->sr, TRUE);
         PhDereferenceObject(guidListFileName);
     }
 
@@ -470,7 +539,7 @@ VOID PhInitializeEtwTraceGuidCache(
 
     PhInitializeArray(EtwTraceGuidArrayList, sizeof(PH_ETW_TRACEGUID_ENTRY), 2000);
 
-    if (!(jsonObject = PhCreateJsonParserEx(guidListString, FALSE)))
+    if (!NT_SUCCESS(PhCreateJsonParserEx(&jsonObject, guidListString, FALSE)))
         return;
 
     if (!(arrayLength = PhGetJsonArrayLength(jsonObject)))
@@ -548,7 +617,7 @@ PPH_STRING PhGetEtwPublisherName(
     _In_ PGUID Guid
     )
 {
-    static PH_STRINGREF publishersKeyName = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\");
+    static CONST PH_STRINGREF publishersKeyName = PH_STRINGREF_INIT(L"Software\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\");
     PPH_STRING guidString;
     PPH_STRING keyName;
     HANDLE keyHandle;
@@ -576,7 +645,7 @@ PPH_STRING PhGetEtwPublisherName(
             publisherName = NULL;
         }
 
-        NtClose(keyHandle);
+        PhQueryCloseHandle(keyHandle);
     }
 
     PhDereferenceObject(keyName);
@@ -646,8 +715,8 @@ PPH_STRING PhGetPnPDeviceName(
         if (deviceCount > 0)
         {
             DEV_OBJECT device = deviceObjects[0];
-            PPH_STRING deviceName;
-            PPH_STRING deviceDesc;
+            PPH_STRING deviceName = NULL;
+            PPH_STRING deviceDesc = NULL;
             PH_STRINGREF displayName;
             PH_STRINGREF displayDesc;
             PH_STRINGREF firstPart;
@@ -682,7 +751,7 @@ PPH_STRING PhGetPnPDeviceName(
                 PhInitFormatSR(&format[2], ObjectName->sr);
                 PhInitFormatC(&format[3], ')');
 
-                PhSetReference(&objectPnPDeviceName, PhFormat(format, 4, 0x50));
+                PhSetReference(&objectPnPDeviceName, PhFormat(format, RTL_NUMBER_OF(format), 0));
             }
             else if (!PhIsNullOrEmptyString(deviceName))
             {
@@ -693,7 +762,7 @@ PPH_STRING PhGetPnPDeviceName(
                 PhInitFormatSR(&format[2], ObjectName->sr);
                 PhInitFormatC(&format[3], ')');
 
-                PhSetReference(&objectPnPDeviceName, PhFormat(format, 4, 0x50));
+                PhSetReference(&objectPnPDeviceName, PhFormat(format, RTL_NUMBER_OF(format), 0));
             }
 
             if (deviceDesc)
@@ -712,17 +781,17 @@ PPH_STRING PhFormatNativeKeyName(
     _In_ PPH_STRING Name
     )
 {
-    static PH_STRINGREF hklmPrefix = PH_STRINGREF_INIT(L"\\Registry\\Machine");
-    static PH_STRINGREF hkcrPrefix = PH_STRINGREF_INIT(L"\\Registry\\Machine\\Software\\Classes");
-    static PH_STRINGREF hkuPrefix = PH_STRINGREF_INIT(L"\\Registry\\User");
+    static CONST PH_STRINGREF hklmPrefix = PH_STRINGREF_INIT(L"\\Registry\\Machine");
+    static CONST PH_STRINGREF hkcrPrefix = PH_STRINGREF_INIT(L"\\Registry\\Machine\\Software\\Classes");
+    static CONST PH_STRINGREF hkuPrefix = PH_STRINGREF_INIT(L"\\Registry\\User");
     static PPH_STRING hkcuPrefix;
     static PPH_STRING hkcucrPrefix;
 
-    static PH_STRINGREF hklmString = PH_STRINGREF_INIT(L"HKLM");
-    static PH_STRINGREF hkcrString = PH_STRINGREF_INIT(L"HKCR");
-    static PH_STRINGREF hkuString = PH_STRINGREF_INIT(L"HKU");
-    static PH_STRINGREF hkcuString = PH_STRINGREF_INIT(L"HKCU");
-    static PH_STRINGREF hkcucrString = PH_STRINGREF_INIT(L"HKCU\\Software\\Classes");
+    static CONST PH_STRINGREF hklmString = PH_STRINGREF_INIT(L"HKLM");
+    static CONST PH_STRINGREF hkcrString = PH_STRINGREF_INIT(L"HKCR");
+    static CONST PH_STRINGREF hkuString = PH_STRINGREF_INIT(L"HKU");
+    static CONST PH_STRINGREF hkcuString = PH_STRINGREF_INIT(L"HKCU");
+    static CONST PH_STRINGREF hkcucrString = PH_STRINGREF_INIT(L"HKCU\\Software\\Classes");
 
     static PH_INITONCE initOnce = PH_INITONCE_INIT;
 
@@ -741,8 +810,8 @@ PPH_STRING PhFormatNativeKeyName(
 
         if (stringSid)
         {
-            static PH_STRINGREF registryUserPrefix = PH_STRINGREF_INIT(L"\\Registry\\User\\");
-            static PH_STRINGREF classesString = PH_STRINGREF_INIT(L"_Classes");
+            static CONST PH_STRINGREF registryUserPrefix = PH_STRINGREF_INIT(L"\\Registry\\User\\");
+            static CONST PH_STRINGREF classesString = PH_STRINGREF_INIT(L"_Classes");
 
             hkcuPrefix = PhConcatStringRef2(&registryUserPrefix, &stringSid->sr);
             hkcucrPrefix = PhConcatStringRef2(&hkcuPrefix->sr, &classesString);
@@ -802,19 +871,18 @@ NTSTATUS PhGetSectionFileName(
     SIZE_T viewSize;
     PVOID viewBase;
 
-    viewSize = 1;
+    viewSize = PAGE_SIZE;
     viewBase = NULL;
 
-    status = NtMapViewOfSection(
+    status = PhMapViewOfSection(
         SectionHandle,
         NtCurrentProcess(),
         &viewBase,
         0,
-        0,
         NULL,
         &viewSize,
         ViewUnmap,
-        0,
+        WindowsVersion >= WINDOWS_10_RS2 ? MEM_MAPPED : 0,
         PAGE_READONLY
         );
 
@@ -822,7 +890,7 @@ NTSTATUS PhGetSectionFileName(
         return status;
 
     status = PhGetProcessMappedFileName(NtCurrentProcess(), viewBase, FileName);
-    NtUnmapViewOfSection(NtCurrentProcess(), viewBase);
+    PhUnmapViewOfSection(NtCurrentProcess(), viewBase);
 
     return status;
 }
@@ -842,90 +910,87 @@ PPH_STRING PhStdGetClientIdNameEx(
     PPH_STRING result;
     PPH_STRING processName = NULL;
     PPH_STRING threadName = NULL;
-    PH_STRINGREF processNameRef;
-    PH_STRINGREF threadNameRef;
-    HANDLE processHandle;
-    HANDLE threadHandle;
-    ULONG isProcessTerminated = FALSE;
-    BOOLEAN isThreadTerminated = FALSE;
+    PH_STRINGREF processNameStringRef;
+    PH_STRINGREF threadNameStringRef;
+    BOOLEAN processIsTerminated = FALSE;
+    BOOLEAN threadIsTerminated = FALSE;
 
-    if (ProcessName)
-    {
-        // Use the supplied name
-        processNameRef.Length = ProcessName->Length;
-        processNameRef.Buffer = ProcessName->Buffer;
-    }
-    else
+    PhInitializeStringRef(&processNameStringRef, L"unknown process");
+    PhInitializeStringRef(&threadNameStringRef, L"unnamed thread");
+
+    if (PhIsNullOrEmptyString(ProcessName))
     {
         if (ClientId->UniqueProcess == SYSTEM_PROCESS_ID)
         {
-            if (processName = PhGetKernelFileName2())
+            if (processName = PhGetKernelFileName())
             {
                 PhMoveReference(&processName, PhGetBaseName(processName));
-                processNameRef.Length = processName->Length;
-                processNameRef.Buffer = processName->Buffer;
-            }
-            else
-            {
-                PhInitializeStringRef(&processNameRef, L"Unknown process");
+                processNameStringRef.Length = processName->Length;
+                processNameStringRef.Buffer = processName->Buffer;
             }
         }
         else
         {
             // Determine the name of the process ourselves (diversenok)
-            if (NT_SUCCESS(PhGetProcessImageFileNameById(
+            if (ClientId->UniqueProcess && NT_SUCCESS(PhGetProcessImageFileNameById(
                 ClientId->UniqueProcess,
                 NULL,
                 &processName
                 )))
             {
-                processNameRef.Length = processName->Length;
-                processNameRef.Buffer = processName->Buffer;
-            }
-            else
-            {
-                PhInitializeStringRef(&processNameRef, L"Unknown process");
+                processNameStringRef.Length = processName->Length;
+                processNameStringRef.Buffer = processName->Buffer;
             }
         }
     }
-
-    // Check if the process is alive, but only if we didn't get its name
-    if (!ProcessName && NT_SUCCESS(PhOpenProcess(
-        &processHandle,
-        SYNCHRONIZE,
-        ClientId->UniqueProcess
-        )))
+    else
     {
-        LARGE_INTEGER timeout = { 0 };
-
-        // Waiting with zero timeout checks for termination
-        if (NtWaitForSingleObject(processHandle, FALSE, &timeout) == STATUS_WAIT_0)
-            isProcessTerminated = TRUE;
-
-        NtClose(processHandle);
+        processNameStringRef.Length = ProcessName->Length;
+        processNameStringRef.Buffer = ProcessName->Buffer;
     }
 
-    PhInitializeStringRef(&threadNameRef, L"unnamed thread");
+    if (ClientId->UniqueProcess)
+    {
+        HANDLE processHandle;
+
+        if (NT_SUCCESS(PhOpenProcessClientId(
+            &processHandle,
+            SYNCHRONIZE, // PROCESS_QUERY_LIMITED_INFORMATION
+            ClientId
+            )))
+        {
+            // Check if the process is alive
+            PhGetProcessIsTerminated(processHandle, &processIsTerminated);
+
+            // Use the name of the process if available
+            //if (PhIsNullOrEmptyString(ProcessName) && NT_SUCCESS(PhGetProcessImageFileName(processHandle, &processName)))
+            //{
+            //    processNameStringRef.Length = processName->Length;
+            //    processNameStringRef.Buffer = processName->Buffer;
+            //}
+
+            NtClose(processHandle);
+        }
+    }
 
     if (ClientId->UniqueThread)
     {
-        if (NT_SUCCESS(PhOpenThread(
+        HANDLE threadHandle;
+
+        if (NT_SUCCESS(PhOpenThreadClientId(
             &threadHandle,
             THREAD_QUERY_LIMITED_INFORMATION,
-            ClientId->UniqueThread
+            ClientId
             )))
         {
             // Check if the thread is alive
-            PhGetThreadIsTerminated(
-                threadHandle,
-                &isThreadTerminated
-                );
+            PhGetThreadIsTerminated(threadHandle, &threadIsTerminated);
 
             // Use the name of the thread if available
             if (NT_SUCCESS(PhGetThreadName(threadHandle, &threadName)))
             {
-                threadNameRef.Length = threadName->Length;
-                threadNameRef.Buffer = threadName->Buffer;
+                threadNameStringRef.Length = threadName->Length;
+                threadNameStringRef.Buffer = threadName->Buffer;
             }
 
             NtClose(threadHandle);
@@ -939,50 +1004,47 @@ PPH_STRING PhStdGetClientIdNameEx(
         PH_FORMAT format[10];
 
         // L"%s%.*s (%lu): %s%.*s (%lu)"
-        PhInitFormatS(&format[0], isProcessTerminated ? L"Terminated " : L"");
-        PhInitFormatSR(&format[1], processNameRef);
+        PhInitFormatS(&format[0], processIsTerminated ? L"Terminated " : L"");
+        PhInitFormatSR(&format[1], processNameStringRef);
         PhInitFormatS(&format[2], L" (");
         PhInitFormatU(&format[3], HandleToUlong(ClientId->UniqueProcess));
         PhInitFormatS(&format[4], L"): ");
-        PhInitFormatS(&format[5], isThreadTerminated ? L"terminated " : L"");
-        PhInitFormatSR(&format[6], threadNameRef);
+        PhInitFormatS(&format[5], threadIsTerminated ? L"Terminated " : L"");
+        PhInitFormatSR(&format[6], threadNameStringRef);
         PhInitFormatS(&format[7], L" (");
         PhInitFormatU(&format[8], HandleToUlong(ClientId->UniqueThread));
         PhInitFormatC(&format[9], L')');
 
-        result = PhFormat(format, RTL_NUMBER_OF(format), 0x50);
+        result = PhFormat(format, RTL_NUMBER_OF(format), 0);
     }
     else
     {
         PH_FORMAT format[5];
 
         // L"%s%.*s (%lu)"
-        PhInitFormatS(&format[0], isProcessTerminated ? L"Terminated " : L"");
-        PhInitFormatSR(&format[1], processNameRef);
+        PhInitFormatS(&format[0], processIsTerminated ? L"Terminated " : L"");
+        PhInitFormatSR(&format[1], processNameStringRef);
         PhInitFormatS(&format[2], L" (");
         PhInitFormatU(&format[3], HandleToUlong(ClientId->UniqueProcess));
         PhInitFormatC(&format[4], L')');
 
-        result = PhFormat(format, RTL_NUMBER_OF(format), 0x50);
+        result = PhFormat(format, RTL_NUMBER_OF(format), 0);
     }
 
     //result = PhFormatString(
     //    ClientId->UniqueThread ? L"%s%.*s (%lu): %s%.*s (%lu)" : L"%s%.*s (%lu)",
-    //    isProcessTerminated ? L"Terminated " : L"",
-    //    processNameRef.Length / sizeof(WCHAR),
-    //    processNameRef.Buffer,
+    //    processIsTerminated ? L"Terminated " : L"",
+    //    processNameStringRef.Length / sizeof(WCHAR),
+    //    processNameStringRef.Buffer,
     //    HandleToUlong(ClientId->UniqueProcess),
-    //    isThreadTerminated ? L"terminated " : L"",
-    //    threadNameRef.Length / sizeof(WCHAR),
-    //    threadNameRef.Buffer,
+    //    threadIsTerminated ? L"terminated " : L"",
+    //    threadNameStringRef.Length / sizeof(WCHAR),
+    //    threadNameStringRef.Buffer,
     //    HandleToUlong(ClientId->UniqueThread)
     //    );
 
-    if (processName)
-        PhDereferenceObject(processName);
-
-    if (threadName)
-        PhDereferenceObject(threadName);
+    PhClearReference(&processName);
+    PhClearReference(&threadName);
 
     return result;
 }
@@ -992,12 +1054,15 @@ NTSTATUS PhpGetBestObjectName(
     _In_ HANDLE Handle,
     _In_ PPH_STRING ObjectName,
     _In_ PPH_STRING TypeName,
-    _Out_ PPH_STRING *BestObjectName
+    _Out_ PPH_STRING *BestObjectName,
+    _Out_ PPH_STRING *ResolvedObjectName
     )
 {
     NTSTATUS status;
     PPH_STRING bestObjectName = NULL;
     PPH_GET_CLIENT_ID_NAME handleGetClientIdName = PhHandleGetClientIdName;
+
+    PhSetReference(ResolvedObjectName, ObjectName);
 
     if (PhEqualString2(TypeName, L"EtwRegistration", TRUE))
     {
@@ -1022,30 +1087,55 @@ NTSTATUS PhpGetBestObjectName(
     }
     else if (PhEqualString2(TypeName, L"File", TRUE))
     {
-        // Convert the file name to a DOS file name.
-        bestObjectName = PhResolveDevicePrefix(&ObjectName->sr);
-
-        if (!bestObjectName)
+        // Use the socket address for AFD handles
+        if (PhAfdIsSocketObjectName(ObjectName))
         {
-            if (PhEnableProcessHandlePnPDeviceNameSupport)
-            {
-                if (PhStartsWithString2(ObjectName, L"\\Device\\", TRUE))
-                {
-                    // The device might be a PDO... Query the PnP manager for the friendly name of the device. (dmex)
-                    bestObjectName = PhGetPnPDeviceName(ObjectName);
-                }
-            }
+            HANDLE dupHandle;
 
-            if (!bestObjectName)
+            status = NtDuplicateObject(
+                ProcessHandle,
+                Handle,
+                NtCurrentProcess(),
+                &dupHandle,
+                0,
+                0,
+                DUPLICATE_SAME_ACCESS | DUPLICATE_SAME_ATTRIBUTES
+                );
+
+            if (NT_SUCCESS(status))
             {
-                // The file doesn't have a DOS filename and doesn't have a PnP friendly name.
-                PhSetReference(&bestObjectName, ObjectName);
+                bestObjectName = PhAfdFormatSocketBestName(dupHandle);
+                PhQueryCloseHandle(dupHandle);
+            }
+        }
+
+        if (PhIsNullOrEmptyString(bestObjectName))
+        {
+            // Convert the file name to a DOS file name.
+            bestObjectName = PhResolveDevicePrefix(&ObjectName->sr);
+
+            if (PhIsNullOrEmptyString(bestObjectName))
+            {
+                if (PhEnableProcessHandlePnPDeviceNameSupport)
+                {
+                    if (PhStartsWithString2(ObjectName, L"\\Device\\", TRUE))
+                    {
+                        // The device might be a PDO... Query the PnP manager for the friendly name of the device. (dmex)
+                        bestObjectName = PhGetPnPDeviceName(ObjectName);
+                    }
+                }
+
+                if (PhIsNullOrEmptyString(bestObjectName))
+                {
+                    // The file doesn't have a DOS filename and doesn't have a PnP friendly name.
+                    PhSetReference(&bestObjectName, ObjectName);
+                }
             }
         }
 
         if (PhIsNullOrEmptyString(bestObjectName) && (KsiLevel() >= KphLevelMed))
         {
-            KPH_FILE_OBJECT_DRIVER fileObjectDriver;
+            HANDLE fileObjectDriver;
             PPH_STRING driverName;
 
             status = KphQueryInformationObject(
@@ -1053,21 +1143,21 @@ NTSTATUS PhpGetBestObjectName(
                 Handle,
                 KphObjectFileObjectDriver,
                 &fileObjectDriver,
-                sizeof(KPH_FILE_OBJECT_DRIVER),
+                sizeof(HANDLE),
                 NULL
                 );
 
-            if (NT_SUCCESS(status) && fileObjectDriver.DriverHandle)
+            if (NT_SUCCESS(status) && fileObjectDriver)
             {
-                if (NT_SUCCESS(PhGetDriverName(fileObjectDriver.DriverHandle, &driverName)))
+                if (NT_SUCCESS(PhGetDriverName(fileObjectDriver, &driverName)))
                 {
-                    static PH_STRINGREF prefix = PH_STRINGREF_INIT(L"Unnamed file: ");
+                    static CONST PH_STRINGREF prefix = PH_STRINGREF_INIT(L"Unnamed file: ");
 
                     PhMoveReference(&bestObjectName, PhConcatStringRef2(&prefix, &driverName->sr));
                     PhDereferenceObject(driverName);
                 }
 
-                NtClose(fileObjectDriver.DriverHandle);
+                PhQueryCloseHandle(fileObjectDriver);
             }
         }
     }
@@ -1087,7 +1177,7 @@ NTSTATUS PhpGetBestObjectName(
             &dupHandle,
             JOB_OBJECT_QUERY,
             0,
-            0
+            DUPLICATE_SAME_ATTRIBUTES
             );
 
         if (!NT_SUCCESS(status))
@@ -1127,7 +1217,7 @@ NTSTATUS PhpGetBestObjectName(
             bestObjectName = PhFinalStringBuilderString(&sb);
         }
 
-        NtClose(dupHandle);
+        PhQueryCloseHandle(dupHandle);
     }
     else if (PhEqualString2(TypeName, L"Key", TRUE))
     {
@@ -1169,14 +1259,14 @@ NTSTATUS PhpGetBestObjectName(
                 &dupHandle,
                 PROCESS_QUERY_LIMITED_INFORMATION,
                 0,
-                0
+                DUPLICATE_SAME_ATTRIBUTES
                 );
 
             if (!NT_SUCCESS(status))
                 goto CleanupExit;
 
             status = PhGetProcessBasicInformation(dupHandle, &basicInfo);
-            NtClose(dupHandle);
+            PhQueryCloseHandle(dupHandle);
 
             if (!NT_SUCCESS(status))
                 goto CleanupExit;
@@ -1190,7 +1280,7 @@ NTSTATUS PhpGetBestObjectName(
     else if (PhEqualString2(TypeName, L"Section", TRUE))
     {
         HANDLE dupHandle = NULL;
-        PPH_STRING fileName;
+        PPH_STRING fileName = NULL;
 
         if (!PhIsNullOrEmptyString(ObjectName))
             goto CleanupExit;
@@ -1242,7 +1332,7 @@ NTSTATUS PhpGetBestObjectName(
                 &dupHandle,
                 SECTION_QUERY | SECTION_MAP_READ,
                 0,
-                0
+                DUPLICATE_SAME_ATTRIBUTES
                 );
 
             if (!NT_SUCCESS(status))
@@ -1258,7 +1348,7 @@ NTSTATUS PhpGetBestObjectName(
         }
         else
         {
-            SECTION_BASIC_INFORMATION basicInfo;
+            SECTION_BASIC_INFORMATION basicInfo = { NULL };
 
             if (KsiLevel() >= KphLevelMed)
             {
@@ -1279,7 +1369,7 @@ NTSTATUS PhpGetBestObjectName(
             if (NT_SUCCESS(status))
             {
                 PH_FORMAT format[4];
-                PWSTR sectionType = L"Unknown";
+                PCWSTR sectionType = L"Unknown";
 
                 if (basicInfo.AllocationAttributes & SEC_COMMIT)
                     sectionType = L"Commit";
@@ -1294,12 +1384,12 @@ NTSTATUS PhpGetBestObjectName(
                 PhInitFormatS(&format[1], L" (");
                 PhInitFormatSize(&format[2], basicInfo.MaximumSize.QuadPart);
                 PhInitFormatC(&format[3], ')');
-                bestObjectName = PhFormat(format, 4, 0);
+                bestObjectName = PhFormat(format, RTL_NUMBER_OF(format), 0);
             }
         }
 
         if (dupHandle)
-            NtClose(dupHandle);
+            PhQueryCloseHandle(dupHandle);
     }
     else if (PhEqualString2(TypeName, L"Thread", TRUE))
     {
@@ -1335,14 +1425,14 @@ NTSTATUS PhpGetBestObjectName(
                 &dupHandle,
                 THREAD_QUERY_LIMITED_INFORMATION,
                 0,
-                0
+                DUPLICATE_SAME_ATTRIBUTES
                 );
 
             if (!NT_SUCCESS(status))
                 goto CleanupExit;
 
             status = PhGetThreadBasicInformation(dupHandle, &basicInfo);
-            NtClose(dupHandle);
+            PhQueryCloseHandle(dupHandle);
 
             if (!NT_SUCCESS(status))
                 goto CleanupExit;
@@ -1365,14 +1455,14 @@ NTSTATUS PhpGetBestObjectName(
             &dupHandle,
             ENLISTMENT_QUERY_INFORMATION,
             0,
-            0
+            DUPLICATE_SAME_ATTRIBUTES
             );
 
         if (!NT_SUCCESS(status))
             goto CleanupExit;
 
         status = PhGetEnlistmentBasicInformation(dupHandle, &basicInfo);
-        NtClose(dupHandle);
+        PhQueryCloseHandle(dupHandle);
 
         if (NT_SUCCESS(status))
         {
@@ -1392,7 +1482,7 @@ NTSTATUS PhpGetBestObjectName(
             &dupHandle,
             RESOURCEMANAGER_QUERY_INFORMATION,
             0,
-            0
+            DUPLICATE_SAME_ATTRIBUTES
             );
 
         if (!NT_SUCCESS(status))
@@ -1403,7 +1493,7 @@ NTSTATUS PhpGetBestObjectName(
             &guid,
             &description
             );
-        NtClose(dupHandle);
+        PhQueryCloseHandle(dupHandle);
 
         if (NT_SUCCESS(status))
         {
@@ -1433,7 +1523,7 @@ NTSTATUS PhpGetBestObjectName(
             &dupHandle,
             TRANSACTIONMANAGER_QUERY_INFORMATION,
             0,
-            0
+            DUPLICATE_SAME_ATTRIBUTES
             );
 
         if (!NT_SUCCESS(status))
@@ -1465,7 +1555,7 @@ NTSTATUS PhpGetBestObjectName(
             }
         }
 
-        NtClose(dupHandle);
+        PhQueryCloseHandle(dupHandle);
     }
     else if (PhEqualString2(TypeName, L"TmTx", TRUE))
     {
@@ -1480,7 +1570,7 @@ NTSTATUS PhpGetBestObjectName(
             &dupHandle,
             TRANSACTION_QUERY_INFORMATION,
             0,
-            0
+            DUPLICATE_SAME_ATTRIBUTES
             );
 
         if (!NT_SUCCESS(status))
@@ -1513,7 +1603,7 @@ NTSTATUS PhpGetBestObjectName(
             }
         }
 
-        NtClose(dupHandle);
+        PhQueryCloseHandle(dupHandle);
     }
     else if (PhEqualString2(TypeName, L"Token", TRUE))
     {
@@ -1528,7 +1618,7 @@ NTSTATUS PhpGetBestObjectName(
             &dupHandle,
             TOKEN_QUERY,
             0,
-            0
+            DUPLICATE_SAME_ATTRIBUTES
             );
 
         if (!NT_SUCCESS(status))
@@ -1552,12 +1642,12 @@ NTSTATUS PhpGetBestObjectName(
                 PhInitFormatX(&format[2], statistics.AuthenticationId.LowPart);
                 PhInitFormatS(&format[3], statistics.TokenType == TokenPrimary ? L" (Primary)" : L" (Impersonation)");
 
-                bestObjectName = PhFormat(format, 4, fullName->Length + 8 + 16 + 16);
+                bestObjectName = PhFormat(format, RTL_NUMBER_OF(format), fullName->Length + 8 + 16 + 16);
                 PhDereferenceObject(fullName);
             }
         }
 
-        NtClose(dupHandle);
+        PhQueryCloseHandle(dupHandle);
     }
     else if (PhEqualString2(TypeName, L"ALPC Port", TRUE))
     {
@@ -1587,7 +1677,7 @@ NTSTATUS PhpGetBestObjectName(
         if (!NT_SUCCESS(status))
             goto CleanupExit;
 
-        if (!NT_SUCCESS(KphAlpcQueryComminicationsNamesInfo(ProcessHandle, Handle, &namesInfo)))
+        if (!NT_SUCCESS(KphAlpcQueryCommunicationsNamesInfo(ProcessHandle, Handle, &namesInfo)))
         {
             namesInfo = NULL;
         }
@@ -1664,6 +1754,9 @@ NTSTATUS PhpGetBestObjectName(
         if (namesInfo && namesInfo->ConnectionPort.Length > 0)
         {
             PhInitFormatUCS(&format[formatCount++], &namesInfo->ConnectionPort);
+
+            if (PhIsNullOrEmptyString(*ResolvedObjectName))
+                PhMoveReference(ResolvedObjectName, PhCreateStringFromUnicodeString(&namesInfo->ConnectionPort));
         }
 
         if (formatCount > 0)
@@ -1678,8 +1771,10 @@ NTSTATUS PhpGetBestObjectName(
 
 CleanupExit:
 
-    if (!bestObjectName)
+    if (PhIsNullOrEmptyString(bestObjectName))
+    {
         PhSetReference(&bestObjectName, ObjectName);
+    }
 
     *BestObjectName = bestObjectName;
 
@@ -1789,49 +1884,40 @@ NTSTATUS PhGetHandleInformationEx(
     PPH_STRING typeName = NULL;
     PPH_STRING objectName = NULL;
     PPH_STRING bestObjectName = NULL;
-    BOOLEAN useKph;
+    PPH_STRING resolvedObjectName = NULL;
+    BOOLEAN ksienabled;
 
     if (ProcessHandle == NULL || Handle == NULL || Handle == NtCurrentProcess() || Handle == NtCurrentThread())
         return STATUS_INVALID_HANDLE;
     if (ObjectTypeNumber != ULONG_MAX && ObjectTypeNumber >= MAX_OBJECT_TYPE_NUMBER)
         return STATUS_INVALID_PARAMETER_3;
 
-    useKph = (KsiLevel() >= KphLevelMed);
+    ksienabled = (KsiLevel() >= KphLevelMed);
 
-    // Duplicate the handle if we're not using KPH.
-    if (!useKph)
+    if (ProcessHandle == NtCurrentProcess() || ksienabled)
     {
-        // However, we obviously don't need to duplicate it
-        // if the handle is in the current process.
-        if (ProcessHandle != NtCurrentProcess())
-        {
-            status = NtDuplicateObject(
-                ProcessHandle,
-                Handle,
-                NtCurrentProcess(),
-                &objectHandle,
-                0,
-                0,
-                0
-                );
-
-            if (!NT_SUCCESS(status))
-                return status;
-        }
-        else
-        {
-            objectHandle = Handle;
-        }
+        objectHandle = Handle;
     }
     else
     {
-        objectHandle = Handle;
+        status = NtDuplicateObject(
+            ProcessHandle,
+            Handle,
+            NtCurrentProcess(),
+            &objectHandle,
+            0,
+            0,
+            DUPLICATE_SAME_ACCESS | DUPLICATE_SAME_ATTRIBUTES
+            );
+
+        if (!NT_SUCCESS(status))
+            return status;
     }
 
     // Get basic information.
     if (BasicInformation)
     {
-        status = PhpGetObjectBasicInformation(
+        status = PhGetObjectBasicInformation(
             ProcessHandle,
             objectHandle,
             BasicInformation
@@ -1846,7 +1932,7 @@ NTSTATUS PhGetHandleInformationEx(
         goto CleanupExit;
 
     // Get the type name.
-    status = PhpGetObjectTypeName(
+    status = PhGetObjectTypeName(
         ProcessHandle,
         objectHandle,
         ObjectTypeNumber,
@@ -1862,18 +1948,18 @@ NTSTATUS PhGetHandleInformationEx(
 
     // Get the object name.
     // If we're dealing with a file handle we must take special precautions so we don't hang.
-    if (PhEqualString2(typeName, L"File", TRUE) && !useKph)
+    if (PhEqualString2(typeName, L"File", TRUE) && !ksienabled)
     {
-        status = PhpGetObjectName(
+        status = PhGetObjectName(
             ProcessHandle,
             objectHandle,
             TRUE,
             &objectName
             );
     }
-    else if (PhEqualString2(typeName, L"EtwRegistration", TRUE) && useKph)
+    else if (PhEqualString2(typeName, L"EtwRegistration", TRUE))
     {
-        status = PhpGetEtwObjectName(
+        status = PhGetEtwObjectName(
             ProcessHandle,
             Handle,
             &objectName
@@ -1882,7 +1968,7 @@ NTSTATUS PhGetHandleInformationEx(
     else
     {
         // Query the object normally.
-        status = PhpGetObjectName(
+        status = PhGetObjectName(
             ProcessHandle,
             objectHandle,
             FALSE,
@@ -1892,7 +1978,16 @@ NTSTATUS PhGetHandleInformationEx(
 
     if (!NT_SUCCESS(status))
     {
-        if (PhEqualString2(typeName, L"File", TRUE) && useKph)
+        if (
+            (ksienabled && PhEqualString2(typeName, L"File", TRUE)) ||
+            PhEqualString2(typeName, L"EtwRegistration", TRUE) ||
+            PhEqualString2(typeName, L"Process", TRUE) ||
+            PhEqualString2(typeName, L"Thread", TRUE) ||
+            PhEqualString2(typeName, L"Token", TRUE) ||
+            PhEqualString2(typeName, L"Job", TRUE) ||
+            PhEqualString2(typeName, L"ALPC Port", TRUE) ||
+            PhEqualString2(typeName, L"Section", TRUE)
+            )
         {
             // PhpGetBestObjectName can provide us with a name.
             objectName = PhReferenceEmptyString();
@@ -1915,7 +2010,8 @@ NTSTATUS PhGetHandleInformationEx(
         Handle,
         objectName,
         typeName,
-        &bestObjectName
+        &bestObjectName,
+        &resolvedObjectName
         );
 
     if (!NT_SUCCESS(status))
@@ -1924,6 +2020,8 @@ NTSTATUS PhGetHandleInformationEx(
         status = STATUS_SUCCESS;
         goto CleanupExit;
     }
+
+    PhMoveReference(&objectName, resolvedObjectName);
 
 CleanupExit:
 
@@ -1939,8 +2037,10 @@ CleanupExit:
             PhSetReference(BestObjectName, bestObjectName);
     }
 
-    if (!useKph && objectHandle && ProcessHandle != NtCurrentProcess())
-        NtClose(objectHandle);
+    if (!ksienabled && objectHandle && ProcessHandle != NtCurrentProcess())
+    {
+        PhQueryCloseHandle(objectHandle);
+    }
 
     PhClearReference(&typeName);
     PhClearReference(&objectName);
@@ -2067,7 +2167,7 @@ ULONG PhGetObjectTypeNumber(
     return objectIndex;
 }
 
-PPH_STRING PhGetObjectTypeName(
+PPH_STRING PhGetObjectTypeIndexName(
     _In_ ULONG TypeIndex
     )
 {
@@ -2210,6 +2310,7 @@ NTSTATUS PhpCallWithTimeout(
         if (!NT_SUCCESS(status = PhCreateUserThread(
             NtCurrentProcess(),
             NULL,
+            THREAD_ALL_ACCESS,
             0,
             0,
             UInt32x32To64(32, 1024),
@@ -2252,6 +2353,7 @@ NTSTATUS PhpCallWithTimeout(
     return status;
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PhpCallWithTimeoutThreadStart(
     _In_ PVOID Parameter
     )
@@ -2297,6 +2399,7 @@ NTSTATUS PhCallWithTimeout(
     return status;
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PhpCommonQueryObjectRoutine(
     _In_ PVOID Parameter
     )

@@ -40,7 +40,6 @@ sanitize {
 # Include the generated moc files in the corresponding cpp file
 # what increases the compile time significantly
 
-DEFINES += QWT_MOC_INCLUDE=1
 # DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000
 
 ######################################################################
@@ -196,4 +195,22 @@ RCC_DIR      = resources
     # in case of debug_and_release object files
     # are built in the release and debug subdirectories
     OBJECTS_DIR       = obj
+}
+
+######################################################################
+# including local settings ( optionally )
+######################################################################
+
+LOCAL_PRI=$$(QWT_LOCAL_PRI)
+
+if ( !isEmpty( LOCAL_PRI ) ) {
+
+    if ( exists( $${LOCAL_PRI} ) ) {
+
+        # When not working with the Qt/Creator it is often more convenient
+        # to include the specific options of your local build, than passing
+        # them all on the command line
+
+        include( $${LOCAL_PRI} )
+    }
 }

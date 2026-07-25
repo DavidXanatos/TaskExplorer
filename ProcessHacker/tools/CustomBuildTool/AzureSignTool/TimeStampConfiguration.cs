@@ -1,0 +1,69 @@
+/*
+ * Copyright (c) 2022 Winsider Seminars & Solutions, Inc.  All rights reserved.
+ *
+ * This file is part of System Informer.
+ *
+ * Authors:
+ *
+ *     dmex
+ *
+ */
+
+namespace CustomBuildTool
+{
+    /// <summary>
+    /// Contains configuration for timestamping authenticode signatures.
+    /// </summary>
+    public readonly struct TimeStampConfiguration
+    {
+        /// <summary>
+        /// The URL to the timestamp authority.
+        /// </summary>
+        public string Url { get; } = "http://timestamp.digicert.com";
+
+        /// <summary>
+        /// The digest algorithm the timestamp service authority should use on timestamp signatures.
+        /// </summary>
+        public HashAlgorithmName DigestAlgorithm { get; }
+
+        /// <summary>
+        /// The type of timestamp to use. See <see cref="TimeStampType" /> for details, or null if
+        /// no timestamping should be performed.
+        /// </summary>
+        public TimeStampType? Type { get; } = TimeStampType.RFC3161;
+
+        /// <summary>
+        /// A default timestamp configuration indicating no timestamp should be generated.
+        /// </summary>
+        public static TimeStampConfiguration None { get; }
+
+        /// <summary>
+        /// Creates a new instance of a <see cref="TimeStampConfiguration" />.
+        /// </summary>
+        /// <param name="url">The URL to the timestamp authority.</param>
+        /// <param name="type">The type of timestamp to use. See <see cref="TimeStampType" /> for details.</param>
+        public TimeStampConfiguration(string url, TimeStampType type)
+        {
+            this.Url = url;
+            this.Type = type;
+        }
+    }
+
+    /// <summary>
+    /// An enumeration of possible timestamp kinds.
+    /// </summary>
+    public enum TimeStampType
+    {
+        /// <summary>
+        /// Indicates that a timestamp authority should use the legacy Authenticode style of timestamps.
+        /// This option should only be used for backward compatibility with Windows XP and only supports
+        /// <see cref="HashAlgorithmName.SHA1" /> timestamp signatures.
+        /// </summary>
+        Authenticode,
+
+        /// <summary>
+        /// Indicates that a timestamp authority should use an RFC3161 timestamp signatures.
+        /// </summary>
+        RFC3161
+    }
+}

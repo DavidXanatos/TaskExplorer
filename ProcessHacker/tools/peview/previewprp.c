@@ -42,7 +42,7 @@ VOID PvpShowFilePreview(
     PPH_STRING fileText;
     PH_STRING_BUILDER sb;
 
-    if (fileText = PhFileReadAllTextWin32(PvFileName->Buffer, TRUE))
+    if (NT_SUCCESS(PhFileReadAllTextWin32(&fileText, PvFileName->Buffer, TRUE)))
     {
         PhInitializeStringBuilder(&sb, 0x1000);
 
@@ -156,7 +156,7 @@ INT_PTR CALLBACK PvpPePreviewDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

@@ -7,8 +7,6 @@
 #include "../Windows/Finders/WinStringFinder.h"
 #endif
 
-int _QList_QSharedPointer_QObject_type = qRegisterMetaType<QList<QSharedPointer<QObject> >>("QList<QSharedPointer<QObject> >");
-
 CAbstractFinder::CAbstractFinder(QObject* parent) : QThread(parent) 
 {
 	m_bCancel = false;

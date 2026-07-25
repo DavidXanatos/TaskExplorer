@@ -26,12 +26,12 @@ HRESULT NTAPI PhAppResolverGetAppIdForWindow(
 
 HRESULT NTAPI PhAppResolverActivateAppId(
     _In_ PPH_STRING ApplicationUserModelId,
-    _In_opt_ PWSTR CommandLine,
+    _In_opt_ PCWSTR CommandLine,
     _Out_opt_ HANDLE *ProcessId
     );
 
 HRESULT NTAPI PhAppResolverPackageTerminateProcess(
-    _In_ PPH_STRING PackageFullName
+    _In_ PCWSTR PackageFullName
     );
 
 typedef struct _PH_PACKAGE_TASK_ENTRY
@@ -40,12 +40,13 @@ typedef struct _PH_PACKAGE_TASK_ENTRY
     GUID TaskGuid;
 } PH_PACKAGE_TASK_ENTRY, *PPH_PACKAGE_TASK_ENTRY;
 
-PPH_LIST NTAPI PhAppResolverEnumeratePackageBackgroundTasks(
-    _In_ PPH_STRING PackageFullName
+HRESULT NTAPI PhAppResolverEnumeratePackageBackgroundTasks(
+    _In_ PCWSTR PackageFullName,
+    _Inout_ PPH_LIST BackgroundTasks
     );
 
 HRESULT NTAPI PhAppResolverPackageStopSessionRedirection(
-    _In_ PPH_STRING PackageFullName
+    _In_ PCWSTR PackageFullName
     );
 
 PPH_STRING NTAPI PhGetAppContainerName(
@@ -53,7 +54,7 @@ PPH_STRING NTAPI PhGetAppContainerName(
     );
 
 PPH_STRING NTAPI PhGetAppContainerSidFromName(
-    _In_ PWSTR AppContainerName
+    _In_ PCWSTR AppContainerName
     );
 
 PPH_STRING NTAPI PhGetAppContainerPackageName(
@@ -70,7 +71,7 @@ PPH_STRING NTAPI PhGetPackagePath(
     );
 
 PPH_LIST NTAPI PhGetPackageAssetsFromResourceFile(
-    _In_ PWSTR FilePath
+    _In_ PCWSTR FilePath
     );
 
 typedef struct _PH_APPUSERMODELID_ENUM_ENTRY
@@ -123,9 +124,10 @@ HRESULT NTAPI PhAppResolverEndCrashDumpTask(
 // Desktop Bridge
 
 HRESULT NTAPI PhCreateProcessDesktopPackage(
-    _In_ PWSTR ApplicationUserModelId,
-    _In_ PWSTR Executable,
-    _In_ PWSTR Arguments,
+    _In_ PCWSTR ApplicationUserModelId,
+    _In_ PCWSTR Executable,
+    _In_ PCWSTR Arguments,
+    _In_opt_ PCWSTR Directory,
     _In_ BOOLEAN PreventBreakaway,
     _In_opt_ HANDLE ParentProcessId,
     _Out_opt_ PHANDLE ProcessHandle
@@ -259,7 +261,7 @@ PhDeleteWindowsRuntimeString(
     );
 
 PHLIBAPI
-UINT32
+ULONG
 NTAPI
 PhGetWindowsRuntimeStringLength(
     _In_opt_ HSTRING String
@@ -270,7 +272,7 @@ PCWSTR
 NTAPI
 PhGetWindowsRuntimeStringBuffer(
     _In_opt_ HSTRING String,
-    _Out_opt_ PUINT32 Length
+    _Out_opt_ PULONG Length
     );
 
 PHLIBAPI
@@ -294,24 +296,6 @@ VOID
 NTAPI
 PhDestroyEnumPackageApplicationUserModelIds(
     _In_ PPH_LIST PackageList
-    );
-
-typedef struct _PACKAGE_INFO_REFERENCE *PACKAGE_INFO_REFERENCE;
-
-typedef LONG (WINAPI* _OpenPackageInfoByFullNameForUser)(
-    _In_opt_ PSID userSid,
-    _In_ PCWSTR packageFullName,
-    _Reserved_ const UINT32 reserved,
-    _Out_ PACKAGE_INFO_REFERENCE* packageInfoReference
-    );
-typedef LONG (WINAPI* _GetPackageApplicationIds)(
-    _In_ PACKAGE_INFO_REFERENCE packageInfoReference,
-    _Inout_ PUINT32 bufferLength,
-    _Out_writes_bytes_opt_(*bufferLength) PBYTE buffer,
-    _Out_opt_ PUINT32 count
-    );
-typedef LONG (WINAPI* _ClosePackageInfo)(
-    _In_ PACKAGE_INFO_REFERENCE packageInfoReference
     );
 
 #pragma region Activation Factory

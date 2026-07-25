@@ -7,6 +7,7 @@
 *  Copyright (c) Microsoft Corp.  All rights reserved.            *
 *                                                                 *
 ******************************************************************/
+
 #ifndef _NTINTSAFE_H_INCLUDED_
 #define _NTINTSAFE_H_INCLUDED_
 
@@ -97,7 +98,25 @@ typedef ULONG_PTR   SIZE_T;
 
 #undef _USE_INTRINSIC_MULTIPLY128
 
-#if !defined(_M_CEE) && ((defined(_AMD64_) && !defined(_ARM64EC_)) || (defined(_IA64_) && (_MSC_VER >= 1400)))
+#if !defined(_ARM64_MULT_INTRINS_SUPPORTED)
+#define _ARM64_MULT_INTRINS_SUPPORTED 0
+#if (defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_HYBRID_X86_ARM64))
+#if defined(__clang__)
+#if __has_builtin(__umulh) && __has_builtin(__mulh)
+#undef _ARM64_MULT_INTRINS_SUPPORTED
+#define _ARM64_MULT_INTRINS_SUPPORTED 1
+#endif // __has_builtin(__umulh) && __has_builtin(__mulh)
+#else // defined(__clang__)
+#undef _ARM64_MULT_INTRINS_SUPPORTED
+#define _ARM64_MULT_INTRINS_SUPPORTED 1
+#endif // defined(__clang__)
+#endif // (defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_HYBRID_X86_ARM64))
+#endif // !defined(_ARM64_MULT_INTRINS_SUPPORTED)
+
+#if !defined(_M_CEE) && \
+    ((defined(_M_X64) && !defined(_M_ARM64EC)) || \
+     (defined(_ARM64_MULT_INTRINS_SUPPORTED) && _ARM64_MULT_INTRINS_SUPPORTED) || \
+     (defined(_M_IA64) && (_MSC_VER >= 1400)))
 #define _USE_INTRINSIC_MULTIPLY128
 #endif
 
@@ -106,25 +125,44 @@ typedef ULONG_PTR   SIZE_T;
 extern "C" {
 #endif
 
-#if !defined(_ARM64EC_)
+#if defined(_M_X64) && !defined(_M_ARM64EC)
 
-#define UnsignedMultiply128 _umul128
+#define __RtlpUnsignedMultiply128 _umul128
 
-#else
-
-#define _umul128 Multiply128
-
-#endif // defined(_ARM64EC_)
+#endif // defined(_M_X64) && !defined(_M_ARM64EC)
 
 ULONG64
-UnsignedMultiply128(
-    _In_ ULONGLONG ullMultiplicand,
-    _In_ ULONGLONG ullMultiplier,
-    _Out_ _Deref_out_range_(==, ullMultiplicand * ullMultiplier) ULONGLONG* pullResultHigh);
+__RtlpUnsignedMultiply128(
+    _In_ ULONG64 Multiplicand,
+    _In_ ULONG64 Multiplier,
+    _Out_ _Deref_out_range_(==, Multiplicand * Multiplier) ULONG64* HighProduct);
 
-#if !defined(_ARM64EC_)
+#if defined(_M_X64) && !defined(_M_ARM64EC)
 #pragma intrinsic(_umul128)
 #endif
+
+#if defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_HYBRID_X86_ARM64)
+
+ULONG64
+__umulh(
+    _In_ ULONG64 Multiplicand,
+    _In_ ULONG64 Multiplier
+    );
+
+#pragma intrinsic(__umulh)
+
+__inline
+ULONG64
+__RtlpUnsignedMultiply128(
+    _In_ ULONG64 Multiplicand,
+    _In_ ULONG64 Multiplier,
+    _Out_ _Deref_out_range_(==, Multiplicand * Multiplier) ULONG64* HighProduct)
+{
+    *HighProduct = __umulh(Multiplier, Multiplicand);
+    return Multiplier * Multiplicand;
+}
+
+#endif // defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_HYBRID_X86_ARM64)
 
 #ifdef __cplusplus
 }
@@ -138,7 +176,7 @@ typedef _Return_type_success_(return >= 0) long NTSTATUS;
 #define NT_SUCCESS(Status)  (((NTSTATUS)(Status)) >= 0)
 
 #define STATUS_SUCCESS  ((NTSTATUS)0x00000000L)
-#ifndef SORTPP_PASS 
+#ifndef SORTPP_PASS
 // compiletime asserts (failure results in error C2118: negative subscript)
 #define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1]
 #else
@@ -151,7 +189,7 @@ typedef _Return_type_success_(return >= 0) long NTSTATUS;
 #ifndef UInt32x32To64
 #if defined(MIDL_PASS) || defined(RC_INVOKED) || defined(_M_CEE_PURE) \
     || defined(_68K_) || defined(_MPPC_) \
-    || defined(_M_IA64) || defined(_M_AMD64) || defined(_M_ARM) || defined(_M_ARM64) \
+    || defined(_M_IA64) || defined(_M_X64) || defined(_M_ARM) || defined(_M_ARM64) \
     || defined(_M_HYBRID_X86_ARM64)
 #define UInt32x32To64(a, b) (((unsigned __int64)((unsigned int)(a))) * ((unsigned __int64)((unsigned int)(b))))
 #elif defined(_M_IX86)
@@ -238,7 +276,7 @@ typedef _Return_type_success_(return >= 0) long NTSTATUS;
 #define SSIZE_T_MAX     9223372036854775807i64
 #define _SIZE_T_MAX     0xffffffffffffffffui64
 #else
-#define INT_PTR_MAX     2147483647 
+#define INT_PTR_MAX     2147483647
 #define UINT_PTR_MAX    0xffffffff
 #define LONG_PTR_MAX    2147483647L
 #define ULONG_PTR_MAX   0xffffffffUL
@@ -287,7 +325,7 @@ typedef _Return_type_success_(return >= 0) long NTSTATUS;
 #define SSIZE_T_ERROR   (-1i64)
 #define _SIZE_T_ERROR   0xffffffffffffffffui64
 #else
-#define INT_PTR_ERROR   (-1) 
+#define INT_PTR_ERROR   (-1)
 #define UINT_PTR_ERROR  0xffffffff
 #define LONG_PTR_ERROR  (-1L)
 #define ULONG_PTR_ERROR 0xffffffffUL
@@ -354,7 +392,7 @@ RtlInt8ToUChar(
         *pch = '\0';
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -369,7 +407,7 @@ RtlInt8ToUInt8(
     _Out_ _Deref_out_range_(==, i8Operand) UINT8* pu8Result)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *pu8Result = (UINT8)i8Operand;
@@ -380,7 +418,7 @@ RtlInt8ToUInt8(
         *pu8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -400,7 +438,7 @@ RtlInt8ToUShort(
     _Out_ _Deref_out_range_(==, i8Operand) USHORT* pusResult)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *pusResult = (USHORT)i8Operand;
@@ -411,7 +449,7 @@ RtlInt8ToUShort(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -436,7 +474,7 @@ RtlInt8ToUInt(
     _Out_ _Deref_out_range_(==, i8Operand) UINT* puResult)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *puResult = (UINT)i8Operand;
@@ -447,7 +485,7 @@ RtlInt8ToUInt(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -467,7 +505,7 @@ RtlInt8ToUIntPtr(
     _Out_ _Deref_out_range_(==, i8Operand) UINT_PTR* puResult)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *puResult = (UINT_PTR)i8Operand;
@@ -478,7 +516,7 @@ RtlInt8ToUIntPtr(
         *puResult = UINT_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -493,7 +531,7 @@ RtlInt8ToULong(
     _Out_ _Deref_out_range_(==, i8Operand) ULONG* pulResult)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *pulResult = (ULONG)i8Operand;
@@ -519,7 +557,7 @@ RtlInt8ToULongPtr(
     _Out_ _Deref_out_range_(==, i8Operand) ULONG_PTR* pulResult)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *pulResult = (ULONG_PTR)i8Operand;
@@ -530,7 +568,7 @@ RtlInt8ToULongPtr(
         *pulResult = ULONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -555,7 +593,7 @@ RtlInt8ToULongLong(
     _Out_ _Deref_out_range_(==, i8Operand) ULONGLONG* pullResult)
 {
     NTSTATUS status;
-    
+
     if (i8Operand >= 0)
     {
         *pullResult = (ULONGLONG)i8Operand;
@@ -566,7 +604,7 @@ RtlInt8ToULongLong(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -611,7 +649,7 @@ RtlUInt8ToInt8(
     _Out_ _Deref_out_range_(==, u8Operand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (u8Operand <= INT8_MAX)
     {
         *pi8Result = (INT8)u8Operand;
@@ -622,7 +660,7 @@ RtlUInt8ToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -654,7 +692,7 @@ RtlByteToInt8(
     _Out_ _Deref_out_range_(==, bOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (bOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)bOperand;
@@ -665,7 +703,7 @@ RtlByteToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -889,7 +927,7 @@ RtlShortToULong(
     _Out_ _Deref_out_range_(==, sOperand) ULONG* pulResult)
 {
     NTSTATUS status;
-    
+
     if (sOperand >= 0)
     {
         *pulResult = (ULONG)sOperand;
@@ -900,7 +938,7 @@ RtlShortToULong(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -915,7 +953,7 @@ RtlShortToULongPtr(
     _Out_ _Deref_out_range_(==, sOperand) ULONG_PTR* pulResult)
 {
     NTSTATUS status;
-    
+
     if (sOperand >= 0)
     {
         *pulResult = (ULONG_PTR)sOperand;
@@ -926,7 +964,7 @@ RtlShortToULongPtr(
         *pulResult = ULONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -946,7 +984,7 @@ RtlShortToDWordPtr(
     _Out_ _Deref_out_range_(==, sOperand) DWORD_PTR* pdwResult)
 {
     NTSTATUS status;
-    
+
     if (sOperand >= 0)
     {
         *pdwResult = (DWORD_PTR)sOperand;
@@ -957,7 +995,7 @@ RtlShortToDWordPtr(
         *pdwResult = DWORD_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -983,7 +1021,7 @@ RtlShortToULongLong(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -1138,7 +1176,7 @@ RtlUShortToInt8(
     _Out_ _Deref_out_range_(==, usOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (usOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)usOperand;
@@ -1206,7 +1244,7 @@ RtlUShortToUInt8(
     _Out_ _Deref_out_range_(==, usOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if (usOperand <= UINT8_MAX)
     {
         *pui8Result = (UINT8)usOperand;
@@ -1217,7 +1255,7 @@ RtlUShortToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -1338,7 +1376,7 @@ RtlIntToInt8(
     _Out_ _Deref_out_range_(==, iOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if ((iOperand >= INT8_MIN) && (iOperand <= INT8_MAX))
     {
         *pi8Result = (INT8)iOperand;
@@ -1349,7 +1387,7 @@ RtlIntToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -1411,7 +1449,7 @@ RtlIntToUInt8(
     _Out_ _Deref_out_range_(==, iOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if ((iOperand >= 0) && (iOperand <= UINT8_MAX))
     {
         *pui8Result = (UINT8)iOperand;
@@ -1422,7 +1460,7 @@ RtlIntToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -1760,7 +1798,7 @@ RtlIntPtrToInt8(
     _Out_ _Deref_out_range_(==, iOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if ((iOperand >= INT8_MIN) && (iOperand <= INT8_MAX))
     {
         *pi8Result = (INT8)iOperand;
@@ -1771,7 +1809,7 @@ RtlIntPtrToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -1828,7 +1866,7 @@ RtlIntPtrToUInt8(
     _Out_ _Deref_out_range_(==, iOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if ((iOperand >= 0) && (iOperand <= UINT8_MAX))
     {
         *pui8Result = (UINT8)iOperand;
@@ -1839,7 +1877,7 @@ RtlIntPtrToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2100,7 +2138,7 @@ RtlIntPtrToULongPtr(
 //
 #define RtlIntPtrToDWord   RtlIntPtrToULong
 
-//    
+//
 // INT_PTR -> DWORD_PTR conversion
 //
 #define RtlIntPtrToDWordPtr    RtlIntPtrToULongPtr
@@ -2132,7 +2170,7 @@ RtlIntPtrToULongLong(
     }
 
     return status;
-}   
+}
 #endif
 
 //
@@ -2176,7 +2214,7 @@ RtlUIntToInt8(
     _Out_ _Deref_out_range_(==, uOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (uOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)uOperand;
@@ -2187,9 +2225,9 @@ RtlUIntToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
-}    
+}
 
 //
 // UINT -> UCHAR conversion
@@ -2244,7 +2282,7 @@ RtlUIntToUInt8(
     _Out_ _Deref_out_range_(==, uOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if (uOperand <= UINT8_MAX)
     {
         *pui8Result = (UINT8)uOperand;
@@ -2255,10 +2293,10 @@ RtlUIntToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
-}    
-    
+}
+
 //
 // UINT -> BYTE conversion
 //
@@ -2402,7 +2440,7 @@ RtlUIntToLong(
         *plResult = LONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2530,7 +2568,7 @@ RtlUIntPtrToInt8(
     _Out_ _Deref_out_range_(==, uOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (uOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)uOperand;
@@ -2541,7 +2579,7 @@ RtlUIntPtrToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2598,7 +2636,7 @@ RtlUIntPtrToUInt8(
     _Out_ _Deref_out_range_(==,uOperand) UINT8* pu8Result)
 {
     NTSTATUS status;
-    
+
     if (uOperand <= UINT8_MAX)
     {
         *pu8Result = (UINT8)uOperand;
@@ -2609,7 +2647,7 @@ RtlUIntPtrToUInt8(
         *pu8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2641,7 +2679,7 @@ RtlUIntPtrToShort(
         status = STATUS_INTEGER_OVERFLOW;
     }
 
-    return status; 
+    return status;
 }
 
 //
@@ -2655,7 +2693,7 @@ RtlUIntPtrToInt16(
     _Out_ _Deref_out_range_(==, uOperand) INT16* pi16Result)
 {
     NTSTATUS status;
-    
+
     if (uOperand <= INT16_MAX)
     {
         *pi16Result = (INT16)uOperand;
@@ -2666,7 +2704,7 @@ RtlUIntPtrToInt16(
         *pi16Result = INT16_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2707,7 +2745,7 @@ RtlUIntPtrToUInt16(
     _Out_ _Deref_out_range_(==, uOperand) UINT16* pu16Result)
 {
     NTSTATUS status;
-    
+
     if (uOperand <= UINT16_MAX)
     {
         *pu16Result = (UINT16)uOperand;
@@ -2718,7 +2756,7 @@ RtlUIntPtrToUInt16(
         *pu16Result = UINT16_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2829,7 +2867,7 @@ RtlUIntPtrToLong(
         *plResult = LONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2855,7 +2893,7 @@ RtlUIntPtrToLongPtr(
         *plResult = LONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2931,7 +2969,7 @@ RtlLongToInt8(
     _Out_ _Deref_out_range_(==, lOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= INT8_MIN) && (lOperand <= INT8_MAX))
     {
         *pi8Result = (INT8)lOperand;
@@ -2942,7 +2980,7 @@ RtlLongToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -2999,7 +3037,7 @@ RtlLongToUInt8(
     _Out_ _Deref_out_range_(==, lOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= 0) && (lOperand <= UINT8_MAX))
     {
         *pui8Result = (UINT8)lOperand;
@@ -3010,7 +3048,7 @@ RtlLongToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3030,7 +3068,7 @@ RtlLongToShort(
     _Out_ _Deref_out_range_(==, lOperand) SHORT* psResult)
 {
     NTSTATUS status;
-     
+
     if ((lOperand >= SHORT_MIN) && (lOperand <= SHORT_MAX))
     {
        *psResult = (SHORT)lOperand;
@@ -3041,7 +3079,7 @@ RtlLongToShort(
         *psResult = SHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-     
+
     return status;
 }
 
@@ -3061,7 +3099,7 @@ RtlLongToUShort(
     _Out_ _Deref_out_range_(==, lOperand) USHORT* pusResult)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= 0) && (lOperand <= USHORT_MAX))
     {
         *pusResult = (USHORT)lOperand;
@@ -3072,7 +3110,7 @@ RtlLongToUShort(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3081,7 +3119,7 @@ RtlLongToUShort(
 //
 #define RtlLongToUInt16    RtlLongToUShort
 
-//   
+//
 // LONG -> WORD conversion
 //
 #define RtlLongToWord  RtlLongToUShort
@@ -3135,7 +3173,7 @@ RtlLongToUInt(
     _Out_ _Deref_out_range_(==, lOperand) UINT* puResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *puResult = (UINT)lOperand;
@@ -3146,7 +3184,7 @@ RtlLongToUInt(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3167,7 +3205,7 @@ RtlLongToUIntPtr(
     _Out_ _Deref_out_range_(==, lOperand) UINT_PTR* puResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *puResult = (UINT_PTR)lOperand;
@@ -3178,7 +3216,7 @@ RtlLongToUIntPtr(
         *puResult = UINT_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #else
@@ -3196,7 +3234,7 @@ RtlLongToULong(
     _Out_ _Deref_out_range_(==, lOperand) ULONG* pulResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *pulResult = (ULONG)lOperand;
@@ -3207,7 +3245,7 @@ RtlLongToULong(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3223,7 +3261,7 @@ RtlLongToULongPtr(
     _Out_ _Deref_out_range_(==, lOperand) ULONG_PTR* pulResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *pulResult = (ULONG_PTR)lOperand;
@@ -3234,7 +3272,7 @@ RtlLongToULongPtr(
         *pulResult = ULONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #else
@@ -3262,7 +3300,7 @@ RtlLongToULongLong(
     _Out_ _Deref_out_range_(==, lOperand) ULONGLONG* pullResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *pullResult = (ULONGLONG)lOperand;
@@ -3273,7 +3311,7 @@ RtlLongToULongLong(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3323,7 +3361,7 @@ RtlLongPtrToInt8(
     _Out_ _Deref_out_range_(==, lOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= INT8_MIN) && (lOperand <= INT8_MAX))
     {
         *pi8Result = (INT8)lOperand;
@@ -3334,7 +3372,7 @@ RtlLongPtrToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3349,7 +3387,7 @@ RtlLongPtrToUChar(
     _Out_ _Deref_out_range_(==, lOperand) UCHAR* pch)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= 0) && (lOperand <= 255))
     {
         *pch = (UCHAR)lOperand;
@@ -3360,7 +3398,7 @@ RtlLongPtrToUChar(
         *pch = '\0';
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3391,7 +3429,7 @@ RtlLongPtrToUInt8(
     _Out_ _Deref_out_range_(==, lOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= 0) && (lOperand <= UINT8_MAX))
     {
         *pui8Result = (UINT8)lOperand;
@@ -3402,7 +3440,7 @@ RtlLongPtrToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3422,7 +3460,7 @@ RtlLongPtrToShort(
     _Out_ _Deref_out_range_(==, lOperand) SHORT* psResult)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= SHORT_MIN) && (lOperand <= SHORT_MAX))
     {
         *psResult = (SHORT)lOperand;
@@ -3433,9 +3471,9 @@ RtlLongPtrToShort(
         *psResult = SHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
-}    
+}
 
 //
 // LONG_PTR -> INT16 conversion
@@ -3453,7 +3491,7 @@ RtlLongPtrToUShort(
     _Out_ _Deref_out_range_(==, lOperand) USHORT* pusResult)
 {
     NTSTATUS status;
-    
+
     if ((lOperand >= 0) && (lOperand <= USHORT_MAX))
     {
         *pusResult = (USHORT)lOperand;
@@ -3464,7 +3502,7 @@ RtlLongPtrToUShort(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3494,7 +3532,7 @@ RtlLongPtrToInt(
     C_ASSERT(sizeof(INT) == sizeof(LONG_PTR));
     *piResult = (INT)lOperand;
     return STATUS_SUCCESS;
-}   
+}
 #endif
 
 //
@@ -3531,7 +3569,7 @@ RtlLongPtrToUInt(
     _Out_ _Deref_out_range_(==, lOperand) UINT* puResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *puResult = (UINT)lOperand;
@@ -3542,7 +3580,7 @@ RtlLongPtrToUInt(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif
@@ -3563,7 +3601,7 @@ RtlLongPtrToUIntPtr(
     _Out_ _Deref_out_range_(==, lOperand) UINT_PTR* puResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *puResult = (UINT_PTR)lOperand;
@@ -3574,7 +3612,7 @@ RtlLongPtrToUIntPtr(
         *puResult = UINT_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3596,7 +3634,7 @@ RtlLongPtrToLong(
 }
 #endif
 
-//    
+//
 // LONG_PTR -> ULONG conversion
 //
 #ifdef _WIN64
@@ -3610,7 +3648,7 @@ RtlLongPtrToULong(
     _Out_ _Deref_out_range_(==, lOperand) ULONG* pulResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *pulResult = (ULONG)lOperand;
@@ -3621,7 +3659,7 @@ RtlLongPtrToULong(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif
@@ -3637,7 +3675,7 @@ RtlLongPtrToULongPtr(
     _Out_ _Deref_out_range_(==, lOperand) ULONG_PTR* pulResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *pulResult = (ULONG_PTR)lOperand;
@@ -3648,7 +3686,7 @@ RtlLongPtrToULongPtr(
         *pulResult = ULONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3660,7 +3698,7 @@ RtlLongPtrToULongPtr(
 //
 // LONG_PTR -> DWORD_PTR conversion
 //
-#define RtlLongPtrToDWordPtr   RtlLongPtrToULongPtr 
+#define RtlLongPtrToDWordPtr   RtlLongPtrToULongPtr
 
 //
 // LONG_PTR -> ULONGLONG conversion
@@ -3673,7 +3711,7 @@ RtlLongPtrToULongLong(
     _Out_ _Deref_out_range_(==, lOperand) ULONGLONG* pullResult)
 {
     NTSTATUS status;
-    
+
     if (lOperand >= 0)
     {
         *pullResult = (ULONGLONG)lOperand;
@@ -3684,7 +3722,7 @@ RtlLongPtrToULongLong(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3729,7 +3767,7 @@ RtlULongToInt8(
     _Out_ _Deref_out_range_(==, ulOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)ulOperand;
@@ -3740,7 +3778,7 @@ RtlULongToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3797,7 +3835,7 @@ RtlULongToUInt8(
     _Out_ _Deref_out_range_(==, ulOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= UINT8_MAX)
     {
         *pui8Result = (UINT8)ulOperand;
@@ -3808,9 +3846,9 @@ RtlULongToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
-}    
+}
 
 //
 // ULONG -> BYTE conversion
@@ -3895,7 +3933,7 @@ RtlULongToInt(
     _Out_ _Deref_out_range_(==, ulOperand) INT* piResult)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= INT_MAX)
     {
         *piResult = (INT)ulOperand;
@@ -3906,7 +3944,7 @@ RtlULongToInt(
         *piResult = INT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -3944,7 +3982,7 @@ RtlULongToUInt(
     _Out_ _Deref_out_range_(==, ulOperand) UINT* puResult)
 {
     C_ASSERT(sizeof(ULONG) == sizeof(UINT));
-    *puResult = (UINT)ulOperand;    
+    *puResult = (UINT)ulOperand;
     return STATUS_SUCCESS;
 }
 
@@ -3983,7 +4021,7 @@ RtlULongToLong(
     _Out_ _Deref_out_range_(==, ulOperand) LONG* plResult)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= LONG_MAX)
     {
         *plResult = (LONG)ulOperand;
@@ -3994,7 +4032,7 @@ RtlULongToLong(
         *plResult = LONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4038,7 +4076,7 @@ RtlULongPtrToInt8(
     _Out_ _Deref_out_range_(==, ulOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)ulOperand;
@@ -4049,7 +4087,7 @@ RtlULongPtrToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4106,7 +4144,7 @@ RtlULongPtrToUInt8(
     _Out_ _Deref_out_range_(==, ulOperand) UINT8* pui8Result)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= UINT8_MAX)
     {
         *pui8Result = (UINT8)ulOperand;
@@ -4117,11 +4155,11 @@ RtlULongPtrToUInt8(
         *pui8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
-//    
+//
 // ULONG_PTR -> BYTE conversion
 //
 #define RtlULongPtrToByte  RtlULongPtrToUInt8
@@ -4149,7 +4187,7 @@ RtlULongPtrToShort(
         status = STATUS_INTEGER_OVERFLOW;
     }
 
-    return status; 
+    return status;
 }
 
 //
@@ -4204,7 +4242,7 @@ RtlULongPtrToInt(
     _Out_ _Deref_out_range_(==, ulOperand) INT* piResult)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= INT_MAX)
     {
         *piResult = (INT)ulOperand;
@@ -4215,7 +4253,7 @@ RtlULongPtrToInt(
         *piResult = INT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4235,7 +4273,7 @@ RtlULongPtrToIntPtr(
     _Out_ _Deref_out_range_(==, ulOperand) INT_PTR* piResult)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= INT_PTR_MAX)
     {
         *piResult = (INT_PTR)ulOperand;
@@ -4246,7 +4284,7 @@ RtlULongPtrToIntPtr(
         *piResult = INT_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4264,7 +4302,7 @@ RtlULongPtrToUInt(
     _Out_ _Deref_out_range_(==, ulOperand) UINT* puResult)
 {
     C_ASSERT(sizeof(ULONG_PTR) == sizeof(UINT));
-    *puResult = (UINT)ulOperand;    
+    *puResult = (UINT)ulOperand;
     return STATUS_SUCCESS;
 }
 #endif
@@ -4299,7 +4337,7 @@ RtlULongPtrToLong(
     _Out_ _Deref_out_range_(==, ulOperand) LONG* plResult)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= LONG_MAX)
     {
         *plResult = (LONG)ulOperand;
@@ -4310,11 +4348,11 @@ RtlULongPtrToLong(
         *plResult = LONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
-//        
+//
 // ULONG_PTR -> LONG_PTR conversion
 //
 _Must_inspect_result_
@@ -4325,7 +4363,7 @@ RtlULongPtrToLongPtr(
     _Out_ _Deref_out_range_(==, ulOperand) LONG_PTR* plResult)
 {
     NTSTATUS status;
-    
+
     if (ulOperand <= LONG_PTR_MAX)
     {
         *plResult = (LONG_PTR)ulOperand;
@@ -4336,7 +4374,7 @@ RtlULongPtrToLongPtr(
         *plResult = LONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4356,7 +4394,7 @@ RtlULongPtrToULong(
     *pulResult = (ULONG)ulOperand;
     return STATUS_SUCCESS;
 }
-#endif    
+#endif
 
 //
 // ULONG_PTR -> DWORD conversion
@@ -4637,7 +4675,7 @@ RtlLongLongToInt8(
     _Out_ _Deref_out_range_(==, llOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= INT8_MIN) && (llOperand <= INT8_MAX))
     {
         *pi8Result = (INT8)llOperand;
@@ -4674,7 +4712,7 @@ RtlLongLongToUChar(
         *pch = '\0';
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4705,7 +4743,7 @@ RtlLongLongToUInt8(
     _Out_ _Deref_out_range_(==, llOperand) UINT8* pu8Result)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= 0) && (llOperand <= UINT8_MAX))
     {
         *pu8Result = (UINT8)llOperand;
@@ -4716,7 +4754,7 @@ RtlLongLongToUInt8(
         *pu8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4736,7 +4774,7 @@ RtlLongLongToShort(
     _Out_ _Deref_out_range_(==, llOperand) SHORT* psResult)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= SHORT_MIN) && (llOperand <= SHORT_MAX))
     {
         *psResult = (SHORT)llOperand;
@@ -4747,7 +4785,7 @@ RtlLongLongToShort(
         *psResult = SHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4767,7 +4805,7 @@ RtlLongLongToUShort(
     _Out_ _Deref_out_range_(==, llOperand) USHORT* pusResult)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= 0) && (llOperand <= USHORT_MAX))
     {
         *pusResult = (USHORT)llOperand;
@@ -4778,7 +4816,7 @@ RtlLongLongToUShort(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4803,7 +4841,7 @@ RtlLongLongToInt(
     _Out_ _Deref_out_range_(==, llOperand) INT* piResult)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= INT_MIN) && (llOperand <= INT_MAX))
     {
         *piResult = (INT)llOperand;
@@ -4814,7 +4852,7 @@ RtlLongLongToInt(
         *piResult = INT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -4852,7 +4890,7 @@ RtlLongLongToUInt(
     _Out_ _Deref_out_range_(==, llOperand) UINT* puResult)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= 0) && (llOperand <= UINT_MAX))
     {
         *puResult = (UINT)llOperand;
@@ -4863,8 +4901,8 @@ RtlLongLongToUInt(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
-    return status;    
+
+    return status;
 }
 
 //
@@ -4892,7 +4930,7 @@ RtlLongLongToLong(
     _Out_ _Deref_out_range_(==, llOperand) LONG* plResult)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= LONG_MIN) && (llOperand <= LONG_MAX))
     {
         *plResult = (LONG)llOperand;
@@ -4903,8 +4941,8 @@ RtlLongLongToLong(
         *plResult = LONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
-    return status;    
+
+    return status;
 }
 
 //
@@ -4920,7 +4958,7 @@ RtlLongLongToLongPtr(
 {
     *plResult = (LONG_PTR)llOperand;
     return STATUS_SUCCESS;
-}    
+}
 #else
 #define RtlLongLongToLongPtr  RtlLongLongToLong
 #endif
@@ -4936,7 +4974,7 @@ RtlLongLongToULong(
     _Out_ _Deref_out_range_(==, llOperand) ULONG* pulResult)
 {
     NTSTATUS status;
-    
+
     if ((llOperand >= 0) && (llOperand <= ULONG_MAX))
     {
         *pulResult = (ULONG)llOperand;
@@ -4947,8 +4985,8 @@ RtlLongLongToULong(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
-    return status;    
+
+    return status;
 }
 
 //
@@ -4981,7 +5019,7 @@ RtlLongLongToULongLong(
     _Out_ _Deref_out_range_(==, llOperand) ULONGLONG* pullResult)
 {
     NTSTATUS status;
-    
+
     if (llOperand >= 0)
     {
         *pullResult = (ULONGLONG)llOperand;
@@ -4992,8 +5030,8 @@ RtlLongLongToULongLong(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
-    return status; 
+
+    return status;
 }
 
 //
@@ -5144,7 +5182,7 @@ RtlLongLongToULongLong(
 //
 // LONG64 -> DWORD_PTR conversion
 //
-#define RtlLong64ToDWordPtr    RtlLongLongToULongPtr  
+#define RtlLong64ToDWordPtr    RtlLongLongToULongPtr
 
 //
 // LONG64 -> ULONGLONG conversion
@@ -5337,7 +5375,7 @@ RtlULongLongToInt8(
     _Out_ _Deref_out_range_(==, ullOperand) INT8* pi8Result)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= INT8_MAX)
     {
         *pi8Result = (INT8)ullOperand;
@@ -5348,7 +5386,7 @@ RtlULongLongToInt8(
         *pi8Result = INT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5363,7 +5401,7 @@ RtlULongLongToUChar(
     _Out_ _Deref_out_range_(==, ullOperand) UCHAR* pch)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= 255)
     {
         *pch = (UCHAR)ullOperand;
@@ -5374,7 +5412,7 @@ RtlULongLongToUChar(
         *pch = '\0';
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5405,7 +5443,7 @@ RtlULongLongToUInt8(
     _Out_ _Deref_out_range_(==, ullOperand) UINT8* pu8Result)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= UINT8_MAX)
     {
         *pu8Result = (UINT8)ullOperand;
@@ -5416,7 +5454,7 @@ RtlULongLongToUInt8(
         *pu8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5436,7 +5474,7 @@ RtlULongLongToShort(
     _Out_ _Deref_out_range_(==, ullOperand) SHORT* psResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= SHORT_MAX)
     {
         *psResult = (SHORT)ullOperand;
@@ -5447,7 +5485,7 @@ RtlULongLongToShort(
         *psResult = SHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5467,7 +5505,7 @@ RtlULongLongToUShort(
     _Out_ _Deref_out_range_(==, ullOperand) USHORT* pusResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= USHORT_MAX)
     {
         *pusResult = (USHORT)ullOperand;
@@ -5478,7 +5516,7 @@ RtlULongLongToUShort(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5503,7 +5541,7 @@ RtlULongLongToInt(
     _Out_ _Deref_out_range_(==, ullOperand) INT* piResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= INT_MAX)
     {
         *piResult = (INT)ullOperand;
@@ -5514,7 +5552,7 @@ RtlULongLongToInt(
         *piResult = INT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5543,7 +5581,7 @@ RtlULongLongToUInt(
     _Out_ _Deref_out_range_(==, ullOperand) UINT* puResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= UINT_MAX)
     {
         *puResult = (UINT)ullOperand;
@@ -5554,7 +5592,7 @@ RtlULongLongToUInt(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5577,7 +5615,7 @@ RtlULongLongToUIntPtr(
     *puResult = ullOperand;
     return STATUS_SUCCESS;
 }
-#else    
+#else
 #define RtlULongLongToUIntPtr  RtlULongLongToUInt
 #endif
 
@@ -5592,7 +5630,7 @@ RtlULongLongToLong(
     _Out_ _Deref_out_range_(==, ullOperand) LONG* plResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= LONG_MAX)
     {
         *plResult = (LONG)ullOperand;
@@ -5603,7 +5641,7 @@ RtlULongLongToLong(
         *plResult = LONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5618,7 +5656,7 @@ RtlULongLongToLongPtr(
     _Out_ _Deref_out_range_(==, ullOperand) LONG_PTR* plResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= LONG_PTR_MAX)
     {
         *plResult = (LONG_PTR)ullOperand;
@@ -5629,7 +5667,7 @@ RtlULongLongToLongPtr(
         *plResult = LONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5644,7 +5682,7 @@ RtlULongLongToULong(
     _Out_ _Deref_out_range_(==, ullOperand) ULONG* pulResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= ULONG_MAX)
     {
         *pulResult = (ULONG)ullOperand;
@@ -5655,7 +5693,7 @@ RtlULongLongToULong(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -5698,7 +5736,7 @@ RtlULongLongToLongLong(
     _Out_ _Deref_out_range_(==, ullOperand) LONGLONG* pllResult)
 {
     NTSTATUS status;
-    
+
     if (ullOperand <= LONGLONG_MAX)
     {
         *pllResult = (LONGLONG)ullOperand;
@@ -5709,7 +5747,7 @@ RtlULongLongToLongLong(
         *pllResult = LONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -6574,7 +6612,7 @@ RtlULongLongToLongLong(
 //
 #define RtlSizeTToInt64    RtlUIntPtrToLongLong
 
-//   
+//
 // size_t -> ptrdiff_t conversion
 //
 #define RtlSizeTToPtrdiffT RtlUIntPtrToIntPtr
@@ -6877,7 +6915,7 @@ RtlUInt8Add(
         *pu8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -6904,7 +6942,7 @@ RtlUShortAdd(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -6914,7 +6952,7 @@ RtlUShortAdd(
 #define RtlUInt16Add   RtlUShortAdd
 
 //
-// WORD addtition
+// WORD addition
 //
 #define RtlWordAdd     RtlUShortAdd
 
@@ -6941,7 +6979,7 @@ RtlUIntAdd(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -6976,7 +7014,7 @@ RtlUIntPtrAdd(
         *puResult = UINT_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7004,7 +7042,7 @@ RtlULongAdd(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7034,7 +7072,7 @@ RtlULongPtrAdd(
         *pulResult = ULONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7070,7 +7108,7 @@ RtlDWordPtrAdd(
         *pdwResult = DWORD_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7098,7 +7136,7 @@ RtlSizeTAdd(
         *pResult = SIZE_T_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7128,7 +7166,7 @@ RtlSIZETAdd(
         *pResult = _SIZE_T_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7156,7 +7194,7 @@ RtlULongLongAdd(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7197,7 +7235,7 @@ RtlUInt8Sub(
     _Out_ _Deref_out_range_(==, u8Minuend - u8Subtrahend) UINT8* pu8Result)
 {
     NTSTATUS status;
-    
+
     if (u8Minuend >= u8Subtrahend)
     {
         *pu8Result = (UINT8)(u8Minuend - u8Subtrahend);
@@ -7208,7 +7246,7 @@ RtlUInt8Sub(
         *pu8Result = UINT8_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7235,7 +7273,7 @@ RtlUShortSub(
         *pusResult = USHORT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7273,7 +7311,7 @@ RtlUIntSub(
         *puResult = UINT_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7308,7 +7346,7 @@ RtlUIntPtrSub(
         *puResult = UINT_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7336,7 +7374,7 @@ RtlULongSub(
         *pulResult = ULONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7366,7 +7404,7 @@ RtlULongPtrSub(
         *pulResult = ULONG_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7403,9 +7441,9 @@ RtlDWordPtrSub(
         *pdwResult = DWORD_PTR_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
-} 
+}
 #endif // _WIN64
 
 //
@@ -7431,7 +7469,7 @@ RtlSizeTSub(
         *pResult = SIZE_T_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7461,7 +7499,7 @@ RtlSIZETSub(
         *pResult = _SIZE_T_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 #endif // _WIN64
@@ -7489,7 +7527,7 @@ RtlULongLongSub(
         *pullResult = ULONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
-    
+
     return status;
 }
 
@@ -7530,9 +7568,9 @@ RtlUInt8Mult(
     _Out_ _Deref_out_range_(==, u8Multiplicand * u8Multiplier) UINT8* pu8Result)
 {
     UINT uResult = ((UINT)u8Multiplicand) * ((UINT)u8Multiplier);
-    
+
     return RtlUIntToUInt8(uResult, pu8Result);
-}    
+}
 
 //
 // USHORT multiplication
@@ -7546,7 +7584,7 @@ RtlUShortMult(
     _Out_ _Deref_out_range_(==, usMultiplicand * usMultiplier) USHORT* pusResult)
 {
     ULONG ulResult = ((ULONG)usMultiplicand) * ((ULONG)usMultiplier);
-    
+
     return RtlULongToUShort(ulResult, pusResult);
 }
 
@@ -7613,7 +7651,7 @@ RtlULongMult(
     _Out_ _Deref_out_range_(==, ulMultiplicand * ulMultiplier) ULONG* pulResult)
 {
     ULONGLONG ull64Result = UInt32x32To64(ulMultiplicand, ulMultiplier);
-    
+
     return RtlULongLongToULong(ull64Result, pulResult);
 }
 
@@ -7632,7 +7670,7 @@ RtlULongPtrMult(
     _Out_ _Deref_out_range_(==, ulMultiplicand * ulMultiplier) ULONG_PTR* pulResult)
 {
     ULONGLONG ull64Result = UInt32x32To64(ulMultiplicand, ulMultiplier);
-    
+
     return RtlULongLongToULongPtr(ull64Result, pulResult);
 }
 #endif // _WIN64
@@ -7657,7 +7695,7 @@ RtlDWordPtrMult(
     _Out_ _Deref_out_range_(==, dwMultiplicand * dwMultiplier) DWORD_PTR* pdwResult)
 {
     ULONGLONG ull64Result = UInt32x32To64(dwMultiplicand, dwMultiplier);
-    
+
     return RtlULongLongToDWordPtr(ull64Result, pdwResult);
 }
 #endif // _WIN64
@@ -7698,7 +7736,7 @@ RtlSIZETMult(
     _Out_ _Deref_out_range_(==, Multiplicand * Multiplier) SIZE_T* pResult)
 {
     ULONGLONG ull64Result = UInt32x32To64(Multiplicand, Multiplier);
-    
+
     return RtlULongLongToSIZET(ull64Result, pResult);
 }
 #endif // _WIN64
@@ -7718,8 +7756,8 @@ RtlULongLongMult(
 #if defined(_USE_INTRINSIC_MULTIPLY128)
     ULONGLONG ullResultHigh;
     ULONGLONG ullResultLow;
-    
-    ullResultLow = UnsignedMultiply128(ullMultiplicand, ullMultiplier, &ullResultHigh);
+
+    ullResultLow = __RtlpUnsignedMultiply128(ullMultiplicand, ullMultiplier, &ullResultHigh);
     if (ullResultHigh == 0)
     {
         _Analysis_assume_(ullMultiplicand * ullMultiplier == ullResultLow);
@@ -7735,7 +7773,7 @@ RtlULongLongMult(
     // 64x64 into 128 is like 32.32 x 32.32.
     //
     // a.b * c.d = a*(c.d) + .b*(c.d) = a*c + a*.d + .b*c + .b*.d
-    // back in non-decimal notation where A=a*2^32 and C=c*2^32:  
+    // back in non-decimal notation where A=a*2^32 and C=c*2^32:
     // A*C + A*d + b*C + b*d
     // So there are four components to add together.
     //   result = (a*c*2^64) + (a*d*2^32) + (b*c*2^32) + (b*d)
@@ -7744,7 +7782,7 @@ RtlULongLongMult(
     // a * d must be less than 2^32 or there would be bits in the high 64-bits
     // b * c must be less than 2^32 or there would be bits in the high 64-bits
     // then there must be no overflow of the resulting values summed up.
-    
+
     ULONG dw_a;
     ULONG dw_b;
     ULONG dw_c;
@@ -7755,7 +7793,7 @@ RtlULongLongMult(
     ULONGLONG ullResult = 0;
 
     status = STATUS_INTEGER_OVERFLOW;
-    
+
     dw_a = (ULONG)(ullMultiplicand >> 32);
     dw_c = (ULONG)(ullMultiplier >> 32);
 
@@ -7788,11 +7826,11 @@ RtlULongLongMult(
                 {
                     // now sum them all up checking for overflow.
                     // shifting is safe because we already checked for overflow above
-                    if (NT_SUCCESS(RtlULongLongAdd(bc << 32, ad << 32, &ullResult)))                        
+                    if (NT_SUCCESS(RtlULongLongAdd(bc << 32, ad << 32, &ullResult)))
                     {
                         // b * d
                         bd = (((ULONGLONG)dw_b) * (ULONGLONG)dw_d);
-                    
+
                         if (NT_SUCCESS(RtlULongLongAdd(ullResult, bd, &ullResult)))
                         {
                             *pullResult = ullResult;
@@ -7862,28 +7900,47 @@ RtlULongLongMult(
 extern "C" {
 #endif
 
-#if !defined(_ARM64EC_)
+#if defined(_M_X64) && !defined(_M_ARM64EC)
 
-#define Multiply128 _mul128
+#define __RtlpMultiply128 _mul128
 
-#else
-
-#define _mul128 Multiply128
-
-#endif // defined(_ARM64EC_)
+#endif // defined(_M_X64) && !defined(_M_ARM64EC)
 
 LONG64
-Multiply128(
+__RtlpMultiply128(
     _In_ LONG64 Multiplier,
     _In_ LONG64  Multiplicand,
     _Out_ LONG64 *HighProduct
     );
 
-#if !defined(_ARM64EC_)
+#if defined(_M_X64) && !defined(_M_ARM64EC)
 
 #pragma intrinsic(_mul128)
 
-#endif // !defined(_ARM64EC_)
+#endif // defined(_M_X64) && !defined(_M_ARM64EC)
+
+#if defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_HYBRID_X86_ARM64)
+
+LONG64
+__mulh(
+   LONG64 Multiplier,
+   LONG64 Multiplicand
+   );
+
+#pragma intrinsic(__mulh)
+
+__inline
+LONG64
+__RtlpMultiply128(
+    _In_ LONG64 Multiplier,
+    _In_ LONG64 Multiplicand,
+    _Out_ _Deref_out_range_(==, Multiplicand * Multiplier) LONG64* HighProduct)
+{
+    *HighProduct = __mulh(Multiplier, Multiplicand);
+    return Multiplier * Multiplicand;
+}
+
+#endif // defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_HYBRID_X86_ARM64)
 
 #ifdef __cplusplus
 }
@@ -8027,23 +8084,31 @@ RtlLongLongAdd(
     )
 {
     NTSTATUS status;
-    LONGLONG llResult = llAugend + llAddend;
-    
+
+    //
+    // Signed integer overflow is undefined and must be avoided.
+    // Compilers do sometimes propagate undefined.
+    // Unsigned integer overflow is well defined to silently wraparound
+    // mod 2^n and may be used without problem.
+    //
+    ULONGLONG ullResult = ((ULONGLONG)llAugend) + (ULONGLONG)llAddend;
+
     //
     // Adding positive to negative never overflows.
     // If you add two positive numbers, you expect a positive result.
     // If you add two negative numbers, you expect a negative result.
-    // Overflow if inputs are the same sign and output is not that sign.
+    // Overflow if inputs have the same sign and output has the other sign.
+    // Unsigned greater than signed maximum, cast to signed, will be negative.
     //
     if (((llAugend < 0) == (llAddend < 0))  &&
-        ((llAugend < 0) != (llResult < 0)))
+        ((llAugend < 0) != (ullResult > (ULONGLONG)LONGLONG_MAX)))
     {
         *pllResult = LONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
     else
     {
-        *pllResult = llResult;
+        *pllResult = (LONGLONG)ullResult;
         status = STATUS_SUCCESS;
     }
 
@@ -8237,7 +8302,14 @@ RtlLongLongSub(
     )
 {
     NTSTATUS status;
-    LONGLONG llResult = llMinuend - llSubtrahend;
+
+    //
+    // Signed integer overflow is undefined and must be avoided.
+    // Compilers do sometimes propagate undefined.
+    // Unsigned integer overflow is well defined to silently wraparound
+    // mod 2^n and may be used without problem.
+    //
+    ULONGLONG ullResult = ((ULONGLONG)llMinuend) - (ULONGLONG)llSubtrahend;
 
     //
     // Subtracting a positive number from a positive number never overflows.
@@ -8245,19 +8317,20 @@ RtlLongLongSub(
     // If you subtract a negative number from a positive number, you expect a positive result.
     // If you subtract a positive number from a negative number, you expect a negative result.
     // Overflow if inputs vary in sign and the output does not have the same sign as the first input.
+    // Unsigned greater than signed maximum, cast to signed, will be negative.
     //
     if (((llMinuend < 0) != (llSubtrahend < 0)) &&
-        ((llMinuend < 0) != (llResult < 0)))
+        ((llMinuend < 0) != (ullResult > (ULONGLONG)LONGLONG_MAX)))
     {
         *pllResult = LONGLONG_ERROR;
         status = STATUS_INTEGER_OVERFLOW;
     }
     else
     {
-        *pllResult = llResult;
+        *pllResult = (LONGLONG)ullResult;
         status = STATUS_SUCCESS;
     }
-    
+
     return status;
 }
 
@@ -8451,10 +8524,10 @@ RtlLongLongMult(
 #if defined(_USE_INTRINSIC_MULTIPLY128)
     LONGLONG llResultHigh;
     LONGLONG llResultLow;
-    
-    llResultLow = Multiply128(llMultiplicand, llMultiplier, &llResultHigh);
-    
-    if (((llResultLow < 0) && (llResultHigh != -1))    || 
+
+    llResultLow = __RtlpMultiply128(llMultiplicand, llMultiplier, &llResultHigh);
+
+    if (((llResultLow < 0) && (llResultHigh != -1))    ||
         ((llResultLow >= 0) && (llResultHigh != 0)))
     {
         *pllResult = LONGLONG_ERROR;
@@ -8469,7 +8542,7 @@ RtlLongLongMult(
     //
     // Split into sign and magnitude, do unsigned operation, apply sign.
     //
-    
+
     ULONGLONG ullMultiplicand;
     ULONGLONG ullMultiplier;
     ULONGLONG ullResult;

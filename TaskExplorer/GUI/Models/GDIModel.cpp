@@ -53,7 +53,7 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
@@ -76,9 +76,9 @@ void CGDIModel::Sync(QMap<quint64, CWinGDIPtr> List)
 
 				switch (section)
 				{
-					case eProcess:	ColValue.Formated = tr("%1 (%2)").arg(pGDI->GetProcessName()).arg(pGDI->GetProcessId()); 
-					case eHandle:	ColValue.Formated = "0x" + QString::number(Value.toUInt(), 16); break;
-                    case eObject:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;
+					case eProcess:	ColValue.Formatted = tr("%1 (%2)").arg(pGDI->GetProcessName()).arg(theGUI->FormatID(pGDI->GetProcessId())); 
+					case eHandle:	ColValue.Formatted = "0x" + QString::number(Value.toUInt(), 16); break;
+                    case eObject:	ColValue.Formatted = FormatAddress(Value.toULongLong()); break;
 				}
 			}
 
@@ -124,7 +124,7 @@ QVariant CGDIModel::headerData(int section, Qt::Orientation orientation, int rol
 			case eProcess:			return tr("Process");
 			case eType:				return tr("Type");
 			case eObject:			return tr("Object");
-			case eInformation:		return tr("Informations");
+			case eInformation:		return tr("Information");
 		}
 	}
     return QVariant();

@@ -5,17 +5,17 @@
  *
  * Authors:
  *
- *     jxy-s   2022
- *     dmex    2022-2023
+ *     jxy-s   2022-2025
+ *     dmex    2022-2025
  *
  */
 
 #include <ph.h>
 #include <kphcomms.h>
 #include <kphuser.h>
+#include <kphringbuff.h>
 #include <mapldr.h>
-
-#include <fltuser.h>
+#include <apiimport.h>
 
 typedef struct _KPH_UMESSAGE
 {
@@ -40,409 +40,29 @@ PKPH_UMESSAGE KphpCommsMessages = NULL;
 ULONG KphpCommsMessageCount = 0;
 PH_RUNDOWN_PROTECT KphpCommsRundown;
 PH_FREE_LIST KphpCommsReplyFreeList;
+HANDLE KphpCommsRingBufferThread = NULL;
+KPH_RING_BUFFER_CONNECT KphpCommsRingBuffer = { 0 };
+ULONG KphpCommsTlsSlot = TLS_OUT_OF_INDEXES;
 
-#define KPH_COMMS_MIN_THREADS   2
-#define KPH_COMMS_MESSAGE_SCALE 2
-#define KPH_COMMS_THREAD_SCALE  2
-#define KPH_COMMS_MAX_MESSAGES  1024
+#define KPH_COMMS_MIN_THREADS           2
+#define KPH_COMMS_MESSAGE_SCALE         2
+#define KPH_COMMS_THREAD_SCALE          2
+#define KPH_COMMS_MAX_MESSAGES          1024
+#define KPH_COMMS_THREAD_PROPERTIES_SET UlongToPtr(1)
 
-/**
- * \brief Wrapper which is essentially FilterpDeviceIoControl.
- *
- * \param[in] Handle Filter port handle.
- * \param[in] IoControlCode Filter I/O control code
- * \param[in] InBuffer Input buffer.
- * \param[in] InBufferSize Input buffer size.
- * \param[out] OutputBuffer Output Buffer.
- * \param[in] OutputBufferSize Output buffer size.
- * \param[out] BytesReturned Optionally set to the number of bytes returned.
- * \param[in,out] Overlapped Optional overlapped structure.
- *
- * \return Successful or errant status.
- */
-_Must_inspect_result_
-NTSTATUS KphpFilterDeviceIoControl(
-    _In_ HANDLE Handle,
-    _In_ ULONG IoControlCode,
-    _In_reads_bytes_(InBufferSize) PVOID InBuffer,
-    _In_ ULONG InBufferSize,
-    _Out_writes_bytes_to_opt_(OutputBufferSize, *BytesReturned) PVOID OutputBuffer,
-    _In_ ULONG OutputBufferSize,
-    _Out_opt_ PULONG BytesReturned,
-    _Inout_opt_ LPOVERLAPPED Overlapped
+VOID KphpCommsSetThreadProperties(
+    _In_z_ PCWSTR ThreadName,
+    _In_ KPRIORITY Priority
     )
 {
-    NTSTATUS status;
-
-    if (BytesReturned)
+    if (PhTlsGetValue(KphpCommsTlsSlot) != KPH_COMMS_THREAD_PROPERTIES_SET)
     {
-        *BytesReturned = 0;
+        PhSetThreadName(NtCurrentThread(), ThreadName);
+        if (Priority >= THREAD_PRIORITY_TIME_CRITICAL)
+            Priority = LOW_REALTIME_PRIORITY;
+        PhSetThreadBasePriority(NtCurrentThread(), Priority);
+        PhTlsSetValue(KphpCommsTlsSlot, KPH_COMMS_THREAD_PROPERTIES_SET);
     }
-
-    if (Overlapped)
-    {
-        Overlapped->Internal = STATUS_PENDING;
-
-        if (DEVICE_TYPE_FROM_CTL_CODE(IoControlCode) == FILE_DEVICE_FILE_SYSTEM)
-        {
-            status = NtFsControlFile(Handle,
-                                     Overlapped->hEvent,
-                                     NULL,
-                                     Overlapped,
-                                     (PIO_STATUS_BLOCK)Overlapped,
-                                     IoControlCode,
-                                     InBuffer,
-                                     InBufferSize,
-                                     OutputBuffer,
-                                     OutputBufferSize);
-        }
-        else
-        {
-            status = NtDeviceIoControlFile(Handle,
-                                           Overlapped->hEvent,
-                                           NULL,
-                                           Overlapped,
-                                           (PIO_STATUS_BLOCK)Overlapped,
-                                           IoControlCode,
-                                           InBuffer,
-                                           InBufferSize,
-                                           OutputBuffer,
-                                           OutputBufferSize);
-        }
-
-        if (NT_INFORMATION(status) && BytesReturned)
-        {
-            *BytesReturned = (ULONG)Overlapped->InternalHigh;
-        }
-    }
-    else
-    {
-        IO_STATUS_BLOCK ioStatusBlock;
-
-        if (DEVICE_TYPE_FROM_CTL_CODE(IoControlCode) == FILE_DEVICE_FILE_SYSTEM)
-        {
-            status = NtFsControlFile(Handle,
-                                     NULL,
-                                     NULL,
-                                     NULL,
-                                     &ioStatusBlock,
-                                     IoControlCode,
-                                     InBuffer,
-                                     InBufferSize,
-                                     OutputBuffer,
-                                     OutputBufferSize);
-        }
-        else
-        {
-            status = NtDeviceIoControlFile(Handle,
-                                           NULL,
-                                           NULL,
-                                           NULL,
-                                           &ioStatusBlock,
-                                           IoControlCode,
-                                           InBuffer,
-                                           InBufferSize,
-                                           OutputBuffer,
-                                           OutputBufferSize);
-        }
-
-        if (status == STATUS_PENDING)
-        {
-            status = NtWaitForSingleObject(Handle, FALSE, NULL);
-            if (NT_SUCCESS(status))
-            {
-                status = ioStatusBlock.Status;
-            }
-        }
-
-        if (BytesReturned)
-        {
-            *BytesReturned = (ULONG)ioStatusBlock.Information;
-        }
-    }
-
-    return status;
-}
-
-// rev from FilterLoad/FilterUnload (fltlib) (dmex)
-/**
- * \brief An application with minifilter support can dynamically load and unload the minifilter.
- *
- * \param[in] ServiceName The service name from HKLM\\System\\CurrentControlSet\\Services\\<ServiceName>.
- * \param[in] LoadDriver TRUE to load the kernel driver, FALSE to unload the kernel driver.
- *
- * \remarks The caller must have SE_LOAD_DRIVER_PRIVILEGE.
- * \remarks This ioctl is a kernel wrapper around NtLoadDriver and NtUnloadDriver.
- *
- * \return Successful or errant status.
- */
-NTSTATUS KphFilterLoadUnload(
-    _In_ PPH_STRINGREF ServiceName,
-    _In_ BOOLEAN LoadDriver
-    )
-{
-    NTSTATUS status;
-    HANDLE fileHandle;
-    UNICODE_STRING objectName;
-    OBJECT_ATTRIBUTES objectAttributes;
-    IO_STATUS_BLOCK ioStatusBlock;
-    ULONG filterNameBufferLength;
-    PFLT_LOAD_PARAMETERS filterNameBuffer;
-    SECURITY_QUALITY_OF_SERVICE filterSecurityQos =
-    {
-        sizeof(SECURITY_QUALITY_OF_SERVICE),
-        SecurityImpersonation,
-        SECURITY_DYNAMIC_TRACKING,
-        TRUE
-    };
-
-    RtlInitUnicodeString(&objectName, FLT_MSG_DEVICE_NAME);
-    InitializeObjectAttributes(
-        &objectAttributes,
-        &objectName,
-        OBJ_CASE_INSENSITIVE | (WindowsVersion < WINDOWS_10 ? 0 : OBJ_DONT_REPARSE),
-        NULL,
-        NULL
-        );
-    objectAttributes.SecurityQualityOfService = &filterSecurityQos;
-
-    status = NtCreateFile(
-        &fileHandle,
-        FILE_READ_ATTRIBUTES | GENERIC_WRITE | SYNCHRONIZE,
-        &objectAttributes,
-        &ioStatusBlock,
-        NULL,
-        FILE_ATTRIBUTE_NORMAL,
-        FILE_SHARE_WRITE,
-        FILE_OPEN,
-        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-        NULL,
-        0
-        );
-
-    if (!NT_SUCCESS(status))
-        return status;
-
-    filterNameBufferLength = UFIELD_OFFSET(FLT_LOAD_PARAMETERS, FilterName[ServiceName->Length]) + sizeof(UNICODE_NULL);
-    filterNameBuffer = PhAllocateZero(filterNameBufferLength);
-    filterNameBuffer->FilterNameSize = (USHORT)ServiceName->Length;
-    RtlCopyMemory(filterNameBuffer->FilterName, ServiceName->Buffer, ServiceName->Length);
-
-    status = NtDeviceIoControlFile(
-        fileHandle,
-        NULL,
-        NULL,
-        NULL,
-        &ioStatusBlock,
-        LoadDriver ? FLT_CTL_LOAD : FLT_CTL_UNLOAD,
-        filterNameBuffer,
-        filterNameBufferLength,
-        NULL,
-        0
-        );
-
-    NtClose(fileHandle);
-    PhFree(filterNameBuffer);
-
-    return status;
-}
-
-/**
- * \brief Wrapper which is essentially FilterSendMessage.
- *
- * \param[in] Port Filter port handle.
- * \param[in] InBuffer Input buffer.
- * \param[in] InBufferSize Input buffer size.
- * \param[out] OutputBuffer Output Buffer.
- * \param[in] OutputBufferSize Output buffer size.
- * \param[out] BytesReturned Set to the number of bytes returned.
- *
- * \return Successful or errant status.
- */
-_Must_inspect_result_
-NTSTATUS KphpFilterSendMessage(
-    _In_ HANDLE Port,
-    _In_reads_bytes_(InBufferSize) PVOID InBuffer,
-    _In_ ULONG InBufferSize,
-    _Out_writes_bytes_to_opt_(OutputBufferSize, *BytesReturned) PVOID OutputBuffer,
-    _In_ ULONG OutputBufferSize,
-    _Out_ PULONG BytesReturned
-    )
-{
-    return KphpFilterDeviceIoControl(Port,
-                                     FLT_CTL_SEND_MESSAGE,
-                                     InBuffer,
-                                     InBufferSize,
-                                     OutputBuffer,
-                                     OutputBufferSize,
-                                     BytesReturned,
-                                     NULL);
-}
-
-/**
- * \brief Wrapper which is essentially FilterGetMessage.
- *
- * \param[in] Port Filter port handle.
- * \param[out] MessageBuffer Message buffer.
- * \param[in] MessageBufferSize Message buffer size.
- * \param[in] Overlapped Th overlapped structure.
- *
- * \return Successful or errant status.
- */
-_Must_inspect_result_
-NTSTATUS KphpFilterGetMessage(
-    _In_ HANDLE Port,
-    _Out_writes_bytes_(MessageBufferSize) PFILTER_MESSAGE_HEADER MessageBuffer,
-    _In_ ULONG MessageBufferSize,
-    _Inout_ LPOVERLAPPED Overlapped
-    )
-{
-    return KphpFilterDeviceIoControl(Port,
-                                     FLT_CTL_GET_MESSAGE,
-                                     NULL,
-                                     0,
-                                     MessageBuffer,
-                                     MessageBufferSize,
-                                     NULL,
-                                     Overlapped);
-}
-
-/**
- * \brief Wrapper which is essentially FilterReplyMessage.
- *
- * \param[in] Port Filter port handle.
- * \param[in] ReplyBuffer Reply buffer.
- * \param[in] ReplyBufferSize Reply buffer size.
- *
- * \return Successful or errant status.
- */
-_Must_inspect_result_
-NTSTATUS KphpFilterReplyMessage(
-    _In_ HANDLE Port,
-    _In_reads_bytes_(ReplyBufferSize) PFILTER_REPLY_HEADER ReplyBuffer,
-    _In_ ULONG ReplyBufferSize
-    )
-{
-    return KphpFilterDeviceIoControl(Port,
-                                     FLT_CTL_REPLY_MESSAGE,
-                                     ReplyBuffer,
-                                     ReplyBufferSize,
-                                     NULL,
-                                     0,
-                                     NULL,
-                                     NULL);
-}
-
-/**
- * \brief Wrapper which is essentially FilterConnectCommunicationPort.
- *
- * \param[in] PortName Name of filter port to connect to.
- * \param[in] Options Filter port options.
- * \param[in] ConnectionContext Connection context.
- * \param[in] SizeOfContext Size of connection context.
- * \param[in] SecurityAttributes Security attributes for handle.
- * \param[out] Port Set to filter port handle on success, null on failure.
- *
- * \return Successful or errant status.
- */
-_Must_inspect_result_
-NTSTATUS KphpFilterConnectCommunicationPort(
-    _In_ PPH_STRINGREF PortName,
-    _In_ ULONG Options,
-    _In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
-    _In_ USHORT SizeOfContext,
-    _In_opt_ PSECURITY_ATTRIBUTES SecurityAttributes,
-    _Outptr_ HANDLE *Port
-    )
-{
-    NTSTATUS status;
-    OBJECT_ATTRIBUTES objectAttributes;
-    UNICODE_STRING objectName;
-    UNICODE_STRING portName;
-    UNICODE_STRING64 portName64;
-    ULONG eaLength;
-    PFILE_FULL_EA_INFORMATION ea;
-    PFLT_CONNECT_CONTEXT eaValue;
-    IO_STATUS_BLOCK isb;
-
-    *Port = NULL;
-
-    if ((SizeOfContext > 0 && !ConnectionContext) ||
-        (SizeOfContext == 0 && ConnectionContext))
-    {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    if (SizeOfContext >= FLT_PORT_CONTEXT_MAX)
-        return STATUS_INTEGER_OVERFLOW;
-
-    if (!PhStringRefToUnicodeString(PortName, &portName))
-        return STATUS_NAME_TOO_LONG;
-
-    portName64.Buffer = (ULONGLONG)portName.Buffer;
-    portName64.Length = portName.Length;
-    portName64.MaximumLength = portName.MaximumLength;
-
-    //
-    // Build the filter EA, this contains the port name and the context.
-    //
-
-    eaLength = FLT_PORT_FULL_EA_SIZE
-             + FLT_PORT_FULL_EA_VALUE_SIZE
-             + SizeOfContext;
-
-    ea = PhAllocateZeroSafe(eaLength);
-    if (!ea)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    ea->Flags = 0;
-    ea->EaNameLength = sizeof(FLT_PORT_EA_NAME) - sizeof(ANSI_NULL);
-    ea->EaValueLength = FLT_PORT_FULL_EA_VALUE_SIZE + SizeOfContext;
-    RtlCopyMemory(ea->EaName, FLT_PORT_EA_NAME, sizeof(FLT_PORT_EA_NAME));
-    eaValue = PTR_ADD_OFFSET(ea->EaName, sizeof(FLT_PORT_EA_NAME));
-    eaValue->PortName = &portName;
-    eaValue->PortName64 = &portName64;
-    eaValue->SizeOfContext = SizeOfContext;
-
-    if (SizeOfContext > 0)
-    {
-        RtlCopyMemory(eaValue->Context,
-                      ConnectionContext,
-                      SizeOfContext);
-    }
-
-    RtlInitUnicodeString(&objectName, FLT_MSG_DEVICE_NAME);
-    InitializeObjectAttributes(&objectAttributes,
-                               &objectName,
-                               OBJ_CASE_INSENSITIVE | (WindowsVersion < WINDOWS_10 ? 0 : OBJ_DONT_REPARSE),
-                               NULL,
-                               NULL);
-    if (SecurityAttributes)
-    {
-        if (SecurityAttributes->bInheritHandle)
-        {
-            objectAttributes.Attributes |= OBJ_INHERIT;
-        }
-        objectAttributes.SecurityDescriptor = SecurityAttributes->lpSecurityDescriptor;
-    }
-
-    status = NtCreateFile(Port,
-                          FILE_READ_ACCESS | FILE_WRITE_ACCESS | SYNCHRONIZE,
-                          &objectAttributes,
-                          &isb,
-                          NULL,
-                          0,
-                          0,
-                          FILE_OPEN_IF,
-                          Options & FLT_PORT_FLAG_SYNC_HANDLE ? FILE_SYNCHRONOUS_IO_NONALERT : 0,
-                          ea,
-                          eaLength);
-
-    PhFree(ea);
-
-    return status;
 }
 
 /**
@@ -461,21 +81,17 @@ VOID KphpCommsCallbackUnhandled(
     _In_ PCKPH_MESSAGE Message
     )
 {
-    PPH_FREE_LIST freelist;
     PKPH_MESSAGE msg;
 
     if (!ReplyToken)
-    {
         return;
-    }
 
-    freelist = KphGetMessageFreeList();
-
-    msg = PhAllocateFromFreeList(freelist);
+    msg = KphCreateMessage(KPH_MESSAGE_MIN_SIZE);
     KphMsgInit(msg, KphMsgUnhandled);
+
     KphCommsReplyMessage(ReplyToken, msg);
 
-    PhFreeToFreeList(freelist, msg);
+    PhDereferenceObject(msg);
 }
 
 /**
@@ -487,6 +103,7 @@ VOID KphpCommsCallbackUnhandled(
  * \param[in] IoSB Result of the asynchronous I/O operation.
  * \param[in,out] Io Unused
  */
+_Function_class_(TP_IO_CALLBACK)
 VOID WINAPI KphpCommsIoCallback(
     _Inout_ PTP_CALLBACK_INSTANCE Instance,
     _Inout_opt_ PVOID Context,
@@ -497,88 +114,99 @@ VOID WINAPI KphpCommsIoCallback(
 {
     NTSTATUS status;
     PKPH_UMESSAGE msg;
-    BOOLEAN handled;
-    ULONG_PTR replyToken;
+    SIZE_T length;
 
     if (!PhAcquireRundownProtection(&KphpCommsRundown))
-    {
         return;
-    }
+
+    KphpCommsSetThreadProperties(L"Message Processor", THREAD_PRIORITY_TIME_CRITICAL);
 
     msg = CONTAINING_RECORD(ApcContext, KPH_UMESSAGE, Overlapped);
 
     if (IoSB->Status != STATUS_SUCCESS)
     {
-        goto Exit;
+        if (IoSB->Status == STATUS_PORT_DISCONNECTED)
+        {
+            KphpCommsPortDisconnected = TRUE;
+            PhReleaseRundownProtection(&KphpCommsRundown);
+            return;
+        }
+
+        goto QueueIoOperation;
     }
 
-    if (IoSB->Information < KPH_MESSAGE_MIN_SIZE)
-    {
-        assert(FALSE);
-        goto Exit;
-    }
+    assert(IoSB->Information >= UFIELD_OFFSET(KPH_UMESSAGE, Message));
 
-    status = KphMsgValidate(&msg->Message);
-    if (!NT_SUCCESS(status))
-    {
-        assert(FALSE);
-        goto Exit;
-    }
+    if (IoSB->Information < UFIELD_OFFSET(KPH_UMESSAGE, Message))
+        goto QueueIoOperation;
 
-    // Boost the priority of the thread handling this message (dmex)
-    if (msg->Overlapped.hEvent)
+    length = IoSB->Information - UFIELD_OFFSET(KPH_UMESSAGE, Message);
+
+    assert(length >= KPH_MESSAGE_MIN_SIZE);
+
+    if (length < KPH_MESSAGE_MIN_SIZE)
+        goto QueueIoOperation;
+
+    if (!NT_SUCCESS(status = KphMsgValidate(&msg->Message)))
     {
-        NtSetEventBoostPriority(msg->Overlapped.hEvent);
+        assert(NT_SUCCESS(status));
+        goto QueueIoOperation;
     }
 
     if (msg->MessageHeader.ReplyLength)
     {
+        BOOLEAN handled;
+        ULONG_PTR replyToken;
+
         replyToken = (ULONG_PTR)&msg->MessageHeader;
+
+        assert(length == msg->Message.Header.Size);
+
+        if (KphpCommsRegisteredCallback)
+            handled = KphpCommsRegisteredCallback(replyToken, &msg->Message);
+        else
+            handled = FALSE;
+
+        if (!handled)
+            KphpCommsCallbackUnhandled(replyToken, &msg->Message);
     }
-    else
+    else if (KphpCommsRegisteredCallback)
     {
-        replyToken = 0;
+        for (ULONG offset = 0; offset < length; NOTHING)
+        {
+            PKPH_MESSAGE message;
+
+            assert(offset < sizeof(KPH_MESSAGE));
+
+            message = PTR_ADD_OFFSET(&msg->Message, offset);
+
+            KphpCommsRegisteredCallback(0, message);
+
+            offset += message->Header.Size;
+        }
     }
 
-    if (KphpCommsRegisteredCallback)
-    {
-        handled = KphpCommsRegisteredCallback(replyToken, &msg->Message);
-    }
-    else
-    {
-        handled = FALSE;
-    }
+QueueIoOperation:
 
-    if (!handled)
-    {
-        KphpCommsCallbackUnhandled(replyToken, &msg->Message);
-    }
+    RtlZeroMemory(&msg->Overlapped, sizeof(OVERLAPPED));
 
-Exit:
-
-    RtlZeroMemory(&msg->Overlapped, FIELD_OFFSET(OVERLAPPED, hEvent));
+    assert(Io == KphpCommsThreadPoolIo);
 
     TpStartAsyncIoOperation(KphpCommsThreadPoolIo);
 
-    status = KphpFilterGetMessage(KphpCommsFltPortHandle,
-                                  &msg->MessageHeader,
-                                  FIELD_OFFSET(KPH_UMESSAGE, Overlapped),
-                                  &msg->Overlapped);
+    status = PhFilterGetMessage(
+        KphpCommsFltPortHandle,
+        &msg->MessageHeader,
+        FIELD_OFFSET(KPH_UMESSAGE, Overlapped),
+        &msg->Overlapped
+        );
 
     if (status != STATUS_PENDING)
     {
+        assert(status == STATUS_PORT_DISCONNECTED);
+
         if (status == STATUS_PORT_DISCONNECTED)
-        {
-            //
-            // Mark the port disconnected so KphCommsIsConnected returns false.
-            // This can happen if the driver goes away before the client.
-            //
             KphpCommsPortDisconnected = TRUE;
-        }
-        else
-        {
-            assert(FALSE);
-        }
 
         TpCancelAsyncIoOperation(KphpCommsThreadPoolIo);
     }
@@ -586,33 +214,50 @@ Exit:
     PhReleaseRundownProtection(&KphpCommsRundown);
 }
 
-static VOID KphpTpSetPoolThreadBasePriority(
-    _Inout_ PTP_POOL Pool,
-    _In_ ULONG BasePriority
+_Function_class_(KPH_RING_CALLBACK)
+BOOLEAN NTAPI KphpRingBufferCallback(
+    _In_opt_ PVOID Context,
+    _In_bytecount_(Length) PVOID Buffer,
+    _In_ ULONG Length
     )
 {
-    static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static NTSTATUS (NTAPI* TpSetPoolThreadBasePriority_I)(
-        _Inout_ PTP_POOL Pool,
-        _In_ ULONG BasePriority
-        ) = NULL;
+    if (!PhAcquireRundownProtection(&KphpCommsRundown))
+        return TRUE;
 
-    if (PhBeginInitOnce(&initOnce))
+    if (KphpCommsRegisteredCallback && NT_VERIFY(Length >= KPH_MESSAGE_MIN_SIZE))
     {
-        PVOID baseAddress;
-
-        if (baseAddress = PhGetLoaderEntryDllBaseZ(L"ntdll.dll"))
+        if (NT_VERIFY(NT_SUCCESS(KphMsgValidate(Buffer))))
         {
-            TpSetPoolThreadBasePriority_I = PhGetDllBaseProcedureAddress(baseAddress, "TpSetPoolThreadBasePriority", 0);
+            KphpCommsRegisteredCallback(0, Buffer);
         }
-
-        PhEndInitOnce(&initOnce);
     }
 
-    if (TpSetPoolThreadBasePriority_I)
+    PhReleaseRundownProtection(&KphpCommsRundown);
+
+    return FALSE;
+}
+
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS NTAPI KphpRingBufferProcessor(
+    _In_ PVOID Context
+    )
+{
+    KphpCommsSetThreadProperties(L"Message Ring Processor", THREAD_PRIORITY_HIGHEST);
+
+    while (PhAcquireRundownProtection(&KphpCommsRundown))
     {
-        TpSetPoolThreadBasePriority_I(Pool, BasePriority);
+        PhReleaseRundownProtection(&KphpCommsRundown);
+
+        if (!KphProcessRingBuffer(&KphpCommsRingBuffer.Ring, KphpRingBufferCallback, NULL))
+        {
+            if (KphpCommsRingBuffer.EventHandle)
+                PhWaitForSingleObject(KphpCommsRingBuffer.EventHandle, INFINITE);
+            else
+                PhDelayExecution(300);
+        }
     }
+
+    return STATUS_SUCCESS;
 }
 
 /**
@@ -621,40 +266,71 @@ static VOID KphpTpSetPoolThreadBasePriority(
  * \param[in] PortName Communication port name.
  * \param[in] Callback Communication callback for receiving (and replying to)
  * messages from the driver.
+ * \param[in] RingBufferLength Size of the ring buffer to use for messages.
  *
  * \return Successful or errant status.
  */
 _Must_inspect_result_
 NTSTATUS KphCommsStart(
-    _In_ PPH_STRINGREF PortName,
-    _In_opt_ PKPH_COMMS_CALLBACK Callback
+    _In_ PCPH_STRINGREF PortName,
+    _In_opt_ PKPH_COMMS_CALLBACK Callback,
+    _In_ ULONG RingBufferLength
     )
 {
     NTSTATUS status;
     ULONG numberOfThreads;
+    PVOID connectionContext;
+    PVOID connectionContextPointer;
+    USHORT connectionContextSize;
 
     if (KphpCommsFltPortHandle)
     {
         status = STATUS_ALREADY_INITIALIZED;
-        goto Exit;
+        goto CleanupExit;
     }
 
-    status = KphpFilterConnectCommunicationPort(PortName,
-                                                0,
-                                                NULL,
-                                                0,
-                                                NULL,
-                                                &KphpCommsFltPortHandle);
-    if (!NT_SUCCESS(status))
+    if (RingBufferLength)
     {
-        goto Exit;
+        NtCreateEvent(&KphpCommsRingBuffer.EventHandle, EVENT_ALL_ACCESS, NULL, SynchronizationEvent, FALSE);
+        KphpCommsRingBuffer.Length = RingBufferLength;
+        connectionContext = &KphpCommsRingBuffer;
+        connectionContextPointer = &connectionContext;
+        connectionContextSize = sizeof(PVOID);
     }
+    else
+    {
+        connectionContextPointer = NULL;
+        connectionContextSize = 0;
+    }
+
+    if (!NT_SUCCESS(status = PhFilterConnectCommunicationPort(
+        PortName,
+        0,
+        connectionContextPointer,
+        connectionContextSize,
+        NULL,
+        &KphpCommsFltPortHandle
+        )))
+        goto CleanupExit;
 
     KphpCommsPortDisconnected = FALSE;
     KphpCommsRegisteredCallback = Callback;
 
     PhInitializeRundownProtection(&KphpCommsRundown);
     PhInitializeFreeList(&KphpCommsReplyFreeList, sizeof(KPH_UREPLY), 16);
+
+    KphpCommsTlsSlot = PhTlsAlloc();
+    if (KphpCommsTlsSlot == TLS_OUT_OF_INDEXES)
+    {
+        status = STATUS_INSUFFICIENT_RESOURCES;
+        goto CleanupExit;
+    }
+
+    if (RingBufferLength)
+    {
+        if (!NT_SUCCESS(status = PhCreateThreadEx(&KphpCommsRingBufferThread, KphpRingBufferProcessor, NULL)))
+            goto CleanupExit;
+    }
 
     if (PhSystemProcessorInformation.NumberOfProcessors >= KPH_COMMS_MIN_THREADS)
         numberOfThreads = PhSystemProcessorInformation.NumberOfProcessors * KPH_COMMS_THREAD_SCALE;
@@ -665,13 +341,14 @@ NTSTATUS KphCommsStart(
     if (KphpCommsMessageCount > KPH_COMMS_MAX_MESSAGES)
         KphpCommsMessageCount = KPH_COMMS_MAX_MESSAGES;
 
-    status = TpAllocPool(&KphpCommsThreadPool, NULL);
-    if (!NT_SUCCESS(status))
-        goto Exit;
+    if (!NT_SUCCESS(status = TpAllocPool(&KphpCommsThreadPool, NULL)))
+        goto CleanupExit;
 
     TpSetPoolMinThreads(KphpCommsThreadPool, KPH_COMMS_MIN_THREADS);
     TpSetPoolMaxThreads(KphpCommsThreadPool, numberOfThreads);
-    KphpTpSetPoolThreadBasePriority(KphpCommsThreadPool, THREAD_PRIORITY_HIGHEST);
+
+    if (TpSetPoolThreadBasePriority_Import())
+        TpSetPoolThreadBasePriority_Import()(KphpCommsThreadPool, THREAD_PRIORITY_HIGHEST);
 
     TpInitializeCallbackEnviron(&KphpCommsThreadPoolEnv);
     TpSetCallbackNoActivationContext(&KphpCommsThreadPoolEnv);
@@ -679,46 +356,36 @@ NTSTATUS KphCommsStart(
     TpSetCallbackThreadpool(&KphpCommsThreadPoolEnv, KphpCommsThreadPool);
     //TpSetCallbackLongFunction(&KphpCommsThreadPoolEnv);
 
-    PhSetFileCompletionNotificationMode(KphpCommsFltPortHandle,
-                                        FILE_SKIP_SET_EVENT_ON_HANDLE);
+    PhSetFileCompletionNotificationMode(KphpCommsFltPortHandle, FILE_SKIP_SET_EVENT_ON_HANDLE);
 
-    status = TpAllocIoCompletion(&KphpCommsThreadPoolIo,
-                                 KphpCommsFltPortHandle,
-                                 KphpCommsIoCallback,
-                                 NULL,
-                                 &KphpCommsThreadPoolEnv
-                                 );
-    if (!NT_SUCCESS(status))
-        goto Exit;
+    if (!NT_SUCCESS(status = TpAllocIoCompletion(
+        &KphpCommsThreadPoolIo,
+        KphpCommsFltPortHandle,
+        KphpCommsIoCallback,
+        NULL,
+        &KphpCommsThreadPoolEnv
+        )))
+        goto CleanupExit;
 
     KphpCommsMessages = PhAllocateZeroSafe(sizeof(KPH_UMESSAGE) * KphpCommsMessageCount);
     if (!KphpCommsMessages)
     {
-        status = STATUS_INSUFFICIENT_RESOURCES;
-        goto Exit;
+        status = STATUS_NO_MEMORY;
+        goto CleanupExit;
     }
 
     for (ULONG i = 0; i < KphpCommsMessageCount; i++)
     {
-        status = PhCreateEvent(&KphpCommsMessages[i].Overlapped.hEvent,
-                               EVENT_ALL_ACCESS,
-                               NotificationEvent,
-                               FALSE);
-
-        if (!NT_SUCCESS(status))
-            goto Exit;
-
-        //NtSetEventBoostPriority(KphpCommsMessages[i].Overlapped.hEvent);
-
-        RtlZeroMemory(&KphpCommsMessages[i].Overlapped,
-            FIELD_OFFSET(OVERLAPPED, hEvent));
+        RtlZeroMemory(&KphpCommsMessages[i].Overlapped, sizeof(OVERLAPPED));
 
         TpStartAsyncIoOperation(KphpCommsThreadPoolIo);
 
-        status = KphpFilterGetMessage(KphpCommsFltPortHandle,
-                                      &KphpCommsMessages[i].MessageHeader,
-                                      FIELD_OFFSET(KPH_UMESSAGE, Overlapped),
-                                      &KphpCommsMessages[i].Overlapped);
+        status = PhFilterGetMessage(
+            KphpCommsFltPortHandle,
+            &KphpCommsMessages[i].MessageHeader,
+            FIELD_OFFSET(KPH_UMESSAGE, Overlapped),
+            &KphpCommsMessages[i].Overlapped
+            );
         if (status == STATUS_PENDING)
         {
             status = STATUS_SUCCESS;
@@ -726,17 +393,16 @@ NTSTATUS KphCommsStart(
         else
         {
             status = STATUS_FLT_INTERNAL_ERROR;
-            goto Exit;
+            goto CleanupExit;
         }
     }
 
     status = STATUS_SUCCESS;
 
-Exit:
+CleanupExit:
+
     if (!NT_SUCCESS(status))
-    {
         KphCommsStop();
-    }
 
     return status;
 }
@@ -749,9 +415,7 @@ VOID KphCommsStop(
     )
 {
     if (!KphpCommsFltPortHandle)
-    {
         return;
-    }
 
     PhWaitForRundownProtection(&KphpCommsRundown);
 
@@ -770,6 +434,34 @@ VOID KphCommsStop(
         KphpCommsThreadPool = NULL;
     }
 
+    if (KphpCommsRingBufferThread)
+    {
+        if (KphpCommsRingBuffer.EventHandle)
+            NtSetEvent(KphpCommsRingBuffer.EventHandle, NULL);
+
+        NtWaitForSingleObject(KphpCommsRingBufferThread, FALSE, NULL);
+        NtClose(KphpCommsRingBufferThread);
+        KphpCommsRingBufferThread = NULL;
+
+        if (KphpCommsRingBuffer.Ring.Producer)
+        {
+            NtUnmapViewOfSection(NtCurrentProcess(), KphpCommsRingBuffer.Ring.Producer);
+            KphpCommsRingBuffer.Ring.Producer = NULL;
+        }
+
+        if (KphpCommsRingBuffer.Ring.Consumer)
+        {
+            NtUnmapViewOfSection(NtCurrentProcess(), KphpCommsRingBuffer.Ring.Consumer);
+            KphpCommsRingBuffer.Ring.Consumer = NULL;
+        }
+
+        if (KphpCommsRingBuffer.EventHandle)
+        {
+            NtClose(KphpCommsRingBuffer.EventHandle);
+            KphpCommsRingBuffer.EventHandle = NULL;
+        }
+    }
+
     KphpCommsRegisteredCallback = NULL;
     KphpCommsPortDisconnected = TRUE;
 
@@ -778,19 +470,16 @@ VOID KphCommsStop(
 
     if (KphpCommsMessages)
     {
-        for (ULONG i = 0; i < KphpCommsMessageCount; i++)
-        {
-            if (KphpCommsMessages[i].Overlapped.hEvent)
-            {
-                NtClose(KphpCommsMessages[i].Overlapped.hEvent);
-                KphpCommsMessages[i].Overlapped.hEvent = NULL;
-            }
-        }
-
         KphpCommsMessageCount = 0;
 
         PhFree(KphpCommsMessages);
         KphpCommsMessages = NULL;
+    }
+
+    if (KphpCommsTlsSlot != TLS_OUT_OF_INDEXES)
+    {
+        PhTlsFree(KphpCommsTlsSlot);
+        KphpCommsTlsSlot = TLS_OUT_OF_INDEXES;
     }
 
     PhDeleteFreeList(&KphpCommsReplyFreeList);
@@ -799,7 +488,7 @@ VOID KphCommsStop(
 /**
  * \brief Checks if communications is connected to the driver.
  *
- * @return TRUE if connected, FALSE otherwise.
+ * \return TRUE if connected, FALSE otherwise.
  */
 BOOLEAN KphCommsIsConnected(
     VOID
@@ -831,7 +520,7 @@ NTSTATUS KphCommsReplyMessage(
     if (!KphpCommsFltPortHandle)
     {
         status = STATUS_FLT_NOT_INITIALIZED;
-        goto Exit;
+        goto CleanupExit;
     }
 
     if (!header || !header->ReplyLength)
@@ -840,46 +529,35 @@ NTSTATUS KphCommsReplyMessage(
         // Kernel is not expecting a reply.
         //
         status = STATUS_INVALID_PARAMETER_1;
-        goto Exit;
+        goto CleanupExit;
     }
 
-    status = KphMsgValidate(Message);
-    if (!NT_SUCCESS(status))
-    {
-        goto Exit;
-    }
+    if (!NT_SUCCESS(status = KphMsgValidate(Message)))
+        goto CleanupExit;
 
-    reply = PhAllocateFromFreeList(&KphpCommsReplyFreeList);
-    if (!reply)
+    if (!(reply = PhAllocateFromFreeList(&KphpCommsReplyFreeList)))
     {
-        status = STATUS_INSUFFICIENT_RESOURCES;
-        goto Exit;
+        status = STATUS_NO_MEMORY;
+        goto CleanupExit;
     }
 
     RtlZeroMemory(reply, sizeof(KPH_UREPLY));
     RtlCopyMemory(&reply->ReplyHeader, header, sizeof(reply->ReplyHeader));
     RtlCopyMemory(&reply->Message, Message, Message->Header.Size);
 
-    status = KphpFilterReplyMessage(
-                           KphpCommsFltPortHandle,
-                           &reply->ReplyHeader,
-                           sizeof(reply->ReplyHeader) + Message->Header.Size);
+    status = PhFilterReplyMessage(
+        KphpCommsFltPortHandle,
+        &reply->ReplyHeader,
+        sizeof(reply->ReplyHeader) + Message->Header.Size
+        );
 
     if (status == STATUS_PORT_DISCONNECTED)
-    {
-        //
-        // Mark the port disconnected so KphCommsIsConnected returns false.
-        // This can happen if the driver goes away before the client.
-        //
         KphpCommsPortDisconnected = TRUE;
-    }
 
-Exit:
+CleanupExit:
 
     if (reply)
-    {
         PhFreeToFreeList(&KphpCommsReplyFreeList, reply);
-    }
 
     return status;
 }
@@ -901,31 +579,22 @@ NTSTATUS KphCommsSendMessage(
     ULONG bytesReturned;
 
     if (!KphpCommsFltPortHandle)
-    {
         return STATUS_FLT_NOT_INITIALIZED;
-    }
 
-    status = KphMsgValidate(Message);
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status = KphMsgValidate(Message)))
         return status;
-    }
 
-    status = KphpFilterSendMessage(KphpCommsFltPortHandle,
-                                   Message,
-                                   sizeof(KPH_MESSAGE),
-                                   NULL,
-                                   0,
-                                   &bytesReturned);
+    status = PhFilterSendMessage(
+        KphpCommsFltPortHandle,
+        Message,
+        Message->Header.Size,
+        NULL,
+        0,
+        &bytesReturned
+        );
 
     if (status == STATUS_PORT_DISCONNECTED)
-    {
-        //
-        // Mark the port disconnected so KphCommsIsConnected returns false.
-        // This can happen if the driver goes away before the client.
-        //
         KphpCommsPortDisconnected = TRUE;
-    }
 
     return status;
 }

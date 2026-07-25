@@ -1,7 +1,7 @@
-LIBRARY ksi.dll
+LIBRARY kte.dll
 EXPORTS
-    DllInitialize       PRIVATE
-    DllUnload           PRIVATE
+    DllInitialize                 PRIVATE
+    DllUnload                     PRIVATE
     KsiInitialize
     KsiUninitialize
     KsiInitializeApc
@@ -9,3 +9,10 @@ EXPORTS
     KsiRemoveQueueApc
     KsiInitializeWorkItem
     KsiQueueWorkItem
+    KsiInitializeDpc
+    KsiInitializeThreadedDpc
+    KsiInsertQueueDpc
+    KsiRemoveQueueDpc
+    KsiRemoveQueueDpcEx
+    KsiInitializeSystemProcess
+    KsiSystemProcess              DATA

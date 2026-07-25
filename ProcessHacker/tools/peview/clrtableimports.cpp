@@ -118,43 +118,43 @@ PPH_STRING PvClrImportFlagsToString(
     PhInitializeStringBuilder(&stringBuilder, 10);
 
     if (IsPmNoMangle(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"No mangle, "));
+        PhAppendStringBuilder2(&stringBuilder, L"No mangle, ");
     if (IsPmCharSetAnsi(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Ansi charset, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Ansi charset, ");
     if (IsPmCharSetUnicode(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Unicode charset, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Unicode charset, ");
     if (IsPmCharSetAuto(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Auto charset, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Auto charset, ");
     if (IsPmSupportsLastError(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Supports last error, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Supports last error, ");
     if (IsPmCallConvWinapi(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Winapi, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Winapi, ");
     if (IsPmCallConvCdecl(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Cdecl, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Cdecl, ");
     if (IsPmCallConvStdcall(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Stdcall, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Stdcall, ");
     if (IsPmCallConvThiscall(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Thiscall, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Thiscall, ");
     if (IsPmCallConvFastcall(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Fastcall, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Fastcall, ");
     if (IsPmBestFitEnabled(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Bestfit enabled, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Bestfit enabled, ");
     if (IsPmBestFitDisabled(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Bestfit disabled, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Bestfit disabled, ");
     if (IsPmBestFitUseAssem(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"Bestfit assembly, "));
+        PhAppendStringBuilder2(&stringBuilder, L"Bestfit assembly, ");
     if (IsPmThrowOnUnmappableCharEnabled(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"ThrowOnUnmappableChar enabled, "));
+        PhAppendStringBuilder2(&stringBuilder, L"ThrowOnUnmappableChar enabled, ");
     if (IsPmThrowOnUnmappableCharDisabled(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"ThrowOnUnmappableChar disabled, "));
+        PhAppendStringBuilder2(&stringBuilder, L"ThrowOnUnmappableChar disabled, ");
     if (IsPmThrowOnUnmappableCharUseAssem(Flags))
-        PhAppendStringBuilder2(&stringBuilder, const_cast<wchar_t*>(L"ThrowOnUnmappableChar assembly, "));
+        PhAppendStringBuilder2(&stringBuilder, L"ThrowOnUnmappableChar assembly, ");
 
-    if (PhEndsWithString2(stringBuilder.String, const_cast<wchar_t*>(L", "), FALSE))
+    if (PhEndsWithString2(stringBuilder.String, L", ", FALSE))
         PhRemoveEndStringBuilder(&stringBuilder, 2);
 
     PhPrintPointer(pointer, UlongToPtr(Flags));
-    PhAppendFormatStringBuilder(&stringBuilder, const_cast<wchar_t*>(L" (%s)"), pointer);
+    PhAppendFormatStringBuilder(&stringBuilder, L" (%s)", pointer);
 
     return PhFinalStringBuilderString(&stringBuilder);
 }
@@ -171,6 +171,7 @@ static int __cdecl PvClrCoreNameCompare(
     return PhCompareStringWithNull(item1, item2, TRUE);
 }
 
+_Function_class_(PH_ENUM_DIRECTORY_FILE)
 static BOOLEAN PvClrCoreDirectoryCallback(
     _In_ HANDLE RootDirectory,
     _In_ PVOID Information,
@@ -197,8 +198,8 @@ HRESULT PvGetClrMetaDataInterface(
     _Out_ IMetaDataDispenser** ClrMetaDataInterface
     )
 {
-    static PH_STRINGREF dotNetCorePath = PH_STRINGREF_INIT(L"%ProgramFiles%\\dotnet\\shared\\Microsoft.NETCore.App\\");
-    static PH_STRINGREF dotNetCoreName = PH_STRINGREF_INIT(L"\\coreclr.dll");
+    static CONST PH_STRINGREF dotNetCorePath = PH_STRINGREF_INIT(L"%ProgramFiles%\\dotnet\\shared\\Microsoft.NETCore.App\\");
+    static CONST PH_STRINGREF dotNetCoreName = PH_STRINGREF_INIT(L"\\coreclr.dll");
     HRESULT (WINAPI* MetaDataGetDispenser_I)(_In_ REFCLSID rclsid, _In_ REFIID riid, _COM_Outptr_ PVOID* ppv) = nullptr;
     HRESULT status = E_FAIL;
     PVOID clrCoreBaseAddress = nullptr;
@@ -227,6 +228,7 @@ HRESULT PvGetClrMetaDataInterface(
             // Sort by version?
             qsort_s(directoryList->Items, directoryList->Count, sizeof(PVOID), PvClrCoreNameCompare, nullptr);
 
+            if (directoryList->Count > 0)
             {
                 PPH_STRING directoryName = static_cast<PPH_STRING>(directoryList->Items[directoryList->Count - 1]);
                 PPH_STRING fileName = PhConcatStringRef3(
@@ -278,7 +280,7 @@ HRESULT PvGetClrMetaDataInterface(
     if (!clrCoreBaseAddress)
         return HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND);
 
-    if (MetaDataGetDispenser_I = reinterpret_cast<decltype(MetaDataGetDispenser_I)>(PhGetDllBaseProcedureAddress(clrCoreBaseAddress, const_cast<PSTR>("MetaDataGetDispenser"), 0)))
+    if (MetaDataGetDispenser_I = reinterpret_cast<decltype(MetaDataGetDispenser_I)>(PhGetDllBaseProcedureAddress(clrCoreBaseAddress, "MetaDataGetDispenser", 0)))
     {
         MetaDataGetDispenser_I(CLSID_CorMetaDataDispenser, IID_IMetaDataDispenser, reinterpret_cast<PVOID*>(&clrMetadataInterface));
     }
@@ -294,7 +296,7 @@ HRESULT PvGetClrMetaDataInterface(
         ICLRMetaHost* clrMetaHost = nullptr;
         ICLRRuntimeInfo* clrRuntimeInfo = nullptr;
 
-        if (CLRCreateInstance_I = reinterpret_cast<decltype(CLRCreateInstance_I)>(PhGetDllBaseProcedureAddress(clrCoreBaseAddress, const_cast<PSTR>("CLRCreateInstance"), 0)))
+        if (CLRCreateInstance_I = reinterpret_cast<decltype(CLRCreateInstance_I)>(PhGetDllBaseProcedureAddress(clrCoreBaseAddress, "CLRCreateInstance", 0)))
         {
             status = CLRCreateInstance_I(
                 CLSID_CLRMetaHost,
@@ -501,7 +503,7 @@ HRESULT PvSafeParseAttributeString(
         return META_E_CA_INVALID_BLOB;
 
     offset += sizeof(USHORT);
-    data = static_cast<PCCOR_SIGNATURE>(PTR_ADD_OFFSET(Buffer, offset));
+    data = static_cast<PCCOR_SIGNATURE>(PTR_ADD_OFFSET(const_cast<PVOID>(Buffer), offset));
     if (offset > BufferLength)
         return COR_E_OVERFLOW;
 
@@ -515,7 +517,7 @@ HRESULT PvSafeParseAttributeString(
         return COR_E_OVERFLOW;
 
     offset += skipLength;
-    data = static_cast<PCCOR_SIGNATURE>(PTR_ADD_OFFSET(Buffer, offset));
+    data = static_cast<PCCOR_SIGNATURE>(PTR_ADD_OFFSET(const_cast<PVOID>(Buffer), offset));
     if (offset > BufferLength)
         return COR_E_OVERFLOW;
 
@@ -586,12 +588,12 @@ EXTERN_C PPH_STRING PvGetClrImageTargetFramework(
             {
                 if (metaDataTables->GetString(index, &name) == S_OK)
                 {
-                    if (PhEqualBytesZ(const_cast<PSTR>(name), const_cast<PSTR>("System.Runtime"), TRUE))
+                    if (PhEqualBytesZ(name, "System.Runtime", TRUE))
                     {
                         // .NET Core
                         runtime = TRUE;
                     }
-                    else if (PhEqualBytesZ(const_cast<PSTR>(name), const_cast<PSTR>("mscorlib"), TRUE))
+                    else if (PhEqualBytesZ(name, "mscorlib", TRUE))
                     {
                         // .NET Framework
                         framework = TRUE;
@@ -612,14 +614,12 @@ EXTERN_C PPH_STRING PvGetClrImageTargetFramework(
 
                 if (runtime)
                 {
-                    version = PhFormatString(const_cast<PWSTR>(L".NET Core %hu.%hu.%hu.%hu"),
-                        majorVersion, minorVersion, buildVersion, revisionVersion);
+                    version = PhFormatString(L".NET Core %lu.%lu.%lu.%lu", majorVersion, minorVersion, buildVersion, revisionVersion);
                     break;
                 }
                 else if (framework)
                 {
-                    version = PhFormatString(const_cast<PWSTR>(L".NET Framework %hu.%hu.%hu.%hu"),
-                        majorVersion, minorVersion, buildVersion, revisionVersion);
+                    version = PhFormatString(L".NET Framework %lu.%lu.%lu.%lu", majorVersion, minorVersion, buildVersion, revisionVersion);
                     break;
                 }
             }
@@ -657,7 +657,7 @@ EXTERN_C HRESULT PvGetClrImageImports(
         PPV_CLR_IMAGE_IMPORT_DLL importDll;
 
         importDll = static_cast<PPV_CLR_IMAGE_IMPORT_DLL>(PhAllocateZero(sizeof(PV_CLR_IMAGE_IMPORT_DLL)));
-        importDll->ImportName = PhCreateString(const_cast<wchar_t*>(L"Unknown"));
+        importDll->ImportName = PhCreateString(L"Unknown");
         importDll->ImportToken = ULONG_MAX;
 
         PhAddItemList(clrImportsList, importDll);
@@ -677,7 +677,7 @@ EXTERN_C HRESULT PvGetClrImageImports(
                     PPV_CLR_IMAGE_IMPORT_DLL importDll;
 
                     importDll = static_cast<PPV_CLR_IMAGE_IMPORT_DLL>(PhAllocateZero(sizeof(PV_CLR_IMAGE_IMPORT_DLL)));
-                    importDll->ImportName = PhConvertUtf8ToUtf16(const_cast<char*>(moduleName));
+                    importDll->ImportName = PhConvertUtf8ToUtf16(moduleName);
                     importDll->ImportToken = TokenFromRid(i, mdtModuleRef);
 
                     PhAddItemList(clrImportsList, importDll);
@@ -712,7 +712,7 @@ EXTERN_C HRESULT PvGetClrImageImports(
 
             if (SUCCEEDED(metaDataTables->GetRow(TBL_ImplMap, i, &importRowValue)))
             {
-                importOffsetValue = PTR_SUB_OFFSET(importRowValue, PvMappedImage.ViewBase);
+                importOffsetValue = PTR_SUB_OFFSET(importRowValue, reinterpret_cast<ULONG_PTR>(PvMappedImage.ViewBase));
             }
 
             for (ULONG j = 0; j < clrImportsList->Count; j++)
@@ -731,7 +731,7 @@ EXTERN_C HRESULT PvGetClrImageImports(
                         PPV_CLR_IMAGE_IMPORT_FUNCTION importFunction;
 
                         importFunction = static_cast<PPV_CLR_IMAGE_IMPORT_FUNCTION>(PhAllocateZero(sizeof(PV_CLR_IMAGE_IMPORT_FUNCTION)));
-                        importFunction->FunctionName = PhConvertUtf8ToUtf16(const_cast<char*>(importName));
+                        importFunction->FunctionName = PhConvertUtf8ToUtf16(importName);
                         importFunction->Flags = importFlagsValue;
                         importFunction->Offset = importOffsetValue;
 
@@ -757,7 +757,7 @@ EXTERN_C HRESULT PvGetClrImageImports(
                     PPV_CLR_IMAGE_IMPORT_FUNCTION importFunction;
 
                     importFunction = static_cast<PPV_CLR_IMAGE_IMPORT_FUNCTION>(PhAllocateZero(sizeof(PV_CLR_IMAGE_IMPORT_FUNCTION)));
-                    importFunction->FunctionName = PhConvertUtf8ToUtf16(const_cast<char*>(importName));
+                    importFunction->FunctionName = PhConvertUtf8ToUtf16(importName);
                     importFunction->Flags = importFlagsValue;
                     importFunction->Offset = importOffsetValue;
 
@@ -794,6 +794,7 @@ EXTERN_C HRESULT PvClrImageEnumTables(
     if (!SUCCEEDED(status))
     {
         metaDataTables->Release();
+        metaDataImport->Release();
         return status;
     }
 
@@ -810,7 +811,7 @@ EXTERN_C HRESULT PvClrImageEnumTables(
             PPH_STRING tableName;
             PVOID offset = nullptr;
 
-            tableName = PhConvertUtf8ToUtf16(const_cast<PSTR>(name));
+            tableName = PhConvertUtf8ToUtf16(name);
             metaDataTables->GetRow(i, 1, &offset);
 
             if (!Callback(i, size, tablecount, tableName, offset, Context))

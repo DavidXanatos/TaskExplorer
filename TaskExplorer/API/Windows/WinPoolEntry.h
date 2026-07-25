@@ -19,6 +19,7 @@ class CWinPoolEntry: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CWinPoolEntry)
 public:
 	CWinPoolEntry(QObject *parent = nullptr);
 	virtual ~CWinPoolEntry();

@@ -53,8 +53,9 @@ PWSTR CstHelpMessage =
     L"verify\t\t-k publickeyfile -s inputsigfile inputfile\n"
     ;
 
+_Function_class_(PH_COMMAND_LINE_CALLBACK)
 static BOOLEAN NTAPI CstCommandLineCallback(
-    _In_opt_ PPH_COMMAND_LINE_OPTION Option,
+    _In_opt_ PCPH_COMMAND_LINE_OPTION Option,
     _In_opt_ PPH_STRING Value,
     _In_opt_ PVOID Context
     )
@@ -97,7 +98,7 @@ static VOID CstpFailWith(
     va_start(args, Format);
     vfwprintf(stderr, Format, args);
     va_end(args);
-    exit(1);
+    _exit(EXIT_FAILURE);
 }
 
 #define CstFailWith(Format, ...) CstpFailWith(Format L"\n", __VA_ARGS__)
@@ -112,7 +113,7 @@ static VOID CstpFailWithStatus(
     va_start(args, Format);
     vfwprintf(stderr, Format, args);
     va_end(args);
-    exit(1);
+    _exit(EXIT_FAILURE);
 }
 
 #define CstFailWithStatus(Status, Format, ...)                                 \
@@ -134,6 +135,7 @@ static VOID CstExportKey(
     PVOID blob;
     HANDLE fileHandle;
     IO_STATUS_BLOCK iosb;
+    LARGE_INTEGER allocationSize;
 
     if (!NT_SUCCESS(status = BCryptExportKey(
         KeyHandle,
@@ -161,11 +163,13 @@ static VOID CstExportKey(
         CstFailWithStatus(status, L"failed to export %ls, unable to get blob data", Description);
     }
 
+    allocationSize.QuadPart = blobSize;
+
     if (!NT_SUCCESS(status = PhCreateFileWin32Ex(
         &fileHandle,
         FileName,
         FILE_GENERIC_WRITE,
-        &(LARGE_INTEGER){.QuadPart = blobSize},
+        &allocationSize,
         FILE_ATTRIBUTE_NORMAL,
         0,
         FILE_OVERWRITE_IF,
@@ -386,7 +390,7 @@ int __cdecl wmain(int argc, wchar_t *argv[])
     NTSTATUS status;
     PH_STRINGREF commandLine;
 
-    if (!NT_SUCCESS(PhInitializePhLib(L"CustomSignTool", (PVOID)&__ImageBase)))
+    if (!NT_SUCCESS(PhInitializePhLib(L"CustomSignTool")))
         return EXIT_FAILURE;
 
     if (!NT_SUCCESS(PhGetProcessCommandLineStringRef(&commandLine)))
@@ -446,6 +450,7 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         PVOID signature;
         PPH_STRING string;
         HANDLE fileHandle;
+        LARGE_INTEGER allocationSize;
 
         if (!CstArgument1 || !CstKeyFileName || (!CstSigFileName && !CstHex))
             CstFailWith(L"%ls", CstHelpMessage);
@@ -510,11 +515,13 @@ int __cdecl wmain(int argc, wchar_t *argv[])
         }
         else
         {
+            allocationSize.QuadPart = signatureSize;
+
             if (!NT_SUCCESS(status = PhCreateFileWin32Ex(
                 &fileHandle,
                 CstSigFileName->Buffer,
                 FILE_GENERIC_WRITE,
-                &(LARGE_INTEGER){.QuadPart = signatureSize},
+                &allocationSize,
                 FILE_ATTRIBUTE_NORMAL,
                 0,
                 FILE_OVERWRITE_IF,

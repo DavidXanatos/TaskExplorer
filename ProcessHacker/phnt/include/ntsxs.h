@@ -29,9 +29,7 @@ typedef enum _ACTCTX_COMPATIBILITY_ELEMENT_TYPE
     ACTCTX_COMPATIBILITY_ELEMENT_TYPE_MITIGATION,
     ACTCTX_COMPATIBILITY_ELEMENT_TYPE_MAXVERSIONTESTED
 } ACTCTX_COMPATIBILITY_ELEMENT_TYPE;
-#endif
-
-#include <pshpack4.h>
+#endif // (PHNT_MODE == PHNT_MODE_KERNEL)
 
 typedef struct _ACTIVATION_CONTEXT_DATA
 {
@@ -93,7 +91,7 @@ typedef struct _ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_HEADER
 
 typedef struct _ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_ENTRY
 {
-    ULONG Flags;
+    ULONG Flags; // ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_ENTRY_*
     ULONG PseudoKey;
     ULONG AssemblyNameOffset; // to WCHAR[], from ACTIVATION_CONTEXT_DATA base
     ULONG AssemblyNameLength;
@@ -178,7 +176,7 @@ typedef struct _ACTIVATION_CONTEXT_GUID_SECTION_ENTRY
 typedef struct _ACTIVATION_CONTEXT_GUID_SECTION_HASH_TABLE
 {
     ULONG BucketTableEntryCount;
-    ULONG BucketTableOffset; // to ACTIVATION_CONTEXT_GUID_SECTION_HASH_BUCKET, from section header
+    ULONG BucketTableOffset; // to ACTIVATION_CONTEXT_GUID_SECTION_HASH_BUCKET[], from section header
 } ACTIVATION_CONTEXT_GUID_SECTION_HASH_TABLE, *PACTIVATION_CONTEXT_GUID_SECTION_HASH_TABLE;
 
 typedef struct _ACTIVATION_CONTEXT_GUID_SECTION_HASH_BUCKET
@@ -188,7 +186,7 @@ typedef struct _ACTIVATION_CONTEXT_GUID_SECTION_HASH_BUCKET
 } ACTIVATION_CONTEXT_GUID_SECTION_HASH_BUCKET, *PACTIVATION_CONTEXT_GUID_SECTION_HASH_BUCKET;
 
 // winnt.h - known section IDs
-// #define ACTIVATION_CONTEXT_SECTION_ASSEMBLY_INFORMATION         (1) // ACTIVATION_CONTEXT_SECTION_ASSEMBLY_INFORMATION + ACTIVATION_CONTEXT_DATA_ASSEMBLY_GLOBAL_INFORMATION
+// #define ACTIVATION_CONTEXT_SECTION_ASSEMBLY_INFORMATION         (1) // ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION + ACTIVATION_CONTEXT_DATA_ASSEMBLY_GLOBAL_INFORMATION
 // #define ACTIVATION_CONTEXT_SECTION_DLL_REDIRECTION              (2) // ACTIVATION_CONTEXT_DATA_DLL_REDIRECTION
 // #define ACTIVATION_CONTEXT_SECTION_WINDOW_CLASS_REDIRECTION     (3) // ACTIVATION_CONTEXT_DATA_WINDOW_CLASS_REDIRECTION
 // #define ACTIVATION_CONTEXT_SECTION_COM_SERVER_REDIRECTION       (4) // ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION
@@ -218,11 +216,19 @@ typedef struct _ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION
     ULONG ManifestPathType; // ACTIVATION_CONTEXT_PATH_TYPE_*
     ULONG ManifestPathLength;
     ULONG ManifestPathOffset; // to WCHAR[], from section header
-    LARGE_INTEGER ManifestLastWriteTime;
+    struct
+    {
+        ULONG LowPart;
+        LONG HighPart;
+    } ManifestLastWriteTime;
     ULONG PolicyPathType; // ACTIVATION_CONTEXT_PATH_TYPE_*
     ULONG PolicyPathLength;
     ULONG PolicyPathOffset; // to WCHAR[], from section header
-    LARGE_INTEGER PolicyLastWriteTime;
+    struct
+    {
+        ULONG LowPart;
+        LONG HighPart;
+    } PolicyLastWriteTime;
     ULONG MetadataSatelliteRosterIndex;
     ULONG Unused2;
     ULONG ManifestVersionMajor;
@@ -280,7 +286,7 @@ typedef struct _ACTIVATION_CONTEXT_DATA_WINDOW_CLASS_REDIRECTION
     ULONG Size;
     ULONG Flags;
     ULONG VersionSpecificClassNameLength;
-    ULONG VersionSpecificClassNameOffset; // to WHCAR[], from this struct base
+    ULONG VersionSpecificClassNameOffset; // to WCHAR[], from this struct base
     ULONG DllNameLength;
     ULONG DllNameOffset; // to WCHAR[], from section header
 } ACTIVATION_CONTEXT_DATA_WINDOW_CLASS_REDIRECTION, *PACTIVATION_CONTEXT_DATA_WINDOW_CLASS_REDIRECTION;
@@ -304,7 +310,7 @@ typedef struct _ACTIVATION_CONTEXT_DATA_WINDOW_CLASS_REDIRECTION
 typedef struct _ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION
 {
     ULONG Size;
-    ULONG Flags;
+    ULONG Flags; // ACTIVATION_CONTEXT_DATA_COM_SERVER_MISCSTATUS_HAS_*
     ULONG ThreadingModel; // ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION_THREADING_MODEL_*
     GUID ReferenceClsid;
     GUID ConfiguredClsid;
@@ -316,11 +322,11 @@ typedef struct _ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION
     ULONG ProgIdOffset; // to WCHAR[], from this struct base
     ULONG ShimDataLength;
     ULONG ShimDataOffset; // to ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION_SHIM, from this struct base
-    ULONG MiscStatusDefault;
-    ULONG MiscStatusContent;
-    ULONG MiscStatusThumbnail;
-    ULONG MiscStatusIcon;
-    ULONG MiscStatusDocPrint;
+    ULONG MiscStatusDefault; // OLEMISC_* oleidl.h
+    ULONG MiscStatusContent; // OLEMISC_* oleidl.h
+    ULONG MiscStatusThumbnail; // OLEMISC_* oleidl.h
+    ULONG MiscStatusIcon; // OLEMISC_* oleidl.h
+    ULONG MiscStatusDocPrint; // OLEMISC_* oleidl.h
 } ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION, *PACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION;
 
 #define ACTIVATION_CONTEXT_DATA_COM_SERVER_REDIRECTION_SHIM_TYPE_OTHER 1
@@ -368,14 +374,14 @@ typedef struct _ACTIVATION_CONTEXT_DATA_TYPE_LIBRARY_VERSION
 
 typedef struct _ACTIVATION_CONTEXT_DATA_COM_TYPE_LIBRARY_REDIRECTION
 {
-    ULONG   Size;
-    ULONG   Flags;
-    ULONG   NameLength;
-    ULONG   NameOffset; // to WCHAR[], from section header
-    USHORT  ResourceId;
-    USHORT  LibraryFlags; // LIBFLAG_* oaidl.h
-    ULONG   HelpDirLength;
-    ULONG   HelpDirOffset; // to WCHAR[], from this struct base
+    ULONG Size;
+    ULONG Flags;
+    ULONG NameLength;
+    ULONG NameOffset; // to WCHAR[], from section header
+    USHORT ResourceId;
+    USHORT LibraryFlags; // LIBFLAG_* oaidl.h
+    ULONG HelpDirLength;
+    ULONG HelpDirOffset; // to WCHAR[], from this struct base
     ACTIVATION_CONTEXT_DATA_TYPE_LIBRARY_VERSION Version;
 } ACTIVATION_CONTEXT_DATA_COM_TYPE_LIBRARY_REDIRECTION, *PACTIVATION_CONTEXT_DATA_COM_TYPE_LIBRARY_REDIRECTION;
 
@@ -392,13 +398,13 @@ typedef struct _ACTIVATION_CONTEXT_DATA_COM_PROGID_REDIRECTION
 
 typedef struct _ACTIVATION_CONTEXT_DATA_CLR_SURROGATE
 {
-    ULONG   Size;
-    ULONG   Flags;
-    GUID    SurrogateIdent;
-    ULONG   VersionOffset;
-    ULONG   VersionLength;
-    ULONG   TypeNameOffset;
-    ULONG   TypeNameLength; // to WCHAR[], from this struct base
+    ULONG Size;
+    ULONG Flags;
+    GUID SurrogateIdent;
+    ULONG VersionOffset; // to WCHAR[], from this struct base
+    ULONG VersionLength;
+    ULONG TypeNameOffset; // to WCHAR[], from this struct base
+    ULONG TypeNameLength;
 } ACTIVATION_CONTEXT_DATA_CLR_SURROGATE, *PACTIVATION_CONTEXT_DATA_CLR_SURROGATE;
 
 #define ACTIVATION_CONTEXT_DATA_APPLICATION_SETTINGS_FORMAT_LONGHORN 1
@@ -438,8 +444,6 @@ typedef struct _ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION_LEGACY
     COMPATIBILITY_CONTEXT_ELEMENT_LEGACY Elements[ANYSIZE_ARRAY];
 } ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION_LEGACY, *PACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION_LEGACY;
 
-#include <poppack.h>
-
 // begin_private
 
 typedef struct _ASSEMBLY_STORAGE_MAP_ENTRY
@@ -464,7 +468,8 @@ typedef struct _ACTIVATION_CONTEXT *PACTIVATION_CONTEXT;
 #define ACTIVATION_CONTEXT_NOTIFICATION_ZOMBIFY 2
 #define ACTIVATION_CONTEXT_NOTIFICATION_USED 3
 
-typedef VOID (NTAPI *PACTIVATION_CONTEXT_NOTIFY_ROUTINE)(
+typedef _Function_class_(ACTIVATION_CONTEXT_NOTIFY_ROUTINE)
+VOID NTAPI ACTIVATION_CONTEXT_NOTIFY_ROUTINE(
     _In_ ULONG NotificationType, // ACTIVATION_CONTEXT_NOTIFICATION_*
     _In_ PACTIVATION_CONTEXT ActivationContext,
     _In_ PACTIVATION_CONTEXT_DATA ActivationContextData,
@@ -472,6 +477,7 @@ typedef VOID (NTAPI *PACTIVATION_CONTEXT_NOTIFY_ROUTINE)(
     _In_opt_ PVOID NotificationData,
     _Inout_ PBOOLEAN DisableThisNotification
     );
+typedef ACTIVATION_CONTEXT_NOTIFY_ROUTINE* PACTIVATION_CONTEXT_NOTIFY_ROUTINE;
 
 typedef struct _ACTIVATION_CONTEXT
 {
@@ -512,4 +518,4 @@ typedef struct _ACTIVATION_CONTEXT_STACK
 
 // end_private
 
-#endif
+#endif // _NTSXS_H

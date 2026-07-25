@@ -7,6 +7,10 @@
 #ifndef _NTBCD_H
 #define _NTBCD_H
 
+//
+// BCD.dll Exported Types
+//
+
 #ifndef PHNT_INLINE_BCD_GUIDS
 // 5189B25C-5558-4BF2-BCA4-289B11BD29E2 // {badmemory}
 DEFINE_GUID(GUID_BAD_MEMORY_GROUP, 0x5189B25C, 0x5558, 0x4BF2, 0xBC, 0xA4, 0x28, 0x9B, 0x11, 0xBD, 0x29, 0xE2);
@@ -40,18 +44,42 @@ DEFINE_GUID(GUID_WINDOWS_MEMORY_TESTER, 0xB2721D73, 0x1DB4, 0x4C62, 0xBF, 0x78, 
 DEFINE_GUID(GUID_WINDOWS_OS_TARGET_TEMPLATE_EFI, 0xB012B84D, 0xC47C, 0x4ED5, 0xB7, 0x22, 0xC0, 0xC4, 0x21, 0x63, 0xE5, 0x69);
 // A1943BBC-EA85-487C-97C7-C9EDE908A38A
 DEFINE_GUID(GUID_WINDOWS_OS_TARGET_TEMPLATE_PCAT, 0xA1943BBC, 0xEA85, 0x487C, 0x97, 0xC7, 0xC9, 0xED, 0xE9, 0x08, 0xA3, 0x8A);
-// {0C334284-9A41-4DE1-99B3-A7E87E8FF07E}
+// 0C334284-9A41-4DE1-99B3-A7E87E8FF07E
 DEFINE_GUID(GUID_WINDOWS_RESUME_TARGET_TEMPLATE_EFI, 0x0C334284, 0x9A41, 0x4DE1, 0x99, 0xB3, 0xA7, 0xE8, 0x7E, 0x8F, 0xF0, 0x7E);
-// {98B02A23-0674-4CE7-BDAD-E0A15A8FF97B}
+// 98B02A23-0674-4CE7-BDAD-E0A15A8FF97B
 DEFINE_GUID(GUID_WINDOWS_RESUME_TARGET_TEMPLATE_PCAT, 0x98B02A23, 0x0674, 0x4CE7, 0xBD, 0xAD, 0xE0, 0xA1, 0x5A, 0x8F, 0xF9, 0x7B);
-// A1943BBC-EA85-487C-97C7-C9EDE908A38A
+// 7254a080-1510-4e85-ac0f-e7fb3d444736
 DEFINE_GUID(GUID_WINDOWS_SETUP_EFI, 0x7254A080, 0x1510, 0x4E85, 0xAC, 0x0F, 0xE7, 0xFB, 0x3D, 0x44, 0x47, 0x36);
 // CBD971BF-B7B8-4885-951A-FA03044F5D71
 DEFINE_GUID(GUID_WINDOWS_SETUP_PCAT, 0xCBD971BF, 0xB7B8, 0x4885, 0x95, 0x1A, 0xFA, 0x03, 0x04, 0x4F, 0x5D, 0x71);
 // AE5534E0-A924-466C-B836-758539A3EE3A // {ramdiskoptions}
 DEFINE_GUID(GUID_WINDOWS_SETUP_RAMDISK_OPTIONS, 0xAE5534E0, 0xA924, 0x466C, 0xB8, 0x36, 0x75, 0x85, 0x39, 0xA3, 0xEE, 0x3A);
-// {7619dcc9-fafe-11d9-b411-000476eba25f}
+// 7619dcc9-fafe-11d9-b411-000476eba25f
 DEFINE_GUID(GUID_WINDOWS_SETUP_BOOT_ENTRY, 0x7619dcc9, 0xfafe, 0x11d9, 0xb4, 0x11, 0x00, 0x04, 0x76, 0xeb, 0xa2, 0x5f);
+// A62C8016-CA4E-4687-8032-D666C51A280C
+DEFINE_GUID(GUID_VHD_BOOT_OPTIONS, 0xa62c8016, 0xca4e, 0x4687, 0x80, 0x32, 0xd6, 0x66, 0xc5, 0x1a, 0x28, 0x0c);
+// C63C9BDF-5FA5-4208-B03F-6B458B365592
+DEFINE_GUID(GUID_VMBFS_BOOT_INSTANCE, 0xc63c9bdf, 0x5fa5, 0x4208, 0xb0, 0x3f, 0x6b, 0x45, 0x8b, 0x36, 0x55, 0x92);
+// EBD0A0A2-B9E5-4433-87C0-68B6B72699C7
+DEFINE_GUID(PARTITION_BASIC_DATA_GUID, 0xebd0a0a2, 0xb9e5, 0x4433, 0x87, 0xc0, 0x68, 0xb6, 0xb7, 0x26, 0x99, 0xc7);
+// DB97DBA9-0840-4BAE-97F0-FFB9A327C7E1
+DEFINE_GUID(PARTITION_CLUSTER_GUID, 0xdb97dba9, 0x0840, 0x4bae, 0x97, 0xf0, 0xff, 0xb9, 0xa3, 0x27, 0xc7, 0xe1);
+// 00000000-0000-0000-0000-000000000000
+DEFINE_GUID(PARTITION_ENTRY_UNUSED_GUID, 0x00000000, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+// AF9B60A0-1431-4F62-BC68-3311714A69AD
+DEFINE_GUID(PARTITION_LDM_DATA_GUID, 0xaf9b60a0, 0x1431, 0x4f62, 0xbc, 0x68, 0x33, 0x11, 0x71, 0x4a, 0x69, 0xad);
+// 5808C8AA-7E8F-42E0-85D2-E1E90434CFB3
+DEFINE_GUID(PARTITION_LDM_METADATA_GUID, 0x5808c8aa, 0x7e8f, 0x42e0, 0x85, 0xd2, 0xe1, 0xe9, 0x04, 0x34, 0xcf, 0xb3);
+// DE94BBA4-06D1-4D40-A16A-BFD50179D6AC
+DEFINE_GUID(PARTITION_MSFT_RECOVERY_GUID, 0xde94bba4, 0x06d1, 0x4d40, 0xa1, 0x6a, 0xbf, 0xd5, 0x01, 0x79, 0xd6, 0xac);
+// E3C9E316-0B5C-4DB8-817D-F92DF00215AE
+DEFINE_GUID(PARTITION_MSFT_RESERVED_GUID, 0xe3c9e316, 0x0b5c, 0x4db8, 0x81, 0x7d, 0xf9, 0x2d, 0xf0, 0x02, 0x15, 0xae);
+// CADDEBF1-4400-4DE8-B103-12117DCF3CC
+DEFINE_GUID(PARTITION_MSFT_SNAPSHOT_GUID, 0xcaddebf1, 0x4400, 0x4de8, 0xb1, 0x03, 0x12, 0x11, 0x7d, 0xcf, 0x3c, 0xcf);
+// E75CAF8F-F680-4CEE-AFA3-B001E56EFC2D
+DEFINE_GUID(PARTITION_SPACES_GUID, 0xe75caf8f, 0xf680, 0x4cee, 0xaf, 0xa3, 0xb0, 0x01, 0xe5, 0x6e, 0xfc, 0x2d);
+// C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+DEFINE_GUID(PARTITION_SYSTEM_GUID, 0xc12a7328, 0xf81f, 0x11d2, 0xba, 0x4b, 0x00, 0xa0, 0xc9, 0x3e, 0xc9, 0x3b);
 #else
 NTSYSAPI GUID GUID_BAD_MEMORY_GROUP; // {badmemory}
 NTSYSAPI GUID GUID_BOOT_LOADER_SETTINGS_GROUP; // {bootloadersettings}
@@ -74,8 +102,22 @@ NTSYSAPI GUID GUID_WINDOWS_RESUME_TARGET_TEMPLATE_PCAT;
 NTSYSAPI GUID GUID_WINDOWS_SETUP_EFI;
 NTSYSAPI GUID GUID_WINDOWS_SETUP_PCAT;
 NTSYSAPI GUID GUID_WINDOWS_SETUP_RAMDISK_OPTIONS; // {ramdiskoptions}
-#endif
+NTSYSAPI GUID GUID_VHD_BOOT_OPTIONS;
+NTSYSAPI GUID PARTITION_BASIC_DATA_GUID;
+NTSYSAPI GUID PARTITION_CLUSTER_GUID;
+NTSYSAPI GUID PARTITION_ENTRY_UNUSED_GUID;
+NTSYSAPI GUID PARTITION_LDM_DATA_GUID;
+NTSYSAPI GUID PARTITION_LDM_METADATA_GUID;
+NTSYSAPI GUID PARTITION_MSFT_RECOVERY_GUID;
+NTSYSAPI GUID PARTITION_MSFT_RESERVED_GUID;
+NTSYSAPI GUID PARTITION_MSFT_SNAPSHOT_GUID;
+NTSYSAPI GUID PARTITION_SPACES_GUID;
+NTSYSAPI GUID PARTITION_SYSTEM_GUID;
+#endif // PHNT_INLINE_BCD_GUIDS
 
+/**
+ * The BCD_MESSAGE_TYPE enumeration represents the types of messages for BCD operations.
+ */
 typedef enum _BCD_MESSAGE_TYPE
 {
     BCD_MESSAGE_TYPE_NONE,
@@ -86,19 +128,31 @@ typedef enum _BCD_MESSAGE_TYPE
     BCD_MESSAGE_TYPE_MAXIMUM
 } BCD_MESSAGE_TYPE;
 
-typedef VOID (NTAPI* BCD_MESSAGE_CALLBACK)(
+typedef _Function_class_(BCD_MESSAGE_CALLBACK)
+VOID NTAPI BCD_MESSAGE_CALLBACK(
     _In_ BCD_MESSAGE_TYPE type,
-    _In_ PWSTR Message
+    _In_ PCWSTR Message
     );
+typedef BCD_MESSAGE_CALLBACK* PBCD_MESSAGE_CALLBACK;
 
+/**
+ * Sets the logging level and callback function for BCD messages.
+ *
+ * \param BcdLoggingLevel The logging level to set.
+ * \param BcdMessageCallbackRoutine The callback routine for BCD messages.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdSetLogging(
     _In_ BCD_MESSAGE_TYPE BcdLoggingLevel,
-    _In_ BCD_MESSAGE_CALLBACK BcdMessageCallbackRoutine
+    _In_ PBCD_MESSAGE_CALLBACK BcdMessageCallbackRoutine
     );
 
+/**
+ * The BcdInitializeBcdSyncMutant function initializes the BCD synchronization mutant.
+ */
 NTSYSAPI
 VOID
 NTAPI
@@ -106,6 +160,12 @@ BcdInitializeBcdSyncMutant(
     VOID
     );
 
+/**
+ * The BcdGetSystemStorePath function retrieves the file name for the BCD.
+ *
+ * \param BcdSystemStorePath The pointer to receive the system store path.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -113,13 +173,25 @@ BcdGetSystemStorePath(
     _Out_ PWSTR* BcdSystemStorePath // RtlFreeHeap(RtlProcessHeap(), 0, BcdSystemStorePath);
     );
 
+/**
+ * The BcdSetSystemStoreDevice function sets the device for the system BCD store.
+ *
+ * \param SystemPartition The system partition to set.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdSetSystemStoreDevice(
-    _In_ UNICODE_STRING SystemPartition
+    _In_ PCUNICODE_STRING SystemPartition
     );
 
+/**
+ * The BcdOpenSystemStore function opens the BCD system store.
+ *
+ * \param BcdStoreHandle The handle to receive the system store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -127,45 +199,79 @@ BcdOpenSystemStore(
     _Out_ PHANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdOpenStoreFromFile function opens a BCD store from a file.
+ *
+ * \param BcdFilePath The file path of the BCD store.
+ * \param BcdStoreHandle The handle to receive the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdOpenStoreFromFile(
-    _In_ UNICODE_STRING BcdFilePath,
+    _In_ PCUNICODE_STRING BcdFilePath,
     _Out_ PHANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdCreateStore function creates a BCD store.
+ *
+ * \param BcdFilePath The file path to create the BCD store.
+ * \param BcdStoreHandle The handle to receive the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdCreateStore(
-    _In_ UNICODE_STRING BcdFilePath,
+    _In_ PCUNICODE_STRING BcdFilePath,
     _Out_ PHANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdExportStore function exports the BCD store to a file.
+ *
+ * \param BcdFilePath The file path to export the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdExportStore(
-    _In_ UNICODE_STRING BcdFilePath
+    _In_ PCUNICODE_STRING BcdFilePath
     );
 
-#if (PHNT_VERSION > PHNT_WIN11)
+#if (PHNT_VERSION > PHNT_WINDOWS_11)
+/**
+ * The BcdExportStoreEx function exports the BCD store to a file with additional flags.
+ *
+ * \param BcdStoreHandle The handle to the BCD store.
+ * \param Flags The flags for exporting the store.
+ * \param BcdFilePath The file path to export the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdExportStoreEx(
     _In_ HANDLE BcdStoreHandle,
     _In_ ULONG Flags,
-    _In_ UNICODE_STRING BcdFilePath
+    _In_ PCUNICODE_STRING BcdFilePath
     );
-#endif
+#endif // PHNT_VERSION > PHNT_WINDOWS_11
 
+/**
+ * The BcdImportStore function imports a BCD store from a file.
+ *
+ * \param BcdFilePath The file path to import the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdImportStore(
-    _In_ UNICODE_STRING BcdFilePath
+    _In_ PCUNICODE_STRING BcdFilePath
     );
 
 typedef enum _BCD_IMPORT_FLAGS
@@ -174,22 +280,41 @@ typedef enum _BCD_IMPORT_FLAGS
     BCD_IMPORT_DELETE_FIRMWARE_OBJECTS
 } BCD_IMPORT_FLAGS;
 
+/**
+ * The BcdImportStoreWithFlags function imports a BCD store from a file with additional flags.
+ *
+ * \param BcdFilePath The file path to import the BCD store.
+ * \param BcdImportFlags The flags for importing the store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdImportStoreWithFlags(
-    _In_ UNICODE_STRING BcdFilePath,
+    _In_ PCUNICODE_STRING BcdFilePath,
     _In_ BCD_IMPORT_FLAGS BcdImportFlags
     );
 
+/**
+ * The BcdDeleteObjectReferences function deletes object references in the BCD store.
+ *
+ * \param BcdStoreHandle The handle to the BCD store.
+ * \param Identifier The identifier of the object to delete references for.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdDeleteObjectReferences(
     _In_ HANDLE BcdStoreHandle,
-    _In_ PGUID Identifier
+    _In_ PCGUID Identifier
     );
 
+/**
+ * The BcdDeleteSystemStore function deletes the system store for BCD.
+ *
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -204,15 +329,29 @@ typedef enum _BCD_OPEN_FLAGS
     BCD_OPEN_SYNC_FIRMWARE_ENTRIES
 } BCD_OPEN_FLAGS;
 
+/**
+ * The BcdOpenStore function opens a BCD store with additional flags.
+ *
+ * \param BcdFilePath The file path of the BCD store.
+ * \param BcdOpenFlags The flags for opening the store.
+ * \param BcdStoreHandle The handle to receive the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdOpenStore(
-    _In_ UNICODE_STRING BcdFilePath,
+    _In_ PCUNICODE_STRING BcdFilePath,
     _In_ BCD_OPEN_FLAGS BcdOpenFlags,
     _Out_ PHANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdCloseStore function closes a BCD store.
+ *
+ * \param BcdStoreHandle The handle to the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -220,6 +359,12 @@ BcdCloseStore(
     _In_ HANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdFlushStore function flushes a BCD store.
+ *
+ * \param BcdStoreHandle The handle to the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -227,6 +372,12 @@ BcdFlushStore(
     _In_ HANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdForciblyUnloadStore function forcibly unloads a BCD store.
+ *
+ * \param BcdStoreHandle The handle to the BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -234,6 +385,13 @@ BcdForciblyUnloadStore(
     _In_ HANDLE BcdStoreHandle
     );
 
+/**
+ * The BcdMarkAsSystemStore function marks the specified BCD store as the system store
+ * and used by the boot manager and other boot components as the primary source of boot configuration data.
+ *
+ * \param BcdStoreHandle Handle to the BCD store to be marked as the system store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -241,6 +399,9 @@ BcdMarkAsSystemStore(
     _In_ HANDLE BcdStoreHandle
     );
 
+/**
+ * The BCD_OBJECT_TYPE enumeration represents the types of BCD (Boot Configuration Data) objects.
+ */
 typedef enum _BCD_OBJECT_TYPE
 {
     BCD_OBJECT_TYPE_NONE,
@@ -249,6 +410,10 @@ typedef enum _BCD_OBJECT_TYPE
     BCD_OBJECT_TYPE_DEVICE, // 0x30000000
 } BCD_OBJECT_TYPE;
 
+/**
+ * The BCD_APPLICATION_OBJECT_TYPE enumeration represents the various types
+ * of application objects in the Boot Configuration Data (BCD).
+ */
 typedef enum _BCD_APPLICATION_OBJECT_TYPE
 {
     BCD_APPLICATION_OBJECT_NONE = 0,
@@ -265,6 +430,9 @@ typedef enum _BCD_APPLICATION_OBJECT_TYPE
     BCD_APPLICATION_OBJECT_RESERVED = 0xFFFFF // 0x000fffff
 } BCD_APPLICATION_OBJECT_TYPE;
 
+/**
+ * The BCD_APPLICATION_IMAGE_TYPE enumeration represents the types of images for BCD applications.
+ */
 typedef enum _BCD_APPLICATION_IMAGE_TYPE
 {
     BCD_APPLICATION_IMAGE_NONE,
@@ -274,6 +442,9 @@ typedef enum _BCD_APPLICATION_IMAGE_TYPE
     BCD_APPLICATION_IMAGE_REALMODE_CODE, // 0x00400000
 } BCD_APPLICATION_IMAGE_TYPE;
 
+/**
+ * The BCD_INHERITED_CLASS_TYPE enumeration represents the classes of inherited BCD objects.
+ */
 typedef enum _BCD_INHERITED_CLASS_TYPE
 {
     BCD_INHERITED_CLASS_NONE,
@@ -282,24 +453,68 @@ typedef enum _BCD_INHERITED_CLASS_TYPE
     BCD_INHERITED_CLASS_DEVICE
 } BCD_INHERITED_CLASS_TYPE;
 
+/**
+ * Constructs a BCD (Boot Configuration Data) object identifier with the specified
+ * object type, image type, and application type into a single ULONG value.
+ * \param ObjectType The type of the BCD object (placed in the highest 4 bits).
+ * \param ImageType The type of the image (placed in the next 4 bits).
+ * \param ApplicationType The type of the application (placed in the lowest 20 bits).
+ * \returns A ULONG value representing the combined BCD object identifier.
+ * \remarks Bit Layout:
+ * | 31 ... 28 | 27 ... 24 | 23 ... 20 | 19 .......... 0 |
+ * | ObjectType| Reserved  | ImageType | ApplicationType |
+ */
 #define MAKE_BCD_OBJECT(ObjectType, ImageType, ApplicationType) \
     (((ULONG)(ObjectType) << 28) | \
     (((ULONG)(ImageType) & 0xF) << 20) | \
     ((ULONG)(ApplicationType) & 0xFFFFF))
 
+/**
+ * Constructs a BCD (Boot Configuration Data) application object identifier.
+ * This macro creates a BCD object identifier for an application by combining the object type,
+ * image type, and application type into a single value using the MAKE_BCD_OBJECT macro.
+ * \param ImageType The type of the image (e.g., Windows Boot Loader, Windows Resume Application).
+ * \param ApplicationType The specific application type within the image type.
+ * \return A value representing the BCD application object identifier.
+ */
 #define MAKE_BCD_APPLICATION_OBJECT(ImageType, ApplicationType) \
     MAKE_BCD_OBJECT(BCD_OBJECT_TYPE_APPLICATION, (ULONG)(ImageType), (ULONG)(ApplicationType))
 
+/**
+ * Macro to extract the BCD (Boot Configuration Data) object type from a given DataType value.
+ * The macro shifts the input DataType 28 bits to the right and masks the result with 0xF,
+ * effectively extracting the upper 4 bits, which represent the BCD object type.
+ * \param DataType The value containing the BCD object type in its upper 4 bits.
+ * \return The extracted BCD_OBJECT_TYPE value.
+ */
 #define GET_BCD_OBJECT_TYPE(DataType) \
-    ((BCD_OBJECT_TYPE)(((((ULONG)DataType)) >> 28) & 0xF))
+    ((BCD_OBJECT_TYPE)(((((ULONG)(DataType))) >> 28) & 0xF))
+
+/**
+ * Extracts the BCD (Boot Configuration Data) application image type from a given data type value.
+ * This macro shifts the input value 20 bits to the right and masks the result with 0xF (4 bits),
+ * effectively extracting bits 20-23, which represent the BCD application image type.
+ * \param DataType The value containing the BCD application image type encoded in bits 20-23.
+ * \return The extracted BCD_APPLICATION_IMAGE_TYPE value.
+ */
 #define GET_BCD_APPLICATION_IMAGE(DataType) \
-    ((BCD_APPLICATION_IMAGE_TYPE)(((((ULONG)DataType)) >> 20) & 0xF))
+    ((BCD_APPLICATION_IMAGE_TYPE)(((((ULONG)(DataType))) >> 20) & 0xF))
+
+/**
+ * Macro to extract the BCD application object type from a given data type value.
+ * \param DataType The value containing the BCD application object type information.
+ * \return The extracted BCD_APPLICATION_OBJECT_TYPE, obtained by masking the lower 20 bits of DataType.
+ */
 #define GET_BCD_APPLICATION_OBJECT(DataType) \
-    ((BCD_APPLICATION_OBJECT_TYPE)((((ULONG)DataType)) & 0xFFFFF))
+    ((BCD_APPLICATION_OBJECT_TYPE)((((ULONG)(DataType))) & 0xFFFFF))
 
 #define BCD_OBJECT_OSLOADER_TYPE \
     MAKE_BCD_APPLICATION_OBJECT(BCD_APPLICATION_IMAGE_BOOT_APPLICATION, BCD_APPLICATION_OBJECT_WINDOWS_BOOT_LOADER)
 
+/**
+ * The BCD_OBJECT_DATATYPE provides multiple views of the packed value for different BCD (Boot Configuration Data) objects.
+ * \remarks This union allows for flexible interpretation of BCD object data depending on the context in which it is used.
+ */
 typedef union _BCD_OBJECT_DATATYPE
 {
     ULONG PackedValue;
@@ -336,18 +551,34 @@ static_assert(sizeof(BCD_OBJECT_DATATYPE) == sizeof(ULONG), "sizeof(BCD_OBJECT_D
 
 #define BCD_OBJECT_DESCRIPTION_VERSION 0x1
 
+/**
+ * The BCD_OBJECT_DESCRIPTION structure contains metadata about a BCD object, including its version and type.
+ */
 typedef struct _BCD_OBJECT_DESCRIPTION
 {
     ULONG Version; // BCD_OBJECT_DESCRIPTION_VERSION
     ULONG Type; // BCD_OBJECT_DATATYPE
 } BCD_OBJECT_DESCRIPTION, *PBCD_OBJECT_DESCRIPTION;
 
+/**
+ * The BCD_OBJECT structure contains the identifier and description of a BCD object.
+ */
 typedef struct _BCD_OBJECT
 {
-    GUID Identifer;
+    GUID Identifier;
     PBCD_OBJECT_DESCRIPTION Description;
 } BCD_OBJECT, *PBCD_OBJECT;
 
+/**
+ * The BcdEnumerateObjects function enumerates BCD objects in the specified BCD store.
+ *
+ * \param BcdStoreHandle Handle to the BCD store.
+ * \param BcdEnumDescriptor Pointer to a BCD_OBJECT_DESCRIPTION structure that specifies the type of objects to enumerate.
+ * \param Buffer Optional pointer to a buffer that receives an array of BCD_OBJECT structures.
+ * \param BufferSize On input, the size of the buffer in bytes. On output, the required or actual size.
+ * \param ObjectCount Receives the number of objects returned.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -359,25 +590,48 @@ BcdEnumerateObjects(
     _Out_ PULONG ObjectCount
     );
 
+/**
+ * The BcdOpenObject function opens a BCD object by its identifier.
+ *
+ * \param BcdStoreHandle Handle to the BCD store.
+ * \param Identifier Pointer to the GUID of the object to open.
+ * \param BcdObjectHandle Receives the handle to the opened BCD object.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdOpenObject(
     _In_ HANDLE BcdStoreHandle,
-    _In_ const GUID* Identifier,
+    _In_ PCGUID Identifier,
     _Out_ PHANDLE BcdObjectHandle
     );
 
+/**
+ * The BcdCreateObject function creates a new BCD object in the specified store.
+ *
+ * \param BcdStoreHandle Handle to the BCD store.
+ * \param Identifier Pointer to the GUID for the new object.
+ * \param Description Pointer to a BCD_OBJECT_DESCRIPTION structure describing the object.
+ * \param BcdObjectHandle Receives the handle to the created BCD object.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdCreateObject(
     _In_ HANDLE BcdStoreHandle,
-    _In_ PGUID Identifier,
+    _In_ PCGUID Identifier,
     _In_ PBCD_OBJECT_DESCRIPTION Description,
     _Out_ PHANDLE BcdObjectHandle
     );
 
+/**
+ * The BcdDeleteObject function deletes a BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object to delete.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -385,6 +639,12 @@ BcdDeleteObject(
     _In_ HANDLE BcdObjectHandle
     );
 
+/**
+ * The BcdCloseObject function closes a handle to a BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object to close.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -392,6 +652,11 @@ BcdCloseObject(
     _In_ HANDLE BcdObjectHandle
     );
 
+/**
+ * The BCD_COPY_FLAGS specify the behavior of Boot Configuration Data (BCD) copy operations,
+ * controlling how objects and elements are handled during BCD copy procedures.
+ */
+_Enum_is_bitflag_
 typedef enum _BCD_COPY_FLAGS
 {
     BCD_COPY_NONE = 0x0,
@@ -402,7 +667,18 @@ typedef enum _BCD_COPY_FLAGS
     BCD_COPY_RETAIN_ELEMENT_DATA = 0x10,
     BCD_COPY_MIGRATE_ELEMENT_DATA = 0x20
 } BCD_COPY_FLAGS;
+DEFINE_ENUM_FLAG_OPERATORS(BCD_COPY_FLAGS);
 
+/**
+ * The BcdCopyObject function copies a BCD object from one store to another.
+ *
+ * \param BcdStoreHandle Handle to the source BCD store.
+ * \param BcdObjectHandle Handle to the BCD object to copy.
+ * \param BcdCopyFlags Flags that control the copy operation.
+ * \param TargetStoreHandle Handle to the target BCD store.
+ * \param TargetObjectHandle Receives the handle to the copied BCD object in the target store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -414,6 +690,17 @@ BcdCopyObject(
     _Out_ PHANDLE TargetObjectHandle
     );
 
+/**
+ * The BcdCopyObjectEx function copies a BCD object from one store to another, specifying the target object identifier.
+ *
+ * \param BcdStoreHandle Handle to the source BCD store.
+ * \param BcdObjectHandle Handle to the BCD object to copy.
+ * \param BcdCopyFlags Flags that control the copy operation.
+ * \param TargetStoreHandle Handle to the target BCD store.
+ * \param TargetObjectId Pointer to the GUID for the new object in the target store.
+ * \param TargetObjectHandle Receives the handle to the copied BCD object in the target store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -422,20 +709,37 @@ BcdCopyObjectEx(
     _In_ HANDLE BcdObjectHandle,
     _In_ BCD_COPY_FLAGS BcdCopyFlags,
     _In_ HANDLE TargetStoreHandle,
-    _In_ PGUID TargetObjectId,
+    _In_ PCGUID TargetObjectId,
     _Out_ PHANDLE TargetObjectHandle
     );
 
+/**
+ * The BcdCopyObjects function copies multiple BCD objects from one store to another based on specified characteristics.
+ *
+ * \param BcdStoreHandle Handle to the source BCD store.
+ * \param Characteristics Pointer to a BCD_OBJECT_DESCRIPTION structure specifying the objects to copy.
+ * \param BcdCopyFlags Flags that control the copy operation.
+ * \param TargetStoreHandle Handle to the target BCD store.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
 BcdCopyObjects(
     _In_ HANDLE BcdStoreHandle,
-    _In_ BCD_OBJECT_DESCRIPTION Characteristics,
+    _In_ PBCD_OBJECT_DESCRIPTION Characteristics,
     _In_ BCD_COPY_FLAGS BcdCopyFlags,
     _In_ HANDLE TargetStoreHandle
     );
 
+/**
+ * The BcdMigrateObjectElementValues function migrates element values from a source BCD object to a target BCD object using a template.
+ *
+ * \param TemplateObjectHandle Handle to the template BCD object.
+ * \param SourceObjectHandle Handle to the source BCD object.
+ * \param TargetObjectHandle Handle to the target BCD object.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -445,6 +749,15 @@ BcdMigrateObjectElementValues(
     _In_ HANDLE TargetObjectHandle
     );
 
+/**
+ * The BcdQueryObject function queries a BCD object for its description and identifier.
+ *
+ * \param BcdObjectHandle Handle to the BCD object to query.
+ * \param BcdVersion The version of the BCD object description structure (use BCD_OBJECT_DESCRIPTION_VERSION).
+ * \param Description Receives the BCD_OBJECT_DESCRIPTION structure for the object.
+ * \param Identifier Receives the GUID identifier of the object.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -455,6 +768,9 @@ BcdQueryObject(
     _Out_ PGUID Identifier
     );
 
+/**
+ * The BCD_ELEMENT_DATATYPE_FORMAT enumeration represents the data formats for BCD elements.
+ */
 typedef enum _BCD_ELEMENT_DATATYPE_FORMAT
 {
     BCD_ELEMENT_DATATYPE_FORMAT_UNKNOWN,
@@ -468,6 +784,9 @@ typedef enum _BCD_ELEMENT_DATATYPE_FORMAT
     BCD_ELEMENT_DATATYPE_FORMAT_BINARY // 0x08000000
 } BCD_ELEMENT_DATATYPE_FORMAT;
 
+/**
+ * The BCD_ELEMENT_DATATYPE_CLASS enumeration represents the classes for BCD elements.
+ */
 typedef enum _BCD_ELEMENT_DATATYPE_CLASS
 {
     BCD_ELEMENT_DATATYPE_CLASS_NONE,
@@ -478,6 +797,9 @@ typedef enum _BCD_ELEMENT_DATATYPE_CLASS
     BCD_ELEMENT_DATATYPE_CLASS_OEM // 0x50000000
 } BCD_ELEMENT_DATATYPE_CLASS;
 
+/**
+ * The BCD_ELEMENT_DEVICE_TYPE enumeration represents the types of devices for BCD elements.
+ */
 typedef enum _BCD_ELEMENT_DEVICE_TYPE
 {
     BCD_ELEMENT_DEVICE_TYPE_NONE,
@@ -493,16 +815,47 @@ typedef enum _BCD_ELEMENT_DEVICE_TYPE
     BCD_ELEMENT_DEVICE_TYPE_COMPOSITE
 } BCD_ELEMENT_DEVICE_TYPE;
 
+/**
+ * Macro to construct a BCD element data type value from its class, format, and subtype.
+ *
+ * \param Class The class of the BCD element.
+ * \param Format The format of the BCD element data.
+ * \param Subtype The subtype identifier for the element.
+ * \return A ULONG value representing the combined BCD element data type.
+ */
 #define MAKE_BCDE_DATA_TYPE(Class, Format, Subtype) \
-    (((((ULONG)Class) & 0xF) << 28) | ((((ULONG)Format) & 0xF) << 24) | (((ULONG)Subtype) & 0x00FFFFFF))
+    (((((ULONG)(Class)) & 0xF) << 28) | ((((ULONG)(Format)) & 0xF) << 24) | (((ULONG)(Subtype)) & 0x00FFFFFF))
 
+/**
+ * Macro to extract the BCD element class from a given data type value.
+ *
+ * \param DataType The value containing the BCD element information.
+ * \return The extracted BCD_ELEMENT_DATATYPE_CLASS.
+ */
 #define GET_BCDE_DATA_CLASS(DataType) \
-    ((BCD_ELEMENT_DATATYPE_CLASS)(((((ULONG)DataType)) >> 28) & 0xF))
-#define GET_BCDE_DATA_FORMAT(DataType) \
-    ((BCD_ELEMENT_DATATYPE_FORMAT)(((((ULONG)DataType)) >> 24) & 0xF))
-#define GET_BCDE_DATA_SUBTYPE(DataType) \
-    ((ULONG)((((ULONG)DataType)) & 0x00FFFFFF))
+    ((BCD_ELEMENT_DATATYPE_CLASS)(((((ULONG)(DataType))) >> 28) & 0xF))
 
+/**
+ * Macro to extract the BCD element data format from a given data type value.
+ *
+ * \param DataType The value containing the BCD element information.
+ * \return The extracted BCD_ELEMENT_DATATYPE_FORMAT.
+ */
+#define GET_BCDE_DATA_FORMAT(DataType) \
+    ((BCD_ELEMENT_DATATYPE_FORMAT)(((((ULONG)(DataType))) >> 24) & 0xF))
+
+/**
+ * Macro to extract the BCD element subtype identifier from a given data type value.
+ *
+ * \param DataType The value containing the BCD element information.
+ * \return The extracted subtype identifier as a ULONG value.
+ */
+#define GET_BCDE_DATA_SUBTYPE(DataType) \
+    ((ULONG)((((ULONG)(DataType))) & 0x00FFFFFF))
+
+/**
+ * The BCD_ELEMENT_DATATYPE union represents the data type for a BCD element.
+ */
 typedef union _BCD_ELEMENT_DATATYPE
 {
     ULONG PackedValue;
@@ -516,6 +869,16 @@ typedef union _BCD_ELEMENT_DATATYPE
 
 static_assert(sizeof(BCD_ELEMENT_DATATYPE) == sizeof(ULONG), "sizeof(BCD_ELEMENT_DATATYPE) is invalid.");
 
+/**
+ * The BcdEnumerateElementTypes function enumerates the element types present in a specified BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object whose element types are to be enumerated.
+ * \param Buffer Optional pointer to a buffer that receives an array of BCD_ELEMENT_DATATYPE values.
+ * If this parameter is NULL, the function will return the required buffer size in BufferSize.
+ * \param BufferSize On input, specifies the size of the buffer in bytes. On output, receives the required or actual size of the buffer.
+ * \param ElementCount Receives the number of element types returned in the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -526,6 +889,9 @@ BcdEnumerateElementTypes(
     _Out_ PULONG ElementCount
     );
 
+/**
+ * The BCD_ELEMENT_DEVICE_QUALIFIED_PARTITION structure contains information about a qualified partition.
+ */
 typedef struct _BCD_ELEMENT_DEVICE_QUALIFIED_PARTITION
 {
     ULONG PartitionStyle;
@@ -545,6 +911,9 @@ typedef struct _BCD_ELEMENT_DEVICE_QUALIFIED_PARTITION
     };
 } BCD_ELEMENT_DEVICE_QUALIFIED_PARTITION, *PBCD_ELEMENT_DEVICE_QUALIFIED_PARTITION;
 
+/**
+ * The BCD_ELEMENT_DEVICE structure contains information about a BCD device element.
+ */
 typedef struct _BCD_ELEMENT_DEVICE
 {
     ULONG DeviceType;
@@ -579,31 +948,49 @@ typedef struct _BCD_ELEMENT_DEVICE
     };
 } BCD_ELEMENT_DEVICE, *PBCD_ELEMENT_DEVICE;
 
+/**
+ * The BCD_ELEMENT_STRING structure contains a string value for a BCD element.
+ */
 typedef struct _BCD_ELEMENT_STRING
 {
     WCHAR Value[ANYSIZE_ARRAY];
 } BCD_ELEMENT_STRING, *PBCD_ELEMENT_STRING;
 
+/**
+ * The BCD_ELEMENT_OBJECT structure contains a GUID value for a BCD object element.
+ */
 typedef struct _BCD_ELEMENT_OBJECT
 {
     GUID Object;
 } BCD_ELEMENT_OBJECT, *PBCD_ELEMENT_OBJECT;
 
+/**
+ * The BCD_ELEMENT_OBJECT_LIST structure contains a list of GUIDs for a BCD object list element.
+ */
 typedef struct _BCD_ELEMENT_OBJECT_LIST
 {
     GUID ObjectList[ANYSIZE_ARRAY];
 } BCD_ELEMENT_OBJECT_LIST, *PBCD_ELEMENT_OBJECT_LIST;
 
+/**
+ * The BCD_ELEMENT_INTEGER structure contains a 64-bit integer value for a BCD element.
+ */
 typedef struct _BCD_ELEMENT_INTEGER
 {
     ULONG64 Value;
 } BCD_ELEMENT_INTEGER, *PBCD_ELEMENT_INTEGER;
 
+/**
+ * The BCD_ELEMENT_INTEGER_LIST structure contains a list of 64-bit integers for a BCD element.
+ */
 typedef struct _BCD_ELEMENT_INTEGER_LIST
 {
     ULONG64 Value[ANYSIZE_ARRAY];
 } BCD_ELEMENT_INTEGER_LIST, *PBCD_ELEMENT_INTEGER_LIST;
 
+/**
+ * The BCD_ELEMENT_BOOLEAN structure contains a boolean value for a BCD element.
+ */
 typedef struct _BCD_ELEMENT_BOOLEAN
 {
     BOOLEAN Value;
@@ -612,6 +999,9 @@ typedef struct _BCD_ELEMENT_BOOLEAN
 
 #define BCD_ELEMENT_DESCRIPTION_VERSION 0x1
 
+/**
+ * The BCD_ELEMENT_DESCRIPTION structure contains information about a BCD element.
+ */
 typedef struct BCD_ELEMENT_DESCRIPTION
 {
     ULONG Version; // BCD_ELEMENT_DESCRIPTION_VERSION
@@ -619,12 +1009,25 @@ typedef struct BCD_ELEMENT_DESCRIPTION
     ULONG DataSize;
 } BCD_ELEMENT_DESCRIPTION, *PBCD_ELEMENT_DESCRIPTION;
 
+/**
+ * The BCD_ELEMENT structure contains information about a BCD element.
+ */
 typedef struct _BCD_ELEMENT
 {
     PBCD_ELEMENT_DESCRIPTION Description;
     PVOID Data;
 } BCD_ELEMENT, *PBCD_ELEMENT;
 
+/**
+ * The BcdEnumerateElements function enumerates the elements present in a specified BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object whose elements are to be enumerated.
+ * \param Buffer Optional pointer to a buffer that receives an array of BCD_ELEMENT structures.
+ * If this parameter is NULL, the function will return the required buffer size in BufferSize.
+ * \param BufferSize On input, specifies the size of the buffer in bytes. On output, receives the required or actual size of the buffer.
+ * \param ElementCount Receives the number of elements returned in the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -635,6 +1038,10 @@ BcdEnumerateElements(
     _Out_ PULONG ElementCount
     );
 
+/**
+ * The BCD_FLAGS enumeration defines flags that control the behavior of BCD object enumeration,
+ * device translation, and policy checks in the context of system boot configuration.
+ */
 typedef enum _BCD_FLAGS
 {
     BCD_FLAG_NONE = 0x0,
@@ -648,6 +1055,17 @@ typedef enum _BCD_FLAGS
     BCD_FLAG_DISABLE_POLICY_CHECKS = 0x80
 } BCD_FLAGS;
 
+/**
+ * The BcdEnumerateElementsWithFlags function enumerates the elements present in a specified BCD object, using additional flags to control enumeration behavior.
+ *
+ * \param BcdObjectHandle Handle to the BCD object whose elements are to be enumerated.
+ * \param BcdFlags Flags that control the enumeration behavior (see BCD_FLAGS).
+ * \param Buffer Optional pointer to a buffer that receives an array of BCD_ELEMENT structures.
+ * If this parameter is NULL, the function will return the required buffer size in BufferSize.
+ * \param BufferSize On input, specifies the size of the buffer in bytes. On output, receives the required or actual size of the buffer.
+ * \param ElementCount Receives the number of elements returned in the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -659,6 +1077,18 @@ BcdEnumerateElementsWithFlags(
     _Out_ PULONG ElementCount
     );
 
+/**
+ * The BcdEnumerateAndUnpackElements function enumerates and unpacks the elements of a specified BCD object from a BCD store, using additional flags.
+ *
+ * \param BcdStoreHandle Handle to the BCD store.
+ * \param BcdObjectHandle Handle to the BCD object whose elements are to be enumerated and unpacked.
+ * \param BcdFlags Flags that control the enumeration and unpacking behavior.
+ * \param Buffer Optional pointer to a buffer that receives an array of BCD_ELEMENT structures.
+ * If this parameter is NULL, the function will return the required buffer size in BufferSize.
+ * \param BufferSize On input, specifies the size of the buffer in bytes. On output, receives the required or actual size of the buffer.
+ * \param ElementCount Receives the number of elements returned in the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -671,6 +1101,16 @@ BcdEnumerateAndUnpackElements(
     _Out_ PULONG ElementCount
     );
 
+/**
+ * The BcdGetElementData function retrieves the data for a specified element in a BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object.
+ * \param BcdElement The element type to retrieve (BCD_ELEMENT_DATATYPE).
+ * \param Buffer Optional pointer to a buffer that receives the element data.
+ * If this parameter is NULL, the function will return the required buffer size in BufferSize.
+ * \param BufferSize On input, specifies the size of the buffer in bytes. On output, receives the required or actual size of the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -681,6 +1121,17 @@ BcdGetElementData(
     _Inout_ PULONG BufferSize
     );
 
+/**
+ * The BcdGetElementDataWithFlags function retrieves the data for a specified element in a BCD object, using additional flags.
+ *
+ * \param BcdObjectHandle Handle to the BCD object.
+ * \param BcdElement The element type to retrieve (BCD_ELEMENT_DATATYPE).
+ * \param BcdFlags Flags that control the retrieval behavior.
+ * \param Buffer Optional pointer to a buffer that receives the element data.
+ * If this parameter is NULL, the function will return the required buffer size in BufferSize.
+ * \param BufferSize On input, specifies the size of the buffer in bytes. On output, receives the required or actual size of the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -692,6 +1143,15 @@ BcdGetElementDataWithFlags(
     _Inout_ PULONG BufferSize
     );
 
+/**
+ * The BcdSetElementData function sets the data for a specified element in a BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object.
+ * \param BcdElement The element type to set (BCD_ELEMENT_DATATYPE).
+ * \param Buffer Pointer to the buffer containing the data to set.
+ * \param BufferSize The size of the buffer in bytes.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -702,6 +1162,16 @@ BcdSetElementData(
     _In_ ULONG BufferSize
     );
 
+/**
+ * The BcdSetElementDataWithFlags function sets the data for a specified element in a BCD object, using additional flags.
+ *
+ * \param BcdObjectHandle Handle to the BCD object.
+ * \param BcdElement The element type to set (BCD_ELEMENT_DATATYPE).
+ * \param BcdFlags Flags that control the set operation.
+ * \param Buffer Pointer to the buffer containing the data to set.
+ * \param BufferSize The size of the buffer in bytes.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -713,6 +1183,13 @@ BcdSetElementDataWithFlags(
     _In_ ULONG BufferSize
     );
 
+/**
+ * The BcdDeleteElement function deletes a specified element from a BCD object.
+ *
+ * \param BcdObjectHandle Handle to the BCD object.
+ * \param BcdElement The element type to delete (BCD_ELEMENT_DATATYPE).
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -721,206 +1198,260 @@ BcdDeleteElement(
     _In_ ULONG BcdElement // BCD_ELEMENT_DATATYPE
     );
 
+//
 // Element types
+//
 
+/**
+ * Specifies the device object element types.
+ * \sa https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bcd/bcddeviceobjectelementtypes
+ */
+typedef enum BcdDeviceObjectElementTypes
+{
+    // The RAM disk image offset. The element data format is BcdIntegerElement.
+    BcdDeviceInteger_RamdiskImageOffset = 0x35000001,
+    // The IP port number to be used for Trivial File Transfer Protocol (TFTP) reads. The element data format is BcdIntegerElement.
+    BcdDeviceInteger_TftpClientPort = 0x35000002,
+    // The device that contains the SDI object. The element data format is BcdDeviceElement.
+    BcdDeviceInteger_SdiDevice = 0x31000003,
+    // The path from the root of the SDI device to the RAM disk file. The element data format is BcdStringElement.
+    BcdDeviceInteger_SdiPath = 0x32000004,
+    // The length of the image for the RAM disk. The element data format is BcdIntegerElement.
+    BcdDeviceInteger_RamdiskImageLength = 0x35000005,
+    // Enables exporting the RAM disk as a CD. The element data format is BcdBooleanElement.
+    BcdDeviceBoolean_RamdiskExportAsCd = 0x36000006,
+    // Defines the TFTP block size for the RAM disk Windows Imaging (WIM) file. The element data format is BcdIntegerElement.
+    BcdDeviceInteger_RamdiskTftpBlockSize = 0x36000007,
+    // Defines the TFTP window size for the RAM disk WIM file. The element data format is BcdIntegerElement.
+    BcdDeviceInteger_RamdiskTftpWindowSize = 0x36000008,
+    // Enables or disables multicast for the RAM disk WIM file. The element data format is BcdBooleanElement.
+    BcdDeviceBoolean_RamdiskMulticastEnabled = 0x36000009,
+    // Enables fallback to TFTP if multicast fails. The element data format is BcdBooleanElement.
+    BcdDeviceBoolean_RamdiskMulticastTftpFallback = 0x3600000A,
+    // Enables or disables the TFTP variable window size extension. The element data format is BcdBooleanElement.
+    BcdDeviceBoolean_RamdiskTftpVarWindow = 0x3600000B
+} BcdDeviceObjectElementTypes;
+
+/**
+ * BCD configuration elements for the Boot Manager types.
+ */
 typedef enum _BcdBootMgrElementTypes
 {
     /// <summary>
     /// The order in which BCD objects should be displayed.
     /// Objects are displayed using the string specified by the BcdLibraryString_Description element.
     /// </summary>
-    /// <remarks>0x24000001</remarks>
+    /// <remarks>0x24000001 - BCDE_BOOTMGR_TYPE_DISPLAY_ORDER</remarks>
     BcdBootMgrObjectList_DisplayOrder = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECTLIST, 1),
     /// <summary>
     /// List of boot environment applications the boot manager should execute.
     /// The applications are executed in the order they appear in this list.
     /// If the firmware boot manager does not support loading multiple applications, this list cannot contain more than one entry.
     /// </summary>
-    /// <remarks>0x24000002</remarks>
+    /// <remarks>0x24000002 - BCDE_BOOTMGR_TYPE_BOOT_SEQUENCE</remarks>
     BcdBootMgrObjectList_BootSequence = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECTLIST, 2),
     /// <summary>
     /// The default boot environment application to load if the user does not select one.
     /// </summary>
-    /// <remarks>0x23000003</remarks>
+    /// <remarks>0x23000003 - BCDE_BOOTMGR_TYPE_DEFAULT_OBJECT</remarks>
     BcdBootMgrObject_DefaultObject = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECT, 3),
     /// <summary>
     /// The maximum number of seconds a boot selection menu is to be displayed to the user.
     /// The menu is displayed until the user selects an option or the time-out expires.
     /// If this value is not specified, the boot manager waits for the user to make a selection.
     /// </summary>
-    /// <remarks>0x25000004</remarks>
+    /// <remarks>0x25000004 - BCDE_BOOTMGR_TYPE_TIMEOUT</remarks>
     BcdBootMgrInteger_Timeout = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 4),
     /// <summary>
     /// Indicates that a resume operation should be attempted during a system restart.
     /// </summary>
-    /// <remarks>0x26000005</remarks>
+    /// <remarks>0x26000005 - BCDE_BOOTMGR_TYPE_ATTEMPT_RESUME</remarks>
     BcdBootMgrBoolean_AttemptResume = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 5),
     /// <summary>
     /// The resume application object.
     /// </summary>
-    /// <remarks>0x23000006</remarks>
+    /// <remarks>0x23000006 - BCDE_BOOTMGR_TYPE_RESUME_OBJECT</remarks>
     BcdBootMgrObject_ResumeObject = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECT, 6),
     /// <summary>
-    ///
+    /// The startup sequence.
     /// </summary>
-    /// <remarks>0x24000007</remarks>
+    /// <remarks>0x24000007 - BCDE_BOOTMGR_TYPE_STARTUP_SEQUENCE</remarks>
     BcdBootMgrObjectList_StartupSequence = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECTLIST, 7),
     /// <summary>
     /// The boot manager tools display order list.
     /// </summary>
-    /// <remarks>0x24000010</remarks>
+    /// <remarks>0x24000010 - BCDE_BOOTMGR_TYPE_TOOLS_DISPLAY_ORDER</remarks>
     BcdBootMgrObjectList_ToolsDisplayOrder = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECTLIST, 16),
     /// <summary>
     /// Forces the display of the legacy boot menu, regardless of the number of OS entries in the BCD store and their BcdOSLoaderInteger_BootMenuPolicy.
     /// </summary>
-    /// <remarks>0x26000020</remarks>
+    /// <remarks>0x26000020 - BCDE_BOOTMGR_TYPE_DISPLAY_BOOT_MENU</remarks>
     BcdBootMgrBoolean_DisplayBootMenu = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 32),
     /// <summary>
-    /// Indicates whether the display of errors should be suppressed.
-    /// If this setting is enabled, the boot manager exits to the multi-OS menu on OS launch error.
+    /// Indicates whether the display of errors should be suppressed. If this setting is enabled, the boot manager exits to the multi-OS menu on OS launch error.
     /// </summary>
-    /// <remarks>0x26000021</remarks>
+    /// <remarks>0x26000021 - BCDE_BOOTMGR_TYPE_NO_ERROR_DISPLAY</remarks>
     BcdBootMgrBoolean_NoErrorDisplay = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 33),
     /// <summary>
     /// The device on which the boot application resides.
     /// </summary>
-    /// <remarks>0x21000022</remarks>
+    /// <remarks>0x21000022 - BCDE_BOOTMGR_TYPE_BCD_DEVICE</remarks>
     BcdBootMgrDevice_BcdDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 34),
     /// <summary>
     /// The boot application.
     /// </summary>
-    /// <remarks>0x22000023</remarks>
+    /// <remarks>0x22000023 - BCDE_BOOTMGR_TYPE_BCD_FILEPATH</remarks>
     BcdBootMgrString_BcdFilePath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 35),
     /// <summary>
-    ///
+    /// Indicates whether HORM (Hibernate Once/Resume Many) is enabled.
     /// </summary>
-    /// <remarks>0x26000024</remarks>
+    /// <remarks>0x26000024 - BCDE_BOOTMGR_TYPE_HIBERBOOT</remarks>
     BcdBootMgrBoolean_HormEnabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 36),
     /// <summary>
-    ///
+    /// Indicates whether the system is in hibernation root mode.
     /// </summary>
-    /// <remarks>0x26000025</remarks>
+    /// <remarks>0x26000025 - BCDE_BOOTMGR_TYPE_NEXT_ENTRY_ON_FAILURE</remarks>
     BcdBootMgrBoolean_HiberRoot = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 37),
     /// <summary>
-    ///
+    /// The password override string.
     /// </summary>
-    /// <remarks>0x22000026</remarks>
+    /// <remarks>0x22000026 - BCDE_BOOTMGR_TYPE_FVE_RECOVERY_MESSAGE</remarks>
     BcdBootMgrString_PasswordOverride = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 38),
     /// <summary>
-    ///
+    /// The PIN/passphrase override string.
     /// </summary>
-    /// <remarks>0x22000027</remarks>
+    /// <remarks>0x22000027 - BCDE_BOOTMGR_TYPE_FVE_RECOVERY_URL</remarks>
     BcdBootMgrString_PinpassPhraseOverride = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 39),
     /// <summary>
-    /// Controls whether custom actions are processed before a boot sequence.
-    /// Note This value is supported starting in Windows 8 and Windows Server 2012.
+    /// Controls whether custom actions are processed before a boot sequence. Note This value is supported starting in Windows 8 and Windows Server 2012.
     /// </summary>
-    /// <remarks>0x26000028</remarks>
+    /// <remarks>0x26000028 - BCDE_BOOTMGR_TYPE_PROCESS_CUSTOM_ACTIONS_FIRST</remarks>
     BcdBootMgrBoolean_ProcessCustomActionsFirst = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 40),
     /// <summary>
     /// Custom Bootstrap Actions.
     /// </summary>
-    /// <remarks>0x27000030</remarks>
+    /// <remarks>0x27000030 - BCDE_BOOTMGR_TYPE_CUSTOM_ACTIONS_LIST</remarks>
     BcdBootMgrIntegerList_CustomActionsList = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGERLIST, 48),
     /// <summary>
-    /// Controls whether a boot sequence persists across multiple boots.
-    /// Note This value is supported starting in Windows 8 and Windows Server 2012.
+    /// Controls whether a boot sequence persists across multiple boots. Note This value is supported starting in Windows 8 and Windows Server 2012.
     /// </summary>
-    /// <remarks>0x26000031</remarks>
+    /// <remarks>0x26000031 - BCDE_BOOTMGR_TYPE_PERSIST_BOOT_SEQUENCE</remarks>
     BcdBootMgrBoolean_PersistBootSequence = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 49),
     /// <summary>
-    ///
+    /// Indicates whether to skip the startup sequence.
     /// </summary>
-    /// <remarks>0x26000032</remarks>
+    /// <remarks>0x26000032 - BCDE_BOOTMGR_TYPE_SKIP_STARTUP_SEQUENCE</remarks>
     BcdBootMgrBoolean_SkipStartupSequence = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 50),
 } BcdBootMgrElementTypes;
 
+/**
+ * Specifies the policy for using the first megabyte of memory.
+ */
 typedef enum _BcdLibrary_FirstMegabytePolicy
 {
-    /// <summary>
-    /// Use none of the first megabyte of memory.
-    /// </summary>
+    /* Use none of the first megabyte of memory. */
     FirstMegabytePolicyUseNone,
-    /// <summary>
-    /// Use all of the first megabyte of memory.
-    /// </summary>
+    /* Use all of the first megabyte of memory. */
     FirstMegabytePolicyUseAll,
-    /// <summary>
-    /// Reserved for future use.
-    /// </summary>
+    /* Reserved for future use. */
     FirstMegabytePolicyUsePrivate
 } BcdLibrary_FirstMegabytePolicy;
 
+/**
+ * Specifies the type of debugger.
+ */
 typedef enum _BcdLibrary_DebuggerType
 {
+    /* Serial debugger. */
     DebuggerSerial = 0,
+    /* 1394 debugger. */
     Debugger1394 = 1,
+    /* USB debugger. */
     DebuggerUsb = 2,
+    /* Network debugger. */
     DebuggerNet = 3,
+    /* Local debugger. */
     DebuggerLocal = 4
 } BcdLibrary_DebuggerType;
 
+/**
+ * Specifies the start policy for the debugger.
+ */
 typedef enum _BcdLibrary_DebuggerStartPolicy
 {
-    /// <summary>
-    /// The debugger will start active.
-    /// </summary>
+    /* The debugger will start active. */
     DebuggerStartActive,
-    /// <summary>
-    /// The debugger will start in the auto-enabled state.
-    /// If a debugger is attached it will be used; otherwise the debugger port will be available for other applications.
-    /// </summary>
+    /**
+     * The debugger will start in the auto-enabled state.
+     * If a debugger is attached it will be used; otherwise the debugger port will be available for other applications.
+     */
     DebuggerStartAutoEnable,
-    /// <summary>
-    /// The debugger will not start.
-    /// </summary>
+    /* The debugger will not start. */
     DebuggerStartDisable
 } BcdLibrary_DebuggerStartPolicy;
 
+/**
+ * Specifies the access policy for PCI configuration space.
+ */
 typedef enum _BcdLibrary_ConfigAccessPolicy
 {
-    /// <summary>
-    /// Access to PCI configuration space through the memory-mapped region is allowed.
-    /// </summary>
+    /**
+     * Access to PCI configuration space through the memory-mapped region is allowed.
+     */
     ConfigAccessPolicyDefault,
-    /// <summary>
-    /// Access to PCI configuration space through the memory-mapped region is not allowed.
-    /// This setting is used for platforms that implement memory-mapped configuration space incorrectly.
-    /// The CFC/CF8 access mechanism can be used to access configuration space on these platforms.
-    /// </summary>
+    /**
+     * Access to PCI configuration space through the memory-mapped region is not allowed.
+     * This setting is used for platforms that implement memory-mapped configuration space incorrectly.
+     * The CFC/CF8 access mechanism can be used to access configuration space on these platforms.
+     */
     ConfigAccessPolicyDisallowMmConfig
 } BcdLibrary_ConfigAccessPolicy;
 
+/**
+ * Enumeration for UX Display Message Types in the Boot Configuration Data (BCD) library.
+ * This enumeration defines the different UX display message types that can be specified in the BCD library.
+ */
 typedef enum _BcdLibrary_UxDisplayMessageType
 {
-    DisplayMessageTypeDefault = 0,
-    DisplayMessageTypeResume = 1,
-    DisplayMessageTypeHyperV = 2,
-    DisplayMessageTypeRecovery = 3,
-    DisplayMessageTypeStartupRepair = 4,
-    DisplayMessageTypeSystemImageRecovery = 5,
-    DisplayMessageTypeCommandPrompt = 6,
-    DisplayMessageTypeSystemRestore = 7,
-    DisplayMessageTypePushButtonReset = 8,
+    DisplayMessageTypeDefault = 0,              // Default display message type.
+    DisplayMessageTypeResume = 1,               // Display message type for resume.
+    DisplayMessageTypeHyperV = 2,               // Display message type for Hyper-V.
+    DisplayMessageTypeRecovery = 3,             // Display message type for recovery.
+    DisplayMessageTypeStartupRepair = 4,        // Display message type for startup repair.
+    DisplayMessageTypeSystemImageRecovery = 5,  // Display message type for system image recovery.
+    DisplayMessageTypeCommandPrompt = 6,        // Display message type for command prompt.
+    DisplayMessageTypeSystemRestore = 7,        // Display message type for system restore.
+    DisplayMessageTypePushButtonReset = 8       // Display message type for push button reset.
 } BcdLibrary_UxDisplayMessageType;
 
+/**
+ * Enumeration for Safe Boot options in the Boot Configuration Data (BCD) library.
+ * This enumeration defines the different safe boot modes that can be specified in the BCD library.
+ */
 typedef enum BcdLibrary_SafeBoot
 {
-    /// <summary>
-    /// Load the drivers and services specified by name or group under the following registry key:
-    /// HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal.
-    /// </summary>
+    /**
+     * Load the drivers and services specified by name or group under the following registry key:
+     * HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal.
+     */
     SafemodeMinimal = 0,
-    /// <summary>
-    /// Load the drivers and services specified by name or group under the following registry key:
-    /// HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SafeBoot\Network
-    /// </summary>
+    /**
+     * Load the drivers and services specified by name or group under the following registry key:
+     * HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SafeBoot\Network.
+     */
     SafemodeNetwork = 1,
-    /// <summary>
-    /// Boot the system into a repair mode that restores the Active Directory service from backup medium.
-    /// </summary>
+    /**
+     * Boot the system into a repair mode that restores the Active Directory service from backup medium.
+     */
     SafemodeDsRepair = 2
 } BcdLibrary_SafeBoot;
+
+typedef enum _BcdLibrary_BootUxPolicy
+{
+    BootUxPolicyDisabled = 0,
+    BootUxPolicyBasic = 1,
+    BootUxPolicyStandard = 2,
+} BcdLibrary_BootUxPolicy;
 
 // BcdLibraryElementTypes based on geoffchappell: https://www.geoffchappell.com/notes/windows/boot/bcd/elements.htm (dmex)
 typedef enum _BcdLibraryElementTypes
@@ -929,26 +1460,31 @@ typedef enum _BcdLibraryElementTypes
     /// Device on which a boot environment application resides.
     /// </summary>
     /// <remarks>0x11000001</remarks>
+    // alternate name: BCDE_LIBRARY_TYPE_APPLICATION_DEVICE
     BcdLibraryDevice_ApplicationDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 1),
     /// <summary>
     /// Path to a boot environment application.
     /// </summary>
     /// <remarks>0x12000002</remarks>
+    // alternate name: BCDE_LIBRARY_TYPE_APPLICATION_PATH
     BcdLibraryString_ApplicationPath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 2),
     /// <summary>
     /// Display name of the boot environment application.
     /// </summary>
     /// <remarks>0x12000004</remarks>
+    // alternate name: BCDE_LIBRARY_TYPE_APPLICATION_DESCRIPTION
     BcdLibraryString_Description = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 4),
     /// <summary>
     /// Preferred locale, in RFC 3066 format.
     /// </summary>
     /// <remarks>0x12000005</remarks>
+    // alternate name: BCDE_LIBRARY_TYPE_APPLICATION_PREFERRED_LOCALE
     BcdLibraryString_PreferredLocale = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 5),
     /// <summary>
     /// List of BCD objects from which the current object should inherit elements.
     /// </summary>
     /// <remarks>0x14000006</remarks>
+    // alternate name: BCDE_LIBRARY_TYPE_APPLICATION_INHERITED_OBJECTS
     BcdLibraryObjectList_InheritedObjects = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_OBJECTLIST, 6),
     /// <summary>
     /// Maximum physical address a boot environment application should recognize. All memory above this address is ignored.
@@ -976,7 +1512,7 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x1600000B</remarks>
     BcdLibraryBoolean_AllowBadMemoryAccess = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 11),
     /// <summary>
-    /// Indicates how the first megabyte of memory is to be used. The Integer property is one of the values from the BcdLibrary_FirstMegabytePolicy enumeration.
+    /// Indicates how the first megabyte of memory is to be used. The Integer property is one of the values from the BcdLibrary_FirstMegabytePolicy enumeration. (BCDE_POLICY_LIBRARY_TYPE_FIRST_MEGABYTE_POLICY)
     /// </summary>
     /// <remarks>0x1500000C</remarks>
     BcdLibraryInteger_FirstMegabytePolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 12),
@@ -992,9 +1528,13 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x1500000E</remarks>
     BcdLibraryInteger_AvoidLowPhysicalMemory = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 14),
     /// <summary>
-    ///
+    /// Indicates whether traditional KSEG mappings are to be used.
+    /// KSEG refers to the kernel segment address space in Windows NT-based systems, typically mapping physical memory into a fixed virtual address range for the kernel (e.g., KSEG0/KSEG1 in MIPS, or the equivalent region in x86/x64).
+    /// Traditional KSEG mappings use a static, direct mapping of physical memory for kernel access, as opposed to dynamic or flexible mappings introduced in newer Windows versions.
+    /// Enabling this option forces the kernel to use legacy, fixed mappings for physical memory, which may be required for compatibility with certain drivers or hardware.
     /// </summary>
     /// <remarks>0x1600000F</remarks>
+    // alternate name: BCDE_LIBRARY_TYPE_TRADITIONAL_KSEG_MAPPINGS
     BcdLibraryBoolean_TraditionalKsegMappings = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 15),
     /// <summary>
     /// Indicates whether the boot debugger should be enabled.
@@ -1070,12 +1610,12 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x1200001D</remarks>
     BcdLibraryString_DebuggerNetKey = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 29),
     /// <summary>
-    ///
+    /// Indicates whether the network debugger is connected through a virtual machine (VM).
     /// </summary>
     /// <remarks>0x1600001E</remarks>
     BcdLibraryBoolean_DebuggerNetVM = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 30),
     /// <summary>
-    ///
+    /// Defines the host IPv6 address for the network debugger.
     /// </summary>
     /// <remarks>0x1200001F</remarks>
     BcdLibraryString_DebuggerNetHostIpv6 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 31),
@@ -1101,7 +1641,7 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x12000030</remarks>
     BcdLibraryString_LoadOptionsString = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 48),
     /// <summary>
-    ///
+    /// Indicates whether an attempt should be made to start a non-BCD-aware boot application.
     /// </summary>
     /// <remarks>0x16000031</remarks>
     BcdLibraryBoolean_AttemptNonBcdStart = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 49),
@@ -1116,7 +1656,7 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x16000041</remarks>
     BcdLibraryBoolean_DisplayOptionsEdit = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 65),
     /// <summary>
-    ///
+    /// Represents a reference to the address of the FVE (Full Volume Encryption) Key Ring as an integer.
     /// </summary>
     /// <remarks>0x15000042</remarks>
     BcdLibraryInteger_FVEKeyRingAddress = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 66),
@@ -1136,9 +1676,9 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x16000045</remarks>
     BcdLibraryBoolean_BsdPreserveLog = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 69),
     /// <summary>
-    ///
+    /// Indicates whether graphics mode is disabled, requiring boot applications to use text mode display.
     /// </summary>
-    /// <remarks>0x16000046</remarks>
+    /// <remarks>0x16000046 - BCDE_LIBRARY_TYPE_GRAPHICS_MODE_DISABLED</remarks>
     BcdLibraryBoolean_GraphicsModeDisabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 70),
     /// <summary>
     /// Indicates the access policy for PCI configuration space.
@@ -1160,10 +1700,10 @@ typedef enum _BcdLibraryElementTypes
     /// <summary>
     /// Overrides the default location of the boot fonts.
     /// </summary>
-    /// <remarks>0x1200004A</remarks>
+    /// <remarks>0x1200004A - BCDE_LIBRARY_TYPE_FONT_PATH</remarks>
     BcdLibraryString_FontPath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 74),
     /// <summary>
-    ///
+    /// Specifies the System Integrity Policy (SIP) version.
     /// </summary>
     /// <remarks>0x1500004B</remarks>
     BcdLibraryInteger_SiPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 75),
@@ -1178,7 +1718,7 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x16000050</remarks>
     BcdLibraryBoolean_ConsoleExtendedInput = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 80),
     /// <summary>
-    ///
+    /// Specifies the initial device for console input.
     /// </summary>
     /// <remarks>0x15000051</remarks>
     BcdLibraryInteger_InitialConsoleInput = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 81),
@@ -1215,7 +1755,7 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x15000065</remarks>
     BcdLibraryInteger_BootUxDisplayMessage = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 101),
     /// <summary>
-    ///
+    /// This setting allows setting an integer representing a custom message that will be shown during the boot user experience (Boot UX).
     /// </summary>
     /// <remarks>0x15000066</remarks>
     BcdLibraryInteger_BootUxDisplayMessageOverride = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 102),
@@ -1240,42 +1780,42 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x1600006A</remarks>
     BcdLibraryBoolean_BootUxFadeDisable = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 106),
     /// <summary>
-    ///
+    /// Enables pool reservation debugging for the Boot UX (User Experience) subsystem.
     /// </summary>
     /// <remarks>0x1600006B</remarks>
     BcdLibraryBoolean_BootUxReservePoolDebug = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 107),
     /// <summary>
-    ///
+    /// Disables the Boot UX (User Experience) animation subsystem.
     /// </summary>
     /// <remarks>0x1600006C</remarks>
     BcdLibraryBoolean_BootUxDisable = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 108),
     /// <summary>
-    ///
+    /// Specifies the number of frames used for the Boot UX fade animation.
     /// </summary>
     /// <remarks>0x1500006D</remarks>
     BcdLibraryInteger_BootUxFadeFrames = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 109),
     /// <summary>
-    ///
+    /// Enables dumping of Boot UX performance statistics.
     /// </summary>
     /// <remarks>0x1600006E</remarks>
     BcdLibraryBoolean_BootUxDumpStats = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 110),
     /// <summary>
-    ///
+    /// Enables display of Boot UX performance statistics on screen.
     /// </summary>
     /// <remarks>0x1600006F</remarks>
     BcdLibraryBoolean_BootUxShowStats = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 111),
     /// <summary>
-    ///
+    /// Indicates whether the system is configured as a multi-boot system.
     /// </summary>
     /// <remarks>0x16000071</remarks>
     BcdLibraryBoolean_MultiBootSystem = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 113),
     /// <summary>
-    ///
+    /// Disables keyboard input during the boot process.
     /// </summary>
     /// <remarks>0x16000072</remarks>
     BcdLibraryBoolean_ForceNoKeyboard = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 114),
     /// <summary>
-    ///
+    /// Remaps the Windows keyboard key from the standard scan code to the extended scan code.
     /// </summary>
     /// <remarks>0x15000073</remarks>
     BcdLibraryInteger_AliasWindowsKey = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 115),
@@ -1285,12 +1825,12 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x16000074</remarks>
     BcdLibraryBoolean_BootShutdownDisabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 116),
     /// <summary>
-    ///
+    /// Represents the performance counter frequency, in hertz.
     /// </summary>
     /// <remarks>0x15000075</remarks>
     BcdLibraryInteger_PerformanceFrequency = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 117),
     /// <summary>
-    ///
+    /// This setting is used to configure Secure Boot policies at a low level.
     /// </summary>
     /// <remarks>0x15000076</remarks>
     BcdLibraryInteger_SecurebootRawPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 118),
@@ -1301,12 +1841,12 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x17000077</remarks>
     BcdLibraryIntegerList_AllowedInMemorySettings = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 119),
     /// <summary>
-    ///
+    /// Specifies the duration in milliseconds for the Boot UX bitmap transition effect.
     /// </summary>
     /// <remarks>0x15000079</remarks>
     BcdLibraryInteger_BootUxBitmapTransitionTime = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 121),
     /// <summary>
-    ///
+    /// Indicates whether two boot images are used during the Boot UX transition animation.
     /// </summary>
     /// <remarks>0x1600007A</remarks>
     BcdLibraryBoolean_TwoBootImages = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 122),
@@ -1317,162 +1857,174 @@ typedef enum _BcdLibraryElementTypes
     /// <remarks>0x1600007B</remarks>
     BcdLibraryBoolean_ForceFipsCrypto = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 123),
     /// <summary>
-    ///
+    /// Specifies the Boot UX mode for displaying boot errors.
     /// </summary>
     /// <remarks>0x1500007D</remarks>
     BcdLibraryInteger_BootErrorUx = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 125),
     /// <summary>
-    ///
+    /// Allows flight-signed (canary) binaries to be loaded during boot.
     /// </summary>
     /// <remarks>0x1600007E</remarks>
     BcdLibraryBoolean_AllowFlightSignatures = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 126),
     /// <summary>
-    ///
+    /// Specifies the format of the boot measurement log for security auditing.
     /// </summary>
     /// <remarks>0x1500007F</remarks>
     BcdLibraryInteger_BootMeasurementLogFormat = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 127),
     /// <summary>
-    ///
+    /// Specifies the display rotation angle (in degrees) to apply during boot.
     /// </summary>
     /// <remarks>0x15000080</remarks>
     BcdLibraryInteger_DisplayRotation = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 128),
     /// <summary>
-    ///
+    /// Specifies the level of logging for boot measurement.
     /// </summary>
     /// <remarks>0x15000081</remarks>
     BcdLibraryInteger_LogControl = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 129),
     /// <summary>
-    ///
+    /// Disables BCD (Boot Configuration Data) synchronization with UEFI firmware during boot.
     /// </summary>
     /// <remarks>0x16000082</remarks>
     BcdLibraryBoolean_NoFirmwareSync = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 130),
     /// <summary>
-    ///
+    /// Specifies the Windows system device used for boot.
     /// </summary>
     /// <remarks>0x11000084</remarks>
     BcdLibraryDevice_WindowsSystemDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 132),
     /// <summary>
-    ///
+    /// Enables the NumLock key during boot.
     /// </summary>
     /// <remarks>0x16000087</remarks>
     BcdLibraryBoolean_NumLockOn = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 135),
     /// <summary>
-    ///
+    /// Additional Code Integrity (CI) policies to be applied during boot.
     /// </summary>
     /// <remarks>0x12000088</remarks>
     BcdLibraryString_AdditionalCiPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 136),
+    /// <summary>
+    /// Enabling the 5-Level Paging feature. 0 = Disabled, 1 = Optout, 2 = Optin
+    /// </summary>
+    /// <remarks>0x15000088</remarks>
+    BcdLibraryInteger_LinearAddress57 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_LIBRARY, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 136),
 } BcdLibraryElementTypes;
 
 typedef enum _BcdTemplateElementTypes
 {
     /// <summary>
-    ///
+    /// Specifies the device type for the setup boot template.
     /// </summary>
     /// <remarks>0x45000001</remarks>
     BcdSetupInteger_DeviceType = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_SETUPTEMPLATE, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 1),
     /// <summary>
-    ///
+    /// Specifies the relative path to the boot application for the setup template.
     /// </summary>
     /// <remarks>0x42000002</remarks>
     BcdSetupString_ApplicationRelativePath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_SETUPTEMPLATE, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 2),
     /// <summary>
-    ///
+    /// Specifies the relative path to the RAM disk device for the setup template.
     /// </summary>
     /// <remarks>0x42000003</remarks>
     BcdSetupString_RamdiskDeviceRelativePath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_SETUPTEMPLATE, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 3),
     /// <summary>
-    ///
+    /// Indicates whether to omit OS loader elements when copying objects to the setup template.
     /// </summary>
     /// <remarks>0x46000004</remarks>
     BcdSetupBoolean_OmitOsLoaderElements = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_SETUPTEMPLATE, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 4),
     /// <summary>
-    ///
+    /// Specifies the list of element types to migrate from the setup template.
     /// </summary>
     /// <remarks>0x47000006</remarks>
     BcdSetupIntegerList_ElementsToMigrateList = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_SETUPTEMPLATE, BCD_ELEMENT_DATATYPE_FORMAT_INTEGERLIST, 6),
     /// <summary>
-    ///
+    /// Indicates whether the setup template targets the recovery operating system.
     /// </summary>
     /// <remarks>0x46000010</remarks>
     BcdSetupBoolean_RecoveryOs = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_SETUPTEMPLATE, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 16),
 } BcdTemplateElementTypes;
 
-/// <summary>
-/// Specifies the no-execute page protection policies.
-/// </summary>
+/**
+ * Specifies the no-execute page protection policies.
+ */
 typedef enum _BcdOSLoader_NxPolicy
 {
-    /// <summary>
-    /// The no-execute page protection is off by default.
-    /// </summary>
+    /**
+     * The no-execute page protection is off by default.
+     */
     NxPolicyOptIn = 0,
-    /// <summary>
-    /// The no-execute page protection is on by default.
-    /// </summary>
+    /**
+     * The no-execute page protection is on by default.
+     */
     NxPolicyOptOut = 1,
-    /// <summary>
-    /// The no-execute page protection is always off.
-    /// </summary>
+    /**
+     * The no-execute page protection is always off.
+     */
     NxPolicyAlwaysOff = 2,
-    /// <summary>
-    /// The no-execute page protection is always on.
-    /// </summary>
+    /**
+     * The no-execute page protection is always on.
+     */
     NxPolicyAlwaysOn = 3
 } BcdOSLoader_NxPolicy;
 
-/// <summary>
-/// Specifies the Physical Address Extension (PAE) policies.
-/// </summary>
+/**
+ * Specifies the Physical Address Extension (PAE) policies.
+ */
 typedef enum _BcdOSLoader_PAEPolicy
 {
-    /// <summary>
-    /// Enable PAE if hot-pluggable memory is defined above 4GB.
-    /// </summary>
+    /**
+     * Enable PAE if hot-pluggable memory is defined above 4GB.
+     */
     PaePolicyDefault = 0,
-    /// <summary>
-    /// PAE is enabled.
-    /// </summary>
+    /**
+     * PAE is enabled.
+     */
     PaePolicyForceEnable = 1,
-    /// <summary>
-    /// PAE is disabled.
-    /// </summary>
+    /**
+     * PAE is disabled.
+     */
     PaePolicyForceDisable = 2
 } BcdOSLoader_PAEPolicy;
 
+/**
+ * Specifies the boot status policies.
+ */
 typedef enum _BcdOSLoader_BootStatusPolicy
 {
-    /// <summary>
-    /// Display all boot failures.
-    /// </summary>
+    /**
+     * Display all boot failures.
+     */
     BootStatusPolicyDisplayAllFailures = 0,
-    /// <summary>
-    /// Ignore all boot failures.
-    /// </summary>
+    /**
+     * Ignore all boot failures.
+     */
     BootStatusPolicyIgnoreAllFailures = 1,
-    /// <summary>
-    /// Ignore all shutdown failures.
-    /// </summary>
+    /**
+     * Ignore all shutdown failures.
+     */
     BootStatusPolicyIgnoreShutdownFailures = 2,
-    /// <summary>
-    /// Ignore all boot failures.
-    /// </summary>
+    /**
+     * Ignore all boot failures.
+     */
     BootStatusPolicyIgnoreBootFailures = 3,
-    /// <summary>
-    /// Ignore checkpoint failures.
-    /// </summary>
+    /**
+     * Ignore checkpoint failures.
+     */
     BootStatusPolicyIgnoreCheckpointFailures = 4,
-    /// <summary>
-    /// Display shutdown failures.
-    /// </summary>
+    /**
+     * Display shutdown failures.
+     */
     BootStatusPolicyDisplayShutdownFailures = 5,
-    /// <summary>
-    /// Display boot failures.
-    /// </summary>
+    /**
+     * Display boot failures.
+     */
     BootStatusPolicyDisplayBootFailures = 6,
-    /// <summary>
-    /// Display checkpoint failures.
-    /// </summary>
-    BootStatusPolicyDisplayCheckpointFailures = 7
+    /**
+     * Display checkpoint failures.
+     */
+    BootStatusPolicyDisplayCheckpointFailures = 7,
+    /**
+     * Always display startup failures.
+     */
+    BootStatusPolicyAlwaysDisplayStartupFailures = 8
 } BcdOSLoaderBootStatusPolicy;
 
 // BcdOSLoaderElementTypes based on geoffchappell: https://www.geoffchappell.com/notes/windows/boot/bcd/elements.htm (dmex)
@@ -1494,7 +2046,10 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x23000003</remarks>
     BcdOSLoaderObject_AssociatedResumeObject = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_OBJECT, 3),
     /// <summary>
-    ///
+    /// Indicates whether the OS loader should stamp disks during the boot process.
+    /// The OS loader writes a stamp or marker to disk(s) during boot for identifying boot disks, tracking boot status,
+    /// or supporting features like BitLocker or recovery. The marker helps the boot environment recognize which disk
+    /// was used to boot, and used for diagnostics or recovery.
     /// </summary>
     /// <remarks>0x26000004</remarks>
     BcdOSLoaderBoolean_StampDisks = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 4),
@@ -1544,7 +2099,7 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x26000025</remarks>
     BcdOSLoaderBoolean_UseLastGoodSettings = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 37),
     /// <summary>
-    ///
+    /// Indicates that the system should disable code integrity checks during boot.
     /// </summary>
     /// <remarks>0x26000026</remarks>
     BcdOSLoaderBoolean_DisableCodeIntegrityChecks = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 38),
@@ -1572,9 +2127,9 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x25000032</remarks>
     BcdOSLoaderInteger_IncreaseUserVa = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 50),
     /// <summary>
-    ///
+    /// The amount of memory that should be reserved for performance data.
     /// </summary>
-    /// <remarks>0x25000033</remarks>
+    /// <remarks>0x25000033 - BCDE_OSLOADER_TYPE_PERFORMANCE_DATA_MEMORY</remarks>
     BcdOSLoaderInteger_PerformaceDataMemory = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 51),
     /// <summary>
     /// Indicates whether the system should use the standard VGA display driver instead of a high-performance display driver.
@@ -1614,7 +2169,10 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x25000052</remarks>
     BcdOSLoaderInteger_RestrictApicCluster = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 82),
     /// <summary>
-    ///
+    /// Represents the OS Loader Type EV Store string element for the BCD (Boot Configuration Data) OS Loader.
+    /// The "EV Store" refers to the Event Log Store, which is a boot-time log or storage area used by Windows
+    /// typically used in scenarios involving secure boot, measured boot, or advanced diagnostics to record
+    /// boot-related events, diagnostics, or measurements for security, reliability, or troubleshooting.
     /// </summary>
     /// <remarks>0x22000053</remarks>
     BcdOSLoaderString_OSLoaderTypeEVStore = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 83),
@@ -1671,12 +2229,12 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x26000070</remarks>
     BcdOSLoaderInteger_UseFirmwarePciSettings = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 112),
     /// <summary>
-    /// The PCI Message Signaled Interrupt (MSI) policy. Zero (0) indicates default, and one (1) indicates that MSI interrupts are disabled.
+    /// The PCI Message Signaled Interrupt (MSI) policy. Zero (0) indicates default, and one (1) indicates that MSI interrupts are forcefully disabled.
     /// </summary>
     /// <remarks>0x25000071</remarks>
     BcdOSLoaderInteger_MsiPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 113),
     /// <summary>
-    /// Undocumented. Zero (0) indicates default, and one (1) indicates that PCI Express is forcefully disabled.
+    /// Zero (0) indicates default, and one (1) indicates that PCI Express is forcefully disabled.
     /// </summary>
     /// <remarks>0x25000072</remarks>
     BcdOSLoaderInteger_PciExpressPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 114),
@@ -1714,7 +2272,7 @@ typedef enum _BcdOSLoaderElementTypes
     /// <summary>
     /// Forces the use of the platform clock as the system's performance counter.
     /// </summary>
-    /// <remarks>0x260000A2</remarks>
+    /// <remarks>0x260000A2 - BCDE_OSLOADER_TYPE_USE_PLATFORM_CLOCK</remarks>
     BcdOSLoaderBoolean_UsePlatformClock = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 162),
     /// <summary>
     /// Forces the OS to assume the presence of legacy PC devices like CMOS and keyboard controllers.
@@ -1723,12 +2281,21 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x260000A3</remarks>
     BcdOSLoaderBoolean_ForceLegacyPlatform = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 163),
     /// <summary>
-    ///
+    /// Forces the kernel to use the platform legacy periodic timer interrupt (platform tick)
+    /// instead of newer tick suppression mechanisms (high-resolution timer, TSC deadline, or dynamic tick).
+    /// This corresponds to the BCDEdit boot option 'useplatformtick'.
+    /// Use this option when diagnosing timekeeping, scheduler, or idle state issues on systems with
+    /// problematic TSC/HPET implementations, or when consistent periodic interrupts are required for debugging.
+    /// Value TRUE enables the behavior; absence or FALSE uses default adaptive clock tick behavior.
     /// </summary>
     /// <remarks>0x260000A4</remarks>
     BcdOSLoaderBoolean_UsePlatformTick = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 164),
     /// <summary>
-    ///
+    /// Disables dynamic tick (tickless kernel) so the system continues generating periodic clock interrupts.
+    /// Dynamic tick allows the kernel to stop the periodic timer when all CPUs are idle to reduce power usage;
+    /// disabling this feature helps improve performance with older hardware, high-resolution latency measurements, certain debuggers,
+    /// or troubleshooting missed timer events.
+    /// Value TRUE disables tick suppression; absence or FALSE leaves dynamic tick enabled (default).
     /// </summary>
     /// <remarks>0x260000A5</remarks>
     BcdOSLoaderBoolean_DisableDynamicTick = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 165),
@@ -1744,7 +2311,7 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x260000B0</remarks>
     BcdOSLoaderBoolean_EmsEnabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 176),
     /// <summary>
-    ///
+    /// Represents the BCDE data type for forcing the OS loader to fail during the boot process.
     /// </summary>
     /// <remarks>0x250000C0</remarks>
     BcdOSLoaderInteger_ForceFailure = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 192),
@@ -1767,7 +2334,7 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x260000C3</remarks>
     BcdOSLoaderBoolean_AdvancedOptionsOneTime = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 195),
     /// <summary>
-    ///
+    /// Allows for a one-time system boot using the specified boot options before returning to the original boot behavior.
     /// </summary>
     /// <remarks>0x260000C4</remarks>
     BcdOSLoaderBoolean_OptionsEditOneTime = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 196),
@@ -1788,7 +2355,9 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x250000F0</remarks>
     BcdOSLoaderInteger_HypervisorLaunchType = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 240),
     /// <summary>
-    ///
+    /// Specifies the path to the hypervisor binary used for launching virtualization features.
+    /// This string value typically points to the location of the hypervisor image (e.g., hvloader.efi or hvloader.exe).
+    /// Used when configuring custom hypervisor binaries or alternate launch paths.
     /// </summary>
     /// <remarks>0x250000F1</remarks>
     BcdOSLoaderString_HypervisorPath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 241),
@@ -1823,7 +2392,8 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x250000F7</remarks>
     BcdOSLoaderInteger_BootUxPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 247),
     /// <summary>
-    ///
+    /// Indicates whether Second Level Address Translation (SLAT) is disabled for the hypervisor.
+    /// SLAT is a hardware virtualization feature; disabling it may impact performance or compatibility.
     /// </summary>
     /// <remarks>0x220000F8</remarks>
     BcdOSLoaderInteger_HypervisorSlatDisabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 248),
@@ -1834,300 +2404,361 @@ typedef enum _BcdOSLoaderElementTypes
     /// <remarks>0x220000F9</remarks>
     BcdOSLoaderString_HypervisorDebuggerBusParams = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 249),
     /// <summary>
-    ///
+    /// Specifies the number of processors to be used by the hypervisor.
+    /// Used to limit or configure processor usage for virtualization.
     /// </summary>
     /// <remarks>0x250000FA</remarks>
     BcdOSLoaderInteger_HypervisorNumProc = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 250),
     /// <summary>
-    ///
+    /// Specifies the number of root processors per NUMA node for the hypervisor.
+    /// Used for advanced NUMA and processor topology configuration.
     /// </summary>
     /// <remarks>0x250000FB</remarks>
     BcdOSLoaderInteger_HypervisorRootProcPerNode = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 251),
     /// <summary>
-    ///
+    /// Indicates whether the hypervisor should use large virtual TLBs (Translation Lookaside Buffers).
+    /// May improve performance for certain workloads.
     /// </summary>
     /// <remarks>0x260000FC</remarks>
     BcdOSLoaderBoolean_HypervisorUseLargeVTlb = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 252),
     /// <summary>
-    ///
+    /// Specifies the IPv4 address for the hypervisor debugger network host.
+    /// Used for remote debugging over the network.
     /// </summary>
     /// <remarks>0x250000FD</remarks>
     BcdOSLoaderInteger_HypervisorDebuggerNetHostIp = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 253),
     /// <summary>
-    ///
+    /// Specifies the network port for the hypervisor debugger.
+    /// Used for remote debugging over the network.
     /// </summary>
     /// <remarks>0x250000FE</remarks>
     BcdOSLoaderInteger_HypervisorDebuggerNetHostPort = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 254),
     /// <summary>
-    ///
+    /// Specifies the number of memory pages allocated for the hypervisor debugger.
+    /// Used to control debugger memory usage.
     /// </summary>
     /// <remarks>0x250000FF</remarks>
     BcdOSLoaderInteger_HypervisorDebuggerPages = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 255),
     /// <summary>
-    ///
+    /// Specifies the TPM boot entropy policy for the hypervisor.
+    /// Used to configure Trusted Platform Module entropy usage during boot.
     /// </summary>
     /// <remarks>0x25000100</remarks>
     BcdOSLoaderInteger_TpmBootEntropyPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 256),
     /// <summary>
-    ///
+    /// Specifies the encryption key for the hypervisor debugger network connection.
+    /// Used to secure remote debugging sessions.
     /// </summary>
     /// <remarks>0x22000110</remarks>
     BcdOSLoaderString_HypervisorDebuggerNetKey = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 272),
     /// <summary>
-    ///
+    /// Specifies the product SKU type for the hypervisor.
+    /// Used for licensing and feature differentiation.
     /// </summary>
     /// <remarks>0x22000112</remarks>
     BcdOSLoaderString_HypervisorProductSkuType = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 274),
     /// <summary>
-    ///
+    /// Specifies the root processor configuration for the hypervisor.
+    /// Used for advanced processor topology settings.
     /// </summary>
     /// <remarks>0x22000113</remarks>
     BcdOSLoaderInteger_HypervisorRootProc = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 275),
     /// <summary>
-    ///
+    /// Indicates whether DHCP should be used for the hypervisor debugger network connection.
+    /// TRUE enables DHCP; FALSE requires manual configuration.
     /// </summary>
     /// <remarks>0x26000114</remarks>
     BcdOSLoaderBoolean_HypervisorDebuggerNetDhcp = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 276),
     /// <summary>
-    ///
+    /// Specifies the IOMMU policy for the hypervisor.
+    /// Used to configure Input-Output Memory Management Unit behavior.
     /// </summary>
     /// <remarks>0x25000115</remarks>
     BcdOSLoaderInteger_HypervisorIommuPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 277),
     /// <summary>
-    ///
+    /// Indicates whether the hypervisor should use virtual APICs.
+    /// May affect interrupt handling and virtualization performance.
     /// </summary>
     /// <remarks>0x26000116</remarks>
     BcdOSLoaderBoolean_HypervisorUseVApic = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 278),
     /// <summary>
-    ///
+    /// Specifies additional load options for the hypervisor.
+    /// Used to pass custom command-line or configuration parameters.
     /// </summary>
     /// <remarks>0x22000117</remarks>
     BcdOSLoaderString_HypervisorLoadOptions = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 279),
     /// <summary>
-    ///
+    /// Specifies the MSR filter policy for the hypervisor.
+    /// Used to control Model-Specific Register access filtering.
     /// </summary>
     /// <remarks>0x25000118</remarks>
     BcdOSLoaderInteger_HypervisorMsrFilterPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 280),
     /// <summary>
-    ///
+    /// Specifies the MMIO NX policy for the hypervisor.
+    /// Used to configure No-Execute protection for memory-mapped I/O regions.
     /// </summary>
     /// <remarks>0x25000119</remarks>
     BcdOSLoaderInteger_HypervisorMmioNxPolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 281),
     /// <summary>
-    ///
+    /// Specifies the scheduler type for the hypervisor.
+    /// Used to select between different scheduling algorithms.
     /// </summary>
     /// <remarks>0x2500011A</remarks>
     BcdOSLoaderInteger_HypervisorSchedulerType = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 282),
     /// <summary>
-    ///
+    /// Specifies the NUMA node configuration for root processors in the hypervisor.
+    /// Used for advanced NUMA topology settings.
     /// </summary>
     /// <remarks>0x2200011B</remarks>
     BcdOSLoaderString_HypervisorRootProcNumaNodes = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 283),
     /// <summary>
-    ///
+    /// Enables or configures performance monitoring for the hypervisor.
+    /// Used for diagnostics and performance analysis.
     /// </summary>
     /// <remarks>0x2500011C</remarks>
     BcdOSLoaderInteger_HypervisorPerfmon = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 284),
     /// <summary>
-    ///
+    /// Specifies the number of root processors per core for the hypervisor.
+    /// Used for advanced processor topology configuration.
     /// </summary>
     /// <remarks>0x2500011D</remarks>
     BcdOSLoaderInteger_HypervisorRootProcPerCore = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 285),
     /// <summary>
-    ///
+    /// Specifies NUMA node logical processor settings for root processors in the hypervisor.
+    /// Used for advanced NUMA topology configuration.
     /// </summary>
     /// <remarks>0x2200011E</remarks>
     BcdOSLoaderString_HypervisorRootProcNumaNodeLps = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 286),
     /// <summary>
-    ///
+    /// Specifies the xsave policy for processor state saving in the hypervisor.
+    /// Used to configure processor feature usage.
     /// </summary>
     /// <remarks>0x25000120</remarks>
     BcdOSLoaderInteger_XSavePolicy = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 288),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 0).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000121</remarks>
     BcdOSLoaderInteger_XSaveAddFeature0 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 289),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 1).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000122</remarks>
     BcdOSLoaderInteger_XSaveAddFeature1 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 290),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 2).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000123</remarks>
     BcdOSLoaderInteger_XSaveAddFeature2 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 291),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 3).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000124</remarks>
     BcdOSLoaderInteger_XSaveAddFeature3 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 292),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 4).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000125</remarks>
     BcdOSLoaderInteger_XSaveAddFeature4 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 293),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 5).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000126</remarks>
     BcdOSLoaderInteger_XSaveAddFeature5 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 294),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 6).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000127</remarks>
     BcdOSLoaderInteger_XSaveAddFeature6 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 295),
     /// <summary>
-    ///
+    /// Adds processor features to the xsave mask for processor state saving (feature 7).
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000128</remarks>
     BcdOSLoaderInteger_XSaveAddFeature7 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 296),
     /// <summary>
-    ///
+    /// Removes processor features from the xsave mask for processor state saving.
+    /// Used for advanced processor feature configuration.
     /// </summary>
     /// <remarks>0x25000129</remarks>
     BcdOSLoaderInteger_XSaveRemoveFeature = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 297),
     /// <summary>
-    ///
+    /// Specifies the processor mask for xsave operations.
+    /// Used to configure which processors participate in state saving.
     /// </summary>
     /// <remarks>0x2500012A</remarks>
     BcdOSLoaderInteger_XSaveProcessorsMask = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 298),
     /// <summary>
-    ///
+    /// Disables xsave processor state saving.
+    /// Used for compatibility or troubleshooting.
     /// </summary>
     /// <remarks>0x2500012B</remarks>
     BcdOSLoaderInteger_XSaveDisable = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 299),
     /// <summary>
-    ///
+    /// Specifies the kernel debugger type for the OS loader.
+    /// Used to select between serial, 1394, USB, or network debugging.
     /// </summary>
     /// <remarks>0x2500012C</remarks>
     BcdOSLoaderInteger_KernelDebuggerType = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 300),
     /// <summary>
-    ///
+    /// PCI bus parameters for the kernel debugger device.
+    /// Format: "bus.device.function" (e.g., "1.5.0").
+    /// Used to specify the hardware location for debugging.
     /// </summary>
     /// <remarks>0x2200012D</remarks>
     BcdOSLoaderString_KernelDebuggerBusParameters = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 301),
     /// <summary>
-    ///
+    /// Specifies the port address for the kernel debugger.
+    /// Used for configuring hardware debugging.
     /// </summary>
     /// <remarks>0x2500012E</remarks>
     BcdOSLoaderInteger_KernelDebuggerPortAddress = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 302),
     /// <summary>
-    ///
+    /// Specifies the port number for the kernel debugger.
+    /// Used for configuring hardware debugging.
     /// </summary>
     /// <remarks>0x2500012F</remarks>
     BcdOSLoaderInteger_KernelDebuggerPortNumber = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 303),
     /// <summary>
-    ///
+    /// Specifies the claimed TPM counter value for the OS loader.
+    /// Used for advanced TPM and security configuration.
     /// </summary>
     /// <remarks>0x25000130</remarks>
     BcdOSLoaderInteger_ClaimedTpmCounter = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 304),
     /// <summary>
-    ///
+    /// Specifies the channel number for 1394 kernel debugging.
+    /// Used for configuring FireWire debugging.
     /// </summary>
     /// <remarks>0x25000131</remarks>
     BcdOSLoaderInteger_KernelDebugger1394Channel = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 305),
     /// <summary>
-    ///
+    /// Specifies the USB target name for kernel debugging.
+    /// Used for configuring USB debugging.
     /// </summary>
     /// <remarks>0x22000132</remarks>
     BcdOSLoaderString_KernelDebuggerUsbTargetname = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 306),
     /// <summary>
-    ///
+    /// Specifies the IPv4 address for the kernel debugger network host.
+    /// Used for remote debugging over the network.
     /// </summary>
     /// <remarks>0x25000133</remarks>
     BcdOSLoaderInteger_KernelDebuggerNetHostIp = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 307),
     /// <summary>
-    ///
+    /// Specifies the network port for the kernel debugger.
+    /// Used for remote debugging over the network.
     /// </summary>
     /// <remarks>0x25000134</remarks>
     BcdOSLoaderInteger_KernelDebuggerNetHostPort = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 308),
     /// <summary>
-    ///
+    /// Indicates whether DHCP should be used for the kernel debugger network connection.
+    /// TRUE enables DHCP; FALSE requires manual configuration.
     /// </summary>
     /// <remarks>0x26000135</remarks>
     BcdOSLoaderBoolean_KernelDebuggerNetDhcp = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 309),
     /// <summary>
-    ///
+    /// Specifies the encryption key for the kernel debugger network connection.
+    /// Used to secure remote debugging sessions.
     /// </summary>
     /// <remarks>0x22000136</remarks>
     BcdOSLoaderString_KernelDebuggerNetKey = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 310),
     /// <summary>
-    ///
+    /// Specifies the IMC hive name for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x22000137</remarks>
     BcdOSLoaderString_IMCHiveName = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 311),
     /// <summary>
-    ///
+    /// Specifies the IMC device for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x21000138</remarks>
     BcdOSLoaderDevice_IMCDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 312),
     /// <summary>
-    ///
+    /// Specifies the baud rate for kernel debugging.
+    /// Used for configuring hardware debugging.
     /// </summary>
     /// <remarks>0x25000139</remarks>
     BcdOSLoaderInteger_KernelDebuggerBaudrate = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 313),
     /// <summary>
-    ///
+    /// Specifies the manufacturing mode string for the OS loader.
+    /// Used for OEM or factory configuration.
     /// </summary>
     /// <remarks>0x22000140</remarks>
     BcdOSLoaderString_ManufacturingMode = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 320),
     /// <summary>
-    ///
+    /// Indicates whether event logging is enabled for the OS loader.
+    /// Used for diagnostics and troubleshooting.
     /// </summary>
     /// <remarks>0x26000141</remarks>
     BcdOSLoaderBoolean_EventLoggingEnabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 321),
     /// <summary>
-    ///
+    /// Specifies the launch type for Virtual Secure Mode (VSM).
+    /// Used for configuring virtualization-based security.
     /// </summary>
     /// <remarks>0x25000142</remarks>
     BcdOSLoaderInteger_VsmLaunchType = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 322),
     /// <summary>
-    /// Undocumented. Zero (0) indicates default, one (1) indicates that disabled and two (2) indicates strict mode.
+    /// Specifies the code integrity enforcement policy for the hypervisor.
+    /// 0 = Disabled, 1 = Enabled, 2 = Strict.
+    /// Used for security and compliance.
     /// </summary>
     /// <remarks>0x25000144</remarks>
     BcdOSLoaderInteger_HypervisorEnforcedCodeIntegrity = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_INTEGER, 324),
     /// <summary>
-    ///
+    /// Indicates whether DTrace is enabled for the OS loader.
+    /// Used for advanced diagnostics and tracing.
     /// </summary>
     /// <remarks>0x26000145</remarks>
     BcdOSLoaderBoolean_DtraceEnabled = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_BOOLEAN, 325),
     /// <summary>
-    ///
+    /// Specifies the system data device for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x21000150</remarks>
     BcdOSLoaderDevice_SystemDataDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 336),
     /// <summary>
-    ///
+    /// Specifies the OS ARC device for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x21000151</remarks>
     BcdOSLoaderDevice_OsArcDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 337),
     /// <summary>
-    ///
+    /// Specifies the OS data device for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x21000153</remarks>
     BcdOSLoaderDevice_OsDataDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 339),
     /// <summary>
-    ///
+    /// Specifies the BSP device for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x21000154</remarks>
     BcdOSLoaderDevice_BspDevice = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 340),
     /// <summary>
-    ///
+    /// Specifies the BSP file path for the OS loader.
+    /// Used for advanced configuration or diagnostics.
     /// </summary>
     /// <remarks>0x21000155</remarks>
     BcdOSLoaderDevice_BspFilepath = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_DEVICE, 341),
     /// <summary>
-    ///
+    /// Specifies the IPv6 address for the kernel debugger network host.
+    /// Used for remote debugging over IPv6.
     /// </summary>
     /// <remarks>0x22000156</remarks>
     BcdOSLoaderString_KernelDebuggerNetHostIpv6 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 342),
     /// <summary>
-    ///
+    /// Specifies the IPv6 address for the hypervisor debugger network host.
+    /// Used for remote debugging over IPv6.
     /// </summary>
     /// <remarks>0x22000161</remarks>
     BcdOSLoaderString_HypervisorDebuggerNetHostIpv6 = MAKE_BCDE_DATA_TYPE(BCD_ELEMENT_DATATYPE_CLASS_APPLICATION, BCD_ELEMENT_DATATYPE_FORMAT_STRING, 353),
 } BcdOSLoaderElementTypes;
 
-#endif
+#endif // _NTBCD_H

@@ -4,8 +4,8 @@
 #include "../../MiscHelpers/Common/HistoryGraph.h"
 #include "../API/ProcessInfo.h"
 #include "TaskView.h"
+#include "./Models/ProcessModel.h"
 
-class CProcessModel;
 class CProcessFilterModel;
 
 class CProcessTree : public CTaskView
@@ -72,7 +72,7 @@ private slots:
 
 protected:
 	template <class T>
-	QList<T>					GetSellectedProcesses()
+	QList<T>					GetSelectedProcesses()
 	{
 		QList<T> List;
 		foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
@@ -84,11 +84,11 @@ protected:
 		}
 		return List;
 	}
-	virtual QList<CTaskPtr>		GetSellectedTasks();
+	virtual QList<CTaskPtr>		GetSelectedTasks();
 
 	void						UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<quint64, CHistoryGraph*>& Graphs, QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> >& History);
 
-	QMap<quint64, CProcessPtr> m_Processes;
+	QMap<SProcessUID, CProcessPtr> m_Processes;
 
 private:
 	void					AddHeaderSubMenu(QMenu* m_pHeaderMenu, const QString& Label, int from, int to);
@@ -123,19 +123,32 @@ private:
 	//QMenu*					m_pMenu;
 
 	//QAction*				m_pTerminateTree;
-	QAction*				m_pBringInFront;
 	QAction*				m_pShowProperties;
 	QAction*				m_pOpenPath;
 	QAction*				m_pViewPE;
-	QAction*				m_pClose;
 	QAction*				m_pStop;
+	QAction*				m_pFreeze;
+	QAction*				m_pUnFreeze;
+	QMenu*					m_pWindowMenu;
+	QAction*				m_pBringInFront;
+	QAction*				m_pRestore;
+	QAction*				m_pMinimize;
+	QAction*				m_pMaximize;
+	QAction*				m_pClose;
 	QAction*				m_pPreset;
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pQuit;
 	QAction*				m_pRunAsThis;
-	QAction*				m_pCreateDump;
+	QMenu*					m_pDumpMenu;
+	QAction*				m_pMinimalDump;
+	QAction*				m_pLimitedDump;
+	QAction*				m_pNormalDump;
+	QAction*				m_pFullDump;
+	//QAction*				m_pCustomDump;
 	QAction*				m_pDebug; // []
 #ifdef WIN32
+	QAction*				m_pEfficiency;
+	QAction*				m_pExecRequired;
 	//QAction*				m_pVirtualization; // []
 	QAction*				m_pCritical; // []
 	QAction*				m_pProtected; // []

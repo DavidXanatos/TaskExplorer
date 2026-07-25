@@ -8,6 +8,7 @@ class CDriverInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CDriverInfo)
 public:
 	CDriverInfo(QObject *parent = nullptr);
 	virtual ~CDriverInfo();

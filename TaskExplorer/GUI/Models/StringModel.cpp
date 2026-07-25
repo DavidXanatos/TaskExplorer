@@ -47,7 +47,7 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 		CProcessPtr pProcess = pString->GetProcess();
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
+		if (m_bUseIcons && !pNode->Icon.isValid() && !m_ColumnsOff.contains(eProcess))
 		{
 			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
 			if (pModule)
@@ -62,7 +62,7 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
@@ -87,9 +87,9 @@ void CStringModel::Sync(const QMap<quint64, CStringInfoPtr>& StringList)
 				{
 					case eAddress:
 					case eBaseAddress:	
-										ColValue.Formated = FormatAddress(Value.toULongLong()); break;	
+										ColValue.Formatted = FormatAddress(Value.toULongLong()); break;	
 					case eLength:
-										ColValue.Formated = FormatNumber(Value.toULongLong()); break;	
+										ColValue.Formatted = FormatNumber(Value.toULongLong()); break;	
 				}
 			}
 

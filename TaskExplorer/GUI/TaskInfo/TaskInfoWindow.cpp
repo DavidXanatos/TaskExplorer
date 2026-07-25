@@ -23,14 +23,14 @@ CTaskInfoWindow::CTaskInfoWindow(const QList<CProcessPtr>& Processes, quint64 Th
 	QStringList Names;
 	foreach(const CProcessPtr& pProcess, Processes)
 	{
-		Names.append(tr("%1 (%2)").arg(pProcess->GetName()).arg(pProcess->GetProcessId()));
+		Names.append(tr("%1 (%2)").arg(pProcess->GetName()).arg(theGUI->FormatID(pProcess->GetProcessId())));
 	}
 
 	this->setWindowTitle(tr("Task Infos of %1").arg(Names.join(tr(", "))));
 
 	pTaskInfo->ShowProcesses(Processes);
 	if (ThreaId)
-		pTaskInfo->SellectThread(ThreaId);
+		pTaskInfo->SelectThread(ThreaId);
 
 	restoreGeometry(theConf->GetBlob("InfoWindow/Window_Geometry"));
 

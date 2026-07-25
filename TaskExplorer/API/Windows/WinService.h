@@ -4,6 +4,8 @@
 class CWinService : public CServiceInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinService)
 public:
 	CWinService(QObject *parent = nullptr);
 	CWinService(const QString& Name, QObject *parent = nullptr);
@@ -14,6 +16,9 @@ public:
 	virtual quint32 GetState() const				{ QReadLocker Locker(&m_Mutex); return m_State; }
 	virtual quint32 GetControlsAccepted() const		{ QReadLocker Locker(&m_Mutex); return m_ControlsAccepted; }
 	virtual quint32 GetFlags() const				{ QReadLocker Locker(&m_Mutex); return m_Flags; }	
+
+	virtual quint32 GetWin32ExitCode() const		{ QReadLocker Locker(&m_Mutex); return m_Win32ExitCode; }
+	virtual quint32 GetServiceSpecificExitCode() const { QReadLocker Locker(&m_Mutex); return m_ServiceSpecificExitCode; }
 
 	virtual bool IsStopped() const;
 	virtual bool IsRunning(bool bStrict = false) const;
@@ -54,8 +59,13 @@ protected:
 	quint32							m_ControlsAccepted;
 	quint32							m_Flags;
 
+	// Config
 	quint32							m_StartType;
 	quint32							m_ErrorControl;
+
+	// ExitCode
+	quint32							m_Win32ExitCode;
+	quint32							m_ServiceSpecificExitCode;
 
 	QString							m_GroupeName;
 	QString							m_Description;

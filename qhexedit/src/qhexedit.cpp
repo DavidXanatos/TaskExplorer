@@ -1049,7 +1049,7 @@ bool QHexEdit::focusNextPrevChild(bool next)
 }
 
 // ********************************************************************** Handle selections
-void QHexEdit::sellect(qint64 address, qint64 length)
+void QHexEdit::select(qint64 address, qint64 length)
 {
 	qint64 curPos = (address - _addressOffset)*2;
     setCursorPosition(curPos + length*2);

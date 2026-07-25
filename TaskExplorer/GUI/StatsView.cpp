@@ -632,9 +632,9 @@ void CStatsView::ShowJob(const CWinJobPtr& pCurJob)
 }
 #endif
 
-void CStatsView::SetFilter(const QRegularExpression& Exp, bool bHighLight, int Col)
+void CStatsView::SetFilter(const QRegularExpression& Exp, int iOptions, int Col)
 {
-	CPanelWidgetEx::ApplyFilter(m_pStatsList, Exp/*, bHighLight, Col*/);
+	CPanelWidgetEx::ApplyFilter(m_pStatsList, &Exp/*, iOptions, Col*/);
 }
 
 void CStatsView::AddressFromSymbol(quint64 ProcessId, const QString& Symbol, quint64 Address)

@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2024
+ *     jxy-s   2022-2026
  *
  */
 
@@ -13,7 +13,7 @@
 
 #include <trace.h>
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Checks if a file handle is safe to issue a query through.
@@ -33,7 +33,7 @@ NTSTATUS KphpCheckFileHandleForQuery(
     NTSTATUS status;
     PFILE_OBJECT fileObject;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     //
     // We are stack attached and "invading" the process to perform the query.
@@ -105,30 +105,16 @@ NTSTATUS KphQueryInformationFile(
     PVOID buffer;
     BYTE stackBuffer[64];
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     process = NULL;
     buffer = NULL;
-    RtlZeroMemory(&ioStatusBlock, sizeof(ioStatusBlock));
+    RtlZeroMemory(&ioStatusBlock, sizeof(IO_STATUS_BLOCK));
 
     if (!FileInformation || !IoStatusBlock)
     {
         status = STATUS_INVALID_PARAMETER;
         goto Exit;
-    }
-
-    if (AccessMode != KernelMode)
-    {
-        __try
-        {
-            ProbeOutputBytes(FileInformation, FileInformationLength);
-            ProbeOutputType(IoStatusBlock, IO_STATUS_BLOCK);
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
-        {
-            status = GetExceptionCode();
-            goto Exit;
-        }
     }
 
     status = ObReferenceObjectByHandle(ProcessHandle,
@@ -150,7 +136,6 @@ NTSTATUS KphQueryInformationFile(
     if (process == PsInitialSystemProcess)
     {
         FileHandle = MakeKernelHandle(FileHandle);
-        AccessMode = KernelMode;
     }
     else
     {
@@ -161,19 +146,13 @@ NTSTATUS KphQueryInformationFile(
         }
     }
 
-    if (FileInformationLength <= ARRAYSIZE(stackBuffer))
+    buffer = KphAllocatePagedA(FileInformationLength,
+                               KPH_TAG_FILE_QUERY,
+                               stackBuffer);
+    if (!buffer)
     {
-        RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
-        buffer = stackBuffer;
-    }
-    else
-    {
-        buffer = KphAllocatePaged(FileInformationLength, KPH_TAG_FILE_QUERY);
-        if (!buffer)
-        {
-            status = STATUS_INSUFFICIENT_RESOURCES;
-            goto Exit;
-        }
+        status = STATUS_INSUFFICIENT_RESOURCES;
+        goto Exit;
     }
 
     KeStackAttachProcess(process, &apcState);
@@ -189,30 +168,22 @@ NTSTATUS KphQueryInformationFile(
     KeUnstackDetachProcess(&apcState);
     if (NT_SUCCESS(status))
     {
-        __try
-        {
-            RtlCopyMemory(FileInformation, buffer, FileInformationLength);
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
-        {
-            status = GetExceptionCode();
-        }
+        status = KphCopyToMode(FileInformation,
+                               buffer,
+                               FileInformationLength,
+                               AccessMode);
     }
 
-    __try
-    {
-        RtlCopyMemory(IoStatusBlock, &ioStatusBlock, sizeof(ioStatusBlock));
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER)
-    {
-        NOTHING;
-    }
+    KphCopyToMode(IoStatusBlock,
+                  &ioStatusBlock,
+                  sizeof(IO_STATUS_BLOCK),
+                  AccessMode);
 
 Exit:
 
-    if (buffer && (buffer != stackBuffer))
+    if (buffer)
     {
-        KphFree(buffer, KPH_TAG_FILE_QUERY);
+        KphFreeA(buffer, KPH_TAG_FILE_QUERY, stackBuffer);
     }
 
     if (process)
@@ -255,30 +226,16 @@ NTSTATUS KphQueryVolumeInformationFile(
     PVOID buffer;
     BYTE stackBuffer[64];
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     process = NULL;
     buffer = NULL;
-    RtlZeroMemory(&ioStatusBlock, sizeof(ioStatusBlock));
+    RtlZeroMemory(&ioStatusBlock, sizeof(IO_STATUS_BLOCK));
 
     if (!FsInformation || !IoStatusBlock)
     {
         status = STATUS_INVALID_PARAMETER;
         goto Exit;
-    }
-
-    if (AccessMode != KernelMode)
-    {
-        __try
-        {
-            ProbeOutputBytes(FsInformation, FsInformationLength);
-            ProbeOutputType(IoStatusBlock, IO_STATUS_BLOCK);
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
-        {
-            status = GetExceptionCode();
-            goto Exit;
-        }
     }
 
     status = ObReferenceObjectByHandle(ProcessHandle,
@@ -300,7 +257,6 @@ NTSTATUS KphQueryVolumeInformationFile(
     if (process == PsInitialSystemProcess)
     {
         FileHandle = MakeKernelHandle(FileHandle);
-        AccessMode = KernelMode;
     }
     else
     {
@@ -311,19 +267,13 @@ NTSTATUS KphQueryVolumeInformationFile(
         }
     }
 
-    if (FsInformationLength <= ARRAYSIZE(stackBuffer))
+    buffer = KphAllocatePagedA(FsInformationLength,
+                               KPH_TAG_VOL_FILE_QUERY,
+                               stackBuffer);
+    if (!buffer)
     {
-        RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
-        buffer = stackBuffer;
-    }
-    else
-    {
-        buffer = KphAllocatePaged(FsInformationLength, KPH_TAG_VOL_FILE_QUERY);
-        if (!buffer)
-        {
-            status = STATUS_INSUFFICIENT_RESOURCES;
-            goto Exit;
-        }
+        status = STATUS_INSUFFICIENT_RESOURCES;
+        goto Exit;
     }
 
     KeStackAttachProcess(process, &apcState);
@@ -339,30 +289,22 @@ NTSTATUS KphQueryVolumeInformationFile(
     KeUnstackDetachProcess(&apcState);
     if (NT_SUCCESS(status))
     {
-        __try
-        {
-            RtlCopyMemory(FsInformation, buffer, FsInformationLength);
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
-        {
-            status = GetExceptionCode();
-        }
+        status = KphCopyToMode(FsInformation,
+                               buffer,
+                               FsInformationLength,
+                               AccessMode);
     }
 
-    __try
-    {
-        RtlCopyMemory(IoStatusBlock, &ioStatusBlock, sizeof(ioStatusBlock));
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER)
-    {
-        NOTHING;
-    }
+    KphCopyToMode(IoStatusBlock,
+                  &ioStatusBlock,
+                  sizeof(IO_STATUS_BLOCK),
+                  AccessMode);
 
 Exit:
 
-    if (buffer && (buffer != stackBuffer))
+    if (buffer)
     {
-        KphFree(buffer, KPH_TAG_VOL_FILE_QUERY);
+        KphFreeA(buffer, KPH_TAG_VOL_FILE_QUERY, stackBuffer);
     }
 
     if (process)
@@ -417,7 +359,7 @@ NTSTATUS KphCreateFile(
 {
     NTSTATUS status;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (AccessMode != KernelMode)
     {
@@ -434,7 +376,8 @@ NTSTATUS KphCreateFile(
 
         if (Options & ~(IO_OPEN_TARGET_DIRECTORY |
                         IO_STOP_ON_SYMLINK |
-                        IO_IGNORE_SHARE_ACCESS_CHECK))
+                        IO_IGNORE_SHARE_ACCESS_CHECK |
+                        IO_OPEN_PAGING_FILE))
         {
             KphTracePrint(TRACE_LEVEL_VERBOSE,
                           GENERAL,

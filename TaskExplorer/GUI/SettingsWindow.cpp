@@ -2,6 +2,30 @@
 #include "SettingsWindow.h"
 #include "TaskExplorer.h"
 #include "../../MiscHelpers/Common/Settings.h"
+#include "../../MiscHelpers/Archive/ArchiveFS.h"
+#include "OnlineUpdater.h"
+#include <QFontDialog>
+#include <QDesktopServices>
+
+int CSettingsWindow__Chk2Int(Qt::CheckState state)
+{
+	switch (state) {
+	case Qt::Unchecked: return 0;
+	case Qt::Checked: return 1;
+	default:
+	case Qt::PartiallyChecked: return 2;
+	}
+}
+
+Qt::CheckState CSettingsWindow__Int2Chk(int state)
+{
+	switch (state) {
+	case 0: return Qt::Unchecked;
+	case 1: return Qt::Checked;
+	default:
+	case 2: return Qt::PartiallyChecked;
+	}
+}
 
 CSettingsWindow::CSettingsWindow(QWidget *parent)
 	: QMainWindow(parent)
@@ -11,16 +35,42 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	this->setCentralWidget(centralWidget);
 	this->setWindowTitle(tr("Task Explorer - Settings"));
 
-	ui.uiLang->addItem("International English", "");
-	QDir langDir(QApplication::applicationDirPath() + "/translations/");
-	foreach(const QString& langFile, langDir.entryList(QStringList("taskexplorer_*.qm"), QDir::Files))
+	FixTriStateBoxPallete(this);
+
+	ui.tabWidget->setTabPosition(QTabWidget::West);
+	ui.tabWidget->setTabIcon(0, QIcon(":/Actions/Design"));
+	ui.tabWidget->setTabIcon(1, QIcon(":/Actions/MiscOptions"));
+	ui.tabWidget->setTabIcon(2, QIcon(":/Actions/GUI"));
+	ui.tabWidget->setTabIcon(3, QIcon(":/Actions/Settings"));
+	ui.tabWidget->setTabIcon(4, QIcon(":/Actions/Support"));
+
+	ui.tabWidget->setCurrentIndex(0);
+
+	int size = 16.0;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+	size *= (QApplication::desktop()->logicalDpiX() / 96.0); // todo Qt6
+#endif
+
 	{
-		QString Code = langFile.mid(13, langFile.length() - 13 - 3);
-		QLocale Locale(Code);
-		QString Lang = Locale.nativeLanguageName();
-		ui.uiLang->addItem(Lang, Code);
+		ui.uiLang->addItem(tr("Auto Detection"), "");
+		ui.uiLang->addItem(tr("No Translation"), "native");
+
+		QString langDir;
+		C7zFileEngineHandler LangFS("lang", this);
+		if (LangFS.Open(QApplication::applicationDirPath() + "/translations.7z"))
+			langDir = LangFS.Prefix() + "/";
+		else
+			langDir = QApplication::applicationDirPath() + "/translations/";
+
+		foreach(const QString & langFile, QDir(langDir).entryList(QStringList("taskexplorer_*.qm"), QDir::Files))
+		{
+			QString Code = langFile.mid(13, langFile.length() - 13 - 3);
+			QLocale Locale(Code);
+			QString Lang = Locale.nativeLanguageName();
+			ui.uiLang->addItem(Lang, Code);
+		}
+		ui.uiLang->setCurrentIndex(ui.uiLang->findData(theConf->GetString("General/Language")));
 	}
-	ui.uiLang->setCurrentIndex(ui.uiLang->findData(theConf->GetString("General/Language")));
 
 	ui.chkUseCycles->setChecked(theConf->GetBool("Options/EnableCycleCpuUsage", true));
 	ui.chkLinuxStyle->setTristate(true);
@@ -37,7 +87,71 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 
 	ui.chkShow32->setChecked(theConf->GetBool("Options/Show32", true));
 
-	ui.chkDarkTheme->setChecked(theConf->GetBool("MainWindow/DarkTheme", false));
+	ui.chkDarkTheme->setCheckState(CSettingsWindow__Int2Chk(theConf->GetInt("MainWindow/DarkTheme", 2)));
+	ui.chkFusionTheme->setCheckState(CSettingsWindow__Int2Chk(theConf->GetInt("MainWindow/UseFusionTheme", 2)));
+
+	ui.cmbDPI->addItem(tr("None"), 0);
+	ui.cmbDPI->addItem(tr("Native"), 1);
+	ui.cmbDPI->addItem(tr("Qt"), 2);
+	ui.cmbDPI->setCurrentIndex(theConf->GetInt("Options/DPIScaling", 1));
+
+	int FontScales[] = { 75,100,125,150,175,200,225,250,275,300,350,400, 0 };
+	for (int* pFontScales = FontScales; *pFontScales != 0; pFontScales++)
+		ui.cmbFontScale->addItem(tr("%1").arg(*pFontScales), *pFontScales);
+	//ui.cmbFontScale->setCurrentIndex(ui.cmbFontScale->findData(theConf->GetInt("Options/FontScaling", 100)));
+	ui.cmbFontScale->setCurrentText(QString::number(theConf->GetInt("Options/FontScaling", 100)));
+
+	// UI Font
+	ui.btnSelectUiFont->setIcon(QPixmap(":/Actions/Font").scaled(size, size));
+	ui.btnSelectUiFont->setToolTip(tr("Select font"));
+	ui.btnResetUiFont->setIcon(QPixmap(":/Actions/ResetFont").scaled(size, size));
+	ui.btnResetUiFont->setToolTip(tr("Reset font"));
+
+	connect(ui.btnSelectUiFont, SIGNAL(clicked(bool)), this, SLOT(OnSelectUiFont()));
+	connect(ui.btnResetUiFont, SIGNAL(clicked(bool)), this, SLOT(OnResetUiFont()));
+	ui.lblUiFont->setText(QApplication::font().family());
+
+	// Updater
+	ui.cmbInterval->addItem(tr("Every Day"), 1 * 24 * 60 * 60);
+	ui.cmbInterval->addItem(tr("Every Week"), 7 * 24 * 60 * 60);
+	ui.cmbInterval->addItem(tr("Every 2 Weeks"), 14 * 24 * 60 * 60);
+	ui.cmbInterval->addItem(tr("Every 30 days"), 30 * 24 * 60 * 60);
+
+	ui.cmbUpdate->addItem(tr("Ignore"), "ignore");
+	ui.cmbUpdate->addItem(tr("Notify"), "notify");
+	ui.cmbUpdate->addItem(tr("Download & Notify"), "download");
+	ui.cmbUpdate->addItem(tr("Download & Install"), "install");
+
+	ui.cmbRelease->addItem(tr("Notify"), "notify");
+	ui.cmbRelease->addItem(tr("Download & Notify"), "download");
+	ui.cmbRelease->addItem(tr("Download & Install"), "install");
+
+	ui.chkAutoUpdate->setCheckState(CSettingsWindow__Int2Chk(theConf->GetInt("Options/CheckForUpdates", 2)));
+
+	int UpdateInterval = theConf->GetInt("Options/UpdateInterval", UPDATE_INTERVAL);
+	int pos = ui.cmbInterval->findData(UpdateInterval);
+	if (pos == -1)
+		ui.cmbInterval->setCurrentText(QString::number(UpdateInterval));
+	else
+		ui.cmbInterval->setCurrentIndex(pos);
+
+	QString ReleaseChannel = theConf->GetString("Options/ReleaseChannel", "stable");
+	ui.radStable->setChecked(ReleaseChannel == "stable");
+	ui.radPreview->setChecked(ReleaseChannel == "preview");
+
+	UpdateUpdater();
+
+	ui.cmbUpdate->setCurrentIndex(ui.cmbUpdate->findData(theConf->GetString("Options/OnNewUpdate", "ignore")));
+	ui.cmbRelease->setCurrentIndex(ui.cmbRelease->findData(theConf->GetString("Options/OnNewRelease", "download")));
+
+	connect(ui.lblCurrent, SIGNAL(linkActivated(const QString&)), this, SLOT(OnUpdate(const QString&)));
+	connect(ui.lblStable, SIGNAL(linkActivated(const QString&)), this, SLOT(OnUpdate(const QString&)));
+	connect(ui.lblPreview, SIGNAL(linkActivated(const QString&)), this, SLOT(OnUpdate(const QString&)));
+
+	connect(ui.chkAutoUpdate, SIGNAL(toggled(bool)), this, SLOT(UpdateUpdater()));
+	connect(ui.radStable, SIGNAL(toggled(bool)), this, SLOT(UpdateUpdater()));
+	connect(ui.radPreview, SIGNAL(toggled(bool)), this, SLOT(UpdateUpdater()));
+	//
 
 	ui.highlightCount->setValue(theConf->GetInt("Options/HighLoadHighlightCount", 5));
 
@@ -86,7 +200,7 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	ui.processName->addItem(tr("Binary name only"), 0);
 	ui.processName->setCurrentIndex(ui.processName->findData(theConf->GetInt("Options/ShowProcessDescr", 1)));
 
-	ui.chkParents->setChecked(theConf->GetBool("Options/EnableParrentRetention", true));
+	ui.chkParents->setChecked(theConf->GetBool("Options/EnableParentRetention", true));
 	ui.chkGetRefServices->setChecked(theConf->GetBool("Options/GetServicesRefModule", true));
 	ui.chkTraceDLLs->setChecked(theConf->GetBool("Options/TraceUnloadedModules", false));
 
@@ -132,6 +246,8 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 	connect(ui.buttonBox->button(QDialogButtonBox::Apply), SIGNAL(pressed()), this, SLOT(apply()));
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
+	connect(ui.tabWidget, SIGNAL(currentChanged(int)), this, SLOT(OnTab()));
+
 	restoreGeometry(theConf->GetBlob("SettingsWindow/Window_Geometry"));
 
 	OnChange();
@@ -164,7 +280,19 @@ void CSettingsWindow::apply()
 
 	theConf->SetValue("Options/Show32", ui.chkShow32->isChecked());
 
-	theConf->SetValue("MainWindow/DarkTheme", ui.chkDarkTheme->isChecked());
+	theConf->SetValue("MainWindow/DarkTheme", CSettingsWindow__Chk2Int(ui.chkDarkTheme->checkState()));
+	theConf->SetValue("MainWindow/UseFusionTheme", CSettingsWindow__Chk2Int(ui.chkFusionTheme->checkState()));
+
+
+	theConf->SetValue("Options/UIFont", ui.lblUiFont->text());
+	theConf->SetValue("Options/DPIScaling", ui.cmbDPI->currentData());
+	int Scaling = ui.cmbFontScale->currentText().toInt();
+	if (Scaling < 75)
+		Scaling = 75;
+	else if (Scaling > 500)
+		Scaling = 500;
+	theConf->SetValue("Options/FontScaling", Scaling);
+
 
 	theConf->SetValue("Options/HighLoadHighlightCount", ui.highlightCount->value());
 
@@ -197,7 +325,7 @@ void CSettingsWindow::apply()
 	
 	theConf->SetValue("Options/ShowProcessDescr", ui.processName->currentData());
 
-	theConf->SetValue("Options/EnableParrentRetention", ui.chkParents->isChecked());
+	theConf->SetValue("Options/EnableParentRetention", ui.chkParents->isChecked());
 	theConf->SetValue("Options/GetServicesRefModule", ui.chkGetRefServices->isChecked());
 	theConf->SetValue("Options/TraceUnloadedModules", ui.chkTraceDLLs->isChecked());
 
@@ -219,12 +347,33 @@ void CSettingsWindow::apply()
 			theConf->SetValue("Options/ShowGrid", pItem->checkState() == Qt::Checked);
 		else if (Name != "Background"
 		 && Name != "GraphBack" && Name != "GraphFront"
-		 && Name != "PlotBack" && Name != "PlotFront" && Name != "PlotGrid" 
+		 && Name != "PlotBack" && Name != "PlotFront" && Name != "PlotGrid"
 		)
 			ColorStr += ";" + QString((pItem->checkState() == Qt::Checked) ? "true" : "false");
 
 		theConf->SetValue("Colors/" + Name, ColorStr);
 	}
+
+	// Updater
+	theConf->SetValue("Options/CheckForUpdates", CSettingsWindow__Chk2Int(ui.chkAutoUpdate->checkState()));
+
+	int UpdateInterval = ui.cmbInterval->currentData().toInt();
+	if (!UpdateInterval)
+		UpdateInterval = ui.cmbInterval->currentText().toInt();
+	if (!UpdateInterval)
+		UpdateInterval = UPDATE_INTERVAL;
+	theConf->SetValue("Options/UpdateInterval", UpdateInterval);
+
+	QString ReleaseChannel;
+	if (ui.radStable->isChecked())
+		ReleaseChannel = "stable";
+	else if (ui.radPreview->isChecked())
+		ReleaseChannel = "preview";
+	if(!ReleaseChannel.isEmpty()) theConf->SetValue("Options/ReleaseChannel", ReleaseChannel);
+
+	theConf->SetValue("Options/OnNewUpdate", ui.cmbUpdate->currentData());
+	theConf->SetValue("Options/OnNewRelease", ui.cmbRelease->currentData());
+	//
 
 	emit OptionsChanged();
 }
@@ -260,4 +409,101 @@ void CSettingsWindow::OnChange()
 
 	ui.cellSeparator->setEnabled(ui.chkSimpleCopy->isChecked());
 	ui.maxCellWidth->setEnabled(!ui.chkSimpleCopy->isChecked());
+}
+
+void CSettingsWindow::OnSelectUiFont()
+{
+	bool ok;
+	auto newFont = QFontDialog::getFont(&ok, QApplication::font(), this);
+	if (!ok) return;
+	ui.lblUiFont->setText(newFont.family());
+}
+
+void CSettingsWindow::OnResetUiFont()
+{
+	QFont defaultFont = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+	ui.lblUiFont->setText(defaultFont.family());
+}
+
+void CSettingsWindow::UpdateUpdater()
+{
+	if (!ui.chkAutoUpdate->isChecked())
+	{
+		ui.cmbInterval->setEnabled(false);
+		ui.cmbUpdate->setEnabled(false);
+		ui.cmbRelease->setEnabled(false);
+		ui.lblRevision->setText(QString());
+		ui.lblRelease->setText(QString());
+	}
+	else
+	{
+		ui.cmbInterval->setEnabled(true);
+		ui.cmbUpdate->setEnabled(true);
+		ui.cmbRelease->setEnabled(true);
+
+		ui.lblRevision->setText(QString());
+		ui.lblRelease->setText(QString());
+	}
+}
+
+void CSettingsWindow::OnTab()
+{
+	// Check if we're on the updater tab (index 4)
+	if (ui.tabWidget->currentIndex() == 4)
+	{
+		if (ui.lblCurrent->text().isEmpty()) {
+			if (ui.chkAutoUpdate->checkState() == Qt::Checked)
+				GetUpdates();
+			else
+				ui.lblCurrent->setText(tr("<a href=\"check\">Check Now</a>"));
+		}
+	}
+}
+
+void CSettingsWindow::GetUpdates()
+{
+	QVariantMap Params;
+	Params["channel"] = "all";
+	theGUI->GetOnlineUpdater()->GetUpdates(this, SLOT(OnUpdateData(const QVariantMap&, const QVariantMap&)), Params);
+}
+
+QString CSettingsWindow__MkVersion(const QString& Name, const QVariantMap& Releases)
+{
+	QVariantMap Release = Releases[Name].toMap();
+	QString Version = Release.value("version").toString();
+	int iUpdate = Release["update"].toInt();
+	if(iUpdate) Version += QChar('a' + (iUpdate - 1));
+	return QString("<a href=\"%1\">%2</a>").arg(Name, Version);
+}
+
+void CSettingsWindow::OnUpdateData(const QVariantMap& Data, const QVariantMap& Params)
+{
+	if (Data.isEmpty() || Data["error"].toBool())
+		return;
+
+	m_UpdateData = Data;
+	QVariantMap Releases = m_UpdateData["releases"].toMap();
+	ui.lblCurrent->setText(tr("%1 (Current)").arg(COnlineUpdater::GetCurrentVersion()));
+	ui.lblStable->setText(CSettingsWindow__MkVersion("stable", Releases));
+	ui.lblPreview->setText(CSettingsWindow__MkVersion("preview", Releases));
+}
+
+void CSettingsWindow::OnUpdate(const QString& Channel)
+{
+	if (Channel == "check") {
+		GetUpdates();
+		return;
+	}
+
+	QVariantMap Releases = m_UpdateData["releases"].toMap();
+	QVariantMap Release = Releases[Channel].toMap();
+
+	QString VersionStr = Release["version"].toString();
+	if (VersionStr.isEmpty())
+		return;
+
+	QString InfoUrl = Release["infoUrl"].toString();
+	if (InfoUrl.isEmpty())
+		InfoUrl = "https://xanasoft.com/go.php?to=sbie-get";
+	QDesktopServices::openUrl(InfoUrl);
 }

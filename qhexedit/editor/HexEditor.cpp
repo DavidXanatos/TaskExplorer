@@ -158,9 +158,9 @@ void QHexEditor::showSearchDialog()
     searchDialog->show();
 }
 
-void QHexEditor::sellect(qint64 address, qint64 length)
+void QHexEditor::select(qint64 address, qint64 length)
 {
-	hexEdit->sellect(address, length);
+	hexEdit->select(address, length);
 }
 
 void QHexEditor::init()

@@ -15,10 +15,10 @@ CDebugView::CDebugView(QWidget *parent)
 	m_pTreeList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pTreeList->setSortingEnabled(true);
 	m_pTreeList->setMinimumHeight(60);
-	m_pTreeList->setAutoFitMax(200);
+	((QTreeWidgetEx*)m_pTreeList)->setAutoFitMax(200);
 
 	m_pTreeList->setSortingEnabled(false);
-	m_pTreeList->setColumnReset(2);
+	((QTreeWidgetEx*)m_pTreeList)->setColumnReset(2);
 	connect(m_pTreeList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
 
 	m_ViewMode = eNone;
@@ -58,7 +58,7 @@ void CDebugView::SwitchView(EView ViewMode)
 
 void CDebugView::OnResetColumns()
 {
-	m_pTreeList->OnResetColumns();
+	((QTreeWidgetEx*)m_pTreeList)->OnResetColumns();
 
 	if(m_ViewMode == eSingle)
 		m_pTreeList->setColumnHidden(CDebugView::eProcess, true);

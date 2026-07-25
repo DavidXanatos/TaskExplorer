@@ -54,7 +54,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 		CProcessPtr pProcess = pNode->pHandle->GetProcess().staticCast<CProcessInfo>();
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
+		if (m_bUseIcons && !pNode->Icon.isValid() && !m_ColumnsOff.contains(eProcess))
 		{
 			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
 			if (pModule)
@@ -83,7 +83,7 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
@@ -101,6 +101,10 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 				case eAttributes:		Value = (quint32)pWinHandle->GetAttributes(); break;	
 				case eObjectAddress:	Value = pWinHandle->GetObjectAddress(); break;	
 				case eOriginalName:		Value = pWinHandle->GetOriginalName(); break;	
+				//case eHandleCount:		Value = pWinHandle->GetHandleCount(); break; // PhGetHandleInformation
+				//case eRefCount:			Value = pWinHandle->GetRefCount(); break; // PhGetHandleInformation
+				//case ePagedSize:		Value = pWinHandle->GetPagedSize(); break; // PhGetHandleInformation
+				//case eNonPagedSize:		Value = pWinHandle->GetNonpagedSize(); break; // PhGetHandleInformation
 #endif
 			}
 
@@ -117,17 +121,17 @@ void CHandleModel::Sync(QMap<quint64, CHandlePtr> HandleList)
 
 				switch (section)
 				{
-					case eProcess:			ColValue.Formated = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(pHandle->GetProcessId()); break;	
-					case eHandle:			ColValue.Formated = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
-					case eType:				ColValue.Formated = pHandle->GetTypeString(); break;
-					case eGrantedAccess:	ColValue.Formated = pHandle->GetGrantedAccessString(); break;
+					case eProcess:			ColValue.Formatted = tr("%1 (%2)").arg(pProcess.isNull() ? tr("Unknown process") : pProcess->GetName()).arg(theGUI->FormatID(pHandle->GetProcessId())); break;	
+					case eHandle:			ColValue.Formatted = "0x" + QString::number(pHandle->GetHandleId(), 16); break;
+					case eType:				ColValue.Formatted = pHandle->GetTypeString(); break;
+					case eGrantedAccess:	ColValue.Formatted = pHandle->GetGrantedAccessString(); break;
 #ifdef WIN32
-					case eAttributes:		ColValue.Formated = pWinHandle->GetAttributesString(); break;	
-					case eFileShareAccess:	ColValue.Formated = pWinHandle->GetFileShareAccessString(); break;	
-					case eObjectAddress:	ColValue.Formated = FormatAddress(pWinHandle->GetObjectAddress()); break;	
+					case eAttributes:		ColValue.Formatted = pWinHandle->GetAttributesString(); break;	
+					case eFileShareAccess:	ColValue.Formatted = pWinHandle->GetFileShareAccessString(); break;	
+					case eObjectAddress:	ColValue.Formatted = FormatAddress(pWinHandle->GetObjectAddress()); break;	
 #endif
 					case eSize:
-					case ePosition:			if(Value.type() != QVariant::String) ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros);
+					case ePosition:			if(Value.type() != QVariant::String) ColValue.Formatted = FormatNumberEx(Value.toULongLong(), bClearZeros);
 				}
 			}
 
@@ -181,6 +185,10 @@ QVariant CHandleModel::headerData(int section, Qt::Orientation orientation, int 
 			case eAttributes:			return tr("Attributes");
 			case eObjectAddress:		return tr("Object address");
 			case eOriginalName:			return tr("Original name");
+			//case eHandleCount:			return tr("Handle count");
+			//case eRefCount:				return tr("Reference count");
+			//case ePagedSize:			return tr("Paged size");
+			//case eNonPagedSize:			return tr("Non-paged size");
 #endif
 		}
 	}

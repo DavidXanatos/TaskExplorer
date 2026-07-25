@@ -20,9 +20,6 @@
 
 #include "clretw.h"
 
-
-int _QMap_QVariant_QVariantMap_type = qRegisterMetaType<QMap<QVariant, QVariantMap>>("QMap<QVariant, QVariantMap>");
-
 CAssemblyEnum::CAssemblyEnum(quint64 ProcessId, QObject* parent) : QThread(parent) 
 {
 	//m_bCancel = false;
@@ -134,53 +131,53 @@ static GUID ClrRundownProviderGuid = { 0xa669021c, 0xc450, 0x4609, { 0xa0, 0x35,
 
 static FLAG_DEFINITION AppDomainFlagsMap[] =
 {
-    { L"Default", 0x1 },
-    { L"Executable", 0x2 },
-    { L"Shared", 0x4 }
+    { (PWSTR)L"Default", 0x1 },
+    { (PWSTR)L"Executable", 0x2 },
+    { (PWSTR)L"Shared", 0x4 }
 };
 
 static FLAG_DEFINITION AssemblyFlagsMap[] =
 {
-    { L"DomainNeutral", 0x1 },
-    { L"Dynamic", 0x2 },
-    { L"Native", 0x4 },
-    { L"Collectible", 0x8 }
+    { (PWSTR)L"DomainNeutral", 0x1 },
+    { (PWSTR)L"Dynamic", 0x2 },
+    { (PWSTR)L"Native", 0x4 },
+    { (PWSTR)L"Collectible", 0x8 }
 };
 
 static FLAG_DEFINITION ModuleFlagsMap[] =
 {
-    { L"DomainNeutral", 0x1 },
-    { L"Native", 0x2 },
-    { L"Dynamic", 0x4 },
-    { L"Manifest", 0x8 }
+    { (PWSTR)L"DomainNeutral", 0x1 },
+    { (PWSTR)L"Native", 0x2 },
+    { (PWSTR)L"Dynamic", 0x4 },
+    { (PWSTR)L"Manifest", 0x8 }
 };
 
 static FLAG_DEFINITION StartupModeMap[] =
 {
-    { L"ManagedExe", 0x1 },
-    { L"HostedCLR", 0x2 },
-    { L"IjwDll", 0x4 },
-    { L"ComActivated", 0x8 },
-    { L"Other", 0x10 }
+    { (PWSTR)L"ManagedExe", 0x1 },
+    { (PWSTR)L"HostedCLR", 0x2 },
+    { (PWSTR)L"IjwDll", 0x4 },
+    { (PWSTR)L"ComActivated", 0x8 },
+    { (PWSTR)L"Other", 0x10 }
 };
 
 static FLAG_DEFINITION StartupFlagsMap[] =
 {
-    { L"CONCURRENT_GC", 0x1 },
-    { L"LOADER_OPTIMIZATION_SINGLE_DOMAIN", 0x2 },
-    { L"LOADER_OPTIMIZATION_MULTI_DOMAIN", 0x4 },
-    { L"LOADER_SAFEMODE", 0x10 },
-    { L"LOADER_SETPREFERENCE", 0x100 },
-    { L"SERVER_GC", 0x1000 },
-    { L"HOARD_GC_VM", 0x2000 },
-    { L"SINGLE_VERSION_HOSTING_INTERFACE", 0x4000 },
-    { L"LEGACY_IMPERSONATION", 0x10000 },
-    { L"DISABLE_COMMITTHREADSTACK", 0x20000 },
-    { L"ALWAYSFLOW_IMPERSONATION", 0x40000 },
-    { L"TRIM_GC_COMMIT", 0x80000 },
-    { L"ETW", 0x100000 },
-    { L"SERVER_BUILD", 0x200000 },
-    { L"ARM", 0x400000 }
+    { (PWSTR)L"CONCURRENT_GC", 0x1 },
+    { (PWSTR)L"LOADER_OPTIMIZATION_SINGLE_DOMAIN", 0x2 },
+    { (PWSTR)L"LOADER_OPTIMIZATION_MULTI_DOMAIN", 0x4 },
+    { (PWSTR)L"LOADER_SAFEMODE", 0x10 },
+    { (PWSTR)L"LOADER_SETPREFERENCE", 0x100 },
+    { (PWSTR)L"SERVER_GC", 0x1000 },
+    { (PWSTR)L"HOARD_GC_VM", 0x2000 },
+    { (PWSTR)L"SINGLE_VERSION_HOSTING_INTERFACE", 0x4000 },
+    { (PWSTR)L"LEGACY_IMPERSONATION", 0x10000 },
+    { (PWSTR)L"DISABLE_COMMITTHREADSTACK", 0x20000 },
+    { (PWSTR)L"ALWAYSFLOW_IMPERSONATION", 0x40000 },
+    { (PWSTR)L"TRIM_GC_COMMIT", 0x80000 },
+    { (PWSTR)L"ETW", 0x100000 },
+    { (PWSTR)L"SERVER_BUILD", 0x200000 },
+    { (PWSTR)L"ARM", 0x400000 }
 };
 
 PPH_STRING FlagsToString(
@@ -258,7 +255,7 @@ VOID DotNetAsmDestroyNode(
 
 PDNA_NODE AddFakeClrNode(
     _In_ PASMPAGE_QUERY_CONTEXT Context,
-    _In_ PWSTR DisplayName
+    _In_ PCWSTR DisplayName
     )
 {
     PDNA_NODE node;
@@ -569,10 +566,10 @@ static VOID NTAPI DotNetEventCallback(
 
                 if (node)
                 {
-                    PhMoveReference((PVOID*)&node->PathText, PhCreateStringEx(moduleILPath, moduleILPathLength));
+                    PhMoveReference(&node->PathText, PhCreateStringEx(moduleILPath, moduleILPathLength));
 
                     if (moduleNativePathLength != 0)
-                        PhMoveReference((PVOID*)&node->NativePathText, PhCreateStringEx(moduleNativePath, moduleNativePathLength));
+                        PhMoveReference(&node->NativePathText, PhCreateStringEx(moduleNativePath, moduleNativePathLength));
                 }
             }
             break;
@@ -793,13 +790,13 @@ VOID DestroyDotNetTraceQuery(
     PhFree(Context);
 }
 
-void CAssemblyEnum::AddNodes(CAssemblyListPtr& List, struct _PH_LIST* NodeList, quint64 ParrentId)
+void CAssemblyEnum::AddNodes(CAssemblyListPtr& List, struct _PH_LIST* NodeList, quint64 ParentId)
 {
 	for (ULONG i = 0; i < NodeList->Count; i++)
 	{
 		PDNA_NODE node = (PDNA_NODE)NodeList->Items[i];
 
-		List->AddAssembly(node->Id, ParrentId, QString::fromWCharArray(node->StructureText.Buffer, node->StructureText.Length / sizeof(wchar_t)),
+		List->AddAssembly(node->Id, ParentId, QString::fromWCharArray(node->StructureText.Buffer, node->StructureText.Length / sizeof(wchar_t)),
 			CastPhString(node->PathText, false), CastPhString(node->FlagsText, false), CastPhString(node->NativePathText, false));
 
 		if (node->Children)
@@ -819,7 +816,7 @@ void CAssemblyEnum::run()
 
 	//if (isDotNet)
 	{
-		PhGetProcessIsDotNetEx(context->ProcessId, NULL, 0, NULL, &context->ClrVersions);
+		PhGetProcessIsDotNetEx(context->ProcessId, NULL, PH_CLR_USE_SECTION_CHECK, NULL, &context->ClrVersions);
 
 		// DotNetTraceQueryThreadStart
 		LARGE_INTEGER timeout;
@@ -891,6 +888,131 @@ void CAssemblyEnum::run()
 	}
 
 	DestroyDotNetTraceQuery(context);
+
+    // todo use this method
+/*
+    PCLR_PROCESS_SUPPORT support;
+    PPH_LIST appdomainlist = NULL;
+    BOOLEAN success = FALSE;
+
+#ifdef _WIN64
+    if (Context->IsWow64Process)
+    {
+        if (PhUiConnectToPhSvcEx(NULL, Wow64PhSvcMode, FALSE))
+        {
+            appdomainlist = CallGetClrAppDomainAssemblyList(Context->ProcessId);
+            PhUiDisconnectFromPhSvc();
+        }
+    }
+    else
+#endif
+    {
+        if (support = CreateClrProcessSupport(Context->ProcessId))
+        {
+            appdomainlist = DnGetClrAppDomainAssemblyList(support);
+            FreeClrProcessSupport(support);
+        }
+    }
+
+    if (!appdomainlist)
+        goto CleanupExit;
+
+    for (ULONG i = 0; i < appdomainlist->Count; i++)
+    {
+        PDN_PROCESS_APPDOMAIN_ENTRY entry = appdomainlist->Items[i];
+        PDNA_NODE parentNode;
+
+        //if (!entry->AssemblyList)
+        //    continue;
+
+        parentNode = AddNode(Context);
+        parentNode->Type = DNA_TYPE_APPDOMAIN;
+        parentNode->u.AppDomain.AppDomainID = entry->AppDomainID;
+        parentNode->u.AppDomain.AppDomainType = entry->AppDomainType;
+        parentNode->u.AppDomain.DisplayName = PhConcatStrings2(L"AppDomain: ", entry->AppDomainName->Buffer);
+        parentNode->StructureText = parentNode->u.AppDomain.DisplayName->sr;
+        parentNode->IdText = FormatToHexString(entry->AppDomainID);
+        parentNode->RootNode = TRUE;
+        PhAddItemList(Context->NodeRootList, parentNode);
+
+        if (entry->AssemblyList)
+        {
+            for (ULONG j = 0; j < entry->AssemblyList->Count; j++)
+            {
+                PDN_DOTNET_ASSEMBLY_ENTRY assembly = entry->AssemblyList->Items[j];
+                PDNA_NODE childNode;
+
+                //if (FindAssemblyNode3(Context, assembly->AssemblyID))
+                //    continue;
+
+                childNode = AddNode(Context);
+                childNode->Type = DNA_TYPE_ASSEMBLY;
+                childNode->u.Assembly.AssemblyID = assembly->AssemblyID;
+                PhSetReference(&childNode->u.Assembly.DisplayName, assembly->DisplayName);
+                PhSetReference(&childNode->u.Assembly.FullyQualifiedAssemblyName, assembly->ModuleName);
+                childNode->u.Assembly.BaseAddress = assembly->BaseAddress;
+                childNode->StructureText = PhGetStringRef(assembly->DisplayName);
+                PhSetReference(&childNode->PathText, assembly->ModuleName);
+                PhSetReference(&childNode->NativePathText, assembly->NativeFileName);
+                childNode->MvidText = PhFormatGuid(&assembly->Mvid);
+                childNode->IdText = FormatToHexString(assembly->AssemblyID);
+
+                if (assembly->IsDynamicAssembly || assembly->ModuleFlag & CLRDATA_MODULE_IS_DYNAMIC || assembly->IsReflection)
+                {
+                    childNode->u.Assembly.AssemblyFlags = 0x2;
+                }
+                else if (!PhIsNullOrEmptyString(assembly->NativeFileName))
+                {
+                    childNode->u.Assembly.AssemblyFlags = 0x4;
+                }
+
+                childNode->FlagsText = FlagsToString(
+                    childNode->u.Assembly.AssemblyFlags,
+                    AssemblyFlagsMap,
+                    sizeof(AssemblyFlagsMap)
+                    );
+
+                if (assembly->BaseAddress)
+                {
+                    WCHAR value[PH_INT64_STR_LEN_1];
+                    PhPrintPointer(value, assembly->BaseAddress);
+                    childNode->BaseAddressText = PhCreateString(value);
+                }
+
+                PhAddItemList(parentNode->Children, childNode);
+            }
+        }
+    }
+
+    DnDestroyProcessDotNetAppDomainList(appdomainlist);
+
+    // Check whether we got any data.
+    {
+        for (ULONG i = 0; i < Context->NodeList->Count; i++)
+        {
+            PDNA_NODE node = Context->NodeList->Items[i];
+
+            if (node->Type != DNA_TYPE_CLR)
+            {
+                success = TRUE;
+                break;
+            }
+        }
+
+        if (success && !Context->PageContext->CancelQueryContext && Context->PageContext->WindowHandle)
+        {
+            SendMessage(Context->PageContext->WindowHandle, DN_ASM_UPDATE_MSG, 0, (LPARAM)Context);
+        }
+    }
+
+CleanupExit:
+    if (!success && !Context->PageContext->CancelQueryContext && Context->PageContext->WindowHandle)
+    {
+        SendMessage(Context->PageContext->WindowHandle, DN_ASM_UPDATE_ERROR, 0, (LPARAM)Context);
+    }
+
+    PhDereferenceObject(Context);
+*/
 
 	emit Finished();
 }

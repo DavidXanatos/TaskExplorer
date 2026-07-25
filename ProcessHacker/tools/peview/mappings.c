@@ -42,10 +42,9 @@ VOID PvCreateSections(
     if (!NT_SUCCESS(status))
         return;
 
-    status = NtCreateSection(
+    status = PhCreateSection(
         ImageSection,
         SECTION_QUERY | SECTION_MAP_READ,
-        NULL,
         NULL,
         PAGE_READONLY,
         WindowsVersion < WINDOWS_8 ? SEC_IMAGE : SEC_IMAGE_NO_EXECUTE,
@@ -54,10 +53,9 @@ VOID PvCreateSections(
     if (!NT_SUCCESS(status))
         *ImageSection = NULL;
 
-    status = NtCreateSection(
+    status = PhCreateSection(
         DataSection,
         SECTION_QUERY | SECTION_MAP_READ,
-        NULL,
         NULL,
         PAGE_READONLY,
         SEC_COMMIT,
@@ -249,7 +247,7 @@ INT_PTR CALLBACK PvpMappingsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

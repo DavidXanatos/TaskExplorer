@@ -32,7 +32,7 @@ typedef struct _PH_CM_SORT_CONTEXT
  */
 _Success_(return)
 BOOLEAN PhEmParseCompoundId(
-    _In_ PPH_STRINGREF CompoundId,
+    _In_ PCPH_STRINGREF CompoundId,
     _Out_ PPH_STRINGREF AppName,
     _Out_ PULONG SubId
     )
@@ -56,6 +56,11 @@ BOOLEAN PhEmParseCompoundId(
 
     if (!PhStringToInteger64(&secondPart, 10, &integer))
         return FALSE;
+
+    if (PhIsLegacyPrefix(&firstPart))
+    {
+        PhSkipStringRef(&firstPart, 14 * sizeof(WCHAR));
+    }
 
     *AppName = firstPart;
     *SubId = (ULONG)integer;
@@ -156,7 +161,7 @@ VOID PhCmSetNotifyPlugin(
 
 PPH_CM_COLUMN PhCmFindColumn(
     _In_ PPH_CM_MANAGER Manager,
-    _In_ PPH_STRINGREF PluginName,
+    _In_ PCPH_STRINGREF PluginName,
     _In_ ULONG SubId
     )
 {
@@ -182,8 +187,8 @@ BOOLEAN PhCmLoadSettingsEx(
     _In_ HWND TreeNewHandle,
     _In_opt_ PPH_CM_MANAGER Manager,
     _In_ ULONG Flags,
-    _In_ PPH_STRINGREF Settings,
-    _In_opt_ PPH_STRINGREF SortSettings
+    _In_ PCPH_STRINGREF Settings,
+    _In_opt_ PCPH_STRINGREF SortSettings
     )
 {
     BOOLEAN result = FALSE;
@@ -218,7 +223,7 @@ BOOLEAN PhCmLoadSettingsEx(
             PhSkipStringRef(&remainingColumnPart, sizeof(WCHAR));
             PhSplitStringRefAtChar(&remainingColumnPart, L'|', &scalePart, &remainingColumnPart);
 
-            if (scalePart.Length == 0 || !PhStringToInteger64(&scalePart, 10, &integer))
+            if (scalePart.Length == 0 || !PhStringToUInt64(&scalePart, 10, &integer))
                 goto CleanupExit;
 
             scale = (ULONG)integer;
@@ -268,7 +273,7 @@ BOOLEAN PhCmLoadSettingsEx(
                 }
                 else
                 {
-                    if (!PhStringToInteger64(&valuePart, 10, &integer))
+                    if (!PhStringToUInt64(&valuePart, 10, &integer))
                         goto CleanupExit;
 
                     id = (ULONG)integer;
@@ -280,7 +285,7 @@ BOOLEAN PhCmLoadSettingsEx(
 
                 if (!(Flags & PH_CM_COLUMN_WIDTHS_ONLY))
                 {
-                    if (valuePart.Length == 0 || !PhStringToInteger64(&valuePart, 10, &integer))
+                    if (valuePart.Length == 0 || !PhStringToUInt64(&valuePart, 10, &integer))
                         goto CleanupExit;
 
                     displayIndex = (ULONG)integer;
@@ -295,7 +300,7 @@ BOOLEAN PhCmLoadSettingsEx(
 
                 // Width
 
-                if (columnPart.Length == 0 || !PhStringToInteger64(&columnPart, 10, &integer))
+                if (columnPart.Length == 0 || !PhStringToUInt64(&columnPart, 10, &integer))
                     goto CleanupExit;
 
                 width = (ULONG)integer;
@@ -425,11 +430,11 @@ CleanupExit:
             }
             else
             {
-                PhStringToInteger64(&valuePart, 10, &integer);
+                PhStringToUInt64(&valuePart, 10, &integer);
                 sortColumn = (ULONG)integer;
             }
 
-            PhStringToInteger64(&subPart, 10, &integer);
+            PhStringToUInt64(&subPart, 10, &integer);
             sortOrder = (PH_SORT_ORDER)integer;
 
             if (sortColumn != ULONG_MAX && sortOrder <= DescendingSortOrder)
@@ -444,7 +449,7 @@ CleanupExit:
 
 BOOLEAN PhCmLoadSettings(
     _In_ HWND TreeNewHandle,
-    _In_ PPH_STRINGREF Settings
+    _In_ PCPH_STRINGREF Settings
     )
 {
     return PhCmLoadSettingsEx(TreeNewHandle, NULL, 0, Settings, NULL);

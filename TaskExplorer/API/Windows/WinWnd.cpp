@@ -3,6 +3,7 @@
 #include "WinWnd.h"
 #include "WinThread.h"
 #include "WindowsAPI.h"
+#include "../../GUI/TaskExplorer.h"
 
 #define NOSHLWAPI
 #include <shellapi.h>
@@ -49,10 +50,14 @@ bool CWinWnd::InitStaticData(quint64 ProcessId, quint64 ThreadId, quint64 hWnd, 
         {
             if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, instanceHandle, &fileName)))
             {
-                PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
-                PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
+				PPH_STRING newFileName = PhResolveDevicePrefix(&fileName->sr);
+				if (newFileName) {
+					PPH_STRING newFileName2 = PhGetBaseName(newFileName);
 
-				m_ModuleString = CastPhString(fileName);
+					m_ModuleString = CastPhString(newFileName2);
+					PhDereferenceObject(newFileName);
+					PhDereferenceObject(fileName);
+				}
             }
         }
     }
@@ -315,7 +320,7 @@ QRect WinRect2Q(RECT rect)
 
 typedef struct _STRING_INTEGER_PAIR
 {
-    PWSTR String;
+    PCWSTR String;
     ULONG Integer;
 } STRING_INTEGER_PAIR, *PSTRING_INTEGER_PAIR;
 
@@ -423,7 +428,7 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 	WndInfo.Text = CastPhString(windowText);
 
 	CThreadPtr pThread = theAPI->GetThreadByID(ThreadId);
-	WndInfo.Thread = tr("%1 (%2): %3").arg(pThread ? pThread->GetStartAddressString() : tr("unknown")).arg(ProcessId).arg(ThreadId);
+	WndInfo.Thread = tr("%1 (%2): %3").arg(pThread ? pThread->GetStartAddressString() : tr("unknown")).arg(theGUI->FormatID(ProcessId)).arg(theGUI->FormatID(ThreadId));
 	
     WINDOWINFO windowInfo = { sizeof(WINDOWINFO) };
     WINDOWPLACEMENT windowPlacement = { sizeof(WINDOWPLACEMENT) };
@@ -677,16 +682,16 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 
 		if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, (HANDLE)WndInfo.InstanceHandle, &fileName)))
 		{
-			PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
-            PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
+			PhMoveReference(&fileName, PhResolveDevicePrefix(&fileName->sr));
+            PhMoveReference(&fileName, PhGetBaseName(fileName));
 
 			WndInfo.InstanceString = CastPhString(fileName);
 		}
 
 		if (NT_SUCCESS(PhGetProcessMappedFileName(processHandle, (HANDLE)WndInfo.InstanceHandle2, &fileName)))
 		{
-			PhMoveReference((PVOID*)&fileName, PhResolveDevicePrefix(&fileName->sr));
-            PhMoveReference((PVOID*)&fileName, PhGetBaseName(fileName));
+			PhMoveReference(&fileName, PhResolveDevicePrefix(&fileName->sr));
+            PhMoveReference(&fileName, PhGetBaseName(fileName));
 
 			WndInfo.InstanceString2 = CastPhString(fileName);
 		}
@@ -701,7 +706,7 @@ CWinWnd::SWndInfo CWinWnd::GetWndInfo() const
 // https://stackoverflow.com/questions/38205375/enumwindows-function-in-win10-enumerates-only-desktop-apps
 //
 
-typedef NTSTATUS (WINAPI *NtUserBuildHwndList) (
+typedef NTSTATUS (WINAPI *_NtUserBuildHwndList) (
 	HDESK in_hDesk, 
 	HWND  in_hWndNext, 
 	BOOL  in_EnumChildren, 
@@ -726,11 +731,11 @@ HWND* BuildWindowList
 	UINT  lv_NtStatus;
 	HWND *lv_List;
 
-	static NtUserBuildHwndList lib_NtUserBuildHwndListW10 = NULL;
+	static _NtUserBuildHwndList lib_NtUserBuildHwndListW10 = NULL;
 	static PH_INITONCE initOnce = PH_INITONCE_INIT;
 	if (PhBeginInitOnce(&initOnce))
 	{
-		lib_NtUserBuildHwndListW10 = (NtUserBuildHwndList)PhGetModuleProcAddress(L"win32u.dll", "NtUserBuildHwndList");
+		lib_NtUserBuildHwndListW10 = (_NtUserBuildHwndList)PhGetModuleProcAddress(L"win32u.dll", "NtUserBuildHwndList");
 
 		PhEndInitOnce(&initOnce);
 	}

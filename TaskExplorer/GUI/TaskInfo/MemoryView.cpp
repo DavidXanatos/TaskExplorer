@@ -289,7 +289,7 @@ void CMemoryView::OnProtectMemory()
 		"0x200 - PAGE_NOCACHE\r\n"
 		"0x400 - PAGE_WRITECOMBINE\r\n");
 
-	QString OldValue = "0x" + QString::number(pMemory->GetProtect(), 16);
+	QString OldValue = "0x" + QString::number(pMemory->GetProtection(), 16);
 
 	QString Value = QInputDialog::getText(this, "TaskExplorer", MessagPrompt, QLineEdit::Normal, OldValue);
 	if(Value.isEmpty())

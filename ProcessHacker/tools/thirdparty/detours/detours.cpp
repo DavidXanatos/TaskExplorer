@@ -33,8 +33,50 @@ C_ASSERT(sizeof(_DETOUR_ALIGN) == 1);
 //
 // Region reserved for system DLLs, which cannot be used for trampolines.
 //
-static PVOID s_pSystemRegionLowerBound = reinterpret_cast<PVOID>(static_cast<ULONG_PTR>(0x70000000));
-static PVOID s_pSystemRegionUpperBound = reinterpret_cast<PVOID>(static_cast<ULONG_PTR>(0x80000000));
+// On Windows 10, ntdll.dll is mapped at random location (ASLR) within a
+// range near the top of the usermode address space.
+// After that, further system DLLs are mapped top down within this range.
+// In the bottom of the range is reached, the allocator wraps to the top.
+//
+// We also want to exlcude any pages that share a CFG bitmap page with a system DLL
+// so leave an additional a 1MB buffer on each side of the range.
+//
+#if defined(DETOURS_64BIT)
+// On X64 the range is 0x7FF800000000..0x7FFFFFFF0000 - which is 32GB!
+// So we likely must allocate in the system DLL range to be +/- 2GB.
+// But we want to avoid at least the first 1GB that will be used for system DLLs.
+// Due to wrapping, this may be two seperate ranges.
+static PVOID    s_pSystemRegionUpperBound = nullptr; // (PVOID)((ULONG_PTR)GetModuleHandleW(L"ntdll.dll") + (ULONG_PTR)0x100000);
+static PVOID    s_pSystemRegionLowerBound = nullptr; // (PVOID)((ULONG_PTR)s_pSystemRegionUpperBound < (ULONG_PTR)0x7FF83F000000 ?
+                                                     // (ULONG_PTR)0x7FF7FF000000 : ((ULONG_PTR)s_pSystemRegionUpperBound - (ULONG_PTR)0x40000000));
+static SIZE_T   s_pSystemRegionSize        = 0;      // (ULONG_PTR)s_pSystemRegionUpperBound - (ULONG_PTR)s_pSystemRegionLowerBound; // up to 1GB
+static SIZE_T   s_pSystemRegion2Size       = 0;      // (SIZE_T)0x40000000 - s_pSystemRegionSize;
+static PVOID    s_pSystemRegion2UpperBound = nullptr; //(PVOID)(ULONG_PTR)0x800000000000;
+static PVOID    s_pSystemRegion2LowerBound = nullptr; //(PVOID)((ULONG_PTR)s_pSystemRegion2UpperBound - s_pSystemRegion2Size);
+#else
+// On X86 the range was originally 0x70000000..0x80000000
+// However, since Windows 8, the range is now 0x50000000..0x78000000
+// Reference: Windows Internals, 7th Edition, page 368
+// We just exclude both ranges.
+static PVOID    s_pSystemRegionUpperBound = reinterpret_cast<PVOID>(static_cast<ULONG_PTR>(0x80000000));
+static PVOID    s_pSystemRegionLowerBound = reinterpret_cast<PVOID>(static_cast<ULONG_PTR>(0x50000000) - 0x100000);
+static SIZE_T   s_pSystemRegionSize       = reinterpret_cast<ULONG_PTR>(s_pSystemRegionUpperBound) - reinterpret_cast<ULONG_PTR>(s_pSystemRegionLowerBound); // 769MB
+#endif
+
+FORCEINLINE
+SIZE_T
+should_skip_sytem_range_size(PBYTE pbTry)
+{
+    if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound) {
+        return s_pSystemRegionSize;
+    }
+#if defined(DETOURS_64BIT)
+    if (pbTry >= s_pSystemRegion2LowerBound && pbTry <= s_pSystemRegion2UpperBound) {
+        return s_pSystemRegion2Size;
+    }
+#endif
+    return 0;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -45,24 +87,31 @@ static bool detour_is_imported(PBYTE pbCode, PBYTE pbAddress)
     if (!NT_SUCCESS(NtQueryVirtualMemory(NtCurrentProcess(), pbCode, MemoryBasicInformation, &mbi, sizeof(mbi), nullptr)))
         return false;
 
-    PIMAGE_DOS_HEADER dosHeader = static_cast<PIMAGE_DOS_HEADER>(mbi.AllocationBase);
-    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
-        return false;
+    __try {
 
-    PIMAGE_NT_HEADERS ntHeader = static_cast<PIMAGE_NT_HEADERS>(PTR_ADD_OFFSET(dosHeader, dosHeader->e_lfanew));
-    if (ntHeader->Signature != IMAGE_NT_SIGNATURE)
-        return false;
+        PIMAGE_DOS_HEADER dosHeader = static_cast<PIMAGE_DOS_HEADER>(mbi.AllocationBase);
+        if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+            return false;
 
-    IMAGE_DATA_DIRECTORY dataDirectory = ntHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT];
-    if (!(dataDirectory.VirtualAddress && dataDirectory.Size))
-        return false;
+        PIMAGE_NT_HEADERS ntHeader = static_cast<PIMAGE_NT_HEADERS>(PTR_ADD_OFFSET(dosHeader, dosHeader->e_lfanew));
+        if (ntHeader->Signature != IMAGE_NT_SIGNATURE)
+            return false;
 
-    if (pbAddress >= PTR_ADD_OFFSET(dosHeader, dataDirectory.VirtualAddress) &&
-        pbAddress < PTR_ADD_OFFSET(dosHeader, dataDirectory.VirtualAddress + dataDirectory.Size))
-    {
-        return true;
+        IMAGE_DATA_DIRECTORY dataDirectory = ntHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT];
+        if (!(dataDirectory.VirtualAddress && dataDirectory.Size))
+            return false;
+
+        if (pbAddress >= PTR_ADD_OFFSET(dosHeader, dataDirectory.VirtualAddress) &&
+            pbAddress < PTR_ADD_OFFSET(dosHeader, dataDirectory.VirtualAddress + dataDirectory.Size))
+        {
+            return true;
+        }
     }
-
+#pragma prefast(suppress:28940, "A bad pointer means this probably isn't a PE header.")
+    __except(GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
+             EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        return false;
+    }
     return false;
 }
 
@@ -129,6 +178,8 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
 
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
+    PBYTE pbCodeOriginal;
+
     if (pbCode == nullptr) {
         return nullptr;
     }
@@ -152,6 +203,7 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         PBYTE pbNew = pbCode + 2 + *(CHAR *)&pbCode[1];
         DETOUR_TRACE(("%p->%p: skipped over short jump.\n", pbCode, pbNew));
         pbCode = pbNew;
+        pbCodeOriginal = pbCode;
 
         // First, skip over the import vector if there is one.
         if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [imm32]
@@ -168,6 +220,23 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
             pbNew = pbCode + 5 + *(UNALIGNED INT32 *)&pbCode[1];
             DETOUR_TRACE(("%p->%p: skipped over long jump.\n", pbCode, pbNew));
             pbCode = pbNew;
+            
+            // Patches applied by the OS will jump through an HPAT page to get
+            // the target function in the patch image. The jump is always performed
+            // to the target function found at the current instruction pointer +
+            // PAGE_SIZE - 6 (size of jump).
+            // If this is an OS patch, we want to detour at the point of the target function
+            // padding in the base image. Ideally, we would detour at the target function, but
+            // since it's patched it begins with a short jump (to padding) which isn't long
+            // enough to hold the detour code bytes.
+            if (pbCode[0] == 0xff &&
+                pbCode[1] == 0x25 &&
+                *(UNALIGNED INT32 *)&pbCode[2] == (UNALIGNED INT32)(pbCode + 0x1000)) {   // jmp [eip+PAGE_SIZE-6]
+
+                DETOUR_TRACE(("%p->%p: OS patch encountered, reset back to long jump 5 bytes prior to target function.\n", pbCode, pbCodeOriginal));
+                pbCode = pbCodeOriginal;
+            }
+
         }
     }
     return pbCode;
@@ -342,6 +411,8 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
 
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
+    PBYTE pbCodeOriginal;
+
     if (pbCode == nullptr) {
         return nullptr;
     }
@@ -365,6 +436,7 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         PBYTE pbNew = pbCode + 2 + *(CHAR *)&pbCode[1];
         DETOUR_TRACE(("%p->%p: skipped over short jump.\n", pbCode, pbNew));
         pbCode = pbNew;
+        pbCodeOriginal = pbCode;
 
         // First, skip over the import vector if there is one.
         if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
@@ -381,6 +453,20 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
             pbNew = pbCode + 5 + *(UNALIGNED INT32 *)&pbCode[1];
             DETOUR_TRACE(("%p->%p: skipped over long jump.\n", pbCode, pbNew));
             pbCode = pbNew;
+            // Patches applied by the OS will jump through an HPAT page to get
+            // the target function in the patch image. The jump is always performed
+            // to the target function found at the current instruction pointer +
+            // PAGE_SIZE - 6 (size of jump).
+            // If this is an OS patch, we want to detour at the point of the target function
+            // in the base image. Since we need 5 bytes to perform the jump, detour at the
+            // point of the long jump instead of the short jump at the start of the target.
+            if (pbCode[0] == 0xff &&
+                pbCode[1] == 0x25 &&
+                *(UNALIGNED INT32 *)&pbCode[2] == 0xFFA) {   // jmp [rip+PAGE_SIZE-6]
+
+                DETOUR_TRACE(("%p->%p: OS patch encountered, reset back to long jump 5 bytes prior to target function.\n", pbCode, pbCodeOriginal));
+                pbCode = pbCodeOriginal;
+            }
         }
     }
     return pbCode;
@@ -1124,10 +1210,46 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
 }
 
+inline BOOL detour_is_code_os_patched(PBYTE pbCode)
+{
+    // Identify whether the provided code pointer is a OS patch jump.
+    // We can do this by checking if a branch (b <imm26>) is present, and if so,
+    // it must be jumping to an HPAT page containing ldr <reg> [PC+PAGE_SIZE-4], br <reg>.
+    ULONG Opcode = fetch_opcode(pbCode);
+
+    if ((Opcode & 0xfc000000) != 0x14000000) {
+        return FALSE;
+    }
+    // The branch must be jumping forward if it's going into the HPAT.
+    // Check that the sign bit is cleared.
+    if ((Opcode & 0x2000000) != 0) {
+        return FALSE;
+    }
+    ULONG Delta = (ULONG)((Opcode & 0x1FFFFFF) * 4);
+    PBYTE BranchTarget = pbCode + Delta;
+
+    // Now inspect the opcodes of the code we jumped to in order to determine if it's HPAT.
+    ULONG HpatOpcode1 = fetch_opcode(BranchTarget);
+    ULONG HpatOpcode2 = fetch_opcode(BranchTarget + 4);
+
+    if (HpatOpcode1 != 0x58008010) {    // ldr <reg> [PC+PAGE_SIZE]
+        return FALSE;
+    }
+    if (HpatOpcode2 != 0xd61f0200) {    // br <reg>
+        return FALSE;
+    }
+    return TRUE;
+}
+
 inline BOOL detour_does_code_end_function(PBYTE pbCode)
 {
     ULONG Opcode = fetch_opcode(pbCode);
-    if ((Opcode & 0xfffffc1f) == 0xd65f0000 ||      // br <reg>
+    // When the OS has patched a function entry point, it will incorrectly
+    // appear as though the function is just a single branch instruction.
+    if (detour_is_code_os_patched(pbCode)) {
+        return FALSE;
+    }
+    if ((Opcode & 0xffbffc1f) == 0xd61f0000 ||      // ret/br <reg>
         (Opcode & 0xfc000000) == 0x14000000) {      // b <imm26>
         return TRUE;
     }
@@ -1244,12 +1366,20 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
     {
         MEMORY_BASIC_INFORMATION mbi;
 
-        if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound) 
+        SIZE_T nSkipSize = should_skip_sytem_range_size(pbTry);
+        if (nSkipSize)
         {
             // Skip region reserved for system DLLs, but preserve address space entropy.
-            pbTry += 0x08000000;
+            pbTry += nSkipSize;
             continue;
         }
+
+        //if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound)
+        //{
+        //    // Skip region reserved for system DLLs, but preserve address space entropy.
+        //    pbTry += 0x08000000;
+        //    continue;
+        //}
 
         ZeroMemory(&mbi, sizeof(mbi));
 
@@ -1301,26 +1431,27 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
 
 static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
 {
-    PBYTE pbTry = detour_alloc_round_down_to_region(pbHi - DETOUR_REGION_SIZE);
+    PBYTE pbTryn = detour_alloc_round_down_to_region(pbHi - DETOUR_REGION_SIZE);
 
     DETOUR_TRACE((" Looking for free region in %p..%p from %p:\n", pbLo, pbHi, pbTry));
 
-    while (pbTry > pbLo) 
+    while (pbTryn > pbLo)
     {
         MEMORY_BASIC_INFORMATION mbi;
 
-        DETOUR_TRACE(("  Try %p\n", pbTry));
+        DETOUR_TRACE(("  Try %p\n", pbTryn));
 
-        if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound) 
+        const SIZE_T nSkipSize = should_skip_sytem_range_size(pbTryn);
+        if (nSkipSize)
         {
             // Skip region reserved for system DLLs, but preserve address space entropy.
-            pbTry -= 0x08000000;
+            pbTryn -= nSkipSize;
             continue;
         }
 
         ZeroMemory(&mbi, sizeof(mbi));
 
-        if (!NT_SUCCESS(NtQueryVirtualMemory(NtCurrentProcess(), (PVOID)pbTry, MemoryBasicInformation, &mbi, sizeof(mbi), nullptr)))
+        if (!NT_SUCCESS(NtQueryVirtualMemory(NtCurrentProcess(), (PVOID)pbTryn, MemoryBasicInformation, &mbi, sizeof(mbi), nullptr)))
             break;
 
         DETOUR_TRACE(("  Try %p => %p..%p %6lx\n",
@@ -1333,7 +1464,7 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
         {
             NTSTATUS status;
             SIZE_T size = DETOUR_REGION_SIZE;
-            PVOID address = pbTry;
+            PVOID address = pbTryn;
 
             status = NtAllocateVirtualMemory(
                 NtCurrentProcess(),
@@ -1353,11 +1484,11 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
                 return nullptr;
             }
 
-            pbTry -= DETOUR_REGION_SIZE;
+            pbTryn -= DETOUR_REGION_SIZE;
         }
         else 
         {
-            pbTry = detour_alloc_round_down_to_region(static_cast<PBYTE>(mbi.AllocationBase) - DETOUR_REGION_SIZE);
+            pbTryn = detour_alloc_round_down_to_region(static_cast<PBYTE>(mbi.AllocationBase) - DETOUR_REGION_SIZE);
         }
     }
 
@@ -1377,12 +1508,12 @@ static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
     // Try looking 1GB below or lower.
     if (pbTry == nullptr && pbTarget > reinterpret_cast<PBYTE>(0x40000000)) 
     {
-        pbTry = detour_alloc_region_from_hi(reinterpret_cast<PBYTE>(pLo), pbTarget - 0x40000000);
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
     }
     // Try looking 1GB above or higher.
     if (pbTry == nullptr && pbTarget < reinterpret_cast<PBYTE>(0xffffffff40000000))
     {
-        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, reinterpret_cast<PBYTE>(pHi));
+        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, (PBYTE)pHi);
     }
     // Try looking 1GB below or higher.
     if (pbTry == nullptr && pbTarget > reinterpret_cast<PBYTE>(0x40000000)) 
@@ -1398,11 +1529,11 @@ static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
 
     // Try anything below.
     if (pbTry == nullptr) {
-        pbTry = detour_alloc_region_from_hi(reinterpret_cast<PBYTE>(pLo), pbTarget);
+      pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget);
     }
     // try anything above.
     if (pbTry == nullptr) {
-        pbTry = detour_alloc_region_from_lo(pbTarget, reinterpret_cast<PBYTE>(pHi));
+        pbTry = detour_alloc_region_from_lo(pbTarget, (PBYTE)pHi);
     }
 
     return pbTry;
@@ -1666,6 +1797,25 @@ _Benign_race_end_
     // Make sure the trampoline pages are writable.
     s_nPendingError = detour_writable_trampoline_regions();
 
+    if (!NT_SUCCESS(s_nPendingError))
+        return s_nPendingError;
+
+#if defined(DETOURS_64BIT)
+    // On X64 the range is 0x7FF800000000..0x7FFFFFFF0000 - which is 32GB!
+    // So we likely must allocate in the system DLL range to be +/- 2GB.
+    // But we want to avoid at least the first 1GB that will be used for system DLLs.
+    // Due to wrapping, this may be two seperate ranges.
+    s_pSystemRegionUpperBound = reinterpret_cast<PVOID>(reinterpret_cast<ULONG_PTR>(GetModuleHandleW(L"ntdll.dll")) + static_cast<ULONG_PTR>(0x100000));
+    s_pSystemRegionLowerBound = reinterpret_cast<PVOID>(reinterpret_cast<ULONG_PTR>(s_pSystemRegionUpperBound) < static_cast<ULONG_PTR>(0x7FF83F000000)
+                                                            ? static_cast<ULONG_PTR>(0x7FF7FF000000)
+                                                            : (reinterpret_cast<ULONG_PTR>(s_pSystemRegionUpperBound) - static_cast<ULONG_PTR>(
+                                                                0x40000000)));
+    s_pSystemRegionSize = reinterpret_cast<ULONG_PTR>(s_pSystemRegionUpperBound) - reinterpret_cast<ULONG_PTR>(s_pSystemRegionLowerBound); // up to 1GB
+    s_pSystemRegion2Size = static_cast<SIZE_T>(0x40000000) - s_pSystemRegionSize;
+    s_pSystemRegion2UpperBound = reinterpret_cast<PVOID>(static_cast<ULONG_PTR>(0x800000000000));
+    s_pSystemRegion2LowerBound = reinterpret_cast<PVOID>(reinterpret_cast<ULONG_PTR>(s_pSystemRegion2UpperBound) - s_pSystemRegion2Size);
+#endif
+
     return s_nPendingError;
 }
 
@@ -1915,35 +2065,47 @@ NTSTATUS NTAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
         cxt.ContextFlags = CONTEXT_CONTROL;
 
 #undef DETOURS_EIP
+#undef DETOURS_CONTEXT_FLAGS
 
 #ifdef DETOURS_X86
 #define DETOURS_EIP         Eip
+#define DETOURS_CONTEXT_FLAGS CONTEXT_CONTROL
 #endif // DETOURS_X86
 
 #ifdef DETOURS_X64
 #define DETOURS_EIP         Rip
+#define DETOURS_CONTEXT_FLAGS (CONTEXT_CONTROL | CONTEXT_INTEGER)
 #endif // DETOURS_X64
 
 #ifdef DETOURS_IA64
 #define DETOURS_EIP         StIIP
+#define DETOURS_CONTEXT_FLAGS CONTEXT_CONTROL
 #endif // DETOURS_IA64
 
 #ifdef DETOURS_ARM
 #define DETOURS_EIP         Pc
+#define DETOURS_CONTEXT_FLAGS CONTEXT_CONTROL
 #endif // DETOURS_ARM
 
 #ifdef DETOURS_ARM64
 #define DETOURS_EIP         Pc
+#define DETOURS_CONTEXT_FLAGS (CONTEXT_CONTROL | CONTEXT_INTEGER)
 #endif // DETOURS_ARM64
 
 typedef ULONG_PTR DETOURS_EIP_TYPE;
+NTSTATUS status;
 
-        if (NtGetContextThread(t->hThread, &cxt)) {
-            for (o = s_pPendingOperations; o != nullptr; o = o->pNext) {
-                if (o->fIsRemove) {
+        status = NtGetContextThread(t->hThread, &cxt);
+
+        if (NT_SUCCESS(status))
+        {
+            for (o = s_pPendingOperations; o != nullptr; o = o->pNext)
+            {
+                if (o->fIsRemove)
+                {
                     if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pTrampoline &&
                         cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pTrampoline
-                                                             + sizeof(o->pTrampoline))
+                                                             + sizeof(*o->pTrampoline))
                        ) {
 
                         cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
@@ -1953,7 +2115,10 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
                                                                    - (DETOURS_EIP_TYPE)(ULONG_PTR)
                                                                    o->pTrampoline)));
 
-                        NtSetContextThread(t->hThread, &cxt);
+                        status = NtSetContextThread(t->hThread, &cxt);
+
+                        if (!NT_SUCCESS(status))
+                            break;
                     }
                 }
                 else {
@@ -1969,11 +2134,20 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
                                                                - (DETOURS_EIP_TYPE)(ULONG_PTR)
                                                                o->pbTarget)));
 
-                        NtSetContextThread(t->hThread, &cxt);
+                        status = NtSetContextThread(t->hThread, &cxt);
+
+                        if (!NT_SUCCESS(status))
+                            break;
                     }
                 }
             }
         }
+
+        if (NT_SUCCESS(s_nPendingError) && !NT_SUCCESS(status))
+        {
+            s_nPendingError = status;
+        }
+
 #undef DETOURS_EIP
     }
 
@@ -2159,6 +2333,15 @@ NTSTATUS WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
     DETOUR_TRACE(("  ppldTarget=%p, code=%p [gp=%p]\n",
                   ppldTarget, pbTarget, pTargetGlobals));
 #else // DETOURS_IA64
+#if defined(_M_ARM64EC)
+    if (RtlIsEcCode(reinterpret_cast<DWORD64>(*ppPointer))) {
+        DETOUR_TRACE(("*ppPointer is an Arm64EC address (ppPointer=%p). "
+                      "An Arm64EC address cannot be legitimately detoured with an x64 jmp. "
+                      "Mark the target function with __declspec(hybrid_patchable) to make it detour-able. "
+                      "We still allow an Arm64EC function to be detoured with an x64 jmp to make it easy (crash) to debug.\n", ppPointer));
+        DETOUR_BREAK();
+    }
+#endif
     pbTarget = static_cast<PBYTE>(DetourCodeFromPointer(pbTarget, nullptr));
     pDetour = DetourCodeFromPointer(pDetour, nullptr);
 #endif // !DETOURS_IA64

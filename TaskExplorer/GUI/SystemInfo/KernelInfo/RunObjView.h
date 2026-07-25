@@ -3,7 +3,7 @@
 #include "../../../MiscHelpers/Common/TreeViewEx.h"
 #include "../../../MiscHelpers/Common/TreeWidgetEx.h"
 #include "../../../MiscHelpers/Common/PanelView.h"
-#include "../../API/ProcessInfo.h"
+#include "../../../API/ProcessInfo.h"
 #include "../../../MiscHelpers/Common/ListItemModel.h"
 #include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 

@@ -1,8 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29806.167
-MinimumVisualStudioVersion = 15.0.26228.4
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113 d17.12
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "phlib", "phlib\phlib.vcxproj", "{477D0215-F252-41A1-874B-F27E3EA1ED17}"
 	ProjectSection(ProjectDependencies) = postProject
 		{F1757430-8EEE-49DF-A5F1-0999A53BB4A0} = {F1757430-8EEE-49DF-A5F1-0999A53BB4A0}

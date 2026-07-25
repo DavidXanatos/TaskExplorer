@@ -63,6 +63,10 @@ PPH_STRING PvpGetPeGuardFlagsText(
         PhAppendStringBuilder2(&stringBuilder, L"EH continuation table, ");
     if (GuardFlags & IMAGE_GUARD_XFG_ENABLED)
         PhAppendStringBuilder2(&stringBuilder, L"XFG, ");
+    if (GuardFlags & IMAGE_GUARD_CASTGUARD_PRESENT)
+        PhAppendStringBuilder2(&stringBuilder, L"Cast guard, ");
+    if (GuardFlags & IMAGE_GUARD_MEMCPY_PRESENT)
+        PhAppendStringBuilder2(&stringBuilder, L"Guarded memcpy, ");
 
     if (PhEndsWithString2(stringBuilder.String, L", ", FALSE))
         PhRemoveEndStringBuilder(&stringBuilder, 2);
@@ -149,7 +153,7 @@ PPH_STRING PvpGetPeEnclaveImportsText(
 
         for (i = 0; i < enclaveConfig32->NumberOfImports; i++)
         {
-            PSTR importName;
+            PCSTR importName;
 
             if (!enclaveImports || enclaveImports->ImportName == USHRT_MAX)
                 break;
@@ -179,7 +183,7 @@ PPH_STRING PvpGetPeEnclaveImportsText(
 
         for (i = 0; i < enclaveConfig64->NumberOfImports; i++)
         {
-            PSTR importName;
+            PCSTR importName;
 
             if (!enclaveImports || enclaveImports->ImportName == USHRT_MAX)
                 break;
@@ -492,7 +496,7 @@ INT_PTR CALLBACK PvPeLoadConfigDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

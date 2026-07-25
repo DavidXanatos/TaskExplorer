@@ -50,7 +50,7 @@ private:
 CWsWatchDialog::CWsWatchDialog(const CProcessPtr& pProcess, QWidget *parent)
 	: QMainWindow(parent)
 {
-	this->setWindowTitle("Working Set Watch");
+	this->setWindowTitle(tr("Working Set Watch"));
 
 	m_pMainWidget = new QWidget();
     m_pMainWidget->setMinimumSize(QSize(430, 210));

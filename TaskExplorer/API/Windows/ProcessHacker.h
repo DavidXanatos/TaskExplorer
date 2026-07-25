@@ -7,7 +7,7 @@
 #endif
 
 #ifdef _DEBUG
-#define DEBUG
+#define DEBUG 1
 #endif
 
 #ifdef WIN64
@@ -39,6 +39,8 @@
 extern "C" {
 #endif
 #include <kphuser.h>
+#include <phconsole.h>
+#include <phintrnl.h>
 #ifdef __cplusplus
 }
 #endif
@@ -55,9 +57,7 @@ extern "C" {
 #include <combaseapi.h>
 #include <lsasup.h>
 #include <phnative.h>
-#include <mapldr.h>
-//#include <ntgdi.h>
-#include "../ProcessHacker/phnt/include/ntgdi.h"
+#include <ntgdi.h>
 
 #ifdef __cplusplus
 #include "../../../MiscHelpers/Common/FlexError.h"
@@ -93,14 +93,24 @@ extern "C" {
 	VERIFY_RESULT NTAPI PhVerifyFileWithAdditionalCatalog(_In_ PPH_VERIFY_FILE_INFO Information, _In_opt_ PPH_STRING PackageFullName, _Out_opt_ PPH_STRING *SignerName);
 }
 
-// initialization call
-int InitPH(bool bSvc = false);
+extern BOOLEAN g_KphStartupMax;
+extern BOOLEAN g_KphStartupHigh;
 
-STATUS InitKPH(QString DeviceName, QString FileName);
+extern bool g_KsiDynDataLoaded;
+
+// initialization call
+int InitPH();
+
+STATUS InitKSI(const QString& AppDir);
+STATUS CleanupKSI();
+
+STATUS TryUpdateDynData(const QString& AppDir);
 
 bool KphSetDebugLog(bool Enable);
 bool KphSetSystemMon(bool Enable);
 bool KphGetSystemMon();
+
+PPH_STRING KsiGetKernelVersionString(VOID);
 
 void PhShowAbout(QWidget* parent);
 

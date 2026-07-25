@@ -3,7 +3,7 @@
 
 #include "../src/qhexedit.h"
 #include <QMessageBox>
-#include <QTextCodec>
+//#include <QTextCodec>
 
 QHexEditorSearch::QHexEditorSearch(QHexEdit *hexEdit, QWidget *parent) :
     QDialog(parent),
@@ -89,9 +89,10 @@ QByteArray QHexEditorSearch::getContent(int comboIndex, const QString &input)
             break;
         case 2:     // text Unicode
 		{
-			QTextCodec *codec = QTextCodec::codecForName("UTF-16");
-			QTextEncoder *encoderWithoutBom = codec->makeEncoder( QTextCodec::IgnoreHeader );
-			findBa  = encoderWithoutBom ->fromUnicode( input );
+			//QTextCodec *codec = QTextCodec::codecForName("UTF-16");
+			//QTextEncoder *encoderWithoutBom = codec->makeEncoder( QTextCodec::IgnoreHeader );
+			//findBa  = encoderWithoutBom ->fromUnicode( input );
+			findBa = QByteArray((char*)input.utf16(), input.length()* sizeof(char16_t));
 			break;
 		}
     }

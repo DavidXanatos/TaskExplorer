@@ -3,18 +3,9 @@
 
 #pragma once
 
-#if(_MANAGED)
-#pragma warning(push)
-#pragma warning(disable: 4800) // bool warning in boost when _MANAGED flag is set
-#endif
+#include <algorithm>
 
 #include "../compiler_check.hpp"
-//#include <boost/algorithm/string.hpp>
-//#include <boost/range/iterator_range_core.hpp>
-
-#if(_MANAGED)
-#pragma warning(pop)
-#endif
 
 namespace krabs { namespace predicates {
 
@@ -30,12 +21,9 @@ namespace krabs { namespace predicates {
         struct equals
         {
             template <typename Iter1, typename Iter2>
-            bool operator()(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
+            bool operator()(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2) const
             {
-                auto r1 = boost::make_iterator_range(begin1, end1);
-                auto r2 = boost::make_iterator_range(begin2, end2);
-
-                return boost::equals(r1, r2, Comparer());
+                return std::equal(first1, last1, first2, last2, Comparer());
             }
         };
 
@@ -46,12 +34,11 @@ namespace krabs { namespace predicates {
         struct contains
         {
             template <typename Iter1, typename Iter2>
-            bool operator()(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
+            bool operator()(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2) const
             {
-                auto r1 = boost::make_iterator_range(begin1, end1);
-                auto r2 = boost::make_iterator_range(begin2, end2);
-
-                return boost::contains(r1, r2, Comparer());
+                // empty test range always contained, even when input range empty
+                return first2 == last2
+                    || std::search(first1, last1, first2, last2, Comparer()) != last1;
             }
         };
 
@@ -62,12 +49,10 @@ namespace krabs { namespace predicates {
         struct starts_with
         {
             template <typename Iter1, typename Iter2>
-            bool operator()(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
+            bool operator()(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2) const
             {
-                auto r1 = boost::make_iterator_range(begin1, end1);
-                auto r2 = boost::make_iterator_range(begin2, end2);
-
-                return boost::starts_with(r1, r2, Comparer());
+                const auto first_nonequal = std::mismatch(first1, last1, first2, last2, Comparer());
+                return first_nonequal.second == last2;
             }
         };
 
@@ -78,12 +63,16 @@ namespace krabs { namespace predicates {
         struct ends_with
         {
             template <typename Iter1, typename Iter2>
-            bool operator()(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
+            bool operator()(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2) const
             {
-                auto r1 = boost::make_iterator_range(begin1, end1);
-                auto r2 = boost::make_iterator_range(begin2, end2);
+                const auto dist1 = std::distance(first1, last1);
+                const auto dist2 = std::distance(first2, last2);
 
-                return boost::ends_with(r1, r2, Comparer());
+                if (dist2 > dist1)
+                    return false;
+
+                const auto suffix_begin = std::next(first1, dist1 - dist2);
+                return std::equal(suffix_begin, last1, first2, last2, Comparer());
             }
         };
 
@@ -93,7 +82,7 @@ namespace krabs { namespace predicates {
         template <typename T>
         struct iequal_to
         {
-            bool operator()(const T& a, const T& b)
+            bool operator()(const T& a, const T& b) const
             {
                 static_assert(sizeof(T) == 0,
                     "iequal_to needs a specialized overload for type");

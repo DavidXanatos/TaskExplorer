@@ -26,12 +26,13 @@ namespace krabs { namespace details {
             UCHAR level_;
             ULONGLONG any_;
             ULONGLONG all_;
-            UCHAR trace_flags_;
+            ULONG trace_flags_;
         };
 
         struct filter_settings{
             std::set<unsigned short> provider_filter_event_ids_;
             filter_flags filter_flags_{};
+            bool rundown_enabled_ = false;
         };
 
         typedef std::map<krabs::guid, filter_settings> provider_filter_settings;
@@ -66,6 +67,15 @@ namespace krabs { namespace details {
          */
         static void enable_providers(
             const krabs::trace<krabs::details::ut> &trace);
+
+        /**
+         * <summary>
+         *   Enables the configured rundown events for each provider.
+         *   Should be called immediately prior to ProcessTrace.
+         * </summary>
+         */
+        static void enable_rundown(
+            const krabs::trace<krabs::details::ut>& trace);
 
         /**
          * <summary>
@@ -114,6 +124,9 @@ namespace krabs { namespace details {
     inline void ut::enable_providers(
         const krabs::trace<krabs::details::ut> &trace)
     {
+        if (trace.registrationHandle_ == INVALID_PROCESSTRACE_HANDLE)
+            return;
+
         provider_filter_settings provider_flags;
 
         // This function essentially takes the union of all the provider flags
@@ -126,6 +139,7 @@ namespace krabs { namespace details {
             settings.filter_flags_.any_         |= provider.get().any_;
             settings.filter_flags_.all_         |= provider.get().all_;
             settings.filter_flags_.trace_flags_ |= provider.get().trace_flags_;
+            settings.rundown_enabled_           |= provider.get().rundown_enabled_;
 
             for (const auto& filter : provider.get().filters_) {
                 settings.provider_filter_event_ids_.insert(
@@ -183,7 +197,29 @@ namespace krabs { namespace details {
                                           settings.filter_flags_.all_,
                                           0,
                                           &parameters);
-            UNREFERENCED_PARAMETER(status);
+            error_check_common_conditions(status);
+        }
+    }
+
+    inline void ut::enable_rundown(
+        const krabs::trace<krabs::details::ut>& trace)
+    {
+        if (trace.registrationHandle_ == INVALID_PROCESSTRACE_HANDLE)
+            return;
+
+        for (auto& provider : trace.providers_) {
+            if (!provider.get().rundown_enabled_)
+                continue;
+
+            ULONG status = EnableTraceEx2(trace.registrationHandle_,
+                &provider.get().guid_,
+                EVENT_CONTROL_CODE_CAPTURE_STATE,
+                0,
+                0,
+                0,
+                0,
+                NULL);
+            error_check_common_conditions(status);
         }
     }
 
@@ -191,11 +227,28 @@ namespace krabs { namespace details {
         const EVENT_RECORD &record,
         const krabs::trace<krabs::details::ut> &trace)
     {
-        for (auto &provider : trace.providers_) {
+        // for manifest providers, EventHeader.ProviderId is the Provider GUID
+        for (auto& provider : trace.providers_) {
             if (record.EventHeader.ProviderId == provider.get().guid_) {
-                provider.get().on_event(record);
+                provider.get().on_event(record, trace.context_);
+                return;
             }
         }
+
+        // for MOF providers, EventHeader.Provider is the *Message* GUID
+        // we need to ask TDH for event information in order to determine the
+        // correct provider to pass this event to
+        auto schema = get_event_schema_from_tdh(record);
+        auto eventInfo = reinterpret_cast<PTRACE_EVENT_INFO>(schema.get());
+        for (auto& provider : trace.providers_) {
+            if (eventInfo->ProviderGuid == provider.get().guid_) {
+                provider.get().on_event(record, trace.context_);
+                return;
+            }
+        }
+
+        if (trace.default_callback_ != nullptr)
+            trace.default_callback_(record, trace.context_);
     }
 
     inline unsigned long ut::augment_file_mode()

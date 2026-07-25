@@ -65,25 +65,31 @@ typedef struct _PH_OBJECT_HEADER
     QUAD_PTR Body;
 } PH_OBJECT_HEADER, *PPH_OBJECT_HEADER;
 
-C_ASSERT((FIELD_OFFSET(PH_OBJECT_HEADER, Body) % MEMORY_ALLOCATION_ALIGNMENT) == 0);
+static_assert((FIELD_OFFSET(PH_OBJECT_HEADER, Body) % MEMORY_ALLOCATION_ALIGNMENT) == 0, "PH_OBJECT_HEADER alignment invalid");
 
-#ifndef DEBUG
 #ifdef _WIN64
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, TypeIndex) == 0x0);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Flags) == 0x2);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved1) == 0x3);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved2) == 0x4);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, RefCount) == 0x8);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved3) == 0xc);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, DeferDeleteListEntry) == 0x0);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x10);
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, TypeIndex) == 0x0, "PH_OBJECT_HEADER.TypeIndex offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Flags) == 0x2, "PH_OBJECT_HEADER.Flags offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved1) == 0x3, "PH_OBJECT_HEADER.Reserved1 offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved2) == 0x4, "PH_OBJECT_HEADER.Reserved2 offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, RefCount) == 0x8, "PH_OBJECT_HEADER.RefCount offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved3) == 0xc, "PH_OBJECT_HEADER.Reserved3 offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, DeferDeleteListEntry) == 0x0, "PH_OBJECT_HEADER.DeferDeleteListEntry offset mismatch");
+#if defined(DEBUG)
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0xA0, "PH_OBJECT_HEADER.Body offset mismatch");
 #else
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, TypeIndex) == 0x0);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Flags) == 0x2);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved1) == 0x3);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, RefCount) == 0x4);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, DeferDeleteListEntry) == 0x0);
-C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x8);
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x10, "PH_OBJECT_HEADER.Body offset mismatch");
+#endif
+#else
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, TypeIndex) == 0x0, "PH_OBJECT_HEADER.TypeIndex offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Flags) == 0x2, "PH_OBJECT_HEADER.Flags offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Reserved1) == 0x3, "PH_OBJECT_HEADER.Reserved1 offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, RefCount) == 0x4, "PH_OBJECT_HEADER.RefCount offset mismatch");
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, DeferDeleteListEntry) == 0x0, "PH_OBJECT_HEADER.DeferDeleteListEntry offset mismatch");
+#if defined(DEBUG)
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x50, "PH_OBJECT_HEADER.Body offset mismatch");
+#else
+static_assert(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x8, "PH_OBJECT_HEADER.Body offset mismatch");
 #endif
 #endif
 
@@ -94,7 +100,19 @@ C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x8);
  *
  * \return A pointer to the object header of the object.
  */
+#if defined(_PHLIB_)
 #define PhObjectToObjectHeader(Object) ((PPH_OBJECT_HEADER)CONTAINING_RECORD((Object), PH_OBJECT_HEADER, Body))
+#else
+FORCEINLINE
+PPH_OBJECT_HEADER
+NTAPI
+PhObjectToObjectHeader(
+    _In_ PVOID Object
+    )
+{
+    return CONTAINING_RECORD(Object, PH_OBJECT_HEADER, Body);
+}
+#endif
 
 /**
  * Gets a pointer to an object from an object header.
@@ -103,7 +121,18 @@ C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x8);
  *
  * \return A pointer to an object.
  */
+#if defined(_PHLIB_)
 #define PhObjectHeaderToObject(ObjectHeader) ((PVOID)&((PPH_OBJECT_HEADER)(ObjectHeader))->Body)
+#else
+FORCEINLINE
+PVOID
+PhObjectHeaderToObject(
+    _In_ PPH_OBJECT_HEADER ObjectHeader
+    )
+{
+    return &ObjectHeader->Body;
+}
+#endif
 
 /**
  * Calculates the total size to allocate for an object.
@@ -112,7 +141,18 @@ C_ASSERT(FIELD_OFFSET(PH_OBJECT_HEADER, Body) == 0x8);
  *
  * \return The new size, including space for the object header.
  */
+#if defined(_PHLIB_)
 #define PhAddObjectHeaderSize(Size) ((Size) + UFIELD_OFFSET(PH_OBJECT_HEADER, Body))
+#else
+FORCEINLINE
+SIZE_T
+PhAddObjectHeaderSize(
+    _In_ SIZE_T Size
+    )
+{
+    return UFIELD_OFFSET(PH_OBJECT_HEADER, Body) + Size;
+}
+#endif
 
 /** An object type specifies a kind of object and its delete procedure. */
 typedef struct _PH_OBJECT_TYPE
@@ -126,7 +166,7 @@ typedef struct _PH_OBJECT_TYPE
     /** An optional procedure called when objects of this type are freed. */
     PPH_TYPE_DELETE_PROCEDURE DeleteProcedure;
     /** The name of the type. */
-    PWSTR Name;
+    PCWSTR Name;
     /** A free list to use when allocating for this type. */
     PH_FREE_LIST FreeList;
 } PH_OBJECT_TYPE, *PPH_OBJECT_TYPE;
@@ -159,6 +199,7 @@ VOID PhpDeferDeleteObject(
     _In_ PPH_OBJECT_HEADER ObjectHeader
     );
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PhpDeferDeleteObjectRoutine(
     _In_ PVOID Parameter
     );

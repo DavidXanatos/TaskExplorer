@@ -281,8 +281,6 @@ double QwtPlotAbstractBarChart::sampleWidth( const QwtScaleMap& map,
    \param right Returns the right margin
    \param bottom Returns the bottom margin
 
-   \return Margin
-
    \sa layoutPolicy(), layoutHint(), QwtPlotItem::Margins
        QwtPlot::getCanvasMarginsHint(), QwtPlot::updateCanvasMargins()
  */

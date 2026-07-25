@@ -62,7 +62,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
-		if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eProcess))
+		if (m_bUseIcons && !pNode->Icon.isValid() && !m_ColumnsOff.contains(eProcess))
 		{
 			CProcessPtr pProcess = pNode->pSocket->GetProcess().toStrongRef().staticCast<CProcessInfo>();
 			CModulePtr pModule = pProcess ? pProcess->GetModuleInfo() : CModulePtr();
@@ -92,7 +92,7 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
@@ -149,34 +149,34 @@ void CSocketModel::Sync(QMultiMap<quint64, CSocketPtr> SocketList)
 					case eProcess:			{
 												quint64 ProcessId = pSocket->GetProcessId();
 												if (ProcessId)
-													ColValue.Formated = tr("%1 (%2)").arg(pSocket->GetProcessName()).arg(ProcessId);
+													ColValue.Formatted = tr("%1 (%2)").arg(pSocket->GetProcessName()).arg(theGUI->FormatID(ProcessId));
 												break;
 											}
 
-					case eProtocol:				ColValue.Formated = pSocket->GetProtocolString(); break; 
-					case eState:				ColValue.Formated = pSocket->GetStateString(); break; 			
+					case eProtocol:				ColValue.Formatted = pSocket->GetProtocolString(); break; 
+					case eState:				ColValue.Formatted = pSocket->GetStateString(); break; 			
 
-					case eTimeStamp:			ColValue.Formated = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
+					case eTimeStamp:			ColValue.Formatted = QDateTime::fromSecsSinceEpoch(Value.toULongLong()/1000).toString("dd.MM.yyyy hh:mm:ss"); break;
 
 					case eReceiveBytes:
 					case eSendBytes:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatSize(Value.toULongLong()); break; 
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatSize(Value.toULongLong()); break; 
 					case eReceiveBytesDelta:
 					case eSendBytesDelta:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatSizeEx(Value.toULongLong(), bClearZeros); break; 
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatSizeEx(Value.toULongLong(), bClearZeros); break; 
 
 					case eReceiveRate:
 					case eSendRate:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatRateEx(Value.toULongLong(), bClearZeros); break; 
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatRateEx(Value.toULongLong(), bClearZeros); break; 
 
 					case eReceives:
 					case eSends:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatNumber(Value.toULongLong()); break; 
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatNumber(Value.toULongLong()); break; 
 					case eReceivesDelta:
 					case eSendsDelta:
-												if(Value.type() != QVariant::String) ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break; 
+												if(Value.type() != QVariant::String) ColValue.Formatted = FormatNumberEx(Value.toULongLong(), bClearZeros); break; 
 #ifdef WIN32
-					case eFirewallStatus:		ColValue.Formated = pWinSock->GetFirewallStatusString(); break; 
+					case eFirewallStatus:		ColValue.Formatted = pWinSock->GetFirewallStatusString(); break; 
 #endif
 												
 				}

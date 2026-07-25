@@ -4,6 +4,8 @@
 class CWinDriver : public CDriverInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinDriver)
 public:
 	CWinDriver(QObject *parent = nullptr);
 	virtual ~CWinDriver();

@@ -535,6 +535,4 @@ namespace
 Q_EXPORT_PLUGIN2( QwtDesignerPlugin, WidgetCollectionInterface )
 #endif
 
-#if QWT_MOC_INCLUDE
 #include "qwt_designer_plugin.moc"
-#endif

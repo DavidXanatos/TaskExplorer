@@ -49,16 +49,23 @@ VOID PvpEnumerateClrImports(
             {
                 if (importDll->ImportName)
                 {
-                    PPH_STRING importDllName;
+                    PH_STRINGREF hostDllName;
 
-                    if (importDllName = PhApiSetResolveToHost(&importDll->ImportName->sr))
+                    if (NT_SUCCESS(PhApiSetResolveToHost(
+                        NtCurrentPeb()->ApiSetMap,
+                        &importDll->ImportName->sr,
+                        &PvFileName->sr,
+                        &hostDllName
+                        )))
                     {
-                        PhMoveReference(&importDll->ImportName, PhFormatString(
-                            L"%s (%s)",
-                            PhGetString(importDll->ImportName),
-                            PhGetString(importDllName))
-                            );
-                        PhDereferenceObject(importDllName);
+                        PH_FORMAT format[4];
+
+                        PhInitFormatSR(&format[0], importDll->ImportName->sr);
+                        PhInitFormatS(&format[1], L" (");
+                        PhInitFormatSR(&format[2], hostDllName);
+                        PhInitFormatC(&format[3], L')');
+
+                        PhMoveReference(&importDll->ImportName, PhFormat(format, RTL_NUMBER_OF(format), 10));
                     }
                 }
 
@@ -200,7 +207,7 @@ INT_PTR CALLBACK PvpPeClrImportsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

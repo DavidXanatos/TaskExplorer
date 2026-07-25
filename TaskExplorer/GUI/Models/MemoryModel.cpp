@@ -100,13 +100,13 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 	if (pNode->iColor != RowColor) {
 		pNode->iColor = RowColor;
-		pNode->Color = CTaskExplorer::GetListColor(RowColor);
+		pNode->Values[0].Color = CTaskExplorer::GetListColor(RowColor);
 		Changed = 2;
 	}
 
 	for(int section = 0; section < columnCount(); section++)
 	{
-		if (!m_Columns.contains(section))
+		if (m_ColumnsOff.contains(section))
 			continue; // ignore columns which are hidden
 
 		QVariant Value;
@@ -115,7 +115,7 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 			case eBaseAddress:			Value = pMemory->GetBaseAddress(); break;
 			case eType:					Value = pMemory->GetTypeString(); break;
 			case eSize:					Value = pMemory->GetRegionSize(); break;
-			case eProtection:			Value = pMemory->GetProtectString(); break;
+			case eProtection:			Value = pMemory->GetProtection(); break;
 			case eUse:					Value = pMemory->GetUseString(); break;
 			case eTotalWS:				Value = pMemory->GetTotalWorkingSet(); break;
 			case ePrivateWS: 			Value = pMemory->GetPrivateWorkingSet(); break;
@@ -124,6 +124,12 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 			case eLockedWS: 			Value = pMemory->GetLockedWorkingSet(); break;
 			case eCommitted:			Value = pMemory->GetCommittedSize(); break;
 			case ePrivate:				Value = pMemory->GetPrivateSize(); break;
+
+			case eSigningLevel:			Value = pWinMemory->GetSigningLevel(); break;
+			case eOriginalProtection:	Value = pMemory->GetAllocProtection(); break;
+			case eOriginalPages:		Value = pWinMemory->GetSharedOriginalPages(); break;
+			case eRegionType:			Value = pWinMemory->GetRegionTypeExStr();
+			case ePriority:				Value = pWinMemory->GetPriority();
 		}
 
 		SMemoryNode::SValue& ColValue = pNode->Values[section];
@@ -136,7 +142,7 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 			switch (section)
 			{
-				case eBaseAddress:	ColValue.Formated = FormatAddress(Value.toULongLong()); break;	
+				case eBaseAddress:			ColValue.Formatted = FormatAddress(Value.toULongLong()); break;	
 
 				case eSize:
 
@@ -148,7 +154,12 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 
 				case eCommitted:
 				case ePrivate:		
-									ColValue.Formated = FormatSize(Value.toULongLong()); break;	
+											ColValue.Formatted = FormatSize(Value.toULongLong()); break;	
+
+				case eSigningLevel:			ColValue.Formatted = pWinMemory->GetSigningLevelString(); break;
+				case eProtection:			ColValue.Formatted = pMemory->GetProtectionString(); break;
+				case eOriginalProtection:	ColValue.Formatted = pMemory->GetAllocProtectionString(); break;
+				case eOriginalPages:		ColValue.Formatted = pWinMemory->GetOriginalPagesString(); break;
 			}
 		}
 
@@ -200,6 +211,11 @@ QVariant CMemoryModel::headerData(int section, Qt::Orientation orientation, int 
 			case eLockedWS: return tr("Locked WS");
 			case eCommitted: return tr("Committed");
 			case ePrivate: return tr("Private");
+			case eSigningLevel: return tr("Signing level");
+			case eOriginalProtection: return tr("Original protection");
+			case eOriginalPages: return tr("Original pages");
+			case eRegionType: return tr("Region type");
+			case ePriority: return tr("Priority");
 		}
 	}
     return QVariant();

@@ -7,6 +7,7 @@ MISCHELPERS_EXPORT int vswprintf_l(wchar_t * _String, size_t _Count, const wchar
 #endif
 
 MISCHELPERS_EXPORT time_t GetTime();
+MISCHELPERS_EXPORT __time64_t GetTimeMs();
 MISCHELPERS_EXPORT quint64 GetCurTick();
 
 
@@ -18,6 +19,11 @@ MISCHELPERS_EXPORT int	GetRandomInt(int iMin, int iMax);
 MISCHELPERS_EXPORT typedef QPair<QString,QString> StrPair;
 MISCHELPERS_EXPORT StrPair Split2(const QString& String, QString Separator = "=", bool Back = false);
 MISCHELPERS_EXPORT QStringList SplitStr(const QString& String, QString Separator);
+
+MISCHELPERS_EXPORT bool PathStartsWith(const QString& Path, const QString& Start);
+
+typedef MISCHELPERS_EXPORT QMultiMap<QString,QString> TArguments;
+TArguments MISCHELPERS_EXPORT GetArguments(const QString& Arguments, QChar Separator = L';', QChar Assigner = L'=', QString* First = NULL, bool bLowerKeys = false, bool bReadEsc = false);
 
 MISCHELPERS_EXPORT QString UnEscape(QString Text);
 
@@ -81,26 +87,47 @@ private:
 
 MISCHELPERS_EXPORT bool ReadFromDevice(QIODevice* dev, char* data, int len, int timeout = 5000);
 
+typedef struct {
+    double r;       // a fraction between 0 and 1
+    double g;       // a fraction between 0 and 1
+    double b;       // a fraction between 0 and 1
+} my_rgb;
 
+typedef struct {
+    double h;       // angle in degrees
+    double s;       // a fraction between 0 and 1
+    double v;       // a fraction between 0 and 1
+} my_hsv;
+
+my_hsv MISCHELPERS_EXPORT rgb2hsv(my_rgb in);
+my_rgb MISCHELPERS_EXPORT hsv2rgb(my_hsv in);
+
+QRgb MISCHELPERS_EXPORT change_hsv_c(QRgb rgb, float fHue, float fSat, float fVal);
 MISCHELPERS_EXPORT void GrayScale (QImage& Image);
 
+MISCHELPERS_EXPORT QIcon MakeNormalAndGrayIcon(QIcon Icon);
 MISCHELPERS_EXPORT QIcon MakeActionIcon(const QString& IconFile);
 MISCHELPERS_EXPORT QAction* MakeAction(QToolBar* pParent, const QString& IconFile, const QString& Text = "");
 MISCHELPERS_EXPORT QMenu* MakeMenu(QMenu* pParent, const QString& Text, const QString& IconFile = "");
 MISCHELPERS_EXPORT QAction* MakeAction(QMenu* pParent, const QString& Text, const QString& IconFile = "");
 MISCHELPERS_EXPORT QAction* MakeAction(QActionGroup* pGroup, QMenu* pParent, const QString& Text, const QVariant& Data);
+MISCHELPERS_EXPORT void SetPaleteTexture(QPalette& palette, QPalette::ColorRole role, const QImage& image);
 MISCHELPERS_EXPORT QAction* MakeActionCheck(QMenu* pParent, const QString& Text, const QVariant& Data, bool bTriState);
 
-#ifdef WIN32
-MISCHELPERS_EXPORT bool InitConsole(bool bCreateIfNeeded = true);
-#endif
+MISCHELPERS_EXPORT void SafeShow(QWidget* pWidget);
+MISCHELPERS_EXPORT void SetFocus(QWidget* pWidget);
 
 template <typename T>
-QSet<T> ListToSet(const QList<T>& qList) { return QSet<QString>(qList.begin(), qList.end()); }
+QSet<T> ListToSet(const QList<T>& qList) { return QSet<T>(qList.begin(), qList.end()); }
 
 template <typename T>
-QList<T> SetToList(const QSet<T>& qSet) { return QList<QString>(qSet.begin(), qSet.end()); }
+QList<T> SetToList(const QSet<T>& qSet) { return QList<T>(qSet.begin(), qSet.end()); }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 bool MISCHELPERS_EXPORT operator < (const QVariant& l, const QVariant& r);
+#endif
+
+
+#ifdef WIN32
+MISCHELPERS_EXPORT bool InitConsole(bool bCreateIfNeeded = true);
 #endif

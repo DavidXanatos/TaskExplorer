@@ -52,11 +52,6 @@ void CStackView::Invalidate()
 	}
 }
 
-void CStackView::SetFilter(const QRegularExpression& Exp, bool bHighLight, int Col)
-{
-	CPanelWidgetEx::ApplyFilter(m_pStackList, Exp/*, bHighLight, Col*/);
-}
-
 void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 {
 	int i = 0;
@@ -93,8 +88,12 @@ void CStackView::ShowStack(const CStackTracePtr& StackTrace)
 	for (; i < m_pStackList->topLevelItemCount(); )
 		delete m_pStackList->topLevelItem(i);
 
-	if (m_pFinder->GetRegExp().isValid())
-		SetFilter(m_pFinder->GetRegExp());
+	CPanelWidgetEx::ApplyFilter(m_pStackList, m_pFinder->isVisible() ? &m_pFinder->GetSearchExp() : NULL);
 
 	m_bIsInvalid = false;
+}
+
+void CStackView::SetFilter(const QRegularExpression& Exp, int iOptions, int Col)
+{
+	CPanelWidgetEx::ApplyFilter(m_pStackList, &Exp);
 }

@@ -87,22 +87,26 @@ typedef struct _PV_CERTIFICATE_NODE
     PH_STRINGREF TextCache[PV_CERTIFICATE_TREE_COLUMN_NAME_MAXIMUM];
 } PV_CERTIFICATE_NODE, *PPV_CERTIFICATE_NODE;
 
+_Function_class_(PH_HASHTABLE_EQUAL_FUNCTION)
 BOOLEAN PvCertificateNodeHashtableEqualFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
     );
+
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PvCertificateNodeHashtableHashFunction(
     _In_ PVOID Entry
     );
+
 VOID PvDestroyCertificateNode(
     _In_ PPV_CERTIFICATE_NODE CertificateNode
     );
 BOOLEAN NTAPI PvCertificateTreeNewCallback(
     _In_ HWND hwnd,
     _In_ PH_TREENEW_MESSAGE Message,
-    _In_opt_ PVOID Parameter1,
-    _In_opt_ PVOID Parameter2,
-    _In_opt_ PVOID Context
+    _In_ PVOID Parameter1,
+    _In_ PVOID Parameter2,
+    _In_ PVOID Context
     );
 
 BOOLEAN PvpPeFillNodeCertificateInfo(
@@ -189,7 +193,7 @@ VOID PvInitializeCertificateTree(
     TreeNew_SetRedraw(Context->TreeNewHandle, TRUE);
     TreeNew_SetTriState(Context->TreeNewHandle, TRUE);
     TreeNew_SetSort(Context->TreeNewHandle, PV_CERTIFICATE_TREE_COLUMN_NAME_INDEX, NoSortOrder);
-    TreeNew_SetRowHeight(Context->TreeNewHandle, 22);
+    TreeNew_SetRowHeight(Context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(Context->WindowHandle)));
 
     settings = PhGetStringSetting(L"ImageSecurityTreeColumns");
     PhCmLoadSettings(Context->TreeNewHandle, &settings->sr);
@@ -222,6 +226,7 @@ VOID PvDeleteCertificateTree(
     PhDereferenceObject(Context->NodeRootList);
 }
 
+_Function_class_(PH_HASHTABLE_EQUAL_FUNCTION)
 BOOLEAN PvCertificateNodeHashtableEqualFunction(
     _In_ PVOID Entry1,
     _In_ PVOID Entry2
@@ -233,6 +238,7 @@ BOOLEAN PvCertificateNodeHashtableEqualFunction(
     return node1->Node.Index == node2->Node.Index;
 }
 
+_Function_class_(PH_HASHTABLE_HASH_FUNCTION)
 ULONG PvCertificateNodeHashtableHashFunction(
     _In_ PVOID Entry
     )
@@ -468,7 +474,7 @@ BOOLEAN NTAPI PvCertificateTreeNewCallback(
             {
                 if (!node)
                 {
-                    static PVOID sortFunctions[] =
+                    static CONST _CoreCrtSecureSearchSortCompareFunction sortFunctions[] =
                     {
                         SORT_FUNCTION(Name),
                         SORT_FUNCTION(Index),
@@ -480,7 +486,7 @@ BOOLEAN NTAPI PvCertificateTreeNewCallback(
                         SORT_FUNCTION(Size),
                         SORT_FUNCTION(Alg)
                     };
-                    int (__cdecl *sortFunction)(void *, const void *, const void *);
+                    _CoreCrtSecureSearchSortCompareFunction sortFunction;
 
                     static_assert(RTL_NUMBER_OF(sortFunctions) == PV_CERTIFICATE_TREE_COLUMN_NAME_MAXIMUM, "SortFunctions must equal maximum.");
 
@@ -943,6 +949,7 @@ BOOLEAN PvpPeFillNodeCertificateInfo(
             ))
         {
             CertificateNode->Name = data;
+            PhTrimToNullTerminatorString(data);
         }
         else
         {
@@ -963,6 +970,7 @@ BOOLEAN PvpPeFillNodeCertificateInfo(
             ))
         {
             CertificateNode->Issuer = data;
+            PhTrimToNullTerminatorString(data);
         }
         else
         {
@@ -1027,9 +1035,14 @@ BOOLEAN PvpPeFillNodeCertificateInfo(
             PPH_STRING data = PhCreateStringEx(NULL, dataLength);
 
             if (CertGetCertificateContextProperty(CertificateContext, CERT_SIGN_HASH_CNG_ALG_PROP_ID, data->Buffer, &dataLength))
+            {
                 CertificateNode->Algorithm = data;
+                PhTrimToNullTerminatorString(data);
+            }
             else
+            {
                 PhDereferenceObject(data);
+            }
         }
     }
 
@@ -1406,12 +1419,10 @@ VOID PvpPeSaveCertificateContext(
     cryptExportCertInfo.cStores = 1;
     cryptExportCertInfo.rghStores = &certStore;
 
-    if (CryptUIWizExport)
-    {
-        CryptUIWizExport(0, WindowHandle, NULL, &cryptExportCertInfo, NULL);
-    }
+    CryptUIWizExport(0, WindowHandle, NULL, &cryptExportCertInfo, NULL);
 }
 
+_Function_class_(PH_SEARCHCONTROL_CALLBACK)
 VOID NTAPI PhpPeSecuritySearchControlCallback(
     _In_ ULONG_PTR MatchHandle,
     _In_opt_ PVOID Context
@@ -1470,6 +1481,7 @@ INT_PTR CALLBACK PvpPeSecurityDlgProc(
             context->SearchHandle = GetDlgItem(hwndDlg, IDC_TREESEARCH);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Certificates (Ctrl+K)",
                 PhpPeSecuritySearchControlCallback,
@@ -1621,7 +1633,16 @@ INT_PTR CALLBACK PvpPeSecurityDlgProc(
              SetBkMode((HDC)wParam, TRANSPARENT);
              SetTextColor((HDC)wParam, RGB(0, 0, 0));
              SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-             return (INT_PTR)GetStockBrush(DC_BRUSH);
+             return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+         }
+         break;
+     case WM_KEYDOWN:
+         {
+             if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+             {
+                 SetFocus(context->SearchHandle);
+                 return TRUE;
+             }
          }
          break;
     }

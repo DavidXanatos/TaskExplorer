@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2024
+ *     jxy-s   2022-2026
  *
  */
 
@@ -13,7 +13,7 @@
 
 #include <trace.h>
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 #define KPH_ALPC_NAME_BUFFER_SIZE ((MAX_PATH * 2) + sizeof(OBJECT_NAME_INFORMATION))
 
@@ -48,7 +48,7 @@ NTSTATUS KphpReferenceAlpcCommunicationPorts(
     PVOID serverPort;
     PVOID clientPort;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     *ConnectionPort = NULL;
     *ServerPort = NULL;
@@ -190,7 +190,7 @@ NTSTATUS KphpAlpcBasicInfo(
     PEPROCESS process;
     PVOID portObjectLock;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     RtlZeroMemory(Info, sizeof(*Info));
 
@@ -265,7 +265,7 @@ NTSTATUS KphpAlpcCommunicationInfo(
     PVOID serverPort;
     PVOID clientPort;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     RtlZeroMemory(Info, sizeof(*Info));
 
@@ -347,7 +347,7 @@ Exit:
  * \param[in] NameBuffer Preallocated name buffer to use to get the name.
  * \param[in,out] Buffer The space to write the string.
  * \param[in,out] RemainingLength The remaining space to write the string.
- * \param[in,out] ReturnLength The return length, updated even if the string won't fit.
+ * \param[in,out] ReturnLength Updated by number of bytes written or required.
  * \param[out] String The string to populate.
  *
  * \return Successful or errant status.
@@ -366,7 +366,7 @@ NTSTATUS KphpAlpcCopyPortName(
     NTSTATUS status;
     ULONG returnLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (String)
     {
@@ -415,8 +415,7 @@ NTSTATUS KphpAlpcCopyPortName(
  * \param[in] Port The port to retrieve the names of.
  * \param[out] Info Populated with the name information.
  * \param[in] InfoLength The length of the information buffer.
- * \param[out] ReturnLength Populated with the length of the written information,
- * or the needed length if it is insufficient.
+ * \param[out] ReturnLength Receives the number of bytes written or required.
  *
  * \return Successful or errant status.
  */
@@ -438,7 +437,7 @@ NTSTATUS KphpAlpcCommunicationNamesInfo(
     PVOID buffer;
     ULONG remainingLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     *ReturnLength = sizeof(KPH_ALPC_COMMUNICATION_NAMES_INFORMATION);
 
@@ -566,8 +565,7 @@ Exit:
  * \param[in] AlpcInformationClass Information class to query.
  * \param[out] AlpcInformation Populated with information by ALPC port.
  * \param[in] AlpcInformationLength Length of the ALPC information buffer.
- * \param[out] ReturnLength Number of bytes written or necessary for the
- * information.
+ * \param[out] ReturnLength Receives the number of bytes written or required.
  * \param[in] AccessMode The mode in which to perform access checks.
  *
  * \return Successful or errant status.
@@ -592,35 +590,14 @@ NTSTATUS KphAlpcQueryInformation(
     ULONG returnLength;
     PVOID buffer;
     BYTE stackBuffer[64];
+    KPROCESSOR_MODE accessMode;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     dyn = NULL;
-    process = NULL;
     port = NULL;
     returnLength = 0;
     buffer = NULL;
-
-    if (AccessMode != KernelMode)
-    {
-        __try
-        {
-            if (AlpcInformation)
-            {
-                ProbeOutputBytes(AlpcInformation, AlpcInformationLength);
-            }
-
-            if (ReturnLength)
-            {
-                ProbeOutputType(ReturnLength, ULONG);
-            }
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
-        {
-            status = GetExceptionCode();
-            goto Exit;
-        }
-    }
 
     status = ObReferenceObjectByHandle(ProcessHandle,
                                        0,
@@ -642,7 +619,7 @@ NTSTATUS KphAlpcQueryInformation(
     if (process == PsInitialSystemProcess)
     {
         PortHandle = MakeKernelHandle(PortHandle);
-        AccessMode = KernelMode;
+        accessMode = KernelMode;
     }
     else
     {
@@ -651,13 +628,14 @@ NTSTATUS KphAlpcQueryInformation(
             status = STATUS_INVALID_HANDLE;
             goto Exit;
         }
+        accessMode = AccessMode;
     }
 
     KeStackAttachProcess(process, &apcState);
     status = ObReferenceObjectByHandle(PortHandle,
                                        0,
                                        *AlpcPortObjectType,
-                                       AccessMode,
+                                       accessMode,
                                        &port,
                                        NULL);
     KeUnstackDetachProcess(&apcState);
@@ -685,10 +663,11 @@ NTSTATUS KphAlpcQueryInformation(
                 goto Exit;
             }
 
-            if (!AlpcInformation || (AlpcInformationLength < sizeof(info)))
+            if (!AlpcInformation ||
+                (AlpcInformationLength < sizeof(KPH_ALPC_BASIC_INFORMATION)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
-                returnLength = sizeof(info);
+                returnLength = sizeof(KPH_ALPC_BASIC_INFORMATION);
                 goto Exit;
             }
 
@@ -702,15 +681,13 @@ NTSTATUS KphAlpcQueryInformation(
                 goto Exit;
             }
 
-            __try
+            status = KphCopyToMode(AlpcInformation,
+                                   &info,
+                                   sizeof(KPH_ALPC_BASIC_INFORMATION),
+                                   AccessMode);
+            if (NT_SUCCESS(status))
             {
-                RtlCopyMemory(AlpcInformation, &info, sizeof(info));
-                returnLength = sizeof(info);
-            }
-            __except (EXCEPTION_EXECUTE_HANDLER)
-            {
-                status = GetExceptionCode();
-                goto Exit;
+                returnLength = sizeof(KPH_ALPC_BASIC_INFORMATION);
             }
 
             break;
@@ -726,10 +703,11 @@ NTSTATUS KphAlpcQueryInformation(
                 goto Exit;
             }
 
-            if (!AlpcInformation || (AlpcInformationLength < sizeof(info)))
+            if (!AlpcInformation ||
+                (AlpcInformationLength < sizeof(KPH_ALPC_COMMUNICATION_INFORMATION)))
             {
                 status = STATUS_INFO_LENGTH_MISMATCH;
-                returnLength = sizeof(info);
+                returnLength = sizeof(KPH_ALPC_COMMUNICATION_INFORMATION);
                 goto Exit;
             }
 
@@ -743,15 +721,13 @@ NTSTATUS KphAlpcQueryInformation(
                 goto Exit;
             }
 
-            __try
+            status = KphCopyToMode(AlpcInformation,
+                                   &info,
+                                   sizeof(KPH_ALPC_COMMUNICATION_INFORMATION),
+                                   AccessMode);
+            if (NT_SUCCESS(status))
             {
-                RtlCopyMemory(AlpcInformation, &info, sizeof(info));
-                returnLength = sizeof(info);
-            }
-            __except (EXCEPTION_EXECUTE_HANDLER)
-            {
-                status = GetExceptionCode();
-                goto Exit;
+                returnLength = sizeof(KPH_ALPC_COMMUNICATION_INFORMATION);
             }
 
             break;
@@ -774,19 +750,13 @@ NTSTATUS KphAlpcQueryInformation(
                 allocatedSize = sizeof(KPH_ALPC_COMMUNICATION_NAMES_INFORMATION);
             }
 
-            if (allocatedSize <= ARRAYSIZE(stackBuffer))
+            buffer = KphAllocatePagedA(allocatedSize,
+                                       KPH_TAG_ALPC_QUERY,
+                                       stackBuffer);
+            if (!buffer)
             {
-                RtlZeroMemory(stackBuffer, ARRAYSIZE(stackBuffer));
-                buffer = stackBuffer;
-            }
-            else
-            {
-                buffer = KphAllocatePaged(allocatedSize, KPH_TAG_ALPC_QUERY);
-                if (!buffer)
-                {
-                    status = STATUS_INSUFFICIENT_RESOURCES;
-                    goto Exit;
-                }
+                status = STATUS_INSUFFICIENT_RESOURCES;
+                goto Exit;
             }
 
             info = buffer;
@@ -820,15 +790,10 @@ NTSTATUS KphAlpcQueryInformation(
                                 buffer,
                                 AlpcInformation);
 
-            __try
-            {
-                RtlCopyMemory(AlpcInformation, info, returnLength);
-            }
-            __except (EXCEPTION_EXECUTE_HANDLER)
-            {
-                status = GetExceptionCode();
-                goto Exit;
-            }
+            status = KphCopyToMode(AlpcInformation,
+                                   info,
+                                   returnLength,
+                                   AccessMode);
 
             break;
         }
@@ -841,9 +806,9 @@ NTSTATUS KphAlpcQueryInformation(
 
 Exit:
 
-    if (buffer && (buffer != stackBuffer))
+    if (buffer)
     {
-        KphFree(buffer, KPH_TAG_ALPC_QUERY);
+        KphFreeA(buffer, KPH_TAG_ALPC_QUERY, stackBuffer);
     }
 
     if (port)
@@ -863,23 +828,8 @@ Exit:
 
     if (ReturnLength)
     {
-        if (AccessMode != KernelMode)
-        {
-            __try
-            {
-                *ReturnLength = returnLength;
-            }
-            __except (EXCEPTION_EXECUTE_HANDLER)
-            {
-                NOTHING;
-            }
-        }
-        else
-        {
-            *ReturnLength = returnLength;
-        }
+        KphWriteULongToMode(ReturnLength, returnLength, AccessMode);
     }
 
     return status;
 }
-

@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2023
+ *     jxy-s   2023-2024
  *
  */
 #pragma once
@@ -72,8 +72,8 @@ typedef struct _KPH_FLT_FILE_NAME
     };
 } KPH_FLT_FILE_NAME, *PKPH_FLT_FILE_NAME;
 
-#define KphpFltZeroFileName(info)                                             \
-    (info)->Type = KphFltFileNameTypeNone;                                    \
+#define KphpFltZeroFileName(info)                                              \
+    (info)->Type = KphFltFileNameTypeNone;                                     \
     (info)->NameInfo = NULL;
 
 _IRQL_requires_max_(APC_LEVEL)

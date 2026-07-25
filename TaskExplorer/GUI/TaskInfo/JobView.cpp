@@ -179,7 +179,10 @@ void CJobView::OnResetColumns()
 
 void CJobView::OnColumnsChanged()
 {
-	m_pProcessModel->Sync(m_ProcessList);
+	QMap<SProcessUID, CProcessPtr> ProcessList;
+	foreach(const CProcessPtr& pProcess, m_ProcessList)
+		ProcessList.insert(pProcess->GetProcessUId(), pProcess);
+	m_pProcessModel->Sync(ProcessList);
 }
 
 void CJobView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -274,7 +277,10 @@ void CJobView::Refresh()
 	m_pJobStats->ShowJob(m_pCurJob);
 
 	m_ProcessList = m_pCurJob->GetProcesses();
-	m_pProcessModel->Sync(m_ProcessList);
+	QMap<SProcessUID, CProcessPtr> ProcessList;
+	foreach(const CProcessPtr& pProcess, m_ProcessList)
+		ProcessList.insert(pProcess->GetProcessUId(), pProcess);
+	m_pProcessModel->Sync(ProcessList);
 }
 
 void CJobView::OnMenu(const QPoint &point)

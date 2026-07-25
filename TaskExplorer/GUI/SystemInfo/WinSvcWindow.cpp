@@ -1061,7 +1061,7 @@ void CWinSvcWindow::SaveOther()
 			QTreeWidgetItem *item = ui.privilegs->topLevelItem(i);
 
 			sb.append(item->text(0).toStdWString());
-			sb.append('\0');
+			sb.push_back(L'\0');
         }
 
         requiredPrivilegesInfo.pmszRequiredPrivileges = (wchar_t*)sb.c_str();
@@ -1237,7 +1237,7 @@ void CWinSvcWindow::OnDeleteTrigger()
 	if (index >= m_TriggerInfos.size())
 		return;
 
-	if(QMessageBox("TaskExplorer", tr("Do you want to delete the sellected trigger"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+	if(QMessageBox("TaskExplorer", tr("Do you want to delete the selected trigger"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
 	m_TriggersChanged = true;
@@ -1280,7 +1280,7 @@ void CWinSvcWindow::UpdateTrigger(QTreeWidgetItem* pItem, void* pInfo)
 void CWinSvcWindow::OnAddPrivilege()
 {
 	CComboInputDialog comboDalog(this);
-	comboDalog.setText(tr("Sellect privilege to add:"));
+	comboDalog.setText(tr("Select privilege to add:"));
 
 	NTSTATUS status;
 	LSA_HANDLE policyHandle;
@@ -1342,7 +1342,7 @@ void CWinSvcWindow::OnRemovePrivilege()
 	if (!item)
 		return;
 
-	if(QMessageBox("TaskExplorer", tr("Do you want to delete the sellected privileg"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+	if(QMessageBox("TaskExplorer", tr("Do you want to delete the selected privileg"), QMessageBox::Question, QMessageBox::Yes, QMessageBox::No | QMessageBox::Default | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
 	delete item;

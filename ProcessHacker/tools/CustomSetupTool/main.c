@@ -11,6 +11,14 @@
 
 #include "setup.h"
 
+#define SETUP_CMD_INSTALL    1
+#define SETUP_CMD_UNINSTALL  2
+#define SETUP_CMD_UPDATE     3
+#define SETUP_CMD_SILENT     4
+#define SETUP_CMD_UNATTENDED 5
+#define SETUP_CMD_NOSTART    6
+#define SETUP_CMD_HIDE       7
+
 LRESULT CALLBACK SetupTaskDialogSubclassProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -126,20 +134,20 @@ HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
             SendMessage(context->DialogHandle, WM_SETICON, ICON_SMALL, (LPARAM)context->IconSmallHandle);
             SendMessage(context->DialogHandle, WM_SETICON, ICON_BIG, (LPARAM)context->IconLargeHandle);
 
-            context->TaskDialogWndProc = (WNDPROC)GetWindowLongPtr(hwndDlg, GWLP_WNDPROC);
+            context->TaskDialogWndProc = PhGetWindowProcedure(hwndDlg);
             PhSetWindowContext(hwndDlg, UCHAR_MAX, context);
-            SetWindowLongPtr(hwndDlg, GWLP_WNDPROC, (LONG_PTR)SetupTaskDialogSubclassProc);
+            PhSetWindowProcedure(hwndDlg, SetupTaskDialogSubclassProc);
 
             switch (context->SetupMode)
             {
             default:
-            case SETUP_COMMAND_INSTALL:
+            case SetupCommandInstall:
                 ShowWelcomePageDialog(context);
                 break;
-            case SETUP_COMMAND_UNINSTALL:
+            case SetupCommandUninstall:
                 ShowUninstallPageDialog(context);
                 break;
-            case SETUP_COMMAND_UPDATE:
+            case SetupCommandUpdate:
                 ShowUpdatePageDialog(context);
                 break;
             }
@@ -150,11 +158,11 @@ HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
     return S_OK;
 }
 
-INT SetupShowMessagePromptForLegacyVersion(
+LONG SetupShowMessagePromptForLegacyVersion(
     VOID
     )
 {
-    INT result;
+    LONG result;
     TASKDIALOGCONFIG config = { sizeof(TASKDIALOGCONFIG) };
 
     config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION;
@@ -190,76 +198,115 @@ INT SetupShowMessagePromptForLegacyVersion(
     }
     else
     {
-        return -1;
+        return INT_MAX;
     }
 }
 
-NTSTATUS SetupCommandQuietInstall(
+VOID SetupShowDialog(
+    _In_ PPH_SETUP_CONTEXT Context
+    )
+{
+    PH_AUTO_POOL autoPool;
+    BOOL value = FALSE;
+    TASKDIALOGCONFIG config;
+
+    assert(!Context->Silent);
+
+    PhInitializeAutoPool(&autoPool);
+
+    if (Context->SetupIsLegacyUpdate)
+    {
+        SetupShowMessagePromptForLegacyVersion();
+    }
+
+    memset(&config, 0, sizeof(TASKDIALOGCONFIG));
+    config.cbSize = sizeof(TASKDIALOGCONFIG);
+    config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_CAN_BE_MINIMIZED;
+    config.hInstance = PhInstanceHandle;
+    config.pszContent = L"Initializing...";
+    config.pfCallback = SetupTaskDialogBootstrapCallback;
+    config.lpCallbackData = (LONG_PTR)Context;
+
+    TaskDialogIndirect(&config, NULL, NULL, &value);
+
+    if (value)
+    {
+        SetupExecuteApplication(Context);
+    }
+
+    PhDeleteAutoPool(&autoPool);
+}
+
+VOID SetupSilent(
     _In_ PPH_SETUP_CONTEXT Context
     )
 {
     NTSTATUS status;
 
-    status = SetupProgressThread(Context);
+    assert(Context->Silent);
 
-    return status;
-}
-
-VOID SetupShowDialog(
-    VOID
-    )
-{
-    PPH_SETUP_CONTEXT context;
-    PH_AUTO_POOL autoPool;
-    BOOL value = FALSE;
-
-    PhInitializeAutoPool(&autoPool);
-
-    context = PhCreateAlloc(sizeof(PH_SETUP_CONTEXT));
-    memset(context, 0, sizeof(PH_SETUP_CONTEXT));
-
-    SetupParseCommandLine(context);
-
-    if (PhIsNullOrEmptyString(context->SetupInstallPath))
+    if (PhGetOwnTokenAttributes().Elevated)
     {
-        context->SetupInstallPath = SetupFindInstallDirectory();
-    }
+        BOOLEAN start;
 
-    if (context->SetupMode == SETUP_COMMAND_SILENTINSTALL)
-    {
-        NTSTATUS status = SetupCommandQuietInstall(context);
-
-        if (NT_SUCCESS(status))
+        switch (Context->SetupMode)
         {
-            SetupExecuteApplication(context);
+        default:
+        case SetupCommandInstall:
+            status = SetupProgressThread(Context);
+            start = !Context->NoStart;
+            break;
+        case SetupCommandUninstall:
+            status = SetupUninstallBuild(Context);
+            start = FALSE;
+            break;
+        case SetupCommandUpdate:
+            status = SetupUpdateBuild(Context);
+            start = !Context->NoStart;
+            break;
+        }
+
+        if (start && NT_SUCCESS(status) && NT_SUCCESS(Context->LastStatus))
+        {
+            SetupExecuteApplication(Context);
         }
     }
     else
     {
-        TASKDIALOGCONFIG config;
+        PPH_STRING applicationFileName;
+        PH_STRINGREF applicationCommandLine;
 
-        if (context->SetupIsLegacyUpdate)
+        if (!NT_SUCCESS(status = PhGetProcessCommandLineStringRef(&applicationCommandLine)))
         {
-            SetupShowMessagePromptForLegacyVersion();
+            Context->LastStatus = status;
+            return;
         }
 
-        memset(&config, 0, sizeof(TASKDIALOGCONFIG));
-        config.cbSize = sizeof(TASKDIALOGCONFIG);
-        config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_CAN_BE_MINIMIZED;
-        config.hInstance = PhInstanceHandle;
-        config.pszContent = L"Initializing...";
-        config.pfCallback = SetupTaskDialogBootstrapCallback;
-        config.lpCallbackData = (LONG_PTR)context;
-
-        TaskDialogIndirect(&config, NULL, NULL, &value);
-
-        if (value)
+        if (!(applicationFileName = PhGetApplicationFileNameWin32()))
         {
-            SetupExecuteApplication(context);
+            Context->LastStatus = STATUS_NO_MEMORY;
+            return;
+        }
+
+        status = PhShellExecuteEx(
+            NULL,
+            PhGetString(applicationFileName),
+            PhGetStringRefZ(&applicationCommandLine),
+            NULL,
+            SW_SHOW,
+            PH_SHELL_EXECUTE_ADMIN,
+            INFINITE,
+            &Context->SubProcessHandle
+            );
+
+        if (!NT_SUCCESS(status))
+        {
+            Context->LastStatus = status;
+            return;
         }
     }
 
-    PhDeleteAutoPool(&autoPool);
+    Context->LastStatus = status;
 }
 
 _Success_(return)
@@ -269,7 +316,6 @@ BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     _Out_ PPH_STRING* ServiceName
     )
 {
-    BOOLEAN status = FALSE;
     PPH_STRING directory = NULL;
     PPH_STRING serviceName = NULL;
     PSTR string;
@@ -284,7 +330,7 @@ BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     {
         value = PhCreateBytesEx(string, stringLength);
 
-        if (object = PhCreateJsonParserEx(value, FALSE))
+        if (NT_SUCCESS(PhCreateJsonParserEx(&object, value, FALSE)))
         {
             directory = PhGetJsonValueAsString(object, "KsiDirectory");
             serviceName = PhGetJsonValueAsString(object, "KsiServiceName");
@@ -321,22 +367,41 @@ BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     return FALSE;
 }
 
+_Function_class_(PH_COMMAND_LINE_CALLBACK)
 BOOLEAN NTAPI MainPropSheetCommandLineCallback(
-    _In_opt_ PPH_COMMAND_LINE_OPTION Option,
+    _In_opt_ PCPH_COMMAND_LINE_OPTION Option,
     _In_opt_ PPH_STRING Value,
-    _In_opt_ PVOID Context
+    _In_ PVOID Context
     )
 {
     PPH_SETUP_CONTEXT context = Context;
 
-    if (!context)
-        return FALSE;
-
     if (Option)
     {
-        context->SetupMode = Option->Id;
+        switch (Option->Id)
+        {
+        case SETUP_CMD_INSTALL:
+            context->SetupMode = SetupCommandInstall;
+            break;
+        case SETUP_CMD_UNINSTALL:
+            context->SetupMode = SetupCommandUninstall;
+            break;
+        case SETUP_CMD_UPDATE:
+            context->SetupMode = SetupCommandUpdate;
+            break;
+        case SETUP_CMD_SILENT:
+        case SETUP_CMD_UNATTENDED:
+            context->Silent = TRUE;
+            break;
+        case SETUP_CMD_NOSTART:
+            context->NoStart = TRUE;
+            break;
+        case SETUP_CMD_HIDE:
+            context->Hide = TRUE;
+            break;
+        }
 
-        if (context->SetupMode == SETUP_COMMAND_UPDATE && Value)
+        if (Option->Id == SETUP_CMD_UPDATE && Value)
         {
             PPH_STRING directory;
             PPH_STRING serviceName;
@@ -346,9 +411,9 @@ BOOLEAN NTAPI MainPropSheetCommandLineCallback(
                 PhSwapReference(&context->SetupInstallPath, directory);
                 PhSwapReference(&context->SetupServiceName, serviceName);
 
-                if (!PhEndsWithStringRef(&context->SetupInstallPath->sr, &PhNtPathSeperatorString, FALSE))
+                if (!PhEndsWithStringRef(&context->SetupInstallPath->sr, &PhNtPathSeparatorString, FALSE))
                 {
-                    PhMoveReference(&context->SetupInstallPath, PhConcatStringRef2(&directory->sr, &PhNtPathSeperatorString));
+                    PhMoveReference(&context->SetupInstallPath, PhConcatStringRef2(&directory->sr, &PhNtPathSeparatorString));
                 }
 
                 // Check the path for the legacy directory name.
@@ -361,24 +426,6 @@ BOOLEAN NTAPI MainPropSheetCommandLineCallback(
             }
         }
     }
-    else
-    {
-        // HACK: PhParseCommandLine requires the - symbol for commandline parameters
-        // and we already support the -silent parameter however we need to maintain
-        // compatibility with the legacy Inno Setup. (dmex)
-        if (!PhIsNullOrEmptyString(Value))
-        {
-            if (Value && PhEqualString2(Value, L"/silent", TRUE))
-            {
-                //context->SetupMode = SETUP_COMMAND_SILENTINSTALL;
-            }
-        }
-    }
-
-    if (PhIsNullOrEmptyString(context->SetupInstallPath))
-    {
-        context->SetupInstallPath = SetupFindInstallDirectory();
-    }
 
     return TRUE;
 }
@@ -387,13 +434,35 @@ VOID SetupParseCommandLine(
     _In_ PPH_SETUP_CONTEXT Context
     )
 {
-    static PH_COMMAND_LINE_OPTION options[] =
+    static CONST PH_COMMAND_LINE_OPTION options[] =
     {
-        { SETUP_COMMAND_INSTALL, L"install", NoArgumentType },
-        { SETUP_COMMAND_UNINSTALL, L"uninstall", NoArgumentType },
-        { SETUP_COMMAND_UPDATE, L"update", OptionalArgumentType },
-        //{ SETUP_COMMAND_UPDATE, L"silent", NoArgumentType },
-        //{ SETUP_COMMAND_REPAIR, L"repair", NoArgumentType },
+        { SETUP_CMD_INSTALL,   L"install",     NoArgumentType },
+        { SETUP_CMD_UNINSTALL, L"uninstall",   NoArgumentType },
+        { SETUP_CMD_UPDATE,    L"update",      OptionalArgumentType },
+        //
+        // Perform an "unattended" install/uninstall/update. This skips dialogs
+        // and is implemented to support package managers (WinGet). Note that
+        // "silent" is an alias for "unattended".
+        //
+        // TODO(jxy-s) Transition package manager manifests (WinGet) to use
+        // "unattended" instead of "silent". This takes coordination with the
+        // package manager repos and workflows. Both "silent" and "unattended"
+        // will exist for a while until that transition is complete.
+        //
+        { SETUP_CMD_SILENT,     L"silent",     NoArgumentType },
+        { SETUP_CMD_UNATTENDED, L"unattended", NoArgumentType },
+        //
+        // When performing an unattended install/update, the application is not
+        // started when the setup completes. The default behavior starts the
+        // application after the setup completes.
+        //
+        { SETUP_CMD_NOSTART,    L"nostart",    NoArgumentType },
+        //
+        // After the setup completes the application is started with "-hide".
+        // See: PH_ARG_SHOWHIDDEN - This starts the application to the system
+        // tray and does not show the main window.
+        //
+        { SETUP_CMD_HIDE,       L"hide",       NoArgumentType },
     };
     PH_STRINGREF commandLine;
 
@@ -451,17 +520,47 @@ INT WINAPI wWinMain(
     _In_ INT CmdShow
     )
 {
-    if (!NT_SUCCESS(PhInitializePhLib(L"System Informer - Setup", Instance)))
-        return EXIT_FAILURE;
+    PPH_SETUP_CONTEXT context;
 
-    if (!SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
+    if (!NT_SUCCESS(PhInitializePhLib(L"System Informer - Setup")))
+        return EXIT_FAILURE;
+    if (!HR_SUCCESS(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
         return EXIT_FAILURE;
 
     SetupInitializeMutant();
 
-    PhGuiSupportInitialization();
+    context = PhAllocateZero(sizeof(PH_SETUP_CONTEXT));
 
-    SetupShowDialog();
+    if (PhIsNullOrEmptyString(context->SetupInstallPath))
+    {
+        context->SetupInstallPath = SetupFindInstallDirectory();
+    }
 
-    return EXIT_SUCCESS;
+    SetupParseCommandLine(context);
+
+    if (context->Silent)
+    {
+        SetupSilent(context);
+    }
+    else
+    {
+        PhGuiSupportInitialization();
+
+        SetupShowDialog(context);
+    }
+
+    if (context->SubProcessHandle)
+    {
+        PROCESS_BASIC_INFORMATION processInfo;
+
+        PhWaitForSingleObject(context->SubProcessHandle, 0);
+        PhGetProcessBasicInformation(context->SubProcessHandle, &processInfo);
+
+        context->LastStatus = processInfo.ExitStatus;
+
+        NtClose(context->SubProcessHandle);
+    }
+
+    PhExitApplication(context->LastStatus);
+    return PhNtStatusToDosError(context->LastStatus);
 }

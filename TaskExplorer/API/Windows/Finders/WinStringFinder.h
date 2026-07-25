@@ -6,6 +6,7 @@ class CWinStringFinder : public CAbstractFinder
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CWinStringFinder)
 public:
 	CWinStringFinder(const SMemOptions& Options, const QRegularExpression& RegExp, const CProcessPtr& pProcess = CProcessPtr(), QObject* parent = NULL);
 	virtual ~CWinStringFinder();

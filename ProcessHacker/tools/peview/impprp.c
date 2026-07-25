@@ -222,14 +222,14 @@ PPH_STRING PvpQueryModuleOrdinalName(
                                         if (PhLoadModuleSymbolProvider(
                                             moduleSymbolProvider,
                                             exportFileName,
-                                            (ULONG64)mappedImage.ViewBase,
+                                            mappedImage.ViewBase,
                                             (ULONG)mappedImage.ViewSize
                                             ))
                                         {
                                             // Try find the export name using symbols.
                                             exportSymbol = PhGetSymbolFromAddress(
                                                 moduleSymbolProvider,
-                                                (ULONG64)PTR_ADD_OFFSET(mappedImage.ViewBase, exportFunction.Function),
+                                                PTR_ADD_OFFSET(mappedImage.ViewBase, exportFunction.Function),
                                                 NULL,
                                                 NULL,
                                                 &exportSymbolName,
@@ -288,6 +288,7 @@ VOID PvpProcessImports(
                 {
                     PPV_IMPORT_NODE importNode;
                     PPH_STRING importDllName;
+                    PH_STRINGREF hostDllName;
 
                     importNode = PhAllocateZero(sizeof(PV_IMPORT_NODE));
                     importNode->UniqueId = ++(*Count);
@@ -301,14 +302,21 @@ VOID PvpProcessImports(
 
                     if (importNode->DllString = PhConvertUtf8ToUtf16(importDll.Name))
                     {
-                        if (importDllName = PhApiSetResolveToHost(&importNode->DllString->sr))
+                        if (NT_SUCCESS(PhApiSetResolveToHost(
+                            NtCurrentPeb()->ApiSetMap,
+                            &importNode->DllString->sr,
+                            &PvFileName->sr,
+                            &hostDllName
+                            )))
                         {
-                            PhMoveReference(&importNode->DllString, PhFormatString(
-                                L"%s (%s)",
-                                PhGetString(importNode->DllString),
-                                PhGetString(importDllName))
-                                );
-                            PhDereferenceObject(importDllName);
+                            PH_FORMAT format[4];
+
+                            PhInitFormatSR(&format[0], importNode->DllString->sr);
+                            PhInitFormatS(&format[1], L" (");
+                            PhInitFormatSR(&format[2], hostDllName);
+                            PhInitFormatC(&format[3], L')');
+
+                            PhMoveReference(&importNode->DllString, PhFormat(format, RTL_NUMBER_OF(format), 10));
                         }
                     }
 
@@ -336,12 +344,16 @@ VOID PvpProcessImports(
 
                         if (importDllName = PhConvertUtf8ToUtf16(importDll.Name))
                         {
-                            PPH_STRING apisetFileName;
                             PPH_STRING importFileName;
 
-                            if (apisetFileName = PhApiSetResolveToHost(&importDllName->sr))
+                            if (NT_SUCCESS(PhApiSetResolveToHost(
+                                NtCurrentPeb()->ApiSetMap,
+                                &importDllName->sr,
+                                &PvFileName->sr,
+                                &hostDllName
+                                )))
                             {
-                                PhMoveReference(&importDllName, apisetFileName);
+                                PhMoveReference(&importDllName, PhCreateString2(&hostDllName));
                             }
 
                             // TODO: Add DLL directory to PhSearchFilePath for locating non-system images. (dmex)
@@ -373,6 +385,7 @@ VOID PvpProcessImports(
     }
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PvpPeImportsEnumerateThread(
     _In_ PPV_IMPORT_CONTEXT Context
     )
@@ -452,6 +465,7 @@ INT_PTR CALLBACK PvPeImportsDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Imports (Ctrl+K)",
                 PvpPeImportsSearchControlCallback,
@@ -464,6 +478,7 @@ INT_PTR CALLBACK PvPeImportsDlgProc(
             PvConfigTreeBorders(context->TreeNewHandle);
 
             TreeNew_SetEmptyText(context->TreeNewHandle, &LoadingImportsText, 0);
+            TreeNew_SetRowHeight(context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(hwndDlg)));
 
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
             PhAddLayoutItem(&context->LayoutManager, context->SearchHandle, NULL, PH_ANCHOR_TOP | PH_ANCHOR_RIGHT);
@@ -573,7 +588,16 @@ INT_PTR CALLBACK PvPeImportsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -818,7 +842,7 @@ BOOLEAN NTAPI PvImportTreeNewCallback(
 
             if (!getChildren->Node)
             {
-                static PVOID sortFunctions[] =
+                static CONST _CoreCrtSecureSearchSortCompareFunction sortFunctions[] =
                 {
                     SORT_FUNCTION(Index),
                     SORT_FUNCTION(Rva),
@@ -829,7 +853,7 @@ BOOLEAN NTAPI PvImportTreeNewCallback(
                     SORT_FUNCTION(Ordinal),
                     SORT_FUNCTION(OrdinalName),
                 };
-                int (__cdecl *sortFunction)(void *, const void *, const void *);
+                _CoreCrtSecureSearchSortCompareFunction sortFunction;
 
                 static_assert(RTL_NUMBER_OF(sortFunctions) == PV_IMPORT_TREE_COLUMN_ITEM_MAXIMUM, "SortFunctions must equal maximum.");
 
@@ -929,10 +953,6 @@ BOOLEAN NTAPI PvImportTreeNewCallback(
                         PhDereferenceObject(text);
                     }
                 }
-                break;
-            case 'A':
-                if (GetKeyState(VK_CONTROL) < 0)
-                    TreeNew_SelectRange(context->TreeNewHandle, 0, -1);
                 break;
             }
         }

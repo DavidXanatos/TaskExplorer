@@ -18,7 +18,7 @@ EXTERN_C_START
 extern PPH_OBJECT_TYPE PhSymbolProviderType;
 extern PH_CALLBACK PhSymbolEventCallback;
 
-#define PH_MAX_SYMBOL_NAME_LEN 128
+#define PH_MAX_SYMBOL_NAME_LEN MAX_SYM_NAME
 
 typedef struct _PH_SYMBOL_PROVIDER
 {
@@ -52,8 +52,8 @@ typedef enum _PH_SYMBOL_RESOLVE_LEVEL
 
 typedef struct _PH_SYMBOL_INFORMATION
 {
-    ULONG64 Address;
-    ULONG64 ModuleBase;
+    PVOID Address;
+    PVOID ModuleBase;
     ULONG Index;
     ULONG Size;
 } PH_SYMBOL_INFORMATION, *PPH_SYMBOL_INFORMATION;
@@ -91,7 +91,7 @@ BOOLEAN
 NTAPI
 PhGetLineFromAddress(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 Address,
+    _In_ PVOID Address,
     _Out_ PPH_STRING *FileName,
     _Out_opt_ PULONG Displacement,
     _Out_opt_ PPH_SYMBOL_LINE_INFORMATION Information
@@ -99,11 +99,11 @@ PhGetLineFromAddress(
 
 _Success_(return != 0)
 PHLIBAPI
-ULONG64
+PVOID
 NTAPI
 PhGetModuleFromAddress(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 Address,
+    _In_ PVOID Address,
     _Out_opt_ PPH_STRING *FileName
     );
 
@@ -114,7 +114,7 @@ PPH_SYMBOL_MODULE
 NTAPI
 PhGetSymbolModuleFromAddress(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 Address
+    _In_ PVOID Address
     );
 
 _Success_(return != NULL)
@@ -123,7 +123,7 @@ PPH_STRING
 NTAPI
 PhGetSymbolFromAddress(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 Address,
+    _In_ PVOID Address,
     _Out_opt_ PPH_SYMBOL_RESOLVE_LEVEL ResolveLevel,
     _Out_opt_ PPH_STRING *FileName,
     _Out_opt_ PPH_STRING *SymbolName,
@@ -136,7 +136,7 @@ BOOLEAN
 NTAPI
 PhGetSymbolFromName(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ PWSTR Name,
+    _In_ PCWSTR Name,
     _Out_ PPH_SYMBOL_INFORMATION Information
     );
 
@@ -146,7 +146,7 @@ NTAPI
 PhLoadModuleSymbolProvider(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
     _In_ PPH_STRING FileName,
-    _In_ ULONG64 BaseAddress,
+    _In_ PVOID BaseAddress,
     _In_ ULONG Size
     );
 
@@ -156,7 +156,7 @@ NTAPI
 PhLoadFileNameSymbolProvider(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
     _In_ PPH_STRING FileName,
-    _In_ ULONG64 BaseAddress,
+    _In_ PVOID BaseAddress,
     _In_ ULONG Size
     );
 
@@ -169,7 +169,7 @@ PhLoadSymbolProviderModules(
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhLoadModulesForVirtualSymbolProvider(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
@@ -178,6 +178,7 @@ PhLoadModulesForVirtualSymbolProvider(
     );
 
 #define PH_SYMOPT_UNDNAME 0x1
+#define PH_SYMOPT_VERIFY_MICROSOFT_CHAIN 0x2
 
 PHLIBAPI
 VOID
@@ -192,7 +193,7 @@ VOID
 NTAPI
 PhSetSearchPathSymbolProvider(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ PWSTR Path
+    _In_ PCWSTR Path
     );
 
 #ifdef _WIN64
@@ -318,14 +319,30 @@ typedef struct _PH_THREAD_STACK_FRAME
  *
  * \param StackFrame A structure providing information about the stack frame.
  * \param Context A user-defined value passed to PhWalkThreadStack().
- *
  * \return TRUE to continue the stack walk, FALSE to stop.
  */
-typedef BOOLEAN (NTAPI *PPH_WALK_THREAD_STACK_CALLBACK)(
+typedef _Function_class_(PH_WALK_THREAD_STACK_CALLBACK)
+BOOLEAN NTAPI PH_WALK_THREAD_STACK_CALLBACK(
     _In_ PPH_THREAD_STACK_FRAME StackFrame,
     _In_opt_ PVOID Context
     );
+typedef PH_WALK_THREAD_STACK_CALLBACK* PPH_WALK_THREAD_STACK_CALLBACK;
 
+/**
+ * Walks the stack of a thread and invokes a callback for each stack frame.
+ *
+ * This function performs a stack walk for the specified thread, optionally using symbol information
+ * to resolve stack frames. For each frame encountered, the provided callback function is called.
+ *
+ * \param ThreadHandle Handle to the thread whose stack is to be walked.
+ * \param ProcessHandle Optional handle to the process containing the thread. May be NULL.
+ * \param ClientId Optional pointer to a CLIENT_ID structure identifying the thread. May be NULL.
+ * \param SymbolProvider Optional pointer to a symbol provider for resolving symbols. May be NULL.
+ * \param Flags Flags controlling the stack walk behavior (e.g., PH_WALK_USER_STACK, PH_WALK_KERNEL_STACK).
+ * \param Callback Pointer to a callback function to be called for each stack frame.
+ * \param Context Optional user-defined context value passed to the callback.
+ * \return Returns STATUS_SUCCESS on success, or an appropriate NTSTATUS error code on failure.
+ */
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -344,7 +361,7 @@ PPH_STRING
 NTAPI
 PhUndecorateSymbolName(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ PWSTR DecoratedName
+    _In_ PCWSTR DecoratedName
     );
 
 typedef struct _PH_SYMBOL_INFO
@@ -374,7 +391,7 @@ NTAPI
 PhEnumerateSymbols(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
     _In_ HANDLE ProcessHandle,
-    _In_ ULONG64 BaseOfDll,
+    _In_ PVOID BaseOfDll,
     _In_opt_ PCWSTR Mask,
     _In_ PPH_ENUMERATE_SYMBOLS_CALLBACK EnumSymbolsCallback,
     _In_opt_ PVOID UserContext
@@ -386,7 +403,7 @@ BOOLEAN
 NTAPI
 PhGetSymbolProviderDiaSource(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 BaseOfDll,
+    _In_ PVOID BaseOfDll,
     _Out_ PVOID* DiaSource
     );
 
@@ -396,7 +413,7 @@ BOOLEAN
 NTAPI
 PhGetSymbolProviderDiaSession(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 BaseOfDll,
+    _In_ PVOID BaseOfDll,
     _Out_ PVOID* DiaSession
     );
 
@@ -404,7 +421,7 @@ PHLIBAPI
 VOID
 NTAPI
 PhSymbolProviderFreeDiaString(
-    _In_ PWSTR DiaString
+    _In_ PCWSTR DiaString
     );
 
 // Inline stack support
@@ -466,7 +483,7 @@ PhGetSymbolFromInlineContext(
     _Out_opt_ PPH_STRING* FileName,
     _Out_opt_ PPH_STRING* SymbolName,
     _Out_opt_ PULONG64 Displacement,
-    _Out_opt_ PULONG64 BaseAddress
+    _Out_opt_ PPVOID BaseAddress
     );
 
 _Success_(return)
@@ -476,7 +493,7 @@ NTAPI
 PhGetLineFromInlineContext(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
     _In_ PPH_THREAD_STACK_FRAME StackFrame,
-    _In_opt_ ULONG64 BaseAddress,
+    _In_opt_ PVOID BaseAddress,
     _Out_ PPH_STRING* FileName,
     _Out_opt_ PULONG Displacement,
     _Out_opt_ PPH_SYMBOL_LINE_INFORMATION Information
@@ -506,7 +523,7 @@ PhGetLineFromInlineContext(
 
 typedef struct _PH_DIA_SYMBOL_INFORMATION
 {
-    ULONG64 FunctionLength;
+    ULONG FunctionLength;
     PPH_STRING UndecoratedName;
     PPH_STRING SymbolInformation;
     PPH_STRING SymbolLangugage;
@@ -515,7 +532,7 @@ typedef struct _PH_DIA_SYMBOL_INFORMATION
 _Success_(return)
 BOOLEAN PhGetDiaSymbolInformation(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider,
-    _In_ ULONG64 Address,
+    _In_ PVOID Address,
     _Out_ PPH_DIA_SYMBOL_INFORMATION SymbolInformation
     );
 

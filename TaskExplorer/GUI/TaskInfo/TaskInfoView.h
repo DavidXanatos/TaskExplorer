@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../../../MiscHelpers/Common/TabPanel.h"
+#include "../../Common/TabPanel.h"
 #include "../../API/ProcessInfo.h"
 
 class CProcessView;
@@ -10,6 +10,7 @@ class CThreadsView;
 class CModulesView;
 class CWindowsView;
 class CMemoryView;
+class CHeapView;
 class CTokenView;
 class CJobView;
 //class CServicesView;
@@ -53,7 +54,7 @@ public slots:
 	void				OnTab(int tabIndex);
 	//void				ShowProcess(const CProcessPtr& pProcess);
 	void				ShowProcesses(const QList<CProcessPtr>& Processes);
-	void				SellectThread(quint64 ThreadId);
+	void				SelectThread(quint64 ThreadId);
 	void				Refresh();
 
 protected:
@@ -71,6 +72,7 @@ private:
 	CModulesView*		m_pModulesView;
 	CWindowsView*		m_pWindowsView;
 	CMemoryView*		m_pMemoryView;
+	CHeapView*			m_pHeapView;
 #ifdef WIN32
 	CTokenView*			m_pTokenView;
 	CJobView*			m_pJobView;

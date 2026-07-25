@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2021-2024
+ *     jxy-s   2021-2026
  *
  */
 
@@ -29,7 +29,7 @@ SYSTEM_SECUREBOOT_INFORMATION KphSecureBootInfo = { 0 };
 SYSTEM_CODEINTEGRITY_INFORMATION KphCodeIntegrityInfo = { 0 };
 KPH_PROTECTED_DATA_SECTION_POP();
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Protects select sections.
@@ -41,7 +41,7 @@ VOID KphpProtectSections(
 {
     NTSTATUS status;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (!KphDynMmProtectDriverSection)
     {
@@ -81,8 +81,9 @@ VOID KphpDriverCleanup(
     _In_ PDRIVER_OBJECT DriverObject
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
+    KphSiloInformerStop();
     KphDebugInformerStop();
     KphRegistryInformerStop();
     KphObjectInformerStop();
@@ -92,11 +93,11 @@ VOID KphpDriverCleanup(
     KphProcessInformerStop();
     KphFltUnregister();
     KphCidCleanup();
+    KphCleanupInformer();
     KphCleanupDynData();
-#if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
     KphCleanupVerify();
-#endif
     KphCleanupHashing();
+    KphCleanupThreading();
     KphCleanupParameters();
 
     KsiUninitialize(DriverObject, 0);
@@ -114,7 +115,7 @@ VOID DriverUnload(
     _In_ PDRIVER_OBJECT DriverObject
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Driver Unloading...");
 
@@ -143,7 +144,7 @@ NTSTATUS DriverEntry(
 {
     NTSTATUS status;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     WPP_INIT_TRACING(DriverObject, RegistryPath);
 
@@ -200,21 +201,11 @@ NTSTATUS DriverEntry(
     }
 
     KphDynamicImport();
-
     KphObjectInitialize();
-
+    KphInitializeRingBuffer();
     KphInitializeParameters(RegistryPath);
-
-    status = KphInitializeAlloc();
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_ERROR,
-                      GENERAL,
-                      "KphInitializeAlloc failed: %!STATUS!",
-                      status);
-
-        goto Exit;
-    }
+    KphInitializeAlloc();
+    KphInitializeThreading();
 
     status = KphInitializeKnownDll();
     if (!NT_SUCCESS(status))
@@ -232,7 +223,7 @@ NTSTATUS DriverEntry(
     {
         KphTracePrint(TRACE_LEVEL_ERROR,
                       GENERAL,
-                      "KphLocateKernelRevision failed: %!STATUS!",
+                      "KphGetKernelVersion failed: %!STATUS!",
                       status);
 
         goto Exit;
@@ -260,7 +251,6 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
-#if !defined(KPP_NO_SECURITY) || !defined(DYN_NO_SECURITY)
     status = KphInitializeVerify();
     if (!NT_SUCCESS(status))
     {
@@ -271,14 +261,9 @@ NTSTATUS DriverEntry(
 
         goto Exit;
     }
-#endif
 
     KphInitializeDynData();
-
-#ifndef KPP_NO_SECURITY
     KphInitializeProtection();
-#endif
-
     KphInitializeSessionToken();
 
     status = KphInitializeStackBackTrace();
@@ -287,6 +272,17 @@ NTSTATUS DriverEntry(
         KphTracePrint(TRACE_LEVEL_ERROR,
                       GENERAL,
                       "Failed to initialize stack back trace: %!STATUS!",
+                      status);
+
+        goto Exit;
+    }
+
+    status = KphInitializeInformer();
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "Failed to initialize informer: %!STATUS!",
                       status);
 
         goto Exit;
@@ -394,9 +390,17 @@ NTSTATUS DriverEntry(
         goto Exit;
     }
 
-#ifndef KPP_NO_SECURITY
+    status = KphSiloInformerStart();
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_ERROR,
+                      GENERAL,
+                      "Failed to start silo informer: %!STATUS!",
+                      status);
+        goto Exit;
+    }
+
     KphpProtectSections();
-#endif
 
 Exit:
 

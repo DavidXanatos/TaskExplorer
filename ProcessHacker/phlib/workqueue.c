@@ -181,7 +181,7 @@ VOID PhQueueItemWorkQueueEx(
 
     // Enqueue the work item.
     PhAcquireQueuedLockExclusive(&WorkQueue->QueueLock);
-    InsertTailList(&WorkQueue->QueueListHead, &workQueueItem->ListEntry);
+    InsertTailListNoFence(&WorkQueue->QueueListHead, &workQueueItem->ListEntry);
     _InterlockedIncrement(&WorkQueue->BusyCount);
     PhReleaseQueuedLockExclusive(&WorkQueue->QueueLock);
     // Signal the semaphore once to let a worker thread continue.
@@ -331,7 +331,24 @@ HANDLE PhpGetSemaphoreWorkQueue(
 
     if (!semaphoreHandle)
     {
-        NtCreateSemaphore(&semaphoreHandle, SEMAPHORE_ALL_ACCESS, NULL, 0, MAXLONG);
+        OBJECT_ATTRIBUTES objectAttributes;
+
+        InitializeObjectAttributes(
+            &objectAttributes,
+            NULL,
+            OBJ_EXCLUSIVE,
+            NULL,
+            NULL
+            );
+
+        NtCreateSemaphore(
+            &semaphoreHandle,
+            SEMAPHORE_ALL_ACCESS,
+            &objectAttributes,
+            0,
+            MAXLONG
+            );
+
         assert(semaphoreHandle);
 
         if (_InterlockedCompareExchangePointer(
@@ -379,6 +396,7 @@ BOOLEAN PhpCreateWorkQueueThread(
     }
 }
 
+_Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS PhpWorkQueueThreadStart(
     _In_ PVOID Parameter
     )
@@ -443,7 +461,7 @@ NTSTATUS PhpWorkQueueThreadStart(
 
             PhAcquireQueuedLockExclusive(&workQueue->QueueLock);
 
-            listEntry = RemoveHeadList(&workQueue->QueueListHead);
+            listEntry = RemoveHeadListNoFence(&workQueue->QueueListHead);
 
             if (IsListEmpty(&workQueue->QueueListHead))
                 PhPulseCondition(&workQueue->QueueEmptyCondition);

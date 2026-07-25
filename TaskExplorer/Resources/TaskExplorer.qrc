@@ -78,6 +78,19 @@
         <file alias="Computer">Actions/computer.png</file>
         <file alias="MonitorDbg">Actions/log.png</file>
         <file alias="MonitorSys">Actions/sys_mon.png</file>
+        <file alias="CaseSensitive">Actions/CaseSensitive.png</file>
+        <file alias="Highlight">Actions/Highlight.png</file>
+        <file alias="RegExp">Actions/RegExp.png</file>
+        <file alias="GUI">Actions/GUI.png</file>
+        <file alias="Design">Actions/Design.png</file>
+        <file alias="Config">Actions/Config2.png</file>
+        <file alias="Options">Actions/Options.png</file>
+        <file alias="MiscOptions">Actions/Settings.png</file>
+        <file alias="Font">Actions/Font.png</file>
+        <file alias="ResetFont">Actions/ResetFont.png</file>
+        <file alias="Finder">Actions/finder.png</file>
+        <file alias="Support">Actions/Support.png</file>
+        <file alias="Forum">Actions/Forum.png</file>
     </qresource>
     <qresource prefix="/NtObjects">
         <file alias="Device">NtObjects/device16.png</file>

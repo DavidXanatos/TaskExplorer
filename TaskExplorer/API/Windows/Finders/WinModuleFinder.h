@@ -5,6 +5,7 @@ class CWinModuleFinder : public CAbstractFinder
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CWinModuleFinder)
 public:
 	CWinModuleFinder(const QVariant& Type, const QRegularExpression& RegExp, QObject* parent = NULL);
 	virtual ~CWinModuleFinder();

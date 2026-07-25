@@ -1,0 +1,172 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0/win-x86",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {},
+    ".NETCoreApp,Version=v9.0/win-x86": {
+      "CustomBuildTool/5.0.0.0": {
+        "dependencies": {
+          "Microsoft.DotNet.ILCompiler": "9.0.6",
+          "Microsoft.NET.ILLink.Tasks": "9.0.14",
+          "Microsoft.Windows.CsWin32": "0.3.269",
+          "SharpCompress": "0.47.3",
+          "System.CommandLine": "2.0.0-beta4.22272.1"
+        },
+        "runtime": {
+          "CustomBuildTool.dll": {}
+        }
+      },
+      "Microsoft.DotNet.ILCompiler/9.0.6": {
+        "dependencies": {
+          "runtime.win-x86.Microsoft.DotNet.ILCompiler": "9.0.6"
+        }
+      },
+      "Microsoft.NET.ILLink.Tasks/9.0.14": {},
+      "Microsoft.Windows.CsWin32/0.3.269": {
+        "dependencies": {
+          "Microsoft.Windows.SDK.Win32Docs": "0.1.42-alpha",
+          "Microsoft.Windows.SDK.Win32Metadata": "69.0.7-preview",
+          "Microsoft.Windows.WDK.Win32Metadata": "0.13.25-experimental"
+        }
+      },
+      "Microsoft.Windows.SDK.Win32Docs/0.1.42-alpha": {},
+      "Microsoft.Windows.SDK.Win32Metadata/69.0.7-preview": {},
+      "Microsoft.Windows.WDK.Win32Metadata/0.13.25-experimental": {
+        "dependencies": {
+          "Microsoft.Windows.SDK.Win32Metadata": "69.0.7-preview"
+        }
+      },
+      "runtime.win-x86.Microsoft.DotNet.ILCompiler/9.0.6": {},
+      "SharpCompress/0.47.3": {
+        "runtime": {
+          "lib/net9.0/SharpCompress.dll": {
+            "assemblyVersion": "0.47.3.0",
+            "fileVersion": "0.47.3.0"
+          }
+        }
+      },
+      "System.CommandLine/2.0.0-beta4.22272.1": {
+        "runtime": {
+          "lib/net6.0/System.CommandLine.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.22.27201"
+          }
+        },
+        "resources": {
+          "lib/net6.0/cs/System.CommandLine.resources.dll": {
+            "locale": "cs"
+          },
+          "lib/net6.0/de/System.CommandLine.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net6.0/es/System.CommandLine.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net6.0/fr/System.CommandLine.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net6.0/it/System.CommandLine.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net6.0/ja/System.CommandLine.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net6.0/ko/System.CommandLine.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net6.0/pl/System.CommandLine.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net6.0/pt-BR/System.CommandLine.resources.dll": {
+            "locale": "pt-BR"
+          },
+          "lib/net6.0/ru/System.CommandLine.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net6.0/tr/System.CommandLine.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net6.0/zh-Hans/System.CommandLine.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "lib/net6.0/zh-Hant/System.CommandLine.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "CustomBuildTool/5.0.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.DotNet.ILCompiler/9.0.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-O7Row/kOgEA3PXpeCVKpDJ9ooAoJDoKoxpZC86voOAwV2NA1jTbQ0Nn0VCuoTT/IvU0T7YNlPldAS0mOrppXmw==",
+      "path": "microsoft.dotnet.ilcompiler/9.0.6",
+      "hashPath": "microsoft.dotnet.ilcompiler.9.0.6.nupkg.sha512"
+    },
+    "Microsoft.NET.ILLink.Tasks/9.0.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+MeWjj5sGq6Oj/l0E9RPMgXDyCIPxczzCbGuvuVTZFEGiy2S/atsfoAoKUnkEin/GeGpN+HenCzRmiQKSc99eQ==",
+      "path": "microsoft.net.illink.tasks/9.0.14",
+      "hashPath": "microsoft.net.illink.tasks.9.0.14.nupkg.sha512"
+    },
+    "Microsoft.Windows.CsWin32/0.3.269": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-O4GVJ0ymxcoFRGS07VcoEClj7A9PIciHIjWDrPymzonhYlOfM7V0ZqGBUK19cUH3BPca9MfSOH0KLK/9JzQ8+Q==",
+      "path": "microsoft.windows.cswin32/0.3.269",
+      "hashPath": "microsoft.windows.cswin32.0.3.269.nupkg.sha512"
+    },
+    "Microsoft.Windows.SDK.Win32Docs/0.1.42-alpha": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Z/9po23gUA9aoukirh2ItMU2ZS9++Js9Gdds9fu5yuMojDrmArvY2y+tq9985tR3cxFxpZO1O35Wjfo0khj5HA==",
+      "path": "microsoft.windows.sdk.win32docs/0.1.42-alpha",
+      "hashPath": "microsoft.windows.sdk.win32docs.0.1.42-alpha.nupkg.sha512"
+    },
+    "Microsoft.Windows.SDK.Win32Metadata/69.0.7-preview": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-RJoNjQJVCIDNLPbvYuaygCFknTyAxOUE45of1voj0jjOgJa9MB2m1/G8L8F3IYc+2EFG5aqa/9y8PEx7Tk2tLQ==",
+      "path": "microsoft.windows.sdk.win32metadata/69.0.7-preview",
+      "hashPath": "microsoft.windows.sdk.win32metadata.69.0.7-preview.nupkg.sha512"
+    },
+    "Microsoft.Windows.WDK.Win32Metadata/0.13.25-experimental": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-IM50tb/+UIwBr9FMr6ZKcZjCMW+Axo6NjGqKxgjUfyCY8dRnYUfrJEXxAaXoWtYP4X8EmASmC1Jtwh4XucseZg==",
+      "path": "microsoft.windows.wdk.win32metadata/0.13.25-experimental",
+      "hashPath": "microsoft.windows.wdk.win32metadata.0.13.25-experimental.nupkg.sha512"
+    },
+    "runtime.win-x86.Microsoft.DotNet.ILCompiler/9.0.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0IVNcihWF3y66tD2Ltd3moLp4Om2Upq+qy65sJYSAsIZHDXv5Jgv3IdrEVWn/JFbx3dujuxiW7kOL70tnMxL0g==",
+      "path": "runtime.win-x86.microsoft.dotnet.ilcompiler/9.0.6",
+      "hashPath": "runtime.win-x86.microsoft.dotnet.ilcompiler.9.0.6.nupkg.sha512"
+    },
+    "SharpCompress/0.47.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-KPODbBWz4zRs413KAHgy7N43bXCsAJyrCJMTajRan3Gl4epukJQKQxZeK1FVq/VvRZ4Y1MLz4Jc5UYSokwEojQ==",
+      "path": "sharpcompress/0.47.3",
+      "hashPath": "sharpcompress.0.47.3.nupkg.sha512"
+    },
+    "System.CommandLine/2.0.0-beta4.22272.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-1uqED/q2H0kKoLJ4+hI2iPSBSEdTuhfCYADeJrAqERmiGQ2NNacYKRNEQ+gFbU4glgVyK8rxI+ZOe1onEtr/Pg==",
+      "path": "system.commandline/2.0.0-beta4.22272.1",
+      "hashPath": "system.commandline.2.0.0-beta4.22272.1.nupkg.sha512"
+    }
+  }
+}

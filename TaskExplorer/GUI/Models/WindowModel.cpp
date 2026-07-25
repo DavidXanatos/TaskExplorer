@@ -87,7 +87,7 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 		int Changed = 0;
 
 		// Note: icons are loaded asynchroniusly
-		/*if (m_bUseIcons && !pNode->Icon.isValid() && m_Columns.contains(eHandle))
+		/*if (m_bUseIcons && !pNode->Icon.isValid() && !m_ColumnsOff.contains(eHandle))
 		{
 			QPixmap Icon = pNode->pWindow->GetFileIcon();
 			if (!Icon.isNull()) {
@@ -108,7 +108,7 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;
@@ -136,10 +136,12 @@ QSet<quint64> CWindowModel::Sync(const QHash<quint64, CWndPtr>& WindowList)
 				switch (section)
 				{
 					case eThread:		if (m_bExtThreadId)
-											ColValue.Formated = tr("%1 (%2): %3").arg(pWindow->GetProcessName()).arg(pWindow->GetProcessId()).arg(pWindow->GetThreadId());
+											ColValue.Formatted = tr("%1 (%2): %3").arg(pWindow->GetProcessName()).arg(theGUI->FormatID(pWindow->GetProcessId())).arg(theGUI->FormatID(pWindow->GetThreadId()));
+										else
+											ColValue.Formatted = theGUI->FormatID(pWindow->GetThreadId());
 										break;
-					case eHandle:		ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;
-					//case eThread:		ColValue.Formated = "0x" + QString::number(Value.toULongLong(), 16); break;
+					case eHandle:		ColValue.Formatted = "0x" + QString::number(Value.toULongLong(), 16); break;
+					//case eThread:		ColValue.Formatted = "0x" + QString::number(Value.toULongLong(), 16); break;
 				}
 			}
 

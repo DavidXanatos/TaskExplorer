@@ -15,9 +15,12 @@
 
 EXTERN_C_START
 
-extern WCHAR *PhSizeUnitNames[7];
+extern CONST WCHAR *PhSizeUnitNames[7];
 extern ULONG PhMaxSizeUnit;
 extern USHORT PhMaxPrecisionUnit;
+extern FLOAT PhMaxPrecisionLimit;
+extern CONST PH_STRINGREF PhPrefixUnitNamesCounted[7];
+extern CONST PH_STRINGREF PhSiPrefixUnitNamesCounted[7];
 
 typedef struct _PH_INTEGER_PAIR
 {
@@ -36,7 +39,15 @@ typedef struct _PH_SCALABLE_INTEGER_PAIR
             LONG Y;
         };
     };
-    ULONG Scale;
+    union
+    {
+        PH_INTEGER_PAIR Padding;
+        struct
+        {
+            LONG Scale;
+            LONG Spare;
+        };
+    };
 } PH_SCALABLE_INTEGER_PAIR, *PPH_SCALABLE_INTEGER_PAIR;
 
 typedef struct _PH_RECTANGLE
@@ -61,38 +72,51 @@ typedef struct _PH_RECTANGLE
     };
 } PH_RECTANGLE, *PPH_RECTANGLE;
 
+/**
+ * Converts a Win32 RECT to a PPH_RECTANGLE.
+ *
+ * The resulting rectangle uses left/top coordinates and width/height
+ * dimensions rather than Win32's left/top/right/bottom edge format.
+ */
 FORCEINLINE
-PH_RECTANGLE
+VOID
 PhRectToRectangle(
-    _In_ RECT Rect
+    _Out_ PPH_RECTANGLE Rectangle,
+    _In_ PRECT Rect
     )
 {
-    PH_RECTANGLE rectangle;
-
-    rectangle.Left = Rect.left;
-    rectangle.Top = Rect.top;
-    rectangle.Width = Rect.right - Rect.left;
-    rectangle.Height = Rect.bottom - Rect.top;
-
-    return rectangle;
+    Rectangle->Left = Rect->left;
+    Rectangle->Top = Rect->top;
+    Rectangle->Width = Rect->right - Rect->left;
+    Rectangle->Height = Rect->bottom - Rect->top;
 }
 
+/**
+ * Converts a PPH_RECTANGLE to a Win32 RECT.
+ *
+ * The output RECT uses absolute edge coordinates computed from the
+ * rectangle's left/top origin and width/height dimensions.
+ */
 FORCEINLINE
-RECT
+VOID
 PhRectangleToRect(
-    _In_ PH_RECTANGLE Rectangle
+    _Out_ PRECT Rect,
+    _In_ PPH_RECTANGLE Rectangle
     )
 {
-    RECT rect;
-
-    rect.left = Rectangle.Left;
-    rect.top = Rectangle.Top;
-    rect.right = Rectangle.Left + Rectangle.Width;
-    rect.bottom = Rectangle.Top + Rectangle.Height;
-
-    return rect;
+    Rect->left = Rectangle->Left;
+    Rect->top = Rectangle->Top;
+    Rect->right = Rectangle->Left + Rectangle->Width;
+    Rect->bottom = Rectangle->Top + Rectangle->Height;
 }
 
+/**
+ * Converts a RECT from right/bottom offsets to absolute coordinates.
+ *
+ * The right and bottom fields of the input RECT are interpreted as offsets
+ * from the parent rectangle's right and bottom edges. This function converts
+ * them into absolute coordinates relative to the parent.
+ */
 FORCEINLINE
 VOID
 PhConvertRect(
@@ -104,21 +128,25 @@ PhConvertRect(
     Rect->bottom = ParentRect->bottom - ParentRect->top - Rect->bottom;
 }
 
+/**
+ * Maps a RECT from an outer coordinate space into an inner one.
+ *
+ * The resulting RECT is expressed relative to the outer rectangle's origin.
+ * This is useful when translating child‑window or sub‑region coordinates
+ * into a parent coordinate system.
+ */
 FORCEINLINE
-RECT
+VOID
 PhMapRect(
-    _In_ RECT InnerRect,
-    _In_ RECT OuterRect
+    _Out_ PRECT Rect,
+    _In_ PRECT InnerRect,
+    _In_ PRECT OuterRect
     )
 {
-    RECT rect;
-
-    rect.left = InnerRect.left - OuterRect.left;
-    rect.top = InnerRect.top - OuterRect.top;
-    rect.right = InnerRect.right - OuterRect.left;
-    rect.bottom = InnerRect.bottom - OuterRect.top;
-
-    return rect;
+    Rect->left = InnerRect->left - OuterRect->left;
+    Rect->top = InnerRect->top - OuterRect->top;
+    Rect->right = InnerRect->right - OuterRect->left;
+    Rect->bottom = InnerRect->bottom - OuterRect->top;
 }
 
 PHLIBAPI
@@ -153,7 +181,17 @@ PhCenterWindow(
     _In_opt_ HWND ParentWindowHandle
     );
 
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhMoveWindowToMonitor(
+    _In_ HWND WindowHandle,
+    _In_ HMONITOR MonitorHandle
+    );
+
+//
 // NLS
+//
 
 PHLIBAPI
 LANGID
@@ -176,7 +214,23 @@ PhGetUserDefaultLCID(
     VOID
     );
 
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetUserLocaleInfoBool(
+    _In_ LCTYPE LCType
+    );
+
+PHLIBAPI
+LCID
+NTAPI
+PhGetCurrentThreadLCID(
+    VOID
+    );
+
+//
 // Time
+//
 
 PHLIBAPI
 VOID
@@ -218,7 +272,9 @@ PhSystemTimeToTzSpecificLocalTime(
     _Out_ PSYSTEMTIME LocalTime
     );
 
+//
 // Error messages
+//
 
 PHLIBAPI
 PPH_STRING
@@ -252,28 +308,35 @@ PhGetWin32FormatMessage(
     );
 
 PHLIBAPI
-INT
+PPH_STRING
+NTAPI
+PhGetNtFormatMessage(
+    _In_ NTSTATUS Status
+    );
+
+PHLIBAPI
+LONG
 NTAPI
 PhShowMessage(
     _In_opt_ HWND WindowHandle,
     _In_ ULONG Type,
-    _In_ PWSTR Format,
+    _In_ PCWSTR Format,
     ...
     );
 
-#define PhShowError(WindowHandle, Format, ...) PhShowMessage(WindowHandle, MB_OK | MB_ICONERROR, Format, ##__VA_ARGS__)
-#define PhShowWarning(WindowHandle, Format, ...) PhShowMessage(WindowHandle, MB_OK | MB_ICONWARNING, Format, ##__VA_ARGS__)
-#define PhShowInformation(WindowHandle, Format, ...) PhShowMessage(WindowHandle, MB_OK | MB_ICONINFORMATION, Format, ##__VA_ARGS__)
+#define PhShowError(WindowHandle, Format, ...) PhShowMessage(WindowHandle, MB_OK | MB_ICONERROR, Format, __VA_ARGS__)
+#define PhShowWarning(WindowHandle, Format, ...) PhShowMessage(WindowHandle, MB_OK | MB_ICONWARNING, Format, __VA_ARGS__)
+#define PhShowInformation(WindowHandle, Format, ...) PhShowMessage(WindowHandle, MB_OK | MB_ICONINFORMATION, Format, __VA_ARGS__)
 
 PHLIBAPI
-INT
+LONG
 NTAPI
 PhShowMessage2(
     _In_opt_ HWND WindowHandle,
     _In_ ULONG Buttons,
-    _In_opt_ PWSTR Icon,
-    _In_opt_ PWSTR Title,
-    _In_ PWSTR Format,
+    _In_opt_ PCWSTR Icon,
+    _In_opt_ PCWSTR Title,
+    _In_ PCWSTR Format,
     ...
     );
 
@@ -297,9 +360,9 @@ PhShowMessage2(
 #define TD_SHIELD_ICON          MAKEINTRESOURCEW(-4)
 #endif
 
-#define PhShowError2(WindowHandle, Title, Format, ...) PhShowMessage2(WindowHandle, TD_CLOSE_BUTTON, TD_ERROR_ICON, Title, Format, ##__VA_ARGS__)
-#define PhShowWarning2(WindowHandle, Title, Format, ...) PhShowMessage2(WindowHandle, TD_CLOSE_BUTTON, TD_WARNING_ICON, Title, Format, ##__VA_ARGS__)
-#define PhShowInformation2(WindowHandle, Title, Format, ...) PhShowMessage2(WindowHandle, TD_CLOSE_BUTTON, TD_INFORMATION_ICON, Title, Format, ##__VA_ARGS__)
+#define PhShowError2(WindowHandle, Title, Format, ...) PhShowMessage2(WindowHandle, TD_CLOSE_BUTTON, TD_ERROR_ICON, Title, Format, __VA_ARGS__)
+#define PhShowWarning2(WindowHandle, Title, Format, ...) PhShowMessage2(WindowHandle, TD_CLOSE_BUTTON, TD_WARNING_ICON, Title, Format, __VA_ARGS__)
+#define PhShowInformation2(WindowHandle, Title, Format, ...) PhShowMessage2(WindowHandle, TD_CLOSE_BUTTON, TD_INFORMATION_ICON, Title, Format, __VA_ARGS__)
 
 PHLIBAPI
 BOOLEAN
@@ -307,9 +370,22 @@ NTAPI
 PhShowMessageOneTime(
     _In_opt_ HWND WindowHandle,
     _In_ ULONG Buttons,
-    _In_opt_ PWSTR Icon,
-    _In_opt_ PWSTR Title,
-    _In_ PWSTR Format,
+    _In_opt_ PCWSTR Icon,
+    _In_opt_ PCWSTR Title,
+    _In_ PCWSTR Format,
+    ...
+    );
+
+PHLIBAPI
+LONG
+NTAPI
+PhShowMessageOneTime2(
+    _In_opt_ HWND WindowHandle,
+    _In_ ULONG Buttons,
+    _In_opt_ PCWSTR Icon,
+    _In_opt_ PCWSTR Title,
+    _Out_opt_ PBOOLEAN Checked,
+    _In_ PCWSTR Format,
     ...
     );
 
@@ -326,8 +402,20 @@ PhTaskDialogNavigatePage(
 {
     assert(HandleToUlong(NtCurrentThreadId()) == GetWindowThreadProcessId(WindowHandle, NULL));
 
-    SendMessage(WindowHandle, (WM_USER + 101), 0, (LPARAM)(Config));
+    #define WM_TDM_NAVIGATE_PAGE (WM_USER + 101)
+
+    SendMessage(WindowHandle, WM_TDM_NAVIGATE_PAGE, 0, (LPARAM)(Config));
 }
+
+#define TD_WARN_ICON             MAKEINTRESOURCEW(-1) // Warning icon
+#define TD_ERROR_ICON            MAKEINTRESOURCEW(-2) // Error icon
+#define TD_INFO_ICON             MAKEINTRESOURCEW(-3) // Information icon
+#define TD_SHIELD_ICON           MAKEINTRESOURCEW(-4) // Shield icon
+#define TD_SHIELD_INFO_ICON      MAKEINTRESOURCEW(-5) // Shield icon + Blue background
+#define TD_SHIELD_WARNING_ICON   MAKEINTRESOURCEW(-6) // Shield icon + Yellow background
+#define TD_SHIELD_ERROR_ICON     MAKEINTRESOURCEW(-7) // Shield icon + Red background
+#define TD_SHIELD_SUCCESS_ICON   MAKEINTRESOURCEW(-8) // Shield icon + Green background
+#define TD_SHIELD_INACTIVE_ICON  MAKEINTRESOURCEW(-9) // Shield icon + Gray background
 
 _Success_(return)
 PHLIBAPI
@@ -353,8 +441,18 @@ VOID
 NTAPI
 PhShowStatus(
     _In_opt_ HWND WindowHandle,
-    _In_opt_ PWSTR Message,
+    _In_opt_ PCWSTR Message,
     _In_ NTSTATUS Status,
+    _In_opt_ ULONG Win32Result
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhShowStatusHR(
+    _In_opt_ HWND WindowHandle,
+    _In_opt_ PCWSTR Message,
+    _In_ HRESULT Status,
     _In_opt_ ULONG Win32Result
     );
 
@@ -363,7 +461,7 @@ BOOLEAN
 NTAPI
 PhShowContinueStatus(
     _In_ HWND WindowHandle,
-    _In_opt_ PWSTR Message,
+    _In_opt_ PCWSTR Message,
     _In_ NTSTATUS Status,
     _In_opt_ ULONG Win32Result
     );
@@ -373,12 +471,11 @@ BOOLEAN
 NTAPI
 PhShowConfirmMessage(
     _In_ HWND WindowHandle,
-    _In_ PWSTR Verb,
-    _In_ PWSTR Object,
-    _In_opt_ PWSTR Message,
+    _In_ PCWSTR Verb,
+    _In_ PCWSTR Object,
+    _In_opt_ PCWSTR Message,
     _In_ BOOLEAN Warning
     );
-
 
 /**
  * Finds an integer in an array of string-integer pairs.
@@ -387,24 +484,22 @@ PhShowConfirmMessage(
  * \param SizeOfKeyValuePairs The size of the array, in bytes.
  * \param String The string to search for.
  * \param Integer A variable which receives the found integer.
- *
  * \return TRUE if the string was found, otherwise FALSE.
- *
  * \remarks The search is case-sensitive.
  */
 _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindIntegerSiKeyValuePairs(
-    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PCPH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
-    _In_ PWSTR String,
+    _In_ PCWSTR String,
     _Out_ PULONG Integer
     )
 {
     for (ULONG i = 0; i < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR); i++)
     {
-        if (PhEqualStringZ((PWSTR)KeyValuePairs[i].Key, String, TRUE))
+        if (PhEqualStringZ((PCWSTR)KeyValuePairs[i].Key, String, TRUE))
         {
             *Integer = PtrToUlong(KeyValuePairs[i].Value);
             return TRUE;
@@ -414,19 +509,29 @@ PhFindIntegerSiKeyValuePairs(
     return FALSE;
 }
 
+/**
+ * Finds an integer in an array of string-integer pairs using a STRINGREF.
+ *
+ * \param KeyValuePairs The array.
+ * \param SizeOfKeyValuePairs The size of the array, in bytes.
+ * \param String The string reference to search for.
+ * \param Integer A variable which receives the found integer.
+ * \return TRUE if the string was found, otherwise FALSE.
+ * \remarks The search is case-sensitive.
+ */
 _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindIntegerSiKeyValuePairsStringRef(
-    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PCPH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
-    _In_ PPH_STRINGREF String,
+    _In_ PCPH_STRINGREF String,
     _Out_ PULONG Integer
     )
 {
     for (ULONG i = 0; i < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR); i++)
     {
-        if (PhEqualStringRef((PPH_STRINGREF)KeyValuePairs[i].Key, String, TRUE))
+        if (PhEqualStringRef((PCPH_STRINGREF)KeyValuePairs[i].Key, String, TRUE))
         {
             *Integer = PtrToUlong(KeyValuePairs[i].Value);
             return TRUE;
@@ -443,24 +548,23 @@ PhFindIntegerSiKeyValuePairsStringRef(
  * \param SizeOfKeyValuePairs The size of the array, in bytes.
  * \param Integer The integer to search for.
  * \param String A variable which receives the found string.
- *
  * \return TRUE if the integer was found, otherwise FALSE.
  */
 _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindStringSiKeyValuePairs(
-    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PCPH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
     _In_ ULONG Integer,
-    _Out_ PWSTR *String
+    _Out_ PCWSTR *String
     )
 {
     for (ULONG i = 0; i < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR); i++)
     {
         if (PtrToUlong(KeyValuePairs[i].Value) == Integer)
         {
-            *String = (PWSTR)KeyValuePairs[i].Key;
+            *String = (PCWSTR)KeyValuePairs[i].Key;
             return TRUE;
         }
     }
@@ -468,26 +572,97 @@ PhFindStringSiKeyValuePairs(
     return FALSE;
 }
 
+/**
+ * Finds a string reference in an array of string-integer pairs.
+ *
+ * \param KeyValuePairs The array.
+ * \param SizeOfKeyValuePairs The size of the array, in bytes.
+ * \param Integer The integer to search for.
+ * \param String A variable which receives the found string reference.
+ * \return TRUE if the integer was found, otherwise FALSE.
+ */
 _Success_(return)
 FORCEINLINE
 BOOLEAN
 PhFindStringRefSiKeyValuePairs(
-    _In_ PPCH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ PCPH_KEY_VALUE_PAIR KeyValuePairs,
     _In_ ULONG SizeOfKeyValuePairs,
     _In_ ULONG Integer,
-    _Out_ PPH_STRINGREF* String
+    _Out_ PCPH_STRINGREF* String
     )
 {
     for (ULONG i = 0; i < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR); i++)
     {
         if (PtrToUlong(KeyValuePairs[i].Value) == Integer)
         {
-            *String = (PPH_STRINGREF)KeyValuePairs[i].Key;
+            *String = (PCPH_STRINGREF)KeyValuePairs[i].Key;
             return TRUE;
         }
     }
 
     return FALSE;
+}
+
+/**
+ * Retrieves a string from an array of string-integer pairs by index.
+ *
+ * \param KeyValuePairs The array.
+ * \param SizeOfKeyValuePairs The size of the array, in bytes.
+ * \param Integer The index or integer to search for.
+ * \param String A variable which receives the found string.
+ * \return TRUE if the string was found, otherwise FALSE.
+ * \remarks If the index is out of range, a full search is performed.
+ */
+_Success_(return)
+FORCEINLINE
+BOOLEAN
+PhIndexStringSiKeyValuePairs(
+    _In_ PCPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ ULONG SizeOfKeyValuePairs,
+    _In_ ULONG Integer,
+    _Out_ PCWSTR *String
+    )
+{
+    assert(KeyValuePairs[0].Value == 0); // Values must be zero based
+
+    if (Integer < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR))
+    {
+        *String = (PCWSTR)KeyValuePairs[Integer].Key;
+        return TRUE;
+    }
+
+    return PhFindStringSiKeyValuePairs(KeyValuePairs, SizeOfKeyValuePairs, Integer, String);
+}
+
+/**
+ * Retrieves a string reference from an array of string-integer pairs by index.
+ *
+ * \param KeyValuePairs The array.
+ * \param SizeOfKeyValuePairs The size of the array, in bytes.
+ * \param Integer The index or integer to search for.
+ * \param String A variable which receives the found string reference.
+ * \return TRUE if the string reference was found, otherwise FALSE.
+ * \remarks Values must be zero-based.
+ */
+_Success_(return)
+FORCEINLINE
+BOOLEAN
+PhIndexStringRefSiKeyValuePairs(
+    _In_ PCPH_KEY_VALUE_PAIR KeyValuePairs,
+    _In_ ULONG SizeOfKeyValuePairs,
+    _In_ ULONG Integer,
+    _Out_ PCPH_STRINGREF* String
+    )
+{
+    assert(KeyValuePairs[0].Value == 0); // Values must be zero based
+
+    if (Integer < SizeOfKeyValuePairs / sizeof(PH_KEY_VALUE_PAIR))
+    {
+        *String = (PCPH_STRINGREF)KeyValuePairs[Integer].Key;
+        return TRUE;
+    }
+
+    return PhFindStringRefSiKeyValuePairs(KeyValuePairs, SizeOfKeyValuePairs, Integer, String);
 }
 
 #define GUID_VERSION_MAC 1
@@ -542,6 +717,13 @@ PhGenerateGuid(
     _Out_ PGUID Guid
     );
 
+/**
+ * Reverses the byte order of a GUID.
+ *
+ * \param Guid The GUID to reverse.
+ * \remarks This function reverses the endianness of the first three GUID fields
+ * (Data1, Data2, and Data3). The remaining fields are left unchanged.
+ */
 FORCEINLINE
 VOID
 NTAPI
@@ -594,6 +776,21 @@ PhGenerateRandomAlphaString(
     _In_ SIZE_T Count
     );
 
+PHLIBAPI
+VOID
+NTAPI
+PhGenerateRandomNumericString(
+    _Out_writes_z_(Count) PWSTR Buffer,
+    _In_ SIZE_T Count
+    );
+
+/**
+ * Generates a random alphabetic string and initializes a STRINGREF to reference it.
+ *
+ * \param Buffer The buffer that receives the generated string.
+ * \param Count The number of characters to generate, including the null terminator.
+ * \param String A variable which receives the resulting string reference.
+ */
 FORCEINLINE
 VOID
 PhGenerateRandomAlphaStringRef(
@@ -648,8 +845,8 @@ PHLIBAPI
 BOOLEAN
 NTAPI
 PhMatchWildcards(
-    _In_ PWSTR Pattern,
-    _In_ PWSTR String,
+    _In_ PCWSTR Pattern,
+    _In_ PCWSTR String,
     _In_ BOOLEAN IgnoreCase
     );
 
@@ -657,15 +854,15 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhEscapeStringForMenuPrefix(
-    _In_ PPH_STRINGREF String
+    _In_ PCPH_STRINGREF String
     );
 
 PHLIBAPI
 LONG
 NTAPI
 PhCompareUnicodeStringZIgnoreMenuPrefix(
-    _In_ PWSTR A,
-    _In_ PWSTR B,
+    _In_ PCWSTR A,
+    _In_ PCWSTR B,
     _In_ BOOLEAN IgnoreCase,
     _In_ BOOLEAN MatchIfPrefix
     );
@@ -673,9 +870,23 @@ PhCompareUnicodeStringZIgnoreMenuPrefix(
 PHLIBAPI
 PPH_STRING
 NTAPI
+PhFormatSystemTimeISO(
+    _In_opt_ PSYSTEMTIME SystemTime
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhFormatLocalSystemTimeISO(
+    _In_opt_ PSYSTEMTIME SystemTime
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
 PhFormatDate(
     _In_opt_ PSYSTEMTIME Date,
-    _In_opt_ PWSTR Format
+    _In_opt_ PCWSTR Format
     );
 
 PHLIBAPI
@@ -683,7 +894,7 @@ PPH_STRING
 NTAPI
 PhFormatTime(
     _In_opt_ PSYSTEMTIME Time,
-    _In_opt_ PWSTR Format
+    _In_opt_ PCWSTR Format
     );
 
 PHLIBAPI
@@ -698,6 +909,7 @@ PhFormatDateTime(
 #define PH_DATETIME_STR_LEN 256
 #define PH_DATETIME_STR_LEN_1 (PH_DATETIME_STR_LEN + 1)
 
+_Success_(return)
 PHLIBAPI
 BOOLEAN
 NTAPI
@@ -731,13 +943,25 @@ PhFormatUInt64(
     _In_ BOOLEAN GroupDigits
     );
 
-#define PhaFormatUInt64(Value, GroupDigits) PH_AUTO_T(PH_STRING, PhFormatUInt64((Value), (GroupDigits)))
+#define PhaFormatUInt64(Value, GroupDigits) \
+    PH_AUTO_T(PH_STRING, PhFormatUInt64((Value), (GroupDigits)))
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhFormatUInt64BitratePrefix(
+    _In_ ULONG64 Value,
+    _In_ BOOLEAN GroupDigits
+    );
+
+#define PhaFormatUInt64BitratePrefix(Value, GroupDigits) \
+    PH_AUTO_T(PH_STRING, PhFormatUInt64BitratePrefix((Value), (GroupDigits)))
 
 PHLIBAPI
 PPH_STRING
 NTAPI
 PhFormatDecimal(
-    _In_ PWSTR Value,
+    _In_ PCWSTR Value,
     _In_ ULONG FractionalDigits,
     _In_ BOOLEAN GroupDigits
     );
@@ -753,20 +977,32 @@ PhFormatSize(
     _In_ ULONG MaxSizeUnit
     );
 
-#define PhaFormatSize(Size, MaxSizeUnit) PH_AUTO_T(PH_STRING, PhFormatSize((Size), (MaxSizeUnit)))
+#define PhaFormatSize(Size, MaxSizeUnit) \
+    PH_AUTO_T(PH_STRING, PhFormatSize((Size), (MaxSizeUnit)))
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhFormatSizeToBuffer(
+    _In_ ULONG64 Size,
+    _In_ ULONG MaxSizeUnit,
+    _Out_writes_bytes_opt_(BufferLength) PWSTR Buffer,
+    _In_opt_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
+    );
 
 PHLIBAPI
 PPH_STRING
 NTAPI
 PhFormatGuid(
-    _In_ PGUID Guid
+    _In_ PCGUID Guid
     );
 
 PHLIBAPI
 NTSTATUS
 NTAPI
 PhFormatGuidToBuffer(
-    _In_ PGUID Guid,
+    _In_ PCGUID Guid,
     _Writable_bytes_(BufferLength) _When_(BufferLength != 0, _Notnull_) PWCHAR Buffer,
     _In_opt_ USHORT BufferLength,
     _Out_opt_ PSIZE_T ReturnLength
@@ -776,7 +1012,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhStringToGuid(
-    _In_ PPH_STRINGREF GuidString,
+    _In_ PCPH_STRINGREF GuidString,
     _Out_ PGUID Guid
     );
 
@@ -805,29 +1041,57 @@ PhIsFileVersionInfo32(
 }
 
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhGetFileVersionInfo(
-    _In_ PWSTR FileName
+    _In_ PCWSTR FileName,
+    _Out_ PVOID* VersionInfo
     );
 
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhGetFileVersionInfoEx(
-    _In_ PPH_STRINGREF FileName
+    _In_ PCPH_STRINGREF FileName,
+    _Out_ PVOID* VersionInfo
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhGetFileVersionInfoKey(
     _In_ PVS_VERSION_INFO_STRUCT32 VersionInfo,
     _In_ SIZE_T KeyLength,
-    _In_ PWSTR Key,
+    _In_ PCWSTR Key,
     _Out_opt_ PVOID* Buffer
     );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetFileVersionVarFileInfoValue(
+    _In_ PVOID VersionInfo,
+    _In_ PCPH_STRINGREF KeyName,
+    _Out_opt_ PVOID* Buffer,
+    _Out_opt_ PULONG BufferLength
+    );
+
+FORCEINLINE
+NTSTATUS
+NTAPI
+PhGetFileVersionVarFileInfoValueZ(
+    _In_ PVOID VersionInfo,
+    _In_ PCWSTR KeyName,
+    _Out_opt_ PVOID* Buffer,
+    _Out_opt_ PULONG BufferLength
+    )
+{
+    PH_STRINGREF string;
+
+    PhInitializeStringRef(&string, KeyName);
+
+    return PhGetFileVersionVarFileInfoValue(VersionInfo, &string, Buffer, BufferLength);
+}
 
 PHLIBAPI
 VS_FIXEDFILEINFO*
@@ -854,7 +1118,7 @@ PPH_STRING
 NTAPI
 PhGetFileVersionInfoString(
     _In_ PVOID VersionInfo,
-    _In_ PWSTR SubBlock
+    _In_ PCWSTR SubBlock
     );
 
 PHLIBAPI
@@ -863,7 +1127,7 @@ NTAPI
 PhGetFileVersionInfoString2(
     _In_ PVOID VersionInfo,
     _In_ ULONG LangCodePage,
-    _In_ PPH_STRINGREF KeyName
+    _In_ PCPH_STRINGREF KeyName
     );
 
 typedef struct _PH_IMAGE_VERSION_INFO
@@ -875,21 +1139,19 @@ typedef struct _PH_IMAGE_VERSION_INFO
 } PH_IMAGE_VERSION_INFO, *PPH_IMAGE_VERSION_INFO;
 
 PHLIBAPI
-_Success_(return)
-BOOLEAN
+NTSTATUS
 NTAPI
 PhInitializeImageVersionInfo(
     _Out_ PPH_IMAGE_VERSION_INFO ImageVersionInfo,
-    _In_ PWSTR FileName
+    _In_ PCWSTR FileName
     );
 
 PHLIBAPI
-_Success_(return)
-BOOLEAN
+NTSTATUS
 NTAPI
 PhInitializeImageVersionInfoEx(
     _Out_ PPH_IMAGE_VERSION_INFO ImageVersionInfo,
-    _In_ PPH_STRINGREF FileName,
+    _In_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN ExtendedVersionInfo
     );
 
@@ -906,13 +1168,12 @@ NTAPI
 PhFormatImageVersionInfo(
     _In_opt_ PPH_STRING FileName,
     _In_ PPH_IMAGE_VERSION_INFO ImageVersionInfo,
-    _In_opt_ PPH_STRINGREF Indent,
+    _In_opt_ PCPH_STRINGREF Indent,
     _In_opt_ ULONG LineLimit
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhInitializeImageVersionInfoCached(
     _Out_ PPH_IMAGE_VERSION_INFO ImageVersionInfo,
@@ -932,7 +1193,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhGetFullPath(
-    _In_ PWSTR FileName,
+    _In_ PCWSTR FileName,
     _Out_ PPH_STRING *FullPath,
     _Out_opt_ PULONG IndexOfFileName
     );
@@ -941,13 +1202,13 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhExpandEnvironmentStrings(
-    _In_ PPH_STRINGREF String
+    _In_ PCPH_STRINGREF String
     );
 
 FORCEINLINE
 PPH_STRING
 PhExpandEnvironmentStringsZ(
-    _In_ PWSTR String
+    _In_ PCWSTR String
     )
 {
     PH_STRINGREF string;
@@ -955,6 +1216,32 @@ PhExpandEnvironmentStringsZ(
     PhInitializeStringRef(&string, String);
 
     return PhExpandEnvironmentStrings(&string);
+}
+
+/**
+ * Converts NT path separators to alternate DOS path separators in a string.
+ *
+ * \param String The string to modify.
+ * \return The modified string.
+ * \remarks Only the NT path separator ('\\') is replaced. The function operates
+ * in-place and returns the same string pointer.
+ */
+FORCEINLINE
+PPH_STRING
+PhConvertNtPathSeperatorToAltSeperator(
+    _In_ PPH_STRING String
+    )
+{
+    if (String)
+    {
+        for (ULONG i = 0; i < String->Length / sizeof(WCHAR); i++)
+        {
+            if (String->Buffer[i] == OBJ_NAME_PATH_SEPARATOR) // RtlNtPathSeperatorString
+                String->Buffer[i] = OBJ_NAME_ALTPATH_SEPARATOR; // RtlAlternateDosPathSeperatorString
+        }
+    }
+
+    return String;
 }
 
 PHLIBAPI
@@ -968,16 +1255,16 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetBaseNameChangeExtension(
-    _In_ PPH_STRINGREF FileName,
-    _In_ PPH_STRINGREF FileExtension
+    _In_ PCPH_STRINGREF FileName,
+    _In_ PCPH_STRINGREF FileExtension
     );
 
 FORCEINLINE
 PPH_STRING
 NTAPI
 PhGetBaseNameChangeExtensionZ(
-    _In_ PPH_STRINGREF FileName,
-    _In_ PWSTR FileExtension
+    _In_ PCPH_STRINGREF FileName,
+    _In_ PCWSTR FileExtension
     )
 {
     PH_STRINGREF string;
@@ -992,7 +1279,7 @@ PHLIBAPI
 BOOLEAN
 NTAPI
 PhGetBasePath(
-    _In_ PPH_STRINGREF FileName,
+    _In_ PCPH_STRINGREF FileName,
     _Out_opt_ PPH_STRINGREF BasePathName,
     _Out_opt_ PPH_STRINGREF BaseFileName
     );
@@ -1015,13 +1302,13 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetSystemDirectoryWin32(
-    _In_opt_ PPH_STRINGREF AppendPath
+    _In_opt_ PCPH_STRINGREF AppendPath
     );
 
 FORCEINLINE
 PPH_STRING
 PhGetSystemDirectoryWin32Z(
-    _In_ PWSTR AppendPath
+    _In_ PCWSTR AppendPath
     )
 {
     PH_STRINGREF string;
@@ -1052,6 +1339,27 @@ PhGetApplicationFileName(
     VOID
     );
 
+FORCEINLINE
+PPH_STRING
+PhGetApplicationFileNameZ(
+    _In_ PCWSTR AppendPath
+    )
+{
+    PPH_STRING fileName = NULL;
+    PPH_STRING applicationFileName;
+
+    if (applicationFileName = PhGetApplicationFileName())
+    {
+        PH_STRINGREF string;
+
+        PhInitializeStringRef(&string, AppendPath);
+        fileName = PhConcatStringRef2(&applicationFileName->sr, &string);
+        PhDereferenceObject(applicationFileName);
+    }
+
+    return fileName;
+}
+
 PHLIBAPI
 PPH_STRING
 NTAPI
@@ -1077,14 +1385,14 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetApplicationDirectoryFileName(
-    _In_ PPH_STRINGREF FileName,
+    _In_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN NativeFileName
     );
 
 FORCEINLINE
 PPH_STRING
 PhGetApplicationDirectoryFileNameZ(
-    _In_ PWSTR FileName,
+    _In_ PCWSTR FileName,
     _In_ BOOLEAN NativeFileName
     )
 {
@@ -1106,14 +1414,14 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetLocalAppDataDirectory(
-    _In_opt_ PPH_STRINGREF FileName,
+    _In_opt_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN NativeFileName
     );
 
 FORCEINLINE
 PPH_STRING
 PhGetLocalAppDataDirectoryZ(
-    _In_ PWSTR String,
+    _In_ PCWSTR String,
     _In_ BOOLEAN NativeFileName
     )
 {
@@ -1128,14 +1436,14 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetRoamingAppDataDirectory(
-    _In_opt_ PPH_STRINGREF FileName,
+    _In_opt_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN NativeFileName
     );
 
 FORCEINLINE
 PPH_STRING
 PhGetRoamingAppDataDirectoryZ(
-    _In_ PWSTR String,
+    _In_ PCWSTR String,
     _In_ BOOLEAN NativeFileName
     )
 {
@@ -1150,8 +1458,15 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetApplicationDataFileName(
-    _In_ PPH_STRINGREF FileName,
+    _In_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN NativeFileName
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhGetHomeDrivePath(
+    _In_ BOOLEAN Elevated
     );
 
 #define PH_FOLDERID_LocalAppData 1
@@ -1164,7 +1479,7 @@ PPH_STRING
 NTAPI
 PhGetKnownLocation(
     _In_ ULONG Folder,
-    _In_opt_ PPH_STRINGREF AppendPath,
+    _In_opt_ PCPH_STRINGREF AppendPath,
     _In_ BOOLEAN NativeFileName
     );
 
@@ -1172,7 +1487,7 @@ FORCEINLINE
 PPH_STRING
 PhGetKnownLocationZ(
     _In_ ULONG Folder,
-    _In_ PWSTR AppendPath,
+    _In_ PCWSTR AppendPath,
     _In_ BOOLEAN NativeFileName
     )
 {
@@ -1196,7 +1511,7 @@ PPH_STRING
 NTAPI
 PhGetKnownFolderPath(
     _In_ PCGUID Folder,
-    _In_opt_ PPH_STRINGREF AppendPath
+    _In_opt_ PCPH_STRINGREF AppendPath
     );
 
 PHLIBAPI
@@ -1206,14 +1521,14 @@ PhGetKnownFolderPathEx(
     _In_ PCGUID Folder,
     _In_ ULONG Flags,
     _In_opt_ HANDLE TokenHandle,
-    _In_opt_ PPH_STRINGREF AppendPath
+    _In_opt_ PCPH_STRINGREF AppendPath
     );
 
 FORCEINLINE
 PPH_STRING
 PhGetKnownFolderPathZ(
     _In_ PCGUID Folder,
-    _In_ PWSTR AppendPath
+    _In_ PCWSTR AppendPath
     )
 {
     PH_STRINGREF string;
@@ -1229,7 +1544,7 @@ PhGetKnownFolderPathExZ(
     _In_ PCGUID Folder,
     _In_ ULONG Flags,
     _In_opt_ HANDLE TokenHandle,
-    _In_ PWSTR AppendPath
+    _In_ PCWSTR AppendPath
     )
 {
     PH_STRINGREF string;
@@ -1243,7 +1558,7 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhGetTemporaryDirectory(
-    _In_opt_ PPH_STRINGREF AppendPath
+    _In_opt_ PCPH_STRINGREF AppendPath
     );
 
 PHLIBAPI
@@ -1280,10 +1595,10 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhCreateProcess(
-    _In_ PWSTR FileName,
-    _In_opt_ PPH_STRINGREF CommandLine,
+    _In_ PCWSTR FileName,
+    _In_opt_ PCPH_STRINGREF CommandLine,
     _In_opt_ PVOID Environment,
-    _In_opt_ PPH_STRINGREF CurrentDirectory,
+    _In_opt_ PCPH_STRINGREF CurrentDirectory,
     _In_opt_ PPH_CREATE_PROCESS_INFO Information,
     _In_ ULONG Flags,
     _In_opt_ HANDLE ParentProcessHandle,
@@ -1296,10 +1611,10 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhCreateProcessWin32(
-    _In_opt_ PWSTR FileName,
-    _In_opt_ PWSTR CommandLine,
+    _In_opt_ PCWSTR FileName,
+    _In_opt_ PCWSTR CommandLine,
     _In_opt_ PVOID Environment,
-    _In_opt_ PWSTR CurrentDirectory,
+    _In_opt_ PCWSTR CurrentDirectory,
     _In_ ULONG Flags,
     _In_opt_ HANDLE TokenHandle,
     _Out_opt_ PHANDLE ProcessHandle,
@@ -1310,10 +1625,10 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhCreateProcessWin32Ex(
-    _In_opt_ PWSTR FileName,
-    _In_opt_ PWSTR CommandLine,
+    _In_opt_ PCWSTR FileName,
+    _In_opt_ PCWSTR CommandLine,
     _In_opt_ PVOID Environment,
-    _In_opt_ PWSTR CurrentDirectory,
+    _In_opt_ PCWSTR CurrentDirectory,
     _In_opt_ PVOID StartupInfo,
     _In_ ULONG Flags,
     _In_opt_ HANDLE TokenHandle,
@@ -1324,19 +1639,20 @@ PhCreateProcessWin32Ex(
 
 typedef struct _PH_CREATE_PROCESS_AS_USER_INFO
 {
-    _In_opt_ PWSTR ApplicationName;
-    _In_opt_ PWSTR CommandLine;
-    _In_opt_ PWSTR CurrentDirectory;
+    _In_opt_ PCWSTR ApplicationName;
+    _In_opt_ PCWSTR CommandLine;
+    _In_opt_ PCWSTR CurrentDirectory;
     _In_opt_ PVOID Environment;
-    _In_opt_ PWSTR DesktopName;
+    _In_opt_ PCWSTR DesktopName;
     _In_opt_ ULONG SessionId; // use PH_CREATE_PROCESS_SET_SESSION_ID
+    _In_opt_ ULONG LogonId; // use PH_CREATE_PROCESS_SET_LOGON_ID
     union
     {
         struct
         {
-            _In_ PWSTR DomainName;
-            _In_ PWSTR UserName;
-            _In_ PWSTR Password;
+            _In_ PCWSTR DomainName;
+            _In_ PCWSTR UserName;
+            _In_ PCWSTR Password;
             _In_opt_ ULONG LogonType;
             _In_opt_ ULONG LogonFlags;
         };
@@ -1345,12 +1661,13 @@ typedef struct _PH_CREATE_PROCESS_AS_USER_INFO
     };
 } PH_CREATE_PROCESS_AS_USER_INFO, *PPH_CREATE_PROCESS_AS_USER_INFO;
 
-#define PH_CREATE_PROCESS_USE_PROCESS_TOKEN 0x1000
-#define PH_CREATE_PROCESS_USE_SESSION_TOKEN 0x2000
-#define PH_CREATE_PROCESS_USE_LINKED_TOKEN 0x10000
-#define PH_CREATE_PROCESS_SET_SESSION_ID 0x20000
-#define PH_CREATE_PROCESS_WITH_PROFILE 0x40000
-#define PH_CREATE_PROCESS_SET_UIACCESS 0x80000
+#define PH_CREATE_PROCESS_USE_PROCESS_TOKEN 0x1
+#define PH_CREATE_PROCESS_USE_SESSION_TOKEN 0x2
+#define PH_CREATE_PROCESS_USE_LINKED_TOKEN 0x4
+#define PH_CREATE_PROCESS_WITH_PROFILE 0x8
+#define PH_CREATE_PROCESS_SET_SESSION_ID 0x10
+#define PH_CREATE_PROCESS_SET_LOGON_ID 0x20
+#define PH_CREATE_PROCESS_SET_UIACCESS 0x40
 
 PHLIBAPI
 NTSTATUS
@@ -1358,6 +1675,7 @@ NTAPI
 PhCreateProcessAsUser(
     _In_ PPH_CREATE_PROCESS_AS_USER_INFO Information,
     _In_ ULONG Flags,
+    _In_opt_ PVOID StartupInfo,
     _Out_opt_ PCLIENT_ID ClientId,
     _Out_opt_ PHANDLE ProcessHandle,
     _Out_opt_ PHANDLE ThreadHandle
@@ -1372,23 +1690,23 @@ PhFilterTokenForLimitedUser(
     );
 
 PHLIBAPI
-PPH_STRING
+NTSTATUS
 NTAPI
 PhGetSecurityDescriptorAsString(
+    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor,
     _In_ SECURITY_INFORMATION SecurityInformation,
-    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
+    _Out_ PPH_STRING* SecurityDescriptorString
     );
 
 PHLIBAPI
 PSECURITY_DESCRIPTOR
 NTAPI
 PhGetSecurityDescriptorFromString(
-    _In_ PWSTR SecurityDescriptorString
+    _In_ PCWSTR SecurityDescriptorString
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhGetObjectSecurityDescriptorAsString(
     _In_ HANDLE Handle,
@@ -1409,8 +1727,8 @@ VOID
 NTAPI
 PhShellExecute(
     _In_opt_ HWND WindowHandle,
-    _In_ PWSTR FileName,
-    _In_opt_ PWSTR Parameters
+    _In_ PCWSTR FileName,
+    _In_opt_ PCWSTR Parameters
     );
 
 #define PH_SHELL_EXECUTE_DEFAULT 0x0
@@ -1422,10 +1740,10 @@ NTSTATUS
 NTAPI
 PhShellExecuteEx(
     _In_opt_ HWND WindowHandle,
-    _In_ PWSTR FileName,
-    _In_opt_ PWSTR Parameters,
-    _In_opt_ PWSTR Directory,
-    _In_ INT32 ShowWindowType,
+    _In_ PCWSTR FileName,
+    _In_opt_ PCWSTR Parameters,
+    _In_opt_ PCWSTR Directory,
+    _In_ LONG ShowWindowType,
     _In_ ULONG Flags,
     _In_opt_ ULONG Timeout,
     _Out_opt_ PHANDLE ProcessHandle
@@ -1436,7 +1754,7 @@ VOID
 NTAPI
 PhShellExploreFile(
     _In_ HWND WindowHandle,
-    _In_ PWSTR FileName
+    _In_ PCWSTR FileName
     );
 
 PHLIBAPI
@@ -1444,7 +1762,7 @@ VOID
 NTAPI
 PhShellProperties(
     _In_ HWND WindowHandle,
-    _In_ PWSTR FileName
+    _In_ PCWSTR FileName
     );
 
 typedef struct _NOTIFYICONDATAW NOTIFYICONDATAW, *PNOTIFYICONDATAW;
@@ -1464,7 +1782,7 @@ PhShellGetKnownFolderPath(
     _In_ PCGUID rfid, // REFKNOWNFOLDERID
     _In_ ULONG Flags,
     _In_opt_ HANDLE TokenHandle,
-    _Outptr_ PWSTR * FolderPath
+    _Outptr_ PWSTR* FolderPath
     );
 
 PHLIBAPI
@@ -1491,7 +1809,7 @@ PPH_STRING
 NTAPI
 PhQueryRegistryString(
     _In_ HANDLE KeyHandle,
-    _In_opt_ PPH_STRINGREF ValueName
+    _In_opt_ PCPH_STRINGREF ValueName
     );
 
 FORCEINLINE
@@ -1499,7 +1817,7 @@ PPH_STRING
 NTAPI
 PhQueryRegistryStringZ(
     _In_ HANDLE KeyHandle,
-    _In_ PWSTR ValueName
+    _In_ PCWSTR ValueName
     )
 {
     PH_STRINGREF valueName;
@@ -1514,7 +1832,7 @@ ULONG
 NTAPI
 PhQueryRegistryUlong(
     _In_ HANDLE KeyHandle,
-    _In_opt_ PPH_STRINGREF ValueName
+    _In_opt_ PCPH_STRINGREF ValueName
     );
 
 FORCEINLINE
@@ -1522,7 +1840,7 @@ ULONG
 NTAPI
 PhQueryRegistryUlongZ(
     _In_ HANDLE KeyHandle,
-    _In_ PWSTR ValueName
+    _In_ PCWSTR ValueName
     )
 {
     PH_STRINGREF valueName;
@@ -1537,7 +1855,7 @@ ULONG64
 NTAPI
 PhQueryRegistryUlong64(
     _In_ HANDLE KeyHandle,
-    _In_opt_ PPH_STRINGREF ValueName
+    _In_opt_ PCPH_STRINGREF ValueName
     );
 
 FORCEINLINE
@@ -1545,7 +1863,7 @@ ULONG64
 NTAPI
 PhQueryRegistryUlong64Z(
     _In_ HANDLE KeyHandle,
-    _In_ PWSTR ValueName
+    _In_ PCWSTR ValueName
     )
 {
     PH_STRINGREF valueName;
@@ -1671,7 +1989,7 @@ VOID
 NTAPI
 PhSetFileDialogFileName(
     _In_ PVOID FileDialog,
-    _In_ PWSTR FileName
+    _In_ PCWSTR FileName
     );
 
 PHLIBAPI
@@ -1685,8 +2003,8 @@ PhIsExecutablePacked(
     );
 
 /**
-* Image Coherency Scan Type
-*/
+ * Image Coherency Scan Type
+ */
 typedef enum _PH_IMGCOHERENCY_SCAN_TYPE
 {
     /**
@@ -1763,7 +2081,7 @@ ULONG
 NTAPI
 PhCrc32(
     _In_ ULONG Crc,
-    _In_reads_(Length) PCHAR Buffer,
+    _In_reads_(Length) PUCHAR Buffer,
     _In_ SIZE_T Length
     );
 
@@ -1778,11 +2096,17 @@ PhCrc32C(
 
 typedef enum _PH_HASH_ALGORITHM
 {
+    Crc32HashAlgorithm,
+    Crc32CHashAlgorithm,
     Md5HashAlgorithm,
     Sha1HashAlgorithm,
-    Crc32HashAlgorithm,
     Sha256HashAlgorithm
 } PH_HASH_ALGORITHM;
+
+#define PH_HASH_CRC32_LENGTH 4
+#define PH_HASH_MD5_LENGTH 16
+#define PH_HASH_SHA1_LENGTH 20
+#define PH_HASH_SHA256_LENGTH 32
 
 typedef struct _PH_HASH_CONTEXT
 {
@@ -1791,7 +2115,7 @@ typedef struct _PH_HASH_CONTEXT
 } PH_HASH_CONTEXT, *PPH_HASH_CONTEXT;
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhInitializeHash(
     _Out_ PPH_HASH_CONTEXT Context,
@@ -1799,23 +2123,54 @@ PhInitializeHash(
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhUpdateHash(
-    _Inout_ PPH_HASH_CONTEXT Context,
+    _In_ PPH_HASH_CONTEXT Context,
     _In_reads_bytes_(Length) PVOID Buffer,
     _In_ ULONG Length
     );
 
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhFinalHash(
-    _Inout_ PPH_HASH_CONTEXT Context,
+    _In_ PPH_HASH_CONTEXT Context,
     _Out_writes_bytes_(HashLength) PVOID Hash,
     _In_ ULONG HashLength,
     _Out_opt_ PULONG ReturnLength
     );
+
+/**
+ * Completes a hash operation and returns the result as a hexadecimal string.
+ *
+ * \param Context The hash context.
+ * \param HashString A variable which receives the resulting hexadecimal string.
+ * \return An NTSTATUS value indicating success or failure.
+ * \remarks The returned string contains the SHA-256 hash encoded as hexadecimal
+ * characters. The caller is responsible for freeing the string.
+ */
+FORCEINLINE
+NTSTATUS
+NTAPI
+PhFinalHashString(
+    _In_ PPH_HASH_CONTEXT Context,
+    _Out_ PPH_STRING* HashString
+    )
+{
+    NTSTATUS status;
+    ULONG hashLength = PH_HASH_SHA256_LENGTH;
+    UCHAR hash[PH_HASH_SHA256_LENGTH];
+
+    status = PhFinalHash(Context, hash, hashLength, &hashLength);
+
+    if (NT_SUCCESS(status))
+    {
+        *HashString = PhBufferToHexString(hash, hashLength);
+    }
+
+    return status;
+}
 
 typedef enum _PH_COMMAND_LINE_OPTION_TYPE
 {
@@ -1827,15 +2182,18 @@ typedef enum _PH_COMMAND_LINE_OPTION_TYPE
 typedef struct _PH_COMMAND_LINE_OPTION
 {
     ULONG Id;
-    PWSTR Name;
+    PCWSTR Name;
     PH_COMMAND_LINE_OPTION_TYPE Type;
 } PH_COMMAND_LINE_OPTION, *PPH_COMMAND_LINE_OPTION;
+typedef const PH_COMMAND_LINE_OPTION* PCPH_COMMAND_LINE_OPTION;
 
-typedef BOOLEAN (NTAPI *PPH_COMMAND_LINE_CALLBACK)(
-    _In_opt_ PPH_COMMAND_LINE_OPTION Option,
+typedef _Function_class_(PH_COMMAND_LINE_CALLBACK)
+BOOLEAN NTAPI PH_COMMAND_LINE_CALLBACK(
+    _In_opt_ PCPH_COMMAND_LINE_OPTION Option,
     _In_opt_ PPH_STRING Value,
     _In_opt_ PVOID Context
     );
+typedef PH_COMMAND_LINE_CALLBACK *PPH_COMMAND_LINE_CALLBACK;
 
 #define PH_COMMAND_LINE_IGNORE_UNKNOWN_OPTIONS 0x1
 #define PH_COMMAND_LINE_IGNORE_FIRST_PART 0x2
@@ -1844,7 +2202,7 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhParseCommandLinePart(
-    _In_ PPH_STRINGREF CommandLine,
+    _In_ PCPH_STRINGREF CommandLine,
     _Inout_ PULONG_PTR Index
     );
 
@@ -1852,8 +2210,8 @@ PHLIBAPI
 BOOLEAN
 NTAPI
 PhParseCommandLine(
-    _In_ PPH_STRINGREF CommandLine,
-    _In_opt_ PPH_COMMAND_LINE_OPTION Options,
+    _In_ PCPH_STRINGREF CommandLine,
+    _In_opt_ PCPH_COMMAND_LINE_OPTION Options,
     _In_ ULONG NumberOfOptions,
     _In_ ULONG Flags,
     _In_ PPH_COMMAND_LINE_CALLBACK Callback,
@@ -1864,14 +2222,14 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhEscapeCommandLinePart(
-    _In_ PPH_STRINGREF String
+    _In_ PCPH_STRINGREF String
     );
 
 PHLIBAPI
 BOOLEAN
 NTAPI
 PhParseCommandLineFuzzy(
-    _In_ PPH_STRINGREF CommandLine,
+    _In_ PCPH_STRINGREF CommandLine,
     _Out_ PPH_STRINGREF FileName,
     _Out_ PPH_STRINGREF Arguments,
     _Out_opt_ PPH_STRING *FullFileName
@@ -1888,15 +2246,15 @@ PHLIBAPI
 PPH_STRING
 NTAPI
 PhCommandLineQuoteSpaces(
-    _In_ PPH_STRINGREF CommandLine
+    _In_ PCPH_STRINGREF CommandLine
     );
 
 PHLIBAPI
 PPH_STRING
 NTAPI
 PhSearchFilePath(
-    _In_ PWSTR FileName,
-    _In_opt_ PWSTR Extension
+    _In_ PCWSTR FileName,
+    _In_opt_ PCWSTR Extension
     );
 
 PHLIBAPI
@@ -1947,26 +2305,29 @@ PhGetFileData(
     );
 
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhGetFileText(
+    _Out_ PVOID* String,
     _In_ HANDLE FileHandle,
     _In_ BOOLEAN Unicode
     );
 
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhFileReadAllText(
-    _In_ PPH_STRINGREF FileName,
+    _Out_ PVOID* String,
+    _In_ PCPH_STRINGREF FileName,
     _In_ BOOLEAN Unicode
     );
 
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhFileReadAllTextWin32(
-    _In_ PWSTR FileName,
+    _Out_ PVOID* String,
+    _In_ PCWSTR FileName,
     _In_ BOOLEAN Unicode
     );
 
@@ -2018,28 +2379,20 @@ PhDelayExecution(
     );
 
 PHLIBAPI
-ULONGLONG
+NTSTATUS
 NTAPI
-PhReadTimeStampCounter(
-    VOID
+PhDelayExecutionEx(
+    _In_ BOOLEAN Alertable,
+    _In_ PLARGE_INTEGER DelayInterval
     );
 
-PHLIBAPI
-BOOLEAN
-NTAPI
-PhQueryPerformanceCounter(
-    _Out_ PLARGE_INTEGER PerformanceCounter
-    );
-
-PHLIBAPI
-BOOLEAN
-NTAPI
-PhQueryPerformanceFrequency(
-    _Out_ PLARGE_INTEGER PerformanceFrequency
-    );
-
+//
 // Stopwatch
+//
 
+/**
+ * Represents a high‑resolution stopwatch.
+ */
 typedef struct _PH_STOPWATCH
 {
     LARGE_INTEGER StartCounter;
@@ -2047,6 +2400,10 @@ typedef struct _PH_STOPWATCH
     LARGE_INTEGER Frequency;
 } PH_STOPWATCH, *PPH_STOPWATCH;
 
+/**
+ * Initializes a stopwatch structure.
+ * \param Stopwatch The stopwatch to initialize.
+ */
 FORCEINLINE
 VOID
 PhInitializeStopwatch(
@@ -2057,6 +2414,12 @@ PhInitializeStopwatch(
     Stopwatch->EndCounter.QuadPart = 0;
 }
 
+/**
+ * Starts a stopwatch.
+ *
+ * \param Stopwatch The stopwatch to start.
+ * \remarks The performance counter frequency is also queried and stored.
+ */
 FORCEINLINE
 VOID
 PhStartStopwatch(
@@ -2067,6 +2430,11 @@ PhStartStopwatch(
     PhQueryPerformanceFrequency(&Stopwatch->Frequency);
 }
 
+/**
+ * Stops a stopwatch.
+ *
+ * \param Stopwatch The stopwatch to stop.
+ */
 FORCEINLINE
 VOID
 PhStopStopwatch(
@@ -2076,6 +2444,12 @@ PhStopStopwatch(
     PhQueryPerformanceCounter(&Stopwatch->EndCounter);
 }
 
+/**
+ * Retrieves the elapsed time of a stopwatch in milliseconds.
+ *
+ * \param Stopwatch The stopwatch.
+ * \return The elapsed time, in milliseconds.
+ */
 FORCEINLINE
 ULONG
 PhGetMillisecondsStopwatch(
@@ -2086,40 +2460,79 @@ PhGetMillisecondsStopwatch(
 
     elapsedMilliseconds.QuadPart = Stopwatch->EndCounter.QuadPart - Stopwatch->StartCounter.QuadPart;
     elapsedMilliseconds.QuadPart *= 1000;
-    elapsedMilliseconds.QuadPart /= Stopwatch->Frequency.QuadPart ? Stopwatch->Frequency.QuadPart  : 1;
+    elapsedMilliseconds.QuadPart /= Stopwatch->Frequency.QuadPart;
 
     return (ULONG)elapsedMilliseconds.QuadPart;
 }
 
+/**
+ * Retrieves the elapsed time of a stopwatch in microseconds.
+ *
+ * \param Stopwatch The stopwatch.
+ * \return The elapsed time, in microseconds.
+ */
 FORCEINLINE
-ULONGLONG
+DOUBLE
 PhGetMicrosecondsStopwatch(
     _In_ PPH_STOPWATCH Stopwatch
     )
 {
-    LARGE_INTEGER elapsedMicroseconds;
+    DOUBLE elapsedMicroseconds;
 
     // Convert to microseconds before dividing by ticks-per-second.
-    elapsedMicroseconds.QuadPart = Stopwatch->EndCounter.QuadPart - Stopwatch->StartCounter.QuadPart;
-    elapsedMicroseconds.QuadPart *= 1000000;
-    if (Stopwatch->Frequency.QuadPart)elapsedMicroseconds.QuadPart /= Stopwatch->Frequency.QuadPart;
+    elapsedMicroseconds = (DOUBLE)(Stopwatch->EndCounter.QuadPart - Stopwatch->StartCounter.QuadPart);
+    elapsedMicroseconds *= 1000000.0;
+    elapsedMicroseconds /= (DOUBLE)Stopwatch->Frequency.QuadPart;
 
-    return elapsedMicroseconds.QuadPart;
+    return elapsedMicroseconds;
+}
+
+/**
+ * Retrieves the elapsed time of a stopwatch in nanoseconds.
+ *
+ * \param Stopwatch The stopwatch.
+ * \return The elapsed time, in nanoseconds.
+ */
+FORCEINLINE
+DOUBLE
+PhGetNanosecondsStopwatch(
+    _In_ PPH_STOPWATCH Stopwatch
+    )
+{
+    DOUBLE elapsedNanoseconds;
+
+    // Convert to nanoseconds before dividing by ticks-per-second.
+    elapsedNanoseconds = (DOUBLE)(Stopwatch->EndCounter.QuadPart - Stopwatch->StartCounter.QuadPart);
+    elapsedNanoseconds *= 1000000000.0;
+    elapsedNanoseconds /= (DOUBLE)Stopwatch->Frequency.QuadPart;
+
+    return elapsedNanoseconds;
 }
 
 PHLIBAPI
-PPH_STRING
+NTSTATUS
 NTAPI
 PhApiSetResolveToHost(
-    _In_ PPH_STRINGREF ApiSetName
+    _In_ PAPI_SET_NAMESPACE Schema,
+    _In_ PCPH_STRINGREF ApiSetName,
+    _In_opt_ PCPH_STRINGREF ParentName,
+    _Out_ PPH_STRINGREF HostBinary
     );
 
 PHLIBAPI
 HRESULT
 NTAPI
 PhCreateProcessAsInteractiveUser(
-    _In_ PWSTR CommandLine,
-    _In_ PWSTR CurrentDirectory
+    _In_ PCWSTR CommandLine,
+    _In_ PCWSTR CurrentDirectory
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhCreateProcessClone(
+    _Out_ PHANDLE ProcessHandle,
+    _In_ HANDLE ProcessId
     );
 
 PHLIBAPI
@@ -2127,8 +2540,7 @@ NTSTATUS
 NTAPI
 PhCreateProcessReflection(
     _Out_ PPROCESS_REFLECTION_INFORMATION ReflectionInformation,
-    _In_opt_ HANDLE ProcessHandle,
-    _In_opt_ HANDLE ProcessId
+    _In_ HANDLE ProcessHandle
     );
 
 PHLIBAPI
@@ -2158,8 +2570,9 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhCreateProcessRedirection(
-    _In_ PPH_STRING CommandLine,
-    _In_opt_ PPH_STRINGREF CommandInput,
+    _In_opt_ PCPH_STRINGREF FileName,
+    _In_opt_ PCPH_STRINGREF CommandLine,
+    _In_opt_ PCPH_STRINGREF CommandInput,
     _Out_opt_ PPH_STRING* CommandOutput
     );
 
@@ -2195,14 +2608,38 @@ PhGetActiveComputerName(
     VOID
     );
 
+#include <devpropdef.h>
+#include <devquery.h>
+
 typedef enum _DEV_OBJECT_TYPE DEV_OBJECT_TYPE, *PDEV_OBJECT_TYPE;
 typedef enum _DEV_QUERY_FLAGS DEV_QUERY_FLAGS, *PDEV_QUERY_FLAGS;
 typedef struct _DEVPROPCOMPKEY DEVPROPCOMPKEY, *PDEVPROPCOMPKEY;
 typedef struct _DEVPROP_FILTER_EXPRESSION DEVPROP_FILTER_EXPRESSION, *PDEVPROP_FILTER_EXPRESSION;
 typedef struct _DEV_OBJECT DEV_OBJECT, *PDEV_OBJECT;
 
+FORCEINLINE
+const DEVPROPERTY*
+PhDevFindProperty(
+    _In_ const DEVPROPKEY* Key,
+    _In_ ULONG Store,
+    _In_ ULONG PropertiesCount,
+    _In_reads_(PropertiesCount) const DEVPROPERTY* Properties
+    )
+{
+    for (ULONG i = 0; i < PropertiesCount; i++)
+    {
+        const DEVPROPERTY* property = &Properties[i];
+
+        if (RtlEqualMemory(&property->CompKey.Key, Key, sizeof(DEVPROPKEY)) && property->CompKey.Store == Store)
+        {
+            return property;
+        }
+    }
+
+    return NULL;
+}
+
 PHLIBAPI
-_Check_return_
 HRESULT
 NTAPI
 PhDevGetObjects(
@@ -2213,7 +2650,7 @@ PhDevGetObjects(
     _In_ ULONG FilterExpressionCount,
     _In_reads_opt_(FilterExpressionCount) const DEVPROP_FILTER_EXPRESSION* FilterExpressions,
     _Out_ PULONG ObjectCount,
-    _Outptr_result_buffer_maybenull_(*ObjectCount) const DEV_OBJECT** Objects
+    _Outptr_result_buffer_(*ObjectCount) const DEV_OBJECT** Objects
     );
 
 PHLIBAPI
@@ -2222,6 +2659,71 @@ NTAPI
 PhDevFreeObjects(
     _In_ ULONG ObjectCount,
     _In_reads_(ObjectCount) const DEV_OBJECT* Objects
+    );
+
+typedef GUID  DEVPROPGUID, *PDEVPROPGUID;
+typedef ULONG DEVPROPID,   *PDEVPROPID;
+typedef struct _DEVPROPKEY DEVPROPKEY, *PDEVPROPKEY;
+typedef enum _DEVPROPSTORE DEVPROPSTORE, *PDEVPROPSTORE;
+typedef ULONG DEVPROPTYPE, *PDEVPROPTYPE;
+typedef struct _DEVPROPCOMPKEY DEVPROPCOMPKEY, *PDEVPROPCOMPKEY;
+
+PHLIBAPI
+HRESULT
+NTAPI
+PhDevGetObjectProperties(
+    _In_ DEV_OBJECT_TYPE ObjectType,
+    _In_ PCWSTR ObjectId,
+    _In_ DEV_QUERY_FLAGS QueryFlags,
+    _In_ ULONG RequestedPropertiesCount,
+    _In_reads_(RequestedPropertiesCount) const DEVPROPCOMPKEY* RequestedProperties,
+    _Out_ PULONG PropertiesCount,
+    _Outptr_result_buffer_(*PropertiesCount) const DEVPROPERTY** Properties
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhDevFreeObjectProperties(
+    _In_ ULONG PropertiesCount,
+    _In_reads_(PropertiesCount) const DEVPROPERTY* Properties
+    );
+
+PHLIBAPI
+HRESULT
+NTAPI
+PhDevCreateObjectQuery(
+    _In_ DEV_OBJECT_TYPE ObjectType,
+    _In_ DEV_QUERY_FLAGS QueryFlags,
+    _In_ ULONG RequestedPropertiesCount,
+    _In_reads_opt_(RequestedPropertiesCount) const DEVPROPCOMPKEY* RequestedProperties,
+    _In_ ULONG FilterExpressionCount,
+    _In_reads_opt_(FilterExpressionCount) const DEVPROP_FILTER_EXPRESSION* Filter,
+    _In_ PDEV_QUERY_RESULT_CALLBACK Callback,
+    _In_opt_ PVOID Context,
+    _Out_ PHDEVQUERY DevQuery
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhDevCloseObjectQuery(
+    _In_ HDEVQUERY QueryHandle
+    );
+
+#define PH_DEVKEY_HARDWARE        (0x00000000)
+#define PH_DEVKEY_SOFTWARE        (0x00000001)
+#define PH_DEVKEY_USER            (0x00000100)
+#define PH_DEVKEY_CONFIG          (0x00000200)
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhDevOpenObjectKey(
+    _In_ PPH_STRING DeviceInstanceId,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ ULONG Flags,
+    _Out_ PHANDLE KeyHandle
     );
 
 PHLIBAPI
@@ -2273,6 +2775,15 @@ PhTaskbarListSetOverlayIcon(
     _In_opt_ PCWSTR IconDescription
     );
 
+/**
+ * Adds an offset to a pointer with overflow protection.
+ *
+ * \param Pointer The pointer to modify.
+ * \param Offset The number of bytes to add.
+ * \return TRUE if the offset was successfully added, otherwise FALSE.
+ * \remarks The function fails if the addition would wrap past the end of the
+ * address space.
+ */
 FORCEINLINE
 BOOLEAN
 PhPtrAddOffset(
@@ -2290,6 +2801,16 @@ PhPtrAddOffset(
     return TRUE;
 }
 
+/**
+ * Advances a pointer by a specified offset while ensuring it does not exceed a limit.
+ *
+ * \param Pointer The pointer to modify.
+ * \param EndPointer The end boundary that must not be crossed.
+ * \param Offset The number of bytes to advance.
+ * \return TRUE if the pointer was successfully advanced, otherwise FALSE.
+ * \remarks The function fails if the addition overflows or if the resulting
+ * pointer would be greater than or equal to EndPointer.
+ */
 FORCEINLINE
 BOOLEAN
 PhPtrAdvance(
@@ -2310,6 +2831,126 @@ PhPtrAdvance(
     *Pointer = pointer;
     return TRUE;
 }
+
+/**
+ * \brief Reads bytes from a pointer and advances the pointer.
+ *
+ * \param Pointer Pointer to the address to read from and advance.
+ * \param EndPointer The end of the buffer.
+ * \param Buffer The buffer to read the bytes into.
+ * \param Size The number of bytes to read.
+ * \return TRUE if the bytes were successfully read, otherwise FALSE.
+ */
+FORCEINLINE
+BOOLEAN
+PhPtrReadBytes(
+    _Inout_ PVOID* Pointer,
+    _In_ PVOID EndPointer,
+    _Out_writes_bytes_(Size) PVOID Buffer,
+    _In_ SIZE_T Size
+    )
+{
+    PVOID next = *Pointer;
+
+    if (!PhPtrAdvance(&next, EndPointer, Size))
+        return FALSE;
+
+    memcpy(Buffer, *Pointer, Size);
+    *Pointer = next;
+    return TRUE;
+}
+
+/**
+ * \brief Advances a pointer by a specified number of bytes.
+ *
+ * \param Pointer Pointer to the address to advance.
+ * \param EndPointer The end of the buffer.
+ * \param Size The number of bytes to skip.
+ * \return TRUE if the pointer was successfully advanced, otherwise FALSE.
+ */
+FORCEINLINE
+BOOLEAN
+PhPtrSkipBytes(
+    _Inout_ PVOID* Pointer,
+    _In_ PVOID EndPointer,
+    _In_ SIZE_T Size
+    )
+{
+    PVOID next = *Pointer;
+
+    if (!PhPtrAdvance(&next, EndPointer, Size))
+        return FALSE;
+
+    *Pointer = next;
+    return TRUE;
+}
+
+/**
+ * \brief Reads a UTF-8 null-terminated string from a pointer and advances the pointer.
+ *
+ * \param Pointer Pointer to the address to read from and advance.
+ * \param EndPointer The end of the buffer.
+ * \param Buffer The pointer to the start of the string.
+ * \param Length The length of the string in characters, excluding the null terminator.
+ * \return TRUE if the string was successfully read, otherwise FALSE.
+ */
+_Success_(return)
+FORCEINLINE
+BOOLEAN
+PhPtrReadUtf8Z(
+    _Inout_ PVOID* Pointer,
+    _In_ PVOID EndPointer,
+    _Out_ PUCHAR* Buffer,
+    _Out_ PSIZE_T Length
+    )
+{
+    PUCHAR current = (PUCHAR)*Pointer;
+    PUCHAR start = (PUCHAR)*Pointer;
+
+    while ((ULONG_PTR)current < (ULONG_PTR)EndPointer)
+    {
+        if (*current == ANSI_NULL)
+        {
+            *Buffer = start;
+            *Length = (SIZE_T)(current - start);
+            *Pointer = current + 1;
+            return TRUE;
+        }
+        current++;
+    }
+
+    return FALSE;
+}
+
+typedef UINT D3DDDI_VIDEO_PRESENT_SOURCE_ID;
+typedef enum _D3DKMT_VIDPNSOURCEOWNER_TYPE D3DKMT_VIDPNSOURCEOWNER_TYPE;
+typedef struct _D3DKMT_QUERYVIDPNEXCLUSIVEOWNERSHIP D3DKMT_QUERYVIDPNEXCLUSIVEOWNERSHIP, *PD3DKMT_QUERYVIDPNEXCLUSIVEOWNERSHIP;
+
+BOOLEAN PhIsDirectXRunningFullScreen(
+    VOID
+    );
+
+NTSTATUS PhRestoreFromDirectXRunningFullScreen(
+    _In_ HANDLE ProcessHandle
+    );
+
+NTSTATUS PhQueryDirectXExclusiveOwnership(
+    _Inout_ PD3DKMT_QUERYVIDPNEXCLUSIVEOWNERSHIP QueryExclusiveOwnership
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhEndWindowSession(
+    _In_ HWND WindowHandle
+    );
+
+PHLIBAPI
+PCPH_STRINGREF
+NTAPI
+PhGetLuidKnownTypeToString(
+    _In_ PLUID Luid
+    );
 
 EXTERN_C_END
 

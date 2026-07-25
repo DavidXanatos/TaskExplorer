@@ -1,6 +1,6 @@
 #pragma once
 #include <qwidget.h>
-#include "../../../MiscHelpers/Common/TabPanel.h"
+#include "../../Common/TabPanel.h"
 
 class CSystemView;
 class CHandlesView;

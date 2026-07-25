@@ -244,7 +244,11 @@ public:
         tabOverlap.shape = (QTabBar::Shape)tabbar->shape();
         int overlap = tabbar->style()->pixelMetric(QStyle::PM_TabBarBaseOverlap, &tabOverlap, tabbar);
         QWidget *theParent = tabbar->parentWidget();
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         optTabBase->init(tabbar);
+#else
+        optTabBase->initFrom(tabbar);
+#endif
         optTabBase->shape = (QTabBar::Shape)tabbar->shape();
         optTabBase->documentMode = tabbar->documentMode();
         if (theParent && overlap > 0) {
@@ -285,7 +289,11 @@ public:
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override
         { return sizeHint(); }
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     void enterEvent(QEvent *event) override;
+#else
+    void enterEvent(QEnterEvent *event) override;
+#endif
     void leaveEvent(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
 };

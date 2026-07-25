@@ -36,6 +36,16 @@ namespace
             QToolBar* toolBar = new QToolBar();
             toolBar->addWidget( typeBox );
             toolBar->addWidget( btnExport );
+
+#if 0
+            QToolButton* btnLines = new QToolButton();
+            btnLines->setText( "Lines" );
+            btnLines->setToolButtonStyle( Qt::ToolButtonTextUnderIcon );
+            connect( btnLines, SIGNAL(clicked()), plot, SLOT(setUseLines()) );
+
+            toolBar->addWidget( btnLines );
+#endif
+
             addToolBar( toolBar );
 
             plot->setMode( typeBox->currentIndex() );

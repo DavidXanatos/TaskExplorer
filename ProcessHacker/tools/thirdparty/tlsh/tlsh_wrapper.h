@@ -11,13 +11,15 @@
 
 #pragma once
 
+EXTERN_C_START
+
 EXTERN_C
 BOOLEAN
 NTAPI
 PvGetTlshBufferHash(
     _In_ PVOID Buffer,
     _In_ SIZE_T BufferLength,
-    _Out_ PPH_STRING* HashResult
+    _Out_ char** HashResult
     );
 
 EXTERN_C
@@ -25,5 +27,7 @@ BOOLEAN
 NTAPI
 PvGetTlshFileHash(
     _In_ HANDLE FileHandle,
-    _Out_ PPH_STRING* HashResult
+    _Out_ char** HashResult
     );
+
+EXTERN_C_END

@@ -5,6 +5,8 @@ class CSidResolverJob;
 class CSidResolver: public QThread
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CSidResolver)
 public:
 	CSidResolver(QObject* parent = NULL);
 	~CSidResolver();
@@ -32,6 +34,7 @@ class CSidResolverJob : public QObject
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CSidResolverJob)
 protected:
 	friend class CSidResolver;
 

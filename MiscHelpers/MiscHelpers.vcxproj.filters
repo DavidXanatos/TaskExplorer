@@ -22,6 +22,12 @@
     <Filter Include="Common">
       <UniqueIdentifier>{964acff8-ecee-4dfc-939d-e2406a533100}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Archive">
+      <UniqueIdentifier>{a0d54e04-e4f3-46ce-80a1-11ec64722475}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common\MT">
+      <UniqueIdentifier>{b3bf4001-e4f1-49ab-9bfc-c7708ca30fb9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MiscHelpers.cpp">
@@ -75,9 +81,6 @@
     <ClCompile Include="Common\SplitTreeView.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="Common\TabPanel.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="Common\TreeItemModel.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -94,6 +97,51 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\CollapsibleGroupBox.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\CustomTheme.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\Archive.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveExtractor.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveFS.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveHelper.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveInterface.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveOpener.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveThread.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\ArchiveUpdater.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\CachedArchive.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Archive\SplitFile.cpp">
+      <Filter>Archive</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\MT\ThreadLock.cpp">
+      <Filter>Common\MT</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\OtherFunctions.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\NetworkAccessManager.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ObjectTracker.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
@@ -135,6 +183,48 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\CollapsibleGroupBox.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CustomStyles.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CustomTheme.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\Archive.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveExtractor.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveFS.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveHelper.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveInterface.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveIO.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveOpener.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\ArchiveUpdater.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Archive\CachedArchive.h">
+      <Filter>Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\MT\ThreadLock.h">
+      <Filter>Common\MT</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\OtherFunctions.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ObjectTracker.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -186,9 +276,6 @@
     <QtMoc Include="Common\SplitTreeView.h">
       <Filter>Common</Filter>
     </QtMoc>
-    <QtMoc Include="Common\TabPanel.h">
-      <Filter>Common</Filter>
-    </QtMoc>
     <QtMoc Include="Common\TreeItemModel.h">
       <Filter>Common</Filter>
     </QtMoc>
@@ -196,6 +283,15 @@
       <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="Common\TreeWidgetEx.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Archive\ArchiveThread.h">
+      <Filter>Archive</Filter>
+    </QtMoc>
+    <QtMoc Include="Archive\SplitFile.h">
+      <Filter>Archive</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\NetworkAccessManager.h">
       <Filter>Common</Filter>
     </QtMoc>
   </ItemGroup>

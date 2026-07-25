@@ -6,7 +6,7 @@ CAffinityDialog::CAffinityDialog(int CPUCount, QWidget* parent)
 	: QDialog(parent)
 {
 	m_pMainLayout = new QGridLayout(this);
-	m_pMainLayout->addWidget(new QLabel(tr("Affinity controlls which CPUs tasks are allowed to be executed on.")), 0, 0, 1, 4);
+	m_pMainLayout->addWidget(new QLabel(tr("Affinity controls which CPUs tasks are allowed to be executed on.")), 0, 0, 1, 4);
 
 	for (int j = 0; j < 4; j++)
 	{

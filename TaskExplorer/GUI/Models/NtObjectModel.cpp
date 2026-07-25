@@ -59,7 +59,7 @@ typedef struct _DIRECTORY_ENUM_CONTEXT
 
 } DIRECTORY_ENUM_CONTEXT, *PDIRECTORY_ENUM_CONTEXT;
 
-static BOOLEAN NTAPI EnumDirectoryObjectsCallback(_In_ PPH_STRINGREF Name, _In_ PPH_STRINGREF TypeName, _In_opt_ PVOID Context)
+static NTSTATUS NTAPI EnumDirectoryObjectsCallback(_In_ HANDLE RootDirectory, _In_ PPH_STRINGREF Name, _In_ PPH_STRINGREF TypeName, _In_opt_ PVOID Context)
 {
     PDIRECTORY_ENUM_CONTEXT context = (PDIRECTORY_ENUM_CONTEXT)Context;
 
@@ -68,7 +68,7 @@ static BOOLEAN NTAPI EnumDirectoryObjectsCallback(_In_ PPH_STRINGREF Name, _In_ 
 	NtObject.Type = QString::fromWCharArray(TypeName->Buffer, TypeName->Length / sizeof(wchar_t));
 	context->FoundObjects.append(NtObject);   
 
-    return TRUE;
+    return STATUS_SUCCESS;
 }
 
 QList<SNtObjectInfo> EnumDirectoryObjects(const QString& ObjectPath)
@@ -104,7 +104,7 @@ void CNtObjectModel::FillNode(const struct SNtObjectInfo* pNtObject, SNtObjectNo
 	if (pNtObject->Type == "Directory")
 	{
 		pChildNode->Values[eType].Raw = QVariant(); // sort directories first
-		pChildNode->Values[eType].Formated = pNtObject->Type;
+		pChildNode->Values[eType].Formatted = pNtObject->Type;
 	}
 	else
 	{
@@ -151,7 +151,7 @@ void CNtObjectModel::fetchMore(const QModelIndex &parent)
 	{
 		beginInsertRows(parent, 0, FoundObjects.size()-1);
 		for(QMap<QList<QVariant>, QList<STreeNode*> >::const_iterator I = New.begin(); I != New.end(); I++)
-			Fill(m_Root, QModelIndex(), I.key(), 0, I.value(), I.key(), NULL);
+			Fill(m_Root, /*QModelIndex(),*/ I.key(), 0, I.value(), NULL);
 		endInsertRows();
 	}
 }

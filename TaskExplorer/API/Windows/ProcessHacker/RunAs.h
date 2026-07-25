@@ -15,15 +15,42 @@ BOOLEAN PhShellProcessHackerEx(
 
 NTSTATUS PhExecuteRunAsCommand3(
 	_In_ HWND hWnd,
-	_In_ PWSTR Program,
-	_In_opt_ PWSTR UserName,
-	_In_opt_ PWSTR Password,
+	_In_ PCWSTR Program,
+	_In_opt_ PCWSTR UserName,
+	_In_opt_ PCWSTR Password,
 	_In_opt_ ULONG LogonType,
 	_In_opt_ HANDLE ProcessIdWithToken,
 	_In_ ULONG SessionId,
-	_In_ PWSTR DesktopName,
+	_In_ PCWSTR DesktopName,
 	_In_ BOOLEAN UseLinkedToken,
 	_In_ BOOLEAN CreateSuspendedProcess
+);
+
+_Success_(return)
+BOOLEAN PhRunAsGetLogonSid(
+    _In_ HANDLE ProcessHandle,
+    _Out_ PSID* UserSid,
+    _Out_ PSID* LogonSid
+);
+
+NTSTATUS PhRunAsExecutionAlias(
+    _In_ PPH_STRING Command
+);
+
+NTSTATUS PhRunAsUpdateDesktop(
+    _In_ PSID UserSid
+);
+
+NTSTATUS PhRunAsUpdateWindowStation(
+    _In_opt_ PSID UserSid,
+    _In_opt_ PSID LogonSid
+);
+
+NTSTATUS PhRunAsExecuteParentCommand(
+    _In_ HWND WindowHandle,
+    _In_ PCWSTR CommandLine,
+    _In_ HANDLE ProcessId,
+    _In_ BOOLEAN CreateSuspendedProcess
 );
 
 typedef struct _PH_RUNAS_SERVICE_PARAMETERS
@@ -40,6 +67,7 @@ typedef struct _PH_RUNAS_SERVICE_PARAMETERS
     BOOLEAN UseLinkedToken;
     PWSTR ServiceName;
     BOOLEAN CreateSuspendedProcess;
+    BOOLEAN CreateUIAccessProcess;
 } PH_RUNAS_SERVICE_PARAMETERS, *PPH_RUNAS_SERVICE_PARAMETERS;
 
 VOID PhpSplitUserName(_In_ PWSTR UserName, _Out_opt_ PPH_STRING *DomainPart, _Out_opt_ PPH_STRING *UserPart);
@@ -52,12 +80,14 @@ BOOLEAN PhInitializeNamespacePolicy(
 	VOID
 );
 
-VOID PhSetDesktopWinStaAccess(VOID);
+//VOID PhSetDesktopWinStaAccess(VOID);
 
-long SvcApiInvokeRunAsService(const QVariantMap& Parameters);
+qint32 SvcApiInvokeRunAsService(const QVariantMap& Parameters);
 
 NTSTATUS RunAsLimitedUser(PWSTR CommandLine);
+#ifndef USE_TASK_HELPER
 NTSTATUS RunAsTrustedInstaller(PWSTR CommandLine);
+#endif
 
 BOOLEAN PhMwpOnNotify(_In_ NMHDR *Header, _Out_ LRESULT *Result);
 

@@ -11,51 +11,77 @@
 
 #include "setup.h"
 
-NTSTATUS SetupUpdateBuild(
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupUpdateBuild(
     _In_ PPH_SETUP_CONTEXT Context
     )
 {
+    NTSTATUS status;
+
+    //
     // Create the folder.
-    if (!NT_SUCCESS(PhCreateDirectoryWin32(&Context->SetupInstallPath->sr)))
+    //
+
+    if (!NT_SUCCESS(status = PhCreateDirectoryWin32(&Context->SetupInstallPath->sr)))
     {
-        Context->ErrorCode = ERROR_INVALID_DATA;
+        Context->LastStatus = status;
         goto CleanupExit;
     }
 
+    //
     // Stop the application.
-    if (!SetupShutdownApplication(Context))
-        goto CleanupExit;
+    //
 
+    if (!NT_SUCCESS(status = SetupShutdownApplication(Context)))
+    {
+        Context->LastStatus = status;
+        goto CleanupExit;
+    }
+
+    //
     // Stop the kernel driver.
-    if (!SetupUninstallDriver(Context))
-        goto CleanupExit;
+    //
 
-    // Upgrade the legacy settings file.
+    if (!NT_SUCCESS(status = SetupUninstallDriver(Context)))
+    {
+        Context->LastStatus = status;
+        goto CleanupExit;
+    }
+
+    //
+    // Create the uninstaller.
+    //
+
+    if (!NT_SUCCESS(status = SetupCreateUninstallFile(Context)))
+    {
+        Context->LastStatus = status;
+        goto CleanupExit;
+    }
+
+    //
+    // Extract the updated files.
+    //
+
+    if (!NT_SUCCESS(status = SetupExtractBuild(Context)))
+    {
+        Context->LastStatus = status;
+        goto CleanupExit;
+    }
+
+    // Upgrade the settings file.
     SetupUpgradeSettingsFile();
 
-    // Remove the previous installation.
-    //if (Context->SetupResetSettings)
-    //    PhDeleteDirectory(Context->SetupInstallPath);
+    // Convert the settings file.
+    SetupConvertSettingsFile();
 
-    // Create the uninstaller.
-    if (!SetupCreateUninstallFile(Context))
-        goto CleanupExit;
-
-    // Create the ARP uninstall entries.
+    // Create the ARP uninstall config.
     SetupCreateUninstallKey(Context);
 
-    // Create autorun.
+    // Create Windows Error Reporting config.
+    SetupCreateLocalDumpsKey();
+
+    // Create the application path config.
     SetupCreateWindowsOptions(Context);
-
-    // Create shortcuts.
-    //SetupCreateShortcuts(Context);
-
-    // Set the default image execution options.
-    //SetupCreateImageFileExecutionOptions();
-
-    // Extract the updated files.
-    if (!SetupExtractBuild(Context))
-        goto CleanupExit;
 
     PostMessage(Context->DialogHandle, SETUP_SHOWUPDATEFINAL, 0, 0);
     return STATUS_SUCCESS;
@@ -159,14 +185,15 @@ VOID ShowUpdatePageDialog(
     config.cxWidth = 200;
     config.pszWindowTitle = PhApplicationName;
     config.pszMainInstruction = PhaFormatString(
-        L"Updating to version %lu.%lu.%lu...",
+        L"Updating to version %lu.%lu.%lu.%lu...",
         PHAPP_VERSION_MAJOR,
         PHAPP_VERSION_MINOR,
+        PHAPP_VERSION_BUILD,
         PHAPP_VERSION_REVISION
         )->Buffer;
     config.pszContent = L" ";
 
-    TaskDialogNavigatePage(Context->DialogHandle, &config);
+    PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
 VOID ShowUpdateCompletedPageDialog(
@@ -188,7 +215,7 @@ VOID ShowUpdateCompletedPageDialog(
     config.pszMainInstruction = L"Update complete.";
     config.pszContent = L"Select Close to exit.";
 
-    TaskDialogNavigatePage(Context->DialogHandle, &config);
+    PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
 VOID ShowUpdateErrorPageDialog(
@@ -215,13 +242,13 @@ VOID ShowUpdateErrorPageDialog(
     config.pszWindowTitle = PhApplicationName;
     config.pszMainInstruction = L"Error updating to the latest version.";
 
-    if (Context->ErrorCode)
+    if (Context->LastStatus)
     {
         PPH_STRING errorString;
 
-        if (errorString = PhGetStatusMessage(0, Context->ErrorCode))
+        if (errorString = PhGetStatusMessage(Context->LastStatus, 0))
             config.pszContent = PhGetString(errorString);
     }
 
-    TaskDialogNavigatePage(Context->DialogHandle, &config);
+    PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }

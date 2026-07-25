@@ -7,6 +7,8 @@ MISCHELPERS_EXPORT bool IsDebuggerAttached();
 
 MISCHELPERS_EXPORT void WaitForDebugger();
 
+MISCHELPERS_EXPORT void DbgPrint(const wchar_t* format, ...);
+
 #if defined(_DEBUG) || defined(_TRACE)
 
 
@@ -170,4 +172,5 @@ private:
 #endif
 
 MISCHELPERS_EXPORT void InitMiniDumpWriter(const wchar_t* Name, const wchar_t* Path);
+MISCHELPERS_EXPORT extern bool g_MyCrashHandlerExceptionFilter_Engaged;
 MISCHELPERS_EXPORT quint64 GetCurCycle();

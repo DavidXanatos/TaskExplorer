@@ -9,6 +9,7 @@ class CSymbolProvider : public QThread
 {
     Q_OBJECT
 
+	TRACK_OBJECT(CSymbolProvider)
 public:
 	CSymbolProvider(QObject *parent = nullptr);
     virtual ~CSymbolProvider();
@@ -49,6 +50,7 @@ class CAbstractSymbolProviderJob : public QObject
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CAbstractSymbolProviderJob)
 protected:
 	friend class CSymbolProvider;
 
@@ -67,6 +69,7 @@ class CSymbolProviderJob : public CAbstractSymbolProviderJob
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CSymbolProviderJob)
 protected:
 	friend class CSymbolProvider;
 
@@ -85,6 +88,7 @@ class CAddressProviderJob : public CAbstractSymbolProviderJob
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CAddressProviderJob)
 protected:
 	friend class CSymbolProvider;
 
@@ -103,6 +107,7 @@ class CStackProviderJob : public CAbstractSymbolProviderJob
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CStackProviderJob)
 protected:
 	friend class CSymbolProvider;
 

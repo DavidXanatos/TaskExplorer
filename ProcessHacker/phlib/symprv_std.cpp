@@ -37,9 +37,9 @@ EXTERN_C PPH_STRING PhGetStacktraceAsString(
     stacktrace trace = stacktrace::current(1);
     string result = to_string(trace);
 
-    return PhConvertUtf8ToUtf16(const_cast<PSTR>(result.c_str()));
+    return PhConvertUtf8ToUtf16(result.c_str());
 #else
-    return NULL;
+    return nullptr;
 #endif
 }
 
@@ -56,9 +56,9 @@ EXTERN_C PPH_STRING PhGetStacktraceSymbolFromAddress(
         _Stacktrace_string_fill_impl
         );
 
-    return PhConvertUtf8ToUtf16(const_cast<PSTR>(result.c_str()));
+    return PhConvertUtf8ToUtf16(result.c_str());
 #else
-    return NULL;
+    return nullptr;
 #endif
 }
 
@@ -67,7 +67,7 @@ EXTERN_C PPH_STRING PhGetObjectTypeStacktraceToString(
     )
 {
 #ifdef DEBUG
-    PPH_OBJECT_HEADER objectHeader = reinterpret_cast<PPH_OBJECT_HEADER>(PhObjectToObjectHeader(Object));
+    PPH_OBJECT_HEADER objectHeader = PhObjectToObjectHeader(Object);
     string result;
 
     __std_stacktrace_to_string(
@@ -77,8 +77,8 @@ EXTERN_C PPH_STRING PhGetObjectTypeStacktraceToString(
         _Stacktrace_string_fill_impl
         );
 
-    return PhConvertUtf8ToUtf16(const_cast<PSTR>(result.c_str()));
+    return PhConvertUtf8ToUtf16(result.c_str());
 #else
-    return NULL;
+    return nullptr;
 #endif
 }

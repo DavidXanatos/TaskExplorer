@@ -42,8 +42,8 @@ bool CWinHandle::InitStaticData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handl
 {
 	QWriteLocker Locker(&m_Mutex);
 
-	m_ProcessId = handle->UniqueProcessId;
-	m_HandleId = handle->HandleValue;
+	m_ProcessId = (quint64)handle->UniqueProcessId;
+	m_HandleId = (quint64)handle->HandleValue;
 	m_Object = (quint64)handle->Object;
 	m_Attributes = handle->HandleAttributes;
 	m_GrantedAccess = handle->GrantedAccess;
@@ -75,9 +75,9 @@ bool CWinHandle::InitExtData(struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX* handle, 
 		{
 			PPH_STRING typeName;
 
-			if (typeName = PhGetObjectTypeName(m_TypeIndex))
+			if (typeName = PhGetObjectTypeIndexName(m_TypeIndex))
 			{
-				PhMoveReference((PVOID*)&TypeName, typeName);
+				PhMoveReference(&TypeName, typeName);
 			}
 		}
 
@@ -337,8 +337,8 @@ NTSTATUS PhEnumHandlesGeneric(
 		for (i = 0; i < handles->HandleCount; i++)
 		{
 			convertedHandles->Handles[i].Object = handles->Handles[i].Object;
-			convertedHandles->Handles[i].UniqueProcessId = (ULONG_PTR)ProcessId;
-			convertedHandles->Handles[i].HandleValue = (ULONG_PTR)handles->Handles[i].Handle;
+			convertedHandles->Handles[i].UniqueProcessId = (HANDLE)ProcessId;
+			convertedHandles->Handles[i].HandleValue = (HANDLE)handles->Handles[i].Handle;
 			convertedHandles->Handles[i].GrantedAccess = (ULONG)handles->Handles[i].GrantedAccess;
 			convertedHandles->Handles[i].CreatorBackTraceIndex = 0;
 			convertedHandles->Handles[i].ObjectTypeIndex = handles->Handles[i].ObjectTypeIndex;
@@ -356,7 +356,7 @@ NTSTATUS PhEnumHandlesGeneric(
 		PSYSTEM_HANDLE_INFORMATION_EX convertedHandles;
 		ULONG i;
 
-		if (!NT_SUCCESS(status = PhEnumHandlesEx2(ProcessHandle, &handles)))
+		if (!NT_SUCCESS(status = PhEnumProcessHandles(ProcessHandle, &handles)))
 			goto FAILED;
 
 		convertedHandles = (PSYSTEM_HANDLE_INFORMATION_EX)PhAllocate(
@@ -369,15 +369,15 @@ NTSTATUS PhEnumHandlesGeneric(
 		for (i = 0; i < handles->NumberOfHandles; i++)
 		{
 			convertedHandles->Handles[i].Object = 0;
-			convertedHandles->Handles[i].UniqueProcessId = (ULONG_PTR)ProcessId;
-			convertedHandles->Handles[i].HandleValue = (ULONG_PTR)handles->Handles[i].HandleValue;
+			convertedHandles->Handles[i].UniqueProcessId = (HANDLE)ProcessId;
+			convertedHandles->Handles[i].HandleValue = (HANDLE)handles->Handles[i].HandleValue;
 			convertedHandles->Handles[i].GrantedAccess = handles->Handles[i].GrantedAccess;
 			convertedHandles->Handles[i].CreatorBackTraceIndex = 0;
 			convertedHandles->Handles[i].ObjectTypeIndex = (USHORT)handles->Handles[i].ObjectTypeIndex;
 			convertedHandles->Handles[i].HandleAttributes = handles->Handles[i].HandleAttributes;
 		}
 
-		PhFree(handles);
+		PhFreePage(handles);
 
 		*Handles = convertedHandles;
 		*FilterNeeded = FALSE;
@@ -507,17 +507,89 @@ QString CWinHandle::GetGrantedAccessString() const
 	return CastPhString(GrantedAccessSymbolicText);
 }
 
+QString CWinHandle::GetGenericAccessString() const
+{
+	QReadLocker Locker(&m_Mutex);
+
+	PPH_STRING GenericAccessSymbolicText = NULL;
+	GENERIC_MAPPING genericMapping;
+	PPH_STRING TypeName = CastQString(m_TypeName);
+
+	if (TypeName && NT_SUCCESS(PhGetObjectTypeMask(
+		&TypeName->sr,
+		&genericMapping
+	)))
+	{
+		PH_STRING_BUILDER stringBuilder;
+		PhInitializeStringBuilder(&stringBuilder, 64);
+		if (FlagOn(m_GrantedAccess, genericMapping.GenericRead))
+			PhAppendStringBuilder2(&stringBuilder, L"Read, ");
+		if (FlagOn(m_GrantedAccess, genericMapping.GenericWrite))
+			PhAppendStringBuilder2(&stringBuilder, L"Write, ");
+		if (FlagOn(m_GrantedAccess, genericMapping.GenericExecute))
+			PhAppendStringBuilder2(&stringBuilder, L"Execute, ");
+		if (FlagOn(m_GrantedAccess, genericMapping.GenericAll))
+			PhAppendStringBuilder2(&stringBuilder, L"All, ");
+		if (PhEndsWithStringRef2(&stringBuilder.String->sr, L", ", FALSE))
+			PhRemoveEndStringBuilder(&stringBuilder, 2);
+		GenericAccessSymbolicText = PhFinalStringBuilderString(&stringBuilder);
+	}
+
+	if(TypeName)
+		PhDereferenceObject(TypeName);
+
+	if (!PhIsNullOrEmptyString(GenericAccessSymbolicText))
+		return CastPhString(GenericAccessSymbolicText);
+	else
+		return tr("N/A");
+}
+
+QString CWinHandle::GetObjectSecurityDescriptorString() const
+{
+	QReadLocker Locker(&m_Mutex);
+
+	NTSTATUS status;
+	PSECURITY_DESCRIPTOR securityDescriptor;
+	PPH_STRING securityDescriptorString;
+
+	status = PhGetObjectSecurity(
+		(HANDLE)m_HandleId,
+		OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION |
+		DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION |
+		ATTRIBUTE_SECURITY_INFORMATION | SCOPE_SECURITY_INFORMATION,
+		&securityDescriptor
+	);
+
+	if (NT_SUCCESS(status))
+	{
+		status = PhGetSecurityDescriptorAsString(
+			securityDescriptor,
+			OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION |
+			DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION |
+			ATTRIBUTE_SECURITY_INFORMATION | SCOPE_SECURITY_INFORMATION,
+			&securityDescriptorString
+		);
+
+		PhFree(securityDescriptor);
+	}
+
+	if (NT_SUCCESS(status))
+		return CastPhString(securityDescriptorString);
+	else
+		return tr("0x%1").arg((quint32)status, 0, 16);
+}
+
 #define PH_FILEMODE_ASYNC 0x01000000
 #define PhFileModeUpdAsyncFlag(mode) (mode & (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT) ? mode &~ PH_FILEMODE_ASYNC: mode | PH_FILEMODE_ASYNC)
 
 PH_ACCESS_ENTRY FileModeAccessEntries[6] = 
 {
-    { L"FILE_FLAG_OVERLAPPED", PH_FILEMODE_ASYNC, FALSE, FALSE, L"Asynchronous" },
-    { L"FILE_FLAG_WRITE_THROUGH", FILE_WRITE_THROUGH, FALSE, FALSE, L"Write through" },
-    { L"FILE_FLAG_SEQUENTIAL_SCAN", FILE_SEQUENTIAL_ONLY, FALSE, FALSE, L"Sequental" },
-    { L"FILE_FLAG_NO_BUFFERING", FILE_NO_INTERMEDIATE_BUFFERING, FALSE, FALSE, L"No buffering" },
-    { L"FILE_SYNCHRONOUS_IO_ALERT", FILE_SYNCHRONOUS_IO_ALERT, FALSE, FALSE, L"Synchronous alert" },
-    { L"FILE_SYNCHRONOUS_IO_NONALERT", FILE_SYNCHRONOUS_IO_NONALERT, FALSE, FALSE, L"Synchronous non-alert" },
+    { (PWSTR)L"FILE_FLAG_OVERLAPPED", PH_FILEMODE_ASYNC, FALSE, FALSE, (PWSTR)L"Asynchronous" },
+    { (PWSTR)L"FILE_FLAG_WRITE_THROUGH", FILE_WRITE_THROUGH, FALSE, FALSE, (PWSTR)L"Write through" },
+    { (PWSTR)L"FILE_FLAG_SEQUENTIAL_SCAN", FILE_SEQUENTIAL_ONLY, FALSE, FALSE, (PWSTR)L"Sequental" },
+    { (PWSTR)L"FILE_FLAG_NO_BUFFERING", FILE_NO_INTERMEDIATE_BUFFERING, FALSE, FALSE, (PWSTR)L"No buffering" },
+    { (PWSTR)L"FILE_SYNCHRONOUS_IO_ALERT", FILE_SYNCHRONOUS_IO_ALERT, FALSE, FALSE, (PWSTR)L"Synchronous alert" },
+    { (PWSTR)L"FILE_SYNCHRONOUS_IO_NONALERT", FILE_SYNCHRONOUS_IO_NONALERT, FALSE, FALSE, (PWSTR)L"Synchronous non-alert" },
 };
 
 QString CWinHandle::GetFileAccessMode(quint32 Mode)
@@ -548,7 +620,7 @@ BOOLEAN NTAPI EnumGenericModulesCallback(_In_ PPH_MODULE_INFO Module, _In_opt_ P
 {
 	if (Module->Type == PH_MODULE_TYPE_MODULE || Module->Type == PH_MODULE_TYPE_WOW64_MODULE) {
 		PPH_STRING Name = PhCreateString(Module->FileName->Buffer);
-		PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Name, (ULONG64)Module->BaseAddress, Module->Size);
+		PhLoadModuleSymbolProvider((PPH_SYMBOL_PROVIDER)Context, Name, (PVOID)Module->BaseAddress, Module->Size);
 		PhDereferenceObject(Name);
 	}
     return TRUE;
@@ -590,7 +662,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 			HandleInfo["Context"] = (quint64)kphAlpcInfo.PortContext;
 
 			PKPH_ALPC_COMMUNICATION_NAMES_INFORMATION connectionNames;
-			if (!NT_SUCCESS(KphAlpcQueryComminicationsNamesInfo(processHandle, (HANDLE)m_HandleId, &connectionNames)))
+			if (!NT_SUCCESS(KphAlpcQueryCommunicationsNamesInfo(processHandle, (HANDLE)m_HandleId, &connectionNames)))
 			{
 				connectionNames = NULL;
 			}
@@ -673,18 +745,18 @@ QVariantMap CWinHandle::GetHandleInfo() const
 			HandleInfo["Position"] = FilePosition;
 		}
 
-		KPH_FILE_OBJECT_DRIVER fileObjectDriver;
-		if (KphCommsIsConnected() && NT_SUCCESS(KphQueryInformationObject(processHandle, (HANDLE)m_HandleId, KphObjectFileObjectDriver, &fileObjectDriver, sizeof(fileObjectDriver), NULL)))
+		HANDLE fileObjectDriver;
+		if (KphCommsIsConnected() && NT_SUCCESS(KphQueryInformationObject(processHandle, (HANDLE)m_HandleId, KphObjectFileObjectDriver, &fileObjectDriver, sizeof(HANDLE), NULL)))
 		{
 			PPH_STRING string;
 
-			if (NT_SUCCESS(PhGetDriverName(fileObjectDriver.DriverHandle, &string)))
+			if (NT_SUCCESS(PhGetDriverName(fileObjectDriver, &string)))
 				HandleInfo["DrvDevice"] = CastPhString(string);
 
-			if (NT_SUCCESS(PhGetDriverImageFileName(fileObjectDriver.DriverHandle, &string)))
+			if (NT_SUCCESS(PhGetDriverImageFileName(fileObjectDriver, &string)))
 				HandleInfo["DrvImage"] = CastPhString(string);
 
-			NtClose(fileObjectDriver.DriverHandle);
+			NtClose(fileObjectDriver);
 		}
 	}
 	else if(m_TypeName == "Section")
@@ -731,7 +803,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 
 			if (NT_SUCCESS(PhGetMutantBasicInformation(mutantHandle, &mutantInfo)))
 			{
-				HandleInfo["Count"] = mutantInfo.CurrentCount;
+				HandleInfo["Count"] = (qint32)mutantInfo.CurrentCount;
 				HandleInfo["Abandoned"] = mutantInfo.AbandonedState;
 			}
 
@@ -761,7 +833,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 			{
 				HandleInfo["PID"] = (quint64)procInfo.UniqueProcessId;
 
-				HandleInfo["ExitStatus"] = procInfo.ExitStatus;
+				HandleInfo["ExitStatus"] = (qint32)procInfo.ExitStatus;
 			}
 
 			KERNEL_USER_TIMES times;
@@ -793,7 +865,7 @@ QVariantMap CWinHandle::GetHandleInfo() const
 				HandleInfo["PID"] = (quint64)threadInfo.ClientId.UniqueProcess;
 				HandleInfo["TID"] = (quint64)threadInfo.ClientId.UniqueThread;
 
-				HandleInfo["ExitStatus"] = threadInfo.ExitStatus;
+				HandleInfo["ExitStatus"] = (qint32)threadInfo.ExitStatus;
 
 				//if (NT_SUCCESS(PhOpenProcess(
 				//    &processHandle,
@@ -1039,10 +1111,12 @@ NTSTATUS NTAPI CWinHandle__DuplicateHandle(_Out_ PHANDLE Handle, _In_ ACCESS_MAS
 	return PhpDuplicateHandleFromProcess(Handle, DesiredAccess, pPair->first, pPair->second);
 }
 
-NTSTATUS NTAPI CWinHandle__cbPermissionsClosed(_In_opt_ PVOID Context)
+NTSTATUS NTAPI CWinHandle__cbPermissionsClosed(_In_ HANDLE Handle, _In_ BOOLEAN Release, _In_opt_ PVOID Context)
 {
-	QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
-	delete pPair;
+	if (Release) {
+		QPair<HANDLE, HANDLE>* pPair = (QPair<HANDLE, HANDLE>*)Context;
+		delete pPair;
+	}
 
 	return STATUS_SUCCESS;
 }

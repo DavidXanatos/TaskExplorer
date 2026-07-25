@@ -16,7 +16,7 @@ class PlotBox : public QWidget
     Q_OBJECT
 
   public:
-    PlotBox( QWidget* parent = nullptr );
+    PlotBox( QWidget* parent = NULL );
 
   private Q_SLOTS:
     void enableZoomMode( bool on );

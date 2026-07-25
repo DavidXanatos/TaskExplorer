@@ -116,7 +116,7 @@ CSbieView::CSbieView(QWidget *parent)
 	m_pConf = new CPanelWidgetEx();
 	m_pConf->GetTree()->setSortingEnabled(true);
 	m_pConf->GetView()->setItemDelegate(theGUI->GetItemDelegate());
-	((QTreeWidgetEx*)m_pConf->GetView())->setHeaderLabels(tr("Name|Value").split("|"));
+	((QTreeWidgetEx*)m_pConf->GetView())->setHeaderLabels(tr("Name|Type|Value").split("|"));
 	m_pConf->GetView()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_iConf = m_pPaths->addTab(m_pConf, tr("Config"));
 }
@@ -272,19 +272,24 @@ void CSbieView::ShowProcesses(const QList<CProcessPtr>& Processes)
 	//not support wildcards, so the process name of the target process must match the name specified in the setting.
 	
 	auto UpdateConfig = [&](QMap<QString, QTreeWidgetItem*> & OldPaths, CPanelWidgetEx* pTree) {
-		QList<QPair<QString, QString>> Config = pSandboxieAPI->GetIniSection(BoxName);
+		QList<CSandboxieAPI::SbieIniValue> Config = pSandboxieAPI->GetIniSection(BoxName);
 
 		for(auto I = Config.begin(); I != Config.end(); ++I)
 		{
-			QString ID = I->first + "=" + I->second;
+			QString ID = I->Name + "=" + I->Value;
 
 			QTreeWidgetItem* pItem = OldPaths.take(ID);
 			if(!pItem)
 			{
 				pItem = new QTreeWidgetItem();
 				pItem->setData(0, Qt::UserRole, ID);
-				pItem->setText(0, I->first);
-				pItem->setText(1, I->second);
+				pItem->setText(0, I->Name);
+				QStringList Type;
+				if (I->Type & CONF_GET_NO_GLOBAL) Type << tr("Global");
+				if (I->Type & CONF_GET_NO_TEMPLS) Type << tr("Template");
+				if (I->Type & ~(CONF_GET_NO_GLOBAL | CONF_GET_NO_TEMPLS)) Type << QString::number(I->Type, 16);
+				pItem->setText(1, Type.join(", "));
+				pItem->setText(2, I->Value);
 				pTree->GetTree()->addTopLevelItem(pItem);
 			}
 		}

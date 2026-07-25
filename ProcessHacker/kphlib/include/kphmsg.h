@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022
+ *     jxy-s   2022-2026
  *
  */
 
@@ -52,20 +52,26 @@ typedef enum _KPH_MESSAGE_ID
     KphMsgQueryInformationThread,
     KphMsgQuerySection,
     KphMsgCompareObjects,
-    KphMsgGetMessageTimeouts,
-    KphMsgSetMessageTimeouts,
+    KphMsgGetInformerClientSettings,
+    KphMsgSetInformerClientSettings,
     KphMsgAcquireDriverUnloadProtection,
     KphMsgReleaseDriverUnloadProtection,
     KphMsgGetConnectedClientCount,
     KphMsgActivateDynData,
+    KphMsgIsDynDataActive,
     KphMsgRequestSessionAccessToken,
     KphMsgAssignProcessSessionToken,
     KphMsgAssignThreadSessionToken,
-    KphMsgGetInformerProcessFilter,
-    KphMsgSetInformerProcessFilter,
+    KphMsgGetInformerProcessSettings,
+    KphMsgSetInformerProcessSettings,
     KphMsgStripProtectedProcessMasks,
     KphMsgQueryVirtualMemory,
     KphMsgQueryHashInformationFile,
+    KphMsgOpenDevice,
+    KphMsgOpenDeviceDriver,
+    KphMsgOpenDeviceBaseDevice,
+    KphMsgGetInformerStats,
+    KphMsgGetInformerClientStats,
 
     MaxKphMsgClient,
     MaxKphMsgClientAllowed = 0x40000000,
@@ -227,6 +233,8 @@ typedef enum _KPH_MESSAGE_ID
     KphMsgRegPreSaveMergedKey,
     KphMsgRegPostSaveMergedKey,
     KphMsgImageVerify,
+    KphMsgSiloCreate,
+    KphMsgSiloTerminate,
 
     MaxKphMsg,
 
@@ -235,6 +243,7 @@ typedef enum _KPH_MESSAGE_ID
 
 C_ASSERT(sizeof(KPH_MESSAGE_ID) == 4);
 C_ASSERT(MaxKphMsg > 0);
+C_ASSERT(KPH_INFORMER_COUNT == (MaxKphMsg - (MaxKphMsgClientAllowed + 1)));
 
 typedef enum _KPH_MESSAGE_FIELD_ID
 {
@@ -338,20 +347,26 @@ typedef struct _KPH_MESSAGE
             KPHM_QUERY_INFORMATION_THREAD QueryInformationThread;
             KPHM_QUERY_SECTION QuerySection;
             KPHM_COMPARE_OBJECTS CompareObjects;
-            KPHM_GET_MESSAGE_TIMEOUTS GetMessageTimeouts;
-            KPHM_SET_MESSAGE_TIMEOUTS SetMessageTimeouts;
+            KPHM_GET_INFORMER_CLIENT_SETTINGS GetInformerClientSettings;
+            KPHM_SET_INFORMER_CLIENT_SETTINGS SetInformerClientSettings;
             KPHM_ACQUIRE_DRIVER_UNLOAD_PROTECTION AcquireDriverUnloadProtection;
             KPHM_RELEASE_DRIVER_UNLOAD_PROTECTION ReleaseDriverUnloadProtection;
             KPHM_GET_CONNECTED_CLIENT_COUNT GetConnectedClientCount;
             KPHM_ACTIVATE_DYNDATA ActivateDynData;
+            KPHM_IS_DYNDATA_ACTIVE IsDynDataActive;
             KPHM_REQUEST_SESSION_ACCESS_TOKEN RequestSessionAccessToken;
             KPHM_ASSIGN_PROCESS_SESSION_TOKEN AssignProcessSessionToken;
             KPHM_ASSIGN_THREAD_SESSION_TOKEN AssignThreadSessionToken;
-            KPHM_GET_INFORMER_PROCESS_FILTER GetInformerProcessFilter;
-            KPHM_SET_INFORMER_PROCESS_FILTER SetInformerProcessFilter;
+            KPHM_GET_INFORMER_PROCESS_SETTINGS GetInformerProcessSettings;
+            KPHM_SET_INFORMER_PROCESS_SETTINGS SetInformerProcessSettings;
             KPHM_STRIP_PROTECTED_PROCESS_MASKS StripProtectedProcessMasks;
             KPHM_QUERY_VIRTUAL_MEMORY QueryVirtualMemory;
             KPHM_QUERY_HASH_INFORMATION_FILE QueryHashInformationFile;
+            KPHM_OPEN_DEVICE OpenDevice;
+            KPHM_OPEN_DEVICE_DRIVER OpenDeviceDriver;
+            KPHM_OPEN_DEVICE_BASE_DEVICE OpenDeviceBaseDevice;
+            KPHM_GET_INFORMER_STATS GetInformerStats;
+            KPHM_GET_INFORMER_CLIENT_STATS GetInformerClientStats;
         } User;
 
         //
@@ -371,6 +386,8 @@ typedef struct _KPH_MESSAGE
             KPHM_FILE File;
             KPHM_REGISTRY Reg;
             KPHM_IMAGE_VERIFY ImageVerify;
+            KPHM_SILO_CREATE SiloCreate;
+            KPHM_SILO_TERMINATE SiloTerminate;
         } Kernel;
 
         //
@@ -390,7 +407,7 @@ typedef struct _KPH_MESSAGE
     {
         UCHAR Count;
         KPH_MESSAGE_DYNAMIC_TABLE_ENTRY Entries[8];
-        CHAR Buffer[0x1000 - 356];
+        CHAR Buffer[0x4000 - 460];
     } _Dyn;
 } KPH_MESSAGE, *PKPH_MESSAGE;
 typedef const KPH_MESSAGE* PCKPH_MESSAGE;
@@ -406,10 +423,10 @@ typedef const KPH_MESSAGE* PCKPH_MESSAGE;
 //
 C_ASSERT(sizeof(KPH_MESSAGE) <= 0xffff);
 #ifdef _WIN64
-C_ASSERT(sizeof(KPH_MESSAGE) == 0x1000);
-C_ASSERT(FIELD_OFFSET(KPH_MESSAGE, _Dyn) == 256);
-C_ASSERT(FIELD_OFFSET(KPH_MESSAGE, _Dyn.Buffer) == 356);
-C_ASSERT(KPH_MESSAGE_MIN_SIZE == 356);
+C_ASSERT(sizeof(KPH_MESSAGE) == 0x4000);
+C_ASSERT(FIELD_OFFSET(KPH_MESSAGE, _Dyn) == 360);
+C_ASSERT(FIELD_OFFSET(KPH_MESSAGE, _Dyn.Buffer) == 460);
+C_ASSERT(KPH_MESSAGE_MIN_SIZE == 460);
 C_ASSERT(KPH_MESSAGE_MIN_SIZE == FIELD_OFFSET(KPH_MESSAGE, _Dyn.Buffer));
 #else
 // not supported
@@ -418,6 +435,10 @@ C_ASSERT(KPH_MESSAGE_MIN_SIZE == FIELD_OFFSET(KPH_MESSAGE, _Dyn.Buffer));
 #pragma warning(pop)
 
 EXTERN_C_START
+
+VOID NTAPI KphMsgQuerySystemTime(
+    _Out_ PLARGE_INTEGER SystemTime
+    );
 
 VOID NTAPI KphMsgInit(
     _Out_writes_bytes_(KPH_MESSAGE_MIN_SIZE) PKPH_MESSAGE Message,

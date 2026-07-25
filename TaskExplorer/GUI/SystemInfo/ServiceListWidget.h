@@ -20,7 +20,7 @@ public:
 	QStringList GetServicesList() const;
 
 private slots:
-	void OnItemSellected(QTreeWidgetItem* item);
+	void OnItemSelected(QTreeWidgetItem* item);
 	void OnAdd();
 	void OnRemove();
 	void OnStart();

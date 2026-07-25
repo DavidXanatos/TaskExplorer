@@ -6,6 +6,7 @@ class CDnsLogEntry: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CDnsLogEntry)
 public:
 	CDnsLogEntry(const QString& HostName, const QList<QHostAddress>& Addresses);
 	virtual ~CDnsLogEntry() {}
@@ -73,6 +74,7 @@ class CDnsCacheEntry: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CDnsCacheEntry)
 public:
 	CDnsCacheEntry(const QString& HostName, quint16 Type, const QHostAddress& Address, const QString& ResolvedString = QString(), QObject *parent = nullptr);
 	virtual ~CDnsCacheEntry() {}

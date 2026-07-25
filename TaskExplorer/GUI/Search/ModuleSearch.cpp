@@ -40,7 +40,7 @@ CAbstractFinder* CModuleSearch::NewFinder()
 	if (m_pRegExp->isChecked())
 		Exp = m_pSearch->text();
 	else
-		Exp = QRegularExpression::wildcardToRegularExpression("*" + m_pSearch->text() + "*");
+		Exp = ".*" + m_pSearch->text().replace("\\*",".*").replace("\\?",".") + ".*";
 	QRegularExpression RegExp = QRegularExpression(Exp, QRegularExpression::CaseInsensitiveOption);
 
 	bool bOk;

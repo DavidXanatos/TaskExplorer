@@ -4,14 +4,14 @@
 #pragma once
 
 #include "compiler_check.hpp"
-#include "trace.hpp"
+#include "kernel_guids.hpp"
+#include "perfinfo_groupmask.hpp"
 #include "provider.hpp"
-
+#include "trace.hpp"
 #include "ut.hpp"
-
-#include <Evntrace.h>
 #include "version_helpers.hpp"
 
+#include <Evntrace.h>
 
 namespace krabs { namespace details {
 
@@ -55,12 +55,20 @@ namespace krabs { namespace details {
          * <summary>
          *   Enables the providers that are attached to the given trace.
          * </summary>
-         * <remarks>
-         *   This does a whole lot of nothing for kernel traces.
-         * </remarks>
          */
         static void enable_providers(
             const krabs::trace<krabs::details::kt> &trace);
+
+        /**
+         * <summary>
+         *   Enables the configured kernel rundown flags.
+         * </summary>
+         * <remarks>
+         *   This ETW feature is undocumented and should be used with caution.
+         * </remarks>
+         */
+        static void enable_rundown(
+            const krabs::trace<krabs::details::kt>& trace);
 
         /**
          * <summary>
@@ -114,21 +122,53 @@ namespace krabs { namespace details {
     inline void kt::enable_providers(
         const krabs::trace<krabs::details::kt> &trace)
     {
-		unsigned long flags = 0;
-        for (auto &provider : trace.providers_) 
-		{
-			flags |= provider.get().flags();
+        EVENT_TRACE_GROUPMASK_INFORMATION gmi = { 0 };
+        gmi.EventTraceInformationClass = EventTraceGroupMaskInformation;
+        gmi.TraceHandle = trace.registrationHandle_;
+
+        // initialise EventTraceGroupMasks to the values that have been enabled via the trace flags
+        ULONG status = NtQuerySystemInformation(SystemPerformanceTraceInformation, &gmi, sizeof(gmi), nullptr);
+        error_check_common_conditions(status);
+
+        auto group_mask_set = false;
+        for (auto& provider : trace.providers_) {
+            auto group = provider.get().group_mask();
+            PERFINFO_OR_GROUP_WITH_GROUPMASK(group, &(gmi.EventTraceGroupMasks));
+            group_mask_set |= (group != 0);
         }
 
-		// check if this is a rundown provider, i.e. no flags set of any kind
-		if(flags == 0)
-		{
-			static GUID KernelRundownGuid_I = { 0x3b9c9951, 0x3480, 0x4220, { 0x93, 0x77, 0x9c, 0x8e, 0x51, 0x84, 0xf5, 0xcd } };
+        if (group_mask_set) {
+            // This will fail on Windows 7, so only call it if truly neccessary
+            status = NtSetSystemInformation(SystemPerformanceTraceInformation, &gmi, sizeof(gmi));
+            error_check_common_conditions(status);
+        }
 
-			ULONG status = EnableTraceEx(&KernelRundownGuid_I, NULL, trace.registrationHandle_, 1, 0, 0x10, 0, 0, NULL);
-			error_check_common_conditions(status);
-		}
+        return;
     }
+
+    inline void kt::enable_rundown(
+        const krabs::trace<krabs::details::kt>& trace)
+    {
+        bool rundown_enabled = false;
+        ULONG rundown_flags = 0;
+        for (auto& provider : trace.providers_) {
+            rundown_enabled |= provider.get().rundown_enabled();
+            rundown_flags |= provider.get().rundown_flags();
+        }
+
+        if (rundown_enabled) {
+            ULONG status = EnableTraceEx2(trace.registrationHandle_,
+                                          &krabs::guids::rundown,
+                                          EVENT_CONTROL_CODE_ENABLE_PROVIDER,
+                                          0,
+                                          rundown_flags,
+                                          0,
+                                          0,
+                                          NULL);
+            error_check_common_conditions(status);
+        }
+    }
+
 
     inline void kt::forward_events(
         const EVENT_RECORD &record,
@@ -136,9 +176,13 @@ namespace krabs { namespace details {
     {
         for (auto &provider : trace.providers_) {
             if (provider.get().id() == record.EventHeader.ProviderId) {
-                provider.get().on_event(record);
+                provider.get().on_event(record, trace.context_);
+                return;
             }
         }
+
+        if (trace.default_callback_ != nullptr)
+            trace.default_callback_(record, trace.context_);
     }
 
     inline unsigned long kt::augment_file_mode()
@@ -158,7 +202,5 @@ namespace krabs { namespace details {
 
         return krabs::guid(SystemTraceControlGuid);
     }
-
-
 
 } /* namespace details */ } /* namespace krabs */

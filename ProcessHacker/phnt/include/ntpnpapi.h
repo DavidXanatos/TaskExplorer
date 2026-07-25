@@ -7,6 +7,8 @@
 #ifndef _NTPNPAPI_H
 #define _NTPNPAPI_H
 
+#include <cfg.h>
+
 typedef enum _PLUGPLAY_EVENT_CATEGORY
 {
     HardwareProfileChangeEvent,
@@ -105,7 +107,7 @@ typedef enum _PLUGPLAY_CONTROL_CLASS
     MaxPlugPlayControl
 } PLUGPLAY_CONTROL_CLASS, *PPLUGPLAY_CONTROL_CLASS;
 
-// pub
+// private
 typedef enum _DEVICE_RELATION_TYPE
 {
     BusRelations,
@@ -117,7 +119,7 @@ typedef enum _DEVICE_RELATION_TYPE
     TransportRelations
 } DEVICE_RELATION_TYPE, *PDEVICE_RELATION_TYPE;
 
-// pub
+// private
 typedef enum _BUS_QUERY_ID_TYPE
 {
     BusQueryDeviceID = 0,           // <Enumerator>\<Enumerator-specific device id>
@@ -128,14 +130,14 @@ typedef enum _BUS_QUERY_ID_TYPE
     BusQueryContainerID = 5         // unique id of the device's physical container
 } BUS_QUERY_ID_TYPE, *PBUS_QUERY_ID_TYPE;
 
-// pub
+// private
 typedef enum _DEVICE_TEXT_TYPE
 {
     DeviceTextDescription = 0,        // DeviceDesc property
     DeviceTextLocationInformation = 1 // DeviceLocation property
 } DEVICE_TEXT_TYPE, *PDEVICE_TEXT_TYPE;
 
-// pub
+// private
 typedef enum _DEVICE_USAGE_NOTIFICATION_TYPE
 {
     DeviceUsageTypeUndefined,
@@ -147,7 +149,8 @@ typedef enum _DEVICE_USAGE_NOTIFICATION_TYPE
     DeviceUsageTypeGuestAssigned
 } DEVICE_USAGE_NOTIFICATION_TYPE, *PDEVICE_USAGE_NOTIFICATION_TYPE;
 
-#if (PHNT_VERSION < PHNT_WIN8)
+#if (PHNT_VERSION < PHNT_WINDOWS_8)
+_Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -157,8 +160,9 @@ NtGetPlugPlayEvent(
     _Out_writes_bytes_(EventBufferSize) PPLUGPLAY_EVENT_BLOCK EventBlock,
     _In_ ULONG EventBufferSize
     );
-#endif
+#endif // (PHNT_VERSION < PHNT_WINDOWS_8)
 
+_Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -168,8 +172,7 @@ NtPlugPlayControl(
     _In_ ULONG PnPControlDataLength
     );
 
-#if (PHNT_VERSION >= PHNT_WIN7)
-
+_Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -177,6 +180,7 @@ NtSerializeBoot(
     VOID
     );
 
+_Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -184,6 +188,7 @@ NtEnableLastKnownGood(
     VOID
     );
 
+_Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -191,17 +196,14 @@ NtDisableLastKnownGood(
     VOID
     );
 
-#endif
-
-#if (PHNT_VERSION >= PHNT_VISTA)
+_Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtReplacePartitionUnit(
-    _In_ PUNICODE_STRING TargetInstancePath,
-    _In_ PUNICODE_STRING SpareInstancePath,
+    _In_ PCUNICODE_STRING TargetInstancePath,
+    _In_ PCUNICODE_STRING SpareInstancePath,
     _In_ ULONG Flags
     );
-#endif
 
-#endif
+#endif // _NTPNPAPI_H

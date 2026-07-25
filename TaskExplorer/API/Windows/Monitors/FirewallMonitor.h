@@ -4,6 +4,7 @@ class CFirewallMonitor : public QObject//QThread
 {
     Q_OBJECT
 
+	TRACK_OBJECT(CFirewallMonitor)
 public:
 	CFirewallMonitor(QObject *parent = nullptr);
     virtual ~CFirewallMonitor();

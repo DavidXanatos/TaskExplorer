@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2024
+ *     jxy-s   2022-2026
  *
  */
 
@@ -22,6 +22,14 @@
 #define KPH_HASH_EACACHE_SHA256_AUTHENTICODE KPH_KERNEL_PURGE_EA "SHA256A"
 #define KPH_HASH_EACACHE_SHA384              KPH_KERNEL_PURGE_EA "SHA384"
 #define KPH_HASH_EACACHE_SHA512              KPH_KERNEL_PURGE_EA "SHA512"
+
+C_ASSERT(sizeof(KPH_HASH_EACACHE_MD5)                 < MAXUCHAR);
+C_ASSERT(sizeof(KPH_HASH_EACACHE_SHA1)                < MAXUCHAR);
+C_ASSERT(sizeof(KPH_HASH_EACACHE_SHA1_AUTHENTICODE)   < MAXUCHAR);
+C_ASSERT(sizeof(KPH_HASH_EACACHE_SHA256)              < MAXUCHAR);
+C_ASSERT(sizeof(KPH_HASH_EACACHE_SHA256_AUTHENTICODE) < MAXUCHAR);
+C_ASSERT(sizeof(KPH_HASH_EACACHE_SHA384)              < MAXUCHAR);
+C_ASSERT(sizeof(KPH_HASH_EACACHE_SHA512)              < MAXUCHAR);
 
 #define KPH_HASH_EACACHE_LEN(x)                                                \
     ALIGN_UP_BY(FIELD_OFFSET(FILE_GET_EA_INFORMATION, EaName) +                \
@@ -53,12 +61,6 @@
     KPH_HASH_EACACHE_FULL_LEN(KPH_HASH_EACACHE_SHA512))
 
 C_ASSERT(KPH_HASH_EACACHE_FULL_MAX_LENGTH <= KPH_HASHING_BUFFER_SIZE);
-
-typedef struct _KPH_HASHING_INFRASTRUCTURE
-{
-    PAGED_LOOKASIDE_LIST HashingLookaside;
-    BYTE EaList[KPH_HASH_EACACHE_MAX_LENGTH];
-} KPH_HASHING_INFRASTRUCTURE, *PKPH_HASHING_INFRASTRUCTURE;
 
 typedef struct _KPH_HASHING_EACACHE_INFORMATION
 {
@@ -102,7 +104,6 @@ typedef struct _KPH_HASHING_CONTEXT
 } KPH_HASHING_CONTEXT, *PKPH_HASHING_CONTEXT;
 
 KPH_PROTECTED_DATA_SECTION_RO_PUSH();
-static const UNICODE_STRING KphpHashingInfraName = RTL_CONSTANT_STRING(L"KphHashingInfrastructure");
 static const KPH_HASHING_EACACHE_INFORMATION KphpHashEaCacheInfo[] =
 {
     { (128 / 8), RTL_CONSTANT_STRING(KPH_HASH_EACACHE_MD5) },
@@ -115,128 +116,11 @@ static const KPH_HASHING_EACACHE_INFORMATION KphpHashEaCacheInfo[] =
 };
 C_ASSERT(ARRAYSIZE(KphpHashEaCacheInfo) == MaxKphHashAlgorithm);
 KPH_PROTECTED_DATA_SECTION_RO_POP();
-KPH_PROTECTED_DATA_SECTION_PUSH();
-static PKPH_HASHING_INFRASTRUCTURE KphpHashingInfra = NULL;
-static PKPH_OBJECT_TYPE KphpHashingInfraType = NULL;
-KPH_PROTECTED_DATA_SECTION_POP();
+static BYTE KphpHashingEaList[KPH_HASH_EACACHE_MAX_LENGTH] = { 0 };
+static PAGED_LOOKASIDE_LIST KphpHashingLookaside = { 0 };
+static KPH_RUNDOWN KphpHashingRundown = { 0 };
 
-PAGED_FILE();
-
-/**
- * \brief Allocates hashing infrastructure object.
- *
- * \param[in] Size The size to allocate.
- *
- * \return Allocated hashing infrastructure object, null on failure.
- */
-_Function_class_(KPH_TYPE_ALLOCATE_PROCEDURE)
-_Return_allocatesMem_size_(Size)
-PVOID KSIAPI KphpAllocateHashingInfra(
-    _In_ SIZE_T Size
-    )
-{
-    PAGED_CODE();
-
-    return KphAllocateNPaged(Size, KPH_TAG_HASHING_INFRA);
-}
-
-/**
- * \brief Initializes hashing infrastructure.
- *
- * \param[in,out] Object The hashing infrastructure to initialize.
- * \param[in] Parameter Unused
- *
- * \return Successful or errant status.
- */
-_Function_class_(KPH_TYPE_INITIALIZE_PROCEDURE)
-_Must_inspect_result_
-NTSTATUS KSIAPI KphpInitHashingInfra(
-    _Inout_ PVOID Object,
-    _In_opt_ PVOID Parameter
-    )
-{
-    PKPH_HASHING_INFRASTRUCTURE infra;
-    PFILE_GET_EA_INFORMATION eaInfo;
-
-    PAGED_CODE();
-
-    UNREFERENCED_PARAMETER(Parameter);
-
-    infra = Object;
-
-    //
-    // Pre-populate the EA cache items into the buffer to be used when querying
-    // for the cached EA values. We compile time assert that it will all fit in
-    // the buffer.
-    //
-
-    eaInfo = (PFILE_GET_EA_INFORMATION)infra->EaList;
-    eaInfo->NextEntryOffset = 0;
-
-    for (ULONG i = 0; i < ARRAYSIZE(KphpHashEaCacheInfo); i++)
-    {
-        PCKPH_HASHING_EACACHE_INFORMATION eaCacheInfo;
-
-        eaInfo = Add2Ptr(eaInfo, eaInfo->NextEntryOffset);
-
-        eaCacheInfo = &KphpHashEaCacheInfo[i];
-
-        RtlCopyMemory(eaInfo->EaName,
-                      eaCacheInfo->EaName.Buffer,
-                      eaCacheInfo->EaName.Length);
-
-        eaInfo->EaNameLength = (UCHAR)eaCacheInfo->EaName.Length;
-        eaInfo->EaName[eaInfo->EaNameLength] = ANSI_NULL;
-
-        eaInfo->NextEntryOffset = FIELD_OFFSET(FILE_GET_EA_INFORMATION, EaName);
-        eaInfo->NextEntryOffset += eaCacheInfo->EaName.Length;
-        eaInfo->NextEntryOffset += sizeof(ANSI_NULL);
-        eaInfo->NextEntryOffset = ALIGN_UP_BY(eaInfo->NextEntryOffset,
-                                              sizeof(ULONG));
-    }
-
-    eaInfo->NextEntryOffset = 0;
-
-    KphInitializePagedLookaside(&infra->HashingLookaside,
-                                sizeof(KPH_HASHING_CONTEXT),
-                                KPH_TAG_HASHING_CONTEXT);
-
-    return STATUS_SUCCESS;
-}
-
-/**
- * \brief Deletes hashing infrastructure.
- *
- * \param[in,out] Object The hashing infrastructure to delete.
- */
-_Function_class_(KPH_TYPE_DELETE_PROCEDURE)
-VOID KSIAPI KphpDeleteHashingInfra(
-    _Inout_ PVOID Object
-    )
-{
-    PKPH_HASHING_INFRASTRUCTURE infra;
-
-    PAGED_CODE();
-
-    infra = Object;
-
-    KphDeletePagedLookaside(&infra->HashingLookaside);
-}
-
-/**
- * \brief Frees hashing infrastructure object.
- *
- * \param[in] Object The object to free.
- */
-_Function_class_(KPH_TYPE_FREE_PROCEDURE)
-VOID KSIAPI KphpFreeHashingInfra(
-    _In_freesMem_ PVOID Object
-    )
-{
-    PAGED_CODE();
-
-    KphFree(Object, KPH_TAG_HASHING_INFRA);
-}
+KPH_PAGED_FILE();
 
 /**
  * \brief Allocates a hashing context from the hashing look-aside list.
@@ -249,11 +133,9 @@ PKPH_HASHING_CONTEXT KphpAllocateHashingContext(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
-    NT_ASSERT(KphpHashingInfra);
-
-    return KphAllocateFromPagedLookaside(&KphpHashingInfra->HashingLookaside);
+    return KphAllocateFromPagedLookaside(&KphpHashingLookaside);
 }
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -261,7 +143,7 @@ VOID KphpCloseHashingEaCacheContext(
     _Inout_ PKPH_HASHING_EACACHE_CONTEXT Context
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (Context->FileObject)
     {
@@ -306,9 +188,7 @@ VOID KphpFreeHashingContext(
     _In_freesMem_ PKPH_HASHING_CONTEXT Context
     )
 {
-    PAGED_CODE_PASSIVE();
-
-    NT_ASSERT(KphpHashingInfra);
+    KPH_PAGED_CODE_PASSIVE();
 
     for (ULONG i = 0; i < ARRAYSIZE(Context->Hash); i++)
     {
@@ -320,7 +200,7 @@ VOID KphpFreeHashingContext(
 
     KphpCloseHashingEaCacheContext(&Context->EaCache);
 
-    KphFreeToPagedLookaside(&KphpHashingInfra->HashingLookaside, Context);
+    KphFreeToPagedLookaside(&KphpHashingLookaside, Context);
 }
 
 /**
@@ -334,31 +214,50 @@ NTSTATUS KphInitializeHashing(
     VOID
     )
 {
-    NTSTATUS status;
-    KPH_OBJECT_TYPE_INFO typeInfo;
+    PFILE_GET_EA_INFORMATION eaInfo;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
-    typeInfo.Allocate = KphpAllocateHashingInfra;
-    typeInfo.Initialize = KphpInitHashingInfra;
-    typeInfo.Delete = KphpDeleteHashingInfra;
-    typeInfo.Free = KphpFreeHashingInfra;
-    typeInfo.Flags = 0;
+    KphInitializeRundown(&KphpHashingRundown);
 
-    KphCreateObjectType(&KphpHashingInfraName,
-                        &typeInfo,
-                        &KphpHashingInfraType);
+    //
+    // Pre-populate the EA cache items into the buffer to be used when querying
+    // for the cached EA values. We compile time assert that it will all fit in
+    // the buffer.
+    //
 
-    status = KphCreateObject(KphpHashingInfraType,
-                             sizeof(KPH_HASHING_INFRASTRUCTURE),
-                             &KphpHashingInfra,
-                             NULL);
-    if (!NT_SUCCESS(status))
+    eaInfo = (PFILE_GET_EA_INFORMATION)KphpHashingEaList;
+    eaInfo->NextEntryOffset = 0;
+
+    for (ULONG i = 0; i < ARRAYSIZE(KphpHashEaCacheInfo); i++)
     {
-        KphpHashingInfra = NULL;
+        PCKPH_HASHING_EACACHE_INFORMATION eaCacheInfo;
+
+        eaInfo = Add2Ptr(eaInfo, eaInfo->NextEntryOffset);
+
+        eaCacheInfo = &KphpHashEaCacheInfo[i];
+
+        RtlCopyMemory(eaInfo->EaName,
+                      eaCacheInfo->EaName.Buffer,
+                      eaCacheInfo->EaName.Length);
+
+        eaInfo->EaNameLength = (UCHAR)eaCacheInfo->EaName.Length;
+        eaInfo->EaName[eaInfo->EaNameLength] = ANSI_NULL;
+
+        eaInfo->NextEntryOffset = FIELD_OFFSET(FILE_GET_EA_INFORMATION, EaName);
+        eaInfo->NextEntryOffset += eaCacheInfo->EaName.Length;
+        eaInfo->NextEntryOffset += sizeof(ANSI_NULL);
+        eaInfo->NextEntryOffset = ALIGN_UP_BY(eaInfo->NextEntryOffset,
+                                              sizeof(ULONG));
     }
 
-    return status;
+    eaInfo->NextEntryOffset = 0;
+
+    KphInitializePagedLookaside(&KphpHashingLookaside,
+                                sizeof(KPH_HASHING_CONTEXT),
+                                KPH_TAG_HASHING_CONTEXT);
+
+    return STATUS_SUCCESS;
 }
 
 /**
@@ -369,42 +268,10 @@ VOID KphCleanupHashing(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
-    if (KphpHashingInfra)
-    {
-        KphDereferenceObject(KphpHashingInfra);
-    }
-}
-
-/**
- * \brief References the signing infrastructure.
- */
-_IRQL_requires_max_(APC_LEVEL)
-VOID KphReferenceHashingInfrastructure(
-    VOID
-    )
-{
-    PAGED_CODE();
-
-    NT_ASSERT(KphpHashingInfra);
-
-    KphReferenceObject(KphpHashingInfra);
-}
-
-/**
- * \brief Dereferences the signing infrastructure.
- */
-_IRQL_requires_max_(APC_LEVEL)
-VOID KphDereferenceHashingInfrastructure(
-    VOID
-    )
-{
-    PAGED_CODE();
-
-    NT_ASSERT(KphpHashingInfra);
-
-    KphDereferenceObject(KphpHashingInfra);
+    KphWaitForRundown(&KphpHashingRundown);
+    KphDeletePagedLookaside(&KphpHashingLookaside);
 }
 
 /**
@@ -430,9 +297,7 @@ NTSTATUS KphHashBuffer(
     BCRYPT_ALG_HANDLE algHandle;
     BCRYPT_HASH_HANDLE hashHandle;
 
-    PAGED_CODE_PASSIVE();
-
-    NT_ASSERT(KphpHashingInfra);
+    KPH_PAGED_CODE_PASSIVE();
 
     hashHandle = NULL;
 
@@ -552,7 +417,7 @@ NTSTATUS KphpUpdateHash(
 {
     PVOID unsafeEnd;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
     NT_ASSERT(Entry->Handle && !Entry->HashComplete);
 
     if (!Authenticode)
@@ -660,7 +525,7 @@ NTSTATUS KphpUpdateHashes(
     _In_ ULONG Length
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     for (ULONG i = 0; i < ARRAYSIZE(Context->Hash); i++)
     {
@@ -716,7 +581,7 @@ NTSTATUS KphpInitializeHashingContext(
 {
     NTSTATUS status;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     status = STATUS_SUCCESS;
 
@@ -823,7 +688,7 @@ VOID KphpLoadHashesFromEaCache(
     ULONG returnLength;
     PFILE_FULL_EA_INFORMATION fullEaInfo;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     status = ObReferenceObjectByHandle(FileHandle,
                                        0,
@@ -850,8 +715,8 @@ VOID KphpLoadHashesFromEaCache(
                                     Context->Buffer,
                                     sizeof(Context->Buffer),
                                     FALSE,
-                                    KphpHashingInfra->EaList,
-                                    sizeof(KphpHashingInfra->EaList),
+                                    KphpHashingEaList,
+                                    sizeof(KphpHashingEaList),
                                     NULL,
                                     TRUE,
                                     &returnLength);
@@ -882,6 +747,13 @@ VOID KphpLoadHashesFromEaCache(
             PVOID buffer;
 
             eaCacheInfo = &KphpHashEaCacheInfo[i];
+
+            //
+            // None of our EA names will reach this limit. We compile time
+            // assert this and runtime assert here for clarity. This is
+            // necessary when advancing the buffer pointer below.
+            //
+            NT_ASSERT(eaCacheInfo->EaName.Length < MAXUCHAR);
 
             if (fullEaInfo->EaValueLength != eaCacheInfo->HashSize)
             {
@@ -947,7 +819,7 @@ VOID KphpInitializeEaCacheContext(
     ULONG64 usnValue;
     ULONG returnLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     RtlInitUnicodeString(&objectName, NULL);
 
@@ -1032,7 +904,7 @@ VOID KphpInitializeEaCacheContext(
     }
 
     oplockInput.StructureVersion = REQUEST_OPLOCK_CURRENT_VERSION;
-    oplockInput.StructureLength = sizeof(oplockInput);
+    oplockInput.StructureLength = sizeof(REQUEST_OPLOCK_INPUT_BUFFER);
     oplockInput.Flags = REQUEST_OPLOCK_INPUT_FLAG_REQUEST;
     oplockInput.RequestedOplockLevel = (OPLOCK_LEVEL_CACHE_READ |
                                         OPLOCK_LEVEL_CACHE_HANDLE);
@@ -1046,7 +918,7 @@ VOID KphpInitializeEaCacheContext(
                              &Context->EaCache.IoStatusBlock,
                              FSCTL_REQUEST_OPLOCK,
                              &oplockInput,
-                             sizeof(oplockInput),
+                             sizeof(REQUEST_OPLOCK_INPUT_BUFFER),
                              &Context->EaCache.OplockOutput,
                              sizeof(Context->EaCache.OplockOutput));
     if (status != STATUS_PENDING)
@@ -1071,7 +943,7 @@ VOID KphpInitializeEaCacheContext(
                                       NULL,
                                       0,
                                       &usnValue,
-                                      sizeof(usnValue),
+                                      sizeof(ULONG64),
                                       &returnLength);
     if (!NT_SUCCESS(status))
     {
@@ -1108,7 +980,7 @@ BOOLEAN KphpProgressEaCacheContext(
 {
     LARGE_INTEGER zeroTimeout = KPH_TIMEOUT(0);
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (!Context->EaCache.OplockEventObject)
     {
@@ -1174,7 +1046,7 @@ NTSTATUS KphpInitializeFileHashingContext(
 {
     NTSTATUS status;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphpLoadHashesFromEaCache(Context, FileHandle, AccessMode);
 
@@ -1216,7 +1088,7 @@ NTSTATUS KphpInitializeAuthenticodeHashing(
     ULONG securitySize;
     PVOID securityEnd;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     RtlZeroMemory(&Context->Authenticode, sizeof(Context->Authenticode));
 
@@ -1402,7 +1274,7 @@ NTSTATUS KphpFinishHashes(
     PFILE_FULL_EA_INFORMATION fullEaInfo;
     ULONG fullEaInfoLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     fullEaInfoLength = 0;
 
@@ -1513,7 +1385,7 @@ VOID KphpCopyHashes(
     _In_ ULONG NumberOfHashes
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     for (ULONG i = 0; i < NumberOfHashes; i++)
     {
@@ -1563,7 +1435,14 @@ NTSTATUS KphpHashFile(
     SIZE_T viewSize;
     ULONG readSize;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
+
+    if (!KphAcquireRundown(&KphpHashingRundown))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE, HASH, "Failed to acquire rundown.");
+
+        return STATUS_TOO_LATE;
+    }
 
     mappedBase = NULL;
 
@@ -1685,6 +1564,8 @@ Exit:
         KphpFreeHashingContext(context);
     }
 
+    KphReleaseRundown(&KphpHashingRundown);
+
     return status;
 }
 
@@ -1714,7 +1595,7 @@ NTSTATUS KphQueryHashInformationFile(
     PKPH_HASH_INFORMATION hashInfo;
     ULONG numberOfHashes;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     hashInfo = NULL;
     numberOfHashes = HashInformationLength / sizeof(KPH_HASH_INFORMATION);
@@ -1737,10 +1618,7 @@ NTSTATUS KphQueryHashInformationFile(
 
         __try
         {
-            ProbeInputBytes(HashInformation, HashInformationLength);
-            RtlCopyVolatileMemory(hashInfo,
-                                  HashInformation,
-                                  HashInformationLength);
+            CopyFromUser(hashInfo, HashInformation, HashInformationLength);
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -1768,8 +1646,7 @@ NTSTATUS KphQueryHashInformationFile(
     {
         __try
         {
-            ProbeOutputBytes(HashInformation, HashInformationLength);
-            RtlCopyMemory(HashInformation, hashInfo, HashInformationLength);
+            CopyToUser(HashInformation, hashInfo, HashInformationLength);
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -1813,7 +1690,7 @@ NTSTATUS KphQueryHashInformationFileObject(
     NTSTATUS status;
     HANDLE fileHandle;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     status = ObOpenObjectByPointer(FileObject,
                                    OBJ_KERNEL_HANDLE,

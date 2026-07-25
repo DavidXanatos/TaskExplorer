@@ -15,11 +15,11 @@ private slots:
 	void					OnTaskAction();
 
 	void					OnAffinity();
-
+	void					OnBoost();
 	void					OnPriority();
 
 protected:
-	virtual QList<CTaskPtr>	GetSellectedTasks() = 0;
+	virtual QList<CTaskPtr>	GetSelectedTasks() = 0;
 
 	virtual void			OnMenu(const QPoint& Point);
 
@@ -43,6 +43,7 @@ protected:
 
 	// Priority Items
 	QAction*				m_pAffinity;
+	QAction*				m_pBoost;
 
 	QMenu*					m_pPriority;
 	

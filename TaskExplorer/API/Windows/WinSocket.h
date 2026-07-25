@@ -7,6 +7,8 @@
 class CWinSocket : public CSocketInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinSocket)
 public:
 	CWinSocket(QObject *parent = nullptr);
 	virtual ~CWinSocket();

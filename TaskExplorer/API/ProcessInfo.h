@@ -8,6 +8,7 @@
 #include "AbstractTask.h"
 #include "MiscStats.h"
 #include "MemoryInfo.h"
+#include "HeapInfo.h"
 #include "SocketInfo.h"
 #include "DNSEntry.h"
 #include "PersistentPreset.h"
@@ -15,6 +16,22 @@
 #ifdef WIN32
 #undef GetUserName
 #endif
+
+struct SProcessUID
+{
+	SProcessUID() {}
+	SProcessUID(quint64 uPid, quint64 msTime);
+	__inline quint64 Get() const { return PUID; }
+	__inline void Set(quint64 UID) { PUID = UID; }
+	quint64 PUID = 0;
+
+	bool operator==(const SProcessUID& other) const { return PUID == other.PUID; }
+	bool operator!=(const SProcessUID& other) const { return PUID != other.PUID; }
+	bool operator<(const SProcessUID& other) const { return PUID < other.PUID; }
+	bool operator<=(const SProcessUID& other) const { return PUID <= other.PUID; }
+	bool operator>(const SProcessUID& other) const { return PUID > other.PUID; }
+	bool operator>=(const SProcessUID& other) const { return PUID >= other.PUID; }
+};
 
 struct STaskStatsEx : STaskStats
 {
@@ -35,6 +52,7 @@ class CProcessInfo: public CAbstractTask
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CProcessInfo)
 public:
 	CProcessInfo(QObject *parent = nullptr);
 	virtual ~CProcessInfo();
@@ -42,6 +60,9 @@ public:
 	// Basic
 	virtual quint64 GetProcessId() const				{ QReadLocker Locker(&m_Mutex); return m_ProcessId; }
 	virtual quint64 GetParentId() const					{ QReadLocker Locker(&m_Mutex); return m_ParentProcessId; }
+	virtual void SetParentUId(SProcessUID PID) 			{ QWriteLocker Locker(&m_Mutex); m_ParentProcessUId = PID; }
+	virtual SProcessUID GetProcessUId() const			{ QReadLocker Locker(&m_Mutex); return m_ProcessUId; }
+	virtual SProcessUID GetParentUId() const			{ QReadLocker Locker(&m_Mutex); return m_ParentProcessUId; }
 	virtual QString GetName() const						{ QReadLocker Locker(&m_Mutex); return m_ProcessName; }
 
 	virtual bool ValidateParent(CProcessInfo* pParent) const = 0;
@@ -94,6 +115,7 @@ public:
 	virtual bool IsServiceProcess() const = 0;
 	virtual bool IsUserProcess() const = 0;
 	virtual bool IsElevated() const = 0;
+	virtual bool IsPowerThrottled() const = 0; 
 
 	virtual void SetNetworkUsageFlag(quint64 uFlag)			{ QWriteLocker Locker(&m_StatsMutex); m_NetworkUsageFlags |= uFlag; }
 	virtual int GetNetworkUsageFlags() const				{ QReadLocker Locker(&m_StatsMutex); return m_NetworkUsageFlags; }
@@ -167,6 +189,8 @@ public:
 	virtual STATUS					EditEnvVariable(const QString& Name, const QString& Value) = 0;
 
 	virtual QMap<quint64, CMemoryPtr> GetMemoryMap() const = 0;
+	virtual QMap<quint64, CHeapPtr> GetHeapList() const = 0;
+	virtual STATUS FlushHeaps() = 0;
 
 	virtual QList<CWndPtr> GetWindows() const = 0;
 	virtual CWndPtr	GetMainWindow() const = 0;
@@ -198,6 +222,8 @@ protected:
 	// Basic
 	quint64							m_ProcessId;
 	quint64							m_ParentProcessId;
+	SProcessUID						m_ProcessUId;
+	SProcessUID						m_ParentProcessUId;
 	QString							m_ProcessName;
 
 	// Parameters

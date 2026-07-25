@@ -8,8 +8,6 @@
 
 #include "config.h"
 
-#include <ph.h>
-
 #include "strerror_override.h"
 
 #include <stdarg.h>
@@ -31,11 +29,11 @@
  *   RFC 6901 - https://tools.ietf.org/html/rfc6901
  */
 
-static void string_replace_all_occurrences_with_char(char *s, const char *occur, char repl_char)
+static void string_replace_all_occurrences_with_char(unsigned char *s, const unsigned char *occur, unsigned char repl_char)
 {
     size_t slen = strlen(s);
     size_t skip = strlen(occur) - 1; /* length of the occurrence, minus the char we're replacing */
-    char *p = s;
+    unsigned  char *p = s;
     while ((p = strstr(p, occur)))
     {
         *p = repl_char;
@@ -45,7 +43,7 @@ static void string_replace_all_occurrences_with_char(char *s, const char *occur,
     }
 }
 
-static int is_valid_index(const char *path, size_t *idx)
+static int is_valid_index(const unsigned char *path, size_t *idx)
 {
     size_t i, len = strlen(path);
     /* this code-path optimizes a bit, for when we reference the 0-9 index range
@@ -84,7 +82,7 @@ static int is_valid_index(const char *path, size_t *idx)
     return 1;
 }
 
-static int json_pointer_get_single_path(struct json_object *obj, char *path,
+static int json_pointer_get_single_path(struct json_object *obj, unsigned char *path,
                                         struct json_object **value, size_t *idx)
 {
     if (json_object_is_type(obj, json_type_array))
@@ -128,7 +126,7 @@ static int json_object_array_put_idx_cb(struct json_object *parent, size_t idx,
     return json_object_array_put_idx(parent, idx, value);
 }
 
-static int json_pointer_set_single_path(struct json_object *parent, const char *path,
+static int json_pointer_set_single_path(struct json_object *parent, const unsigned char *path,
                                         struct json_object *value,
                     json_pointer_array_set_cb array_set_cb, void *priv)
 {
@@ -156,12 +154,12 @@ static int json_pointer_set_single_path(struct json_object *parent, const char *
     return -1;
 }
 
-static int json_pointer_result_get_recursive(struct json_object *obj, char *path,
+static int json_pointer_result_get_recursive(struct json_object *obj, unsigned char *path,
                                              struct json_pointer_get_result *res)
 {
     struct json_object *parent_obj = obj;
-    size_t idx;
-    char *endp;
+    size_t idx = 0;
+    unsigned char *endp;
     int rc;
 
     /* All paths (on each recursion level must have a leading '/' */
@@ -192,7 +190,7 @@ static int json_pointer_result_get_recursive(struct json_object *obj, char *path
         res->parent = parent_obj;
         res->obj = obj;
         if (json_object_is_type(res->parent, json_type_array))
-            res->index_in_parent = idx;
+            res->index_in_parent = (uint32_t)idx;
         else
             res->key_in_parent = path;
     }
@@ -200,7 +198,7 @@ static int json_pointer_result_get_recursive(struct json_object *obj, char *path
     return 0;
 }
 
-static int json_pointer_object_get_recursive(struct json_object *obj, char *path,
+static int json_pointer_object_get_recursive(struct json_object *obj, unsigned char *path,
                                              struct json_object **value)
 {
     struct json_pointer_get_result res;
@@ -216,10 +214,10 @@ static int json_pointer_object_get_recursive(struct json_object *obj, char *path
     return 0;
 }
 
-int json_pointer_get_internal(struct json_object *obj, const char *path,
+int json_pointer_get_internal(struct json_object *obj, const unsigned char *path,
                               struct json_pointer_get_result *res)
 {
-    char *path_copy = NULL;
+    unsigned char *path_copy = NULL;
     int rc;
 
     if (!obj || !path)
@@ -233,12 +231,12 @@ int json_pointer_get_internal(struct json_object *obj, const char *path,
         res->parent = NULL;
         res->obj = obj;
         res->key_in_parent = NULL;
-        res->index_in_parent = -1;
+        res->index_in_parent = UINT32_MAX;
         return 0;
     }
 
     /* pass a working copy to the recursive call */
-    if (!(path_copy = PhDuplicateBytesZSafe((PSTR)path)))
+    if (!(path_copy = _strdup(path)))
     {
         errno = ENOMEM;
         return -1;
@@ -247,12 +245,12 @@ int json_pointer_get_internal(struct json_object *obj, const char *path,
     /* re-map the path string to the const-path string */
     if (rc == 0 && json_object_is_type(res->parent, json_type_object) && res->key_in_parent)
         res->key_in_parent = path + (res->key_in_parent - path_copy);
-    PhFree(path_copy);
+    free(path_copy);
 
     return rc;
 }
 
-int json_pointer_get(struct json_object *obj, const char *path, struct json_object **res)
+int json_pointer_get(struct json_object *obj, const unsigned char *path, struct json_object **res)
 {
     struct json_pointer_get_result jpres;
     int rc;
@@ -267,9 +265,9 @@ int json_pointer_get(struct json_object *obj, const char *path, struct json_obje
     return 0;
 }
 
-int json_pointer_getf(struct json_object *obj, struct json_object **res, const char *path_fmt, ...)
+int json_pointer_getf(struct json_object *obj, struct json_object **res, const unsigned char *path_fmt, ...)
 {
-    char *path_copy = NULL;
+    unsigned char *path_copy = NULL;
     int rc = 0;
     va_list args;
 
@@ -295,17 +293,17 @@ int json_pointer_getf(struct json_object *obj, struct json_object **res, const c
 
     rc = json_pointer_object_get_recursive(obj, path_copy, res);
 out:
-    PhFree(path_copy);
+    free(path_copy);
 
     return rc;
 }
 
-int json_pointer_set_with_array_cb(struct json_object **obj, const char *path,
+int json_pointer_set_with_array_cb(struct json_object **obj, const unsigned char *path,
                    struct json_object *value,
                    json_pointer_array_set_cb array_set_cb, void *priv)
 {
-    const char *endp;
-    char *path_copy = NULL;
+    const unsigned char *endp;
+    unsigned char *path_copy = NULL;
     struct json_object *set = NULL;
     int rc;
 
@@ -336,14 +334,14 @@ int json_pointer_set_with_array_cb(struct json_object **obj, const char *path,
     }
 
     /* pass a working copy to the recursive call */
-    if (!(path_copy = PhDuplicateBytesZSafe((PSTR)path)))
+    if (!(path_copy = _strdup(path)))
     {
         errno = ENOMEM;
         return -1;
     }
     path_copy[endp - path] = '\0';
     rc = json_pointer_object_get_recursive(*obj, path_copy, &set);
-    PhFree(path_copy);
+    free(path_copy);
 
     if (rc)
         return rc;
@@ -352,16 +350,16 @@ int json_pointer_set_with_array_cb(struct json_object **obj, const char *path,
     return json_pointer_set_single_path(set, endp, value, array_set_cb, priv);
 }
 
-int json_pointer_set(struct json_object **obj, const char *path, struct json_object *value)
+int json_pointer_set(struct json_object **obj, const unsigned char *path, struct json_object *value)
 {
     return json_pointer_set_with_array_cb(obj, path, value, json_object_array_put_idx_cb, NULL);
 }
 
-int json_pointer_setf(struct json_object **obj, struct json_object *value, const char *path_fmt,
+int json_pointer_setf(struct json_object **obj, struct json_object *value, const unsigned char *path_fmt,
                       ...)
 {
-    char *endp;
-    char *path_copy = NULL;
+    unsigned char *endp;
+    unsigned char *path_copy = NULL;
     struct json_object *set = NULL;
     va_list args;
     int rc = 0;
@@ -412,6 +410,6 @@ set_single_path:
     rc = json_pointer_set_single_path(set, endp, value,
                       json_object_array_put_idx_cb, NULL);
 out:
-    PhFree(path_copy);
+    free(path_copy);
     return rc;
 }

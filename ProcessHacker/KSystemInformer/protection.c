@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2020-2024
+ *     jxy-s   2020-2026
  *
  */
 
@@ -45,8 +45,10 @@ static PKPH_OBJECT_TYPE KphpImageLoadApcType = NULL;
 KPH_PROTECTED_DATA_SECTION_POP();
 static KPH_REFERENCE KphpDriverUnloadProtectionRef = { 0 };
 static PVOID KphpDriverUnloadPreviousRoutine = NULL;
+static KSI_WORK_QUEUE_ITEM KphpVerifyAndProtectWorkItem;
+static SLIST_HEADER KphpVerifyAndProtectList;
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Allocates an image load APC object.
@@ -61,7 +63,7 @@ PVOID KSIAPI KphpAllocateImageLoadApc(
     _In_ SIZE_T Size
     )
 {
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     return KphAllocateNPaged(Size, KPH_TAG_IMAGE_LOAD_APC);
 }
@@ -84,7 +86,7 @@ NTSTATUS KSIAPI KphpInitializeImageLoadApc(
     PKPH_IMAGE_LOAD_APC apc;
     PKPH_IMAGE_LOAD_APC_INIT init;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     NT_ASSERT(Parameter);
 
@@ -93,16 +95,12 @@ NTSTATUS KSIAPI KphpInitializeImageLoadApc(
 
     apc->Process = init->Process;
     KphReferenceObject(apc->Process);
-
     apc->ImageBase = init->ImageBase;
-
     apc->FileObject = init->FileObject;
     if (apc->FileObject)
     {
         ObReferenceObject(apc->FileObject);
     }
-
-    KphReferenceHashingInfrastructure();
 
     return STATUS_SUCCESS;
 }
@@ -119,7 +117,7 @@ VOID KSIAPI KphpDeleteImageLoadApc(
 {
     PKPH_IMAGE_LOAD_APC apc;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     apc = Object;
 
@@ -129,8 +127,6 @@ VOID KSIAPI KphpDeleteImageLoadApc(
     {
         ObDereferenceObject(apc->FileObject);
     }
-
-    KphDereferenceHashingInfrastructure();
 }
 
 /**
@@ -143,53 +139,199 @@ VOID KSIAPI KphpFreeImageLoadApc(
     _In_freesMem_ PVOID Object
     )
 {
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     KphFree(Object, KPH_TAG_IMAGE_LOAD_APC);
 }
 
 /**
- * \brief Checks if object protections should be suppressed.
+ * \brief Checks if object protections should be allowed.
  *
- * \param[in] Actor The actor process.
- * \param[in] Target The target process.
- * \param[out] Suppress Receives TRUE if object protections should be
- * suppressed, FALSE otherwise.
+ * \param[in] Info Optional object pre operation information.
+ * \param[in] Actor The actor process requesting access.
+ * \param[in] Object The process context associated with the object.
+ * \param[out] Allow Receives TRUE if object protections should be allowed,
+ * FALSE otherwise.
  *
  * \return Successful or errant status.
  */
-_IRQL_requires_max_(PASSIVE_LEVEL)
-NTSTATUS KphpShouldSuppressObjectProtections(
+_IRQL_requires_max_(APC_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphpShouldAllowObjectAccess(
+    _In_opt_ POB_PRE_OPERATION_INFORMATION Info,
     _In_ PKPH_PROCESS_CONTEXT Actor,
-    _In_ PKPH_PROCESS_CONTEXT Target,
-    _Out_ PBOOLEAN Suppress
+    _In_ PKPH_PROCESS_CONTEXT Object,
+    _Out_ PBOOLEAN Allow
     )
 {
     NTSTATUS status;
+    PKPH_PROCESS_CONTEXT source;
+    PKPH_PROCESS_CONTEXT target;
     BOOLEAN isLsass;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE();
 
-    *Suppress = FALSE;
+    *Allow = FALSE;
 
-    status = KphDominationCheck(Target->EProcess, Actor->EProcess, UserMode);
+    source = NULL;
+    target = NULL;
+
+    NT_ASSERT(FlagOn(Object->Protection.State, KPH_PROTECTION_ACTIVE));
+
+    if (!Info || (Info->Operation == OB_OPERATION_HANDLE_CREATE))
+    {
+        //
+        // Allow access to itself.
+        //
+        if (Actor->EProcess == Object->EProcess)
+        {
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
+                          PROTECTION,
+                          "Process %wZ (%lu) allowed to access itself",
+                          &Actor->ImageName,
+                          HandleToULong(Actor->ProcessId));
+
+            *Allow = TRUE;
+            status = STATUS_SUCCESS;
+            goto Exit;
+        }
+
+        //
+        // Allow maximum state processes access to one another.
+        //
+        if (KphTestProcessContextState(Actor, KPH_PROCESS_STATE_MAXIMUM) &&
+            KphTestProcessContextState(Object, KPH_PROCESS_STATE_MAXIMUM))
+        {
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
+                          PROTECTION,
+                          "Maximum state process %wZ (%lu) allowed to access "
+                          "maximum state process %wZ (%lu)",
+                          &Actor->ImageName,
+                          HandleToULong(Actor->ProcessId),
+                          &Object->ImageName,
+                          HandleToULong(Object->ProcessId));
+
+            *Allow = TRUE;
+            status = STATUS_SUCCESS;
+            goto Exit;
+        }
+
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Process %wZ (%lu) possibly subject to limited access "
+                      "to process %wZ (%lu)",
+                      &Actor->ImageName,
+                      HandleToULong(Actor->ProcessId),
+                      &Object->ImageName,
+                      HandleToULong(Object->ProcessId));
+    }
+    else if (Info && (Info->Operation == OB_OPERATION_HANDLE_DUPLICATE))
+    {
+        PEPROCESS process;
+
+        //
+        // Allow duplication to itself into itself from itself.
+        //
+        if ((Object->EProcess == Actor->EProcess) &&
+            (Object->EProcess == Info->Parameters->DuplicateHandleInformation.SourceProcess) &&
+            (Object->EProcess == Info->Parameters->DuplicateHandleInformation.TargetProcess))
+        {
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
+                          PROTECTION,
+                          "Process %wZ (%lu) allowed to access itself",
+                          &Actor->ImageName,
+                          HandleToULong(Actor->ProcessId));
+
+            *Allow = TRUE;
+            status = STATUS_SUCCESS;
+            goto Exit;
+        }
+
+        process = Info->Parameters->DuplicateHandleInformation.SourceProcess;
+        source = KphGetEProcessContext(process);
+        if (!source)
+        {
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
+                          PROTECTION,
+                          "KphGetEProcessContext(%lu) returned NULL",
+                          HandleToULong(PsGetProcessId(process)));
+
+            status = STATUS_INVALID_CID;
+            goto Exit;
+        }
+
+        process = Info->Parameters->DuplicateHandleInformation.TargetProcess;
+        target = KphGetEProcessContext(process);
+        if (!target)
+        {
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
+                          PROTECTION,
+                          "KphGetEProcessContext(%lu) returned NULL",
+                          HandleToULong(PsGetProcessId(process)));
+
+            status = STATUS_INVALID_CID;
+            goto Exit;
+        }
+
+        //
+        // Allow duplication between maximum state processes.
+        //
+        if (KphTestProcessContextState(Actor, KPH_PROCESS_STATE_MAXIMUM) &&
+            KphTestProcessContextState(source, KPH_PROCESS_STATE_MAXIMUM) &&
+            KphTestProcessContextState(target, KPH_PROCESS_STATE_MAXIMUM))
+        {
+            KphTracePrint(TRACE_LEVEL_VERBOSE,
+                          PROTECTION,
+                          "Maximum state process %wZ (%lu) allowed to duplicate "
+                          "object for process %wZ (%lu) from maximum state "
+                          "process %wZ (%lu) to maximum state process %wZ (%lu)",
+                          &Actor->ImageName,
+                          HandleToULong(Actor->ProcessId),
+                          &Object->ImageName,
+                          HandleToULong(Object->ProcessId),
+                          &source->ImageName,
+                          HandleToULong(source->ProcessId),
+                          &target->ImageName,
+                          HandleToULong(target->ProcessId));
+
+            *Allow = TRUE;
+            status = STATUS_SUCCESS;
+            goto Exit;
+        }
+
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Process %wZ (%lu) possibly subject to limited access "
+                      "to object for process %wZ (%lu) when duplicating object "
+                      "from process %wZ (%lu) to process %wZ (%lu)",
+                      &Actor->ImageName,
+                      HandleToULong(Actor->ProcessId),
+                      &Object->ImageName,
+                      HandleToULong(Object->ProcessId),
+                      &source->ImageName,
+                      HandleToULong(source->ProcessId),
+                      &target->ImageName,
+                      HandleToULong(target->ProcessId));
+    }
+
+    status = KphDominationCheck(Object->EProcess, Actor->EProcess, UserMode);
     if (!NT_SUCCESS(status))
     {
         //
-        // Grant access when the actor is a protected process and the target is
+        // Allow access when the actor is a protected process and the target is
         // not protected at a higher level.
         //
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "Protected process %wZ (%lu) access granted to PPL process %wZ (%lu)",
-                      &Target->ImageName,
-                      HandleToULong(Target->ProcessId),
+                      "PPL process %wZ (%lu) allowed to access process %wZ (%lu)",
                       &Actor->ImageName,
-                      HandleToULong(Actor->ProcessId));
+                      HandleToULong(Actor->ProcessId),
+                      &Object->ImageName,
+                      HandleToULong(Object->ProcessId));
 
-        *Suppress = TRUE;
-
-        return STATUS_SUCCESS;
+        *Allow = TRUE;
+        status = STATUS_SUCCESS;
+        goto Exit;
     }
 
     status = KphProcessIsLsass(Actor->EProcess, &isLsass);
@@ -200,23 +342,36 @@ NTSTATUS KphpShouldSuppressObjectProtections(
                       "KphProcessIsLsass failed: %!STATUS!",
                       status);
 
-        return status;
+        goto Exit;
     }
 
     if (isLsass)
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "Protected process %wZ (%lu) access granted to LSA process %wZ (%lu)",
-                      &Target->ImageName,
-                      HandleToULong(Target->ProcessId),
+                      "LSA process %wZ (%lu) allowed to access process %wZ (%lu)",
                       &Actor->ImageName,
-                      HandleToULong(Actor->ProcessId));
+                      HandleToULong(Actor->ProcessId),
+                      &Object->ImageName,
+                      HandleToULong(Object->ProcessId));
 
-        *Suppress = TRUE;
+        *Allow = TRUE;
+        goto Exit;
     }
 
-    return STATUS_SUCCESS;
+Exit:
+
+    if (target)
+    {
+        KphDereferenceObject(target);
+    }
+
+    if (source)
+    {
+        KphDereferenceObject(source);
+    }
+
+    return status;
 }
 
 /**
@@ -244,7 +399,7 @@ BOOLEAN KSIAPI KphpEnumProcessHandlesForProtection(
     ACCESS_MASK grantedAccess;
     ACCESS_MASK allowedAccessMask;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     NT_ASSERT(Parameter);
 
@@ -279,7 +434,7 @@ BOOLEAN KSIAPI KphpEnumProcessHandlesForProtection(
         }
 
         grantedAccess = ObpDecodeGrantedAccess(HandleTableEntry->GrantedAccess);
-        allowedAccessMask = parameter->Process->ProcessAllowedMask;
+        allowedAccessMask = parameter->Process->Protection.ProcessAllowedMask;
 
         if ((grantedAccess & allowedAccessMask) != grantedAccess)
         {
@@ -314,7 +469,7 @@ BOOLEAN KSIAPI KphpEnumProcessHandlesForProtection(
         }
 
         grantedAccess = ObpDecodeGrantedAccess(HandleTableEntry->GrantedAccess);
-        allowedAccessMask = parameter->Process->ThreadAllowedMask;
+        allowedAccessMask = parameter->Process->Protection.ThreadAllowedMask;
 
         if ((grantedAccess & allowedAccessMask) != grantedAccess)
         {
@@ -356,28 +511,24 @@ BOOLEAN KSIAPI KphpEnumProcessContextsForProtection(
 {
     NTSTATUS status;
     PKPH_ENUM_FOR_PROTECTION parameter;
-    BOOLEAN suppress;
+    BOOLEAN allow;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     NT_ASSERT(Parameter);
 
     parameter = Parameter;
 
-    if (Process->EProcess == parameter->Process->EProcess)
-    {
-        return FALSE;
-    }
-
-    suppress = FALSE;
-    status = KphpShouldSuppressObjectProtections(Process,
-                                                 parameter->Process,
-                                                 &suppress);
+    allow = FALSE;
+    status = KphpShouldAllowObjectAccess(NULL,
+                                         Process,
+                                         parameter->Process,
+                                         &allow);
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "KphpShouldSuppressObjectProtections failed: %!STATUS!",
+                      "KphpShouldAllowObjectAccess failed: %!STATUS!",
                       status);
 
         //
@@ -389,7 +540,7 @@ BOOLEAN KSIAPI KphpEnumProcessContextsForProtection(
         return TRUE;
     }
 
-    if (suppress)
+    if (allow)
     {
         return FALSE;
     }
@@ -423,56 +574,6 @@ BOOLEAN KSIAPI KphpEnumProcessContextsForProtection(
 }
 
 /**
- * \brief Stops protecting a process.
- *
- * \param[in] Process The process to stop protecting.
- */
-_IRQL_requires_max_(PASSIVE_LEVEL)
-VOID KphStopProtectingProcess(
-    _In_ PKPH_PROCESS_CONTEXT Process
-    )
-{
-    PAGED_CODE_PASSIVE();
-
-    KphAcquireRWLockExclusive(&Process->ProtectionLock);
-
-    Process->Protected = FALSE;
-    Process->ProcessAllowedMask = 0;
-    Process->ThreadAllowedMask = 0;
-
-    KphReleaseRWLock(&Process->ProtectionLock);
-
-    KphTracePrint(TRACE_LEVEL_INFORMATION,
-                  PROTECTION,
-                  "Stopped protecting process %wZ (%lu)",
-                  &Process->ImageName,
-                  HandleToULong(Process->ProcessId));
-}
-
-/**
- * \brief Determines if a process is protected.
- *
- * \param[in] Process The process to check.
- *
- * \return TRUE if the process is protected, FALSE otherwise.
- */
-_IRQL_requires_max_(PASSIVE_LEVEL)
-BOOLEAN KphIsProtectedProcess(
-    _In_ PKPH_PROCESS_CONTEXT Process
-    )
-{
-    BOOLEAN isProtectedProcess;
-
-    PAGED_CODE_PASSIVE();
-
-    KphAcquireRWLockShared(&Process->ProtectionLock);
-    isProtectedProcess = Process->Protected ? TRUE : FALSE;
-    KphReleaseRWLock(&Process->ProtectionLock);
-
-    return isProtectedProcess;
-}
-
-/**
  * \brief Starts protecting a process.
  *
  * \param[in] Process The process to start protecting.
@@ -485,56 +586,179 @@ BOOLEAN KphIsProtectedProcess(
  */
 _IRQL_requires_max_(PASSIVE_LEVEL)
 _Must_inspect_result_
-NTSTATUS KphStartProtectingProcess(
+NTSTATUS KphpStartProtectingProcess(
     _In_ PKPH_PROCESS_CONTEXT Process,
     _In_ ACCESS_MASK ProcessAllowedMask,
     _In_ ACCESS_MASK ThreadAllowedMask
     )
 {
-    NTSTATUS status;
-    PKPH_DYN dyn;
-    BOOLEAN releaseLock;
     SECURITY_SUBJECT_CONTEXT subjectContext;
     BOOLEAN accessGranted;
-    KPH_ENUM_FOR_PROTECTION context;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
-    releaseLock = FALSE;
-
-    dyn = KphReferenceDynData();
-    if (!dyn)
+    //
+    // N.B. We must be able to identify lsass before applying protections.
+    // Without the ability to identify lsass, a process may fail to start.
+    // Normally, lsass runs as a protected process; however, if it is not,
+    // we rely on dynamic data to identify it. If a system configuration
+    // does not run lsass as a protected process and also lacks dynamic data
+    // support, we cannot guarantee application compatibility or protection.
+    // In that case, access to the driver will be restricted.
+    //
+    // This distinction is important later within the object callbacks.
+    // Note that the KphpShouldAllowObjectAccess call in KphApplyObProtections
+    // depends on KphProcessIsLsass.
+    //
+    if (!KphCanIdentifyLsass())
     {
-        status = STATUS_NOINTERFACE;
-        goto Exit;
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "KphCanIdentifyLsass failed");
+
+        return STATUS_NOINTERFACE;
     }
 
     SeCaptureSubjectContextEx(NULL, Process->EProcess, &subjectContext);
-
     accessGranted = KphSinglePrivilegeCheckEx(SeDebugPrivilege,
                                               &subjectContext,
                                               UserMode);
-
     SeReleaseSubjectContext(&subjectContext);
-
     if (!accessGranted)
     {
-        status = STATUS_PRIVILEGE_NOT_HELD;
-        goto Exit;
+        return STATUS_PRIVILEGE_NOT_HELD;
     }
 
-    KphAcquireRWLockExclusive(&Process->ProtectionLock);
-    releaseLock = TRUE;
+    KphAcquireRWLockExclusive(&Process->Protection.AllowedMaskLock);
+    Process->Protection.ProcessAllowedMask = ProcessAllowedMask;
+    Process->Protection.ThreadAllowedMask = ThreadAllowedMask;
+    KphReleaseRWLock(&Process->Protection.AllowedMaskLock);
 
-    if (Process->Protected)
+    return STATUS_SUCCESS;
+}
+
+/**
+ * \brief Performs actions to verify a process and begin protecting it. Process
+ * protection is only applied to processes that meet the necessary requirements.
+ *
+ * \param[in] Process The context of a process verify and protect.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+VOID KphpVerifyProcessAndProtect(
+    _In_ PKPH_PROCESS_CONTEXT Process
+    )
+{
+    NTSTATUS status;
+    KPH_PROTECTION_STATE state;
+    ACCESS_MASK processAllowedMask;
+    ACCESS_MASK threadAllowedMask;
+
+    KPH_PAGED_CODE_PASSIVE();
+
+    NT_ASSERT(Process->Protection.State == KPH_PROTECTION_PENDING);
+
+    state = KPH_PROTECTION_UNTRUSTED;
+
+    if (!Process->ImageFileName || !Process->FileObject)
     {
-        KphTracePrint(TRACE_LEVEL_INFORMATION,
-                      PROTECTION,
-                      "Already protecting process %wZ (%lu)",
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      VERIFY,
+                      "%wZ (%lu) missing file object or name",
                       &Process->ImageName,
                       HandleToULong(Process->ProcessId));
 
-        status = STATUS_ALREADY_COMPLETE;
+        goto Exit;
+    }
+
+#ifdef IS_KTE
+    if (KphClientPath->Length != 0 && RtlPrefixUnicodeString(KphClientPath, Process->ImageFileName, TRUE))
+    {
+        //DbgPrintEx(DPFLTR_DEFAULT_ID, 0xFFFFFFFF, "BAM KphTestIfMightBeClient: %S (%d)\n", Process->ImageFileName->Buffer, (ULONG)(UINT_PTR)Process->ProcessId);
+        goto Exit;
+    }
+#endif
+
+    if (Process->FileObject->WriteAccess)
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "%wZ (%lu) image \"%wZ\" is writable",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      Process->ImageFileName);
+
+        goto Exit;
+    }
+
+    if (IoGetTransactionParameterBlock(Process->FileObject))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "%wZ (%lu) image \"%wZ\" is in a transaction",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      Process->ImageFileName);
+
+        goto Exit;
+    }
+
+    if (!Process->FileObject->SectionObjectPointer ||
+        MmDoesFileHaveUserWritableReferences(Process->FileObject->SectionObjectPointer))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "%wZ (%lu) image \"%wZ\" has user writable references",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      Process->ImageFileName);
+
+        goto Exit;
+    }
+
+    status = KphVerifyFile(Process->ImageFileName, Process->FileObject);
+
+    KphTracePrint(TRACE_LEVEL_VERBOSE,
+                  PROTECTION,
+                  "%wZ (%lu) KphVerifyFile(\"%wZ\"): %!STATUS!",
+                  &Process->ImageName,
+                  HandleToULong(Process->ProcessId),
+                  Process->ImageFileName,
+                  status);
+
+    if (!NT_SUCCESS(status))
+    {
+        goto Exit;
+    }
+
+    ClearFlag(state, KPH_PROTECTION_UNTRUSTED);
+    SetFlag(state, KPH_PROTECTION_VERIFIED);
+
+    if (KphProtectionsSuppressed())
+    {
+        //
+        // Allow all access, but still exercise the code by registering.
+        //
+        processAllowedMask = ((ACCESS_MASK)-1);
+        threadAllowedMask = ((ACCESS_MASK)-1);
+    }
+    else
+    {
+        processAllowedMask = KPH_PROTECTED_PROCESS_MASK;
+        threadAllowedMask = KPH_PROTECTED_THREAD_MASK;
+    }
+
+    status = KphpStartProtectingProcess(Process,
+                                        processAllowedMask,
+                                        threadAllowedMask);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "%wZ (%lu) KphStartProtectingProcess failed: %!STATUS!",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      status);
+
         goto Exit;
     }
 
@@ -544,38 +768,139 @@ NTSTATUS KphStartProtectingProcess(
                   &Process->ImageName,
                   HandleToULong(Process->ProcessId));
 
-    Process->Protected = TRUE;
-    Process->ProcessAllowedMask = ProcessAllowedMask;
-    Process->ThreadAllowedMask = ThreadAllowedMask;
-
-    context.Dyn = dyn;
-    context.Status = STATUS_SUCCESS;
-    context.Process = Process;
-
-    KphEnumerateProcessContexts(KphpEnumProcessContextsForProtection, &context);
-
-    status = context.Status;
-
-    if (!NT_SUCCESS(status))
-    {
-        Process->Protected = FALSE;
-        Process->ProcessAllowedMask = 0;
-        Process->ThreadAllowedMask = 0;
-    }
+    SetFlag(state, KPH_PROTECTION_ACTIVE);
 
 Exit:
 
-    if (releaseLock)
+    NT_ASSERT(!FlagOn(state, KPH_PROTECTION_PENDING));
+    state = InterlockedExchange((LONG*)&Process->Protection.State, state);
+    NT_ASSERT(state == KPH_PROTECTION_PENDING);
+    KeSetEvent(&Process->Protection.CompletionEvent, EVENT_INCREMENT, FALSE);
+}
+
+/**
+ * \brief Worker routine for verifying and protecting processes.
+ *
+ * \param[in] Parameter Unused parameter.
+ */
+_Function_class_(KSI_WORK_QUEUE_ROUTINE)
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_same_
+VOID KSIAPI KphpVerifyProcessAndProtectWorker(
+    _In_opt_ PVOID Parameter
+    )
+{
+    PSLIST_ENTRY entry;
+
+    KPH_PAGED_CODE_PASSIVE();
+
+    UNREFERENCED_PARAMETER(Parameter);
+
+    entry = InterlockedFlushSList(&KphpVerifyAndProtectList);
+
+    while (entry)
     {
-        KphReleaseRWLock(&Process->ProtectionLock);
+        PKPH_PROCESS_CONTEXT process;
+
+        process = CONTAINING_RECORD(entry,
+                                    KPH_PROCESS_CONTEXT,
+                                    Protection.ListEntry);
+
+        entry = entry->Next;
+
+        KphpVerifyProcessAndProtect(process);
+
+        KphDereferenceObject(process);
+    }
+}
+
+/**
+ * \brief Retrieves the protection state of a process.
+ *
+ * \param[in] Process The process to retrieve the protection state of.
+ *
+ * \return The protection state of the process.
+ */
+_IRQL_requires_max_(APC_LEVEL)
+KPH_PROTECTION_STATE KphGetProtectionState(
+    _In_ PKPH_PROCESS_CONTEXT Process
+    )
+{
+    KPH_PROTECTION_STATE state;
+
+    KPH_PAGED_CODE();
+
+    state = InterlockedCompareExchange((LONG*)&Process->Protection.State,
+                                       KPH_PROTECTION_PENDING,
+                                       KPH_PROTECTION_NONE);
+    if (state == KPH_PROTECTION_NONE)
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Queuing process %wZ (%lu) for protection evaluation",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId));
+
+        KphReferenceObject(Process);
+
+        if (!InterlockedPushEntrySList(&KphpVerifyAndProtectList,
+                                       &Process->Protection.ListEntry))
+        {
+            KsiQueueWorkItem(&KphpVerifyAndProtectWorkItem, CriticalWorkQueue);
+        }
+
+        SetFlag(state, KPH_PROTECTION_PENDING);
     }
 
-    if (dyn)
+    if (FlagOn(state, KPH_PROTECTION_PENDING))
     {
-        KphDereferenceObject(dyn);
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Waiting for protection evaluation of process %wZ (%lu)",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId));
+
+        KeWaitForSingleObject(&Process->Protection.CompletionEvent,
+                              Executive,
+                              KernelMode,
+                              FALSE,
+                              NULL);
+
+        state = ReadAcquire((LONG*)&Process->Protection.State);
+
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Finished waiting for protection evaluation of process "
+                      "%wZ (%lu), state: 0x%08x",
+                      &Process->ImageName,
+                      HandleToULong(Process->ProcessId),
+                      state);
+
+        NT_ASSERT(!FlagOn(state, KPH_PROTECTION_PENDING));
     }
 
-    return status;
+    return state;
+}
+
+/**
+ * \brief Determines if a process is protected.
+ *
+ * \param[in] Process The process to check.
+ *
+ * \return TRUE if the process is protected, FALSE otherwise.
+ */
+_IRQL_requires_max_(APC_LEVEL)
+BOOLEAN KphIsProtectedProcess(
+    _In_ PKPH_PROCESS_CONTEXT Process
+    )
+{
+    KPH_PROTECTION_STATE state;
+
+    KPH_PAGED_CODE();
+
+    state = KphGetProtectionState(Process);
+
+    return BooleanFlagOn(state, KPH_PROTECTION_ACTIVE);
 }
 
 /**
@@ -588,19 +913,16 @@ Exit:
  *
  * \return TRUE if we should permit, FALSE otherwise.
  */
-_IRQL_requires_max_(PASSIVE_LEVEL)
-BOOLEAN
-KphpShouldPermitCreatorProcess(
+_IRQL_requires_max_(APC_LEVEL)
+BOOLEAN KphpShouldPermitCreatorProcess(
     _In_ POB_PRE_OPERATION_INFORMATION Info,
     _In_ PKPH_THREAD_CONTEXT Actor,
     _In_ PKPH_PROCESS_CONTEXT Process
     )
 {
-    KPH_PROCESS_STATE processState;
+    KPH_PAGED_CODE();
 
-    PAGED_CODE_PASSIVE();
-
-    NT_ASSERT(Process->VerifiedProcess);
+    NT_ASSERT(FlagOn(Process->Protection.State, KPH_PROTECTION_VERIFIED));
 
     if (Info->Operation == OB_OPERATION_HANDLE_DUPLICATE)
     {
@@ -615,9 +937,8 @@ KphpShouldPermitCreatorProcess(
         return FALSE;
     }
 
-    processState = KphGetProcessState(Actor->ProcessContext);
-
-    return ((processState & KPH_PROCESS_STATE_MINIMUM) == KPH_PROCESS_STATE_MINIMUM);
+    return KphTestProcessContextState(Actor->ProcessContext,
+                                      KPH_PROCESS_STATE_MINIMUM);
 }
 
 /**
@@ -626,8 +947,7 @@ KphpShouldPermitCreatorProcess(
  *
  * \param[in,out] Info Object pre operation information to apply protections.
  */
-#ifndef KPP_NO_SECURITY
-_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_max_(APC_LEVEL)
 VOID KphApplyObProtections(
     _Inout_ POB_PRE_OPERATION_INFORMATION Info
     )
@@ -636,12 +956,12 @@ VOID KphApplyObProtections(
     PKPH_PROCESS_CONTEXT process;
     PKPH_THREAD_CONTEXT actor;
     BOOLEAN releaseLock;
-    BOOLEAN suppress;
     ACCESS_MASK allowedAccessMask;
     ACCESS_MASK desiredAccess;
     PACCESS_MASK access;
+    BOOLEAN allow;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE();
 
     process = NULL;
     actor = NULL;
@@ -687,39 +1007,7 @@ VOID KphApplyObProtections(
         }
     }
 
-    if (!process || (process->EProcess == actor->ProcessContext->EProcess))
-    {
-        goto Exit;
-    }
-
-    KphAcquireRWLockShared(&process->ProtectionLock);
-    releaseLock = TRUE;
-
-    if (!process->Protected)
-    {
-        goto Exit;
-    }
-
-    suppress = FALSE;
-    status = KphpShouldSuppressObjectProtections(actor->ProcessContext,
-                                                 process,
-                                                 &suppress);
-    if (!NT_SUCCESS(status))
-    {
-        KphTracePrint(TRACE_LEVEL_WARNING,
-                      PROTECTION,
-                      "KphpShouldSuppressObjectProtections failed: %!STATUS!",
-                      status);
-
-        //
-        // We shouldn't get here since we would have succeeded when starting to
-        // protect the process to begin with. So if we fail here we fail-safe
-        // and do not suppress.
-        //
-        suppress = FALSE;
-    }
-
-    if (suppress)
+    if (!process)
     {
         goto Exit;
     }
@@ -737,9 +1025,52 @@ VOID KphApplyObProtections(
         desiredAccess = *access;
     }
 
+    if (!KphIsProtectedProcess(process))
+    {
+        goto Exit;
+    }
+
+    KphAcquireRWLockShared(&process->Protection.AllowedMaskLock);
+    releaseLock = TRUE;
+
+    allow = FALSE;
+    status = KphpShouldAllowObjectAccess(Info,
+                                         actor->ProcessContext,
+                                         process,
+                                         &allow);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_WARNING,
+                      PROTECTION,
+                      "KphpShouldAllowObjectAccess failed: %!STATUS!",
+                      status);
+
+        //
+        // We shouldn't get here since we would have succeeded when starting to
+        // protect the process to begin with. So if we fail here we fail-safe
+        // and do not allow.
+        //
+        allow = FALSE;
+    }
+
+    if (allow)
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      PROTECTION,
+                      "Allowing process %wZ (%lu) access (0x%08x) to "
+                      "process %wZ (%lu)",
+                      &actor->ProcessContext->ImageName,
+                      HandleToULong(actor->ProcessContext->ProcessId),
+                      desiredAccess,
+                      &process->ImageName,
+                      HandleToULong(process->ProcessId));
+
+        goto Exit;
+    }
+
     if (Info->ObjectType == *PsProcessType)
     {
-        allowedAccessMask = process->ProcessAllowedMask;
+        allowedAccessMask = process->Protection.ProcessAllowedMask;
 
         if (KphpShouldPermitCreatorProcess(Info, actor, process))
         {
@@ -748,7 +1079,7 @@ VOID KphApplyObProtections(
                                   PROCESS_VM_OPERATION |
                                   PROCESS_VM_WRITE);
 
-            if ((allowedAccessMask & process->ProcessAllowedMask)
+            if ((allowedAccessMask & process->Protection.ProcessAllowedMask)
                 != allowedAccessMask)
             {
                 KphTracePrint(TRACE_LEVEL_VERBOSE,
@@ -756,7 +1087,7 @@ VOID KphApplyObProtections(
                               "Permitting extra process handle access "
                               "(0x%08x -> 0x%08x) in creator process %wZ (%lu) for "
                               "process %wZ (%lu)",
-                              process->ProcessAllowedMask,
+                              process->Protection.ProcessAllowedMask,
                               allowedAccessMask,
                               &actor->ProcessContext->ImageName,
                               HandleToULong(actor->ProcessContext->ProcessId),
@@ -786,7 +1117,7 @@ VOID KphApplyObProtections(
     {
         NT_ASSERT(Info->ObjectType == *PsThreadType);
 
-        allowedAccessMask = process->ThreadAllowedMask;
+        allowedAccessMask = process->Protection.ThreadAllowedMask;
 
         if (KphpShouldPermitCreatorProcess(Info, actor, process))
         {
@@ -794,7 +1125,7 @@ VOID KphApplyObProtections(
                                   THREAD_TERMINATE |
                                   THREAD_RESUME);
 
-            if ((allowedAccessMask & process->ThreadAllowedMask)
+            if ((allowedAccessMask & process->Protection.ThreadAllowedMask)
                 != allowedAccessMask)
             {
                 KphTracePrint(TRACE_LEVEL_VERBOSE,
@@ -802,7 +1133,7 @@ VOID KphApplyObProtections(
                               "Permitting extra thread handle access "
                               "(0x%08x -> 0x%08x) in creator process %wZ (%lu) for "
                               "process %wZ (%lu)",
-                              process->ThreadAllowedMask,
+                              process->Protection.ThreadAllowedMask,
                               allowedAccessMask,
                               &actor->ProcessContext->ImageName,
                               HandleToULong(actor->ProcessContext->ProcessId),
@@ -835,7 +1166,7 @@ Exit:
     {
         if (releaseLock)
         {
-            KphReleaseRWLock(&process->ProtectionLock);
+            KphReleaseRWLock(&process->Protection.AllowedMaskLock);
         }
 
         KphDereferenceObject(process);
@@ -846,7 +1177,6 @@ Exit:
         KphDereferenceObject(actor);
     }
 }
-#endif
 
 /**
  * \brief Cleanup routine for the image load APC.
@@ -865,7 +1195,7 @@ VOID KSIAPI KphpImageLoadCleanupRoutine(
 {
     PKPH_IMAGE_LOAD_APC apc;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     UNREFERENCED_PARAMETER(Reason);
 
@@ -895,7 +1225,7 @@ VOID NTAPI KphpImageLoadKernelNormalRoutine(
     KAPC_STATE apcState;
     BOOLEAN attachToTarget;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(NormalContext);
     UNREFERENCED_PARAMETER(SystemArgument2);
@@ -962,7 +1292,7 @@ VOID KSIAPI KphpImageLoadKernelRoutineSecond(
     _Inout_ _Deref_pre_maybenull_ PVOID* SystemArgument2
     )
 {
-    PAGED_CODE();
+    KPH_PAGED_CODE_APC();
 
     UNREFERENCED_PARAMETER(Apc);
     DBG_UNREFERENCED_PARAMETER(NormalRoutine);
@@ -1001,7 +1331,7 @@ VOID KSIAPI KphpImageLoadKernelRoutineFirst(
     PKPH_IMAGE_LOAD_APC secondApc;
     KPH_IMAGE_LOAD_APC_INIT init;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE_APC();
 
     secondApc = NULL;
 
@@ -1105,9 +1435,9 @@ VOID KphpHandleUntrustedImageLoad(
     KPH_IMAGE_LOAD_APC_INIT init;
     PKPH_IMAGE_LOAD_APC apc;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
-    NT_ASSERT(Process->VerifiedProcess);
+    NT_ASSERT(FlagOn(Process->Protection.State, KPH_PROTECTION_VERIFIED));
 
     status = STATUS_UNSUCCESSFUL;
     actor = NULL;
@@ -1126,7 +1456,7 @@ VOID KphpHandleUntrustedImageLoad(
         goto Exit;
     }
 
-    if ((Process->NumberOfImageLoads == 1) &&
+    if ((ReadSizeTAcquire(&Process->NumberOfImageLoads) == 1) &&
         (PsGetProcessSectionBaseAddress(Process->EProcess) == ImageBase))
     {
         //
@@ -1297,7 +1627,7 @@ NTSTATUS KphpReOpenImageFile(
     PVOID dataBase;
     SIZE_T dataSize;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     fileHandle = NULL;
     fileObject = NULL;
@@ -1315,7 +1645,7 @@ NTSTATUS KphpReOpenImageFile(
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
-                      VERIFY,
+                      PROTECTION,
                       "KphGetNameFileObject failed: %!STATUS!",
                       status);
 
@@ -1346,7 +1676,7 @@ NTSTATUS KphpReOpenImageFile(
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
-                      VERIFY,
+                      PROTECTION,
                       "KphCreateFile failed: %!STATUS!",
                       status);
 
@@ -1356,7 +1686,7 @@ NTSTATUS KphpReOpenImageFile(
     else if (status == STATUS_OPLOCK_BREAK_IN_PROGRESS)
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
-                      VERIFY,
+                      PROTECTION,
                       "KphCreateFile failed: %!STATUS!",
                       status);
 
@@ -1373,7 +1703,7 @@ NTSTATUS KphpReOpenImageFile(
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
-                      VERIFY,
+                      PROTECTION,
                       "ObReferenceObjectByHandle failed: %!STATUS!",
                       status);
 
@@ -1389,7 +1719,7 @@ NTSTATUS KphpReOpenImageFile(
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
-                      VERIFY,
+                      PROTECTION,
                       "KphMapViewInSystem failed: %!STATUS!",
                       status);
 
@@ -1405,7 +1735,7 @@ NTSTATUS KphpReOpenImageFile(
     if (!NT_SUCCESS(status))
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
-                      VERIFY,
+                      PROTECTION,
                       "KphMapViewInSystem failed: %!STATUS!",
                       status);
 
@@ -1415,17 +1745,13 @@ NTSTATUS KphpReOpenImageFile(
 
     *FileHandle = fileHandle;
     fileHandle = NULL;
-
     *FileObject = fileObject;
     fileObject = NULL;
-
     *FileName = fileName;
     fileName = NULL;
-
     *ImageBase = imageBase;
     imageBase = NULL;
     *ImageSize = imageSize;
-
     *DataBase = dataBase;
     dataBase = NULL;
     *DataSize = dataSize;
@@ -1475,7 +1801,7 @@ VOID KphpApplyImageProtections(
     )
 {
     NTSTATUS status;
-    volatile SIZE_T* imageLoadCounter;
+    PSIZE_T imageLoadCounter;
     HANDLE fileHandle;
     PFILE_OBJECT fileObject;
     PUNICODE_STRING fileName;
@@ -1485,7 +1811,7 @@ VOID KphpApplyImageProtections(
     SIZE_T dataSize;
     SE_SIGNING_LEVEL signingLevel;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     NT_ASSERT(!KeAreAllApcsDisabled());
 
@@ -1545,7 +1871,7 @@ VOID KphpApplyImageProtections(
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "KphpReOpenImageFile: %wZ (%lu) \"%wZ\": %!STATUS!",
+                      "%wZ (%lu) KphpReOpenImageFile(\"%wZ\"): %!STATUS!",
                       &Process->ImageName,
                       HandleToULong(Process->ProcessId),
                       &FileObject->FileName,
@@ -1558,7 +1884,7 @@ VOID KphpApplyImageProtections(
     {
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       PROTECTION,
-                      "KphIsSameFile failed: %wZ (%lu) \"%wZ\" \"%wZ\"",
+                      "%wZ (%lu) KphIsSameFile(\"%wZ\", \"%wZ\") failed",
                       &Process->ImageName,
                       HandleToULong(Process->ProcessId),
                       &FileObject->FileName,
@@ -1571,7 +1897,7 @@ VOID KphpApplyImageProtections(
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   PROTECTION,
-                  "KphpGetSigningLevel: %wZ (%lu) \"%wZ\": 0x%02x %!STATUS!",
+                  "%wZ (%lu) KphpGetSigningLevel(\"%wZ\"): 0x%02x %!STATUS!",
                   &Process->ImageName,
                   HandleToULong(Process->ProcessId),
                   fileName,
@@ -1607,7 +1933,7 @@ VOID KphpApplyImageProtections(
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   PROTECTION,
-                  "KphVerifyFileObject: %wZ (%lu) \"%wZ\": %!STATUS!",
+                  "%wZ (%lu) KphVerifyFileObject(\"%wZ\"): %!STATUS!",
                   &Process->ImageName,
                   HandleToULong(Process->ProcessId),
                   fileName,
@@ -1625,7 +1951,7 @@ CheckCoherency:
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   PROTECTION,
-                  "KphCheckImageCoherency: %wZ (%lu) \"%wZ\": %!STATUS!",
+                  "%wZ (%lu) KphCheckImageCoherency(\"%wZ\"): %!STATUS!",
                   &Process->ImageName,
                   HandleToULong(Process->ProcessId),
                   fileName,
@@ -1693,7 +2019,7 @@ VOID NTAPI KphpImageLoadKernelNormalRoutineApcsDisabled(
 {
     PKPH_IMAGE_LOAD_APC apc;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(NormalContext);
     UNREFERENCED_PARAMETER(SystemArgument2);
@@ -1727,7 +2053,7 @@ VOID KSIAPI KphpImageLoadKernelRoutineApcsDisabled(
     _Inout_ _Deref_pre_maybenull_ PVOID* SystemArgument2
     )
 {
-    PAGED_CODE();
+    KPH_PAGED_CODE_APC();
 
     UNREFERENCED_PARAMETER(Apc);
     DBG_UNREFERENCED_PARAMETER(NormalRoutine);
@@ -1758,7 +2084,7 @@ VOID KphpApplyImageProtectionsApcsDisabled(
     PKPH_IMAGE_LOAD_APC apc;
     KPH_IMAGE_LOAD_APC_INIT init;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KeAreAllApcsDisabled());
 
@@ -1842,13 +2168,11 @@ VOID KphApplyImageProtections(
     _In_ PIMAGE_INFO_EX ImageInfo
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
-    KphAcquireRWLockShared(&Process->ProtectionLock);
-
-    if (!Process->VerifiedProcess || !Process->Protected)
+    if (!KphIsProtectedProcess(Process))
     {
-        goto Exit;
+        return;
     }
 
     if ((ImageInfo->ImageInfo.ImageSignatureLevel == SE_SIGNING_LEVEL_MICROSOFT) ||
@@ -1856,13 +2180,13 @@ VOID KphApplyImageProtections(
         (ImageInfo->ImageInfo.ImageSignatureLevel == SE_SIGNING_LEVEL_WINDOWS_TCB))
     {
         InterlockedIncrementSizeT(&Process->NumberOfMicrosoftImageLoads);
-        goto Exit;
+        return;
     }
 
     if (ImageInfo->ImageInfo.ImageSignatureLevel == SE_SIGNING_LEVEL_ANTIMALWARE)
     {
         InterlockedIncrementSizeT(&Process->NumberOfAntimalwareImageLoads);
-        goto Exit;
+        return;
     }
 
     //
@@ -1886,10 +2210,6 @@ VOID KphApplyImageProtections(
                                   ImageInfo->ImageInfo.ImageBase,
                                   ImageInfo->FileObject);
     }
-
-Exit:
-
-    KphReleaseRWLock(&Process->ProtectionLock);
 }
 
 /**
@@ -1909,7 +2229,7 @@ NTSTATUS KphAcquireDriverUnloadProtection(
     NTSTATUS status;
     LONG previousCount;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     status = KphAcquireReference(&KphpDriverUnloadProtectionRef,
                                  &previousCount);
@@ -1938,8 +2258,8 @@ NTSTATUS KphAcquireDriverUnloadProtection(
         NT_ASSERT(!KphpDriverUnloadPreviousRoutine);
 
         KphpDriverUnloadPreviousRoutine = InterlockedExchangePointer(
-                               (volatile PVOID*)&KphDriverObject->DriverUnload,
-                               NULL);
+                                         (PVOID*)&KphDriverObject->DriverUnload,
+                                         NULL);
 
         NT_ASSERT(!KphDriverObject->DriverUnload);
         NT_ASSERT(KphpDriverUnloadPreviousRoutine);
@@ -1978,7 +2298,7 @@ NTSTATUS KphReleaseDriverUnloadProtection(
     NTSTATUS status;
     LONG previousCount;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     status = KphReleaseReference(&KphpDriverUnloadProtectionRef,
                                  &previousCount);
@@ -2007,8 +2327,8 @@ NTSTATUS KphReleaseDriverUnloadProtection(
         NT_ASSERT(KphpDriverUnloadPreviousRoutine);
 
         KphpDriverUnloadPreviousRoutine = InterlockedExchangePointer(
-                               (volatile PVOID*)&KphDriverObject->DriverUnload,
-                               KphpDriverUnloadPreviousRoutine);
+                                         (PVOID*)&KphDriverObject->DriverUnload,
+                                         KphpDriverUnloadPreviousRoutine);
 
         NT_ASSERT(KphDriverObject->DriverUnload);
         NT_ASSERT(!KphpDriverUnloadPreviousRoutine);
@@ -2045,7 +2365,7 @@ LONG KphGetDriverUnloadProtectionCount(
 {
     LONG count;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     count = ReadAcquire(&KphpDriverUnloadProtectionRef.Count);
 
@@ -2078,7 +2398,12 @@ NTSTATUS KphpStripProtectedProcessMasks(
     ACCESS_MASK prevProcessAllowedMask;
     ACCESS_MASK prevThreadAllowedMask;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
+
+    if (!KphIsProtectedProcess(Process))
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
 
     dyn = KphReferenceDynData();
     if (!dyn)
@@ -2086,19 +2411,13 @@ NTSTATUS KphpStripProtectedProcessMasks(
         return STATUS_NOINTERFACE;
     }
 
-    KphAcquireRWLockExclusive(&Process->ProtectionLock);
+    KphAcquireRWLockExclusive(&Process->Protection.AllowedMaskLock);
 
-    if (!Process->Protected)
-    {
-        status = STATUS_INVALID_PARAMETER;
-        goto Exit;
-    }
+    prevProcessAllowedMask = Process->Protection.ProcessAllowedMask;
+    prevThreadAllowedMask = Process->Protection.ThreadAllowedMask;
 
-    prevProcessAllowedMask = Process->ProcessAllowedMask;
-    prevThreadAllowedMask = Process->ThreadAllowedMask;
-
-    Process->ProcessAllowedMask &= ~ProcessAllowedMask;
-    Process->ThreadAllowedMask &= ~ThreadAllowedMask;
+    Process->Protection.ProcessAllowedMask &= ~ProcessAllowedMask;
+    Process->Protection.ThreadAllowedMask &= ~ThreadAllowedMask;
 
     KphTracePrint(TRACE_LEVEL_VERBOSE,
                   PROTECTION,
@@ -2108,12 +2427,12 @@ NTSTATUS KphpStripProtectedProcessMasks(
                   &Process->ImageName,
                   HandleToULong(Process->ProcessId),
                   prevProcessAllowedMask,
-                  Process->ProcessAllowedMask,
+                  Process->Protection.ProcessAllowedMask,
                   prevThreadAllowedMask,
-                  Process->ThreadAllowedMask);
+                  Process->Protection.ThreadAllowedMask);
 
-    if ((Process->ProcessAllowedMask == prevProcessAllowedMask) &&
-        (Process->ThreadAllowedMask == prevThreadAllowedMask))
+    if ((Process->Protection.ProcessAllowedMask == prevProcessAllowedMask) &&
+        (Process->Protection.ThreadAllowedMask == prevThreadAllowedMask))
     {
         status = STATUS_SUCCESS;
         goto Exit;
@@ -2129,18 +2448,19 @@ NTSTATUS KphpStripProtectedProcessMasks(
 
     if (!NT_SUCCESS(status))
     {
-        Process->ProcessAllowedMask = prevProcessAllowedMask;
-        Process->ThreadAllowedMask = prevThreadAllowedMask;
+        Process->Protection.ProcessAllowedMask = prevProcessAllowedMask;
+        Process->Protection.ThreadAllowedMask = prevThreadAllowedMask;
     }
 
 Exit:
 
-    KphReleaseRWLock(&Process->ProtectionLock);
+    KphReleaseRWLock(&Process->Protection.AllowedMaskLock);
 
     KphDereferenceObject(dyn);
 
     return status;
 }
+
 /**
  * \brief Strips the process and thread allowed masks from a protected process.
  *
@@ -2167,7 +2487,7 @@ NTSTATUS KphStripProtectedProcessMasks(
     PEPROCESS processObject;
     PKPH_PROCESS_CONTEXT processContext;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     processContext = NULL;
 
@@ -2228,7 +2548,7 @@ VOID KphInitializeProtection(
 {
     KPH_OBJECT_TYPE_INFO typeInfo;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     typeInfo.Allocate = KphpAllocateImageLoadApc;
     typeInfo.Initialize = KphpInitializeImageLoadApc;
@@ -2239,4 +2559,10 @@ VOID KphInitializeProtection(
     KphCreateObjectType(&KphpImageLoadApcTypeName,
                         &typeInfo,
                         &KphpImageLoadApcType);
+
+    InitializeSListHead(&KphpVerifyAndProtectList);
+    KsiInitializeWorkItem(&KphpVerifyAndProtectWorkItem,
+                          KphDriverObject,
+                          KphpVerifyProcessAndProtectWorker,
+                          NULL);
 }

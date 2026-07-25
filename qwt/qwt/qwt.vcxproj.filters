@@ -689,9 +689,6 @@
     <ClInclude Include="..\src\qwt_weeding_curve_fitter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\qwt_widget_overlay.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\src\qwt_abstract_legend.h">
@@ -800,6 +797,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="..\src\qwt_wheel.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\src\qwt_widget_overlay.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

@@ -13,14 +13,14 @@
 #include <mapldr.h>
 #include <appresolver.h>
 
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
 #pragma comment(lib, "runtimeobject.lib")
 #include <roapi.h>
 #include <winstring.h>
 #endif
 
 #ifdef __hstring_h__
-static_assert(sizeof(HSTRING_REFERENCE) == sizeof(HSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
+static_assert(sizeof(HSTRING_REFERENCE) == sizeof(HSTRING_HEADER), "HSTRING_REFERENCE must equal HSTRING_HEADER");
 #else
 static_assert(sizeof(HSTRING_REFERENCE) == sizeof(WSTRING_HEADER), "HSTRING_REFERENCE must equal WSTRING_HEADER");
 #endif
@@ -28,15 +28,15 @@ static_assert(sizeof(HSTRING_REFERENCE) == sizeof(WSTRING_HEADER), "HSTRING_REFE
 /**
  * Creates a string from a Windows Runtime string.
  *
- * @param String The Windows Runtime string.
+ * \param String The Windows Runtime string.
  *
- * @return A pointer to the created string.
+ * \return A pointer to the created string.
  */
 PPH_STRING PhCreateStringFromWindowsRuntimeString(
     _In_ HSTRING String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     UINT32 stringLength;
     PCWSTR string;
 
@@ -44,7 +44,7 @@ PPH_STRING PhCreateStringFromWindowsRuntimeString(
     {
         if (stringLength >= sizeof(UNICODE_NULL))
         {
-            return PhCreateStringEx((PWCHAR)string, stringLength * sizeof(WCHAR));
+            return PhCreateStringEx(string, stringLength * sizeof(WCHAR));
         }
     }
 #else
@@ -52,7 +52,7 @@ PPH_STRING PhCreateStringFromWindowsRuntimeString(
 
     if (string && string->Length >= sizeof(UNICODE_NULL))
     {
-        return PhCreateStringEx((PWCHAR)string->Buffer, string->Length * sizeof(WCHAR));
+        return PhCreateStringEx(string->Buffer, string->Length * sizeof(WCHAR));
     }
 #endif
 
@@ -73,12 +73,12 @@ HRESULT PhCreateWindowsRuntimeStringReference(
     _Out_ PVOID String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     HSTRING stringHandle;
 
     return WindowsCreateStringReference(
         SourceString,
-        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        (UINT32)PhCountStringZ(SourceString),
         String,
         &stringHandle
         );
@@ -86,7 +86,7 @@ HRESULT PhCreateWindowsRuntimeStringReference(
     HSTRING_REFERENCE* string = (HSTRING_REFERENCE*)String;
 
     string->Flags = HSTRING_REFERENCE_FLAG;
-    string->Length = (UINT32)PhCountStringZ((PWSTR)SourceString);
+    string->Length = (UINT32)PhCountStringZ(SourceString);
     string->Buffer = SourceString;
 
     return S_OK;
@@ -109,12 +109,12 @@ HRESULT PhCreateWindowsRuntimeStringReferenceEx(
     _Out_ PVOID String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     HSTRING stringHandle;
 
     return WindowsCreateStringReference(
         SourceString,
-        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        Length,
         String,
         &stringHandle
         );
@@ -143,10 +143,10 @@ HRESULT PhCreateWindowsRuntimeString(
     _Out_ HSTRING* String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     return WindowsCreateString(
         SourceString,
-        (UINT32)PhCountStringZ((PWSTR)SourceString),
+        (UINT32)PhCountStringZ(SourceString),
         String
         );
 #else
@@ -154,7 +154,7 @@ HRESULT PhCreateWindowsRuntimeString(
     SIZE_T bufferLength;
     HSTRING_INSTANCE* string;
 
-    stringLength = PhCountStringZ((PWSTR)SourceString) * sizeof(WCHAR);
+    stringLength = PhCountStringZ(SourceString) * sizeof(WCHAR);
     bufferLength = sizeof(HSTRING_INSTANCE) + stringLength + sizeof(UNICODE_NULL);
 
     if (bufferLength > UINT_MAX)
@@ -189,7 +189,7 @@ VOID PhDeleteWindowsRuntimeString(
     _In_opt_ HSTRING String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     WindowsDeleteString(String);
 #else
     HSTRING_INSTANCE* string = (HSTRING_INSTANCE*)String;
@@ -200,7 +200,6 @@ VOID PhDeleteWindowsRuntimeString(
 
     newRefCount = InterlockedDecrement(&string->ReferenceCount);
     ASSUME_ASSERT(newRefCount >= 0);
-    ASSUME_ASSERT(!(newRefCount < 0));
 
     if (newRefCount == 0)
     {
@@ -217,11 +216,11 @@ VOID PhDeleteWindowsRuntimeString(
  *
  * \return Successful or errant status.
  */
-UINT32 PhGetWindowsRuntimeStringLength(
+ULONG PhGetWindowsRuntimeStringLength(
     _In_opt_ HSTRING String
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     return WindowsGetStringLen(String);
 #else
     HSTRING_INSTANCE* string = (HSTRING_INSTANCE*)String;
@@ -246,10 +245,10 @@ UINT32 PhGetWindowsRuntimeStringLength(
  */
 PCWSTR PhGetWindowsRuntimeStringBuffer(
     _In_opt_ HSTRING String,
-    _Out_opt_ PUINT32 Length
+    _Out_opt_ PULONG Length
     )
 {
-#if (PH_NATIVE_WINDOWS_RUNTIME_STRING)
+#if defined(PH_NATIVE_WINDOWS_RUNTIME_STRING)
     return WindowsGetStringRawBuffer(String, Length);
 #else
     HSTRING_INSTANCE* string = (HSTRING_INSTANCE*)String;
@@ -323,7 +322,7 @@ PPH_STRING PhDataReaderBufferToHexString(
     PPH_STRING string = NULL;
     __x_ABI_CWindows_CStorage_CStreams_CIDataReaderStatics* dataReaderStatics;
     __x_ABI_CWindows_CStorage_CStreams_CIDataReader* dataReader;
-    UINT32 dataBufferLength = 0;
+    ULONG dataBufferLength = 0;
     UCHAR dataBuffer[128] = { 0 };
 
     if (SUCCEEDED(__x_ABI_CWindows_CStorage_CStreams_CIBuffer_get_Length(Buffer, &dataBufferLength)) && dataBufferLength < sizeof(dataBuffer))
@@ -421,7 +420,7 @@ static PVOID PhDetoursPackageSystemIdentificationContext(
     )
 {
     static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static ULONG index = 0;
+    static ULONG index = TLS_OUT_OF_INDEXES;
 
     if (PhBeginInitOnce(&initOnce))
     {
@@ -629,7 +628,7 @@ static HRESULT PhQueryProcessSystemIdentification(
     // or verify their capabilities/sandboxing/token permissions are setup correctly (dmex)
 
     status = PhDetoursPackageSystemIdentificationInitialize(
-        systemIdStatics->lpVtbl,
+        (PVOID)systemIdStatics->lpVtbl,
         Context
         );
 
@@ -690,7 +689,7 @@ CleanupExit:
         //    ClearFlag(systemIdPublisherStatus, FACILITY_NT_BIT); // 0xD0000022 -> 0xC0000022
         //}
 
-        if (HRESULT_NTSTATUS(systemIdForUserStatus))
+        if (HRESULT_NTSTATUS(systemIdPublisherStatus))
         {
             *SystemIdForPublisher = PhGetStatusMessage(PhNtStatusFromHResult(systemIdPublisherStatus), 0);
         }
@@ -726,6 +725,16 @@ CleanupExit:
     return status;
 }
 
+_Function_class_(PH_ENUM_NEXT_THREAD)
+static NTSTATUS NTAPI PhEnumNextThreadSystemIdentification(
+    _In_ HANDLE ThreadHandle,
+    _Inout_ HANDLE* Context
+    )
+{
+    *Context = ThreadHandle;
+    return STATUS_NO_MORE_ENTRIES;
+}
+
 HRESULT PhGetProcessSystemIdentification(
     _In_ HANDLE ProcessId,
     _Out_ PPH_STRING* SystemIdForPublisher,
@@ -752,31 +761,42 @@ HRESULT PhGetProcessSystemIdentification(
         return HRESULT_FROM_NT(status);
     }
 
-    if (NT_SUCCESS(PhEnumProcesses(&processes)))
+    status = PhEnumNextThread(
+        processHandle,
+        NULL,
+        THREAD_QUERY_LIMITED_INFORMATION,
+        PhEnumNextThreadSystemIdentification,
+        &threadHandle
+        );
+
+    if (!NT_SUCCESS(status))
     {
-        PSYSTEM_PROCESS_INFORMATION process;
-
-        if (process = PhFindProcessInformation(processes, ProcessId))
+        if (NT_SUCCESS(PhEnumProcesses(&processes)))
         {
-            for (ULONG i = 0; i < process->NumberOfThreads; i++)
+            PSYSTEM_PROCESS_INFORMATION process;
+
+            if (process = PhFindProcessInformation(processes, ProcessId))
             {
-                HANDLE tempThreadHandle;
-
-                threadId = process->Threads[i].ClientId.UniqueThread;
-
-                if (NT_SUCCESS(PhOpenThread(
-                    &tempThreadHandle,
-                    THREAD_QUERY_LIMITED_INFORMATION,
-                    threadId
-                    )))
+                for (ULONG i = 0; i < process->NumberOfThreads; i++)
                 {
-                    threadHandle = tempThreadHandle;
-                    break;
+                    HANDLE tempThreadHandle;
+
+                    threadId = process->Threads[i].ClientId.UniqueThread;
+
+                    if (NT_SUCCESS(PhOpenThread(
+                        &tempThreadHandle,
+                        THREAD_QUERY_LIMITED_INFORMATION,
+                        threadId
+                        )))
+                    {
+                        threadHandle = tempThreadHandle;
+                        break;
+                    }
                 }
             }
-        }
 
-        PhFree(processes);
+            PhFree(processes);
+        }
     }
 
     if (!threadHandle)
@@ -896,9 +916,9 @@ DEFINE_GUID(IID_IAppInfo, 0xcf7f59b3, 0x6a09, 0x4de8, 0xa6, 0xc0, 0x57, 0x92, 0x
 // 4207a996-ca2f-42f7-bde8-8b10457a7f30
 DEFINE_GUID(IID_IStorageItem, 0x4207a996, 0xca2f, 0x42f7, 0xbd, 0xe8, 0x8b, 0x10, 0x45, 0x7a, 0x7f, 0x30);
 
-static _OpenPackageInfoByFullNameForUser OpenPackageInfoByFullNameForUser_I = NULL;
-static _GetPackageApplicationIds GetPackageApplicationIds_I = NULL;
-static _ClosePackageInfo ClosePackageInfo_I = NULL;
+static typeof(&OpenPackageInfoByFullNameForUser) OpenPackageInfoByFullNameForUser_I = NULL;
+static typeof(&GetPackageApplicationIds) GetPackageApplicationIds_I = NULL;
+static typeof(&ClosePackageInfo) ClosePackageInfo_I = NULL;
 
 static BOOLEAN PhPackageImportsInitialized(
     VOID
@@ -1005,6 +1025,7 @@ CleanupExit:
     return success;
 }
 
+_Enum_is_bitflag_
 typedef enum _PH_QUERY_PACKAGE_INFO_TYPE
 {
     PH_QUERY_PACKAGE_INFO_NAME = 1,
@@ -1015,6 +1036,7 @@ typedef enum _PH_QUERY_PACKAGE_INFO_TYPE
     PH_QUERY_PACKAGE_INFO_LOGO = 32,
     PH_QUERY_PACKAGE_INFO_LOCATION = 64,
 } PH_QUERY_PACKAGE_INFO_TYPE;
+DEFINE_ENUM_FLAG_OPERATORS(PH_QUERY_PACKAGE_INFO_TYPE);
 
 BOOLEAN PhQueryApplicationModelPackageInformation(
     _In_ PPH_LIST PackageList,
@@ -1093,7 +1115,7 @@ BOOLEAN PhQueryApplicationModelPackageInformation(
                 PhInitFormatC(&format[5], L'.');
                 PhInitFormatU(&format[6], appPackageVersion.Build);
 
-                packageVersionString = PhFormat(format,RTL_NUMBER_OF(format), 0);
+                packageVersionString = PhFormat(format, RTL_NUMBER_OF(format), 0);
             }
         }
 
@@ -1263,7 +1285,7 @@ PPH_LIST PhEnumPackageApplicationUserModelIds(
                 __x_ABI_CWindows_CApplicationModel_CIPackage2_Release(currentPackage2);
             }
 
-            __FIIterator_1_Windows__CApplicationModel__CPackage_Release(currentPackage);
+            __x_ABI_CWindows_CApplicationModel_CIPackage_Release(currentPackage);
         }
 
         if (HR_FAILED(status))

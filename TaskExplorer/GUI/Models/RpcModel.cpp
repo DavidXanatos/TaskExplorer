@@ -46,7 +46,7 @@ void CRpcModel::Sync(const QMap<QString, CRpcEndpointPtr>& RpcEndpointList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			QVariant Value;

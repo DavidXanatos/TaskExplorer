@@ -6,6 +6,8 @@
 class CDiskMonitor : public QObject
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CDiskMonitor)
 public:
 	CDiskMonitor(QObject *parent = nullptr);
 	virtual ~CDiskMonitor();

@@ -352,7 +352,7 @@ struct SSandboxieAPI
 		return status;
 	}
 
-	NTSTATUS SbieIniGet(const std::wstring& section, const std::wstring& setting, quint32 index, std::wstring& value)
+	NTSTATUS SbieIniGet(const std::wstring& section, const std::wstring& setting, quint32 index, std::wstring& value, ULONG* pType = NULL)
 	{
 		WCHAR out_buffer[SBIE_CONF_LINE_LEN] = { 0 };
 
@@ -365,6 +365,7 @@ struct SSandboxieAPI
 		parms[2] = (ULONG64)setting.c_str();
 		parms[3] = (ULONG64)&index;
 		parms[4] = (ULONG64)&Output;
+		parms[5] = (ULONG64)pType;
 		NTSTATUS status = IoControl(parms);
 		
 		value = std::wstring(out_buffer);
@@ -563,19 +564,34 @@ void CSandboxieAPI::QueryPathList(quint64 ProcessId, quint32 path_code, QStringL
 	}
 }
 
-#define CONF_GET_NO_GLOBAL          0x40000000L
-#define CONF_GET_NO_EXPAND          0x20000000L
-#define CONF_GET_NO_TEMPLS          0x10000000L
-
-QList<QPair<QString, QString>> CSandboxieAPI::GetIniSection(const QString& BoxName, qint32* pStatus, bool withTemplates) const
+QList<CSandboxieAPI::SbieIniValue> CSandboxieAPI::GetIniSection(const QString& BoxName, qint32* pStatus, bool withTemplates, bool withGlobals) const
 {
 	qint32 status = STATUS_SUCCESS;
 
 	int flags = CONF_GET_NO_EXPAND;
 	if (!withTemplates)
-		flags |= CONF_GET_NO_TEMPLS | CONF_GET_NO_GLOBAL;
+		flags |= CONF_GET_NO_TEMPLS;
+	if (!withGlobals)
+		flags |= CONF_GET_NO_GLOBAL;
 
-	QList<QPair<QString, QString>> Settings;
+	std::set<std::wstring> names;
+
+	if (withGlobals) {
+		for (int setting_index = 0; ; setting_index++)
+		{
+			std::wstring setting_name;
+			status = m->SbieIniGet(L"GlobalSettings", L"", setting_index | flags, setting_name);
+			if (status == STATUS_RESOURCE_NAME_NOT_FOUND) {
+				status = STATUS_SUCCESS;
+				break;
+			}
+			if (status != STATUS_SUCCESS)
+				break;
+
+			names.insert(setting_name);
+		}
+	}
+
 	for (int setting_index = 0; ; setting_index++)
 	{
 		std::wstring setting_name;
@@ -587,10 +603,19 @@ QList<QPair<QString, QString>> CSandboxieAPI::GetIniSection(const QString& BoxNa
 		if (status != STATUS_SUCCESS)
 			break;
 
+		names.insert(setting_name);
+	}
+
+
+	QList<SbieIniValue> Settings;
+
+	for (const std::wstring& setting_name : names)
+	{
 		for (int value_index = 0; ; value_index++)
 		{
 			std::wstring setting_value;
-			status = m->SbieIniGet(BoxName.toStdWString(), setting_name, value_index | flags, setting_value);
+			ULONG uType = 0;
+			status = m->SbieIniGet(BoxName.toStdWString(), setting_name, value_index | flags, setting_value, &uType);
 			if (status == STATUS_RESOURCE_NAME_NOT_FOUND) {
 				status = STATUS_SUCCESS;
 				break;
@@ -598,7 +623,7 @@ QList<QPair<QString, QString>> CSandboxieAPI::GetIniSection(const QString& BoxNa
 			if (status != STATUS_SUCCESS)
 				break;
 
-			Settings.append(qMakePair(QString::fromStdWString(setting_name), QString::fromStdWString(setting_value)));
+			Settings.append(SbieIniValue { QString::fromStdWString(setting_name), uType, QString::fromStdWString(setting_value) });
 		}
 
 		if (status != STATUS_SUCCESS)

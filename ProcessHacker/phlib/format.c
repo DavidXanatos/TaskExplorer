@@ -22,7 +22,6 @@
  */
 
 #include <phbase.h>
-
 #include <locale.h>
 
 extern ULONG PhMaxSizeUnit;
@@ -35,7 +34,7 @@ extern ULONG PhMaxSizeUnit;
 #define PHP_FORMAT_PAD 0x4
 
 // Keep in sync with PhSizeUnitNames
-static PH_STRINGREF PhpSizeUnitNamesCounted[7] =
+CONST PH_STRINGREF PhSizeUnitNamesCounted[7] =
 {
     PH_STRINGREF_INIT(L"B"),
     PH_STRINGREF_INIT(L"kB"),
@@ -45,7 +44,26 @@ static PH_STRINGREF PhpSizeUnitNamesCounted[7] =
     PH_STRINGREF_INIT(L"PB"),
     PH_STRINGREF_INIT(L"EB")
 };
-
+CONST PH_STRINGREF PhPrefixUnitNamesCounted[7] =
+{
+    PH_STRINGREF_INIT(L"b"),
+    PH_STRINGREF_INIT(L"k"),
+    PH_STRINGREF_INIT(L"M"),
+    PH_STRINGREF_INIT(L"B"),
+    PH_STRINGREF_INIT(L"T"),
+    PH_STRINGREF_INIT(L"P"),
+    PH_STRINGREF_INIT(L"E")
+};
+CONST PH_STRINGREF PhSiPrefixUnitNamesCounted[7] =
+{
+    PH_STRINGREF_INIT(L" Bps"),
+    PH_STRINGREF_INIT(L" Kbps"),
+    PH_STRINGREF_INIT(L" Mbps"),
+    PH_STRINGREF_INIT(L" Gbps"),
+    PH_STRINGREF_INIT(L" Tbps"),
+    PH_STRINGREF_INIT(L" Pbps"),
+    PH_STRINGREF_INIT(L" Ebps")
+};
 static PH_INITONCE PhpFormatInitOnce = PH_INITONCE_INIT;
 static WCHAR PhpFormatDecimalSeparator = L'.';
 static WCHAR PhpFormatThousandSeparator = L',';
@@ -54,22 +72,25 @@ static _locale_t PhpFormatUserLocale = NULL;
 VOID PhpFormatSingleToUtf8Locale(
     _In_ FLOAT Value,
     _In_ ULONG Type,
-    _In_ INT32 Precision,
-    _Out_writes_bytes_opt_(BufferLength) PSTR Buffer,
-    _In_opt_ SIZE_T BufferLength
+    _In_ LONG Precision,
+    _Out_writes_bytes_(BufferLength) PSTR Buffer,
+    _In_opt_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
     )
 {
-    if (!PhFormatSingleToUtf8(
+    if (!NT_SUCCESS(PhFormatSingleToUtf8(
         Value,
         Type,
         Precision,
         Buffer,
         BufferLength,
-        NULL
-        ))
+        ReturnLength
+        )))
     {
         if (Buffer)
             *Buffer = ANSI_NULL;
+        if (ReturnLength)
+            *ReturnLength = 0;
         return;
     }
 
@@ -100,22 +121,25 @@ VOID PhpFormatSingleToUtf8Locale(
 VOID PhpFormatDoubleToUtf8Locale(
     _In_ DOUBLE Value,
     _In_ ULONG Type,
-    _In_ INT32 Precision,
-    _Out_writes_bytes_opt_(BufferLength) PSTR Buffer,
-    _In_opt_ SIZE_T BufferLength
+    _In_ LONG Precision,
+    _Out_writes_bytes_(BufferLength) PSTR Buffer,
+    _In_opt_ SIZE_T BufferLength,
+    _Out_opt_ PSIZE_T ReturnLength
     )
 {
-    if (!PhFormatDoubleToUtf8(
+    if (!NT_SUCCESS(PhFormatDoubleToUtf8(
         Value,
         Type,
         Precision,
         Buffer,
         BufferLength,
-        NULL
-        ))
+        ReturnLength
+        )))
     {
         if (Buffer)
             *Buffer = ANSI_NULL;
+        if (ReturnLength)
+            *ReturnLength = 0;
         return;
     }
 
@@ -145,11 +169,10 @@ VOID PhpFormatDoubleToUtf8Locale(
 
 // From Source\10.0.10150.0\ucrt\inc\corecrt_internal_stdio_output.h in SDK v10.
 VOID PhpCropZeros(
-    _Inout_ PCHAR Buffer,
-    _In_ _locale_t Locale
+    _Inout_ PUCHAR Buffer
     )
 {
-    CHAR decimalSeparator = (CHAR)PhpFormatDecimalSeparator;
+    UCHAR decimalSeparator = (UCHAR)PhpFormatDecimalSeparator;
 
     while (*Buffer && *Buffer != decimalSeparator)
         ++Buffer;
@@ -159,7 +182,7 @@ VOID PhpCropZeros(
         while (*Buffer && *Buffer != 'e' && *Buffer != 'E')
             ++Buffer;
 
-        PCHAR stop = Buffer--;
+        PUCHAR stop = Buffer--;
 
         while (*Buffer == '0')
             --Buffer;

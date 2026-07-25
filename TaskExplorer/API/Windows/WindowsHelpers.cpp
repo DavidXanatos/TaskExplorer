@@ -85,7 +85,7 @@ QString GetPathFromCmd(QString CommandLine, quint32 ProcessID, QString FileName/
 	if (pParent.isNull())
 		return QString();
 
-    // check relative paths based on the parrent process working directory
+    // check relative paths based on the parent process working directory
     QString workingDir = pParent->GetWorkingDirectory();
     if (!workingDir.isEmpty())
     {

@@ -15,6 +15,7 @@
 #include <ph.h>
 #include <guisup.h>
 #include <prsht.h>
+#include <settings.h>
 #include <svcsup.h>
 #include <json.h>
 #include <mapldr.h>
@@ -45,10 +46,6 @@
 #define SETUP_SHOWUPDATEFINAL (WM_APP + 9)
 #define SETUP_SHOWUPDATEERROR (WM_APP + 10)
 
-#define TaskDialogNavigatePage(WindowHandle, Config) \
-    assert(HandleToUlong(NtCurrentThreadId()) == GetWindowThreadProcessId((WindowHandle), NULL)); \
-    SendMessage((WindowHandle), TDM_NAVIGATE_PAGE, 0, (LPARAM)(Config));
-
 #ifdef DEBUG
 //#define FORCE_TEST_UPDATE_LOCAL_INSTALL 1
 #endif
@@ -57,10 +54,9 @@ DECLSPEC_SELECTANY GUID FOLDERID_PublicDesktop = { 0xC4AA340D, 0xF20F, 0x4863, {
 
 typedef enum _SETUP_COMMAND_TYPE
 {
-    SETUP_COMMAND_INSTALL,
-    SETUP_COMMAND_SILENTINSTALL,
-    SETUP_COMMAND_UNINSTALL,
-    SETUP_COMMAND_UPDATE,
+    SetupCommandInstall,
+    SetupCommandUninstall,
+    SetupCommandUpdate,
 } SETUP_COMMAND_TYPE;
 
 typedef struct _PH_SETUP_CONTEXT
@@ -77,7 +73,11 @@ typedef struct _PH_SETUP_CONTEXT
         {
             ULONG SetupRemoveAppData: 1;
             ULONG SetupIsLegacyUpdate : 1;
-            ULONG Spare : 30;
+            ULONG Silent : 1;
+            ULONG NoStart : 1;
+            ULONG Hide : 1;
+            ULONG NeedsReboot : 1;
+            ULONG Spare : 26;
         };
     };
 
@@ -85,34 +85,13 @@ typedef struct _PH_SETUP_CONTEXT
     PPH_STRING SetupInstallPath;
     PPH_STRING SetupServiceName;
 
-    PVOID ZipDownloadBuffer;
-    ULONG ZipDownloadBufferLength;
-
-    ULONG ErrorCode;
-
-    PPH_STRING RelDate;
-    PPH_STRING RelVersion;
-
-    PPH_STRING BinFileDownloadUrl;
-    ULONGLONG BinFileLength;
-    PPH_STRING BinFileHash;
-    PPH_STRING BinFileSignature;
-    PPH_STRING SetupFileDownloadUrl;
-    ULONGLONG SetupFileLength;
-    PPH_STRING SetupFileHash;
-    PPH_STRING SetupFileSignature;
-
-    //PPH_STRING WebSetupFileDownloadUrl;
-    //PPH_STRING WebSetupFileVersion;
-    //PPH_STRING WebSetupFileLength;
-    //PPH_STRING WebSetupFileHash;
-    //PPH_STRING WebSetupFileSignature;
+    NTSTATUS LastStatus;
 
     ULONG CurrentMajorVersion;
     ULONG CurrentMinorVersion;
     ULONG CurrentRevisionVersion;
 
-    BOOLEAN NeedsReboot;
+    HANDLE SubProcessHandle;
 } PH_SETUP_CONTEXT, *PPH_SETUP_CONTEXT;
 
 VOID SetupParseCommandLine(
@@ -175,6 +154,10 @@ VOID ShowUpdateErrorPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
+LONG SetupShowMessagePromptForLegacyVersion(
+    VOID
+    );
+
 // util.c
 
 PPH_STRING SetupFindInstallDirectory(
@@ -185,7 +168,7 @@ VOID SetupDeleteAppdataDirectory(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
-BOOLEAN SetupUninstallDriver(
+NTSTATUS SetupUninstallDriver(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
@@ -193,7 +176,7 @@ NTSTATUS SetupCreateUninstallKey(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
-NTSTATUS SetupDeleteUninstallKey(
+VOID SetupDeleteUninstallKey(
     VOID
     );
 
@@ -203,6 +186,19 @@ VOID SetupCreateWindowsOptions(
 VOID SetupDeleteWindowsOptions(
     _In_ PPH_SETUP_CONTEXT Context
     );
+BOOLEAN SetupHasTaskMgrDebuggerIfeo(
+    VOID
+    );
+NTSTATUS SetupCreateTaskMgrDebuggerIfeo(
+    _In_ PPH_SETUP_CONTEXT Context
+    );
+
+NTSTATUS SetupCreateLocalDumpsKey(
+    VOID
+    );
+VOID SetupDeleteLocalDumpsKey(
+    VOID
+    );
 
 VOID SetupCreateShortcuts(
     _In_ PPH_SETUP_CONTEXT Context
@@ -211,7 +207,7 @@ VOID SetupDeleteShortcuts(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
-BOOLEAN SetupCreateUninstallFile(
+NTSTATUS SetupCreateUninstallFile(
     _In_ PPH_SETUP_CONTEXT Context
     );
 VOID SetupDeleteUninstallFile(
@@ -222,11 +218,13 @@ NTSTATUS SetupExecuteApplication(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
-VOID SetupUpgradeSettingsFile(
+NTSTATUS SetupUpgradeSettingsFile(
     VOID
     );
 
-extern PH_STRINGREF UninstallKeyName;
+NTSTATUS SetupConvertSettingsFile(
+    VOID
+    );
 
 typedef struct _SETUP_EXTRACT_FILE
 {
@@ -239,11 +237,11 @@ typedef struct _SETUP_REMOVE_FILE
     PWSTR FileName;
 } SETUP_REMOVE_FILE, *PSETUP_REMOVE_FILE;
 
-VOID SetupCreateLink(
-    _In_ PWSTR LinkFilePath,
-    _In_ PWSTR FilePath,
-    _In_ PWSTR FileParentDir,
-    _In_ PWSTR AppId
+HRESULT SetupCreateLink(
+    _In_ PCWSTR LinkFilePath,
+    _In_ PCWSTR FilePath,
+    _In_ PCWSTR FileParentDir,
+    _In_ PCWSTR AppId
     );
 
 BOOLEAN CheckApplicationInstalled(
@@ -258,7 +256,11 @@ PPH_STRING GetApplicationInstallPath(
     VOID
     );
 
-BOOLEAN SetupShutdownApplication(
+NTSTATUS SetupLegacySetupInstalled(
+    VOID
+    );
+
+NTSTATUS SetupShutdownApplication(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
@@ -269,17 +271,16 @@ NTSTATUS QueryProcessesUsingVolumeOrFile(
 
 PPH_STRING SetupCreateFullPath(
     _In_ PPH_STRING Path,
-    _In_ PWSTR FileName
+    _In_ PCWSTR FileName
     );
 
-BOOLEAN SetupOverwriteFile(
+NTSTATUS SetupOverwriteFile(
     _In_ PPH_STRING FileName,
     _In_ PVOID Buffer,
     _In_ ULONG BufferLength
     );
 
-_Success_(return)
-BOOLEAN SetupHashFile(
+NTSTATUS SetupHashFile(
     _In_ PPH_STRING FileName,
     _Out_writes_all_(256 / 8) PBYTE Buffer
     );
@@ -296,7 +297,7 @@ ULONG64 ParseVersionString(
     _Inout_ PPH_STRING VersionString
     );
 
-BOOLEAN SetupQueryUpdateData(
+BOOLEAN SetupQueryUpdateDataWithFailover(
     _Inout_ PPH_SETUP_CONTEXT Context
     );
 
@@ -306,11 +307,29 @@ BOOLEAN UpdateDownloadUpdateData(
 
 // extract.c
 
-NTSTATUS SetupProgressThread(
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupExtractBuild(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
-BOOLEAN SetupExtractBuild(
+// install.c
+
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupProgressThread(
+    _In_ PPH_SETUP_CONTEXT Context
+    );
+
+// update.c
+
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupUpdateBuild(
+    _In_ PPH_SETUP_CONTEXT Context
+    );
+
+// uninstall.c
+
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupUninstallBuild(
     _In_ PPH_SETUP_CONTEXT Context
     );
 

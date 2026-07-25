@@ -70,6 +70,15 @@ namespace krabs {
             // length is a union that may refer to another field for a length
             // value. In that case, defer to TDH for the value otherwise
             // use the length value directly.
+
+            // For pointers check header instead of size, see PointerSize at
+            // https://docs.microsoft.com/en-us/windows/win32/api/tdh/nf-tdh-tdhformatproperty
+            // for details
+            if (propertyInfo.nonStructType.InType == TDH_INTYPE_POINTER)
+            {
+                return record.EventHeader.Flags & EVENT_HEADER_FLAG_32_BIT_HEADER ? 4 : 8;
+            }
+
             return propertyInfo.length;
         }
 

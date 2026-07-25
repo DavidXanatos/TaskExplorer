@@ -85,50 +85,50 @@ namespace
       public:
         inline void start( int x, int y )
         {
-            x0 = x;
-            y1 = yMin = yMax = y2 = y;
+            m_x0 = x;
+            m_y1 = m_yMin = m_yMax = m_y2 = y;
         }
 
         inline bool append( int x, int y )
         {
-            if ( x0 != x )
+            if ( m_x0 != x )
                 return false;
 
-            if ( y < yMin )
-                yMin = y;
-            else if ( y > yMax )
-                yMax = y;
+            if ( y < m_yMin )
+                m_yMin = y;
+            else if ( y > m_yMax )
+                m_yMax = y;
 
-            y2 = y;
+            m_y2 = y;
 
             return true;
         }
 
         inline void flush( Polygon& polyline )
         {
-            appendTo( y1, polyline );
+            appendTo( m_y1, polyline );
 
-            if ( y2 > y1 )
-                qSwap( yMin, yMax );
+            if ( m_y2 > m_y1 )
+                qSwap( m_yMin, m_yMax );
 
-            if ( yMax != y1 )
-                appendTo( yMax, polyline );
+            if ( m_yMax != m_y1 )
+                appendTo( m_yMax, polyline );
 
-            if ( yMin != yMax )
-                appendTo( yMin, polyline );
+            if ( m_yMin != m_yMax )
+                appendTo( m_yMin, polyline );
 
-            if ( y2 != yMin )
-                appendTo( y2, polyline );
+            if ( m_y2 != m_yMin )
+                appendTo( m_y2, polyline );
         }
 
       private:
         inline void appendTo( int y, Polygon& polyline )
         {
-            polyline += Point( x0, y );
+            polyline += Point( m_x0, y );
         }
 
       private:
-        int x0, y1, yMin, yMax, y2;
+        int m_x0, m_y1, m_yMin, m_yMax, m_y2;
     };
 
     template< class Polygon, class Point >
@@ -137,49 +137,49 @@ namespace
       public:
         inline void start( int x, int y )
         {
-            y0 = y;
-            x1 = xMin = xMax = x2 = x;
+            m_y0 = y;
+            m_x1 = m_xMin = m_xMax = m_x2 = x;
         }
 
         inline bool append( int x, int y )
         {
-            if ( y0 != y )
+            if ( m_y0 != y )
                 return false;
 
-            if ( x < xMin )
-                xMin = x;
-            else if ( x > xMax )
-                xMax = x;
+            if ( x < m_xMin )
+                m_xMin = x;
+            else if ( x > m_xMax )
+                m_xMax = x;
 
-            x2 = x;
+            m_x2 = x;
 
             return true;
         }
 
         inline void flush( Polygon& polyline )
         {
-            appendTo( x1, polyline );
+            appendTo( m_x1, polyline );
 
-            if ( x2 > x1 )
-                qSwap( xMin, xMax );
+            if ( m_x2 > m_x1 )
+                qSwap( m_xMin, m_xMax );
 
-            if ( xMax != x1 )
-                appendTo( xMax, polyline );
+            if ( m_xMax != m_x1 )
+                appendTo( m_xMax, polyline );
 
-            if ( xMin != xMax )
-                appendTo( xMin, polyline );
+            if ( m_xMin != m_xMax )
+                appendTo( m_xMin, polyline );
 
-            if ( x2 != xMin )
-                appendTo( x2, polyline );
+            if ( m_x2 != m_xMin )
+                appendTo( m_x2, polyline );
         }
 
       private:
         inline void appendTo( int x, Polygon& polyline )
         {
-            polyline += Point( x, y0 );
+            polyline += Point( x, m_y0 );
         }
 
-        int y0, x1, xMin, xMax, x2;
+        int m_y0, m_x1, m_xMin, m_xMax, m_x2;
     };
 }
 

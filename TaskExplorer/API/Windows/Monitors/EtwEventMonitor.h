@@ -4,6 +4,7 @@ class CEtwEventMonitor : public QObject
 {
     Q_OBJECT
 
+	TRACK_OBJECT(CEtwEventMonitor)
 public:
 	CEtwEventMonitor(QObject *parent = nullptr);
     virtual ~CEtwEventMonitor();

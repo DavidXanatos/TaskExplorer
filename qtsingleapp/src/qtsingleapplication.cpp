@@ -256,6 +256,12 @@ bool QtSingleApplication::isRunning()
     return peer->isClient();
 }
 
+bool QtSingleApplication::isClient()
+{
+    if (!peer)
+        return false;
+    return peer->isClient();
+}
 
 /*!
     Tries to send the text \a message to the currently running

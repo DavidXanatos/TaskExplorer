@@ -12,14 +12,6 @@
 
 #include <QPen>
 
-struct compareX
-{
-    inline bool operator()( const double x, const QPointF& pos ) const
-    {
-        return ( x < pos.x() );
-    }
-};
-
 CurveTracker::CurveTracker( QWidget* canvas )
     : QwtPlotPicker( canvas )
 {
@@ -110,26 +102,22 @@ QLineF CurveTracker::curveLineAt(
 {
     QLineF line;
 
-    if ( curve->dataSize() >= 2 )
+    const QRectF br = curve->boundingRect();
+    if ( ( br.width() > 0 ) && ( x >= br.left() ) && ( x <= br.right() ) )
     {
-        const QRectF br = curve->boundingRect();
-        if ( ( br.width() > 0 ) && ( x >= br.left() ) && ( x <= br.right() ) )
+        int index = curve->adjacentPoint( Qt::Horizontal, x );
+
+        if ( index == -1 &&
+            x == curve->sample( curve->dataSize() - 1 ).x() )
         {
-            int index = qwtUpperSampleIndex< QPointF >(
-                *curve->data(), x, compareX() );
+            // the last sample is excluded from qwtUpperSampleIndex
+            index = curve->dataSize() - 1;
+        }
 
-            if ( index == -1 &&
-                x == curve->sample( curve->dataSize() - 1 ).x() )
-            {
-                // the last sample is excluded from qwtUpperSampleIndex
-                index = curve->dataSize() - 1;
-            }
-
-            if ( index > 0 )
-            {
-                line.setP1( curve->sample( index - 1 ) );
-                line.setP2( curve->sample( index ) );
-            }
+        if ( index > 0 )
+        {
+            line.setP1( curve->sample( index - 1 ) );
+            line.setP2( curve->sample( index ) );
         }
     }
 

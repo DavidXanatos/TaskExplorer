@@ -60,7 +60,7 @@ static void testSplines( int paramType, const QPolygonF& points )
 #endif
 }
 
-int main()
+int main( int, char*[] )
 {
     QPolygonF points;
 

@@ -103,10 +103,10 @@ PPH_STRING PvResolveReparsePointTarget(
             } AppExecLinkReparseBuffer, *PAppExecLinkReparseBuffer;
 
             PAppExecLinkReparseBuffer appexeclink;
-            PWSTR string;
+            PCWSTR string;
 
             appexeclink = (PAppExecLinkReparseBuffer)reparseBuffer->GenericReparseBuffer.DataBuffer;
-            string = (PWSTR)appexeclink->StringList;
+            string = (PCWSTR)appexeclink->StringList;
 
             for (ULONG i = 0; i < appexeclink->StringCount; i++)
             {
@@ -171,6 +171,7 @@ typedef struct _PH_COPY_ITEM_CONTEXT
     PPH_STRING MenuItemText;
 } PH_COPY_ITEM_CONTEXT, *PPH_COPY_ITEM_CONTEXT;
 
+_Function_class_(PH_EMENU_ITEM_DELETE_FUNCTION)
 VOID NTAPI PhpCopyListViewEMenuItemDeleteFunction(
     _In_ struct _PH_EMENU_ITEM *Item
     )
@@ -200,9 +201,7 @@ BOOLEAN PvInsertCopyListViewEMenuItem(
     HDITEM headerItem;
     WCHAR headerText[MAX_PATH] = L"";
 
-    if (!GetCursorPos(&location))
-        return FALSE;
-    if (!ScreenToClient(ListViewHandle, &location))
+    if (!PhGetClientPos(ListViewHandle, &location))
         return FALSE;
 
     memset(&lvHitInfo, 0, sizeof(LVHITTESTINFO));
@@ -457,8 +456,8 @@ VOID PhInitializeTreeNewColumnMenuEx(
 
     if (Flags & PH_TN_COLUMN_MENU_SHOW_RESET_SORT)
     {
-        ULONG sortColumn;
-        PH_SORT_ORDER sortOrder;
+        ULONG sortColumn = 0;
+        PH_SORT_ORDER sortOrder = NoSortOrder;
 
         TreeNew_GetSort(Data->TreeNewHandle, &sortColumn, &sortOrder);
 
@@ -910,25 +909,23 @@ VOID PvSetTreeViewImageList(
     HIMAGELIST treeViewImageList;
     LONG dpiValue = PhGetWindowDpi(WindowHandle);
 
-    if (treeViewImageList = TreeView_GetImageList(TreeViewHandle, TVSIL_NORMAL))
+    if (treeViewImageList = PhImageListCreate(
+        2,
+        PhGetDpi(24, dpiValue),
+        ILC_MASK | ILC_COLORDDB,
+        1,
+        1
+        ))
     {
-        PhImageListSetIconSize(
+        // Update the imagelist and return the previous handle.
+        if (treeViewImageList = TreeView_SetImageList(
+            TreeViewHandle,
             treeViewImageList,
-            2,
-            PhGetDpi(24, dpiValue)
-            );
-    }
-    else
-    {
-        if (treeViewImageList = PhImageListCreate(
-            2,
-            PhGetDpi(24, dpiValue),
-            ILC_MASK | ILC_COLOR32,
-            1,
-            1
+            TVSIL_NORMAL
             ))
         {
-            TreeView_SetImageList(TreeViewHandle, treeViewImageList, TVSIL_NORMAL);
+            // Cleanup the previous imagelist.
+            PhImageListDestroy(treeViewImageList);
         }
     }
 }
@@ -944,12 +941,15 @@ PPH_STRING PvHashBuffer(
 
     __try
     {
-        PhInitializeHash(&hashContext, Md5HashAlgorithm); // PhGetIntegerSetting(L"HashAlgorithm")
-        PhUpdateHash(&hashContext, Buffer, Length);
-
-        if (PhFinalHash(&hashContext, hash, 16, NULL))
+        if (NT_SUCCESS(PhInitializeHash(&hashContext, Md5HashAlgorithm))) // PhGetIntegerSetting(L"HashAlgorithm")
         {
-            value = PhBufferToHexString(hash, 16);
+            if (NT_SUCCESS(PhUpdateHash(&hashContext, Buffer, Length)))
+            {
+                if (NT_SUCCESS(PhFinalHash(&hashContext, hash, 16, NULL)))
+                {
+                    value = PhBufferToHexString(hash, 16);
+                }
+            }
         }
     }
     __except (EXCEPTION_EXECUTE_HANDLER)

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  
+  #push:
+  #  branches: [ master ]
+  #pull_request:
+  #  branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: windows-2022
+    #runs-on: windows-2019
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+
+      - name: Setup msbuild
+        uses: microsoft/setup-msbuild@v2
+        
+      - name: Build KTaskExplorer x64
+        run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=x64
+
+      - name: Upload Build
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: TaskExplorer_x64
+          path: |
+            ProcessHacker/KSystemInformer/bin/Release64/*.sys
+            ProcessHacker/KSystemInformer/bin/Release64/*.dll
+            ProcessHacker/KSystemInformer/bin/Release64/*.pdb
+        
+      - name: Build KTaskExplorer arm64
+        run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=ARM64
+            
+      - name: Upload Build
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: TaskExplorer_ARM64
+          path: |
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.sys
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.dll
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.pdb

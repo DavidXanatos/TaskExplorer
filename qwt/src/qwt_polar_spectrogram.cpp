@@ -20,10 +20,7 @@
 #include <qthread.h>
 #include <qfuture.h>
 #include <qtconcurrentrun.h>
-
-#if QT_VERSION < 0x050000
 #include <qnumeric.h>
-#endif
 
 class QwtPolarSpectrogram::TileInfo
 {

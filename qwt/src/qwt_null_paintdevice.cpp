@@ -463,11 +463,20 @@ int QwtNullPaintDevice::metric( PaintDeviceMetric deviceMetric ) const
             value = qRound( metric( PdmHeight ) * 25.4 / metric( PdmDpiY ) );
             break;
         }
+#if QT_VERSION >= 0x050100
+        case PdmDevicePixelRatio:
+        {
+            value = 1.0;
+            break;
+        }
+#endif
         default:
-            value = 0;
+        {
+            value = QPaintDevice::metric( deviceMetric );
+        }
     }
-    return value;
 
+    return value;
 }
 
 //! See QPaintEngine::drawRects()

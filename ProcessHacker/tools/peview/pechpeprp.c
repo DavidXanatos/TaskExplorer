@@ -35,7 +35,7 @@ VOID PvpCHPAddValue(
 }
 
 PPH_STRING PvpCHPERvaToSymbol(
-    _In_ ULONG Rva
+    _In_ ULONG_PTR Rva
     )
 {
     if (Rva)
@@ -45,7 +45,7 @@ PPH_STRING PvpCHPERvaToSymbol(
         if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
             va = PTR_ADD_OFFSET(PvMappedImage.NtHeaders->OptionalHeader.ImageBase, Rva);
         else if (PvMappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-            va = PTR_ADD_OFFSET(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase, Rva);
+            va = PTR_ADD_OFFSET(UintToPtr(PvMappedImage.NtHeaders32->OptionalHeader.ImageBase), Rva);
 
         if (va)
         {
@@ -54,7 +54,7 @@ PPH_STRING PvpCHPERvaToSymbol(
 
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)va,
+                va,
                 &level,
                 NULL,
                 NULL,
@@ -513,7 +513,7 @@ INT_PTR CALLBACK PvpPeCHPEDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022-2023
+ *     jxy-s   2022-2026
  *
  */
 
@@ -25,7 +25,7 @@ KPH_PROTECTED_DATA_SECTION_PUSH();
 PFLT_FILTER KphFltFilter = NULL;
 KPH_PROTECTED_DATA_SECTION_POP();
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Invoked when the mini-filter driver is asked to unload.
@@ -40,11 +40,16 @@ NTSTATUS FLTAPI KphpFltFilterUnloadCallback(
     _In_ FLT_FILTER_UNLOAD_FLAGS Flags
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(Flags);
 
     KphTracePrint(TRACE_LEVEL_VERBOSE, INFORMER, "Filter unload invoked");
+
+    if (KphIsDriverUnloadProtected())
+    {
+        return STATUS_FLT_DO_NOT_DETACH;
+    }
 
     return STATUS_SUCCESS;
 }
@@ -64,7 +69,7 @@ NTSTATUS FLTAPI KphpFltInstanceQueryTeardownCallback(
     _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     UNREFERENCED_PARAMETER(FltObjects);
     UNREFERENCED_PARAMETER(Flags);
@@ -186,7 +191,7 @@ NTSTATUS KphFltRegister(
     POBJECT_NAME_INFORMATION objectInfo;
     ULONG returnLength;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
     NT_ASSERT(!KphFltFilter);
 
     instancesKeyHandle = NULL;
@@ -219,7 +224,7 @@ NTSTATUS KphFltRegister(
             goto Exit;
         }
 
-        if (objectInfo->Name.Buffer[i - 1] == L'\\')
+        if (objectInfo->Name.Buffer[i - 1] == OBJ_NAME_PATH_SEPARATOR)
         {
             objectInfo->Name.Length -= (i * sizeof(WCHAR));
             RtlMoveMemory(objectInfo->Name.Buffer,
@@ -233,7 +238,7 @@ NTSTATUS KphFltRegister(
     // We null terminate this for the registry later.
     //
     NT_ASSERT(objectInfo->Name.MaximumLength >= (objectInfo->Name.Length + sizeof(WCHAR)));
-    objectInfo->Name.Buffer[objectInfo->Name.Length / sizeof(WCHAR)] = L'\0';
+    objectInfo->Name.Buffer[objectInfo->Name.Length / sizeof(WCHAR)] = UNICODE_NULL;
 
     keyName.Buffer = instancesBuffer;
     keyName.Length = 0;
@@ -289,7 +294,7 @@ NTSTATUS KphFltRegister(
     // We guarantee this above.
     //
     NT_ASSERT(objectInfo->Name.MaximumLength >= (objectInfo->Name.Length + sizeof(WCHAR)));
-    NT_ASSERT(objectInfo->Name.Buffer[objectInfo->Name.Length / sizeof(WCHAR)] == L'\0');
+    NT_ASSERT(objectInfo->Name.Buffer[objectInfo->Name.Length / sizeof(WCHAR)] == UNICODE_NULL);
     status = ZwSetValueKey(instancesKeyHandle,
                            (PUNICODE_STRING)&KphpDefaultInstaceName,
                            0,
@@ -354,7 +359,7 @@ NTSTATUS KphFltRegister(
 
     NT_ASSERT(KphAltitude);
     NT_ASSERT(KphAltitude->MaximumLength >= (KphAltitude->Length + sizeof(WCHAR)));
-    NT_ASSERT(KphAltitude->Buffer[KphAltitude->Length / sizeof(WCHAR)] == L'\0');
+    NT_ASSERT(KphAltitude->Buffer[KphAltitude->Length / sizeof(WCHAR)] == UNICODE_NULL);
     status = ZwSetValueKey(defaultInstanceKeyHandle,
                            (PUNICODE_STRING)&KphpAltitudeName,
                            0,
@@ -437,7 +442,7 @@ VOID KphFltUnregister(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphCommsStop();
 
@@ -463,7 +468,7 @@ NTSTATUS KphFltInformerStart(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     NT_ASSERT(KphFltFilter);
 

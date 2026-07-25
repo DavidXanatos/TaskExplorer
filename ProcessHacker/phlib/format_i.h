@@ -20,14 +20,12 @@
     {
         WCHAR localeBuffer[4];
 
-        if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, localeBuffer, 4) &&
-            (localeBuffer[0] != 0 && localeBuffer[1] == 0))
+        if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SDECIMAL, localeBuffer, 4))
         {
             PhpFormatDecimalSeparator = localeBuffer[0];
         }
 
-        if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_STHOUSAND, localeBuffer, 4) &&
-            (localeBuffer[0] != 0 && localeBuffer[1] == 0))
+        if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_STHOUSAND, localeBuffer, 4))
         {
             PhpFormatThousandSeparator = localeBuffer[0];
         }
@@ -89,7 +87,7 @@
                 PSTR multiByteBuffer;
                 SIZE_T multiByteLength;
 
-                if (format->Type == MultiByteStringFormatType)
+                if ((format->Type & FormatTypeMask) == MultiByteStringFormatType)
                 {
                     multiByteBuffer = format->u.MultiByteString.Buffer;
                     multiByteLength = format->u.MultiByteString.Length;
@@ -108,7 +106,7 @@
                 {
                     ENSURE_BUFFER(bytesInUnicodeString);
 
-                    if (!OK_BUFFER || NT_SUCCESS(RtlMultiByteToUnicodeN(
+                    if (OK_BUFFER && NT_SUCCESS(RtlMultiByteToUnicodeN(
                         buffer,
                         bytesInUnicodeString,
                         NULL,
@@ -286,6 +284,7 @@ CommonInt64Format:
         DataType value; \
         PSTR temp; \
         ULONG length; \
+        SIZE_T returnLength; \
         \
         if ((Format)->Type & FormatUsePrecision) \
         { \
@@ -301,20 +300,28 @@ CommonInt64Format:
         \
         value = (Format)->u.FormatType; \
         temp = (PSTR)tempBuffer + 1; /* leave one character so we can insert a prefix if needed */ \
+        returnLength = 0; \
         FormatToBufferUtf8( \
             value, \
             (Format)->Type, \
             precision, \
             temp, \
-            sizeof(tempBuffer) - 1 \
+            sizeof(tempBuffer) - 1, \
+            &returnLength \
             ); \
         \
         /* if (((Format)->Type & FormatForceDecimalPoint) && precision == 0) */ \
              /* _forcdecpt_l(tempBufferAnsi, PhpFormatUserLocale); */ \
         if ((Format)->Type & FormatCropZeros) \
-            PhpCropZeros(temp, PhpFormatUserLocale); \
-        \
-        length = (ULONG)strlen(temp); \
+        { \
+            PhpCropZeros(temp); \
+            \
+            length = (ULONG)strlen(temp); \
+        } \
+        else \
+        { \
+            length = (ULONG)returnLength; \
+        } \
         \
         if (temp[0] == '-') \
         { \
@@ -440,7 +447,7 @@ CommonInt64Format:
             \
             if (OK_BUFFER) \
             { \
-                PhZeroExtendToUtf16Buffer((PSTR)temp, length, buffer); \
+                PhZeroExtendToUtf16Buffer(temp, length, buffer); \
                 ADVANCE_BUFFER(length * sizeof(WCHAR)); \
             } \
         } \
@@ -483,7 +490,7 @@ CommonInt64Format:
 
                 while (
                     s >= 1000 &&
-                    i < sizeof(PhpSizeUnitNamesCounted) / sizeof(PH_STRINGREF) &&
+                    i + 1 < sizeof(PhSizeUnitNamesCounted) / sizeof(PH_STRINGREF) &&
                     i < maxSizeUnit
                     )
                 {
@@ -500,13 +507,13 @@ CommonInt64Format:
                 flags = 0;
                 COMMON_DOUBLE_FORMAT(DOUBLE, &doubleFormat, Double, PhpFormatDoubleToUtf8Locale);
 
-                ENSURE_BUFFER(sizeof(WCHAR) + PhpSizeUnitNamesCounted[i].Length);
+                ENSURE_BUFFER(sizeof(WCHAR) + PhSizeUnitNamesCounted[i].Length);
                 if (OK_BUFFER)
                 {
                     *buffer = L' ';
-                    memcpy(buffer + 1, PhpSizeUnitNamesCounted[i].Buffer, PhpSizeUnitNamesCounted[i].Length);
+                    memcpy(buffer + 1, PhSizeUnitNamesCounted[i].Buffer, PhSizeUnitNamesCounted[i].Length);
                 }
-                ADVANCE_BUFFER(sizeof(WCHAR) + PhpSizeUnitNamesCounted[i].Length);
+                ADVANCE_BUFFER(sizeof(WCHAR) + PhSizeUnitNamesCounted[i].Length);
             }
             break;
         }

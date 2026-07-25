@@ -345,7 +345,8 @@ bool CWinNetMonitor::UpdateAdapters()
 
 				}
 
-				PhDereferenceObject(deviceGuid);
+				if (deviceGuid)
+					PhDereferenceObject(deviceGuid);
 
                 NtClose(keyHandle);
             }

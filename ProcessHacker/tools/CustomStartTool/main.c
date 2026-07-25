@@ -12,57 +12,54 @@
 #include <ph.h>
 
 NTSTATUS InitializeAttributeList(
-    _In_ STARTUPINFOEX* StartupInfo
+    _Out_ STARTUPINFOEX* StartupInfo
     )
 {
-#define DEFAULT_MITIGATION_POLICY_FLAGS \
-    (PROCESS_CREATION_MITIGATION_POLICY_HEAP_TERMINATE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_PROHIBIT_DYNAMIC_CODE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_REMOTE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_LOW_LABEL_ALWAYS_ON)
-#define DEFAULT_MITIGATION_POLICY_FLAGS2 \
-    (PROCESS_CREATION_MITIGATION_POLICY2_LOADER_INTEGRITY_CONTINUITY_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY2_STRICT_CONTROL_FLOW_GUARD_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY2_MODULE_TAMPERING_PROTECTION_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY2_RESTRICT_INDIRECT_BRANCH_PREDICTION_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY2_SPECULATIVE_STORE_BYPASS_DISABLE_ALWAYS_ON | \
-     PROCESS_CREATION_MITIGATION_POLICY2_CET_USER_SHADOW_STACKS_ALWAYS_ON)
-
-    SIZE_T attributeListLength = 0;
-
-    if (!InitializeProcThreadAttributeList(NULL, 1, 0, &attributeListLength) && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-        return PhGetLastWin32ErrorAsNtStatus();
-
-    StartupInfo->lpAttributeList = PhAllocate(attributeListLength);
-
-    if (!InitializeProcThreadAttributeList(StartupInfo->lpAttributeList, 1, 0, &attributeListLength))
-        return PhGetLastWin32ErrorAsNtStatus();
-
-    if (!UpdateProcThreadAttribute(
-        StartupInfo->lpAttributeList,
-        0,
-        PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY,
-        &(ULONG64[2]) { DEFAULT_MITIGATION_POLICY_FLAGS, DEFAULT_MITIGATION_POLICY_FLAGS2 },
-        sizeof(ULONG64[2]),
-        NULL,
-        NULL
-        ))
+    static ULONG64 mitigationFlags[] =
     {
-        return PhGetLastWin32ErrorAsNtStatus();
-    }
+        (PROCESS_CREATION_MITIGATION_POLICY_HEAP_TERMINATE_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_PROHIBIT_DYNAMIC_CODE_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_REMOTE_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_LOW_LABEL_ALWAYS_ON),
+        (PROCESS_CREATION_MITIGATION_POLICY2_LOADER_INTEGRITY_CONTINUITY_ALWAYS_ON |
+         //PROCESS_CREATION_MITIGATION_POLICY2_STRICT_CONTROL_FLOW_GUARD_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY2_MODULE_TAMPERING_PROTECTION_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY2_RESTRICT_INDIRECT_BRANCH_PREDICTION_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY2_SPECULATIVE_STORE_BYPASS_DISABLE_ALWAYS_ON |
+         PROCESS_CREATION_MITIGATION_POLICY2_CET_USER_SHADOW_STACKS_ALWAYS_ON)
+    };
+    NTSTATUS status;
+    PPROC_THREAD_ATTRIBUTE_LIST attributeList = NULL;
 
-    return STATUS_SUCCESS;
+    RtlZeroMemory(StartupInfo, sizeof(STARTUPINFOEX));
+    StartupInfo->StartupInfo.cb = sizeof(STARTUPINFOEX);
+
+    status = PhInitializeProcThreadAttributeList(&attributeList, 1);
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    StartupInfo->lpAttributeList = attributeList;
+
+    status = PhUpdateProcThreadAttribute(
+        attributeList,
+        PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY,
+        mitigationFlags,
+        sizeof(mitigationFlags)
+        );
+
+    return status;
 }
 
 NTSTATUS DestroyAttributeList(
     _In_ STARTUPINFOEX* StartupInfo
     )
 {
-    DeleteProcThreadAttributeList(StartupInfo->lpAttributeList);
+    PhDeleteProcThreadAttributeList(StartupInfo->lpAttributeList);
     return STATUS_SUCCESS;
 }
 
@@ -85,12 +82,21 @@ NTSTATUS InitializeJobObject(
         JOB_OBJECT_UILIMIT_HANDLES | JOB_OBJECT_UILIMIT_GLOBALATOMS | JOB_OBJECT_UILIMIT_DESKTOP
     };
     NTSTATUS status;
+    OBJECT_ATTRIBUTES objectAttributes;
     HANDLE jobObjectHandle;
+
+    InitializeObjectAttributes(
+        &objectAttributes,
+        NULL,
+        OBJ_CASE_INSENSITIVE,
+        NULL,
+        NULL
+        );
 
     status = NtCreateJobObject(
         &jobObjectHandle,
         JOB_OBJECT_ALL_ACCESS,
-        NULL
+        &objectAttributes
         );
 
     if (NT_SUCCESS(status))
@@ -119,18 +125,30 @@ NTSTATUS InitializeFileName(
     _Out_ PPH_STRING* FileName
     )
 {
-#ifdef _DEBUG
-    PH_STRINGREF fileNameStringRef = PH_STRINGREF_INIT(L"\\..\\..\\..\\..\\bin\\Debug64\\SystemInformer.exe");
-#else
-    PH_STRINGREF fileNameStringRef = PH_STRINGREF_INIT(L"SystemInformer.exe");
-#endif
+    NTSTATUS status;
     PPH_STRING fileName;
+    PPH_STRING fullPath;
 
-    fileName = PhGetApplicationDirectoryFileNameWin32(&fileNameStringRef);
-    PhMoveReference(&fileName, PhGetFullPath(fileName->Buffer, NULL));
+#ifdef _DEBUG
+    fileName = PhGetApplicationDirectoryFileNameZ(L"\\..\\..\\..\\..\\bin\\Debug64\\SystemInformer.exe", FALSE);
+#else
+    fileName = PhGetApplicationDirectoryFileNameZ(L"SystemInformer.exe", FALSE);
+#endif
 
-    *FileName = fileName;
-    return STATUS_SUCCESS;
+    status = PhGetFullPath(
+        PhGetString(fileName),
+        &fullPath,
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *FileName = fullPath;
+    }
+
+    PhDereferenceObject(fileName);
+
+    return status;
 }
 
 INT WINAPI wWinMain(
@@ -143,9 +161,9 @@ INT WINAPI wWinMain(
     HANDLE processHandle;
     HANDLE jobObjectHandle;
     PPH_STRING fileName;
-    STARTUPINFOEX info = { sizeof(STARTUPINFOEX) };
+    STARTUPINFOEX info;
 
-    if (!NT_SUCCESS(PhInitializePhLib(L"CustomStartTool", Instance)))
+    if (!NT_SUCCESS(PhInitializePhLib(L"CustomStartTool")))
         return EXIT_FAILURE;
     if (!NT_SUCCESS(InitializeAttributeList(&info)))
         return EXIT_FAILURE;

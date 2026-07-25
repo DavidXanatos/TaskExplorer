@@ -356,7 +356,7 @@ public:
     QColor selectionColor();
     void setSelectionColor(const QColor &color);
 
-	void sellect(qint64 address, qint64 length);
+	void select(qint64 address, qint64 length);
 
 protected:
     // Handle events

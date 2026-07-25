@@ -222,7 +222,7 @@ void create_process_as_trusted_installer(const DWORD pid, std::wstring command_l
 
 	STARTUPINFOW startup_info;
 	ZeroMemory(&startup_info, sizeof(STARTUPINFOW));
-	startup_info.lpDesktop = L"Winsta0\\Default";
+	startup_info.lpDesktop = (PWSTR)L"Winsta0\\Default";
 	PROCESS_INFORMATION process_info;
 	ZeroMemory(&process_info, sizeof(PROCESS_INFORMATION));
 	if (!CreateProcessWithTokenW(
@@ -249,6 +249,6 @@ void create_process_as_trusted_installer(std::wstring command_line)
 	}
 	catch (exception e)
 	{
-		wcout << e.what() << endl;
+		MessageBoxA(nullptr, e.what(), "Error", MB_OK | MB_ICONERROR);
 	}
 }

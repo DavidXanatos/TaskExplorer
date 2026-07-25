@@ -7,6 +7,8 @@
 class CStringInfo : public QObject
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CStringInfo)
 public:
 	CStringInfo(quint64 Address, quint64 Size, quint64 BaseAddress, quint64 RegionSize, const QString& String, const CProcessPtr& pProcess)
 	{

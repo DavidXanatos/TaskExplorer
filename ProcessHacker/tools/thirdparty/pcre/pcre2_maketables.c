@@ -7,7 +7,7 @@ and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
      Original API code Copyright (c) 1997-2012 University of Cambridge
-          New API code Copyright (c) 2016-2020 University of Cambridge
+          New API code Copyright (c) 2016-2024 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -73,7 +73,7 @@ Returns:     pointer to the contiguous block of data
 #ifdef PCRE2_DFTABLES  /* Included in freestanding pcre2_dftables program */
 static const uint8_t *maketables(void)
 {
-uint8_t *yield = (uint8_t *)PhAllocateSafe(TABLES_LENGTH);
+uint8_t *yield = (uint8_t *)malloc(TABLES_LENGTH);
 
 #else  /* Not PCRE2_DFTABLES, that is, compiling the library */
 PCRE2_EXP_DEFN const uint8_t * PCRE2_CALL_CONVENTION
@@ -81,7 +81,7 @@ pcre2_maketables(pcre2_general_context *gcontext)
 {
 uint8_t *yield = (uint8_t *)((gcontext != NULL)?
   gcontext->memctl.malloc(TABLES_LENGTH, gcontext->memctl.memory_data) :
-  PhAllocateSafe(TABLES_LENGTH));
+  malloc(TABLES_LENGTH));
 #endif  /* PCRE2_DFTABLES */
 
 int i;
@@ -96,7 +96,11 @@ for (i = 0; i < 256; i++) *p++ = tolower(i);
 
 /* Next the case-flipping table */
 
-for (i = 0; i < 256; i++) *p++ = islower(i)? toupper(i) : tolower(i);
+for (i = 0; i < 256; i++)
+  {
+  int c = islower(i)? toupper(i) : tolower(i);
+  *p++ = (c < 256)? c : i;
+  }
 
 /* Then the character class tables. Don't try to be clever and save effort on
 exclusive ones - in some locales things may be different.
@@ -151,10 +155,10 @@ return yield;
 PCRE2_EXP_DEFN void PCRE2_CALL_CONVENTION
 pcre2_maketables_free(pcre2_general_context *gcontext, const uint8_t *tables)
 {
-  if (gcontext)
-    gcontext->memctl.free((void *)tables, gcontext->memctl.memory_data);
-  else
-    PhFree((void *)tables);
+if (gcontext != NULL)
+  gcontext->memctl.free((void *)tables, gcontext->memctl.memory_data);
+else
+  free((void *)tables);
 }
 #endif
 

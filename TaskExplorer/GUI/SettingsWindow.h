@@ -23,8 +23,20 @@ private slots:
 	void OnChangeColor(QListWidgetItem* pItem);
 	void OnChange();
 
+	void OnSelectUiFont();
+	void OnResetUiFont();
+
+	void GetUpdates();
+	void OnUpdateData(const QVariantMap& Data, const QVariantMap& Params);
+	void OnUpdate(const QString& Channel);
+	void UpdateUpdater();
+
+	void OnTab();
+
 protected:
 	void closeEvent(QCloseEvent *e);
+
+	QVariantMap m_UpdateData;
 
 private:
 	Ui::SettingsWindow ui;

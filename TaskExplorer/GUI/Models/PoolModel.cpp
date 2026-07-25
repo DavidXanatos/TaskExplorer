@@ -47,7 +47,7 @@ void CPoolModel::Sync(QMap<quint64, CPoolEntryPtr> PoolEntryList)
 
 		for(int section = 0; section < columnCount(); section++)
 		{
-			if (!m_Columns.contains(section))
+			if (m_ColumnsOff.contains(section))
 				continue; // ignore columns which are hidden
 
 			// todo: xxx use the deltas show delta / value ?
@@ -83,11 +83,11 @@ void CPoolModel::Sync(QMap<quint64, CPoolEntryPtr> PoolEntryList)
     			case eNonPagedAllocs:	
     			case eNonPagedFrees:	
     			case eNonPagedCurrent:	
-										ColValue.Formated = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
+										ColValue.Formatted = FormatNumberEx(Value.toULongLong(), bClearZeros); break;
 
 				case ePagedBytes:		
     			case eNonPagedBytes:	
-										ColValue.Formated = FormatSizeEx(Value.toULongLong(), bClearZeros); break;
+										ColValue.Formatted = FormatSizeEx(Value.toULongLong(), bClearZeros); break;
 				}
 			}
 

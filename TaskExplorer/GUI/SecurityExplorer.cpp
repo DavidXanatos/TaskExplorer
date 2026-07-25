@@ -458,7 +458,7 @@ void CSecurityExplorer::OnGroupe(QTreeWidgetItem* pItem)
 /*
 void CSecurityExplorer::OnDeleteAccount(QTreeWidgetItem* pItem)
 {
-	if (QMessageBox("TaskExplorer", tr("Do you want to delete the sellected account?"), QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
+	if (QMessageBox("TaskExplorer", tr("Do you want to delete the selected account?"), QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes)
 		return;
 
 	QByteArray Sid = pItem->data(1, Qt::UserRole).toByteArray();

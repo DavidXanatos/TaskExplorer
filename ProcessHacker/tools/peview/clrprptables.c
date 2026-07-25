@@ -83,10 +83,9 @@ VOID PvClrEnumerateTables(
         Context
         );
 
-    if (SUCCEEDED(status))
+    if (FAILED(status))
     {
-        // TODO: PhShowStatus doesn't handle HRESULT (dmex)
-        //PhShowStatus(Context->WindowHandle, L"Unable to enumerate CLR tables", 0, status);
+        PhShowStatusHR(Context->WindowHandle, L"Unable to enumerate CLR tables", status, 0);
     }
 }
 
@@ -203,7 +202,7 @@ INT_PTR CALLBACK PvpPeClrTablesDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

@@ -1,0 +1,24 @@
+#pragma once
+
+#define VERSION_MJR		1
+#define VERSION_MIN 	8
+#define VERSION_REV 	0
+#define VERSION_UPD 	0
+
+#ifndef STR
+#define STR2(X) #X
+#define STR(X) STR2(X)
+#endif
+
+#if VERSION_UPD > 0
+  #define VERSION_BIN VERSION_MJR,VERSION_MIN,VERSION_REV,VERSION_UPD
+  #define VERSION_STR STR(VERSION_MJR.VERSION_MIN.VERSION_REV.VERSION_UPD)
+#else
+  #define VERSION_BIN VERSION_MJR,VERSION_MIN,VERSION_REV
+  #define VERSION_STR STR(VERSION_MJR.VERSION_MIN.VERSION_REV)
+#endif
+
+#define MY_PRODUCT_NAME_STRING  "TaskExplorer"
+#define MY_COMPANY_NAME_STRING  "xanasoft.com"
+#define MY_COPYRIGHT_STRING     "Copyright (C) 2019-2026 David Xanatos (xanasoft.com)"
+

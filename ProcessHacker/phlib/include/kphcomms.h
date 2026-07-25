@@ -14,11 +14,6 @@
 
 #include <kphmsg.h>
 
-NTSTATUS NTAPI KphFilterLoadUnload(
-    _In_ PPH_STRINGREF ServiceName,
-    _In_ BOOLEAN LoadDriver
-    );
-
 /**
  * \brief Callback for handling messages from the kernel.
  *
@@ -33,33 +28,45 @@ NTSTATUS NTAPI KphFilterLoadUnload(
  *
  * \return TRUE if the message was handled by this callback, FALSE otherwise.
  */
-typedef
-BOOLEAN (NTAPI *PKPH_COMMS_CALLBACK)(
+typedef _Function_class_(KPH_COMMS_CALLBACK)
+BOOLEAN NTAPI KPH_COMMS_CALLBACK(
     _In_ ULONG_PTR ReplyToken,
     _In_ PCKPH_MESSAGE Message
     );
+typedef KPH_COMMS_CALLBACK* PKPH_COMMS_CALLBACK;
 
 _Must_inspect_result_
-NTSTATUS NTAPI KphCommsStart(
-    _In_ PPH_STRINGREF PortName,
-    _In_opt_ PKPH_COMMS_CALLBACK Callback
+NTSTATUS
+NTAPI
+KphCommsStart(
+    _In_ PCPH_STRINGREF PortName,
+    _In_opt_ PKPH_COMMS_CALLBACK Callback,
+    _In_ ULONG RingBufferLength
     );
 
-VOID NTAPI KphCommsStop(
+VOID
+NTAPI
+KphCommsStop(
     VOID
     );
 
-BOOLEAN NTAPI KphCommsIsConnected(
+BOOLEAN
+NTAPI
+KphCommsIsConnected(
     VOID
     );
 
-NTSTATUS NTAPI KphCommsReplyMessage(
+NTSTATUS
+NTAPI
+KphCommsReplyMessage(
     _In_ ULONG_PTR ReplyToken,
     _In_ PKPH_MESSAGE Message
     );
 
 _Must_inspect_result_
-NTSTATUS NTAPI KphCommsSendMessage(
+NTSTATUS
+NTAPI
+KphCommsSendMessage(
     _Inout_ PKPH_MESSAGE Message
     );
 

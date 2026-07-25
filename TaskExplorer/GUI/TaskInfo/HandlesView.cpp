@@ -227,7 +227,7 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 	OnColumnsChanged();
 
 	//m_pMenu = new QMenu();
-	m_pOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
+	m_pOpen = m_pMenu->addAction(tr("Open Handle"), this, SLOT(OnOpenHandle()));
 	
 	m_pMenu->addSeparator();
 
@@ -507,7 +507,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 	QString TypeName = pWinHandle->GetTypeName();
 	QVariantMap HandleInfo = pWinHandle->GetHandleInfo();
 	
-	QTreeWidgetItem* pBasicInfo = new QTreeWidgetItem(QStringList(tr("Basic informations")));
+	QTreeWidgetItem* pBasicInfo = new QTreeWidgetItem(QStringList(tr("Basic information")));
 	pDetails->addTopLevelItem(pBasicInfo);
 
 	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Name"), pWinHandle->GetFileName()); // pWinHandle->GetOriginalName()
@@ -515,8 +515,13 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 	//	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Original Name"), pWinHandle->GetOriginalName());
 	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Type"), pWinHandle->GetTypeString());
 	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Object address"), FormatAddress(pWinHandle->GetObjectAddress()));
-	QTreeWidgetEx::AddSubItem(pBasicInfo, tr("Granted access"), pWinHandle->GetGrantedAccessString());
 
+	QTreeWidgetItem* pSecInfo = new QTreeWidgetItem(QStringList(tr("Security information")));
+	pDetails->addTopLevelItem(pSecInfo);
+	QTreeWidgetEx::AddSubItem(pSecInfo, tr("Granted access"), pWinHandle->GetGrantedAccessString());
+	QTreeWidgetEx::AddSubItem(pSecInfo, tr("Granted access (generic)"), pWinHandle->GetGenericAccessString());
+	QTreeWidgetEx::AddSubItem(pSecInfo, tr("Granted access (mask)"), tr("0x%1").arg(pWinHandle->GetGrantedAccess(), 8, 16, QChar('0')));
+	QTreeWidgetEx::AddSubItem(pSecInfo, tr("SDDL"), pWinHandle->GetObjectSecurityDescriptorString());
 
 	QTreeWidgetItem* pReferences = new QTreeWidgetItem(QStringList(tr("References")));
 	pDetails->addTopLevelItem(pReferences);
@@ -532,7 +537,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 	QTreeWidgetEx::AddSubItem(pQuota, tr("Virtual Size"), HandleInfo["VirtualSize"].toString());
 
 
-	QTreeWidgetItem* pExtendedInfo = new QTreeWidgetItem(QStringList(tr("Extended informations")));
+	QTreeWidgetItem* pExtendedInfo = new QTreeWidgetItem(QStringList(tr("Extended information")));
 	pDetails->addTopLevelItem(pExtendedInfo);
 
 	if(TypeName == "ALPC Port")
@@ -605,7 +610,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 
 		auto GetProcCon = [HandleInfo](const QString& PidName, const QString& PortName) {
 			CProcessPtr pProcess = theAPI->GetProcessByID(HandleInfo[PidName].toULongLong());
-			QString Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(HandleInfo[PidName].toString());
+			QString Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(theGUI->FormatID(HandleInfo[PidName].toULongLong()));
 			QString Port = HandleInfo[PortName].toString();
 			if (Port.isEmpty())
 				return Name;
@@ -636,7 +641,7 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Count"), HandleInfo["Count"].toString());
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Abandoned"), HandleInfo["Abandoned"].toBool() ? tr("True") : tr("False"));
 		CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo["TID"].toULongLong());
-		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(HandleInfo["PID"].toString()).arg(HandleInfo["TID"].toString()));
+		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Owner"), tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(theGUI->FormatID(HandleInfo["PID"].toULongLong())).arg(theGUI->FormatID(HandleInfo["TID"].toULongLong())));
 	}
 	else if(TypeName == "Process" || TypeName == "Thread")
 	{
@@ -644,12 +649,12 @@ void CHandlesView::OnItemSelected(const QModelIndex &current)
 		if (TypeName == "Process")
 		{
 			CProcessPtr pProcess = theAPI->GetProcessByID(HandleInfo["PID"].toULongLong());
-			Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(HandleInfo["PID"].toString());
+			Name = tr("%1 (%2)").arg(QString(pProcess ? pProcess->GetName() : tr("unknown"))).arg(theGUI->FormatID(HandleInfo["PID"].toULongLong()));
 		}
 		else
 		{
 			CThreadPtr pThread = theAPI->GetThreadByID(HandleInfo["TID"].toULongLong());
-			Name = tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(HandleInfo["PID"].toULongLong()).arg(HandleInfo["TID"].toULongLong());
+			Name = tr("%1 (%2): %3").arg(pThread ? pThread->GetName() : tr("unknown")).arg(theGUI->FormatID(HandleInfo["PID"].toULongLong())).arg(theGUI->FormatID(HandleInfo["TID"].toULongLong()));
 		}
 
 		QTreeWidgetEx::AddSubItem(pExtendedInfo, tr("Name"), Name);
@@ -828,6 +833,27 @@ void CHandlesView::OnPermissions()
 
 void CHandlesView::OnDoubleClicked()
 {
+	if (m_ShowAllFiles != 0)
+	{
+		QModelIndex Index = m_pHandleList->currentIndex();
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
+		if (pHandle)
+		{
+			CProcessPtr pProcess = pHandle->GetProcess().objectCast<CProcessInfo>();
+			if (pProcess)
+			{
+				CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << pProcess);
+				pTaskInfoWindow->show();
+			}
+		}
+	}
+	else
+		OnOpenHandle();
+}
+
+void CHandlesView::OnOpenHandle()
+{
 	QModelIndex Index = m_pHandleList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CHandlePtr pHandle = m_pHandleModel->GetHandle(ModelIndex);
@@ -886,7 +912,7 @@ void CHandlesView::OnDoubleClicked()
 		// PhShellProperties(hWnd, Info->BestObjectName->Buffer);
            
 		PPH_STRING phFileName = CastQString(pHandle->GetFileName());
-		PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+		PhShellExecuteUserString(NULL, (PWSTR)L"FileBrowseExecutable", phFileName->Buffer, FALSE, (PWSTR)L"Make sure the Explorer executable file is present." );
 		PhDereferenceObject(phFileName);
 	}
 	else if (Type == "Key")

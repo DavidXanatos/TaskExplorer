@@ -35,6 +35,10 @@ public:
 		eAttributes,
 		eObjectAddress,
 		eOriginalName,
+		//eHandleCount,
+		//eRefCount,
+		//ePagedSize,
+		//eNonPagedSize,
 #endif
 		eCount
 	};

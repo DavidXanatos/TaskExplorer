@@ -111,18 +111,18 @@ void CPersistenceConfig::LoadPersistent(const CPersistentPresetDataPtr& pPreset,
 	Column++;
 
 	QComboBox* pCPUPrio = new QComboBox();
-	pCPUPrio->addItem(tr("Unconfigured")	, (long)-1);
+	pCPUPrio->addItem(tr("Unconfigured")	, (qint32)-1);
 #ifdef WIN32
-	pCPUPrio->addItem(tr("Real time")		, (long)PROCESS_PRIORITY_CLASS_REALTIME);
-	pCPUPrio->addItem(tr("High")			, (long)PROCESS_PRIORITY_CLASS_HIGH);
-	pCPUPrio->addItem(tr("Above normal")	, (long)PROCESS_PRIORITY_CLASS_ABOVE_NORMAL);
-	pCPUPrio->addItem(tr("Normal")			, (long)PROCESS_PRIORITY_CLASS_NORMAL);
-	pCPUPrio->addItem(tr("Below normal")	, (long)PROCESS_PRIORITY_CLASS_BELOW_NORMAL);
-	pCPUPrio->addItem(tr("Idle")			, (long)PROCESS_PRIORITY_CLASS_IDLE);
+	pCPUPrio->addItem(tr("Real time")		, (qint32)PROCESS_PRIORITY_CLASS_REALTIME);
+	pCPUPrio->addItem(tr("High")			, (qint32)PROCESS_PRIORITY_CLASS_HIGH);
+	pCPUPrio->addItem(tr("Above normal")	, (qint32)PROCESS_PRIORITY_CLASS_ABOVE_NORMAL);
+	pCPUPrio->addItem(tr("Normal")			, (qint32)PROCESS_PRIORITY_CLASS_NORMAL);
+	pCPUPrio->addItem(tr("Below normal")	, (qint32)PROCESS_PRIORITY_CLASS_BELOW_NORMAL);
+	pCPUPrio->addItem(tr("Idle")			, (qint32)PROCESS_PRIORITY_CLASS_IDLE);
 #else
 	// linux-todo:
 #endif
-	if(pPreset->bPriority) pCPUPrio->setCurrentIndex(pCPUPrio->findData(pPreset->iPriority));
+	if(pPreset->bPriority) pCPUPrio->setCurrentIndex(pCPUPrio->findData((qint32)pPreset->iPriority));
 	connect(pCPUPrio, SIGNAL(activated(int)), this, SLOT(OnCPUPriority(int)));
 	m_pPresets->setCellWidget(RowCounter, Column, pCPUPrio);
 	//m_pPresets->horizontalHeader()->resizeSection(Column, pCPUPrio->width()+1);
@@ -134,13 +134,13 @@ void CPersistenceConfig::LoadPersistent(const CPersistentPresetDataPtr& pPreset,
 	Column++;
 
 	QComboBox* pIOPrio = new QComboBox();
-	pIOPrio->addItem(tr("Unconfigured")		, (long)-1);
+	pIOPrio->addItem(tr("Unconfigured")		, (qint32)-1);
 #ifdef WIN32
-	pIOPrio->addItem(tr("Critical")			, (long)IoPriorityCritical);
-	pIOPrio->addItem(tr("High")				, (long)IoPriorityHigh);
-	pIOPrio->addItem(tr("Normal")			, (long)IoPriorityNormal);
-	pIOPrio->addItem(tr("Low")				, (long)IoPriorityLow);
-	pIOPrio->addItem(tr("Very low")			, (long)IoPriorityVeryLow);
+	pIOPrio->addItem(tr("Critical")			, (qint32)IoPriorityCritical);
+	pIOPrio->addItem(tr("High")				, (qint32)IoPriorityHigh);
+	pIOPrio->addItem(tr("Normal")			, (qint32)IoPriorityNormal);
+	pIOPrio->addItem(tr("Low")				, (qint32)IoPriorityLow);
+	pIOPrio->addItem(tr("Very low")			, (qint32)IoPriorityVeryLow);
 #else
 	// linux-todo:
 #endif
@@ -151,14 +151,14 @@ void CPersistenceConfig::LoadPersistent(const CPersistentPresetDataPtr& pPreset,
 	Column++;
 
 	QComboBox* pPagePrio = new QComboBox();
-	pPagePrio->addItem(tr("Unconfigured")	, (long)-1);
+	pPagePrio->addItem(tr("Unconfigured")	, (qint32)-1);
 #ifdef WIN32
-	pPagePrio->addItem(tr("Normal")			, (long)MEMORY_PRIORITY_NORMAL);
-	pPagePrio->addItem(tr("Below normal")	, (long)MEMORY_PRIORITY_BELOW_NORMAL);
-	pPagePrio->addItem(tr("Medium")			, (long)MEMORY_PRIORITY_MEDIUM);
-	pPagePrio->addItem(tr("Low")			, (long)MEMORY_PRIORITY_LOW);
-	pPagePrio->addItem(tr("Very low")		, (long)MEMORY_PRIORITY_VERY_LOW);
-	pPagePrio->addItem(tr("Lowest")			, (long)MEMORY_PRIORITY_LOWEST);
+	pPagePrio->addItem(tr("Normal")			, (qint32)MEMORY_PRIORITY_NORMAL);
+	pPagePrio->addItem(tr("Below normal")	, (qint32)MEMORY_PRIORITY_BELOW_NORMAL);
+	pPagePrio->addItem(tr("Medium")			, (qint32)MEMORY_PRIORITY_MEDIUM);
+	pPagePrio->addItem(tr("Low")			, (qint32)MEMORY_PRIORITY_LOW);
+	pPagePrio->addItem(tr("Very low")		, (qint32)MEMORY_PRIORITY_VERY_LOW);
+	pPagePrio->addItem(tr("Lowest")			, (qint32)MEMORY_PRIORITY_LOWEST);
 #else
 	// linux-todo:
 #endif

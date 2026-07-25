@@ -551,7 +551,11 @@ void QTabBarExPrivate::layoutTabs()
 
         Q_Q(QTabBarEx);
         QStyleOption opt;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         opt.init(q);
+#else
+        opt.initFrom(q);
+#endif
         QRect scrollButtonLeftRect = q->style()->subElementRect(QStyle::SE_TabBarScrollLeftButton, &opt, q);
         QRect scrollButtonRightRect = q->style()->subElementRect(QStyle::SE_TabBarScrollRightButton, &opt, q);
         int scrollButtonWidth = q->style()->pixelMetric(QStyle::PM_TabBarScrollButtonWidth, &opt, q);
@@ -994,7 +998,11 @@ void QTabBarExPrivate::refresh()
     Creates a new tab bar with the given \a parent.
 */
 QTabBarEx::QTabBarEx(QWidget* parent)
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     :QWidget(*new QTabBarExPrivate, parent, 0)
+#else
+    :QWidget(*new QTabBarExPrivate, parent, {})
+#endif
 {
     Q_D(QTabBarEx);
     d->init();
@@ -1568,8 +1576,12 @@ QSize QTabBarEx::sizeHint() const
     QRect r;
     for (int i = 0; i < d->tabList.count(); ++i)
         r = r.united(d->tabList.at(i).maxRect);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QSize sz = QApplication::globalStrut();
     return r.size().expandedTo(sz);
+#else
+    return r.size();
+#endif
 }
 
 /*!\reimp
@@ -1583,7 +1595,11 @@ QSize QTabBarEx::minimumSizeHint() const
         QRect r;
         for (int i = 0; i < d->tabList.count(); ++i)
             r = r.united(d->tabList.at(i).minRect);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         return r.size().expandedTo(QApplication::globalStrut());
+#else
+        return r.size();
+#endif
     }
     if (verticalTabs(d->shape))
         return QSize(sizeHint().width(), d->rightB->sizeHint().height() * 2 + 75);
@@ -1601,13 +1617,13 @@ static QString computeElidedText(Qt::TextElideMode mode, const QString &text)
     QString ret;
     switch (mode) {
     case Qt::ElideRight:
-        ret = text.leftRef(2) + Ellipses;
+        ret = text.left(2) + Ellipses;
         break;
     case Qt::ElideMiddle:
-        ret = text.leftRef(1) + Ellipses + text.rightRef(1);
+        ret = text.left(1) + Ellipses + text.right(1);
         break;
     case Qt::ElideLeft:
-        ret = Ellipses + text.rightRef(2);
+        ret = Ellipses + text.right(2);
         break;
     case Qt::ElideNone:
         ret = text;
@@ -2113,7 +2129,12 @@ void QTabBarEx::mousePressEvent(QMouseEvent *event)
 #endif
     if (d->validIndex(d->pressedIndex)) {
         QStyleOptionTabBarBase optTabBase;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         optTabBase.init(this);
+#else
+        optTabBase.initFrom(this);
+#endif
+
         optTabBase.documentMode = d->documentMode;
         if (event->type() == style()->styleHint(QStyle::SH_TabBar_SelectMouseType, &optTabBase, this))
             setCurrentIndex(d->pressedIndex);
@@ -2226,7 +2247,9 @@ void QTabBarExPrivate::setupMovableTab()
     grabImage.setDevicePixelRatio(q->devicePixelRatioF());
     grabImage.fill(Qt::transparent);
     QStylePainter p(&grabImage, q);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     p.initFrom(q);
+#endif
 
     QStyleOptionTab tab;
     q->initStyleOption(&tab, pressedIndex);
@@ -2342,6 +2365,7 @@ void QTabBarEx::keyPressEvent(QKeyEvent *event)
 #if QT_CONFIG(wheelevent)
 void QTabBarEx::wheelEvent(QWheelEvent *event)
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #ifndef Q_OS_MAC
     Q_D(QTabBarEx);
     int offset = event->delta() > 0 ? -1 : 1;
@@ -2349,6 +2373,9 @@ void QTabBarEx::wheelEvent(QWheelEvent *event)
     QWidget::wheelEvent(event);
 #else
     Q_UNUSED(event)
+#endif
+#else
+    // todo
 #endif
 }
 #endif // QT_CONFIG(wheelevent)
@@ -2804,7 +2831,11 @@ QSize CloseButton::sizeHint() const
     return QSize(width, height);
 }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 void CloseButton::enterEvent(QEvent *event)
+#else
+void CloseButton::enterEvent(QEnterEvent *event)
+#endif
 {
     if (isEnabled())
         update();
@@ -2822,7 +2853,11 @@ void CloseButton::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     QStyleOption opt;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     opt.init(this);
+#else
+    opt.initFrom(this);
+#endif
     opt.state |= QStyle::State_AutoRaise;
     if (isEnabled() && underMouse() && !isChecked() && !isDown())
         opt.state |= QStyle::State_Raised;

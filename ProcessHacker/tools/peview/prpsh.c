@@ -19,11 +19,13 @@ PPH_OBJECT_TYPE PvpPropContextType;
 PPH_OBJECT_TYPE PvpPropPageContextType;
 static RECT MinimumSize = { -1, -1, -1, -1 };
 
+_Function_class_(PH_TYPE_DELETE_PROCEDURE)
 VOID NTAPI PvpPropContextDeleteProcedure(
     _In_ PVOID Object,
     _In_ ULONG Flags
     );
 
+_Function_class_(PH_TYPE_DELETE_PROCEDURE)
 VOID NTAPI PvpPropPageContextDeleteProcedure(
     _In_ PVOID Object,
     _In_ ULONG Flags
@@ -96,6 +98,7 @@ PPV_PROPCONTEXT PvCreatePropContext(
     return propContext;
 }
 
+_Function_class_(PH_TYPE_DELETE_PROCEDURE)
 VOID NTAPI PvpPropContextDeleteProcedure(
     _In_ PVOID Object,
     _In_ ULONG Flags
@@ -136,7 +139,7 @@ LRESULT CALLBACK PvpButtonWndProc(
                     PhGetString(PvFileName),
                     L"FileObject",
                     PhpOpenFileSecurity,
-                    NULL,
+                    PhpCloseFileSecurity,
                     NULL
                     );
             }
@@ -164,7 +167,7 @@ static HWND PvpCreateOptionsButton(
         // Create the Reset button.
         GetClientRect(optionsWindow, &clientRect);
         GetWindowRect(GetDlgItem(optionsWindow, IDCANCEL), &rect);
-        MapWindowPoints(NULL, optionsWindow, (POINT*)& rect, 2);
+        MapWindowRect(NULL, optionsWindow, &rect);
         OptionsButton = CreateWindowEx(
             WS_EX_NOPARENTNOTIFY,
             WC_BUTTON,
@@ -202,14 +205,14 @@ static HWND PvpCreateSecurityButton(
         // Create the Reset button.
         GetClientRect(optionsWindow, &clientRect);
         GetWindowRect(OptionsButton, &rect);
-        MapWindowPoints(NULL, optionsWindow, (POINT*)& rect, 2);
+        MapWindowPoints(NULL, optionsWindow, (POINT*)&rect, 2);
 
         SecurityButton = CreateWindowEx(
             WS_EX_NOPARENTNOTIFY,
             WC_BUTTON,
-            L"Security",
+            L"Permissions",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-            rect.right,
+            rect.right + 3,
             rect.top,
             rect.right - rect.left,
             rect.bottom - rect.top,
@@ -218,13 +221,11 @@ static HWND PvpCreateSecurityButton(
             PhInstanceHandle,
             NULL
             );
-
         SetWindowFont(SecurityButton, GetWindowFont(GetDlgItem(optionsWindow, IDCANCEL)), TRUE);
     }
 
     return SecurityButton;
 }
-
 
 static HFONT PvpCreateFont(
     _In_ PWSTR Name,
@@ -315,9 +316,9 @@ INT CALLBACK PvpPropSheetProc(
             context = PhAllocateZero(sizeof(PV_PROPSHEETCONTEXT));
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
 
-            context->DefaultWindowProc = (WNDPROC)GetWindowLongPtr(hwndDlg, GWLP_WNDPROC);
+            context->DefaultWindowProc = PhGetWindowProcedure(hwndDlg);
             PhSetWindowContext(hwndDlg, UCHAR_MAX, context);
-            SetWindowLongPtr(hwndDlg, GWLP_WNDPROC, (LONG_PTR)PvpPropSheetWndProc);
+            PhSetWindowProcedure(hwndDlg, PvpPropSheetWndProc);
 
             if (MinimumSize.left == -1)
             {
@@ -391,7 +392,7 @@ LRESULT CALLBACK PvpPropSheetWndProc(
         break;
     case WM_NCDESTROY:
         {
-            SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)oldWndProc);
+            PhSetWindowProcedure(hWnd, oldWndProc);
             PhRemoveWindowContext(hWnd, UCHAR_MAX);
 
             PhDeleteLayoutManager(&propSheetContext->LayoutManager);
@@ -477,7 +478,7 @@ VOID PhpInitializePropSheetLayoutStage2(
     dpiValue = PhGetWindowDpi(hwnd);
 
     windowRectangle.Position = PhGetIntegerPairSetting(L"MainWindowPosition");
-    windowRectangle.Size = PhGetScalableIntegerPairSetting(L"MainWindowSize", TRUE, dpiValue).Pair;
+    windowRectangle.Size = PhGetScalableIntegerPairSetting(L"MainWindowSize", TRUE, dpiValue)->Pair;
 
     if (!windowRectangle.Position.X)
         return;
@@ -573,6 +574,7 @@ PPV_PROPPAGECONTEXT PvCreatePropPageContextEx(
     return propPageContext;
 }
 
+_Function_class_(PH_TYPE_DELETE_PROCEDURE)
 VOID NTAPI PvpPropPageContextDeleteProcedure(
     _In_ PVOID Object,
     _In_ ULONG Flags
@@ -650,10 +652,10 @@ PPH_LAYOUT_ITEM PvAddPropPageLayoutItem(
 
         // Calculate the margin from the original rectangle.
         GetWindowRect(Handle, &margin);
-        margin = PhMapRect(margin, dialogRect);
+        PhMapRect(&margin, &margin, &dialogRect);
         PhConvertRect(&margin, &dialogRect);
 
-        item = PhAddLayoutItemEx(layoutManager, Handle, realParentItem, Anchor, margin);
+        item = PhAddLayoutItemEx(layoutManager, Handle, realParentItem, Anchor, &margin);
     }
     else
     {

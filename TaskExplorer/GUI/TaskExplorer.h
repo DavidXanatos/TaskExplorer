@@ -7,15 +7,15 @@
 #include "API/SystemAPI.h"
 #include "../MiscHelpers/Common/Settings.h"
 #include "../MiscHelpers/Common/FlexError.h"
+#include "../MiscHelpers/Common/CustomTheme.h"
+#include "../MiscHelpers/Common/ProgressDialog.h"
+#include "../Common/StatusEx.h"
 
-#define VERSION_MJR		1
-#define VERSION_MIN 	6
-#define VERSION_REV 	0
-#define VERSION_UPD 	0
 
 class CGraphBar;
 class CHistoryGraph;
 class CCustomItemDelegate;
+class COnlineUpdater;
 
 class CTaskExplorer : public QMainWindow
 {
@@ -25,7 +25,7 @@ public:
 	CTaskExplorer(QWidget *parent = Q_NULLPTR);
 	virtual ~CTaskExplorer();
 
-	void SetDarkTheme(bool bDark);
+	void SetUITheme();
 
 	QStyledItemDelegate*	GetItemDelegate();
 	int						GetCellHeight();
@@ -72,12 +72,12 @@ public:
 	struct SColor
 	{
 		SColor() : Enabled(false) {}
-		SColor(const QString& name, const QString& description, const QString& default)
+		SColor(const QString& name, const QString& description, const QString& def_value)
 		{
 			Name = name;
 			Description = description;
-			Default = default;
-			Value = QColor(default);
+			Default = def_value;
+			Value = QColor(def_value);
 			Enabled = false;
 		}
 
@@ -95,9 +95,15 @@ public:
 	void				ReloadColors();
 	QList<SColor>		GetAllColors() { return m_Colors.values(); }
 
+	CCustomTheme* GetTheme() { return &m_CustomTheme; }
+
+	COnlineUpdater*		GetOnlineUpdater() { return m_pUpdater; }
+
 	static int			GetGraphLimit(bool bLong = false);
 
-	static void			CheckErrors(QList<STATUS> Errors);
+	static bool			CheckErrors(QList<STATUS> Errors);
+
+	QString				FormatID(quint64 ID) const;
 
 	static QString		GetVersion();
 
@@ -116,6 +122,10 @@ public slots:
 
 	void				UpdateUserMenu();
 
+	void				UpdateLabel();
+
+	void				OpenTaskInfoWnd(quint64 PID);
+
 protected:
 	void				timerEvent(QTimerEvent* pEvent);
 	void				closeEvent(QCloseEvent *e);
@@ -123,8 +133,8 @@ protected:
 	int					m_uTimerID;
 	quint64				m_LastTimer;
 
-	QString				m_DefaultStyle;
-	QPalette			m_DefaultPalett;
+	CCustomTheme		m_CustomTheme;
+	double				m_DefaultFontSize;
 
 	QMap<EColor, SColor> m_Colors;
 
@@ -140,6 +150,7 @@ private slots:
 	void				OnRunSys();
 	void				OnComputerAction();
 	void				OnUserAction();
+	void				OnWndFinder();
 	void				OnElevate();
 	void				OnExit();
 
@@ -162,6 +173,7 @@ private slots:
 
 	void				OnSettings();
 	void				OnDriverConf();
+	//void				OnUseDriver();
 	void				OnAutoRun();
 	void				OnSkipUAC();
 
@@ -181,6 +193,8 @@ private slots:
 	void				OnSysTray(QSystemTrayIcon::ActivationReason Reason);
 
 	void				OnAbout();
+	void				OnHelp();
+	void				OnCheckForUpdates();
 
 	void				OnGraphsResized(int Size);
 
@@ -212,6 +226,7 @@ private:
 	QAction*			m_pMenuRunAsAdmin;
 	QAction*			m_pMenuRunAs;
 	QAction*			m_pMenuRunSys;
+	QAction*			m_pMenuFindWnd;
 	QAction*			m_pMenuElevate;
 	QAction*			m_pMenuExit;
 
@@ -265,6 +280,7 @@ private:
 	QAction*			m_pMenuSettings;
 #ifdef WIN32
 	QAction*			m_pMenuDriverConf;
+	//QAction*			m_pMenuUseDriver;
 	QAction*			m_pMenuAutoRun;
 	QAction*			m_pMenuUAC;
 #endif
@@ -312,6 +328,8 @@ private:
 	QMenu*				m_pMenuHelp;
 	QAction*			m_pMenuAbout;
 	QAction*			m_pMenuSupport;
+	QAction*			m_pMenuForum;
+	QAction*			m_pMenuCheckUpdates;
 #ifdef WIN32
 	QAction*			m_pMenuAboutPH;
 #endif
@@ -338,6 +356,7 @@ private:
 	QLabel*				m_pStausIO;
 	QLabel*				m_pStausNET;
 
+	QLabel*				m_pUpdateLabel;
 
 	bool				m_bExit;
 
@@ -345,9 +364,13 @@ private:
 
 	CCustomItemDelegate* m_pCustomItemDelegate;
 
+	COnlineUpdater*		m_pUpdater;
+
 	void				LoadLanguage();
-	QTranslator			m_Translator;
-	QByteArray			m_Translation;
+	void				LoadLanguage(const QString& Lang, const QString& Module, int Index);
+	QTranslator			m_Translator[2];
+	QString				m_Language;
+	//quint32				m_LanguageId;
 };
 
 extern CTaskExplorer*	theGUI;

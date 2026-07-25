@@ -24,6 +24,7 @@ private slots:
 
 	void					OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 	void					OnDoubleClicked();
+	void					OnOpenModule();
 
 	void					OnMenu(const QPoint &point);
 
@@ -58,6 +59,7 @@ private:
 	QWidget*				m_pFilterWidget;
 	QHBoxLayout*			m_pFilterLayout;
 	QPushButton*			m_pLoadModule;
+	QCheckBox*				m_pShowModPages;
 
 	QTreeViewEx*			m_pModuleList;
 	CModuleModel*			m_pModuleModel;

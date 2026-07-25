@@ -85,24 +85,37 @@ VOID FASTCALL PhpfWakeQueuedLockEx(
 static HANDLE PhQueuedLockKeyedEventHandle;
 static ULONG PhQueuedLockSpinCount = 2000;
 
-BOOLEAN PhQueuedLockInitialization(
+NTSTATUS PhQueuedLockInitialization(
     VOID
     )
 {
-    if (!NT_SUCCESS(NtCreateKeyedEvent(
+    NTSTATUS status;
+    OBJECT_ATTRIBUTES objectAttributes;
+
+    InitializeObjectAttributes(
+        &objectAttributes,
+        NULL,
+        OBJ_EXCLUSIVE,
+        NULL,
+        NULL
+        );
+
+    status = NtCreateKeyedEvent(
         &PhQueuedLockKeyedEventHandle,
         KEYEDEVENT_ALL_ACCESS,
-        NULL,
+        &objectAttributes,
         0
-        )))
-        return FALSE;
+        );
 
-    if ((ULONG)PhSystemBasicInformation.NumberOfProcessors > 1)
+    if (!NT_SUCCESS(status))
+        return status;
+
+    if (PhSystemBasicInformation.NumberOfProcessors > 1)
         PhQueuedLockSpinCount = 4000;
     else
         PhQueuedLockSpinCount = 0;
 
-    return TRUE;
+    return status;
 }
 
 /**
@@ -203,8 +216,8 @@ FORCEINLINE BOOLEAN PhpPushQueuedWaitBlock(
     *Optimize = optimize;
     *CurrentValue = newValue;
 
-    newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-        (PVOID *)&QueuedLock->Value,
+    newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+        (volatile PVOID *)&QueuedLock->Value,
         (PVOID)newValue,
         (PVOID)Value
         );
@@ -280,7 +293,7 @@ _May_raise_ FORCEINLINE NTSTATUS PhpBlockOnQueuedWaitBlock(
 
         for (i = PhQueuedLockSpinCount; i != 0; i--)
         {
-            if (!(*(volatile ULONG *)&WaitBlock->Flags & PH_QUEUED_WAITER_SPINNING))
+            if (!(ReadULongAcquire(&WaitBlock->Flags) & PH_QUEUED_WAITER_SPINNING))
                 return STATUS_SUCCESS;
 
             YieldProcessor();
@@ -403,8 +416,8 @@ FORCEINLINE VOID PhpOptimizeQueuedLockListEx(
 
         newValue = value - PH_QUEUED_LOCK_TRAVERSING;
 
-        if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-            (PVOID *)&QueuedLock->Value,
+        if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+            (volatile PVOID *)&QueuedLock->Value,
             (PVOID)newValue,
             (PVOID)value
             )) == value)
@@ -472,8 +485,8 @@ FORCEINLINE PPH_QUEUED_WAIT_BLOCK PhpPrepareToWakeQueuedLock(
         {
             newValue = value - PH_QUEUED_LOCK_TRAVERSING;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -538,8 +551,8 @@ FORCEINLINE PPH_QUEUED_WAIT_BLOCK PhpPrepareToWakeQueuedLock(
 
             newValue = 0;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -625,6 +638,7 @@ VOID FASTCALL PhpfWakeQueuedLockEx(
  *
  * \param QueuedLock A queued lock.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfAcquireQueuedLockExclusive(
     _Inout_ PPH_QUEUED_LOCK QueuedLock
     )
@@ -635,14 +649,14 @@ VOID FASTCALL PhfAcquireQueuedLockExclusive(
     BOOLEAN optimize;
     PH_QUEUED_WAIT_BLOCK waitBlock;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (TRUE)
     {
         if (!(value & PH_QUEUED_LOCK_OWNED))
         {
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)(value + PH_QUEUED_LOCK_OWNED),
                 (PVOID)value
                 )) == value)
@@ -677,6 +691,7 @@ VOID FASTCALL PhfAcquireQueuedLockExclusive(
  *
  * \param QueuedLock A queued lock.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfAcquireQueuedLockShared(
     _Inout_ PPH_QUEUED_LOCK QueuedLock
     )
@@ -687,7 +702,7 @@ VOID FASTCALL PhfAcquireQueuedLockShared(
     BOOLEAN optimize;
     PH_QUEUED_WAIT_BLOCK waitBlock;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (TRUE)
     {
@@ -702,8 +717,8 @@ VOID FASTCALL PhfAcquireQueuedLockShared(
         {
             newValue = (value + PH_QUEUED_LOCK_SHARED_INC) | PH_QUEUED_LOCK_OWNED;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -738,6 +753,7 @@ VOID FASTCALL PhfAcquireQueuedLockShared(
  *
  * \param QueuedLock A queued lock.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfReleaseQueuedLockExclusive(
     _Inout_ PPH_QUEUED_LOCK QueuedLock
     )
@@ -746,7 +762,7 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
     ULONG_PTR newValue;
     ULONG_PTR currentValue;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (TRUE)
     {
@@ -762,8 +778,8 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
 
             newValue = value - PH_QUEUED_LOCK_OWNED;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -777,8 +793,8 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
             newValue = value - PH_QUEUED_LOCK_OWNED + PH_QUEUED_LOCK_TRAVERSING;
             currentValue = newValue;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -802,6 +818,7 @@ VOID FASTCALL PhfReleaseQueuedLockExclusive(
  * \ref PH_QUEUED_LOCK_WAITERS. The function assumes the following flags are not set:
  * \ref PH_QUEUED_LOCK_MULTIPLE_SHARED, \ref PH_QUEUED_LOCK_TRAVERSING.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfWakeForReleaseQueuedLock(
     _Inout_ PPH_QUEUED_LOCK QueuedLock,
     _In_ ULONG_PTR Value
@@ -811,8 +828,8 @@ VOID FASTCALL PhfWakeForReleaseQueuedLock(
 
     newValue = Value + PH_QUEUED_LOCK_TRAVERSING;
 
-    if ((ULONG_PTR)_InterlockedCompareExchangePointer(
-        (PVOID *)&QueuedLock->Value,
+    if ((ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+        (volatile PVOID *)&QueuedLock->Value,
         (PVOID)newValue,
         (PVOID)Value
         ) == Value)
@@ -826,6 +843,7 @@ VOID FASTCALL PhfWakeForReleaseQueuedLock(
  *
  * \param QueuedLock A queued lock.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfReleaseQueuedLockShared(
     _Inout_ PPH_QUEUED_LOCK QueuedLock
     )
@@ -835,7 +853,7 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
     ULONG_PTR currentValue;
     PPH_QUEUED_WAIT_BLOCK waitBlock;
 
-    value = QueuedLock->Value;
+    value = ReadULongPtrAcquire(&QueuedLock->Value);
 
     while (!(value & PH_QUEUED_LOCK_WAITERS))
     {
@@ -847,8 +865,8 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
         else
             newValue = 0;
 
-        if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-            (PVOID *)&QueuedLock->Value,
+        if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+            (volatile PVOID *)&QueuedLock->Value,
             (PVOID)newValue,
             (PVOID)value
             )) == value)
@@ -872,8 +890,8 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
         {
             newValue = value & ~(PH_QUEUED_LOCK_OWNED | PH_QUEUED_LOCK_MULTIPLE_SHARED);
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -885,8 +903,8 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
                 PH_QUEUED_LOCK_TRAVERSING;
             currentValue = newValue;
 
-            if ((newValue = (ULONG_PTR)_InterlockedCompareExchangePointer(
-                (PVOID *)&QueuedLock->Value,
+            if ((newValue = (ULONG_PTR)(PULONG_PTR)_InterlockedCompareExchangePointer(
+                (volatile PVOID *)&QueuedLock->Value,
                 (PVOID)newValue,
                 (PVOID)value
                 )) == value)
@@ -907,12 +925,15 @@ VOID FASTCALL PhfReleaseQueuedLockShared(
  *
  * \remarks The associated lock must be acquired before calling the function.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfPulseCondition(
     _Inout_ PPH_CONDITION Condition
     )
 {
-    if (Condition->Value & PH_QUEUED_LOCK_WAITERS)
-        PhpfWakeQueuedLockEx(Condition, Condition->Value, TRUE, FALSE);
+    ULONG_PTR value = ReadULongPtrAcquire(&Condition->Value);
+
+    if (value & PH_QUEUED_LOCK_WAITERS)
+        PhpfWakeQueuedLockEx(Condition, value, TRUE, FALSE);
 }
 
 /**
@@ -922,12 +943,15 @@ VOID FASTCALL PhfPulseCondition(
  *
  * \remarks The associated lock must be acquired before calling the function.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfPulseAllCondition(
     _Inout_ PPH_CONDITION Condition
     )
 {
-    if (Condition->Value & PH_QUEUED_LOCK_WAITERS)
-        PhpfWakeQueuedLockEx(Condition, Condition->Value, TRUE, TRUE);
+    ULONG_PTR value = ReadULongPtrAcquire(&Condition->Value);
+
+    if (value & PH_QUEUED_LOCK_WAITERS)
+        PhpfWakeQueuedLockEx(Condition, value, TRUE, TRUE);
 }
 
 /**
@@ -939,6 +963,7 @@ VOID FASTCALL PhfPulseAllCondition(
  *
  * \remarks The associated lock must be acquired before calling the function.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfWaitForCondition(
     _Inout_ PPH_CONDITION Condition,
     _Inout_ PPH_QUEUED_LOCK Lock,
@@ -950,7 +975,7 @@ VOID FASTCALL PhfWaitForCondition(
     PH_QUEUED_WAIT_BLOCK waitBlock;
     BOOLEAN optimize;
 
-    value = Condition->Value;
+    value = ReadULongPtrAcquire(&Condition->Value);
 
     while (TRUE)
     {
@@ -968,6 +993,8 @@ VOID FASTCALL PhfWaitForCondition(
             {
                 PhpOptimizeQueuedLockListEx(Condition, currentValue, TRUE);
             }
+
+            _Analysis_assume_lock_acquired_(*(PPH_FAST_LOCK)Lock);
 
             PhReleaseQueuedLockExclusive(Lock);
 
@@ -1001,7 +1028,7 @@ VOID FASTCALL PhfWaitForConditionEx(
     PH_QUEUED_WAIT_BLOCK waitBlock;
     BOOLEAN optimize;
 
-    value = Condition->Value;
+    value = ReadULongPtrAcquire(&Condition->Value);
 
     while (TRUE)
     {
@@ -1023,19 +1050,31 @@ VOID FASTCALL PhfWaitForConditionEx(
             switch (Flags & PH_CONDITION_WAIT_LOCK_TYPE_MASK)
             {
             case PH_CONDITION_WAIT_QUEUED_LOCK:
-                if (!(Flags & PH_CONDITION_WAIT_SHARED))
-                    PhReleaseQueuedLockExclusive((PPH_QUEUED_LOCK)Lock);
-                else
-                    PhReleaseQueuedLockShared((PPH_QUEUED_LOCK)Lock);
+                {
+                    _Analysis_assume_lock_acquired_(*(PPH_QUEUED_LOCK)Lock);
+
+                    if (!(Flags & PH_CONDITION_WAIT_SHARED))
+                        PhReleaseQueuedLockExclusive((PPH_QUEUED_LOCK)Lock);
+                    else
+                        PhReleaseQueuedLockShared((PPH_QUEUED_LOCK)Lock);
+                }
                 break;
             case PH_CONDITION_WAIT_CRITICAL_SECTION:
-                RtlLeaveCriticalSection((PRTL_CRITICAL_SECTION)Lock);
+                {
+                    _Analysis_assume_lock_acquired_(*(PRTL_CRITICAL_SECTION)Lock);
+
+                    RtlLeaveCriticalSection((PRTL_CRITICAL_SECTION)Lock);
+                }
                 break;
             case PH_CONDITION_WAIT_FAST_LOCK:
-                if (!(Flags & PH_CONDITION_WAIT_SHARED))
-                    PhReleaseFastLockExclusive((PPH_FAST_LOCK)Lock);
-                else
-                    PhReleaseFastLockShared((PPH_FAST_LOCK)Lock);
+                {
+                    _Analysis_assume_lock_acquired_(*(PPH_FAST_LOCK)Lock);
+
+                    if (!(Flags & PH_CONDITION_WAIT_SHARED))
+                        PhReleaseFastLockExclusive((PPH_FAST_LOCK)Lock);
+                    else
+                        PhReleaseFastLockShared((PPH_FAST_LOCK)Lock);
+                }
                 break;
             }
 
@@ -1051,19 +1090,25 @@ VOID FASTCALL PhfWaitForConditionEx(
             switch (Flags & PH_CONDITION_WAIT_LOCK_TYPE_MASK)
             {
             case PH_CONDITION_WAIT_QUEUED_LOCK:
-                if (!(Flags & PH_CONDITION_WAIT_SHARED))
-                    PhfAcquireQueuedLockExclusive((PPH_QUEUED_LOCK)Lock);
-                else
-                    PhfAcquireQueuedLockShared((PPH_QUEUED_LOCK)Lock);
+                {
+                    if (!(Flags & PH_CONDITION_WAIT_SHARED))
+                        PhfAcquireQueuedLockExclusive((PPH_QUEUED_LOCK)Lock);
+                    else
+                        PhfAcquireQueuedLockShared((PPH_QUEUED_LOCK)Lock);
+                }
                 break;
             case PH_CONDITION_WAIT_CRITICAL_SECTION:
-                RtlEnterCriticalSection((PRTL_CRITICAL_SECTION)Lock);
+                {
+                    RtlEnterCriticalSection((PRTL_CRITICAL_SECTION)Lock);
+                }
                 break;
             case PH_CONDITION_WAIT_FAST_LOCK:
-                if (!(Flags & PH_CONDITION_WAIT_SHARED))
-                    PhAcquireFastLockExclusive((PPH_FAST_LOCK)Lock);
-                else
-                    PhAcquireFastLockShared((PPH_FAST_LOCK)Lock);
+                {
+                    if (!(Flags & PH_CONDITION_WAIT_SHARED))
+                        PhAcquireFastLockExclusive((PPH_FAST_LOCK)Lock);
+                    else
+                        PhAcquireFastLockShared((PPH_FAST_LOCK)Lock);
+                }
                 break;
             }
 
@@ -1081,6 +1126,7 @@ VOID FASTCALL PhfWaitForConditionEx(
  * \remarks If you later determine that the wait should not occur, you must call PhfSetWakeEvent()
  * to dequeue the wait block.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfQueueWakeEvent(
     _Inout_ PPH_WAKE_EVENT WakeEvent,
     _Out_ PPH_QUEUED_WAIT_BLOCK WaitBlock
@@ -1091,14 +1137,14 @@ VOID FASTCALL PhfQueueWakeEvent(
 
     WaitBlock->Flags = PH_QUEUED_WAITER_SPINNING;
 
-    value = (PPH_QUEUED_WAIT_BLOCK)WakeEvent->Value;
+    value = _InterlockedCompareExchangePointer((volatile PVOID *)&WakeEvent->Value, NULL, NULL);
 
     while (TRUE)
     {
         WaitBlock->Next = value;
 
         if ((newValue = _InterlockedCompareExchangePointer(
-            (PVOID *)&WakeEvent->Value,
+            (volatile PVOID *)&WakeEvent->Value,
             WaitBlock,
             value
             )) == value)
@@ -1114,6 +1160,7 @@ VOID FASTCALL PhfQueueWakeEvent(
  * \param WakeEvent A wake event.
  * \param WaitBlock A wait block for a cancelled wait, otherwise NULL.
  */
+_Use_decl_annotations_
 VOID FASTCALL PhfSetWakeEvent(
     _Inout_ PPH_WAKE_EVENT WakeEvent,
     _Inout_opt_ PPH_QUEUED_WAIT_BLOCK WaitBlock
@@ -1124,7 +1171,7 @@ VOID FASTCALL PhfSetWakeEvent(
 
     // Pop all waiters and unblock them.
 
-    waitBlock = _InterlockedExchangePointer((PVOID *)&WakeEvent->Value, NULL);
+    waitBlock = _InterlockedExchangePointer((volatile PVOID *)&WakeEvent->Value, NULL);
 
     while (waitBlock)
     {
@@ -1169,6 +1216,7 @@ VOID FASTCALL PhfSetWakeEvent(
  * \remarks Wake events are subject to spurious wakeups. You should call this function in a loop
  * which checks a predicate.
  */
+_Use_decl_annotations_
 NTSTATUS FASTCALL PhfWaitForWakeEvent(
     _Inout_ PPH_WAKE_EVENT WakeEvent,
     _Inout_ PPH_QUEUED_WAIT_BLOCK WaitBlock,

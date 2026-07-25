@@ -140,7 +140,7 @@ static char *mmdb_strdup(const char *str) {
     char *copy;
 
     len = strlen(str) + 1;
-    if ((copy = PhAllocateSafe(len)) == NULL)
+    if ((copy = malloc(len)) == NULL)
         return (NULL);
     memcpy(copy, str, len);
     return (copy);
@@ -150,8 +150,8 @@ static char *mmdb_strndup(const char *str, size_t n) {
     size_t len;
     char *copy;
 
-    len = strnlen(str, n);
-    if ((copy = PhAllocateSafe(len + 1)) == NULL)
+    len = mmdb_strnlen(str, n);
+    if ((copy = malloc(len + 1)) == NULL)
         return (NULL);
     memcpy(copy, str, len);
     copy[len] = '\0';

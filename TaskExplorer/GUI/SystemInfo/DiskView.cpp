@@ -113,9 +113,9 @@ CDiskView::CDiskView(QWidget *parent)
 	m_pDiskList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pDiskList->GetTree()->setSortingEnabled(true);
 	m_pDiskList->GetTree()->setMinimumHeight(100);
-	m_pDiskList->GetTree()->setAutoFitMax(200);
+	((QTreeWidgetEx*)m_pDiskList->GetTree())->setAutoFitMax(200);
 
-	m_pDiskList->GetTree()->setColumnReset(2);
+	((QTreeWidgetEx*)m_pDiskList->GetTree())->setColumnReset(2);
 	connect(m_pDiskList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
 
 	m_pScrollLayout->addWidget(m_pDiskList, 2, 0, 1, 3);

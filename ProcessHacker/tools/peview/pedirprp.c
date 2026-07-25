@@ -215,7 +215,7 @@ VOID PvpPeEnumerateImageDataDirectory(
 
             if (directorySection)
             {
-                directoryNode->RawStart = PTR_ADD_OFFSET(PTR_SUB_OFFSET(directoryAddress, directorySection->VirtualAddress), directorySection->PointerToRawData);
+                directoryNode->RawStart = PTR_ADD_OFFSET(UInt32Sub32To64(directoryAddress, directorySection->VirtualAddress), directorySection->PointerToRawData);
                 PhPrintPointer(value, directoryNode->RawStart);
                 directoryNode->RawStartString = PhCreateString(value);
 
@@ -229,7 +229,7 @@ VOID PvpPeEnumerateImageDataDirectory(
             PhPrintPointer(value, directoryNode->RvaStart);
             directoryNode->RvaStartString = PhCreateString(value);
 
-            directoryNode->RvaEnd = PTR_ADD_OFFSET(directoryAddress, directorySize);
+            directoryNode->RvaEnd = (PVOID)(ULONG_PTR)UInt32Add32To64(directoryAddress, directorySize);
             PhPrintPointer(value, directoryNode->RvaEnd);
             directoryNode->RvaEndString = PhCreateString(value);
         }
@@ -243,12 +243,7 @@ VOID PvpPeEnumerateImageDataDirectory(
         ULONG sectionNameLength = 0;
         WCHAR sectionName[IMAGE_SIZEOF_SHORT_NAME + 1];
 
-        if (PhGetMappedImageSectionName(
-            directorySection,
-            sectionName,
-            RTL_NUMBER_OF(sectionName),
-            &sectionNameLength
-            ))
+        if (NT_SUCCESS(PhGetMappedImageSectionName(directorySection, sectionName, RTL_NUMBER_OF(sectionName), &sectionNameLength)))
         {
             directoryNode->SectionNameString = PhCreateStringEx(sectionName, sectionNameLength * sizeof(WCHAR));
         }
@@ -266,11 +261,12 @@ VOID PvpPeEnumerateImageDataDirectory(
                 imageDirectoryData,
                 directorySize,
                 &imageDirectoryEntropy,
+                NULL,
                 NULL
                 ))
             {
                 directoryNode->DirectoryEntropy = imageDirectoryEntropy;
-                directoryNode->EntropyString = PhFormatEntropy(imageDirectoryEntropy, 2, 0, 0);
+                directoryNode->EntropyString = PhFormatEntropy(imageDirectoryEntropy, 2, 0, 0, 0, 0);
             }
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
@@ -281,7 +277,7 @@ VOID PvpPeEnumerateImageDataDirectory(
 
         __try
         {
-            PPH_STRING ssdeepHashString = NULL;
+            char* ssdeepHashString = NULL;
 
             fuzzy_hash_buffer(
                 imageDirectoryData,
@@ -291,7 +287,8 @@ VOID PvpPeEnumerateImageDataDirectory(
 
             if (ssdeepHashString)
             {
-                directoryNode->SsdeepString = ssdeepHashString;
+                directoryNode->SsdeepString = PhConvertUtf8ToUtf16(ssdeepHashString);
+                free(ssdeepHashString);
             }
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
@@ -302,7 +299,7 @@ VOID PvpPeEnumerateImageDataDirectory(
 
         __try
         {
-            PPH_STRING tlshHashString = NULL;
+            char* tlshHashString = NULL;
 
             //
             // This can fail in TLSH library during finalization when
@@ -314,9 +311,10 @@ VOID PvpPeEnumerateImageDataDirectory(
                 &tlshHashString
                 );
 
-            if (!PhIsNullOrEmptyString(tlshHashString))
+            if (tlshHashString)
             {
-                directoryNode->TlshString = tlshHashString;
+                directoryNode->TlshString = PhConvertUtf8ToUtf16(tlshHashString);
+                free(tlshHashString);
             }
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
@@ -351,6 +349,7 @@ NTSTATUS PvpPeDirectoryEnumerateThread(
     PvpPeEnumerateImageDataDirectory(Context, IMAGE_DIRECTORY_ENTRY_IAT, L"IAT");
     PvpPeEnumerateImageDataDirectory(Context, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, L"Delay load imports");
     PvpPeEnumerateImageDataDirectory(Context, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, L"CLR");
+    PvpPeEnumerateImageDataDirectory(Context, 15, L"Reserved");
 
     PostMessage(Context->DialogHandle, WM_PV_SEARCH_FINISHED, 0, 0);
     return STATUS_SUCCESS;
@@ -414,6 +413,7 @@ INT_PTR CALLBACK PvPeDirectoryDlgProc(
             context->SearchResults = PhCreateList(1);
 
             PvCreateSearchControl(
+                hwndDlg,
                 context->SearchHandle,
                 L"Search Directories (Ctrl+K)",
                 PvpPeDirectorySearchControl,
@@ -535,7 +535,16 @@ INT_PTR CALLBACK PvPeDirectoryDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
+        }
+        break;
+    case WM_KEYDOWN:
+        {
+            if (LOWORD(wParam) == 'K' && GetKeyState(VK_CONTROL) < 0)
+            {
+                SetFocus(context->SearchHandle);
+                return TRUE;
+            }
         }
         break;
     }
@@ -830,7 +839,7 @@ BOOLEAN NTAPI PvDirectoryTreeNewCallback(
 
             if (!getChildren->Node)
             {
-                static PVOID sortFunctions[] =
+                static CONST _CoreCrtSecureSearchSortCompareFunction sortFunctions[] =
                 {
                     SORT_FUNCTION(Index),
                     SORT_FUNCTION(Name),
@@ -845,7 +854,7 @@ BOOLEAN NTAPI PvDirectoryTreeNewCallback(
                     SORT_FUNCTION(Ssdeep),
                     SORT_FUNCTION(Tlsh),
                 };
-                int (__cdecl *sortFunction)(void *, const void *, const void *);
+                _CoreCrtSecureSearchSortCompareFunction sortFunction;
 
                 static_assert(RTL_NUMBER_OF(sortFunctions) == PV_DIRECTORY_TREE_COLUMN_ITEM_MAXIMUM, "SortFunctions must equal maximum.");
 
@@ -1089,7 +1098,7 @@ VOID PvInitializeDirectoryTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_DIRECTORY_TREE_COLUMN_ITEM_SSDEEP, TRUE, L"SSDEEP", 80, PH_ALIGN_LEFT, PV_DIRECTORY_TREE_COLUMN_ITEM_SSDEEP, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_DIRECTORY_TREE_COLUMN_ITEM_TLSH, TRUE, L"TLSH", 80, PH_ALIGN_LEFT, PV_DIRECTORY_TREE_COLUMN_ITEM_TLSH, 0, 0);
 
-    TreeNew_SetRowHeight(TreeNewHandle, 22);
+    TreeNew_SetRowHeight(Context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(ParentWindowHandle)));
 
     TreeNew_SetRedraw(TreeNewHandle, TRUE);
     TreeNew_SetSort(TreeNewHandle, PV_DIRECTORY_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);

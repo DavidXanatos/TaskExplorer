@@ -10,6 +10,8 @@
 class CWinHandle : public CHandleInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinHandle)
 public:
 	CWinHandle(QObject *parent = nullptr);
 	virtual ~CWinHandle();
@@ -36,6 +38,8 @@ public:
 	virtual QString GetFileShareAccessString() const;
 	virtual QString GetTypeString() const;
 	virtual QString GetGrantedAccessString() const;
+	virtual QString GetGenericAccessString() const;
+	virtual QString GetObjectSecurityDescriptorString() const;
 
 	static QString GetFileAccessMode(quint32 Mode);
 	static QString GetSectionType(quint32 Attribs);
@@ -93,6 +97,7 @@ private:
 
 class CWinHandleEx : public CWinHandle
 {
+	TRACK_OBJECT(CWinHandleEx)
 public:
 	CWinHandleEx(QObject *parent = nullptr) : CWinHandle(parent) {}
 

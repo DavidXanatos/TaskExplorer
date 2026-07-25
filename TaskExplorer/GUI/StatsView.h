@@ -32,7 +32,7 @@ public slots:
 #endif
 
 private slots:
-	void					SetFilter(const QRegularExpression& Exp, bool bHighLight = false, int Col = -1); // -1 = any
+	void					SetFilter(const QRegularExpression& Exp, int iOptions = 0, int Col = -1); // -1 = any
 
 	void					AddressFromSymbol(quint64 ProcessId, const QString& Symbol, quint64 Address);
 

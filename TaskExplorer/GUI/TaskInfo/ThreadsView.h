@@ -19,7 +19,7 @@ public:
 
 public slots:
 	void					ShowProcesses(const QList<CProcessPtr>& Processes);
-	void					SellectThread(quint64 ThreadId);
+	void					SelectThread(quint64 ThreadId);
 	void					Refresh();
 
 private slots:
@@ -38,12 +38,14 @@ private slots:
 	void					OnThreadAction();
 	void					OnThreadToken();
 
+	void					OnWCT();
+
 	void					OnPermissions();
 
 	void					ShowStack(const CStackTracePtr& StackTrace);
 
 protected:
-	virtual QList<CTaskPtr>		GetSellectedTasks();
+	virtual QList<CTaskPtr>		GetSelectedTasks();
 
 	virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView() 				{ return m_pThreadList; }
@@ -91,6 +93,7 @@ private:
 	QMenu*					m_pMiscMenu;
 	QAction*				m_pCancelIO;
 	//QAction*				m_pAnalyze;
+	QAction*				m_pWCT;
 	QAction*				m_pCritical;
 	QAction*				m_pToken;
 	QAction*				m_pToken2;

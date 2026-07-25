@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     jxy-s   2022-2024
+ *     jxy-s   2022-2026
  *
  */
 
@@ -65,15 +65,18 @@ static KPH_DYN_ATOMIC KphpDynData = { .Atomic = KPH_ATOMIC_OBJECT_REF_INIT };
  * \return Pointer to the dynamic configuration, NULL if not activated. The
  * caller must eventually dereference the object.
  */
+_IRQL_requires_max_(HIGH_LEVEL)
 _Must_inspect_result_
 PKPH_DYN KphReferenceDynData(
     VOID
     )
 {
+    KPH_NPAGED_CODE_HIGH_MAX();
+
     return KphAtomicReferenceObject(&KphpDynData.Atomic);
 }
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Allocates a dynamic configuration object.
@@ -89,7 +92,7 @@ PVOID KSIAPI KphpAllocateDynData(
     _In_ SIZE_T Size
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     return KphAllocateNPaged(Size, KPH_TAG_DYNDATA);
 }
@@ -114,15 +117,15 @@ NTSTATUS KSIAPI KphpInitializeDynData(
     PKPH_DYN dyn;
     PKPH_DYN_INIT init;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     NT_ASSERT(Parameter);
 
     dyn = Object;
     init = Parameter;
 
-#define KPH_LOAD_DYNITEM_KERNEL(x) dyn->##x = C_2sTo4(init->Kernel->##x)
-#define KPH_LOAD_DYNITEM_LXCORE(x) dyn->##x = init->Lxcore ? C_2sTo4(init->Lxcore->##x) : ULONG_MAX;
+#define KPH_LOAD_DYNITEM_KERNEL(x) dyn->x = C_2sTo4(init->Kernel->x)
+#define KPH_LOAD_DYNITEM_LXCORE(x) dyn->x = init->Lxcore ? C_2sTo4(init->Lxcore->x) : ULONG_MAX;
 
     KPH_LOAD_DYNITEM_KERNEL(EgeGuid);
     KPH_LOAD_DYNITEM_KERNEL(EpObjectTable);
@@ -145,6 +148,10 @@ NTSTATUS KSIAPI KphpInitializeDynData(
     KPH_LOAD_DYNITEM_KERNEL(AlpcPortObjectLock);
     KPH_LOAD_DYNITEM_KERNEL(AlpcSequenceNo);
     KPH_LOAD_DYNITEM_KERNEL(AlpcState);
+    KPH_LOAD_DYNITEM_KERNEL(KtInitialStack);
+    KPH_LOAD_DYNITEM_KERNEL(KtStackLimit);
+    KPH_LOAD_DYNITEM_KERNEL(KtStackBase);
+    KPH_LOAD_DYNITEM_KERNEL(KtKernelStack);
     KPH_LOAD_DYNITEM_KERNEL(KtReadOperationCount);
     KPH_LOAD_DYNITEM_KERNEL(KtWriteOperationCount);
     KPH_LOAD_DYNITEM_KERNEL(KtOtherOperationCount);
@@ -183,7 +190,7 @@ NTSTATUS KSIAPI KphpInitializeDynData(
  *
  * \param[in] Object Dynamic configuration object to delete.
  */
-_Function_class_(KPH_TYPE_ALLOCATE_PROCEDURE)
+_Function_class_(KPH_TYPE_DELETE_PROCEDURE)
 _IRQL_requires_max_(PASSIVE_LEVEL)
 VOID KSIAPI KphpDeleteDynData(
     _In_freesMem_ PVOID Object
@@ -191,7 +198,7 @@ VOID KSIAPI KphpDeleteDynData(
 {
     PKPH_DYN dyn;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     dyn = Object;
 
@@ -206,13 +213,13 @@ VOID KSIAPI KphpDeleteDynData(
  *
  * \param[in] Object Dynamic configuration object to free.
  */
-_Function_class_(KPH_TYPE_ALLOCATE_PROCEDURE)
+_Function_class_(KPH_TYPE_FREE_PROCEDURE)
 _IRQL_requires_max_(PASSIVE_LEVEL)
 VOID KSIAPI KphpFreeDynData(
     _In_freesMem_ PVOID Object
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphFree(Object, KPH_TAG_DYNDATA);
 }
@@ -242,7 +249,7 @@ NTSTATUS KphpActivateDynData(
     PKPH_DYN_KERNEL_FIELDS kernel;
     PKPH_DYN_LXCORE_FIELDS lxcore;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     dyn = NULL;
     kernel = NULL;
@@ -399,7 +406,7 @@ NTSTATUS KphActivateDynData(
     PBYTE dynData;
     PBYTE signature;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     dynData = NULL;
     signature = NULL;
@@ -410,13 +417,11 @@ NTSTATUS KphActivateDynData(
         goto Exit;
     }
 
-#ifndef DYN_NO_SECURITY
     if (!Signature || !SignatureLength)
     {
         status = STATUS_SI_DYNDATA_INVALID_SIGNATURE;
         goto Exit;
     }
-#endif
 
     if (AccessMode != KernelMode)
     {
@@ -427,24 +432,17 @@ NTSTATUS KphActivateDynData(
             goto Exit;
         }
 
-#ifndef DYN_NO_SECURITY
         signature = KphAllocatePaged(SignatureLength, KPH_TAG_DYNDATA);
         if (!signature)
         {
             status = STATUS_INSUFFICIENT_RESOURCES;
             goto Exit;
         }
-#endif
 
         __try
         {
-            ProbeInputBytes(DynData, DynDataLength);
-            RtlCopyVolatileMemory(dynData, DynData, DynDataLength);
-
-#ifndef DYN_NO_SECURITY
-            ProbeInputBytes(Signature, DynDataLength);
-            RtlCopyVolatileMemory(signature, Signature, SignatureLength);
-#endif
+            CopyFromUser(dynData, DynData, DynDataLength);
+            CopyFromUser(signature, Signature, SignatureLength);
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -470,14 +468,46 @@ Exit:
         KphFree(dynData, KPH_TAG_DYNDATA);
     }
 
-#ifndef DYN_NO_SECURITY
-    if (signature && (signature != DynData))
+    if (signature && (signature != Signature))
     {
         KphFree(signature, KPH_TAG_DYNDATA);
     }
-#endif
 
     return status;
+}
+
+/**
+ * \brief Checks if dynamic data is active.
+ *
+ * \param[out] IsActive Receives TRUE if active, FALSE otherwise.
+ * \param[in] AccessMode The access mode of the caller.
+ *
+ * \return Successful or errant status.
+ */
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS KphIsDynDataActive(
+    _Out_ PBOOLEAN IsActive,
+    _In_ KPROCESSOR_MODE AccessMode
+    )
+{
+    PKPH_DYN dyn;
+    BOOLEAN isActive;
+
+    KPH_PAGED_CODE_PASSIVE();
+
+    dyn = KphReferenceDynData();
+    if (dyn)
+    {
+        isActive = TRUE;
+        KphDereferenceObject(dyn);
+    }
+    else
+    {
+        isActive = FALSE;
+    }
+
+    return KphWriteUCharToMode(IsActive, isActive, AccessMode);
 }
 
 /**
@@ -488,7 +518,7 @@ VOID KphpInitializeDynModules(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KeEnterCriticalRegion();
     if (!ExAcquireResourceSharedLite(PsLoadedModuleResource, TRUE))
@@ -573,7 +603,7 @@ VOID KphInitializeDynData(
     NTSTATUS status;
     KPH_OBJECT_TYPE_INFO typeInfo;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphpInitializeDynModules();
 
@@ -599,6 +629,8 @@ VOID KphInitializeDynData(
                                      NULL,
                                      0);
 
+        NT_ANALYSIS_ASSUME(NT_SUCCESS(status));
+
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       GENERAL,
                       "Embedded Dynamic Configuration: %!STATUS!",
@@ -614,7 +646,7 @@ VOID KphCleanupDynData(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphAtomicAssignObjectReference(&KphpDynData.Atomic, NULL);
 }

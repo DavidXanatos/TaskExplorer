@@ -10,7 +10,7 @@
 class CMemoryFilterModel: public CSortFilterProxyModel
 {
 public:
-	CMemoryFilterModel(QObject* parrent = 0) : CSortFilterProxyModel(parrent) 
+	CMemoryFilterModel(QObject* parent = 0) : CSortFilterProxyModel(parent) 
 	{
 		m_bHideFree = false;
 	}

@@ -84,7 +84,7 @@ CDotNetView::CDotNetView(QWidget *parent)
 
 	//m_pMenu = new QMenu();
 	
-	m_pOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
+	m_pOpen = m_pMenu->addAction(tr("Open File"), this, SLOT(OnDoubleClicked()));
 
 	AddPanelItemsToMenu();
 
@@ -172,7 +172,7 @@ void CDotNetView::OnAssemblies(const CAssemblyListPtr& Assemblies)
 
 		QVariantMap Item;
 		Item["ID"] = Assembly.ID;
-		Item["ParentID"] = Assembly.ParrentID;
+		Item["ParentID"] = Assembly.ParentID;
 
 		Item["Structure"] = Assembly.Structure;
 		Item["FileName"] = Assembly.FileName;
@@ -221,7 +221,7 @@ void CDotNetView::OnDoubleClicked()
 	{
 #ifdef WIN32
 		PPH_STRING phFileName = CastQString(FileName);
-		PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present.");
+		PhShellExecuteUserString(NULL, (PWSTR)L"FileBrowseExecutable", phFileName->Buffer, FALSE, (PWSTR)L"Make sure the Explorer executable file is present.");
 		PhDereferenceObject(phFileName);
 #endif
 	}

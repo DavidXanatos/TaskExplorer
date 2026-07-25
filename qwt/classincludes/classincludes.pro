@@ -153,16 +153,46 @@ contains(QWT_CONFIG, QwtPlot) {
         QwtVectorFieldData \
         QwtVectorFieldSample \
         QwtCPointerData
+
+        contains(QWT_CONFIG, QwtPolar) {
+
+            CLASSHEADERS += \
+                QwtPolarCanvas \
+                QwtPolarCurve \
+                QwtPolarFitter \
+                QwtPolarGrid \
+                QwtPolarItem \
+                QwtPolarItemDict \
+                QwtPolarLayout \
+                QwtPolarMagnifier \
+                QwtPolarMarker \
+                QwtPolarPanner \
+                QwtPolarPicker \
+                QwtPolarPlot \
+                QwtPolarRenderer \
+                QwtPolarSpectrogram
+        }
 }
 
 contains(QWT_CONFIG, QwtOpenGL) {
 
-    CLASSHEADERS += \
-        QwtPlotGLCanvas
+    lessThan(QT_MAJOR_VERSION, 6) {
+
+        CLASSHEADERS += \
+            QwtPlotGLCanvas
+    }
 
     greaterThan(QT_MAJOR_VERSION, 4) {
 
-        greaterThan(QT_MINOR_VERSION, 3) {
+        lessThan( QT_MAJOR_VERSION, 6) {
+
+            greaterThan(QT_MINOR_VERSION, 3) {
+
+                CLASSHEADERS += \
+                    QwtPlotOpenGLCanvas
+            }
+        }
+        else {
 
             CLASSHEADERS += \
                 QwtPlotOpenGLCanvas

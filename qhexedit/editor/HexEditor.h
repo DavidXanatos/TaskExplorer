@@ -26,7 +26,7 @@ public:
 	virtual ~QHexEditor();
 
 public slots:
-	virtual void sellect(qint64 address, qint64 length);
+	virtual void select(qint64 address, qint64 length);
 
 protected:
     virtual void closeEvent(QCloseEvent *event);

@@ -6,6 +6,8 @@
 class CGpuMonitor : public QObject
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CGpuMonitor)
 public:
 	CGpuMonitor(QObject *parent = nullptr);
     virtual ~CGpuMonitor();

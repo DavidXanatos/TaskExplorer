@@ -79,9 +79,9 @@ CGPUView::CGPUView(QWidget *parent)
 	m_pGPUList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pGPUList->GetTree()->setSortingEnabled(true);
 	m_pGPUList->GetTree()->setMinimumHeight(100);
-	m_pGPUList->GetTree()->setAutoFitMax(200);
+	((QTreeWidgetEx*)m_pGPUList->GetTree())->setAutoFitMax(200);
 
-	m_pGPUList->GetTree()->setColumnReset(2);
+	((QTreeWidgetEx*)m_pGPUList->GetTree())->setColumnReset(2);
 	connect(m_pGPUList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
 
 	m_pScrollLayout->addWidget(m_pGPUList, 2, 0, 1, 3);

@@ -99,8 +99,17 @@
     <Filter Include="API\Windows\Monitors\d3dkmt">
       <UniqueIdentifier>{0dff98b8-f098-42cc-9ce2-ed62f2caa31c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="API\Windows\ProcMon">
+    <Filter Include="API\Windows\SystemHacker">
       <UniqueIdentifier>{128cb3e9-a9b4-40b1-92cd-9fa7f9eb29bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\WinHelpers\FuncHook">
+      <UniqueIdentifier>{15e10620-4193-427e-ae2f-15b892dad844}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\WinHelpers\FuncHook\Detours">
+      <UniqueIdentifier>{2a689bdf-52b9-4bd1-a07f-60ea8699e800}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API\Windows\ProcessHacker\clr">
+      <UniqueIdentifier>{bf717e83-96b4-4171-8e48-9c6526b41603}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -211,9 +220,6 @@
     </ClCompile>
     <ClCompile Include="API\Windows\WinWnd.cpp">
       <Filter>API\Windows</Filter>
-    </ClCompile>
-    <ClCompile Include="Common\IncrementalPlot.cpp">
-      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="GUI\Models\WindowModel.cpp">
       <Filter>TaskExplorer\Models</Filter>
@@ -509,9 +515,6 @@
     <ClCompile Include="GUI\MultiErrorDialog.cpp">
       <Filter>TaskExplorer</Filter>
     </ClCompile>
-    <ClCompile Include="API\Windows\Monitors\Etw\krabs.cpp">
-      <Filter>API\Windows\Monitors\Etw</Filter>
-    </ClCompile>
     <ClCompile Include="API\Windows\Monitors\EtwEventMonitor.cpp">
       <Filter>API\Windows\Monitors</Filter>
     </ClCompile>
@@ -577,6 +580,99 @@
     </ClCompile>
     <ClCompile Include="API\Windows\ProcessHacker\DotNetCounters.c">
       <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\ProcessHacker\ksyscall.c">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\Models\HeapModel.cpp">
+      <Filter>TaskExplorer\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TaskInfo\HeapView.cpp">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="API\HeapInfo.cpp">
+      <Filter>API</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHeap.cpp">
+      <Filter>API\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\SystemHacker\xph.c">
+      <Filter>API\Windows\SystemHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\SystemHacker\xphdata.c">
+      <Filter>API\Windows\SystemHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\SystemHacker\SystemHacker.cpp">
+      <Filter>API\Windows\SystemHacker</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\IncrementalPlot.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TabPanel.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Variant.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\XVariant.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Buffer.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Strings.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\HookUtils.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\creatwth.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\detours.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\disasm.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\disolarm.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\disolarm64.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\disolia64.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\disolx64.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\disolx86.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\image.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\modules.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FuncHook\Detours\uimports.cpp">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\FindTool.cpp">
+      <Filter>API\Windows\WinHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\WndFinder.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelpers\WindowFromPointEx.cpp">
+      <Filter>API\Windows\WinHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\OnlineUpdater.cpp">
+      <Filter>TaskExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="API\Windows\WinHelper.cpp">
+      <Filter>API\Windows</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -664,12 +760,6 @@
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\kt.hpp">
       <Filter>API\Windows\Monitors\Etw\krabs</Filter>
     </ClInclude>
-    <ClInclude Include="API\Windows\Monitors\Etw\krabs\lock.hpp">
-      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
-    </ClInclude>
-    <ClInclude Include="API\Windows\Monitors\Etw\krabs\nightmare.hpp">
-      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
-    </ClInclude>
     <ClInclude Include="API\Windows\Monitors\Etw\krabs\parse_types.hpp">
       <Filter>API\Windows\Monitors\Etw\krabs</Filter>
     </ClInclude>
@@ -738,6 +828,102 @@
     </ClInclude>
     <ClInclude Include="API\Windows\Monitors\d3dkmt\d3dukmdt.h">
       <Filter>API\Windows\Monitors\d3dkmt</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\heapstruct.h">
+      <Filter>API\Windows\ProcessHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\etw.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\perfinfo_groupmask.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\trace_context.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\Monitors\Etw\krabs\wstring_convert.hpp">
+      <Filter>API\Windows\Monitors\Etw\krabs</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\SystemHacker\xphuser.h">
+      <Filter>API\Windows\SystemHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\SystemHacker\xphuserp.h">
+      <Filter>API\Windows\SystemHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\SystemHacker\SystemHacker.h">
+      <Filter>API\Windows\SystemHacker</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Types.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Variant.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VariantDefs.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\XVariant.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Buffer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Exception.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Strings.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinHelpers\FuncHook\HookUtils.h">
+      <Filter>API\Windows\WinHelpers\FuncHook</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinHelpers\FuncHook\Detours\detours.h">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinHelpers\FuncHook\Detours\detver.h">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinHelpers\FindTool.h">
+      <Filter>API\Windows\WinHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\WinHelper.h">
+      <Filter>API\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\clrdata.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\cor.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\corsym.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\dacprivate.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\dbgappdomain.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\ipcenums.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\ipcheader.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\ipcshared.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\perfcounterdefs.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\sospriv.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </ClInclude>
+    <ClInclude Include="API\Windows\ProcessHacker\clr\xclrdata.h">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -845,9 +1031,6 @@
     </QtMoc>
     <QtMoc Include="API\Windows\WinWnd.h">
       <Filter>API\Windows</Filter>
-    </QtMoc>
-    <QtMoc Include="Common\IncrementalPlot.h">
-      <Filter>Common</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Models\WindowModel.h">
       <Filter>TaskExplorer\Models</Filter>
@@ -1128,6 +1311,30 @@
     <QtMoc Include="API\Windows\RpcEndpoint.h">
       <Filter>API\Windows</Filter>
     </QtMoc>
+    <QtMoc Include="GUI\Models\HeapModel.h">
+      <Filter>TaskExplorer\Models</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\TaskInfo\HeapView.h">
+      <Filter>TaskExplorer\TaskInfo</Filter>
+    </QtMoc>
+    <QtMoc Include="API\HeapInfo.h">
+      <Filter>API</Filter>
+    </QtMoc>
+    <QtMoc Include="API\Windows\WinHeap.h">
+      <Filter>API\Windows</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\IncrementalPlot.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\TabPanel.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="Common\StatusEx.h">
+      <Filter>Common</Filter>
+    </QtMoc>
+    <QtMoc Include="GUI\OnlineUpdater.h">
+      <Filter>TaskExplorer</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\exe16.png">
@@ -1145,6 +1352,12 @@
     <Image Include="Resources\TaskExplorer.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="Resources\finder-empty.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\finder-full.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="Resources\TaskExplorer.qrc">
@@ -1158,17 +1371,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\CHANGELOG.md" />
-    <None Include="taskexplorer_de.ts">
-      <Filter>Translation Files</Filter>
+    <None Include="API\Windows\WinHelpers\FuncHook\Detours\Makefile">
+      <Filter>API\Windows\WinHelpers\FuncHook\Detours</Filter>
     </None>
-    <None Include="taskexplorer_pl.ts">
-      <Filter>Translation Files</Filter>
-    </None>
-    <None Include="taskexplorer_it.ts">
-      <Filter>Translation Files</Filter>
-    </None>
-    <None Include="taskexplorer_en.ts">
-      <Filter>Translation Files</Filter>
+    <None Include="Resources\finder.cur">
+      <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -1204,5 +1411,33 @@
     <Manifest Include="Resources\TaskExplorer.manifest">
       <Filter>Resource Files</Filter>
     </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <QtTranslation Include="taskexplorer_zh_CN.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="taskexplorer_pl.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="taskexplorer_de.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="taskexplorer_en.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="taskexplorer_it.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="taskexplorer_tr.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="taskexplorer_pt.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="API\Windows\ProcessHacker\clr\LICENSE.TXT">
+      <Filter>API\Windows\ProcessHacker\clr</Filter>
+    </Text>
   </ItemGroup>
 </Project>

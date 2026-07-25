@@ -23,7 +23,8 @@ class QwtPlotOpenGLCanvas::PrivateData
 {
   public:
     PrivateData()
-        : isPolished( false )
+        : numFBOSamples( -1 )
+        , isPolished( false )
         , fboDirty( true )
         , fbo( NULL )
     {
@@ -34,7 +35,7 @@ class QwtPlotOpenGLCanvas::PrivateData
         delete fbo;
     }
 
-    int numSamples;
+    int numFBOSamples;
 
     bool isPolished;
     bool fboDirty;
@@ -51,33 +52,36 @@ QwtPlotOpenGLCanvas::QwtPlotOpenGLCanvas( QwtPlot* plot )
     : QOpenGLWidget( plot )
     , QwtPlotAbstractGLCanvas( this )
 {
-    QSurfaceFormat fmt = format();
-    fmt.setSamples( 4 );
-
-    init( fmt );
+    init();
 }
 
 /*!
    \brief Constructor
 
-   \param format OpenGL surface format
+   \param numSamples Number of samples, see QSurfaceFormat::samples()
    \param plot Parent plot widget
    \sa QwtPlot::setCanvas()
  */
-QwtPlotOpenGLCanvas::QwtPlotOpenGLCanvas(
-        const QSurfaceFormat& format, QwtPlot* plot )
+QwtPlotOpenGLCanvas::QwtPlotOpenGLCanvas( int numSamples, QwtPlot* plot )
     : QOpenGLWidget( plot )
     , QwtPlotAbstractGLCanvas( this )
 {
-    init( format );
+    if ( numSamples < -1 )
+        numSamples = -1;
+
+    QSurfaceFormat fmt = format();
+    if ( numSamples != fmt.samples() )
+    {
+        fmt.setSamples( numSamples );
+        setFormat( fmt );
+    }
+
+    init();
 }
 
-void QwtPlotOpenGLCanvas::init( const QSurfaceFormat& format )
+void QwtPlotOpenGLCanvas::init()
 {
     m_data = new PrivateData;
-    m_data->numSamples = format.samples();
-
-    setFormat( format );
 
 #if 1
     setAttribute( Qt::WA_OpaquePaintEvent, true );
@@ -113,6 +117,19 @@ void QwtPlotOpenGLCanvas::paintEvent( QPaintEvent* event )
  */
 bool QwtPlotOpenGLCanvas::event( QEvent* event )
 {
+    if ( event->type() == QEvent::Resize )
+    {
+        if ( m_data->numFBOSamples < 0  )
+        {
+            /*
+                QOpenGLWidget always uses a FBO and sets the number of samples for
+                the FBO not for the widget itself. So format().samples() does not
+                return the correct value after the first QEvent::Resize.
+             */
+            m_data->numFBOSamples = qMax( format().samples(), 0 );
+        }
+    }
+
     const bool ok = QOpenGLWidget::event( event );
 
     if ( event->type() == QEvent::PolishRequest )
@@ -188,7 +205,7 @@ void QwtPlotOpenGLCanvas::paintGL()
     if ( testPaintAttribute( QwtPlotOpenGLCanvas::BackingStore ) &&
         QOpenGLFramebufferObject::hasOpenGLFramebufferBlit() )
     {
-        const qreal pixelRatio = QwtPainter::devicePixelRatio( NULL );
+        const qreal pixelRatio = QwtPainter::devicePixelRatio( this );
         const QSize fboSize = size() * pixelRatio;
 
         if ( hasFocusIndicator )
@@ -216,8 +233,10 @@ void QwtPlotOpenGLCanvas::paintGL()
         if ( m_data->fbo == NULL )
         {
             QOpenGLFramebufferObjectFormat fboFormat;
-            fboFormat.setSamples( m_data->numSamples );
             fboFormat.setAttachment( QOpenGLFramebufferObject::CombinedDepthStencil );
+
+            if ( m_data->numFBOSamples > 0 )
+                fboFormat.setSamples( m_data->numFBOSamples );
 
             m_data->fbo = new QOpenGLFramebufferObject( fboSize, fboFormat );
             m_data->fboDirty = true;

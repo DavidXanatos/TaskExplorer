@@ -10,11 +10,6 @@
 
 CSystemAPI*	theAPI = NULL;
 
-int _QHostAddress_type = qRegisterMetaType<QHostAddress>("QHostAddress");
-
-int _QSet_qquint64ype = qRegisterMetaType<QSet<quint64>>("QSet<quint64>");
-int _QSet_QString_type = qRegisterMetaType<QSet<QString>>("QSet<QString>");
-
 // When running this in a separate thread, QObject parent must be NULL
 CSystemAPI::CSystemAPI(QObject *parent) 
 {
@@ -90,13 +85,19 @@ void CSystemAPI::InitAPI()
 QMap<quint64, CProcessPtr> CSystemAPI::GetProcessList()
 {
 	QReadLocker Locker(&m_ProcessMutex);
-	return m_ProcessList;
+	return m_ProcessByPID;
+}
+
+QMap<SProcessUID, CProcessPtr> CSystemAPI::GetProcessMap()
+{
+	QReadLocker Locker(&m_ProcessMutex);
+	return m_ProcessMap;
 }
 
 CProcessPtr CSystemAPI::GetProcessByID(quint64 ProcessId, bool bAddIfNew)
 {
 	QReadLocker Locker(&m_ProcessMutex);
-	return m_ProcessList.value(ProcessId);
+	return m_ProcessByPID.value(ProcessId);
 }
 
 QMultiMap<quint64, CSocketPtr> CSystemAPI::GetSocketList()
@@ -287,4 +288,31 @@ bool CSystemAPI::RemovePersistentPreset(const QString& FileName)
 	QWriteLocker Locker(&m_PersistentMutex);
 	
 	return m_PersistentPresets.remove(FileName.toLower()) != 0;
+}
+
+void CSystemAPI::ResetAll()
+{
+	QWriteLocker Locker(&m_ProcessMutex);
+	m_ProcessByPID.clear();
+	m_ProcessMap.clear();
+	m_ThreadMap.clear();
+	Locker.unlock();
+
+	QWriteLocker SocketLocker(&m_SocketMutex);
+	m_SocketList.clear();
+	SocketLocker.unlock();
+
+	QWriteLocker OpenFilesLocker(&m_OpenFilesMutex);
+	m_OpenFilesList.clear();
+	OpenFilesLocker.unlock();
+
+	QWriteLocker ServiceLocker(&m_ServiceMutex);
+	m_ServiceList.clear();
+	ServiceLocker.unlock();
+
+	QWriteLocker DriverLocker(&m_DriverMutex);
+	m_DriverList.clear();
+	DriverLocker.unlock();
+
+	UpdateAll();
 }

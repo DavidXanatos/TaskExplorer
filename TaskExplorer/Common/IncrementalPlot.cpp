@@ -316,6 +316,7 @@ void CIncrementalPlot::Reset()
 		}
 		Curve.uSize = 0;
 
+		Curve.pPlot->setRawSamples(Curve.xData,Curve.yData,Curve.uSize);
 		if (!m_UseDate)
 			InitCurve(Curve);
 	}

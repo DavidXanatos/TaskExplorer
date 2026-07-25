@@ -7,6 +7,8 @@
 class CWinWnd : public CWndInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinWnd)
 public:
 	CWinWnd(QObject *parent = nullptr);
 	virtual ~CWinWnd();

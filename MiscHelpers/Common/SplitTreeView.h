@@ -1,5 +1,6 @@
 #pragma once
 #include <qwidget.h>
+#include <QIdentityProxyModel>
 
 #include "TreeViewEx.h"
 
@@ -9,7 +10,7 @@ class MISCHELPERS_EXPORT COneColumnModel : public QIdentityProxyModel
 {
 	Q_OBJECT
 public:
-	COneColumnModel( QObject* parrent = 0) : QIdentityProxyModel(parrent) {}
+	COneColumnModel( QObject* parent = 0) : QIdentityProxyModel(parent) {}
 
 	int	columnCount(const QModelIndex &parent = QModelIndex()) const { return 1; }
 };
@@ -112,5 +113,5 @@ private:
 	QAbstractItemModel*		m_pModel;
 	COneColumnModel*		m_pOneModel;
 
-	int						m_LockSellection;
+	int						m_LockSelection;
 };

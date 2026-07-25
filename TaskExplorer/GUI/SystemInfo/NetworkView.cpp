@@ -2,8 +2,8 @@
 #include "NetworkView.h"
 #include "../TaskExplorer.h"
 #ifdef WIN32
-#include "../API/Windows/WindowsAPI.h"
-#include "../API/Windows/Monitors/WinNetMonitor.h"
+#include "../../API/Windows/WindowsAPI.h"
+#include "../../API/Windows/Monitors/WinNetMonitor.h"
 #endif
 
 
@@ -69,9 +69,9 @@ CNetworkView::CNetworkView(QWidget *parent)
 	m_pNICList->GetTree()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_pNICList->GetTree()->setSortingEnabled(true);
 	m_pNICList->GetTree()->setMinimumHeight(100);
-	m_pNICList->GetTree()->setAutoFitMax(200);
+	((QTreeWidgetEx*)m_pNICList->GetTree())->setAutoFitMax(200);
 
-	m_pNICList->GetTree()->setColumnReset(2);
+	((QTreeWidgetEx*)m_pNICList->GetTree())->setColumnReset(2);
 	connect(m_pNICList->GetTree(), SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
 
 	m_pScrollLayout->addWidget(m_pNICList, 2, 0, 1, 3);

@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2023-2024
+ *     jxy-s   2023-2026
  *
  */
 
@@ -61,7 +61,7 @@ VOID KphpTryAddSentinelFrame(
     _In_ ULONG Flags
     )
 {
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     if (FlagOn(Flags, KPH_STACK_BACK_TRACE_NO_SENTINEL))
     {
@@ -102,7 +102,7 @@ ULONG KphpCaptureStackBackTrace(
     ULONG frames;
     ULONG skip;
 
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     FramesToSkip += 1;
 
@@ -233,7 +233,7 @@ ULONG KphCaptureStackBackTrace(
     ULONG frames;
     PKPH_THREAD_CONTEXT thread;
 
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     if (FlagOn(Flags, KPH_STACK_BACK_TRACE_USER_MODE) &&
         (KeGetCurrentIrql() < DISPATCH_LEVEL))
@@ -260,7 +260,7 @@ ULONG KphCaptureStackBackTrace(
     return frames;
 }
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Captures the current stack back trace into a back trace object.
@@ -276,7 +276,7 @@ VOID KphpCaptureStackBackTraceIntoObject(
     PULONG backTraceHash;
     ULONG capturedFrames;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE_APC();
 
     if (BackTrace->DoHash)
     {
@@ -321,7 +321,7 @@ VOID KSIAPI KphpCaptureStackBackTraceThreadSpecialApc(
 {
     PKPH_STACK_BACK_TRACE_OBJECT backTrace;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE_APC();
 
     UNREFERENCED_PARAMETER(NormalRoutine);
     UNREFERENCED_PARAMETER(NormalContext);
@@ -350,7 +350,7 @@ VOID KSIAPI KphpCaptureStackBackTraceThreadSpecialApcCleanup(
 {
     PKPH_STACK_BACK_TRACE_OBJECT backTrace;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     UNREFERENCED_PARAMETER(Apc);
     DBG_UNREFERENCED_PARAMETER(Reason);
@@ -373,7 +373,7 @@ PVOID KSIAPI KphpStackBackTraceAllocate(
     _In_ SIZE_T Size
     )
 {
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     return KphAllocateNPaged(Size, KPH_TAG_BACK_TRACE_OBJECT);
 }
@@ -388,7 +388,7 @@ VOID KSIAPI KphpStackBackTraceFree(
     _In_freesMem_ PVOID Object
     )
 {
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     KphFree(Object, KPH_TAG_BACK_TRACE_OBJECT);
 }
@@ -411,7 +411,7 @@ NTSTATUS KSIAPI KphpStackBackTraceInitialize(
     PKPH_STACK_BACK_TRACE_OBJECT backTrace;
     PETHREAD thread;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     NT_ASSERT(Parameter);
 
@@ -447,7 +447,7 @@ VOID KSIAPI KphpStackBackTraceDelete(
 {
     PKPH_STACK_BACK_TRACE_OBJECT backTrace;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     backTrace = Object;
 
@@ -488,7 +488,7 @@ NTSTATUS KphCaptureStackBackTraceThread(
     ULONG backTraceSize;
     PKPH_STACK_BACK_TRACE_OBJECT backTrace;
 
-    PAGED_CODE();
+    KPH_PAGED_CODE();
 
     if (Thread == PsGetCurrentThread())
     {
@@ -511,8 +511,19 @@ NTSTATUS KphCaptureStackBackTraceThread(
 
     backTrace = NULL;
 
-    status = RtlULongAdd(FramesToCapture,
-                         sizeof(KPH_STACK_BACK_TRACE_OBJECT),
+    status = RtlULongMult(FramesToCapture, sizeof(PVOID), &backTraceSize);
+    if (!NT_SUCCESS(status))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      GENERAL,
+                      "RtlULongMult failed: %!STATUS!",
+                      status);
+
+        goto Exit;
+    }
+
+    status = RtlULongAdd(backTraceSize,
+                         FIELD_OFFSET(KPH_STACK_BACK_TRACE_OBJECT, BackTrace),
                          &backTraceSize);
     if (!NT_SUCCESS(status))
     {
@@ -618,7 +629,7 @@ NTSTATUS KphInitializeStackBackTrace(
     KPH_OBJECT_TYPE_INFO typeInfo;
     SYSTEM_SINGLE_MODULE_INFORMATION info;
 
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     typeInfo.Allocate = KphpStackBackTraceAllocate;
     typeInfo.Initialize = KphpStackBackTraceInitialize;
@@ -630,12 +641,12 @@ NTSTATUS KphInitializeStackBackTrace(
                         &typeInfo,
                         &KphpStackBackTraceType);
 
-    RtlZeroMemory(&info, sizeof(info));
+    RtlZeroMemory(&info, sizeof(SYSTEM_SINGLE_MODULE_INFORMATION));
 
     info.TargetModuleAddress = (PVOID)KphInitializeStackBackTrace;
     status = ZwQuerySystemInformation(SystemSingleModuleInformation,
                                       &info,
-                                      sizeof(info),
+                                      sizeof(SYSTEM_SINGLE_MODULE_INFORMATION),
                                       NULL);
     if (!NT_SUCCESS(status))
     {
@@ -650,12 +661,12 @@ NTSTATUS KphInitializeStackBackTrace(
     KphpSelfImageBase = info.ExInfo.BaseInfo.ImageBase;
     KphpSelfImageEnd = Add2Ptr(KphpSelfImageBase, info.ExInfo.BaseInfo.ImageSize);
 
-    RtlZeroMemory(&info, sizeof(info));
+    RtlZeroMemory(&info, sizeof(SYSTEM_SINGLE_MODULE_INFORMATION));
 
     info.TargetModuleAddress = (PVOID)KsiInitializeApc;
     status = ZwQuerySystemInformation(SystemSingleModuleInformation,
                                       &info,
-                                      sizeof(info),
+                                      sizeof(SYSTEM_SINGLE_MODULE_INFORMATION),
                                       NULL);
     if (!NT_SUCCESS(status))
     {

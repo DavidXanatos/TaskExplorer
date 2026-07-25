@@ -4,6 +4,47 @@
 #include "SystemAPI.h"
 #include "../../MiscHelpers/Common/Settings.h"
 
+
+SProcessUID::SProcessUID(quint64 uPid, quint64 msTime)
+{
+	//
+	// Note: On Windows PID's are 32-bit and word aligned i.e. the least significant 2 bits are always 0 hence we can drop them
+	//
+
+	// Variant A
+	//
+	// 11111111 11111111 1111 1111 111111 00                                     - PID
+	// 00000000 00000000 0000(0000 000000)00 00000000 00000000 00000000 00000000 - uint64 - PID (shared msb bits) timestamp in miliseconds
+	//					      1111 111111 11 11111111 11111111 11111111 11111111 - unix timestamp (Jun 2527)
+	//                           1 100101 00 00100110 01000000 01010010 01111101 - unix timestamp (Jan 2025)
+	//
+	// rev_PID_LSB       (rev_PID_MSB Time_MSB)                         Time_LSB
+	//
+	//PUID = reverseBits64(((uPid & 0xFFFFFFFC) >> 2)) ^ (msTime & 0x00000FFFFFFFFFFF);
+
+	// Variant B
+	//
+	// 11111111 11111111 11111111 11111100                                     - PID
+	// 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 - uint64 - 30 bit Pid, 34 bit timestamp in seconds
+	//                                  11 11111111 11111111 11111111 11111111 - unix timestamp (May 2514)
+	//										1100111 01110110 01010110 00011001 - unix timestamp (Jan 2025)
+	//
+	//PUID = ((uPid & 0xFFFFFFFC) << 32) | ((msTime/1000llu) & 0x00000003FFFFFFFF);
+
+	// Variant C
+	//
+	// 11111111 11111111 11111100                                              - PID
+	// 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 - uint64 - 22 bit Pid, 42 bit timestamp in seconds
+	//                         11 11111111 11111111 11111111 11111111 11111111 - unix timestamp (May 2109) - 3FFFFFFFFFF - 4398046511103
+	//                         01 10010100 00100110 01000000 01010010 01111101 - unix timestamp (Jan 2025)
+	//
+	PUID = (((uPid) << 40) & 0xFFFFFC0000000000) ^ (msTime & 0x000003FFFFFFFFFF);
+
+	// Variant C seams best, 2109 is far enough in the future and we have no slow integer division, even though the PID gets truncated a bit
+}
+
+
+
 CProcessInfo::CProcessInfo(QObject *parent) : CAbstractTask(parent)
 {
 	// Basic

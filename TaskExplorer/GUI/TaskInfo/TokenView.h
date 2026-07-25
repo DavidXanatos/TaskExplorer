@@ -29,7 +29,7 @@ private slots:
 	void					OnChangeVirtualization();
 	void					OnLinkedToken();
 
-	void					SetFilter(const QRegularExpression& Exp, bool bHighLight = false, int Col = -1); // -1 = any
+	void					SetFilter(const QRegularExpression& Exp, int iOptions = 0, int Col = -1); // -1 = any
 
 protected:
 	virtual void				OnMenu(const QPoint& Point);
@@ -56,6 +56,8 @@ private:
 		eStatus,
 		eDescription,
 		eSID,
+		eType,
+		eUse,
 		eCount
 	};
 

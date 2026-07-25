@@ -51,7 +51,7 @@ VOID PvpPeEnumerateTlsCallbacks(
 
             symbol = PhGetSymbolFromAddress(
                 PvSymbolProvider,
-                (ULONG64)entry.Address,
+                (PVOID)entry.Address,
                 NULL,
                 NULL,
                 &symbolName,
@@ -148,6 +148,11 @@ INT_PTR CALLBACK PvpPeTlsDlgProc(
             }
         }
         break;
+    case WM_DPICHANGED:
+        {
+            PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
+        }
+        break;
     case WM_SIZE:
         {
             PhLayoutManagerLayout(&context->LayoutManager);
@@ -171,7 +176,7 @@ INT_PTR CALLBACK PvpPeTlsDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

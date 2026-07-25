@@ -1392,7 +1392,7 @@ BOOLEAN DiskDriveFlushCache(
     return FALSE;
 }
 
-PWSTR SmartAttributeGetText(
+PCWSTR SmartAttributeGetText(
     _In_ SMART_ATTRIBUTE_ID AttributeId
     )
 {

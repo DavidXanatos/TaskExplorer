@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2023
+ *     jxy-s   2023-2026
  *
  */
 
@@ -45,7 +45,7 @@ typedef struct _KPH_FLT_COMPLETION_CONTEXT
     PFLT_FILE_NAME_INFORMATION DestFileNameInfo;
 } KPH_FLT_COMPLETION_CONTEXT, *PKPH_FLT_COMPLETION_CONTEXT;
 
-static volatile ULONG64 KphpFltSequence = 0;
+static ULONG64 KphpFltSequence = 0;
 static BOOLEAN KphpFltOpInitialized = FALSE;
 static NPAGED_LOOKASIDE_LIST KphpFltCompletionContextLookaside = { 0 };
 
@@ -62,33 +62,34 @@ KPH_FLT_OPTIONS KphpFltGetOptions(
     )
 {
     KPH_FLT_OPTIONS options;
-    PKPH_PROCESS_CONTEXT process;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+
+    KPH_INFORMER_CONTEXT_ENTER();
 
     options.Flags = 0;
 
     if (Data->Thread)
     {
-        process = KphGetEProcessContext(PsGetThreadProcess(Data->Thread));
+        KphInformerMove(KphGetEProcessContext(PsGetThreadProcess(Data->Thread)));
     }
     else
     {
-        process = KphGetSystemProcessContext();
+        KphInformerMove(KphGetSystemProcessContext());
     }
 
-#define KPH_FLT_SETTING(majorFunction, name)                                  \
-    case majorFunction:                                                       \
-    {                                                                         \
-        if (KphInformerEnabled(FilePre##name, process))                       \
-        {                                                                     \
-            options.PreEnabled = TRUE;                                        \
-        }                                                                     \
-        if (KphInformerEnabled(FilePost##name, process))                      \
-        {                                                                     \
-            options.PostEnabled = TRUE;                                       \
-        }                                                                     \
-        break;                                                                \
+#define KPH_FLT_SETTING(majorFunction, name)                                   \
+    case majorFunction:                                                        \
+    {                                                                          \
+        if (KphInformerEnabled(FilePre##name))                                 \
+        {                                                                      \
+            options.PreEnabled = TRUE;                                         \
+        }                                                                      \
+        if (KphInformerEnabled(FilePost##name))                                \
+        {                                                                      \
+            options.PostEnabled = TRUE;                                        \
+        }                                                                      \
+        break;                                                                 \
     }
 
     switch (Data->Iopb->MajorFunction)
@@ -141,21 +142,22 @@ KPH_FLT_OPTIONS KphpFltGetOptions(
 
     if (options.PreEnabled || options.PostEnabled)
     {
-        options.EnableStackTraces = KphInformerEnabled(EnableStackTraces, process);
-        options.EnablePostFileNames = KphInformerEnabled(FileEnablePostFileNames, process);
-        options.EnablePagingIo = KphInformerEnabled(FileEnablePagingIo, process);
-        options.EnableSyncPagingIo = KphInformerEnabled(FileEnableSyncPagingIo, process);
-        options.EnableIoControlBuffers = KphInformerEnabled(FileEnableIoControlBuffers, process);
-        options.EnableFsControlBuffers = KphInformerEnabled(FileEnableFsControlBuffers, process);
-        options.EnableDirControlBuffers = KphInformerEnabled(FileEnableDirControlBuffers, process);
-        options.EnablePreCreateReply = KphInformerEnabled(FileEnablePreCreateReply, process);
-        options.EnablePostCreateReply = KphInformerEnabled(FileEnablePostCreateReply, process);
+        KPH_INFORMER_OPTIONS opts;
+
+        opts = KphInformerOpts();
+
+        options.EnableStackTraces = !!opts.EnableStackTraces;
+        options.EnablePostFileNames = !!opts.FileEnablePostFileNames;
+        options.EnablePagingIo = !!opts.FileEnablePagingIo;
+        options.EnableSyncPagingIo = !!opts.FileEnableSyncPagingIo;
+        options.EnableIoControlBuffers = !!opts.FileEnableIoControlBuffers;
+        options.EnableFsControlBuffers = !!opts.FileEnableFsControlBuffers;
+        options.EnableDirControlBuffers = !!opts.FileEnableDirControlBuffers;
+        options.EnablePreCreateReply = !!opts.FileEnablePreCreateReply;
+        options.EnablePostCreateReply = !!opts.FileEnablePostCreateReply;
     }
 
-    if (process)
-    {
-        KphDereferenceObject(process);
-    }
+    KPH_INFORMER_CONTEXT_EXIT();
 
     return options;
 }
@@ -176,7 +178,7 @@ KPH_MESSAGE_ID KphpFltGetMessageId(
 {
     KPH_MESSAGE_ID messageId;
 
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
 #define KPH_FLT_MESSAGE_ID(majorFunction, name)                               \
     case majorFunction:                                                       \
@@ -263,7 +265,7 @@ VOID KphpFltInitMessage(
     ULONG_PTR stackHighLimit;
     POPLOCK_KEY_CONTEXT oplockKeyContext;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     KphMsgInit(Message, KphpFltGetMessageId(MajorFunction, PostOperation));
 
@@ -329,6 +331,18 @@ VOID KphpFltInitMessage(
                       oplockKeyContext,
                       sizeof(OPLOCK_KEY_CONTEXT));
     }
+
+    if (KphDynIoCheckFileObjectOpenedAsCopySource &&
+        KphDynIoCheckFileObjectOpenedAsCopySource(FltObjects->FileObject))
+    {
+        Message->Kernel.File.OpenedAsCopySource = TRUE;
+    }
+
+    if (KphDynIoCheckFileObjectOpenedAsCopyDestination &&
+        KphDynIoCheckFileObjectOpenedAsCopyDestination(FltObjects->FileObject))
+    {
+        Message->Kernel.File.OpenedAsCopyDestination = TRUE;
+    }
 }
 
 /**
@@ -348,7 +362,7 @@ VOID KphpFltCopyFileName(
     NTSTATUS status;
     PUNICODE_STRING string;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     switch (FltFileName->Type)
     {
@@ -424,7 +438,7 @@ _IRQL_requires_max_(APC_LEVEL)
 VOID KphpFltCopyBuffer(
     _Inout_ PKPH_MESSAGE Message,
     _In_ PFLT_CALLBACK_DATA Data,
-    _In_opt_ KPH_MESSAGE_FIELD_ID FieldId,
+    _In_ KPH_MESSAGE_FIELD_ID FieldId,
     _In_ BOOLEAN SystemBuffer,
     _Out_writes_bytes_to_opt_(DestLength, Length) PVOID DestBuffer,
     _In_ ULONG DestLength,
@@ -439,7 +453,7 @@ VOID KphpFltCopyBuffer(
     PMDL mdl;
     BOOLEAN unlockPages;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     mdl = NULL;
     unlockPages = FALSE;
@@ -478,7 +492,7 @@ VOID KphpFltCopyBuffer(
 
     if (Mdl)
     {
-        buffer = MmGetSystemAddressForMdlSafe(Mdl, NormalPagePriority);
+        buffer = KphGetSystemAddressForMdl(Mdl, NormalPagePriority);
         goto CopyBuffer;
     }
 
@@ -500,6 +514,7 @@ VOID KphpFltCopyBuffer(
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       INFORMER,
                       "Missing thread for buffer capture");
+
         goto Exit;
     }
 
@@ -509,6 +524,7 @@ VOID KphpFltCopyBuffer(
         KphTracePrint(TRACE_LEVEL_VERBOSE,
                       INFORMER,
                       "Failed to allocate MDL");
+
         goto Exit;
     }
 
@@ -526,10 +542,11 @@ VOID KphpFltCopyBuffer(
                       INFORMER,
                       "MmProbeAndLockProcessPages failed: %!STATUS!",
                       GetExceptionCode());
+
         goto Exit;
     }
 
-    buffer = MmGetSystemAddressForMdlSafe(mdl, NormalPagePriority);
+    buffer = KphGetSystemAddressForMdl(mdl, NormalPagePriority);
 
 CopyBuffer:
 
@@ -636,7 +653,7 @@ VOID KphpFltCopyFsControl(
     PVOID buffer;
     ULONG length;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     NT_ASSERT(Data->Iopb->MajorFunction == IRP_MJ_FILE_SYSTEM_CONTROL);
 
@@ -703,7 +720,8 @@ VOID KphpFltCopyFsControl(
 
             if (FlagOn(Data->Flags, FLTFL_CALLBACK_DATA_POST_OPERATION))
             {
-                length = (ULONG)Data->IoStatus.Information;
+                length = min((ULONG)Data->IoStatus.Information,
+                             Data->Iopb->Parameters.FileSystemControl.Buffered.OutputBufferLength);
 
                 KphpFltCopyBuffer(Message,
                                   Data,
@@ -741,7 +759,8 @@ VOID KphpFltCopyFsControl(
             {
                 mdl = Data->Iopb->Parameters.FileSystemControl.Direct.OutputMdlAddress;
                 buffer = Data->Iopb->Parameters.FileSystemControl.Direct.OutputBuffer;
-                length = (ULONG)Data->IoStatus.Information;
+                length = min((ULONG)Data->IoStatus.Information,
+                             Data->Iopb->Parameters.FileSystemControl.Direct.OutputBufferLength);
 
                 KphpFltCopyBuffer(Message,
                                   Data,
@@ -796,7 +815,7 @@ VOID KphpFltCopyIoControl(
     PVOID buffer;
     ULONG length;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     NT_ASSERT((Data->Iopb->MajorFunction == IRP_MJ_DEVICE_CONTROL) ||
               (Data->Iopb->MajorFunction == IRP_MJ_INTERNAL_DEVICE_CONTROL));
@@ -918,7 +937,8 @@ VOID KphpFltCopyIoControl(
 
             if (FlagOn(Data->Flags, FLTFL_CALLBACK_DATA_POST_OPERATION))
             {
-                length = (ULONG)Data->IoStatus.Information;
+                length = min((ULONG)Data->IoStatus.Information,
+                             Data->Iopb->Parameters.DeviceIoControl.Buffered.OutputBufferLength);
 
                 KphpFltCopyBuffer(Message,
                                   Data,
@@ -956,7 +976,8 @@ VOID KphpFltCopyIoControl(
             {
                 mdl = Data->Iopb->Parameters.DeviceIoControl.Direct.OutputMdlAddress;
                 buffer = Data->Iopb->Parameters.DeviceIoControl.Direct.OutputBuffer;
-                length = (ULONG)Data->IoStatus.Information;
+                length = min((ULONG)Data->IoStatus.Information,
+                             Data->Iopb->Parameters.DeviceIoControl.Direct.OutputBufferLength);
 
                 KphpFltCopyBuffer(Message,
                                   Data,
@@ -995,6 +1016,30 @@ VOID KphpFltCopyIoControl(
 }
 
 /**
+ * \brief Copies a security context structure from an IO_SECURITY_CONTEXT.
+ *
+ * \param[out] SecurityContext The security context structure to fill.
+ * \param[in] IoSecurityContext The IO_SECURITY_CONTEXT to read from.
+ */
+_IRQL_requires_max_(APC_LEVEL)
+VOID KphpFltCopySecurityContext(
+    _Out_ PKPHM_IO_SECURITY_CONTEXT SecurityContext,
+    _In_ PIO_SECURITY_CONTEXT IoSecurityContext
+    )
+{
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+
+    SecurityContext->DesiredAccess = IoSecurityContext->DesiredAccess;
+
+    if (IoSecurityContext->AccessState)
+    {
+        SecurityContext->OriginalDesiredAccess = IoSecurityContext->AccessState->OriginalDesiredAccess;
+        SecurityContext->PreviouslyGrantedAccess = IoSecurityContext->AccessState->PreviouslyGrantedAccess;
+        SecurityContext->RemainingDesiredAccess = IoSecurityContext->AccessState->RemainingDesiredAccess;
+    }
+}
+
+/**
  * \brief Fills a message with common information.
  *
  * \param[in,out] Message The message to fill.
@@ -1006,23 +1051,30 @@ VOID KphpFltFillCommonMessage(
     _In_ PFLT_CALLBACK_DATA Data
     )
 {
-    NPAGED_CODE_DISPATCH_MAX();
+    BOOLEAN cacheOnly;
+    COPY_INFORMATION copyInfo;
+
+    KPH_NPAGED_CODE_DISPATCH_MAX();
+
+    cacheOnly = (FlagOn(Data->Iopb->IrpFlags, IRP_PAGING_IO) ||
+                 FlagOn(Data->Iopb->IrpFlags, IRP_SYNCHRONOUS_PAGING_IO));
 
     if (Data->Thread)
     {
-        PEPROCESS process;
-        BOOLEAN cacheOnly;
+        KphCaptureThreadContext(&Message->Kernel.File.Thread, Data->Thread, cacheOnly);
+    }
+    else
+    {
+        RtlZeroMemory(&Message->Kernel.File.Thread, sizeof(KPHM_CONTEXT));
+    }
 
-        process = PsGetThreadProcess(Data->Thread);
+    KphCaptureCurrentContextEx(&Message->Kernel.File.Context, cacheOnly);
 
-        Message->Kernel.File.ClientId.UniqueProcess = PsGetProcessId(process);
-        Message->Kernel.File.ClientId.UniqueThread = PsGetThreadId(Data->Thread);
-        Message->Kernel.File.ProcessStartKey = KphGetProcessStartKey(process);
-
-        cacheOnly = (FlagOn(Data->Iopb->IrpFlags, IRP_PAGING_IO) ||
-                     FlagOn(Data->Iopb->IrpFlags, IRP_SYNCHRONOUS_PAGING_IO));
-
-        Message->Kernel.File.ThreadSubProcessTag = KphGetThreadSubProcessTagEx(Data->Thread, cacheOnly);
+    if (KphDynFltGetCopyInformationFromCallbackData &&
+        NT_SUCCESS(KphDynFltGetCopyInformationFromCallbackData(Data, &copyInfo)))
+    {
+        Message->Kernel.File.CopyInformation.SourceFileObject = copyInfo.SourceFileObject;
+        Message->Kernel.File.CopyInformation.SourceFileOffset = copyInfo.SourceFileOffset;
     }
 
     Message->Kernel.File.RequestorMode = (Data->RequestorMode != KernelMode);
@@ -1074,7 +1126,7 @@ VOID KphpFltFillPreOpMessage(
     ULONG destLength;
     BOOLEAN truncate;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     KphpFltFillCommonMessage(Message, Data);
 
@@ -1088,7 +1140,14 @@ VOID KphpFltFillPreOpMessage(
     {
         case IRP_MJ_CREATE:
         {
+            PKPHM_IO_SECURITY_CONTEXT msgSecurityContext;
+            PIO_SECURITY_CONTEXT ioSecurityContext;
+
             NT_ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+            msgSecurityContext = &Message->Kernel.File.Pre.Create.SecurityContext;
+            ioSecurityContext = Data->Iopb->Parameters.Create.SecurityContext;
+            KphpFltCopySecurityContext(msgSecurityContext, ioSecurityContext);
 
             buffer = Data->Iopb->Parameters.Create.EaBuffer;
             length = Data->Iopb->Parameters.Create.EaLength;
@@ -1097,6 +1156,15 @@ VOID KphpFltFillPreOpMessage(
         }
         case IRP_MJ_CREATE_NAMED_PIPE:
         {
+            PKPHM_IO_SECURITY_CONTEXT msgSecurityContext;
+            PIO_SECURITY_CONTEXT ioSecurityContext;
+
+            NT_ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+            msgSecurityContext = &Message->Kernel.File.Pre.CreateNamedPipe.SecurityContext;
+            ioSecurityContext = Data->Iopb->Parameters.CreatePipe.SecurityContext;
+            KphpFltCopySecurityContext(msgSecurityContext, ioSecurityContext);
+
             buffer = Data->Iopb->Parameters.CreatePipe.Parameters;
             length = sizeof(NAMED_PIPE_CREATE_PARAMETERS);
             destBuffer = &Message->Kernel.File.Pre.CreateNamedPipe.Parameters;
@@ -1163,6 +1231,7 @@ VOID KphpFltFillPreOpMessage(
                               INFORMER,
                               "Exception capturing file name: %!STATUS!",
                               GetExceptionCode());
+
                 return;
             }
 
@@ -1196,6 +1265,15 @@ VOID KphpFltFillPreOpMessage(
         }
         case IRP_MJ_CREATE_MAILSLOT:
         {
+            PKPHM_IO_SECURITY_CONTEXT msgSecurityContext;
+            PIO_SECURITY_CONTEXT ioSecurityContext;
+
+            NT_ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+            msgSecurityContext = &Message->Kernel.File.Pre.CreateMailslot.SecurityContext;
+            ioSecurityContext = Data->Iopb->Parameters.CreateMailslot.SecurityContext;
+            KphpFltCopySecurityContext(msgSecurityContext, ioSecurityContext);
+
             buffer = Data->Iopb->Parameters.CreateMailslot.Parameters;
             length = sizeof(MAILSLOT_CREATE_PARAMETERS);
             destBuffer = &Message->Kernel.File.Pre.CreateMailslot.Parameters;
@@ -1208,6 +1286,14 @@ VOID KphpFltFillPreOpMessage(
             length = sizeof(LARGE_INTEGER);
             destBuffer = &Message->Kernel.File.Pre.AcquireForModWrite.EndingOffset;
             destLength = sizeof(LARGE_INTEGER);
+            break;
+        }
+        case IRP_MJ_QUERY_OPEN:
+        {
+            buffer = Data->Iopb->Parameters.QueryOpen.Length;
+            length = sizeof(ULONG);
+            destBuffer = &Message->Kernel.File.Pre.QueryOpen.Length;
+            destLength = sizeof(ULONG);
             break;
         }
         default:
@@ -1247,7 +1333,7 @@ VOID KphpFltFillPostOpMessage(
     ULONG length;
     KPH_MESSAGE_FIELD_ID fieldId;
 
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     KphpFltFillCommonMessage(Message, Data);
 
@@ -1263,10 +1349,35 @@ VOID KphpFltFillPostOpMessage(
 
     switch (Data->Iopb->MajorFunction)
     {
+        case IRP_MJ_CREATE:
+        {
+            PKPHM_IO_SECURITY_CONTEXT msgSecurityContext;
+            PIO_SECURITY_CONTEXT ioSecurityContext;
+
+            NT_ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+            msgSecurityContext = &Message->Kernel.File.Post.Create.SecurityContext;
+            ioSecurityContext = Data->Iopb->Parameters.Create.SecurityContext;
+            KphpFltCopySecurityContext(msgSecurityContext, ioSecurityContext);
+            return;
+        }
+        case IRP_MJ_CREATE_NAMED_PIPE:
+        {
+            PKPHM_IO_SECURITY_CONTEXT msgSecurityContext;
+            PIO_SECURITY_CONTEXT ioSecurityContext;
+
+            NT_ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+            msgSecurityContext = &Message->Kernel.File.Post.CreateNamedPipe.SecurityContext;
+            ioSecurityContext = Data->Iopb->Parameters.CreatePipe.SecurityContext;
+            KphpFltCopySecurityContext(msgSecurityContext, ioSecurityContext);
+            return;
+        }
         case IRP_MJ_QUERY_INFORMATION:
         {
             buffer = Data->Iopb->Parameters.QueryFileInformation.InfoBuffer;
-            length = (ULONG)Data->IoStatus.Information;
+            length = min((ULONG)Data->IoStatus.Information,
+                         Data->Iopb->Parameters.QueryFileInformation.Length);
             fieldId = KphMsgFieldInformationBuffer;
             break;
         }
@@ -1277,14 +1388,16 @@ VOID KphpFltFillPostOpMessage(
             //
             mdl = Data->Iopb->Parameters.QueryEa.MdlAddress;
             buffer = Data->Iopb->Parameters.QueryEa.EaBuffer;
-            length = (ULONG)Data->IoStatus.Information;
+            length = min((ULONG)Data->IoStatus.Information,
+                         Data->Iopb->Parameters.QueryEa.Length);
             fieldId = KphMsgFieldInformationBuffer; // FILE_FULL_EA_INFORMATION
             break;
         }
         case IRP_MJ_QUERY_VOLUME_INFORMATION:
         {
             buffer = Data->Iopb->Parameters.QueryVolumeInformation.VolumeBuffer;
-            length = (ULONG)Data->IoStatus.Information;
+            length = min((ULONG)Data->IoStatus.Information,
+                         Data->Iopb->Parameters.QueryVolumeInformation.Length);
             fieldId = KphMsgFieldInformationBuffer;
             break;
         }
@@ -1304,14 +1417,16 @@ VOID KphpFltFillPostOpMessage(
                     //
                     mdl = Data->Iopb->Parameters.DirectoryControl.QueryDirectory.MdlAddress;
                     buffer = Data->Iopb->Parameters.DirectoryControl.QueryDirectory.DirectoryBuffer;
-                    length = (ULONG)Data->IoStatus.Information;
+                    length = min((ULONG)Data->IoStatus.Information,
+                                 Data->Iopb->Parameters.DirectoryControl.QueryDirectory.Length);
                     fieldId = KphMsgFieldInformationBuffer;
                     break;
                 }
                 case IRP_MN_NOTIFY_CHANGE_DIRECTORY:
                 {
                     buffer = Data->Iopb->Parameters.DirectoryControl.NotifyDirectory.DirectoryBuffer;
-                    length = (ULONG)Data->IoStatus.Information;
+                    length = min((ULONG)Data->IoStatus.Information,
+                                 Data->Iopb->Parameters.DirectoryControl.NotifyDirectory.Length);
                     fieldId = KphMsgFieldInformationBuffer;
                     break;
                 }
@@ -1319,7 +1434,8 @@ VOID KphpFltFillPostOpMessage(
                 {
                     mdl = Data->Iopb->Parameters.DirectoryControl.NotifyDirectoryEx.MdlAddress;
                     buffer = Data->Iopb->Parameters.DirectoryControl.NotifyDirectoryEx.DirectoryBuffer;
-                    length = (ULONG)Data->IoStatus.Information;
+                    length = min((ULONG)Data->IoStatus.Information,
+                                 Data->Iopb->Parameters.DirectoryControl.NotifyDirectoryEx.Length);
                     fieldId = KphMsgFieldInformationBuffer;
                     break;
                 }
@@ -1347,18 +1463,55 @@ VOID KphpFltFillPostOpMessage(
             }
             return;
         }
+        case IRP_MJ_CREATE_MAILSLOT:
+        {
+            PKPHM_IO_SECURITY_CONTEXT msgSecurityContext;
+            PIO_SECURITY_CONTEXT ioSecurityContext;
+
+            NT_ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+            msgSecurityContext = &Message->Kernel.File.Post.CreateMailslot.SecurityContext;
+            ioSecurityContext = Data->Iopb->Parameters.CreateMailslot.SecurityContext;
+            KphpFltCopySecurityContext(msgSecurityContext, ioSecurityContext);
+            return;
+        }
         case IRP_MJ_QUERY_SECURITY:
         {
             mdl = Data->Iopb->Parameters.QuerySecurity.MdlAddress;
             buffer = Data->Iopb->Parameters.QuerySecurity.SecurityBuffer;
-            length = (ULONG)Data->IoStatus.Information;
+            length = min((ULONG)Data->IoStatus.Information,
+                         Data->Iopb->Parameters.QuerySecurity.Length);
             fieldId = KphMsgFieldInformationBuffer;
             break;
         }
         case IRP_MJ_QUERY_OPEN:
         {
+            //
+            // The File System does not fill in the Information field in the
+            // IO_STATUS block. Filters shouldn't inspect this value in their
+            // post-calls. Use the length from the QueryOpen parameters.
+            //
+
+            if (!Data->Iopb->Parameters.QueryOpen.Length)
+            {
+                return;
+            }
+
+            __try
+            {
+                length = *Data->Iopb->Parameters.QueryOpen.Length;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              INFORMER,
+                              "Exception capturing length: %!STATUS!",
+                              GetExceptionCode());
+
+                return;
+            }
+
             buffer = Data->Iopb->Parameters.QueryOpen.FileInformation;
-            length = (ULONG)Data->IoStatus.Information;
             fieldId = KphMsgFieldInformationBuffer;
             break;
         }
@@ -1411,7 +1564,7 @@ BOOLEAN KphpFltHandleNameTunneling(
     NTSTATUS status;
     PFLT_FILE_NAME_INFORMATION reTunneledFileNameInfo;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     NT_ASSERT(FileNameInfo->Format == FLT_FILE_NAME_NORMALIZED);
 
@@ -1476,7 +1629,7 @@ BOOLEAN KphpFltIsNameTunnelingPossible(
     _In_ PFLT_CALLBACK_DATA Data
     )
 {
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     if (Data->Iopb->MajorFunction == IRP_MJ_CREATE)
     {
@@ -1522,7 +1675,7 @@ VOID KphpFltPostOpHandleNameTunneling(
     BOOLEAN tunneledFileName;
     BOOLEAN tunneledDestFileName;
 
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     NT_ASSERT(KphpFltIsNameTunnelingPossible(Data));
 
@@ -1581,7 +1734,7 @@ VOID KphpFltFreeCompletionContext(
     _In_ PKPH_FLT_COMPLETION_CONTEXT CompletionContext
     )
 {
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     if (CompletionContext->Message)
     {
@@ -1636,7 +1789,7 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI KphpFltPostOp(
     PKPH_FLT_COMPLETION_CONTEXT context;
     PKPH_MESSAGE reply;
 
-    NPAGED_CODE_DISPATCH_MAX();
+    KPH_NPAGED_CODE_DISPATCH_MAX();
 
     sequence = InterlockedIncrementU64(&KphpFltSequence);
 
@@ -1770,7 +1923,7 @@ NTSTATUS KphpFltPreOpCreateCompletionContext(
     NTSTATUS status;
     PKPH_FLT_COMPLETION_CONTEXT context;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     *CompletionContext = NULL;
 
@@ -1915,7 +2068,7 @@ FLT_PREOP_CALLBACK_STATUS KphpFltPreOpSend(
     PKPH_MESSAGE message;
     PKPH_MESSAGE reply;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
     reply = NULL;
@@ -2041,12 +2194,15 @@ Exit:
  * \param[in,out] Data The callback data for the operation.
  * \param[in] FltObjects The related objects for the operation.
  */
+_IRQL_requires_max_(APC_LEVEL)
 VOID KphpFltRequestHandler(
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects
     )
 {
     PKPH_THREAD_CONTEXT thread;
+
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     //
     // KphQueryVirtualMemory will use this to create a data section object.
@@ -2150,7 +2306,7 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI KphpFltPreOp(
     KPH_FLT_FILE_NAME fltDestFileName;
     LARGE_INTEGER timeStamp;
 
-    NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
+    KPH_NPAGED_CODE_APC_MAX_FOR_PAGING_IO();
 
     *CompletionContext = NULL;
 
@@ -2311,7 +2467,7 @@ Exit:
     return callbackStatus;
 }
 
-PAGED_FILE();
+KPH_PAGED_FILE();
 
 /**
  * \brief Cleans up the file operation filter.
@@ -2321,7 +2477,7 @@ VOID KphpFltCleanupFileOp(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     if (!KphpFltOpInitialized)
     {
@@ -2339,7 +2495,7 @@ VOID KphpFltInitializeFileOp(
     VOID
     )
 {
-    PAGED_CODE_PASSIVE();
+    KPH_PAGED_CODE_PASSIVE();
 
     KphInitializeNPagedLookaside(&KphpFltCompletionContextLookaside,
                                  sizeof(KPH_FLT_COMPLETION_CONTEXT),

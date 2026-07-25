@@ -40,8 +40,8 @@ enum json_tokener_error
     json_tokener_error_parse_string,
     json_tokener_error_parse_comment,
     json_tokener_error_parse_utf8_string,
-    json_tokener_error_memory,
-    json_tokener_error_size
+    json_tokener_error_size,   /* A string longer than INT32_MAX was passed as input */
+    json_tokener_error_memory  /* Failed to allocate memory */
 };
 
 /**
@@ -184,7 +184,7 @@ typedef struct json_tokener json_tokener;
  *
  * @return a generic error message is returned if an invalid error value is provided.
  */
-JSON_EXPORT const char *json_tokener_error_desc(enum json_tokener_error jerr);
+JSON_EXPORT const unsigned char *json_tokener_error_desc(enum json_tokener_error jerr);
 
 /**
  * Retrieve the error caused by the last call to json_tokener_parse_ex(),
@@ -216,7 +216,7 @@ JSON_EXPORT struct json_tokener *json_tokener_new_ex(int depth);
 JSON_EXPORT void json_tokener_free(struct json_tokener *tok);
 
 /**
- * Reset the state of a json_tokener, to prepare to parse a
+ * Reset the state of a json_tokener, to prepare to parse a 
  * brand new JSON object.
  */
 JSON_EXPORT void json_tokener_reset(struct json_tokener *tok);
@@ -227,15 +227,15 @@ JSON_EXPORT void json_tokener_reset(struct json_tokener *tok);
  * If you need more control over how the parsing occurs,
  * see json_tokener_parse_ex().
  */
-JSON_EXPORT struct json_object *json_tokener_parse(const char *str);
+JSON_EXPORT struct json_object *json_tokener_parse(const unsigned char *str);
 
 /**
- * Parser a json_object out of the string `str`, but if it fails
+ * Parse a json_object out of the string `str`, but if it fails
  * return the error in `*error`.
  * @see json_tokener_parse()
  * @see json_tokener_parse_ex()
  */
-JSON_EXPORT struct json_object *json_tokener_parse_verbose(const char *str,
+JSON_EXPORT struct json_object *json_tokener_parse_verbose(const unsigned char *str,
                                                            enum json_tokener_error *error);
 
 /**
@@ -280,7 +280,7 @@ JSON_EXPORT void json_tokener_set_flags(struct json_tokener *tok, int flags);
  * the length of the last len parameter passed in.
  *
  * The tokener does \b not maintain an internal buffer so the caller is
- * responsible for a subsequent call to json_tokener_parse_ex with an
+ * responsible for a subsequent call to json_tokener_parse_ex with an 
  * appropriate str parameter starting with the extra characters.
  *
  * This interface is presently not 64-bit clean due to the int len argument
@@ -319,7 +319,7 @@ if (json_tokener_get_parse_end(tok) < stringlen)
  * @param str an string with any valid JSON expression, or portion of.  This does not need to be null terminated.
  * @param len the length of str
  */
-JSON_EXPORT struct json_object *json_tokener_parse_ex(struct json_tokener *tok, const char *str,
+JSON_EXPORT struct json_object *json_tokener_parse_ex(struct json_tokener *tok, const unsigned char *str,
                                                       size_t len);
 
 #ifdef __cplusplus

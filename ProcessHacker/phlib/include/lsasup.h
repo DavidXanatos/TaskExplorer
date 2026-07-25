@@ -33,27 +33,24 @@ PhGetLookupPolicyHandle(
     VOID
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhLookupPrivilegeName(
     _In_ PLUID PrivilegeValue,
     _Out_ PPH_STRING *PrivilegeName
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhLookupPrivilegeDisplayName(
     _In_ PPH_STRINGREF PrivilegeName,
     _Out_ PPH_STRING *PrivilegeDisplayName
     );
 
-_Success_(return)
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhLookupPrivilegeValue(
     _In_ PPH_STRINGREF PrivilegeName,
@@ -71,7 +68,7 @@ PhLookupSid(
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhLookupSids(
     _In_ ULONG Count,
@@ -202,10 +199,12 @@ PhMapGenericMask(
     _In_ PGENERIC_MAPPING GenericMapping
     );
 
-typedef NTSTATUS (NTAPI *PPH_ENUM_ACCOUNT_CALLBACK)(
-    _In_ PPH_STRING AccountName,
+typedef _Function_class_(PH_ENUM_ACCOUNT_CALLBACK)
+NTSTATUS PH_ENUM_ACCOUNT_CALLBACK(
+    _In_ PPH_STRINGREF AccountName,
     _In_opt_ PVOID Context
     );
+typedef PH_ENUM_ACCOUNT_CALLBACK* PPH_ENUM_ACCOUNT_CALLBACK;
 
 PHLIBAPI
 NTSTATUS
@@ -236,6 +235,36 @@ PPH_STRING
 NTAPI
 PhGetAzureDirectoryObjectSid(
     _In_ PSID ActiveDirectorySid
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhIsDomainJoined(
+    VOID
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhGetSidAuthorityName(
+    _In_ PSID Sid
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhFormatSidTooltip(
+    _In_ PSID Sid,
+    _In_ BOOLEAN IncludeName,
+    _In_opt_ PLSA_USER_ACCOUNT_TYPE AccountType
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhIsServiceSid(
+    _In_ PSID Sid
     );
 
 #ifdef __cplusplus

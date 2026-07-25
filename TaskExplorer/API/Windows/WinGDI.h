@@ -6,6 +6,7 @@ class CWinGDI: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CWinGDI)
 public:
 	CWinGDI(QObject *parent = nullptr);
 	virtual ~CWinGDI();

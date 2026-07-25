@@ -56,6 +56,7 @@ namespace krabs { namespace testing {
 
     private:
         krabs::event_filter &event_filter_;
+        krabs::trace_context trace_context_;
     };
 
     // Implementation
@@ -68,7 +69,7 @@ namespace krabs { namespace testing {
 
     inline void event_filter_proxy::push_event(const synth_record &record)
     {
-        event_filter_.on_event(record);
+        event_filter_.on_event(record, trace_context_);
     }
 
 } /* namespace testing */ } /* namespace krabs */

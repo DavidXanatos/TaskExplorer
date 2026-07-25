@@ -126,5 +126,8 @@ void CProcessPicker::OnCurrentChanged(const QModelIndex &current, const QModelIn
 
 void CProcessPicker::Refresh()
 {
-	m_pProcessModel->Sync(m_ProcessList);
+	QMap<SProcessUID, CProcessPtr> ProcessList;
+	foreach(const CProcessPtr& pProcess, m_ProcessList)
+		ProcessList.insert(pProcess->GetProcessUId(), pProcess);
+	m_pProcessModel->Sync(ProcessList);
 }

@@ -90,8 +90,52 @@ void CSidResolver::run()
 		CSidResolverJob* pJob = m_JobQueue.begin().value();
 		Locker.unlock();
 
-		PPH_STRING fullName = PhGetSidFullName((PSID)pJob->m_SID.data(), TRUE, NULL);
-		QString FullName = CastPhString(fullName);
+		//PPH_STRING fullName = PhGetSidFullName((PSID)pJob->m_SID.data(), TRUE, NULL);
+
+		PPH_STRING sidString;
+		if (sidString = PhGetSidFullName((PSID)pJob->m_SID.data(), TRUE, NULL))
+		{
+			PhMoveReference(&sidString, (PPH_STRING)PhReferenceObject(sidString));
+		}
+		else if (sidString = PhGetAppContainerPackageName((PSID)pJob->m_SID.data()))
+		{
+			PhMoveReference(&sidString, PhConcatStringRefZ(&sidString->sr, L" (APP_PACKAGE)"));
+		}
+		else if (sidString = PhGetAppContainerName((PSID)pJob->m_SID.data()))
+		{
+			PhMoveReference(&sidString, PhConcatStringRefZ(&sidString->sr, L" (APP_CONTAINER)"));
+		}
+		else if (sidString = PhGetCapabilitySidName((PSID)pJob->m_SID.data()))
+		{
+			PhMoveReference(&sidString, PhConcatStringRefZ(&sidString->sr, L" (APP_CAPABILITY)"));
+		}
+		else
+		{
+			SID_IDENTIFIER_AUTHORITY security_nt_authority = SECURITY_NT_AUTHORITY;
+			if (PhEqualIdentifierAuthoritySid(PhIdentifierAuthoritySid((PCSID)pJob->m_SID.data()), &security_nt_authority))
+			{
+				ULONG subAuthority = *PhSubAuthoritySid((PCSID)pJob->m_SID.data(), 0);
+
+				switch (subAuthority)
+				{
+				case SECURITY_UMFD_BASE_RID:
+					PhMoveReference(&sidString, PhCreateString(L"Font Driver Host\\UMFD"));
+					break;
+				}
+			}
+			else if (PhEqualIdentifierAuthoritySid(PhIdentifierAuthoritySid((PCSID)pJob->m_SID.data()), PhIdentifierAuthoritySid((PCSID)PhSeCloudActiveDirectorySid())))
+			{
+				ULONG subAuthority = *PhSubAuthoritySid((PCSID)pJob->m_SID.data(), 0);
+
+				if (subAuthority == 1)
+				{
+					PhMoveReference(&sidString, PhGetAzureDirectoryObjectSid((PSID)pJob->m_SID.data()));
+				}
+			}
+		}
+
+
+		QString FullName = sidString ? CastPhString(sidString) : tr("[Unknown SID]");
 
 		Locker.relock();
 		emit pJob->SidResolved(pJob->m_SID, FullName);

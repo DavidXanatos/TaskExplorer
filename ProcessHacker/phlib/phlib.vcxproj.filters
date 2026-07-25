@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
@@ -122,6 +122,9 @@
     <ClCompile Include="filestream.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="lsamsup.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="lsasup.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -176,10 +179,64 @@
     <ClCompile Include="symprv_std.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="strsrch.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativeuser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativemodule.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativepipe.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="hvsocketcontrol.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="strsrch.c">
+    <ClCompile Include="nativethread.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativeflt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="searchbox.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="guisuplistview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="firmware.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativetoken.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativesocket.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativeprocess.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativefile.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="apistubs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativejob.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativetxn.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativekey.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="basestring.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nativeobject.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -328,6 +385,9 @@
     <ClInclude Include="include\lsasup.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\lsamsup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="include\phnativeinl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -389,6 +449,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\thirdparty.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\searchbox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\phconsole.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\phfirmware.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\phafd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\trace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

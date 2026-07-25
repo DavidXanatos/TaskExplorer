@@ -11,40 +11,62 @@
 
 #include "setup.h"
 
-NTSTATUS SetupProgressThread(
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupProgressThread(
     _In_ PPH_SETUP_CONTEXT Context
     )
 {
+    NTSTATUS status;
+
     // Create the folder.
-    if (!NT_SUCCESS(PhCreateDirectoryWin32(&Context->SetupInstallPath->sr)))
+    if (!NT_SUCCESS(status = PhCreateDirectoryWin32(&Context->SetupInstallPath->sr)))
     {
-        Context->ErrorCode = ERROR_INVALID_DATA;
+        Context->LastStatus = status;
         goto CleanupExit;
     }
 
 #ifndef FORCE_TEST_UPDATE_LOCAL_INSTALL
 
     // Stop the application.
-    if (!SetupShutdownApplication(Context))
+    if (!NT_SUCCESS(status = SetupShutdownApplication(Context)))
+    {
+        Context->LastStatus = status;
         goto CleanupExit;
+    }
 
     // Stop the kernel driver.
-    if (!SetupUninstallDriver(Context))
+    if (!NT_SUCCESS(status = SetupUninstallDriver(Context)))
+    {
+        Context->LastStatus = status;
         goto CleanupExit;
+    }
 
-    // Upgrade the legacy settings file.
+    // Upgrade the settings file.
     SetupUpgradeSettingsFile();
+
+    // Convert the settings file.
+    SetupConvertSettingsFile();
 
     // Remove the previous installation.
     //if (Context->SetupResetSettings)
     //    PhDeleteDirectory(Context->SetupInstallPath);
+    // Perform Windows Options cleanup (registry)
+    SetupDeleteWindowsOptions(Context);
+    // Delete all shortcuts for cleanup
+    SetupDeleteShortcuts(Context);
 
     // Create the uninstaller.
-    if (!SetupCreateUninstallFile(Context))
+    if (!NT_SUCCESS(status = SetupCreateUninstallFile(Context)))
+    {
+        Context->LastStatus = status;
         goto CleanupExit;
+    }
 
     // Create the ARP uninstall entries.
     SetupCreateUninstallKey(Context);
+
+    // Create Windows Error Reporting LocalDumps key.
+    SetupCreateLocalDumpsKey();
 
     // Create autorun.
     SetupCreateWindowsOptions(Context);
@@ -58,8 +80,11 @@ NTSTATUS SetupProgressThread(
 #endif
 
     // Extract the updated files.
-    if (!SetupExtractBuild(Context))
+    if (!NT_SUCCESS(status = SetupExtractBuild(Context)))
+    {
+        Context->LastStatus = status;
         goto CleanupExit;
+    }
 
     PostMessage(Context->DialogHandle, SETUP_SHOWFINAL, 0, 0);
     return STATUS_SUCCESS;

@@ -17,8 +17,8 @@
 #include <unordered_map>
 
 #include "compiler_check.hpp"
+#include "errors.hpp"
 #include "guid.hpp"
-#include "lock.hpp"
 
 #pragma comment(lib, "tdh.lib")
 
@@ -37,14 +37,14 @@ namespace krabs {
         uint8_t   version;
         uint8_t   level;
 
-        schema_key(const EVENT_RECORD& record)
+        schema_key(const EVENT_RECORD &record)
             : provider(record.EventHeader.ProviderId)
             , id(record.EventHeader.EventDescriptor.Id)
             , opcode(record.EventHeader.EventDescriptor.Opcode)
             , level(record.EventHeader.EventDescriptor.Level)
             , version(record.EventHeader.EventDescriptor.Version) { }
 
-        bool operator==(const schema_key& rhs) const
+        bool operator==(const schema_key &rhs) const
         {
             return provider == rhs.provider &&
                    id == rhs.id &&
@@ -53,7 +53,7 @@ namespace krabs {
                    version == rhs.version;
         }
 
-        bool operator!=(const schema_key& rhs) const { return !(*this == rhs); }
+        bool operator!=(const schema_key &rhs) const { return !(*this == rhs); }
     };
 }
 
@@ -67,16 +67,16 @@ namespace std {
     template<>
     struct std::hash<krabs::schema_key>
     {
-        size_t operator()(const krabs::schema_key& key) const
+        size_t operator()(const krabs::schema_key &key) const
         {
             // Shift-Add-XOR hash - good enough for the small sets we deal with
-            const char* p = (const char*)&key;
             size_t h = 2166136261;
 
-            for(auto i = 0; i < sizeof(key); ++i)
-            {
-                h ^= (h << 5) + (h >> 2) + p[i];
-            }
+            h ^= (h << 5) + (h >> 2) + std::hash<krabs::guid>()(key.provider);
+            h ^= (h << 5) + (h >> 2) + key.id;
+            h ^= (h << 5) + (h >> 2) + key.opcode;
+            h ^= (h << 5) + (h >> 2) + key.version;
+            h ^= (h << 5) + (h >> 2) + key.level;
 
             return h;
         }
@@ -90,15 +90,13 @@ namespace krabs {
      * Get event schema from TDH.
      * </summary>
      */
-    std::unique_ptr<char[]> get_event_schema_from_tdh(const EVENT_RECORD&);
+    std::unique_ptr<char[]> get_event_schema_from_tdh(const EVENT_RECORD &);
 
     /**
      * <summary>
-     * Fetches and caches schemas from TDH. Also has a singleton
-     * instance. It is preferable to inject the locator, but the
-     * current krabs implementation isn't built in a way that
-     * allows the schema_locator to be injected in all of the
-     * places where Schemas or Parsers are constructed.
+     * Fetches and caches schemas from TDH.
+     * NOTE: this cache also reduces the number of managed to native transitions
+     * when krabs is compiled into a managed assembly.
      * </summary>
      */
     class schema_locator {
@@ -110,68 +108,30 @@ namespace krabs {
          * TDH to load the schema.
          * </summary>
          */
-        const PTRACE_EVENT_INFO get_event_schema(const EVENT_RECORD& record);
-
-        /**
-         * <summary>
-         * Reset the cache. IMPORTANT! This cannot be called while other
-         * objects have references to cache items. This basically means
-         * don't call this unless tracing is stopped or you'll probably
-         * cause an AV. TODO: could be addressed with shared_ptr but
-         * requires C++17 features or some rewrite of the buffer handling.
-         * </summary>
-         */
-        void reset();
-
-        /**
-         * Get the schema_locator singleton instance.
-         * WARNING: if compiled into managed code, do NOT get a reference
-         * to this in a static initializer or it will cause loader lock.
-         */
-        static schema_locator& get_instance()
-        {
-            return singleton_;
-        }
+        const PTRACE_EVENT_INFO get_event_schema(const EVENT_RECORD &record) const;
 
     private:
-        static schema_locator singleton_;
-        critical_section sync_;
-        std::unordered_map<schema_key, std::unique_ptr<char[]>> cache_;
+        mutable std::unordered_map<schema_key, std::unique_ptr<char[]>> cache_;
     };
 
     // Implementation
     // ------------------------------------------------------------------------
 
-    inline const PTRACE_EVENT_INFO schema_locator::get_event_schema(const EVENT_RECORD& record)
+    inline const PTRACE_EVENT_INFO schema_locator::get_event_schema(const EVENT_RECORD &record) const
     {
         // check the cache
         auto key = schema_key(record);
         auto& buffer = cache_[key];
 
-        // return if there's a cache hit
-        if(buffer) return (PTRACE_EVENT_INFO)(&buffer[0]);
-
-        auto temp = get_event_schema_from_tdh(record);
-
-        // multiple threads may end up trying to save their
-        // temp objects to the cache so we need to lock
-        // so only the first entry should be cached.
-
-        if(!buffer)
-        {
-            scope_lock l(sync_);
-            if (!buffer) buffer.swap(temp);
+        if (!buffer) {
+            auto temp = get_event_schema_from_tdh(record);
+            buffer.swap(temp);
         }
 
-        return (PTRACE_EVENT_INFO)(&buffer[0]);
+        return (PTRACE_EVENT_INFO)(buffer.get());
     }
 
-    inline void schema_locator::reset()
-    {
-        cache_.clear();
-    }
-
-    inline std::unique_ptr<char[]> get_event_schema_from_tdh(const EVENT_RECORD& record)
+    inline std::unique_ptr<char[]> get_event_schema_from_tdh(const EVENT_RECORD &record)
     {
         // get required size
         ULONG bufferSize = 0;
@@ -183,7 +143,7 @@ namespace krabs {
             &bufferSize);
 
         if (status != ERROR_INSUFFICIENT_BUFFER) {
-            error_check_common_conditions(status);
+            error_check_common_conditions(status, record);
         }
 
         // allocate and fill the schema from TDH
@@ -194,8 +154,9 @@ namespace krabs {
             (PEVENT_RECORD)&record,
             0,
             NULL,
-            (PTRACE_EVENT_INFO)&buffer[0],
-            &bufferSize));
+            (PTRACE_EVENT_INFO)buffer.get(),
+            &bufferSize),
+            record);
 
         return buffer;
     }

@@ -129,10 +129,9 @@ NTSTATUS PhCreateFilePool(
     }
 
     // Create a section.
-    status = NtCreateSection(
+    status = PhCreateSection(
         &sectionHandle,
         SECTION_ALL_ACCESS,
-        NULL,
         &fileSize,
         !ReadOnly ? PAGE_READWRITE : PAGE_READONLY,
         SEC_COMMIT,
@@ -246,7 +245,7 @@ CleanupExit:
  */
 NTSTATUS PhCreateFilePool2(
     _Out_ PPH_FILE_POOL *Pool,
-    _In_ PWSTR FileName,
+    _In_ PCWSTR FileName,
     _In_ BOOLEAN ReadOnly,
     _In_ ULONG ShareAccess,
     _In_ ULONG CreateDisposition,
@@ -754,11 +753,10 @@ NTSTATUS PhFppMapRange(
     sectionOffset.QuadPart = Offset;
     viewSize = Size;
 
-    status = NtMapViewOfSection(
+    status = PhMapViewOfSection(
         Pool->SectionHandle,
         NtCurrentProcess(),
         &baseAddress,
-        0,
         viewSize,
         &sectionOffset,
         &viewSize,
@@ -784,7 +782,7 @@ NTSTATUS PhFppUnmapRange(
     _In_ PVOID Base
     )
 {
-    return NtUnmapViewOfSection(NtCurrentProcess(), Base);
+    return PhUnmapViewOfSection(NtCurrentProcess(), Base);
 }
 
 /**
@@ -961,6 +959,7 @@ PPH_FILE_POOL_VIEW PhFppFindViewByIndex(
     return NULL;
 }
 
+_Function_class_(PH_AVL_TREE_COMPARE_FUNCTION)
 LONG NTAPI PhpFilePoolViewByBaseCompareFunction(
     _In_ PPH_AVL_LINKS Links1,
     _In_ PPH_AVL_LINKS Links2
@@ -1338,7 +1337,7 @@ BOOLEAN PhFppInsertFreeList(
     )
 {
     ULONG oldSegmentIndex;
-    PPH_FP_BLOCK_HEADER oldSegmentFirstBlock;
+    PPH_FP_BLOCK_HEADER oldSegmentFirstBlock = NULL;
     PPH_FP_SEGMENT_HEADER oldSegmentHeader;
 
     oldSegmentIndex = Pool->Header->FreeLists[FreeListIndex];
@@ -1385,11 +1384,11 @@ BOOLEAN PhFppRemoveFreeList(
     )
 {
     ULONG flinkSegmentIndex;
-    PPH_FP_BLOCK_HEADER flinkSegmentFirstBlock;
-    PPH_FP_SEGMENT_HEADER flinkSegmentHeader;
+    PPH_FP_BLOCK_HEADER flinkSegmentFirstBlock = NULL;
+    PPH_FP_SEGMENT_HEADER flinkSegmentHeader = NULL;
     ULONG blinkSegmentIndex;
-    PPH_FP_BLOCK_HEADER blinkSegmentFirstBlock;
-    PPH_FP_SEGMENT_HEADER blinkSegmentHeader;
+    PPH_FP_BLOCK_HEADER blinkSegmentFirstBlock = NULL;
+    PPH_FP_SEGMENT_HEADER blinkSegmentHeader = NULL;
 
     flinkSegmentIndex = SegmentHeader->FreeFlink;
     blinkSegmentIndex = SegmentHeader->FreeBlink;

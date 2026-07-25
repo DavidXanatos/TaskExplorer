@@ -24,7 +24,7 @@ class QwtPolarPicker::PrivateData
 
 QwtPolarPicker::QwtPolarPicker( QwtPolarCanvas* canvas )
     : QwtPicker( canvas )
-    , m_data( nullptr )
+    , m_data( NULL )
 {
 }
 
@@ -43,7 +43,7 @@ QwtPolarPicker::QwtPolarPicker( QwtPolarCanvas* canvas )
 QwtPolarPicker::QwtPolarPicker(
         RubberBand rubberBand, DisplayMode trackerMode, QwtPolarCanvas* canvas )
     : QwtPicker( rubberBand, trackerMode, canvas )
-    , m_data( nullptr )
+    , m_data( NULL )
 {
 }
 

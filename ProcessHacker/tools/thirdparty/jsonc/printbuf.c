@@ -15,8 +15,6 @@
 
 #include "config.h"
 
-#include <ph.h>
-
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -34,22 +32,20 @@
 #include "snprintf_compat.h"
 #include "vasprintf_compat.h"
 
-static int printbuf_extend(struct printbuf *p, size_t min_size);
+static size_t printbuf_extend(struct printbuf *p, size_t min_size);
 
 struct printbuf *printbuf_new(void)
 {
     struct printbuf *p;
 
-    p = (struct printbuf *)PhAllocateSafe(sizeof(struct printbuf));
+    p = (struct printbuf *)calloc(1, sizeof(struct printbuf));
     if (!p)
         return NULL;
-    memset(p, 0, sizeof(struct printbuf));
-
     p->size = 32;
     p->bpos = 0;
-    if (!(p->buf = (char *)PhAllocateSafe(p->size)))
+    if (!(p->buf = (char *)malloc(p->size)))
     {
-        PhFree(p);
+        free(p);
         return NULL;
     }
     p->buf[0] = '\0';
@@ -66,7 +62,7 @@ struct printbuf *printbuf_new(void)
  * Note: this does not check the available space!  The caller
  *  is responsible for performing those calculations.
  */
-static int printbuf_extend(struct printbuf *p, size_t min_size)
+static size_t printbuf_extend(struct printbuf *p, size_t min_size)
 {
     char *t;
     size_t new_size;
@@ -91,14 +87,14 @@ static int printbuf_extend(struct printbuf *p, size_t min_size)
              "bpos=%d min_size=%d old_size=%d new_size=%d\n",
              p->bpos, min_size, p->size, new_size);
 #endif /* PRINTBUF_DEBUG */
-    if (!(t = (char *)PhReAllocateSafe(p->buf, new_size)))
+    if (!(t = (char *)realloc(p->buf, new_size)))
         return -1;
     p->size = new_size;
     p->buf = t;
     return 0;
 }
 
-size_t printbuf_memappend(struct printbuf *p, const char *buf, size_t size)
+size_t printbuf_memappend(struct printbuf *p, const unsigned char *buf, size_t size)
 {
     /* Prevent signed integer overflows with large buffers. */
     if (size < 0 || size > INT_MAX - p->bpos - 1)
@@ -145,16 +141,16 @@ int printbuf_memset(struct printbuf *pb, size_t offset, int charvalue, size_t le
     return 0;
 }
 
-size_t sprintbuf(struct printbuf *p, const char *msg, ...)
+size_t sprintbuf(struct printbuf *p, const unsigned char *msg, ...)
 {
     va_list ap;
-    char *t;
+    unsigned char *t;
     size_t size;
-    char buf[128];
+    unsigned char buf[128];
 
     /* use stack buffer first */
     va_start(ap, msg);
-    size = vsnprintf(buf, 128, msg, ap);
+    size = vsnprintf(buf, 128, (const char*)msg, ap);
     va_end(ap);
     /* if string is greater than stack buffer, then use dynamic string
      * with vasprintf.  Note: some implementations of vsnprintf return -1
@@ -164,14 +160,14 @@ size_t sprintbuf(struct printbuf *p, const char *msg, ...)
     if (size < 0 || size > 127)
     {
         va_start(ap, msg);
-        if ((size = vasprintf(&t, msg, ap)) < 0)
+        if ((size = vasprintf((char**)&t, (const char*)msg, ap)) < 0)
         {
             va_end(ap);
             return -1;
         }
         va_end(ap);
         size = printbuf_memappend(p, t, size);
-        PhFree(t);
+        free(t);
     }
     else
     {
@@ -190,7 +186,7 @@ void printbuf_free(struct printbuf *p)
 {
     if (p)
     {
-        PhFree(p->buf);
-        PhFree(p);
+        free(p->buf);
+        free(p);
     }
 }

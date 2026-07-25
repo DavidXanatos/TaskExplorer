@@ -6,8 +6,8 @@
 #include "../../API/Windows/WinProcess.h"
 #endif
 
-CProcessFilterModel::CProcessFilterModel(QObject* parrent) 
-	: CSortFilterProxyModel(parrent)  
+CProcessFilterModel::CProcessFilterModel(QObject* parent) 
+	: CSortFilterProxyModel(parent)  
 {
 	m_bEnabled = false;
 	m_iFilterSystem = 0;

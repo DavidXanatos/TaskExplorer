@@ -125,7 +125,7 @@ class QWT_EXPORT QwtPainter
     static int horizontalAdvance( const QFontMetrics&, QChar );
     static qreal horizontalAdvance( const QFontMetricsF&, QChar );
 
-    static QFont scaledFont( const QFont&, const QPaintDevice* = nullptr );
+    static QFont scaledFont( const QFont&, const QPaintDevice* = NULL );
 
   private:
     static bool m_polylineSplitting;

@@ -11,6 +11,7 @@
 
 #include <ph.h>
 #include <guisup.h>
+#include <settings.h>
 
 #define GDIPVER 0x0110
 #include <unknwn.h>
@@ -46,6 +47,29 @@ using namespace Gdiplus;
 //    return std::unique_ptr<Graphics>(Graphics::FromImage(image.get()));
 //}
 
+BOOLEAN PhInitializeGDIPlus(
+    VOID
+    )
+{
+    static PH_INITONCE initOnce = PH_INITONCE_INIT;
+    static BOOLEAN initialized = FALSE;
+
+    if (PhBeginInitOnce(&initOnce))
+    {
+        static ULONG_PTR gdiplusToken = 0;
+        static GdiplusStartupInput gdiplusStartupInput = { nullptr, false, true };
+
+        if (GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) == Status::Ok)
+        {
+            initialized = TRUE;
+        }
+
+        PhEndInitOnce(&initOnce);
+    }
+
+    return initialized;
+}
+
 static Bitmap* PhGdiplusCreateBitmapFromDIB(
     _In_ HBITMAP OriginalBitmap
     )
@@ -74,63 +98,65 @@ HICON PhGdiplusConvertBitmapToIcon(
     _In_ COLORREF Background
     )
 {
-    static PH_INITONCE initOnce = PH_INITONCE_INIT;
-    static BOOLEAN initialized = FALSE;
     HICON icon;
 
-    if (PhBeginInitOnce(&initOnce))
+    if (PhInitializeGDIPlus())
     {
-        ULONG_PTR gdiplusToken = 0;
-        GdiplusStartupInput gdiplusStartupInput{};
+        DIBSECTION dib;
 
-        if (GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) == Status::Ok)
+        RtlZeroMemory(&dib, sizeof(DIBSECTION));
+
+        if (GetObject(OriginalBitmap, sizeof(DIBSECTION), &dib) != sizeof(DIBSECTION))
+            return nullptr;
+
+        LONG width = dib.dsBmih.biWidth;
+        LONG height = dib.dsBmih.biHeight;
+        LONG pitch = dib.dsBm.bmWidthBytes;
+        BYTE* bitmapBuffer = static_cast<BYTE*>(dib.dsBm.bmBits);
+
+        Bitmap image(width, height, pitch, PixelFormat32bppARGB, bitmapBuffer);
+        Bitmap buffer(Width, Height, PixelFormat32bppARGB);
+        Graphics graphics(&buffer);
+
+        if (Background)
         {
-            initialized = TRUE;
+            Color color(Color::DodgerBlue);
+            color.SetFromCOLORREF(Background);
+            graphics.Clear(color);
+        }
+        else
+        {
+            graphics.Clear(Color::DodgerBlue);
         }
 
-        PhEndInitOnce(&initOnce);
-    }
-
-    if (initialized)
-    {
-        Bitmap* image = PhGdiplusCreateBitmapFromDIB(OriginalBitmap);
-
-        if (image != nullptr)
+        if (graphics.DrawImage(&image, 0, 0) == Status::Ok)
         {
-            Bitmap* buffer = new Bitmap(Width, Height, PixelFormat32bppARGB);
-            Graphics* graphics = Graphics::FromImage(buffer);
-
-            if (Background)
+            if (buffer.GetHICON(&icon) == Status::Ok)
             {
-                Color color(Color::DodgerBlue);
-                color.SetFromCOLORREF(Background);
-                graphics->Clear(color);
+                return icon;
             }
-            else
-            {
-                graphics->Clear(Color::DodgerBlue);
-            }
-
-            if (graphics->DrawImage(image, 0, 0) == Status::Ok)
-            {
-                if (buffer->GetHICON(&icon) == Status::Ok)
-                {
-                    delete graphics;
-                    delete buffer;
-                    delete image;
-
-                    return icon;
-                }
-            }
-
-            delete graphics;
-            delete buffer;
-            delete image;
         }
     }
 
     return nullptr;
 }
+
+HICON PhGdiplusConvertHBitmapToHIcon(
+    _In_ HBITMAP BitmapHandle
+    )
+{
+    HICON iconHandle = nullptr;
+
+    if (PhInitializeGDIPlus())
+    {
+        Bitmap bitmap(BitmapHandle, nullptr);
+
+        bitmap.GetHICON(&iconHandle);
+    }
+
+    return iconHandle;
+}
+
 
 #ifdef PHNT_TRANSPARENT_BITMAP
 #include <uxtheme.h>
@@ -239,6 +265,11 @@ LRESULT CALLBACK PhTransparentBackgroundWindowCallback(
         {
             LPCREATESTRUCT createStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
 
+            if (PhGetIntegerSetting(L"EnableStreamerMode"))
+            {
+                SetWindowDisplayAffinity(WindowHandle, WDA_EXCLUDEFROMCAPTURE);
+            }
+
             if (createStruct->hwndParent)
             {
                 HMENU menu = GetMenu(createStruct->hwndParent);
@@ -290,8 +321,10 @@ LRESULT CALLBACK PhTransparentBackgroundWindowCallback(
             HDC hdc = reinterpret_cast<HDC>(wParam);
             RECT clientRect;
 
-            GetClientRect(WindowHandle, &clientRect);
-            FillRect(hdc, &clientRect, GetStockBrush(BLACK_BRUSH));
+            if (!PhGetClientRect(WindowHandle, &clientRect))
+                break;
+
+            FillRect(hdc, &clientRect, PhGetStockBrush(BLACK_BRUSH));
         }
         return TRUE;
 #endif
@@ -316,7 +349,8 @@ RTL_ATOM PhInitializeBackgroundWindowClass(
 }
 
 HWND PhCreateBackgroundWindow(
-    _In_ HWND ParentWindowHandle
+    _In_ HWND ParentWindowHandle,
+    _In_ BOOLEAN DesktopWindow
     )
 {
     static PH_INITONCE initOnce = PH_INITONCE_INIT;
@@ -327,7 +361,7 @@ HWND PhCreateBackgroundWindow(
     if (WindowsVersion < WINDOWS_8)
         return nullptr;
 
-    if (!GetClientRect(ParentWindowHandle, &windowRect))
+    if (!PhGetClientRect(ParentWindowHandle, &windowRect))
         return nullptr;
 
     {
@@ -359,12 +393,12 @@ HWND PhCreateBackgroundWindow(
 #endif
         MAKEINTATOM(windowAtom),
         nullptr,
-        WS_CHILD,
+        DesktopWindow ? WS_POPUPWINDOW : WS_CHILD,
         0,
         0,
         windowRect.right,
         windowRect.bottom,
-        ParentWindowHandle,
+        DesktopWindow ? nullptr : ParentWindowHandle,
         nullptr,
         nullptr,
         nullptr

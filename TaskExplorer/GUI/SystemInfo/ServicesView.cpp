@@ -11,6 +11,7 @@
 #endif
 #include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 #include "../../../MiscHelpers/Common/Finder.h"
+#include "../TaskInfo/TaskInfoWindow.h"
 
 CServicesView::CServicesView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
@@ -68,7 +69,7 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	}
 
 	//connect(m_pServiceList, SIGNAL(clicked(const QModelIndex&)), this, SLOT(OnClicked(const QModelIndex&)));
-	connect(m_pServiceList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked(const QModelIndex&)));
+	connect(m_pServiceList, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(OnDoubleClicked()));
 
 	QByteArray Columns = theConf->GetBlob(objectName() + "/ServicesView_Columns");
 	if (Columns.isEmpty())
@@ -77,6 +78,8 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 		m_pServiceList->restoreState(Columns);
 
 	//m_pMenu = new QMenu();
+	m_pMenuOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
+	m_pMenu->addSeparator();
 	m_pMenuStart = m_pMenu->addAction(tr("Start"), this, SLOT(OnServiceAction()));
 	m_pMenuContinue = m_pMenu->addAction(tr("Continue"), this, SLOT(OnServiceAction()));
 	m_pMenuPause = m_pMenu->addAction(tr("Pause"), this, SLOT(OnServiceAction()));
@@ -84,8 +87,12 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	//m_MenuRestart = m_pMenu->addAction(tr("Restart"), this, SLOT(OnServiceAction()));
 	m_pMenu->addSeparator();
 	m_pMenuDelete = m_pMenu->addAction(tr("Delete"), this, SLOT(OnServiceAction()));
+	m_pMenu->addSeparator();
 #ifdef WIN32
-	m_pMenuOpenKey = m_pMenu->addAction(tr("Open key"), this, SLOT(OnServiceAction()));
+	m_pMenuOpenKey = m_pMenu->addAction(tr("Open Key"), this, SLOT(OnServiceAction()));
+#endif
+	m_pMenuOpenProcess = m_pMenu->addAction(tr("Open Process"), this, SLOT(OnServiceAction()));
+#ifdef WIN32
 	if (bAll)
 	{
 		m_pMenu->addSeparator();
@@ -186,6 +193,7 @@ void CServicesView::OnMenu(const QPoint &point)
 	int CanStop = 0;
 	int CanPause = 0;
 	int CanContinue = 0;
+	int IsDriver = 0;
 	foreach(const QModelIndex& Index, selectedRows)
 	{
 		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
@@ -193,6 +201,9 @@ void CServicesView::OnMenu(const QPoint &point)
 		QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).staticCast<CWinService>();
 		if (pService.isNull())
 			continue;
+
+		if (pService->IsDriver())
+			IsDriver ++;
 
 		switch (pService->GetState())
         {
@@ -220,6 +231,7 @@ void CServicesView::OnMenu(const QPoint &point)
 #endif
 	}
 
+	m_pMenuOpen->setEnabled(CanStart > 0);
 	m_pMenuStart->setEnabled(CanStart > 0);
 	m_pMenuContinue->setEnabled(CanContinue > 0);
 	m_pMenuPause->setEnabled(CanPause > 0);
@@ -228,6 +240,7 @@ void CServicesView::OnMenu(const QPoint &point)
 	m_pMenuDelete->setEnabled(selectedRows.count() >= 1);
 #ifdef WIN32
 	m_pMenuOpenKey->setEnabled(selectedRows.count() == 1);
+	m_pMenuOpenProcess->setEnabled(selectedRows.count() == 1 && IsDriver == 0);
 #endif
 
 	CPanelView::OnMenu(point);
@@ -262,6 +275,11 @@ retry:
 				PhShellOpenKey2(NULL, phRegKey);
 				PhDereferenceObject(phRegKey);
 			}
+			else if (sender() == m_pMenuOpenProcess)
+			{
+				CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << theAPI->GetProcessByID(pService->GetPID()));
+				pTaskInfoWindow->show();
+			}
 #endif
 
 			if (Status.IsError())
@@ -294,8 +312,9 @@ retry:
 }
 
 
-void CServicesView::OnDoubleClicked(const QModelIndex& Index)
+void CServicesView::OnDoubleClicked()
 {
+	QModelIndex Index = m_pServiceList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 #ifdef WIN32
 	QSharedPointer<CWinService> pService = m_pServiceModel->GetService(ModelIndex).staticCast<CWinService>();

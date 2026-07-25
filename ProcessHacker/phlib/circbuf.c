@@ -13,6 +13,8 @@
 #include <phbase.h>
 #include <circbuf.h>
 
+#pragma push_macro("T")
+
 #undef T
 #define T ULONG
 #include "circbuf_i.h"
@@ -34,3 +36,9 @@
 #include "circbuf_i.h"
 
 #undef T
+#define T DOUBLE
+#include "circbuf_i.h"
+
+#undef T
+
+#pragma pop_macro("T")

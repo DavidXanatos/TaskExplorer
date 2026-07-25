@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "../TaskExplorer.h"
+#include "../TaskInfo/TaskInfoWindow.h"
 #include "ModulesView.h"
 #include "../../../MiscHelpers/Common/Common.h"
 #include "../../../MiscHelpers/Common/Finder.h"
@@ -29,6 +30,10 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 		m_pLoadModule = new QPushButton(tr("Inject DLL"));
 		connect(m_pLoadModule, SIGNAL(pressed()), this, SLOT(OnLoad()));
 		m_pFilterLayout->addWidget(m_pLoadModule);
+
+		m_pShowModPages = new QCheckBox(tr("Show Modified Pages"));
+		m_pFilterLayout->addWidget(m_pShowModPages);
+		connect(m_pShowModPages, SIGNAL(stateChanged(int)), this, SLOT(Refresh()));
 
 		m_pFilterLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
 	}
@@ -80,7 +85,7 @@ CModulesView::CModulesView(bool bGlobal, QWidget *parent)
 
 
 	//m_pMenu = new QMenu();
-	m_pOpen = m_pMenu->addAction(tr("Open"), this, SLOT(OnDoubleClicked()));
+	m_pOpen = m_pMenu->addAction(tr("Open Module"), this, SLOT(OnOpenModule()));
 	
 	m_pMenu->addSeparator();
 	
@@ -173,7 +178,10 @@ void CModulesView::Refresh()
 	if (!m_pCurProcess)
 		return;
 
-	QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateModules()));
+	if(m_pShowModPages->isChecked())
+		QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateModulesAndModPages()));
+	else
+		QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateModules()));
 }
 
 void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)
@@ -283,6 +291,27 @@ void CModulesView::OnLoad()
 
 void CModulesView::OnDoubleClicked()
 {
+	if (m_bGlobal)
+	{
+		QModelIndex Index = m_pModuleList->currentIndex();
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CModulePtr pModule = m_pModuleModel->GetModule(ModelIndex);
+		if (pModule)
+		{
+			CProcessPtr pProcess = pModule->GetProcess().objectCast<CProcessInfo>();
+			if (pProcess)
+			{
+				CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << pProcess);
+				pTaskInfoWindow->show();
+			}
+		}
+	}
+	else
+		OnOpenModule();
+}
+
+void CModulesView::OnOpenModule()
+{
 	QModelIndex Index = m_pModuleList->currentIndex();
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 	CModulePtr pModule = m_pModuleModel->GetModule(ModelIndex);
@@ -291,7 +320,7 @@ void CModulesView::OnDoubleClicked()
 
 #ifdef WIN32
 	PPH_STRING phFileName = CastQString(pModule->GetFileName());
-	PhShellExecuteUserString(NULL, L"FileBrowseExecutable", phFileName->Buffer, FALSE, L"Make sure the Explorer executable file is present." );
+	PhShellExecuteUserString(NULL, (PWSTR)L"FileBrowseExecutable", phFileName->Buffer, FALSE, (PWSTR)L"Make sure the Explorer executable file is present." );
 	PhDereferenceObject(phFileName);
 #endif
 }

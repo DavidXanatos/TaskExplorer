@@ -275,20 +275,20 @@ VOID PvpPeClrEnumSections(
         PhPrintUInt32(value, ++count);
         lvItemIndex = PhAddListViewItem(ListViewHandle, MAXINT, value, NULL);
 
-        if (PhCopyStringZFromBytes(
+        if (NT_SUCCESS(PhCopyStringZFromBytes(
             streamHeader->Name,
             sizeof(streamHeader->Name),
             sectionName,
             RTL_NUMBER_OF(sectionName),
             NULL
-            ))
+            )))
         {
             PhSetListViewSubItem(ListViewHandle, lvItemIndex, 1, sectionName);
         }
 
         PhPrintPointer(value, UlongToPtr(streamHeader->Offset));
         PhSetListViewSubItem(ListViewHandle, lvItemIndex, 2, value);
-        PhPrintPointer(value, PTR_ADD_OFFSET(streamHeader->Offset, streamHeader->Size));
+        PhPrintPointer(value, (PVOID)(ULONG_PTR)UInt32Add32To64(streamHeader->Offset, streamHeader->Size));
         PhSetListViewSubItem(ListViewHandle, lvItemIndex, 3, value);
         PhSetListViewSubItem(ListViewHandle, lvItemIndex, 4, PhaFormatSize(streamHeader->Size, ULONG_MAX)->Buffer);
 
@@ -579,7 +579,7 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
             SetBkMode((HDC)wParam, TRANSPARENT);
             SetTextColor((HDC)wParam, RGB(0, 0, 0));
             SetDCBrushColor((HDC)wParam, RGB(255, 255, 255));
-            return (INT_PTR)GetStockBrush(DC_BRUSH);
+            return (INT_PTR)PhGetStockBrush(DC_BRUSH);
         }
         break;
     }

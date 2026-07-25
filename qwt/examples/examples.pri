@@ -42,6 +42,11 @@ greaterThan(QT_MAJOR_VERSION, 4) {
     QT += concurrent
 }
 
+greaterThan(QT_MAJOR_VERSION, 5) {
+
+    win32:CONFIG += entrypoint
+}
+
 contains(QWT_CONFIG, QwtOpenGL ) {
 
     QT += opengl

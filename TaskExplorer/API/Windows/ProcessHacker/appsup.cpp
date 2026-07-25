@@ -131,13 +131,13 @@ PH_KNOWN_PROCESS_TYPE PhGetProcessKnownTypeEx(quint64 ProcessId, const QString& 
 	return (PH_KNOWN_PROCESS_TYPE)knownProcessType;
 }
 
-BOOLEAN NTAPI PhpSvchostCommandLineCallback(_In_opt_ PPH_COMMAND_LINE_OPTION Option, _In_opt_ PPH_STRING Value, _In_opt_ PVOID Context)
+BOOLEAN NTAPI PhpSvchostCommandLineCallback(_In_opt_ PCPH_COMMAND_LINE_OPTION Option, _In_opt_ PPH_STRING Value, _In_opt_ PVOID Context)
 {
     PPH_KNOWN_PROCESS_COMMAND_LINE knownCommandLine = (PPH_KNOWN_PROCESS_COMMAND_LINE)Context;
 
 	if (Option && Option->Id == 1)
 	{
-		PhSwapReference((PVOID*)&knownCommandLine->ServiceHost.GroupName, Value);
+		PhSwapReference(&knownCommandLine->ServiceHost.GroupName, Value);
 	}
 
     return TRUE;
@@ -307,11 +307,14 @@ BOOLEAN PhaGetProcessKnownCommandLine(
 
             // Lookup the GUID in the registry to determine the name and file name.
 
+            PPH_STRING clsidString = PhaConcatStrings2(L"CLSID\\", guidString->Buffer);
+            PPH_STRING appidString = PhaConcatStrings2(L"AppID\\", guidString->Buffer);
+
             if (NT_SUCCESS(PhOpenKey(
                 &rootKeyHandle,
                 KEY_READ,
                 PH_KEY_CLASSES_ROOT,
-                &PhaConcatStrings2(L"CLSID\\", guidString->Buffer)->sr,
+                &clsidString->sr,
                 0
                 )))
             {
@@ -345,7 +348,7 @@ BOOLEAN PhaGetProcessKnownCommandLine(
                 &rootKeyHandle,
                 KEY_READ,
                 PH_KEY_CLASSES_ROOT,
-                &PhaConcatStrings2(L"AppID\\", guidString->Buffer)->sr,
+                &appidString->sr,
                 0
                 )))
             {
@@ -353,6 +356,9 @@ BOOLEAN PhaGetProcessKnownCommandLine(
                     (PPH_STRING)PH_AUTO(PhQueryRegistryString(rootKeyHandle, NULL));
                 NtClose(rootKeyHandle);
             }
+
+            PhDereferenceObject(clsidString);
+            PhDereferenceObject(appidString);
         }
         break;
     default:
@@ -442,7 +448,7 @@ NTSTATUS PhGetProcessSwitchContext(
         {
             if (!NT_SUCCESS(status = NtReadVirtualMemory(
                 ProcessHandle,
-                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pUnused)),
+                PTR_ADD_OFFSET(basicInfo.PebBaseAddress, FIELD_OFFSET(PEB, pContextData)),
                 &data,
                 sizeof(PVOID),
                 NULL
@@ -533,7 +539,8 @@ ULONG GetProcessDpiAwareness(HANDLE QueryHandle)
 
     if (PhBeginInitOnce(&initOnce))
     {
-        getProcessDpiAwarenessInternal = (BOOL (WINAPI *)(_In_ HANDLE hprocess,_Out_ ULONG *value))PhGetDllProcedureAddress(L"user32.dll", "GetProcessDpiAwarenessInternal", 0);
+        static PH_STRINGREF user32_dll = PH_STRINGREF_INIT(L"user32.dll");
+        getProcessDpiAwarenessInternal = (BOOL (WINAPI *)(_In_ HANDLE hprocess,_Out_ ULONG *value))PhGetDllProcedureAddress(&user32_dll, "GetProcessDpiAwarenessInternal", 0);
         PhEndInitOnce(&initOnce);
     }
 
@@ -791,7 +798,7 @@ VOID PhShellExecuteUserString(
     executeString = PhGetStringSetting(Setting);
 
     // Expand environment strings.
-    PhMoveReference((PVOID*)&executeString, PhExpandEnvironmentStrings(&executeString->sr));
+    PhMoveReference(&executeString, PhExpandEnvironmentStrings(&executeString->sr));
 
     // Make sure the user executable string is absolute. We can't use RtlDetermineDosPathNameType_U
     // here because the string may be a URL.
@@ -808,15 +815,15 @@ VOID PhShellExecuteUserString(
 
             // Make sure the string is absolute and escape the filename.
             if (RtlDetermineDosPathNameType_U(fileName->Buffer) == RtlPathTypeRelative)
-                PhMoveReference((PVOID*)&fileName, PhConcatStrings(4, L"\"", applicationDirectory->Buffer, fileName->Buffer, L"\""));
+                PhMoveReference(&fileName, PhConcatStrings(4, L"\"", applicationDirectory->Buffer, fileName->Buffer, L"\""));
             else
-                PhMoveReference((PVOID*)&fileName, PhConcatStrings(3, L"\"", fileName->Buffer, L"\""));
+                PhMoveReference(&fileName, PhConcatStrings(3, L"\"", fileName->Buffer, L"\""));
 
             // Escape the parameters.
-            PhMoveReference((PVOID*)&fileArgs, PhConcatStrings(3, L"\"", fileArgs->Buffer, L"\""));
+            PhMoveReference(&fileArgs, PhConcatStrings(3, L"\"", fileArgs->Buffer, L"\""));
 
             // Create the escaped execute string.
-            PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, fileName->Buffer, L" ", fileArgs->Buffer));
+            PhMoveReference(&executeString, PhConcatStrings(3, fileName->Buffer, L" ", fileArgs->Buffer));
 
             PhDereferenceObject(fileArgs);
             PhDereferenceObject(fileName);
@@ -825,9 +832,9 @@ VOID PhShellExecuteUserString(
         else
         {
             if (RtlDetermineDosPathNameType_U(executeString->Buffer) == RtlPathTypeRelative)
-                PhMoveReference((PVOID*)&executeString, PhConcatStrings(4, L"\"", applicationDirectory->Buffer, executeString->Buffer, L"\""));
+                PhMoveReference(&executeString, PhConcatStrings(4, L"\"", applicationDirectory->Buffer, executeString->Buffer, L"\""));
             else
-                PhMoveReference((PVOID*)&executeString, PhConcatStrings(3, L"\"", executeString->Buffer, L"\""));
+                PhMoveReference(&executeString, PhConcatStrings(3, L"\"", executeString->Buffer, L"\""));
         }
     }
 
@@ -844,7 +851,7 @@ VOID PhShellExecuteUserString(
         stringTemp = PhCreateString(String);
         stringMiddle = PhGetFileName(stringTemp);
 
-        PhMoveReference((PVOID*)&executeString, PhConcatStringRef3(&stringBefore, &stringMiddle->sr, &stringAfter));
+        PhMoveReference(&executeString, PhConcatStringRef3(&stringBefore, &stringMiddle->sr, &stringAfter));
 
         PhDereferenceObject(stringMiddle);
         PhDereferenceObject(stringTemp);

@@ -19,9 +19,15 @@ EXTERN_C_START
 #include <exlf.h>
 #include <exprodid.h>
 
+// Section mapping type flags
+#define PH_MAPPED_IMAGE_FLAG_SEC_COMMIT      0x0  // File mapping (default)
+#define PH_MAPPED_IMAGE_FLAG_SEC_IMAGE       0x1  // Image mapping (SEC_IMAGE*)
+
 typedef struct _PH_MAPPED_IMAGE
 {
     USHORT Signature;
+    USHORT Flags;
+    ULONG Spare;
     PVOID ViewBase;
     SIZE_T ViewSize;
 
@@ -36,9 +42,9 @@ typedef struct _PH_MAPPED_IMAGE
                 PIMAGE_NT_HEADERS NtHeaders;
             };
 
-            ULONG NumberOfSections;
-            PIMAGE_SECTION_HEADER Sections;
             USHORT Magic;
+            USHORT NumberOfSections;
+            PIMAGE_SECTION_HEADER Sections;
         };
 
         struct // ELF image
@@ -62,7 +68,7 @@ PhMappedImageProbe(
     _In_ SIZE_T Length
     )
 {
-    PhProbeAddress(Address, Length, MappedImage->ViewBase, MappedImage->ViewSize, 1);
+    PhProbeAddress(Address, Length, MappedImage->ViewBase, MappedImage->ViewSize, __alignof(UCHAR));
 }
 
 PHLIBAPI
@@ -78,7 +84,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoadMappedImage(
-    _In_opt_ PWSTR FileName,
+    _In_opt_ PCWSTR FileName,
     _In_opt_ HANDLE FileHandle,
     _Out_ PPH_MAPPED_IMAGE MappedImage
     );
@@ -87,7 +93,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoadMappedImageEx(
-    _In_opt_ PPH_STRINGREF FileName,
+    _In_opt_ PCPH_STRINGREF FileName,
     _In_opt_ HANDLE FileHandle,
     _Out_ PPH_MAPPED_IMAGE MappedImage
     );
@@ -96,7 +102,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoadMappedImageHeaderPageSize(
-    _In_opt_ PPH_STRINGREF FileName,
+    _In_opt_ PCPH_STRINGREF FileName,
     _In_opt_ HANDLE FileHandle,
     _Out_ PPH_MAPPED_IMAGE MappedImage
     );
@@ -111,8 +117,24 @@ PhUnloadMappedImage(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhLoadMappedImageHeaderFromFile(
+    _In_opt_ PCPH_STRINGREF FileName,
+    _In_opt_ HANDLE FileHandle,
+    _Out_ PPH_MAPPED_IMAGE MappedImage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhUnloadMappedImageHeaderFromFile(
+    _Inout_ PPH_MAPPED_IMAGE MappedImage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhMapViewOfEntireFile(
-    _In_opt_ PWSTR FileName,
+    _In_opt_ PCWSTR FileName,
     _In_opt_ HANDLE FileHandle,
     _Out_ PVOID *ViewBase,
     _Out_ PSIZE_T ViewSize
@@ -122,7 +144,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhMapViewOfEntireFileEx(
-    _In_opt_ PPH_STRINGREF FileName,
+    _In_opt_ PCPH_STRINGREF FileName,
     _In_opt_ HANDLE FileHandle,
     _Out_ PVOID* ViewBase,
     _Out_ PSIZE_T ViewSize
@@ -133,6 +155,15 @@ VOID
 NTAPI
 PhMappedImagePrefetch(
     _In_ PPH_MAPPED_IMAGE MappedImage
+    );
+
+PHLIBAPI
+PIMAGE_SECTION_HEADER
+NTAPI
+PhMappedImageSectionByName(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PCWSTR Name,
+    _In_ BOOLEAN IgnoreCase
     );
 
 PHLIBAPI
@@ -164,7 +195,7 @@ PhMappedImageVaToVa(
     );
 
 PHLIBAPI
-BOOLEAN
+NTSTATUS
 NTAPI
 PhGetMappedImageSectionName(
     _In_ PIMAGE_SECTION_HEADER Section,
@@ -215,6 +246,19 @@ PhGetMappedImageLoadConfig64(
     _Out_ PIMAGE_LOAD_CONFIG_DIRECTORY64 *LoadConfig
     );
 
+// Remote mapped image
+
+typedef _Function_class_(PH_READ_VIRTUAL_MEMORY_CALLBACK)
+NTSTATUS NTAPI PH_READ_VIRTUAL_MEMORY_CALLBACK(
+    _In_ HANDLE ProcessHandle,
+    _In_ PVOID BaseAddress,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferSize,
+    _Out_opt_ PSIZE_T NumberOfBytesRead,
+    _In_opt_ PVOID Context
+    );
+typedef PH_READ_VIRTUAL_MEMORY_CALLBACK* PPH_READ_VIRTUAL_MEMORY_CALLBACK;
+
 typedef struct _PH_REMOTE_MAPPED_IMAGE
 {
     HANDLE ProcessHandle;
@@ -226,10 +270,13 @@ typedef struct _PH_REMOTE_MAPPED_IMAGE
         PIMAGE_NT_HEADERS64 NtHeaders64;
         PIMAGE_NT_HEADERS NtHeaders;
     };
-    ULONG NumberOfSections;
-    PIMAGE_SECTION_HEADER Sections;
     USHORT Magic;
+    USHORT NumberOfSections;
+    PIMAGE_SECTION_HEADER Sections;
     PVOID PageCache;
+
+    PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback;
+    PVOID Context;
 } PH_REMOTE_MAPPED_IMAGE, *PPH_REMOTE_MAPPED_IMAGE;
 
 FORCEINLINE
@@ -247,30 +294,20 @@ RemoteMappedImageProbe(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhLoadRemoteMappedImage(
-    _In_ HANDLE ProcessHandle,
-    _In_ PVOID ViewBase,
-    _In_ SIZE_T ViewSize,
-    _Out_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage
-    );
-
-typedef NTSTATUS (NTAPI *PPH_READ_VIRTUAL_MEMORY_CALLBACK)(
-    _In_ HANDLE ProcessHandle,
-    _In_opt_ PVOID BaseAddress,
-    _Out_writes_bytes_(BufferSize) PVOID Buffer,
-    _In_ SIZE_T BufferSize,
-    _Out_opt_ PSIZE_T NumberOfBytesRead
+PhInitializeRemoteMappedImage(
+    _Out_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
+    _In_opt_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
+    _In_opt_ PVOID Context
     );
 
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhLoadRemoteMappedImageEx(
+PhLoadRemoteMappedImage(
+    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
     _In_ HANDLE ProcessHandle,
     _In_ PVOID ViewBase,
-    _In_ SIZE_T Size,
-    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
-    _Out_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage
+    _In_ SIZE_T ViewSize
     );
 
 PHLIBAPI
@@ -286,7 +323,7 @@ NTAPI
 PhGetRemoteMappedImageDataEntry(
     _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
     _In_ ULONG Index,
-    _Out_ PIMAGE_DATA_DIRECTORY * Entry
+    _Out_ PIMAGE_DATA_DIRECTORY* Entry
     );
 
 PHLIBAPI
@@ -294,7 +331,6 @@ NTSTATUS
 NTAPI
 PhGetRemoteMappedImageDirectoryEntry(
     _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
-    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
     _In_ ULONG Index,
     _Out_ PVOID* DataBuffer,
     _Out_opt_ ULONG* DataLength
@@ -313,28 +349,8 @@ PhGetRemoteMappedImageDebugEntryByType(
 PHLIBAPI
 NTSTATUS
 NTAPI
-PhGetRemoteMappedImageDebugEntryByTypeEx(
-    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
-    _In_ ULONG Type,
-    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
-    _Out_opt_ PULONG DataLength,
-    _Out_ PPVOID DataBuffer
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
 PhGetRemoteMappedImageGuardFlags(
     _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
-    _Out_ PULONG GuardFlags
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhGetRemoteMappedImageGuardFlagsEx(
-    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
-    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
     _Out_ PULONG GuardFlags
     );
 
@@ -355,13 +371,13 @@ typedef struct _PH_MAPPED_IMAGE_EXPORT_ENTRY
 {
     USHORT Ordinal;
     ULONG Hint;
-    PSTR Name;
+    PCSTR Name;
 } PH_MAPPED_IMAGE_EXPORT_ENTRY, *PPH_MAPPED_IMAGE_EXPORT_ENTRY;
 
 typedef struct _PH_MAPPED_IMAGE_EXPORT_FUNCTION
 {
     PVOID Function;
-    PSTR ForwardedName;
+    PCSTR ForwardedName;
 } PH_MAPPED_IMAGE_EXPORT_FUNCTION, *PPH_MAPPED_IMAGE_EXPORT_FUNCTION;
 
 #define PH_GET_IMAGE_EXPORTS_ARM64X 0x00000001ul
@@ -397,7 +413,7 @@ NTSTATUS
 NTAPI
 PhGetMappedImageExportFunction(
     _In_ PPH_MAPPED_IMAGE_EXPORTS Exports,
-    _In_opt_ PSTR Name,
+    _In_opt_ PCSTR Name,
     _In_opt_ USHORT Ordinal,
     _Out_ PPH_MAPPED_IMAGE_EXPORT_FUNCTION Function
     );
@@ -407,7 +423,7 @@ NTSTATUS
 NTAPI
 PhGetMappedImageExportFunctionRemote(
     _In_ PPH_MAPPED_IMAGE_EXPORTS Exports,
-    _In_opt_ PSTR Name,
+    _In_opt_ PCSTR Name,
     _In_opt_ USHORT Ordinal,
     _In_ PVOID RemoteBase,
     _Out_ PVOID *Function
@@ -433,7 +449,7 @@ typedef struct _PH_MAPPED_IMAGE_IMPORT_DLL
     PPH_MAPPED_IMAGE MappedImage;
     ULONG Flags;
     ULONG NumberOfEntries;
-    PSTR Name;
+    PCSTR Name;
 
     union
     {
@@ -445,7 +461,7 @@ typedef struct _PH_MAPPED_IMAGE_IMPORT_DLL
 
 typedef struct _PH_MAPPED_IMAGE_IMPORT_ENTRY
 {
-    PSTR Name;
+    PCSTR Name;
     union
     {
         USHORT Ordinal;
@@ -496,6 +512,7 @@ PhGetMappedImageDelayImports(
     _In_ PPH_MAPPED_IMAGE MappedImage
     );
 
+PHLIBAPI
 USHORT
 NTAPI
 PhCheckSum(
@@ -551,8 +568,8 @@ typedef struct _PH_MAPPED_IMAGE_CFG
     PULONGLONG GuardFunctionTable;
     ULONGLONG NumberOfGuardFunctionEntries;
 
-    PULONGLONG GuardAdressIatTable;
-    ULONGLONG NumberOfGuardAdressIatEntries;
+    PULONGLONG GuardAddressIatTable;
+    ULONGLONG NumberOfGuardAddressIatEntries;
 
     PULONGLONG GuardLongJumpTable;
     ULONGLONG NumberOfGuardLongJumpEntries;
@@ -599,9 +616,8 @@ typedef struct _PH_MAPPED_IMAGE_RESOURCES
     PPH_MAPPED_IMAGE MappedImage;
     PIMAGE_DATA_DIRECTORY DataDirectory;
     PIMAGE_RESOURCE_DIRECTORY ResourceDirectory;
-
-    ULONG NumberOfEntries;
     PPH_IMAGE_RESOURCE_ENTRY ResourceEntries;
+    SIZE_T NumberOfEntries;
 } PH_MAPPED_IMAGE_RESOURCES, *PPH_MAPPED_IMAGE_RESOURCES;
 
 PHLIBAPI
@@ -610,6 +626,30 @@ NTAPI
 PhGetMappedImageResources(
     _Out_ PPH_MAPPED_IMAGE_RESOURCES Resources,
     _In_ PPH_MAPPED_IMAGE MappedImage
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageResource(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PCWSTR Name,
+    _In_ PCWSTR Type,
+    _In_opt_ USHORT Language,
+    _Out_opt_ PULONG ResourceLength,
+    _Out_opt_ PVOID* ResourceBuffer
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageResourceIndex(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PIMAGE_RESOURCE_DIRECTORY ResourceDirectory,
+    _In_ LONG ResourceIndex,
+    _In_ PCWSTR ResourceType,
+    _Out_opt_ ULONG* ResourceLength,
+    _Out_opt_ PVOID* ResourceBuffer
     );
 
 typedef struct _PH_IMAGE_TLS_CALLBACK_ENTRY
@@ -658,7 +698,7 @@ typedef struct _PH_MAPPED_IMAGE_PRODID
     PPH_STRING Key;
     PPH_STRING RawHash;
     PPH_STRING Hash;
-    ULONG NumberOfEntries;
+    SIZE_T NumberOfEntries;
     PPH_MAPPED_IMAGE_PRODID_ENTRY ProdIdEntries;
 } PH_MAPPED_IMAGE_PRODID, *PPH_MAPPED_IMAGE_PRODID;
 
@@ -788,7 +828,7 @@ typedef struct _PH_MAPPED_ARCHIVE_MEMBER
 {
     PPH_MAPPED_ARCHIVE MappedArchive;
     PH_MAPPED_ARCHIVE_MEMBER_TYPE Type;
-    PSTR Name;
+    PCSTR Name;
     ULONG Size;
     PVOID Data;
 
@@ -812,8 +852,8 @@ typedef struct _PH_MAPPED_ARCHIVE
 
 typedef struct _PH_MAPPED_ARCHIVE_IMPORT_ENTRY
 {
-    PSTR Name;
-    PSTR DllName;
+    PCSTR Name;
+    PCSTR DllName;
     union
     {
         USHORT Ordinal;
@@ -837,7 +877,7 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhLoadMappedArchive(
-    _In_opt_ PWSTR FileName,
+    _In_opt_ PCWSTR FileName,
     _In_opt_ HANDLE FileHandle,
     _Out_ PPH_MAPPED_ARCHIVE MappedArchive
     );
@@ -946,24 +986,6 @@ PhFreeMappedImageRelocations(
     _In_opt_ PPH_MAPPED_IMAGE_RELOC Relocations
     );
 
-typedef NTSTATUS (NTAPI *PPH_MAPPED_IMAGE_RELOC_CALLBACK)(
-    _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ PIMAGE_DATA_DIRECTORY DataDirectory,
-    _In_ PIMAGE_BASE_RELOCATION RelocationDirectory,
-    _In_ PIMAGE_RELOCATION_RECORD Relocations,
-    _In_ ULONG RelocationCount,
-    _In_opt_ PVOID Context
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhMappedImageEnumerateRelocations(
-    _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ PPH_MAPPED_IMAGE_RELOC_CALLBACK Callback,
-    _In_opt_ PVOID Context
-    );
-
 typedef struct _PH_IMAGE_DYNAMIC_RELOC_ENTRY
 {
     ULONGLONG Symbol;
@@ -1027,6 +1049,36 @@ typedef struct _PH_IMAGE_DYNAMIC_RELOC_ENTRY
             };
         } ARM64X;
 
+        // IMAGE_DYNAMIC_RELOCATION_ARM64_KERNEL_IMPORT_CALL_TRANSFER
+        struct
+        {
+            ULONG BlockIndex;
+            ULONG BlockRva;
+            IMAGE_IMPORT_CONTROL_TRANSFER_ARM64_RELOCATION Record;
+        } ARM64ImportControl;
+
+        // IMAGE_DYNAMIC_RELOCATION_GUARD_RF_PROLOGUE
+        struct
+        {
+            ULONG BlockIndex;
+            ULONG BlockRva;
+            UCHAR PrologueByteCount;
+            PVOID PrologueBytes;  // Pointer to prologue byte array
+        } RFPrologue;
+
+        // IMAGE_DYNAMIC_RELOCATION_GUARD_RF_EPILOGUE
+        struct
+        {
+            ULONG BlockIndex;
+            ULONG BlockRva;
+            ULONG EpilogueCount;
+            UCHAR EpilogueByteCount;
+            UCHAR BranchDescriptorElementSize;
+            USHORT BranchDescriptorCount;
+            PVOID BranchDescriptors;      // Pointer to branch descriptors
+            PVOID BranchDescriptorBitMap; // Pointer to branch descriptor bitmap
+        } RFEpilogue;
+
         // IMAGE_DYNAMIC_RELOCATION_KI_USER_SHARED_DATA64 or similar
         struct
         {
@@ -1048,6 +1100,43 @@ typedef struct _PH_MAPPED_IMAGE_DYNAMIC_RELOC
     ULONG NumberOfEntries;
     PPH_IMAGE_DYNAMIC_RELOC_ENTRY RelocationEntries;
 } PH_MAPPED_IMAGE_DYNAMIC_RELOC, *PPH_MAPPED_IMAGE_DYNAMIC_RELOC;
+
+typedef _Function_class_(PH_MAPPED_IMAGE_RELOC_CALLBACK)
+NTSTATUS NTAPI PH_MAPPED_IMAGE_RELOC_CALLBACK(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PIMAGE_DATA_DIRECTORY DataDirectory,
+    _In_ PIMAGE_BASE_RELOCATION RelocationDirectory,
+    _In_ PIMAGE_RELOCATION_RECORD Relocations,
+    _In_ ULONG RelocationCount,
+    _In_opt_ PVOID Context
+    );
+typedef PH_MAPPED_IMAGE_RELOC_CALLBACK *PPH_MAPPED_IMAGE_RELOC_CALLBACK;
+
+typedef _Function_class_(PH_MAPPED_IMAGE_DYNAMIC_RELOC_CALLBACK)
+NTSTATUS NTAPI PH_MAPPED_IMAGE_DYNAMIC_RELOC_CALLBACK(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PPH_IMAGE_DYNAMIC_RELOC_ENTRY Entry,
+    _In_opt_ PVOID Context
+    );
+typedef PH_MAPPED_IMAGE_DYNAMIC_RELOC_CALLBACK *PPH_MAPPED_IMAGE_DYNAMIC_RELOC_CALLBACK;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhMappedImageEnumerateRelocations(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PPH_MAPPED_IMAGE_RELOC_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhMappedImageEnumerateDynamicRelocations(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PPH_MAPPED_IMAGE_DYNAMIC_RELOC_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
 
 PHLIBAPI
 NTSTATUS
@@ -1158,19 +1247,21 @@ PhGetMappedImageVolatileMetadata(
     );
 
 PHLIBAPI
-PPH_STRING
+NTSTATUS
 NTAPI
 PhGetMappedImageAuthenticodeHash(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ PH_HASH_ALGORITHM Algorithm
+    _In_ PH_HASH_ALGORITHM Algorithm,
+    _Out_ PPH_STRING* AuthenticodeHash
     );
 
 PHLIBAPI
-PPH_STRING
+NTSTATUS
 NTAPI
 PhGetMappedImageWdacHash(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ PH_HASH_ALGORITHM Algorithm
+    _In_ PH_HASH_ALGORITHM Algorithm,
+    _Out_ PPH_STRING* WdacHash
     );
 
 PHLIBAPI
@@ -1178,8 +1269,9 @@ BOOLEAN
 NTAPI
 PhGetMappedImageEntropy(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _Out_ FLOAT* ImageEntropy,
-    _Out_ FLOAT* ImageVariance
+    _Out_ PFLOAT ImageEntropy,
+    _Out_ PFLOAT ImageMean,
+    _Out_ PFLOAT ImageVariance
     );
 
 PHLIBAPI
@@ -1194,15 +1286,6 @@ NTSTATUS
 NTAPI
 PhGetRemoteMappedImageCHPEVersion(
     _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
-    _Out_ PULONG CHPEVersion
-    );
-
-PHLIBAPI
-NTSTATUS
-NTAPI
-PhGetRemoteMappedImageCHPEVersionEx(
-    _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
-    _In_ PPH_READ_VIRTUAL_MEMORY_CALLBACK ReadVirtualMemoryCallback,
     _Out_ PULONG CHPEVersion
     );
 
@@ -1282,5 +1365,66 @@ VOID PhFreeMappedWslImageDynamic(
     );
 
 EXTERN_C_END
+
+#include <TraceLoggingProvider.h>
+
+#define TLG_SIGNATURE "ETW0"
+
+#define TLG_BLOB_END 0
+#define TLG_BLOB_PROVIDER 1
+#define TLG_BLOB_EVENT 2 // Legacy
+#define TLG_BLOB_PROVIDER3 4
+#define TLG_BLOB_EVENT2 5 // Legacy
+#define TLG_BLOB_EVENT_V2 6
+
+typedef struct _PH_TLG_HEADER
+{
+    UCHAR Signature[4];
+    USHORT Size;
+    UCHAR Version;
+    UCHAR Flags;
+    ULONGLONG Magic;
+} PH_TLG_HEADER, *PPH_TLG_HEADER;
+
+typedef struct _PH_TLG_PROVIDER_META
+{
+    GUID ProviderGuid;
+    GUID ProviderGroupGuid;
+    PCHAR Name;
+    SIZE_T NameLength;
+} PH_TLG_PROVIDER_META, *PPH_TLG_PROVIDER_META;
+
+typedef struct _PH_TLG_EVENT_META
+{
+    ULONG EventId;
+    UCHAR Channel;
+    UCHAR Level;
+    UCHAR Opcode;
+    ULONGLONG Keyword;
+    PCHAR Name;
+    SIZE_T NameLength;
+} PH_TLG_EVENT_META, *PPH_TLG_EVENT_META;
+
+// Skip variable length trace logging extensions
+FORCEINLINE
+BOOLEAN
+PhpSkipTlgExtensions(
+    _Inout_ PVOID* Address,
+    _In_ PVOID EndAddress
+    )
+{
+    UCHAR b = 0;
+
+    do
+    {
+        if (!PhPtrReadBytes(Address, EndAddress, &b, sizeof(b)))
+            return FALSE;
+
+    } while (b & 0x80);
+
+    return TRUE;
+}
+
+
 
 #endif

@@ -435,7 +435,7 @@ QVariant SvcApiCloseSocket(const QVariantMap& Parameters)
 	QHostAddress RemoteAddress = QHostAddress(Parameters["RemoteAddress"].toString());
 	quint16 RemotePort = Parameters["RemotePort"].toInt();
 
-	long result = CloseSocket(LocalAddress, LocalPort, RemoteAddress, RemotePort);
+	qint32 result = CloseSocket(LocalAddress, LocalPort, RemoteAddress, RemotePort);
 	return result;
 }
 

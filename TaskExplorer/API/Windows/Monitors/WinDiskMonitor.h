@@ -5,6 +5,8 @@
 class CWinDiskMonitor : public CDiskMonitor
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinDiskMonitor)
 public:
 	CWinDiskMonitor(QObject *parent = nullptr);
 	virtual ~CWinDiskMonitor();

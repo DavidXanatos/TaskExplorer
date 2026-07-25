@@ -5,11 +5,200 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+
+
+
+## [1.8.0] - 2026-05-02
+
+### Changed
+- updated PHlib to version 4.0.26115
+ 
+### Fixed
+- fixed crash issue on start up affecting soeme systems
+- fixed job object name display issue
+- fixed click "SYSTEM_IDLE_PROCESS_ID" will crash. [#116](https://github.com/DavidXanatos/TaskExplorer/issues/116)
+
+
+
+
+
+## [1.7.1] - 2025-12-23
+
+### Added
+- added sandboxie style online updater
+
+### Changed
+- improved "Reset all Panels" behavioure
+- improved KSI Driver's proces protection behavioure
+  - Protection is now more strict then KSystemInformers one, if you fail to achive securtiy level high with this build please let me know
+
+### Fixed
+- fixed crash issue in CWinProcess::GetArchString()
+- fixed after dyndata download new dyn data wasnt applied untill restart
+
+
+
+
+## [1.7.0] - 2025-12-09
+
+### Added
+- added TaskHelper.exe used as worker and service instead of using TaskExplorer.exe itself
+- improved KSI Driver's proces protection, it no longer required DynData
+  - this change allows to use a lare portion of the driver functionality without up to date DynData
+- added DPI scaling options to settings
+- added original pages column to memory view
+- added thread colums: actual base priority, RPC usage, COM flags, LXSS TID
+- added process columns: CPU Afinity, LXSS PID
+- added module columns: enclave base address, enclave size, enclave type
+- added window finder, drag finder to a window to open its process
+- added open process to service view
+
+### Changed
+- Changed settings tabs from timple tabs to side tabs with icons
+- switched to Qt 6.8.3 with [Windows 7 compatibility patches](https://github.com/crystalidea/qt6windows7)
+- updated QWT library to 6.3
+- updated run as mechanisms
+- added more security info to handle view and moved it to own section
+- double click in handle/module/memory search window now opens the process the handle/module/memory belongs to
+
+### Fixed
+- fixed crash on handle view
+- fixed token privilege coloring
+- fixed driver process protection on arm64 systems caused crash
+- fixed m_SocketList corruption
+
+### Removed
+- removed support for 32-bit Windows
+
+
+
+
+## [1.6.6] - 2025-11-24
+
+### Changed
+- updated PHlib to version 3.2.25324
+- improved process map handling
+
+### Fixed
+- fixed token info not proeprly listed, broken in 1.6.5
+- fixed issue with Environment enumeration
+
+
+
+
+## [1.6.5] - 2025-07-05
+
+### Changed
+- updated PHlib to version 3.2.25180.1655
+- switched to VS2022 toolset
+- updated Qt to 5.15.16
+
+
+
+## [1.6.4] - 2025-05-04
+
+### Fixed
+- fixed failure to update dyndata
+- fixed crash when dyndata update failed
+
+
+
+## [1.6.3] - 2025-05-03
+
+### Added
+- added Turkish language (offhub)
+
+### Changed
+- improved berformance with very big processes
+- updated dyndata for latest windows
+
+### Fixed
+- fixed some typos in the UI
+- fixed issue with stack traces introduced 1.6.1
+- fixed issue with run as Trusted Installer or as this user
+
+### Removed
+- removed duplicate CPU Affinity column from Persistence Options
+
+
+
+## [1.6.2] - 2025-03-02
+
+### Added
+- added driver DynData updater, on start when the current DynData is not compatible with the windows kernel TE will offer an option to update the DynData
+  - Note: the updater extracts the DynData from regular SystemInformer canary update packages.
+- added preparations (not enabled) to use the old driver on windows 7
+
+### Changed
+- moved translations to translations.7z
+
+### Fixed
+- incompatibility witn windows 7 introduced in 1.16.1
+- fixed crash in module search window
+- fixed performance issue with codepage detection
+
+
+
+## [1.6.1] - 2025-02-23
+
+### Added
+- added ARM64 driver
+
+### Changed
+- updated code to be qt6 compatible
+- greately improved dark mode
+- improved driver statis information on startup
+- updated MiscHelpers.dll, improved finder
+
+### Fixed
+- fixed Closing System Info closes also the TaskExplorer [#34](https://github.com/DavidXanatos/TaskExplorer/issues/34)
+- fixed handle leak in thread stack panel
+- fixed bad performance on windows 10
+- fixed issue where two instances were started when "Skip UAC" was enabled
+
+
+
+## [1.6.0] - 2025-01-27
+
+### Added
+- Added permissions button to the Process security tab
+- Added options to confugire No-[Write|Read|Execute]-Up policy
+- Added more columns to the memory panel: Signing level, Original protection, Region type, Priority
+- added more info to token panel
+- added more columns to service tab
+- added more columns to module tab
+- added more columns to threads tab
+- added more columns to process tree
+- added options to change thread/process priority boost
+- added options to change process efficiency mode
+- added option to freeze processes
+- added more dump options
+- added heaps info tab
+- added modified pages info to module panel
+
+### Changed
+- updated PHlib to version 3.2.25011
+- updated Integrity levels
+- now all PIDs/TIDs ate displayed booth in decimal and hex 1234 [0x4D2]
+- reordered the process and thread menus
+- moved TaskExplorer data folder from C:\\Users\\[User]\\AppData\\Local\\TaskExplorer to C:\\Users\\[User]\\AppData\\Local\\Xanasoft\\TaskExplorer
+  - Note: the folder will be moved automatically, when downgrading to an older version you would need to move it back manually.
+
+### Fixed
+- fixed issues with processes started from a voluem without a drive letter
+- fixed service delete confirmation prompt was missing
+- fixed issue listing net assemblies
+
+
+
 ## [1.5.6] - 2024-09-22
 
 ### Changed
 - TE is no longer listing mounted VHD/VHDX files as disks, we only care for real hardware
 - updated PHlib to version 3.1.24258
+
+### Fixed
+- fixed dnscache related memory leak
 
 
 
@@ -58,7 +247,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [1.5.0] - 2022-12-10
 
 ### Changed
-- updated PHlib to version 3.0.5553
+- updated PHlib to version 3.0.5553 with new KSystemInformer driver
 - updated DotNET counter code
 
 ### Fixed
@@ -306,7 +495,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 - cleaned up PH directory
-- improved process display for the case when multiple processes are sellected
+- improved process display for the case when multiple processes are selected
 - now using https://github.com/microsoft/krabsetw to monitor ETW events
 - reworked socket process association
 - when opening finder the search term ist selected such it can be replaced quickly
@@ -457,7 +646,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 - fixed issues with changing graph length
-- fixed bad color contrast of sellected items
+- fixed bad color contrast of selected items
 - fixed a crash (race condition) when closing
 - fixed issues with cycle based cpu usage calculation
 - fixed major issue with process stat display
@@ -475,7 +664,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - added listing of unloaded DLLs (shown in gray in modules tab)
 - added "Services referencing" feature to modules tab -> column
 - added optional CPU cycle based CPU usage calculation
-- show merged informations when more than one process is sellected
+- show merged informations when more than one process is selected
 - added search (highlight) feature to the stack trace list
 - added Dangerous Flags from process hacker to the token tab
 - added job limits informations tab to the job tab
@@ -577,7 +766,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 - memory view being unnececerly refreshed
-- fixed dpi scling issue
+- fixed dpi scaling issue
 
 
 
@@ -723,7 +912,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - improved global network traffic logging now using GetIfTable2 instead of ETW events
 - improved MMapIO display now it works as expected and disk IO got its own graph
 - all files list now works for non enevated users
-- driver tab now uses NtQuerySystemInformation(SystemModuleInformation to enumerate drivers
+- driver tab now uses NtQuerySystemInformation(SystemModuleInformation) to enumerate drivers
 
 ### Fixed
 - memory leak when running without unelevated and vieving all files list
@@ -810,3 +999,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.0.1] - 2019-05-30
 ### Added
 - ProcessHacker Library integration
+
+
+

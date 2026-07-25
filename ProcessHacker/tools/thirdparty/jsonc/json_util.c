@@ -37,13 +37,13 @@
 #include <unistd.h>
 #endif /* HAVE_UNISTD_H */
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <io.h>
 #include <windows.h>
-#endif /* defined(WIN32) */
+#endif /* defined(_WIN32) */
 
-#if !defined(HAVE_OPEN) && defined(WIN32)
+#if !defined(HAVE_OPEN) && defined(_WIN32)
 #define open _open
 #endif
 
@@ -56,23 +56,23 @@
 #include "json_util.h"
 #include "printbuf.h"
 
-static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const char *filename);
+static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const unsigned char *filename);
 
-static char _last_err[256] = "";
+static unsigned char _last_err[256] = "";
 
-const char *json_util_get_last_err(void)
+const unsigned char *json_util_get_last_err(void)
 {
     if (_last_err[0] == '\0')
         return NULL;
     return _last_err;
 }
 
-void _json_c_set_last_err(const char *err_fmt, ...)
+void _json_c_set_last_err(const unsigned char *err_fmt, ...)
 {
     va_list ap;
     va_start(ap, err_fmt);
     // Ignore (attempted) overruns from snprintf
-    (void)vsnprintf(_last_err, sizeof(_last_err), err_fmt, ap);
+    (void)vsnprintf((char *)_last_err, sizeof(_last_err), err_fmt, ap);
     va_end(ap);
 }
 
@@ -84,7 +84,7 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
 {
     struct printbuf *pb;
     struct json_object *obj;
-    char buf[JSON_FILE_BUF_SIZE];
+    unsigned char buf[JSON_FILE_BUF_SIZE];
     ssize_t ret;
     int depth = JSON_TOKENER_DEFAULT_DEPTH;
     json_tokener *tok;
@@ -101,8 +101,8 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
     if (!tok)
     {
         _json_c_set_last_err(
-            "json_object_from_fd_ex: unable to allocate json_tokener(depth=%d): %s\n",
-            depth, strerror(errno));
+            "json_object_from_fd_ex: unable to allocate json_tokener(depth=%d)\n",
+            depth);
         printbuf_free(pb);
         return NULL;
     }
@@ -115,7 +115,7 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
 #error "Can't append more than INT_MAX bytes at a time"
 #endif
             _json_c_set_last_err(
-                "json_object_from_fd_ex: failed to printbuf_memappend after reading %d+%d bytes: %s", printbuf_length(pb), (int)ret, strerror(errno));
+                "json_object_from_fd_ex: failed to printbuf_memappend after reading %d+%d bytes", printbuf_length(pb), (int)ret);
             json_tokener_free(tok);
             printbuf_free(pb);
             return NULL;
@@ -123,8 +123,7 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
     }
     if (ret < 0)
     {
-        _json_c_set_last_err("json_object_from_fd_ex: error reading fd %d: %s\n", fd,
-                             strerror(errno));
+        _json_c_set_last_err("json_object_from_fd_ex: error reading fd %d\n", fd);
         json_tokener_free(tok);
         printbuf_free(pb);
         return NULL;
@@ -140,15 +139,15 @@ struct json_object *json_object_from_fd_ex(int fd, int in_depth)
     return obj;
 }
 
-struct json_object *json_object_from_file(const char *filename)
+struct json_object *json_object_from_file(const unsigned char *filename)
 {
     struct json_object *obj;
     int fd;
 
-    if ((fd = open(filename, O_RDONLY)) < 0)
+    if ((fd = open(filename, _O_RDONLY)) < 0)
     {
-        _json_c_set_last_err("json_object_from_file: error opening file %s: %s\n",
-                             filename, strerror(errno));
+        _json_c_set_last_err("json_object_from_file: error opening file %s\n",
+                             filename);
         return NULL;
     }
     obj = json_object_from_fd(fd);
@@ -158,7 +157,7 @@ struct json_object *json_object_from_file(const char *filename)
 
 /* extended "format and write to file" function */
 
-int json_object_to_file_ext(const char *filename, struct json_object *obj, int flags)
+int json_object_to_file_ext(const unsigned char *filename, struct json_object *obj, int flags)
 {
     int fd, ret;
     int saved_errno;
@@ -169,10 +168,10 @@ int json_object_to_file_ext(const char *filename, struct json_object *obj, int f
         return -1;
     }
 
-    if ((fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT, 0644)) < 0)
+    if ((fd = open(filename, _O_WRONLY | _O_TRUNC | _O_CREAT, 0644)) < 0)
     {
-        _json_c_set_last_err("json_object_to_file_ext: error opening file %s: %s\n",
-                             filename, strerror(errno));
+        _json_c_set_last_err("json_object_to_file_ext: error opening file %s\n",
+                             filename);
         return -1;
     }
     ret = _json_object_to_fd(fd, obj, flags, filename);
@@ -192,27 +191,27 @@ int json_object_to_fd(int fd, struct json_object *obj, int flags)
 
     return _json_object_to_fd(fd, obj, flags, NULL);
 }
-static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const char *filename)
+static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const unsigned char *filename)
 {
     ssize_t ret;
-    const char *json_str;
+    const unsigned char *json_str;
     size_t wpos, wsize;
 
-    filename = filename ? filename : "(fd)";
+    filename = filename ? filename : (const unsigned char*)"(fd)";
 
     if (!(json_str = json_object_to_json_string_ext(obj, flags)))
     {
         return -1;
     }
 
-    wsize = strlen(json_str);
+    wsize = strlen((const unsigned char *)json_str);
     wpos = 0;
     while (wpos < wsize)
     {
-        if ((ret = _write(fd, json_str + wpos, (unsigned)(wsize - wpos))) < 0)
+        if ((ret = _write(fd, json_str + wpos, (unsigned int)(wsize - wpos))) < 0)
         {
-            _json_c_set_last_err("json_object_to_fd: error writing file %s: %s\n",
-                                 filename, strerror(errno));
+            _json_c_set_last_err("json_object_to_fd: error writing file %s\n",
+                                 filename);
             return -1;
         }
 
@@ -225,22 +224,22 @@ static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const 
 
 // backwards compatible "format and write to file" function
 
-int json_object_to_file(const char *filename, struct json_object *obj)
+int json_object_to_file(const unsigned char *filename, struct json_object *obj)
 {
     return json_object_to_file_ext(filename, obj, JSON_C_TO_STRING_PLAIN);
 }
 
 // Deprecated json_parse_double function.  See json_tokener_parse_double instead.
-int json_parse_double(const char *buf, double *retval)
+int json_parse_double(const unsigned char *buf, double *retval)
 {
-    char *end;
+    unsigned char *end;
     *retval = strtod(buf, &end);
     return end == buf ? 1 : 0;
 }
 
-int json_parse_int64(const char *buf, int64_t *retval)
+int json_parse_int64(const unsigned char *buf, int64_t *retval)
 {
-    char *end = NULL;
+    unsigned char *end = NULL;
     int64_t val;
 
     errno = 0;
@@ -255,9 +254,9 @@ int json_parse_int64(const char *buf, int64_t *retval)
     return 0;
 }
 
-int json_parse_uint64(const char *buf, uint64_t *retval)
+int json_parse_uint64(const unsigned char *buf, uint64_t *retval)
 {
-    char *end = NULL;
+    unsigned char *end = NULL;
     uint64_t val;
 
     errno = 0;
@@ -266,7 +265,7 @@ int json_parse_uint64(const char *buf, uint64_t *retval)
     if (*buf == '-')
         return 1; /* error: uint cannot be negative */
 
-    val = strtoull(buf, &end, 10);
+    val = strtoull(buf, (char**)&end, 10);
     if (end != buf)
         *retval = val;
     if ((val == 0 && errno != 0) || (end == buf))
@@ -283,14 +282,14 @@ void *rpl_realloc(void *p, size_t n)
     if (n == 0)
         n = 1;
     if (p == 0)
-        return PhAllocateSafe(n);
-    return PhReAllocateSafe(p, n);
+        return malloc(n);
+    return realloc(p, n);
 }
 #endif
 
 #define NELEM(a) (sizeof(a) / sizeof(a[0]))
 /* clang-format off */
-static const char *json_type_name[] = {
+static const unsigned char *json_type_name[] = {
     /* If you change this, be sure to update the enum json_type definition too */
     "null",
     "boolean",
@@ -302,7 +301,7 @@ static const char *json_type_name[] = {
 };
 /* clang-format on */
 
-const char *json_type_to_name(enum json_type o_type)
+const unsigned char *json_type_to_name(enum json_type o_type)
 {
     int o_type_int = (int)o_type;
     if (o_type_int < 0 || o_type_int >= (int)NELEM(json_type_name))

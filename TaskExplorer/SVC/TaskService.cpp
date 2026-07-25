@@ -3,6 +3,8 @@
 #include "../../MiscHelpers/Common/Common.h"
 #include "../../MiscHelpers/Common/Settings.h"
 #include "../API/SystemAPI.h"
+#include "../Common/XVariant.h"
+#include "../Common/Buffer.h"
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "../API/Windows/WinDumper.h"
@@ -34,12 +36,13 @@ bool fixLocalServerPermissions(QLocalServer *server)
 QMutex CTaskService::m_Mutex;
 QString CTaskService::m_TempName;
 QString CTaskService::m_TempSocket;
-#ifdef WIN64
+#ifdef _WIN64
 QString CTaskService::m_TempSocket32;
 #endif
 
- CTaskService::CTaskService(int argc, char **argv, const QString& svcName, int timeout)
-	: QtServiceBase(argc, argv, svcName) 
+#ifndef USE_TASK_HELPER
+CTaskService::CTaskService(int argc, char **argv, const QString& svcName, int timeout)
+	: QObject(nullptr), QtServiceBase(argc, argv, svcName)
 {
     setServiceDescription("Task Explorer worker service");
     //setServiceFlags(QtServiceBase::CanBeSuspended);
@@ -51,16 +54,15 @@ QString CTaskService::m_TempSocket32;
 	m_TimerId = startTimer(1000);
 }
 
-CTaskService::~CTaskService() 
+CTaskService::~CTaskService()
 {
 	killTimer(m_TimerId);
 }
+#endif // USE_TASK_HELPER
 
+#ifndef USE_TASK_HELPER
 void CTaskService::start()
 {
-#ifdef WIN32
-	InitPH(true);
-#endif
 	m_pServer = new QLocalServer(this);
 	QObject::connect(m_pServer, SIGNAL(newConnection()), SLOT(receiveConnection()));
 	m_pServer->listen(serviceName());
@@ -92,35 +94,70 @@ void CTaskService::timerEvent(QTimerEvent *e)
 		QCoreApplication::instance()->quit();
 }
 
-bool CTaskService::SendVariant(QLocalSocket* pSocket, const QVariant& Data, int timeout)
-{
-	QByteArray Buff;
-	QDataStream Stream(&Buff, QIODevice::ReadWrite);
-	Stream << Data;
+#endif
 
-	quint32 len = Buff.size();
+// ============================================================================
+// XVariant Protocol Implementation - Used by both modes
+// ============================================================================
+// Protocol: [quint32 length][CVariant serialized data]
+// TaskExplorer side: QVariant -> XVariant -> CBuffer -> QByteArray -> pipe
+// TaskHelper side: pipe -> CBuffer -> CVariant
+
+bool CTaskService::SendXVariant(QLocalSocket* pSocket, const QVariant& Data, int timeout)
+{
+	if (!pSocket || !pSocket->isValid())
+		return false;
+
+	// Convert QVariant to XVariant
+	XVariant xvar;
+	if (!xvar.FromQVariant(Data))
+		return false;
+
+	// Serialize XVariant to CBuffer
+	CBuffer buffer;
+	xvar.ToPacket(&buffer);
+
+	// Convert CBuffer to QByteArray
+	QByteArray data = buffer.ToByteArray();
+
+	// Send length prefix
+	quint32 len = data.size();
 	pSocket->write((char*)&len, sizeof(quint32));
-	pSocket->write(Buff);
-    return pSocket->waitForBytesWritten(timeout);
+
+	// Send serialized data
+	pSocket->write(data);
+
+	return pSocket->waitForBytesWritten(timeout);
 }
 
-QVariant CTaskService::RecvVariant(QLocalSocket* pSocket, int timeout)
+QVariant CTaskService::RecvXVariant(QLocalSocket* pSocket, int timeout)
 {
+	if (!pSocket || !pSocket->isValid())
+		return QVariant();
+
+	// Read length prefix
 	quint32 len = 0;
-	if (ReadFromDevice(pSocket, (char*)&len, sizeof(quint32), timeout))
-	{
-		QByteArray Buff;
-		Buff.resize(len);
-		if (ReadFromDevice(pSocket, Buff.data(), len, timeout))
-		{
-			QVariant Data;
-			QDataStream Stream(Buff);
-			Stream >> Data;
-			return Data;
-		}
-	}
-	return QVariant();
+	if (!ReadFromDevice(pSocket, (char*)&len, sizeof(quint32), timeout))
+		return QVariant();
+
+	// Read serialized data
+	QByteArray data;
+	data.resize(len);
+	if (!ReadFromDevice(pSocket, data.data(), len, timeout))
+		return QVariant();
+
+	// Convert QByteArray to CBuffer
+	CBuffer buffer(data, true); // true = derive from existing data
+
+	// Deserialize CBuffer to XVariant
+	XVariant xvar;
+	xvar.FromPacket(&buffer);
+
+	// Convert XVariant to QVariant
+	return xvar.ToQVariant();
 }
+
+#ifndef USE_TASK_HELPER
 
 void CTaskService::receiveConnection()
 {
@@ -128,7 +165,7 @@ void CTaskService::receiveConnection()
     if (!pSocket)
         return;
 
-	QVariant Request = RecvVariant(pSocket, 2000);
+	QVariant Request = RecvXVariant(pSocket, 2000);
 	if (!Request.isValid())
 		return;
 	
@@ -175,6 +212,10 @@ void CTaskService::receiveConnection()
 	else if (Command == "GetProcessUnloadedDlls")
 	{
 		Response = GetProcessUnloadedDlls(Parameters["ProcessId"].toULongLong());
+	}
+	else if (Command == "GetProcessHeaps")
+	{
+		Response = GetProcessHeaps(Parameters["ProcessId"].toULongLong());
 	}
 	else if (Command == "ExecTaskAction")
 	{
@@ -277,7 +318,7 @@ void CTaskService::receiveConnection()
 	else if (Command == "FreeMemory")
 	{
 		SYSTEM_MEMORY_LIST_COMMAND command = (SYSTEM_MEMORY_LIST_COMMAND)Parameters["Command"].toInt();
-		Response = NtSetSystemInformation(SystemMemoryListInformation, &command, sizeof(SYSTEM_MEMORY_LIST_COMMAND));
+		Response = (qint32)NtSetSystemInformation(SystemMemoryListInformation, &command, sizeof(SYSTEM_MEMORY_LIST_COMMAND));
 	}
 	else
 #endif
@@ -288,9 +329,11 @@ void CTaskService::receiveConnection()
 	else
 		Response = "Unknown Command";
 
-	SendVariant(pSocket, Response, 2000);
+	SendXVariant(pSocket, Response, 2000);
     pSocket->waitForDisconnected(1000);
 }
+
+#endif
 
 bool CTaskService::CheckStatus(long Status)
 {
@@ -330,7 +373,9 @@ bool CTaskService::TaskAction(quint64 ProcessId, quint64 ThreadId, const QString
 	return false;	
 }
 
-long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data)
+#ifndef USE_TASK_HELPER
+
+qint32 CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data)
 {
 #ifdef WIN32
     NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
@@ -370,9 +415,13 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, cons
 		}
 		else if (NT_SUCCESS(status = PhOpenProcess(&processHandle, PROCESS_SET_INFORMATION, (HANDLE)ProcessId)))
 		{
-			if (Action == "SetPriority")
+			if (Action == "SetPriorityBoost")
 			{
-				status = PhSetProcessPriority(processHandle, (UCHAR)Data.toUInt());
+				status = PhSetProcessPriorityBoost(processHandle, Data.toBool());
+			}
+			else if (Action == "SetPriority")
+			{
+				status = PhSetProcessPriorityClass(processHandle, (UCHAR)Data.toUInt());
 			}
 			else if (Action == "SetPagePriority")
 			{
@@ -396,7 +445,7 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, const QString& Action, cons
 #endif
 }
 
-long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
+qint32 CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QString& Action, const QVariant& Data)
 {
 #ifdef WIN32
     NTSTATUS status = STATUS_INVALID_PARAMETER; // unknown action
@@ -426,7 +475,11 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QSt
 	{
 		if (NT_SUCCESS(status = PhOpenThread(&threadHandle, THREAD_SET_INFORMATION, (HANDLE)ThreadId)))
 		{
-			if (Action == "SetPriority")
+			if (Action == "SetPriorityBoost")
+			{
+				status = PhSetThreadPriorityBoost(threadHandle, Data.toBool());
+			}
+			else if (Action == "SetPriority")
 			{
 				status = PhSetThreadBasePriority(threadHandle, Data.toInt());
 			}
@@ -452,6 +505,8 @@ long CTaskService::ExecTaskAction(quint64 ProcessId, quint64 ThreadId, const QSt
 #endif
 }
 
+#endif
+
 bool CTaskService::ServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
 {
 	QString SocketName = CTaskService::RunWorker();
@@ -475,7 +530,9 @@ bool CTaskService::ServiceAction(const QString& Name, const QString& Action, con
 	return false;	
 }
 
-long CTaskService::ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
+#ifndef USE_TASK_HELPER
+
+qint32 CTaskService::ExecServiceAction(const QString& Name, const QString& Action, const QVariant& Data)
 {
 #ifdef WIN32
     NTSTATUS status = 0;
@@ -534,44 +591,19 @@ long CTaskService::ExecServiceAction(const QString& Name, const QString& Action,
 #endif
 }
 
-QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Command, int timeout)
+#endif // !USE_TASK_HELPER
+
+QString CTaskService::FindWorkerBinary(bool b32Bit)
 {
-    QLocalSocket Socket;
-
-    bool Ok = false;
-    for(int i = 0; i < 2; i++) 
-	{
-        Socket.connectToServer(socketName);
-        Ok = Socket.waitForConnected(timeout == -1 ? 30000 : timeout/2);
-        if (Ok)
-            break;
-		QThread::msleep(255);
-    }
-
-	if (!Ok || !SendVariant(&Socket, Command, timeout))
-		return QVariant(); // invalid variant means communication failed
-
-	QVariant Response = RecvVariant(&Socket, timeout);
-#ifdef _DEBUG
-	ASSERT(Response.toString() != "Unknown Command");
-#endif
-	return Response;
-}
-
-#ifdef WIN64
-QString CTaskService::RunWorker(bool bElevanted, bool b32Bit)
-#else
-QString CTaskService::RunWorker(bool bElevanted)
-#endif
-{
-	QMutexLocker Locker(&m_Mutex);
-
-#ifdef WIN32
-	QString BinaryPath;
-#ifdef WIN64
+#ifdef _WIN64
 	if (b32Bit)
 	{
-		static char* relativeFileNames[] =
+#ifdef USE_TASK_HELPER	
+		QString AppDir = QApplication::applicationDirPath();
+		QString HemperExe = AppDir + "/x86/TaskHelper.exe";
+		return HemperExe.replace("/", "\\");
+#else
+		static const char* relativeFileNames[] =
 		{
 			"\\x86\\TaskExplorer.exe",
 			"\\..\\x86\\TaskExplorer.exe",
@@ -589,26 +621,69 @@ QString CTaskService::RunWorker(bool bElevanted)
 			QString TestPath = QDir::cleanPath(AppDir + relativeFileNames[i]);
 			if (QFile::exists(TestPath))
 			{
-				BinaryPath = TestPath.replace("/", "\\");
-				break;
+				return TestPath.replace("/", "\\");
 			}
 		}
 
-		if (BinaryPath.isEmpty())
-			return QString();
+		return QString(); // Not found
+#endif // USE_TASK_HELPER
 	}
 	else
-#endif
+#endif // _WIN64
 	{
-		wchar_t szPath[MAX_PATH];
-		if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
-			return false;
-		BinaryPath = QString::fromWCharArray(szPath);
+#ifdef USE_TASK_HELPER	
+		QString AppDir = QApplication::applicationDirPath();
+		QString HemperExe = AppDir + "/TaskHelper.exe";
+		return HemperExe.replace("/", "\\");
+#else
+		return QApplication::applicationFilePath();
+#endif // USE_TASK_HELPER
 	}
+}
+
+QVariant CTaskService::SendCommand(const QString& socketName, const QVariant &Command, int timeout)
+{
+    QLocalSocket Socket;
+
+    bool Ok = false;
+    for(int i = 0; i < 4; i++)
+	{
+        Socket.connectToServer(socketName);
+        Ok = Socket.waitForConnected(timeout == -1 ? 30000 : timeout/2);
+        if (Ok)
+            break;
+		QThread::msleep(250);
+    }
+
+	if (!Ok)
+		return QVariant(); // Connection failed
+
+	// Use XVariant protocol (both TaskHelper and legacy TaskExplorer service modes)
+	if (!SendXVariant(&Socket, Command, timeout))
+		return QVariant(); // Send failed
+
+	QVariant Response = RecvXVariant(&Socket, timeout);
+
+#ifdef _DEBUG
+	ASSERT(Response.toString() != "Unknown Command");
+#endif
+
+	Socket.disconnectFromServer();
+	return Response;
+}
+
+QString CTaskService::RunWorker(bool bElevanted, bool b32Bit)
+{
+	QMutexLocker Locker(&m_Mutex);
+
+#ifdef WIN32
+	QString BinaryPath = FindWorkerBinary(b32Bit);
+	if (BinaryPath.isEmpty())
+		return QString();
 
 	QString SocketName;
 	{
-#ifdef WIN64
+#ifdef _WIN64
 		if (b32Bit)
 			SocketName = m_TempSocket32;
 		else
@@ -626,9 +701,9 @@ QString CTaskService::RunWorker(bool bElevanted)
 	SocketName += "_" + GetRand64Str();
 
 	std::wstring Arguments = L"-wrk \"" + SocketName.toStdWString() + L"\"";
-#if 0
-	Arguments.append(L" -timeout 50000");
-	Arguments.append(L" -dbg_wait");
+#if _DEBUG
+	//Arguments.append(L" -timeout 50000");
+	//Arguments.append(L" -dbg_wait");
 #else
 	Arguments.append(L" -timeout 5000");
 #endif
@@ -641,17 +716,19 @@ QString CTaskService::RunWorker(bool bElevanted)
 	if (ProcessHandle == NULL)
 		return QString();
 
-#ifdef WIN64
+#ifdef _WIN64
 	if (b32Bit)
 		m_TempSocket32 = SocketName;
 	else
 #endif
 		m_TempSocket = SocketName;
 
-	return SocketName;
+	if (SendCommand(SocketName, "Refresh", 1000).toBool() == true)
+		return SocketName;
 #else
-	return QString(); // linux-todo:
+	// linux-todo:
 #endif
+	return QString();
 }
 
 void CTaskService::TerminateWorkers()
@@ -663,7 +740,7 @@ void CTaskService::TerminateWorkers()
 
 	if (!m_TempSocket.isEmpty())
 		Terminate(m_TempSocket);
-#ifdef WIN64
+#ifdef _WIN64
 	if (!m_TempSocket32.isEmpty())
 		Terminate(m_TempSocket32);
 #endif
@@ -700,7 +777,11 @@ QString CTaskService::RunService()
 	{
 		if (!m_TempName.isEmpty())
 		{
+#ifdef _DEBUG
+			if (SendCommand(m_TempName, "Refresh", INFINITE).toBool() == true)
+#else
 			if (SendCommand(m_TempName, "Refresh", 500).toBool() == true)
+#endif
 				return m_TempName;
 		}
 	}
@@ -723,10 +804,9 @@ bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 
 	if (BinaryPath.isEmpty())
 	{
-		wchar_t szPath[MAX_PATH];
-		if (!GetModuleFileName(NULL, szPath, ARRAYSIZE(szPath)))
+		BinaryPath = FindWorkerBinary(false); // Service always runs native architecture
+		if (BinaryPath.isEmpty())
 			return false;
-		BinaryPath = QString::fromWCharArray(szPath);
 	}
 
 	if (!IsElevated())
@@ -761,9 +841,9 @@ bool CTaskService::RunService(const QString& ServiceName, QString BinaryPath)
 			return false; //PhGetLastWin32ErrorAsNtStatus();
 
 		std::wstring CommandLine = L"\"" + BinaryPath.toStdWString() + L"\" -svc \"" + ServiceName.toStdWString() + L"\"";
-#if 0
+#if _DEBUG
 		CommandLine.append(L" -timeout 50000");
-		CommandLine.append(L" -dbg_wait");
+		//CommandLine.append(L" -dbg_wait");
 #else
 		CommandLine.append(L" -timeout 5000");
 #endif

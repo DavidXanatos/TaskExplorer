@@ -35,6 +35,8 @@ struct SJobStats
 class CWinJob : public CAbstractInfo
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CWinJob)
 public:
 	CWinJob(QObject *parent = nullptr);
 	virtual ~CWinJob();

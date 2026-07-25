@@ -2,7 +2,7 @@
 #include "../TaskExplorer.h"
 #include "TokenView.h"
 #include "TaskInfoWindow.h"
-#include "../API/Windows/ProcessHacker.h"
+#include "../../API/Windows/ProcessHacker.h"
 #undef GetUserName
 
 CTokenView::CTokenView(QWidget *parent)
@@ -75,7 +75,7 @@ CTokenView::CTokenView(QWidget *parent)
 	// Variables List
 	m_pTokenList = new QTreeWidgetEx();
 	m_pTokenList->setItemDelegate(theGUI->GetItemDelegate());
-	m_pTokenList->setHeaderLabels(tr("Name|Status|Description|SID").split("|"));
+	m_pTokenList->setHeaderLabels(tr("Name|Status|Description|SID|Type|Use").split("|"));
 	m_pTokenList->setMinimumHeight(50);
 
 	m_pTokenList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -154,9 +154,9 @@ CTokenView::CTokenView(QWidget *parent)
 		m_pAdvTrustLevel->addChild(m_pAdvTrustLevelName);
 	m_pAdvLogon = new QTreeWidgetItem(tr("Logon").split("|"));
 	m_pAdvanced->GetTree()->addTopLevelItem(m_pAdvLogon);
-		m_pAdvLogonSID = new QTreeWidgetItem(tr("Token login name").split("|"));
+		m_pAdvLogonSID = new QTreeWidgetItem(tr("Token login SID").split("|"));
 		m_pAdvLogon->addChild(m_pAdvLogonSID);
-		m_pAdvLogonName = new QTreeWidgetItem(tr("Token login SID").split("|"));
+		m_pAdvLogonName = new QTreeWidgetItem(tr("Token login name").split("|"));
 		m_pAdvLogon->addChild(m_pAdvLogonName);
 	m_pAdvProfile = new QTreeWidgetItem(tr("Profile").split("|"));
 	m_pAdvanced->GetTree()->addTopLevelItem(m_pAdvProfile);
@@ -282,6 +282,7 @@ CTokenView::CTokenView(QWidget *parent)
 	m_pIntegrity->addItem(tr("Protected"), MandatorySecureProcessRID);
 	m_pIntegrity->addItem(tr("System"), MandatorySystemRID);
 	m_pIntegrity->addItem(tr("High"), MandatoryHighRID);
+	m_pIntegrity->addItem(tr("Medium +"), MandatoryMediumPlusRID);
 	m_pIntegrity->addItem(tr("Medium"), MandatoryMediumRID);
 	m_pIntegrity->addItem(tr("Low"), MandatoryLowRID);
 	m_pIntegrity->addItem(tr("Untrusted"), MandatoryUntrustedRID);
@@ -554,7 +555,32 @@ void CTokenView::UpdateGeneral()
 				sSID = CastPhString(stringUserSid);
 
 			pItem->setText(eSID, sSID);
+
 			pItem->setText(eDescription, CWinToken::GetGroupDescription(Group.Attributes));
+
+			pItem->setText(eType, QString::fromWCharArray(PhGetSidAccountTypeString((PSID)Group.Sid.data())));
+
+			SID_NAME_USE sidUse;
+			if (NT_SUCCESS(PhLookupSid((PSID)Group.Sid.data(), NULL, NULL, &sidUse)))
+			{
+				QString Use;
+				switch (sidUse)
+				{
+				case SidTypeUser:				Use = tr("User"); break;
+				case SidTypeGroup:				Use = tr("Group"); break;
+				case SidTypeDomain:				Use = tr("Domain"); break;
+				case SidTypeAlias:				Use = tr("Alias"); break;
+				case SidTypeWellKnownGroup:		Use = tr("Well Known Group"); break;
+				case SidTypeDeletedAccount:		Use = tr("Deleted Account"); break;
+				case SidTypeInvalid:			Use = tr("Yes (Limited)"); break;
+				case SidTypeUnknown:			Use = tr("Unknown"); break;
+				case SidTypeComputer:			Use = tr("Computer"); break;
+				case SidTypeLabel:				Use = tr("Label"); break;
+				case SidTypeLogonSession:		Use = tr("Logon Session"); break;
+				}
+				pItem->setText(eUse, Use);
+			}
+
 			if(Group.Restricted)
 				m_pRestrictingSIDs->addChild(pItem);
 			else
@@ -576,8 +602,13 @@ void CTokenView::UpdateGeneral()
 	m_pGroups->setHidden(m_pGroups->childCount() == 0);
 	m_pRestrictingSIDs->setHidden(m_pRestrictingSIDs->childCount() == 0);
 
-	if (m_pFinder->GetRegExp().isValid())
-		SetFilter(m_pFinder->GetRegExp());
+	if(m_pFinder->isVisible())
+		CPanelWidgetEx::ApplyFilter(m_pTokenList, m_pFinder->isVisible() ? &m_pFinder->GetSearchExp() : NULL);
+}
+
+void CTokenView::SetFilter(const QRegularExpression& Exp, int iOptions, int Col)
+{
+	CPanelWidgetEx::ApplyFilter(m_pTokenList, &Exp);
 }
 
 void CTokenView::UpdateAdvanced()
@@ -951,9 +982,4 @@ void CTokenView::OnLinkedToken()
 		pTokenView->ShowToken(pLinkedToken);
 		pTaskInfoWindow->show();
 	}
-}
-
-void CTokenView::SetFilter(const QRegularExpression& Exp, bool bHighLight, int Col)
-{
-	CPanelWidgetEx::ApplyFilter(m_pTokenList, Exp/*, bHighLight, Col*/);
 }

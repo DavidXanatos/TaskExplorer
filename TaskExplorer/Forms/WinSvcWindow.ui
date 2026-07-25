@@ -202,7 +202,7 @@
            <item row="2" column="0">
             <widget class="QLabel" name="label_10">
              <property name="text">
-              <string>Subsequent faulures:</string>
+              <string>Subsequent failures:</string>
              </property>
             </widget>
            </item>

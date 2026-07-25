@@ -40,7 +40,7 @@ private slots:
 	void					OnServiceListUpdated(QSet<QString> Added, QSet<QString> Changed, QSet<QString> Removed);
 
 	void					OnServiceAction();
-	void					OnDoubleClicked(const QModelIndex& Index);
+	void					OnDoubleClicked();
 
 private:
 	QVBoxLayout*			m_pMainLayout;
@@ -50,6 +50,7 @@ private:
 	QSortFilterProxyModel*	m_pSortProxy;
 
 
+	QAction*				m_pMenuOpen;
 	QAction*				m_pMenuStart;
 	QAction*				m_pMenuContinue;
 	QAction*				m_pMenuPause;
@@ -60,5 +61,6 @@ private:
 	QAction*				m_pMenuOpenKey;
 	QAction*				m_pMenuKernelServices;
 #endif
+	QAction*				m_pMenuOpenProcess;
 };
 

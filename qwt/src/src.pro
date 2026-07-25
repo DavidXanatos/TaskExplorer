@@ -26,7 +26,7 @@ contains(QWT_CONFIG, QwtDll) {
     CONFIG += dll
     win32|symbian: DEFINES += QT_DLL QWT_DLL QWT_MAKEDLL
 
-    unix:!macx {
+    unix:!macx:!android {
         !isEmpty( QMAKE_LFLAGS_SONAME ) {
     
             # we increase the SONAME for every minor number

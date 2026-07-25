@@ -7,6 +7,7 @@ class CHandleInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CHandleInfo)
 public:
 	CHandleInfo(QObject *parent = nullptr);
 	virtual ~CHandleInfo();

@@ -143,8 +143,10 @@ void Plot::setSettings( const Settings& s )
 
     m_curve->setPaintAttribute( QwtPlotCurve::ClipPolygons,
         s.curve.paintAttributes & QwtPlotCurve::ClipPolygons );
+
     m_curve->setPaintAttribute( QwtPlotCurve::FilterPoints,
         s.curve.paintAttributes & QwtPlotCurve::FilterPoints );
+
     m_curve->setPaintAttribute( QwtPlotCurve::FilterPointsAggressive,
         s.curve.paintAttributes & QwtPlotCurve::FilterPointsAggressive );
 
@@ -178,6 +180,9 @@ void Plot::setSettings( const Settings& s )
             setCanvas( plotCanvas );
         }
 #endif
+
+        plotCanvas->setPaintAttribute(
+            QwtPlotAbstractGLCanvas::ImmediatePaint, s.canvas.immediatePaint );
     }
     else
 #endif
@@ -197,6 +202,7 @@ void Plot::setSettings( const Settings& s )
 
         plotCanvas->setPaintAttribute(
             QwtPlotCanvas::BackingStore, s.canvas.useBackingStore );
+
         plotCanvas->setPaintAttribute(
             QwtPlotCanvas::ImmediatePaint, s.canvas.immediatePaint );
     }

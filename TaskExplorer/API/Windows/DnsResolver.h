@@ -7,6 +7,8 @@ class CDnsResolverJob;
 class CDnsResolver: public QThread
 {
 	Q_OBJECT
+
+	TRACK_OBJECT(CDnsResolver)
 public:
 	CDnsResolver(QObject* parent = NULL);
 	~CDnsResolver();
@@ -59,6 +61,7 @@ class CDnsResolverJob : public QObject
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CDnsResolverJob)
 protected:
 	friend class CDnsResolver;
 

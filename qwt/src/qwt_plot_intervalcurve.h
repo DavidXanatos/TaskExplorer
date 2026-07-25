@@ -71,7 +71,28 @@ class QWT_EXPORT QwtPlotIntervalCurve
         ClipPolygons = 0x01,
 
         //! Check if a symbol is on the plot canvas before painting it.
-        ClipSymbol   = 0x02
+        ClipSymbol   = 0x02,
+
+        /*!
+           Fill the tube with horizontal or vertical lines and unite
+           overlapping border lines. This attribute is useful for large
+           data sets, where consecutive samples are often mapped to the same
+           coordinate.
+
+           Beside other minor visual differences the filling is always
+           monochrome - using brush().color().
+
+           This algorithm is very fast and effective and can be used inside
+           a replot cycle. In the worst case the number of lines to be rendered
+           will be 5 times the ( width/height - depending on the orientation() )
+           of the plot canvas.
+
+           \note Has only an effect, when drawing to a paint device
+                 in integer coordinates ( f.e. all widgets on screen ).
+
+           \sa QwtPlotCurve::FilterPointsAggressive
+         */
+        TubeAsLines = 0x10
     };
 
     Q_DECLARE_FLAGS( PaintAttributes, PaintAttribute )

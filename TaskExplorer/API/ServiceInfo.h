@@ -8,6 +8,7 @@ class CServiceInfo: public CAbstractInfoEx
 {
 	Q_OBJECT
 
+	TRACK_OBJECT(CServiceInfo)
 public:
 	CServiceInfo(QObject *parent = nullptr);
 	virtual ~CServiceInfo();

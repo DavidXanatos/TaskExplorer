@@ -48,6 +48,7 @@ typedef struct _PHP_HEXEDIT_CONTEXT
     LONG NullWidth;
     PWCHAR CharBuffer;
     ULONG CharBufferLength;
+    LONG WindowDpi;
     BOOLEAN Update;
 
     LONG HexOffset;
@@ -67,8 +68,8 @@ typedef struct _PHP_HEXEDIT_CONTEXT
 #define REDRAW_WINDOW(hwnd) \
     RedrawWindow((hwnd), NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE)
 
-VOID PhpCreateHexEditContext(
-    _Out_ PPHP_HEXEDIT_CONTEXT *Context
+PPHP_HEXEDIT_CONTEXT PhpCreateHexEditContext(
+    VOID
     );
 
 VOID PhpFreeHexEditContext(
