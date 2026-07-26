@@ -85,6 +85,13 @@ QString	LinuxLastElevationError();
 //
 bool	LinuxElevationChildAlive(qint64 Pid, int* pExitCode = nullptr);
 
+//
+// Whether that child has got past the authentication and is now running as root.
+// "Still alive" is not the same thing: it is also true of a process sitting on a
+// prompt nobody has answered yet.
+//
+bool	LinuxElevationChildIsElevated(qint64 Pid);
+
 bool	LinuxHelperNeeded();
 
 //

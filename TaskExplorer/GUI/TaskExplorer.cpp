@@ -1335,18 +1335,6 @@ void CTaskExplorer::OnElevate()
 	}
 
 	//
-	// Do not exit yet. The helper is still showing its authentication prompt,
-	// and if the user cancels it there would be nothing left running.
-	//
-	// Instead give it a moment and check whether the process is still alive:
-	// a cancelled or failed authentication makes the helper exit almost
-	// immediately, whereas a successful one leaves it running (and it then
-	// becomes the elevated TaskExplorer).
-	//
-	// A user who takes longer than this to type their password will see this
-	// instance close first; that is the lesser problem of the two.
-	//
-	//
 	// A pid of zero means elevation went through a terminal, so what started was
 	// the terminal and the elevated instance only exists once a password has been
 	// typed. There is nothing to test the liveness of, and closing this instance
@@ -1360,32 +1348,77 @@ void CTaskExplorer::OnElevate()
 		return;
 	}
 
-	QTimer::singleShot(2500, this, [this, Pid]() {
+	//
+	// Wait for the authentication to succeed before closing this instance, and do
+	// not guess at how long that takes.
+	//
+	// pkexec names its *parent* as the polkit subject, so exiting while the prompt
+	// is still on screen invalidates the whole request: the prompt vanishes and no
+	// elevated process is ever started. A fixed short delay did exactly that to
+	// anyone who took longer than a couple of seconds to type a password - both
+	// windows disappeared and nothing came back.
+	//
+	// "Still alive" cannot be the signal either, since that is equally true of a
+	// process sitting on an unanswered prompt. What is observable is the uid: see
+	// LinuxElevationChildIsElevated.
+	//
+	const qint64 Deadline = QDateTime::currentMSecsSinceEpoch() + 180 * 1000;
+
+	QTimer* pWait = new QTimer(this);
+	pWait->setInterval(400);
+
+	connect(pWait, &QTimer::timeout, this, [this, pWait, Pid, Deadline]() {
 		int ExitCode = 0;
-		if (LinuxElevationChildAlive(Pid, &ExitCode))
+		const bool bAlive = LinuxElevationChildAlive(Pid, &ExitCode);
+
+		if (bAlive && LinuxElevationChildIsElevated(Pid))
 		{
-			// Past the authentication and still running, so it is the elevated
-			// instance now and this one is redundant.
+			// Authenticated and running as root; this instance is redundant.
+			pWait->stop();
+			pWait->deleteLater();
 			OnExit();
 			return;
 		}
 
-		//
-		// It died. The escalation helper's own stderr says why - typically that
-		// polkit has no authentication agent to prompt with, which no amount of
-		// retrying will fix - so it is shown instead of being guessed at.
-		//
-		QString Message = tr("Could not restart elevated. The authentication prompt was cancelled, or the "
-		                     "elevated process failed to start.");
+		if (!bAlive)
+		{
+			pWait->stop();
+			pWait->deleteLater();
 
-		const QString Reason = LinuxLastElevationError();
-		if (!Reason.isEmpty())
-			Message += "\n\n" + Reason;
-		else if (ExitCode != 0)
-			Message += "\n\n" + tr("The helper exited with code %1.").arg(ExitCode);
+			//
+			// It died without ever becoming root: cancelled, refused, or unable to
+			// start. The helper's own stderr says which, so it is shown rather
+			// than guessed at.
+			//
+			QString Message = tr("Could not restart elevated. The authentication prompt was cancelled, or the "
+			                     "elevated process failed to start.");
 
-		QMessageBox::warning(this, "TaskExplorer", Message);
+			const QString Reason = LinuxLastElevationError();
+			if (!Reason.isEmpty())
+				Message += "\n\n" + Reason;
+			else if (ExitCode != 0)
+				Message += "\n\n" + tr("The helper exited with code %1.").arg(ExitCode);
+
+			QMessageBox::warning(this, "TaskExplorer", Message);
+			return;
+		}
+
+		//
+		// Still waiting on the prompt. Eventually stop watching rather than poll
+		// for ever, and leave this instance running - it is the only one there is.
+		//
+		if (QDateTime::currentMSecsSinceEpoch() > Deadline)
+		{
+			pWait->stop();
+			pWait->deleteLater();
+
+			QMessageBox::information(this, "TaskExplorer",
+				tr("Still waiting for authentication. If the elevated Task Explorer starts, "
+				   "you can close this one."));
+		}
 	});
+
+	pWait->start();
 #endif
 }
 

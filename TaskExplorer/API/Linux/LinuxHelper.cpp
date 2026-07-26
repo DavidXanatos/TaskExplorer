@@ -783,6 +783,33 @@ bool LinuxElevationChildAlive(qint64 Pid, int* pExitCode)
 	return false;
 }
 
+//
+// Whether the elevation child has actually become root.
+//
+// While pkexec is authenticating it is still pkexec: a setuid-root binary, so the
+// child shows our real uid with an effective uid of 0. Only when authentication
+// succeeds and it execs the target does the *real* uid become 0 as well. So the
+// first field of the Uid line says whether the password has been accepted, which
+// is otherwise not observable from here - a process that is merely "still alive"
+// could equally be one sitting on an unanswered prompt.
+//
+bool LinuxElevationChildIsElevated(qint64 Pid)
+{
+	const QMap<QString, QString> Status = ProcFs::ReadStatus((quint64)Pid);
+
+	// "Uid:  real  effective  saved  fs", tab separated.
+	const QString Uids = Status.value("Uid");
+	if (Uids.isEmpty())
+		return false;
+
+	const QStringList Fields = Uids.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+	if (Fields.isEmpty())
+		return false;
+
+	bool bOk = false;
+	return Fields.first().toUInt(&bOk) == 0 && bOk;
+}
+
 STATUS LinuxRunElevated(const QString& Program, const QStringList& Arguments, qint64* pPid)
 {
 	if (pPid)
