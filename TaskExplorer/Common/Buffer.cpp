@@ -3,6 +3,8 @@
 //#include "../zlib/zlib.h"
 #ifdef WIN32
 #include <Windows.h>
+#undef min
+#undef max
 #endif
 #include <algorithm>
 #include "Exception.h"

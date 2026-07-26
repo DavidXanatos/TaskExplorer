@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Strings.h"
-// vswprintf_l is an MSVC extension; MiscHelpers supplies a replacement.
-#include "../../MiscHelpers/Common/Common.h"
+// vswprintf_l is an MSVC extension; MiscHelpers supplies a Qt-free replacement.
+#include "../../MiscHelpers/Common/Compat.h"
 #ifdef WIN32
 #include <wchar.h>
 #include <Windows.h>
