@@ -198,16 +198,21 @@ jobs:
 
       #
       # 32-bit build, for the x86\TaskHelper.exe that lets the 64-bit GUI read
-      # 32-bit processes. TaskHelper.vcxproj uses no Qt, so this needs none of the
-      # above - but it is built through the same solution to pick up the libraries
-      # it links.
+      # 32-bit processes.
       #
-      - name: Build TaskExplorer Win32
-        run: >
-          msbuild /t:build TaskExplorer+Libs.sln
-          /p:Configuration="Release" /p:Platform=Win32
-          /p:QtMsBuild="${{ env.QtMsBuild }}"
-          /p:QtInstall="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
+      # Built from TaskHelper.sln rather than TaskExplorer+Libs.sln: the latter
+      # would drag in every Qt library and TaskExplorer.exe itself for Win32,
+      # none of which is shipped for 32-bit and none of which builds here - only
+      # a 64-bit Qt is installed. TaskHelper.vcxproj itself uses no Qt, so this
+      # step needs none of the Qt properties above; it links only phlib
+      # (Release32), which the SystemInformer step already produced.
+      #
+      # TaskHelper.sln sits at the repository root so $(SolutionDir) is
+      # unchanged, and the binary still lands in Win32\Release where
+      # copy_build.cmd looks for it.
+      #
+      - name: Build TaskHelper32
+        run: msbuild /t:build TaskHelper.sln /p:Configuration="Release" /p:Platform=Win32
 
       - name: Fetch OpenSSL
         working-directory: Installer
