@@ -144,6 +144,37 @@ jobs:
             ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.pdb
 
       #
+      # The System Informer libraries TaskExplorer links against. They are not
+      # part of TaskExplorer+Libs.sln, so nothing in that solution builds them
+      # and the link fails on the missing phlib.lib / kphlib_um.lib /
+      # thirdparty.lib unless they are produced here first.
+      #
+      # Order matters: thirdparty.lib and kphlib_um.lib are inputs to phlib
+      # (see the AdditionalDependencies in phlib.vcxproj), and SystemInformer.sln
+      # already declares phlib -> kphlib, so only thirdparty has to be built as a
+      # separate step.
+      #
+      # Both architectures the application is built for are needed - x64 for
+      # TaskExplorer.exe and Win32 for the x86 TaskHelper.exe. ARM64 is not,
+      # since no ARM64 application is built.
+      #
+      # thirdparty.sln names its 32-bit solution platform "x86" while
+      # SystemInformer.sln names it "Win32"; both map to the Win32 project
+      # platform, hence the different /p:Platform values below.
+      #
+      - name: Build thirdparty x64
+        run: msbuild /t:build ProcessHacker\tools\thirdparty\thirdparty.sln /p:Configuration="Release" /p:Platform=x64
+
+      - name: Build thirdparty x86
+        run: msbuild /t:build ProcessHacker\tools\thirdparty\thirdparty.sln /p:Configuration="Release" /p:Platform=x86
+
+      - name: Build SystemInformer libs x64
+        run: msbuild /t:build ProcessHacker\SystemInformer.sln /p:Configuration="Release" /p:Platform=x64
+
+      - name: Build SystemInformer libs Win32
+        run: msbuild /t:build ProcessHacker\SystemInformer.sln /p:Configuration="Release" /p:Platform=Win32
+
+      #
       # The application and its helper libraries.
       #
       # QtInstall is overridden with the Qt *directory* rather than the version
