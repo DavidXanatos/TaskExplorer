@@ -19,6 +19,10 @@ For users who need more screen space, the **System Info Panel** can be fully col
 ![image](./.github/images/thread_view.png)
 ![image](./.github/images/handle_view.png)
 
+The same application on Linux. The **Pressure** graph, the **Daemons** tab and the **Control Group** and **Security** panels have no Windows counterpart, and the process tree follows the systemd hierarchy:
+
+![image](./.github/images/linux_view.png)
+
 ## Linux
 
 The Linux port is a native backend, not a compatibility layer: processes, threads, open files, modules, memory maps and windows come from `/proc`, sockets from `sock_diag` netlink, services from systemd over D-Bus, and thread stack traces are unwound with libdwfl from elfutils, complete with symbol offsets and `file:line` where debug information is available.
