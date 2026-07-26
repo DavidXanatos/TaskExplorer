@@ -336,17 +336,20 @@ quint64 GetCurCycle()
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ucontext.h>
 
 static wchar_t s_szMiniDumpName[64];
 
-/* This structure mirrors the one found in /usr/include/asm/ucontext.h */
-typedef struct _sig_ucontext {
-    unsigned long     uc_flags;
-    struct ucontext   *uc_link;
-    stack_t           uc_stack;
-    struct sigcontext uc_mcontext;
-    sigset_t          uc_sigmask;
-} sig_ucontext_t;
+/*
+ * The hand-written copy of ucontext that used to live here has been removed in
+ * favour of the real ucontext_t from <ucontext.h>.
+ *
+ * It described the x86 layout - uc_flags, uc_link, uc_stack, uc_mcontext,
+ * uc_sigmask - and that is not the layout everywhere: on aarch64 glibc puts
+ * uc_sigmask *before* uc_mcontext. Reading the program counter through the copy
+ * would therefore have found it at the wrong offset and written a meaningless
+ * address into the crash log, without any warning at compile time.
+ */
 
 void crit_err_hdlr(int sig_num, siginfo_t * info, void * ucontext)
 {
@@ -354,17 +357,32 @@ void crit_err_hdlr(int sig_num, siginfo_t * info, void * ucontext)
     void *             caller_address;
     char **            messages;
     int                size, i;
-    sig_ucontext_t *   uc;
+    ucontext_t *       uc;
 
-    uc = (sig_ucontext_t *)ucontext;
+    uc = (ucontext_t *)ucontext;
 
-    /* Get the address at the time the signal was raised */
-#if defined(__i386__) // gcc specific
-    caller_address = (void *) uc->uc_mcontext.eip; // EIP: x86 specific
-#elif defined(__x86_64__) // gcc specific
-    caller_address = (void *) uc->uc_mcontext.rip; // RIP: x86_64 specific
+    /*
+     * The program counter at the moment the signal was raised. Which field
+     * holds it is architecture specific.
+     *
+     * An unknown architecture falls back to the faulting address rather than
+     * failing the build, which is what the #error here used to do - it meant a
+     * crash-reporting nicety stopped the whole application from compiling on
+     * aarch64. si_addr is the same thing for most SIGSEGVs and a reasonable
+     * approximation otherwise; either way the backtrace below is unaffected.
+     */
+#if defined(__x86_64__)
+    caller_address = (void *) uc->uc_mcontext.gregs[REG_RIP];
+#elif defined(__i386__)
+    caller_address = (void *) uc->uc_mcontext.gregs[REG_EIP];
+#elif defined(__aarch64__)
+    caller_address = (void *) uc->uc_mcontext.pc;
+#elif defined(__arm__)
+    caller_address = (void *) uc->uc_mcontext.arm_pc;
+#elif defined(__riscv)
+    caller_address = (void *) uc->uc_mcontext.__gregs[REG_PC];
 #else
-#error Unsupported architecture. // TO-DO: Add support for other arch.
+    caller_address = info->si_addr;
 #endif
 
     fprintf(stderr, "signal %d (%s), address is %p from %p\n",
