@@ -37,8 +37,12 @@ jobs:
 
       #
       # Qt VS Tools version whose MSBuild targets are used; see the step below.
+      # Taken from Qt's own download server, not the Visual Studio Marketplace -
+      # the marketplace asset API needs an exact published version and returns
+      # ExtensionAssetNotFoundException for anything else, whereas
+      # download.qt.io/official_releases/vsaddin keeps every release addressable.
       #
-      QT_VSTOOLS_VERSION: 3.3.0
+      QT_VSTOOLS_VERSION: 3.5.0
 
       TE_CI: 1
 
@@ -85,30 +89,31 @@ jobs:
       - name: Provide Qt VS Tools MSBuild targets
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+
           $vendored = Join-Path $env:GITHUB_WORKSPACE 'QtMsBuild'
           if (Test-Path (Join-Path $vendored 'qt.targets')) {
-            Write-Host "Using QtMsBuild committed to the repository"
+            Write-Host "Using the QtMsBuild committed to the repository"
           }
           else {
-            $dest = Join-Path $env:RUNNER_TEMP 'QtMsBuild'
-            $vsix = Join-Path $env:RUNNER_TEMP 'qtvstools.vsix'
-            $url  = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/TheQtCompany" +
-                    "/vsextensions/QtVisualStudioTools2022/$env:QT_VSTOOLS_VERSION/vspackage"
+            $ver  = $env:QT_VSTOOLS_VERSION
+            $url  = "https://download.qt.io/official_releases/vsaddin/$ver/qt-vsaddin-msvc2022-x64-$ver.vsix"
+            $zip  = Join-Path $env:RUNNER_TEMP 'qt-vsaddin.zip'
+            $out  = Join-Path $env:RUNNER_TEMP 'qt-vsaddin'
 
-            Write-Host "Downloading Qt VS Tools $env:QT_VSTOOLS_VERSION"
-            Invoke-WebRequest -Uri $url -OutFile $vsix -UseBasicParsing
+            Write-Host "Downloading $url"
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
 
-            $extract = Join-Path $env:RUNNER_TEMP 'vsix'
-            Rename-Item $vsix "$vsix.zip" -Force
-            Expand-Archive "$vsix.zip" -DestinationPath $extract -Force
+            # A .vsix is an ordinary zip, so the targets can be taken out of it
+            # without installing the extension. Expand-Archive insists on the
+            # .zip extension, hence the name above.
+            Expand-Archive -Path $zip -DestinationPath $out -Force
 
-            $src = Get-ChildItem $extract -Recurse -Filter 'qt.targets' |
-                   Select-Object -First 1
-            if (-not $src) { throw "qt.targets not found inside the extension" }
-
-            New-Item -ItemType Directory -Force -Path $dest | Out-Null
-            Copy-Item (Join-Path $src.DirectoryName '*') $dest -Recurse -Force
-            $vendored = $dest
+            $src = Join-Path $out 'QtMSBuild'
+            if (-not (Test-Path (Join-Path $src 'qt.targets'))) {
+              throw "qt.targets not found in $src - the extension layout changed"
+            }
+            $vendored = $src
           }
 
           Write-Host "QtMsBuild = $vendored"
@@ -139,18 +144,26 @@ jobs:
             ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.pdb
 
       #
-      # The application and its helper libraries. QTDIR is passed explicitly and
-      # QtInstall blanked, because QtInstall names a Qt registered with the Visual
-      # Studio extension and nothing is registered on a runner; a command-line
-      # property overrides the one in the project file.
+      # The application and its helper libraries.
+      #
+      # QtInstall is overridden with the Qt *directory* rather than the version
+      # name the projects carry (6.8.3_msvc2022_64). That name is a Qt registered
+      # with the Visual Studio extension, looked up under
+      # HKCU\Software\QtProject\QtVsTools\Versions, and nothing is registered on
+      # a hosted runner. qt_private.props accepts either form:
+      #
+      #     <QtInstallDir Condition="Exists('$(QtInstall)')">$(QtInstall)</QtInstallDir>
+      #
+      # so an existing path is taken as the installation directly, which avoids
+      # having to write registry keys. A /p: property is global and overrides the
+      # per-configuration value in the project file.
       #
       - name: Build TaskExplorer x64
         run: >
           msbuild /t:build TaskExplorer+Libs.sln
           /p:Configuration="Release" /p:Platform=x64
           /p:QtMsBuild="${{ env.QtMsBuild }}"
-          /p:QtInstall=
-          /p:QTDIR="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
+          /p:QtInstall="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
 
       #
       # 32-bit build, for the x86\TaskHelper.exe that lets the 64-bit GUI read
@@ -163,8 +176,7 @@ jobs:
           msbuild /t:build TaskExplorer+Libs.sln
           /p:Configuration="Release" /p:Platform=Win32
           /p:QtMsBuild="${{ env.QtMsBuild }}"
-          /p:QtInstall=
-          /p:QTDIR="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
+          /p:QtInstall="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
 
       - name: Fetch OpenSSL
         working-directory: Installer
@@ -173,6 +185,25 @@ jobs:
       - name: Fetch 7-Zip
         working-directory: Installer
         run: .\get_7zip.cmd
+
+      #
+      # copy_build.cmd folds Qt's own translations into translations.7z, reading
+      # them from Installer\qttranslations\qm - a folder the release process fills
+      # in by hand and which is not in the repository. Without it the archive
+      # holds only TaskExplorer's own .qm files and Qt's stock dialog strings stay
+      # English, so they are taken from the Qt that was just installed.
+      #
+      - name: Stage Qt translations
+        shell: pwsh
+        run: |
+          $qt = "${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64\translations"
+          New-Item -ItemType Directory -Force -Path Installer\qttranslations\qm | Out-Null
+          if (Test-Path $qt) {
+            Copy-Item "$qt\*.qm" Installer\qttranslations\qm\ -Force
+            Write-Host "staged $((Get-ChildItem Installer\qttranslations\qm).Count) .qm files"
+          } else {
+            Write-Warning "no translations directory at $qt"
+          }
 
       #
       # copy_build.cmd reads the drivers from Installer\Drivers\TaskExplorer_<arch>,
