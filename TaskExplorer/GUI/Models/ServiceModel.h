@@ -27,9 +27,14 @@ public:
 		eService = 0,
 		eStatus,
 		ePID,
-#ifdef WIN32
+		//
+		// Both are meaningful on either platform: the display name is systemd's
+		// unit Description, and the type is the unit suffix - which matters now
+		// that the list holds timers, sockets and mounts as well as services.
+		//
 		eDisplayName,
 		eType,
+#ifdef WIN32
 		eStartType,
 #endif
 		eFileName,

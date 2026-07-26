@@ -34,9 +34,9 @@ CStatsView::CStatsView(EView eView, QWidget *parent)
 	m_pMainLayout->addWidget(CFinder::AddFinder(m_pStatsList, this, true));
 	// 
 
-#ifdef WIN32
 	m_MonitorsETW = false;
 
+#ifdef WIN32
 	/*m_MmAddressesInitialized = false;
 	m_MmSizeOfPagedPoolInBytes = -1;
 	m_MmMaximumNonPagedPoolInBytes = -1;*/

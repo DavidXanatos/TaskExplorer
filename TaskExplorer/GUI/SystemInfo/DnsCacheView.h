@@ -27,6 +27,12 @@ private slots:
 	void					OnColumnsChanged();
 
 protected:
+	//
+	// Used to re-arm the DNS cache's polkit prompt when this view is opened; see
+	// the implementation.
+	//
+	virtual void				showEvent(QShowEvent* pEvent);
+
 	//virtual void				OnMenu(const QPoint& Point);
 	virtual QTreeView*			GetView()	{ return m_pDnsList; }
 	virtual QAbstractItemModel* GetModel()	{ return m_pSortProxy; }

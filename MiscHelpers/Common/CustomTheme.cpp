@@ -5,7 +5,9 @@
 #include "PanelView.h"
 #include <qsettings.h>
 
+#ifdef WIN32
 #include <wtypes.h>
+#endif
 
 bool CCustomTheme::m_DarkTheme = false;
 

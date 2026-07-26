@@ -60,6 +60,8 @@ private:
 #ifdef WIN32
 	QAction*				m_pMenuOpenKey;
 	QAction*				m_pMenuKernelServices;
+#else
+	QAction*				m_pMenuViewLog;		// journalctl for the unit
 #endif
 	QAction*				m_pMenuOpenProcess;
 };

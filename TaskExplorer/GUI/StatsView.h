@@ -46,9 +46,12 @@ protected:
 private:
 	EView					m_eView;
 
-#ifdef WIN32
+	// Whether a per-process network monitor is running, which decides if the
+	// send/receive rows have anything to show. Fed by ETW on Windows; on Linux
+	// there is no equivalent source yet, so it stays false.
 	bool					m_MonitorsETW;
 
+#ifdef WIN32
 	/*bool					m_MmAddressesInitialized;
 	quint64					m_MmSizeOfPagedPoolInBytes;
 	quint64					m_MmMaximumNonPagedPoolInBytes;*/

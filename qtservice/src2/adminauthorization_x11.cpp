@@ -42,6 +42,7 @@
 #include "adminauthorization.h"
 
 #include <QtCore/QFile>
+#include <QtCore/QRegularExpression>
 #include <QDebug>
 
 #include <QApplication>
@@ -174,7 +175,10 @@ bool AdminAuthorization::execute(QWidget *parent, const QString &program, const 
         //close writing end of pipe
         ::close(pipedData[1]);
 
-        QRegExp re(QLatin1String("[Pp]assword.*:"));
+        // QRegExp was removed in Qt 6; QRegularExpression is the replacement.
+        // Note the greedy ".*" is kept as-is to preserve the original matching
+        // behaviour against a su/sudo prompt.
+        QRegularExpression re(QLatin1String("[Pp]assword.*:"));
         QByteArray errData;
         flags = ::fcntl(masterFD, F_GETFD);
 //        if (flags != -1)
@@ -192,7 +196,7 @@ bool AdminAuthorization::execute(QWidget *parent, const QString &program, const 
                 errData.append(buf, errBytes);
             if (bytes > 0) {
                 const QString line = QString::fromLatin1(buf, bytes);
-                if (re.indexIn(line) != -1) {
+                if (re.match(line).hasMatch()) {
                     const QString password = getPassword(parent);
                     if (password.isEmpty()) {
                         QByteArray pwd = password.toLatin1();

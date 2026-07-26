@@ -4,6 +4,8 @@
 #include "../../MiscHelpers/Common/ItemChooser.h"
 #ifdef WIN32
 #include "../API/Windows/WindowsAPI.h"
+#else
+#include "../API/Linux/LinuxAPI.h"
 #endif
 
 CGraphBar::CGraphBar()
@@ -29,6 +31,9 @@ CGraphBar::CGraphBar()
 	m_pResetPlot = m_pMenu->addAction(tr("Reset Plot"), this, SLOT(ClearGraphs()));
 	m_pResetAll = m_pMenu->addAction(tr("Reset All Plots"), this, SLOT(ClearGraphs()));
 	m_pCustomize = m_pMenu->addAction(tr("Customize Plots"), this, SLOT(CustomizeGraphs()));
+	// Restores the layout, as opposed to the two entries above which only clear
+	// the plotted history.
+	m_pRestoreDefaults = m_pMenu->addAction(tr("Restore Default Plots"), this, SLOT(RestoreDefaultGraphs()));
 
 	m_pLastTipGraph = NULL;
 
@@ -37,23 +42,7 @@ CGraphBar::CGraphBar()
 	QList<EGraph> Graphs;
 	QStringList GraphList = theConf->GetStringList("Options/Graphs");
 	if (GraphList.isEmpty())
-	{
-		Graphs.append(eGpuMemPlot);
-		Graphs.append(eMemoryPlot);
-		Graphs.append(eObjectPlot);
-		Graphs.append(eWindowsPlot);
-		Graphs.append(eHandledPlot);
-		Graphs.append(eDiskIoPlot);
-		Graphs.append(eMMapIoPlot);
-		Graphs.append(eFileIoPlot);
-		//Graphs.append(eSambaPlot);
-		Graphs.append(eClientPlot);
-		Graphs.append(eServerPlot);
-		Graphs.append(eRasPlot);
-		Graphs.append(eNetworkPlot);
-		Graphs.append(eGpuPlot);
-		Graphs.append(eCpuPlot);
-	}
+		Graphs = GetDefaultGraphs();
 	else
 	{
 		foreach(const QString& Graph, GraphList)
@@ -68,11 +57,75 @@ CGraphBar::CGraphBar()
 
 CGraphBar::~CGraphBar()
 {
+	SaveGraphs();
+}
+
+void CGraphBar::SaveGraphs()
+{
 	QStringList GraphList;
 	foreach(const SGraph& Graph, m_Graphs)
 		GraphList.append(QString::number(Graph.Type));
 	theConf->SetValue("Options/GraphRows", m_Rows);
 	theConf->SetValue("Options/Graphs", GraphList);
+}
+
+//
+// The plots shown when nothing has been configured, and what "Restore Default
+// Plots" goes back to.
+//
+// Defined in one place rather than inline in the constructor: a saved
+// configuration is only consulted when it exists, so without a way to get back
+// here a layout chosen on one platform - or carried over from an older build -
+// would be permanent.
+//
+QList<CGraphBar::EGraph> CGraphBar::GetDefaultGraphs()
+{
+	QList<EGraph> Graphs;
+
+	Graphs.append(eGpuMemPlot);
+	Graphs.append(eMemoryPlot);
+#ifdef WIN32
+	Graphs.append(eObjectPlot);
+	Graphs.append(eWindowsPlot);
+#else
+	//
+	// The GDI/User object and window-object plots have no Linux counterpart and
+	// would render as two permanently empty boxes, so the slot goes to the
+	// pressure plot instead.
+	//
+	Graphs.append(ePressurePlot);
+#endif
+	Graphs.append(eHandledPlot);
+	Graphs.append(eDiskIoPlot);
+	Graphs.append(eMMapIoPlot);
+	Graphs.append(eFileIoPlot);
+#ifdef WIN32
+	//Graphs.append(eSambaPlot);
+	// The Samba and RAS counters come from Windows-specific providers, so on
+	// Linux these three would sit at zero for ever.
+	Graphs.append(eClientPlot);
+	Graphs.append(eServerPlot);
+	Graphs.append(eRasPlot);
+#endif
+	Graphs.append(eNetworkPlot);
+	Graphs.append(eGpuPlot);
+	Graphs.append(eCpuPlot);
+
+	return Graphs;
+}
+
+void CGraphBar::RestoreDefaultGraphs()
+{
+	DeleteGraphs();
+	AddGraphs(GetDefaultGraphs(), 2);
+
+	//
+	// Written out now rather than left to the destructor. The layout is
+	// otherwise only saved on a clean shutdown, so restoring the defaults and
+	// then having the process killed would silently lose the change - which is
+	// exactly the state this action exists to get out of.
+	//
+	SaveGraphs();
 }
 
 void CGraphBar::AddGraphs(QList<EGraph> Graphs, int Rows)
@@ -163,6 +216,19 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 		pPlot->AddPlot("Wnd", Qt::green, Qt::SolidLine);
 #endif
 		break;
+#ifndef WIN32
+	case ePressurePlot:
+		//
+		// All three are percentages of a 10 second window, so they share one
+		// fixed 0..100 scale rather than autoscaling - the absolute level is
+		// the point, and a rescaling axis would make 0.5% look alarming.
+		//
+		pPlot->SetRagne(100);
+		pPlot->AddPlot("CPU", Qt::green, Qt::SolidLine);
+		pPlot->AddPlot("Memory", Qt::red, Qt::SolidLine);
+		pPlot->AddPlot("IO", Qt::blue, Qt::SolidLine);
+		break;
+#endif
 	case eHandledPlot:
 		pPlot->AddPlot("Handles", Qt::green, Qt::SolidLine);
 		break;
@@ -177,7 +243,11 @@ void CGraphBar::AddGraph(EGraph Graph, int row, int column)
 	case eFileIoPlot:
 		pPlot->AddPlot("Read", Qt::green, Qt::SolidLine);
 		pPlot->AddPlot("Write", Qt::red, Qt::SolidLine);
+#ifdef WIN32
+		// "Other" counts operations that are neither reads nor writes; Linux
+		// keeps no such tally, so the line would be flat at zero for ever.
 		pPlot->AddPlot("Other", Qt::blue, Qt::SolidLine);
+#endif
 		break;
 	case eSambaPlot:
 		pPlot->AddPlot("RecvTotal", Qt::green, Qt::SolidLine);
@@ -271,7 +341,22 @@ void CGraphBar::UpdateGraphs()
 			pPlot->AddPlotPoint("Commited", theAPI->GetCommitedMemory());
 			pPlot->AddPlotPoint("Swapped", theAPI->GetPhysicalUsed() + theAPI->GetSwapedOutMemory());
 			pPlot->AddPlotPoint("Cache", theAPI->GetCacheMemory());
+#ifdef WIN32
 			pPlot->AddPlotPoint("Physical", theAPI->GetPhysicalUsed() - theAPI->GetCacheMemory());
+#else
+			//
+			// On Linux GetPhysicalUsed() is MemTotal - MemAvailable, which
+			// already excludes the reclaimable page cache that GetCacheMemory()
+			// reports. Subtracting it again gives a negative result, and since
+			// these are unsigned that wraps to an enormous value and pegs the
+			// series at full scale.
+			//
+			// The Windows figures do not have this problem: there PhysicalUsed
+			// excludes the standby list, and CacheMemory is the much smaller
+			// resident kernel cache.
+			//
+			pPlot->AddPlotPoint("Physical", theAPI->GetPhysicalUsed());
+#endif
 			pPlot->AddPlotPoint("Limit", theAPI->GetInstalledMemory());
 			break;
 		case eGpuMemPlot:
@@ -307,6 +392,31 @@ void CGraphBar::UpdateGraphs()
 			pPlot->AddPlotPoint("Wnd", ((CWindowsAPI*)theAPI)->GetTotalWndObjects());
 #endif
 			break;
+#ifndef WIN32
+		case ePressurePlot:
+		{
+			//
+			// The "some" avg10 figure: the share of the last 10 seconds in
+			// which at least one task was stalled waiting for the resource.
+			// That is the number that correlates with a machine feeling slow.
+			//
+			const ProcFs::SPressure Cpu = ((CLinuxAPI*)theAPI)->GetCpuPressure();
+			const ProcFs::SPressure Memory = ((CLinuxAPI*)theAPI)->GetMemoryPressure();
+			const ProcFs::SPressure Io = ((CLinuxAPI*)theAPI)->GetIoPressure();
+
+			Text = tr("Pressure=%1%").arg(qMax(qMax(Cpu.SomeAvg10, Memory.SomeAvg10), Io.SomeAvg10), 0, 'f', 1);
+
+			Texts.append(QString("%1%").arg(Cpu.SomeAvg10, 0, 'f', 1));
+			pPlot->AddPlotPoint("CPU", Cpu.SomeAvg10);
+
+			Texts.append(QString("%1%").arg(Memory.SomeAvg10, 0, 'f', 1));
+			pPlot->AddPlotPoint("Memory", Memory.SomeAvg10);
+
+			Texts.append(QString("%1%").arg(Io.SomeAvg10, 0, 'f', 1));
+			pPlot->AddPlotPoint("IO", Io.SomeAvg10);
+			break;
+		}
+#endif
 
 		case eHandledPlot:
 			Text = tr("Handles<%1").arg(FormatUnit(pPlot->GetRangeMax()));
@@ -414,9 +524,10 @@ void CGraphBar::UpdateGraphs()
 			Texts.append(FormatSize(SysStats.Io.WriteRate.Get(), 0));
 			pPlot->AddPlotPoint("Write", SysStats.Io.WriteRate.Get());
 
+#ifdef WIN32
 			Texts.append(FormatSize(SysStats.Io.OtherRate.Get(), 0));
 			pPlot->AddPlotPoint("Other", SysStats.Io.OtherRate.Get());
-
+#endif
 			break;
 
 #ifdef WIN32
@@ -601,16 +712,25 @@ void CGraphBar::CustomizeGraphs()
 
 	ItemChooser.AddItem(tr("GPU Memory"), eGpuMemPlot);
 	ItemChooser.AddItem(tr("System Memory"), eMemoryPlot);
+#ifdef WIN32
+	// Both plot Windows kernel object counts, which do not exist on Linux;
+	// offering them would only let the user add an empty box.
 	ItemChooser.AddItem(tr("Object Usage"), eObjectPlot);
 	ItemChooser.AddItem(tr("Window Usage"), eWindowsPlot);
+#else
+	ItemChooser.AddItem(tr("Pressure (PSI)"), ePressurePlot);
+#endif
 	ItemChooser.AddItem(tr("Handle Usage"), eHandledPlot);
 	ItemChooser.AddItem(tr("Disk I/O"), eDiskIoPlot);
 	ItemChooser.AddItem(tr("Memory Mapped I/O"), eMMapIoPlot);
 	ItemChooser.AddItem(tr("File I/O"), eFileIoPlot);
+#ifdef WIN32
+	// Samba and RAS/VPN counters come from Windows-specific providers.
 	ItemChooser.AddItem(tr("Samba Combined U/D"), eSambaPlot);
 	ItemChooser.AddItem(tr("Samba Client U/D"), eClientPlot);
 	ItemChooser.AddItem(tr("Samba Server U/D"), eServerPlot);
 	ItemChooser.AddItem(tr("RAS / VPN"), eRasPlot);
+#endif
 	ItemChooser.AddItem(tr("Network U/D"), eNetworkPlot);
 	ItemChooser.AddItem(tr("GPU Usage"), eGpuPlot);
 	ItemChooser.AddItem(tr("CPU Usage"), eCpuPlot);
@@ -710,6 +830,35 @@ void CGraphBar::OnToolTipRequested(QEvent* event)
 		TextLines.append(tr("    Window objects: %1").arg(((CWindowsAPI*)theAPI)->GetTotalWndObjects()));
 #endif
 		break;
+#ifndef WIN32
+	case ePressurePlot:
+	{
+		const ProcFs::SPressure Cpu = ((CLinuxAPI*)theAPI)->GetCpuPressure();
+		const ProcFs::SPressure Memory = ((CLinuxAPI*)theAPI)->GetMemoryPressure();
+		const ProcFs::SPressure Io = ((CLinuxAPI*)theAPI)->GetIoPressure();
+
+		if (!Cpu.Valid && !Memory.Valid && !Io.Valid)
+		{
+			TextLines.append(tr("Pressure Stall Information:"));
+			TextLines.append(tr("    Not available - the kernel was built without CONFIG_PSI, or booted with psi=0."));
+			break;
+		}
+
+		//
+		// "some" is the share of time at least one task was stalled; "full" the
+		// share where every task was, i.e. throughput lost outright. Both are
+		// shown because they answer different questions - some says "this feels
+		// slow", full says "this is not getting work done".
+		//
+		TextLines.append(tr("Pressure Stall Information (some / full, 10s avg):"));
+		TextLines.append(tr("    CPU: %1% / %2%").arg(Cpu.SomeAvg10, 0, 'f', 2).arg(Cpu.FullAvg10, 0, 'f', 2));
+		TextLines.append(tr("    Memory: %1% / %2%").arg(Memory.SomeAvg10, 0, 'f', 2).arg(Memory.FullAvg10, 0, 'f', 2));
+		TextLines.append(tr("    I/O: %1% / %2%").arg(Io.SomeAvg10, 0, 'f', 2).arg(Io.FullAvg10, 0, 'f', 2));
+		TextLines.append(tr("    60s avg: cpu %1%, memory %2%, I/O %3%")
+			.arg(Cpu.SomeAvg60, 0, 'f', 2).arg(Memory.SomeAvg60, 0, 'f', 2).arg(Io.SomeAvg60, 0, 'f', 2));
+		break;
+	}
+#endif
 
 	case eHandledPlot:
 		TextLines.append(tr("Handle Usage:"));

@@ -82,7 +82,13 @@ void CSystemInfoView::InitializeTabs()
 	//AddTab(m_pDriversView, tr("Drivers"));
 
 	m_pServicesView = new CServicesView(true, this);
+#ifdef WIN32
 	AddTab(m_pServicesView, tr("Services"));
+#else
+	// "Service" on Linux means a systemd unit type, and this list holds several
+	// of them; "Daemons" names what the entries actually are.
+	AddTab(m_pServicesView, tr("Daemons"));
+#endif
 
 #ifdef WIN32
 	m_pRpcView = new CRpcView(this);

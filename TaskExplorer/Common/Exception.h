@@ -1,6 +1,12 @@
 #pragma once
 #include <stdarg.h>
 
+//
+// Qt-free on purpose: this header is included by the variant serialisation that
+// TaskHelper shares with the GUI, and the helper links no Qt.
+//
+#include "../../MiscHelpers/Common/Compat.h"
+
 class CException
 {
 public:
@@ -14,7 +20,6 @@ public:
 protected:
 	void StrFormat(const wchar_t *sLine, va_list argptr)
 	{
-		ASSERT(sLine != NULL);
 
 		const size_t bufferSize = 10241;
 		wchar_t bufferline[bufferSize];

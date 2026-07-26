@@ -1,5 +1,11 @@
 
 *.key
+
+# CMake
+/build*/
+/Bin/
+CMakeUserPresets.json
+
 /ProcessHacker/KSystemInformer/.vs
 /ProcessHacker/kphlib/obj
 /ProcessHacker/KSystemInformer/ksidll/obj

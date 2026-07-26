@@ -4,6 +4,7 @@
 #ifdef WIN32
 #include <Windows.h>
 #endif
+#include <algorithm>
 #include "Exception.h"
 
 CBuffer::CBuffer(size_t uLength, bool bUsed)
@@ -128,7 +129,10 @@ bool CBuffer::PrepareWrite(size_t uOffset, size_t uLength)
 			return false;
 
 		//size_t uPreAlloc = max(min(uLength*10,m_uSize/2), 16);
-		size_t uPreAlloc = max(max(uLength * 2, m_uSize), 16);
+		// max() came from the Windows.h macro; std::max is portable. The cast
+		// is needed because std::max requires both arguments to be the same
+		// type and the literal is int.
+		size_t uPreAlloc = std::max(std::max(uLength * 2, m_uSize), (size_t)16);
 		return SetSize(uOffset + uLength, true, uPreAlloc);
 	}
 

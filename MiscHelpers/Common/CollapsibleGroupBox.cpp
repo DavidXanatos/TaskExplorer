@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "collapsiblegroupbox.h"
+#include "CollapsibleGroupBox.h"
 #include <QApplication>
 #include <QGuiApplication>
 #include <QLayout>

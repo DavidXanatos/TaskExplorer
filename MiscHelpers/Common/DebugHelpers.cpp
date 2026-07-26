@@ -31,7 +31,7 @@ void DbgPrint(const wchar_t* format, ...)
 	const size_t bufferSize = 10241;
 	wchar_t bufferline[bufferSize];
 #ifndef WIN32
-	if (vswprintf_l(bufferline, bufferSize, sLine, argptr) == -1)
+	if (vswprintf_l(bufferline, bufferSize, format, argptr) == -1)
 #else
 	if (vswprintf(bufferline, bufferSize, format, argptr) == -1)
 #endif
@@ -39,7 +39,13 @@ void DbgPrint(const wchar_t* format, ...)
 
 	va_end(argptr);
 
+#ifdef WIN32
 	OutputDebugStringW(bufferline);
+#else
+	// There is no system-wide debug output channel on Linux; stderr is where a
+	// developer running the binary from a terminal will look for this.
+	fputws(bufferline, stderr);
+#endif
 }
 
 #if defined(_DEBUG) || defined(_TRACE)

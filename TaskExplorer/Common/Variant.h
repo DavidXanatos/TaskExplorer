@@ -4,6 +4,9 @@
 //#include "Strings.h"
 #include "VariantDefs.h"
 
+#include <type_traits>
+#include <utility>
+
 union _TVarIndex
 {
 	uint32 u;
@@ -163,8 +166,19 @@ public:
 		return std::vector<byte>();
 	}
 
-	template<typename T>
-	CVariant(const T& List) : CVariant() 
+	//
+	// This constructor was unconstrained, which made CVariant look
+	// constructible from *any* type. Qt's metatype machinery probes exactly
+	// that while instantiating QMetaTypeInterface for unrelated classes
+	// (QIcon, QBrush, ... via qtreewidget.h), and the probe then hard-errored
+	// inside the body on types that have no begin()/end().
+	//
+	// Restricting it to types that actually expose begin() and end() makes the
+	// substitution fail cleanly instead of erroring in the body.
+	//
+	template<typename T, typename = std::void_t<decltype(std::declval<const T&>().begin()),
+	                                            decltype(std::declval<const T&>().end())>>
+	CVariant(const T& List) : CVariant()
 	{
 		BeginList();
 		for(auto I = List.begin(); I != List.end(); ++I)

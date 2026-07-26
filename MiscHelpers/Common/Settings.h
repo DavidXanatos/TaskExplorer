@@ -25,12 +25,16 @@ public:
 		const char* Ref;
 	};
 
+	// The members were named _Bool/_Int/_UInt/_UInt64. _Bool is a reserved
+	// keyword (C's boolean type, which GCC also recognises in C++), so the
+	// declaration parsed as two types. The v-prefix keeps them distinct from
+	// anything the standard library claims.
 	union SCacheVal
 	{
-        bool	_Bool;
-        qint32	_Int;
-        quint32	_UInt;
-        quint64	_UInt64;
+        bool	vBool;
+        qint32	vInt;
+        quint32	vUInt;
+        quint64	vUInt64;
 	};
 
 	struct SSetting
@@ -113,12 +117,12 @@ public:
 		QMutexLocker Locker(&m_Mutex); \
 		QMap<SStrRef, SCacheVal>::Iterator I =  m_ValueCache.find(key); \
 		if(I != m_ValueCache.end()) \
-            return I.value()._##y; \
+            return I.value().v##y; \
 		Locker.unlock(); \
 		x val = GetValue(key, def).to##z(); \
 		Locker.relock(); \
 		SCacheVal entry; \
-        entry._##y = val; \
+        entry.v##y = val; \
 		m_ValueCache.insert(key, entry); \
 		return val; \
 	}

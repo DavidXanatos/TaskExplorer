@@ -61,7 +61,9 @@ bool CRunDialog::event(QEvent* event)
 	return QMainWindow::event(event);
 }
 
+#ifdef WIN32
 NTSTATUS CWinProcess__LoadModule(HANDLE ProcessHandle, const QString& Path);
+#endif
 
 void CRunDialog::accept()
 {

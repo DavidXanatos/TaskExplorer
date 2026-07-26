@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "OnlineUpdater.h"
-#include "Version.h"
+#include "version.h"
 #include "../MiscHelpers/Common/Common.h"
 #include "../MiscHelpers/Common/OtherFunctions.h"
 #include "TaskExplorer.h"
@@ -8,13 +8,44 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "../MiscHelpers/Common/CheckableMessageBox.h"
+#ifdef WIN32
 #include "../API/Windows/WinHelper.h"
 #include "../API/Windows/WinAdmin.h"
+#include <windows.h>
+#endif
 #include <QMessageBox>
 #include "../UpdUtil/UpdDefines.h"
 #include <QCryptographicHash>
-#include <windows.h>
 #include <QRandomGenerator>
+
+#ifndef WIN32
+#include <QNetworkInterface>
+
+//
+// The Windows build asks INetworkListManager whether the machine actually has
+// internet connectivity. There is no equally authoritative answer on Linux
+// without talking to NetworkManager, so this settles for the weaker but
+// dependency-free test: is any non-loopback interface up and running.
+//
+// A false positive here only means the update check is attempted and fails,
+// which the caller already handles.
+//
+static bool CheckInternet()
+{
+	const QList<QNetworkInterface> Interfaces = QNetworkInterface::allInterfaces();
+	for (const QNetworkInterface& Interface : Interfaces)
+	{
+		const QNetworkInterface::InterfaceFlags Flags = Interface.flags();
+		if (!(Flags & QNetworkInterface::IsUp) || !(Flags & QNetworkInterface::IsRunning))
+			continue;
+		if (Flags & QNetworkInterface::IsLoopBack)
+			continue;
+		if (!Interface.addressEntries().isEmpty())
+			return true;
+	}
+	return false;
+}
+#endif
 
 #define RELEASE_FILE			"release.json"
 
@@ -294,7 +325,8 @@ void COnlineUpdater::Process()
 	time_t NextUpdateCheck = theConf->GetUInt64("Options/NextCheckForUpdates", 0);
 	if (NextUpdateCheck == 0 || NextUpdateCheck > CurretnDate.addDays(31).toSecsSinceEpoch()) { // no check made yet or invalid value
 		NextUpdateCheck = CurretnDate.addSecs(UpdateInterval).toSecsSinceEpoch();
-		theConf->SetValue("Options/NextCheckForUpdates", NextUpdateCheck);
+		// time_t is long on Linux, which QVariant cannot pick an overload for.
+		theConf->SetValue("Options/NextCheckForUpdates", (qint64)NextUpdateCheck);
 	}
 
 	int iCheckUpdates = theConf->GetInt("Options/CheckForUpdates", 2);
@@ -347,13 +379,16 @@ void COnlineUpdater::Process()
 	else if (m_CheckState == eApplyUpdate || m_CheckState == eRunInstall)
 	{
 		// When auto install/apply is active wait for the user to be idle
-#ifndef _DEBUG
+#if !defined(_DEBUG) && defined(WIN32)
 		LASTINPUTINFO lastInput;
 		GetLastInputInfo(&lastInput);
 		DWORD dwIdleTime= (GetTickCount() - lastInput.dwTime) / 1000;
 
 		if(dwIdleTime > theConf->GetInt("Options/UpdateIdleTime", 30*60)) // default 30 minutes
 #endif
+		// linux-todo: there is no portable idle-time query; the X11 screensaver
+		// extension (XScreenSaverQueryInfo) or org.freedesktop.ScreenSaver would
+		// be the equivalent. Until then the idle check is skipped on Linux.
 		{
 			if (m_CheckState == eApplyUpdate)
 				ApplyUpdate(true);
@@ -760,6 +795,7 @@ bool COnlineUpdater::RunInstaller2(const QString& FilePath, bool bSilent)
 //			return false;
 //	}
 
+#ifdef WIN32
 	std::wstring wFile = QString(FilePath).replace("/", "\\").toStdWString();
 	std::wstring wParams;
 #ifndef _DEBUG
@@ -767,6 +803,12 @@ bool COnlineUpdater::RunInstaller2(const QString& FilePath, bool bSilent)
 #endif
 
 	return RunElevated(wFile, wParams, 15*60*1000) == 0;
+#else
+	// linux-todo: running a downloaded installer elevated is a packaging
+	// decision (pkexec, or handing off to the distribution's package manager).
+	// Refusing is the safe default until that is settled.
+	return false;
+#endif
 }
 
 bool COnlineUpdater::HandleUserMessage(const QVariantMap& Data)
@@ -992,6 +1034,7 @@ RESULT(int) COnlineUpdater::RunUpdater(const QStringList& Params, bool bSilent, 
 	//		return Result;
 	//}
 
+#ifdef WIN32
 	std::wstring wFile = QString(QApplication::applicationDirPath() + "/UpdUtil.exe").replace("/", "\\").toStdWString();
 	std::wstring wParams;
 	foreach(const QString & Param, Params) {
@@ -1003,6 +1046,10 @@ RESULT(int) COnlineUpdater::RunUpdater(const QStringList& Params, bool bSilent, 
 	if (ExitCode == STATUS_PENDING && !Wait)
 		ExitCode = 0;
 	return CResult<int>(0, ExitCode);
+#else
+	// linux-todo: UpdUtil is not built for Linux yet, see RunInstaller() above.
+	return CResult<int>(ERROR_UNDEFINED, -1);
+#endif
 }
 
 // Helpers

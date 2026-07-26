@@ -6,6 +6,8 @@
 #include "../../API/Windows/WinService.h"
 #include "../../API/Windows/WinModule.h"
 #include <winerror.h>
+#else
+#include "../../API/Linux/LinuxService.h"
 #endif
 
 CServiceModel::CServiceModel(QObject *parent)
@@ -33,6 +35,8 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 
 		if (!m_ShowDriver && pWinService->IsDriver())
 			continue;
+#else
+		CLinuxService* pLinuxService = qobject_cast<CLinuxService*>(pService.data());
 #endif
 
 		QVariant ID = pService->GetName();
@@ -111,6 +115,9 @@ void CServiceModel::Sync(QMap<QString, CServicePtr> ServiceList)
 #ifdef WIN32
 				case eDisplayName:			Value = pWinService->GetDisplayName(); break;
 				case eType:					Value = pWinService->GetTypeString(); break;
+#else
+				case eDisplayName:			Value = pService->GetDisplayName(); break;
+				case eType:					Value = pLinuxService->GetTypeString(); break;
 #endif
 				case eStatus:				Value = pService->GetStateString(); break;
 #ifdef WIN32
@@ -194,10 +201,8 @@ QVariant CServiceModel::headerData(int section, Qt::Orientation orientation, int
 		switch(section)
 		{
 			case eService:				return tr("Service");
-#ifdef WIN32
 			case eDisplayName:			return tr("Display Name");
 			case eType:					return tr("Type");
-#endif
 			case eStatus:				return tr("Status");
 #ifdef WIN32
 			case eStartType:			return tr("Start type");

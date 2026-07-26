@@ -12,6 +12,11 @@
     </qresource>
     <qresource prefix="/">
         <file>TaskExplorer.png</file>
+        <!-- The same icon Windows embeds via TaskExplorer.rc. It carries hand
+             sized 16/32/48/64/128/256 renditions, which is what a task bar and
+             a title bar want; a lone 256x256 PNG scaled down to 16x16 loses the
+             trace line in the middle. -->
+        <file>TaskExplorer.ico</file>
         <file>ProcessHacker.png</file>
         <file>close.png</file>
     </qresource>

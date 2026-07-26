@@ -5,6 +5,9 @@
 #include "../../API/SystemAPI.h"
 #include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 #include "../../../MiscHelpers/Common/Finder.h"
+#ifndef WIN32
+#include "../../API/Linux/LinuxAPI.h"
+#endif
 
 CDnsCacheView::CDnsCacheView(bool bAll, QWidget *parent)
 	:CPanelView(parent)
@@ -132,6 +135,24 @@ void CDnsCacheView::OnDnsCacheUpdated()
 
 	OnDnsCacheUpdated();
 }*/
+
+void CDnsCacheView::showEvent(QShowEvent* pEvent)
+{
+	CPanelView::showEvent(pEvent);
+
+#ifndef WIN32
+	//
+	// Becoming visible re-arms the one interactive polkit prompt that reading
+	// systemd-resolved's cache costs; see CLinuxAPI::AllowDnsAuthPrompt.
+	//
+	// Doing it here rather than in Refresh() is the point: Refresh() is also the
+	// periodic tick, and cannot tell "the user just opened this tab" from "one
+	// second has passed".
+	//
+	if (CLinuxAPI* pLinuxAPI = qobject_cast<CLinuxAPI*>(theAPI))
+		pLinuxAPI->AllowDnsAuthPrompt();
+#endif
+}
 
 void CDnsCacheView::Refresh()
 {

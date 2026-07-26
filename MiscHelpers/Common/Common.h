@@ -2,12 +2,15 @@
 
 #include "../mischelpers_global.h"
 
-#ifndef WIN32
-MISCHELPERS_EXPORT int vswprintf_l(wchar_t * _String, size_t _Count, const wchar_t * _Format, va_list _Ap);
-#endif
+// The vswprintf_l shim lives in a Qt-free header so that STL-only code (and
+// TaskHelper) can use it too.
+#include "Compat.h"
 
 MISCHELPERS_EXPORT time_t GetTime();
-MISCHELPERS_EXPORT __time64_t GetTimeMs();
+// Was __time64_t, which is an MSVC extension. QDateTime::toMSecsSinceEpoch()
+// returns qint64 and __time64_t is a 64-bit signed integer, so this is the same
+// type on Windows and portable everywhere else.
+MISCHELPERS_EXPORT qint64 GetTimeMs();
 MISCHELPERS_EXPORT quint64 GetCurTick();
 
 
@@ -23,7 +26,10 @@ MISCHELPERS_EXPORT QStringList SplitStr(const QString& String, QString Separator
 MISCHELPERS_EXPORT bool PathStartsWith(const QString& Path, const QString& Start);
 
 typedef MISCHELPERS_EXPORT QMultiMap<QString,QString> TArguments;
-TArguments MISCHELPERS_EXPORT GetArguments(const QString& Arguments, QChar Separator = L';', QChar Assigner = L'=', QString* First = NULL, bool bLowerKeys = false, bool bReadEsc = false);
+// The separators were spelled L';' / L'=' - wchar_t, which QChar no longer
+// converts from implicitly (and which is 32-bit on Linux). u'' gives char16_t,
+// the type QChar actually holds.
+TArguments MISCHELPERS_EXPORT GetArguments(const QString& Arguments, QChar Separator = u';', QChar Assigner = u'=', QString* First = NULL, bool bLowerKeys = false, bool bReadEsc = false);
 
 MISCHELPERS_EXPORT QString UnEscape(QString Text);
 

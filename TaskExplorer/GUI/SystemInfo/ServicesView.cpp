@@ -8,6 +8,9 @@
 #include "../../API/Windows/ProcessHacker/appsup.h"	
 #include "WinSvcWindow.h"
 #include "../../API/Windows/WinProcess.h"
+#else
+#include "../../API/Linux/LinuxHelper.h"
+#include <QStandardPaths>
 #endif
 #include "../../../MiscHelpers/Common/SortFilterProxyModel.h"
 #include "../../../MiscHelpers/Common/Finder.h"
@@ -90,6 +93,10 @@ CServicesView::CServicesView(bool bAll, QWidget *parent)
 	m_pMenu->addSeparator();
 #ifdef WIN32
 	m_pMenuOpenKey = m_pMenu->addAction(tr("Open Key"), this, SLOT(OnServiceAction()));
+#else
+	// The journal is where a systemd unit's output goes; after stopping or
+	// failing a unit it is the next thing anyone wants to look at.
+	m_pMenuViewLog = m_pMenu->addAction(tr("View Log"), this, SLOT(OnServiceAction()));
 #endif
 	m_pMenuOpenProcess = m_pMenu->addAction(tr("Open Process"), this, SLOT(OnServiceAction()));
 #ifdef WIN32
@@ -128,10 +135,9 @@ void CServicesView::OnResetColumns()
 		m_pServiceList->SetColumnHidden(i, true);
 
 	m_pServiceList->SetColumnHidden(CServiceModel::eService, false);
-#ifdef WIN32
+	// Both are meaningful on Linux too: the unit Description and the unit type.
 	m_pServiceList->SetColumnHidden(CServiceModel::eDisplayName, false);
 	m_pServiceList->SetColumnHidden(CServiceModel::eType, false);
-#endif
 	m_pServiceList->SetColumnHidden(CServiceModel::eStatus, false);
 #ifdef WIN32
 	m_pServiceList->SetColumnHidden(CServiceModel::eStartType, false);
@@ -275,12 +281,47 @@ retry:
 				PhShellOpenKey2(NULL, phRegKey);
 				PhDereferenceObject(phRegKey);
 			}
-			else if (sender() == m_pMenuOpenProcess)
+#else
+			else if (sender() == m_pMenuViewLog)
 			{
-				CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << theAPI->GetProcessByID(pService->GetPID()));
-				pTaskInfoWindow->show();
+				//
+				// journalctl in a terminal rather than a built-in log pane: the
+				// journal has its own pager, filtering and follow mode, and
+				// reimplementing any of that would be strictly worse than the
+				// tool everyone already knows.
+				//
+				// -e starts at the end, which is the interesting part, and
+				// leaves the pager open so the window does not vanish.
+				//
+				const QString Journal = QStandardPaths::findExecutable("journalctl");
+				if (Journal.isEmpty())
+					Status = ERR(tr("journalctl was not found; this system does not use the systemd journal."));
+				else
+					Status = LinuxRunInTerminal(Journal, QStringList() << "-u" << pService->GetName() << "-e");
 			}
 #endif
+			else if (sender() == m_pMenuOpenProcess)
+			{
+				//
+				// Portable: the pid comes from the service object either way.
+				// Units with no process - a timer that is not firing, a socket
+				// that has not been connected to - report 0.
+				//
+				const quint64 Pid = pService->GetPID();
+				if (!Pid)
+					Status = ERR(tr("This unit has no running process."));
+				else
+				{
+					CProcessPtr pProcess = theAPI->GetProcessByID(Pid);
+					if (pProcess.isNull())
+						Status = ERR(tr("The process of this unit is no longer running."));
+					else
+					{
+						CTaskInfoWindow* pTaskInfoWindow = new CTaskInfoWindow(QList<CProcessPtr>() << pProcess);
+						pTaskInfoWindow->show();
+					}
+				}
+			}
 
 			if (Status.IsError())
 			{

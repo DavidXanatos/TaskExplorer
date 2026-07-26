@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
-#include "Version.h"
+#include "version.h"
 #ifdef WIN32
 #include "../API/Windows/WindowsAPI.h"
 #include "../API/Windows/ProcessHacker.h"
@@ -11,6 +11,11 @@
 extern "C" {
 #include <winsta.h>
 }
+#else
+// For OnElevate(): relaunching through a graphical privilege escalation helper.
+#include "../API/Linux/LinuxHelper.h"
+#include <signal.h>
+#include <errno.h>
 #endif
 #include "../../MiscHelpers/Common/ExitDialog.h"
 #include "../../MiscHelpers/Common/HistoryGraph.h"
@@ -29,11 +34,13 @@ extern "C" {
 #include "MultiErrorDialog.h"
 #include "PersistenceConfig.h"
 #include "Filters/ProcessFilterModel.h"
+#ifdef WIN32
 #include "../../MiscHelpers/Archive/Archive.h"
 #include "../../MiscHelpers/Archive/ArchiveFS.h"
+#endif
 #include "TaskInfo/TaskInfoWindow.h"
 #include "OnlineUpdater.h"
-#include "API\AssemblyList.h"
+#include "API/AssemblyList.h"
 
 
 QIcon g_ExeIcon;
@@ -235,10 +242,30 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 		m_pMenuComputer = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Computer"), tr("Computer"));
 		m_pMenuUsers = m_pMenuProcess->addMenu(MakeActionIcon(":/Actions/Users"), tr("Users"));
 		m_pMenuProcess->addSeparator();
+#ifdef WIN32
 		m_pMenuFindWnd = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/Finder"), tr("Window Finder"), this, SLOT(OnWndFinder()));
 		m_pMenuProcess->addSeparator();
+#endif
 		m_pMenuElevate = m_pMenuProcess->addAction(MakeActionIcon(":/Icons/Shield.png"), tr("Restart Elevated"), this, SLOT(OnElevate()));
 		m_pMenuElevate->setVisible(!theAPI->RootAvaiable());
+#ifndef WIN32
+		//
+		// The lighter alternative to restarting the whole GUI as root: keep this
+		// process unprivileged and let a small helper do the few things that
+		// genuinely need privileges - reading other users' I/O counters and open
+		// files, unwinding their stacks, writing their core dumps.
+		//
+		// Off by default and offered as an explicit toggle rather than turning
+		// itself on when something is refused, because switching it on raises an
+		// authentication prompt. That has to be the answer to a question the user
+		// asked, not a surprise triggered by scrolling the process list.
+		//
+		m_pMenuUseHelper = m_pMenuProcess->addAction(MakeActionIcon(":/Icons/Shield.png"), tr("Use Privileged Helper"), this, SLOT(OnUseHelper()));
+		m_pMenuUseHelper->setCheckable(true);
+		m_pMenuUseHelper->setChecked(theConf->GetBool("Options/UseTaskHelper", false));
+		m_pMenuUseHelper->setVisible(!theAPI->RootAvaiable());
+		m_pMenuUseHelper->setToolTip(tr("Ask an elevated helper process for the details this user is not allowed to read, instead of running all of Task Explorer as root."));
+#endif
 		m_pMenuExit = m_pMenuProcess->addAction(MakeActionIcon(":/Actions/Exit"), tr("Exit"), this, SLOT(OnExit()));
 
 		
@@ -307,7 +334,12 @@ CTaskExplorer::CTaskExplorer(QWidget *parent)
 			connect(m_pMenuFilterWindows, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
 			m_pMenuFilterSystem = MakeActionCheck(m_pMenuFilterMenu, tr("System Processes"), QVariant(), true);
 			connect(m_pMenuFilterSystem, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
+#ifdef WIN32
 			m_pMenuFilterService = MakeActionCheck(m_pMenuFilterMenu, tr("Service Processes"), QVariant(), true);
+#else
+			// Named to match the Daemons tab; these are the same processes.
+			m_pMenuFilterService = MakeActionCheck(m_pMenuFilterMenu, tr("Daemon Processes"), QVariant(), true);
+#endif
 			connect(m_pMenuFilterService, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
 			m_pMenuFilterOther = MakeActionCheck(m_pMenuFilterMenu, tr("Processes of Other Logged-In Users"), QVariant(), true);
 			connect(m_pMenuFilterOther, SIGNAL(triggered(bool)), this, SLOT(OnViewFilter()));
@@ -867,6 +899,9 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 	m_pMenuShowTree->setChecked(m_pProcessTree->IsTree());
 	m_pMenuExpandAll->setEnabled(m_pProcessTree->IsTree());
 
+#ifdef WIN32
+	// The system monitor toggle is driven by the KSystemInformer driver
+	// connection, which has no Linux counterpart.
 	if (KphCommsIsConnected()) {
 		m_pMenuMonitorSYS->setEnabled(true);
 		m_pMenuMonitorSYS->setChecked(KphGetSystemMon());
@@ -875,6 +910,7 @@ void CTaskExplorer::timerEvent(QTimerEvent* pEvent)
 		m_pMenuMonitorSYS->setEnabled(false);
 		m_pMenuMonitorSYS->setChecked(false);
 	}
+#endif
 
 	foreach(QAction* pAction, m_pRefreshGroup->actions())
 		pAction->setChecked(pAction->data().toULongLong() == Interval);
@@ -938,9 +974,12 @@ void CTaskExplorer::OnViewFilter()
 		QCheckBox* pCheck = qobject_cast<QCheckBox*>(((QWidgetAction*)sender())->defaultWidget());
 		Value = pCheck->checkState();
 
+#ifdef WIN32
 		if(sender() == m_pMenuFilterWindows)
 			pFilter->SetFilterWindows(Value);
-		else if(sender() == m_pMenuFilterSystem)
+		else
+#endif
+		if(sender() == m_pMenuFilterSystem)
 			pFilter->SetFilterSystem(Value);
 		else if(sender() == m_pMenuFilterService)
 			pFilter->SetFilterService(Value);
@@ -985,7 +1024,28 @@ void CTaskExplorer::UpdateStatus()
 	quint64 InstalledMemory = theAPI->GetInstalledMemory();
 	quint64 TotalSwap = theAPI->GetTotalSwapMemory();
 
+#ifdef WIN32
 	quint64 TotalMemory = Max(theAPI->GetInstalledMemory(), theAPI->GetCommitedMemory()); // theAPI->GetMemoryLimit();
+	quint64 CommitScale = TotalMemory;
+#else
+	//
+	// On Linux the commit charge (Committed_AS) counts virtual reservations and
+	// routinely exceeds installed RAM under the default overcommit policy.
+	//
+	// Folding it into the scale the way the Windows path does would make
+	// Max() select the commit charge itself, so the commit bar would divide by
+	// its own value and sit permanently at 100% - and the physical bars would
+	// be squashed against it.
+	//
+	// So the physical bars are scaled against installed RAM, and the commit bar
+	// against the commit limit, which is what it is actually bounded by. This
+	// matches how the memory graph in GraphBar.cpp already scales it.
+	//
+	quint64 TotalMemory = theAPI->GetInstalledMemory();
+	quint64 CommitScale = theAPI->GetMemoryLimit();
+	if (CommitScale == 0)
+		CommitScale = TotalMemory;
+#endif
 
 	if(TotalSwap > 0)
 		m_pStausMEM->setText(tr("Memory: %1/%2/(%3 + %4)    ").arg(FormatSize(RamUsage)).arg(FormatSize(CommitedMemory)).arg(FormatSize(InstalledMemory)).arg(FormatSize(TotalSwap)));
@@ -1111,7 +1171,12 @@ void CTaskExplorer::UpdateStatus()
 
 			float used_x = hVal * RamUsage / TotalMemory;
 			float virtual_x = hVal * (RamUsage + SwapedMemory) / TotalMemory;
-			float commited_x = hVal * CommitedMemory / TotalMemory;
+			float commited_x = hVal * CommitedMemory / CommitScale;
+
+			// RAM + swapped can exceed installed RAM, so clamp rather than
+			// drawing past the top of the icon.
+			if (virtual_x > hVal) virtual_x = hVal;
+			if (commited_x > hVal) commited_x = hVal;
 
 			qp.setPen(QPen(Qt::yellow, 2));
 			qp.drawLine(1, (hVal+1), 1, (hVal+1) - commited_x);
@@ -1211,11 +1276,89 @@ void CTaskExplorer::OnRunSys()
 #endif
 }
 
+#ifndef WIN32
+//
+// Turns the privileged helper on or off.
+//
+// Enabling it authenticates straight away rather than waiting for the next
+// refresh to need something, so that the password prompt appears while the user
+// still has the menu click in mind. If authentication fails or is cancelled the
+// toggle goes back off - leaving it on would mean re-prompting on every refresh.
+//
+void CTaskExplorer::OnUseHelper()
+{
+	const bool bEnable = m_pMenuUseHelper->isChecked();
+	theConf->SetValue("Options/UseTaskHelper", bEnable);
+
+	if (!bEnable)
+	{
+		CTaskService::TerminateWorkers();
+		return;
+	}
+
+	//
+	// The prompt is modal and can sit there for as long as the user needs, so
+	// the wait cursor is the honest indication that something is pending.
+	//
+	QApplication::setOverrideCursor(Qt::WaitCursor);
+	const bool bOk = !CTaskService::RunWorker(true).isEmpty();
+	QApplication::restoreOverrideCursor();
+
+	if (!bOk)
+	{
+		m_pMenuUseHelper->setChecked(false);
+		theConf->SetValue("Options/UseTaskHelper", false);
+		QMessageBox::warning(this, "TaskExplorer", tr("The privileged helper could not be started."));
+	}
+}
+#endif
+
 void CTaskExplorer::OnElevate()
 {
 #ifdef WIN32
 	if (PhShellProcessHackerEx(NULL, NULL, (PWSTR)L"", SW_SHOW, PH_SHELL_EXECUTE_ADMIN, 0, 0, NULL))
 		OnExit();
+#else
+	//
+	// Relaunch ourselves through a graphical privilege escalation helper.
+	//
+	// -multi is passed because the running instance has not exited yet, and
+	// without it the new process would just signal this one and quit.
+	//
+	qint64 Pid = 0;
+	STATUS Status = LinuxRunElevated(QCoreApplication::applicationFilePath(),
+	                                 QStringList() << "-multi", &Pid);
+	if (Status.IsError())
+	{
+		QMessageBox::warning(this, "TaskExplorer", Status.GetText());
+		return;
+	}
+
+	//
+	// Do not exit yet. The helper is still showing its authentication prompt,
+	// and if the user cancels it there would be nothing left running.
+	//
+	// Instead give it a moment and check whether the process is still alive:
+	// a cancelled or failed authentication makes the helper exit almost
+	// immediately, whereas a successful one leaves it running (and it then
+	// becomes the elevated TaskExplorer).
+	//
+	// A user who takes longer than this to type their password will see this
+	// instance close first; that is the lesser problem of the two.
+	//
+	QTimer::singleShot(2500, this, [this, Pid]() {
+		if (kill((pid_t)Pid, 0) == 0 || errno == EPERM)
+		{
+			// Still alive - EPERM means it is running as root now, which is
+			// exactly the success case.
+			OnExit();
+			return;
+		}
+
+		QMessageBox::warning(this, "TaskExplorer",
+			tr("Could not restart elevated. The authentication prompt was cancelled, or the "
+			   "elevated process failed to start."));
+	});
 #endif
 }
 
@@ -1388,6 +1531,20 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 			m_pTrayMenu->popup(QCursor::pos());	
 			break;
 		case QSystemTrayIcon::DoubleClick:
+#ifndef WIN32
+			//
+			// Ignored on Linux - the Trigger case below does the work.
+			//
+			// A StatusNotifierItem tray (Plasma, and anything else using the
+			// modern D-Bus protocol) never delivers DoubleClick at all: Qt only
+			// emits Trigger for a left click on an SNI item. Relying on
+			// DoubleClick therefore left no way to get the window back.
+			//
+			// On a tray that does deliver it, Trigger arrives first, so acting
+			// on both would toggle the window twice and leave it as it was.
+			//
+			break;
+#else
 			if (isVisible())
 			{
 				if(TriggerSet)
@@ -1396,12 +1553,13 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 				break;
 			}
 			show();
+#endif
 		case QSystemTrayIcon::Trigger:
 #ifdef WIN32
 			if (isVisible() && !TriggerSet)
 			{
 				TriggerSet = true;
-				QTimer::singleShot(100, [this]() { 
+				QTimer::singleShot(100, [this]() {
 					TriggerSet = false;
 					if (NullifyTrigger) {
 						NullifyTrigger = false;
@@ -1410,6 +1568,24 @@ void CTaskExplorer::OnSysTray(QSystemTrayIcon::ActivationReason Reason)
 					setWindowState(Qt::WindowActive);
 					SetForegroundWindow(PhMainWndHandle);
 				} );
+			}
+#else
+			//
+			// Single click toggles, which is the convention on Linux desktops
+			// and the only activation an SNI tray reports.
+			//
+			if (isVisible() && !isMinimized())
+			{
+				hide();
+			}
+			else
+			{
+				show();
+				// Clear the minimized bit explicitly; show() alone restores a
+				// hidden window but not a minimized one.
+				setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+				raise();
+				activateWindow();
 			}
 #endif
 			break;
@@ -1466,7 +1642,12 @@ void CTaskExplorer::OnMessage(const QString& Message)
 		if (!isVisible())
 			show();
 		setWindowState(Qt::WindowActive);
+#ifdef WIN32
 		SetForegroundWindow(PhMainWndHandle);
+#else
+		raise();
+		activateWindow();
+#endif
 	}
 }
 
@@ -1870,7 +2051,13 @@ void CTaskExplorer::InitColors()
 #endif
 	m_Colors.insert(eSystem, SColor("SystemProcess", tr("System processes"), "#AACCFF"));
 	m_Colors.insert(eUser, SColor("UserProcess", tr("Current user processes"), "#FFFF80"));
+	// The settings key stays "ServiceProcess" on both platforms so an existing
+	// colour choice survives; only the label differs.
+#ifdef WIN32
 	m_Colors.insert(eService, SColor("ServiceProcess", tr("Service processes"), "#80FFFF"));
+#else
+	m_Colors.insert(eService, SColor("ServiceProcess", tr("Daemon processes"), "#80FFFF"));
+#endif
 #ifdef WIN32
 	m_Colors.insert(eSandBoxed, SColor("SandBoxed", tr("Sandboxed processes"), "#FFFF00"));
 	m_Colors.insert(eJob, SColor("JobProcess", tr("Job processes"), "#D49C5C"));
@@ -1967,10 +2154,16 @@ void CTaskExplorer::LoadLanguage(const QString& Lang, const QString& Module, int
 	LangAux.truncate(LangAux.lastIndexOf('_'));
 
 	QString LangDir;
+#ifdef WIN32
+	// Translations may ship inside translations.7z; the loose directory is the
+	// fallback. The 7-Zip file engine is Windows-only for now (MiscHelpers'
+	// Archive subtree builds on the Win32 COM shims), so Linux always takes the
+	// directory path.
 	C7zFileEngineHandler LangFS("lang", this);
 	if (LangFS.Open(QApplication::applicationDirPath() + "/translations.7z"))
 		LangDir = LangFS.Prefix() + "/";
 	else
+#endif
 		LangDir = QApplication::applicationDirPath() + "/translations/";
 
 	bool bOk = false;

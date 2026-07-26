@@ -1,0 +1,54 @@
+#
+# Build image for a portable Linux TaskExplorer.
+#
+# The point of this image is its age, not its contents. A binary's minimum glibc
+# is decided by the glibc it was *compiled and linked against* - you cannot lower
+# it afterwards, and bundling a newer libstdc++ or libdw alongside the
+# application raises it instead. So the only way to run on older distributions is
+# to build on one.
+#
+# AlmaLinux 9 is chosen because its glibc is 2.34, which is exactly what Qt 6.11's
+# own libraries require. Building here therefore produces the lowest floor this Qt
+# version permits - going older would gain nothing, because Qt would still refuse
+# to load. (If you ever need to go below 2.34, that means changing Qt, not
+# changing this image: Qt 6.5 LTS was built against an older glibc. Measure it
+# with the command in README-portable.md rather than assuming a number.)
+#
+# Rocky Linux 9 or RHEL 9 work identically; so does Ubuntu 22.04, one notch
+# higher at glibc 2.35.
+#
+FROM almalinux:9
+
+#
+# Toolchain and the few libraries TaskExplorer links directly:
+#   libX11        window enumeration in API/Linux/X11Helper
+#   libglvnd/mesa libOpenGL and libGLX, which Qt6::OpenGL pulls in
+#   elfutils      libdw and libelf, for the helper's stack unwinding
+#
+# Everything else it needs comes from Qt, which is mounted in rather than
+# installed - see build-portable.sh.
+#
+RUN dnf -y install epel-release \
+ && dnf -y install \
+        gcc gcc-c++ make \
+        cmake ninja-build \
+        libX11-devel \
+        libglvnd-devel mesa-libGL-devel \
+        elfutils-devel elfutils-libelf-devel \
+        perl \
+ && dnf clean all
+
+#
+# The xcb-util family and libxcb-cursor are needed at *deploy* time, not at build
+# time: the deploy script copies them out of this image into the bundle, because
+# most distributions do not install them and Qt 6 will not start without
+# libxcb-cursor. Installing them here is what makes them available to copy, and
+# gets the 2.34-era versions rather than the build host's newer ones.
+#
+RUN dnf -y install \
+        libxcb xcb-util xcb-util-image xcb-util-keysyms \
+        xcb-util-renderutil xcb-util-wm xcb-util-cursor \
+        libxkbcommon libxkbcommon-x11 \
+ && dnf clean all
+
+WORKDIR /src

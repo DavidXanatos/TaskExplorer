@@ -89,6 +89,15 @@ private:
 #ifdef _WIN64
 	static QString m_TempSocket32;
 #endif
+#ifndef WIN32
+	//
+	// On Linux the two helpers are kept apart by privilege rather than by
+	// architecture: an unprivileged worker for ordinary work and, when a request
+	// needs more, a second one started through pkexec. Both are reused across
+	// requests, so the elevation prompt happens once rather than per operation.
+	//
+	static QString m_TempSocketRoot;
+#endif
 
 	static QString FindWorkerBinary(bool b32Bit);
 };

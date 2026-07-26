@@ -40,6 +40,8 @@
 #ifndef QTABBAR_EX_H
 #define QTABBAR_EX_H
 
+#include "qextwidgets_global.h"
+
 #include <QtWidgets/qtwidgetsglobal.h>
 #include <QtWidgets/qwidget.h>
 

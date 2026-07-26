@@ -40,6 +40,14 @@ CHandlesView::CHandlesView(int iAll, QWidget *parent)
 
 	m_ShowAllFiles = iAll;
 
+	// These are only created on some paths below; null them so a stray use is a
+	// null dereference rather than a jump through uninitialised memory.
+	m_pFilterWidget = nullptr;
+	m_pFilterLayout = nullptr;
+	m_pShowType = nullptr;
+	m_pHideUnnamed = nullptr;
+	m_pHideETW = nullptr;
+
 	m_pMainLayout = new QVBoxLayout();
 	m_pMainLayout->setContentsMargins(0, 0, 0, 0);
 	this->setLayout(m_pMainLayout);
@@ -414,18 +422,29 @@ void CHandlesView::ShowHandles(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 
 #ifdef WIN32
 		int ShowType = g_fileObjectTypeIndex;
-#else
-        int ShowType = 0;
-#endif
 		bool HideUnnamed = true;
 		bool HideETW = true;
 
+		//
+		// The filter widgets below are only constructed under WIN32 (see the
+		// constructor), so reading them here has to be guarded the same way -
+		// otherwise m_pShowType is an uninitialised pointer on Linux.
+		//
 		if (m_ShowAllFiles == 0)
 		{
 			ShowType = m_pShowType->currentData().toInt();
 			HideUnnamed = m_pHideUnnamed->isChecked();
 			HideETW = m_pHideETW->isChecked();
 		}
+#else
+		//
+		// -1 means "every type"; 0 would match only eUnknown and hide the whole
+		// list. There is no type filter UI on Linux yet, so nothing is filtered.
+		//
+		int ShowType = -1;
+		bool HideUnnamed = false;
+		bool HideETW = false;
+#endif
 
 		QMap<quint64, CHandlePtr> AllHandles;
 		foreach(const CProcessPtr& pProcess, m_Processes) {

@@ -104,6 +104,8 @@ QSet<quint64> CProcessModel::Sync(QMap<SProcessUID, CProcessPtr> ProcessList)
 		QSharedPointer<CWinProcess> pWinProc = pProcess.staticCast<CWinProcess>();
 		if (pWinProc->IsReflectedProcess())
 			continue;
+#else
+		QSharedPointer<CLinuxProcess> pLinuxProc = pProcess.staticCast<CLinuxProcess>();
 #endif
 
 		if(pProcess->GetParentUId().Get() == 0)
@@ -248,9 +250,13 @@ QSet<quint64> CProcessModel::Sync(QMap<SProcessUID, CProcessPtr> ProcessList)
 				case ePID_LXSS:				Value = pWinProc->GetLXSSProcessId(); break;
 #endif
 				case eParentPID:			Value = pProcess->GetParentId(); break;
+#ifdef WIN32
+				// Console host, sequence number and start key are Windows
+				// kernel concepts; these columns stay empty on Linux.
 				case eConsolePID:			Value = pWinProc->GetConsoleHostId(); break;
 				case eSequenceNumber:		Value = pWinProc->GetProcessSequenceNumber(); break;
 				case eStartKey:				Value = pWinProc->GetStartKey(); break;
+#endif
 				case eCPU_History:
 				case eCPU:					Value = CpuStats.CpuUsage; CurIntValue = 10000 * Value.toDouble(); break;
 				case eIO_History:			Value = qMax(IoStats.Disk.ReadRate.Get(), IoStats.Io.ReadRate.Get()) + qMax(IoStats.Disk.WriteRate.Get(), IoStats.Io.WriteRate.Get()) + IoStats.Io.OtherRate.Get(); break;
@@ -260,10 +266,16 @@ QSet<quint64> CProcessModel::Sync(QMap<SProcessUID, CProcessPtr> ProcessList)
 				case eUserName:				Value = pProcess->GetUserName(); break;
 #ifdef WIN32
 				case eServices:				Value = pWinProc->GetServiceList().join(tr(", ")); break;
+#endif
+				//
+				// Portable: these read the main module's file details, which the
+				// Linux backend fills from the ELF packaging note or the
+				// application's desktop entry. Previously Windows-only, which
+				// left the columns permanently blank on Linux.
+				//
 				case eDescription:			Value = pModule ? pModule->GetFileInfo("Description") : ""; break;
 				case eCompanyName:			Value = pModule ? pModule->GetFileInfo("CompanyName") : ""; break;
 				case eVersion:				Value = pModule ? pModule->GetFileInfo("FileVersion") : ""; break;
-#endif
 
 				case eGPU_History:			Value = GpuStats.GpuTimeUsage.Usage; break;
 				case eVMEM_History:			Value = qMax(GpuStats.GpuDedicatedUsage,GpuStats.GpuSharedUsage); break;
@@ -374,6 +386,14 @@ QSet<quint64> CProcessModel::Sync(QMap<SProcessUID, CProcessPtr> ProcessList)
 				case eMaximumWS:			Value = /*CurIntValue =*/ pProcess->GetMaximumWS(); break;
 				case ePrivateBytesDelta:	Value = /*CurIntValue =*/ CpuStats.PrivateBytesDelta.Delta; break;
 				case eSubsystem:			Value = (quint32)pProcess->GetSubsystem(); break;
+#ifndef WIN32
+				case eOomScore:				Value = CurIntValue = pLinuxProc->GetOomScore(); break;
+				case eOomScoreAdj:			Value = pLinuxProc->GetOomScoreAdj(); break;
+				case eContainer:			Value = pLinuxProc->GetContainer(); break;
+				case eConfinement:			Value = pLinuxProc->GetConfinement(); break;
+				case eInotifyWatches:		Value = CurIntValue = pLinuxProc->GetInotifyWatches(); break;
+				case eCGroup:				Value = pLinuxProc->GetCGroupPath(); break;
+#endif
 #ifdef WIN32
 				case ePackageName:			Value = pWinProc->GetPackageName(); break;
 				case eAppID:				Value = pWinProc->GetAppID();  break;
@@ -795,10 +815,10 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eUserName:				return tr("User name");
 #ifdef WIN32
 		case eServices:				return tr("Services");
+#endif
 		case eDescription:			return tr("Description");
 		case eCompanyName:			return tr("Company name");
 		case eVersion:				return tr("Version");
-#endif
 		case eNetUsage:				return tr("Network");
 
 		case eFileName:				return tr("File name");
@@ -910,6 +930,14 @@ QString CProcessModel::GetColumHeader(int section) const
 		case eMaximumWS:			return tr("Maximum working set");
 		case ePrivateBytesDelta:	return tr("Private bytes delta");
 		case eSubsystem:			return tr("Subsystem"); // WSL or Wine
+#ifndef WIN32
+		case eOomScore:				return tr("OOM score");
+		case eOomScoreAdj:			return tr("OOM adjust");
+		case eContainer:			return tr("Container");
+		case eConfinement:			return tr("Confinement");
+		case eInotifyWatches:		return tr("Inotify watches");
+		case eCGroup:				return tr("Control group");
+#endif
 #ifdef WIN32
 		case ePackageName:			return tr("Package name");
 		case eAppID:				return tr("App ID");

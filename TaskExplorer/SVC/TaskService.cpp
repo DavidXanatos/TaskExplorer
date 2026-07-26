@@ -5,6 +5,12 @@
 #include "../API/SystemAPI.h"
 #include "../Common/XVariant.h"
 #include "../Common/Buffer.h"
+#ifndef WIN32
+#include "../API/Linux/LinuxHelper.h"
+#include <QElapsedTimer>
+#include <QProcess>
+#include <unistd.h>
+#endif
 #ifdef WIN32
 #include "../API/Windows/ProcessHacker/RunAs.h"
 #include "../API/Windows/WinDumper.h"
@@ -38,6 +44,9 @@ QString CTaskService::m_TempName;
 QString CTaskService::m_TempSocket;
 #ifdef _WIN64
 QString CTaskService::m_TempSocket32;
+#endif
+#ifndef WIN32
+QString CTaskService::m_TempSocketRoot;
 #endif
 
 #ifndef USE_TASK_HELPER
@@ -726,7 +735,89 @@ QString CTaskService::RunWorker(bool bElevanted, bool b32Bit)
 	if (SendCommand(SocketName, "Refresh", 1000).toBool() == true)
 		return SocketName;
 #else
-	// linux-todo:
+	//
+	// Linux. The helper is a small Qt-free binary next to the application; see
+	// TaskHelper/LinuxMain.cpp for why the privileged work lives in its own
+	// process rather than in the GUI.
+	//
+	const QString BinaryPath = QCoreApplication::applicationDirPath() + "/TaskHelper";
+	if (!QFile::exists(BinaryPath))
+		return QString();
+
+	QString& CachedSocket = bElevanted ? m_TempSocketRoot : m_TempSocket;
+
+	//
+	// Reuse a helper that is still alive. This is what keeps the elevation
+	// prompt to once per session rather than once per request - and the helper
+	// exits by itself when the conversation stops, so a stale name here simply
+	// fails the probe and is replaced.
+	//
+	if (!CachedSocket.isEmpty())
+	{
+		if (SendCommand(CachedSocket, "Refresh", 500).toBool() == true)
+			return CachedSocket;
+		CachedSocket.clear();
+	}
+
+	//
+	// The socket lives in the user's runtime directory, which is private to them
+	// and cleaned up on logout. QLocalSocket treats an absolute path as exactly
+	// that, so both ends agree on the location without depending on Qt's
+	// name-to-path convention.
+	//
+	QString RuntimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+	if (RuntimeDir.isEmpty() || !QFile::exists(RuntimeDir))
+		RuntimeDir = QDir::tempPath();
+
+	const QString SocketPath = RuntimeDir + "/TaskExplorer-helper-" + GetRand64Str();
+
+	QStringList Arguments;
+	Arguments << "-wrk" << SocketPath;
+	//
+	// Idle timeout: the helper terminates on its own once nothing is talking to
+	// it, so killing TaskExplorer cannot leave a privileged process behind.
+	//
+	Arguments << "-timeout" << "30000";
+
+	bool bStarted = false;
+	if (bElevanted && geteuid() != 0)
+	{
+		//
+		// The helper must hand the socket to us after binding it: it will be
+		// running as root, and connecting to a unix socket needs write access to
+		// the file, which a root-owned 0600 socket would deny us.
+		//
+		Arguments << "-owner" << QString::number(geteuid());
+
+		bStarted = !LinuxRunElevated(BinaryPath, Arguments).IsError();
+	}
+	else
+	{
+		bStarted = QProcess::startDetached(BinaryPath, Arguments);
+	}
+
+	if (!bStarted)
+		return QString();
+
+	//
+	// Wait for the socket to appear rather than assuming it is ready. An
+	// elevated start has an authentication prompt in the middle of it, so this
+	// has to tolerate a human-scale delay; an ordinary one is ready in
+	// milliseconds.
+	//
+	const int TimeoutMs = bElevanted ? 60000 : 5000;
+	QElapsedTimer Timer;
+	Timer.start();
+
+	while (Timer.elapsed() < TimeoutMs)
+	{
+		if (QFile::exists(SocketPath) && SendCommand(SocketPath, "Refresh", 500).toBool() == true)
+		{
+			CachedSocket = SocketPath;
+			return SocketPath;
+		}
+		QThread::msleep(100);
+	}
 #endif
 	return QString();
 }
@@ -743,6 +834,13 @@ void CTaskService::TerminateWorkers()
 #ifdef _WIN64
 	if (!m_TempSocket32.isEmpty())
 		Terminate(m_TempSocket32);
+#endif
+#ifndef WIN32
+	// The elevated helper too - it would exit on its own timeout, but leaving a
+	// root process running after the GUI has gone is not something to rely on a
+	// timer for.
+	if (!m_TempSocketRoot.isEmpty())
+		Terminate(m_TempSocketRoot);
 #endif
 }
 

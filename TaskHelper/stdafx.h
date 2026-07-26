@@ -1,5 +1,14 @@
 #pragma once
 
+//
+// The helper's own precompiled header. Deliberately Qt-free: this is what makes
+// TaskExplorer/Common/Variant.cpp and Buffer.cpp compile into the helper without
+// dragging Qt in - they include "stdafx.h", and the helper's include path puts
+// this one first.
+//
+
+#ifdef WIN32
+
 // Prevent windows.h from including winsock.h
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCKAPI_
@@ -12,6 +21,8 @@
 #include <minidumpapiset.h>
 #include <tlhelp32.h>
 
+#endif // WIN32
+
 // std includes
 #include <string>
 #include <sstream>
@@ -22,6 +33,9 @@
 #include <set>
 #include <memory>
 #include <functional>
+#include <atomic>
+#include <cstring>
+#include <climits>
 
 // other includes
 

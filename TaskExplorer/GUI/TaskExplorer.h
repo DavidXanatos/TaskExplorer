@@ -150,7 +150,14 @@ private slots:
 	void				OnRunSys();
 	void				OnComputerAction();
 	void				OnUserAction();
+#ifdef WIN32
+	// Implemented in WndFinder.cpp, which drags the window under the cursor out
+	// of the Win32 window manager. No portable equivalent yet.
 	void				OnWndFinder();
+#endif
+#ifndef WIN32
+	void				OnUseHelper();
+#endif
 	void				OnElevate();
 	void				OnExit();
 
@@ -228,6 +235,9 @@ private:
 	QAction*			m_pMenuRunSys;
 	QAction*			m_pMenuFindWnd;
 	QAction*			m_pMenuElevate;
+#ifndef WIN32
+	QAction*			m_pMenuUseHelper;
+#endif
 	QAction*			m_pMenuExit;
 
 	QMenu*				m_pMenuComputer;

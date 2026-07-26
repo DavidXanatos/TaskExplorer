@@ -16,20 +16,28 @@ public:
 	{
 		v = value;
 	}
-	CResult(const CStatus& other) : CResult()
+	//
+	// These used to call CFlexError::Attach(&other), which is both private and
+	// typed for the internal SFlexError*, not CFlexError*. MSVC never
+	// diagnosed it because CResult is never instantiated; GCC checks template
+	// bodies before instantiation and rejects it.
+	//
+	// Deferring to the base class copy constructor / assignment operator is
+	// what was meant - they already do the refcounted attach correctly.
+	//
+	CResult(const CStatus& other) : CStatus(other)
 	{
-		Attach(&other);
 	}
 	CResult(const CResult& other) : CStatus(other)
 	{
 		v = other.v;
 	}
 
-	CResult& operator=(const CResult& Status) 
+	CResult& operator=(const CResult& Status)
 	{
-		Attach(&Status); 
+		CStatus::operator=(Status);
 		v = Status.v;
-		return *this; 
+		return *this;
 	}
 
 	__inline T& GetValue() { return v; }

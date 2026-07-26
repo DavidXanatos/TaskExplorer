@@ -48,7 +48,15 @@ void CSmartGridWidget::ReArange()
 			count++;
 	}
 
-	float columns = ceil(sqrt((float)count));
+	//
+	// double rather than float deliberately: the float overload resolves to
+	// sqrtf, and glibc 2.43 introduced a new symbol version of that function.
+	// Linking against it raised the binary's minimum glibc from 2.34 to 2.43 -
+	// i.e. from "most distributions of the last few years" to "only the newest"
+	// - for one square root of a small integer. sqrt(double) has carried the
+	// same GLIBC_2.2.5 version since forever.
+	//
+	float columns = ceil(sqrt((double)count));
 	float rows = columns > 0 ? ceil(count / columns) : 0;
 
 	for (int row = 0; row < rows; row++)

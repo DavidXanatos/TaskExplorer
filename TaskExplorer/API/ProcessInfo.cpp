@@ -38,7 +38,25 @@ SProcessUID::SProcessUID(quint64 uPid, quint64 msTime)
 	//                         11 11111111 11111111 11111111 11111111 11111111 - unix timestamp (May 2109) - 3FFFFFFFFFF - 4398046511103
 	//                         01 10010100 00100110 01000000 01010010 01111101 - unix timestamp (Jan 2025)
 	//
+#ifdef WIN32
 	PUID = (((uPid) << 40) & 0xFFFFFC0000000000) ^ (msTime & 0x000003FFFFFFFFFF);
+#else
+	//
+	// The << 40 above relies on the note at the top of this function: Windows
+	// PIDs are word aligned, so their low 2 bits are always 0 and get masked
+	// away harmlessly by 0xFFFFFC0000000000 (which starts at bit 42).
+	//
+	// Linux PIDs are handed out sequentially and are NOT word aligned, so that
+	// same shift would discard real information and make PIDs 1000..1003 share
+	// a UID whenever their start times matched. Shifting by 42 instead keeps
+	// the whole PID inside the 22 bit field.
+	//
+	// 22 bits is exactly enough: pid_max defaults to 4194304 == 2^22, so live
+	// PIDs run 1..4194303. A system configured with a larger pid_max would
+	// start aliasing, which is why the mask is applied rather than assumed.
+	//
+	PUID = (((uPid) << 42) & 0xFFFFFC0000000000) ^ (msTime & 0x000003FFFFFFFFFF);
+#endif
 
 	// Variant C seams best, 2109 is far enough in the future and we have no slow integer division, even though the PID gets truncated a bit
 }

@@ -26,7 +26,11 @@ public:
 	{
 		eProcess = 0,
 		ePID,
+#ifdef WIN32
+		// The pid the process has inside the Windows Subsystem for Linux; there
+		// is nothing for it to mean on Linux itself.
 		ePID_LXSS,
+#endif
 		eParentPID,
 		eConsolePID,
 		eSequenceNumber, 
@@ -151,11 +155,13 @@ public:
 
 		// file Info
 		eFileName,
-#ifdef WIN32
+		//
+		// Available on both platforms: Windows reads these from VERSIONINFO,
+		// Linux from the ELF packaging note or the application's desktop entry.
+		//
 		eDescription,
 		eCompanyName,
 		eVersion,
-#endif
 		eTimeStamp,
 		eFileModifiedTime,
 		eFileSize,
@@ -163,7 +169,22 @@ public:
 
 		// Other
 		eSubsystem, // WSL or Wine
+#ifndef WIN32
+		//
+		// Linux specifics with no Windows counterpart.
+		//
+		eOomScore,			// kernel's current OOM badness
+		eOomScoreAdj,		// the user-settable bias
+		eContainer,			// docker / podman / snap / flatpak / namespaced
+		eConfinement,		// AppArmor profile or SELinux context
+		eInotifyWatches,
+		eCGroup,
+#endif
+#ifdef WIN32
+		// UAC file and registry virtualization, a property of the process
+		// token. No Linux counterpart.
 		eVirtualized,
+#endif
 		eArchitecture,
 #ifdef WIN32
 		eOS_Context,

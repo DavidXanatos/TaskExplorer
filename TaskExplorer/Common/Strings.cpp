@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "Strings.h"
+// vswprintf_l is an MSVC extension; MiscHelpers supplies a replacement.
+#include "../../MiscHelpers/Common/Common.h"
 #ifdef WIN32
 #include <wchar.h>
 #include <Windows.h>
@@ -347,15 +349,23 @@ std::wstring::size_type RFindStr(const std::wstring& str, const std::wstring& fi
 	return rfindnex(str.c_str(),find.c_str(),find.size(),Off);
 }
 
-std::wstring charArrayToWString(const char* charArray) 
+std::wstring charArrayToWString(const char* charArray)
 {
+#ifdef WIN32
     int len = MultiByteToWideChar(CP_UTF8, 0, charArray, -1, NULL, 0);
-    if (len == 0) 
+    if (len == 0)
         return L"";
     std::wstring wideString(len, L'\0');
     if (MultiByteToWideChar(CP_UTF8, 0, charArray, -1, &wideString[0], len) == 0)
         return L"";
     return wideString;
+#else
+    // Same conversion (UTF-8 -> wide) without the Win32 API. Note wchar_t is
+    // 4 bytes here rather than 2, which toStdWString() handles.
+    if (!charArray)
+        return L"";
+    return QString::fromUtf8(charArray).toStdWString();
+#endif
 }
 ////////////////////////////////////////////////////////
 //

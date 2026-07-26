@@ -244,11 +244,22 @@ void CThreadsView::ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<
 
 void CThreadsView::OnCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-	if (theConf->GetInt("Options/DbgHelpSearch", 2) == 2) 
+#ifdef WIN32
+	//
+	// Windows only: this configures DbgHelp's symbol *server* search path, so
+	// it has no meaning on Linux - eu-stack resolves symbols out of the
+	// binaries themselves. Asking anyway just interrupts the user with a modal
+	// dialog the first time they select a thread.
+	//
+	// linux-todo: the nearest equivalent is debuginfod (DEBUGINFOD_URLS), which
+	// eu-stack already honours when it is configured in the environment.
+	//
+	if (theConf->GetInt("Options/DbgHelpSearch", 2) == 2)
 	{
 		bool Ret = QMessageBox("TaskExplorer", tr("Do you want to download debug symbols of the internet?\nYou can change this option later on in the settings."), QMessageBox::Question, QMessageBox::Yes | QMessageBox::Default, QMessageBox::No | QMessageBox::Escape, QMessageBox::NoButton).exec() != QMessageBox::Yes;
 		theConf->SetValue("Options/DbgHelpSearch", Ret ? 1 : 0);
 	}
+#endif
 
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(current);
 	m_pCurThread = m_pThreadModel->GetThread(ModelIndex);

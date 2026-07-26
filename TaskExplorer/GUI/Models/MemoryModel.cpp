@@ -125,11 +125,18 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 			case eCommitted:			Value = pMemory->GetCommittedSize(); break;
 			case ePrivate:				Value = pMemory->GetPrivateSize(); break;
 
-			case eSigningLevel:			Value = pWinMemory->GetSigningLevel(); break;
 			case eOriginalProtection:	Value = pMemory->GetAllocProtection(); break;
+#ifdef WIN32
+			// Signing level, shared original pages, the extended region type
+			// and memory priority are all Windows memory-manager concepts with
+			// no /proc counterpart; these columns stay empty on Linux.
+			case eSigningLevel:			Value = pWinMemory->GetSigningLevel(); break;
 			case eOriginalPages:		Value = pWinMemory->GetSharedOriginalPages(); break;
 			case eRegionType:			Value = pWinMemory->GetRegionTypeExStr();
 			case ePriority:				Value = pWinMemory->GetPriority();
+#else
+			case eRegionType:			Value = pMemory->GetTypeString(); break;
+#endif
 		}
 
 		SMemoryNode::SValue& ColValue = pNode->Values[section];
@@ -156,10 +163,12 @@ void CMemoryModel::UpdateMemory(const CMemoryPtr& pMemory, SMemoryNode* pNode, Q
 				case ePrivate:		
 											ColValue.Formatted = FormatSize(Value.toULongLong()); break;	
 
-				case eSigningLevel:			ColValue.Formatted = pWinMemory->GetSigningLevelString(); break;
 				case eProtection:			ColValue.Formatted = pMemory->GetProtectionString(); break;
 				case eOriginalProtection:	ColValue.Formatted = pMemory->GetAllocProtectionString(); break;
+#ifdef WIN32
+				case eSigningLevel:			ColValue.Formatted = pWinMemory->GetSigningLevelString(); break;
 				case eOriginalPages:		ColValue.Formatted = pWinMemory->GetOriginalPagesString(); break;
+#endif
 			}
 		}
 

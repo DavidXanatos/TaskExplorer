@@ -5,32 +5,7 @@
 #include <openssl/rand.h>
 #endif
 
-#ifndef WIN32 // vswprintf
-#include <stdio.h>
-#include <stdarg.h>
-
-
-int vswprintf_l(wchar_t * _String, size_t _Count, const wchar_t * _Format, va_list _Ap)
-{
-	wchar_t _Format_l[1025];
-	ASSERT(wcslen(_Format) < 1024);
-	wcscpy(_Format_l, _Format);
-
-	for(int i=0; i<wcslen(_Format_l); i++)
-	{
-		if(_Format_l[i] == L'%')
-		{
-			switch(_Format_l[i+1])
-			{
-				case L's':	_Format_l[i+1] = 'S'; break;
-				case L'S':	_Format_l[i+1] = 's'; break;
-			}
-		}
-	}
-
-	return vswprintf(_String, _Count, _Format_l, _Ap);
-}
-#endif
+// vswprintf_l now lives in Compat.cpp, which is Qt-free so TaskHelper can use it.
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Time Functions
@@ -43,10 +18,10 @@ time_t GetTime()
 	return time;
 }
 
-__time64_t GetTimeMs()
+qint64 GetTimeMs()
 {
 	QDateTime dateTime = QDateTime::currentDateTime();
-	__time64_t time = dateTime.toMSecsSinceEpoch(); // returns time in seconds (since 1970-01-01T00:00:00) in UTC !
+	qint64 time = dateTime.toMSecsSinceEpoch(); // returns time in seconds (since 1970-01-01T00:00:00) in UTC !
 	return time;
 }
 
@@ -73,21 +48,21 @@ QString UnEscape(QString Text)
 		{
 			switch(Char.unicode())
 			{
-				case L'\\':	Value += L'\\';	break;
-				case L'\'':	Value += L'\'';	break;
-				case L'\"':	Value += L'\"';	break;
-				case L'a':	Value += L'\a';	break;
-				case L'b':	Value += L'\b';	break;
-				case L'f':	Value += L'\f';	break;
-				case L'n':	Value += L'\n';	break;
-				case L'r':	Value += L'\r';	break;
-				case L't':	Value += L'\t';	break;
-				case L'v':	Value += L'\v';	break;
+				case u'\\':	Value += u'\\';	break;
+				case u'\'':	Value += u'\'';	break;
+				case u'\"':	Value += u'\"';	break;
+				case u'a':	Value += u'\a';	break;
+				case u'b':	Value += u'\b';	break;
+				case u'f':	Value += u'\f';	break;
+				case u'n':	Value += u'\n';	break;
+				case u'r':	Value += u'\r';	break;
+				case u't':	Value += u'\t';	break;
+				case u'v':	Value += u'\v';	break;
 				default:	Value += Char.unicode();break;
 			}
 			bEsc = false;
 		}
-		else if(Char == L'\\')
+		else if(Char == u'\\')
 			bEsc = true;
 		else
 			Value += Char;
@@ -173,36 +148,36 @@ TArguments GetArguments(const QString& Arguments, QChar Separator, QChar Assigne
 	bool bReadValue = false;
 	QString Name;
 	QString Value;
-	QChar Prime = L'\0';
+	QChar Prime = u'\0';
 	bool bEsc = false;
 	for(int i = 0; i < Arguments.size(); i++)
 	{
 		QChar Char = Arguments.at(i);
 		
-		if(Prime != L'\0') // inside a string
+		if(Prime != u'\0') // inside a string
 		{
 			if(bEsc) // ESC sequence handling
 			{
 				switch(Char.unicode())
 				{
-					case L'\\':	Value += L'\\';	break;
-					case L'\'':	Value += L'\'';	break;
-					case L'\"':	Value += L'\"';	break;
-					case L'a':	Value += L'\a';	break;
-					case L'b':	Value += L'\b';	break;
-					case L'f':	Value += L'\f';	break;
-					case L'n':	Value += L'\n';	break;
-					case L'r':	Value += L'\r';	break;
-					case L't':	Value += L'\t';	break;
-					case L'v':	Value += L'\v';	break;
-					default:	Value += L'?';	break;
+					case u'\\':	Value += u'\\';	break;
+					case u'\'':	Value += u'\'';	break;
+					case u'\"':	Value += u'\"';	break;
+					case u'a':	Value += u'\a';	break;
+					case u'b':	Value += u'\b';	break;
+					case u'f':	Value += u'\f';	break;
+					case u'n':	Value += u'\n';	break;
+					case u'r':	Value += u'\r';	break;
+					case u't':	Value += u'\t';	break;
+					case u'v':	Value += u'\v';	break;
+					default:	Value += u'?';	break;
 				}
 				bEsc = false;
 			}
-			else if(bReadEsc && Char == L'\\')
+			else if(bReadEsc && Char == u'\\')
 				bEsc = true;
 			else if(Char == Prime) // end of the string
-				Prime = L'\0';
+				Prime = u'\0';
 			else
 			{
 				if(bReadValue)
@@ -212,13 +187,13 @@ TArguments GetArguments(const QString& Arguments, QChar Separator, QChar Assigne
 			}
 			continue;
 		}
-		else if(Char == L'"' || Char == L'\'') // begin of a string
+		else if(Char == u'"' || Char == u'\'') // begin of a string
 		{
 			Prime = Char;
 			continue;
 		}
 
-		if(/*Char == L' ' ||*/ Char == L'\t')
+		if(/*Char == u' ' ||*/ Char == u'\t')
 			continue;
 
 		if(!bReadValue) // reading argument name, or value for default argument
@@ -692,10 +667,17 @@ void SafeShow(QWidget* pWidget) {
 	pWidget->setProperty("windowOpacity", 1.0);
 }
 
-void SetFocus(QWidget* pWidget) 
+void SetFocus(QWidget* pWidget)
 {
 	pWidget->setWindowState((pWidget->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+#ifdef WIN32
 	SetForegroundWindow((HWND)pWidget->winId());
+#else
+	// X11 window managers generally honour activateWindow(); under Wayland
+	// focus stealing is blocked outright, so this may be a no-op there.
+	pWidget->raise();
+	pWidget->activateWindow();
+#endif
 }
 
 

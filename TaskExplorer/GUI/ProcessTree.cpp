@@ -11,6 +11,8 @@
 #include "../API/Windows/ProcessHacker/appsup.h"
 #include "WsWatchDialog.h"
 #include "WaitChainDialog.h"
+#else
+#include "../API/Linux/LinuxProcess.h"
 #endif
 #include "../API/MemDumper.h"
 #include "../../MiscHelpers/Common/ProgressDialog.h"
@@ -78,6 +80,10 @@ CProcessTree::CProcessTree(QWidget *parent)
 	m_pShowProperties = m_pMenu->addAction(tr("Properties"), this, SLOT(OnShowProperties()));
 	m_pOpenPath = m_pMenu->addAction(tr("Open Path"), this, SLOT(OnProcessAction()));
 	m_pViewPE = m_pMenu->addAction(tr("View PE info"), this, SLOT(OnProcessAction()));
+#ifndef WIN32
+	// PE is the Windows executable format, and the viewer is peview.exe.
+	m_pViewPE->setVisible(false);
+#endif
 	m_pMenu->addSeparator();
 
 	m_pStop = m_pMenu->addAction(tr("Stop"), this, SLOT(OnProcessAction()));
@@ -225,8 +231,8 @@ void CProcessTree::OnColumnsChanged()
 
 	theConf->SetValue("Options/MonitorTokenChange", 
 		m_pProcessModel->IsColumnEnabled(CProcessModel::eElevation)
-	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVirtualized)
 #ifdef WIN32
+	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eVirtualized)
 	 || m_pProcessModel->IsColumnEnabled(CProcessModel::eIntegrity)
 #endif
 	);
@@ -722,8 +728,24 @@ void CProcessTree::OnMenu(const QPoint &point)
 	m_pClose->setEnabled(!HasService && !Windows.isEmpty());
 	m_pQuit->setEnabled(!Windows.isEmpty());
 	
+#ifdef WIN32
 	m_pFreeze->setVisible(selectedRows.count() > Frozen);
 	m_pUnFreeze->setVisible(Frozen > 0);
+#else
+	//
+	// Deliberately hidden on Linux rather than pending.
+	//
+	// The nearest equivalent, the cgroup v2 freezer, acts on a whole cgroup and
+	// not on one process: freezing the cgroup of an application started from a
+	// desktop session would freeze the entire session along with it. That is
+	// not what someone clicking "Freeze" on a single row is asking for.
+	//
+	// The per-process equivalent is SIGSTOP/SIGCONT, which is exactly what
+	// Suspend and Resume already do, and those entries are shown.
+	//
+	m_pFreeze->setVisible(false);
+	m_pUnFreeze->setVisible(false);
+#endif
 
 	m_pPreset->setEnabled(selectedRows.count() == 1);
 	m_pPreset->setChecked(!pProcess->GetPresets().isNull());
@@ -816,7 +838,13 @@ void CProcessTree::OnCrashDump()
 	else
 		return;
 
+#ifdef WIN32
 	QString DumpPath = QFileDialog::getSaveFileName(this, tr("Create dump"), "", tr("Dump files (*.dmp);;All files (*.*)"));
+#else
+	// On Linux this writes an ELF core file, not a minidump; ".core" is what
+	// gdb and the rest of the toolchain expect to see.
+	QString DumpPath = QFileDialog::getSaveFileName(this, tr("Create dump"), "", tr("Core dumps (*.core);;All files (*.*)"));
+#endif
 	if (DumpPath.isEmpty())
 		return;
 
@@ -833,8 +861,15 @@ void CProcessTree::OnCrashDump()
 		CProgressDialog Dialog(tr("Dumping %1").arg(pProcess->GetName()), this);
 		Dialog.show();
 
-		connect(pDumper, SIGNAL(ProgressMessage(const QString&, int)), &Dialog, SLOT(OnProgressMessage(const QString&, int)));
-		connect(pDumper, SIGNAL(StatusMessage(const QString&, int)), &Dialog, SLOT(OnStatusMessage(const QString&, int)));
+		//
+		// ShowProgress/ShowStatus, not OnProgressMessage/OnStatusMessage - the
+		// latter do not exist on CProgressDialog, so these two connects failed at
+		// runtime and the dialog never showed progress, nor the message explaining
+		// why a dump had failed. The string-based form compiles either way, which
+		// is how the wrong names survived.
+		//
+		connect(pDumper, SIGNAL(ProgressMessage(const QString&, int)), &Dialog, SLOT(ShowProgress(const QString&, int)));
+		connect(pDumper, SIGNAL(StatusMessage(const QString&, int)), &Dialog, SLOT(ShowStatus(const QString&, int)));
 		connect(&Dialog, SIGNAL(Cancel()), pDumper, SLOT(Cancel()));
 		connect(pDumper, SIGNAL(finished()), &Dialog, SLOT(OnFinished()));
 
@@ -980,6 +1015,91 @@ void CProcessTree::OnProcessAction()
 					Errors.append(Status);
 			}
 		}
+	}
+
+	CTaskExplorer::CheckErrors(Errors);
+#else
+	//
+	// The Linux counterpart. Several of these menu entries are built
+	// unconditionally but were previously wired only inside the block above, so
+	// they existed and did nothing.
+	//
+	// The window actions go through the shared CWndPtr interface, which
+	// CLinuxWnd implements over EWMH, so they need no platform specific code
+	// here at all.
+	//
+	QList<STATUS> Errors;
+
+	foreach(const QModelIndex& Index, m_pProcessList->selectedRows())
+	{
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		CProcessPtr pProcess = m_pProcessModel->GetProcess(ModelIndex);
+		if (pProcess.isNull())
+			continue;
+
+		QSharedPointer<CLinuxProcess> pLinuxProcess = pProcess.staticCast<CLinuxProcess>();
+
+		STATUS Status = OK;
+
+		if (sender() == m_pDebug)
+		{
+			if (m_pDebug->isChecked())
+				Status = pLinuxProcess->AttachDebugger();
+			else
+				Status = pLinuxProcess->DetachDebugger();
+		}
+		else if (sender() == m_pOpenPath)
+		{
+			//
+			// Opens the containing directory in the file manager. Windows uses
+			// an explorer.exe /select, which has no portable equivalent, so this
+			// just opens the folder.
+			//
+			const QString FileName = pProcess->GetFileName();
+			if (FileName.isEmpty())
+				Status = ERR(tr("The executable path of this process is not readable."));
+			else
+				QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(FileName).absolutePath()));
+		}
+		else if (sender() == m_pStop)
+		{
+			QMap<QString, CServicePtr> AllServices = theAPI->GetServiceList();
+			foreach(const QString& ServiceName, pLinuxProcess->GetServiceList())
+			{
+				CServicePtr pService = AllServices[ServiceName.toLower()];
+				if (!pService.isNull())
+				{
+					STATUS StopStatus = pService->Stop();
+					if (StopStatus.IsError())
+						Errors.append(StopStatus);
+				}
+			}
+		}
+		else
+		{
+			CWndPtr pWnd = pProcess->GetMainWindow();
+			if (pWnd.isNull())
+			{
+				// Nothing to do; the window menu is disabled without a window,
+				// so this only happens if the window closed in between.
+			}
+			else if (sender() == m_pBringInFront)	Status = pWnd->BringToFront();
+			else if (sender() == m_pRestore)		Status = pWnd->Restore();
+			else if (sender() == m_pMinimize)		Status = pWnd->Minimize();
+			else if (sender() == m_pMaximize)		Status = pWnd->Maximize();
+			else if (sender() == m_pClose || sender() == m_pQuit)
+			{
+				//
+				// X11 has one close protocol, WM_DELETE_WINDOW, so the
+				// Windows distinction between WM_CLOSE and WM_QUIT does not
+				// exist - both entries do the same thing.
+				//
+				Status = pWnd->Close();
+			}
+		}
+
+		if (Status.IsError())
+			Errors.append(Status);
 	}
 
 	CTaskExplorer::CheckErrors(Errors);

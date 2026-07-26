@@ -16,6 +16,8 @@ class CJobView;
 //class CServicesView;
 class CDotNetView;
 class CGDIView;
+class CCGroupView;
+class CSecurityView;
 //class CDnsCacheView;
 class CDebugView;
 //class CEnvironmentView;
@@ -79,6 +81,9 @@ private:
 	//CServicesView*		m_pServiceView;
 	CDotNetView*		m_pDotNetView;
 	CGDIView*			m_pGDIView;
+#else
+	CCGroupView*		m_pCGroupView;
+	CSecurityView*		m_pSecurityView;
 #endif
 	//CDnsCacheView*		m_pDnsCacheView;
 	CDebugView*			m_pDebugView;

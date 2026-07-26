@@ -14,6 +14,11 @@ public:
 public slots:
 	void					UpdateGraphs();
 	void					CustomizeGraphs();
+
+	// Rebuilds the graph bar from the platform's default set; see
+	// GetDefaultGraphs() for why this needs to be reachable.
+	void					RestoreDefaultGraphs();
+
 	void					ReConfigurePlots();
 	void					SetDarkMode(bool bDark);
 
@@ -50,6 +55,10 @@ private:
 		eNetworkPlot,
 		eGpuPlot,
 		eCpuPlot,
+#ifndef WIN32
+		// Pressure Stall Information; Linux only, there is no Windows analogue.
+		ePressurePlot,
+#endif
 		eCount
 	};
 
@@ -59,6 +68,12 @@ private:
 		CIncrementalPlot*	pGraph;
 		EGraphType			Type;
 	};*/
+
+	// The plots shown when nothing has been configured. Platform dependent.
+	static QList<EGraph>	GetDefaultGraphs();
+
+	// Persists the current layout to the settings.
+	void					SaveGraphs();
 
 	void					AddGraphs(QList<EGraph> Graphs, int Rows);
 	void					AddGraph(EGraph Graph, int row, int column);
@@ -90,6 +105,7 @@ private:
 	QAction*				m_pResetPlot;
 	QAction*				m_pResetAll;
 	QAction*				m_pCustomize;
+	QAction*				m_pRestoreDefaults;
 
 	QWidget*				m_pLastTipGraph;
 };

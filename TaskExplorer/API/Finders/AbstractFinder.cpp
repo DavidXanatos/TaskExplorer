@@ -5,6 +5,10 @@
 #include "../Windows/Finders/WinHandleFinder.h"
 #include "../Windows/Finders/WinModuleFinder.h"
 #include "../Windows/Finders/WinStringFinder.h"
+#else
+#include "../Linux/Finders/LinuxHandleFinder.h"
+#include "../Linux/Finders/LinuxModuleFinder.h"
+#include "../Linux/Finders/LinuxStringFinder.h"
 #endif
 
 CAbstractFinder::CAbstractFinder(QObject* parent) : QThread(parent) 
@@ -24,7 +28,7 @@ CAbstractFinder* CAbstractFinder::FindHandles(const QVariant& Type, const QRegul
 #ifdef WIN32
 	return new CWinHandleFinder(Type, RegExp);
 #else
-	// linux-todo:
+	return new CLinuxHandleFinder(Type, RegExp);
 #endif // WIN32
 }
 
@@ -33,7 +37,7 @@ CAbstractFinder* CAbstractFinder::FindModules(const QVariant& Type, const QRegul
 #ifdef WIN32
 	return new CWinModuleFinder(Type, RegExp);
 #else
-	// linux-todo:
+	return new CLinuxModuleFinder(Type, RegExp);
 #endif // WIN32
 }
 
@@ -42,6 +46,6 @@ CAbstractFinder* CAbstractFinder::FindStrings(const SMemOptions& Options, const 
 #ifdef WIN32
 	return new CWinStringFinder(Options, RegExp, pProcess);
 #else
-	// linux-todo:
+	return new CLinuxStringFinder(Options, RegExp, pProcess);
 #endif // WIN32
 }

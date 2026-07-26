@@ -2,7 +2,9 @@
 #include "SettingsWindow.h"
 #include "TaskExplorer.h"
 #include "../../MiscHelpers/Common/Settings.h"
+#ifdef WIN32
 #include "../../MiscHelpers/Archive/ArchiveFS.h"
+#endif
 #include "OnlineUpdater.h"
 #include <QFontDialog>
 #include <QDesktopServices>
@@ -56,10 +58,14 @@ CSettingsWindow::CSettingsWindow(QWidget *parent)
 		ui.uiLang->addItem(tr("No Translation"), "native");
 
 		QString langDir;
+#ifdef WIN32
+		// See CTaskExplorer::LoadLanguage - the 7-Zip file engine is
+		// Windows-only, Linux reads the loose translations directory.
 		C7zFileEngineHandler LangFS("lang", this);
 		if (LangFS.Open(QApplication::applicationDirPath() + "/translations.7z"))
 			langDir = LangFS.Prefix() + "/";
 		else
+#endif
 			langDir = QApplication::applicationDirPath() + "/translations/";
 
 		foreach(const QString & langFile, QDir(langDir).entryList(QStringList("taskexplorer_*.qm"), QDir::Files))

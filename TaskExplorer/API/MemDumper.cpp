@@ -2,6 +2,8 @@
 #include "MemDumper.h"
 #ifdef WIN32
 #include "Windows/WinDumper.h"
+#else
+#include "Linux/LinuxDumper.h"
 #endif // WIN32
 
 CMemDumper::CMemDumper(QObject* parent)
@@ -20,6 +22,6 @@ CMemDumper* CMemDumper::New()
 #ifdef WIN32
 	return new CWinDumper();
 #else
-	// linux-todo:
+	return new CLinuxDumper();
 #endif // WIN32
 }

@@ -13,6 +13,9 @@
 #include "TokenView.h"
 #include "DotNetView.h"
 #include "GDIView.h"
+#else
+#include "CGroupView.h"
+#include "SecurityView.h"
 #endif
 #include "WindowsView.h"
 #include "DebugView.h"
@@ -80,10 +83,12 @@ void CTaskInfoView::InitializeTabs()
 	m_pMemoryView = new CMemoryView(this);
 	AddTab(m_pMemoryView, tr("Memory"));
 
+#ifdef WIN32
+	// The heap view enumerates Windows heap manager structures; glibc exposes
+	// no equivalent to an outside observer, so the tab is omitted on Linux.
 	m_pHeapView = new CHeapView(this);
 	AddTab(m_pHeapView, tr("Heap"));
 
-#ifdef WIN32
 	m_pTokenView = new CTokenView(this);
 	AddTab(m_pTokenView, tr("Token"));
 
@@ -98,22 +103,37 @@ void CTaskInfoView::InitializeTabs()
 
 	m_pGDIView = new CGDIView(this);
 	AddTab(m_pGDIView, tr("GDI"));
+#else
+	//
+	// The Linux counterparts of the two tabs above them: a cgroup is what a job
+	// object is, and capabilities plus LSM confinement are what a token is.
+	//
+	m_pCGroupView = new CCGroupView(this);
+	AddTab(m_pCGroupView, tr("Control Group"));
+
+	m_pSecurityView = new CSecurityView(this);
+	AddTab(m_pSecurityView, tr("Security"));
 #endif
 
 	//m_pDnsCacheView = new CDnsCacheView(false, this);
 	//AddTab(m_pDnsCacheView, tr("Dns Cache"));
 
+#ifdef WIN32
+	// Fed by the OutputDebugString monitor, which is a Windows facility.
 	m_pDebugView = new CDebugView(this);
 	AddTab(m_pDebugView, tr("Debug"));
+#endif
 
 	//m_pEnvironmentView = new CEnvironmentView(this);
 	//AddTab(m_pEnvironmentView, tr("Environment"));
 
+#ifdef WIN32
 	if (theConf->GetBool("Options/UseSandboxie", false))
 	{
 		m_pSbieView = new CSbieView(this);
 		AddTab(m_pSbieView, tr("Sandboxie"));
 	}
+#endif
 }
 
 /*void CTaskInfoView::ShowProcess(const CProcessPtr& pProcess)
