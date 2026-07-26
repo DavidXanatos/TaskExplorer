@@ -19,6 +19,8 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
 STATUS ErrnoToStatus(const QString& Context, int Error)
 {
@@ -698,6 +700,89 @@ QString LinuxLastElevationError()
 	return Text;
 }
 
+//
+// Starts the escalation helper as a *direct* child, with stderr on the log.
+//
+// Deliberately not QProcess::startDetached, which double-forks so that the
+// process it starts is reparented away from us. pkexec refuses to run when it
+// finds itself orphaned:
+//
+//     Refusing to render service to dead parents.
+//
+// It checks getppid() at startup, and after a double fork that is init - or
+// whichever process is acting as subreaper. That is why this failed on a
+// Raspberry Pi and not on a desktop: a session with a user-level systemd has a
+// subreaper, so the orphan is adopted by something that is not pid 1 and pkexec
+// tolerates it. Without one it lands on pid 1 and is refused every time.
+//
+// A single fork keeps us as the parent, which is what pkexec wants. The child
+// then outliving us is fine - the check only happens at startup, and an orphan
+// keeps running.
+//
+static qint64 StartElevationChild(const QString& Program, const QStringList& Arguments, const QString& LogPath)
+{
+	//
+	// Everything the child touches is prepared before forking: between fork and
+	// exec only async-signal-safe calls are allowed, which rules out allocating.
+	//
+	QList<QByteArray> ArgBytes;
+	ArgBytes.append(Program.toLocal8Bit());
+	for (const QString& Argument : Arguments)
+		ArgBytes.append(Argument.toLocal8Bit());
+
+	QVector<char*> Argv;
+	for (QByteArray& Bytes : ArgBytes)
+		Argv.append(Bytes.data());
+	Argv.append(nullptr);
+
+	const QByteArray LogBytes = LogPath.toLocal8Bit();
+
+	const pid_t Pid = fork();
+	if (Pid < 0)
+		return -1;
+
+	if (Pid == 0)
+	{
+		const int Fd = open(LogBytes.constData(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+		if (Fd >= 0)
+		{
+			dup2(Fd, STDERR_FILENO);
+			close(Fd);
+		}
+
+		execv(Argv[0], Argv.data());
+		_exit(127);	// exec failed; the parent sees this as an immediate exit
+	}
+
+	return Pid;
+}
+
+//
+// Whether a process started by StartElevationChild is still running.
+//
+// waitpid rather than kill(pid, 0), because this is our own child: once it exits
+// it becomes a zombie until reaped, and kill() reports a zombie as perfectly
+// alive. The old check would therefore have called a failed elevation a success.
+// Reaping it here also stops the zombie accumulating when the attempt failed and
+// we carry on running.
+//
+bool LinuxElevationChildAlive(qint64 Pid, int* pExitCode)
+{
+	if (pExitCode)
+		*pExitCode = 0;
+
+	int Status = 0;
+	const pid_t Result = waitpid((pid_t)Pid, &Status, WNOHANG);
+
+	if (Result == 0)
+		return true;	// still running
+
+	if (Result == (pid_t)Pid && pExitCode && WIFEXITED(Status))
+		*pExitCode = WEXITSTATUS(Status);
+
+	return false;
+}
+
 STATUS LinuxRunElevated(const QString& Program, const QStringList& Arguments, qint64* pPid)
 {
 	if (pPid)
@@ -787,21 +872,11 @@ STATUS LinuxRunElevated(const QString& Program, const QStringList& Arguments, qi
 
 		FullArgs << Program << Arguments;
 
-		//
-		// Run it through a shell purely to capture stderr; see ElevationLogPath.
-		// "$@" is used rather than pasting the command into the script so the
-		// arguments are never re-parsed by the shell.
-		//
-		QString LogPath = ElevationLogPath();
+		const QString LogPath = ElevationLogPath();
 		QFile::remove(LogPath);
 
-		QString Script = "exec \"$@\" 2>'" + QString(LogPath).replace("'", "'\\''") + "'";
-
-		QStringList ShellArgs;
-		ShellArgs << "-c" << Script << "sh" << Path << FullArgs;
-
-		qint64 Pid = 0;
-		if (QProcess::startDetached("/bin/sh", ShellArgs, QString(), &Pid))
+		const qint64 Pid = StartElevationChild(Path, FullArgs, LogPath);
+		if (Pid > 0)
 		{
 			if (pPid)
 				*pPid = Pid;

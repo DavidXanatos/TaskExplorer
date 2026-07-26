@@ -1361,10 +1361,11 @@ void CTaskExplorer::OnElevate()
 	}
 
 	QTimer::singleShot(2500, this, [this, Pid]() {
-		if (kill((pid_t)Pid, 0) == 0 || errno == EPERM)
+		int ExitCode = 0;
+		if (LinuxElevationChildAlive(Pid, &ExitCode))
 		{
-			// Still alive - EPERM means it is running as root now, which is
-			// exactly the success case.
+			// Past the authentication and still running, so it is the elevated
+			// instance now and this one is redundant.
 			OnExit();
 			return;
 		}
@@ -1380,6 +1381,8 @@ void CTaskExplorer::OnElevate()
 		const QString Reason = LinuxLastElevationError();
 		if (!Reason.isEmpty())
 			Message += "\n\n" + Reason;
+		else if (ExitCode != 0)
+			Message += "\n\n" + tr("The helper exited with code %1.").arg(ExitCode);
 
 		QMessageBox::warning(this, "TaskExplorer", Message);
 	});

@@ -78,6 +78,13 @@ bool	LinuxSetAffinity(quint64 Pid, quint64 Mask);
 //
 QString	LinuxLastElevationError();
 
+//
+// Whether the elevation child is still running, and its exit code if not. Uses
+// waitpid, so it also reaps the child - kill(pid, 0) cannot tell a zombie from a
+// running process and would call a failed attempt a success.
+//
+bool	LinuxElevationChildAlive(qint64 Pid, int* pExitCode = nullptr);
+
 bool	LinuxHelperNeeded();
 
 //
