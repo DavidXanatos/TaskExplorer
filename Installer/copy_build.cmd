@@ -139,10 +139,21 @@ rmdir /S /Q %instPath%\translations\
 
 ECHO Sign Files
 
+REM
+REM Skipped on a build server: kph-sign-dir needs the EV signing certificate,
+REM which is not present there and must not be. The .sig files are what the
+REM kernel driver checks before it will load, so a CI build is a testing build -
+REM the driver stays unloadable until the folder is signed on a machine that has
+REM the certificate.
+REM
+IF "%TE_CI%" == "1" GOTO :skip_signing
+
 call kph-sign-dir.cmd %instPath%\
 del %instPath%\UpdUtil.sig
 REM del %instPath%\TaskHelper.sig
 del %instPath%\x86\TaskHelper.sig
+
+:skip_signing
 
 
 
@@ -163,4 +174,8 @@ copy /y %~dp0.\Drivers\TaskExplorer_x64\* %instPath%\AMD64\
 
 
 
-pause
+REM
+REM Interactive only. On a build server there is nobody to press a key, and an
+REM unguarded pause holds the job open until it is cancelled, so set TE_CI=1.
+REM
+IF NOT "%TE_CI%" == "1" pause

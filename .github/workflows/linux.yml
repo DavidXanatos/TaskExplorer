@@ -1,0 +1,171 @@
+name: Linux
+
+on:
+  workflow_dispatch:
+
+  #push:
+  #  branches: [ master ]
+
+#
+# Two separate builds rather than one universal binary, because there is no such
+# thing on Linux: x86_64 and aarch64 are different instruction sets, and unlike
+# Windows on ARM there is no emulation layer to fall back on. So each gets its
+# own tarball.
+#
+# Both are built on Ubuntu 22.04 on purpose. The glibc a binary is linked
+# against sets the oldest system it can run on, and 22.04 provides 2.35 - low
+# enough for Raspberry Pi OS (Debian 12, glibc 2.36) while still satisfying
+# Qt 6's own 2.34 requirement. Building on 24.04 would raise the floor to 2.39
+# and the aarch64 build would then refuse to start on a Pi, which is the whole
+# reason for choosing the older image. There is a step below that checks this
+# rather than trusting it.
+#
+jobs:
+  build:
+    name: ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            qt_host: linux
+            qt_arch: linux_gcc_64
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            qt_host: linux_arm64
+            qt_arch: linux_gcc_arm64
+
+    env:
+      QT_VERSION: 6.8.3
+      #
+      # Highest glibc the finished tarball may require. 2.36 is Raspberry Pi OS
+      # (Debian 12) and Debian 12 generally; going above it silently drops those
+      # targets, so the build fails instead.
+      #
+      MAX_GLIBC: "2.36"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      #
+      # Only what TaskExplorer links directly needs a -dev package: libX11 for
+      # the window enumeration, the GL stubs that Qt6::OpenGL pulls in, and
+      # elfutils for the helper's stack unwinding.
+      #
+      # The runtime-only packages below are here so the deploy script has
+      # something to copy: Qt 6 will not start without libxcb-cursor, and most
+      # distributions do not install it or the xcb-util family by default.
+      #
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libx11-dev libgl1-mesa-dev libglx-dev libopengl-dev \
+            libdw-dev libelf-dev \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-render-util0 libxcb-util1 libxcb-xkb1 \
+            libxkbcommon0 libxkbcommon-x11-0
+
+      #
+      # Official Qt binaries rather than the distribution's: Ubuntu 22.04 ships
+      # Qt 6.2, and this project needs 6.5 or newer. Qt has published desktop
+      # aarch64 builds since 6.7, which is what makes the ARM job possible
+      # without building Qt from source.
+      #
+      #
+      # No `modules:` list: for Qt 6 the SVG module and the Linguist tools are
+      # part of the base package, not add-ons, and naming a module that does not
+      # exist in the repository makes the install fail outright.
+      #
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          cache: true
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTE_BUNDLE_QT=ON
+
+      #
+      # The post-build step bundles Qt into Bin/linux-* and prints the glibc
+      # floor it ended up with; see Installer/README-portable.md.
+      #
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Locate output
+        id: out
+        run: echo "dir=$(ls -d Bin/linux-*)" >> "$GITHUB_OUTPUT"
+
+      #
+      # The floor is the highest glibc requirement across every shipped object,
+      # not just the executables - a bundled libstdc++ or libdw from too new a
+      # host raises it. Checked here so a runner image change cannot quietly
+      # drop Raspberry Pi and Debian 12 support.
+      #
+      - name: Check glibc floor
+        working-directory: ${{ steps.out.outputs.dir }}
+        run: |
+          floor=$(for f in TaskExplorer TaskHelper lib/*.so* plugins/*/*.so; do
+                    [ -f "$f" ] && objdump -T "$f" 2>/dev/null | grep -o 'GLIBC_[0-9.]*'
+                  done | sed 's/GLIBC_//' | sort -uV | tail -1)
+          echo "bundle requires glibc $floor, limit is $MAX_GLIBC"
+          if [ "$(printf '%s\n%s\n' "$floor" "$MAX_GLIBC" | sort -V | tail -1)" != "$MAX_GLIBC" ]; then
+            echo "::error::bundle requires glibc $floor, above the $MAX_GLIBC limit -" \
+                 "it would not run on Raspberry Pi OS or Debian 12." \
+                 "Build on an older image, or see Installer/README-portable.md."
+            exit 1
+          fi
+
+      #
+      # Proves the bundle is self-contained before it ships: with the loader
+      # given no help, nothing may resolve to the runner's Qt, and nothing may
+      # be missing. Cheap, and it catches a broken RPATH or a library the deploy
+      # script failed to copy.
+      #
+      - name: Verify the bundle resolves against itself
+        working-directory: ${{ steps.out.outputs.dir }}
+        run: |
+          for bin in TaskExplorer TaskHelper; do
+            echo "--- $bin"
+            out=$(env -u LD_LIBRARY_PATH ldd "./$bin")
+            echo "$out" | grep -E 'libQt6|libdw|libelf|libstdc' || true
+            if echo "$out" | grep -q "not found"; then
+              echo "::error::$bin has unresolved libraries"; echo "$out" | grep "not found"; exit 1
+            fi
+            if echo "$out" | grep -q "/opt/hostedtoolcache.*libQt6"; then
+              echo "::error::$bin resolves Qt from the runner instead of the bundle"; exit 1
+            fi
+          done
+
+      #
+      # A single top-level directory inside the archive, so unpacking cannot
+      # scatter files into the current one.
+      #
+      - name: Package
+        id: pack
+        run: |
+          name="TaskExplorer-${{ github.ref_name }}-linux-${{ matrix.arch }}"
+          name="${name//\//-}"
+          mkdir -p "staging/TaskExplorer"
+          cp -a "${{ steps.out.outputs.dir }}/." "staging/TaskExplorer/"
+          tar -czf "$name.tar.gz" -C staging TaskExplorer
+          echo "file=$name.tar.gz" >> "$GITHUB_OUTPUT"
+          ls -lh "$name.tar.gz"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskExplorer_linux_${{ matrix.arch }}
+          path: ${{ steps.pack.outputs.file }}

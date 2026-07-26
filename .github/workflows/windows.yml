@@ -1,0 +1,213 @@
+name: Windows
+
+on:
+  workflow_dispatch:
+
+  #push:
+  #  branches: [ master ]
+
+#
+# Produces the same folder layout the release build has always had: x64 binaries
+# at the top level, drivers for both architectures in AMD64\ and ARM64\, and the
+# 32-bit helper in x86\ because a 64-bit process cannot inspect a 32-bit one
+# without it.
+#
+# Only one application architecture is built. Windows on ARM runs x64 through
+# emulation, so an ARM64 build of the GUI would add little; the drivers are the
+# exception, since a kernel driver cannot be emulated and must match the host.
+#
+# Assembly is left to Installer\copy_build.cmd, which is the script the release
+# build already uses - it also brings in the VC runtime, OpenSSL, 7-Zip, the
+# translations archive and the resources. It is driven here with TE_CI=1, which
+# skips its interactive pause and the EV code signing. That means the driver in
+# these artifacts is NOT signed and will not load; sign the folder on a machine
+# that has the certificate.
+#
+jobs:
+  build:
+    runs-on: windows-2022
+
+    env:
+      #
+      # Must match the <QtInstall> in the .vcxproj files (6.8.3_msvc2022_64) and
+      # the default copy_build.cmd uses, otherwise the app links against one Qt
+      # and ships another.
+      #
+      QT_VERSION: 6.8.3
+
+      #
+      # Qt VS Tools version whose MSBuild targets are used; see the step below.
+      #
+      QT_VSTOOLS_VERSION: 3.3.0
+
+      TE_CI: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup msbuild
+        uses: microsoft/setup-msbuild@v2
+
+      #
+      # copy_build.cmd looks for Qt at <repo>\..\Qt\<version>\msvc2022_64, so it
+      # is installed there rather than in the default tool cache. install-qt-action
+      # creates <dir>\Qt\<version>\msvc2022_64, hence dir being the parent of the
+      # workspace.
+      #
+      #
+      # No `modules:` list: for Qt 6 the SVG module and the Linguist tools are
+      # part of the base package, not add-ons, and naming a module that does not
+      # exist in the repository makes the install fail outright.
+      #
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          dir: ${{ github.workspace }}\..
+          cache: true
+
+      #
+      # The .vcxproj files are Qt VS Tools projects: they import qt.props and
+      # qt.targets to run moc, rcc and uic. Those files come from the Qt VS Tools
+      # Visual Studio extension, which is not present on a hosted runner - without
+      # them msbuild prints "could not locate qt.targets" and then fails to
+      # compile anything generated.
+      #
+      # The extension is a zip, so the targets can be taken out of it without
+      # installing it. If a QtMsBuild folder is committed to the repo it is used
+      # instead, which makes the build reproducible and removes the download -
+      # worth doing once this is known to work.
+      #
+      - name: Provide Qt VS Tools MSBuild targets
+        shell: pwsh
+        run: |
+          $vendored = Join-Path $env:GITHUB_WORKSPACE 'QtMsBuild'
+          if (Test-Path (Join-Path $vendored 'qt.targets')) {
+            Write-Host "Using QtMsBuild committed to the repository"
+          }
+          else {
+            $dest = Join-Path $env:RUNNER_TEMP 'QtMsBuild'
+            $vsix = Join-Path $env:RUNNER_TEMP 'qtvstools.vsix'
+            $url  = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/TheQtCompany" +
+                    "/vsextensions/QtVisualStudioTools2022/$env:QT_VSTOOLS_VERSION/vspackage"
+
+            Write-Host "Downloading Qt VS Tools $env:QT_VSTOOLS_VERSION"
+            Invoke-WebRequest -Uri $url -OutFile $vsix -UseBasicParsing
+
+            $extract = Join-Path $env:RUNNER_TEMP 'vsix'
+            Rename-Item $vsix "$vsix.zip" -Force
+            Expand-Archive "$vsix.zip" -DestinationPath $extract -Force
+
+            $src = Get-ChildItem $extract -Recurse -Filter 'qt.targets' |
+                   Select-Object -First 1
+            if (-not $src) { throw "qt.targets not found inside the extension" }
+
+            New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            Copy-Item (Join-Path $src.DirectoryName '*') $dest -Recurse -Force
+            $vendored = $dest
+          }
+
+          Write-Host "QtMsBuild = $vendored"
+          "QtMsBuild=$vendored" | Out-File $env:GITHUB_ENV -Append
+
+      #
+      # Drivers first, because copy_build.cmd expects them staged before it runs.
+      #
+      # A kernel driver must match the architecture of the kernel it loads into,
+      # so unlike the GUI both are built.
+      #
+      - name: Build KTaskExplorer x64
+        run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=x64
+
+      - name: Build KTaskExplorer ARM64
+        run: msbuild /t:build ProcessHacker\KSystemInformer\KSystemInformer.sln /p:Configuration="Release" /p:Platform=ARM64
+
+      - name: Upload drivers
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskExplorer_drivers
+          path: |
+            ProcessHacker/KSystemInformer/bin/Release64/*.sys
+            ProcessHacker/KSystemInformer/bin/Release64/*.dll
+            ProcessHacker/KSystemInformer/bin/Release64/*.pdb
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.sys
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.dll
+            ProcessHacker/KSystemInformer/bin/ReleaseARM64/*.pdb
+
+      #
+      # The application and its helper libraries. QTDIR is passed explicitly and
+      # QtInstall blanked, because QtInstall names a Qt registered with the Visual
+      # Studio extension and nothing is registered on a runner; a command-line
+      # property overrides the one in the project file.
+      #
+      - name: Build TaskExplorer x64
+        run: >
+          msbuild /t:build TaskExplorer+Libs.sln
+          /p:Configuration="Release" /p:Platform=x64
+          /p:QtMsBuild="${{ env.QtMsBuild }}"
+          /p:QtInstall=
+          /p:QTDIR="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
+
+      #
+      # 32-bit build, for the x86\TaskHelper.exe that lets the 64-bit GUI read
+      # 32-bit processes. TaskHelper.vcxproj uses no Qt, so this needs none of the
+      # above - but it is built through the same solution to pick up the libraries
+      # it links.
+      #
+      - name: Build TaskExplorer Win32
+        run: >
+          msbuild /t:build TaskExplorer+Libs.sln
+          /p:Configuration="Release" /p:Platform=Win32
+          /p:QtMsBuild="${{ env.QtMsBuild }}"
+          /p:QtInstall=
+          /p:QTDIR="${{ github.workspace }}\..\Qt\${{ env.QT_VERSION }}\msvc2022_64"
+
+      - name: Fetch OpenSSL
+        working-directory: Installer
+        run: .\get_openssl.cmd
+
+      - name: Fetch 7-Zip
+        working-directory: Installer
+        run: .\get_7zip.cmd
+
+      #
+      # copy_build.cmd reads the drivers from Installer\Drivers\TaskExplorer_<arch>,
+      # which is where the release process puts them by hand.
+      #
+      - name: Stage drivers for assembly
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path Installer\Drivers\TaskExplorer_x64, Installer\Drivers\TaskExplorer_ARM64 | Out-Null
+          Copy-Item ProcessHacker\KSystemInformer\bin\Release64\*      Installer\Drivers\TaskExplorer_x64\    -Force -ErrorAction Continue
+          Copy-Item ProcessHacker\KSystemInformer\bin\ReleaseARM64\*   Installer\Drivers\TaskExplorer_ARM64\  -Force -ErrorAction Continue
+
+      #
+      # Assembles Installer\Build into the layout that ships. Arguments are
+      # arch, Qt5 version, Qt6 version - the Qt5 one is unused by this build but
+      # the script takes it positionally.
+      #
+      - name: Assemble the build folder
+        working-directory: Installer
+        run: .\copy_build.cmd x64 5.15.16 ${{ env.QT_VERSION }}
+
+      - name: Show what was assembled
+        shell: pwsh
+        run: |
+          if (-not (Test-Path Installer\Build\TaskExplorer.exe)) {
+            Write-Error "TaskExplorer.exe missing - assembly did not produce a usable folder"
+          }
+          Get-ChildItem Installer\Build | Select-Object Mode, Length, Name | Format-Table -AutoSize
+          foreach ($d in 'AMD64','ARM64','x86','platforms','styles','tls') {
+            Write-Host "--- $d"
+            Get-ChildItem "Installer\Build\$d" -ErrorAction Continue | Select-Object -ExpandProperty Name
+          }
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskExplorer_win_x64
+          path: Installer/Build/**

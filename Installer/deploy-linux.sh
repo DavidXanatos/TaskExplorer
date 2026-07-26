@@ -195,10 +195,25 @@ resolve_system_soname()
 			;;
 	esac
 
-	ldconfig -p 2>/dev/null | awk -v s="$soname" '
-		$1 == s && /x86-64/ { print $NF; exit }
-		$1 == s && !seen    { alt = $NF; seen = 1 }
-		END { if (!printed && seen) print alt }' | head -1
+	#
+	# The linker cache lists every architecture it knows about, so an entry has to
+	# be matched against this one - otherwise a multiarch x86_64 host happily
+	# returns the i386 copy. The tag ldconfig prints is not the same string as
+	# uname reports, hence the translation; anything unrecognised falls through to
+	# taking the first match, which is right on a single-architecture system.
+	#
+	case "$(uname -m)" in
+		x86_64)          tag="x86-64" ;;
+		aarch64|arm64)   tag="AArch64" ;;
+		armv7l|armv6l)   tag="hard-float" ;;
+		*)               tag="" ;;
+	esac
+
+	ldconfig -p 2>/dev/null | awk -v s="$soname" -v tag="$tag" '
+		$1 != s          { next }
+		tag != "" && index($0, tag) { print $NF; found = 1; exit }
+		!first           { first = $NF }
+		END              { if (!found && first) print first }' | head -1
 }
 
 echo "deploy-linux: bundling Qt from $QTDIR"
