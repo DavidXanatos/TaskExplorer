@@ -25,6 +25,26 @@ jobs:
     name: ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
 
+    #
+    # The two architectures use different Qt versions, and not by accident.
+    #
+    # Qt builds its official packages on a deliberately old base so the result
+    # runs widely - but only for x86_64. What each was actually built on:
+    #
+    #   Qt 6.8.3  x86_64   RHEL 8.10       moc needs glibc 2.28
+    #   Qt 6.11.1 x86_64   RHEL 9.6        moc needs glibc 2.34
+    #   Qt 6.7.3  aarch64  Debian 11.6     moc needs 2.28, libQt6Core 2.30
+    #   Qt 6.8.0+ aarch64  Ubuntu 24.04    moc needs 2.38, libQt6Core 2.35
+    #
+    # From 6.8.0 onwards every aarch64 release is built on Ubuntu 24.04, so its
+    # moc will not start on this runner - "libc.so.6: version GLIBC_2.38 not
+    # found". Only the *tools* are too new; the libraries need just 2.35. But a
+    # code generator that cannot run is fatal.
+    #
+    # 6.7.3 is therefore the newest official aarch64 build usable here, and it is
+    # comfortably above this project's Qt 6.5 minimum. If Qt ever publishes an
+    # aarch64 build on an older base again, raise this and drop the comment.
+    #
     strategy:
       fail-fast: false
       matrix:
@@ -33,13 +53,14 @@ jobs:
             runner: ubuntu-22.04
             qt_host: linux
             qt_arch: linux_gcc_64
+            qt_version: 6.8.3
           - arch: aarch64
             runner: ubuntu-22.04-arm
             qt_host: linux_arm64
             qt_arch: linux_gcc_arm64
+            qt_version: 6.7.3
 
     env:
-      QT_VERSION: 6.8.3
       #
       # Highest glibc the finished tarball may require. 2.36 is Raspberry Pi OS
       # (Debian 12) and Debian 12 generally; going above it silently drops those
@@ -85,7 +106,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ env.QT_VERSION }}
+          version: ${{ matrix.qt_version }}
           host: ${{ matrix.qt_host }}
           target: desktop
           arch: ${{ matrix.qt_arch }}
@@ -93,6 +114,7 @@ jobs:
 
       - name: Configure
         run: |
+          echo "building with Qt ${{ matrix.qt_version }} for ${{ matrix.arch }}"
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DTE_BUNDLE_QT=ON

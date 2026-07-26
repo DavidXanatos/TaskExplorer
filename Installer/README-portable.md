@@ -100,6 +100,34 @@ later, and rolling distributions. It excludes RHEL 8, Debian 11 and Ubuntu 20.04
 Qt 6.5 LTS is the usual candidate — and measuring its floor with the command
 above rather than assuming one.
 
+### aarch64 needs an older Qt than x86_64
+
+Qt builds its official Linux packages on a deliberately old base so the result
+runs widely — but only for x86_64. Measured from the published archives:
+
+| Qt | arch | built on | `moc` needs | `libQt6Core` needs |
+|---|---|---|---|---|
+| 6.8.3 | x86_64 | RHEL 8.10 | 2.28 | 2.28 |
+| 6.11.1 | x86_64 | RHEL 9.6 | 2.34 | 2.34 |
+| 6.7.3 | aarch64 | Debian 11.6 | 2.28 | 2.30 |
+| 6.8.0 and later | aarch64 | Ubuntu 24.04 | **2.38** | 2.35 |
+
+Every aarch64 release from 6.8.0 onward is built on Ubuntu 24.04, so its `moc`
+will not start on anything older than glibc 2.38:
+
+```
+moc: /lib/aarch64-linux-gnu/libc.so.6: version `GLIBC_2.38' not found
+```
+
+Note it is only the *host tools* that are too new — the libraries themselves need
+2.35. But a code generator that cannot run is fatal, so the CI pins **Qt 6.7.3
+for aarch64** and 6.8.3 for x86_64. 6.7.3 is the newest official aarch64 build
+usable on an older host, and is above this project's Qt 6.5 minimum.
+
+The alternative would be building on `ubuntu-24.04-arm`, which makes the tools
+work but raises the whole bundle's floor to that image's glibc — losing Raspberry
+Pi OS Bookworm and Debian 12, which is what the low floor was for.
+
 ### A trap worth knowing about
 
 Since glibc 2.38, `strtol`/`strtoul` and friends are redirected to
