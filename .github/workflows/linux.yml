@@ -77,6 +77,15 @@ jobs:
       # the window enumeration, the GL stubs that Qt6::OpenGL pulls in, and
       # elfutils for the helper's stack unwinding.
       #
+      # libcups2-dev is there for Qt6PrintSupport, whose CMake config refuses to
+      # load without Cups - qwt compiles qwt_plot_renderer.cpp, which uses
+      # QPrinter. It is a build-time dependency only: the finished binary does
+      # not link libQt6PrintSupport (the printing code is never pulled out of
+      # qwt's static archive), so nothing about the shipped bundle changes.
+      # Needed explicitly because the ARM runner image is slimmer than the x86
+      # one, which already had it - hence x86_64 configuring fine and aarch64
+      # failing on the same source tree.
+      #
       # The runtime-only packages below are here so the deploy script has
       # something to copy: Qt 6 will not start without libxcb-cursor, and most
       # distributions do not install it or the xcb-util family by default.
@@ -87,6 +96,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config \
             libx11-dev libgl1-mesa-dev libglx-dev libopengl-dev \
+            libcups2-dev \
             libdw-dev libelf-dev \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-render-util0 libxcb-util1 libxcb-xkb1 \
