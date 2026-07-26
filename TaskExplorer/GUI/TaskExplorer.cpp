@@ -1346,6 +1346,20 @@ void CTaskExplorer::OnElevate()
 	// A user who takes longer than this to type their password will see this
 	// instance close first; that is the lesser problem of the two.
 	//
+	//
+	// A pid of zero means elevation went through a terminal, so what started was
+	// the terminal and the elevated instance only exists once a password has been
+	// typed. There is nothing to test the liveness of, and closing this instance
+	// on the strength of it could leave the user with neither.
+	//
+	if (Pid == 0)
+	{
+		QMessageBox::information(this, "TaskExplorer",
+			tr("A terminal has been opened to ask for your password. Once the elevated "
+			   "Task Explorer appears you can close this one."));
+		return;
+	}
+
 	QTimer::singleShot(2500, this, [this, Pid]() {
 		if (kill((pid_t)Pid, 0) == 0 || errno == EPERM)
 		{
@@ -1355,9 +1369,19 @@ void CTaskExplorer::OnElevate()
 			return;
 		}
 
-		QMessageBox::warning(this, "TaskExplorer",
-			tr("Could not restart elevated. The authentication prompt was cancelled, or the "
-			   "elevated process failed to start."));
+		//
+		// It died. The escalation helper's own stderr says why - typically that
+		// polkit has no authentication agent to prompt with, which no amount of
+		// retrying will fix - so it is shown instead of being guessed at.
+		//
+		QString Message = tr("Could not restart elevated. The authentication prompt was cancelled, or the "
+		                     "elevated process failed to start.");
+
+		const QString Reason = LinuxLastElevationError();
+		if (!Reason.isEmpty())
+			Message += "\n\n" + Reason;
+
+		QMessageBox::warning(this, "TaskExplorer", Message);
 	});
 #endif
 }

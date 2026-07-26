@@ -71,6 +71,13 @@ bool	LinuxSetAffinity(quint64 Pid, quint64 Mask);
 
 // Whether a privileged helper is worth asking at all: false when we already have
 // the access ourselves, in which case direct reads are cheaper.
+//
+// Whatever the last failed elevation attempt printed on stderr, or an empty
+// string. Worth showing the user: "no authentication agent found" tells them what
+// to install, where "it did not work" tells them nothing.
+//
+QString	LinuxLastElevationError();
+
 bool	LinuxHelperNeeded();
 
 //

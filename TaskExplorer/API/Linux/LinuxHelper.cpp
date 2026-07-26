@@ -669,6 +669,35 @@ QString LinuxDescribeExecutable(const QString& Path)
 	return Index.value(Path.section('/', -1));
 }
 
+//
+// Where a failed elevation leaves its complaint.
+//
+// The escalation helper has to be started detached - it outlives us, so we
+// cannot hold a QProcess for it, and QProcess kills its child on destruction.
+// Detached means no captured output, and pkexec's failures are all reported on
+// stderr: "no authentication agent found", "not authorized", and so on. Without
+// them the GUI can only say "it did not work", which is useless to whoever has
+// to fix it. So the command is wrapped in a shell that redirects stderr here.
+//
+static QString ElevationLogPath()
+{
+	return QDir::tempPath() + QString("/TaskExplorer-elevate-%1.log").arg((uint)getuid());
+}
+
+QString LinuxLastElevationError()
+{
+	QFile Log(ElevationLogPath());
+	if (!Log.open(QIODevice::ReadOnly))
+		return QString();
+
+	// Only the last few lines are of interest, and a runaway file is not worth
+	// pasting into a message box.
+	const QString Text = QString::fromLocal8Bit(Log.read(4096)).trimmed();
+	Log.close();
+
+	return Text;
+}
+
 STATUS LinuxRunElevated(const QString& Program, const QStringList& Arguments, qint64* pPid)
 {
 	if (pPid)
@@ -711,6 +740,8 @@ STATUS LinuxRunElevated(const QString& Program, const QStringList& Arguments, qi
 		{ "gksudo",    false },
 		{ "gksu",      false },
 	};
+
+	QStringList Tried;
 
 	for (const SHelper& Helper : Helpers)
 	{
@@ -756,16 +787,78 @@ STATUS LinuxRunElevated(const QString& Program, const QStringList& Arguments, qi
 
 		FullArgs << Program << Arguments;
 
+		//
+		// Run it through a shell purely to capture stderr; see ElevationLogPath.
+		// "$@" is used rather than pasting the command into the script so the
+		// arguments are never re-parsed by the shell.
+		//
+		QString LogPath = ElevationLogPath();
+		QFile::remove(LogPath);
+
+		QString Script = "exec \"$@\" 2>'" + QString(LogPath).replace("'", "'\\''") + "'";
+
+		QStringList ShellArgs;
+		ShellArgs << "-c" << Script << "sh" << Path << FullArgs;
+
 		qint64 Pid = 0;
-		if (QProcess::startDetached(Path, FullArgs, QString(), &Pid))
+		if (QProcess::startDetached("/bin/sh", ShellArgs, QString(), &Pid))
 		{
 			if (pPid)
 				*pPid = Pid;
 			return OK;
 		}
 
-		return ERR(QObject::tr("Failed to launch %1.").arg(Helper.Name));
+		// This one could not even be started; another might work.
+		Tried << Helper.Name;
 	}
+
+	//
+	// Last resort: sudo, asked for in a terminal.
+	//
+	// A graphical helper needs an authentication agent behind it, and a desktop
+	// without one - or with a broken one - fails no matter how many of them are
+	// installed. sudo needs nothing but a terminal to type into, which is why it
+	// keeps working when pkexec does not. The environment is passed explicitly
+	// because sudo resets it, and without DISPLAY and XAUTHORITY the elevated
+	// instance has nothing to draw on.
+	//
+	{
+		const QString SudoPath = QStandardPaths::findExecutable("sudo");
+		if (!SudoPath.isEmpty())
+		{
+			QStringList SudoArgs;
+			SudoArgs << "env" << ("DISPLAY=" + Display);
+
+			QString XAuthority = qEnvironmentVariable("XAUTHORITY");
+			if (XAuthority.isEmpty())
+			{
+				const QString Fallback = QDir::homePath() + "/.Xauthority";
+				if (QFile::exists(Fallback))
+					XAuthority = Fallback;
+			}
+			if (!XAuthority.isEmpty())
+				SudoArgs << ("XAUTHORITY=" + XAuthority);
+
+			SudoArgs << Program << Arguments;
+
+			const STATUS Status = LinuxRunInTerminal("sudo", SudoArgs);
+			if (!Status.IsError())
+			{
+				//
+				// No pid to report: what was started is the terminal, and the
+				// elevated instance only appears once a password has been typed.
+				// The caller has to treat zero as "cannot tell yet" rather than
+				// as failure, and must not close itself on the strength of it.
+				//
+				if (pPid)
+					*pPid = 0;
+				return OK;
+			}
+		}
+	}
+
+	if (!Tried.isEmpty())
+		return ERR(QObject::tr("Cannot restart elevated: %1 could not be started.").arg(Tried.join(", ")));
 
 	return ERR(QObject::tr("Cannot restart elevated: no graphical privilege escalation helper was found. "
 	                       "Install polkit (for pkexec), or run TaskExplorer from a terminal with 'sudo'."));
