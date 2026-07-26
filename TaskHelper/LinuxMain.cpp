@@ -47,6 +47,7 @@
 #include <unistd.h>
 #include <sys/ptrace.h>
 #include <sys/uio.h>
+#include <sys/procfs.h>
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <elf.h>
@@ -704,8 +705,23 @@ static CVariant DumpAttach(const CVariant& Parameters)
 			// SIGSTOP is left behind to surprise the target after detaching.
 			//
 			bool bAttached = false;
-			struct user_regs_struct Regs;
-			struct user_fpregs_struct FpRegs;
+
+			//
+			// elf_gregset_t / elf_fpregset_t, not struct user_regs_struct and
+			// struct user_fpregs_struct.
+			//
+			// user_fpregs_struct is an x86 name; on aarch64 glibc calls the same
+			// thing user_fpsimd_struct, so naming it directly does not compile
+			// there. The elf_* typedefs in <sys/procfs.h> exist on every
+			// architecture and resolve to whatever is right for it - and on x86_64
+			// they are the very same structures, 216 and 512 bytes, so the bytes
+			// on the wire do not change.
+			//
+			// This is also what the receiving end uses (SThreadState in
+			// LinuxDumper.cpp), which is what makes its size check meaningful.
+			//
+			elf_gregset_t Regs;
+			elf_fpregset_t FpRegs;
 			bool bHaveRegs = false, bHaveFpRegs = false;
 
 			memset(&Regs, 0, sizeof(Regs));

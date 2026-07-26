@@ -114,8 +114,8 @@ struct SHelperDumpThread
 {
 	quint64		Tid = 0;
 	bool		Attached = false;
-	QByteArray	Regs;		// struct user_regs_struct, empty if unavailable
-	QByteArray	FpRegs;		// struct user_fpregs_struct, empty if unavailable
+	QByteArray	Regs;		// elf_gregset_t, empty if unavailable
+	QByteArray	FpRegs;		// elf_fpregset_t, empty if unavailable
 };
 
 struct SHelperDumpInfo
