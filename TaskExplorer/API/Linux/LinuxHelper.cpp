@@ -177,14 +177,21 @@ bool LinuxHelperNeeded()
 // here is expected and unremarkable - the user may simply have declined - so it
 // returns an invalid variant rather than raising.
 //
-static QVariant LinuxHelperCall(const QString& Command, const QVariantMap& Parameters, int TimeoutMs = 10000)
+static QVariant LinuxHelperCall(const QString& Command, const QVariantMap& Parameters,
+                                int TimeoutMs = 10000, bool bMayStart = true)
 {
 	//
 	// Elevated, unlike the stack tracer: the whole point of these calls is to see
 	// what the current user cannot. If we are already root the helper inherits
 	// that and no prompt appears.
 	//
-	const QString Socket = CTaskService::RunWorker(true);
+	// bMayStart false means "use a helper if one is already running, otherwise do
+	// nothing". Starting one costs an authentication prompt and RunWorker waits up
+	// to a minute for it, which is fine for something the user asked for and quite
+	// wrong for a getter feeding a label on the GUI thread.
+	//
+	const QString Socket = bMayStart ? CTaskService::RunWorker(true)
+	                                 : CTaskService::GetRunningWorker(true);
 	if (Socket.isEmpty())
 		return QVariant();
 
@@ -215,7 +222,7 @@ static QVariant LinuxHelperCall(const QString& Command, const QVariantMap& Param
 	return Reply;
 }
 
-QMap<quint64, QMap<QString, QByteArray>> LinuxHelperReadProcFiles(const QList<quint64>& Pids, const QStringList& Leaves)
+QMap<quint64, QMap<QString, QByteArray>> LinuxHelperReadProcFiles(const QList<quint64>& Pids, const QStringList& Leaves, bool bMayStart)
 {
 	QMap<quint64, QMap<QString, QByteArray>> Result;
 	if (Pids.isEmpty() || Leaves.isEmpty())
@@ -229,7 +236,7 @@ QMap<quint64, QMap<QString, QByteArray>> LinuxHelperReadProcFiles(const QList<qu
 	Parameters["Pids"] = PidList;
 	Parameters["Leaves"] = QVariant(Leaves);
 
-	const QVariantMap Reply = LinuxHelperCall("ReadProcFiles", Parameters).toMap();
+	const QVariantMap Reply = LinuxHelperCall("ReadProcFiles", Parameters, 10000, bMayStart).toMap();
 
 	for (auto I = Reply.begin(); I != Reply.end(); ++I)
 	{
@@ -249,21 +256,21 @@ QMap<quint64, QMap<QString, QByteArray>> LinuxHelperReadProcFiles(const QList<qu
 	return Result;
 }
 
-QByteArray LinuxHelperReadProcFile(quint64 Pid, const QString& Leaf)
+QByteArray LinuxHelperReadProcFile(quint64 Pid, const QString& Leaf, bool bMayStart)
 {
 	const QMap<quint64, QMap<QString, QByteArray>> Reply =
-		LinuxHelperReadProcFiles(QList<quint64>() << Pid, QStringList() << Leaf);
+		LinuxHelperReadProcFiles(QList<quint64>() << Pid, QStringList() << Leaf, bMayStart);
 
 	return Reply.value(Pid).value(Leaf);
 }
 
-QString LinuxHelperReadProcLink(quint64 Pid, const QString& Leaf)
+QString LinuxHelperReadProcLink(quint64 Pid, const QString& Leaf, bool bMayStart)
 {
 	QVariantMap Parameters;
 	Parameters["ProcessId"] = Pid;
 	Parameters["Leaf"] = Leaf;
 
-	return LinuxHelperCall("ReadProcLink", Parameters).toString();
+	return LinuxHelperCall("ReadProcLink", Parameters, 10000, bMayStart).toString();
 }
 
 QList<QMap<QString, QVariant>> LinuxHelperListFds(quint64 Pid)

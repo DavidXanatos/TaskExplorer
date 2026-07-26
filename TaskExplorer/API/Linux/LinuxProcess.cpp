@@ -372,9 +372,16 @@ QString CLinuxProcess::GetWorkingDirectory() const
 	if (!Directory.isEmpty())
 		return Directory;
 
-	// Another user's cwd needs privileges; ask the helper rather than show blank.
-	if (LinuxHelperNeeded())
-		return LinuxHelperReadProcLink(Pid, "cwd");
+	//
+	// Another user's cwd needs privileges. Ask an already-running helper, but
+	// never start one: this is a const getter called from the GUI thread while
+	// the process panel fills in, and starting an elevated helper means an
+	// authentication prompt plus a wait of up to a minute - which is
+	// indistinguishable from the application having hung. Showing the field blank
+	// is the right answer until the user turns the helper on deliberately.
+	//
+	if (LinuxHelperNeeded() && theConf->GetBool("Options/UseTaskHelper", false))
+		return LinuxHelperReadProcLink(Pid, "cwd", false);
 
 	return QString();
 }
@@ -739,9 +746,11 @@ QMap<QString, CProcessInfo::SEnvVar> CLinuxProcess::GetEnvVariables() const
 	//
 	const quint64 Pid = GetProcessId();
 	QStringList Entries = ProcFs::ReadNulList(ProcFs::ProcPath(Pid, "environ"));
-	if (Entries.isEmpty() && LinuxHelperNeeded())
+	if (Entries.isEmpty() && LinuxHelperNeeded() && theConf->GetBool("Options/UseTaskHelper", false))
 	{
-		QByteArray Data = LinuxHelperReadProcFile(Pid, "environ");
+		// Only an already-running helper; see GetWorkingDirectory for why this
+		// must not start one.
+		QByteArray Data = LinuxHelperReadProcFile(Pid, "environ", false);
 		while (Data.endsWith('\0'))
 			Data.chop(1);
 		if (!Data.isEmpty())

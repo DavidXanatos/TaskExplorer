@@ -822,6 +822,26 @@ QString CTaskService::RunWorker(bool bElevanted, bool b32Bit)
 	return QString();
 }
 
+QString CTaskService::GetRunningWorker(bool bElevanted)
+{
+	QMutexLocker Locker(&m_Mutex);
+
+#ifdef WIN32
+	const QString SocketName = m_TempSocket;
+#else
+	const QString SocketName = bElevanted ? m_TempSocketRoot : m_TempSocket;
+#endif
+
+	if (SocketName.isEmpty())
+		return QString();
+
+	// A short probe: either it answers at once or it is gone.
+	if (SendCommand(SocketName, "Refresh", 500).toBool() == true)
+		return SocketName;
+
+	return QString();
+}
+
 void CTaskService::TerminateWorkers()
 {
 	QMutexLocker Locker(&m_Mutex);

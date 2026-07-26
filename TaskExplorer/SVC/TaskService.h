@@ -31,6 +31,18 @@ public:
 
 	static QString RunWorker(bool bElevanted = true, bool b32Bit = false);
 
+	//
+	// The socket of a worker that is *already* running, or an empty string.
+	//
+	// Unlike RunWorker this never starts one, so it never raises an
+	// authentication prompt and never waits on a human. It exists for the
+	// opportunistic callers - display niceties that should enrich the view when a
+	// privileged helper happens to be available, and quietly show nothing when it
+	// is not. Those run on the GUI thread, where RunWorker's minute-long wait for
+	// an elevated start would look exactly like a hang.
+	//
+	static QString GetRunningWorker(bool bElevanted = true);
+
 	static bool CheckStatus(long Status);
 
 	static bool TaskAction(quint64 ProcessId, const QString& Action, const QVariant& Data = QVariant()) { return TaskAction(ProcessId, 0, Action, Data); }

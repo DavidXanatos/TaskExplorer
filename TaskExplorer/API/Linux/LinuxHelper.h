@@ -76,7 +76,7 @@ bool	LinuxHelperNeeded();
 //
 // Reads one whitelisted /proc/<pid>/<leaf> file. Batched form below.
 //
-QByteArray	LinuxHelperReadProcFile(quint64 Pid, const QString& Leaf);
+QByteArray	LinuxHelperReadProcFile(quint64 Pid, const QString& Leaf, bool bMayStart = true);
 
 //
 // The same for many processes at once, returning pid -> leaf -> contents.
@@ -85,9 +85,9 @@ QByteArray	LinuxHelperReadProcFile(quint64 Pid, const QString& Leaf);
 // refresh; one request per process per second would be hundreds of round trips.
 //
 QMap<quint64, QMap<QString, QByteArray>>
-		LinuxHelperReadProcFiles(const QList<quint64>& Pids, const QStringList& Leaves);
+		LinuxHelperReadProcFiles(const QList<quint64>& Pids, const QStringList& Leaves, bool bMayStart = true);
 
-QString		LinuxHelperReadProcLink(quint64 Pid, const QString& Leaf);
+QString		LinuxHelperReadProcLink(quint64 Pid, const QString& Leaf, bool bMayStart = true);
 
 // One entry per open descriptor: Fd, Target, and the raw fdinfo text.
 QList<QMap<QString, QVariant>>
