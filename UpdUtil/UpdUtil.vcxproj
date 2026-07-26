@@ -203,9 +203,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>noenv.obj;ntdll.lib;bcrypt.lib;wininet.lib;winhttp.lib;%(AdditionalDependencies);Version.lib</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin\Release\$(PROCESSOR_ARCHITECTURE)\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
-    </PostBuildEvent>
+    <!-- Signing is not done here for Release: -kph-sign needs the KPH private key
+         (*.key, deliberately not in the repository) and a prebuilt
+         CustomBuildTool.exe, neither of which exists on a build server. The
+         release folder is signed as a whole by Installer\kph-sign-dir.cmd on a
+         machine that has the key. Left enabled for Debug for local testing. -->
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>

@@ -344,9 +344,11 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
-    <PostBuildEvent>
-      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin_old\Release\AMD64\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
-    </PostBuildEvent>
+    <!-- Signing is not done here for Release: -kph-sign needs the KPH private key
+         (*.key, deliberately not in the repository) and a prebuilt
+         CustomBuildTool.exe, neither of which exists on a build server. The
+         release folder is signed as a whole by Installer\kph-sign-dir.cmd on a
+         machine that has the key. Left enabled for Debug for local testing. -->
     <QtTranslation>
       <BuildAction>lupdate_lrelease</BuildAction>
     </QtTranslation>
@@ -390,9 +392,11 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
-    <PostBuildEvent>
-      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin_old\Release\AMD64\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
-    </PostBuildEvent>
+    <!-- Signing is not done here for Release: -kph-sign needs the KPH private key
+         (*.key, deliberately not in the repository) and a prebuilt
+         CustomBuildTool.exe, neither of which exists on a build server. The
+         release folder is signed as a whole by Installer\kph-sign-dir.cmd on a
+         machine that has the key. Left enabled for Debug for local testing. -->
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -435,9 +439,11 @@
       <QtRccDir>.\GeneratedFiles</QtRccDir>
       <QtRccFileName>qrc_%(Filename).cpp</QtRccFileName>
     </QtRcc>
-    <PostBuildEvent>
-      <Command>cmd /c "cd "$(SolutionDir)ProcessHacker\" &amp; "$(SolutionDir)ProcessHacker\tools\CustomBuildTool\bin_old\Release\AMD64\CustomBuildTool.exe" -kph-sign "$(OutDir)$(TargetName)$(TargetExt)""</Command>
-    </PostBuildEvent>
+    <!-- Signing is not done here for Release: -kph-sign needs the KPH private key
+         (*.key, deliberately not in the repository) and a prebuilt
+         CustomBuildTool.exe, neither of which exists on a build server. The
+         release folder is signed as a whole by Installer\kph-sign-dir.cmd on a
+         machine that has the key. Left enabled for Debug for local testing. -->
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="API\AbstractTask.cpp" />
