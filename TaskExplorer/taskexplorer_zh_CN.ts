@@ -6739,7 +6739,7 @@ Do you want to continue anyways (Ok), or terminate (Cancel)?</oldsource>
     <message>
         <location filename="GUI/WndFinder.cpp" line="143"/>
         <source>Drag the Finder Tool over a window to select it, then release the mouse to open process properties.</source>
-        <translation拖拽查找器工具到一个窗口上以选中，然后释放鼠标以打开进程属性。></translation>
+        <translation>拖拽查找器工具到一个窗口上以选中，然后释放鼠标以打开进程属性。</translation>
     </message>
     <message>
         <location filename="GUI/WndFinder.cpp" line="213"/>
