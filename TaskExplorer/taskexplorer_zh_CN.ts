@@ -4828,12 +4828,12 @@ To change the limit adjust the option &apos;Options/ResultLimit&apos;.</source>
     <message>
         <location filename="GUI/SystemInfo/ServicesView.cpp" line="92"/>
         <source>Open Key</source>
-        <translation type="unfinished"></translation>
+        <translation>打开注册表键</translation>
     </message>
     <message>
         <location filename="GUI/SystemInfo/ServicesView.cpp" line="94"/>
         <source>Open Process</source>
-        <translation type="unfinished"></translation>
+        <translation>打开进程菜单</translation>
     </message>
     <message>
         <source>Open key</source>
@@ -5826,7 +5826,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="238"/>
         <source>Window Finder</source>
-        <translation type="unfinished"></translation>
+        <translation>窗口查找器</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="240"/>
@@ -6122,12 +6122,12 @@ PartiallyChecked state means apply only to thread std::list.</source>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="408"/>
         <source>Visit Support Forum</source>
-        <translation type="unfinished"></translation>
+        <translation>访问支持论坛</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="410"/>
         <source>Check for Updates</source>
-        <translation type="unfinished"></translation>
+        <translation>检查更新</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="413"/>
@@ -6684,27 +6684,27 @@ Do you want to continue anyways (Ok), or terminate (Cancel)?</oldsource>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="330"/>
         <source>Driver Options</source>
-        <translation type="unfinished"></translation>
+        <translation>驱动选项</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1948"/>
         <source>Copy Cell</source>
-        <translation type="unfinished"></translation>
+        <translation>复制单元格</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1949"/>
         <source>Copy Row</source>
-        <translation type="unfinished"></translation>
+        <translation>复制行</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1950"/>
         <source>Copy Panel</source>
-        <translation type="unfinished"></translation>
+        <translation>复制面板</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1951"/>
         <source>Case Sensitive</source>
-        <translation type="unfinished"></translation>
+        <translation>大小写敏感</translation>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1952"/>
@@ -6739,12 +6739,12 @@ Do you want to continue anyways (Ok), or terminate (Cancel)?</oldsource>
     <message>
         <location filename="GUI/WndFinder.cpp" line="143"/>
         <source>Drag the Finder Tool over a window to select it, then release the mouse to open process properties.</source>
-        <translation type="unfinished"></translation>
+        <translation拖拽查找器工具到一个窗口上以选中，然后释放鼠标以打开进程属性。></translation>
     </message>
     <message>
         <location filename="GUI/WndFinder.cpp" line="213"/>
         <source>TaskExplorer - Window Finder</source>
-        <translation type="unfinished"></translation>
+        <translation>TaskExplorer - 窗口查找器</translation>
     </message>
 </context>
 <context>
@@ -11174,7 +11174,7 @@ If you save the recovery information using this program, the additional failure 
     <message>
         <location filename="Forms/DriverWindow.ui" line="53"/>
         <source>Driver Status:</source>
-        <translation type="unfinished"></translation>
+        <translation>驱动状态：</translation>
     </message>
     <message>
         <location filename="Forms/DriverWindow.ui" line="76"/>
@@ -11193,17 +11193,17 @@ If you save the recovery information using this program, the additional failure 
     <message>
         <location filename="Forms/DriverWindow.ui" line="182"/>
         <source>(Requires Restart)</source>
-        <translation type="unfinished"></translation>
+        <translation>(需要重启)</translation>
     </message>
     <message>
         <location filename="Forms/DriverWindow.ui" line="189"/>
         <source>Get latest DynData</source>
-        <translation type="unfinished"></translation>
+        <translation>获取最新的DynData</translation>
     </message>
     <message>
         <location filename="Forms/DriverWindow.ui" line="165"/>
         <source>DynData Status:</source>
-        <translation type="unfinished"></translation>
+        <translation>DynData状态</translation>
     </message>
     <message>
         <source>Connect</source>
@@ -11324,7 +11324,7 @@ If you save the recovery information using this program, the additional failure 
     <message>
         <location filename="API/Windows/SystemHacker/SystemHacker.cpp" line="54"/>
         <source>Unable to load the kernel driver, Error: 0x%1</source>
-        <translation type="unfinished"></translation>
+        <translation>无法加载内核驱动，错误: 0x%1</translation>
     </message>
 </context>
 <context>
@@ -11606,7 +11606,7 @@ If you save the recovery information using this program, the additional failure 
     <message>
         <location filename="Forms/SettingsWindow.ui" line="163"/>
         <source>Use Fusion Theme</source>
-        <translation type="unfinished"></translation>
+        <translation>使用融合主题</translation>
     </message>
     <message>
         <location filename="Forms/SettingsWindow.ui" line="376"/>
