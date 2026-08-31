@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2011
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -26,7 +26,7 @@ typedef enum _PV_EXPORT_TREE_COLUMN_ITEM
     PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME,
     PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL,
     PV_EXPORT_TREE_COLUMN_ITEM_UNDECORATED,
-    PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION,
+    PV_EXPORT_TREE_COLUMN_ITEM_SUPPRESSION,
     PV_EXPORT_TREE_COLUMN_ITEM_MAXIMUM
 } PV_EXPORT_TREE_COLUMN_ITEM;
 
@@ -484,6 +484,12 @@ INT_PTR CALLBACK PvPeExportsDlgProc(
             }
         }
         break;
+    case WM_DPICHANGED_AFTERPARENT:
+        {
+            PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
+            PhLayoutManagerLayout(&context->LayoutManager);
+        }
+        break;
     case WM_SIZE:
         {
             PhLayoutManagerLayout(&context->LayoutManager);
@@ -894,7 +900,7 @@ BOOLEAN NTAPI PvExportTreeNewCallback(
             case PV_EXPORT_TREE_COLUMN_ITEM_UNDECORATED:
                 getCellText->Text = PhGetStringRef(node->UndecoratedString);
                 break;
-            case PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION:
+            case PV_EXPORT_TREE_COLUMN_ITEM_SUPPRESSION:
                 {
                     if (node->ExportSuppressed)
                         PhInitializeStringRef(&getCellText->Text, L"Yes");
@@ -1064,9 +1070,9 @@ VOID PvInitializeExportTree(
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME, TRUE, L"Forwarded name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_FWDNAME, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL, TRUE, L"Symbol name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SYMBOL, 0, 0);
     PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_UNDECORATED, TRUE, L"Undecorated name", 150, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_UNDECORATED, 0, 0);
-    PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION, TRUE, L"CFG export suppression", 80, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SUPRESSION, 0, 0);
+    PhAddTreeNewColumnEx2(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_SUPPRESSION, TRUE, L"CFG export suppression", 80, PH_ALIGN_LEFT, PV_EXPORT_TREE_COLUMN_ITEM_SUPPRESSION, 0, 0);
 
-    TreeNew_SetRowHeight(Context->TreeNewHandle, PhGetDpi(22, PhGetWindowDpi(Context->WindowHandle)));
+    TreeNew_SetRowHeight(Context->TreeNewHandle, PvpGetTreeNewRowHeight());
 
     TreeNew_SetSort(TreeNewHandle, PV_EXPORT_TREE_COLUMN_ITEM_INDEX, AscendingSortOrder);
     TreeNew_SetRedraw(TreeNewHandle, TRUE);

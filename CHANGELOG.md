@@ -8,6 +8,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+
+
+## [2.0.0] - 2026-08-??
+
+### Added
+- added linux support, ther is now a x64 and aarch64 linux build available
+
+### Changed
+- updated PHlib to version 4.0.26241
+
+
+
+
 ## [1.8.0] - 2026-05-02
 
 ### Changed
@@ -17,7 +30,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - fixed crash issue on start up affecting soeme systems
 - fixed job object name display issue
 - fixed click "SYSTEM_IDLE_PROCESS_ID" will crash. [#116](https://github.com/DavidXanatos/TaskExplorer/issues/116)
-
 
 
 

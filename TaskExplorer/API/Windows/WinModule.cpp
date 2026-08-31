@@ -106,7 +106,7 @@ bool CWinModule::InitStaticData(struct _PH_MODULE_INFO* moduleItem, quint64 Proc
 	if (m_IsSubsystemProcess)
     {
         // HACK: Update the module type. (TO-DO: Move into PhEnumGenericModules) (dmex)
-        m_Type = PH_MODULE_TYPE_ELF_MAPPED_IMAGE;
+        m_Type = -1;
     }
     else
     {
@@ -614,13 +614,15 @@ QString CWinModule::GetTypeString() const
         return tr("DLL");
     case PH_MODULE_TYPE_MAPPED_FILE:
         return tr("Mapped file");
+	case -1:
     case PH_MODULE_TYPE_MAPPED_IMAGE:
-    case PH_MODULE_TYPE_ELF_MAPPED_IMAGE:
         return tr("Mapped image");
     case PH_MODULE_TYPE_WOW64_MODULE:
         return tr("WOW64 DLL");
     case PH_MODULE_TYPE_KERNEL_MODULE:
         return tr("Kernel module");
+	case PH_MODULE_TYPE_ENCLAVE_MODULE:
+		return tr("Enclave module");
     default:	
 		return tr("Unknown %1").arg(m_Type);
     }

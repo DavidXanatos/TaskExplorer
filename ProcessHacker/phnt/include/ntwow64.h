@@ -110,6 +110,22 @@ typedef struct _LDR_DDAG_NODE32
     ULONG PreorderNumber;
 } LDR_DDAG_NODE32, *PLDR_DDAG_NODE32;
 
+typedef struct _LDRP_DEPENDENCY32
+{
+    SINGLE_LIST_ENTRY32 Link;
+    WOW64_POINTER(PLDR_DDAG_NODE) ChildNode;
+    SINGLE_LIST_ENTRY32 BackLink;
+    union
+    {
+        WOW64_POINTER(PLDR_DDAG_NODE) ParentNode;
+        struct
+        {
+            ULONG ForwarderLink : 1;
+            ULONG SpareFlags : 2;
+        };
+    };
+} LDRP_DEPENDENCY32, *PLDR_DEPENDENCY32;
+
 #define LDR_DATA_TABLE_ENTRY_SIZE_WINXP_32 FIELD_OFFSET(LDR_DATA_TABLE_ENTRY32, DdagNode)
 #define LDR_DATA_TABLE_ENTRY_SIZE_WIN7_32 FIELD_OFFSET(LDR_DATA_TABLE_ENTRY32, BaseNameHashValue)
 #define LDR_DATA_TABLE_ENTRY_SIZE_WIN8_32 FIELD_OFFSET(LDR_DATA_TABLE_ENTRY32, ImplicitPathOptions)
@@ -352,7 +368,7 @@ typedef struct _PEB32
     WOW64_POINTER(PVOID *) ProcessHeaps;
 
     WOW64_POINTER(PVOID) GdiSharedHandleTable;
-    WOW64_POINTER(PVOID) ProcessStarterHelper;
+    WOW64_POINTER(PPS_PROCESS_START_ROUTINE) ProcessStarterHelper;
     ULONG GdiDCAttributeList;
 
     WOW64_POINTER(PRTL_CRITICAL_SECTION) LoaderLock;
@@ -389,7 +405,7 @@ typedef struct _PEB32
     WOW64_POINTER(SIZE_T) MinimumStackCommit;
 
     WOW64_POINTER(PVOID) SparePointers[2]; // 19H1 (previously FlsCallback to FlsHighIndex)
-    WOW64_POINTER(PVOID) PatchLoaderData;
+    WOW64_POINTER(PLDR_PATCH_TABLE) PatchLoaderData;
     WOW64_POINTER(PVOID) ChpeV2ProcessInfo; // _CHPEV2_PROCESS_INFO
 
     ULONG AppModelFeatureState;
@@ -400,8 +416,8 @@ typedef struct _PEB32
     USHORT UseCaseMapping;
     USHORT UnusedNlsField;
 
-    WOW64_POINTER(PVOID) WerRegistrationData;
-    WOW64_POINTER(PVOID) WerShipAssertPtr;
+    WOW64_POINTER(PWER_PEB_HEADER_BLOCK) WerRegistrationData;
+    WOW64_POINTER(PWER_REGISTRATION_DATA) WerShipAssertPtr;
 
     union
     {
@@ -455,7 +471,9 @@ static_assert(sizeof(PEB32) == 0x488, "sizeof(PEB32) is incorrect"); // WIN11
 
 typedef struct _GDI_TEB_BATCH32
 {
-    ULONG Offset;
+    ULONG Offset : 30;
+    ULONG InProcessing : 1;
+    ULONG HasRenderingCommand : 1;
     WOW64_POINTER(ULONG_PTR) HDC;
     ULONG Buffer[GDI_BATCH_BUFFER_SIZE];
 } GDI_TEB_BATCH32, *PGDI_TEB_BATCH32;
@@ -489,7 +507,7 @@ typedef struct _TEB32
     WOW64_POINTER(PVOID) EnvironmentPointer;
     CLIENT_ID32 ClientId;
     WOW64_POINTER(PVOID) ActiveRpcHandle;
-    WOW64_POINTER(PVOID) ThreadLocalStoragePointer;
+    WOW64_POINTER(PVOID *) ThreadLocalStoragePointer;
     WOW64_POINTER(PPEB) ProcessEnvironmentBlock;
 
     ULONG LastErrorValue;
@@ -503,7 +521,7 @@ typedef struct _TEB32
     ULONG FpSoftwareStatusRegister;
     WOW64_POINTER(PVOID) ReservedForDebuggerInstrumentation[16];
     WOW64_POINTER(PVOID) SystemReserved1[36];
-    UCHAR WorkingOnBehalfTicket[8];
+    ALPC_WORK_ON_BEHALF_TICKET WorkingOnBehalfTicket;
     NTSTATUS ExceptionCode;
 
     WOW64_POINTER(PVOID) ActivationContextStackPointer;
@@ -571,7 +589,7 @@ typedef struct _TEB32
     ULONG WaitingOnLoaderLock;
     WOW64_POINTER(PVOID) SavedPriorityState;
     WOW64_POINTER(ULONG_PTR) ReservedForCodeCoverage;
-    WOW64_POINTER(PVOID) ThreadPoolData;
+    WOW64_POINTER(PTPP_THREAD_DATA) ThreadPoolData;
     WOW64_POINTER(PVOID *) TlsExpansionSlots;
 
     ULONG MuiGeneration;

@@ -6,7 +6,7 @@
  * Authors:
  *
  *     jxy-s    2023
- *     dmex     2023
+ *     dmex     2023-2026
  *
  */
 
@@ -47,16 +47,58 @@
 #include <arm_acle.h>
 #endif
 
+#ifdef _M_ARM64
+#ifndef ARM64_SYSREG
+#define ARM64_SYSREG(op0, op1, crn, crm, op2) \
+    (((op0 & 1) << 14) | ((op1) << 11) | ((crn) << 7) | ((crm) << 3) | (op2))
+#endif
+
+#ifndef ARM64_RNDRRS
+#define ARM64_RNDRRS ARM64_SYSREG(3, 3, 2, 4, 1)
+#endif
+
+#ifndef ARM64_RNDR
+#define ARM64_RNDR ARM64_SYSREG(3, 3, 2, 4, 0)
+#endif
+
+#ifndef ARM64_NZCV
+#define ARM64_NZCV ARM64_SYSREG(3, 3, 4, 2, 0)
+#endif
+
+#ifndef NZCV_C
+#define NZCV_C 0x20000000
+#endif
+
+FORCEINLINE
+BOOLEAN
+PhArm64ReadRandomNumber64(
+    _Out_ PULONG64 Number
+    )
+{
+#if defined(__clang__) && defined(__ARM_FEATURE_RNG)
+    return !!__rndrrs(Number);
+#else
+    *Number = (ULONG64)_ReadStatusReg(ARM64_RNDRRS);
+
+    return !!FlagOn((ULONG)_ReadStatusReg(ARM64_NZCV), NZCV_C);
+#endif
+}
+#endif
+
 #ifdef _ARM64_
 #define PhHasIntrinsics TRUE
 #define PhHasPopulationCount TRUE
 #define PhHasAVX FALSE
+#define PhHasSSSE3 FALSE
+#define PhHasPCLMUL FALSE
+// Byte-shuffle (PhShuffleINT128by8) is baseline on AArch64 NEON (vqtbl1q_u8).
+#define PhHasShuffleBytes TRUE
 #else
 /**
  * @var __isa_available
- * 
+ *
  * External variable indicating the availability of ISA (Instruction Set Architecture) features.
- * 
+ *
  * \note This is an external variable initialized by the MSCRT (Microsoft C Runtime).
  */
 extern int __isa_available;
@@ -75,9 +117,9 @@ extern int __isa_available;
 /**
  * @var __isa_enabled
  *
- * External variable indicating which ISA (Instruction Set Architecture) 
+ * External variable indicating which ISA (Instruction Set Architecture)
  * extensions are enabled and available on the current system (e.g., SSE, AVX, etc.).
- * 
+ *
  * \note This is an external variable initialized by the MSCRT (Microsoft C Runtime).
  */
 extern long __isa_enabled;
@@ -101,6 +143,69 @@ extern long __isa_enabled;
     FlagOn(__isa_enabled, ISA_ENABLED_AVX2)
 #define PhHasAVX512 \
     FlagOn(__isa_enabled, ISA_ENABLED_AVX512)
+
+/**
+ * @def PhHasSSSE3
+ *
+ * Reports whether SSSE3 (Supplemental SSE3) is available, which provides
+ * the _mm_shuffle_epi8 / pshufb instruction used by the hex-conversion,
+ * base64, and string-classifier vector paths.
+ *
+ * \remarks SSSE3 is not exposed by MSCRT's __isa_enabled bit set. Every
+ * x86-64 CPU that reports SSE4.2 also implements SSSE3 (SSSE3 is older
+ * and SSE4.2 supersets it on every shipping CPU), so this flag is
+ * derived from ISA_ENABLED_SSE42. If a host without SSE4.2 needs the
+ * SSSE3 fast path, switch to a CPUID-based detector.
+ */
+#define PhHasSSSE3 \
+    FlagOn(__isa_enabled, ISA_ENABLED_SSE42)
+
+/**
+ * @def PhHasShuffleBytes
+ *
+ * Reports whether the byte-shuffle wrapper PhShuffleINT128by8 is usable. On
+ * x86/x64 this maps to _mm_shuffle_epi8 and therefore requires SSSE3; on ARM64
+ * it maps to vqtbl1q_u8 which is baseline NEON (see the _ARM64_ branch above).
+ */
+#define PhHasShuffleBytes PhHasSSSE3
+
+/**
+ * @def PhHasPCLMUL
+ *
+ * Reports whether carry-less multiplication (PCLMULQDQ, CPUID.1:ECX.PCLMULQDQ[bit 1])
+ * is available. Required by the PCLMUL-folding implementation of PhCrc32
+ * for arbitrary CRC polynomials.
+ *
+ * \remarks Detected lazily via __cpuid on first use; the result is cached
+ * in a translation-unit-local static. PCLMUL is not exposed via __isa_enabled,
+ * but is present on essentially every Westmere+ (2010) and AMD Bulldozer+
+ * x86-64 CPU.
+ */
+FORCEINLINE
+BOOLEAN
+PhpHasPCLMULOnce(
+    VOID
+    )
+{
+    // 0 = unknown, 1 = present, 2 = absent.
+    static ULONG state = 0;
+    ULONG current = ReadULongAcquire(&state);
+
+    if (current == 0)
+    {
+        int regs[4] = { 0, 0, 0, 0 };
+        ULONG detected;
+        LONG previous;
+        __cpuid(regs, 1);
+        detected = (regs[2] & (1 << 1)) ? 1 : 2;
+        previous = InterlockedCompareExchange((volatile LONG*)&state, (LONG)detected, 0);
+        current = (previous == 0) ? detected : (ULONG)previous;
+    }
+
+    return current == 1;
+}
+
+#define PhHasPCLMUL (PhpHasPCLMULOnce())
 #endif
 
 /**
@@ -150,12 +255,12 @@ PhPopulationCount32(
 #ifdef _WIN64
 /**
  * Counts the number of set bits (population count) in a 64-bit unsigned integer.
- * 
+ *
  * This function calculates the Hamming weight (number of 1-bits) in the given 64-bit value.
  * It uses platform-specific intrinsics for optimal performance:
  * - On ARM64: uses _CountOneBits64() intrinsic
  * - On other platforms: uses SSE4.2 _mm_popcnt_u64() intrinsic
- * 
+ *
  * \param[in] Value The 64-bit unsigned integer to count bits in.
  * \return The number of set bits (1s) in the Value parameter.
  * \note This function requires SSE4.2 support on x86/x64 platforms or ARM64 platform.
@@ -178,18 +283,25 @@ PhPopulationCount64(
 #ifdef _ARM64_
 typedef int64x2_t PH_INT128;
 typedef float32x4_t PH_FLOAT128;
+typedef struct _PH_INT256
+{
+    PH_INT128 Low;
+    PH_INT128 High;
+} PH_INT256;
 #else
 typedef __m128i PH_INT128;
 typedef __m128  PH_FLOAT128;
+typedef __m256i PH_INT256;
 #endif
 
 typedef PH_INT128* PPH_INT128;
 typedef PH_FLOAT128* PPH_FLOAT128;
+typedef PH_INT256* PPH_INT256;
 
 /**
  * The PhSetZeroINT128 function initializes a 128-bit integer
  * value to zero using platform-specific intrinsic functions.
- * 
+ *
  * \return A PH_INT128 value with all bits set to zero.
  */
 FORCEINLINE
@@ -218,7 +330,7 @@ PhSetZeroINT128(
 FORCEINLINE
 PH_INT128
 PhLoadINT128U(
-    _In_reads_bytes_(2 * sizeof(LONG)) PLONG Memory
+    _In_reads_bytes_(4 * sizeof(LONG)) PLONG Memory
     )
 {
 #ifdef _ARM64_
@@ -238,7 +350,7 @@ PhLoadINT128U(
 FORCEINLINE
 PH_INT128
 PhLoadINT128(
-    _In_reads_bytes_(2 * sizeof(LONG)) PLONG Memory
+    _In_reads_bytes_(4 * sizeof(LONG)) PLONG Memory
     )
 {
 #ifdef _ARM64_
@@ -252,13 +364,13 @@ PhLoadINT128(
  * The PhStoreINT128 function stores a 128-bit integer value to the specified target address.
  *
  * \param[out] Target A pointer to a memory location where the 128-bit value will be stored.
- * Must be aligned to at least 16 bytes and writable for 16 bytes (2 * sizeof(LONG)).
+ * Must be aligned to at least 16 bytes and writable for 16 bytes (4 * sizeof(LONG)).
  * \param[in] Value The 128-bit integer value to be stored.
  */
 FORCEINLINE
 VOID
 PhStoreINT128(
-    _Out_writes_bytes_(2 * sizeof(LONG)) PLONG Target,
+    _Out_writes_bytes_(4 * sizeof(LONG)) PLONG Target,
     _In_ PH_INT128 Value
     )
 {
@@ -272,7 +384,7 @@ PhStoreINT128(
 /**
  * The PhStoreINT128U function stores a 128-bit integer value to the specified unaligned target address
  * without alignment requirements.
- * 
+ *
  * \param[out] Target A pointer to a memory location where the 128-bit value will be stored.
  * The memory does not need to be aligned and must be at least 2 * sizeof(LONG) bytes.
  * \param[in] Value The 128-bit integer value to store.
@@ -280,7 +392,7 @@ PhStoreINT128(
 FORCEINLINE
 VOID
 PhStoreINT128U(
-    _Out_writes_bytes_(2 * sizeof(LONG)) PLONG Target,
+    _Out_writes_bytes_(4 * sizeof(LONG)) PLONG Target,
     _In_ PH_INT128 Value
     )
 {
@@ -292,11 +404,90 @@ PhStoreINT128U(
 }
 
 /**
+ * Loads a 64-bit integer value from an unaligned memory address and zero-extends it to 128-bit.
+ *
+ * \param[in] Memory Pointer to the memory location to load from.
+ * \return A PH_INT128 value loaded from the specified memory address.
+ */
+FORCEINLINE
+PH_INT128
+PhLoadINT64To128U(
+    _In_reads_bytes_(sizeof(LONG64)) const VOID* Memory
+    )
+{
+#ifdef _ARM64_
+    return vcombine_s64(vld1_s64((const int64_t*)Memory), vdup_n_s64(0));
+#else
+    return _mm_loadl_epi64((__m128i const*)Memory);
+#endif
+}
+
+/**
+ * Zero-extends 8-bit unsigned integers in a 128-bit vector to 16-bit integers in a 256-bit vector.
+ *
+ * \param[in] Value A 128-bit vector containing 16 8-bit unsigned integers.
+ * \return A 256-bit vector containing 16 16-bit integers.
+ */
+FORCEINLINE
+PH_INT256
+PhZeroExtendINT128ToINT256(
+    _In_ PH_INT128 Value
+    )
+{
+#ifdef _ARM64_
+    PH_INT256 result;
+    uint8x16_t val = vreinterpretq_u8_s64(Value);
+    result.Low = vreinterpretq_s64_u16(vmovl_u8(vget_low_u8(val)));
+    result.High = vreinterpretq_s64_u16(vmovl_u8(vget_high_u8(val)));
+    return result;
+#else
+    return _mm256_cvtepu8_epi16(Value);
+#endif
+}
+
+/**
+ * Stores a 256-bit integer value to the specified unaligned target address.
+ *
+ * \param[out] Target A pointer to a memory location where the 256-bit value will be stored.
+ * \param[in] Value The 256-bit integer value to store.
+ */
+FORCEINLINE
+VOID
+PhStoreINT256U(
+    _Out_writes_bytes_(32) PVOID Target,
+    _In_ PH_INT256 Value
+    )
+{
+#ifdef _ARM64_
+    vst1q_s32((int32_t*)Target, Value.Low);
+    vst1q_s32((int32_t*)Target + 4, Value.High);
+#else
+    _mm256_storeu_si256((__m256i*)Target, Value);
+#endif
+}
+
+/**
+ * Zeroes the upper 128 bits of all YMM registers to avoid AVX-SSE transition penalties.
+ */
+FORCEINLINE
+VOID
+PhZeroUpper(
+    VOID
+    )
+{
+#ifdef _ARM64_
+    // No-op on ARM64
+#else
+    _mm256_zeroupper();
+#endif
+}
+
+/**
  * Compares two 128-bit integers element-wise for equality using 16-bit signed integer elements.
- * 
+ *
  * \param Left The left operand as a 128-bit integer.
  * \param Right The right operand as a 128-bit integer.
- * \return A 128-bit integer where each 16-bit element is set to all 1s (0xFFFF) if the 
+ * \return A 128-bit integer where each 16-bit element is set to all 1s (0xFFFF) if the
  * corresponding elements in Left and Right are equal, or all 0s (0x0000) if they are not equal.
  */
 FORCEINLINE
@@ -348,7 +539,7 @@ PhMoveMaskINT128by8(
 {
 #ifdef _ARM64_
     // https://github.com/DLTcollab/sse2neon/blob/master/sse2neon.h
-    uint8x16_t input = Value;
+    uint8x16_t input = vreinterpretq_u8_s64(Value);
     uint16x8_t high_bits = vshrq_n_u8(input, 7);
     uint32x4_t paired16 = vsraq_n_u16(high_bits, high_bits, 7);
     uint64x2_t paired32 = vsraq_n_u32(paired16, paired16, 14);
@@ -463,7 +654,7 @@ PhSetFLOAT128by32(
 FORCEINLINE
 PH_FLOAT128
 PhLoadFLOAT128(
-    _In_reads_bytes_(2 * sizeof(PFLOAT)) PFLOAT Memory
+    _In_reads_(4) PFLOAT Memory
     )
 {
 #ifdef _ARM64_
@@ -497,8 +688,8 @@ PhAddFLOAT128(
 /**
  * Divides one 128-bit floating-point vector by another.
  *
- * \param Divisor The dividend vector to be divided.
- * \param Dividend The divisor vector used to divide the Divisor.
+ * \param Divisor The divisor vector used to divide the Dividend.
+ * \param Dividend The dividend vector to be divided.
  * \return A PH_FLOAT128 containing the lane-wise results of the division.
  */
 FORCEINLINE
@@ -669,10 +860,10 @@ PhShuffleFLOAT128_2301(
     )
 {
 #ifdef _ARM64_
-    // https://github.com/DLTcollab/sse2neon/blob/master/sse2neon.h
-    float32x2_t a03 = vget_low_f32(vextq_f32(A, A, 3));
-    float32x2_t b21 = vget_high_f32(vextq_f32(B, B, 3));
-    return vcombine_f32(a03, b21);
+    // [A1, A0, B3, B2] to match _MM_SHUFFLE(2, 3, 0, 1)
+    float32x2_t a10 = vrev64_f32(vget_low_f32(A));
+    float32x2_t b32 = vrev64_f32(vget_high_f32(B));
+    return vcombine_f32(a10, b32);
 #else
     return _mm_shuffle_ps(A, B, _MM_SHUFFLE(2, 3, 0, 1));
 #endif
@@ -693,10 +884,10 @@ PhShuffleFLOAT128_1032(
     )
 {
 #ifdef _ARM64_
-    // https://github.com/DLTcollab/sse2neon/blob/master/sse2neon.h
-    float32x2_t a03 = vget_low_f32(vextq_f32(A, A, 3));
-    float32x2_t b21 = vget_high_f32(vextq_f32(B, B, 3));
-    return vcombine_f32(a03, b21);
+    // [A2, A3, B0, B1] to match _MM_SHUFFLE(1, 0, 3, 2)
+    float32x2_t a23 = vget_high_f32(A);
+    float32x2_t b01 = vget_low_f32(B);
+    return vcombine_f32(a23, b01);
 #else
     return _mm_shuffle_ps(A, B, _MM_SHUFFLE(1, 0, 3, 2));
 #endif
@@ -828,6 +1019,28 @@ PhAndINT128(
 }
 
 /**
+ * Bitwise ANDNOT of two 128-bit integer vectors.
+ * Computes (~A) & B.
+ *
+ * \param[in] A First operand (inverted).
+ * \param[in] B Second operand.
+ * \return Result of (~A) & B.
+ */
+FORCEINLINE
+PH_INT128
+PhAndNotINT128(
+    _In_ PH_INT128 A,
+    _In_ PH_INT128 B
+    )
+{
+#ifdef _ARM64_
+    return vbicq_s32(B, A);
+#else
+    return _mm_andnot_si128(A, B);
+#endif
+}
+
+/**
  * Bitwise OR of two 128-bit integer vectors.
  *
  * \param[in] A First operand.
@@ -845,6 +1058,118 @@ PhOrINT128(
     return vorrq_s32(A, B);
 #else
     return _mm_or_si128(A, B);
+#endif
+}
+
+/**
+ * Byte-shuffle a 128-bit vector using per-byte indices (pshufb / tbl).
+ *
+ * \param[in] Value Source bytes to gather from.
+ * \param[in] Indices Per-byte source index (0..15) for each output byte.
+ * \return A vector whose byte i is Value[Indices[i] & 0x0f].
+ * \remarks On x86 (_mm_shuffle_epi8) an index with the high bit set zeroes the
+ * output byte; on ARM64 (vqtbl1q_u8) an index >= 16 zeroes the output byte.
+ * These differ for out-of-range indices, so callers must keep indices in 0..15
+ * for portable behaviour (every current caller masks to a nibble first).
+ */
+FORCEINLINE
+PH_INT128
+PhShuffleINT128by8(
+    _In_ PH_INT128 Value,
+    _In_ PH_INT128 Indices
+    )
+{
+#ifdef _ARM64_
+    return vqtbl1q_u8(Value, Indices);
+#else
+    return _mm_shuffle_epi8(Value, Indices);
+#endif
+}
+
+/**
+ * Logically shift each 16-bit lane right by 4 bits.
+ *
+ * \param[in] Value Source vector.
+ * \return A vector with every 16-bit lane shifted right (zero-fill) by 4.
+ * \remarks Used by the nibble-extraction step of hex conversion, where the
+ * result is immediately masked to a per-byte nibble.
+ */
+FORCEINLINE
+PH_INT128
+PhShiftRight4INT128by16(
+    _In_ PH_INT128 Value
+    )
+{
+#ifdef _ARM64_
+    return vshrq_n_u16(Value, 4);
+#else
+    return _mm_srli_epi16(Value, 4);
+#endif
+}
+
+/**
+ * Interleave the low 8 bytes of two vectors (unpacklo / zip1).
+ *
+ * \param[in] A Source whose bytes occupy even output positions.
+ * \param[in] B Source whose bytes occupy odd output positions.
+ * \return [A0,B0,A1,B1,...,A7,B7].
+ */
+FORCEINLINE
+PH_INT128
+PhUnpackLowINT128by8(
+    _In_ PH_INT128 A,
+    _In_ PH_INT128 B
+    )
+{
+#ifdef _ARM64_
+    return vzip1q_u8(A, B);
+#else
+    return _mm_unpacklo_epi8(A, B);
+#endif
+}
+
+/**
+ * Interleave the high 8 bytes of two vectors (unpackhi / zip2).
+ *
+ * \param[in] A Source whose bytes occupy even output positions.
+ * \param[in] B Source whose bytes occupy odd output positions.
+ * \return [A8,B8,A9,B9,...,A15,B15].
+ */
+FORCEINLINE
+PH_INT128
+PhUnpackHighINT128by8(
+    _In_ PH_INT128 A,
+    _In_ PH_INT128 B
+    )
+{
+#ifdef _ARM64_
+    return vzip2q_u8(A, B);
+#else
+    return _mm_unpackhi_epi8(A, B);
+#endif
+}
+
+/**
+ * Horizontal sum of all sixteen unsigned bytes in a 128-bit vector.
+ *
+ * \param[in] Value Vector of 16 unsigned bytes.
+ * \return The sum of the 16 byte lanes (0..16*255).
+ */
+FORCEINLINE
+ULONG64
+PhSumBytesINT128(
+    _In_ PH_INT128 Value
+    )
+{
+#ifdef _ARM64_
+    return vaddlvq_u8(Value);
+#else
+    // _mm_sad_epu8 against zero yields two 64-bit partial sums (bytes 0..7 and
+    // 8..15); add the lanes. Store-based extraction keeps this valid on 32-bit
+    // x86 where _mm_cvtsi128_si64 is unavailable.
+    ULONG64 partial[2];
+    _mm_storeu_si128((__m128i*)partial, _mm_sad_epu8(Value, _mm_setzero_si128()));
+    return partial[0] + partial[1];
 #endif
 }
 

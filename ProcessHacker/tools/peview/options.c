@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2020-2022
+ *     dmex    2020-2026
  *
  */
 
@@ -83,11 +83,10 @@ VOID PvAppendCommandLineArgument(
 
     PhAppendStringBuilder2(StringBuilder, L" -");
     PhAppendStringBuilder2(StringBuilder, Name);
-    PhAppendStringBuilder2(StringBuilder, L" \"");
-    temp = PhEscapeCommandLinePart(Value);
+    PhAppendCharStringBuilder(StringBuilder, L' ');
+    temp = PhQuoteCommandLine(Value, TRUE);
     PhAppendStringBuilder(StringBuilder, &temp->sr);
     PhDereferenceObject(temp);
-    PhAppendCharStringBuilder(StringBuilder, L'\"');
 }
 
 BOOLEAN PvShellExecuteRestart(
@@ -234,7 +233,7 @@ INT_PTR CALLBACK PvOptionsWndProc(
 
             PhCenterWindow(hwndDlg, GetParent(hwndDlg));
 
-            PhGetStockApplicationIcon(&smallIcon, &largeIcon);
+            PhGetStockApplicationIcon(&smallIcon, &largeIcon, PhGetWindowDpi(hwndDlg));
             SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);
             SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)largeIcon);
 

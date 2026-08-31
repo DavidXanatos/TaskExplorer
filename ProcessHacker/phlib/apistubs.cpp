@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2019-2024
+ *     dmex    2019-2026
  *
  */
 
@@ -184,7 +184,7 @@ static BOOL WINAPI ReadFile_Stub(
         File,
         Buffer,
         NumberOfBytesToRead,
-        NULL,
+        nullptr,
         NumberOfBytesRead
         );
 
@@ -210,9 +210,9 @@ static BOOL WINAPI WriteFile_Stub(
 
     status = PhWriteFile(
         hFile,
-        (PVOID)Buffer,
+        const_cast<PVOID>(Buffer),
         NumberOfBytesToWrite,
-        NULL,
+        nullptr,
         NumberOfBytesWritten
         );
 
@@ -239,12 +239,12 @@ static ULONG WINAPI GetTickCount_Stub(
     return (ULONG)NtGetTickCount();
 }
 
-static BOOL WINAPI FreeConsole_Stub(
-    VOID
-    )
-{
-    return TRUE;
-}
+//static BOOL WINAPI FreeConsole_Stub(
+//    VOID
+//    )
+//{
+//    return TRUE;
+//}
 
 static BOOL WINAPI HeapValidate_Stub(
     _In_ HANDLE Heap,
@@ -252,7 +252,7 @@ static BOOL WINAPI HeapValidate_Stub(
     _In_opt_ PCVOID Mem
     )
 {
-    return RtlValidateHeap(Heap, Flags, (PVOID)Mem);
+    return RtlValidateHeap(Heap, Flags, const_cast<PVOID>(Mem));
 }
 
 static VOID WINAPI GetSystemInfo_Stub(
@@ -267,9 +267,9 @@ static VOID WINAPI GetSystemInfo_Stub(
     if (NT_SUCCESS(NtQuerySystemInformation(SystemBasicInformation, &basicInfo, sizeof(SYSTEM_BASIC_INFORMATION), NULL)))
     {
         SystemInfo->dwPageSize = basicInfo.PageSize;
-        SystemInfo->lpMinimumApplicationAddress = (PVOID)basicInfo.MinimumUserModeAddress;
-        SystemInfo->lpMaximumApplicationAddress = (PVOID)basicInfo.MaximumUserModeAddress;
-        SystemInfo->dwActiveProcessorMask = (ULONG_PTR)basicInfo.ActiveProcessorsAffinityMask;
+        SystemInfo->lpMinimumApplicationAddress = reinterpret_cast<PVOID>(basicInfo.MinimumUserModeAddress);
+        SystemInfo->lpMaximumApplicationAddress = reinterpret_cast<PVOID>(basicInfo.MaximumUserModeAddress);
+        SystemInfo->dwActiveProcessorMask = basicInfo.ActiveProcessorsAffinityMask;
         SystemInfo->dwNumberOfProcessors = basicInfo.NumberOfProcessors;
         SystemInfo->dwAllocationGranularity = basicInfo.AllocationGranularity;
     }
@@ -294,17 +294,19 @@ static BOOL WINAPI GetModuleHandleExW_Stub(
 
         if (Flags & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS)
         {
-            if (moduleHandle = (HMODULE)RtlPcToFileHeader((PVOID)ModuleName, (PVOID*)&moduleHandle))
+            moduleHandle = PhGetLoaderEntryPcToFileHeader(const_cast<PVOID>(static_cast<PCVOID>(ModuleName)));
+            if (moduleHandle)
             {
-                *ModuleAddress = (HMODULE)moduleHandle;
+                *ModuleAddress = static_cast<HMODULE>(moduleHandle);
                 return TRUE;
             }
         }
         else
         {
-            if (moduleHandle = PhGetDllHandle(ModuleName))
+            moduleHandle = PhGetDllHandle(ModuleName);
+            if (moduleHandle)
             {
-                *ModuleAddress = (HMODULE)moduleHandle;
+                *ModuleAddress = static_cast<HMODULE>(moduleHandle);
                 return TRUE;
             }
         }
@@ -314,7 +316,7 @@ static BOOL WINAPI GetModuleHandleExW_Stub(
     }
     else
     {
-        *ModuleAddress = (HMODULE)NtCurrentPeb()->ImageBaseAddress;;
+        *ModuleAddress = static_cast<HMODULE>(NtCurrentPeb()->ImageBaseAddress);;
         return TRUE;
     }
 }
@@ -330,7 +332,7 @@ static SIZE_T WINAPI VirtualQuery_Stub(
 
     status = NtQueryVirtualMemory(
         NtCurrentProcess(),
-        (PVOID)lpAddress,
+        const_cast<PVOID>(lpAddress),
         MemoryBasicInformation,
         lpBuffer,
         dwLength,
@@ -453,7 +455,7 @@ static VOID WINAPI ExitProcess_Stub(
     _In_ UINT uExitCode
     )
 {
-    PhExitApplication(PhDosErrorToNtStatus(uExitCode));
+    PhExitApplication(uExitCode);
 }
 
 static BOOL WINAPI TerminateProcess_Stub(
@@ -643,7 +645,7 @@ static BOOL WINAPI SetEnvironmentVariableW_Stub(
     NTSTATUS status;
 
     status = RtlSetEnvironmentVar(
-        NULL,
+        nullptr,
         Name,
         PhCountStringZ(Name),
         Value,

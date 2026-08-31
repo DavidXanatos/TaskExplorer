@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2017-2022
+ *     dmex    2017-2026
  *
  */
 
@@ -103,7 +103,7 @@ VOID PvExlfProperties(
 
     if (!PhExtractIcon(PvFileName->Buffer, &PvImageLargeIcon, &PvImageSmallIcon))
     {
-        PhGetStockApplicationIcon(&PvImageSmallIcon, &PvImageLargeIcon);
+        PhGetStockApplicationIcon(&PvImageSmallIcon, &PvImageLargeIcon, USER_DEFAULT_SCREEN_DPI);
     }
 
     if (propContext = PvCreatePropContext(PvFileName))

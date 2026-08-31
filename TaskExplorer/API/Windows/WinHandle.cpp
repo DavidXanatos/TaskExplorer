@@ -180,9 +180,10 @@ bool CWinHandle__UpdateFileData(HANDLE ProcessHandle, HANDLE HandleId, QString& 
         // 3) \Device\VolMgrControl
 
 		FILE_MODE_INFORMATION fileModeInfo;
+		ULONG ReturnLength = 0;
 		if (NT_SUCCESS(status = ((fileHandle != NULL)
-			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION))
-			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION))
+			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION), &ReturnLength)
+			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FileModeInformation, &fileModeInfo, sizeof(FILE_MODE_INFORMATION), &ReturnLength)
 			)))
 		{
 			*FileMode = fileModeInfo.Mode;
@@ -194,10 +195,11 @@ bool CWinHandle__UpdateFileData(HANDLE ProcessHandle, HANDLE HandleId, QString& 
 	// if(!isConsoleHandle)
     {
 		FILE_STANDARD_INFORMATION fileStandardInfo;
+		ULONG ReturnLength = 0;
         //if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation)))
 		if (NT_SUCCESS(status = ((fileHandle != NULL)
-			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION))
-			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION))
+			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), &ReturnLength)
+			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FileStandardInformation, &fileStandardInfo, sizeof(FILE_STANDARD_INFORMATION), &ReturnLength)
 			)))
         {
 			if (FileType) *FileType = fileStandardInfo.Directory ? 2 : 1;
@@ -208,10 +210,11 @@ bool CWinHandle__UpdateFileData(HANDLE ProcessHandle, HANDLE HandleId, QString& 
         }
 
 		FILE_POSITION_INFORMATION filePositionInfo;
+		ReturnLength = 0;
 		//if (NT_SUCCESS(NtQueryInformationFile(fileHandle, &isb, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), FilePositionInformation)))
 		if (NT_SUCCESS(status = ((fileHandle != NULL)
-			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION))
-			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION))
+			? PhCallNtQueryFileInformationWithTimeout(fileHandle, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), &ReturnLength)
+			: PhCallKphQueryFileInformationWithTimeout(ProcessHandle, HandleId, FilePositionInformation, &filePositionInfo, sizeof(FILE_POSITION_INFORMATION), &ReturnLength)
 			)))
 		{
 			FilePosition = filePositionInfo.CurrentByteOffset.QuadPart;

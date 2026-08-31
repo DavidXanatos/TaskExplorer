@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -54,23 +54,12 @@ typedef HANDLE HTHEME;
 #define HRGN_FULL ((HRGN)1) // passed by WM_NCPAINT even though it's completely undocumented (wj32)
 
 extern LONG PhFontQuality;
-extern LONG PhSystemDpi;
-extern PH_INTEGER_PAIR PhSmallIconSize;
-extern PH_INTEGER_PAIR PhLargeIconSize;
 
 PHLIBAPI
 VOID
 NTAPI
 PhGuiSupportInitialization(
     VOID
-    );
-
-PHLIBAPI
-VOID
-NTAPI
-PhGuiSupportUpdateSystemMetrics(
-    _In_opt_ HWND WindowHandle,
-    _In_opt_ LONG WindowDpi
     );
 
 PHLIBAPI
@@ -91,6 +80,27 @@ PHLIBAPI
 HFONT
 NTAPI
 PhInitializeMonospaceFont(
+    _In_ LONG WindowDpi
+    );
+
+PHLIBAPI
+HFONT
+NTAPI
+PhCreateApplicationFont(
+    _In_ LONG WindowDpi
+    );
+
+PHLIBAPI
+HFONT
+NTAPI
+PhCreateTreeWindowFont(
+    _In_ LONG WindowDpi
+    );
+
+PHLIBAPI
+HFONT
+NTAPI
+PhCreateMonospaceFont(
     _In_ LONG WindowDpi
     );
 
@@ -258,6 +268,18 @@ PhDrawThemeBackground(
 PHLIBAPI
 BOOLEAN
 NTAPI
+PhDrawThemeBackgroundEx(
+    _In_ HTHEME ThemeHandle,
+    _In_ HDC hdc,
+    _In_ LONG PartId,
+    _In_ LONG StateId,
+    _In_ LPCRECT Rect,
+    _In_ PVOID Options
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
 PhDrawThemeText(
     _In_ HTHEME ThemeHandle,
     _In_ HDC hdc,
@@ -294,12 +316,247 @@ PhIsThemeBackgroundPartiallyTransparent(
     );
 
 PHLIBAPI
+VOID
+NTAPI
+PhTheme_PaintControlBorder(
+    _In_ HDC Dc,
+    _In_ RECT* Rect,
+    _In_ BOOLEAN Focused,
+    _In_ BOOLEAN Hot
+    );
+
+PHLIBAPI
 BOOLEAN
 NTAPI
 PhDrawThemeParentBackground(
     _In_ HWND WindowHandle,
     _In_ HDC Hdc,
     _In_opt_ const PRECT Rect
+    );
+
+// Buffered paint (UxTheme-free, FLS-cached double buffering). The
+// implementation lives in guisup.c.
+
+typedef enum _PH_BUFFERFORMAT
+{
+    PHBF_COMPATIBLEBITMAP,   // Compatible bitmap
+    PHBF_DIB,                // Device-independent bitmap
+    PHBF_TOPDOWNDIB,         // Top-down device-independent bitmap
+    PHBF_TOPDOWNMONODIB      // Top-down monochrome device-independent bitmap
+} PH_BUFFERFORMAT;
+
+// Opaque per-thread paint cache; defined privately in guisup.c.
+typedef struct _PH_BP_CACHE PH_BP_CACHE, *PPH_BP_CACHE;
+
+/**
+ * Opaque handle passed between PhBeginBufferedPaint and PhEndBufferedPaint.
+ * Callers should treat this as opaque and use the Ph* accessors below.
+ */
+typedef struct _PH_BUFFERED_PAINT
+{
+    PPH_BP_CACHE Cache;     // FLS cache slot (or heap allocation for oversized)
+    HDC TargetHdc;          // original DC supplied by the caller
+    RECT TargetRect;        // paint rect in TargetHdc coordinates
+    HBITMAP OldBitmap;      // stock bitmap deselected on End
+    LONG PaintWidth;        // == TargetRect.right - TargetRect.left
+    LONG PaintHeight;       // == TargetRect.bottom - TargetRect.top
+    BOOLEAN Valid;          // TRUE between successful Begin and End
+    BOOLEAN OwnsDc;         // TRUE -> DC is transient, delete on End
+    BOOLEAN OwnsBitmap;     // TRUE -> bitmap is transient, delete on End
+} PH_BUFFERED_PAINT, *PPH_BUFFERED_PAINT;
+
+typedef BOOLEAN (CALLBACK* PPH_BUFFERED_PAINT_PROC)(
+    _In_ HDC BufferHdc,
+    _In_ PRECT PaintRect,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhBufferedPaintInit(
+    VOID
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhBufferedPaintUnInit(
+    VOID
+    );
+
+_Must_inspect_result_
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhBeginBufferedPaint(
+    _In_ HDC TargetHdc,
+    _In_ const RECT* TargetRect,
+    _Out_ PPH_BUFFERED_PAINT BufferedPaint,
+    _Out_ HDC* PaintHdc
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhEndBufferedPaint(
+    _In_ PPH_BUFFERED_PAINT BufferedPaint,
+    _In_ BOOLEAN UpdateTarget
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhBufferedPaintClear(
+    _In_ PPH_BUFFERED_PAINT BufferedPaint,
+    _In_opt_ const RECT* Rect
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhBufferedPaintSetAlpha(
+    _In_ PPH_BUFFERED_PAINT BufferedPaint,
+    _In_opt_ const RECT* Rect,
+    _In_ BYTE Alpha
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetBufferedPaintBits(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint,
+    _Out_ RGBQUAD** Bits,
+    _Out_ PLONG WidthInPixels
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetBufferedPaintBitsEx(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint,
+    _Out_ RGBQUAD** Bits,
+    _Out_ PLONG WidthInPixels,
+    _Out_ PLONG WidthInBytes,
+    _Out_ RGBQUAD** FirstPaintPixel
+    );
+
+PHLIBAPI
+HDC
+NTAPI
+PhGetBufferedPaintDC(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint
+    );
+
+PHLIBAPI
+HDC
+NTAPI
+PhGetBufferedPaintTargetDC(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetBufferedPaintTargetRect(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint,
+    _Out_ PRECT Rect
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhPaintBuffered(
+    _In_ HWND WindowHandle,
+    _In_ const PAINTSTRUCT* PaintStruct,
+    _In_ PPH_BUFFERED_PAINT_PROC PaintProc,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhEndBufferedPaint(
+    _In_ PPH_BUFFERED_PAINT BufferedPaint,
+    _In_ BOOLEAN UpdateTarget
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhBufferedPaintClear(
+    _In_ PPH_BUFFERED_PAINT BufferedPaint,
+    _In_opt_ const RECT* Rect
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhBufferedPaintSetAlpha(
+    _In_ PPH_BUFFERED_PAINT BufferedPaint,
+    _In_opt_ const RECT* Rect,
+    _In_ BYTE Alpha
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetBufferedPaintBits(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint,
+    _Out_ RGBQUAD** Bits,
+    _Out_ PLONG WidthInPixels
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetBufferedPaintBitsEx(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint,
+    _Out_ RGBQUAD** Bits,
+    _Out_ PLONG WidthInPixels,
+    _Out_ PLONG WidthInBytes,
+    _Out_ RGBQUAD** FirstPaintPixel
+    );
+
+PHLIBAPI
+HDC
+NTAPI
+PhGetBufferedPaintDC(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint
+    );
+
+PHLIBAPI
+HDC
+NTAPI
+PhGetBufferedPaintTargetDC(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhGetBufferedPaintTargetRect(
+    _In_ const PH_BUFFERED_PAINT* BufferedPaint,
+    _Out_ PRECT Rect
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhPaintBuffered(
+    _In_ HWND WindowHandle,
+    _In_ const PAINTSTRUCT* PaintStruct,
+    _In_ PPH_BUFFERED_PAINT_PROC PaintProc,
+    _In_opt_ PVOID Context
+    );
+
+
+
+PHLIBAPI
+VOID
+NTAPI
+PhUninitializeWindowTheme(
+    _In_ HWND WindowHandle
     );
 
 PHLIBAPI
@@ -334,6 +591,54 @@ PhRectEmpty(
     }
 
     return FALSE;
+#endif
+}
+
+FORCEINLINE
+BOOLEAN
+NTAPI
+PhSetRectEmpty(
+    _In_ PRECT Rect
+    )
+{
+    RtlZeroMemory(Rect, sizeof(RECT));
+    return TRUE;
+}
+
+FORCEINLINE
+BOOLEAN
+NTAPI
+PhSetRect(
+    _Out_ PRECT Rect,
+    _In_ LONG x,
+    _In_ LONG y,
+    _In_ LONG dx,
+    _In_ LONG dy
+    )
+{
+#if defined(PHNT_NATIVE_RECT)
+    return !!SetRect(Rect, x, y, dx, dy);
+#else
+    Rect->left = x;
+    Rect->top = y;
+    Rect->right = dx;
+    Rect->bottom = dy;
+    return TRUE;
+#endif
+}
+
+FORCEINLINE
+BOOLEAN
+PhEqualRect(
+    _In_ PRECT Rect1,
+    _In_ PRECT Rect2
+    )
+{
+#if defined(PHNT_NATIVE_RECT)
+    return !!EqualRect(Rect1, Rect2);
+#else
+    return Rect1->left == Rect2->left && Rect1->top == Rect2->top &&
+        Rect1->right == Rect2->right && Rect1->bottom == Rect2->bottom;
 #endif
 }
 
@@ -609,6 +914,7 @@ PhScaleToDisplay(
     _In_ LONG Scale
     )
 {
+    assert(Scale);
     return PhMultiplyDivideSigned(Value, Scale, USER_DEFAULT_SCREEN_DPI);
 }
 
@@ -627,18 +933,8 @@ PhScaleToDefault(
     _In_ LONG Scale
     )
 {
+    assert(Scale);
     return PhMultiplyDivideSigned(Value, USER_DEFAULT_SCREEN_DPI, Scale);
-}
-
-FORCEINLINE
-LONG
-NTAPI
-PhGetDpi(
-    _In_ LONG Value,
-    _In_ LONG Scale
-    )
-{
-    return PhMultiplyDivideSigned(Value, Scale, USER_DEFAULT_SCREEN_DPI);
 }
 
 PHLIBAPI
@@ -661,13 +957,6 @@ PhGetMonitorDpiFromRect(
 
     return PhGetMonitorDpi(NULL, &rect);
 }
-
-PHLIBAPI
-LONG
-NTAPI
-PhGetSystemDpi(
-    VOID
-    );
 
 PHLIBAPI
 LONG
@@ -708,28 +997,54 @@ PhGetSizeDpiValue(
 
     if (ScaleToDisplay)
     {
-        if (rect.Left)
-            rect.Left = PhScaleToDisplay(rect.Left, Dpi);
-        if (rect.Top)
-            rect.Top = PhScaleToDisplay(rect.Top, Dpi);
-        if (rect.Width)
-            rect.Width = PhScaleToDisplay(rect.Width, Dpi);
-        if (rect.Height)
-            rect.Height = PhScaleToDisplay(rect.Height, Dpi);
+        rect.Left = PhScaleToDisplay(rect.Left, Dpi);
+        rect.Top = PhScaleToDisplay(rect.Top, Dpi);
+        rect.Width = PhScaleToDisplay(rect.Width, Dpi);
+        rect.Height = PhScaleToDisplay(rect.Height, Dpi);
     }
     else
     {
-        if (rect.Left)
-            rect.Left = PhScaleToDefault(rect.Left, Dpi);
-        if (rect.Top)
-            rect.Top = PhScaleToDefault(rect.Top, Dpi);
-        if (rect.Width)
-            rect.Width = PhScaleToDefault(rect.Width, Dpi);
-        if (rect.Height)
-            rect.Height = PhScaleToDefault(rect.Height, Dpi);
+        rect.Left = PhScaleToDefault(rect.Left, Dpi);
+        rect.Top = PhScaleToDefault(rect.Top, Dpi);
+        rect.Width = PhScaleToDefault(rect.Width, Dpi);
+        rect.Height = PhScaleToDefault(rect.Height, Dpi);
     }
 
     PhRectangleToRect(Rect, &rect);
+}
+
+/**
+ * Scales a RECT representing margins or padding.
+ *
+ * Unlike PhGetSizeDpiValue which treats a RECT as a bounding box and scales its width/height,
+ * this function scales each field (left, top, right, bottom) independently.
+ * Use this function for non-spatial RECTs to avoid rounding errors.
+ */
+FORCEINLINE
+VOID
+PhGetMarginDpiValue(
+    _Inout_ PRECT Margin,
+    _In_ LONG Dpi,
+    _In_ BOOLEAN ScaleToDisplay
+    )
+{
+    if (Dpi == USER_DEFAULT_SCREEN_DPI)
+        return;
+
+    if (ScaleToDisplay)
+    {
+        Margin->left = PhScaleToDisplay(Margin->left, Dpi);
+        Margin->top = PhScaleToDisplay(Margin->top, Dpi);
+        Margin->right = PhScaleToDisplay(Margin->right, Dpi);
+        Margin->bottom = PhScaleToDisplay(Margin->bottom, Dpi);
+    }
+    else
+    {
+        Margin->left = PhScaleToDefault(Margin->left, Dpi);
+        Margin->top = PhScaleToDefault(Margin->top, Dpi);
+        Margin->right = PhScaleToDefault(Margin->right, Dpi);
+        Margin->bottom = PhScaleToDefault(Margin->bottom, Dpi);
+    }
 }
 
 PHLIBAPI
@@ -857,28 +1172,6 @@ FORCEINLINE RTL_ATOM PhGetClassInfoEx(
 {
     // Note: GetClassInfoEx returns BOOL but contains the RTL_ATOM (dmex)
     return (RTL_ATOM)GetClassInfoEx(Instance, ClassName, WindowClass);
-}
-
-#define PH_WINDOW_TIMER_DEFAULT 0xF
-
-FORCEINLINE ULONG_PTR PhSetTimer(
-    _In_ HWND WindowHandle,
-    _In_ ULONG_PTR TimerID,
-    _In_ ULONG Elapse,
-    _In_opt_ TIMERPROC TimerProcedure
-    )
-{
-    assert(WindowHandle);
-    return SetTimer(WindowHandle, TimerID, Elapse, TimerProcedure);
-}
-
-FORCEINLINE BOOL PhKillTimer(
-    _In_ HWND WindowHandle,
-    _In_ ULONG_PTR TimerID
-    )
-{
-    assert(WindowHandle);
-    return KillTimer(WindowHandle, TimerID);
 }
 
 FORCEINLINE VOID PhBringWindowToTop(
@@ -1274,7 +1567,7 @@ PhGetSelectedListViewItemParam(
     );
 
 PHLIBAPI
-VOID
+BOOLEAN
 NTAPI
 PhGetSelectedListViewItemParams(
     _In_ HWND WindowHandle,
@@ -1326,17 +1619,18 @@ PhLoadIcon(
     _In_opt_ PVOID ImageBaseAddress,
     _In_ PCWSTR Name,
     _In_ ULONG Flags,
-    _In_opt_ LONG Width,
-    _In_opt_ LONG Height,
-    _In_opt_ LONG SystemDpi
+    _In_ LONG Width,
+    _In_ LONG Height,
+    _In_ LONG WindowDpi
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhGetStockApplicationIcon(
     _Out_opt_ HICON *SmallIcon,
-    _Out_opt_ HICON *LargeIcon
+    _Out_opt_ HICON *LargeIcon,
+    _In_ LONG WindowDpi
     );
 
 //PHLIBAPI
@@ -1493,13 +1787,14 @@ PhModalPropertySheet(
 #define PH_ANCHOR_BOTTOM 0x8
 #define PH_ANCHOR_ALL 0xf
 
-// This interface is horrible and should be rewritten, but it works for now.
-
 #define PH_LAYOUT_FORCE_INVALIDATE 0x1000 // invalidate the control when it is resized
 #define PH_LAYOUT_TAB_CONTROL 0x2000 // this is a dummy item, a hack for the tab control
 #define PH_LAYOUT_IMMEDIATE_RESIZE 0x4000 // needed for the tab control hack
 
 #define PH_LAYOUT_DUMMY_MASK (PH_LAYOUT_TAB_CONTROL) // items that don't have a window handle, or don't actually get their window resized
+
+// Flags for PhInitializeLayoutManagerEx.
+#define PH_LAYOUT_INIT_CLIP_CHILDREN 0x00000001 // set WS_CLIPCHILDREN on the root window to reduce flicker
 
 typedef struct _PH_LAYOUT_ITEM
 {
@@ -1507,7 +1802,7 @@ typedef struct _PH_LAYOUT_ITEM
     struct _PH_LAYOUT_ITEM *ParentItem; // for rectangle calculation
     struct _PH_LAYOUT_ITEM *LayoutParentItem; // for actual resizing
     ULONG LayoutNumber;
-    ULONG NumberOfChildren;
+    LONG NumberOfChildren;
     HDWP DeferHandle;
 
     RECT Rect;
@@ -1531,6 +1826,15 @@ NTAPI
 PhInitializeLayoutManager(
     _Out_ PPH_LAYOUT_MANAGER Manager,
     _In_ HWND RootWindowHandle
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhInitializeLayoutManagerEx(
+    _Out_ PPH_LAYOUT_MANAGER Manager,
+    _In_ HWND RootWindowHandle,
+    _In_ ULONG Flags
     );
 
 PHLIBAPI
@@ -1564,6 +1868,16 @@ PhAddLayoutItemEx(
 PHLIBAPI
 VOID
 NTAPI
+PhAddTabControlLayoutItem(
+    _Inout_ PPH_LAYOUT_MANAGER Manager,
+    _In_ HWND TabControlHandle,
+    _Out_opt_ PPH_LAYOUT_ITEM *TabControlItem,
+    _Out_ PPH_LAYOUT_ITEM *TabPageItem
+    );
+
+PHLIBAPI
+VOID
+NTAPI
 PhLayoutManagerLayout(
     _Inout_ PPH_LAYOUT_MANAGER Manager
     );
@@ -1574,6 +1888,20 @@ NTAPI
 PhLayoutManagerUpdate(
     _Inout_ PPH_LAYOUT_MANAGER Manager,
     _In_ LONG WindowDpi
+    );
+
+PHLIBAPI
+PVOID
+NTAPI
+PhEncodePtr(
+    _In_opt_ PVOID Pointer
+    );
+
+PHLIBAPI
+PVOID
+NTAPI
+PhDecodePtr(
+    _In_opt_ PVOID Pointer
     );
 
 #define PH_WINDOW_CONTEXT_DEFAULT 0xFFFF
@@ -1603,118 +1931,49 @@ PhRemoveWindowContext(
     _In_ ULONG PropertyHash
     );
 
-/**
- * Retrieves the window context pointer associated with a window handle.
- *
- * \param[in] WindowHandle A handle to the window from which to retrieve the context.
- * \return A pointer to the window context, or NULL if no context has been set.
- */
-FORCEINLINE
+PHLIBAPI
 PVOID
 NTAPI
 PhGetWindowContextEx(
     _In_ HWND WindowHandle
-    )
-{
-#if defined(PHNT_WINDOW_CLASS_CONTEXT)
-    return PhGetWindowContext(WindowHandle, MAXCHAR);
-#else
-    //assert(GetClassLongPtr(WindowHandle, GCL_CBWNDEXTRA) == sizeof(PVOID));
-    return (PVOID)GetWindowLongPtr(WindowHandle, 0);
-#endif
-}
+    );
 
-/**
- * Sets the extended window context for a window handle.
- * 
- * \param[in] WindowHandle The handle to the window for which to set the context.
- * \param[in] Context A pointer to the context data to associate with the window.
- * \return This function does not return a value.
- * \remarks The window must have sufficient extra bytes allocated to store a PVOID
- * if PHNT_WINDOW_CLASS_CONTEXT is not defined.
- */
-FORCEINLINE
+PHLIBAPI
 VOID
 NTAPI
 PhSetWindowContextEx(
     _In_ HWND WindowHandle,
     _In_ PVOID Context
-    )
-{
-#if defined(PHNT_WINDOW_CLASS_CONTEXT)
-    PhSetWindowContext(WindowHandle, MAXCHAR, Context);
-#else
-    //assert(GetClassLongPtr(WindowHandle, GCL_CBWNDEXTRA) == sizeof(PVOID));
-    SetWindowLongPtr(WindowHandle, 0, (LONG_PTR)Context);
-#endif
-}
+    );
 
-/**
- * Removes the window context from a window handle.
- *
- * \param[in] WindowHandle The handle to the window from which to remove the context.
- * \remarks
- * If PHNT_WINDOW_CLASS_CONTEXT is defined, this function delegates to PhRemoveWindowContext
- * with MAXCHAR as the context identifier. Otherwise, it clears the window's extra data by
- * setting the window long pointer at offset 0 to NULL.
- */
-FORCEINLINE
+PHLIBAPI
 VOID
 NTAPI
 PhRemoveWindowContextEx(
     _In_ HWND WindowHandle
-    )
-{
-#if defined(PHNT_WINDOW_CLASS_CONTEXT)
-    PhRemoveWindowContext(WindowHandle, MAXCHAR);
-#else
-    //assert(GetClassLongPtr(WindowHandle, GCL_CBWNDEXTRA) == sizeof(PVOID));
-    SetWindowLongPtr(WindowHandle, 0, (LONG_PTR)NULL);
-#endif
-}
+    );
 
-FORCEINLINE
+PHLIBAPI
 PVOID
 NTAPI
 PhGetDialogContext(
     _In_ HWND WindowHandle
-    )
-{
-#if defined(PHNT_WINDOW_CLASS_CONTEXT)
-    return PhGetWindowContext(WindowHandle, MAXCHAR);
-#else
-    return (PVOID)GetWindowLongPtr(WindowHandle, DWLP_USER);
-#endif
-}
+    );
 
-FORCEINLINE
+PHLIBAPI
 VOID
 NTAPI
 PhSetDialogContext(
     _In_ HWND WindowHandle,
     _In_ PVOID Context
-    )
-{
-#if defined(PHNT_WINDOW_CLASS_CONTEXT)
-    PhSetWindowContext(WindowHandle, MAXCHAR, Context);
-#else
-    SetWindowLongPtr(WindowHandle, DWLP_USER, (LONG_PTR)Context);
-#endif
-}
+    );
 
-FORCEINLINE
+PHLIBAPI
 VOID
 NTAPI
 PhRemoveDialogContext(
     _In_ HWND WindowHandle
-    )
-{
-#if defined(PHNT_WINDOW_CLASS_CONTEXT)
-    PhRemoveWindowContext(WindowHandle, MAXCHAR);
-#else
-    SetWindowLongPtr(WindowHandle, DWLP_USER, (LONG_PTR)NULL);
-#endif
-}
+    );
 
 FORCEINLINE
 VOID
@@ -1784,7 +2043,7 @@ BOOLEAN NTAPI PH_DESKTOP_ENUM_CALLBACK(
     );
 typedef PH_DESKTOP_ENUM_CALLBACK* PPH_DESKTOP_ENUM_CALLBACK;
 
-PHLIBAPI
+
 NTSTATUS
 NTAPI
 PhEnumDesktops(
@@ -1800,8 +2059,7 @@ BOOLEAN NTAPI PH_WINDOWSTATION_ENUM_CALLBACK(
     );
 typedef PH_WINDOWSTATION_ENUM_CALLBACK* PPH_WINDOWSTATION_ENUM_CALLBACK;
 
-_Enum_is_bitflag_
-typedef enum _PH_WINDOWSTATION_ENUM_TYPE
+typedef _Enum_is_bitflag_ enum _PH_WINDOWSTATION_ENUM_TYPE
 {
     PH_WINDOWSTATION_ENUM_WIN32 = 0x1,             // Phase 1: Win32 EnumWindowStations (current session, access-filtered)
     PH_WINDOWSTATION_ENUM_GLOBAL_DIRECTORY = 0x2,  // Phase 2: Object directory \Windows\WindowStations (session 0)
@@ -2100,7 +2358,6 @@ typedef struct _PH_EXTLV_SETITEMFONTFUNCTION
 {
     PPH_EXTLV_GET_ITEM_FONT FontFunction;
 } PH_EXTLV_SETITEMFONTFUNCTION, *PPH_EXTLV_SETITEMFONTFUNCTION;
-
 
 PHLIBAPI
 VOID
@@ -2495,7 +2752,7 @@ PhListView_GetSelectedCount(
     );
 
 PHLIBAPI
-VOID
+BOOLEAN
 NTAPI
 PhListView_GetSelectedItemParams(
     _In_ PPH_LISTVIEW_CONTEXT Context,
@@ -2585,6 +2842,13 @@ PhGetColorBrightness(
 
     return (min + max) / 2;
 }
+
+PHLIBAPI
+COLORREF
+NTAPI
+PhHeatMapColor(
+    _In_ FLOAT Ratio // 0.0 (cool/green) to 1.0 (hot/red)
+    );
 
 FORCEINLINE
 COLORREF
@@ -2955,6 +3219,54 @@ PhImageListSetIconSize(
     _In_ LONG cy
     );
 
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListBeginDrag(
+    _In_ HIMAGELIST ImageListHandle,
+    _In_ LONG Track,
+    _In_ LONG HotspotX,
+    _In_ LONG HotspotY
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDragEnter(
+    _In_ HWND LockWindowHandle,
+    _In_ LONG x,
+    _In_ LONG y
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDragShowNolock(
+    _In_ BOOLEAN Show
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDragMove(
+    _In_ LONG x,
+    _In_ LONG y
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhImageListDragLeave(
+    _In_ HWND LockWindowHandle
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhImageListEndDrag(
+    VOID
+    );
+
 #define PH_SHUTDOWN_RESTART 0x1
 #define PH_SHUTDOWN_POWEROFF 0x2
 #define PH_SHUTDOWN_INSTALL_UPDATES 0x4
@@ -2996,14 +3308,6 @@ PhCustomDrawTreeTimeLine(
 
 DEFINE_GUID(IID_IWICBitmapSource, 0x00000120, 0xa8f2, 0x4877, 0xba, 0x0a, 0xfd, 0x2b, 0x66, 0x45, 0xfb, 0x94);
 DEFINE_GUID(IID_IWICImagingFactory, 0xec5ec8a9, 0xc395, 0x4314, 0x9c, 0x77, 0x54, 0xd7, 0xa9, 0x35, 0xff, 0x70);
-
-typedef enum _PH_BUFFERFORMAT
-{
-    PHBF_COMPATIBLEBITMAP,    // Compatible bitmap
-    PHBF_DIB,                 // Device-independent bitmap
-    PHBF_TOPDOWNDIB,          // Top-down device-independent bitmap
-    PHBF_TOPDOWNMONODIB       // Top-down monochrome device-independent bitmap
-} PH_BUFFERFORMAT;
 
 HBITMAP PhCreateDIBSection(
     _In_ HDC Hdc,
@@ -3116,6 +3420,14 @@ typedef struct _WINDOWCOMPOSITIONATTRIBUTEDATA
     SIZE_T Length;
 } WINDOWCOMPOSITIONATTRIBUTEDATA, *PWINDOWCOMPOSITIONATTRIBUTEDATA;
 
+typedef struct _PH_WINDOW_MARGINS
+{
+    LONG Left;
+    LONG Right;
+    LONG Top;
+    LONG Bottom;
+} PH_WINDOW_MARGINS, *PPH_WINDOW_MARGINS;
+
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -3172,8 +3484,7 @@ typedef enum _ACCENT_STATE
     ACCENT_INVALID_STATE
 } ACCENT_STATE;
 
-_Enum_is_bitflag_
-typedef enum _ACCENT_FLAG
+typedef _Enum_is_bitflag_ enum _ACCENT_FLAG
 {
     ACCENT_NONE,
     ACCENT_WINDOWS11_LUMINOSITY = 0x2,
@@ -3360,12 +3671,96 @@ extern BOOLEAN PhEnableThemeAcrylicSupport;
 extern BOOLEAN PhEnableThemeAcrylicWindowSupport;
 extern BOOLEAN PhEnableThemeNativeButtons;
 extern BOOLEAN PhEnableThemeListviewBorder;
+EXTERN_C BOOLEAN PhEnableWindowBorderColor;
+
+typedef enum _PH_WINDOW_THEME_ID
+{
+    PhWindowThemeLight,
+    PhWindowThemeDark,
+    PhWindowThemeCustom1,
+    PhWindowThemeCustom2,
+    PhWindowThemeSystem
+} PH_WINDOW_THEME_ID;
+
+// User-facing theme mode (Options > Themes combo). Only consulted when
+// PhEnableThemeSupport is TRUE; selects which palette PhApplyThemeMode applies.
+typedef enum _PH_THEME_MODE
+{
+    PhThemeModeAutomatic = 0, // follow the Windows app light/dark preference
+    PhThemeModeLight = 1,     // force the light palette
+    PhThemeModeDark = 2,      // force the dark palette
+    PhThemeModeCustom = 3     // force the custom palette (Custom1)
+} PH_THEME_MODE;
+
+typedef struct _PH_WINDOW_THEME_PALETTE
+{
+    COLORREF ForegroundColor;
+    COLORREF BackgroundColor;
+    COLORREF Background2Color;
+    COLORREF HighlightColor;
+    COLORREF Highlight2Color;
+    COLORREF TextColor;
+    COLORREF DisabledTextColor;
+    COLORREF BorderColor;
+    COLORREF PressedColor;
+    COLORREF EditColor;
+    COLORREF ScrollbarColor;
+    COLORREF DropdownGlyphColor;
+    COLORREF WindowActiveBorderColor;
+    COLORREF WindowInactiveBorderColor;
+    COLORREF FilteredBorderColor;
+    COLORREF ProtectedBorderColor;
+    COLORREF FocusBorderColor;
+    COLORREF GroupBoxFrameColor;
+    COLORREF WindowFrameColor;
+    COLORREF EditHotBorderColor;
+    COLORREF EditNormalBorderColor;
+    COLORREF MenuSelectedTextColor;
+    COLORREF MenuDisabledTextColor;
+} PH_WINDOW_THEME_PALETTE, *PPH_WINDOW_THEME_PALETTE;
+
 extern COLORREF PhThemeWindowForegroundColor;
 extern COLORREF PhThemeWindowBackgroundColor;
 extern COLORREF PhThemeWindowBackground2Color;
 extern COLORREF PhThemeWindowHighlightColor;
 extern COLORREF PhThemeWindowHighlight2Color;
 extern COLORREF PhThemeWindowTextColor;
+extern COLORREF PhThemeWindowDisabledTextColor;
+extern COLORREF PhThemeWindowBorderColor;
+extern COLORREF PhThemeWindowEditColor;
+extern COLORREF PhThemeWindowScrollbarColor;
+extern COLORREF PhThemeWindowFilteredBorderColor;
+extern COLORREF PhThemeWindowProtectedBorderColor;
+extern COLORREF PhThemeWindowFocusBorderColor;
+extern COLORREF PhThemeWindowGroupBoxFrameColor;
+extern COLORREF PhThemeWindowWindowFrameColor;
+extern COLORREF PhThemeWindowEditHotBorderColor;
+extern COLORREF PhThemeWindowEditNormalBorderColor;
+extern COLORREF PhThemeWindowMenuSelectedTextColor;
+extern COLORREF PhThemeWindowMenuDisabledTextColor;
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhSetWindowThemePalette(
+    _In_ PH_WINDOW_THEME_ID ThemeId,
+    _In_opt_ const PH_WINDOW_THEME_PALETTE* Palette
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhSetCurrentWindowTheme(
+    _In_ PH_WINDOW_THEME_ID ThemeId,
+    _In_opt_ HWND RootWindow
+    );
+
+PHLIBAPI
+const PH_WINDOW_THEME_PALETTE*
+NTAPI
+PhGetWindowThemePalette(
+    VOID
+    );
 
 PHLIBAPI
 VOID
@@ -3383,6 +3778,21 @@ PhInitializeWindowThemeEx(
     );
 
 PHLIBAPI
+BOOLEAN
+NTAPI
+PhQueryWindowsUseDarkMode(
+    VOID
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhApplyThemeMode(
+    _In_ ULONG Mode,
+    _In_opt_ HWND RootWindow
+    );
+
+PHLIBAPI
 VOID
 NTAPI
 PhReInitializeWindowTheme(
@@ -3394,6 +3804,45 @@ VOID
 NTAPI
 PhInitializeThemeWindowFrame(
     _In_ HWND WindowHandle
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhInitializeThemeWindowGroupBox(
+    _In_ HWND GroupBoxHandle
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhInitializeThemeWindowGroupBoxEx(
+    _In_ HWND GroupBoxHandle
+    );
+
+PHLIBAPI
+HRESULT
+NTAPI
+PhSetWindowBorderColor(
+    _In_ HWND WindowHandle,
+    _In_ COLORREF Color
+    );
+
+PHLIBAPI
+COLORREF
+NTAPI
+PhGetWindowActiveBorderColor(
+    _In_ BOOLEAN IsActive
+    );
+
+PHLIBAPI
+COLORREF
+NTAPI
+PhGetWindowBorderColor(
+    _In_ BOOLEAN IsActive,
+    _In_ BOOLEAN IsHandleFiltered,
+    _In_ BOOLEAN IsProtectedProcess,
+    _In_ BOOLEAN IsIsolatedUserMode
     );
 
 PHLIBAPI
@@ -3437,6 +3886,13 @@ PhInitializeWindowThemeMainMenu(
     );
 
 PHLIBAPI
+VOID
+NTAPI
+PhInitializeWindowThemeEditControl(
+    _In_ HWND EditControl
+    );
+
+PHLIBAPI
 LRESULT
 CALLBACK
 PhThemeWindowDrawRebar(
@@ -3455,7 +3911,7 @@ PhThemeWindowDrawToolbar(
 PHLIBAPI
 HFONT
 NTAPI
-PhCreateFont(
+PhCreateFontHandle(
     _In_opt_ PCWSTR Name,
     _In_ LONG Size,
     _In_ LONG Weight,
@@ -3516,10 +3972,19 @@ HFONT
 NTAPI
 PhDuplicateFontUpdateDpi(
     _In_ HFONT Font,
-    _In_ LONG WindowDpi
+    _In_ LONG NewDpi
     );
 
-FORCEINLINE VOID PhReplaceWindowFont(
+PHLIBAPI
+HFONT
+NTAPI
+PhDuplicateFontUpdateDpiEx(
+    _In_ HFONT Font,
+    _In_ LONG NewDpi,
+    _In_ LONG OldDpi
+    );
+
+FORCEINLINE VOID PhSwapReferenceFont(
     _Inout_ HFONT *FontHandle,
     _In_opt_ HWND WindowHandle,
     _In_opt_ HFONT NewFont,
@@ -3538,6 +4003,51 @@ FORCEINLINE VOID PhReplaceWindowFont(
         DeleteFont(oldFont);
 }
 
+// Reference-counted font.
+//
+// Pattern mirrors PH_OBJECT_HEADER: a private PH_FONT_OBJECT header carries the refcount,
+// and the Body field holds the underlying GDI HFONT. PhCreateFont returns the HFONT (the
+// address of Body); PhReferenceFont / PhDereferenceFont walk back to the header via
+// CONTAINING_RECORD using PhFontObjectToObjectHeader. When the last reference is released
+// the underlying GDI handle is destroyed and the wrapper is freed.
+
+typedef struct _PH_FONT_OBJECT
+{
+    LONG RefCount;
+    HFONT Handle;
+} PH_FONT_OBJECT, *PPH_FONT_OBJECT;
+
+// Mirrors PhObjectHeaderToObject: returns the HFONT (object) from a PPH_FONT_OBJECT header.
+#define PhFontObjectHeaderToObject(Header) ((HFONT)&((PPH_FONT_OBJECT)(Header))->Handle)
+
+// Mirrors PhObjectToObjectHeader: returns the PPH_FONT_OBJECT header from an HFONT.
+#define PhFontObjectToObjectHeader(Font) ((PPH_FONT_OBJECT)CONTAINING_RECORD((Font), PH_FONT_OBJECT, Handle))
+
+PHLIBAPI
+HFONT
+NTAPI
+PhCreateFont(
+    _In_opt_ PCWSTR Name,
+    _In_ LONG Size,
+    _In_ LONG Weight,
+    _In_ LONG PitchAndFamily,
+    _In_ LONG WindowDpi
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhReferenceFont(
+    _In_ HFONT Font
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhDereferenceFont(
+    _In_ _Post_invalid_ HFONT Font
+    );
+
 VOID PhWindowThemeMainMenuBorder(
     _In_ HWND WindowHandle
     );
@@ -3551,6 +4061,13 @@ HICON PhGdiplusConvertBitmapToIcon(
     _In_ COLORREF Background
     );
 
+HICON PhConvertBitmapToIcon(
+    _In_ HBITMAP OriginalBitmap,
+    _In_ LONG Width,
+    _In_ LONG Height,
+    _In_ COLORREF Background
+    );
+
 HWND PhCreateBackgroundWindow(
     _In_ HWND ParentWindowHandle,
     _In_ BOOLEAN DesktopWindow
@@ -3558,6 +4075,59 @@ HWND PhCreateBackgroundWindow(
 
 HICON PhGdiplusConvertHBitmapToHIcon(
     _In_ HBITMAP BitmapHandle
+    );
+
+HWND PhSelectWindowFromScreenSnapshot(
+    VOID
+    );
+
+typedef BOOLEAN (NTAPI* PPH_WINDOW_TARGETING_CALLBACK)(
+    _In_ HWND WindowHandle,
+    _In_opt_ PVOID Context
+    );
+
+typedef struct _PH_WINDOW_TARGETING_CONTEXT
+{
+    HWND OwnerWindowHandle;
+    HWND OverlayWindowHandle;
+    HWND TargetWindowHandle;
+    RECT OverlayBounds;
+    RECT TargetRect;
+    PPH_WINDOW_TARGETING_CALLBACK Callback;
+    PVOID CallbackContext;
+    BOOLEAN OwnerWindowTopMost;
+    BOOLEAN OverlayHighlight;
+    BOOLEAN TargetWindowDraw;
+    BOOLEAN Completed;
+} PH_WINDOW_TARGETING_CONTEXT, *PPH_WINDOW_TARGETING_CONTEXT;
+
+typedef enum _PH_WINDOW_TARGETING_RESULT
+{
+    PhWindowTargetingContinue,
+    PhWindowTargetingCompleted,
+    PhWindowTargetingCancelled
+} PH_WINDOW_TARGETING_RESULT;
+
+PPH_WINDOW_TARGETING_CONTEXT PhCreateWindowTargeting(
+    _In_opt_ HWND OwnerWindowHandle,
+    _In_ BOOLEAN OverlayHighlight,
+    _In_opt_ PPH_WINDOW_TARGETING_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
+PH_WINDOW_TARGETING_RESULT PhProcessWindowTargetingMessage(
+    _Inout_ PPH_WINDOW_TARGETING_CONTEXT Context,
+    _In_ UINT WindowMessage,
+    _Out_opt_ HWND* TargetWindowHandle
+    );
+
+VOID PhDestroyWindowTargeting(
+    _In_opt_ PPH_WINDOW_TARGETING_CONTEXT Context
+    );
+
+HWND PhSelectWindowFromScreenTargeting(
+    _In_opt_ HWND OwnerWindowHandle,
+    _In_ BOOLEAN OverlayHighlight
     );
 
 EXTERN_C_END

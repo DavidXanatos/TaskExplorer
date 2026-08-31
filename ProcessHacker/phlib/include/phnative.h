@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -1319,6 +1319,13 @@ PhCreateJobObject(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhCreateConfiguredJobObject(
+    _Out_ PHANDLE JobHandle
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhOpenJobObject(
     _Out_ PHANDLE JobHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -1526,7 +1533,7 @@ typedef struct _PH_TOKEN_USER
     };
 } PH_TOKEN_USER, *PPH_TOKEN_USER;
 
-C_ASSERT(sizeof(PH_TOKEN_USER) >= TOKEN_USER_MAX_SIZE);
+static_assert(sizeof(PH_TOKEN_USER) >= TOKEN_USER_MAX_SIZE, "sizeof(PH_TOKEN_USER) >= TOKEN_USER_MAX_SIZE");
 
 PHLIBAPI
 NTSTATUS
@@ -1550,7 +1557,7 @@ typedef struct _PH_TOKEN_OWNER
     };
 } PH_TOKEN_OWNER, *PPH_TOKEN_OWNER;
 
-C_ASSERT(sizeof(PH_TOKEN_OWNER) >= TOKEN_OWNER_MAX_SIZE);
+static_assert(sizeof(PH_TOKEN_OWNER) >= TOKEN_OWNER_MAX_SIZE, "sizeof(PH_TOKEN_OWNER) >= TOKEN_OWNER_MAX_SIZE");
 
 PHLIBAPI
 NTSTATUS
@@ -1622,7 +1629,7 @@ typedef struct _PH_TOKEN_APPCONTAINER
     };
 } PH_TOKEN_APPCONTAINER, *PPH_TOKEN_APPCONTAINER;
 
-C_ASSERT(sizeof(PH_TOKEN_APPCONTAINER) >= TOKEN_APPCONTAINER_SID_MAX_SIZE);
+static_assert(sizeof(PH_TOKEN_APPCONTAINER) >= TOKEN_APPCONTAINER_SID_MAX_SIZE, "sizeof(PH_TOKEN_APPCONTAINER) >= TOKEN_APPCONTAINER_SID_MAX_SIZE");
 
 PHLIBAPI
 NTSTATUS
@@ -1711,6 +1718,28 @@ NTAPI
 PhGetProcessPackageFullName(
     _In_ HANDLE ProcessHandle
     );
+
+// rev from RtlValidAcl (dmex)
+/**
+ * Validates an ACL.
+ *
+ * \param Acl The ACL to validate.
+ * \return TRUE if the ACL is valid, FALSE otherwise.
+ */
+FORCEINLINE
+BOOLEAN
+NTAPI
+PhValidAcl(
+    _In_opt_ PACL Acl
+    )
+{
+    if (!Acl || Acl->AclRevision < MIN_ACL_REVISION || Acl->AclRevision > MAX_ACL_REVISION)
+        return FALSE;
+    if (Acl->AclSize < sizeof(ACL))
+        return FALSE;
+
+    return RtlValidAcl(Acl);
+}
 
 // rev from RtlInitializeSid (dmex)
 /**
@@ -1965,32 +1994,392 @@ PhCreateSecurityDescriptor(
 #if defined(PHNT_NATIVE_INLINE)
     return RtlCreateSecurityDescriptor(SecurityDescriptor, Revision);
 #else
+    if (Revision != SECURITY_DESCRIPTOR_REVISION)
+        return STATUS_UNKNOWN_REVISION;
+
     memset(SecurityDescriptor, 0, sizeof(SECURITY_DESCRIPTOR));
     ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision = (BYTE)Revision;
     return STATUS_SUCCESS;
 #endif
 }
 
-// rev from RtlValidAcl (dmex)
-/**
- * Validates an ACL.
- *
- * \param Acl The ACL to validate.
- * \return TRUE if the ACL is valid, FALSE otherwise.
- */
+FORCEINLINE
+ULONG
+NTAPI
+PhSidLengthAligned(
+    _In_ PCSID Sid
+    )
+{
+    return (ULONG)ALIGN_UP_BY((ULONG)(ULONG_C(8) + ULONG_C(4) * Sid->SubAuthorityCount), 4);
+}
+
+FORCEINLINE
+ULONG
+NTAPI
+PhAclLengthAligned(
+    _In_ PACL Acl
+    )
+{
+    return (ULONG)ALIGN_UP_BY((ULONG)Acl->AclSize, 4);
+}
+
+FORCEINLINE
+ULONG
+NTAPI
+PhLengthSecurityDescriptor(
+    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
+    )
+{
+#if defined(PHNT_NATIVE_INLINE)
+    return RtlLengthSecurityDescriptor(SecurityDescriptor);
+#else
+    PISECURITY_DESCRIPTOR securityDescriptor = (PISECURITY_DESCRIPTOR)SecurityDescriptor;
+    PCSID owner = NULL;
+    PCSID group = NULL;
+    ULONG length;
+
+    if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+        length = sizeof(SECURITY_DESCRIPTOR_RELATIVE);
+    else
+        length = sizeof(SECURITY_DESCRIPTOR);
+
+    // Owner
+
+    if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+    {
+        PISECURITY_DESCRIPTOR_RELATIVE securityDescriptorRelative = (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
+
+        if (securityDescriptorRelative->Owner)
+        {
+            owner = (PCSID)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Owner);
+        }
+    }
+    else
+    {
+        owner = (PCSID)securityDescriptor->Owner;
+    }
+
+    if (owner)
+    {
+        length += PhSidLengthAligned(owner);
+    }
+
+    // Group
+
+    if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+    {
+        PISECURITY_DESCRIPTOR_RELATIVE securityDescriptorRelative = (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
+
+        if (securityDescriptorRelative->Group)
+        {
+            group = (PCSID)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Group);
+        }
+    }
+    else
+    {
+        group = (PCSID)securityDescriptor->Group;
+    }
+
+    if (group)
+    {
+        length += PhSidLengthAligned(group);
+    }
+
+    // Dacl
+
+    if (FlagOn(securityDescriptor->Control, SE_DACL_PRESENT))
+    {
+        PACL dacl = NULL;
+
+        if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+        {
+            PISECURITY_DESCRIPTOR_RELATIVE securityDescriptorRelative = (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
+
+            if (securityDescriptorRelative->Dacl)
+            {
+                dacl = (PACL)PTR_ADD_OFFSET(securityDescriptor, securityDescriptorRelative->Dacl);
+            }
+        }
+        else
+        {
+            dacl = securityDescriptor->Dacl;
+        }
+
+        if (dacl)
+        {
+            length += PhAclLengthAligned(dacl);
+        }
+    }
+
+    // Sacl
+
+    if (FlagOn(securityDescriptor->Control, SE_SACL_PRESENT))
+    {
+        PACL sacl = NULL;
+
+        if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+        {
+            PISECURITY_DESCRIPTOR_RELATIVE securityDescriptorRelative = (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
+
+            if (securityDescriptorRelative->Sacl)
+            {
+                sacl = (PACL)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Sacl);
+            }
+        }
+        else
+        {
+            sacl = securityDescriptor->Sacl;
+        }
+
+        if (sacl)
+        {
+            length += PhAclLengthAligned(sacl);
+        }
+    }
+
+#ifdef DEBUG
+    assert(RtlLengthSecurityDescriptor(SecurityDescriptor) == length);
+#endif
+
+    return length;
+#endif
+}
+
 FORCEINLINE
 BOOLEAN
 NTAPI
-PhValidAcl(
-    _In_opt_ PACL Acl
+PhValidSecurityDescriptor(
+    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
     )
 {
-    if (!Acl || Acl->AclRevision < MIN_ACL_REVISION || Acl->AclRevision > MAX_ACL_REVISION)
-        return FALSE;
-    if (Acl->AclSize < sizeof(ACL) || ((Acl->AclSize & 3U) != 0)) // enforce alignment
+#if defined(PHNT_NATIVE_INLINE)
+    return RtlValidSecurityDescriptor(SecurityDescriptor);
+#else
+    PISECURITY_DESCRIPTOR securityDescriptor = (PISECURITY_DESCRIPTOR)SecurityDescriptor;
+    PISECURITY_DESCRIPTOR_RELATIVE securityDescriptorRelative = (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
+    PCSID owner;
+    PCSID group;
+    PACL dacl;
+    PACL sacl;
+
+    if (securityDescriptor->Revision != SECURITY_DESCRIPTOR_REVISION)
         return FALSE;
 
-    return RtlValidAcl(Acl);
+    //
+    // Owner
+    //
+
+    if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+    {
+        owner = securityDescriptorRelative->Owner ? (PCSID)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Owner) : NULL;
+    }
+    else
+    {
+        owner = (PCSID)securityDescriptor->Owner;
+    }
+
+    if (owner && !PhValidSid(owner))
+    {
+        return FALSE;
+    }
+
+    //
+    // Group
+    //
+
+    if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+    {
+        group = securityDescriptorRelative->Group ? (PCSID)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Group) : NULL;
+    }
+    else
+    {
+        group = (PCSID)securityDescriptor->Group;
+    }
+
+    if (group && !PhValidSid(group))
+    {
+        return FALSE;
+    }
+
+    //
+    // Dacl
+    //
+
+    if (FlagOn(securityDescriptor->Control, SE_DACL_PRESENT))
+    {
+        if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+        {
+            dacl = securityDescriptorRelative->Dacl ? (PACL)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Dacl) : NULL;
+        }
+        else
+        {
+            dacl = securityDescriptor->Dacl;
+        }
+
+        if (dacl && !PhValidAcl(dacl))
+        {
+            return FALSE;
+        }
+    }
+
+    //
+    // Sacl
+    //
+
+    if (FlagOn(securityDescriptor->Control, SE_SACL_PRESENT))
+    {
+        if (FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+        {
+            sacl = securityDescriptorRelative->Sacl ? (PACL)RTL_PTR_ADD(securityDescriptor, securityDescriptorRelative->Sacl) : NULL;
+        }
+        else
+        {
+            sacl = securityDescriptor->Sacl;
+        }
+
+        if (sacl && !PhValidAcl(sacl))
+        {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+#endif
+}
+
+FORCEINLINE
+BOOLEAN
+PhValidateRelativeSidAtOffset(
+    _In_ PVOID Base,
+    _In_ ULONG Length,
+    _In_ ULONG Offset
+    )
+{
+    PISID sid;
+    ULONG remaining;
+    ULONG minimumLength;
+
+    if (Offset >= Length || Offset < sizeof(SECURITY_DESCRIPTOR_RELATIVE))
+        return FALSE;
+
+    remaining = Length - Offset;
+
+    if (remaining < sizeof(SID) || !IS_ALIGNED(Offset, sizeof(ULONG)))
+        return FALSE;
+
+    sid = (PISID)RTL_PTR_ADD(Base, Offset);
+
+    if (sid->Revision != SID_REVISION || sid->SubAuthorityCount > SID_MAX_SUB_AUTHORITIES)
+        return FALSE;
+
+    minimumLength = FIELD_OFFSET(SID, SubAuthority) + RTL_FIELD_SIZE(SID, SubAuthority) * sid->SubAuthorityCount;
+
+    if (remaining < minimumLength)
+        return FALSE;
+
+    return TRUE;
+}
+
+FORCEINLINE
+BOOLEAN
+PhValidateRelativeAclAtOffset(
+    _In_ PVOID Base,
+    _In_ ULONG Length,
+    _In_ ULONG Offset
+    )
+{
+    PACL acl;
+    ULONG remaining;
+
+    if (Offset >= Length || Offset < sizeof(SECURITY_DESCRIPTOR_RELATIVE))
+        return FALSE;
+
+    remaining = Length - Offset;
+
+    if (remaining < sizeof(ACL) || !IS_ALIGNED(Offset, sizeof(ULONG)))
+        return FALSE;
+
+    acl = (PACL)RTL_PTR_ADD(Base, Offset);
+
+    if (remaining < acl->AclSize)
+        return FALSE;
+
+    return PhValidAcl(acl);
+}
+
+FORCEINLINE
+BOOLEAN
+NTAPI
+PhValidRelativeSecurityDescriptor(
+    _In_reads_bytes_(SecurityDescriptorLength) PSECURITY_DESCRIPTOR SecurityDescriptor,
+    _In_ ULONG SecurityDescriptorLength,
+    _In_ SECURITY_INFORMATION RequiredInformation
+    )
+{
+#if defined(PHNT_NATIVE_INLINE)
+    return RtlValidRelativeSecurityDescriptor(SecurityDescriptor, SecurityDescriptorLength, RequiredInformation);
+#else
+    PISECURITY_DESCRIPTOR_RELATIVE securityDescriptor = (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
+
+    if (SecurityDescriptorLength < sizeof(SECURITY_DESCRIPTOR_RELATIVE))
+        return FALSE;
+
+    if (securityDescriptor->Revision != SECURITY_DESCRIPTOR_REVISION)
+        return FALSE;
+
+    if (!FlagOn(securityDescriptor->Control, SE_SELF_RELATIVE))
+        return FALSE;
+
+    //
+    // Owner
+    //
+
+    if (securityDescriptor->Owner)
+    {
+        if (!PhValidateRelativeSidAtOffset(SecurityDescriptor, SecurityDescriptorLength, securityDescriptor->Owner))
+            return FALSE;
+    }
+    else if (FlagOn(RequiredInformation, OWNER_SECURITY_INFORMATION))
+    {
+        return FALSE;
+    }
+
+    //
+    // Group
+    //
+
+    if (securityDescriptor->Group)
+    {
+        if (!PhValidateRelativeSidAtOffset(SecurityDescriptor, SecurityDescriptorLength, securityDescriptor->Group))
+            return FALSE;
+    }
+    else if (FlagOn(RequiredInformation, GROUP_SECURITY_INFORMATION))
+    {
+        return FALSE;
+    }
+
+    //
+    // Dacl
+    //
+
+    if (FlagOn(securityDescriptor->Control, SE_DACL_PRESENT) && securityDescriptor->Dacl)
+    {
+        if (!PhValidateRelativeAclAtOffset(SecurityDescriptor, SecurityDescriptorLength, securityDescriptor->Dacl))
+            return FALSE;
+    }
+
+    //
+    // Sacl
+    //
+
+    if (FlagOn(securityDescriptor->Control, SE_SACL_PRESENT) || securityDescriptor->Sacl)
+    {
+        if (!PhValidateRelativeAclAtOffset(SecurityDescriptor, SecurityDescriptorLength, securityDescriptor->Sacl))
+            return FALSE;
+    }
+
+    return TRUE;
+#endif
 }
 
 /**
@@ -2177,6 +2566,9 @@ PhGetAce(
             return STATUS_INVALID_ACL;
 
         current = (PUCHAR)PhNextAce((PACL)current);
+
+        if (!current)
+            return STATUS_INVALID_ACL;
     }
 
     if ((ULONG_PTR)current >= (ULONG_PTR)lastace)
@@ -2219,7 +2611,7 @@ PhAddAce(
     SIZE_T trailingAceBytes;
 
     if (!PhValidAcl(Acl))
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_ACL;
     if (AceListLength == 0)
         return STATUS_SUCCESS;
 
@@ -2227,11 +2619,6 @@ PhAddAce(
         return STATUS_INVALID_ACL;
 
     currentAceCount = Acl->AceCount;
-
-    // Reject out-of-bounds index.
-    // Win32 AddAce allows index == currentAceCount to append at the end.
-    if (StartingAceIndex > currentAceCount)
-        return STATUS_INVALID_PARAMETER;
 
     // Determine target ACL revision
     targetAclRevision = (ULONG_PTR)Acl->AclRevision;
@@ -2248,19 +2635,35 @@ PhAddAce(
     {
         PACE_HEADER aceHeader;
         USHORT aceSize;
+        UCHAR aceType;
 
         if (sourceAceAddress + sizeof(ACE_HEADER) > sourceAceEndAddress)
             return STATUS_INVALID_PARAMETER;
 
         aceHeader = (PACE_HEADER)sourceAceAddress;
+        aceType = aceHeader->AceType;
         aceSize = aceHeader->AceSize;
 
-        // ACEs must be at least the size of the header and 
-        // effectively DWORD aligned in practice for NT.
-        if (aceSize < sizeof(ACE_HEADER) || sourceAceAddress + aceSize > sourceAceEndAddress)
-            return STATUS_INVALID_PARAMETER;
+        if (aceType > SYSTEM_ALARM_ACE_TYPE)
+        {
+            if (aceType <= ACCESS_ALLOWED_COMPOUND_ACE_TYPE)
+            {
+                if (AceRevision < ACL_REVISION3)
+                    return STATUS_INVALID_PARAMETER;
+            }
+            else if (aceType <= SYSTEM_ALARM_OBJECT_ACE_TYPE)
+            {
+                if (AceRevision < ACL_REVISION4)
+                    return STATUS_INVALID_PARAMETER;
+            }
+            else if (aceSize == 0)
+            {
+                return STATUS_INVALID_PARAMETER;
+            }
+        }
 
-        PhEnsureAclRevision(&targetAclRevision, aceHeader->AceType);
+        if (aceSize == 0 || sourceAceAddress + aceSize > sourceAceEndAddress)
+            return STATUS_INVALID_PARAMETER;
 
         sourceAceAddress += aceSize;
         incomingAceCount++;
@@ -2276,7 +2679,7 @@ PhAddAce(
     // Determine insertion point
     insertionPoint = firstFreeAce;
 
-    if (StartingAceIndex < currentAceCount)
+    if (StartingAceIndex != 0 && StartingAceIndex < currentAceCount)
     {
         NTSTATUS status = PhGetAce(Acl, StartingAceIndex, &insertionPoint);
 
@@ -2330,12 +2733,12 @@ PhCreateAcl(
 #else
     if (Length < sizeof(ACL))
         return STATUS_BUFFER_TOO_SMALL;
-    if (Length > USHRT_MAX)
+    if (Length > 0xFFFC)
         return STATUS_INVALID_PARAMETER;
     if (Revision < MIN_ACL_REVISION || Revision > MAX_ACL_REVISION)
         return STATUS_REVISION_MISMATCH;
 
-    memset(Acl, 0, sizeof(ACL));
+    memset(Acl, 0, Length);
     Acl->AclRevision = (BYTE)Revision;
     Acl->AclSize = (USHORT)(Length & ~0x0003);
     return STATUS_SUCCESS;
@@ -2391,9 +2794,10 @@ PhGetDaclSecurityDescriptor(
         }
     }
 
-    *DaclPresent = present;
-    *DaclDefaulted = defaulted;
     *Dacl = dacl;
+    *DaclDefaulted = defaulted;
+    *DaclPresent = present;
+
     return STATUS_SUCCESS;
 #endif
 }
@@ -2420,22 +2824,35 @@ PhSetDaclSecurityDescriptor(
 #if defined(PHNT_NATIVE_INLINE)
     return RtlSetDaclSecurityDescriptor(SecurityDescriptor, DaclPresent, Dacl, DaclDefaulted);
 #else
-    if (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision != SECURITY_DESCRIPTOR_REVISION)
+    PISECURITY_DESCRIPTOR securityDescriptor = (PISECURITY_DESCRIPTOR)SecurityDescriptor;
+    SECURITY_DESCRIPTOR_CONTROL control;
+
+    if (securityDescriptor->Revision != SECURITY_DESCRIPTOR_REVISION)
         return STATUS_UNKNOWN_REVISION;
-    if (FlagOn(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SELF_RELATIVE))
+    control = securityDescriptor->Control;
+
+    if (FlagOn(control, SE_SELF_RELATIVE))
         return STATUS_INVALID_SECURITY_DESCR;
 
     if (DaclPresent)
-        SetFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_DACL_PRESENT);
-    else
-        ClearFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_DACL_PRESENT);
+    {
+        control |= SE_DACL_PRESENT;
+        securityDescriptor->Dacl = NULL;
 
-    if (DaclDefaulted)
-        SetFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_DACL_DEFAULTED);
-    else
-        ClearFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_DACL_DEFAULTED);
+        if (Dacl)
+            securityDescriptor->Dacl = Dacl;
 
-    ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Dacl = Dacl;
+        control &= ~SE_DACL_DEFAULTED;
+
+        if (DaclDefaulted)
+            control |= SE_DACL_DEFAULTED;
+    }
+    else
+    {
+        control &= ~SE_DACL_PRESENT;
+    }
+
+    securityDescriptor->Control = control;
     return STATUS_SUCCESS;
 #endif
 }
@@ -2537,9 +2954,10 @@ PhGetSaclSecurityDescriptor(
         }
     }
 
-    *SaclPresent = present;
-    *SaclDefaulted = defaulted;
     *Sacl = sacl;
+    *SaclDefaulted = defaulted;
+    *SaclPresent = present;
+
     return STATUS_SUCCESS;
 #endif
 }
@@ -2566,22 +2984,35 @@ PhSetSaclSecurityDescriptor(
 #if defined(PHNT_NATIVE_INLINE)
     return RtlSetSaclSecurityDescriptor(SecurityDescriptor, SaclPresent, Sacl, SaclDefaulted);
 #else
-    if (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision != SECURITY_DESCRIPTOR_REVISION)
+    PISECURITY_DESCRIPTOR securityDescriptor = (PISECURITY_DESCRIPTOR)SecurityDescriptor;
+    SECURITY_DESCRIPTOR_CONTROL control;
+
+    if (securityDescriptor->Revision != SECURITY_DESCRIPTOR_REVISION)
         return STATUS_UNKNOWN_REVISION;
-    if (FlagOn(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SELF_RELATIVE))
+    control = securityDescriptor->Control;
+
+    if (FlagOn(control, SE_SELF_RELATIVE))
         return STATUS_INVALID_SECURITY_DESCR;
 
     if (SaclPresent)
-        SetFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SACL_PRESENT);
-    else
-        ClearFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SACL_PRESENT);
+    {
+        control |= SE_SACL_PRESENT;
+        securityDescriptor->Sacl = NULL;
 
-    if (SaclDefaulted)
-        SetFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SACL_DEFAULTED);
-    else
-        ClearFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SACL_DEFAULTED);
+        if (Sacl)
+            securityDescriptor->Sacl = Sacl;
 
-    ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Sacl = Sacl;
+        control &= ~SE_SACL_DEFAULTED;
+
+        if (SaclDefaulted)
+            control |= SE_SACL_DEFAULTED;
+    }
+    else
+    {
+        control &= ~SE_SACL_PRESENT;
+    }
+
+    securityDescriptor->Control = control;
     return STATUS_SUCCESS;
 #endif
 }
@@ -2627,7 +3058,7 @@ PhGetOwnerSecurityDescriptor(
     }
     else
     {
-        owner = securityDescriptor->Sacl;
+        owner = securityDescriptor->Owner;
     }
 
     *OwnerDefaulted = defaulted;
@@ -2788,19 +3219,13 @@ PhGetControlSecurityDescriptor(
 #if defined(PHNT_NATIVE_INLINE)
     return RtlGetControlSecurityDescriptor(SecurityDescriptor, Control, Revision);
 #else
+    *Revision = ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision;
+
     if (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision != SECURITY_DESCRIPTOR_REVISION)
         return STATUS_UNKNOWN_REVISION;
 
-    if (FlagOn(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SELF_RELATIVE))
-    {
-        return STATUS_INVALID_SECURITY_DESCR;
-    }
-    else
-    {
-        *Control = ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control;
-        *Revision = ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision;
-        return STATUS_SUCCESS;
-    }
+    *Control = ((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control;
+    return STATUS_SUCCESS;
 #endif
 }
 
@@ -2824,19 +3249,19 @@ PhSetControlSecurityDescriptor(
 #if defined(PHNT_NATIVE_INLINE)
     return RtlSetControlSecurityDescriptor(SecurityDescriptor, ControlBitsOfInterest, ControlBitsToSet);
 #else
-    if (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Revision != SECURITY_DESCRIPTOR_REVISION)
-        return STATUS_UNKNOWN_REVISION;
+    PISECURITY_DESCRIPTOR securityDescriptor = (PISECURITY_DESCRIPTOR)SecurityDescriptor;
 
-    if (FlagOn(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, SE_SELF_RELATIVE))
+    if (
+        ((~ControlBitsOfInterest) & ControlBitsToSet) != 0 ||
+        (ControlBitsOfInterest & (SE_OWNER_DEFAULTED | SE_GROUP_DEFAULTED | SE_DACL_PRESENT |
+            SE_DACL_DEFAULTED | SE_SACL_PRESENT | SE_SACL_DEFAULTED | SE_RM_CONTROL_VALID | SE_SELF_RELATIVE)) != 0
+        )
     {
-        return STATUS_INVALID_SECURITY_DESCR;
+        return STATUS_INVALID_PARAMETER;
     }
-    else
-    {
-        ClearFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, ControlBitsOfInterest);
-        SetFlag(((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Control, ControlBitsToSet);
-        return STATUS_SUCCESS;
-    }
+
+    securityDescriptor->Control = (SECURITY_DESCRIPTOR_CONTROL)(ControlBitsToSet | (securityDescriptor->Control & ~ControlBitsOfInterest));
+    return STATUS_SUCCESS;
 #endif
 }
 
@@ -2865,23 +3290,31 @@ PhAddAccessAllowedAceEx(
     return RtlAddAccessAllowedAceEx(Acl, AceRevision, AceFlags, AccessMask, (PSID)Sid);
 #else
     PVOID offset;
+    ULONG targetAclRevision;
+    ULONG sidLength;
+    ULONG aceSize;
 
     if (!PhValidSid(Sid))
         return STATUS_INVALID_SID;
+    if (AceRevision > MAX_ACL_REVISION || Acl->AclRevision > MAX_ACL_REVISION)
+        return STATUS_REVISION_MISMATCH;
+    if ((AceFlags & ~0x3Fu) != 0)
+        return STATUS_INVALID_PARAMETER;
     if (!PhValidAcl(Acl))
         return STATUS_INVALID_ACL;
 
-    // Allow caller to pass any revision <= current ACL revision (matches RtlAddAce semantics). (dmex)
-    if (AceRevision > Acl->AclRevision)
-        return STATUS_REVISION_MISMATCH;
+    targetAclRevision = Acl->AclRevision;
+
+    if (AceRevision > targetAclRevision)
+        targetAclRevision = AceRevision;
+
     if (!PhFirstFreeAce(Acl, &offset))
         return STATUS_INVALID_ACL;
 
-    ULONG sidLength = PhLengthSid(Sid);
-    ULONG aceSize = UFIELD_OFFSET(ACCESS_ALLOWED_ACE, SidStart) + sidLength;
+    sidLength = PhLengthSid(Sid);
+    aceSize = UFIELD_OFFSET(ACCESS_ALLOWED_ACE, SidStart) + sidLength;
 
-    // Ensure fits into USHORT and inside ACL buffer. (dmex)
-    if (aceSize >= USHRT_MAX)
+    if (aceSize > USHRT_MAX)
         return STATUS_INVALID_BUFFER_SIZE;
     if ((ULONG_PTR)RTL_PTR_ADD(offset, aceSize) > (ULONG_PTR)RTL_PTR_ADD(Acl, Acl->AclSize))
         return STATUS_ALLOTTED_SPACE_EXCEEDED;
@@ -2894,6 +3327,7 @@ PhAddAccessAllowedAceEx(
     ace->Mask = AccessMask;
     RtlCopyMemory(&ace->SidStart, Sid, sidLength);
     Acl->AceCount++;
+    Acl->AclRevision = (UCHAR)targetAclRevision;
     return STATUS_SUCCESS;
 #endif
 }
@@ -4805,8 +5239,7 @@ typedef enum _PH_MODULE_TYPE
     PH_MODULE_TYPE_WOW64_MODULE = 3,
     PH_MODULE_TYPE_KERNEL_MODULE = 4,
     PH_MODULE_TYPE_MAPPED_IMAGE = 5,
-    PH_MODULE_TYPE_ELF_MAPPED_IMAGE = 6,
-    PH_MODULE_TYPE_ENCLAVE_MODULE = 7
+    PH_MODULE_TYPE_ENCLAVE_MODULE = 6
 } PH_MODULE_TYPE;
 
 typedef struct _PH_MODULE_INFO
@@ -4850,6 +5283,7 @@ typedef PH_ENUM_GENERIC_MODULES_CALLBACK* PPH_ENUM_GENERIC_MODULES_CALLBACK;
 
 #define PH_ENUM_GENERIC_MAPPED_FILES 0x1
 #define PH_ENUM_GENERIC_MAPPED_IMAGES 0x2
+#define PH_ENUM_GENERIC_LIMITED_MODULES 0x8 // Enumerate image regions via virtual memory pages instead of the loader.
 
 PHLIBAPI
 NTSTATUS
@@ -5624,6 +6058,22 @@ PhCreatePipeEx(
     _In_opt_ PSECURITY_ATTRIBUTES PipeWriteAttributes
     );
 
+typedef enum _PH_NAMED_PIPE_PREFIX_TYPE
+{
+    PhNamedPipePrefixAdministrators,
+    PhNamedPipePrefixLocalService,
+    PhNamedPipePrefixNetworkService
+} PH_NAMED_PIPE_PREFIX_TYPE;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhOpenNamedPipeProtectedPrefix(
+    _Out_ PHANDLE DirectoryHandle,
+    _In_ PH_NAMED_PIPE_PREFIX_TYPE PrefixType,
+    _In_ ACCESS_MASK DesiredAccess
+    );
+
 PHLIBAPI
 NTSTATUS
 NTAPI
@@ -5718,7 +6168,8 @@ PhTransceiveNamedPipe(
     _In_reads_bytes_(InputBufferLength) PVOID InputBuffer,
     _In_ ULONG InputBufferLength,
     _Out_writes_bytes_(OutputBufferLength) PVOID OutputBuffer,
-    _In_ ULONG OutputBufferLength
+    _In_ ULONG OutputBufferLength,
+    _Out_opt_ PULONG NumberOfBytesRead
     );
 
 PHLIBAPI
@@ -6840,8 +7291,7 @@ NTAPI
 PhCreateWaitableTimer(
     _Out_ PHANDLE TimerHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ TIMER_TYPE TimerType,
-    _In_ BOOLEAN HighResolution
+    _In_ TIMER_TYPE TimerType
     );
 
 PHLIBAPI
@@ -6853,8 +7303,27 @@ PhSetWaitableTimer(
     _In_opt_ PLARGE_INTEGER Period,
     _In_opt_ PTIMER_APC_ROUTINE TimerApcRoutine,
     _In_opt_ PVOID TimerContext,
-    _In_ BOOLEAN ResumeTimer,
-    _In_ BOOLEAN HighResolution
+    _In_ BOOLEAN ResumeTimer
+    );
+
+#define PH_WINDOW_TIMER_DEFAULT 0xF
+
+PHLIBAPI
+ULONG_PTR
+NTAPI
+PhSetTimer(
+    _In_ HWND WindowHandle,
+    _In_ ULONG_PTR TimerID,
+    _In_ ULONG Elapse,
+    _In_opt_ TIMERPROC TimerProcedure
+    );
+
+PHLIBAPI
+BOOL
+NTAPI
+PhKillTimer(
+    _In_ HWND WindowHandle,
+    _In_ ULONG_PTR TimerID
     );
 
 PHLIBAPI
@@ -6970,6 +7439,139 @@ PhFilterConnectCommunicationPort(
     _In_ USHORT SizeOfContext,
     _In_opt_ PSECURITY_ATTRIBUTES SecurityAttributes,
     _Outptr_ PHANDLE Port
+    );
+
+//
+// iocpwait
+//
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhCreateWaitCompletionPacket(
+    _Out_ PHANDLE WaitCompletionPacketHandle,
+    _In_ ACCESS_MASK DesiredAccess
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhAssociateWaitCompletionPacket(
+    _In_ HANDLE WaitCompletionPacketHandle,
+    _In_ HANDLE IoCompletionHandle,
+    _In_ HANDLE TargetObjectHandle,
+    _In_opt_ PVOID KeyContext,
+    _In_opt_ PVOID ApcContext,
+    _In_ NTSTATUS IoStatus,
+    _In_ ULONG_PTR IoStatusInformation,
+    _Out_opt_ PBOOLEAN AlreadySignaled
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWaitForManyObjects(
+    _In_ ULONG ObjectCount,
+    _In_reads_(ObjectCount) PHANDLE Handles,
+    _In_ BOOLEAN WaitForAll,
+    _In_ BOOLEAN Alertable,
+    _In_opt_ PLARGE_INTEGER Timeout,
+    _Out_opt_ PULONG SignaledIndex
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWaitForIoCompletionAndTermination(
+    _In_ HANDLE IoCompletionHandle,
+    _In_ HANDLE TerminationHandle,
+    _In_ BOOLEAN Alertable,
+    _In_opt_ PLARGE_INTEGER Timeout,
+    _Out_opt_ PVOID* KeyContext,
+    _Out_opt_ PVOID* ApcContext,
+    _Out_opt_ PIO_STATUS_BLOCK IoStatusBlock,
+    _Out_opt_ PBOOLEAN Terminated
+    );
+
+//
+// winsta
+//
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWinStationShadow(
+    _In_ PCWSTR TargetServerName,
+    _In_ ULONG TargetSessionId,
+    _In_ UCHAR HotKeyVk,
+    _In_ USHORT HotkeyModifiers
+    );
+
+typedef struct _WINSTATIONINFORMATION WINSTATIONINFORMATION;
+typedef WINSTATIONINFORMATION *PWINSTATIONINFORMATION;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetWindowStationSessionInformation(
+    _In_ ULONG SessionId,
+    _Out_ PWINSTATIONINFORMATION SessionInformation
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWinStationSendMessage(
+    _In_ ULONG SessionId,
+    _In_ PCWSTR Title,
+    _In_ ULONG TitleLength,
+    _In_ PCWSTR Message,
+    _In_ ULONG MessageLength,
+    _In_ ULONG Style,
+    _In_ ULONG Timeout,
+    _Out_ PULONG Response,
+    _In_ BOOLEAN DoNotWait
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWinStationConnect(
+    _In_ ULONG SessionId,
+    _In_ ULONG TargetSessionId,
+    _In_opt_ PCWSTR Password,
+    _In_ BOOLEAN Wait
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWinStationDisconnect(
+    _In_ ULONG SessionId,
+    _In_ BOOLEAN Wait
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWinStationReset(
+    _In_ ULONG SessionId,
+    _In_ BOOLEAN Wait
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhWinStationFreeMemory(
+    _In_ PVOID Buffer
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhWinStationQueryUserToken(
+    _In_ ULONG SessionId,
+    _Out_ PHANDLE UserToken
     );
 
 EXTERN_C_END

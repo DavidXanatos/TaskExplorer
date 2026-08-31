@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2015
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -964,6 +964,32 @@ PhProbeAddress(
             PhRaiseStatus(STATUS_ACCESS_VIOLATION);
         }
     }
+}
+
+/**
+ * Probes an unaligned user address and checks if the specified span is within the bounds of the buffer.
+ *
+ * \param UserAddress The address to probe.
+ * \param UserLength The length of the memory to probe.
+ * \param BufferAddress The base address of the buffer.
+ * \param BufferLength The length of the buffer.
+ * \param Alignment The required alignment of the address.
+ */
+FORCEINLINE
+VOID
+PhProbeAddressUnaligned(
+    _In_ VOID UNALIGNED* CONST UserAddress,
+    _In_ CONST SIZE_T UserLength,
+    _In_ CONST PVOID BufferAddress,
+    _In_ CONST SIZE_T BufferLength,
+    _In_ CONST ULONG Alignment
+    )
+{
+    // Note: __unaligned only changes codegen where the pointer is dereferenced.
+    // Neither helper ever reads *Address (only (ULONG_PTR) arithmetic + IS_ALIGNED),
+    // so the new functions are inert on every target purely a type-level
+    // accommodation for improved diagnostics.
+    PhProbeAddress((PVOID)UserAddress, UserLength, BufferAddress, BufferLength, Alignment);
 }
 
 /**

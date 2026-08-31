@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2008-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -353,6 +353,7 @@ typedef struct _PH_TREENEW_CUSTOM_DRAW
     RECT CellRect;
     RECT TextRect;
     ULONG Flags;
+    ULONG WindowDpi;
 } PH_TREENEW_CUSTOM_DRAW, *PPH_TREENEW_CUSTOM_DRAW;
 
 typedef struct _PH_TREENEW_MOUSE_EVENT

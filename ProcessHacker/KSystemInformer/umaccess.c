@@ -49,6 +49,12 @@ NTSTATUS KphCaptureUnicodeString(
         goto Exit;
     }
 
+    if (inputString.Length & 1)
+    {
+        status = STATUS_OBJECT_NAME_INVALID;
+        goto Exit;
+    }
+
     outputString = KphAllocatePaged(sizeof(UNICODE_STRING) + inputString.Length,
                                     KPH_TAG_CAPTURED_UNICODE_STRING);
     if (!outputString)
@@ -467,26 +473,28 @@ NTSTATUS KphCopyUnicodeStringToMode(
     }
 
     destination = Destination;
-    maximumLength = (USHORT)(Length - sizeof(UNICODE_STRING));
+    maximumLength = (USHORT)min(Length - sizeof(UNICODE_STRING),
+                                UNICODE_STRING_MAX_BYTES);
 
     if (AccessMode != KernelMode)
     {
+        PWCH buffer;
+
+        buffer = Add2Ptr(destination, sizeof(UNICODE_STRING));
+
         __try
         {
             WriteUShortToUser(&destination->Length, String->Length);
             WriteUShortToUser(&destination->MaximumLength, maximumLength);
-            WritePointerToUser(&destination->Buffer,
-                               Add2Ptr(destination, sizeof(UNICODE_STRING)));
+            WritePointerToUser(&destination->Buffer, buffer);
 
-            NT_ASSERT(destination->Buffer);
-
-            CopyToUser(destination->Buffer, String->Buffer, String->Length);
+            CopyToUser(buffer, String->Buffer, String->Length);
 
             if ((String->Length + sizeof(UNICODE_NULL)) <= maximumLength)
             {
                 PWCHAR end;
 
-                end = &destination->Buffer[String->Length / sizeof(WCHAR)];
+                end = &buffer[String->Length / sizeof(WCHAR)];
 
                 WriteUShortToUser(end, UNICODE_NULL);
             }

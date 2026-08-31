@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -417,6 +417,17 @@ PhReadVirtualMemory(
 PHLIBAPI
 NTSTATUS
 NTAPI
+PhReadVirtualMemoryPrefix(
+    _In_ HANDLE ProcessHandle,
+    _In_opt_ PVOID BaseAddress,
+    _Out_writes_bytes_(BufferSize) PVOID Buffer,
+    _In_ SIZE_T BufferSize,
+    _Out_opt_ PSIZE_T NumberOfBytesRead
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
 PhWriteVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
@@ -635,7 +646,11 @@ PhInitializeEvent(
     )
 {
     WriteULongPtrRelease(&Event->Value, PH_EVENT_REFCOUNT_INC);
-    WritePointerRelease(&Event->EventHandle, UlongToPtr(0));
+
+#pragma warning(push)
+#pragma warning(disable : 6387)
+    WritePointerRelease(&Event->EventHandle, NULL);
+#pragma warning(pop)
 }
 
 /**
@@ -1430,6 +1445,16 @@ PhFindCharInStringRef(
     _In_ PCPH_STRINGREF String,
     _In_ WCHAR Character,
     _In_ BOOLEAN IgnoreCase
+    );
+
+PHLIBAPI
+SIZE_T
+NTAPI
+PhFindFirstOfCharsW(
+    _In_reads_(Length) PCWCH Buffer,
+    _In_ SIZE_T Length,
+    _In_reads_(Count) PCWCH Chars,
+    _In_ ULONG Count
     );
 
 PHLIBAPI
@@ -3623,6 +3648,14 @@ PhFindItemPointerList(
     );
 
 PHLIBAPI
+PVOID
+NTAPI
+PhGetItemPointerList(
+    _In_ PPH_POINTER_LIST PointerList,
+    _In_ HANDLE PointerHandle
+    );
+
+PHLIBAPI
 VOID
 NTAPI
 PhRemoveItemPointerList(
@@ -4095,6 +4128,16 @@ PhNextEnumHashtable(
 
     return NULL;
 }
+
+/*
+ * 32 bit FNV-1 and FNV-1a non-zero initial basis
+ */
+#define FNV1_32_INIT (ULONG_C(0x811c9dc5))
+
+/*
+ * 32 bit magic FNV-1a prime
+ */
+#define FNV_32_PRIME (ULONG_C(0x01000193))
 
 PHLIBAPI
 ULONG
@@ -4618,6 +4661,15 @@ PhConvertCopyMemoryUlong(
     _In_ SIZE_T Count
     );
 
+PHLIBAPI
+VOID
+NTAPI
+PhAddMemoryUlong(
+    _Inout_ PULONG A,
+    _In_ PULONG B,
+    _In_ ULONG Count
+    );
+
 DECLSPEC_NOALIAS
 PHLIBAPI
 VOID
@@ -4632,6 +4684,25 @@ DECLSPEC_NOALIAS
 PHLIBAPI
 VOID
 NTAPI
+PhConvertCopyMemorySizeT(
+    _Inout_updates_(Count) PSIZE_T From,
+    _Inout_updates_(Count) PFLOAT To,
+    _In_ SIZE_T Count
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhAddMemoryUlong(
+    _Inout_ PULONG A,
+    _In_ PULONG B,
+    _In_ ULONG Count
+    );
+
+DECLSPEC_NOALIAS
+PHLIBAPI
+VOID
+NTAPI
 PhConvertCopyMemorySingles(
     _Inout_updates_(Count) PFLOAT From,
     _Inout_updates_(Count) PULONG To,
@@ -4640,6 +4711,7 @@ PhConvertCopyMemorySingles(
 
 typedef struct _PH_CIRCULAR_BUFFER_ULONG* PPH_CIRCULAR_BUFFER_ULONG;
 typedef struct _PH_CIRCULAR_BUFFER_ULONG64* PPH_CIRCULAR_BUFFER_ULONG64;
+typedef struct _PH_CIRCULAR_BUFFER_SIZE_T* PPH_CIRCULAR_BUFFER_SIZE_T;
 
 DECLSPEC_NOALIAS
 PHLIBAPI
@@ -4661,6 +4733,16 @@ PhCopyConvertCircularBufferULONG64(
     _In_ ULONG Count
     );
 
+DECLSPEC_NOALIAS
+PHLIBAPI
+VOID
+NTAPI
+PhCopyConvertCircularBufferSizeT(
+    _Inout_ PPH_CIRCULAR_BUFFER_SIZE_T Buffer,
+    _Out_writes_(Count) FLOAT* Destination,
+    _In_ ULONG Count
+    );
+
 PHLIBAPI
 ULONG
 NTAPI
@@ -4673,6 +4755,13 @@ ULONG
 NTAPI
 PhCountBitsUlongPtr(
     _In_ ULONG_PTR Value
+    );
+
+PHLIBAPI
+ULONG
+NTAPI
+PhCountBitsUlong64(
+    _In_ ULONG64 Value
     );
 
 //
@@ -4720,6 +4809,7 @@ PhTlsSetValue(
 // Errors
 //
 
+_Post_equals_last_error_
 PHLIBAPI
 ULONG
 NTAPI

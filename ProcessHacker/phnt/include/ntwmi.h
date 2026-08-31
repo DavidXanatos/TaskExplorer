@@ -2273,6 +2273,11 @@ typedef struct _WMI_FILE_IO_WOW64
     WCHAR FileName[1];
 } WMI_FILE_IO_WOW64, *PWMI_FILE_IO_WOW64;
 
+// The connection id fields follow the ports without natural alignment,
+// so the network event structures must be byte-packed.
+#include <pshpack1.h>
+
+// TcpIp TypeGroup1 (receive and other non-send events), Version >= 1.
 typedef struct _WMI_TCPIP_V4
 {
     ULONG ProcessId;
@@ -2281,7 +2286,24 @@ typedef struct _WMI_TCPIP_V4
     UCHAR SourceAddress[4];
     USHORT DestinationPort;
     USHORT SourcePort;
+    ULONG_PTR ConnectionId;
+    ULONG SequenceNumber;
 } WMI_TCPIP_V4, *PWMI_TCPIP_V4;
+
+// TcpIp send events carry timing fields before the sequence number.
+typedef struct _WMI_TCPIP_SEND_V4
+{
+    ULONG ProcessId;
+    ULONG TransferSize;
+    UCHAR DestinationAddress[4];
+    UCHAR SourceAddress[4];
+    USHORT DestinationPort;
+    USHORT SourcePort;
+    ULONG StartTime;
+    ULONG EndTime;
+    ULONG SequenceNumber;
+    ULONG_PTR ConnectionId;
+} WMI_TCPIP_SEND_V4, *PWMI_TCPIP_SEND_V4;
 
 typedef struct _WMI_TCPIP_V6
 {
@@ -2291,12 +2313,29 @@ typedef struct _WMI_TCPIP_V6
     UCHAR SourceAddress[16];
     USHORT DestinationPort;
     USHORT SourcePort;
+    ULONG_PTR ConnectionId;
+    ULONG SequenceNumber;
 } WMI_TCPIP_V6, *PWMI_TCPIP_V6;
 
+typedef struct _WMI_TCPIP_SEND_V6
+{
+    ULONG ProcessId;
+    ULONG TransferSize;
+    UCHAR DestinationAddress[16];
+    UCHAR SourceAddress[16];
+    USHORT DestinationPort;
+    USHORT SourcePort;
+    ULONG StartTime;
+    ULONG EndTime;
+    ULONG SequenceNumber;
+    ULONG_PTR ConnectionId;
+} WMI_TCPIP_SEND_V6, *PWMI_TCPIP_SEND_V6;
+
+// UdpIp TypeGroup1, Version >= 1. The layout matches TcpIp through SourcePort.
 typedef struct _WMI_UDP_V4
 {
     ULONG ProcessId;
-    USHORT TransferSize;
+    ULONG TransferSize;
     UCHAR DestinationAddress[4];
     UCHAR SourceAddress[4];
     USHORT DestinationPort;
@@ -2306,12 +2345,16 @@ typedef struct _WMI_UDP_V4
 typedef struct _WMI_UDP_V6
 {
     ULONG ProcessId;
-    USHORT TransferSize;
+    ULONG TransferSize;
     UCHAR DestinationAddress[16];
     UCHAR SourceAddress[16];
     USHORT DestinationPort;
     USHORT SourcePort;
+    ULONG SequenceNumber;
+    ULONG_PTR ConnectionId;
 } WMI_UDP_V6, *PWMI_UDP_V6;
+
+#include <poppack.h>
 
 typedef struct _WMI_PAGE_FAULT
 {
@@ -6129,12 +6172,6 @@ typedef struct _ETW_TRACE_GUID_INFO_INFORMATION
 } ETW_TRACE_GUID_INFO_INFORMATION, *PETW_TRACE_GUID_INFO_INFORMATION;
 
 // rev
-typedef struct _ETW_ACTIVITY_ID_CREATE_INFORMATION
-{
-    GUID ActivityId;
-} ETW_ACTIVITY_ID_CREATE_INFORMATION, *PETW_ACTIVITY_ID_CREATE_INFORMATION;
-
-// rev
 typedef struct _ETW_TRACE_GROUP_INFO_INFORMATION
 {
     GUID Guid;
@@ -6318,9 +6355,9 @@ typedef enum _ETWTRACECONTROLCODE
     EtwIncrementLoggerFile = 6,                     // inout WMI_LOGGER_INFORMATION (>= 0xB0)
     EtwRealtimeTransition = 7,                      // inout WMI_LOGGER_INFORMATION (>= 0xB0)
     // reserved
-    EtwRealtimeConnectCode = 11,                    // inout ETW_REALTIME_CONNECT_CODE
+    EtwRealtimeConnectCode = 11,                    // inout ETW_REALTIME_CONNECT_INFORMATION
     EtwActivityIdCreate = 12,                       // out ETW_ACTIVITY_ID_CREATE_INFORMATION
-    EtwWdiScenarioCode = 13,                        // in ETW_WDI_SCENARIO_CODE
+    EtwWdiScenarioCode = 13,                        // in ETW_WDI_SCENARIO_INFORMATION
     EtwRealtimeDisconnectCode = 14,                 // in ETW_REALTIME_DISCONNECT_INFORMATION
     EtwRegisterGuidsCode = 15,                      // in ETW_UM_REGISTRATION_INFORMATION, out ETW_UM_REGISTRATION_REPLY
     EtwReceiveNotification = 16,                    // out ETW_NOTIFICATION_HEADER + payload
@@ -6336,7 +6373,7 @@ typedef enum _ETWTRACECONTROLCODE
     EtwTrackBinaryCode = 26,                        // in ETW_PROVIDER_BINARY_TRACKING_INFORMATION
     EtwAddNotificationEvent = 27,                   // in ETW_NOTIFICATION_EVENT_INFORMATION
     EtwUpdateDisallowList = 28,                     // in ETW_UPDATE_DISALLOW_LIST_INFORMATION
-    EtwSetEnableAllKeywordsCode = 29,               // not implemented
+    EtwSetEnableAllKeywordsCode = 29,               // in not implemented
     EtwSetProviderTraitsCode = 30,                  // in ETW_SET_PROVIDER_TRAITS_INFORMATION, out ETW_SET_PROVIDER_TRAITS_REPLY
     EtwUseDescriptorTypeCode = 31,                  // in ETW_USE_DESCRIPTOR_TYPE_INFORMATION
     EtwEnumTraceGroupList = 32,                     // out ETW_TRACE_GUID_LIST
@@ -6356,6 +6393,47 @@ typedef enum _ETWTRACECONTROLCODE
     EtwGetPmcSessions = 46,                         // out ETW_PMC_SESSION_INFORMATION[]
     EtwTraceControlMax = 47,
 } ETWTRACECONTROLCODE;
+
+// rev
+typedef struct _ETW_REALTIME_CONNECT_INFORMATION
+{
+    ULONG LoggerId;
+    ULONG BufferSize;
+    PVOID ReservedBufferSpace;
+    PVOID ReservedBufferSpaceBitMap;
+    HANDLE DisconnectEvent;
+    HANDLE DataAvailableEvent;
+    PSINGLE_LIST_ENTRY UserBufferListHead;
+    PULONG UserBufferCount;
+    PULONG EventsLostCount;
+    PULONG BuffersLostCount;
+    HANDLE ConnectionHandle;
+    ULONG Reserved[4];
+} ETW_REALTIME_CONNECT_INFORMATION, *PETW_REALTIME_CONNECT_INFORMATION;
+
+// rev
+typedef struct _ETW_ACTIVITY_ID_CREATE_INFORMATION
+{
+    GUID ActivityId;
+} ETW_ACTIVITY_ID_CREATE_INFORMATION, *PETW_ACTIVITY_ID_CREATE_INFORMATION;
+
+// rev
+typedef struct _ETW_WDI_SCENARIO_INFORMATION
+{
+    ULONG ProviderHandle;
+    ULONG Reserved0;
+    USHORT ScenarioCode;
+    UCHAR Reserved1[14];
+    GUID ScenarioInstanceGuid;
+    ULONG Operation;
+    ULONG Reserved2;
+} ETW_WDI_SCENARIO_INFORMATION, *PETW_WDI_SCENARIO_INFORMATION;
+
+// rev
+typedef struct _ETW_REALTIME_DISCONNECT_INFORMATION
+{
+    HANDLE Handle;
+} ETW_REALTIME_DISCONNECT_INFORMATION, *PETW_REALTIME_DISCONNECT_INFORMATION;
 
 // rev
 typedef struct _ETW_UM_REGISTRATION_INFORMATION
@@ -6395,29 +6473,11 @@ typedef struct _ETW_UM_REGISTRATION_REPLY
 } ETW_UM_REGISTRATION_REPLY, *PETW_UM_REGISTRATION_REPLY;
 
 // rev
-typedef struct _ETW_REALTIME_DISCONNECT_INFORMATION
-{
-    HANDLE Handle;
-} ETW_REALTIME_DISCONNECT_INFORMATION, *PETW_REALTIME_DISCONNECT_INFORMATION;
-
-// rev
 typedef struct _ETW_RECEIVE_REPLY_DATA_BLOCK_INFORMATION
 {
     ULONG ReplyHandle;
     ULONG Timeout;
 } ETW_RECEIVE_REPLY_DATA_BLOCK_INFORMATION, *PETW_RECEIVE_REPLY_DATA_BLOCK_INFORMATION;
-
-// rev
-typedef struct _ETW_WDI_SCENARIO_CODE
-{
-    ULONG ProviderHandle;
-    ULONG Reserved0;
-    USHORT ScenarioCode;
-    UCHAR Reserved1[14];
-    GUID ScenarioInstanceGuid;
-    ULONG Operation;
-    ULONG Reserved2;
-} ETW_WDI_SCENARIO_CODE, *PETW_WDI_SCENARIO_CODE;
 
 // rev
 typedef struct _ETW_PMC_OWNERSHIP_ENTRY

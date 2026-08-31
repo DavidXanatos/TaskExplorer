@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2022
+ *     jxy-s   2022-2026
  *
  */
 
@@ -144,6 +144,7 @@ NTSTATUS KphpMsgDynLookupEntry(
 {
     NTSTATUS status;
     PCKPH_MESSAGE_DYNAMIC_TABLE_ENTRY entry;
+    USHORT endOffset;
 
     *Entry = NULL;
 
@@ -164,7 +165,10 @@ NTSTATUS KphpMsgDynLookupEntry(
         return STATUS_CONTEXT_MISMATCH;
     }
 
-    if (entry->Offset >= Message->Header.Size)
+    status = RtlUShortAdd(entry->Offset, entry->Length, &endOffset);
+    if (!NT_SUCCESS(status) ||
+        (entry->Offset < KPH_MESSAGE_MIN_SIZE) ||
+        (endOffset > Message->Header.Size))
     {
         return STATUS_HEAP_CORRUPTION;
     }
@@ -200,15 +204,13 @@ VOID KphMsgDynClearLast(
 {
     PKPH_MESSAGE_DYNAMIC_TABLE_ENTRY entry;
 
-    if (Message->_Dyn.Count)
+    if (Message->_Dyn.Count > 0)
     {
-        return;
+        Message->_Dyn.Count--;
+        entry = &Message->_Dyn.Entries[Message->_Dyn.Count];
+        Message->Header.Size -= entry->Length;
+        RtlZeroMemory(entry, sizeof(KPH_MESSAGE_DYNAMIC_TABLE_ENTRY));
     }
-
-    Message->_Dyn.Count--;
-    entry = &Message->_Dyn.Entries[Message->_Dyn.Count];
-    Message->Header.Size -= entry->Length;
-    RtlZeroMemory(entry, sizeof(KPH_MESSAGE_DYNAMIC_TABLE_ENTRY));
 }
 
 /**
@@ -404,20 +406,25 @@ NTSTATUS KphMsgDynAddStackTrace(
 {
     NTSTATUS status;
     PKPH_MESSAGE_DYNAMIC_TABLE_ENTRY entry;
+    USHORT length;
+
+    status = RtlUShortMult(StackTrace->Count, sizeof(PVOID), &length);
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
 
     status = KphpMsgDynClaimEntry(Message,
                                   FieldId,
                                   KphMsgTypeStackTrace,
-                                  (StackTrace->Count * sizeof(PVOID)),
+                                  length,
                                   &entry);
     if (!NT_SUCCESS(status))
     {
         return status;
     }
 
-    RtlCopyMemory(Add2Ptr(Message, entry->Offset),
-                  StackTrace->Frames,
-                  (StackTrace->Count * sizeof(PVOID)));
+    RtlCopyMemory(Add2Ptr(Message, entry->Offset), StackTrace->Frames, length);
 
     return STATUS_SUCCESS;
 }

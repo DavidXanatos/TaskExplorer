@@ -1159,6 +1159,7 @@ NTSTATUS FLTAPI KphpCommsConnectNotifyCallback(
                       HandleToULong(client->Process->ProcessId),
                       processState);
 
+        client->Port = NULL;
         status = STATUS_INSUFFICIENT_RESOURCES;
         goto Exit;
     }
@@ -1701,7 +1702,7 @@ NTSTATUS KphGetInformerClientStats(
 
     __try
     {
-        ZeroUserMemory(Stats, sizeof(KPH_INFORMER_STATS));
+        ZeroUserMemory(Stats, sizeof(KPH_INFORMER_CLIENT_STATS));
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
@@ -2550,7 +2551,7 @@ NTSTATUS KphCommsStart(
 
     InitializeObjectAttributes(&objectAttributes,
                                KphPortName,
-                               OBJ_KERNEL_HANDLE,
+                               OBJ_KERNEL_HANDLE | OBJ_DONT_REPARSE,
                                NULL,
                                securityDescriptor);
 

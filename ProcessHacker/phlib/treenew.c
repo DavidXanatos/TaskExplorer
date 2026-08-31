@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2011-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -31,6 +31,8 @@
  */
 
 #include <ph.h>
+#include <commctrl.h>
+#include <graphscroll.h>
 #include <guisup.h>
 #include <treenew.h>
 #include <treenewp.h>
@@ -567,7 +569,7 @@ BOOLEAN PhTnpOnCreate(
     }
 
     if (!(Context->VScrollHandle = PhCreateWindow(
-        WC_SCROLLBAR,
+        PH_SCROLLNEW_CLASSNAME,
         NULL,
         WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE | SBS_VERT,
         0,
@@ -584,7 +586,7 @@ BOOLEAN PhTnpOnCreate(
     }
 
     if (!(Context->HScrollHandle = PhCreateWindow(
-        WC_SCROLLBAR,
+        PH_SCROLLNEW_CLASSNAME,
         NULL,
         WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE | SBS_HORZ,
         0,
@@ -683,6 +685,7 @@ VOID PhTnpOnSetFont(
     )
 {
     PhTnpSetFont(Context, Font, !!Redraw);
+    PhTnpInvalidateLayoutCache(Context);
     PhTnpLayout(Context);
 }
 
@@ -718,6 +721,7 @@ VOID PhTnpOnSettingChange(
 {
     PhTnpUpdateSystemMetrics(Context);
     PhTnpUpdateTextMetrics(Context);
+    PhTnpInvalidateLayoutCache(Context);
     PhTnpLayout(Context);
 }
 
@@ -733,6 +737,7 @@ VOID PhTnpOnThemeChanged(
     )
 {
     PhTnpUpdateThemeData(Context);
+    PhTnpInvalidateLayoutCache(Context);
 }
 
 /**
@@ -767,6 +772,7 @@ VOID PhTnpOnDpiChanged(
 
     PhTnpSetRedraw(Context, TRUE);
 
+    PhTnpInvalidateLayoutCache(Context);
     PhTnpLayout(Context);
 }
 
@@ -1781,9 +1787,15 @@ VOID PhTnpOnVScroll(
         // is a 16-bit value, so don't use it if we have too many rows.
         if (Context->FlatList->Count <= 0xffff)
             scrollInfo.nPos = Position;
+#if defined(TREENEW_VSCROLL_ANCHOR)
+        Context->VScrollThumbTracking = TRUE;
+#endif
         break;
     case SB_THUMBTRACK:
         scrollInfo.nPos = scrollInfo.nTrackPos;
+#if defined(TREENEW_VSCROLL_ANCHOR)
+        Context->VScrollThumbTracking = TRUE;
+#endif
         break;
     case SB_TOP:
         scrollInfo.nPos = 0;
@@ -1791,6 +1803,12 @@ VOID PhTnpOnVScroll(
     case SB_BOTTOM:
         scrollInfo.nPos = MAXINT;
         break;
+#if defined(TREENEW_VSCROLL_ANCHOR)
+    case SB_ENDSCROLL:
+        // The drag/scroll interaction ended; resume anchoring on subsequent structural updates.
+        Context->VScrollThumbTracking = FALSE;
+        break;
+#endif
     }
 
     scrollInfo.fMask = SIF_POS;
@@ -2049,10 +2067,24 @@ BOOLEAN PhTnpOnNotify(
 
                 mouseEvent.Location = mouseEvent.ScreenLocation;
                 ScreenToClient(WindowHandle, &mouseEvent.Location);
+
                 mouseEvent.HeaderLocation = mouseEvent.ScreenLocation;
                 ScreenToClient(Header->hwndFrom, &mouseEvent.HeaderLocation);
-                mouseEvent.Column = PhTnpHitTestHeader(Context, Header->hwndFrom == Context->FixedHeaderHandle, &mouseEvent.HeaderLocation, NULL);
-                Context->Callback(WindowHandle, TreeNewHeaderRightClick, &mouseEvent, NULL, Context->CallbackContext);
+
+                mouseEvent.Column = PhTnpHitTestHeader(
+                    Context,
+                    Header->hwndFrom == Context->FixedHeaderHandle,
+                    &mouseEvent.HeaderLocation,
+                    NULL
+                    );
+
+                Context->Callback(
+                    WindowHandle,
+                    TreeNewHeaderRightClick,
+                    &mouseEvent,
+                    NULL,
+                    Context->CallbackContext
+                    );
             }
         }
         break;
@@ -2159,7 +2191,7 @@ LRESULT PhTnpOnUserMessage(
         {
             if (Context->EnableRedraw <= 0)
             {
-#if defined (TREENEW_VSCROLL_ANCHOR)
+#if defined(TREENEW_VSCROLL_ANCHOR)
                 PhTnpPrepareVScrollAnchor(Context);
 #endif
                 // Coalesce repeated structure requests while redraw is suspended.
@@ -2169,7 +2201,7 @@ LRESULT PhTnpOnUserMessage(
                 return TRUE;
             }
 
-#if defined (TREENEW_VSCROLL_ANCHOR)
+#if defined(TREENEW_VSCROLL_ANCHOR)
             PhTnpPrepareVScrollAnchor(Context);
 #endif
             PhTnpRestructureNodes(Context);
@@ -2216,18 +2248,24 @@ LRESULT PhTnpOnUserMessage(
             ULONG count = (ULONG)WParam;
             PULONG order = (PULONG)LParam;
             ULONG i;
+            ULONG newOrderStack[32];
             PULONG newOrder;
             PPH_TREENEW_COLUMN column;
 
             if (count)
             {
-                newOrder = PhAllocate(count * sizeof(ULONG));
+                if (count <= RTL_NUMBER_OF(newOrderStack))
+                    newOrder = newOrderStack;
+                else
+                    newOrder = PhAllocate(count * sizeof(ULONG));
 
                 for (i = 0; i < count; i++)
                 {
                     if (!(column = PhTnpLookupColumnById(Context, order[i])))
                     {
-                        PhFree(newOrder);
+                        if (newOrder != newOrderStack)
+                            PhFree(newOrder);
+
                         return FALSE;
                     }
 
@@ -2236,11 +2274,14 @@ LRESULT PhTnpOnUserMessage(
 
                 if (!Header_SetOrderArray(Context->HeaderHandle, count, newOrder))
                 {
-                    PhFree(newOrder);
+                    if (newOrder != newOrderStack)
+                        PhFree(newOrder);
+
                     return FALSE;
                 }
 
-                PhFree(newOrder);
+                if (newOrder != newOrderStack)
+                    PhFree(newOrder);
             }
 
             PhTnpUpdateColumnHeaders(Context);
@@ -2764,13 +2805,13 @@ VOID PhTnpUpdateSystemMetrics(
     Context->SmallIconWidth = PhGetSystemMetrics(SM_CXSMICON, Context->WindowDpi);
     Context->SmallIconHeight = PhGetSystemMetrics(SM_CYSMICON, Context->WindowDpi);
 
-    Context->CellMarginLeft = PhGetDpi(TNP_CELL_LEFT_MARGIN, Context->WindowDpi);
-    Context->CellMarginRight = PhGetDpi(TNP_CELL_RIGHT_MARGIN, Context->WindowDpi);
-    Context->IconRightPadding = PhGetDpi(TNP_ICON_RIGHT_PADDING, Context->WindowDpi);
-    Context->TextMarginPadding = PhGetDpi(6 + 6, Context->WindowDpi);
-    Context->HeaderTextPadding = PhGetDpi(5, Context->WindowDpi);
-    Context->HeaderTextMargin = PhGetDpi(2, Context->WindowDpi);
-    Context->HeaderRowMargin = PhGetDpi(1, Context->WindowDpi);
+    Context->CellMarginLeft = PhScaleToDisplay(TNP_CELL_LEFT_MARGIN, Context->WindowDpi);
+    Context->CellMarginRight = PhScaleToDisplay(TNP_CELL_RIGHT_MARGIN, Context->WindowDpi);
+    Context->IconRightPadding = PhScaleToDisplay(TNP_ICON_RIGHT_PADDING, Context->WindowDpi);
+    Context->TextMarginPadding = PhScaleToDisplay(6 + 6, Context->WindowDpi);
+    Context->HeaderTextPadding = PhScaleToDisplay(5, Context->WindowDpi);
+    Context->HeaderTextMargin = PhScaleToDisplay(2, Context->WindowDpi);
+    Context->HeaderRowMargin = PhScaleToDisplay(1, Context->WindowDpi);
 
     if (Context->SystemDragX < 2)
         Context->SystemDragX = 2;
@@ -2887,6 +2928,30 @@ VOID PhTnpCancelTrack(
 }
 
 /**
+ * Resets the layout geometry cache used by PhTnpLayout / PhTnpLayoutHeader.
+ * Call when child windows may have been moved/sized outside this code path
+ * (theme change, DPI change, child recreate) so the next layout pass re-issues
+ * real MoveWindow / SetWindowPos / Header_Layout / TTM_NEWTOOLRECT calls.
+ *
+ * \param Context Pointer to the treenew context structure.
+ */
+VOID PhTnpInvalidateLayoutCache(
+    _In_ PPH_TREENEW_CONTEXT Context
+    )
+{
+    PhSetRectEmpty(&Context->VScrollLastRect);
+    PhSetRectEmpty(&Context->HScrollLastRect);
+    PhSetRectEmpty(&Context->FillerBoxLastRect);
+    PhSetRectEmpty(&Context->FixedHeaderLastOutRect);
+    PhSetRectEmpty(&Context->NormalHeaderLastOutRect);
+    PhSetRectEmpty(&Context->TooltipFixedHeaderLastRect);
+    PhSetRectEmpty(&Context->TooltipNormalHeaderLastRect);
+    Context->VScrollLastVisible = 0;
+    Context->HScrollLastVisible = 0;
+    Context->FillerBoxLastVisible = 0;
+}
+
+/**
  * Recalculates the layout of all treenew control elements.
  *
  * \param Context Pointer to the treenew context structure.
@@ -2910,40 +2975,88 @@ VOID PhTnpLayout(
     // Vertical scroll bar
     if (Context->VScrollVisible)
     {
-        MoveWindow(
-            Context->VScrollHandle,
-            clientRect.right - Context->VScrollWidth,
-            0,
-            Context->VScrollWidth,
-            clientRect.bottom - (Context->HScrollVisible ? Context->HScrollHeight : 0),
-            TRUE
-            );
+        RECT rect;
+
+        rect.left = clientRect.right - Context->VScrollWidth;
+        rect.top = 0;
+        rect.right = Context->VScrollWidth;
+        rect.bottom = clientRect.bottom - (Context->HScrollVisible ? Context->HScrollHeight : 0);
+
+        if (!Context->VScrollLastVisible || !PhEqualRect(&rect, &Context->VScrollLastRect))
+        {
+            MoveWindow(
+                Context->VScrollHandle,
+                rect.left,
+                rect.top,
+                rect.right,
+                rect.bottom,
+                TRUE
+                );
+            Context->VScrollLastRect = rect;
+            Context->VScrollLastVisible = TRUE;
+        }
+    }
+    else
+    {
+        Context->VScrollLastVisible = FALSE;
     }
 
     // Horizontal scroll bar
     if (Context->HScrollVisible)
     {
-        MoveWindow(
-            Context->HScrollHandle,
-            Context->NormalLeft,
-            clientRect.bottom - Context->HScrollHeight,
-            clientRect.right - Context->NormalLeft - (Context->VScrollVisible ? Context->VScrollWidth : 0),
-            Context->HScrollHeight,
-            TRUE
-            );
+        RECT rect;
+
+        rect.left = Context->NormalLeft;
+        rect.top = clientRect.bottom - Context->HScrollHeight;
+        rect.right = clientRect.right - Context->NormalLeft - (Context->VScrollVisible ? Context->VScrollWidth : 0);
+        rect.bottom = Context->HScrollHeight;
+
+        if (!Context->HScrollLastVisible || !PhEqualRect(&rect, &Context->HScrollLastRect))
+        {
+            MoveWindow(
+                Context->HScrollHandle,
+                rect.left,
+                rect.top,
+                rect.right,
+                rect.bottom,
+                TRUE
+                );
+            Context->HScrollLastRect = rect;
+            Context->HScrollLastVisible = TRUE;
+        }
+    }
+    else
+    {
+        Context->HScrollLastVisible = FALSE;
     }
 
     // Filler box
     if (Context->VScrollVisible && Context->HScrollVisible)
     {
-        MoveWindow(
-            Context->FillerBoxHandle,
-            clientRect.right - Context->VScrollWidth,
-            clientRect.bottom - Context->HScrollHeight,
-            Context->VScrollWidth,
-            Context->HScrollHeight,
-            TRUE
-            );
+        RECT rect;
+
+        rect.left = clientRect.right - Context->VScrollWidth;
+        rect.top = clientRect.bottom - Context->HScrollHeight;
+        rect.right = Context->VScrollWidth;
+        rect.bottom = Context->HScrollHeight;
+
+        if (!Context->FillerBoxLastVisible || !PhEqualRect(&rect, &Context->FillerBoxLastRect))
+        {
+            MoveWindow(
+                Context->FillerBoxHandle,
+                rect.left,
+                rect.top,
+                rect.right,
+                rect.bottom,
+                TRUE
+                );
+            Context->FillerBoxLastRect = rect;
+            Context->FillerBoxLastVisible = TRUE;
+        }
+    }
+    else
+    {
+        Context->FillerBoxLastVisible = FALSE;
     }
 
     PhTnpLayoutHeader(Context);
@@ -3001,14 +3114,25 @@ VOID PhTnpLayoutHeader(
             }
         }
 
+        RECT outRect;
+
         // Fixed portion header control
         rect.left = 0;
         rect.top = 0;
         rect.right = Context->NormalLeft;
         rect.bottom = Context->ClientRect.bottom;
         Header_Layout(Context->FixedHeaderHandle, &hdl);
-        SetWindowPos(Context->FixedHeaderHandle, NULL, windowPos.x, windowPos.y, windowPos.cx, windowPos.cy + headerHeight, windowPos.flags);
-        Context->HeaderHeight = windowPos.cy + headerHeight;
+        outRect.left = windowPos.x;
+        outRect.top = windowPos.y;
+        outRect.right = windowPos.cx;
+        outRect.bottom = windowPos.cy + headerHeight;
+
+        if (!PhEqualRect(&outRect, &Context->FixedHeaderLastOutRect))
+        {
+            SetWindowPos(Context->FixedHeaderHandle, NULL, outRect.left, outRect.top, outRect.right, outRect.bottom, windowPos.flags | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+            Context->FixedHeaderLastOutRect = outRect;
+        }
+        Context->HeaderHeight = outRect.bottom;
 
         // Normal portion header control
         rect.left = Context->NormalLeft - Context->HScrollPosition;
@@ -3016,7 +3140,16 @@ VOID PhTnpLayoutHeader(
         rect.right = Context->ClientRect.right - (Context->VScrollVisible ? Context->VScrollWidth : 0);
         rect.bottom = Context->ClientRect.bottom;
         Header_Layout(Context->HeaderHandle, &hdl);
-        SetWindowPos(Context->HeaderHandle, NULL, windowPos.x, windowPos.y, windowPos.cx, windowPos.cy + headerHeight, windowPos.flags);
+        outRect.left = windowPos.x;
+        outRect.top = windowPos.y;
+        outRect.right = windowPos.cx;
+        outRect.bottom = windowPos.cy + headerHeight;
+
+        if (!PhEqualRect(&outRect, &Context->NormalHeaderLastOutRect))
+        {
+            SetWindowPos(Context->HeaderHandle, NULL, outRect.left, outRect.top, outRect.right, outRect.bottom, windowPos.flags | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+            Context->NormalHeaderLastOutRect = outRect;
+        }
     }
     else
     {
@@ -3034,7 +3167,11 @@ VOID PhTnpLayoutHeader(
 
         if (PhGetClientRect(Context->FixedHeaderHandle, &toolInfo.rect))
         {
-            SendMessage(Context->TooltipsHandle, TTM_NEWTOOLRECT, 0, (LPARAM)&toolInfo);
+            if (!PhEqualRect(&toolInfo.rect, &Context->TooltipFixedHeaderLastRect))
+            {
+                SendMessage(Context->TooltipsHandle, TTM_NEWTOOLRECT, 0, (LPARAM)&toolInfo);
+                Context->TooltipFixedHeaderLastRect = toolInfo.rect;
+            }
         }
 
         memset(&toolInfo, 0, sizeof(TOOLINFO));
@@ -3044,7 +3181,11 @@ VOID PhTnpLayoutHeader(
 
         if (PhGetClientRect(Context->HeaderHandle, &toolInfo.rect))
         {
-            SendMessage(Context->TooltipsHandle, TTM_NEWTOOLRECT, 0, (LPARAM)&toolInfo);
+            if (!PhEqualRect(&toolInfo.rect, &Context->TooltipNormalHeaderLastRect))
+            {
+                SendMessage(Context->TooltipsHandle, TTM_NEWTOOLRECT, 0, (LPARAM)&toolInfo);
+                Context->TooltipNormalHeaderLastRect = toolInfo.rect;
+            }
         }
     }
 }
@@ -3157,6 +3298,9 @@ VOID PhTnpPrepareVScrollAnchor(
 
     if (FlagOn(Context->VScrollAnchorFlags, PH_TREENEW_VSCROLL_ANCHOR_PENDING))
         return;
+
+    if (Context->VScrollThumbTracking)
+        return; // user is driving the position by hand; don't fight the drag
 
     Context->VScrollAnchorFlags = PH_TREENEW_VSCROLL_ANCHOR_PENDING;
     Context->VScrollAnchorNode = NULL;
@@ -3368,7 +3512,7 @@ BOOLEAN PhTnpAddColumn(
     {
         if (WindowsVersion >= WINDOWS_10)
         {
-            realColumn->Width = PhGetDpi(realColumn->Width, Context->WindowDpi);
+            realColumn->Width = PhScaleToDisplay(realColumn->Width, Context->WindowDpi);
         }
         realColumn->DpiScaleOnAdd = FALSE;
     }
@@ -5376,7 +5520,7 @@ VOID PhTnpProcessMouseVWheel(
 
     if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &wheelScrollLines, 0))
     {
-        wheelScrollLines = PhGetDpi(3, Context->WindowDpi);
+        wheelScrollLines = PhScaleToDisplay(3, Context->WindowDpi);
     }
 
     // If page scrolling is enabled, use the number of visible rows.
@@ -5455,7 +5599,7 @@ VOID PhTnpProcessMouseHWheel(
 
     if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLCHARS, 0, &wheelScrollChars, 0))
     {
-        wheelScrollChars = PhGetDpi(3, Context->WindowDpi);
+        wheelScrollChars = PhScaleToDisplay(3, Context->WindowDpi);
     }
 
     // Zero the remainder if the direction changed.
@@ -6504,7 +6648,11 @@ VOID PhTnpPaint(
     LONG normalUpdateRightIndex;
     LONG normalTotalX;
     RECT cellRect;
+#if defined(PH_TREENEW_SAVEDC_CLIP)
+    INT savedDcState;
+#else
     HRGN oldClipRegion;
+#endif
 
     PhTnpInitializeThemeData(Context);
 
@@ -6582,6 +6730,10 @@ VOID PhTnpPaint(
 
     SelectFont(hdc, Context->Font);
     SetBkMode(hdc, TRANSPARENT);
+
+#if defined(PH_TREENEW_SAVEDC_CLIP)
+    savedDcState = SaveDC(hdc);
+#endif
 
     for (i = firstRowToUpdate; i <= lastRowToUpdate; i++)
     {
@@ -6760,6 +6912,10 @@ VOID PhTnpPaint(
             cellRect.left = normalUpdateLeftX;
             cellRect.right = cellRect.left;
 
+#if defined(PH_TREENEW_SAVEDC_CLIP)
+            // Save the pre-loop clip state once so each row can restore it.
+            // The per-row restore/re-save pair keeps the clip region valid.
+#else
             oldClipRegion = CreateRectRgn(0, 0, 0, 0);
 
             if (GetClipRgn(hdc, oldClipRegion) != 1)
@@ -6767,6 +6923,7 @@ VOID PhTnpPaint(
                 DeleteRgn(oldClipRegion);
                 oldClipRegion = NULL;
             }
+#endif
 
             IntersectClipRect(hdc, Context->NormalLeft, cellRect.top, viewRect.right, cellRect.bottom);
 
@@ -6779,17 +6936,33 @@ VOID PhTnpPaint(
                 PhTnpDrawCell(Context, hdc, &cellRect, node, column, i, j);
             }
 
+#if defined(PH_TREENEW_SAVEDC_CLIP)
+            // Restore the pre-loop clip state and immediately re-save it so
+            // savedDcState remains valid for the next iteration. Without this inner
+            // RestoreDC+SaveDC, every row after the first would paint into an empty clip
+            // region and produce no output. The inner pair is what snaps the clip back
+            // to the pre-loop state before each row re-narrows it. (dmex)
+            RestoreDC(hdc, savedDcState);
+            SaveDC(hdc);
+#else
             SelectClipRgn(hdc, oldClipRegion);
 
             if (oldClipRegion)
             {
                 DeleteRgn(oldClipRegion);
             }
+#endif
         }
 
         rowRect.top += Context->RowHeight;
         rowRect.bottom += Context->RowHeight;
     }
+
+#ifdef PH_TREENEW_SAVEDC_CLIP
+    // Final restore: brings the DC back to the state captured before the loop,
+    // covering rows where the condition was false and no inner Restore was issued. (dmex)
+    RestoreDC(hdc, savedDcState);
+#endif
 
     if (lastRowToUpdate == Context->FlatList->Count - 1) // works even if there are no items
     {
@@ -6833,8 +7006,8 @@ VOID PhTnpPaint(
         RECT textRect;
 
         textRect.left = 20;
-        textRect.top = Context->HeaderHeight + PhGetDpi(10, Context->WindowDpi);
-        textRect.right = viewRect.right - PhGetDpi(20, Context->WindowDpi);
+        textRect.top = Context->HeaderHeight + PhScaleToDisplay(10, Context->WindowDpi);
+        textRect.right = viewRect.right - PhScaleToDisplay(20, Context->WindowDpi);
         textRect.bottom = viewRect.bottom - Context->HeaderTextPadding;
 
         if (Context->ThemeSupport)
@@ -7211,6 +7384,7 @@ VOID PhTnpDrawCell(
         customDraw.Dc = hdc;
         customDraw.CellRect = *CellRect;
         customDraw.TextRect = textRect;
+        customDraw.WindowDpi = Context->WindowDpi;
 
         // Fix up the rectangles before giving them to the user.
         if (customDraw.CellRect.left > customDraw.CellRect.right)
@@ -7761,7 +7935,7 @@ BOOLEAN PhTnpPrepareTooltipShow(
         rect.top,
         0,
         0,
-        SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+        SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER
         );
 
     return TRUE;
@@ -9129,7 +9303,7 @@ VOID PhTnpCreateBufferedContext(
  */
 VOID PhTnpDestroyBufferedContext(
     _In_ PPH_TREENEW_CONTEXT Context
-)
+    )
 {
     // The original bitmap must be selected back into the context, otherwise the bitmap can't be
     // deleted.

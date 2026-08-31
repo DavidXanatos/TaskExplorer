@@ -6,12 +6,15 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
 #ifndef _PH_PHUTIL_H
 #define _PH_PHUTIL_H
+
+#include <phcrypt.h>
+#include <ntd3dkmt.h>
 
 EXTERN_C_START
 
@@ -284,6 +287,28 @@ PhGetMessage(
     _In_ ULONG MessageTableId,
     _In_ ULONG MessageLanguageId,
     _In_ ULONG MessageId
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhFormatMessage_V(
+    _In_ PVOID DllHandle,
+    _In_ ULONG MessageTableId,
+    _In_ ULONG MessageLanguageId,
+    _In_ ULONG MessageId,
+    _In_ va_list ArgPtr
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhFormatMessage(
+    _In_ PVOID DllHandle,
+    _In_ ULONG MessageTableId,
+    _In_ ULONG MessageLanguageId,
+    _In_ ULONG MessageId,
+    ...
     );
 
 PHLIBAPI
@@ -717,6 +742,13 @@ PhGenerateGuid(
     _Out_ PGUID Guid
     );
 
+PHLIBAPI
+VOID
+NTAPI
+PhGenerateGuidEx(
+    _Out_ PGUID Guid
+    );
+
 /**
  * Reverses the byte order of a GUID.
  *
@@ -991,6 +1023,20 @@ PhFormatSizeToBuffer(
     _Out_opt_ PSIZE_T ReturnLength
     );
 
+#define PH_ENERGY_MJ 0
+#define PH_ENERGY_J  1
+#define PH_ENERGY_KJ 2
+#define PH_ENERGY_MJ_UNIT 3
+#define PH_ENERGY_GJ 4
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhFormatEnergy(
+    _In_ ULONGLONG MilliJoules,
+    _In_ ULONG MaxEnergyUnit
+    );
+
 PHLIBAPI
 PPH_STRING
 NTAPI
@@ -1015,6 +1061,27 @@ PhStringToGuid(
     _In_ PCPH_STRINGREF GuidString,
     _Out_ PGUID Guid
     );
+
+/**
+ * Converts a string representation of a GUID to a GUID structure.
+ *
+ * \param[in] GuidString The string representation of the GUID.
+ * \param[out] Guid A pointer to the GUID structure to receive the converted GUID.
+ * \return Standard NTSTATUS status code.
+ */
+FORCEINLINE
+NTSTATUS
+PhGuidFromStringZ(
+    _In_ PCWSTR GuidString,
+    _Out_ PGUID Guid
+    )
+{
+    PH_STRINGREF string;
+
+    PhInitializeStringRef(&string, GuidString);
+
+    return PhStringToGuid(&string, Guid);
+}
 
 typedef struct _VS_VERSION_INFO_STRUCT16
 {
@@ -1234,7 +1301,7 @@ PhConvertNtPathSeperatorToAltSeperator(
 {
     if (String)
     {
-        for (ULONG i = 0; i < String->Length / sizeof(WCHAR); i++)
+        for (SIZE_T i = 0; i < String->Length / sizeof(WCHAR); i++)
         {
             if (String->Buffer[i] == OBJ_NAME_PATH_SEPARATOR) // RtlNtPathSeperatorString
                 String->Buffer[i] = OBJ_NAME_ALTPATH_SEPARATOR; // RtlAlternateDosPathSeperatorString
@@ -1243,6 +1310,25 @@ PhConvertNtPathSeperatorToAltSeperator(
 
     return String;
 }
+
+FORCEINLINE
+PPH_STRING
+PhConvertAltSeperatorToNtPathSeperator(
+    _In_ PPH_STRING String
+    )
+{
+    if (String)
+    {
+        for (SIZE_T i = 0; i < String->Length / sizeof(WCHAR); i++)
+        {
+            if (String->Buffer[i] == OBJ_NAME_ALTPATH_SEPARATOR)
+                String->Buffer[i] = OBJ_NAME_PATH_SEPARATOR;
+        }
+    }
+
+    return String;
+}
+
 
 PHLIBAPI
 PPH_STRING
@@ -1501,6 +1587,8 @@ PhGetKnownLocationZ(
 DEFINE_GUID(FOLDERID_LocalAppData, 0xF1B32785, 0x6FBA, 0x4FCF, 0x9D, 0x55, 0x7B, 0x8E, 0x7F, 0x15, 0x70, 0x91);
 DEFINE_GUID(FOLDERID_RoamingAppData, 0x3EB685DB, 0x65F9, 0x4CF6, 0xA0, 0x3A, 0xE3, 0xEF, 0x65, 0x72, 0x9F, 0x3D);
 DEFINE_GUID(FOLDERID_ProgramFiles, 0x905e63b6, 0xc1bf, 0x494e, 0xb2, 0x9c, 0x65, 0xb7, 0x32, 0xd3, 0xd2, 0x1a);
+DEFINE_GUID(FOLDERID_ProgramFilesX86, 0x7C5A40EF, 0xA0FB, 0x4BFC, 0x87, 0x4A, 0xC0, 0xF2, 0xE0, 0xB9, 0xFA, 0x8E);
+DEFINE_GUID(FOLDERID_ProgramFilesX64, 0x6D809377, 0x6AF0, 0x444B, 0x89, 0x57, 0xA3, 0x77, 0x3F, 0x02, 0x20, 0x0E);
 DEFINE_GUID(FOLDERID_ProgramData, 0x62AB5D82, 0xFDC1, 0x4DC3, 0xA9, 0xDD, 0x07, 0x0D, 0x1D, 0x49, 0x5D, 0x97);
 
 #define PH_KF_FLAG_FORCE_PACKAGE_REDIRECTION 0x1
@@ -2111,7 +2199,15 @@ typedef enum _PH_HASH_ALGORITHM
 typedef struct _PH_HASH_CONTEXT
 {
     PH_HASH_ALGORITHM Algorithm;
+#ifndef PH_NATIVE_CRYPT
+    union
+    {
+        PH_SYMCRYPT_HASH_CONTEXT HashContext;
+        ULONG Context[64];
+    };
+#else
     ULONG Context[64];
+#endif
 } PH_HASH_CONTEXT, *PPH_HASH_CONTEXT;
 
 PHLIBAPI
@@ -2221,8 +2317,16 @@ PhParseCommandLine(
 PHLIBAPI
 PPH_STRING
 NTAPI
-PhEscapeCommandLinePart(
-    _In_ PCPH_STRINGREF String
+PhQuoteCommandLine(
+    _In_ PCPH_STRINGREF Argument,
+    _In_ BOOLEAN Force
+    );
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhEscapeCommandLineConsole(
+    _In_ PCPH_STRINGREF CommandLine
     );
 
 PHLIBAPI
@@ -2285,6 +2389,13 @@ PHLIBAPI
 HANDLE
 NTAPI
 PhGetNamespaceHandle(
+    VOID
+    );
+
+PHLIBAPI
+HANDLE
+NTAPI
+PhGetNamespaceHandle2(
     VOID
     );
 
@@ -2711,10 +2822,10 @@ PhDevCloseObjectQuery(
     _In_ HDEVQUERY QueryHandle
     );
 
-#define PH_DEVKEY_HARDWARE        (0x00000000)
-#define PH_DEVKEY_SOFTWARE        (0x00000001)
-#define PH_DEVKEY_USER            (0x00000100)
-#define PH_DEVKEY_CONFIG          (0x00000200)
+#define PH_DEVKEY_HARDWARE        (0x00000001)
+#define PH_DEVKEY_SOFTWARE        (0x00000002)
+#define PH_DEVKEY_USER            (0x00000004)
+#define PH_DEVKEY_CONFIG          (0x00000008)
 
 PHLIBAPI
 NTSTATUS
@@ -2936,6 +3047,22 @@ NTSTATUS PhRestoreFromDirectXRunningFullScreen(
 
 NTSTATUS PhQueryDirectXExclusiveOwnership(
     _Inout_ PD3DKMT_QUERYVIDPNEXCLUSIVEOWNERSHIP QueryExclusiveOwnership
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhD3DKMTGetProcessSchedulingPriorityClass(
+    _In_ HANDLE ProcessHandle,
+    _Out_ D3DKMT_SCHEDULINGPRIORITYCLASS* SchedulingPriorityClass
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhD3DKMTSetProcessSchedulingPriorityClass(
+    _In_ HANDLE ProcessHandle,
+    _In_ D3DKMT_SCHEDULINGPRIORITYCLASS SchedulingPriorityClass
     );
 
 PHLIBAPI

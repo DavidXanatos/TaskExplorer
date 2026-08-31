@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -203,7 +203,7 @@ typedef enum _SIGNATURE_INFO_TYPE
     SIT_CATALOG
 } SIGNATURE_INFO_TYPE;
 
-typedef enum _SIGNATURE_INFO_FLAGS
+typedef _Enum_is_bitflag_ enum _SIGNATURE_INFO_FLAGS
 {
     SIF_NONE = 0,
     SIF_AUTHENTICODE_SIGNED = 1,
@@ -214,6 +214,7 @@ typedef enum _SIGNATURE_INFO_FLAGS
     SIF_CATALOG_FIRST = 0x2000,
     SIF_MOTW = 0x4000
 } SIGNATURE_INFO_FLAGS;
+DEFINE_ENUM_FLAG_OPERATORS(SIGNATURE_INFO_FLAGS);
 
 typedef struct _SIGNATURE_INFO
 {

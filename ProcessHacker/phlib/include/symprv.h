@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -425,8 +425,8 @@ PhSymbolProviderFreeDiaString(
     );
 
 // Inline stack support
-
-typedef union _INLINE_FRAME_CONTEXT
+//
+typedef union _STACK_FRAME_CONTEXT
 {
     ULONG ContextValue;
     struct
@@ -435,7 +435,7 @@ typedef union _INLINE_FRAME_CONTEXT
         UCHAR FrameType;
         USHORT FrameSignature;
     };
-} INLINE_FRAME_CONTEXT, *PINLINE_FRAME_CONTEXT;
+} STACK_FRAME_CONTEXT, *PSTACK_FRAME_CONTEXT;
 
 #define STACK_FRAME_TYPE_INIT 0x00
 #define STACK_FRAME_TYPE_STACK 0x01
@@ -457,12 +457,12 @@ PhIsStackFrameTypeInline(
     _In_ ULONG InlineFrameContext
     )
 {
-    INLINE_FRAME_CONTEXT frameContext = { InlineFrameContext };
+    PSTACK_FRAME_CONTEXT frameContext = (PSTACK_FRAME_CONTEXT)&InlineFrameContext;
 
-    if (frameContext.ContextValue == INLINE_FRAME_CONTEXT_IGNORE)
+    if (frameContext->ContextValue == STACK_FRAME_TYPE_IGNORE)
         return FALSE;
 
-    if (frameContext.FrameType & STACK_FRAME_TYPE_INLINE)
+    if (frameContext->FrameType & STACK_FRAME_TYPE_INLINE)
         return TRUE;
 
     return FALSE;
@@ -541,6 +541,14 @@ VOID
 NTAPI
 PhUnregisterSymbolProvider(
     _In_ PPH_SYMBOL_PROVIDER SymbolProvider
+    );
+
+
+PHLIBAPI
+PPH_STRING
+NTAPI
+PhGetKitsDebuggersDirectory(
+    VOID
     );
 
 // symprv_std.cpp (dmex)

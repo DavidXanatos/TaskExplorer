@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -84,6 +84,12 @@ typedef struct _PH_GRAPH_DRAW_INFO
     PH_STRINGREF Text2;
     RECT TextRect2;
     RECT TextBoxRect2;
+
+    // Cached by graph controls; keep these fields last
+    // because graph.c copies only the public prefix. (dmex)
+    LONG CachedFontDpi;
+    HFONT CachedTextFont;
+    HFONT CachedLabelYFont;
 } PH_GRAPH_DRAW_INFO, *PPH_GRAPH_DRAW_INFO;
 
 // Graph control

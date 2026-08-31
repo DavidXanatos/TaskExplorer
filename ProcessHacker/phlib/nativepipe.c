@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -121,7 +121,7 @@ NTSTATUS PhCreatePipeEx(
                     objectAttributes.SecurityDescriptor = &securityDescriptor;
                 }
 
-                assert(RtlValidSecurityDescriptor(&securityDescriptor));
+                assert(PhValidSecurityDescriptor(&securityDescriptor));
             }
         }
 
@@ -286,6 +286,87 @@ NTSTATUS PhCreateNamedPipe(
     }
 
     PhDereferenceObject(pipeName);
+    return status;
+}
+
+/**
+ * Opens one of the named-pipe filesystem protected-prefix directories.
+ *
+ * The NPFS pre-creates squat-proof directories under the named-pipe device. Only the matching
+ * account or group may create pipes inside its directory, while everyone may open existing pipes.
+ * Creating a server pipe with a relative name under the returned handle prevents a lower-privileged
+ * process from squatting the pipe name before the real server starts.
+ *
+ * \param[out] DirectoryHandle Receives a handle to the protected-prefix directory. Pass this as the
+ *        RootDirectory when creating a pipe with a relative name (see PhCreateNamedPipe).
+ * \param[in] PrefixType The protected prefix to open (Administrators, LocalService or NetworkService).
+ * \param[in] DesiredAccess Requested access mask for the directory handle.
+ * \return NTSTATUS Successful or error status.
+ */
+NTSTATUS PhOpenNamedPipeProtectedPrefix(
+    _Out_ PHANDLE DirectoryHandle,
+    _In_ PH_NAMED_PIPE_PREFIX_TYPE PrefixType,
+    _In_ ACCESS_MASK DesiredAccess
+    )
+{
+    static CONST PH_STRINGREF deviceName = PH_STRINGREF_INIT(DEVICE_NAMED_PIPE L"ProtectedPrefix\\");
+    static CONST PH_STRINGREF administratorsName = PH_STRINGREF_INIT(L"Administrators");
+    static CONST PH_STRINGREF localServiceName = PH_STRINGREF_INIT(L"LocalService");
+    static CONST PH_STRINGREF networkServiceName = PH_STRINGREF_INIT(L"NetworkService");
+    NTSTATUS status;
+    PCPH_STRINGREF prefixName;
+    HANDLE directoryHandle;
+    PPH_STRING objectName;
+    UNICODE_STRING objectNameUs;
+    OBJECT_ATTRIBUTES objectAttributes;
+    IO_STATUS_BLOCK isb;
+
+    switch (PrefixType)
+    {
+    case PhNamedPipePrefixAdministrators:
+        prefixName = &administratorsName;
+        break;
+    case PhNamedPipePrefixLocalService:
+        prefixName = &localServiceName;
+        break;
+    case PhNamedPipePrefixNetworkService:
+        prefixName = &networkServiceName;
+        break;
+    default:
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    objectName = PhConcatStringRef2(&deviceName, prefixName);
+
+    if (!PhStringRefToUnicodeString(&objectName->sr, &objectNameUs))
+    {
+        PhDereferenceObject(objectName);
+        return STATUS_NAME_TOO_LONG;
+    }
+
+    InitializeObjectAttributes(
+        &objectAttributes,
+        &objectNameUs,
+        OBJ_CASE_INSENSITIVE,
+        NULL,
+        NULL
+        );
+
+    status = NtOpenFile(
+        &directoryHandle,
+        DesiredAccess | SYNCHRONIZE,
+        &objectAttributes,
+        &isb,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_SYNCHRONOUS_IO_NONALERT
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        *DirectoryHandle = directoryHandle;
+    }
+
+    PhDereferenceObject(objectName);
     return status;
 }
 
@@ -558,7 +639,8 @@ NTSTATUS PhCallNamedPipe(
             InputBuffer,
             InputBufferLength,
             OutputBuffer,
-            OutputBufferLength
+            OutputBufferLength,
+            NULL
             );
     }
 
@@ -584,17 +666,19 @@ NTSTATUS PhCallNamedPipe(
  * \param[in] InputBufferLength The length of the input buffer.
  * \param[out] OutputBuffer The output buffer.
  * \param[in] OutputBufferLength The length of the output buffer.
+ * \param[out] NumberOfBytesRead The number of bytes read from the pipe.
  */
 NTSTATUS PhTransceiveNamedPipe(
     _In_ HANDLE PipeHandle,
     _In_reads_bytes_(InputBufferLength) PVOID InputBuffer,
     _In_ ULONG InputBufferLength,
     _Out_writes_bytes_(OutputBufferLength) PVOID OutputBuffer,
-    _In_ ULONG OutputBufferLength
+    _In_ ULONG OutputBufferLength,
+    _Out_opt_ PULONG NumberOfBytesRead
     )
 {
     NTSTATUS status;
-    IO_STATUS_BLOCK isb;
+    IO_STATUS_BLOCK isb = { 0 };
 
     status = NtFsControlFile(
         PipeHandle,
@@ -617,6 +701,9 @@ NTSTATUS PhTransceiveNamedPipe(
             status = isb.Status;
     }
 
+    if (NumberOfBytesRead)
+        *NumberOfBytesRead = (ULONG)isb.Information;
+
     return status;
 }
 
@@ -637,6 +724,7 @@ NTSTATUS PhWaitForNamedPipe(
     UNICODE_STRING objectName;
     HANDLE fileSystemHandle;
     OBJECT_ATTRIBUTES objectAttributes;
+    ULONG_PTR waitForBufferStack[64];
     PFILE_PIPE_WAIT_FOR_BUFFER waitForBuffer;
     ULONG waitForBufferLength;
 
@@ -663,7 +751,11 @@ NTSTATUS PhWaitForNamedPipe(
 
     PhInitializeStringRefLongHint(&pipeName, PipeName);
     waitForBufferLength = FIELD_OFFSET(FILE_PIPE_WAIT_FOR_BUFFER, Name) + (ULONG)pipeName.Length;
-    waitForBuffer = PhAllocate(waitForBufferLength);
+
+    if (waitForBufferLength <= sizeof(waitForBufferStack))
+        waitForBuffer = (PFILE_PIPE_WAIT_FOR_BUFFER)waitForBufferStack;
+    else
+        waitForBuffer = PhAllocate(waitForBufferLength);
 
     if (Timeout)
     {
@@ -693,7 +785,9 @@ NTSTATUS PhWaitForNamedPipe(
         0
         );
 
-    PhFree(waitForBuffer);
+    if (waitForBuffer != (PFILE_PIPE_WAIT_FOR_BUFFER)waitForBufferStack)
+        PhFree(waitForBuffer);
+
     NtClose(fileSystemHandle);
 
     return status;

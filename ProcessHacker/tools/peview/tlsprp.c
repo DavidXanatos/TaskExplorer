@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2019-2022
+ *     dmex    2019-2026
  *
  */
 
@@ -148,7 +148,7 @@ INT_PTR CALLBACK PvpPeTlsDlgProc(
             }
         }
         break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
         {
             PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
         }

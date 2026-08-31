@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -70,6 +70,7 @@ RECT PhNormalGraphTextMargin = { 5, 5, 5, 5 };
 RECT PhNormalGraphTextPadding = { 3, 3, 3, 3 };
 
 RTL_ATOM PhGraphControlInitialization(
+    VOID
     )
 {
     WNDCLASSEX wcex;
@@ -573,7 +574,7 @@ VOID PhDrawGraphDirect(
         if (DrawInfo->TextFont)
             oldFont = SelectFont(hdc, DrawInfo->TextFont);
 
-        //SetBkMode(hdc, TRANSPARENT);
+        SetBkMode(hdc, TRANSPARENT);
 
         // Fill in the text box.
         SetDCBrushColor(hdc, DrawInfo->TextBoxColor);
@@ -581,7 +582,13 @@ VOID PhDrawGraphDirect(
 
         // Draw the text.
         SetTextColor(hdc, DrawInfo->TextColor);
-        DrawText(hdc, DrawInfo->Text2.Buffer, (ULONG)DrawInfo->Text2.Length / sizeof(WCHAR), &DrawInfo->TextRect2, DT_NOCLIP);
+        DrawText(
+            hdc,
+            DrawInfo->Text2.Buffer,
+            (ULONG)DrawInfo->Text2.Length / sizeof(WCHAR),
+            &DrawInfo->TextRect2,
+            DT_NOCLIP | DT_NOPREFIX | DT_WORDBREAK | DT_EDITCONTROL
+            );
 
         if (oldFont)
             SelectFont(hdc, oldFont);
@@ -663,7 +670,13 @@ VOID PhSetGraphText2(
     )
 {
     HFONT oldFont = NULL;
-    RECT calcRect = { 0, 0, DrawInfo->Width, DrawInfo->Height };
+    RECT calcRect =
+    {
+        0,
+        0,
+        max(0L, DrawInfo->Width - Margin->left - Margin->right - Padding->left - Padding->right),
+        DrawInfo->Height
+    };
     UINT flags = DT_NOPREFIX | DT_WORDBREAK | DT_EDITCONTROL;
     PH_RECTANGLE boxRectangle;
     PH_RECTANGLE textRectangle;
@@ -855,6 +868,30 @@ static VOID PhpDeleteFadeOutContext(
     }
 
     Context->FadeOutBits = NULL;
+}
+
+static VOID PhpDeleteDrawInfoFonts(
+    _Inout_ PPH_GRAPH_DRAW_INFO DrawInfo
+    )
+{
+    HFONT textFont = DrawInfo->CachedTextFont;
+    HFONT labelYFont = DrawInfo->CachedLabelYFont;
+
+    if (DrawInfo->CachedTextFont)
+    {
+        DeleteFont(textFont);
+        DrawInfo->CachedTextFont = NULL;
+    }
+
+    if (DrawInfo->CachedLabelYFont)
+    {
+        if (labelYFont != textFont)
+            DeleteFont(labelYFont);
+
+        DrawInfo->CachedLabelYFont = NULL;
+    }
+
+    DrawInfo->CachedFontDpi = 0;
 }
 
 static VOID PhpCreateFadeOutContext(
@@ -1069,6 +1106,7 @@ LRESULT CALLBACK PhpGraphWndProc(
                 DestroyWindow(context->TooltipHandle);
 
             PhpDeleteFadeOutContext(context);
+            PhpDeleteDrawInfoFonts(&context->DrawInfo);
             PhpDeleteBufferedContext(context);
             PhpFreeGraphContext(context);
         }
@@ -1369,7 +1407,8 @@ LRESULT CALLBACK PhpGraphWndProc(
         {
             PPH_GRAPH_DRAW_INFO drawInfo = (PPH_GRAPH_DRAW_INFO)lParam;
 
-            memcpy(drawInfo, &context->DrawInfo, sizeof(PH_GRAPH_DRAW_INFO));
+            // Copy only the public draw-info fields; the trailing cache fields are not copied.
+            memcpy(drawInfo, &context->DrawInfo, FIELD_OFFSET(PH_GRAPH_DRAW_INFO, CachedFontDpi));
         }
         return TRUE;
     case GCM_SETDRAWINFO:
@@ -1380,7 +1419,8 @@ LRESULT CALLBACK PhpGraphWndProc(
 
             width = context->DrawInfo.Width;
             height = context->DrawInfo.Height;
-            memcpy(&context->DrawInfo, drawInfo, sizeof(PH_GRAPH_DRAW_INFO));
+            // Copy only the public draw-info fields; the trailing cache fields are not copied.
+            memcpy(&context->DrawInfo, drawInfo, FIELD_OFFSET(PH_GRAPH_DRAW_INFO, CachedFontDpi));
             context->DrawInfo.Width = width;
             context->DrawInfo.Height = height;
         }

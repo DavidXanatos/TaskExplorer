@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2021-2023
+ *     dmex    2021-2026
  *
  */
 
@@ -114,6 +114,7 @@ INT_PTR CALLBACK PvpPeDebugDlgProc(
 
             PhSetListViewStyle(context->ListViewHandle, TRUE, TRUE);
             PhSetControlTheme(context->ListViewHandle, L"explorer");
+            PvConfigListViewFont(hwndDlg, context->ListViewHandle);
             PhAddListViewColumn(context->ListViewHandle, 0, 0, 0, LVCFMT_LEFT, 40, L"#");
             PhAddListViewColumn(context->ListViewHandle, 1, 1, 1, LVCFMT_LEFT, 100, L"Type");
             PhAddListViewColumn(context->ListViewHandle, 2, 2, 2, LVCFMT_LEFT, 100, L"RVA (start)");
@@ -150,7 +151,7 @@ INT_PTR CALLBACK PvpPeDebugDlgProc(
                         PVOID imageSectionData;
                         PPH_STRING hashString;
 
-                        if (imageSectionData = PhMappedImageRvaToVa(&PvMappedImage, entry.AddressOfRawData, NULL))
+                        if (NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry.AddressOfRawData, &imageSectionData)))
                         {
                             if (hashString = PvHashBuffer(imageSectionData, entry.SizeOfData))
                             {
@@ -175,7 +176,7 @@ INT_PTR CALLBACK PvpPeDebugDlgProc(
             PhFree(context);
         }
         break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
         {
             PvSetListViewImageList(context->WindowHandle, context->ListViewHandle);
         }

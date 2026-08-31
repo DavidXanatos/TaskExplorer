@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2017-2022
+ *     dmex    2017-2026
  *
  */
 
@@ -293,7 +293,9 @@ VOID PvpPeResourceSaveToFile(
             {
                 IO_STATUS_BLOCK isb;
 
-                PVOID resourceData = PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, NULL);
+                PVOID resourceData;
+                if (!NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, &resourceData)))
+                    resourceData = NULL;
 
                 __try
                 {
@@ -424,7 +426,9 @@ VOID PvpPeEnumMappedImageResources(
 
             if (entry.Size)
             {
-                PVOID resourceData = PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, NULL);
+                PVOID resourceData;
+                if (!NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, &resourceData)))
+                    resourceData = NULL;
 
                 if (resourceData)
                 {
@@ -436,7 +440,9 @@ VOID PvpPeEnumMappedImageResources(
 
             if (entry.Size)
             {
-                PVOID resourceData = PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, NULL);
+                PVOID resourceData;
+                if (!NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry.Offset, &resourceData)))
+                    resourceData = NULL;
 
                 if (resourceData)
                 {
@@ -634,6 +640,12 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
             }
         }
         break;
+    case WM_DPICHANGED_AFTERPARENT:
+        {
+            PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
+            PhLayoutManagerLayout(&context->LayoutManager);
+        }
+        break;
     case WM_SIZE:
         {
             PhLayoutManagerLayout(&context->LayoutManager);
@@ -674,6 +686,7 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
             if (numberOfNodes != 0)
             {
                 menu = PhCreateEMenu();
+                PhInsertEMenuItem(menu, PhCreateEMenuItem(0, 2, L"Display resource...", NULL, NULL), ULONG_MAX);
                 PhInsertEMenuItem(menu, PhCreateEMenuItem(0, 1, L"Save resource...", NULL, NULL), ULONG_MAX);
                 PhInsertEMenuItem(menu, PhCreateEMenuSeparator(), ULONG_MAX);
                 PhInsertEMenuItem(menu, PhCreateEMenuItem(0, USHRT_MAX, L"Copy", NULL, NULL), ULONG_MAX);
@@ -696,6 +709,13 @@ INT_PTR CALLBACK PvPeResourcesDlgProc(
                         {
                         case 1:
                             PvpPeResourceSaveToFile(context, hwndDlg, sectionNodes[0]);
+                            break;
+                        case 2:
+                            PvShowResourceViewerDialog(
+                                hwndDlg,
+                                sectionNodes[0]->NodeType == PV_RESOURCES_TREE_NODE_TYPE_MUI ? &context->MuiMappedImage : &PvMappedImage,
+                                PtrToUlong(sectionNodes[0]->RvaStart)
+                                );
                             break;
                         case USHRT_MAX:
                             {
@@ -1092,7 +1112,20 @@ BOOLEAN NTAPI PvResourcesTreeNewCallback(
         return TRUE;
     case TreeNewLeftDoubleClick:
         {
-           // SendMessage(context->ParentWindowHandle, WM_COMMAND, WM_ACTION, (LPARAM)context);
+            PPV_RESOURCE_NODE* sectionNodes = NULL;
+            ULONG numberOfNodes = 0;
+
+            if (PvGetSelectedResourcesNodes(context, &sectionNodes, &numberOfNodes) && numberOfNodes != 0)
+            {
+                PvShowResourceViewerDialog(
+                    context->ParentWindowHandle,
+                    sectionNodes[0]->NodeType == PV_RESOURCES_TREE_NODE_TYPE_MUI ? &context->MuiMappedImage : &PvMappedImage,
+                    PtrToUlong(sectionNodes[0]->RvaStart)
+                    );
+            }
+
+            if (sectionNodes)
+                PhFree(sectionNodes);
         }
         return TRUE;
     case TreeNewContextMenu:

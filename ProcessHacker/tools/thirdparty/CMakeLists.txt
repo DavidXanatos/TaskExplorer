@@ -4,6 +4,13 @@
 # This file is part of System Informer.
 #
 
+# Enable ASM_MASM for assembly files
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x64|x86|i386|i686")
+    enable_language(ASM_MASM)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+    enable_language(ASM_MARMASM)
+endif()
+
 set(SOURCES_JSON_C
     "jsonc/arraylist.c"
     "jsonc/debug.c"
@@ -152,13 +159,6 @@ source_group("md5" FILES ${SOURCES_MD5})
 set(SOURCES_MINIZ
     "miniz/miniz.c"
     "miniz/miniz.h"
-    "miniz/miniz_tdef.c"
-    "miniz/miniz_tinfl.c"
-    "miniz/miniz_zip.c"
-    "miniz/miniz_common.h"
-    "miniz/miniz_tdef.h"
-    "miniz/miniz_tinfl.h"
-    "miniz/miniz_zip.h"
 )
 source_group("miniz" FILES ${SOURCES_MINIZ})
 
@@ -206,6 +206,204 @@ set(SOURCES_ZYDIS
 )
 source_group("zydis" FILES ${SOURCES_ZYDIS})
 
+set(SOURCES_SYMCRYPT_ASM_X64
+    "SymCrypt/lib/amd64/aesasm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/fdef_asm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/fdef_mulx.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/fdef369_asm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/sha256xmm_asm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/sha256ymm_asm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/sha512ymm_asm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/sha512ymm_avx512vl_asm.masm.amd64.msft.asm"
+    "SymCrypt/lib/amd64/wipe.masm.amd64.msft.asm"
+)
+
+set(SOURCES_SYMCRYPT_ASM_X86
+    "SymCrypt/lib/i386/aesasm.asm"
+    "SymCrypt/lib/i386/fdef_asm.asm"
+    "SymCrypt/lib/i386/wipe.asm"
+)
+
+set(SOURCES_SYMCRYPT_ASM_ARM64
+    "SymCrypt/lib/arm64/fdef_asm.armasm64.arm64.aapcs64.asm"
+    "SymCrypt/lib/arm64/fdef369_asm.armasm64.arm64.aapcs64.asm"
+    "SymCrypt/lib/arm64/wipe.armasm64.arm64.aapcs64.asm"
+)
+
+set(SOURCES_SYMCRYPT
+    "SymCrypt/modules/windows/user/module.c"
+    "SymCrypt/lib/3des.c"
+    "SymCrypt/lib/aes-asm.c"
+    "SymCrypt/lib/aes-c.c"
+    "SymCrypt/lib/aes-default-bc.c"
+    "SymCrypt/lib/aes-default.c"
+    "SymCrypt/lib/aes-key.c"
+    "SymCrypt/lib/aes-neon.c"
+    "SymCrypt/lib/aes-selftest.c"
+    "SymCrypt/lib/aes-xmm.c"
+    "SymCrypt/lib/aes-ymm.c"
+    "SymCrypt/lib/aescmac.c"
+    "SymCrypt/lib/aesCtrDrbg.c"
+    "SymCrypt/lib/aeskw.c"
+    "SymCrypt/lib/AesTables.c"
+    "SymCrypt/lib/a_dispatch.c"
+    "SymCrypt/lib/blockciphermodes.c"
+    "SymCrypt/lib/ccm.c"
+    "SymCrypt/lib/chacha20.c"
+    "SymCrypt/lib/chacha20_poly1305.c"
+    "SymCrypt/lib/composite_encoding.c"
+    "SymCrypt/lib/composite_mlkem.c"
+    "SymCrypt/lib/cpuid.c"
+    "SymCrypt/lib/cpuid_notry.c"
+    "SymCrypt/lib/cpuid_um.c"
+    "SymCrypt/lib/crt.c"
+    "SymCrypt/lib/data_accessors.c"
+    "SymCrypt/lib/DesTables.c"
+    "SymCrypt/lib/desx.c"
+    "SymCrypt/lib/dh.c"
+    "SymCrypt/lib/dlgroup.c"
+    "SymCrypt/lib/dlkey.c"
+    "SymCrypt/lib/dl_internal_groups.c"
+    "SymCrypt/lib/dsa.c"
+    "SymCrypt/lib/eckey.c"
+    "SymCrypt/lib/ecpoint.c"
+    "SymCrypt/lib/ecurve.c"
+    "SymCrypt/lib/ec_dh.c"
+    "SymCrypt/lib/ec_dispatch.c"
+    "SymCrypt/lib/ec_dsa.c"
+    "SymCrypt/lib/ec_internal_curve_params.c"
+    "SymCrypt/lib/ec_internal_curves.c"
+    "SymCrypt/lib/ec_montgomery.c"
+    "SymCrypt/lib/ec_mul.c"
+    "SymCrypt/lib/ec_short_weierstrass.c"
+    "SymCrypt/lib/ec_twisted_edwards.c"
+    "SymCrypt/lib/env_generic.c"
+    "SymCrypt/lib/env_windowsUserModeWin7.c"
+    "SymCrypt/lib/env_windowsUserModeWin8_1.c"
+    "SymCrypt/lib/equal.c"
+    "SymCrypt/lib/FatalIntercept.c"
+    "SymCrypt/lib/fdef369_mod.c"
+    "SymCrypt/lib/fdef_general.c"
+    "SymCrypt/lib/fdef_int.c"
+    "SymCrypt/lib/fdef_mod.c"
+    "SymCrypt/lib/fips_selftest.c"
+    "SymCrypt/lib/gcm.c"
+    "SymCrypt/lib/gen_int.c"
+    "SymCrypt/lib/ghash.c"
+    "SymCrypt/lib/hash.c"
+    "SymCrypt/lib/hkdf.c"
+    "SymCrypt/lib/hkdf_selftest.c"
+    "SymCrypt/lib/hmac.c"
+    "SymCrypt/lib/hmacmd5.c"
+    "SymCrypt/lib/hmacsha1.c"
+    "SymCrypt/lib/hmacsha224.c"
+    "SymCrypt/lib/hmacsha256.c"
+    "SymCrypt/lib/hmacsha384.c"
+    "SymCrypt/lib/hmacsha512.c"
+    "SymCrypt/lib/hmacsha512_224.c"
+    "SymCrypt/lib/hmacsha512_256.c"
+    "SymCrypt/lib/hmacsha3_224.c"
+    "SymCrypt/lib/hmacsha3_256.c"
+    "SymCrypt/lib/hmacsha3_384.c"
+    "SymCrypt/lib/hmacsha3_512.c"
+    "SymCrypt/lib/IEEE802_11SaeCustom.c"
+    "SymCrypt/lib/kmac.c"
+    "SymCrypt/lib/libmain.c"
+    "SymCrypt/lib/lms.c"
+    "SymCrypt/lib/marvin32.c"
+    "SymCrypt/lib/md2.c"
+    "SymCrypt/lib/md4.c"
+    "SymCrypt/lib/md5.c"
+    "SymCrypt/lib/mldsa.c"
+    "SymCrypt/lib/mldsa_primitives.c"
+    "SymCrypt/lib/mlkem.c"
+    "SymCrypt/lib/mlkem_primitives.c"
+    "SymCrypt/lib/modexp.c"
+    "SymCrypt/lib/paddingPkcs7.c"
+    "SymCrypt/lib/parhash.c"
+    "SymCrypt/lib/pbkdf2.c"
+    "SymCrypt/lib/pbkdf2_hmacsha1.c"
+    "SymCrypt/lib/pbkdf2_hmacsha256.c"
+    "SymCrypt/lib/poly1305.c"
+    "SymCrypt/lib/primes.c"
+    "SymCrypt/lib/rc2.c"
+    "SymCrypt/lib/rc4.c"
+    "SymCrypt/lib/rdrand.c"
+    "SymCrypt/lib/rdseed.c"
+    "SymCrypt/lib/recoding.c"
+    "SymCrypt/lib/rsakey.c"
+    "SymCrypt/lib/rsa_enc.c"
+    "SymCrypt/lib/rsa_padding.c"
+    "SymCrypt/lib/ScsTable.c"
+    "SymCrypt/lib/scsTools.c"
+    "SymCrypt/lib/selftest.c"
+    "SymCrypt/lib/service_indicator.c"
+    "SymCrypt/lib/session.c"
+    "SymCrypt/lib/sha1.c"
+    "SymCrypt/lib/sha256-xmm.c"
+    "SymCrypt/lib/sha256-ymm.c"
+    "SymCrypt/lib/sha256.c"
+    "SymCrypt/lib/sha256Par-ymm.c"
+    "SymCrypt/lib/sha256Par.c"
+    "SymCrypt/lib/sha3.c"
+    "SymCrypt/lib/sha3_224.c"
+    "SymCrypt/lib/sha3_256.c"
+    "SymCrypt/lib/sha3_384.c"
+    "SymCrypt/lib/sha3_512.c"
+    "SymCrypt/lib/sha512-ymm.c"
+    "SymCrypt/lib/sha512.c"
+    "SymCrypt/lib/sha512Par-ymm.c"
+    "SymCrypt/lib/sha512Par.c"
+    "SymCrypt/lib/shake.c"
+    "SymCrypt/lib/sp800_108.c"
+    "SymCrypt/lib/sp800_108_hmacsha1.c"
+    "SymCrypt/lib/sp800_108_hmacsha256.c"
+    "SymCrypt/lib/sp800_108_hmacsha512.c"
+    "SymCrypt/lib/srtp_kdf.c"
+    "SymCrypt/lib/srtp_kdf_selftest.c"
+    "SymCrypt/lib/ssh_kdf.c"
+    "SymCrypt/lib/ssh_kdf_sha256.c"
+    "SymCrypt/lib/ssh_kdf_sha512.c"
+    "SymCrypt/lib/sskdf.c"
+    "SymCrypt/lib/sskdf_selftest.c"
+    "SymCrypt/lib/tlsCbcVerify.c"
+    "SymCrypt/lib/tlsprf.c"
+    "SymCrypt/lib/tlsprf_selftest.c"
+    "SymCrypt/lib/xmss.c"
+    "SymCrypt/lib/xtsaes.c"
+)
+source_group("SymCrypt" FILES ${SOURCES_SYMCRYPT})
+
+# Add platform-specific assembly files to SymCrypt sources
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x64")
+    list(APPEND SOURCES_SYMCRYPT ${SOURCES_SYMCRYPT_ASM_X64})
+    source_group("SymCrypt\\asm\\amd64" FILES ${SOURCES_SYMCRYPT_ASM_X64})
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i386|i686")
+    list(APPEND SOURCES_SYMCRYPT ${SOURCES_SYMCRYPT_ASM_X86})
+    source_group("SymCrypt\\asm\\i386" FILES ${SOURCES_SYMCRYPT_ASM_X86})
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+    list(APPEND SOURCES_SYMCRYPT ${SOURCES_SYMCRYPT_ASM_ARM64})
+    source_group("SymCrypt\\asm\\arm64" FILES ${SOURCES_SYMCRYPT_ASM_ARM64})
+endif()
+
+set(HEADERS_SYMCRYPT
+    "SymCrypt/inc/buildInfo.h"
+    "SymCrypt/inc/symcrypt.h"
+    "SymCrypt/inc/symcrypt_internal.h"
+    "SymCrypt/inc/symcrypt_low_level.h"
+    "SymCrypt/lib/ghash_definitions.h"
+    "SymCrypt/lib/precomp.h"
+    "SymCrypt/lib/sc_lib.h"
+    "SymCrypt/lib/sc_lib_mldsa.h"
+    "SymCrypt/lib/sc_lib_mlkem.h"
+    "SymCrypt/lib/smallPrimes32.h"
+    "SymCrypt/lib/smallPrimes64.h"
+    "SymCrypt/lib/xtsaes_definitions.h"
+    "SymCrypt/modules/statusindicator_common.h"
+    "SymCrypt/modules/symcrypt_modules_common.h"
+)
+source_group("SymCrypt\\Headers" FILES ${HEADERS_SYMCRYPT})
+
 set(ALL_FILES
     ${SOURCES_JSON_C}
     ${HEADERS_JSON_C}
@@ -223,9 +421,16 @@ set(ALL_FILES
     ${SOURCES_TLSH}
     ${SOURCES_XXHASH}
     ${SOURCES_ZYDIS}
+    ${SOURCES_SYMCRYPT}
+    ${HEADERS_SYMCRYPT}
 )
 
 si_add_library(thirdparty STATIC ${ALL_FILES})
+
+target_include_directories(thirdparty PRIVATE
+    SymCrypt/inc
+    SymCrypt/lib
+)
 
 target_link_libraries(thirdparty PRIVATE
     phnt
@@ -245,21 +450,48 @@ target_compile_definitions(thirdparty PRIVATE
     CAPSTONE_USE_SYS_DYN_MEM
 )
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i386|i686")
+    target_compile_definitions(thirdparty PRIVATE
+        _X86_=1
+    )
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x64")
+    target_compile_definitions(thirdparty PRIVATE
+        _AMD64_=1
+    )
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+    target_compile_definitions(thirdparty PRIVATE
+        _ARM64_=1
+    )
+endif()
+
 if(MSVC_CLANG)
-    set_source_files_properties(
-        "detours/disasm.cpp"
-        "detours/disolx64.cpp"
-        "detours/disolx86.cpp"
-        PROPERTIES
-        TARGET_DIRECTORY thirdparty
-        COMPILE_OPTIONS "-Wno-reorder-ctor"
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+        target_compile_definitions(thirdparty PRIVATE
+            SYMCRYPT_IGNORE_PLATFORM
+        )
+    endif()
+
+    target_compile_options(thirdparty PRIVATE
+        $<$<COMPILE_LANGUAGE:C,CXX>:-Wno-macro-redefined>
+        $<$<COMPILE_LANGUAGE:C,CXX>:-Wno-multichar>
+        $<$<COMPILE_LANGUAGE:C,CXX>:-Wno-reorder-ctor>
+        $<$<COMPILE_LANGUAGE:C,CXX>:-Wno-ignored-pragmas>
+        $<$<COMPILE_LANGUAGE:C,CXX>:-Wno-tautological-constant-out-of-range-compare>
     )
-    set_source_files_properties(
-        "jsonc/arraylist.c"
-        "jsonc/json_object.c"
-        "ssdeep/fuzzy.c"
-        PROPERTIES
-        TARGET_DIRECTORY thirdparty
-        COMPILE_OPTIONS "-Wno-tautological-constant-out-of-range-compare"
-    )
+
+    if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64")
+        target_compile_options(thirdparty PRIVATE
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mcx16>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mssse3>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-maes>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mpclmul>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mavx>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mavx2>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mbmi2>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-msha>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mvaes>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mvpclmulqdq>
+            $<$<COMPILE_LANGUAGE:C,CXX>:-mrdseed>
+        )
+    endif()
 endif()

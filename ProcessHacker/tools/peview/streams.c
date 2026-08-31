@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2018-2022
+ *     dmex    2018-2026
  *
  */
 
@@ -115,7 +115,7 @@ VOID PvpPeEnumerateFileStreams(
                     if (streamInfo.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED)
                         PhAppendStringBuilder2(&stringBuilder, L"Encrypted, ");
                     if (streamInfo.FileAttributes & FILE_ATTRIBUTE_INTEGRITY_STREAM)
-                        PhAppendStringBuilder2(&stringBuilder, L"Integiry, ");
+                        PhAppendStringBuilder2(&stringBuilder, L"Integrity, ");
                     if (streamInfo.FileAttributes & FILE_ATTRIBUTE_VIRTUAL)
                         PhAppendStringBuilder2(&stringBuilder, L"Virtual, ");
                     if (streamInfo.FileAttributes & FILE_ATTRIBUTE_NO_SCRUB_DATA)
@@ -216,7 +216,7 @@ INT_PTR CALLBACK PvpPeStreamsDlgProc(
             PhFree(context);
         }
         break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
         {
             PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
             PvSetListViewImageList(context->WindowHandle, context->ListViewHandle);
@@ -254,9 +254,7 @@ INT_PTR CALLBACK PvpPeStreamsDlgProc(
                 if (point.x == -1 && point.y == -1)
                     PvGetListViewContextMenuPoint(context->ListViewHandle, &point);
 
-                PhGetSelectedListViewItemParams(context->ListViewHandle, &listviewItems, &numberOfItems);
-
-                if (numberOfItems != 0)
+                if (PhGetSelectedListViewItemParams(context->ListViewHandle, &listviewItems, &numberOfItems))
                 {
                     menu = PhCreateEMenu();
                     PhInsertEMenuItem(menu, PhCreateEMenuItem(0, USHRT_MAX, L"&Copy", NULL, NULL), ULONG_MAX);

@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2018-2023
+ *     dmex    2018-2026
  *
  */
 
@@ -148,7 +148,7 @@ NTSTATUS KphConnect(
         PhCloseServiceHandle(serviceHandle);
         serviceHandle = NULL;
 
-        if (!NT_SUCCESS(status))
+        if (status != STATUS_SUCCESS)
             goto CreateAndConnectEnd;
 
         status = KphCommsStart(
@@ -181,7 +181,7 @@ NTSTATUS KphConnect(
         NULL
         );
 
-    if (!NT_SUCCESS(status))
+    if (status != STATUS_SUCCESS)
         goto CreateAndConnectEnd;
 
     created = TRUE;
@@ -429,39 +429,33 @@ NTSTATUS KphSetServiceSecurity(
     _In_ SC_HANDLE ServiceHandle
     )
 {
+#define SERVICE_INTERACTIVE_ACCESS \
+    (SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_START | SERVICE_STOP | SERVICE_INTERROGATE | DELETE)
     NTSTATUS status;
     PSID administratorsSid = PhSeAdministratorsSid();
     UCHAR securityDescriptorBuffer[SECURITY_DESCRIPTOR_MIN_LENGTH + 0x80];
     PSECURITY_DESCRIPTOR securityDescriptor = (PSECURITY_DESCRIPTOR)securityDescriptorBuffer;
-    ULONG sdAllocationLength;
-    PACL dacl;
+    PACL dacl = PTR_ADD_OFFSET(securityDescriptor, SECURITY_DESCRIPTOR_MIN_LENGTH);
+    ULONG daclLength;
 
-    if (!NT_SUCCESS(status = RtlULongAdd(SECURITY_DESCRIPTOR_MIN_LENGTH, (ULONG)sizeof(ACL), &sdAllocationLength)))
+    if (!NT_SUCCESS(status = RtlULongAdd(SECURITY_DESCRIPTOR_MIN_LENGTH, sizeof(ACL), &daclLength)))
         goto CleanupExit;
-    if (!NT_SUCCESS(status = RtlULongAdd(sdAllocationLength, (ULONG)sizeof(ACCESS_ALLOWED_ACE), &sdAllocationLength)))
+    if (!NT_SUCCESS(status = RtlULongAdd(daclLength, UFIELD_OFFSET(ACCESS_ALLOWED_ACE, SidStart) + PhLengthSid(&PhSeServiceSid), &daclLength)))
         goto CleanupExit;
-    if (!NT_SUCCESS(status = RtlULongAdd(sdAllocationLength, PhLengthSid(&PhSeServiceSid), &sdAllocationLength)))
+    if (!NT_SUCCESS(status = RtlULongAdd(daclLength, UFIELD_OFFSET(ACCESS_ALLOWED_ACE, SidStart) + PhLengthSid(administratorsSid), &daclLength)))
         goto CleanupExit;
-    if (!NT_SUCCESS(status = RtlULongAdd(sdAllocationLength, (ULONG)sizeof(ACCESS_ALLOWED_ACE), &sdAllocationLength)))
+    if (!NT_SUCCESS(status = RtlULongAdd(daclLength, UFIELD_OFFSET(ACCESS_ALLOWED_ACE, SidStart) + PhLengthSid(&PhSeInteractiveSid), &daclLength)))
         goto CleanupExit;
-    if (!NT_SUCCESS(status = RtlULongAdd(sdAllocationLength, PhLengthSid(administratorsSid), &sdAllocationLength)))
-        goto CleanupExit;
-    if (!NT_SUCCESS(status = RtlULongAdd(sdAllocationLength, (ULONG)sizeof(ACCESS_ALLOWED_ACE), &sdAllocationLength)))
-        goto CleanupExit;
-    if (!NT_SUCCESS(status = RtlULongAdd(sdAllocationLength, PhLengthSid(&PhSeInteractiveSid), &sdAllocationLength)))
-        goto CleanupExit;
-
-    dacl = PTR_ADD_OFFSET(securityDescriptor, SECURITY_DESCRIPTOR_MIN_LENGTH);
 
     if (!NT_SUCCESS(status = PhCreateSecurityDescriptor(securityDescriptor, SECURITY_DESCRIPTOR_REVISION)))
         goto CleanupExit;
-    if (!NT_SUCCESS(status = PhCreateAcl(dacl, sdAllocationLength - SECURITY_DESCRIPTOR_MIN_LENGTH, ACL_REVISION)))
+    if (!NT_SUCCESS(status = PhCreateAcl(dacl, daclLength - SECURITY_DESCRIPTOR_MIN_LENGTH, ACL_REVISION)))
         goto CleanupExit;
     if (!NT_SUCCESS(status = PhAddAccessAllowedAce(dacl, ACL_REVISION, SERVICE_ALL_ACCESS, &PhSeServiceSid)))
         goto CleanupExit;
     if (!NT_SUCCESS(status = PhAddAccessAllowedAce(dacl, ACL_REVISION, SERVICE_ALL_ACCESS, administratorsSid)))
         goto CleanupExit;
-    if (!NT_SUCCESS(status = PhAddAccessAllowedAce(dacl, ACL_REVISION, SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_START | SERVICE_STOP | SERVICE_INTERROGATE | DELETE, &PhSeInteractiveSid)))
+    if (!NT_SUCCESS(status = PhAddAccessAllowedAce(dacl, ACL_REVISION, SERVICE_INTERACTIVE_ACCESS, &PhSeInteractiveSid)))
         goto CleanupExit;
     if (!NT_SUCCESS(status = PhSetDaclSecurityDescriptor(securityDescriptor, TRUE, dacl, FALSE)))
         goto CleanupExit;
@@ -472,14 +466,22 @@ NTSTATUS KphSetServiceSecurity(
         securityDescriptor
         );
 
-    NT_ASSERT(RtlValidSecurityDescriptor(securityDescriptor));
-    NT_ASSERT(sdAllocationLength < sizeof(securityDescriptorBuffer));
-    NT_ASSERT(RtlLengthSecurityDescriptor(securityDescriptor) < sizeof(securityDescriptorBuffer));
+    NT_ASSERT(PhValidSecurityDescriptor(securityDescriptor));
+    NT_ASSERT(daclLength < sizeof(securityDescriptorBuffer));
+    NT_ASSERT(PhLengthSecurityDescriptor(securityDescriptor) < sizeof(securityDescriptorBuffer));
 
 CleanupExit:
     return status;
 }
 
+/**
+ * Recursively deletes service subkeys during load/unload cleanup.
+ *
+ * \param RootDirectory Root key handle being enumerated.
+ * \param Information Basic information for the current subkey.
+ * \param Context Optional callback context.
+ * \return TRUE to continue enumeration.
+ */
 _Function_class_(PH_ENUM_KEY_CALLBACK)
 static BOOLEAN NTAPI KsiLoadUnloadServiceCleanupKeyCallback(
     _In_ HANDLE RootDirectory,
@@ -634,7 +636,7 @@ CleanupExit:
 }
 
 /**
- * Stops the KPH service.
+ * Stops the KSI service.
  *
  * \param Config Configuration parameters for the service.
  * \return Successful or errant status.
@@ -668,12 +670,20 @@ NTSTATUS KphServiceStop(
     return status;
 }
 
+/**
+ * Gets the current informer settings from KSI.
+ *
+ * \param Settings Pointer to a structure that receives the informer settings.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphGetInformerSettings(
     _Out_ PKPH_INFORMER_SETTINGS Settings
     )
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(Settings, 0, sizeof(KPH_INFORMER_SETTINGS));
 
     msg = KphCreateUserMessage(KphMsgGetInformerSettings);
     msg->User.GetInformerSettings.Settings = Settings;
@@ -688,6 +698,12 @@ NTSTATUS KphGetInformerSettings(
     return status;
 }
 
+/**
+ * Sets the driver settings in KSI.
+ *
+ * \param Settings Pointer to the informer settings to apply.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphSetInformerSettings(
     _In_ PKPH_INFORMER_SETTINGS Settings
     )
@@ -708,6 +724,14 @@ NTSTATUS KphSetInformerSettings(
     return status;
 }
 
+/**
+ * Opens a limited process.
+ *
+ * \param ProcessHandle A variable that receives the opened process handle.
+ * \param DesiredAccess The access rights requested for the process.
+ * \param ClientId Pointer to the client ID identifying the process.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphOpenProcess(
     _Out_ PHANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -716,6 +740,8 @@ NTSTATUS KphOpenProcess(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *ProcessHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgOpenProcess);
     msg->User.OpenProcess.ProcessHandle = ProcessHandle;
@@ -732,6 +758,14 @@ NTSTATUS KphOpenProcess(
     return status;
 }
 
+/**
+ * Opens a limited process token.
+ *
+ * \param ProcessHandle Handle to the target process.
+ * \param DesiredAccess The access rights requested for the token.
+ * \param TokenHandle A variable that receives the opened token handle.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphOpenProcessToken(
     _In_ HANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -740,6 +774,8 @@ NTSTATUS KphOpenProcessToken(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *TokenHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgOpenProcessToken);
     msg->User.OpenProcessToken.ProcessHandle = ProcessHandle;
@@ -756,6 +792,14 @@ NTSTATUS KphOpenProcessToken(
     return status;
 }
 
+/**
+ * Opens the job object associated with a process.
+ *
+ * \param ProcessHandle Handle to the target process.
+ * \param DesiredAccess The access rights requested for the job object.
+ * \param JobHandle A variable that receives the opened job handle.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphOpenProcessJob(
     _In_ HANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -764,6 +808,8 @@ NTSTATUS KphOpenProcessJob(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *JobHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgOpenProcessJob);
     msg->User.OpenProcessJob.ProcessHandle = ProcessHandle;
@@ -780,6 +826,13 @@ NTSTATUS KphOpenProcessJob(
     return status;
 }
 
+/**
+ * Terminates a process through KSI.
+ *
+ * \param ProcessHandle Handle to the target process.
+ * \param ExitStatus Exit status supplied for the terminated process.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphTerminateProcess(
     _In_ HANDLE ProcessHandle,
     _In_ NTSTATUS ExitStatus
@@ -802,6 +855,16 @@ NTSTATUS KphTerminateProcess(
     return status;
 }
 
+/**
+ * Reads limited memory from a process.
+ *
+ * \param ProcessHandle Handle to the target process, or NULL for the current process.
+ * \param BaseAddress Base address to read from.
+ * \param Buffer Buffer that receives the copied bytes.
+ * \param BufferSize Size of the destination buffer, in bytes.
+ * \param NumberOfBytesRead Optional variable that receives the number of bytes read.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphReadVirtualMemory(
     _In_opt_ HANDLE ProcessHandle,
     _In_ PVOID BaseAddress,
@@ -812,6 +875,10 @@ NTSTATUS KphReadVirtualMemory(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(Buffer, 0, BufferSize);
+    if (NumberOfBytesRead)
+        *NumberOfBytesRead = 0;
 
     msg = KphCreateUserMessage(KphMsgReadVirtualMemory);
     msg->User.ReadVirtualMemory.ProcessHandle = ProcessHandle;
@@ -830,6 +897,14 @@ NTSTATUS KphReadVirtualMemory(
     return status;
 }
 
+/**
+ * Opens a limited thread.
+ *
+ * \param ThreadHandle A variable that receives the opened thread handle.
+ * \param DesiredAccess The access rights requested for the thread.
+ * \param ClientId Pointer to the client ID identifying the thread.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphOpenThread(
     _Out_ PHANDLE ThreadHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -838,6 +913,8 @@ NTSTATUS KphOpenThread(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *ThreadHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgOpenThread);
     msg->User.OpenThread.ThreadHandle = ThreadHandle;
@@ -854,6 +931,14 @@ NTSTATUS KphOpenThread(
     return status;
 }
 
+/**
+ * Opens the owning process for a thread.
+ *
+ * \param ThreadHandle Handle to the target thread.
+ * \param DesiredAccess The access rights requested for the process.
+ * \param ProcessHandle A variable that receives the opened process handle.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphOpenThreadProcess(
     _In_ HANDLE ThreadHandle,
     _In_ ACCESS_MASK DesiredAccess,
@@ -862,6 +947,8 @@ NTSTATUS KphOpenThreadProcess(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *ProcessHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgOpenThreadProcess);
     msg->User.OpenThreadProcess.ThreadHandle = ThreadHandle;
@@ -878,6 +965,18 @@ NTSTATUS KphOpenThreadProcess(
     return status;
 }
 
+/**
+ * Captures a limited stack backtrace for a thread.
+ *
+ * \param ThreadHandle Handle to the target thread.
+ * \param FramesToSkip Number of initial frames to skip.
+ * \param FramesToCapture Maximum number of frames to capture.
+ * \param BackTrace Buffer that receives the captured stack frames.
+ * \param CapturedFrames Variable that receives the number of frames captured.
+ * \param BackTraceHash Optional variable that receives the backtrace hash.
+ * \param Flags Capture behavior flags.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphCaptureStackBackTraceThread(
     _In_ HANDLE ThreadHandle,
     _In_ ULONG FramesToSkip,
@@ -891,6 +990,11 @@ NTSTATUS KphCaptureStackBackTraceThread(
     NTSTATUS status;
     PKPH_MESSAGE msg;
     LARGE_INTEGER timeout;
+
+    memset(BackTrace, 0, sizeof(PVOID) * FramesToCapture);
+    *CapturedFrames = 0;
+    if (BackTraceHash)
+        *BackTraceHash = 0;
 
     msg = KphCreateUserMessage(KphMsgCaptureStackBackTraceThread);
     msg->User.CaptureStackBackTraceThread.ThreadHandle = ThreadHandle;
@@ -912,15 +1016,28 @@ NTSTATUS KphCaptureStackBackTraceThread(
     return status;
 }
 
+/**
+ * Enumerates handles for a process.
+ *
+ * \param ProcessHandle Handle to the target process.
+ * \param Buffer Buffer that receives the handle information.
+ * \param BufferLength Size of the buffer, in bytes.
+ * \param ReturnLength Optional variable that receives the required or returned size.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphEnumerateProcessHandles(
     _In_ HANDLE ProcessHandle,
     _Out_writes_bytes_(BufferLength) PVOID Buffer,
     _In_opt_ ULONG BufferLength,
-    _Inout_opt_ PULONG ReturnLength
+    _Out_opt_ PULONG ReturnLength
     )
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(Buffer, 0, BufferLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
 
     msg = KphCreateUserMessage(KphMsgEnumerateProcessHandles);
     msg->User.EnumerateProcessHandles.ProcessHandle = ProcessHandle;
@@ -976,17 +1093,30 @@ NTSTATUS KsiEnumerateProcessHandles(
         }
     }
 
-    if (!NT_SUCCESS(status))
+    if (NT_SUCCESS(status))
     {
-        PhFree(buffer);
-        return status;
+        *Handles = buffer;
     }
-
-    *Handles = buffer;
+    else
+    {
+        *Handles = NULL;
+        PhFree(buffer);
+    }
 
     return status;
 }
 
+/**
+ * Queries limited object information through KSI.
+ *
+ * \param ProcessHandle Handle to the process that owns the object handle.
+ * \param Handle Handle to the target object.
+ * \param ObjectInformationClass The object information class to query.
+ * \param ObjectInformation Buffer that receives the queried information.
+ * \param ObjectInformationLength Size of the buffer, in bytes.
+ * \param ReturnLength Optional variable that receives the returned size.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphQueryInformationObject(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE Handle,
@@ -998,6 +1128,11 @@ NTSTATUS KphQueryInformationObject(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    if (ObjectInformation)
+        memset(ObjectInformation, 0, ObjectInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
 
     msg = KphCreateUserMessage(KphMsgQueryInformationObject);
     msg->User.QueryInformationObject.ProcessHandle = ProcessHandle;
@@ -1036,10 +1171,13 @@ NTSTATUS KphQueryObjectThreadName(
     ULONG returnLength;
     PTHREAD_NAME_INFORMATION buffer;
 
+    *ThreadName = NULL;
+
     returnLength = 0;
     bufferSize = 0x100;
     buffer = PhAllocateStack(bufferSize);
-    if (!buffer) return STATUS_NO_MEMORY;
+    if (!buffer)
+        return STATUS_NO_MEMORY;
 
     status = KphQueryInformationObject(
         ProcessHandle,
@@ -1055,6 +1193,8 @@ NTSTATUS KphQueryObjectThreadName(
         PhFreeStack(buffer);
         bufferSize = returnLength;
         buffer = PhAllocateStack(returnLength);
+        if (!buffer)
+            return STATUS_NO_MEMORY;
 
         status = KphQueryInformationObject(
             ProcessHandle,
@@ -1077,7 +1217,7 @@ NTSTATUS KphQueryObjectThreadName(
 }
 
 /**
- * Queries section mapping information for an object.
+ * Queries limited section mapping information for an object.
  *
  * \param ProcessHandle Handle to the process.
  * \param Handle Handle to the object.
@@ -1120,19 +1260,21 @@ NTSTATUS KphQueryObjectSectionMappingsInfo(
         }
     }
 
-    if (!NT_SUCCESS(status))
+    if (NT_SUCCESS(status))
     {
-        PhFree(buffer);
-        return status;
+        *Info = buffer;
     }
-
-    *Info = buffer;
+    else
+    {
+        *Info = NULL;
+        PhFree(buffer);
+    }
 
     return status;
 }
 
 /**
- * Sets information for the object.
+ * Sets limited information for the object.
  *
  * \param ProcessHandle Handle to the process.
  * \param Handle Handle to the object.
@@ -1170,7 +1312,7 @@ NTSTATUS KphSetInformationObject(
 }
 
 /**
- * Opens a handle to the driver.
+ * Opens a limited handle to the driver.
  *
  * \param DriverHandle Pointer to receive the handle to the driver.
  * \param DesiredAccess Desired access rights.
@@ -1180,16 +1322,18 @@ NTSTATUS KphSetInformationObject(
 NTSTATUS KphOpenDriver(
     _Out_ PHANDLE DriverHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes
     )
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    *DriverHandle = NULL;
+
     msg = KphCreateUserMessage(KphMsgOpenDriver);
     msg->User.OpenDriver.DriverHandle = DriverHandle;
     msg->User.OpenDriver.DesiredAccess = DesiredAccess;
-    msg->User.OpenDriver.ObjectAttributes = (POBJECT_ATTRIBUTES)ObjectAttributes;
+    msg->User.OpenDriver.ObjectAttributes = ObjectAttributes;
     status = KphCommsSendMessage(msg);
 
     if (NT_SUCCESS(status))
@@ -1201,16 +1345,31 @@ NTSTATUS KphOpenDriver(
     return status;
 }
 
+/**
+ * Queries limited driver information.
+ *
+ * \param DriverHandle Handle to the target driver object.
+ * \param DriverInformationClass The driver information class to query.
+ * \param DriverInformation Buffer that receives the queried information.
+ * \param DriverInformationLength Size of the buffer, in bytes.
+ * \param ReturnLength Optional variable that receives the returned size.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphQueryInformationDriver(
     _In_ HANDLE DriverHandle,
     _In_ KPH_DRIVER_INFORMATION_CLASS DriverInformationClass,
     _Out_writes_bytes_opt_(DriverInformationLength) PVOID DriverInformation,
     _In_ ULONG DriverInformationLength,
-    _Inout_opt_ PULONG ReturnLength
+    _Out_opt_ PULONG ReturnLength
     )
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    if (DriverInformation)
+        memset(DriverInformation, 0, DriverInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
 
     msg = KphCreateUserMessage(KphMsgQueryInformationDriver);
     msg->User.QueryInformationDriver.DriverHandle = DriverHandle;
@@ -1229,16 +1388,31 @@ NTSTATUS KphQueryInformationDriver(
     return status;
 }
 
+/**
+ * Queries limited process information.
+ *
+ * \param ProcessHandle Handle to the target process.
+ * \param ProcessInformationClass The process information class to query.
+ * \param ProcessInformation Buffer that receives the queried information.
+ * \param ProcessInformationLength Size of the buffer, in bytes.
+ * \param ReturnLength Optional variable that receives the returned size.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphQueryInformationProcess(
     _In_ HANDLE ProcessHandle,
     _In_ KPH_PROCESS_INFORMATION_CLASS ProcessInformationClass,
     _Out_writes_bytes_opt_(ProcessInformationLength) PVOID ProcessInformation,
     _In_ ULONG ProcessInformationLength,
-    _Inout_opt_ PULONG ReturnLength
+    _Out_opt_ PULONG ReturnLength
     )
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    if (ProcessInformation)
+        memset(ProcessInformation, 0, ProcessInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
 
     msg = KphCreateUserMessage(KphMsgQueryInformationProcess);
     msg->User.QueryInformationProcess.ProcessHandle = ProcessHandle;
@@ -1267,21 +1441,23 @@ KPH_PROCESS_STATE KphGetProcessState(
     _In_ HANDLE ProcessHandle
     )
 {
-    KPH_PROCESS_STATE state;
+    if (KphCommsIsConnected())
+    {
+        KPH_PROCESS_STATE state;
 
-    if (!KphCommsIsConnected())
-        return 0;
+        if (NT_SUCCESS(KphQueryInformationProcess(
+            ProcessHandle,
+            KphProcessStateInformation,
+            &state,
+            sizeof(state),
+            NULL
+            )))
+        {
+            return state;
+        }
+    }
 
-    if (!NT_SUCCESS(KphQueryInformationProcess(
-        ProcessHandle,
-        KphProcessStateInformation,
-        &state,
-        sizeof(state),
-        NULL
-        )))
-        return 0;
-
-    return state;
+    return KPH_PROCESS_STATE_NONE;
 }
 
 /**
@@ -1297,10 +1473,10 @@ KPH_PROCESS_STATE KphGetCurrentProcessState(
 }
 
 /**
- * Gets the KPH access level for a process.
+ * Gets the access level for a process.
  *
  * \param ProcessHandle Handle to the process.
- * \return The KPH access level.
+ * \return The KSI access level.
  */
 KPH_LEVEL KphProcessLevel(
     _In_ HANDLE ProcessHandle
@@ -1337,10 +1513,10 @@ KPH_LEVEL KphProcessLevel(
 }
 
 /**
- * Gets the KPH access level, optionally using a cached value.
+ * Gets the current process access level, optionally using a cached value.
  *
  * \param Cached Whether to use the cached value.
- * \return The KPH access level.
+ * \return The KSI access level.
  */
 KPH_LEVEL KphLevelEx(
     _In_ BOOLEAN Cached
@@ -1366,7 +1542,7 @@ KPH_LEVEL KsiLevel(
 }
 
 /**
- * Sets information for a proces.
+ * Sets limited information for a process.
  *
  * \param ProcessHandle Handle to the process.
  * \param ProcessInformationClass The information class to set.
@@ -1401,7 +1577,7 @@ NTSTATUS KphSetInformationProcess(
 }
 
 /**
- * Sets information for a thread.
+ * Sets limited information for a thread.
  *
  * \param ThreadHandle Handle to the thread.
  * \param ThreadInformationClass The information class to set.
@@ -1436,7 +1612,7 @@ NTSTATUS KphSetInformationThread(
 }
 
 /**
- * Sends a system control command.
+ * Sends a limited system control command.
  *
  * \param SystemControlClass The system control class.
  * \param SystemControlInfo Buffer containing the control information.
@@ -1468,7 +1644,7 @@ NTSTATUS KphSystemControl(
 }
 
 /**
- * Queries ALPC information for the object.
+ * Queries limited ALPC information for the object.
  *
  * \param ProcessHandle Handle to the process.
  * \param PortHandle Handle to the ALPC port.
@@ -1490,6 +1666,11 @@ NTSTATUS KphAlpcQueryInformation(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    if (AlpcInformation)
+        memset(AlpcInformation, 0, AlpcInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
+
     msg = KphCreateUserMessage(KphMsgAlpcQueryInformation);
     msg->User.AlpcQueryInformation.ProcessHandle = ProcessHandle;
     msg->User.AlpcQueryInformation.PortHandle = PortHandle;
@@ -1509,7 +1690,7 @@ NTSTATUS KphAlpcQueryInformation(
 }
 
 /**
- * Queries ALPC communication names information.
+ * Queries limited ALPC communication names information.
  *
  * \param ProcessHandle Handle to the process.
  * \param PortHandle Handle to the ALPC port.
@@ -1547,17 +1728,30 @@ NTSTATUS KphAlpcQueryCommunicationsNamesInfo(
         }
     }
 
-    if (!NT_SUCCESS(status))
+    if (NT_SUCCESS(status))
     {
-        PhFree(buffer);
-        return status;
+        *Names = buffer;
     }
-
-    *Names = buffer;
+    else
+    {
+        *Names = NULL;
+        PhFree(buffer);
+    }
 
     return status;
 }
 
+/**
+ * Queries limited file information.
+ *
+ * \param ProcessHandle Handle to the process that owns the file handle.
+ * \param FileHandle Handle to the target file.
+ * \param FileInformationClass The file information class to query.
+ * \param FileInformation Buffer that receives the queried information.
+ * \param FileInformationLength Size of the buffer, in bytes.
+ * \param IoStatusBlock Pointer to the I/O status block to receive native status details.
+ * \return Successful or errant status.
+ */
 NTSTATUS KphQueryInformationFile(
     _In_ HANDLE ProcessHandle,
     _In_ HANDLE FileHandle,
@@ -1569,6 +1763,9 @@ NTSTATUS KphQueryInformationFile(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(FileInformation, 0, FileInformationLength);
+    memset(IoStatusBlock, 0, sizeof(IO_STATUS_BLOCK));
 
     msg = KphCreateUserMessage(KphMsgQueryInformationFile);
     msg->User.QueryInformationFile.ProcessHandle = ProcessHandle;
@@ -1589,7 +1786,7 @@ NTSTATUS KphQueryInformationFile(
 }
 
 /**
- * Queries volume information for a file.
+ * Queries limited volume information for a file.
  *
  * \param ProcessHandle Handle to the process.
  * \param FileHandle Handle to the file.
@@ -1610,6 +1807,9 @@ NTSTATUS KphQueryVolumeInformationFile(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(FsInformation, 0, FsInformationLength);
+    memset(IoStatusBlock, 0, sizeof(IO_STATUS_BLOCK));
 
     msg = KphCreateUserMessage(KphMsgQueryVolumeInformationFile);
     msg->User.QueryVolumeInformationFile.ProcessHandle = ProcessHandle;
@@ -1647,6 +1847,8 @@ NTSTATUS KphDuplicateObject(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *TargetHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgDuplicateObject);
     msg->User.DuplicateObject.ProcessHandle = ProcessHandle;
@@ -1723,7 +1925,7 @@ NTSTATUS KphQueryPerformanceCounter(
 NTSTATUS KphCreateFile(
     _Out_ PHANDLE FileHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
     _Out_ PIO_STATUS_BLOCK IoStatusBlock,
     _In_opt_ PLARGE_INTEGER AllocationSize,
     _In_ ULONG FileAttributes,
@@ -1738,10 +1940,13 @@ NTSTATUS KphCreateFile(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    *FileHandle = NULL;
+    memset(IoStatusBlock, 0, sizeof(IO_STATUS_BLOCK));
+
     msg = KphCreateUserMessage(KphMsgCreateFile);
     msg->User.CreateFile.FileHandle = FileHandle;
     msg->User.CreateFile.DesiredAccess = DesiredAccess;
-    msg->User.CreateFile.ObjectAttributes = (POBJECT_ATTRIBUTES)ObjectAttributes;
+    msg->User.CreateFile.ObjectAttributes = ObjectAttributes;
     msg->User.CreateFile.IoStatusBlock = IoStatusBlock;
     msg->User.CreateFile.AllocationSize = AllocationSize;
     msg->User.CreateFile.FileAttributes = FileAttributes;
@@ -1783,6 +1988,11 @@ NTSTATUS KphQueryInformationThread(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    if (ThreadInformation)
+        memset(ThreadInformation, 0, ThreadInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
+
     msg = KphCreateUserMessage(KphMsgQueryInformationThread);
     msg->User.QueryInformationThread.ThreadHandle = ThreadHandle;
     msg->User.QueryInformationThread.ThreadInformationClass = ThreadInformationClass;
@@ -1801,7 +2011,7 @@ NTSTATUS KphQueryInformationThread(
 }
 
 /**
- * Queries information about a section object using the KPH driver.
+ * Queries limited information about a section object.
  *
  * \param SectionHandle Handle to the section.
  * \param SectionInformationClass The information class to query.
@@ -1813,13 +2023,18 @@ NTSTATUS KphQueryInformationThread(
 NTSTATUS KphQuerySection(
     _In_ HANDLE SectionHandle,
     _In_ KPH_SECTION_INFORMATION_CLASS SectionInformationClass,
-    _Out_writes_bytes_(SectionInformationLength) PVOID SectionInformation,
+    _Out_writes_bytes_opt_(SectionInformationLength) PVOID SectionInformation,
     _In_ ULONG SectionInformationLength,
     _Out_opt_ PULONG ReturnLength
     )
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    if (SectionInformation)
+        memset(SectionInformation, 0, SectionInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
 
     msg = KphCreateUserMessage(KphMsgQuerySection);
     msg->User.QuerySection.SectionHandle = SectionHandle;
@@ -1839,7 +2054,7 @@ NTSTATUS KphQuerySection(
 }
 
 /**
- * Queries section mapping information for a section object.
+ * Queries limited section mapping information for a section object.
  *
  * \param SectionHandle Handle to the section.
  * \param Info Pointer to receive the section mapping information.
@@ -1876,19 +2091,21 @@ NTSTATUS KphQuerySectionMappingsInfo(
         }
     }
 
-    if (!NT_SUCCESS(status))
+    if (NT_SUCCESS(status))
     {
-        PhFree(buffer);
-        return status;
+        *Info = buffer;
     }
-
-    *Info = buffer;
+    else
+    {
+        *Info = NULL;
+        PhFree(buffer);
+    }
 
     return status;
 }
 
 /**
- * Compares two object handles for equality using the KPH driver.
+ * Compares two object handles for equality.
  *
  * \param ProcessHandle Handle to the process.
  * \param FirstObjectHandle First object handle.
@@ -1920,9 +2137,9 @@ NTSTATUS KphCompareObjects(
 }
 
 /**
- * Gets the informer client settings.
+ * Gets the driver client settings.
  *
- * \param Settings Pointer to receive the informer client settings.
+ * \param Settings Pointer to receive the client settings.
  * \return Successful or errant status.
  */
 NTSTATUS KphGetInformerClientSettings(
@@ -1931,6 +2148,8 @@ NTSTATUS KphGetInformerClientSettings(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(Settings, 0, sizeof(KPH_INFORMER_CLIENT_SETTINGS));
 
     msg = KphCreateUserMessage(KphMsgGetInformerClientSettings);
     msg->User.GetInformerClientSettings.Settings = Settings;
@@ -1946,13 +2165,13 @@ NTSTATUS KphGetInformerClientSettings(
 }
 
 /**
- * Sets the informer client settings in the KPH driver.
+ * Sets the driver client settings.
  *
- * \param Settings Pointer to the informer client settings to set.
+ * \param Settings Pointer to the client settings to set.
  * \return Successful or errant status.
  */
 NTSTATUS KphSetInformerClientSettings(
-    _Out_ PKPH_INFORMER_CLIENT_SETTINGS Settings
+    _In_ PKPH_INFORMER_CLIENT_SETTINGS Settings
     )
 {
     NTSTATUS status;
@@ -2028,6 +2247,11 @@ NTSTATUS KphReleaseDriverUnloadProtection(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    if (PreviousCount)
+        *PreviousCount = 0;
+    if (ClientPreviousCount)
+        *ClientPreviousCount = 0;
+
     msg = KphCreateUserMessage(KphMsgReleaseDriverUnloadProtection);
     status = KphCommsSendMessage(msg);
 
@@ -2050,7 +2274,7 @@ NTSTATUS KphReleaseDriverUnloadProtection(
 }
 
 /**
- * Gets the number of connected clients to the KPH driver.
+ * Gets the number of connected clients.
  *
  * \param Count Pointer to receive the client count.
  * \return Successful or errant status.
@@ -2061,6 +2285,8 @@ NTSTATUS KphGetConnectedClientCount(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *Count = 0;
 
     msg = KphCreateUserMessage(KphMsgGetConnectedClientCount);
     status = KphCommsSendMessage(msg);
@@ -2158,6 +2384,8 @@ NTSTATUS KphRequestSessionAccessToken(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(AccessToken, 0, sizeof(KPH_SESSION_ACCESS_TOKEN));
 
     msg = KphCreateUserMessage(KphMsgRequestSessionAccessToken);
     msg->User.RequestSessionAccessToken.Expiry = *Expiry;
@@ -2257,6 +2485,8 @@ NTSTATUS KphGetInformerProcessSettings(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    memset(Settings, 0, sizeof(KPH_INFORMER_SETTINGS));
+
     msg = KphCreateUserMessage(KphMsgGetInformerProcessSettings);
     msg->User.GetInformerProcessSettings.ProcessHandle = ProcessHandle;
     msg->User.GetInformerProcessSettings.Settings = Settings;
@@ -2355,6 +2585,11 @@ NTSTATUS KphQueryVirtualMemory(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    if (MemoryInformation)
+        memset(MemoryInformation, 0, MemoryInformationLength);
+    if (ReturnLength)
+        *ReturnLength = 0;
+
     msg = KphCreateUserMessage(KphMsgQueryVirtualMemory);
     msg->User.QueryVirtualMemory.ProcessHandle = ProcessHandle;
     msg->User.QueryVirtualMemory.BaseAddress = BaseAddress;
@@ -2422,6 +2657,8 @@ NTSTATUS KphOpenDevice(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    *DeviceHandle = NULL;
+
     msg = KphCreateUserMessage(KphMsgOpenDevice);
     msg->User.OpenDevice.DeviceHandle = DeviceHandle;
     msg->User.OpenDevice.DesiredAccess = DesiredAccess;
@@ -2453,6 +2690,8 @@ NTSTATUS KphOpenDeviceDriver(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    *DriverHandle = NULL;
 
     msg = KphCreateUserMessage(KphMsgOpenDeviceDriver);
     msg->User.OpenDeviceDriver.DeviceHandle = DeviceHandle;
@@ -2486,6 +2725,8 @@ NTSTATUS KphOpenDeviceBaseDevice(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    *BaseDeviceHandle = NULL;
+
     msg = KphCreateUserMessage(KphMsgOpenDeviceBaseDevice);
     msg->User.OpenDeviceBaseDevice.DeviceHandle = DeviceHandle;
     msg->User.OpenDeviceBaseDevice.DesiredAccess = DesiredAccess;
@@ -2516,6 +2757,8 @@ NTSTATUS KphGetInformerStats(
     NTSTATUS status;
     PKPH_MESSAGE msg;
 
+    memset(Stats, 0, sizeof(KPH_INFORMER_STATS));
+
     msg = KphCreateUserMessage(KphMsgGetInformerStats);
     msg->User.GetInformerStats.ProcessHandle = ProcessHandle;
     msg->User.GetInformerStats.Stats = Stats;
@@ -2542,6 +2785,8 @@ NTSTATUS KphGetInformerClientStats(
 {
     NTSTATUS status;
     PKPH_MESSAGE msg;
+
+    memset(Stats, 0, sizeof(KPH_INFORMER_CLIENT_STATS));
 
     msg = KphCreateUserMessage(KphMsgGetInformerClientStats);
     msg->User.GetInformerClientStats.Stats = Stats;

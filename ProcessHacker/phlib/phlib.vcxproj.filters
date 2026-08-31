@@ -65,6 +65,9 @@
     <ClCompile Include="kph.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mapclr.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="mapimg.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -110,6 +113,12 @@
     <ClCompile Include="filepool.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tabnew.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="graphprp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="treenew.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -129,6 +138,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="util.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="phcrypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="settings.c">
@@ -239,6 +251,12 @@
     <ClCompile Include="nativeobject.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="base64.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="graphscroll.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\circbuf.h">
@@ -331,6 +349,12 @@
     <ClInclude Include="include\filepoolp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\tabnew.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\tabnewp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="include\treenew.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -353,6 +377,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\workqueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\mapclr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\mapimg.h">
@@ -395,6 +422,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\svcsup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\phcrypt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\phutil.h">
@@ -464,6 +494,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\trace.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\base64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\graphscroll.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

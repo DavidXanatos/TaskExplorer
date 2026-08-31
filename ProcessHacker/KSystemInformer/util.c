@@ -571,14 +571,21 @@ BOOLEAN KphIsSameFile(
     first = FirstFileObject->SectionObjectPointer;
     second = SecondFileObject->SectionObjectPointer;
 
-    if (first != second)
+    if (!first || !second)
     {
         return FALSE;
     }
 
-    if (!first)
+    if (first == second)
     {
         return TRUE;
+    }
+
+    if (!first->DataSectionObject &&
+        !first->SharedCacheMap &&
+        !first->ImageSectionObject)
+    {
+        return FALSE;
     }
 
     if ((first->DataSectionObject != second->DataSectionObject) ||
@@ -1982,6 +1989,12 @@ NTSTATUS KphGetProcessImageName(
     fileName = PsGetProcessImageFileName(Process);
 
     status = RtlStringCbLengthA((STRSAFE_PCNZCH)fileName, 15, &len);
+    if (status == STATUS_INVALID_PARAMETER)
+    {
+        len = 15;
+        status = STATUS_SUCCESS;
+    }
+
     if (NT_SUCCESS(status))
     {
         ANSI_STRING string;
@@ -2060,7 +2073,7 @@ NTSTATUS KphOpenParametersKey(
 
     InitializeObjectAttributes(&objectAttributes,
                                &parametersKeyName,
-                               OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+                               OBJ_KERNEL_HANDLE | OBJ_DONT_REPARSE,
                                NULL,
                                NULL);
 

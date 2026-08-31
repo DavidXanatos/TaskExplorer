@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -53,7 +53,12 @@ typedef struct _PH_EMENU_ITEM
     ULONG Flags;
     ULONG Id;
     PWSTR Text;
-    HBITMAP Bitmap;
+
+    union
+    {
+        HBITMAP Bitmap;
+        HICON Icon;
+    };
 
     PVOID Parameter;
     PVOID Context;

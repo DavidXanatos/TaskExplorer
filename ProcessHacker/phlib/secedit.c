@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -59,7 +59,7 @@ static ISecurityInformation3Vtbl PhSecurityInformation_VTable3 =
     PhSecurityInformation3_OpenElevatedEditor
 };
 
-static const IDataObjectVtbl PhDataObject_VTable =
+static IDataObjectVtbl PhDataObject_VTable =
 {
     PhSecurityDataObject_QueryInterface,
     PhSecurityDataObject_AddRef,
@@ -95,7 +95,7 @@ static VOID PhEditSecurityAdvanced(
     _In_ PVOID Context
     )
 {
-    PhSecurityInformation* this = (PhSecurityInformation*)Context;
+    PhSecurityInformation* this = CONTAINING_RECORD(Context, PhSecurityInformation, Interface);
 
     if (WindowsVersion > WINDOWS_7 && PhEnableSecurityAdvancedDialog)
         EditSecurityAdvanced(this->WindowHandle, Context, COMBINE_PAGE_ACTIVATION(SI_PAGE_PERM, SI_SHOW_PERM_ACTIVATED));
@@ -251,7 +251,7 @@ ISecurityInformation *PhSecurityInformation_Create(
     ULONG i;
 
     info = PhAllocateZero(sizeof(PhSecurityInformation));
-    info->VTable = &PhSecurityInformation_VTable;
+    info->Interface.lpVtbl = &PhSecurityInformation_VTable;
     info->RefCount = 1;
 
     info->WindowHandle = WindowHandle;
@@ -301,7 +301,7 @@ ISecurityInformation *PhSecurityInformation_Create(
         PhMoveReference(&info->ObjectNameString, PhCreateString(L"Unknown"));
     }
 
-    return (ISecurityInformation *)info;
+    return &info->Interface;
 }
 
 HRESULT STDMETHODCALLTYPE PhSecurityInformation_QueryInterface(
@@ -310,7 +310,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_QueryInterface(
     _Out_ PVOID *Object
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     if (
         IsEqualIID(Riid, &IID_IUnknown) ||
@@ -328,11 +328,11 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_QueryInterface(
             PhSecurityInformation2 *info;
 
             info = PhAllocateZero(sizeof(PhSecurityInformation2));
-            info->VTable = &PhSecurityInformation_VTable2;
+            info->Interface.lpVtbl = &PhSecurityInformation_VTable2;
             info->Context = this;
             info->RefCount = 1;
 
-            *Object = info;
+            *Object = &info->Interface;
             return S_OK;
         }
     }
@@ -343,11 +343,11 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_QueryInterface(
             PhSecurityInformation3 *info;
 
             info = PhAllocateZero(sizeof(PhSecurityInformation3));
-            info->VTable = &PhSecurityInformation_VTable3;
+            info->Interface.lpVtbl = &PhSecurityInformation_VTable3;
             info->Context = this;
             info->RefCount = 1;
 
-            *Object = info;
+            *Object = &info->Interface;
             return S_OK;
         }
     }
@@ -358,11 +358,11 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_QueryInterface(
             PhSecurityObjectTypeInfo* info;
 
             info = PhAllocateZero(sizeof(PhSecurityObjectTypeInfo));
-            info->VTable = &PhSecurityObjectTypeInfo_VTable3;
+            info->Interface.lpVtbl = &PhSecurityObjectTypeInfo_VTable3;
             info->Context = this;
             info->RefCount = 1;
 
-            *Object = info;
+            *Object = &info->Interface;
             return S_OK;
         }
     }
@@ -371,11 +371,11 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_QueryInterface(
         PhEffectivePermission* info;
 
         info = PhAllocateZero(sizeof(PhEffectivePermission));
-        info->VTable = &PhEffectivePermission_VTable;
+        info->Interface.lpVtbl = &PhEffectivePermission_VTable;
         info->Context = this;
         info->RefCount = 1;
 
-        *Object = info;
+        *Object = &info->Interface;
         return S_OK;
     }
 
@@ -387,7 +387,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation_AddRef(
     _In_ ISecurityInformation *This
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     this->RefCount++;
 
@@ -398,7 +398,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation_Release(
     _In_ ISecurityInformation *This
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     this->RefCount--;
 
@@ -429,7 +429,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_GetObjectInformation(
     _Out_ PSI_OBJECT_INFO ObjectInfo
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     memset(ObjectInfo, 0, sizeof(SI_OBJECT_INFO));
     ObjectInfo->dwFlags = SI_EDIT_ALL | SI_ADVANCED | SI_EDIT_EFFECTIVE;
@@ -487,7 +487,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_GetSecurity(
     _In_ BOOL Default
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
     NTSTATUS status;
     PSECURITY_DESCRIPTOR securityDescriptor;
     ULONG sdLength;
@@ -541,7 +541,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_GetSecurity(
         }
     }
 
-    sdLength = RtlLengthSecurityDescriptor(securityDescriptor);
+    sdLength = PhLengthSecurityDescriptor(securityDescriptor);
     newSd = LocalAlloc(LPTR, sdLength);
     memcpy(newSd, securityDescriptor, sdLength);
     PhFree(securityDescriptor);
@@ -557,7 +557,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_SetSecurity(
     _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
     NTSTATUS status;
 
     if (this->SetObjectSecurity)
@@ -595,7 +595,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_GetAccessRights(
     _Out_ PULONG DefaultAccess
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     *Access = this->AccessEntries;
     *Accesses = this->NumberOfAccessEntries;
@@ -611,7 +611,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_MapGeneric(
     _Inout_ PACCESS_MASK Mask
     )
 {
-    PhSecurityInformation* this = (PhSecurityInformation*)This;
+    PhSecurityInformation* this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     if (this->ObjectType == PH_SE_FILE_OBJECT_TYPE)
     {
@@ -643,7 +643,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_GetInheritTypes(
     )
 {
 
-    PhSecurityInformation* this = (PhSecurityInformation*)This;
+    PhSecurityInformation* this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     if (this->ObjectType == PH_SE_WMIDEF_OBJECT_TYPE)
     {
@@ -680,7 +680,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation_PropertySheetPageCallback(
     _In_ SI_PAGE_TYPE uPage
     )
 {
-    PhSecurityInformation *this = (PhSecurityInformation *)This;
+    PhSecurityInformation *this = CONTAINING_RECORD(This, PhSecurityInformation, Interface);
 
     if (uMsg == PSPCB_SI_INITDIALOG)
     {
@@ -723,7 +723,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation2_AddRef(
     _In_ ISecurityInformation2 *This
     )
 {
-    PhSecurityInformation2 *this = (PhSecurityInformation2 *)This;
+    PhSecurityInformation2 *this = CONTAINING_RECORD(This, PhSecurityInformation2, Interface);
 
     this->RefCount++;
 
@@ -734,7 +734,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation2_Release(
     _In_ ISecurityInformation2 *This
     )
 {
-    PhSecurityInformation2 *this = (PhSecurityInformation2 *)This;
+    PhSecurityInformation2 *this = CONTAINING_RECORD(This, PhSecurityInformation2, Interface);
 
     this->RefCount--;
 
@@ -762,11 +762,11 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation2_LookupSids(
     _Out_ LPDATAOBJECT *ppdo
     )
 {
-    PhSecurityInformation2 *this = (PhSecurityInformation2 *)This;
+    PhSecurityInformation2 *this = CONTAINING_RECORD(This, PhSecurityInformation2, Interface);
     PhSecurityIDataObject *dataObject;
 
     dataObject = PhAllocateZero(sizeof(PhSecurityInformation));
-    dataObject->VTable = &PhDataObject_VTable;
+    dataObject->Interface.lpVtbl = &PhDataObject_VTable;
     dataObject->Context = this->Context;
     dataObject->RefCount = 1;
 
@@ -774,7 +774,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation2_LookupSids(
     dataObject->Sids = rgpSids;
     dataObject->NameCache = PhCreateList(1);
 
-    *ppdo = (LPDATAOBJECT)dataObject;
+    *ppdo = &dataObject->Interface;
 
     return S_OK;
 }
@@ -805,7 +805,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation3_AddRef(
     _In_ ISecurityInformation3 *This
     )
 {
-    PhSecurityInformation3 *this = (PhSecurityInformation3 *)This;
+    PhSecurityInformation3 *this = CONTAINING_RECORD(This, PhSecurityInformation3, Interface);
 
     this->RefCount++;
 
@@ -816,7 +816,7 @@ ULONG STDMETHODCALLTYPE PhSecurityInformation3_Release(
     _In_ ISecurityInformation3 *This
     )
 {
-    PhSecurityInformation3 *this = (PhSecurityInformation3 *)This;
+    PhSecurityInformation3 *this = CONTAINING_RECORD(This, PhSecurityInformation3, Interface);
 
     this->RefCount--;
 
@@ -834,7 +834,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation3_GetFullResourceName(
     _Outptr_ PWSTR *ResourceName
     )
 {
-    PhSecurityInformation3 *this = (PhSecurityInformation3 *)This;
+    PhSecurityInformation3 *this = CONTAINING_RECORD(This, PhSecurityInformation3, Interface);
 
     *ResourceName = PhGetString(this->Context->ObjectNameString);
 
@@ -847,7 +847,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityInformation3_OpenElevatedEditor(
     _In_ SI_PAGE_TYPE uPage
     )
 {
-    PhSecurityInformation3 *this = (PhSecurityInformation3 *)This;
+    PhSecurityInformation3 *this = CONTAINING_RECORD(This, PhSecurityInformation3, Interface);
 
     return E_NOTIMPL;
 }
@@ -878,7 +878,7 @@ ULONG STDMETHODCALLTYPE PhSecurityDataObject_AddRef(
     _In_ IDataObject *This
     )
 {
-    PhSecurityIDataObject *this = (PhSecurityIDataObject *)This;
+    PhSecurityIDataObject *this = CONTAINING_RECORD(This, PhSecurityIDataObject, Interface);
 
     this->RefCount++;
 
@@ -889,7 +889,7 @@ ULONG STDMETHODCALLTYPE PhSecurityDataObject_Release(
     _In_ IDataObject *This
     )
 {
-    PhSecurityIDataObject *this = (PhSecurityIDataObject *)This;
+    PhSecurityIDataObject *this = CONTAINING_RECORD(This, PhSecurityIDataObject, Interface);
 
     this->RefCount--;
 
@@ -911,7 +911,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityDataObject_GetData(
     _Out_ STGMEDIUM *Medium
     )
 {
-    PhSecurityIDataObject *this = (PhSecurityIDataObject *)This;
+    PhSecurityIDataObject *this = CONTAINING_RECORD(This, PhSecurityIDataObject, Interface);
     PSID_INFO_LIST sidInfoList;
 
     sidInfoList = (PSID_INFO_LIST)GlobalAlloc(GMEM_ZEROINIT, sizeof(SID_INFO_LIST) + (sizeof(SID_INFO) * this->SidCount));
@@ -1111,7 +1111,7 @@ ULONG STDMETHODCALLTYPE PhSecurityObjectTypeInfo_AddRef(
     _In_ ISecurityObjectTypeInfoEx* This
     )
 {
-    PhSecurityObjectTypeInfo* this = (PhSecurityObjectTypeInfo*)This;
+    PhSecurityObjectTypeInfo* this = CONTAINING_RECORD(This, PhSecurityObjectTypeInfo, Interface);
 
     this->RefCount++;
 
@@ -1122,7 +1122,7 @@ ULONG STDMETHODCALLTYPE PhSecurityObjectTypeInfo_Release(
     _In_ ISecurityObjectTypeInfoEx* This
     )
 {
-    PhSecurityObjectTypeInfo* this = (PhSecurityObjectTypeInfo*)This;
+    PhSecurityObjectTypeInfo* this = CONTAINING_RECORD(This, PhSecurityObjectTypeInfo, Interface);
 
     this->RefCount--;
 
@@ -1149,7 +1149,7 @@ HRESULT STDMETHODCALLTYPE PhSecurityObjectTypeInfo_GetInheritSource(
         FILE_GENERIC_EXECUTE,
         FILE_ALL_ACCESS
     };
-    PhSecurityObjectTypeInfo* this = (PhSecurityObjectTypeInfo*)This;
+    PhSecurityObjectTypeInfo* this = CONTAINING_RECORD(This, PhSecurityObjectTypeInfo, Interface);
     PINHERITED_FROM result;
     ULONG status;
 
@@ -1211,7 +1211,7 @@ ULONG STDMETHODCALLTYPE PhEffectivePermission_AddRef(
     _In_ IEffectivePermission* This
     )
 {
-    PhEffectivePermission* this = (PhEffectivePermission*)This;
+    PhEffectivePermission* this = CONTAINING_RECORD(This, PhEffectivePermission, Interface);
 
     this->RefCount++;
 
@@ -1222,7 +1222,7 @@ ULONG STDMETHODCALLTYPE PhEffectivePermission_Release(
     _In_ IEffectivePermission* This
     )
 {
-    PhEffectivePermission* this = (PhEffectivePermission*)This;
+    PhEffectivePermission* this = CONTAINING_RECORD(This, PhEffectivePermission, Interface);
 
     this->RefCount--;
 
@@ -1291,7 +1291,7 @@ HRESULT STDMETHODCALLTYPE PhEffectivePermission_GetEffectivePermission(
     return HRESULT_FROM_WIN32(PhNtStatusToDosError(status));
 }
 
-NTSTATUS PhpGetObjectSecurityWithTimeout(
+NTSTATUS PhGetObjectSecurityWithTimeout(
     _In_ HANDLE Handle,
     _In_ SECURITY_INFORMATION SecurityInformation,
     _Out_ PSECURITY_DESCRIPTOR *SecurityDescriptor
@@ -1374,7 +1374,7 @@ NTSTATUS PhStdGetObjectSecurity(
     switch (this->ObjectType)
     {
     case PH_SE_FILE_OBJECT_TYPE:
-        status = PhpGetObjectSecurityWithTimeout(handle, SecurityInformation, SecurityDescriptor);
+        status = PhGetObjectSecurityWithTimeout(handle, SecurityInformation, SecurityDescriptor);
         break;
     case PH_SE_SERVICE_OBJECT_TYPE:
         status = PhGetServiceObjectSecurity(handle, SecurityInformation, SecurityDescriptor);
@@ -1523,7 +1523,7 @@ NTSTATUS PhGetSeObjectSecurity(
         return PhDosErrorToNtStatus(win32Result);
     }
 
-    *SecurityDescriptor = PhAllocateCopy(securityDescriptor, RtlLengthSecurityDescriptor(securityDescriptor));
+    *SecurityDescriptor = PhAllocateCopy(securityDescriptor, PhLengthSecurityDescriptor(securityDescriptor));
     LocalFree(securityDescriptor);
 
     return STATUS_SUCCESS;
@@ -1629,7 +1629,7 @@ NTSTATUS PhLsaQuerySecurityObject(
     {
         *SecurityDescriptor = PhAllocateCopy(
             securityDescriptor,
-            RtlLengthSecurityDescriptor(securityDescriptor)
+            PhLengthSecurityDescriptor(securityDescriptor)
             );
         LsaFreeMemory(securityDescriptor);
     }
@@ -1656,7 +1656,7 @@ NTSTATUS PhSamQuerySecurityObject(
     //{
     //    *SecurityDescriptor = PhAllocateCopy(
     //        securityDescriptor,
-    //        RtlLengthSecurityDescriptor(securityDescriptor)
+    //        PhLengthSecurityDescriptor(securityDescriptor)
     //        );
     //    SamFreeMemory(securityDescriptor);
     //}
@@ -1715,11 +1715,11 @@ NTSTATUS PhGetSeObjectSecurityTokenDefault(
         if (!NT_SUCCESS(status))
             goto CleanupExit;
 
-        assert(RtlValidSecurityDescriptor(securityDescriptor));
-        assert(allocationLength == RtlLengthSecurityDescriptor(securityDescriptor));
+        assert(PhValidSecurityDescriptor(securityDescriptor));
+        assert(allocationLength == PhLengthSecurityDescriptor(securityDescriptor));
 
-        assert(RtlValidSecurityDescriptor(securityRelative));
-        assert(allocationLengthRelative == RtlLengthSecurityDescriptor(securityRelative));
+        assert(PhValidSecurityDescriptor(securityRelative));
+        assert(allocationLengthRelative == PhLengthSecurityDescriptor(securityRelative));
 
 CleanupExit:
         *SecurityDescriptor = securityRelative;
@@ -1794,7 +1794,7 @@ NTSTATUS PhGetSeObjectSecurityPowerGuid(
 
             *SecurityDescriptor = PhAllocateCopy(
                 securityDescriptor,
-                RtlLengthSecurityDescriptor(securityDescriptor)
+                PhLengthSecurityDescriptor(securityDescriptor)
                 );
             PhFree(securityDescriptor);
         }

@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2011
- *     dmex    2017-2022
+ *     dmex    2017-2026
  *
  */
 
@@ -92,7 +92,7 @@ PSTORAGESIGNATURE PvpPeGetClrMetaDataHeader(
     _In_opt_ PVOID PdbMetadataAddress
     )
 {
-    PSTORAGESIGNATURE metaData;
+    PSTORAGESIGNATURE metaData = NULL;
 
     if (PdbMetadataAddress)
     {
@@ -100,9 +100,7 @@ PSTORAGESIGNATURE PvpPeGetClrMetaDataHeader(
     }
     else
     {
-        metaData = PhMappedImageRvaToVa(&PvMappedImage, PvImageCor20Header->MetaData.VirtualAddress, NULL);
-
-        if (metaData)
+        if (NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, PvImageCor20Header->MetaData.VirtualAddress, &metaData)))
         {
             __try
             {
@@ -444,7 +442,12 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
         {
             LPPROPSHEETPAGE propSheetPage = (LPPROPSHEETPAGE)lParam;
             context->PropSheetContext = (PPV_PROPPAGECONTEXT)propSheetPage->lParam;
-            context->PdbMetadataAddress = context->PropSheetContext->Context;
+
+            if (context->PropSheetContext->Context)
+            {
+                PPV_CLR_PAGECONTEXT pageContext = context->PropSheetContext->Context;
+                context->PdbMetadataAddress = pageContext->PdbMetadataAddress;
+            }
         }
     }
     else
@@ -531,7 +534,7 @@ INT_PTR CALLBACK PvpPeClrDlgProc(
             PhFree(context);
         }
         break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
         {
             PvSetListViewImageList(context->WindowHandle, context->ListViewHandle);
         }

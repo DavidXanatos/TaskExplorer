@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2024
+ *     dmex    2024-2026
  *
  */
 
@@ -14,6 +14,18 @@
 #include <ntuser.h>
 #include <phconsole.h>
 
+/**
+ * Attach this process to the console of another process.
+ *
+ * This function first frees any existing console association for this process by calling
+ * `PhFreeConsole` to avoid leaking console handles stored in the process environment block (PEB).
+ * It then calls the Win32 `AttachConsole` API using the numeric process identifier derived from
+ * `ProcessId`. If `AttachConsole` succeeds, the function returns `STATUS_SUCCESS`. Otherwise
+ * it converts the last Win32 error into an NTSTATUS via `PhGetLastWin32ErrorAsNtStatus`.
+ * \param[in] ProcessId Handle representing the target process whose console we want to attach to.
+ * The handle value is converted to an unsigned long before calling `AttachConsole`.
+ * \return NTSTATUS STATUS_SUCCESS on success; translated Win32 error as NTSTATUS on failure.
+ */
 NTSTATUS PhAttachConsole(
     _In_ HANDLE ProcessId
     )
@@ -28,6 +40,16 @@ NTSTATUS PhAttachConsole(
     return PhGetLastWin32ErrorAsNtStatus();
 }
 
+/**
+ * Free the current console and clear PEB console-related fields.
+ *
+ * \remarks The FreeConsole API doesn't zero handles it created and cached in the current
+ * process environment block (PEB). It'll close the handle but does not zero the fields.
+ * When these values are later recycled by the kernel with a new handle, the values in the PEB
+ * are now pointing to valid objects and start getting passed to console functions despite
+ * these handles are some other object. This causes all sorts of issues including crashes
+ * and data corruption. To avoid these issues, we manually zero the PEB fields.
+ */
 VOID PhFreeConsole(
     VOID
     )
@@ -48,6 +70,14 @@ VOID PhFreeConsole(
     processParameters->ConsoleHandle = NULL;
 }
 
+/**
+ * Retrieve a standard I/O handle for the current process.
+ *
+ * \param[in] StdHandle One of `STD_INPUT_HANDLE`, `STD_OUTPUT_HANDLE` or `STD_ERROR_HANDLE`.
+ * \return HANDLE The appropriate standard handle. On older Windows versions, returns the value
+ * from the PEB's `ProcessParameters`. If `StdHandle` is invalid on those versions,
+ * returns `INVALID_HANDLE_VALUE`. On newer versions, returns the value returned by `GetStdHandle`.
+ */
 HANDLE PhGetStdHandle(
     _In_ ULONG StdHandle
     )
@@ -72,6 +102,15 @@ HANDLE PhGetStdHandle(
     }
 }
 
+/**
+ * Query the list of process identifiers attached to a console.
+ *
+ * \param[in] ProcessId Handle to the process whose console should be queried.
+ * \param[in] ProcessCount Number of entries the `ProcessList` buffer can hold.
+ * \param[out] ProcessList Buffer that receives the list of process identifiers (ULONG values).
+ * \param[out] ProcessTotal Receives the total number of processes attached to the console.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSTATUS PhGetConsoleProcessList(
     _In_ HANDLE ProcessId,
     _In_ ULONG ProcessCount,
@@ -96,13 +135,20 @@ NTSTATUS PhGetConsoleProcessList(
     return status;
 }
 
+/**
+ * Update the console foreground window for a console process.
+ *
+ * \param[in] ProcessHandle Handle to the target console process.
+ * \param[in] Foreground Non-zero to set the foreground flag; zero to clear it.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSTATUS PhConsoleSetForeground(
     _In_ HANDLE ProcessHandle,
     _In_ BOOLEAN Foreground
     )
 {
     NTSTATUS status;
-    CONSOLESETFOREGROUND consoleInfo;
+    CONSOLE_SET_FOREGROUND consoleInfo;
 
     if (!ConsoleControl_Import())
         return STATUS_NOT_SUPPORTED;
@@ -113,12 +159,18 @@ NTSTATUS PhConsoleSetForeground(
     status = ConsoleControl_Import()(
         ConsoleSetForeground,
         &consoleInfo,
-        sizeof(CONSOLESETFOREGROUND)
+        sizeof(CONSOLE_SET_FOREGROUND)
         );
 
     return status;
 }
 
+/**
+ * Notify the console subsystem that a console application created a new window.
+ *
+ * \param[in] ProcessID Handle representing the process that created the new window.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSTATUS PhConsoleNotifyWindow(
     _In_ HANDLE ProcessID
     )
@@ -141,6 +193,14 @@ NTSTATUS PhConsoleNotifyWindow(
     return status;
 }
 
+/**
+ * Updates the psuedo owner of the console window.
+ *
+ * \param[in] ProcessID Handle representing the process whose console window owner is being set.
+ * \param[in] ThreadId Handle representing the thread associated with the window owner.
+ * \param[in] WindowHandle Window handle (HWND) to associate with the console process/thread.
+ * \return NTSTATUS Successful or errant status.
+ */
 NTSTATUS PhConsoleSetWindow(
     _In_ HANDLE ProcessID,
     _In_ HANDLE ThreadId,
@@ -148,31 +208,43 @@ NTSTATUS PhConsoleSetWindow(
     )
 {
     NTSTATUS status;
-    CONSOLEWINDOWOWNER consoleInfo;
+    CONSOLE_WINDOW_OWNER consoleInfo;
 
     if (!ConsoleControl_Import())
         return STATUS_NOT_SUPPORTED;
 
-    consoleInfo.ProcessId = HandleToUlong(ProcessID);
-    consoleInfo.ThreadId = HandleToUlong(ThreadId);
+    consoleInfo.OwnerProcessId = HandleToUlong(ProcessID);
+    consoleInfo.OwnerThreadId = HandleToUlong(ThreadId);
     consoleInfo.WindowHandle = WindowHandle;
 
     status = ConsoleControl_Import()(
         ConsoleSetWindowOwner,
         &consoleInfo,
-        sizeof(CONSOLEWINDOWOWNER)
+        sizeof(CONSOLE_WINDOW_OWNER)
         );
 
     return status;
 }
 
+/**
+ * \brief Request the console subsystem to end a console task (send console event).
+ *
+ * Builds a `CONSOLEENDTASK` structure and invokes the `ConsoleEndTask` `ConsoleControl` operation.
+ * The `ConsoleEventCode` is set to `CTRL_C_EVENT` and `ConsoleFlags` is zeroed.
+ *
+ * \param[in] ProcessId Handle of the process whose console task should be ended.
+ * \param[in] WindowHandle Window handle (HWND) associated with the console to be signaled.
+ * \return NTSTATUS Successful or errant status.
+ * \remarks The semantics of ending a console task are determined by the console subsystem; callers
+ * should ensure they understand the impact of sending `CTRL_C_EVENT` to the target console.
+ */
 NTSTATUS PhConsoleEndTask(
     _In_ HANDLE ProcessId,
     _In_ HWND WindowHandle
     )
 {
     NTSTATUS status;
-    CONSOLEENDTASK consoleInfo;
+    CONSOLE_END_TASK consoleInfo;
 
     if (!ConsoleControl_Import())
         return STATUS_NOT_SUPPORTED;
@@ -185,7 +257,7 @@ NTSTATUS PhConsoleEndTask(
     status = ConsoleControl_Import()(
         ConsoleEndTask,
         &consoleInfo,
-        sizeof(CONSOLEENDTASK)
+        sizeof(CONSOLE_END_TASK)
         );
 
     return status;

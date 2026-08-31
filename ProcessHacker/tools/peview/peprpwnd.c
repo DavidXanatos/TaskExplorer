@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2021
+ *     dmex    2021-2026
  *
  */
 
@@ -32,7 +32,7 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
     _In_ LPARAM lParam
     );
 
-#define SWP_NO_ACTIVATE_MOVE_SIZE_ZORDER (SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER)
+#define SWP_NO_ACTIVATE_MOVE_SIZE_ZORDER (SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER)
 #define SWP_SHOWWINDOW_ONLY (SWP_NO_ACTIVATE_MOVE_SIZE_ZORDER | SWP_SHOWWINDOW)
 #define SWP_HIDEWINDOW_ONLY (SWP_NO_ACTIVATE_MOVE_SIZE_ZORDER | SWP_HIDEWINDOW)
 
@@ -277,7 +277,7 @@ VOID PvAddTreeViewSections(
 
     // CLR page
     if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, &entry)) &&
-        (PvImageCor20Header = PhMappedImageRvaToVa(&PvMappedImage, entry->VirtualAddress, NULL)))
+        NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry->VirtualAddress, (PVOID *)&PvImageCor20Header)))
     {
         NTSTATUS status = STATUS_SUCCESS;
 
@@ -459,7 +459,7 @@ VOID PvAddTreeViewSections(
         PvCreateTabSection(
             L"Dynamic Relocations",
             PhInstanceHandle,
-            MAKEINTRESOURCE(IDD_PERELOCATIONS),
+            MAKEINTRESOURCE(IDD_PEDYNAMICRELOC),
             PvpPeDynamicRelocationDlgProc,
             NULL
             );
@@ -817,10 +817,10 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
 
                 if (!PhExtractIcon(PvFileName->Buffer, &PvImageLargeIcon, &PvImageSmallIcon))
                 {
-                    PhGetStockApplicationIcon(&PvImageSmallIcon, &PvImageLargeIcon);
+                    PhGetStockApplicationIcon(&PvImageSmallIcon, &PvImageLargeIcon, PhGetWindowDpi(hwndDlg));
                 }
 
-                PhGetStockApplicationIcon(&smallIcon, &largeIcon);
+                PhGetStockApplicationIcon(&smallIcon, &largeIcon, PhGetWindowDpi(hwndDlg));
 
                 SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);
                 SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)largeIcon);
@@ -890,7 +890,7 @@ INT_PTR CALLBACK PvTabWindowDialogProc(
             PostQuitMessage(0);
         }
         break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
         {
             PhLayoutManagerUpdate(&PvTabWindowLayoutManager, LOWORD(wParam));
             PhLayoutManagerLayout(&PvTabWindowLayoutManager);

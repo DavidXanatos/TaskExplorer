@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -29,6 +29,7 @@ VOID PvAddDefaultSettings(
     PhpAddIntegerSetting(L"EnableThemeAcrylicWindowSupport", L"0");
     PhpAddIntegerSetting(L"EnableThemeAnimation", L"1");
     PhpAddIntegerSetting(L"EnableThemeNativeButtons", L"0");
+    PhpAddIntegerSetting(L"EnableWindowBorderColor", L"1");
     PhpAddIntegerSetting(L"ThemeWindowForegroundColor", L"1c1c1c"); // RGB(28, 28, 28)
     PhpAddIntegerSetting(L"ThemeWindowBackgroundColor", L"2b2b2b"); // RGB(43, 43, 43)
     PhpAddIntegerSetting(L"ThemeWindowBackground2Color", L"414141"); // RGB(65, 65, 65)
@@ -76,6 +77,7 @@ VOID PvAddDefaultSettings(
     PhpAddStringSetting(L"ImagePropertiesListViewColumns", L"");
     PhpAddStringSetting(L"ImageRelocationsListViewColumns", L"");
     PhpAddStringSetting(L"ImageDynamicRelocationsListViewColumns", L"");
+    PhpAddStringSetting(L"ImageDynamicRelocationsTreeColumns", L"");
     PhpAddStringSetting(L"ImageMuiListViewColumns", L"");
     PhpAddStringSetting(L"ImageSecurityListViewColumns", L"");
     PhpAddStringSetting(L"ImageSecurityListViewSort", L"");
@@ -107,6 +109,7 @@ VOID PvAddDefaultSettings(
     PhpAddIntegerSetting(L"StringsTreeListFlags", L"1b");
     PhpAddIntegerSetting(L"StringsMinimumLength", L"4");
     PhpAddIntegerSetting(L"TreeListBorderEnable", L"0");
+    PhpAddIntegerSetting(L"TreeListCustomRowSize", L"0");
     PhpAddStringSetting(L"CHPEListViewColumns", L"");
     // Wsl properties
     PhpAddStringSetting(L"GeneralWslTreeListColumns", L"");
@@ -122,6 +125,7 @@ VOID PvUpdateCachedSettings(
     PhMaxSizeUnit = PhGetIntegerSetting(L"MaxSizeUnit");
     PhEnableSecurityAdvancedDialog = !!PhGetIntegerSetting(L"EnableSecurityAdvancedDialog");
     PhEnableThemeSupport = !!PhGetIntegerSetting(L"EnableThemeSupport");
+    PhEnableWindowBorderColor = !!PhGetIntegerSetting(L"EnableWindowBorderColor");
     PhThemeWindowForegroundColor = PhGetIntegerSetting(L"ThemeWindowForegroundColor");
     PhThemeWindowBackgroundColor = PhGetIntegerSetting(L"ThemeWindowBackgroundColor");
     PhThemeWindowBackground2Color = PhGetIntegerSetting(L"ThemeWindowBackground2Color");

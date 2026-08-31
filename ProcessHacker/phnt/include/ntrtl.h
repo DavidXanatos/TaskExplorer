@@ -154,7 +154,7 @@ typedef enum _RTL_RESOURCE_POLICY_CLASS
 /**
  * The RtlFailFast routine brings down the caller immediately in the event that critical corruption has been detected. No exception handlers are invoked.
  *
- * \param Code A FAST_FAIL_<description> symbolic constant from winnt.h or wdm.h that indicates the reason for process termination.
+ * \param Code A FAST_FAIL_* symbolic constant from winnt.h or wdm.h that indicates the reason for process termination.
  * \return None. There is no return from this routine.
  * \remarks The routine is shared with user mode and kernel mode. In user mode, the process is terminated, whereas in kernel mode, a KERNEL_SECURITY_CHECK_FAILURE bug check is raised.
  */
@@ -2168,117 +2168,60 @@ RtlConvertSRWLockExclusiveToShared(
 // @remarks RCU synchronization is not for general-purpose synchronization.
 // Teb->Rcu is used to store the RCU state.
 
-#if defined(PHNT_NATIVE_RCU)
 // rev
-typedef struct _RTL_RCU_SEGMENT
-{
-    ULONG Count;
-    ULONG Reserved; // padding/unused
-    PVOID Slots[ANYSIZE_ARRAY];
-    //
-    // Interpretation (x64):
-    //   Slots[0 .. Count-1] = RTL_RCU_THREAD_ENTRY* (or NULL)
-    //   Slots[Count]        = RTL_RCU_SEGMENT* link to next segment (or NULL)
-    //
-} RTL_RCU_SEGMENT, *PRTL_RCU_SEGMENT;
-
-// Helper for the address of link slot (the "next segment pointer")
-#define RTL_RCU_SEGMENT_NEXT_PTR(S) ((PRTL_RCU_SEGMENT*)&((S)->Slots[(S)->Count]))
-
-// rev
-typedef struct _RTL_RCU_THREAD_ENTRY
-{
-    volatile ULONGLONG ReadDepth;
-    ULONG ThreadCookie; // compared with TEB cached cookie
-    ULONG ThreadIdLike; // compared with TEB cached id
-    volatile ULONGLONG SeenEpoch; // WaitOnAddress/WakeAddressAll target
-    struct _RTL_RCU_THREAD_ENTRY* Next; // linked via State->ThreadList
+typedef struct _RTL_RCU_THREAD_ENTRY 
+{ 
+    volatile long long RefCount;
+    ULONG SessionId;
+    ULONG ThreadId;
+    volatile long long ObservedEpoch;
+    struct _RTL_RCU_THREAD_ENTRY* Next;
 } RTL_RCU_THREAD_ENTRY, *PRTL_RCU_THREAD_ENTRY;
 
-C_ASSERT(sizeof(RTL_RCU_THREAD_ENTRY) == 0x20);
-C_ASSERT(FIELD_OFFSET(RTL_RCU_THREAD_ENTRY, SeenEpoch) == 0x10);
-
-//typedef struct _RTL_RCU_THREAD_ENTRY RTL_RCU_THREAD_ENTRY, *PRTL_RCU_THREAD_ENTRY;
-//typedef struct _RTL_RCU_SEGMENT      RTL_RCU_SEGMENT,      *PRTL_RCU_SEGMENT;
+// rev
+typedef struct _RTL_RCU_BUCKET_ARRAY 
+{ 
+    ULONG Count;
+    ULONG Reserved;
+    PRTL_RCU_THREAD_ENTRY Slots[ANYSIZE_ARRAY];
+    //struct _RTL_RCU_BUCKET_ARRAY* Next; // after Slots
+} RTL_RCU_BUCKET_ARRAY, *PRTL_RCU_BUCKET_ARRAY;
 
 // rev
 typedef struct _RTL_RCU_STATE
-{
-    //
-    // Global list links (inserted by RtlRcuAllocate under a global SRW lock).
-    //
-    struct _RTL_RCU_STATE *GlobalNext;
-    struct _RTL_RCU_STATE *GlobalPrev;
-
-    //
-    // Global epoch/state.
-    //
-    volatile ULONGLONG Epoch;
-
-    //
-    // Segmented array root used by RtlpRcuCurrentThreadData()
-    // to map "thread-id-like" (ebx) -> RTL_RCU_THREAD_ENTRY*.
-    //
-    PRTL_RCU_SEGMENT SegmentRoot;
-
-    //
-    // Singly-linked list of all per-thread entries for this state.
-    // synchronize walks this list and waits on each entry->SeenEpoch.
-    //
-    PRTL_RCU_THREAD_ENTRY ThreadList;
-
-    //
-    // Small cache indexed by (ebx % 10) (the 0xCCCCCCCD multiply trick).
-    //
-    PRTL_RCU_THREAD_ENTRY Cache[10];
-
-    //
-    // Slow-path SRW lock used when RtlpRcuCurrentThreadData() returns NULL.
-    //  - ReadLock uses AcquireSRWLockShared(&state+0x78)
-    //  - Synchronize uses Acquire/Release Exclusive on &state+0x78 (via helper)
-    //
-    RTL_SRWLOCK SlowPathLock;
-
-    //
-    // Stored from RtlRcuAllocate(ecx)
-    //
-    ULONG TagOrFlags;
-
-    ULONG Padding; // (to make sizeof == 0x88 on x64)
+{ 
+    struct _RTL_RCU_STATE* Flink;
+    struct _RTL_RCU_STATE* Blink;
+    volatile long long Epoch;
+    RTL_RCU_BUCKET_ARRAY* Buckets;
+    PRTL_RCU_THREAD_ENTRY ThreadListHead;
+    PRTL_RCU_THREAD_ENTRY BucketCache[10];
+    RTL_SRWLOCK Lock;
+    ULONG Options;
+    ULONG ReservedTail;
 } RTL_RCU_STATE, *PRTL_RCU_STATE;
-
-// Sanity checks (x64)
-C_ASSERT(sizeof(RTL_RCU_STATE) == 0x88);
-
-typedef struct _RTL_RCU_COOKIE
-{
-    ULONG_PTR ThreadEntryOrNull; // NULL => slow-path SRW shared lock was used
-} RTL_RCU_COOKIE, *PRTL_RCU_COOKIE;
-#else
-typedef struct _RTL_RCU_STATE RTL_RCU_STATE, *PRTL_RCU_STATE;
-typedef ULONG_PTR RTL_RCU_COOKIE, *PRTL_RCU_COOKIE;
-#endif // #if defined(PHNT_NATIVE_RCU)
 
 NTSYSAPI
 PRTL_RCU_STATE
 NTAPI
 RtlRcuAllocate(
-    _In_ ULONG Flags
-    );
-
-NTSYSAPI
-LOGICAL
-NTAPI
-RtlRcuFree(
-    _In_ PRTL_RCU_STATE State
+    _In_ ULONG Options
     );
 
 NTSYSAPI
 VOID
 NTAPI
+RtlRcuFree(
+    _In_ PRTL_RCU_STATE State
+    );
+
+// Note: ThreadData can be NULL when it falls back to SRW share-lock.
+NTSYSAPI
+VOID
+NTAPI
 RtlRcuReadLock(
     _Inout_ PRTL_RCU_STATE State,
-    _Out_ PRTL_RCU_COOKIE Cookie
+    _Outptr_result_maybenull_ PRTL_RCU_THREAD_ENTRY* ThreadData
     );
 
 NTSYSAPI
@@ -2286,11 +2229,11 @@ VOID
 NTAPI
 RtlRcuReadUnlock(
     _Inout_ PRTL_RCU_STATE State,
-    _Inout_ PRTL_RCU_COOKIE Cookie
+    _In_ PRTL_RCU_THREAD_ENTRY* ThreadData
     );
 
 NTSYSAPI
-LONG
+VOID
 NTAPI
 RtlRcuSynchronize(
     _Inout_ PRTL_RCU_STATE State
@@ -2402,7 +2345,9 @@ RtlBarrierForDelete(
  * \param Address The address on which to wait.
  * \param CompareAddress A pointer to the location of the previously observed value at Address.
  * \param AddressSize The size of the value, in bytes. This parameter can be 1, 2, 4, or 8.
- * \param Timeout The number of milliseconds to wait before the operation times out. If this parameter is NULL (INFINITE), the thread waits indefinitely.
+ * \param Timeout A pointer to the time-out value, in units of 100 nanoseconds. If this parameter is NULL, the thread waits indefinitely.
+ * - A negative value specifies an interval relative to the current time.
+ * - A positive value specifies an absolute time, measured in 100-nanosecond intervals since January 1, 1601 (UTC).
  * \remarks WaitOnAddress is guaranteed to return when the address is signaled, but it is also allowed to return for other reasons.
  * For this reason, the caller should compare the new value with the original undesired value to confirm that the value has actually changed.
  * \sa https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress
@@ -4235,8 +4180,7 @@ NTAPI
 RtlGetLocaleFileMappingAddress(
     _Out_ PVOID *BaseAddress,
     _Out_ PLCID DefaultLocaleId,
-    _Out_ PLARGE_INTEGER DefaultCasingTableSize,
-    _Out_opt_ PULONG CurrentNLSVersion
+    _Out_opt_ PLARGE_INTEGER DefaultCasingTableSize
     );
 
 //
@@ -4492,47 +4436,13 @@ typedef struct _RTL_DRIVE_LETTER_CURDIR
 #define RTL_USER_PROC_CREATE_NEW_CONSOLE ((HANDLE)(LONG_PTR)-2)
 #define RTL_USER_PROC_CREATE_NO_WINDOW ((HANDLE)(LONG_PTR)-3)
 
-typedef enum RTL_USER_PROC_FLAGS
-{
-    RTL_USER_PROC_PARAMS_NORMALIZED = 0x1,
-    RTL_USER_PROC_FLAG_INHERITED    = 0x100,
-    RTL_USER_PROC_SECURE_PROCESS    = 0x2000000,
-    RTL_USER_PROC_APPX_CONTEXT      = 0x8000000,
-    RTL_USER_PROC_PROTECTED_PROCESS = 0x80000000,
-} RTL_USER_PROC_FLAGS;
-
-typedef enum RTL_USER_DEBUG_FLAGS
-{
-    RTL_USER_PROC_DEBUG_PROCESS = 0x1,
-    RTL_USER_PROC_DEBUG_ONLY_THIS_PROCESS = 0x2,
-} RTL_USER_DEBUG_FLAGS;
-
-typedef enum _RTL_USER_PROC_CONSOLE_FLAGS
-{
-    RTL_USER_PROC_CONSOLE_FLAG_IGNORE_CTRL_C  = 0x1, // Ignore Ctrl+C events — skip handler dispatch
-    RTL_USER_PROC_CONSOLE_FLAG_SANITIZE_STDIO = 0x2, // Sanitize/validate inherited standard I/O handles at startup
-    RTL_USER_PROC_CONSOLE_FLAG_CLOSE_STDIO    = 0x4, // Close inherited stdin/stdout/stderr before connecting
-} RTL_USER_PROC_CONSOLE_FLAGS;
-
-typedef enum _RTL_USER_PROC_WINDOW_FLAGS
-{
-    RTL_USER_PROC_WINDOW_FLAG_USESHOWWINDOW       = 0x001, // STARTF_USESHOWWINDOW 
-    RTL_USER_PROC_WINDOW_FLAG_USESIZE             = 0x002, // STARTF_USESIZE
-    RTL_USER_PROC_WINDOW_FLAG_USEPOSITION         = 0x004, // STARTF_USEPOSITION
-    RTL_USER_PROC_WINDOW_FLAG_USECOUNTCHARS       = 0x008, // STARTF_USECOUNTCHARS
-    RTL_USER_PROC_WINDOW_FLAG_USEFILLATTRIBUTE    = 0x010, // STARTF_USEFILLATTRIBUTE
-    RTL_USER_PROC_WINDOW_FLAG_USESTDHANDLES       = 0x100, // STARTF_USESTDHANDLES
-    RTL_USER_PROC_WINDOW_FLAG_HASSHELLDATA_STDIN  = 0x200, // STARTF_HASSHELLDATA_STDIN
-    RTL_USER_PROC_WINDOW_FLAG_HASSHELLDATA_STDOUT = 0x400, // STARTF_HASSHELLDATA_STDOUT
-} _RTL_USER_PROC_WINDOW_FLAGS;
-
 typedef struct _RTL_USER_PROCESS_PARAMETERS
 {
     ULONG MaximumLength;
     ULONG Length;
 
     ULONG Flags; // RTL_USER_PROC_FLAGS
-    ULONG DebugFlags;
+    ULONG DebugFlags; // RTL_USER_DEBUG_FLAGS
 
     HANDLE ConsoleHandle;
     ULONG ConsoleFlags; // RTL_USER_PROC_CONSOLE_FLAGS
@@ -6101,6 +6011,46 @@ RtlIsZeroMemory(
     _In_ SIZE_T Length
     );
 #endif // PHNT_VERSION >= PHNT_WINDOWS_10_19H2
+
+FORCEINLINE
+BOOLEAN 
+NTAPI 
+RtlIsZeroMemory(
+    _In_ PVOID Buffer,
+    _In_ SIZE_T Length
+    )
+{
+    PCHAR buffer = (PCHAR)Buffer;
+
+    while (((ULONG_PTR)buffer & 7) != 0 && Length != 0)
+    {
+        if (*buffer != 0)
+            return FALSE;
+
+        buffer++;
+        Length--;
+    }
+
+    while (Length >= sizeof(ULONG64))
+    {
+        if (*(PULONG64)buffer != 0)
+            return FALSE;
+
+        buffer += sizeof(ULONG64);
+        Length -= sizeof(ULONG64);
+    }
+
+    while (Length != 0)
+    {
+        if (*buffer != 0)
+            return FALSE;
+
+        buffer++;
+        Length--;
+    }
+
+    return TRUE;
+}
 
 NTSYSAPI
 ULONG
@@ -8204,7 +8154,7 @@ typedef struct _RTL_DEBUG_INFORMATION
     ULONG_PTR ViewBaseDelta;                            // Offset between client and target view bases
     HANDLE EventPairClient;                             // Event pair for synchronization (client)
     HANDLE EventPairTarget;                             // Event pair for synchronization (target)
-    HANDLE TargetProcessId;                             // Target process ID or current process if RTL_QUERY_PROCESS_USE_CURRENT_PROCESS set)
+    HANDLE TargetProcessId;                             // Target process ID or current process (if RTL_QUERY_PROCESS_USE_CURRENT_PROCESS set)
     HANDLE TargetThreadHandle;                          // Target thread handle
     ULONG Flags;                                        // Query flags (RTL_QUERY_PROCESS_* flags)
     SIZE_T OffsetFree;                                  // Offset of free space in debug buffer
@@ -9191,8 +9141,8 @@ RtlTimeFieldsToTime(
     _Out_ PLARGE_INTEGER Time
     );
 
-#define SecondsToStartOf1980 11960006400
-#define SecondsToStartOf1970 11644473600
+#define SecondsToStartOf1980 LONGLONG_C(11960006400)
+#define SecondsToStartOf1970 LONGLONG_C(11644473600)
 
 NTSYSAPI
 BOOLEAN
@@ -9387,6 +9337,28 @@ typedef struct _RTL_BITMAP
     PULONG Buffer;
 } RTL_BITMAP, *PRTL_BITMAP;
 
+/**
+ * The RtlInitializeBitMap routine initializes the header of a bitmap variable.
+ *
+ * \param BitMapHeader Pointer to an empty RTL_BITMAP structure.
+ * \param BitMapBuffer Pointer to caller-allocated memory for the bitmap itself. The base address of this buffer must be ULONG-aligned. The size of the allocated buffer must be an integer multiple of sizeof(ULONG) bytes.
+ * \param SizeOfBitMap Specifies the number of bits in the bitmap. This value can be any number of bits that will fit in the buffer allocated for the bitmap.
+ * \remarks RtlInitializeBitMap must be called before any other RtlXxx routine that operates on a bitmap variable. The BitMapHeader pointer is an input parameter in all subsequent RtlXxx calls that operate on the caller's bitmap variable at BitMapBuffer. The caller is responsible for synchronizing access to the bitmap variable.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlinitializebitmap
+ */
+#ifndef PHNT_NO_INLINE_RTL_BITMAP
+FORCEINLINE
+VOID
+RtlInitializeBitMap(
+    _Out_ PRTL_BITMAP BitMapHeader,
+    _In_ PULONG BitMapBuffer,
+    _In_ ULONG SizeOfBitMap
+    )
+{
+    BitMapHeader->SizeOfBitMap = SizeOfBitMap;
+    BitMapHeader->Buffer = BitMapBuffer;
+}
+#else
 NTSYSAPI
 VOID
 NTAPI
@@ -9395,7 +9367,15 @@ RtlInitializeBitMap(
     _In_ PULONG BitMapBuffer,
     _In_ ULONG SizeOfBitMap
     );
+#endif
 
+/**
+ * The RtlClearBit routine sets the specified bit in a bitmap to zero.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param BitNumber Specifies the zero-based index of the bit within the bitmap. The routine sets this bit to zero.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlclearbit
+ */
 #if (PHNT_MODE == PHNT_MODE_KERNEL || PHNT_VERSION >= PHNT_WINDOWS_8)
 NTSYSAPI
 VOID
@@ -9406,7 +9386,25 @@ RtlClearBit(
     );
 #endif // PHNT_MODE == PHNT_MODE_KERNEL || PHNT_VERSION >= PHNT_WINDOWS_8
 
+/**
+ * The RtlSetBit routine sets the specified bit in a bitmap to one.
+ *
+ * \param BitMapHeader Pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param BitNumber Specifies the zero-based index of the bit within the bitmap. The routine sets this bit to one.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlsetbit
+ */
 #if (PHNT_MODE == PHNT_MODE_KERNEL || PHNT_VERSION >= PHNT_WINDOWS_8)
+#ifndef PHNT_NO_INLINE_RTL_BITMAP
+FORCEINLINE
+VOID
+RtlSetBit(
+    _In_ PRTL_BITMAP BitMapHeader,
+    _In_range_(<, BitMapHeader->SizeOfBitMap) ULONG BitNumber
+    )
+{
+    ((PUCHAR)BitMapHeader->Buffer)[BitNumber >> 3] |= (UCHAR)(1u << (BitNumber & 7));
+}
+#else
 NTSYSAPI
 VOID
 NTAPI
@@ -9414,8 +9412,28 @@ RtlSetBit(
     _In_ PRTL_BITMAP BitMapHeader,
     _In_range_(<, BitMapHeader->SizeOfBitMap) ULONG BitNumber
     );
+#endif
 #endif // PHNT_MODE == PHNT_MODE_KERNEL || PHNT_VERSION >= PHNT_WINDOWS_8
 
+/**
+ * The RtlTestBit routine returns the value of a bit in a bitmap.
+ *
+ * \param BitMapHeader Pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param BitNumber Specifies the zero-based index of the bit within the bitmap. The routine returns the value of this bit.
+ * \return RtlTestBit returns the value of the bit that the BitNumber parameter points to.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtltestbit
+ */
+#ifndef PHNT_NO_INLINE_RTL_BITMAP
+FORCEINLINE
+BOOLEAN
+RtlTestBit(
+    _In_ PRTL_BITMAP BitMapHeader,
+    _In_ ULONG BitNumber
+    )
+{
+    return (BOOLEAN)((((const UCHAR*)BitMapHeader->Buffer)[BitNumber >> 3] >> (BitNumber & 7)) & 0x1);
+}
+#else
 _Check_return_
 NTSYSAPI
 BOOLEAN
@@ -9424,7 +9442,14 @@ RtlTestBit(
     _In_ PRTL_BITMAP BitMapHeader,
     _In_range_(<, BitMapHeader->SizeOfBitMap) ULONG BitNumber
     );
+#endif
 
+/**
+ * The RtlClearAllBits routine sets all bits in a given bitmap variable to zero.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlclearallbits
+ */
 NTSYSAPI
 VOID
 NTAPI
@@ -9432,6 +9457,12 @@ RtlClearAllBits(
     _In_ PRTL_BITMAP BitMapHeader
     );
 
+/**
+ * The RtlSetAllBits routine sets all bits in a given bitmap variable to one.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlsetallbits
+ */
 NTSYSAPI
 VOID
 NTAPI
@@ -9439,6 +9470,15 @@ RtlSetAllBits(
     _In_ PRTL_BITMAP BitMapHeader
     );
 
+/**
+ * The RtlFindClearBits routine searches for a range of clear bits of a requested size within a bitmap.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param NumberToFind Specifies how many contiguous clear bits will satisfy this request.
+ * \param HintIndex Specifies a zero-based bit position from which to start looking for a clear bit range of the given size.
+ * \return RtlFindClearBits either returns the zero-based starting bit index for a clear bit range of at least the requested size, or it returns 0xFFFFFFFF if it cannot find such a range within the given bitmap.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindclearbits
+ */
 _Success_(return != -1)
 _Check_return_
 NTSYSAPI
@@ -9450,6 +9490,15 @@ RtlFindClearBits(
     _In_ ULONG HintIndex
     );
 
+/**
+ * The RtlFindSetBits routine searches for a range of set bits of a requested size within a bitmap.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param NumberToFind Specifies how many contiguous set bits will satisfy this request.
+ * \param HintIndex Specifies a zero-based bit position around which to start looking for a set bit range of the given size.
+ * \return RtlFindSetBits either returns the zero-based starting bit index for a set bit range of the requested size, or it returns 0xFFFFFFFF if it cannot find such a range within the given bitmap variable.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindsetbits
+ */
 _Success_(return != -1)
 _Check_return_
 NTSYSAPI
@@ -9461,6 +9510,15 @@ RtlFindSetBits(
     _In_ ULONG HintIndex
     );
 
+/**
+ * The RtlFindClearBitsAndSet routine searches for a range of clear bits of a requested size within a bitmap and sets all bits in the range when it has been located.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param NumberToFind Specifies how many contiguous clear bits will satisfy this request.
+ * \param HintIndex Specifies a zero-based bit position from which to start looking for a clear bit range of the given size.
+ * \return RtlFindClearBitsAndSet either returns the zero-based starting bit index for a clear bit range of the requested size that it set, or it returns 0xFFFFFFFF if it cannot find such a range within the given bitmap variable.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindclearbitsandset
+ */
 _Success_(return != -1)
 NTSYSAPI
 ULONG
@@ -9471,6 +9529,15 @@ RtlFindClearBitsAndSet(
     _In_ ULONG HintIndex
     );
 
+/**
+ * The RtlFindSetBitsAndClear routine searches for a range of set bits of a requested size within a bitmap and clears all bits in the range when it has been located.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param NumberToFind Specifies how many contiguous set bits will satisfy this request.
+ * \param HintIndex Specifies a zero-based bit position around which to start looking for a set bit range of the given size.
+ * \return RtlFindSetBitsAndClear either returns the zero-based starting bit index for a set bit range of the requested size that it cleared, or it returns 0xFFFFFFFF if it cannot find such a range within the given bitmap variable.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindsetbitsandclear
+ */
 _Success_(return != -1)
 NTSYSAPI
 ULONG
@@ -9481,6 +9548,15 @@ RtlFindSetBitsAndClear(
     _In_ ULONG HintIndex
     );
 
+/**
+ * The RtlClearBits routine sets all bits in the specified range of bits in the bitmap to zero.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param StartingIndex The index of the first bit in the bit range that is to be cleared. If the bitmap contains N bits, the bits are numbered from 0 to N-1.
+ * \param NumberToClear Specifies how many bits to clear. If the bitmap contains N bits, this parameter can be a value in the range 1 to (N - StartingIndex).
+ * \remarks If the NumberToClear parameter is zero, RtlClearBits simply returns control without clearing any bits. The sum (StartingIndex + NumberToClear) must not exceed the SizeOfBitMap parameter value specified in the RtlInitializeBitMap call that initialized the bitmap.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlclearbits
+ */
 NTSYSAPI
 VOID
 NTAPI
@@ -9490,6 +9566,15 @@ RtlClearBits(
     _In_range_(0, BitMapHeader->SizeOfBitMap - StartingIndex) ULONG NumberToClear
     );
 
+/**
+ * The RtlSetBits routine sets all bits in a given range of a given bitmap variable.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param StartingIndex Specifies the start of the bit range to be set. This is a zero-based value indicating the position of the first bit in the range.
+ * \param NumberToSet Specifies how many bits to set.
+ * \remarks RtlSetBits simply returns control if the input NumberToSet is zero. StartingIndex plus NumberToSet must be less than or equal to BitMapHeader->SizeOfBitMap.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlsetbits
+ */
 NTSYSAPI
 VOID
 NTAPI
@@ -9499,6 +9584,13 @@ RtlSetBits(
     _In_range_(0, BitMapHeader->SizeOfBitMap - StartingIndex) ULONG NumberToSet
     );
 
+/**
+ * The RtlFindMostSignificantBit routine returns the zero-based position of the most significant nonzero bit in its parameter.
+ *
+ * \param Set The 64-bit value to be searched for its most significant nonzero bit.
+ * \return The zero-based bit position of the most significant nonzero bit, or -1 if every bit is zero.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindmostsignificantbit
+ */
 NTSYSAPI
 CCHAR
 NTAPI
@@ -9506,6 +9598,13 @@ RtlFindMostSignificantBit(
     _In_ ULONGLONG Set
     );
 
+/**
+ * The RtlFindLeastSignificantBit routine returns the zero-based position of the least significant nonzero bit in its parameter.
+ *
+ * \param Set The 64-bit value to be searched for its least significant nonzero bit.
+ * \return The zero-based bit position of the least significant nonzero bit, or -1 if every bit is zero.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindleastsignificantbit
+ */
 NTSYSAPI
 CCHAR
 NTAPI
@@ -9519,6 +9618,17 @@ typedef struct _RTL_BITMAP_RUN
     ULONG NumberOfBits;
 } RTL_BITMAP_RUN, *PRTL_BITMAP_RUN;
 
+/**
+ * The RtlFindClearRuns routine finds the specified number of runs of clear bits within a given bitmap.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param RunArray Pointer to the first element in a caller-allocated array for the bit position and length of each clear run found in the given bitmap variable.
+ * \param SizeOfRunArray Specifies the maximum number of clear runs to satisfy this request.
+ * \param LocateLongestRuns If TRUE, specifies that the routine is to search the entire bitmap for the longest clear runs it can find. Otherwise, the routine stops searching when it has found the number of clear runs specified by SizeOfRunArray.
+ * \return RtlFindClearRuns returns the number of clear runs found.
+ * \remarks If LocateLongestRuns is TRUE, the clear runs indicated at RunArray are sorted from longest to shortest. A clear run can consist of a single bit.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindclearruns
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -9529,6 +9639,15 @@ RtlFindClearRuns(
     _In_ BOOLEAN LocateLongestRuns
     );
 
+/**
+ * The RtlFindLongestRunClear routine searches for the largest contiguous range of clear bits within a given bitmap.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param StartingIndex Pointer to a variable in which the starting index of the longest clear run in the bitmap is returned. This is a zero-based value indicating the bit position of the first clear bit in the returned range.
+ * \return RtlFindLongestRunClear returns either the number of bits in the run beginning at StartingIndex, or zero if it cannot find a run of clear bits within the bitmap.
+ * \remarks A returned run can have a single clear bit.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindlongestrunclear
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -9537,6 +9656,14 @@ RtlFindLongestRunClear(
     _Out_ PULONG StartingIndex
     );
 
+/**
+ * The RtlFindFirstRunClear routine searches for the initial contiguous range of clear bits within a given bitmap.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param StartingIndex Pointer to a variable in which the starting index of the first clear run in the bitmap is returned. This is a zero-based value indicating the bit position of the first clear bit in the returned range.
+ * \return RtlFindFirstRunClear returns either the number of bits in the run beginning at StartingIndex, or zero if it cannot find a run of clear bits within the bitmap.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindfirstrunclear
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -9545,6 +9672,14 @@ RtlFindFirstRunClear(
     _Out_ PULONG StartingIndex
     );
 
+/**
+ * The RtlCheckBit routine determines whether a particular bit in a given bitmap variable is clear or set.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param BitPosition Specifies which bit to check. This is a zero-based value indicating the position of the bit to be tested.
+ * \return RtlCheckBit returns zero if the given bit is clear, or one if the given bit is set.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlcheckbit
+ */
 _Check_return_
 FORCEINLINE
 BOOLEAN
@@ -9561,6 +9696,14 @@ RtlCheckBit(
 #endif // _WIN64
 }
 
+/**
+ * The RtlNumberOfClearBits routine returns a count of the clear bits in a given bitmap variable.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \return RtlNumberOfClearBits returns the number of bits that are currently clear.
+ * \remarks Callers of RtlNumberOfClearBits must be running at IRQL <= APC_LEVEL if the memory that contains the bitmap variable is pageable or the memory at BitMapHeader is pageable. Otherwise, RtlNumberOfClearBits can be called at any IRQL.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlnumberofclearbits
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -9568,6 +9711,14 @@ RtlNumberOfClearBits(
     _In_ PRTL_BITMAP BitMapHeader
     );
 
+/**
+ * The RtlNumberOfSetBits routine returns a count of the set bits in a given bitmap variable.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \return RtlNumberOfSetBits returns a count of the bits that are currently set.
+ * \remarks Callers of RtlNumberOfSetBits must be running at IRQL <= APC_LEVEL if the memory that contains the bitmap variable is pageable or the memory at BitMapHeader is pageable. Otherwise, RtlNumberOfSetBits can be called at any IRQL.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlnumberofsetbits
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -9575,6 +9726,16 @@ RtlNumberOfSetBits(
     _In_ PRTL_BITMAP BitMapHeader
     );
 
+/**
+ * The RtlAreBitsClear routine determines whether a given range of bits within a bitmap variable is clear.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param StartingIndex Specifies the start of the bit range to be examined. This is a zero-based value indicating the position of the first bit in the range.
+ * \param Length Specifies how many bits to check.
+ * \return RtlAreBitsClear returns TRUE if Length contiguous bits starting at StartingIndex are clear (that is, all the bits from StartingIndex to (StartingIndex + Length) -1). It returns FALSE if any bit in the given range is set, if the given range is not a proper subset of the bitmap, or if Length is zero.
+ * \remarks Callers of RtlAreBitsClear must be running at IRQL <= APC_LEVEL if the memory that contains the bitmap variable is pageable or the memory at BitMapHeader is pageable. Otherwise, RtlAreBitsClear can be called at any IRQL.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlarebitsclear
+ */
 _Check_return_
 NTSYSAPI
 BOOLEAN
@@ -9585,6 +9746,16 @@ RtlAreBitsClear(
     _In_ ULONG Length
     );
 
+/**
+ * The RtlAreBitsSet routine determines whether a given range of bits within a bitmap variable is set.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param StartingIndex Specifies the start of the bit range to be tested. This is a zero-based value indicating the position of the first bit in the range.
+ * \param Length Specifies how many bits to test.
+ * \return RtlAreBitsSet returns TRUE if Length consecutive bits beginning at StartingIndex are set (that is, all the bits from StartingIndex to (StartingIndex + Length)). It returns FALSE if any bit in the given range is clear, if the given range is not a proper subset of the bitmap, or if the given Length is zero.
+ * \remarks Callers of RtlAreBitsSet must be running at IRQL <= APC_LEVEL if the memory that contains the bitmap variable is pageable or the memory at BitMapHeader is pageable. Otherwise, RtlAreBitsSet can be called at any IRQL.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlarebitsset
+ */
 _Check_return_
 NTSYSAPI
 BOOLEAN
@@ -9595,6 +9766,16 @@ RtlAreBitsSet(
     _In_ ULONG Length
     );
 
+/**
+ * The RtlFindNextForwardRunClear routine searches a given bitmap variable for the next clear run of bits, starting from the specified index position.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param FromIndex Specifies a zero-based bit position at which to start looking for a clear run of bits.
+ * \param StartingRunIndex Pointer to a variable in which the starting index of the clear run found in the bitmap is returned. This is a zero-based value indicating the bit position of the first clear bit in the run. Its value is meaningless if RtlFindNextForwardRunClear cannot find a run of clear bits.
+ * \return RtlFindNextForwardRunClear returns either the number of bits in the run beginning at StartingRunIndex, or zero if it cannot find a run of clear bits following FromIndex in the bitmap.
+ * \remarks Callers of RtlFindNextForwardRunClear must be running at IRQL <= APC_LEVEL if the memory that contains the bitmap variable is pageable or the memory at BitMapHeader is pageable. Otherwise, RtlFindNextForwardRunClear can be called at any IRQL.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindnextforwardrunclear
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -9604,6 +9785,16 @@ RtlFindNextForwardRunClear(
     _Out_ PULONG StartingRunIndex
     );
 
+/**
+ * The RtlFindLastBackwardRunClear routine searches a given bitmap for the preceding clear run of bits, starting from the specified index position.
+ *
+ * \param BitMapHeader A pointer to the RTL_BITMAP structure that describes the bitmap. This structure must have been initialized by the RtlInitializeBitMap routine.
+ * \param FromIndex Specifies a zero-based bit position at which to start looking for a clear run of bits.
+ * \param StartingRunIndex Pointer to a variable in which the starting index of the clear run found in the bitmap is returned. This is a zero-based value indicating the bit position of the first clear bit in the run preceding the given FromIndex. Its value is meaningless if RtlFindLastBackwardRunClear cannot find a run of clear bits.
+ * \return RtlFindLastBackwardRunClear returns the number of bits in the run beginning at StartingRunIndex, or zero if it cannot find a run of clear bits preceding FromIndex in the bitmap.
+ * \remarks Callers of RtlFindLastBackwardRunClear must be running at IRQL <= APC_LEVEL if the memory that contains the bitmap variable is pageable or the memory at BitMapHeader is pageable. Otherwise, RtlFindLastBackwardRunClear can be called at any IRQL.
+ * \sa https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlfindlastbackwardrunclear
+ */
 NTSYSAPI
 ULONG
 NTAPI
@@ -11568,6 +11759,22 @@ typedef WAIT_CALLBACK_ROUTINE* PWAIT_CALLBACK_ROUTINE;
 #define WT_EXECUTEINPERSISTENTTHREAD    0x00000080
 #define WT_TRANSFER_IMPERSONATION       0x00000100
 
+/**
+ * Directs a wait thread in the thread pool to wait on the object.
+ *
+ * \param WaitHandle A pointer to a variable that receives a wait handle on return.
+ * Note that a wait handle cannot be used in functions that require an object handle.
+ * \param Handle A handle to the object. If this handle is closed while the wait is
+ * still pending, the function's behavior is undefined. The handle must have SYNCHRONIZE access.
+ * \param Function Optional completion event for wait callback completion.
+ * \param Context Optional value that is passed to the callback function.
+ * \param Milliseconds The time-out interval, in milliseconds.
+ * \param Flags Flags that control the behavior of the wait handle.
+ * \return NTSTATUS Successful or errant status.
+ * \remarks The wait thread queues the specified callback function to the thread pool
+ * when the specified object is in the signaled state or the time-out interval elapses.
+ * \sa https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-registerwaitforsingleobject
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -11580,6 +11787,13 @@ RtlRegisterWait(
     _In_ ULONG Flags
     );
 
+/**
+ * Cancels a registered wait operation issued by the RtlRegisterWait function.
+ *
+ * \param WaitHandle The wait handle
+ * \return NTSTATUS Successful or errant status.
+ * \sa https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-unregisterwait
+ */
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -11587,17 +11801,22 @@ RtlDeregisterWait(
     _In_ HANDLE WaitHandle
     );
 
+//
+// RtlDeregisterWaitEx waits for all callback functions to complete before returning
+// when the RTL_WAITER_DEREGISTER_WAIT_FOR_COMPLETION flag is passed to CompletionEvent.
+//
 #define RTL_WAITER_DEREGISTER_WAIT_FOR_COMPLETION ((HANDLE)(LONG_PTR)-1)
 
 /**
  * Releases all resources used by a wait object.
  *
- * \param WaitHandle The access mask that specifies the granted access rights.
- * \param CompletionEvent Optional completion event for wait callback completion.
- * \remarks RTL_WAITER_DEREGISTER_WAIT_FOR_COMPLETION: blocking wait for wait callback completion.
- * NULL: non-blocking wait for wait callback completion.
- * EventHandle: caller wait for wait callback completion.
+ * \param WaitHandle The wait handle.
+ * \param CompletionEvent A handle to the event object to be signaled when the wait operation
+ * has been unregistered. This parameter can be NULL.
+ * \remarks If this parameter is RTL_WAITER_DEREGISTER_WAIT_FOR_COMPLETION, the function waits
+ * for all callback functions to complete before returning.
  * \return NTSTATUS Successful or errant status.
+ * \sa https://learn.microsoft.com/en-us/windows/win32/sync/unregisterwaitex
  */
 NTSYSAPI
 NTSTATUS
@@ -12675,7 +12894,7 @@ NTAPI
 RtlAddActionToRXact(
     _Inout_ PRTL_RXACT_CONTEXT RxactContext,
     _In_ ULONG ActionType,
-    _In_ const UNICODE_STRING *Name,
+    _In_ PCUNICODE_STRING Name,
     _In_ ULONG Operation,
     _In_reads_bytes_opt_(DataSize) const VOID *Data,
     _In_ SIZE_T DataSize
@@ -12688,9 +12907,9 @@ NTAPI
 RtlAddAttributeActionToRXact(
     _Inout_ PRTL_RXACT_CONTEXT RxactContext,
     _In_ ULONG ActionType,
-    _In_ const UNICODE_STRING *KeyName,
+    _In_ PCUNICODE_STRING KeyName,
     _In_ LONGLONG AttributeIndex,
-    _In_ const UNICODE_STRING *ValueName,
+    _In_ PCUNICODE_STRING ValueName,
     _In_ ULONG ValueType,
     _In_reads_bytes_opt_(DataSize) const VOID *Data,
     _In_ SIZE_T DataSize
@@ -13722,6 +13941,58 @@ RtlQueryElevationFlags(
     );
 
 // private
+typedef enum _CSR_SUBSYSTEM_ID
+{
+    CsrSubsystemIdUnknown = 0,
+    CsrSubsystemIdWindows = 1,
+    CsrSubsystemIdPosix = 2,
+    CsrSubsystemIdOs2 = 3
+} CSR_SUBSYSTEM_ID;
+
+// rev
+typedef struct _CSR_SUBSYSTEM_DATA_HEADER
+{
+    ULONG SubsystemId;
+    ULONG DataSize; // version/reserved or padding
+} CSR_SUBSYSTEM_DATA_HEADER, *PCSR_SUBSYSTEM_DATA_HEADER;
+
+// rev
+/**
+ * Retrieves a pointer to the server-side data for a specific subsystem.
+ *
+ * \param SubsystemId The ID of the subsystem (e.g., CsrSubsystemIdWindows).
+ * \return A pointer to the data block following the header, or NULL if not found.
+ */
+FORCEINLINE
+PVOID
+NTAPI
+RtlGetPerSubsystemServerData(
+    _In_ ULONG SubsystemId
+    )
+{
+
+    PVOID* StaticServerData;
+
+    StaticServerData = NtCurrentPeb()->ReadOnlyStaticServerData;
+
+    if (StaticServerData)
+    {
+        while (*StaticServerData)
+        {
+            PCSR_SUBSYSTEM_DATA_HEADER SubsystemData = (PCSR_SUBSYSTEM_DATA_HEADER)*StaticServerData;
+
+            if (SubsystemData->SubsystemId == SubsystemId)
+            {
+                return RTL_PTR_ADD(SubsystemData, sizeof(CSR_SUBSYSTEM_DATA_HEADER));
+            }
+
+            StaticServerData++;
+       }
+   }
+   return NULL;
+}
+
+// private
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -14025,24 +14296,24 @@ RtlQueryPerformanceFrequency(
 // rev
 typedef enum _IMAGE_MITIGATION_POLICY
 {
-    ImageDepPolicy, // RTL_IMAGE_MITIGATION_DEP_POLICY
-    ImageAslrPolicy, // RTL_IMAGE_MITIGATION_ASLR_POLICY
-    ImageDynamicCodePolicy, // RTL_IMAGE_MITIGATION_DYNAMIC_CODE_POLICY
-    ImageStrictHandleCheckPolicy, // RTL_IMAGE_MITIGATION_STRICT_HANDLE_CHECK_POLICY
-    ImageSystemCallDisablePolicy, // RTL_IMAGE_MITIGATION_SYSTEM_CALL_DISABLE_POLICY
+    ImageDepPolicy,                     // RTL_IMAGE_MITIGATION_DEP_POLICY
+    ImageAslrPolicy,                    // RTL_IMAGE_MITIGATION_ASLR_POLICY
+    ImageDynamicCodePolicy,             // RTL_IMAGE_MITIGATION_DYNAMIC_CODE_POLICY
+    ImageStrictHandleCheckPolicy,       // RTL_IMAGE_MITIGATION_STRICT_HANDLE_CHECK_POLICY
+    ImageSystemCallDisablePolicy,       // RTL_IMAGE_MITIGATION_SYSTEM_CALL_DISABLE_POLICY
     ImageMitigationOptionsMask,
-    ImageExtensionPointDisablePolicy, // RTL_IMAGE_MITIGATION_EXTENSION_POINT_DISABLE_POLICY
-    ImageControlFlowGuardPolicy, // RTL_IMAGE_MITIGATION_CONTROL_FLOW_GUARD_POLICY
-    ImageSignaturePolicy, // RTL_IMAGE_MITIGATION_BINARY_SIGNATURE_POLICY
-    ImageFontDisablePolicy, // RTL_IMAGE_MITIGATION_FONT_DISABLE_POLICY
-    ImageImageLoadPolicy, // RTL_IMAGE_MITIGATION_IMAGE_LOAD_POLICY
-    ImagePayloadRestrictionPolicy, // RTL_IMAGE_MITIGATION_PAYLOAD_RESTRICTION_POLICY
-    ImageChildProcessPolicy, // RTL_IMAGE_MITIGATION_CHILD_PROCESS_POLICY
-    ImageSehopPolicy, // RTL_IMAGE_MITIGATION_SEHOP_POLICY
-    ImageHeapPolicy, // RTL_IMAGE_MITIGATION_HEAP_POLICY
-    ImageUserShadowStackPolicy, // RTL_IMAGE_MITIGATION_USER_SHADOW_STACK_POLICY
-    ImageRedirectionTrustPolicy, // RTL_IMAGE_MITIGATION_REDIRECTION_TRUST_POLICY
-    ImageUserPointerAuthPolicy, // RTL_IMAGE_MITIGATION_USER_POINTER_AUTH_POLICY
+    ImageExtensionPointDisablePolicy,   // RTL_IMAGE_MITIGATION_EXTENSION_POINT_DISABLE_POLICY
+    ImageControlFlowGuardPolicy,        // RTL_IMAGE_MITIGATION_CONTROL_FLOW_GUARD_POLICY
+    ImageSignaturePolicy,               // RTL_IMAGE_MITIGATION_BINARY_SIGNATURE_POLICY
+    ImageFontDisablePolicy,             // RTL_IMAGE_MITIGATION_FONT_DISABLE_POLICY
+    ImageImageLoadPolicy,               // RTL_IMAGE_MITIGATION_IMAGE_LOAD_POLICY
+    ImagePayloadRestrictionPolicy,      // RTL_IMAGE_MITIGATION_PAYLOAD_RESTRICTION_POLICY
+    ImageChildProcessPolicy,            // RTL_IMAGE_MITIGATION_CHILD_PROCESS_POLICY
+    ImageSehopPolicy,                   // RTL_IMAGE_MITIGATION_SEHOP_POLICY
+    ImageHeapPolicy,                    // RTL_IMAGE_MITIGATION_HEAP_POLICY
+    ImageUserShadowStackPolicy,         // RTL_IMAGE_MITIGATION_USER_SHADOW_STACK_POLICY
+    ImageRedirectionTrustPolicy,        // RTL_IMAGE_MITIGATION_REDIRECTION_TRUST_POLICY
+    ImageUserPointerAuthPolicy,         // RTL_IMAGE_MITIGATION_USER_POINTER_AUTH_POLICY
     MaxImageMitigationPolicy
 } IMAGE_MITIGATION_POLICY;
 
@@ -14055,14 +14326,14 @@ typedef union _RTL_IMAGE_MITIGATION_POLICY
         ULONG64 AuditFlag : 1;
         ULONG64 EnableAdditionalAuditingOption : 1;
         ULONG64 Reserved : 60;
-    };
+    } DUMMYSTRUCTNAME;
     struct
     {
         ULONG64 PolicyState : 2;
         ULONG64 AlwaysInherit : 1;
         ULONG64 EnableAdditionalPolicyOption : 1;
         ULONG64 AuditReserved : 60;
-    };
+    } DUMMYSTRUCTNAME2;
 } RTL_IMAGE_MITIGATION_POLICY, *PRTL_IMAGE_MITIGATION_POLICY;
 
 // rev
@@ -15235,6 +15506,10 @@ typedef enum _RTL_FEATURE_CONFIGURATION_OPERATION
     FeatureConfigurationOperationResetState   = 4
 } RTL_FEATURE_CONFIGURATION_OPERATION, *PRTL_FEATURE_CONFIGURATION_OPERATION;
 
+#define RTL_FEATURE_VARIANT_MASK              0x000000FF
+#define RTL_FEATURE_CHANGE_TIME_UPGRADE       0x00000100
+#define RTL_FEATURE_HAS_GROUP_BYPASS          0x00000200
+
 // private
 typedef struct _RTL_FEATURE_CONFIGURATION_UPDATE
 {
@@ -15248,15 +15523,21 @@ typedef struct _RTL_FEATURE_CONFIGURATION_UPDATE
         ULONG VariantFlags;
         struct
         {
-            ULONG Variant : 8;
+            UCHAR Variant;
+            UCHAR Flags;
+            USHORT ReservedFlags;
+        } DUMMYSTRUCTNAME;
+        struct
+        {
+            ULONG Variant_ : 8;
             ULONG ChangeTimeUpgrade : 1;
             ULONG HasGroupBypass : 1;
-            ULONG ReservedFlags : 22;
-        } DUMMYSTRUCTNAME;
+            ULONG Reserved_ : 22;
+        } DUMMYSTRUCTNAME2;
     } DUMMYUNIONNAME;
 
-    UCHAR Reserved[3];
     RTL_FEATURE_VARIANT_PAYLOAD_KIND VariantPayloadKind;
+    UCHAR Reserved[3];
     RTL_FEATURE_VARIANT_PAYLOAD VariantPayload;
     RTL_FEATURE_CONFIGURATION_OPERATION Operation;
 } RTL_FEATURE_CONFIGURATION_UPDATE, *PRTL_FEATURE_CONFIGURATION_UPDATE;
@@ -15357,7 +15638,7 @@ typedef struct _SYSTEM_FEATURE_CONFIGURATION_UPDATE
             SIZE_T BufferSize;
             PVOID Buffer;
         } Overwrite;
-    };
+    } UNION;
 } SYSTEM_FEATURE_CONFIGURATION_UPDATE, *PSYSTEM_FEATURE_CONFIGURATION_UPDATE;
 
 // private

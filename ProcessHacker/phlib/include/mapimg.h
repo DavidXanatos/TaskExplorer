@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *     jx-s    2023
  *
  */
@@ -69,6 +69,22 @@ PhMappedImageProbe(
     )
 {
     PhProbeAddress(Address, Length, MappedImage->ViewBase, MappedImage->ViewSize, __alignof(UCHAR));
+}
+
+FORCEINLINE
+VOID
+NTAPI
+PhMappedImageProbeUnaligned(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ VOID UNALIGNED* Address,
+    _In_ SIZE_T Length
+    )
+{
+    // Note: __unaligned only changes codegen where the pointer is dereferenced.
+    // Neither helper ever reads *Address (only (ULONG_PTR) arithmetic + IS_ALIGNED),
+    // so the new functions are inert on every target purely a type-level
+    // accommodation for improved diagnostics.
+    PhMappedImageProbe(MappedImage, (PVOID)Address, Length);
 }
 
 PHLIBAPI
@@ -151,7 +167,7 @@ PhMapViewOfEntireFileEx(
     );
 
 PHLIBAPI
-VOID
+NTSTATUS
 NTAPI
 PhMappedImagePrefetch(
     _In_ PPH_MAPPED_IMAGE MappedImage
@@ -167,30 +183,30 @@ PhMappedImageSectionByName(
     );
 
 PHLIBAPI
-PIMAGE_SECTION_HEADER
+NTSTATUS
 NTAPI
 PhMappedImageRvaToSection(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ ULONG Rva
+    _In_ ULONG_PTR Rva,
+    _Out_ PIMAGE_SECTION_HEADER *Section
     );
 
-_Success_(return != NULL)
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhMappedImageRvaToVa(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ ULONG Rva,
-    _Out_opt_ PIMAGE_SECTION_HEADER *Section
+    _In_ ULONG_PTR Rva,
+    _Out_ PVOID *Va
     );
 
-_Success_(return != NULL)
 PHLIBAPI
-PVOID
+NTSTATUS
 NTAPI
 PhMappedImageVaToVa(
     _In_ PPH_MAPPED_IMAGE MappedImage,
-    _In_ ULONGLONG Va,
+    _In_ ULONG_PTR Va,
+    _Out_ PVOID *MappedVa,
     _Out_opt_ PIMAGE_SECTION_HEADER* Section
     );
 
@@ -608,7 +624,7 @@ typedef struct _PH_IMAGE_RESOURCE_ENTRY
     ULONG Offset;
     ULONG Size;
     ULONG CodePage;
-    //PVOID Data; // PhMappedImageRvaToVa(MappedImage, resourceData->OffsetToData, NULL);
+    //PVOID Data; // PhMappedImageRvaToVa(MappedImage, resourceData->OffsetToData, &Data);
 } PH_IMAGE_RESOURCE_ENTRY, *PPH_IMAGE_RESOURCE_ENTRY;
 
 typedef struct _PH_MAPPED_IMAGE_RESOURCES
@@ -632,6 +648,18 @@ PHLIBAPI
 NTSTATUS
 NTAPI
 PhGetMappedImageResource(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _In_ PCWSTR Name,
+    _In_ PCWSTR Type,
+    _In_opt_ USHORT Language,
+    _Out_opt_ PULONG ResourceLength,
+    _Out_opt_ PVOID* ResourceBuffer
+    );
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageResourceBinarySearch(
     _In_ PPH_MAPPED_IMAGE MappedImage,
     _In_ PCWSTR Name,
     _In_ PCWSTR Type,
@@ -986,6 +1014,38 @@ PhFreeMappedImageRelocations(
     _In_opt_ PPH_MAPPED_IMAGE_RELOC Relocations
     );
 
+typedef struct _PH_IMAGE_SECURITY_ENTRY
+{
+    USHORT Revision;          // WIN_CERTIFICATE.wRevision
+    USHORT CertificateType;   // WIN_CERTIFICATE.wCertificateType (WIN_CERT_TYPE_*)
+    ULONG CertificateLength;  // payload length = dwLength - UFIELD_OFFSET(WIN_CERTIFICATE, bCertificate)
+    PBYTE Certificate;        // pointer into the mapped view (bCertificate); zero-copy
+} PH_IMAGE_SECURITY_ENTRY, *PPH_IMAGE_SECURITY_ENTRY;
+
+typedef struct _PH_MAPPED_IMAGE_SECURITY
+{
+    PPH_MAPPED_IMAGE MappedImage;
+    PIMAGE_DATA_DIRECTORY DataDirectory;
+
+    ULONG NumberOfEntries;
+    PPH_IMAGE_SECURITY_ENTRY Entries;
+} PH_MAPPED_IMAGE_SECURITY, *PPH_MAPPED_IMAGE_SECURITY;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageSecurity(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_SECURITY Security
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhFreeMappedImageSecurity(
+    _In_opt_ PPH_MAPPED_IMAGE_SECURITY Security
+    );
+
 typedef struct _PH_IMAGE_DYNAMIC_RELOC_ENTRY
 {
     ULONGLONG Symbol;
@@ -1028,6 +1088,8 @@ typedef struct _PH_IMAGE_DYNAMIC_RELOC_ENTRY
             ULONG BDDOffset;
             PULONG Rvas;
             ULONG RvasCount;
+            PVOID BDDRegion;
+            ULONG BDDRegionSize;
         } FuncOverride;
 
         // IMAGE_DYNAMIC_RELOCATION_ARM64X
@@ -1161,6 +1223,78 @@ PhFreeMappedImageDynamicRelocations(
     _In_opt_ PPH_MAPPED_IMAGE_DYNAMIC_RELOC Relocations
     );
 
+typedef enum _PH_FUNCTION_OVERRIDE_OUTCOME_TYPE
+{
+    PhFunctionOverrideKeepOriginal = 0,
+    PhFunctionOverrideReplace = 1,
+    PhFunctionOverrideInvalid = 2,
+} PH_FUNCTION_OVERRIDE_OUTCOME_TYPE;
+
+typedef struct _PH_FUNCTION_OVERRIDE_OUTCOME
+{
+    PH_FUNCTION_OVERRIDE_OUTCOME_TYPE Type;
+    ULONG NodeIndex;
+    ULONG Rva;
+    ULONG RvaIndex;
+} PH_FUNCTION_OVERRIDE_OUTCOME, *PPH_FUNCTION_OVERRIDE_OUTCOME;
+
+typedef _Function_class_(PH_FUNCTION_OVERRIDE_BDD_CALLBACK)
+BOOLEAN NTAPI PH_FUNCTION_OVERRIDE_BDD_CALLBACK(
+    _In_ PPH_IMAGE_DYNAMIC_RELOC_ENTRY Entry,
+    _In_ PPH_FUNCTION_OVERRIDE_OUTCOME Outcome,
+    _In_opt_ PVOID Context
+    );
+typedef PH_FUNCTION_OVERRIDE_BDD_CALLBACK *PPH_FUNCTION_OVERRIDE_BDD_CALLBACK;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhFunctionOverrideEnumerateBdd(
+    _In_ PPH_IMAGE_DYNAMIC_RELOC_ENTRY Entry,
+    _In_ PPH_FUNCTION_OVERRIDE_BDD_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
+PHLIBAPI
+BOOLEAN
+NTAPI
+PhFunctionOverrideIsFeatureAlwaysAbsent(
+    _In_ ULONG Feature
+    );
+
+typedef struct _PH_FUNCTION_OVERRIDE_BDD_NODE
+{
+    ULONG Index;
+    BOOLEAN IsTerminal;
+    union
+    {
+        struct
+        {
+            ULONG FeatureNumber;
+            ULONG FalseEdge;
+            ULONG TrueEdge;
+        } Internal;
+        PH_FUNCTION_OVERRIDE_OUTCOME Terminal;
+    };
+} PH_FUNCTION_OVERRIDE_BDD_NODE, *PPH_FUNCTION_OVERRIDE_BDD_NODE;
+
+typedef _Function_class_(PH_FUNCTION_OVERRIDE_NODE_CALLBACK)
+BOOLEAN NTAPI PH_FUNCTION_OVERRIDE_NODE_CALLBACK(
+    _In_ PPH_IMAGE_DYNAMIC_RELOC_ENTRY Entry,
+    _In_ PPH_FUNCTION_OVERRIDE_BDD_NODE Node,
+    _In_opt_ PVOID Context
+    );
+typedef PH_FUNCTION_OVERRIDE_NODE_CALLBACK *PPH_FUNCTION_OVERRIDE_NODE_CALLBACK;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhFunctionOverrideEnumerateBddNodes(
+    _In_ PPH_IMAGE_DYNAMIC_RELOC_ENTRY Entry,
+    _In_ PPH_FUNCTION_OVERRIDE_NODE_CALLBACK Callback,
+    _In_opt_ PVOID Context
+    );
+
 typedef struct _PH_MAPPED_IMAGE_EXCEPTIONS
 {
     PPH_MAPPED_IMAGE MappedImage;
@@ -1287,6 +1421,67 @@ NTAPI
 PhGetRemoteMappedImageCHPEVersion(
     _In_ PPH_REMOTE_MAPPED_IMAGE RemoteMappedImage,
     _Out_ PULONG CHPEVersion
+    );
+
+typedef struct _PH_MAPPED_IMAGE_LOCK_PREFIX
+{
+    PPH_MAPPED_IMAGE MappedImage;
+
+    ULONG NumberOfEntries;
+    PULONGLONG Entries; // heap-allocated, free with PhFree
+} PH_MAPPED_IMAGE_LOCK_PREFIX, *PPH_MAPPED_IMAGE_LOCK_PREFIX;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageLockPrefixTable(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_LOCK_PREFIX LockPrefix
+    );
+
+typedef struct _PH_MAPPED_IMAGE_ENCLAVE_CONFIG
+{
+    PPH_MAPPED_IMAGE MappedImage;
+    PVOID EnclaveConfig; // PIMAGE_ENCLAVE_CONFIG32/64 (points into the mapped view)
+
+    ULONG NumberOfImports;
+    PIMAGE_ENCLAVE_IMPORT Imports; // points into the mapped view (NULL when none)
+} PH_MAPPED_IMAGE_ENCLAVE_CONFIG, *PPH_MAPPED_IMAGE_ENCLAVE_CONFIG;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageEnclaveConfig(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_ENCLAVE_CONFIG EnclaveConfig
+    );
+
+typedef struct _PH_MAPPED_IMAGE_CHPE
+{
+    PPH_MAPPED_IMAGE MappedImage;
+    PVOID Metadata; // PIMAGE_CHPE_METADATA_X86 / PIMAGE_ARM64EC_METADATA (points into the mapped view)
+    ULONG Version;
+    BOOLEAN IsArm64ec;
+
+    // ARM64EC tables (valid when IsArm64ec; point into the mapped view)
+    ULONG NumberOfCodeMapEntries;
+    PIMAGE_ARM64EC_CODE_MAP_ENTRY CodeMap;
+    ULONG NumberOfCodeRangeEntryPoints;
+    PIMAGE_ARM64EC_CODE_RANGE_ENTRY_POINT CodeRangesToEntryPoints;
+    ULONG NumberOfRedirectionEntries;
+    PIMAGE_ARM64EC_REDIRECTION_ENTRY RedirectionMetadata;
+
+    // x86 CHPE table (valid when !IsArm64ec; points into the mapped view)
+    ULONG NumberOfCodeRangeEntries;
+    PIMAGE_CHPE_RANGE_ENTRY CodeRanges;
+} PH_MAPPED_IMAGE_CHPE, *PPH_MAPPED_IMAGE_CHPE;
+
+PHLIBAPI
+NTSTATUS
+NTAPI
+PhGetMappedImageCHPE(
+    _In_ PPH_MAPPED_IMAGE MappedImage,
+    _Out_ PPH_MAPPED_IMAGE_CHPE Chpe
     );
 
 // ELF binary support

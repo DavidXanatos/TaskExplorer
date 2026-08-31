@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2021-2022
+ *     dmex    2021-2026
  *
  */
 
@@ -167,10 +167,14 @@ VOID PvEnumerateExceptionEntries(
             {
                 PIMAGE_SECTION_HEADER directorySection;
 
-                directorySection = PhMappedImageRvaToSection(
+                if (!NT_SUCCESS(PhMappedImageRvaToSection(
                     &PvMappedImage,
-                    entry
-                    );
+                    entry,
+                    &directorySection
+                    )))
+                {
+                    directorySection = NULL;
+                }
 
                 if (directorySection)
                 {
@@ -226,10 +230,14 @@ VOID PvEnumerateExceptionEntries(
             {
                 PIMAGE_SECTION_HEADER directorySection;
 
-                directorySection = PhMappedImageRvaToSection(
+                if (!NT_SUCCESS(PhMappedImageRvaToSection(
                     &PvMappedImage,
-                    entry->BeginAddress
-                    );
+                    entry->BeginAddress,
+                    &directorySection
+                    )))
+                {
+                    directorySection = NULL;
+                }
 
                 if (directorySection)
                 {
@@ -246,9 +254,7 @@ VOID PvEnumerateExceptionEntries(
             {
                 PIMAGE_AMD64_UNWIND_INFO unwInfo;
 
-                unwInfo = PhMappedImageRvaToVa(&PvMappedImage, entry->UnwindData, NULL);
-
-                if (unwInfo)
+                if (NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry->UnwindData, (PVOID*)&unwInfo)))
                 {
                     if (unwInfo->Flags)
                     {
@@ -318,15 +324,14 @@ VOID PvEnumerateExceptionEntries(
             {
             case PdataRefToFullXdata: // 0 (union is UnwindData)
                 {
-                    IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY_XDATA* data;
+                    IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY_XDATA* data = NULL;
 
                     PhSetListViewSubItem(Context->ListViewHandle, lvItemIndex, 1, L"Full");
 
                     PhPrintPointer(value, UlongToPtr(entry->UnwindData));
                     PhSetListViewSubItem(Context->ListViewHandle, lvItemIndex, 4, value);
 
-                    data = (IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY_XDATA*)PhMappedImageRvaToVa(&PvMappedImage, entry->UnwindData, NULL);
-                    if (data && data->Version == 0)
+                    if (!NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry->UnwindData, &data)) && data->Version == 0)
                     {
                         ULONG functionLength = data->FunctionLength << 2;
 
@@ -384,12 +389,11 @@ VOID PvEnumerateExceptionEntries(
             {
                 PIMAGE_SECTION_HEADER directorySection;
 
-                directorySection = PhMappedImageRvaToSection(
+                if (NT_SUCCESS(PhMappedImageRvaToSection(
                     &PvMappedImage,
-                    entry->BeginAddress
-                    );
-
-                if (directorySection)
+                    entry->BeginAddress,
+                    &directorySection
+                    )))
                 {
                     WCHAR sectionName[IMAGE_SIZEOF_SHORT_NAME + 1];
 

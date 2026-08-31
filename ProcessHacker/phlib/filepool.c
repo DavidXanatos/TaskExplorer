@@ -100,8 +100,7 @@ NTSTATUS PhCreateFilePool(
         Parameters = &localParameters;
     }
 
-    pool = PhAllocate(sizeof(PH_FILE_POOL));
-    memset(pool, 0, sizeof(PH_FILE_POOL));
+    pool = PhAllocateZero(sizeof(PH_FILE_POOL));
 
     pool->FileHandle = FileHandle;
     pool->ReadOnly = ReadOnly;
@@ -167,6 +166,18 @@ NTSTATUS PhCreateFilePool(
             status = STATUS_BAD_FILE_TYPE;
             goto CleanupExit;
         }
+
+        // Validate the persisted segment shift before deriving sizes from it. The create path
+        // clamps this to [MIN, MAX] (PhpValidateFilePoolParameters); a corrupt or malicious file
+        // could otherwise supply a value that makes the shifts below undefined (SegmentShift >= 32)
+        // or underflows BlockShift, producing out-of-bounds block/segment offsets.
+        if (header->SegmentShift < PH_FP_SEGMENT_SHIFT_MIN ||
+            header->SegmentShift > PH_FP_SEGMENT_SHIFT_MAX)
+        {
+            PhFppUnmapRange(pool, initialBlock);
+            status = STATUS_FILE_CORRUPT_ERROR;
+            goto CleanupExit;
+        }
     }
 
     pool->SegmentShift = header->SegmentShift;
@@ -192,8 +203,7 @@ NTSTATUS PhCreateFilePool(
 
     PhInitializeFreeList(&pool->ViewFreeList, sizeof(PH_FILE_POOL_VIEW), 32);
     pool->ByIndexSize = 32;
-    pool->ByIndexBuckets = PhAllocate(sizeof(PPH_FILE_POOL_VIEW) * pool->ByIndexSize);
-    memset(pool->ByIndexBuckets, 0, sizeof(PPH_FILE_POOL_VIEW) * pool->ByIndexSize);
+    pool->ByIndexBuckets = PhAllocateZero(sizeof(PPH_FILE_POOL_VIEW) * pool->ByIndexSize);
     PhInitializeAvlTree(&pool->ByBaseSet, PhpFilePoolViewByBaseCompareFunction);
 
     pool->MaximumInactiveViews = Parameters->MaximumInactiveViews;
@@ -350,17 +360,17 @@ NTSTATUS PhpValidateFilePoolParameters(
 {
     NTSTATUS status = STATUS_SUCCESS;
 
-    // 16 <= SegmentShift <= 28
+    // PH_FP_SEGMENT_SHIFT_MIN <= SegmentShift <= PH_FP_SEGMENT_SHIFT_MAX
 
-    if (Parameters->SegmentShift < 16)
+    if (Parameters->SegmentShift < PH_FP_SEGMENT_SHIFT_MIN)
     {
-        Parameters->SegmentShift = 16;
+        Parameters->SegmentShift = PH_FP_SEGMENT_SHIFT_MIN;
         status = STATUS_SOME_NOT_MAPPED;
     }
 
-    if (Parameters->SegmentShift > 28)
+    if (Parameters->SegmentShift > PH_FP_SEGMENT_SHIFT_MAX)
     {
-        Parameters->SegmentShift = 28;
+        Parameters->SegmentShift = PH_FP_SEGMENT_SHIFT_MAX;
         status = STATUS_SOME_NOT_MAPPED;
     }
 

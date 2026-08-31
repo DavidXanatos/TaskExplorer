@@ -455,7 +455,11 @@ typedef HRESULT (STDAPICALLTYPE* _CreateXmlWriter)(_In_ REFIID riid,
 EXTERN_C_START
 
 #ifndef IS_TE
+#ifdef __cplusplus
+#define PH_DECLARE_IMPORT(Name) decltype(&(Name)) Name##_Import(VOID)
+#else
 #define PH_DECLARE_IMPORT(Name) typeof(&(Name)) Name##_Import(VOID)
+#endif
 #else
 #define PH_DECLARE_IMPORT(Name) _##Name NTAPI Name##_Import(VOID)
 #endif
@@ -466,14 +470,19 @@ PH_DECLARE_IMPORT(NtQueryInformationEnlistment);
 PH_DECLARE_IMPORT(NtQueryInformationResourceManager);
 PH_DECLARE_IMPORT(NtQueryInformationTransaction);
 PH_DECLARE_IMPORT(NtQueryInformationTransactionManager);
+PH_DECLARE_IMPORT(NtAllocateVirtualMemoryEx);
 PH_DECLARE_IMPORT(NtCreateProcessStateChange);
 PH_DECLARE_IMPORT(NtChangeProcessState);
 PH_DECLARE_IMPORT(NtCreateThreadStateChange);
 PH_DECLARE_IMPORT(NtChangeThreadState);
+#ifndef IS_TE
+PH_DECLARE_IMPORT(NtCreateSectionEx);
+#endif
 PH_DECLARE_IMPORT(NtCopyFileChunk);
 PH_DECLARE_IMPORT(NtCompareObjects);
 #ifndef IS_TE
 PH_DECLARE_IMPORT(NtCreateTimer2);
+PH_DECLARE_IMPORT(NtMapViewOfSectionEx);
 PH_DECLARE_IMPORT(NtSetTimer2);
 #endif
 
@@ -491,6 +500,9 @@ PH_DECLARE_IMPORT(RtlGetTokenNamedObjectPath);
 PH_DECLARE_IMPORT(RtlGetAppContainerNamedObjectPath);
 PH_DECLARE_IMPORT(RtlGetAppContainerSidType);
 PH_DECLARE_IMPORT(RtlGetAppContainerParent);
+#ifndef IS_TE
+PH_DECLARE_IMPORT(RtlStringFromGUIDEx);
+#endif
 
 PH_DECLARE_IMPORT(PssNtCaptureSnapshot);
 PH_DECLARE_IMPORT(PssNtQuerySnapshot);
@@ -534,6 +546,11 @@ PH_DECLARE_IMPORT(ConsoleControl);
 #ifndef IS_TE
 PH_DECLARE_IMPORT(GetCurrentInputMessageSource);
 PH_DECLARE_IMPORT(GetCIMSSM);
+PH_DECLARE_IMPORT(SetCoalescableTimer);
+
+// Win32u
+
+PH_DECLARE_IMPORT(NtGdiGetEntry);
 PH_DECLARE_IMPORT(NtUserBuildHwndList);
 #endif
 

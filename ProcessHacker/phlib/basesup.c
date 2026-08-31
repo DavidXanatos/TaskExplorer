@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2016
- *     dmex    2019-2023
+ *     dmex    2019-2026
  *
  */
 
@@ -550,6 +550,7 @@ DOUBLE PhReadTimeStampFrequency(
     LARGE_INTEGER startTime;
     LARGE_INTEGER endTime;
     ULONG_PTR affinityMask = 0;
+    ULONG64 yieldCount = 0;
     ULONG64 startTsc;
     ULONG64 endTsc;
 
@@ -559,17 +560,23 @@ DOUBLE PhReadTimeStampFrequency(
 
     // Calculate wait interval in QPC ticks (100ms measurement window)
 
-    const LONGLONG calibrationIntervalMs = 100;
-    const LONGLONG calibrationIntervalTicks = (performanceFrequency.QuadPart * calibrationIntervalMs) / 1000;
+    const LONGLONG calibrationIntervalTicks = PhMultiplyDivide((ULONG)performanceFrequency.QuadPart, 100, 1000);
 
     // Warm up CPU caches and branch predictors.
 
     for (volatile ULONG i = 0; i < 1000000; ++i) {}
 
     // Pin thread to CPU 0 for consistent TSC readings across the measurement.
+    // Only pin when the original mask was retrieved so it can be restored afterwards.
 
-    PhGetThreadAffinityMask(NtCurrentThread(), &affinityMask);
-    PhSetThreadAffinityMask(NtCurrentThread(), 1);
+    if (NT_SUCCESS(PhGetThreadAffinityMask(NtCurrentThread(), &affinityMask)))
+    {
+        PhSetThreadAffinityMask(NtCurrentThread(), 1);
+    }
+    else
+    {
+        affinityMask = 0;
+    }
 
     // Capture start timestamps with speculation barriers for ordering.
 
@@ -583,6 +590,8 @@ DOUBLE PhReadTimeStampFrequency(
     do
     {
         YieldProcessor();
+        yieldCount++;
+
         PhQueryPerformanceCounter(&endTime);
     } while ((endTime.QuadPart - startTime.QuadPart) < calibrationIntervalTicks);
 
@@ -599,12 +608,25 @@ DOUBLE PhReadTimeStampFrequency(
         PhSetThreadAffinityMask(NtCurrentThread(), affinityMask);
     }
 
+    const ULONG64 elapsedTscTicks = endTsc - startTsc;
+    const DOUBLE elapsedSeconds = (DOUBLE)(endTime.QuadPart - startTime.QuadPart) / performanceFrequency.QuadPart;
+
+    // Sanity-check the measurement: cycles per yield must be a finite, positive value.
+    // A zero yield count would mean the busy-wait never ran, invalidating the result.
+    // The comparison is evaluated in all builds so the value is not an unused local.
+
+    const DOUBLE cyclesPerYield = yieldCount ? (DOUBLE)elapsedTscTicks / (DOUBLE)yieldCount : 0.0;
+
+    if (!(cyclesPerYield > 0.0))
+    {
+        NT_ASSERT(FALSE);
+    }
+
     // Calculate TSC frequency: tsc_delta / elapsed_seconds.
 
-    const DOUBLE elapsedSeconds = (DOUBLE)(endTime.QuadPart - startTime.QuadPart) / performanceFrequency.QuadPart;
-    const ULONG64 elapsedTscTicks = endTsc - startTsc;
+    const DOUBLE tscFrequency = (DOUBLE)elapsedTscTicks / elapsedSeconds;
 
-    return (DOUBLE)elapsedTscTicks / elapsedSeconds;
+    return tscFrequency;
 }
 
 /**
@@ -2053,6 +2075,37 @@ HANDLE PhFindItemPointerList(
 }
 
 /**
+ * Retrieves a pointer from a pointer list using its handle.
+ *
+ * \param PointerList A pointer list object.
+ * \param PointerHandle A handle to the pointer.
+ * \return The pointer, or NULL if the handle is invalid or the pointer was removed.
+ */
+PVOID PhGetItemPointerList(
+    _In_ PPH_POINTER_LIST PointerList,
+    _In_ HANDLE PointerHandle
+    )
+{
+    ULONG index;
+    PVOID pointer;
+
+    if (!PointerHandle)
+        return NULL;
+
+    index = PhpPointerListHandleToIndex(PointerHandle);
+
+    if (index >= PointerList->NextEntry)
+        return NULL;
+
+    pointer = PointerList->Items[index];
+
+    if (PH_IS_LIST_POINTER_VALID(pointer))
+        return pointer;
+
+    return NULL;
+}
+
+/**
  * Removes a pointer from a pointer list.
  *
  * \param PointerList A pointer list object.
@@ -2473,27 +2526,30 @@ BOOLEAN PhRemoveEntryHashtable(
 }
 
 /**
- * Generates a hash code for a sequence of bytes.
+ * Generates a 32-bit FNV-1a hash code for a sequence of bytes.
  *
  * \param Bytes A pointer to a byte array.
  * \param Length The number of bytes to hash.
+ * \return 32-bit hash code type.
+ * \remarks This routine conforms to RFC 9923.
+ * \sa https://github.com/lcn2/fnv/blob/master/hash_32a.c
  */
 ULONG PhHashBytes(
     _In_reads_(Length) PUCHAR Bytes,
     _In_ SIZE_T Length
     )
 {
-    ULONG hash = 0;
+    ULONG hash = FNV1_32_INIT;
 
     if (Length == 0)
         return hash;
 
-    // FNV-1a algorithm: http://www.isthe.com/chongo/src/fnv/hash_32a.c
+    // FNV-1a algorithm: https://github.com/lcn2/fnv/blob/master/hash_32a.c
 
     while (Length-- != 0)
     {
         hash ^= *Bytes++;
-        hash *= 0x01000193;
+        hash *= FNV_32_PRIME;
     }
 
     return hash;
@@ -3110,6 +3166,21 @@ BOOLEAN PhCalculateEntropy(
     ULONG64 bufferSumValue = 0;
     ULONG64 counts[UCHAR_MAX + 1];
 
+    // Guard against division by zero: an empty buffer has no distribution, so
+    // entropy/mean/variance are all zero. Without this the entropy and mean
+    // computations below would divide by (FLOAT)BufferLength == 0 and yield NaN.
+    if (BufferLength == 0)
+    {
+        if (Entropy)
+            *Entropy = 0.f;
+        if (Mean)
+            *Mean = 0.f;
+        if (Variance)
+            *Variance = 0.f;
+
+        return TRUE;
+    }
+
     memset(counts, 0, sizeof(counts));
 
     while (bufferOffset < BufferLength)
@@ -3591,6 +3662,57 @@ VOID PhAddMemoryUlongOriginal(
         while (Count--)
             *A++ += *B++;
     }
+}
+
+/**
+ * Adds one array of integers to another.
+ *
+ * \param A The destination array to which the source array is added.
+ * \param B The source array.
+ * \param Count The number of elements.
+ *
+ * \remarks For best performance both arrays should be 16-byte aligned (or
+ * 32-byte aligned to engage the AVX2 path); unaligned input falls back to the
+ * scalar tail.
+ */
+VOID PhAddMemoryUlong(
+    _Inout_ PULONG A,
+    _In_ PULONG B,
+    _In_ ULONG Count
+    )
+{
+#ifndef _ARM64_
+    if (PhHasAVX && IS_ALIGNED(A, 32) && IS_ALIGNED(B, 32))
+    {
+        while (Count >= 8)
+        {
+            __m256i a = _mm256_load_si256((__m256i*)A);
+            __m256i b = _mm256_load_si256((__m256i*)B);
+            _mm256_store_si256((__m256i*)A, _mm256_add_epi32(a, b));
+            A += 8;
+            B += 8;
+            Count -= 8;
+        }
+
+        _mm256_zeroupper();
+    }
+
+    if (PhHasIntrinsics && IS_ALIGNED(A, 16) && IS_ALIGNED(B, 16))
+    {
+        while (Count >= 4)
+        {
+            __m128i a = _mm_load_si128((__m128i*)A);
+            __m128i b = _mm_load_si128((__m128i*)B);
+            _mm_store_si128((__m128i*)A, _mm_add_epi32(a, b));
+            A += 4;
+            B += 4;
+            Count -= 4;
+        }
+    }
+#endif
+
+    while (Count--)
+        *A++ += *B++;
 }
 
 /**
@@ -4136,6 +4258,22 @@ VOID PhConvertCopyMemoryUlong64(
     }
 }
 
+VOID PhConvertCopyMemorySizeT(
+    _Inout_updates_(Count) PSIZE_T From,
+    _Inout_updates_(Count) PFLOAT To,
+    _In_ SIZE_T Count
+    )
+{
+    if (Count == 0)
+        return;
+
+#if defined(_WIN64)
+    PhConvertCopyMemoryUlong64((PULONG64)From, To, Count);
+#else
+    PhConvertCopyMemoryUlong((PULONG)From, To, Count);
+#endif
+}
+
 /**
  * Converts an array of floats to integers.
  *
@@ -4272,6 +4410,32 @@ VOID PhCopyConvertCircularBufferULONG64(
     }
 }
 
+VOID PhCopyConvertCircularBufferSizeT(
+    _Inout_ PPH_CIRCULAR_BUFFER_SIZE_T Buffer,
+    _Out_writes_(Count) FLOAT* Destination,
+    _In_ ULONG Count
+    )
+{
+    ULONG tailSize;
+    ULONG headSize;
+
+    tailSize = (ULONG)(Buffer->Size - Buffer->Index);
+    headSize = Buffer->Count - tailSize;
+
+    if (Count > Buffer->Count)
+        Count = Buffer->Count;
+
+    if (tailSize >= Count)
+    {
+        PhConvertCopyMemorySizeT(&Buffer->Data[Buffer->Index], Destination, Count);
+    }
+    else
+    {
+        PhConvertCopyMemorySizeT(&Buffer->Data[Buffer->Index], Destination, tailSize);
+        PhConvertCopyMemorySizeT(Buffer->Data, &Destination[tailSize], (Count - tailSize));
+    }
+}
+
 /**
  * Counts the number of set bits (1s) in the given 32-bit unsigned integer value.
  *
@@ -4354,6 +4518,47 @@ ULONG PhCountBitsUlongPtr(
         //}
         //
         //return count;
+    }
+#endif
+}
+
+ULONG PhCountBitsUlong64(
+    _In_ ULONG64 Value
+    )
+{
+#if defined(PH_NATIVE_COUNTBITS)
+    return RtlNumberOfSetBitsUlong64(Value);
+#else
+#ifdef _WIN64
+    if (PhHasPopulationCount)
+    {
+        return (ULONG)PhPopulationCount64(Value);
+    }
+    else
+#endif
+    {
+        #undef T
+        #define T ULONG64
+        ULONG64 count;
+
+        // SWAR (parallel bit count)
+        // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+        Value = Value - ((Value >> 1) & (T)~(T)0 / 3);
+        Value = (Value & (T)~(T)0 / 15 * 3) + ((Value >> 2) & (T)~(T)0 / 15 * 3);
+        Value = (Value + (Value >> 4)) & (T)~(T)0 / 255 * 15;
+        count = (Value * ((T)~(T)0 / 255)) >> ((sizeof(T) - 1) * CHAR_BIT);
+
+        return (ULONG)count;
+
+        // Alternative (slower):
+        //
+        // ULONG count = 0;
+        // while (Value)
+        // {
+        //     count++;
+        //     Value &= Value - 1;
+        // }
+        // return count;
     }
 #endif
 }
@@ -4567,6 +4772,7 @@ NTSTATUS PhTlsSetValue(
  *
  * \return The last error code as an unsigned long value.
  */
+_Use_decl_annotations_
 ULONG PhGetLastError(
     VOID
     )

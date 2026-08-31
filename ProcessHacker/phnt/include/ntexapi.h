@@ -27,10 +27,11 @@ typedef struct _RTL_BITMAP* PRTL_BITMAP;
  * The NtDelayExecution routine suspends the current thread until the specified condition is met.
  *
  * \param Alertable The function returns when either the time-out period has elapsed or when the APC function is called.
- * \param DelayInterval The time interval for which execution is to be suspended, in milliseconds.
+ * \param DelayInterval A pointer to the time interval for which execution is to be suspended, in units of 100 nanoseconds.
+ * - A negative value specifies an interval relative to the current time.
+ * - A positive value specifies an absolute time, measured in 100-nanosecond intervals since January 1, 1601 (UTC).
  * - A value of zero causes the thread to relinquish the remainder of its time slice to any other thread that is ready to run.
  * - If there are no other threads ready to run, the function returns immediately, and the thread continues execution.
- * - A value of INFINITE indicates that the suspension should not time out.
  * \return NTSTATUS Successful or errant status. The return value is STATUS_USER_APC when Alertable is TRUE, and the function returned due to one or more I/O completion callback functions.
  * \remarks Note that a ready thread is not guaranteed to run immediately. Consequently, the thread will not run until some arbitrary time after the sleep interval elapses,
  * based upon the system "tick" frequency and the load factor from other processes.
@@ -583,7 +584,7 @@ NTAPI
 NtCreateEvent(
     _Out_ PHANDLE EventHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_opt_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_opt_ PCOBJECT_ATTRIBUTES ObjectAttributes,
     _In_ EVENT_TYPE EventType,
     _In_ BOOLEAN InitialState
     );
@@ -603,7 +604,7 @@ NTAPI
 NtOpenEvent(
     _Out_ PHANDLE EventHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes
     );
 
 /**
@@ -1763,7 +1764,7 @@ typedef enum _WNF_STATE_NAME_LIFETIME
 typedef enum _WNF_STATE_NAME_INFORMATION
 {
     WnfInfoStateNameExist,
-    WnfInfoSubscribersPresent,
+    WnfInfoSubscribersPresent,     // ULONG
     WnfInfoIsQuiescent
 } WNF_STATE_NAME_INFORMATION;
 
@@ -2036,22 +2037,22 @@ NtSetWnfProcessNotificationEvent(
 
 typedef enum _WORKERFACTORYINFOCLASS
 {
-    WorkerFactoryTimeout, // LARGE_INTEGER
-    WorkerFactoryRetryTimeout, // LARGE_INTEGER
-    WorkerFactoryIdleTimeout, // s: LARGE_INTEGER
-    WorkerFactoryBindingCount, // s: ULONG
-    WorkerFactoryThreadMinimum, // s: ULONG
-    WorkerFactoryThreadMaximum, // s: ULONG
-    WorkerFactoryPaused, // ULONG or BOOLEAN
-    WorkerFactoryBasicInformation, // q: WORKER_FACTORY_BASIC_INFORMATION
-    WorkerFactoryAdjustThreadGoal,
-    WorkerFactoryCallbackType,
-    WorkerFactoryStackInformation, // 10
-    WorkerFactoryThreadBasePriority, // s: ULONG
-    WorkerFactoryTimeoutWaiters, // s: ULONG, since THRESHOLD
-    WorkerFactoryFlags, // s: ULONG
-    WorkerFactoryThreadSoftMaximum, // s: ULONG
-    WorkerFactoryThreadCpuSets, // since REDSTONE5
+    WorkerFactoryTimeout,               // qs: LARGE_INTEGER
+    WorkerFactoryRetryTimeout,          // qs: LARGE_INTEGER
+    WorkerFactoryIdleTimeout,           // qs: LARGE_INTEGER
+    WorkerFactoryBindingCount,          // qs: ULONG
+    WorkerFactoryThreadMinimum,         // qs: ULONG
+    WorkerFactoryThreadMaximum,         // qs: ULONG
+    WorkerFactoryPaused,                // qs: ULONG or BOOLEAN
+    WorkerFactoryBasicInformation,      // q: WORKER_FACTORY_BASIC_INFORMATION
+    WorkerFactoryAdjustThreadGoal,      // s: ULONG
+    WorkerFactoryCallbackType,          // qs: ULONG
+    WorkerFactoryStackInformation,      // qs: ULONG/ULONG_PTR // 10
+    WorkerFactoryThreadBasePriority,    // qs: ULONG
+    WorkerFactoryTimeoutWaiters,        // qs: ULONG // since THRESHOLD
+    WorkerFactoryFlags,                 // qs: ULONG
+    WorkerFactoryThreadSoftMaximum,     // qs: ULONG
+    WorkerFactoryThreadCpuSets,         // qs: ULONG[] // since REDSTONE5
     MaxWorkerFactoryInfoClass
 } WORKERFACTORYINFOCLASS, *PWORKERFACTORYINFOCLASS;
 
@@ -2509,7 +2510,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemMemoryChannelInformation,                         // q: SYSTEM_MEMORY_CHANNEL_INFORMATION
     SystemBootLogoInformation,                              // q: SYSTEM_BOOT_LOGO_INFORMATION // 140
     SystemProcessorPerformanceInformationEx,                // q: SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX // (EX in: USHORT ProcessorGroup) // NtQuerySystemInformationEx // since WINBLUE
-    SystemCriticalProcessErrorLogInformation,               // q: CRITICAL_PROCESS_EXCEPTION_DATA
+    SystemCriticalProcessErrorLogInformation,               // q: SYSTEM_CRITICAL_PROCESS_EXCEPTION_INFORMATION
     SystemSecureBootPolicyInformation,                      // q: SYSTEM_SECUREBOOT_POLICY_INFORMATION
     SystemPageFileInformationEx,                            // q: SYSTEM_PAGEFILE_INFORMATION_EX
     SystemSecureBootInformation,                            // q: SYSTEM_SECUREBOOT_INFORMATION
@@ -2539,7 +2540,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemVsmProtectionInformation,                         // q: SYSTEM_VSM_PROTECTION_INFORMATION (previously SystemDmaProtectionInformation)
     SystemInterruptCpuSetsInformation,                      // q: SYSTEM_INTERRUPT_CPU_SET_INFORMATION // 170
     SystemSecureBootPolicyFullInformation,                  // q: SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION
-    SystemCodeIntegrityPolicyFullInformation,               // q:
+    SystemCodeIntegrityPolicyFullInformation,               // q: SYSTEM_CODE_INTEGRITY_POLICY_FULL_INFORMATION
     SystemAffinitizedInterruptProcessorInformation,         // q: KAFFINITY_EX // (requires SeIncreaseBasePriorityPrivilege)
     SystemRootSiloInformation,                              // q: SYSTEM_ROOT_SILO_INFORMATION
     SystemCpuSetInformation,                                // q: SYSTEM_CPU_SET_INFORMATION // since THRESHOLD2
@@ -2547,8 +2548,8 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemWin32WerStartCallout,                             // s: SYSTEM_WIN32_WER_START_CALLOUT (optional; 0-length uses current process)
     SystemSecureKernelProfileInformation,                   // q: SYSTEM_SECURE_KERNEL_HYPERGUARD_PROFILE_INFORMATION
     SystemCodeIntegrityPlatformManifestInformation,         // q: SYSTEM_SECUREBOOT_PLATFORM_MANIFEST_INFORMATION // NtQuerySystemInformationEx // since REDSTONE
-    SystemInterruptSteeringInformation,                     // q: in: SYSTEM_INTERRUPT_STEERING_INFORMATION_INPUT, out: SYSTEM_INTERRUPT_STEERING_INFORMATION_OUTPUT // NtQuerySystemInformationEx
-    SystemSupportedProcessorArchitectures,                  // p: in opt: HANDLE, out: SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION[] // NtQuerySystemInformationEx // 180
+    SystemInterruptSteeringInformation,                     // q: in: SYSTEM_INTERRUPT_STEERING_INFORMATION_INPUT, out: SYSTEM_INTERRUPT_STEERING_INFORMATION_OUTPUT // NtQuerySystemInformationEx // 180
+    SystemSupportedProcessorArchitectures,                  // p: in opt: HANDLE, out: SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES_INFORMATION[] // NtQuerySystemInformationEx
     SystemMemoryUsageInformation,                           // q: SYSTEM_MEMORY_USAGE_INFORMATION
     SystemCodeIntegrityCertificateInformation,              // q: SYSTEM_CODEINTEGRITY_CERTIFICATE_INFORMATION
     SystemPhysicalMemoryInformation,                        // q: SYSTEM_PHYSICAL_MEMORY_INFORMATION // since REDSTONE2
@@ -2556,7 +2557,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemKernelDebuggingAllowed,                           // s: ULONG
     SystemActivityModerationExeState,                       // s: SYSTEM_ACTIVITY_MODERATION_EXE_STATE
     SystemActivityModerationUserSettings,                   // q: SYSTEM_ACTIVITY_MODERATION_USER_SETTINGS
-    SystemCodeIntegrityPoliciesFullInformation,             // qs: NtQuerySystemInformationEx
+    SystemCodeIntegrityPoliciesFullInformation,             // qs: SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION // NtQuerySystemInformationEx
     SystemCodeIntegrityUnlockInformation,                   // q: SYSTEM_CODEINTEGRITY_UNLOCK_INFORMATION // 190
     SystemIntegrityQuotaInformation,                        // s: SYSTEM_INTEGRITY_QUOTA_INFORMATION (requires SeDebugPrivilege)
     SystemFlushInformation,                                 // q: SYSTEM_FLUSH_INFORMATION
@@ -2591,8 +2592,8 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemShadowStackInformation,                           // q: SYSTEM_SHADOW_STACK_INFORMATION
     SystemBuildVersionInformation,                          // q: in: SYSTEM_BUILD_VERSION_INFORMATION_INPUT, out: SYSTEM_BUILD_VERSION_INFORMATION // NtQuerySystemInformationEx // CmQueryBuildVersionInformation
     SystemPoolLimitInformation,                             // q: SYSTEM_POOL_LIMIT_INFORMATION (requires SeIncreaseQuotaPrivilege) // NtQuerySystemInformationEx
-    SystemCodeIntegrityAddDynamicStore,                     // q: CodeIntegrity-AllowConfigurablePolicy-CustomKernelSigners
-    SystemCodeIntegrityClearDynamicStores,                  // q: CodeIntegrity-AllowConfigurablePolicy-CustomKernelSigners
+    SystemCodeIntegrityAddDynamicStore,                     // q: SYSTEM_CODE_INTEGRITY_DYNAMIC_STORE // CodeIntegrity-AllowConfigurablePolicy-CustomKernelSigners
+    SystemCodeIntegrityClearDynamicStores,                  // q: SYSTEM_CODE_INTEGRITY_DYNAMIC_STORE // CodeIntegrity-AllowConfigurablePolicy-CustomKernelSigners
     SystemDifPoolTrackingInformation,                       // s: SYSTEM_DIF_POOL_TRACKING_INFORMATION (requires SeDebugPrivilege)
     SystemPoolZeroingInformation,                           // q: SYSTEM_POOL_ZEROING_INFORMATION
     SystemDpcWatchdogInformation,                           // qs: SYSTEM_DPC_WATCHDOG_CONFIGURATION_INFORMATION
@@ -2608,8 +2609,8 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemOriginalImageFeatureInformation,                  // q: in: SYSTEM_ORIGINAL_IMAGE_FEATURE_INFORMATION_INPUT, out: SYSTEM_ORIGINAL_IMAGE_FEATURE_INFORMATION_OUTPUT // NtQuerySystemInformationEx
     SystemMemoryNumaInformation,                            // q: SYSTEM_MEMORY_NUMA_INFORMATION_INPUT, SYSTEM_MEMORY_NUMA_INFORMATION_OUTPUT // NtQuerySystemInformationEx
     SystemMemoryNumaPerformanceInformation,                 // q: SYSTEM_MEMORY_NUMA_PERFORMANCE_INFORMATION_INPUT, SYSTEM_MEMORY_NUMA_PERFORMANCE_INFORMATION_OUTPUT // since 24H2 // 240
-    SystemCodeIntegritySignedPoliciesFullInformation,       // qs: NtQuerySystemInformationEx
-    SystemSecureCoreInformation,                            // qs: SystemSecureSecretsInformation
+    SystemCodeIntegritySignedPoliciesFullInformation,       // qs: SYSTEM_CODE_INTEGRITY_SIGNED_POLICIES // NtQuerySystemInformationEx
+    SystemSecureCoreInformation,                            // qs: SYSTEM_SECURE_CORE_INFORMATION // SystemSecureSecretsInformation
     SystemTrustedAppsRuntimeInformation,                    // q: SYSTEM_TRUSTEDAPPS_RUNTIME_INFORMATION
     SystemBadPageInformationEx,                             // q: SYSTEM_BAD_PAGE_INFORMATION
     SystemResourceDeadlockTimeout,                          // q: ULONG
@@ -2623,6 +2624,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemHandleCountInformation,                           // q: SYSTEM_HANDLECOUNT_INFORMATION
     SystemRuntimeAttestationReport,                         // q: SYSTEM_RUNTIME_REPORT_INPUT
     SystemPoolTagInformation2,                              // q: SYSTEM_POOLTAG_INFORMATION2 // since 26H1
+    SystemCodeIntegrityEndpointSecurityInformation,         // q: SYSTEM_CODE_INTEGRITY_ENDPOINT_SECURITY_INFORMATION
     MaxSystemInfoClass
 } SYSTEM_INFORMATION_CLASS;
 
@@ -2632,7 +2634,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
 typedef struct _SYSTEM_BASIC_INFORMATION
 {
     ULONG Reserved;                                         // Reserved
-    ULONG TimerResolution;                                  // The resolution of the timer, in milliseconds. // NtQueryTimerResolution
+    ULONG TimerResolution;                                  // The resolution of the system clock, in 100-nanosecond units. // NtQueryTimerResolution
     ULONG PageSize;                                         // The page size and the granularity of page protection and commitment.
     ULONG NumberOfPhysicalPages;                            // The number of physical pages in the system. // KUSER_SHARED_DATA->NumberOfPhysicalPages
     ULONG LowestPhysicalPageNumber;                         // The lowest memory page accessible to applications and dynamic-link libraries (DLLs).
@@ -5398,7 +5400,7 @@ typedef struct _BOOT_ENTROPY_SOURCE_NT_RESULT
 // private
 typedef struct _BOOT_ENTROPY_NT_RESULT
 {
-    ULONG maxEntropySources;
+    ULONG MaxEntropySources;
     BOOT_ENTROPY_SOURCE_NT_RESULT EntropySourceResult[10];
     UCHAR SeedBytesForCng[48];
 } BOOT_ENTROPY_NT_RESULT, *PBOOT_ENTROPY_NT_RESULT;
@@ -5702,14 +5704,14 @@ typedef struct _SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX
 } SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX, *PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX;
 
 // private
-typedef struct _CRITICAL_PROCESS_EXCEPTION_DATA
+typedef struct _SYSTEM_CRITICAL_PROCESS_EXCEPTION_INFORMATION // CRITICAL_PROCESS_EXCEPTION_DATA
 {
     GUID ReportId;
     UNICODE_STRING ModuleName;
     ULONG ModuleTimestamp;
     ULONG ModuleSize;
     ULONG_PTR Offset;
-} CRITICAL_PROCESS_EXCEPTION_DATA, *PCRITICAL_PROCESS_EXCEPTION_DATA;
+} SYSTEM_CRITICAL_PROCESS_EXCEPTION_INFORMATION, *PSYSTEM_CRITICAL_PROCESS_EXCEPTION_INFORMATION;
 
 // private
 typedef struct _SYSTEM_SECUREBOOT_POLICY_INFORMATION
@@ -6646,6 +6648,56 @@ typedef struct _SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION
     UCHAR Policy[1];
 } SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION, *PSYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION;
 
+// rev
+#define SYSTEM_CODE_INTEGRITY_POLICY_HEADER_VERSION 8
+
+// rev
+typedef struct _SYSTEM_CODE_INTEGRITY_POLICY_HEADER
+{
+    UCHAR Magic[4];                    // "WDAC"
+    ULONG Version;                     // Policy version/format number
+    ULONG TypeAndOptions;              // Policy type flags and options
+    ULONG TimestampLow;                // Creation/modification timestamp (low)
+    ULONG TimestampHigh;               // Creation/modification timestamp (high)
+    UCHAR Hash[32];                    // SHA-256 policy hash/identifier
+} SYSTEM_CODE_INTEGRITY_POLICY_HEADER, *PSYSTEM_CODE_INTEGRITY_POLICY_HEADER;
+
+// rev // Hash Rule Entry (Variable length)
+typedef struct _SYSTEM_CODE_INTEGRITY_POLICY_RULE_ENTRY
+{
+    ULONG Marker;                      // 8-byte marker (part of rule identification)
+    ULONG RuleMarkerHigh;
+    ULONG DataLength;                  // 4-byte length of hash data
+    UCHAR FixedPrefix[12];             // 12-byte fixed prefix (rule type, attributes)
+    UCHAR Hash[ANYSIZE_ARRAY];         // Variable-length hash (SHA-256, SHA-1, etc.)
+} SYSTEM_CODE_INTEGRITY_POLICY_RULE_ENTRY, *PSYSTEM_CODE_INTEGRITY_POLICY_RULE_ENTRY;
+
+// rev // String Table Entry (Variable length, 4-byte aligned)
+typedef struct _SYSTEM_CODE_INTEGRITY_POLICY_STRING_ENTRY
+{
+    USHORT Length;                     // Length in bytes (not including null terminator)
+    WCHAR String[ANYSIZE_ARRAY];       // UTF-16LE string
+    // UCHAR Padding[ANYSIZE_ARRAY]    // Followed by Padding[] to align to 4-byte boundary
+} SYSTEM_CODE_INTEGRITY_POLICY_STRING_ENTRY, *PSYSTEM_CODE_INTEGRITY_POLICY_STRING_ENTRY;
+
+// rev // Numeric Index Table (used for Signers, FileRules, etc.)
+typedef struct _SYSTEM_CODE_INTEGRITY_POLICY_INDEX_TABLE_ENTRY
+{
+    // Width determines interpretation:
+    // Width=8: Signer entry {StringIndex(2), RuleRefCount(2), RuleRefs[RuleRefCount](4 each)}
+    // Width=4: FileRule index referencing a string from string table
+    UCHAR Entry[ANYSIZE_ARRAY];
+} SYSTEM_CODE_INTEGRITY_POLICY_INDEX_TABLE_ENTRY, *PSYSTEM_CODE_INTEGRITY_POLICY_INDEX_TABLE_ENTRY;
+
+// rev
+typedef struct _SYSTEM_CODE_INTEGRITY_POLICY_FULL_INFORMATION
+{
+    SYSTEM_CODE_INTEGRITY_POLICY_HEADER Header;
+    UCHAR RuleBody[ANYSIZE_ARRAY]; // Followed by sections (offsets determined by header)
+    // UCHAR StringTable[ANYSIZE_ARRAY]; // Followed by StringTable
+    // UCHAR IndexTables[ANYSIZE_ARRAY]; // Followed by NumericTables (Signers, FileRules, etc.)
+} SYSTEM_CODE_INTEGRITY_POLICY_FULL_INFORMATION, *PSYSTEM_CODE_INTEGRITY_POLICY_FULL_INFORMATION;
+
 // private
 typedef struct _KAFFINITY_EX
 {
@@ -6885,6 +6937,13 @@ typedef struct _SYSTEM_ACTIVITY_MODERATION_USER_SETTINGS
 {
     HANDLE UserKeyHandle; // Handle to the user registry key for activity moderation settings.
 } SYSTEM_ACTIVITY_MODERATION_USER_SETTINGS, *PSYSTEM_ACTIVITY_MODERATION_USER_SETTINGS;
+
+// rev
+typedef struct _SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION
+{
+    ULONG PolicyCount;
+    UCHAR PolicyBlobs[ANYSIZE_ARRAY];
+} SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION, *PSYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION;
 
 /**
  * The SYSTEM_CODEINTEGRITY_UNLOCK_INFORMATION structure contains Code Integrity unlock state and validation token.
@@ -7279,13 +7338,13 @@ typedef struct _SYSTEM_FIRMWARE_RAMDISK_INFORMATION
 // rev
 typedef struct _SYSTEM_WHEA_IPMI_HARDWARE_INFORMATION
 {
-    ULONGLONG RecordId;
-    UCHAR EventType;
-    UCHAR SensorType;
-    USHORT GeneratorId;
-    UCHAR EvmRevision;
-    UCHAR RecordType;
-    UCHAR Data[4];
+    ULONGLONG RecordId;     // IPMI SEL (System Event Log) record identifier
+    UCHAR EventType;        // IPMI event/reading type code
+    UCHAR SensorType;       // IPMI sensor type (e.g. temperature, voltage, processor)
+    USHORT GeneratorId;     // ID of the entity that logged the event
+    UCHAR EvmRevision;      // Event Message format revision
+    UCHAR RecordType;       // SEL record type (e.g. system event vs OEM)
+    UCHAR Data[4];          // Event-specific data bytes
 } SYSTEM_WHEA_IPMI_HARDWARE_INFORMATION, *PSYSTEM_WHEA_IPMI_HARDWARE_INFORMATION;
 
 // private
@@ -7391,6 +7450,15 @@ typedef struct _SYSTEM_POOL_LIMIT_INFORMATION
     ULONG EntryCount;
     _Field_size_(EntryCount) SYSTEM_POOL_LIMIT_INFO LimitEntries[1];
 } SYSTEM_POOL_LIMIT_INFORMATION, *PSYSTEM_POOL_LIMIT_INFORMATION;
+
+// rev
+typedef struct _SYSTEM_CODE_INTEGRITY_DYNAMIC_STORE
+{
+    HANDLE StoreHandle;
+    ULONG StoreFlags;
+    PVOID StoreData;
+    SIZE_T StoreSize;
+} SYSTEM_CODE_INTEGRITY_DYNAMIC_STORE, *PSYSTEM_CODE_INTEGRITY_DYNAMIC_STORE;
 
 // private
 //typedef struct _SYSTEM_POOL_ZEROING_INFORMATION
@@ -7589,9 +7657,27 @@ typedef struct _SYSTEM_MEMORY_NUMA_PERFORMANCE_INFORMATION_OUTPUT
 typedef struct _SYSTEM_OSL_RAMDISK_ENTRY
 {
     ULONG BlockSize;
-    ULONG_PTR BaseAddress;
+    PVOID BaseAddress;
     SIZE_T Size;
 } SYSTEM_OSL_RAMDISK_ENTRY, *PSYSTEM_OSL_RAMDISK_ENTRY;
+
+// rev
+typedef struct _SYSTEM_CODE_INTEGRITY_SIGNED_POLICIES
+{
+    BOOLEAN EnabledPolicies;
+    ULONGLONG SignedPoliciesData;
+    ULONG PolicySize;
+    ULONG SignatureSize;
+    UCHAR SignatureBuffer[0x100]; 
+} SYSTEM_CODE_INTEGRITY_SIGNED_POLICIES, *PSYSTEM_CODE_INTEGRITY_SIGNED_POLICIES;
+
+// rev
+typedef struct _SYSTEM_SECURE_CORE_INFORMATION
+{
+    BOOLEAN IsSecureCore;
+    ULONGLONG SecureKernelRunning;
+    ULONGLONG VslFeatures;
+} SYSTEM_SECURE_CORE_INFORMATION, *PSYSTEM_SECURE_CORE_INFORMATION;
 
 /**
  * The SYSTEM_TRUSTEDAPPS_RUNTIME_INFORMATION structure describes runtime
@@ -8216,6 +8302,24 @@ typedef struct _SYSTEM_POOLTAG_INFORMATION2
     _Field_size_(Count) SYSTEM_POOLTAG2 TagInfo[1];
 } SYSTEM_POOLTAG_INFORMATION2, *PSYSTEM_POOLTAG_INFORMATION2;
 
+typedef enum _CI_ENDPOINT_SECURITY_OPERATION
+{
+    CI_ENDPOINT_SECURITY_OPERATION_SET = 0,
+    CI_ENDPOINT_SECURITY_OPERATION_REMOVE = 1,
+    CI_ENDPOINT_SECURITY_OPERATION_MAX = 2
+} CI_ENDPOINT_SECURITY_OPERATION;
+
+typedef struct _SYSTEM_CODE_INTEGRITY_ENDPOINT_SECURITY_INFORMATION
+{
+    USHORT Version;
+    CI_ENDPOINT_SECURITY_OPERATION Operation;
+    USHORT PolicyPathOffset;
+    USHORT PolicyPathNumBytes;
+    USHORT TssIdOffset;
+    USHORT TssIdNumBytes;
+    UCHAR Data[1];
+} SYSTEM_CODE_INTEGRITY_ENDPOINT_SECURITY_INFORMATION, *PSYSTEM_CODE_INTEGRITY_ENDPOINT_SECURITY_INFORMATION;
+
 #if (PHNT_MODE != PHNT_MODE_KERNEL)
 
 /**
@@ -8614,8 +8718,6 @@ typedef enum _HARDERROR_RESPONSE
  * \param[out] Response Receives the user's response to the error dialog.
  * \return NTSTATUS Successful or errant status.
  */
-_Analysis_noreturn_
-DECLSPEC_NORETURN
 _Kernel_entry_
 NTSYSCALLAPI
 NTSTATUS
@@ -9787,8 +9889,7 @@ NTAPI
 NtInitializeNlsFiles(
     _Out_ PVOID *BaseAddress,
     _Out_ PLCID DefaultLocaleId,
-    _Out_ PLARGE_INTEGER DefaultCasingTableSize,
-    _Out_opt_ PULONG CurrentNLSVersion
+    _Out_opt_ PLARGE_INTEGER DefaultCasingTableSize
     );
 
 _Kernel_entry_
@@ -9798,9 +9899,9 @@ NTAPI
 NtGetNlsSectionPtr(
     _In_ ULONG SectionType,
     _In_ ULONG SectionData,
-    _In_ PVOID ContextData,
-    _Out_ PVOID *SectionPointer,
-    _Out_ PULONG SectionSize
+    _Out_opt_ PVOID *ContextData, // Must be NULL for user-mode callers.
+    _When_(ContextData == NULL, _Out_) _When_(ContextData != NULL, _Out_opt_) PVOID *SectionPointer,
+    _Out_opt_ PSIZE_T SectionSize
     );
 
 #if (PHNT_VERSION < PHNT_WINDOWS_7)
@@ -10136,42 +10237,45 @@ NtQueryInformationAtom(
     );
 
 //
-// Global flags
+// Global flags (NtGlobalFlag)
+//
+// \see https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/gflags-flag-table
 //
 
-#define FLG_STOP_ON_EXCEPTION 0x00000001 // uk
-#define FLG_SHOW_LDR_SNAPS 0x00000002 // uk
-#define FLG_DEBUG_INITIAL_COMMAND 0x00000004 // k
-#define FLG_STOP_ON_HUNG_GUI 0x00000008 // k
-#define FLG_HEAP_ENABLE_TAIL_CHECK 0x00000010 // u
-#define FLG_HEAP_ENABLE_FREE_CHECK 0x00000020 // u
-#define FLG_HEAP_VALIDATE_PARAMETERS 0x00000040 // u
-#define FLG_HEAP_VALIDATE_ALL 0x00000080 // u
-#define FLG_APPLICATION_VERIFIER 0x00000100 // u
-#define FLG_MONITOR_SILENT_PROCESS_EXIT 0x00000200 // uk
-#define FLG_POOL_ENABLE_TAGGING 0x00000400 // k
-#define FLG_HEAP_ENABLE_TAGGING 0x00000800 // u
-#define FLG_USER_STACK_TRACE_DB 0x00001000 // u,32
-#define FLG_KERNEL_STACK_TRACE_DB 0x00002000 // k,32
-#define FLG_MAINTAIN_OBJECT_TYPELIST 0x00004000 // k
-#define FLG_HEAP_ENABLE_TAG_BY_DLL 0x00008000 // u
-#define FLG_DISABLE_STACK_EXTENSION 0x00010000 // u
-#define FLG_ENABLE_CSRDEBUG 0x00020000 // k
-#define FLG_ENABLE_KDEBUG_SYMBOL_LOAD 0x00040000 // k
-#define FLG_DISABLE_PAGE_KERNEL_STACKS 0x00080000 // k
-#define FLG_ENABLE_SYSTEM_CRIT_BREAKS 0x00100000 // u
-#define FLG_HEAP_DISABLE_COALESCING 0x00200000 // u
-#define FLG_ENABLE_CLOSE_EXCEPTIONS 0x00400000 // k
-#define FLG_ENABLE_EXCEPTION_LOGGING 0x00800000 // k
-#define FLG_ENABLE_HANDLE_TYPE_TAGGING 0x01000000 // k
-#define FLG_HEAP_PAGE_ALLOCS 0x02000000 // u
-#define FLG_DEBUG_INITIAL_COMMAND_EX 0x04000000 // k
-#define FLG_DISABLE_DBGPRINT 0x08000000 // k
-#define FLG_CRITSEC_EVENT_CREATION 0x10000000 // u
-#define FLG_LDR_TOP_DOWN 0x20000000 // u,64
-#define FLG_ENABLE_HANDLE_EXCEPTIONS 0x40000000 // k
-#define FLG_DISABLE_PROTDLLS 0x80000000 // u
-#define FLG_VALID_BITS 0xfffffdff
+#define FLG_STOP_ON_EXCEPTION 0x00000001            // Stop on exception (R,K,I)
+#define FLG_SHOW_LDR_SNAPS 0x00000002               // Show loader snaps (R,K,I)
+#define FLG_DEBUG_INITIAL_COMMAND 0x00000004        // Debug initial command (R)
+#define FLG_STOP_ON_HUNG_GUI 0x00000008             // Stop on hung GUI (K)
+#define FLG_HEAP_ENABLE_TAIL_CHECK 0x00000010       // Enable heap tail checking (R,K,I)
+#define FLG_HEAP_ENABLE_FREE_CHECK 0x00000020       // Enable heap free checking (R,K,I)
+#define FLG_HEAP_VALIDATE_PARAMETERS 0x00000040     // Enable heap parameter checking (R,K,I)
+#define FLG_HEAP_VALIDATE_ALL 0x00000080            // Enable heap validation on call (R,K,I)
+#define FLG_APPLICATION_VERIFIER 0x00000100         // Enable application verifier (R,K,I)
+#define FLG_MONITOR_SILENT_PROCESS_EXIT 0x00000200  // Enable silent process exit monitoring (R)
+#define FLG_POOL_ENABLE_TAGGING 0x00000400          // Enable pool tagging (R)
+#define FLG_HEAP_ENABLE_TAGGING 0x00000800          // Enable heap tagging (R,K,I)
+#define FLG_USER_STACK_TRACE_DB 0x00001000          // Create user mode stack trace database (R,K,I)
+#define FLG_KERNEL_STACK_TRACE_DB 0x00002000        // Create kernel mode stack trace database (R)
+#define FLG_MAINTAIN_OBJECT_TYPELIST 0x00004000     // Maintain a list of objects for each type (R)
+#define FLG_HEAP_ENABLE_TAG_BY_DLL 0x00008000       // Enable heap tagging by DLL (R,K,I)
+#define FLG_DISABLE_STACK_EXTENSION 0x00010000      // Disable stack extension (I)
+#define FLG_ENABLE_CSRDEBUG 0x00020000              // Enable debugging of Win32 subsystem (R)
+#define FLG_ENABLE_KDEBUG_SYMBOL_LOAD 0x00040000    // Enable loading of kernel debugger symbols (R,K)
+#define FLG_DISABLE_PAGE_KERNEL_STACKS 0x00080000   // Disable paging of kernel stacks (R)
+#define FLG_ENABLE_SYSTEM_CRIT_BREAKS 0x00100000    // Enable system critical breaks (R,K,I)
+#define FLG_HEAP_DISABLE_COALESCING 0x00200000      // Disable heap coalesce on free (R,K,I)
+#define FLG_ENABLE_CLOSE_EXCEPTIONS 0x00400000      // Enable close exception (R,K)
+#define FLG_ENABLE_EXCEPTION_LOGGING 0x00800000     // Enable exception logging (R,K)
+#define FLG_ENABLE_HANDLE_TYPE_TAGGING 0x01000000   // Enable object handle type tagging (R,K)
+#define FLG_HEAP_PAGE_ALLOCS 0x02000000             // Enable page heap (R,K,I)
+#define FLG_DEBUG_INITIAL_COMMAND_EX 0x04000000     // Debug WinLogon (R)
+#define FLG_DISABLE_DBGPRINT 0x08000000             // Buffer DbgPrint Output (R,K)
+#define FLG_CRITSEC_EVENT_CREATION 0x10000000       // Early critical section event creation (R,K,I)
+#define FLG_STOP_ON_UNHANDLED_EXCEPTION 0x20000000  // Stop on unhandled user-mode exception (R,K,I)
+#define FLG_LDR_TOP_DOWN 0x20000000                 // Load image using large pages if possible (I)
+#define FLG_ENABLE_HANDLE_EXCEPTIONS 0x40000000     // Enable bad handles detection (R,K)
+#define FLG_DISABLE_PROTDLLS 0x80000000             // Disable protected DLL verification (R,K,I)
+#define FLG_VALID_BITS 0xffffffff
 
 #define FLG_USERMODE_VALID_BITS (FLG_STOP_ON_EXCEPTION | \
     FLG_SHOW_LDR_SNAPS | \
@@ -10180,6 +10284,7 @@ NtQueryInformationAtom(
     FLG_HEAP_VALIDATE_PARAMETERS | \
     FLG_HEAP_VALIDATE_ALL | \
     FLG_APPLICATION_VERIFIER | \
+    FLG_MONITOR_SILENT_PROCESS_EXIT | \
     FLG_HEAP_ENABLE_TAGGING | \
     FLG_USER_STACK_TRACE_DB | \
     FLG_HEAP_ENABLE_TAG_BY_DLL | \
@@ -10189,6 +10294,7 @@ NtQueryInformationAtom(
     FLG_DISABLE_PROTDLLS | \
     FLG_HEAP_PAGE_ALLOCS | \
     FLG_CRITSEC_EVENT_CREATION | \
+    FLG_STOP_ON_UNHANDLED_EXCEPTION | \
     FLG_LDR_TOP_DOWN)
 
 #define FLG_BOOTONLY_VALID_BITS (FLG_KERNEL_STACK_TRACE_DB | \

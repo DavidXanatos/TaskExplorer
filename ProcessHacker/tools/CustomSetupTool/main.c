@@ -19,6 +19,15 @@
 #define SETUP_CMD_NOSTART    6
 #define SETUP_CMD_HIDE       7
 
+/**
+ * Subclass procedure for the setup task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The window message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \return The message result.
+ */
 LRESULT CALLBACK SetupTaskDialogSubclassProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -38,7 +47,7 @@ LRESULT CALLBACK SetupTaskDialogSubclassProc(
     {
     case WM_DESTROY:
         {
-            SetWindowLongPtr(hwndDlg, GWLP_WNDPROC, (LONG_PTR)oldWndProc);
+            PhSetWindowContext(hwndDlg, UCHAR_MAX, oldWndProc);
             PhRemoveWindowContext(hwndDlg, UCHAR_MAX);
         }
         break;
@@ -82,9 +91,7 @@ LRESULT CALLBACK SetupTaskDialogSubclassProc(
         {
             //ShowUpdateCompletedPageDialog(context);
 
-            SetupExecuteApplication(context);
-
-            PostMessage(context->DialogHandle, TDM_CLICK_BUTTON, IDOK, 0);
+            PostMessage(context->DialogHandle, TDM_CLICK_BUTTON, IDCANCEL, 0);
         }
         break;
     case SETUP_SHOWUPDATEERROR:
@@ -97,6 +104,16 @@ LRESULT CALLBACK SetupTaskDialogSubclassProc(
     return CallWindowProc(oldWndProc, hwndDlg, uMsg, wParam, lParam);
 }
 
+/**
+ * Callback for initializing the setup task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -111,32 +128,43 @@ HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
     {
     case TDN_CREATED:
         {
-            LONG dpiValue = PhGetWindowDpi(hwndDlg);
+            LONG dpiValue;
 
             context->DialogHandle = hwndDlg;
-            context->IconLargeHandle = PhLoadIcon(
-                PhInstanceHandle,
-                MAKEINTRESOURCE(IDI_ICON),
-                PH_LOAD_ICON_SIZE_LARGE,
-                PhGetSystemMetrics(SM_CXICON, dpiValue),
-                PhGetSystemMetrics(SM_CYICON, dpiValue),
-                dpiValue
-                );
-            context->IconSmallHandle = PhLoadIcon(
-                PhInstanceHandle,
-                MAKEINTRESOURCE(IDI_ICON),
-                PH_LOAD_ICON_SIZE_LARGE,
-                PhGetSystemMetrics(SM_CXSMICON, dpiValue),
-                PhGetSystemMetrics(SM_CYSMICON, dpiValue),
-                dpiValue
-                );
+            dpiValue = PhGetWindowDpi(hwndDlg);
 
-            SendMessage(context->DialogHandle, WM_SETICON, ICON_SMALL, (LPARAM)context->IconSmallHandle);
-            SendMessage(context->DialogHandle, WM_SETICON, ICON_BIG, (LPARAM)context->IconLargeHandle);
+            if (!context->IconLargeHandle)
+            {
+                context->IconLargeHandle = PhLoadIcon(
+                    PhInstanceHandle,
+                    MAKEINTRESOURCE(IDI_ICON),
+                    PH_LOAD_ICON_SIZE_LARGE,
+                    PhGetSystemMetrics(SM_CXICON, dpiValue),
+                    PhGetSystemMetrics(SM_CYICON, dpiValue),
+                    dpiValue
+                    );
+            }
+
+            if (!context->IconSmallHandle)
+            {
+                context->IconSmallHandle = PhLoadIcon(
+                    PhInstanceHandle,
+                    MAKEINTRESOURCE(IDI_ICON),
+                    PH_LOAD_ICON_SIZE_SMALL,
+                    PhGetSystemMetrics(SM_CXSMICON, dpiValue),
+                    PhGetSystemMetrics(SM_CYSMICON, dpiValue),
+                    dpiValue
+                    );
+            }
+
+            SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)context->IconSmallHandle);
+            SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)context->IconLargeHandle);
 
             context->TaskDialogWndProc = PhGetWindowProcedure(hwndDlg);
             PhSetWindowContext(hwndDlg, UCHAR_MAX, context);
             PhSetWindowProcedure(hwndDlg, SetupTaskDialogSubclassProc);
+
+            SetupApplyDarkModeToPage(hwndDlg);
 
             switch (context->SetupMode)
             {
@@ -158,6 +186,11 @@ HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
     return S_OK;
 }
 
+/**
+ * Shows the legacy Process Hacker version prompt.
+ *
+ * \return The task dialog result.
+ */
 LONG SetupShowMessagePromptForLegacyVersion(
     VOID
     )
@@ -202,6 +235,11 @@ LONG SetupShowMessagePromptForLegacyVersion(
     }
 }
 
+/**
+ * Shows the task dialog setup UI.
+ *
+ * \param Context The setup context.
+ */
 VOID SetupShowDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -229,7 +267,7 @@ VOID SetupShowDialog(
 
     TaskDialogIndirect(&config, NULL, NULL, &value);
 
-    if (value)
+    if (value && Context->SetupCompleted && Context->SetupMode == SetupCommandInstall)
     {
         SetupExecuteApplication(Context);
     }
@@ -237,6 +275,11 @@ VOID SetupShowDialog(
     PhDeleteAutoPool(&autoPool);
 }
 
+/**
+ * Runs setup in silent mode.
+ *
+ * \param Context The setup context.
+ */
 VOID SetupSilent(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -309,6 +352,14 @@ VOID SetupSilent(
     Context->LastStatus = status;
 }
 
+/**
+ * Parses the encoded KSystem Informer settings blob.
+ *
+ * \param KsiSettingsBlob The encoded settings blob.
+ * \param Directory Receives the installation directory.
+ * \param ServiceName Receives the service name.
+ * \return TRUE if the settings blob was parsed, otherwise FALSE.
+ */
 _Success_(return)
 BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     _In_ PPH_STRING KsiSettingsBlob,
@@ -367,6 +418,14 @@ BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     return FALSE;
 }
 
+/**
+ * Callback for parsing setup command line options.
+ *
+ * \param Option The command line option.
+ * \param Value The command line option value.
+ * \param Context The setup context.
+ * \return TRUE to continue parsing, FALSE to stop.
+ */
 _Function_class_(PH_COMMAND_LINE_CALLBACK)
 BOOLEAN NTAPI MainPropSheetCommandLineCallback(
     _In_opt_ PCPH_COMMAND_LINE_OPTION Option,
@@ -430,6 +489,11 @@ BOOLEAN NTAPI MainPropSheetCommandLineCallback(
     return TRUE;
 }
 
+/**
+ * Parses the setup command line.
+ *
+ * \param Context The setup context.
+ */
 VOID SetupParseCommandLine(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -479,40 +543,41 @@ VOID SetupParseCommandLine(
     }
 }
 
+/**
+ * Initializes the setup mutant.
+ */
 VOID SetupInitializeMutant(
     VOID
     )
 {
     HANDLE mutantHandle;
-    PPH_STRING objectName;
-    OBJECT_ATTRIBUTES objectAttributes;
-    UNICODE_STRING objectNameUs;
+    SIZE_T returnLength;
     PH_FORMAT format[2];
+    WCHAR formatBuffer[0x100];
 
     PhInitFormatS(&format[0], L"SiSetupMutant_");
     PhInitFormatU(&format[1], HandleToUlong(NtCurrentProcessId()));
 
-    objectName = PhFormat(format, 2, 16);
-    PhStringRefToUnicodeString(&objectName->sr, &objectNameUs);
+    if (PhFormatToBuffer(format, 2, formatBuffer, sizeof(formatBuffer), &returnLength))
+    {
+        PH_STRINGREF stringFormat;
 
-    InitializeObjectAttributes(
-        &objectAttributes,
-        &objectNameUs,
-        OBJ_CASE_INSENSITIVE,
-        PhGetNamespaceHandle(),
-        NULL
-        );
+        stringFormat.Buffer = formatBuffer;
+        stringFormat.Length = returnLength - sizeof(UNICODE_NULL);
 
-    NtCreateMutant(
-        &mutantHandle,
-        MUTANT_QUERY_STATE,
-        &objectAttributes,
-        TRUE
-        );
-
-    PhDereferenceObject(objectName);
+        PhCreateMutant(&mutantHandle, MUTANT_QUERY_STATE, PhGetNamespaceHandle(), &stringFormat, TRUE);
+    }
 }
 
+/**
+ * Setup entry point.
+ *
+ * \param Instance The application instance handle.
+ * \param PrevInstance The previous application instance handle.
+ * \param CmdLine The command line.
+ * \param CmdShow The window show command.
+ * \return The process exit code.
+ */
 INT WINAPI wWinMain(
     _In_ HINSTANCE Instance,
     _In_opt_ HINSTANCE PrevInstance,
@@ -528,8 +593,12 @@ INT WINAPI wWinMain(
         return EXIT_FAILURE;
 
     SetupInitializeMutant();
+    PhGuiSupportInitialization();
 
     context = PhAllocateZero(sizeof(PH_SETUP_CONTEXT));
+    context->SetupCreateStartMenuShortcuts = TRUE;
+    context->SetupCreateDesktopShortcut = TRUE;
+    context->SetupStartMenuFolderName = PhReferenceEmptyString();
 
     if (PhIsNullOrEmptyString(context->SetupInstallPath))
     {
@@ -537,16 +606,48 @@ INT WINAPI wWinMain(
     }
 
     SetupParseCommandLine(context);
+    SetupInitializeShortcutOptions(context);
+    
+    if (!context->Silent && context->SetupMode == SetupCommandUpdate && !PhGetOwnTokenAttributes().Elevated)
+    {
+        NTSTATUS status = STATUS_FAIL_CHECK;
+        PPH_STRING applicationFileName;
+        PH_STRINGREF applicationCommandLineStringRef;
 
-    if (context->Silent)
+        if (NT_SUCCESS(PhGetProcessCommandLineStringRef(&applicationCommandLineStringRef)))
+        {
+            if (applicationFileName = PhGetApplicationFileNameWin32())
+            {
+                PPH_STRING applicationCommandLine = PhCreateString2(&applicationCommandLineStringRef);
+
+                status = PhShellExecuteEx(
+                    NULL,
+                    PhGetString(applicationFileName),
+                    PhGetString(applicationCommandLine),
+                    NULL,
+                    SW_SHOW,
+                    PH_SHELL_EXECUTE_ADMIN,
+                    0,
+                    &context->SubProcessHandle
+                    );
+
+                PhDereferenceObject(applicationCommandLine);
+                PhDereferenceObject(applicationFileName);
+            }
+        }
+
+        if (!NT_SUCCESS(status))
+        {
+            context->LastStatus = status;
+        }
+    }
+    else if (context->Silent)
     {
         SetupSilent(context);
     }
     else
     {
-        PhGuiSupportInitialization();
-
-        SetupShowDialog(context);
+        SetupShowWizard(context);
     }
 
     if (context->SubProcessHandle)

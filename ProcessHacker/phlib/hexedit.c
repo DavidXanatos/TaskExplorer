@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2015
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -113,7 +113,7 @@ LRESULT CALLBACK PhpHexEditWndProc(
             context->WindowDpi = PhGetWindowDpi(hwnd);
 
             context->Font = CreateFont(
-                -(LONG)PhGetDpi(12, context->WindowDpi),
+                -(LONG)PhScaleToDisplay(12, context->WindowDpi),
                 0,
                 0,
                 0,
@@ -273,7 +273,7 @@ LRESULT CALLBACK PhpHexEditWndProc(
 
                 if (!PhGetSystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &wheelScrollLines, 0))
                 {
-                    wheelScrollLines = PhGetDpi(3, context->WindowDpi);
+                    wheelScrollLines = PhScaleToDisplay(3, context->WindowDpi);
                 }
 
                 context->TopIndex += context->BytesPerRow * (LONG)wheelScrollLines * -wheelDelta / WHEEL_DELTA;
@@ -1034,7 +1034,7 @@ VOID PhpHexEditUpdateMetrics(
 
         if (Context->LinesPerPage * Context->BytesPerRow > Context->Length)
         {
-            Context->LinesPerPage = (Context->Length + Context->BytesPerRow / 2) / Context->BytesPerRow;
+            Context->LinesPerPage = PhMultiplyDivideSigned(Context->Length, 1, Context->BytesPerRow);
 
             if (Context->Length % Context->BytesPerRow != 0)
             {
@@ -1056,9 +1056,9 @@ VOID PhpHexEditOnPaint(
     )
 {
     RECT clientRect;
+    PH_BUFFERED_PAINT bufferedPaint;
     HDC bufferDc;
-    HBITMAP bufferBitmap;
-    HBITMAP oldBufferBitmap;
+    BOOLEAN buffered;
     LONG height;
     LONG x;
     LONG y;
@@ -1068,9 +1068,10 @@ VOID PhpHexEditOnPaint(
 
     GetClientRect(hwnd, &clientRect);
 
-    bufferDc = CreateCompatibleDC(hdc);
-    bufferBitmap = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
-    oldBufferBitmap = SelectBitmap(bufferDc, bufferBitmap);
+    buffered = PhBeginBufferedPaint(hdc, &PaintStruct->rcPaint, &bufferedPaint, &bufferDc);
+
+    if (!buffered)
+        bufferDc = hdc;
 
     SetDCBrushColor(bufferDc, GetSysColor(COLOR_WINDOW));
     FillRect(bufferDc, &clientRect, PhGetStockBrush(DC_BRUSH));
@@ -1311,10 +1312,8 @@ VOID PhpHexEditOnPaint(
         }
     }
 
-    BitBlt(hdc, 0, 0, clientRect.right, clientRect.bottom, bufferDc, 0, 0, SRCCOPY);
-    SelectBitmap(bufferDc, oldBufferBitmap);
-    DeleteBitmap(bufferBitmap);
-    DeleteDC(bufferDc);
+    if (buffered)
+        PhEndBufferedPaint(&bufferedPaint, TRUE);
 }
 
 VOID PhpHexEditUpdateScrollbars(

@@ -32,27 +32,38 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectName>thirdparty</ProjectName>
     <RootNamespace>thirdparty</RootNamespace>
+    <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\marmasm.props" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -88,63 +99,76 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\..\phnt\include;$(SolutionDir)..\..\phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;DEBUG;_DEBUG;_PHLIB_;HAVE_CONFIG_H;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SystemInformerRoot)phnt\include;$(SystemInformerRoot)phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;DEBUG;_DEBUG;_X86_;_PHLIB_;HAVE_CONFIG_H;JSONC_USE_FAST_NUMBER_CONVERSION;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
+    <MASM>
+      <UseSafeExceptionHandlers>true</UseSafeExceptionHandlers>
+    </MASM>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SystemInformerRoot)phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\..\phnt\include;$(SolutionDir)..\..\phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;DEBUG;_DEBUG;_PHLIB_;HAVE_CONFIG_H;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SystemInformerRoot)phnt\include;$(SystemInformerRoot)phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;DEBUG;_DEBUG;_AMD64_;_PHLIB_;HAVE_CONFIG_H;JSONC_USE_FAST_NUMBER_CONVERSION;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SystemInformerRoot)phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\..\phnt\include;$(SolutionDir)..\..\phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;DEBUG;_DEBUG;_PHLIB_;HAVE_CONFIG_H;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SystemInformerRoot)phnt\include;$(SystemInformerRoot)phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;DEBUG;_DEBUG;_ARM64_;_PHLIB_;HAVE_CONFIG_H;JSONC_USE_FAST_NUMBER_CONVERSION;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SystemInformerRoot)phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <MARMASM>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </MARMASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\..\phnt\include;$(SolutionDir)..\..\phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_PHLIB_;HAVE_CONFIG_H;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SystemInformerRoot)phnt\include;$(SystemInformerRoot)phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_X86_;_PHLIB_;HAVE_CONFIG_H;JSONC_USE_FAST_NUMBER_CONVERSION;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
+    <MASM>
+      <UseSafeExceptionHandlers>true</UseSafeExceptionHandlers>
+    </MASM>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SystemInformerRoot)phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\..\phnt\include;$(SolutionDir)..\..\phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_WINDOWS;_PHLIB_;HAVE_CONFIG_H;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SystemInformerRoot)phnt\include;$(SystemInformerRoot)phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_WINDOWS;_AMD64_;_PHLIB_;HAVE_CONFIG_H;JSONC_USE_FAST_NUMBER_CONVERSION;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SystemInformerRoot)phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)..\..\phnt\include;$(SolutionDir)..\..\phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_WINDOWS;_PHLIB_;HAVE_CONFIG_H;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)include;$(SystemInformerRoot)phnt\include;$(SystemInformerRoot)phlib\include;jsonc;mxml;pcre;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_WINDOWS;_ARM64_;_PHLIB_;HAVE_CONFIG_H;JSONC_USE_FAST_NUMBER_CONVERSION;MICROSOFT_WINDOWS_WINBASE_H_DEFINE_INTERLOCKED_CPLUSPLUS_OVERLOADS=0;CAPSTONE_X86_ATT_DISABLE_NO;CAPSTONE_DIET_NO;CAPSTONE_X86_REDUCE_NO;CAPSTONE_HAS_ARM;CAPSTONE_HAS_ARM64;CAPSTONE_HAS_X86;CAPSTONE_USE_SYS_DYN_MEM;%(PreprocessorDefinitions);%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SystemInformerRoot)phlib\bin\$(Configuration)$(PlatformArchitecture);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <MARMASM>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </MARMASM>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="detours\detours.cpp" />
@@ -158,6 +182,7 @@
     <ClCompile Include="jsonc\arraylist.c" />
     <ClCompile Include="jsonc\debug.c" />
     <ClCompile Include="jsonc\json_c_version.c" />
+    <ClCompile Include="jsonc\json_number_fast.cpp" />
     <ClCompile Include="jsonc\json_object.c" />
     <ClCompile Include="jsonc\json_object_iterator.c" />
     <ClCompile Include="jsonc\json_pointer.c" />
@@ -171,11 +196,7 @@
     <ClCompile Include="jsonc\strerror_override.c" />
     <ClCompile Include="maxminddb\data-pool.c" />
     <ClCompile Include="maxminddb\maxminddb.c" />
-    <ClCompile Include="md5\md5.c" />
     <ClCompile Include="miniz\miniz.c" />
-    <ClCompile Include="miniz\miniz_tdef.c" />
-    <ClCompile Include="miniz\miniz_tinfl.c" />
-    <ClCompile Include="miniz\miniz_zip.c" />
     <ClCompile Include="mxml\mxml-attr.c" />
     <ClCompile Include="mxml\mxml-file.c" />
     <ClCompile Include="mxml\mxml-get.c" />
@@ -216,9 +237,8 @@
     <ClCompile Include="pcre\pcre2_ucptables.c" />
     <ClCompile Include="pcre\pcre2_valid_utf.c" />
     <ClCompile Include="pcre\pcre2_xclass.c" />
-    <ClCompile Include="sha256\sha256.c" />
-    <ClCompile Include="sha\sha.c" />
     <ClCompile Include="ssdeep\fuzzy.c" />
+    <ClCompile Include="SymCrypt\lib\aes-zmm.c" />
     <ClCompile Include="tlsh\tlsh.cpp" />
     <ClCompile Include="tlsh\tlsh_impl.cpp" />
     <ClCompile Include="tlsh\tlsh_util.cpp" />
@@ -228,6 +248,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="detours\detours.h" />
+    <ClInclude Include="fuzzy\fts_fuzzy_match.h" />
     <ClInclude Include="jsonc\arraylist.h" />
     <ClInclude Include="jsonc\config.h" />
     <ClInclude Include="jsonc\debug.h" />
@@ -235,6 +256,7 @@
     <ClInclude Include="jsonc\json_config.h" />
     <ClInclude Include="jsonc\json_c_version.h" />
     <ClInclude Include="jsonc\json_inttypes.h" />
+    <ClInclude Include="jsonc\json_number_fast.h" />
     <ClInclude Include="jsonc\json_object.h" />
     <ClInclude Include="jsonc\json_object_iterator.h" />
     <ClInclude Include="jsonc\json_object_private.h" />
@@ -256,12 +278,7 @@
     <ClInclude Include="maxminddb\maxminddb-compat-util.h" />
     <ClInclude Include="maxminddb\maxminddb.h" />
     <ClInclude Include="maxminddb\maxminddb_config.h" />
-    <ClInclude Include="md5\md5.h" />
     <ClInclude Include="miniz\miniz.h" />
-    <ClInclude Include="miniz\miniz_common.h" />
-    <ClInclude Include="miniz\miniz_tdef.h" />
-    <ClInclude Include="miniz\miniz_tinfl.h" />
-    <ClInclude Include="miniz\miniz_zip.h" />
     <ClInclude Include="mxml\config.h" />
     <ClInclude Include="mxml\mxml-private.h" />
     <ClInclude Include="mxml\mxml.h" />
@@ -276,9 +293,22 @@
     <ClInclude Include="pcre\pcre2_jit_simd_inc.h" />
     <ClInclude Include="pcre\pcre2_ucp.h" />
     <ClInclude Include="pcre\pcre2_util.h" />
-    <ClInclude Include="sha256\sha256.h" />
-    <ClInclude Include="sha\sha.h" />
     <ClInclude Include="ssdeep\fuzzy.h" />
+    <ClInclude Include="SymCrypt\inc\buildInfo.h" />
+    <ClInclude Include="SymCrypt\inc\symcrypt.h" />
+    <ClInclude Include="SymCrypt\inc\symcrypt_internal.h" />
+    <ClInclude Include="SymCrypt\inc\symcrypt_low_level.h" />
+    <ClInclude Include="SymCrypt\lib\ghash_definitions.h" />
+    <ClInclude Include="SymCrypt\lib\precomp.h" />
+    <ClInclude Include="SymCrypt\lib\sc_lib.h" />
+    <ClInclude Include="SymCrypt\lib\sc_lib_mldsa.h" />
+    <ClInclude Include="SymCrypt\lib\sc_lib_mlkem.h" />
+    <ClInclude Include="SymCrypt\lib\smallPrimes32.h" />
+    <ClInclude Include="SymCrypt\lib\smallPrimes64.h" />
+    <ClInclude Include="SymCrypt\lib\status_indicator.h" />
+    <ClInclude Include="SymCrypt\lib\xtsaes_definitions.h" />
+    <ClInclude Include="SymCrypt\modules\statusindicator_common.h" />
+    <ClInclude Include="SymCrypt\modules\symcrypt_modules_common.h" />
     <ClInclude Include="tlsh\tlsh.h" />
     <ClInclude Include="tlsh\tlsh_impl.h" />
     <ClInclude Include="tlsh\tlsh_util.h" />
@@ -288,7 +318,182 @@
     <ClInclude Include="xxhash\xxhash.h" />
     <ClInclude Include="zydis\Zydis.h" />
   </ItemGroup>
+  <ItemGroup Label="SymCrypt">
+    <ClCompile Include="SymCrypt\modules\windows\user\module.c" />
+    <ClCompile Include="SymCrypt\lib\3des.c" />
+    <ClCompile Include="SymCrypt\lib\aes-asm.c" />
+    <ClCompile Include="SymCrypt\lib\aes-c.c" />
+    <ClCompile Include="SymCrypt\lib\aes-default-bc.c" />
+    <ClCompile Include="SymCrypt\lib\aes-default.c" />
+    <ClCompile Include="SymCrypt\lib\aes-key.c" />
+    <ClCompile Include="SymCrypt\lib\aes-neon.c" />
+    <ClCompile Include="SymCrypt\lib\aes-selftest.c" />
+    <ClCompile Include="SymCrypt\lib\aes-xmm.c" />
+    <ClCompile Include="SymCrypt\lib\aes-ymm.c" />
+    <ClCompile Include="SymCrypt\lib\aescmac.c" />
+    <ClCompile Include="SymCrypt\lib\aesCtrDrbg.c" />
+    <ClCompile Include="SymCrypt\lib\aeskw.c" />
+    <ClCompile Include="SymCrypt\lib\AesTables.c" />
+    <ClCompile Include="SymCrypt\lib\a_dispatch.c" />
+    <ClCompile Include="SymCrypt\lib\blockciphermodes.c" />
+    <ClCompile Include="SymCrypt\lib\ccm.c" />
+    <ClCompile Include="SymCrypt\lib\chacha20.c" />
+    <ClCompile Include="SymCrypt\lib\chacha20_poly1305.c" />
+    <ClCompile Include="SymCrypt\lib\composite_encoding.c" />
+    <ClCompile Include="SymCrypt\lib\composite_mlkem.c" />
+    <ClCompile Include="SymCrypt\lib\cpuid.c" />
+    <ClCompile Include="SymCrypt\lib\cpuid_notry.c" />
+    <ClCompile Include="SymCrypt\lib\cpuid_um.c" />
+    <ClCompile Include="SymCrypt\lib\crt.c" />
+    <ClCompile Include="SymCrypt\lib\data_accessors.c" />
+    <ClCompile Include="SymCrypt\lib\DesTables.c" />
+    <ClCompile Include="SymCrypt\lib\desx.c" />
+    <ClCompile Include="SymCrypt\lib\dh.c" />
+    <ClCompile Include="SymCrypt\lib\dlgroup.c" />
+    <ClCompile Include="SymCrypt\lib\dlkey.c" />
+    <ClCompile Include="SymCrypt\lib\dl_internal_groups.c" />
+    <ClCompile Include="SymCrypt\lib\dsa.c" />
+    <ClCompile Include="SymCrypt\lib\eckey.c" />
+    <ClCompile Include="SymCrypt\lib\ecpoint.c" />
+    <ClCompile Include="SymCrypt\lib\ecurve.c" />
+    <ClCompile Include="SymCrypt\lib\ec_dh.c" />
+    <ClCompile Include="SymCrypt\lib\ec_dispatch.c" />
+    <ClCompile Include="SymCrypt\lib\ec_dsa.c" />
+    <ClCompile Include="SymCrypt\lib\ec_internal_curve_params.c" />
+    <ClCompile Include="SymCrypt\lib\ec_internal_curves.c" />
+    <ClCompile Include="SymCrypt\lib\ec_montgomery.c" />
+    <ClCompile Include="SymCrypt\lib\ec_mul.c" />
+    <ClCompile Include="SymCrypt\lib\ec_short_weierstrass.c" />
+    <ClCompile Include="SymCrypt\lib\ec_twisted_edwards.c" />
+    <ClCompile Include="SymCrypt\lib\env_generic.c" />
+    <ClCompile Include="SymCrypt\lib\env_windowsUserModeWin7.c" />
+    <ClCompile Include="SymCrypt\lib\env_windowsUserModeWin8_1.c" />
+    <ClCompile Include="SymCrypt\lib\equal.c" />
+    <ClCompile Include="SymCrypt\lib\FatalIntercept.c" />
+    <ClCompile Include="SymCrypt\lib\fdef369_mod.c" />
+    <ClCompile Include="SymCrypt\lib\fdef_general.c" />
+    <ClCompile Include="SymCrypt\lib\fdef_int.c" />
+    <ClCompile Include="SymCrypt\lib\fdef_mod.c" />
+    <ClCompile Include="SymCrypt\lib\fips_selftest.c" />
+    <ClCompile Include="SymCrypt\lib\gcm.c" />
+    <ClCompile Include="SymCrypt\lib\gen_int.c" />
+    <ClCompile Include="SymCrypt\lib\ghash.c" />
+    <ClCompile Include="SymCrypt\lib\hash.c" />
+    <ClCompile Include="SymCrypt\lib\hkdf.c" />
+    <ClCompile Include="SymCrypt\lib\hkdf_selftest.c" />
+    <ClCompile Include="SymCrypt\lib\hmac.c" />
+    <ClCompile Include="SymCrypt\lib\hmacmd5.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha1.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha224.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha256.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha384.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha512.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha512_224.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha512_256.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha3_224.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha3_256.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha3_384.c" />
+    <ClCompile Include="SymCrypt\lib\hmacsha3_512.c" />
+    <ClCompile Include="SymCrypt\lib\IEEE802_11SaeCustom.c" />
+    <ClCompile Include="SymCrypt\lib\kmac.c" />
+    <ClCompile Include="SymCrypt\lib\libmain.c" />
+    <ClCompile Include="SymCrypt\lib\lms.c" />
+    <ClCompile Include="SymCrypt\lib\marvin32.c" />
+    <ClCompile Include="SymCrypt\lib\md2.c" />
+    <ClCompile Include="SymCrypt\lib\md4.c" />
+    <ClCompile Include="SymCrypt\lib\md5.c" />
+    <ClCompile Include="SymCrypt\lib\mldsa.c" />
+    <ClCompile Include="SymCrypt\lib\mldsa_primitives.c" />
+    <ClCompile Include="SymCrypt\lib\mlkem.c" />
+    <ClCompile Include="SymCrypt\lib\mlkem_primitives.c" />
+    <ClCompile Include="SymCrypt\lib\modexp.c" />
+    <ClCompile Include="SymCrypt\lib\paddingPkcs7.c" />
+    <ClCompile Include="SymCrypt\lib\parhash.c" />
+    <ClCompile Include="SymCrypt\lib\pbkdf2.c" />
+    <ClCompile Include="SymCrypt\lib\pbkdf2_hmacsha1.c" />
+    <ClCompile Include="SymCrypt\lib\pbkdf2_hmacsha256.c" />
+    <ClCompile Include="SymCrypt\lib\poly1305.c" />
+    <ClCompile Include="SymCrypt\lib\primes.c" />
+    <ClCompile Include="SymCrypt\lib\rc2.c" />
+    <ClCompile Include="SymCrypt\lib\rc4.c" />
+    <ClCompile Include="SymCrypt\lib\rdrand.c" />
+    <ClCompile Include="SymCrypt\lib\rdseed.c" />
+    <ClCompile Include="SymCrypt\lib\recoding.c" />
+    <ClCompile Include="SymCrypt\lib\rsakey.c" />
+    <ClCompile Include="SymCrypt\lib\rsa_enc.c" />
+    <ClCompile Include="SymCrypt\lib\rsa_padding.c" />
+    <ClCompile Include="SymCrypt\lib\ScsTable.c" />
+    <ClCompile Include="SymCrypt\lib\scsTools.c" />
+    <ClCompile Include="SymCrypt\lib\selftest.c" />
+    <ClCompile Include="SymCrypt\lib\service_indicator.c" />
+    <ClCompile Include="SymCrypt\lib\session.c" />
+    <ClCompile Include="SymCrypt\lib\sha1.c" />
+    <ClCompile Include="SymCrypt\lib\sha256-xmm.c" />
+    <ClCompile Include="SymCrypt\lib\sha256-ymm.c" />
+    <ClCompile Include="SymCrypt\lib\sha256.c" />
+    <ClCompile Include="SymCrypt\lib\sha256Par-ymm.c" />
+    <ClCompile Include="SymCrypt\lib\sha256Par.c" />
+    <ClCompile Include="SymCrypt\lib\sha3.c" />
+    <ClCompile Include="SymCrypt\lib\sha3_224.c" />
+    <ClCompile Include="SymCrypt\lib\sha3_256.c" />
+    <ClCompile Include="SymCrypt\lib\sha3_384.c" />
+    <ClCompile Include="SymCrypt\lib\sha3_512.c" />
+    <ClCompile Include="SymCrypt\lib\sha512-ymm.c" />
+    <ClCompile Include="SymCrypt\lib\sha512.c" />
+    <ClCompile Include="SymCrypt\lib\sha512Par-ymm.c" />
+    <ClCompile Include="SymCrypt\lib\sha512Par.c" />
+    <ClCompile Include="SymCrypt\lib\shake.c" />
+    <ClCompile Include="SymCrypt\lib\sp800_108.c" />
+    <ClCompile Include="SymCrypt\lib\sp800_108_hmacsha1.c" />
+    <ClCompile Include="SymCrypt\lib\sp800_108_hmacsha256.c" />
+    <ClCompile Include="SymCrypt\lib\sp800_108_hmacsha512.c" />
+    <ClCompile Include="SymCrypt\lib\srtp_kdf.c" />
+    <ClCompile Include="SymCrypt\lib\srtp_kdf_selftest.c" />
+    <ClCompile Include="SymCrypt\lib\ssh_kdf.c" />
+    <ClCompile Include="SymCrypt\lib\ssh_kdf_sha256.c" />
+    <ClCompile Include="SymCrypt\lib\ssh_kdf_sha512.c" />
+    <ClCompile Include="SymCrypt\lib\sskdf.c" />
+    <ClCompile Include="SymCrypt\lib\sskdf_selftest.c" />
+    <ClCompile Include="SymCrypt\lib\tlsCbcVerify.c" />
+    <ClCompile Include="SymCrypt\lib\tlsprf.c" />
+    <ClCompile Include="SymCrypt\lib\tlsprf_selftest.c" />
+    <ClCompile Include="SymCrypt\lib\xmss.c" />
+    <ClCompile Include="SymCrypt\lib\xtsaes.c" />
+    <MARMASM Include="SymCrypt\lib\arm64\fdef_asm.armasm64.arm64.aapcs64.asm" Condition="'$(Platform)'=='ARM64'" />
+    <MARMASM Include="SymCrypt\lib\arm64\fdef369_asm.armasm64.arm64.aapcs64.asm" Condition="'$(Platform)'=='ARM64'" />
+    <MARMASM Include="SymCrypt\lib\arm64\wipe.armasm64.arm64.aapcs64.asm" Condition="'$(Platform)'=='ARM64'" />
+    <MASM Include="SymCrypt\lib\i386\aesasm.asm" Condition="'$(Platform)'=='Win32'" />
+    <MASM Include="SymCrypt\lib\i386\fdef_asm.asm" Condition="'$(Platform)'=='Win32'" />
+    <MASM Include="SymCrypt\lib\i386\wipe.asm" Condition="'$(Platform)'=='Win32'" />
+    <MASM Include="SymCrypt\lib\amd64\aesasm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\fdef_asm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\fdef_mulx.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\fdef369_asm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\sha256xmm_asm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\sha256ymm_asm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\sha512ymm_asm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\sha512ymm_avx512vl_asm.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+    <MASM Include="SymCrypt\lib\amd64\wipe.masm.amd64.msft.asm" Condition="'$(Platform)'=='x64'" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SymCrypt\inc\C_asm_shared.inc" />
+    <None Include="SymCrypt\inc\symcrypt_internal_shared.inc" />
+    <None Include="SymCrypt\lib\amd64\aesasm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\fdef369_asm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\fdef_asm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\fdef_mulx.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\sha256xmm_asm.asm" />
+    <None Include="SymCrypt\lib\amd64\sha256ymm_asm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\sha2common_asm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\sha512ymm_asm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\sha512ymm_avx512vl_asm.symcryptasm" />
+    <None Include="SymCrypt\lib\amd64\wipe.symcryptasm" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\marmasm.targets" />
+  </ImportGroup>
   <Target Name="CopyThirdPartyPdb" AfterTargets="Build">
     <Copy SourceFiles="$(OutDir)thirdparty.pdb" DestinationFolder="$(SystemInformerRoot)bin\$(Configuration)$(PlatformArchitecture)\" />
   </Target>

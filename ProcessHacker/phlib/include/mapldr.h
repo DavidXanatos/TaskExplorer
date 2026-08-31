@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -68,6 +68,14 @@ PhGetProcedureAddress(
     _In_opt_ PCSTR ProcedureName,
     _In_opt_ USHORT ProcedureNumber
     );
+
+#if defined(__cplusplus)
+#define PhGetProcedureAddressT(BaseAddress, Name) \
+    reinterpret_cast<decltype(&(Name))>(PhGetProcedureAddress((BaseAddress), #Name, 0))
+#else
+#define PhGetProcedureAddressT(BaseAddress, Name) \
+    (typeof(&(Name)))PhGetProcedureAddress((BaseAddress), #Name, 0)
+#endif
 
 PHLIBAPI
 NTSTATUS
@@ -183,13 +191,15 @@ PhGetLoaderEntryDataZ(
         );
 }
 
+_Success_(return != NULL)
 PHLIBAPI
 PVOID
 NTAPI
-PhGetLoaderEntryAddressDllBase(
+PhGetLoaderEntryPcToFileHeader(
     _In_ PVOID PcAddress
     );
 
+_Success_(return != NULL)
 PHLIBAPI
 PVOID
 NTAPI
@@ -327,7 +337,7 @@ PhLoaderEntryImageRvaToVa(
 PHLIBAPI
 BOOLEAN
 NTAPI
-PhLoaderEntryImageExportSupressionPresent(
+PhLoaderEntryImageExportSuppressionPresent(
     _In_ PVOID BaseAddress,
     _In_ PIMAGE_NT_HEADERS ImageNtHeader
     );

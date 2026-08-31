@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     jxy-s   2023
+ *     jxy-s   2023-2026
  *
  */
 
@@ -21,6 +21,7 @@ NTSTATUS NTAPI KphDynDataLookup(
     _In_ USHORT Machine,
     _In_ ULONG TimeDateStamp,
     _In_ ULONG SizeOfImage,
-    _Out_opt_ PKPH_DYN_DATA* Data,
-    _Out_opt_ PVOID* Fields
+    _Outptr_opt_ PKPH_DYN_DATA* Data,
+    _In_ ULONG FieldsLength,
+    _Outptr_opt_result_buffer_(FieldsLength) PVOID* Fields
     );

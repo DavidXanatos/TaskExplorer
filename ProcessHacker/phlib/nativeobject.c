@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -365,12 +365,12 @@ NTSTATUS PhCreatePrivateNamespace(
     UNICODE_STRING objectName;
     OBJECT_ATTRIBUTES objectAttributes;
 
-    if (ObjectName)
-    {
-        if (!PhStringRefToUnicodeString(ObjectName, &objectName))
-            return STATUS_NAME_TOO_LONG;
-    }
-    else
+    //if (ObjectName)
+    //{
+    //    if (!PhStringRefToUnicodeString(ObjectName, &objectName))
+    //        return STATUS_NAME_TOO_LONG;
+    //}
+    //else
     {
         RtlInitEmptyUnicodeString(&objectName, NULL, 0);
     }
@@ -414,12 +414,12 @@ NTSTATUS PhOpenPrivateNamespace(
     UNICODE_STRING objectName;
     OBJECT_ATTRIBUTES objectAttributes;
 
-    if (ObjectName)
-    {
-        if (!PhStringRefToUnicodeString(ObjectName, &objectName))
-            return STATUS_NAME_TOO_LONG;
-    }
-    else
+    //if (ObjectName)
+    //{
+    //    if (!PhStringRefToUnicodeString(ObjectName, &objectName))
+    //        return STATUS_NAME_TOO_LONG;
+    //}
+    //else
     {
         RtlInitEmptyUnicodeString(&objectName, NULL, 0);
     }
@@ -497,7 +497,7 @@ POBJECT_BOUNDARY_DESCRIPTOR PhCreateBoundaryDescriptor(
     // Initialize Descriptor Header
     //
     descriptor = (POBJECT_BOUNDARY_DESCRIPTOR)buffer;
-    descriptor->Version = 1;
+    descriptor->Version = OBJECT_BOUNDARY_DESCRIPTOR_VERSION;
     descriptor->Items = 1;
     descriptor->TotalSize = totalSize;
     descriptor->Flags = Flags;

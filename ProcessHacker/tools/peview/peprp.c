@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2010-2011
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -39,6 +39,7 @@ typedef enum _PVP_IMAGE_GENERAL_INDEX
     PVP_IMAGE_GENERAL_INDEX_CHECKSUM,
     //PVP_IMAGE_GENERAL_INDEX_CHECKSUMIAT,
     PVP_IMAGE_GENERAL_INDEX_HEADERSPARE,
+    PVP_IMAGE_GENERAL_INDEX_SECTIONSLACK,
     PVP_IMAGE_GENERAL_INDEX_SUBSYSTEM,
     PVP_IMAGE_GENERAL_INDEX_SUBSYSTEMVERSION,
     PVP_IMAGE_GENERAL_INDEX_CHARACTERISTICS,
@@ -107,7 +108,7 @@ VOID PvPeProperties(
 
     if (!PhExtractIcon(PvFileName->Buffer, &PvImageLargeIcon, &PvImageSmallIcon))
     {
-        PhGetStockApplicationIcon(&PvImageSmallIcon, &PvImageLargeIcon);
+        PhGetStockApplicationIcon(&PvImageSmallIcon, &PvImageLargeIcon, USER_DEFAULT_SCREEN_DPI);
     }
 
     if (PvpLoadDbgHelp(&PvSymbolProvider))
@@ -246,7 +247,7 @@ VOID PvPeProperties(
 
         // CLR page
         if (NT_SUCCESS(PhGetMappedImageDataDirectory(&PvMappedImage, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, &entry)) &&
-            (PvImageCor20Header = PhMappedImageRvaToVa(&PvMappedImage, entry->VirtualAddress, NULL)))
+            NT_SUCCESS(PhMappedImageRvaToVa(&PvMappedImage, entry->VirtualAddress, (PVOID *)&PvImageCor20Header)))
         {
             NTSTATUS status = STATUS_SUCCESS;
 
@@ -1028,7 +1029,7 @@ VOID PvpSetPeImageSize(
     {
         BOOLEAN success = FALSE;
         PIMAGE_DATA_DIRECTORY dataDirectory;
-        
+
         if (NT_SUCCESS(PhGetMappedImageDataDirectory(
             &PvMappedImage,
             IMAGE_DIRECTORY_ENTRY_SECURITY,
@@ -1041,7 +1042,7 @@ VOID PvpSetPeImageSize(
                 success = TRUE;
             }
         }
-        
+
         if (success)
         {
             string = PhFormatSize(PvMappedImage.ViewSize, ULONG_MAX);
@@ -1236,6 +1237,23 @@ VOID PvpSetPeImageSpareHeaderBytes(
 
         PhSetListViewSubItem(ListViewHandle, PVP_IMAGE_GENERAL_INDEX_HEADERSPARE, 1, PhaFormatSize(spareLength, ULONG_MAX)->Buffer);
     }
+}
+
+VOID PvpSetPeImageSectionSlackBytes(
+    _In_ HWND ListViewHandle
+    )
+{
+    ULONG64 slackLength = 0;
+
+    for (ULONG i = 0; i < PvMappedImage.NumberOfSections; i++)
+    {
+        PIMAGE_SECTION_HEADER section = &PvMappedImage.Sections[i];
+
+        if (section->SizeOfRawData > section->Misc.VirtualSize)
+            slackLength += UInt32Sub32To64(section->SizeOfRawData, section->Misc.VirtualSize);
+    }
+
+    PhSetListViewSubItem(ListViewHandle, PVP_IMAGE_GENERAL_INDEX_SECTIONSLACK, 1, PhaFormatSize(slackLength, ULONG_MAX)->Buffer);
 }
 
 VOID PvpSetPeImageSubsystem(
@@ -1491,7 +1509,7 @@ VOID PvpSetPeImageFileProperties(
                 //if (basicInfo.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED)
                 //    PhAppendStringBuilder2(&stringBuilder, L"Encrypted, ");
                 //if (basicInfo.FileAttributes & FILE_ATTRIBUTE_INTEGRITY_STREAM)
-                //    PhAppendStringBuilder2(&stringBuilder, L"Integiry, ");
+                //    PhAppendStringBuilder2(&stringBuilder, L"Integrity, ");
                 //if (basicInfo.FileAttributes & FILE_ATTRIBUTE_VIRTUAL)
                 //    PhAppendStringBuilder2(&stringBuilder, L"Virtual, ");
                 //if (basicInfo.FileAttributes & FILE_ATTRIBUTE_NO_SCRUB_DATA)
@@ -1843,6 +1861,7 @@ VOID PvpSetPeImageProperties(
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_CHECKSUM, L"Header checksum", NULL);
     //PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_CHECKSUMIAT, L"Import checksum", NULL);
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_HEADERSPARE, L"Header spare", NULL);
+    PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_SECTIONSLACK, L"Section slack", NULL);
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_SUBSYSTEM, L"Subsystem", NULL);
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_SUBSYSTEMVERSION, L"Subsystem version", NULL);
     PhAddListViewGroupItem(Context->ListViewHandle, PVP_IMAGE_GENERAL_CATEGORY_BASICINFO, PVP_IMAGE_GENERAL_INDEX_CHARACTERISTICS, L"Characteristics", NULL);
@@ -1868,6 +1887,7 @@ VOID PvpSetPeImageProperties(
     PvpSetPeImageEntryPoint(Context->ListViewHandle);
     PvpSetPeImageCheckSum(Context->WindowHandle, Context->ListViewHandle);
     PvpSetPeImageSpareHeaderBytes(Context->ListViewHandle);
+    PvpSetPeImageSectionSlackBytes(Context->ListViewHandle);
     PvpSetPeImageSubsystem(Context->ListViewHandle);
     PvpSetPeImageCharacteristics(Context->ListViewHandle);
     // File information
@@ -2104,7 +2124,7 @@ INT_PTR CALLBACK PvPeGeneralDlgProc(
             PhFree(context);
         }
         break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
         {
             PvSetListViewImageList(context->WindowHandle, context->ListViewHandle);
         }

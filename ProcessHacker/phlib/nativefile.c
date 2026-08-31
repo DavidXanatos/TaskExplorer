@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -1451,6 +1451,8 @@ NTSTATUS PhDeleteFile(
     UNICODE_STRING fileName;
     OBJECT_ATTRIBUTES objectAttributes;
 
+    status = PhStringRefToUnicodeString(FileName, &fileName);
+
     if (!NT_SUCCESS(status))
         return status;
 
@@ -1698,7 +1700,7 @@ NTSTATUS PhCreateDirectoryFullPathWin32(
 /**
  * Creates a directory path recursively.
  *
- * \param DirectoryPath The directory path.
+ * \param FileName The directory or filepath.
  * \return NTSTATUS Successful or errant status.
  */
 NTSTATUS PhCreateDirectoryFullPath(
@@ -1910,7 +1912,7 @@ NTSTATUS PhDeleteDirectoryWin32(
 /**
  * Deletes a directory path recursively.
  *
- * \param DirectoryPath The directory path.
+ * \param FileName The directory or filepath.
  * \return NTSTATUS Successful or errant status.
  */
 NTSTATUS PhDeleteDirectoryFullPath(
@@ -2403,9 +2405,20 @@ NTSTATUS PhMoveFile(
     if (!NT_SUCCESS(status))
         goto CleanupExit;
 
-    renameInfoLength = sizeof(FILE_RENAME_INFORMATION) + fileNameLength + sizeof(UNICODE_NULL);
+    status = RtlULongAdd(sizeof(FILE_RENAME_INFORMATION), fileNameLength, &renameInfoLength);
+    if (!NT_SUCCESS(status))
+        goto CleanupExit;
+    status = RtlULongAdd(renameInfoLength, sizeof(UNICODE_NULL), &renameInfoLength);
+    if (!NT_SUCCESS(status))
+        goto CleanupExit;
+
     renameInfo = PhAllocateStack(renameInfoLength);
-    if (!renameInfo) return STATUS_NO_MEMORY;
+
+    if (!renameInfo)
+    {
+        status = STATUS_NO_MEMORY;
+        goto CleanupExit;
+    }
 
     memset(renameInfo, 0, renameInfoLength);
     renameInfo->ReplaceIfExists = FailIfExists ? FALSE : TRUE;
@@ -2566,7 +2579,12 @@ NTSTATUS PhMoveFileWin32(
 
     renameInfoLength = sizeof(FILE_RENAME_INFORMATION) + newFileName.Length + sizeof(UNICODE_NULL);
     renameInfo = PhAllocateStack(renameInfoLength);
-    if (!renameInfo) return STATUS_NO_MEMORY;
+
+    if (!renameInfo)
+    {
+        status = STATUS_NO_MEMORY;
+        goto CleanupExit;
+    }
 
     memset(renameInfo, 0, renameInfoLength);
     renameInfo->ReplaceIfExists = FailIfExists ? FALSE : TRUE;
@@ -2931,25 +2949,66 @@ NTSTATUS PhSetFileExtendedAttributes(
 {
     NTSTATUS status;
     ULONG infoLength;
+    ULONG nameLength;
+    ULONG valueLength;
+    UCHAR eaNameLength;
+    USHORT eaValueLength;
     PFILE_FULL_EA_INFORMATION info;
     IO_STATUS_BLOCK ioStatusBlock;
 
-    infoLength = sizeof(FILE_FULL_EA_INFORMATION) + (ULONG)Name->Length + sizeof(ANSI_NULL);
-    if (Value) infoLength += (ULONG)Value->Length + sizeof(ANSI_NULL);
+    status = RtlSIZETToULong(Name->Length, &nameLength);
+    if (!NT_SUCCESS(status))
+        return status;
+    status = RtlULongToUChar(nameLength, &eaNameLength);
+    if (!NT_SUCCESS(status))
+        return status;
+
+    status = RtlULongAdd(sizeof(FILE_FULL_EA_INFORMATION), nameLength, &infoLength);
+    if (!NT_SUCCESS(status))
+        return status;
+    status = RtlULongAdd(infoLength, sizeof(ANSI_NULL), &infoLength);
+    if (!NT_SUCCESS(status))
+        return status;
+
+    if (Value)
+    {
+        status = RtlSIZETToULong(Value->Length, &valueLength);
+        if (!NT_SUCCESS(status))
+            return status;
+        status = RtlULongToUShort(valueLength, &eaValueLength);
+        if (!NT_SUCCESS(status))
+            return status;
+
+        status = RtlULongAdd(infoLength, valueLength, &infoLength);
+        if (!NT_SUCCESS(status))
+            return status;
+        status = RtlULongAdd(infoLength, sizeof(ANSI_NULL), &infoLength);
+        if (!NT_SUCCESS(status))
+            return status;
+    }
+    else
+    {
+        valueLength = 0;
+        eaValueLength = 0;
+    }
 
     info = PhAllocateStack(infoLength);
     if (!info) return STATUS_NO_MEMORY;
 
-    info->EaNameLength = (UCHAR)Name->Length;
-    memcpy(info->EaName, Name->Buffer, Name->Length);
+    memset(info, 0, infoLength);
+    info->NextEntryOffset = 0;
+    info->Flags = 0;
+    info->EaNameLength = eaNameLength;
+    info->EaValueLength = eaValueLength;
+    memcpy(info->EaName, Name->Buffer, nameLength);
+    info->EaName[eaNameLength] = ANSI_NULL;
 
     if (Value)
     {
-        info->EaValueLength = (USHORT)Value->Length;
         memcpy(
-            PTR_ADD_OFFSET(info->EaName, info->EaNameLength + sizeof(ANSI_NULL)),
+            PTR_ADD_OFFSET(info->EaName, eaNameLength + sizeof(ANSI_NULL)),
             Value->Buffer,
-            Value->Length
+            valueLength
             );
     }
 
@@ -3570,24 +3629,32 @@ NTSTATUS PhSetFileRename(
 
     if (WindowsVersion >= WINDOWS_10_RS2)
     {
-        PFILE_RENAME_INFORMATION_EX renameInfo;
-        IO_STATUS_BLOCK ioStatusBlock;
-        ULONG renameInfoLength;
-
-        renameInfoLength = sizeof(FILE_RENAME_INFORMATION_EX) + (ULONG)NewFileName->Length + sizeof(UNICODE_NULL);
-        renameInfo = PhAllocateStack(renameInfoLength);
-
-        if (renameInfo)
+        for (ULONG i = 0; i < 2; i++)
         {
-            RtlZeroMemory(renameInfo, renameInfoLength);
-            renameInfo->Flags = (ReplaceIfExists ? FILE_RENAME_REPLACE_IF_EXISTS : 0) | FILE_RENAME_POSIX_SEMANTICS;
-            renameInfo->RootDirectory = RootDirectory;
-            renameInfo->FileNameLength = (ULONG)NewFileName->Length;
-            RtlCopyMemory(renameInfo->FileName, NewFileName->Buffer, NewFileName->Length);
+            PFILE_RENAME_INFORMATION_EX renameInfo;
+            IO_STATUS_BLOCK ioStatusBlock;
+            ULONG renameInfoLength;
+            ULONG renameFlags;
+
+            renameInfoLength = sizeof(FILE_RENAME_INFORMATION_EX) + (ULONG)NewFileName->Length + sizeof(UNICODE_NULL);
+            renameInfo = PhAllocateStack(renameInfoLength);
+
+            if (!renameInfo)
+            {
+                status = STATUS_NO_MEMORY;
+                break;
+            }
+
+            renameFlags = ReplaceIfExists ? FILE_RENAME_REPLACE_IF_EXISTS : 0;
+
+            if (i == 0)
+            {
+                SetFlag(renameFlags, FILE_RENAME_POSIX_SEMANTICS);
+            }
 
             if (WindowsVersion >= WINDOWS_10_RS5)
             {
-                SetFlag(renameInfo->Flags, FILE_RENAME_IGNORE_READONLY_ATTRIBUTE);
+                SetFlag(renameFlags, FILE_RENAME_IGNORE_READONLY_ATTRIBUTE);
             }
             else
             {
@@ -3599,6 +3666,12 @@ NTSTATUS PhSetFileRename(
                 PhSetFileBasicInformation(FileHandle, &basicInfo);
             }
 
+            RtlZeroMemory(renameInfo, renameInfoLength);
+            renameInfo->Flags = renameFlags;
+            renameInfo->RootDirectory = RootDirectory;
+            renameInfo->FileNameLength = (ULONG)NewFileName->Length;
+            RtlCopyMemory(renameInfo->FileName, NewFileName->Buffer, NewFileName->Length);
+
             status = NtSetInformationFile(
                 FileHandle,
                 &ioStatusBlock,
@@ -3608,10 +3681,9 @@ NTSTATUS PhSetFileRename(
                 );
 
             PhFreeStack(renameInfo);
-        }
-        else
-        {
-            status = STATUS_NO_MEMORY;
+
+            if (NT_SUCCESS(status))
+                break;
         }
     }
 

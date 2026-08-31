@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2017-2023
+ *     dmex    2017-2026
  *
  */
 
@@ -90,6 +90,8 @@ NTSTATUS PhCreateJsonParserEx(
         PPH_STRING jsonStringUtf16 = JsonString;
         PPH_BYTES jsonStringUtf8;
 
+        if (!jsonStringUtf16)
+            return STATUS_FAIL_CHECK;
         if (jsonStringUtf16->Length / sizeof(WCHAR) >= INT32_MAX)
             return STATUS_INVALID_BUFFER_SIZE;
         if (!(tokenerObject = json_tokener_new()))
@@ -104,17 +106,33 @@ NTSTATUS PhCreateJsonParserEx(
             jsonStringUtf16->Buffer,
             jsonStringUtf16->Length
             );
+
+        if (!jsonStringUtf8)
+        {
+            json_tokener_free(tokenerObject);
+            return STATUS_FAIL_CHECK;
+        }
+
         jsonObject = json_tokener_parse_ex(
             tokenerObject,
             jsonStringUtf8->Buffer,
             (LONG)jsonStringUtf8->Length
             );
+
         PhDereferenceObject(jsonStringUtf8);
+
+        if (!jsonObject)
+        {
+            json_tokener_free(tokenerObject);
+            return STATUS_FAIL_CHECK;
+        }
     }
     else
     {
         PPH_BYTES jsonStringUtf8 = JsonString;
 
+        if (!jsonStringUtf8)
+            return STATUS_FAIL_CHECK;
         if (jsonStringUtf8->Length >= INT32_MAX)
             return STATUS_INVALID_BUFFER_SIZE;
         if (!(tokenerObject = json_tokener_new()))
@@ -130,6 +148,12 @@ NTSTATUS PhCreateJsonParserEx(
             jsonStringUtf8->Buffer,
             (LONG)jsonStringUtf8->Length
             );
+
+        if (!jsonObject)
+        {
+            json_tokener_free(tokenerObject);
+            return STATUS_FAIL_CHECK;
+        }
     }
 
     jsonStatus = json_tokener_get_error(tokenerObject);
@@ -332,6 +356,15 @@ VOID PhAddJsonObjectUtf8(
     json_object_object_add_ex(Object, Key, string, JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
 }
 
+VOID PhAddJsonObjectBoolean(
+    _In_ PVOID Object,
+    _In_ PCSTR Key,
+    _In_ BOOLEAN Value
+    )
+{
+    json_object_object_add_ex(Object, Key, json_object_new_boolean(Value), JSON_C_OBJECT_ADD_KEY_IS_NEW | JSON_C_OBJECT_ADD_CONSTANT_KEY);
+}
+
 VOID PhAddJsonObjectInt64(
     _In_ PVOID Object,
     _In_ PCSTR Key,
@@ -424,7 +457,7 @@ VOID PhEnumJsonArrayObject(
 {
     if (PhGetJsonObjectType(Object) == PH_JSON_OBJECT_TYPE_OBJECT)
     {
-        json_object_iter iter;
+        json_object_iter iter = { 0 };
 
         json_object_object_foreachC(Object, iter)
         {
@@ -442,7 +475,7 @@ PVOID PhGetJsonObjectAsArrayList(
 
     if (PhGetJsonObjectType(Object) == PH_JSON_OBJECT_TYPE_OBJECT)
     {
-        json_object_iter iter;
+        json_object_iter iter = { 0 };
 
         listArray = PhCreateList(1);
 
@@ -857,6 +890,52 @@ PPH_BYTES PhJsonObjectToJsonString(
     return NULL;
 }
 
+static NTSTATUS PhpSaveBufferToFile(
+    _In_ PCPH_STRINGREF FileName,
+    _In_reads_bytes_(BufferLength) PVOID Buffer,
+    _In_ ULONG BufferLength
+    )
+{
+    NTSTATUS status;
+    HANDLE fileHandle;
+    LARGE_INTEGER allocationSize;
+
+    allocationSize.QuadPart = BufferLength;
+
+    status = PhCreateFileEx(
+        &fileHandle,
+        FileName,
+        FILE_GENERIC_WRITE,
+        NULL,
+        &allocationSize,
+        FILE_ATTRIBUTE_NORMAL,
+        FILE_SHARE_READ | FILE_SHARE_DELETE,
+        FILE_OVERWRITE_IF,
+        FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+        NULL
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    status = PhWriteFile(
+        fileHandle,
+        Buffer,
+        BufferLength,
+        NULL,
+        NULL
+        );
+
+    if (NT_SUCCESS(status))
+    {
+        PhFlushBuffersFile(fileHandle);
+    }
+
+    NtClose(fileHandle);
+
+    return status;
+}
+
 NTSTATUS PhSaveJsonObjectToFile(
     _In_ PCPH_STRINGREF FileName,
     _In_ PVOID Object,
@@ -955,6 +1034,15 @@ NTSTATUS PhSaveJsonObjectToFile(
         TRUE,
         FileName
         );
+
+    if (!NT_SUCCESS(status))
+    {
+        status = PhpSaveBufferToFile(
+            FileName,
+            (PVOID)jsonStringUtf8->Buffer,
+            (ULONG)jsonStringUtf8->Length
+            );
+    }
 
 CleanupExit:
     if (fileHandle)
@@ -1181,6 +1269,15 @@ NTSTATUS PhSaveXmlObjectToFile(
         TRUE,
         FileName
         );
+
+    if (!NT_SUCCESS(status))
+    {
+        status = PhpSaveBufferToFile(
+            FileName,
+            (PVOID)string->Buffer,
+            (ULONG)string->Length
+            );
+    }
 
 CleanupExit:
     if (fileHandle)

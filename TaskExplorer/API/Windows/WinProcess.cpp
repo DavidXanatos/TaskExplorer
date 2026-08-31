@@ -1677,7 +1677,7 @@ bool CWinProcess::UpdateModulesList(bool bWithModPages)
 			pModule = QSharedPointer<CWinModule>(new CWinModule(m_ProcessId, m->IsSubsystemProcess));
 			bAdd = pModule->InitStaticData(module, (quint64)m->QueryHandle);
 			
-			if (pModule->GetType() != PH_MODULE_TYPE_ELF_MAPPED_IMAGE)
+			if (pModule->GetType() != -1)
 				pModule->InitAsyncData();
 
 			// todo: this should be refreshed

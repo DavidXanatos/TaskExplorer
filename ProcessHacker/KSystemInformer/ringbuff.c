@@ -78,6 +78,18 @@ PVOID KphReserveRingBuffer(
     consumerPos = ReadULongAcquire(Ring->ConsumerPos);
     producerPos = ReadULongNoFence(Ring->ProducerPos);
 
+    if (!NT_VERIFY(consumerPos <= Ring->Length))
+    {
+        KphTracePrint(TRACE_LEVEL_VERBOSE,
+                      GENERAL,
+                      "Ring buffer position overflow: %lu %lu %lu",
+                      producerPos,
+                      consumerPos,
+                      Ring->Length);
+
+        goto Exit;
+    }
+
     if (producerPos >= consumerPos)
     {
         remainingLength = (Ring->Length - producerPos);

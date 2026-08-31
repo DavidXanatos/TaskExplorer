@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2022-2023
+ *     dmex    2022-2026
  *
  */
 
@@ -217,7 +217,7 @@ LRESULT CALLBACK PhStaticWindowHookProcedure(
         {
             WCHAR windowClassName[MAX_PATH];
             HWND ParentHandle = GetParent(WindowHandle);
-            if (!GetClassName(ParentHandle, windowClassName, RTL_NUMBER_OF(windowClassName)))
+            if (!NT_SUCCESS(PhGetClassName(ParentHandle, windowClassName, RTL_NUMBER_OF(windowClassName), NULL)))
                 windowClassName[0] = UNICODE_NULL;
             if (PhEqualStringZ(windowClassName, L"CHECKLIST_ACLUI", FALSE))
             {
@@ -236,7 +236,7 @@ LRESULT CALLBACK PhStaticWindowHookProcedure(
             RECT clientRect;
             WCHAR windowClassName[MAX_PATH];
 
-            if (!GetClassName(GetParent(WindowHandle), windowClassName, RTL_NUMBER_OF(windowClassName)))
+            if (!NT_SUCCESS(PhGetClassName(GetParent(WindowHandle), windowClassName, RTL_NUMBER_OF(windowClassName), NULL)))
                 windowClassName[0] = UNICODE_NULL;
             if (PhEqualStringZ(windowClassName, L"CHECKLIST_ACLUI", FALSE))
             {
@@ -246,11 +246,15 @@ LRESULT CALLBACK PhStaticWindowHookProcedure(
                     static HFONT hCheckFont = NULL;
 
                     HDC hdc = BeginPaint(WindowHandle, &ps);
-                    GetClientRect(WindowHandle, &clientRect);
+                    PH_BUFFERED_PAINT bufferedPaint;
+                    BOOLEAN buffered;
+                    HDC bufferDc;
 
-                    HDC bufferDc = CreateCompatibleDC(hdc);
-                    HBITMAP bufferBitmap = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
-                    HBITMAP oldBufferBitmap = SelectBitmap(bufferDc, bufferBitmap);
+                    GetClientRect(WindowHandle, &clientRect);
+                    buffered = PhBeginBufferedPaint(hdc, &clientRect, &bufferedPaint, &bufferDc);
+
+                    if (!buffered)
+                        bufferDc = hdc;
 
                     enum { nocheck, check, graycheck } checkType = nocheck;
                     INT startX = clientRect.left + (clientRect.right - clientRect.bottom) / 2 + 1;
@@ -302,9 +306,9 @@ LRESULT CALLBACK PhStaticWindowHookProcedure(
                         //SelectFont(hdc, hFontOriginal);
                     }
 
-                    SelectBitmap(bufferDc, oldBufferBitmap);
-                    DeleteBitmap(bufferBitmap);
-                    DeleteDC(bufferDc);
+                    if (buffered)
+                        PhEndBufferedPaint(&bufferedPaint, TRUE);
+
                     EndPaint(WindowHandle, &ps);
                     return 0;
                 }
@@ -360,55 +364,7 @@ typedef struct _PHP_THEME_WINDOW_STATUSBAR_CONTEXT
 
     HTHEME ThemeHandle;
     POINT CursorPos;
-
-    HDC BufferedDc;
-    HBITMAP BufferedOldBitmap;
-    HBITMAP BufferedBitmap;
-    RECT BufferedContextRect;
 } PHP_THEME_WINDOW_STATUSBAR_CONTEXT, *PPHP_THEME_WINDOW_STATUSBAR_CONTEXT;
-
-VOID ThemeWindowStatusBarCreateBufferedContext(
-    _In_ PPHP_THEME_WINDOW_STATUSBAR_CONTEXT Context,
-    _In_ HDC Hdc,
-    _In_ PRECT BufferRect
-    )
-{
-    Context->BufferedDc = CreateCompatibleDC(Hdc);
-
-    if (!Context->BufferedDc)
-        return;
-
-    Context->BufferedContextRect = *BufferRect;
-    Context->BufferedBitmap = CreateCompatibleBitmap(
-        Hdc,
-        BufferRect->right,
-        BufferRect->bottom
-        );
-
-    Context->BufferedOldBitmap = SelectBitmap(Context->BufferedDc, Context->BufferedBitmap);
-}
-
-VOID ThemeWindowStatusBarDestroyBufferedContext(
-    _In_ PPHP_THEME_WINDOW_STATUSBAR_CONTEXT Context
-    )
-{
-    if (Context->BufferedDc && Context->BufferedOldBitmap)
-    {
-        SelectBitmap(Context->BufferedDc, Context->BufferedOldBitmap);
-    }
-
-    if (Context->BufferedBitmap)
-    {
-        DeleteBitmap(Context->BufferedBitmap);
-        Context->BufferedBitmap = NULL;
-    }
-
-    if (Context->BufferedDc)
-    {
-        DeleteDC(Context->BufferedDc);
-        Context->BufferedDc = NULL;
-    }
-}
 
 LONG ThemeWindowStatusBarUpdateRectToIndex(
     _In_ HWND WindowHandle,
@@ -582,8 +538,6 @@ LRESULT CALLBACK PhStatusBarWindowHookProcedure(
             {
                 PhRemoveWindowContext(WindowHandle, LONG_MAX);
 
-                ThemeWindowStatusBarDestroyBufferedContext(context);
-
                 if (context->ThemeHandle)
                 {
                     PhCloseThemeData(context->ThemeHandle);
@@ -638,69 +592,40 @@ LRESULT CALLBACK PhStatusBarWindowHookProcedure(
             break;
         case WM_PAINT:
             {
-                //PAINTSTRUCT ps;
-                //HDC BufferedHDC;
-                //HPAINTBUFFER BufferedPaint;
-                //
-                //if (!BeginPaint(WindowHandle, &ps))
-                //    break;
-                //
-                //if (BufferedPaint = BeginBufferedPaint(ps.hdc, &ps.rcPaint, BPBF_COMPATIBLEBITMAP, NULL, &BufferedHDC))
-                //{
-                //    ThemeWindowRenderStatusBar(context, WindowHandle, BufferedHDC, &ps.rcPaint, oldWndProc);
-                //    EndBufferedPaint(BufferedPaint, TRUE);
-                //}
-                //else
+                PAINTSTRUCT paintStruct;
+                RECT clientRect;
+                PH_BUFFERED_PAINT paintBuffer;
+                HDC bufferDc;
+                HDC hdc;
+
+                if (!(hdc = BeginPaint(WindowHandle, &paintStruct)))
+                    break;
+
+                if (PhRectEmpty(&paintStruct.rcPaint) || !PhGetClientRect(WindowHandle, &clientRect))
                 {
-                    RECT clientRect;
-                    RECT bufferRect;
-                    HDC hdc;
-
-                    GetClientRect(WindowHandle, &clientRect);
-                    bufferRect.left = 0;
-                    bufferRect.top = 0;
-                    bufferRect.right = clientRect.right - clientRect.left;
-                    bufferRect.bottom = clientRect.bottom - clientRect.top;
-
-                    hdc = GetDC(WindowHandle);
-
-                    if (context->BufferedDc && (
-                        context->BufferedContextRect.right < bufferRect.right ||
-                        context->BufferedContextRect.bottom < bufferRect.bottom))
-                    {
-                        ThemeWindowStatusBarDestroyBufferedContext(context);
-                    }
-
-                    if (!context->BufferedDc)
-                    {
-                        ThemeWindowStatusBarCreateBufferedContext(context, hdc, &bufferRect);
-                    }
-
-                    if (context->BufferedDc)
-                    {
-                        ThemeWindowRenderStatusBar(
-                            context,
-                            WindowHandle,
-                            context->BufferedDc,
-                            &clientRect
-                            );
-
-                        BitBlt(hdc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom, context->BufferedDc, 0, 0, SRCCOPY);
-                    }
-
-                    ReleaseDC(WindowHandle, hdc);
+                    EndPaint(WindowHandle, &paintStruct);
+                    return 0;
                 }
 
-                //EndPaint(WindowHandle, &ps);
+                // Buffer only the invalidated region; ThemeWindowRenderStatusBar still
+                // lays out using the full client rect and is clipped to the rcPaint buffer.
+                if (PhBeginBufferedPaint(hdc, &paintStruct.rcPaint, &paintBuffer, &bufferDc))
+                {
+                    ThemeWindowRenderStatusBar(context, WindowHandle, bufferDc, &clientRect);
+                    PhEndBufferedPaint(&paintBuffer, TRUE);
+                }
+                else
+                {
+                    ThemeWindowRenderStatusBar(context, WindowHandle, hdc, &clientRect);
+                }
+
+                EndPaint(WindowHandle, &paintStruct);
             }
-            goto DefaultWndProc;
+            return 0;
         }
     }
 
     return CallWindowProc(PhDefaultStatusbarWindowProcedure, WindowHandle, WindowMessage, wParam, lParam);
-
-DefaultWndProc:
-    return DefWindowProc(WindowHandle, WindowMessage, wParam, lParam);
 }
 
 LRESULT CALLBACK PhEditWindowHookProcedure(
@@ -950,7 +875,7 @@ LRESULT CALLBACK PhHeaderWindowHookProcedure(
         {
             WCHAR windowClassName[MAX_PATH];
 
-            if (!GetClassName(createStruct->hwndParent, windowClassName, RTL_NUMBER_OF(windowClassName)))
+            if (!NT_SUCCESS(PhGetClassName(createStruct->hwndParent, windowClassName, RTL_NUMBER_OF(windowClassName), NULL)))
                 windowClassName[0] = UNICODE_NULL;
 
             {
@@ -1069,54 +994,42 @@ LRESULT CALLBACK PhHeaderWindowHookProcedure(
                     break;
                 }
 
-                //PAINTSTRUCT ps;
-                //HDC BufferedHDC;
-                //HPAINTBUFFER BufferedPaint;
-                //
-                //if (!BeginPaint(WindowHandle, &ps))
-                //    break;
-                //
-                //DEBUG_BEGINPAINT_RECT(WindowHandle, ps.rcPaint);
-                //
-                //if (BufferedPaint = BeginBufferedPaint(ps.hdc, &ps.rcPaint, BPBF_COMPATIBLEBITMAP, NULL, &BufferedHDC))
-                //{
-                //    ThemeWindowRenderHeaderControl(context, WindowHandle, BufferedHDC, &ps.rcPaint, oldWndProc);
-                //    EndBufferedPaint(BufferedPaint, TRUE);
-                //}
-                //else
                 {
+                    PAINTSTRUCT ps;
                     RECT clientRect;
-                    HDC hdc;
+                    PH_BUFFERED_PAINT paintBuffer;
                     HDC bufferDc;
-                    HBITMAP bufferBitmap;
-                    HBITMAP oldBufferBitmap;
+                    HDC hdc;
 
-                    GetClientRect(WindowHandle, &clientRect);
+                    if (!(hdc = BeginPaint(WindowHandle, &ps)))
+                        break;
 
-                    hdc = GetDC(WindowHandle);
-                    bufferDc = CreateCompatibleDC(hdc);
-                    bufferBitmap = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
-                    oldBufferBitmap = SelectBitmap(bufferDc, bufferBitmap);
+                    if (PhRectEmpty(&ps.rcPaint) || !PhGetClientRect(WindowHandle, &clientRect))
+                    {
+                        EndPaint(WindowHandle, &ps);
+                        return 0;
+                    }
 
-                    ThemeWindowRenderHeaderControl(context, WindowHandle, bufferDc, &clientRect);
+                    // Buffer only the invalidated region; ThemeWindowRenderHeaderControl
+                    // lays out using the full client rect and is clipped to the rcPaint buffer.
+                    if (PhBeginBufferedPaint(hdc, &ps.rcPaint, &paintBuffer, &bufferDc))
+                    {
+                        ThemeWindowRenderHeaderControl(context, WindowHandle, bufferDc, &clientRect);
+                        PhEndBufferedPaint(&paintBuffer, TRUE);
+                    }
+                    else
+                    {
+                        ThemeWindowRenderHeaderControl(context, WindowHandle, hdc, &clientRect);
+                    }
 
-                    BitBlt(hdc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom, bufferDc, 0, 0, SRCCOPY);
-                    SelectBitmap(bufferDc, oldBufferBitmap);
-                    DeleteBitmap(bufferBitmap);
-                    DeleteDC(bufferDc);
-                    ReleaseDC(WindowHandle, hdc);
+                    EndPaint(WindowHandle, &ps);
                 }
-
-                //EndPaint(WindowHandle, &ps);
             }
-            goto DefaultWndProc;
+            return 0;
         }
     }
 
     return CallWindowProc(PhDefaultHeaderWindowProcedure, WindowHandle, WindowMessage, wParam, lParam);
-
-DefaultWndProc:
-    return DefWindowProc(WindowHandle, WindowMessage, wParam, lParam);
 }
 
 VOID PhRegisterDialogSuperClass(
@@ -1395,7 +1308,7 @@ typedef struct _TASKDIALOG_WINDOW_CONTEXT
 
 #define TASKDIALOG_CONTEXT_TAG (ULONG)'TDLG'
 
-#define GETCLASSNAME_OR_NULL(WindowHandle, ClassName) if (!GetClassName(WindowHandle, ClassName, RTL_NUMBER_OF(ClassName))) ClassName[0] = UNICODE_NULL
+#define GETCLASSNAME_OR_NULL(WindowHandle, ClassName) if (!NT_SUCCESS(PhGetClassName(WindowHandle, ClassName, RTL_NUMBER_OF(ClassName), NULL))) ClassName[0] = UNICODE_NULL
 
 HRESULT CALLBACK ThemeTaskDialogCallbackHook(
     _In_ HWND hwndDlg,
@@ -1961,7 +1874,7 @@ LRESULT CALLBACK ThemeTaskDialogMasterSubclass(
                 LPNMCUSTOMDRAW customDraw = (LPNMCUSTOMDRAW)lParam;
                 WCHAR className[MAX_PATH];
 
-                if (!GetClassName(customDraw->hdr.hwndFrom, className, RTL_NUMBER_OF(className)))
+                if (!NT_SUCCESS(PhGetClassName(customDraw->hdr.hwndFrom, className, RTL_NUMBER_OF(className), NULL)))
                     className[0] = UNICODE_NULL;
                 if (PhEqualStringZ(className, WC_BUTTON, FALSE))
                 {

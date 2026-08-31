@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2024
+ *     dmex    2024-2026
  *
  */
 
@@ -72,3 +72,10 @@
 #else
 #error "ThirdParty.lib is missing"
 #endif
+
+#if __has_include("../../tools/thirdparty/fuzzy/fts_fuzzy_match.h")
+#include "../../tools/thirdparty/fuzzy/fts_fuzzy_match.h"
+#else
+#error "ThirdParty.lib is missing"
+#endif
+

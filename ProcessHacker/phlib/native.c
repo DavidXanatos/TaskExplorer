@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -227,7 +227,7 @@ NTSTATUS PhMergeSystemAcls(
 
     // Allocate new ACL (header + aligned payload).
 
-    requiredSize = sizeof(ACL) + ALIGN_UP_BY(requiredSize, sizeof(ULONG));
+    requiredSize = (ULONG)sizeof(ACL) + ALIGN_UP_BY(requiredSize, sizeof(ULONG));
 
     if (requiredSize > USHORT_MAX)
         return STATUS_INVALID_PARAMETER;
@@ -868,7 +868,13 @@ NTSTATUS PhGetProcessUnloadedDlls(
     if (capturedElementCount > 0x4000)
         capturedElementCount = 0x4000;
 
-    eventTraceSize = capturedElementSize * capturedElementCount;
+    if (!NT_SUCCESS(status = RtlSizeTMult(
+        (SIZE_T)capturedElementSize,
+        (SIZE_T)capturedElementCount,
+        &eventTraceSize
+        )))
+        goto CleanupExit;
+
     capturedEventTrace = PhAllocateSafe(eventTraceSize);
 
     if (!capturedEventTrace)
@@ -1569,6 +1575,91 @@ NTSTATUS PhEnumProcessesEx(
     *Processes = buffer;
 
     return status;
+}
+
+/**
+ * Enumerates basic process information.
+ *
+ * \param Buffer A pointer to a variable which receives a pointer to a buffer containing basic process information.
+ * \param BufferSize A pointer to a variable which receives the size of the buffer.
+ * \return NTSTATUS Successful or errant status.
+ */
+NTSTATUS PhEnumBasicProcessInformation(
+    _Inout_ PVOID *Buffer,
+    _Inout_ PULONG BufferSize
+    )
+{
+    NTSTATUS status;
+    PVOID buffer;
+    ULONG bufferSize;
+
+    bufferSize = *BufferSize;
+    buffer = *Buffer;
+
+    if (!buffer)
+    {
+        if (bufferSize == 0)
+            bufferSize = 0x4000;
+
+        buffer = PhAllocateSafe(bufferSize);
+
+        if (!buffer)
+            return STATUS_NO_MEMORY;
+    }
+
+    while (TRUE)
+    {
+        status = NtQuerySystemInformation(
+            SystemBasicProcessInformation,
+            buffer,
+            bufferSize,
+            &bufferSize
+            );
+
+        if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH)
+        {
+            PhFree(buffer);
+            buffer = PhAllocateSafe(bufferSize);
+
+            if (!buffer)
+                return STATUS_NO_MEMORY;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (!NT_SUCCESS(status))
+    {
+        PhFree(buffer);
+        *Buffer = NULL;
+        *BufferSize = 0;
+        return status;
+    }
+
+    *Buffer = buffer;
+    *BufferSize = bufferSize;
+
+    return status;
+}
+
+/**
+ * Gets basic system information.
+ *
+ * \param BasicInformation A variable which receives the information.
+ * \return NTSTATUS Successful or errant status.
+ */
+NTSTATUS PhGetSystemBasicInformation(
+    _Out_ PSYSTEM_BASIC_INFORMATION BasicInformation
+    )
+{
+    return NtQuerySystemInformation(
+        SystemBasicInformation,
+        BasicInformation,
+        sizeof(SYSTEM_BASIC_INFORMATION),
+        NULL
+        );
 }
 
 /**
@@ -4395,6 +4486,7 @@ NTSTATUS PhQueryProcessHeapInformation(
     PRTL_DEBUG_INFORMATION debugBuffer = NULL;
     PPH_PROCESS_DEBUG_HEAP_INFORMATION heapDebugInfo = NULL;
     ULONG numberOfHeaps;
+    SIZE_T heapEntriesSize = 0;
     SIZE_T heapDebugInfoLength;
 
     for (ULONG i = 0x400000; ; i *= 2) // rev from Heap32First/Heap32Next (dmex)
@@ -4450,13 +4542,24 @@ NTSTATUS PhQueryProcessHeapInformation(
         numberOfHeaps = ((PRTL_PROCESS_HEAPS_V1)debugBuffer->Heaps)->NumberOfHeaps;
     }
 
-    if ((SIZE_T)numberOfHeaps > (((SIZE_T)-1) - sizeof(PH_PROCESS_DEBUG_HEAP_INFORMATION)) / sizeof(PH_PROCESS_DEBUG_HEAP_ENTRY))
+    // Multiply numberOfHeaps * sizeof(PH_PROCESS_DEBUG_HEAP_ENTRY)
+    status = RtlSizeTMult((SIZE_T)numberOfHeaps, sizeof(PH_PROCESS_DEBUG_HEAP_ENTRY), &heapEntriesSize);
+
+    if (!NT_SUCCESS(status))
     {
         RtlDestroyQueryDebugBuffer(debugBuffer);
-        return STATUS_INTEGER_OVERFLOW;
+        return status;
     }
 
-    heapDebugInfoLength = sizeof(PH_PROCESS_DEBUG_HEAP_INFORMATION) + (SIZE_T)numberOfHeaps * sizeof(PH_PROCESS_DEBUG_HEAP_ENTRY);
+    // Add sizeof(PH_PROCESS_DEBUG_HEAP_INFORMATION) + heapEntriesSize
+    status = RtlSizeTAdd(sizeof(PH_PROCESS_DEBUG_HEAP_INFORMATION), heapEntriesSize, &heapDebugInfoLength);
+
+    if (!NT_SUCCESS(status))
+    {
+        RtlDestroyQueryDebugBuffer(debugBuffer);
+        return status;
+    }
+
     heapDebugInfo = PhAllocateZero(heapDebugInfoLength);
 
     if (!heapDebugInfo)
@@ -5847,7 +5950,7 @@ NTSTATUS PhGetSystemProcessorPerformanceDistribution(
  * Retrieves the processor performance distribution information for a specified processor group.
  *
  * \param ProcessorGroup The processor group number for which to retrieve performance distribution information.
- * \param Buffer A pointer to a variable that receives a pointer to a SYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION 
+ * \param Buffer A pointer to a variable that receives a pointer to a SYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION
  * structure containing the performance distribution data.
  * \return NTSTATUS Successful or errant status.
  */
@@ -5913,7 +6016,7 @@ NTSTATUS PhGetSystemLogicalProcessorInformation(
     _Out_ PULONG BufferLength
     )
 {
-    static ULONG initialBufferSize[] = { 0x200, 0x80, 0x100, 0x1000 };
+    static ULONG initialBufferSize[] = { 0x200, 0x200, 0x80, 0x100, 0x1000 };
     NTSTATUS status;
     ULONG classIndex;
     PVOID buffer;
@@ -5925,14 +6028,17 @@ NTSTATUS PhGetSystemLogicalProcessorInformation(
     case RelationProcessorCore:
         classIndex = 0;
         break;
-    case RelationProcessorPackage:
+    case RelationCache:
         classIndex = 1;
         break;
-    case RelationGroup:
+    case RelationProcessorPackage:
         classIndex = 2;
         break;
-    case RelationAll:
+    case RelationGroup:
         classIndex = 3;
+        break;
+    case RelationAll:
+        classIndex = 4;
         break;
     default:
         return STATUS_INVALID_INFO_CLASS;
@@ -5983,7 +6089,7 @@ NTSTATUS PhGetSystemLogicalProcessorInformation(
 /**
  * Retrieves information about the logical processor relationships in the system.
  *
- * \param LogicalProcessorInformation A pointer to a PH_LOGICAL_PROCESSOR_INFORMATION structure 
+ * \param LogicalProcessorInformation A pointer to a PH_LOGICAL_PROCESSOR_INFORMATION structure
  * that receives the logical processor relationship information.
  * \return NTSTATUS Successful or errant status.
  */
@@ -6474,72 +6580,72 @@ NTSTATUS PhPrefetchVirtualMemory(
 }
 
 // rev from OfferVirtualMemory (dmex)
-//NTSTATUS PhOfferVirtualMemory(
-//    _In_ HANDLE ProcessHandle,
-//    _In_ PVOID VirtualAddress,
-//    _In_ SIZE_T NumberOfBytes,
-//    _In_ MEMORY_PAGE_PRIORITY_INFORMATION Priority
-//    )
-//{
-//    NTSTATUS status;
-//    MEMORY_RANGE_ENTRY virtualMemoryRange;
-//    ULONG virtualMemoryFlags;
-//
-//    if (!NtSetInformationVirtualMemory_Import())
-//        return STATUS_PROCEDURE_NOT_FOUND;
-//
-//    // TODO: NtQueryVirtualMemory (dmex)
-//
-//    memset(&virtualMemoryRange, 0, sizeof(MEMORY_RANGE_ENTRY));
-//    virtualMemoryRange.VirtualAddress = VirtualAddress;
-//    virtualMemoryRange.NumberOfBytes = NumberOfBytes;
-//
-//    memset(&virtualMemoryFlags, 0, sizeof(virtualMemoryFlags));
-//    virtualMemoryFlags = Priority;
-//
-//    status = PhpSetInformationVirtualMemory(
-//        ProcessHandle,
-//        VmPagePriorityInformation,
-//        1,
-//        &virtualMemoryRange,
-//        &virtualMemoryFlags,
-//        sizeof(virtualMemoryFlags)
-//        );
-//
-//    return status;
-//}
-//
+NTSTATUS PhOfferVirtualMemory(
+    _In_ HANDLE ProcessHandle,
+    _In_ PVOID VirtualAddress,
+    _In_ SIZE_T NumberOfBytes,
+    _In_ PMEMORY_PAGE_PRIORITY_INFORMATION Priority
+    )
+{
+    NTSTATUS status;
+    MEMORY_RANGE_ENTRY virtualMemoryRange;
+    ULONG virtualMemoryFlags;
+
+    if (!NtSetInformationVirtualMemory_Import())
+        return STATUS_PROCEDURE_NOT_FOUND;
+
+    // TODO: NtQueryVirtualMemory (dmex)
+
+    memset(&virtualMemoryRange, 0, sizeof(MEMORY_RANGE_ENTRY));
+    virtualMemoryRange.VirtualAddress = VirtualAddress;
+    virtualMemoryRange.NumberOfBytes = NumberOfBytes;
+
+    memset(&virtualMemoryFlags, 0, sizeof(virtualMemoryFlags));
+    virtualMemoryFlags = Priority->PagePriority;
+
+    status = PhpSetInformationVirtualMemory(
+        ProcessHandle,
+        VmPagePriorityInformation,
+        1,
+        &virtualMemoryRange,
+        &virtualMemoryFlags,
+        sizeof(virtualMemoryFlags)
+        );
+
+    return status;
+}
+
 // rev from DiscardVirtualMemory (dmex)
-//NTSTATUS PhDiscardVirtualMemory(
-//    _In_ HANDLE ProcessHandle,
-//    _In_ PVOID VirtualAddress,
-//    _In_ SIZE_T NumberOfBytes
-//    )
-//{
-//    NTSTATUS status;
-//    MEMORY_RANGE_ENTRY virtualMemoryRange;
-//    ULONG virtualMemoryFlags;
-//
-//    if (!NtSetInformationVirtualMemory_Import())
-//        return STATUS_PROCEDURE_NOT_FOUND;
-//
-//    memset(&virtualMemoryRange, 0, sizeof(MEMORY_RANGE_ENTRY));
-//    virtualMemoryRange.VirtualAddress = VirtualAddress;
-//    virtualMemoryRange.NumberOfBytes = NumberOfBytes;
-//
-//    memset(&virtualMemoryFlags, 0, sizeof(virtualMemoryFlags));
-//
-//    status = PhpSetInformationVirtualMemory(
-//        ProcessHandle,
-//        VmPagePriorityInformation,
-//        1,
-//        &virtualMemoryRange,
-//        &virtualMemoryFlags,
-//        sizeof(virtualMemoryFlags)
-//        );
-//
-//    return status;
-//}
+NTSTATUS PhDiscardVirtualMemory(
+    _In_ HANDLE ProcessHandle,
+    _In_ PVOID VirtualAddress,
+    _In_ SIZE_T NumberOfBytes
+    )
+{
+    NTSTATUS status;
+    MEMORY_RANGE_ENTRY virtualMemoryRange;
+    ULONG virtualMemoryFlags;
+
+    if (!NtSetInformationVirtualMemory_Import())
+        return STATUS_PROCEDURE_NOT_FOUND;
+
+    memset(&virtualMemoryRange, 0, sizeof(MEMORY_RANGE_ENTRY));
+    virtualMemoryRange.VirtualAddress = VirtualAddress;
+    virtualMemoryRange.NumberOfBytes = NumberOfBytes;
+
+    memset(&virtualMemoryFlags, 0, sizeof(virtualMemoryFlags));
+
+    status = PhpSetInformationVirtualMemory(
+        ProcessHandle,
+        VmPagePriorityInformation,
+        1,
+        &virtualMemoryRange,
+        &virtualMemoryFlags,
+        sizeof(virtualMemoryFlags)
+        );
+
+    return status;
+}
 
 /**
  * Sets the priority of a range of virtual memory pages in a specified process.
@@ -6891,9 +6997,9 @@ NTSTATUS PhGetSystemFileCacheSize(
 /**
  * Limits the size of the working set of the virtual memory manager system cache.
  *
- * \param CacheInfo The minimum size of the file cache, in bytes. The virtual memory manager
+ * \param MinimumFileCacheSize The minimum size of the file cache, in bytes. The virtual memory manager
  * attempts to keep at least this much memory resident in the system file cache.
- * \param CacheInfo The maximum size of the file cache, in bytes. The virtual memory manager
+ * \param MaximumFileCacheSize The maximum size of the file cache, in bytes. The virtual memory manager
  * enforces this limit only if this call or a previous call to SetSystemFileCacheSize
  * specifies FILE_CACHE_MAX_HARD_ENABLE.
  * \return NTSTATUS Successful or errant status.
@@ -8342,14 +8448,13 @@ NTSTATUS PhQueryEvent(
 NTSTATUS PhCreateWaitableTimer(
     _Out_ PHANDLE TimerHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ TIMER_TYPE TimerType,
-    _In_ BOOLEAN HighResolution
+    _In_ TIMER_TYPE TimerType
     )
 {
     NTSTATUS status;
     HANDLE timerHandle = NULL;
 
-    if (HighResolution && NtCreateTimer2_Import())
+    if (PhEnableHighResolution && NtCreateTimer2_Import())
     {
         status = NtCreateTimer2_Import()(
             &timerHandle,
@@ -8416,27 +8521,26 @@ NTSTATUS PhSetWaitableTimer(
     _In_opt_ PLARGE_INTEGER Period,
     _In_opt_ PTIMER_APC_ROUTINE TimerApcRoutine,
     _In_opt_ PVOID TimerContext,
-    _In_ BOOLEAN ResumeTimer,
-    _In_ BOOLEAN HighResolution
+    _In_ BOOLEAN ResumeTimer
     )
 {
-    if (HighResolution)
+    if (PhEnableHighResolution)
     {
         TIMER_SET_COALESCABLE_TIMER_INFO timerParameters;
 
         if (NtSetTimer2_Import())
         {
-            T2_SET_PARAMETERS timerParameters;
+            T2_SET_PARAMETERS timer2Parameters;
 
-            memset(&timerParameters, 0, sizeof(T2_SET_PARAMETERS));
-            timerParameters.Version = TIMER2_SET_PARAMETERS_CURRENT_VERSION;
-            timerParameters.NoWakeTolerance = 0;
+            memset(&timer2Parameters, 0, sizeof(T2_SET_PARAMETERS));
+            timer2Parameters.Version = TIMER2_SET_PARAMETERS_CURRENT_VERSION;
+            timer2Parameters.NoWakeTolerance = 0;
 
             return NtSetTimer2_Import()(
                 TimerHandle,
                 DueTime,
                 Period,
-                &timerParameters
+                &timer2Parameters
                 );
         }
 
@@ -8464,4 +8568,46 @@ NTSTATUS PhSetWaitableTimer(
         Period ? (LONG)(Period->QuadPart / PH_TIMEOUT_MS) : 0,
         NULL
         );
+}
+
+/**
+ * Creates a timer with the specified time-out value.
+ *
+ * \param WindowHandle A handle to the window to be associated with the timer.
+ * \param TimerID The timer identifier.
+ * \param Elapse The time-out value, in milliseconds.
+ * \param TimerProcedure A pointer to the function to be notified when the time-out value elapses.
+ * \return The timer identifier if successful; otherwise, zero.
+ */
+ULONG_PTR PhSetTimer(
+    _In_ HWND WindowHandle,
+    _In_ ULONG_PTR TimerID,
+    _In_ ULONG Elapse,
+    _In_opt_ TIMERPROC TimerProcedure
+    )
+{
+    assert(WindowHandle);
+
+    if (PhEnableHighResolution && SetCoalescableTimer_Import())
+    {
+        return SetCoalescableTimer_Import()(WindowHandle, TimerID, Elapse, TimerProcedure, TIMERV_NO_COALESCING);
+    }
+
+    return SetTimer(WindowHandle, TimerID, Elapse, TimerProcedure);
+}
+
+/**
+ * Destroys a timer.
+ *
+ * \param WindowHandle A handle to the window associated with the timer.
+ * \param TimerID The identifier of the timer to be destroyed.
+ * \return TRUE if the function succeeds, FALSE otherwise.
+ */
+BOOL PhKillTimer(
+    _In_ HWND WindowHandle,
+    _In_ ULONG_PTR TimerID
+    )
+{
+    assert(WindowHandle);
+    return KillTimer(WindowHandle, TimerID);
 }

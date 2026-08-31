@@ -6,7 +6,7 @@
  * Authors:
  *
  *     wj32    2009-2016
- *     dmex    2017-2024
+ *     dmex    2017-2026
  *
  */
 
@@ -34,7 +34,7 @@ LONG PhAddListViewColumnDpi(
     memset(&column, 0, sizeof(LVCOLUMN));
     column.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM | LVCF_ORDER;
     column.fmt = Format;
-    column.cx = WindowsVersion < WINDOWS_10 ? Width : PhGetDpi(Width, ListViewDpi);
+    column.cx = WindowsVersion < WINDOWS_10 ? Width : PhScaleToDisplay(Width, ListViewDpi);
     column.pszText = const_cast<PWSTR>(Text);
     column.iSubItem = SubItemIndex;
     column.iOrder = DisplayIndex;
@@ -59,7 +59,7 @@ LONG PhAddIListViewColumnDpi(
     memset(&column, 0, sizeof(LVCOLUMN));
     column.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM | LVCF_ORDER;
     column.fmt = Format;
-    column.cx = WindowsVersion < WINDOWS_10 ? Width : PhGetDpi(Width, ListViewDpi);
+    column.cx = WindowsVersion < WINDOWS_10 ? Width : PhScaleToDisplay(Width, ListViewDpi);
     column.pszText = const_cast<PWSTR>(Text);
     column.iSubItem = SubItemIndex;
     column.iOrder = DisplayIndex;
@@ -600,7 +600,7 @@ PVOID PhGetSelectedListViewItemParam(
     return nullptr;
 }
 
-VOID PhGetSelectedListViewItemParams(
+BOOLEAN PhGetSelectedListViewItemParams(
     _In_ HWND WindowHandle,
     _Out_ PVOID **Items,
     _Out_ PULONG NumberOfItems
@@ -624,10 +624,19 @@ VOID PhGetSelectedListViewItemParams(
     }
 
     *NumberOfItems = static_cast<ULONG>(PhFinalArrayCount(&array));
+
+    if (*NumberOfItems == 0)
+    {
+        *Items = nullptr;
+        PhDeleteArray(&array);
+        return FALSE;
+    }
+
     *Items = static_cast<PVOID*>(PhFinalArrayItems(&array));
+    return TRUE;
 }
 
-VOID PhGetSelectedIListViewItemParams(
+BOOLEAN PhGetSelectedIListViewItemParams(
     _In_ IListView* ListView,
     _Out_ PVOID **Items,
     _Out_ PULONG NumberOfItems
@@ -651,7 +660,16 @@ VOID PhGetSelectedIListViewItemParams(
     }
 
     *NumberOfItems = static_cast<ULONG>(PhFinalArrayCount(&array));
+
+    if (*NumberOfItems == 0)
+    {
+        *Items = nullptr;
+        PhDeleteArray(&array);
+        return FALSE;
+    }
+
     *Items = static_cast<PVOID*>(PhFinalArrayItems(&array));
+    return TRUE;
 }
 
 BOOLEAN PhGetIListViewClientRect(
@@ -1424,7 +1442,7 @@ BOOLEAN PhListView_GetSelectedCount(
     return FALSE;
 }
 
-VOID PhListView_GetSelectedItemParams(
+BOOLEAN PhListView_GetSelectedItemParams(
     _In_ PPH_LISTVIEW_CONTEXT Context,
     _Out_ PVOID** Items,
     _Out_ PULONG NumberOfItems
@@ -1432,11 +1450,11 @@ VOID PhListView_GetSelectedItemParams(
 {
     if (Context->ListViewInterface && NtCurrentThreadId() == Context->ThreadId)
     {
-        PhGetSelectedIListViewItemParams(Context->ListViewInterface, Items, NumberOfItems);
+        return PhGetSelectedIListViewItemParams(Context->ListViewInterface, Items, NumberOfItems);
     }
     else
     {
-        PhGetSelectedListViewItemParams(Context->ListViewHandle, Items, NumberOfItems);
+        return PhGetSelectedListViewItemParams(Context->ListViewHandle, Items, NumberOfItems);
     }
 }
 

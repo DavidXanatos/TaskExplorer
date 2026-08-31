@@ -5,7 +5,7 @@
  *
  * Authors:
  *
- *     dmex    2017
+ *     dmex    2017-2026
  *
  */
 
@@ -190,6 +190,15 @@ PhAddJsonObjectUtf8(
     _In_ PVOID Object,
     _In_ PCSTR Key,
     _In_ PPH_BYTES String
+    );
+
+PHLIBAPI
+VOID
+NTAPI
+PhAddJsonObjectBoolean(
+    _In_ PVOID Object,
+    _In_ PCSTR Key,
+    _In_ BOOLEAN Value
     );
 
 PHLIBAPI

@@ -6,7 +6,7 @@
  * Authors:
  *
  *     jxy-s   2022-2025
- *     dmex    2022-2025
+ *     dmex    2022-2026
  *
  */
 
@@ -291,7 +291,9 @@ NTSTATUS KphCommsStart(
 
     if (RingBufferLength)
     {
-        NtCreateEvent(&KphpCommsRingBuffer.EventHandle, EVENT_ALL_ACCESS, NULL, SynchronizationEvent, FALSE);
+        OBJECT_ATTRIBUTES objectAttributes;
+        InitializeObjectAttributes(&objectAttributes, NULL, OBJ_EXCLUSIVE, NULL, NULL);
+        NtCreateEvent(&KphpCommsRingBuffer.EventHandle, EVENT_ALL_ACCESS, &objectAttributes, SynchronizationEvent, FALSE);
         KphpCommsRingBuffer.Length = RingBufferLength;
         connectionContext = &KphpCommsRingBuffer;
         connectionContextPointer = &connectionContext;
