@@ -16,6 +16,7 @@
 #define SET(_variable, _value) _variable EQU _value
 #elif defined(SYMCRYPT_GAS)
 #define SET(_variable, _value) .set _variable, _value
+#else // assume C
 #define SET(_variable, _value) const SIZE_T _variable = _value;
 #endif
 
