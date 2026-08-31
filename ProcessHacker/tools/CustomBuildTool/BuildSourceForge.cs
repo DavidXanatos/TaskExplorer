@@ -20,7 +20,7 @@ namespace CustomBuildTool
         /// Provides a static instance of the HTTP client used for communicating with SourceForge services.
         /// </summary>
         /// <remarks>This client is intended for reuse to optimize resource usage and performance when
-        /// making multiple HTTP requests to SourceForge. Avoid disposing this instance directly.</remarks>
+        /// making multiple HTTP requests to SourceForge. Avoid disposing of this instance directly.</remarks>
         private static readonly HttpClient SourceForgeHttpClient;
         private static readonly string BaseUrl;
         private static readonly string BaseToken;
@@ -52,7 +52,7 @@ namespace CustomBuildTool
         /// <returns>A <see cref="SourceForgeUploadResponse"/> containing the result of the upload operation, or <see
         /// langword="null"/> if the upload fails or required configuration is missing.</returns>
         public static async Task<SourceForgeUploadResponse> UploadReleaseFile(
-            string FileName, 
+            string FileName,
             string DownloadFileName,
             string DownloadButtonName,
             bool Delay72Hours
@@ -65,25 +65,24 @@ namespace CustomBuildTool
 
             try
             {
-                using (FileStream fileStream = File.OpenRead(FileName))
-                using (BufferedStream bufferedStream = new BufferedStream(fileStream))
-                using (HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/{DownloadFileName}"))
-                {
-                    requestMessage.Headers.Add("api_key", BaseToken);
-                    //requestMessage.Headers.Add("default", "windows&default=mac&default=linux&default=bsd&default=solaris&default=others&download_label=downloadlabel&name=name");
-                    requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-  
-                    requestMessage.Content = new StreamContent(bufferedStream);
-                    requestMessage.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                await using FileStream fileStream = File.OpenRead(FileName);
+                await using BufferedStream bufferedStream = new BufferedStream(fileStream);
+                using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/{DownloadFileName}");
 
-                    var response = await BuildHttpClient.SendMessage(SourceForgeHttpClient, requestMessage, SourceForgeUploadResponseContext.Default.SourceForgeUploadResponse);
+                requestMessage.Headers.Add("api_key", BaseToken);
+                //requestMessage.Headers.Add("default", "windows&default=mac&default=linux&default=bsd&default=solaris&default=others&download_label=downloadlabel&name=name");
+                requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                    return response;
-                }
+                requestMessage.Content = new StreamContent(bufferedStream);
+                requestMessage.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+                var response = await BuildHttpClient.SendMessage(SourceForgeHttpClient, requestMessage, SourceForgeUploadResponseContext.Default.SourceForgeUploadResponse);
+
+                return response;
             }
             catch (Exception ex)
             {
-                Program.PrintColorMessage("[BuildSourceForge] " + ex, ConsoleColor.Red);
+                Program.PrintColorMessage($"[BuildSourceForge] {ex}", ConsoleColor.Red);
             }
 
             return null;

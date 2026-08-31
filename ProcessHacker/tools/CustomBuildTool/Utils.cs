@@ -21,7 +21,7 @@ namespace CustomBuildTool
     /// handling Windows SDK paths. Many methods assume Windows environments and may rely on environment variables or
     /// registry keys. Thread safety is not guaranteed for all static members; use caution when accessing shared
     /// resources concurrently.</remarks>
-    public static unsafe class Utils
+    public static unsafe partial class Utils
     {
         private static readonly Dictionary<string, string> EnvironmentBlock = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public static readonly Encoding UTF8NoBOM = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
@@ -60,19 +60,19 @@ namespace CustomBuildTool
         /// <summary>
         /// Splits a string into key-value pairs.
         /// </summary>
-        public static Dictionary<string, string> ParseArguments(string[] args)
+        public static Dictionary<string, string> ParseArguments(string[] Args)
         {
             // 2. Track the current key (string) if it starts with "-".
             // 3. For each string in args:
             //    a. If it starts with "-", set as current key, add to dict if not present.
-            //    b. Else, if current key is set, append value to its list.
+            //    b. Else, if the current key is set, append a value to its list.
             //    c. If no current key, ignore or add to a special key (optional).
             // 4. Return the dictionary.
 
             var kvp = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var key = string.Empty;
 
-            foreach (string s in args)
+            foreach (string s in Args)
             {
                 if (s.StartsWith('-'))
                 {
@@ -142,7 +142,7 @@ namespace CustomBuildTool
 
             try
             {
-                string jsonContent = File.ReadAllText(filePath);
+                using var jsonContent = File.OpenRead(filePath);
                 var args = JsonSerializer.Deserialize(jsonContent, DictionarySerializerContext.Default.DictionaryStringString);
 
                 foreach (var s in args)
@@ -187,21 +187,16 @@ namespace CustomBuildTool
         /// architecture, the method returns 3 and sets <paramref name="OutputString"/> to an error message. Otherwise,
         /// the output from the MSBuild process is captured in <paramref name="OutputString"/> if <paramref
         /// name="RedirectOutput"/> is <see langword="true"/>.</remarks>
-        /// <param name="Command">The MSBuild command-line arguments to execute. This string is passed directly to the MSBuild process.</param>
+        /// <param name="Arguments">The MSBuild command-line arguments to execute.</param>
         /// <param name="Flags">The build flags that determine which MSBuild executable to use and how the command is executed.</param>
         /// <param name="OutputString">When the method returns, contains the output produced by the MSBuild process. If the MSBuild executable
-        /// cannot be found, contains an error message.</param>
+        /// cannot be found, it contains an error message.</param>
         /// <param name="RedirectOutput">Indicates whether the output from the MSBuild process should be redirected and captured. The default is <see
         /// langword="true"/>.</param>
         /// <returns>The exit code returned by the MSBuild process. Returns 3 if the MSBuild executable cannot be found.</returns>
-        public static int ExecuteMsbuildCommand(string Command, BuildFlags Flags, out string OutputString, bool RedirectOutput = true)
+        public static int ExecuteMsbuildCommand(string Arguments, BuildFlags Flags, out string OutputString, bool RedirectOutput = true)
         {
-            string file = null;
-
-            if (string.IsNullOrWhiteSpace(file))
-            {
-                file = GetMsbuildFilePath(Flags, RuntimeInformation.ProcessArchitecture);
-            }
+            string file = GetMsbuildFilePath(Flags, RuntimeInformation.ProcessArchitecture);
 
             if (string.IsNullOrWhiteSpace(file))
             {
@@ -209,7 +204,7 @@ namespace CustomBuildTool
                 return 3; // file not found.
             }
 
-            return Win32.CreateProcess(file, Command, out OutputString, false, RedirectOutput);
+            return Win32.CreateProcess(file, Arguments, out OutputString, false, RedirectOutput);
         }
 
         /// <summary>
@@ -218,10 +213,10 @@ namespace CustomBuildTool
         /// <remarks>The method locates the vswhere executable and runs the specified command. If the
         /// vswhere file path is invalid, the method returns null and displays an error message. The output is trimmed
         /// to remove leading and trailing whitespace.</remarks>
-        /// <param name="Command">The command-line arguments to pass to the vswhere executable. Cannot be null or empty.</param>
+        /// <param name="Arguments">The command-line arguments to pass to the vswhere executable. Cannot be null or empty.</param>
         /// <returns>A string containing the trimmed output from the vswhere command. Returns null if the vswhere executable
         /// cannot be found.</returns>
-        public static string ExecuteVsWhereCommand(string Command)
+        public static string ExecuteVsWhereCommand(IEnumerable<string> Arguments)
         {
             string file = GetVswhereFilePath();
 
@@ -231,7 +226,7 @@ namespace CustomBuildTool
                 return null;
             }
 
-            Win32.CreateProcess(file, Command, out var outputString, false);
+            Win32.CreateProcess(file, Arguments, out var outputString, false);
 
             return outputString.Trim();
         }
@@ -406,8 +401,17 @@ namespace CustomBuildTool
 
             {
                 string vswhereResult = ExecuteVsWhereCommand(
-                    "-latest -prerelease -products * -requiresAny -requires Microsoft.Component.MSBuild -property installationPath"
-                    );
+                [
+                    "-latest",
+                    "-prerelease",
+                    "-products",
+                    "*",
+                    "-requiresAny",
+                    "-requires",
+                    "Microsoft.Component.MSBuild",
+                    "-property",
+                    "installationPath"
+                ]);
 
                 if (!string.IsNullOrWhiteSpace(vswhereResult))
                 {
@@ -428,8 +432,17 @@ namespace CustomBuildTool
 
             {
                 string vswhereResult = ExecuteVsWhereCommand(
-                    "-latest -prerelease -products * -requiresAny -requires Microsoft.Component.MSBuild -find \"MSBuild\\**\\Bin\\MSBuild.exe"
-                    );
+                [
+                    "-latest",
+                    "-prerelease",
+                    "-products",
+                    "*",
+                    "-requiresAny",
+                    "-requires",
+                    "Microsoft.Component.MSBuild",
+                    "-find",
+                    "MSBuild\\**\\Bin\\MSBuild.exe"
+                ]);
 
                 if (!string.IsNullOrWhiteSpace(vswhereResult))
                 {
@@ -455,7 +468,7 @@ namespace CustomBuildTool
         /// Retrieves the full file path to the Git executable on the local machine.
         /// </summary>
         /// <remarks>This method searches common installation directories for the Git executable and
-        /// caches the result for subsequent calls. If Git is not installed in the standard locations, it attempts to
+        /// caches the result for later calls. If Git is not installed in the standard locations, it attempts to
         /// locate the executable using the system search path.</remarks>
         /// <returns>A string containing the absolute path to the Git executable if found; otherwise, an empty string.</returns>
         public static string GetGitFilePath()
@@ -522,14 +535,12 @@ namespace CustomBuildTool
         /// found, the method returns null and prints an error message to the console. The output string is trimmed
         /// before being returned.</remarks>
         /// <param name="WorkingFolder">The path to the folder where the Git command will be executed. Must be a valid Git working directory.</param>
-        /// <param name="Command">The Git command to execute. This should be a valid command supported by the Git executable.</param>
+        /// <param name="Arguments">The Git command to execute. This should be a valid command supported by the Git executable.</param>
         /// <returns>A string containing the trimmed output of the executed Git command. Returns null if the working folder or
         /// Git executable path is invalid.</returns>
-        public static string ExecuteGitCommand(string WorkingFolder, string Command)
+        public static string ExecuteGitCommand(string WorkingFolder, IEnumerable<string> Arguments)
         {
-            string currentGitDirectory = GetGitWorkPath(WorkingFolder);
-
-            if (string.IsNullOrWhiteSpace(currentGitDirectory))
+            if (string.IsNullOrWhiteSpace(WorkingFolder) || !Directory.Exists(WorkingFolder))
             {
                 Program.PrintColorMessage("[ExecuteGitCommand] WorkingFolder is invalid.", ConsoleColor.Red);
                 return null;
@@ -543,13 +554,21 @@ namespace CustomBuildTool
                 return null;
             }
 
-            Win32.CreateProcess(currentGitPath, $"{currentGitDirectory} {Command}", out var outputString, false);
+            List<string> arguments =
+            [
+                "-C",
+                WorkingFolder
+            ];
+
+            arguments.AddRange(Arguments);
+
+            Win32.CreateProcess(currentGitPath, arguments, out var outputString, false);
 
             return outputString.Trim();
         }
 
         /// <summary>
-        /// Enumerates all files in the specified directory and its subdirectories that match the given file extensions,
+        /// Lists all files in the specified directory and its subdirectories that match the given file extensions,
         /// optionally excluding specified file names.
         /// </summary>
         /// <remarks>The search includes all subdirectories and ignores special directories such as "."
@@ -560,20 +579,25 @@ namespace CustomBuildTool
         /// <param name="Exclude">An optional array of file names to exclude from the results. Comparison is case-insensitive.</param>
         /// <returns>A list of file paths that match the specified extensions and are not excluded. The list will be empty if no
         /// files are found.</returns>
-        public static List<string> EnumerateDirectory(string FilePath, string[] Extensions, string[] Exclude = null)
+        public static IEnumerable<string> EnumerateDirectory(string FilePath, string[] Extensions, string[] Exclude = null)
         {
-            var list = Directory.EnumerateFiles(FilePath, "*", new EnumerationOptions
+            var files = Directory.EnumerateFiles(FilePath, "*", new EnumerationOptions
             {
                 RecurseSubdirectories = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
                 ReturnSpecialDirectories = false
-            }).Where(s => Extensions.Any(ext => string.Equals(ext, Path.GetExtension(s), StringComparison.OrdinalIgnoreCase))).ToList();
+            });
 
-            if (Exclude != null)
+            foreach (var s in files)
             {
-                list.RemoveAll(s => Exclude.Any(f => f.Equals(Path.GetFileName(s), StringComparison.OrdinalIgnoreCase)));
+                if (Extensions.Any(ext => string.Equals(ext, Path.GetExtension(s), StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (Exclude == null || !Exclude.Any(f => f.Equals(Path.GetFileName(s), StringComparison.OrdinalIgnoreCase)))
+                    {
+                        yield return s;
+                    }
+                }
             }
-
-            return list;
         }
 
         /// <summary>
@@ -819,6 +843,37 @@ namespace CustomBuildTool
         }
 
         /// <summary>
+        /// Retrieves the full path to the Message Compiler (mc.exe) tool from the Windows SDK installation.
+        /// </summary>
+        /// <remarks>mc.exe ships with the Windows SDK (not the WDK), so it can be used to compile message
+        /// files for the usermode build without requiring the WDK build customizations.</remarks>
+        /// <returns>The full path to mc.exe if found; otherwise, null.</returns>
+        public static string GetMessageCompilerPath()
+        {
+            string windowsSdkPath = Utils.GetWindowsSdkPath();
+
+            if (string.IsNullOrWhiteSpace(windowsSdkPath))
+                return null;
+
+            string messageCompilerPath = Path.Join([windowsSdkPath, "\\x64\\mc.exe"]);
+
+            if (!File.Exists(messageCompilerPath))
+            {
+                string sdkRootPath = Win32.GetKeyValue(true, "Software\\Microsoft\\Windows Kits\\Installed Roots", "WdkBinRootVersioned", null);
+
+                if (string.IsNullOrWhiteSpace(sdkRootPath))
+                    return null;
+
+                messageCompilerPath = Utils.ExpandFullPath(Path.Join([sdkRootPath, "\\x64\\mc.exe"]));
+
+                if (!File.Exists(messageCompilerPath))
+                    return null;
+            }
+
+            return messageCompilerPath;
+        }
+
+        /// <summary>
         /// Locates the full file path to the CMake executable (cmake.exe) available on the system.
         /// </summary>
         /// <remarks>The method first searches for cmake.exe in the system PATH. If not found, it attempts
@@ -869,14 +924,15 @@ namespace CustomBuildTool
         /// Executes a CMake command in a Visual Studio environment, initializing the required build tools before
         /// running the command.
         /// </summary>
-        /// <remarks>This method sets up the Visual Studio build environment by calling 'vcvarsall.bat'
-        /// for the appropriate architecture before executing the CMake command. The exit code can be used to determine
+        /// <remarks>This method sets up the Visual Studio build environment by invoking VsDevCmd.bat for the
+        /// appropriate architecture before executing the CMake command. The exit code can be used to determine
         /// success or failure of the operation.</remarks>
-        /// <param name="Command">The CMake command line arguments to execute. Must specify the desired build configuration and architecture.</param>
+        /// <param name="Arguments">The CMake command line arguments to execute. Must specify the desired build configuration and architecture.</param>
         /// <returns>The exit code returned by the CMake process. Returns <see cref="int.MaxValue"/> if required tools are not
         /// found or initialization fails.</returns>
-        public static int ExecuteCMakeCommand(string Command)
+        public static int ExecuteCMakeCommand(IEnumerable<string> Arguments)
         {
+            string[] arguments = Arguments?.ToArray() ?? [];
             string cmakeFile = GetCMakeFilePath();
 
             if (string.IsNullOrWhiteSpace(cmakeFile))
@@ -886,27 +942,63 @@ namespace CustomBuildTool
             }
 
             var instance = BuildVisualStudio.GetVisualStudioInstance();
-            string vcvarsall = Path.Join([instance.Path, "VC\\Auxiliary\\Build\\vcvarsall.bat"]);
-            string arch = null;
-
-            if (!File.Exists(vcvarsall))
+            if (instance == null)
             {
-                Program.PrintColorMessage("[ExecuteCMakeCommand] vcvarsall.bat not found.", ConsoleColor.Red);
+                Program.PrintColorMessage("[ExecuteCMakeCommand] instance not found.", ConsoleColor.Red);
                 return int.MaxValue;
             }
 
-            if (Command.Contains("msvc-x86", StringComparison.OrdinalIgnoreCase) || Command.Contains("Win32", StringComparison.OrdinalIgnoreCase))
-                arch = "amd64_x86";
-            else if (Command.Contains("msvc-arm64", StringComparison.OrdinalIgnoreCase) || Command.Contains("ARM64", StringComparison.OrdinalIgnoreCase))
-                arch = "amd64_arm64";
-            else
-                arch = "amd64";
+            string vsDevCmd = Path.Join([instance.Path, "Common7\\Tools\\VsDevCmd.bat"]);
+            string arch = null;
 
-            // We need to run vcvarsall.bat and then cmake in the same session.
-            // Using cmd /c "call vcvarsall.bat arch && cmake ..."
-            string fullCommand = $"/c \"call \"{vcvarsall}\" {arch} && \"{cmakeFile}\" {Command}\"";
+            if (!File.Exists(vsDevCmd))
+            {
+                Program.PrintColorMessage("[ExecuteCMakeCommand] VsDevCmd.bat not found.", ConsoleColor.Red);
+                return int.MaxValue;
+            }
 
-            return Win32.CreateProcess("cmd.exe", fullCommand, out _, false, false);
+            foreach (string argument in arguments)
+            {
+                if (argument.Contains("msvc-x86", StringComparison.OrdinalIgnoreCase) || argument.Contains("Win32", StringComparison.OrdinalIgnoreCase))
+                {
+                    arch = "x86";
+                    break;
+                }
+
+                if (argument.Contains("msvc-arm64", StringComparison.OrdinalIgnoreCase) || argument.Contains("ARM64", StringComparison.OrdinalIgnoreCase))
+                {
+                    arch = "arm64";
+                    break;
+                }
+            }
+
+            arch ??= "amd64";
+
+            string command = string.Concat(
+                "\"\"",
+                vsDevCmd,
+                "\"",
+                " -arch=",
+                arch,
+                " -host_arch=amd64 && ",
+                QuoteCmdArgument(cmakeFile),
+                " ",
+                string.Join(" ", arguments.Select(QuoteCmdArgument)),
+                "\""
+                );
+
+            return Win32.CreateProcess(
+                "cmd.exe",
+                $"/d /s /c {command}",
+                out _,
+                false,
+                false
+                );
+        }
+
+        private static string QuoteCmdArgument(string Argument)
+        {
+            return $"\"{Argument}\"";
         }
 
         /// <summary>
@@ -915,9 +1007,9 @@ namespace CustomBuildTool
         /// <remarks>The returned output is trimmed and consecutive blank lines are reduced to a single
         /// blank line. This method does not throw exceptions for invalid tool paths; instead, it returns null and
         /// prints an error message.</remarks>
-        /// <param name="Command">The command-line arguments to pass to the MakeAppx tool. Cannot be null or empty.</param>
+        /// <param name="Arguments">The command-line arguments to pass to the MakeAppx tool. Cannot be null or empty.</param>
         /// <returns>A string containing the output from the MakeAppx tool. Returns null if the tool path is invalid.</returns>
-        public static string ExecuteMsixCommand(string Command)
+        public static string ExecuteMsixCommand(IEnumerable<string> Arguments)
         {
             string file = GetMakeAppxPath();
 
@@ -927,7 +1019,7 @@ namespace CustomBuildTool
                 return null;
             }
 
-            Win32.CreateProcess(file, Command, out var outputString, false);
+            Win32.CreateProcess(file, Arguments, out var outputString, false);
 
             return outputString.Replace("\r\n\r\n", "\r\n", StringComparison.OrdinalIgnoreCase).Trim();
         }
@@ -983,6 +1075,10 @@ namespace CustomBuildTool
             return symStorePath;
         }
 
+        /// <summary>
+        /// Determines whether the symstore.exe file exists and is valid.
+        /// </summary>
+        /// <returns>true if the symstore.exe file exists and is valid; otherwise, false.</returns>
         public static bool SymStoreExists()
         {
             string file = GetSymStorePath();
@@ -1002,7 +1098,12 @@ namespace CustomBuildTool
             return true;
         }
 
-        public static int ExecuteSymStoreCommand(string Command)
+        /// <summary>
+        /// Executes a command using symstore.exe and returns the process exit code.
+        /// </summary>
+        /// <param name="Arguments">The command-line arguments to pass to symstore.exe.</param>
+        /// <returns>The exit code of the process, or int.MaxValue if symstore.exe is invalid or not found.</returns>
+        public static int ExecuteSymStoreCommand(IEnumerable<string> Arguments)
         {
             string file = GetSymStorePath();
 
@@ -1018,7 +1119,7 @@ namespace CustomBuildTool
                 return int.MaxValue;
             }
 
-            return Win32.CreateProcess(file, Command, out _, false, false);
+            return Win32.CreateProcess(file, Arguments, out _, false, false);
         }
 
         /// <summary>
@@ -1048,12 +1149,17 @@ namespace CustomBuildTool
 
             int errorcode = Win32.CreateProcess(
                 vswhere,
-                "-latest " +
-                "-prerelease " +
-                "-products * " +
-                "-requiresAny " +
-                "-requires Microsoft.Component.MSBuild " +
-                "-property installationPath ",
+                [
+                    "-latest",
+                    "-prerelease",
+                    "-products",
+                    "*",
+                    "-requiresAny",
+                    "-requires",
+                    "Microsoft.Component.MSBuild",
+                    "-property",
+                    "installationPath"
+                ],
                 out string vswhereResult
                 );
 
@@ -1076,9 +1182,9 @@ namespace CustomBuildTool
         /// Executes a command using the Visual Studio Developer Environment (devenv.exe) and returns the process exit
         /// code.
         /// </summary>
-        /// <param name="Command">The command-line arguments to pass to devenv.exe.</param>
+        /// <param name="Arguments">The command-line arguments to pass to devenv.exe.</param>
         /// <returns>The exit code of the process, or Int32.MaxValue if the devenv.exe path is invalid.</returns>
-        public static int ExecuteDevEnvCommand(string Command)
+        public static int ExecuteDevEnvCommand(string Arguments)
         {
             string currentDevEnvPath = GetDevEnvPath();
 
@@ -1088,7 +1194,7 @@ namespace CustomBuildTool
                 return int.MaxValue;
             }
 
-            return Win32.CreateProcess(currentDevEnvPath, Command, out _, false, false);
+            return Win32.CreateProcess(currentDevEnvPath, Arguments, out _, false, false);
         }
 
         //public static string GetMsbuildFilePath()
@@ -1208,10 +1314,9 @@ namespace CustomBuildTool
 
             byte[] buffer = new byte[length];
 
-            using (MemoryStream stream = new MemoryStream(buffer, true))
-            using (FileStream sr = new FileStream(FileName, options))
+            using (FileStream filestream = new FileStream(FileName, options))
             {
-                sr.CopyTo(stream);
+                filestream.ReadExactly(buffer);
             }
 
             return buffer;
@@ -1224,7 +1329,7 @@ namespace CustomBuildTool
         /// exist.</remarks>
         /// <param name="FileName">The path to the file to write.</param>
         /// <param name="Buffer">The byte array to write to the file.</param>
-        public static void WriteAllBytes(string FileName, byte[] Buffer)
+        public static void WriteAllBytes(string FileName, ReadOnlySpan<byte> Buffer)
         {
             FileStreamOptions options = new FileStreamOptions
             {
@@ -1232,14 +1337,13 @@ namespace CustomBuildTool
                 Access = FileAccess.Write,
                 Share = FileShare.Write | FileShare.Delete,
                 Options = FileOptions.SequentialScan,
-                PreallocationSize = Buffer.LongLength,
+                PreallocationSize = Buffer.Length,
                 BufferSize = 0x1000,
             };
 
-            using (MemoryStream stream = new MemoryStream(Buffer, true))
             using (FileStream filestream = new FileStream(FileName, options))
             {
-                stream.CopyTo(filestream);
+                filestream.Write(Buffer);
             }
         }
 
@@ -1286,17 +1390,27 @@ namespace CustomBuildTool
                 {
                     char* offset = (char*)block;
 
-                    while (offset != null)
+                    while (*offset != '\0')
                     {
                         string variable = new string(offset);
 
                         if (string.IsNullOrWhiteSpace(variable))
                             break;
 
-                        string[] parts = variable.Split('=', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                        EnvironmentBlock.Add(parts[0], parts.Length <= 1 ? string.Empty : parts[1]);
+                        ReadOnlySpan<char> varSpan = variable.AsSpan();
+                        int eqIndex = varSpan.IndexOf('=');
 
-                        //offset = new IntPtr(offset.ToInt64() + (variable.Length + 1) * sizeof(char));
+                        if (eqIndex != -1)
+                        {
+                            string key = varSpan[..eqIndex].Trim().ToString();
+                            string val = varSpan[(eqIndex + 1)..].Trim().ToString();
+                            EnvironmentBlock.Add(key, val);
+                        }
+                        else
+                        {
+                            EnvironmentBlock.Add(variable.Trim(), string.Empty);
+                        }
+
                         offset += variable.Length + 1;
                     }
 
@@ -1345,67 +1459,6 @@ namespace CustomBuildTool
         }
 
         /// <summary>
-        /// Validates the export directory of a PE image file to determine if exported functions are defined.
-        /// </summary>
-        /// <remarks>This method checks the export directory of the specified PE image file and reports
-        /// missing exported functions. If exported functions are missing, a message is printed to the console. The
-        /// method unmaps the image file after validation.</remarks>
-        /// <param name="FileName">The path to the PE image file to validate. Cannot be null or empty.</param>
-        /// <returns>true if the image file contains an export directory with no exported function names; otherwise, false.</returns>
-        public static bool ValidateImageExports(string FileName)
-        {
-            LOADED_IMAGE loadedMappedImage = default;
-            IMAGE_EXPORT_DIRECTORY* exportDirectory;
-
-            try
-            {
-                if (!PInvoke.MapAndLoad(FileName, null, out loadedMappedImage, false, true))
-                    return false;
-
-                try
-                {
-                    exportDirectory = (IMAGE_EXPORT_DIRECTORY*)PInvoke.ImageDirectoryEntryToData(
-                        loadedMappedImage.MappedAddress, false,
-                        IMAGE_DIRECTORY_ENTRY.IMAGE_DIRECTORY_ENTRY_EXPORT, out uint DirectorySize
-                        );
-
-                    if (exportDirectory != null)
-                    {
-                        if (exportDirectory->NumberOfNames == 0)
-                            return true;
-
-                        Program.PrintColorMessage("Exported functions missing from module export definition file: ", ConsoleColor.Yellow);
-
-                        uint* exportNameTable = (uint*)PInvoke.ImageRvaToVa(loadedMappedImage.FileHeader, loadedMappedImage.MappedAddress, exportDirectory->AddressOfNames, null);
-
-                        for (uint i = 0; i < exportDirectory->NumberOfNames; i++)
-                        {
-                            uint nameRva = exportNameTable[i];
-                            IntPtr namePtr = (IntPtr)PInvoke.ImageRvaToVa(loadedMappedImage.FileHeader, loadedMappedImage.MappedAddress, nameRva, null);
-                            var exportName = Marshal.PtrToStringUTF8(namePtr);
-
-                            Program.PrintColorMessage($"{i}: {exportName}", ConsoleColor.Yellow);
-                        }
-                    }
-                    else
-                    {
-                        Program.PrintColorMessage("IMAGE_DIRECTORY_ENTRY_EXPORT", ConsoleColor.Red);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Program.PrintColorMessage($"ValidateImageExports: {ex}", ConsoleColor.Red);
-                }
-            }
-            finally
-            {
-                PInvoke.UnMapAndLoad(ref loadedMappedImage);
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Returns the CMake platform string for the specified toolchain.
         /// </summary>
         /// <param name="toolchain">The toolchain identifier.</param>
@@ -1422,10 +1475,10 @@ namespace CustomBuildTool
         /// <summary>
         /// Gets the CMake platform name corresponding to the specified build toolchain.
         /// </summary>
-        /// <param name="toolchain">The build toolchain for which to retrieve the CMake platform name.</param>
+        /// <param name="Toolchain">The build toolchain for which to retrieve the CMake platform name.</param>
         /// <returns>The CMake platform name associated with the specified toolchain.</returns>
         /// <exception cref="ArgumentException">Thrown when the specified toolchain is not supported.</exception>
-        public static string CMakeGetPlatform(BuildToolchain toolchain) => toolchain switch
+        public static string CMakeGetPlatform(BuildToolchain Toolchain) => Toolchain switch
         {
             BuildToolchain.MsvcX86 or BuildToolchain.ClangMsvcX86 => "Win32",
             BuildToolchain.MsvcAmd64 or BuildToolchain.ClangMsvcAmd64 => "x64",
@@ -1436,42 +1489,42 @@ namespace CustomBuildTool
         /// <summary>
         /// Determines whether the specified toolchain targets the x86 architecture.
         /// </summary>
-        /// <param name="toolchain">The build toolchain to evaluate.</param>
+        /// <param name="Toolchain">The build toolchain to evaluate.</param>
         /// <returns>true if the toolchain targets x86; otherwise, false.</returns>
-        public static bool IsX86Toolchain(BuildToolchain toolchain)
+        public static bool IsX86Toolchain(BuildToolchain Toolchain)
         {
-            return toolchain == BuildToolchain.MsvcX86 || toolchain == BuildToolchain.ClangMsvcX86;
+            return Toolchain == BuildToolchain.MsvcX86 || Toolchain == BuildToolchain.ClangMsvcX86;
         }
 
         /// <summary>
         /// Determines whether the specified toolchain targets the AMD64 architecture.
         /// </summary>
-        /// <param name="toolchain">The build toolchain to evaluate.</param>
+        /// <param name="Toolchain">The build toolchain to evaluate.</param>
         /// <returns>true if the toolchain targets AMD64; otherwise, false.</returns>
-        public static bool IsAmd64Toolchain(BuildToolchain toolchain)
+        public static bool IsAmd64Toolchain(BuildToolchain Toolchain)
         {
-            return toolchain == BuildToolchain.MsvcAmd64 || toolchain == BuildToolchain.ClangMsvcAmd64;
+            return Toolchain == BuildToolchain.MsvcAmd64 || Toolchain == BuildToolchain.ClangMsvcAmd64;
         }
 
         /// <summary>
         /// Determines whether the specified toolchain targets the ARM64 architecture.
         /// </summary>
-        /// <param name="toolchain">The build toolchain to evaluate.</param>
+        /// <param name="Toolchain">The build toolchain to evaluate.</param>
         /// <returns>true if the toolchain targets ARM64; otherwise, false.</returns>
-        public static bool IsArm64Toolchain(BuildToolchain toolchain)
+        public static bool IsArm64Toolchain(BuildToolchain Toolchain)
         {
-            return toolchain == BuildToolchain.MsvcArm64 || toolchain == BuildToolchain.ClangMsvcArm64;
+            return Toolchain == BuildToolchain.MsvcArm64 || Toolchain == BuildToolchain.ClangMsvcArm64;
         }
 
         /// <summary>
         /// Returns the string representation of the specified build toolchain.
         /// </summary>
-        /// <param name="toolchain">The build toolchain to convert.</param>
+        /// <param name="Toolchain">The build toolchain to convert.</param>
         /// <returns>A string representing the specified build toolchain.</returns>
         /// <exception cref="ArgumentException">Thrown when the specified toolchain is not supported.</exception>
-        public static string GetToolchainString(BuildToolchain toolchain)
+        public static string GetToolchainString(BuildToolchain Toolchain)
         {
-            switch (toolchain)
+            switch (Toolchain)
             {
             case BuildToolchain.MsvcX86:
                 return "msvc-x86";
@@ -1558,12 +1611,15 @@ namespace CustomBuildTool
             {
                 BuildGenerator.Ninja => "Ninja",
                 BuildGenerator.VisualStudio => "Visual Studio",
-                BuildGenerator.Other => original ?? string.Empty,
                 _ => original ?? string.Empty
             };
         }
     }
 
+    /// <summary>
+    /// Represents a request to update build information, including identifiers, version details, and associated binary
+    /// and setup metadata.
+    /// </summary>
     public class BuildUpdateRequest
     {
         [JsonPropertyName("build_id")] public string BuildId { get; init; }
@@ -1604,6 +1660,12 @@ namespace CustomBuildTool
         }
     }
 
+    /// <summary>
+    /// Represents a request to create a new release on GitHub, including release tag, target branch, name, description,
+    /// and release options.
+    /// </summary>
+    /// <remarks>Provides properties for configuring release details such as draft status, prerelease status,
+    /// and automatic release note generation. Supports serialization to JSON and UTF-8 byte arrays.</remarks>
     public class GithubReleasesRequest
     {
         [JsonPropertyName("tag_name")]
@@ -1643,10 +1705,16 @@ namespace CustomBuildTool
         }
     }
 
+    /// <summary>
+    /// Represents a GitHub release as returned by the GitHub API.
+    /// </summary>
     public class GithubReleasesResponse
     {
         [JsonPropertyName("id")]
         public ulong ReleaseId { get; init; }
+
+        [JsonPropertyName("tag_name")]
+        public string TagName { get; init; }
 
         [JsonPropertyName("upload_url")]
         public string UploadUrl { get; init; }
@@ -1673,6 +1741,9 @@ namespace CustomBuildTool
         }
     }
 
+    /// <summary>
+    /// Represents the response from a GitHub release query.
+    /// </summary>
     public class GithubReleaseQueryResponse
     {
         [JsonPropertyName("id")]
@@ -1753,7 +1824,7 @@ namespace CustomBuildTool
                 if (string.IsNullOrWhiteSpace(this.Digest))
                     return string.Empty;
 
-                if (this.Digest.AsSpan().IndexOf(':') is int idx && idx >= 0)
+                if (this.Digest.AsSpan().IndexOf(':') is var idx && idx >= 0)
                 {
                     return this.Digest[..idx];
                 }
@@ -1770,7 +1841,7 @@ namespace CustomBuildTool
                 if (string.IsNullOrWhiteSpace(this.Digest))
                     return string.Empty;
 
-                if (this.Digest.AsSpan().IndexOf(':') is int idx && idx >= 0)
+                if (this.Digest.AsSpan().IndexOf(':') is var idx && idx >= 0)
                 {
                     return this.Digest[idx..];
                 }
@@ -2532,19 +2603,16 @@ namespace CustomBuildTool
         public Dictionary<string, string> Documents { get; init; }
     }
 
-    public class NugetVersionResponse
+    public class NugetFlatContainerResponse
     {
         [JsonPropertyName("versions")]
         public List<string> Versions { get; init; }
     }
 
- 
+
     [JsonSerializable(typeof(BuildUpdateRequest))]
     [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, GenerationMode = JsonSourceGenerationMode.Default)]
-    public partial class BuildUpdateRequestContext : JsonSerializerContext
-    {
-
-    }
+    public partial class BuildUpdateRequestContext : JsonSerializerContext;
 
     [JsonSerializable(typeof(GithubActionRun))]
     [JsonSerializable(typeof(GithubAssetsResponse))]
@@ -2555,31 +2623,20 @@ namespace CustomBuildTool
     [JsonSerializable(typeof(SourceLink))]
     [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
     [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, GenerationMode = JsonSourceGenerationMode.Default)]
-    public partial class GithubResponseContext : JsonSerializerContext
-    {
-
-    }
+    public partial class GithubResponseContext : JsonSerializerContext;
 
     [JsonSerializable(typeof(SourceForgeUploadResponse))]
     [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, GenerationMode = JsonSourceGenerationMode.Default)]
-    public partial class SourceForgeUploadResponseContext : JsonSerializerContext
-    {
-
-    }
+    public partial class SourceForgeUploadResponseContext : JsonSerializerContext;
 
     [JsonSerializable(typeof(VirusTotalLargeUploadResponse))]
     [JsonSerializable(typeof(VirusTotalAnalysisResponse))]
     [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, GenerationMode = JsonSourceGenerationMode.Default)]
-    public partial class VirusTotalResponseContext : JsonSerializerContext
-    {
-
-    }
+    public partial class VirusTotalResponseContext : JsonSerializerContext;
 
     [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, GenerationMode = JsonSourceGenerationMode.Default)]
     [JsonSerializable(typeof(Dictionary<string, string>))]
-    public partial class DictionarySerializerContext : JsonSerializerContext
-    {
-    }
+    public partial class DictionarySerializerContext : JsonSerializerContext;
 
     /// <summary>
     /// Provides extension methods for formatting numeric values as human-readable file sizes.
@@ -2664,31 +2721,41 @@ namespace CustomBuildTool
     [InterpolatedStringHandler]
     public readonly ref struct LogInterpolatedStringHandler
     {
-        public readonly StringBuilder builder;
+        private readonly StringBuilder _builder;
+        public readonly bool Enabled;
 
-        public LogInterpolatedStringHandler(int literalLength, int formattedCount)
+        public LogInterpolatedStringHandler(int literalLength, int formattedCount, out bool enabled)
         {
-            builder = new StringBuilder(literalLength);
+            this.Enabled = true;
+            enabled = true;
+            this._builder = new StringBuilder(literalLength);
+        }
+
+        public LogInterpolatedStringHandler(int literalLength, int formattedCount, BuildFlags Flags, out bool enabled)
+        {
+            this.Enabled = (Flags & BuildFlags.BuildVerbose) != 0;
+            enabled = this.Enabled;
+            this._builder = enabled ? new StringBuilder(literalLength) : null;
         }
 
         public void AppendLiteral(string s)
         {
-            builder.Append(s.AsSpan());
+            _builder?.Append(s.AsSpan());
         }
 
         public void AppendFormatted<T>(T t)
         {
-            builder.Append(t?.ToString());
+            _builder?.Append(t?.ToString());
         }
 
         public void AppendFormatted<T>(T t, string format) where T : IFormattable
         {
-            builder.Append(t?.ToString(format, null));
+            _builder?.Append(t?.ToString(format, null));
         }
 
         internal string GetFormattedText()
         {
-            return builder.ToString();
+            return _builder?.ToString() ?? string.Empty;
         }
     }
 
@@ -2706,9 +2773,9 @@ namespace CustomBuildTool
         public const string MAGENTA     = "\x1b[35m";
         public const string CYAN        = "\x1b[36m";
         public const string WHITE       = "\x1b[37m";
+        public const string GRAY        = "\x1b[90m";
 
         // Bright foreground colors
-        public const string BRIGHT_BLACK    = "\x1b[90m";
         public const string BRIGHT_RED      = "\x1b[91m";
         public const string BRIGHT_GREEN    = "\x1b[92m";
         public const string BRIGHT_YELLOW   = "\x1b[93m";
@@ -2746,5 +2813,58 @@ namespace CustomBuildTool
         // True-color (RGB)
         public static string RGB(int r, int g, int b) => $"\x1b[38;2;{r};{g};{b}m";
         public static string BGRGB(int r, int g, int b) => $"\x1b[48;2;{r};{g};{b}m";
+
+        // Extended palette colors (256-color ANSI)
+        public const string ORANGE = "\u001b[38;5;208m";
+        public const string PURPLE = "\u001b[38;5;141m";
+        public const string TEAL = "\u001b[38;5;44m";
+        public const string PINK = "\u001b[38;5;213m";
+        public const string LIME = "\u001b[38;5;118m";
+    }
+
+    /// <summary>
+    /// Represents a buffer of characters that can be securely zeroed out after use.
+    /// </summary>
+    public sealed class SecureBuffer : IDisposable
+    {
+        public char[] Buffer { get; }
+        public int Length { get; }
+        public ReadOnlySpan<char> Span => Buffer.AsSpan(0, Length);
+
+        public SecureBuffer(int length)
+        {
+            Buffer = new char[length];
+            Length = length;
+        }
+
+        public void Dispose()
+        {
+            CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(Buffer.AsSpan()));
+        }
+    }
+
+    public static partial class Utils
+    {
+        public static SecureBuffer ReadAllTextSecure(string FileName)
+        {
+            if (!File.Exists(FileName))
+                return null;
+
+            using (var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read))
+            using (var sr = new StreamReader(fs, Utils.UTF8NoBOM))
+            {
+                int length = (int)fs.Length;
+                var buffer = new SecureBuffer(length);
+                int read = sr.Read(buffer.Buffer, 0, length);
+                if (read < length)
+                {
+                    var newBuffer = new SecureBuffer(read);
+                    buffer.Span.Slice(0, read).CopyTo(newBuffer.Buffer);
+                    buffer.Dispose();
+                    return newBuffer;
+                }
+                return buffer;
+            }
+        }
     }
 }

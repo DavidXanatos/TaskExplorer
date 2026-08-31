@@ -90,14 +90,14 @@ namespace CustomBuildTool
         /// <summary>
         /// Orders header files based on their dependencies.
         /// </summary>
-        /// <param name="headerFiles">The list of header files to order.</param>
+        /// <param name="HeaderFiles">The list of header files to order.</param>
         /// <returns>A list of header files in dependency order.</returns>
-        private static List<HeaderFile> OrderHeaderFiles(List<HeaderFile> headerFiles)
+        private static List<HeaderFile> OrderHeaderFiles(List<HeaderFile> HeaderFiles)
         {
             var result = new List<HeaderFile>();
             var done = new HashSet<HeaderFile>();
 
-            foreach (HeaderFile h in headerFiles)
+            foreach (HeaderFile h in HeaderFiles)
                 OrderHeaderFiles(result, done, h);
 
             return result;
@@ -106,28 +106,28 @@ namespace CustomBuildTool
         /// <summary>
         /// Recursively orders header files by dependencies.
         /// </summary>
-        /// <param name="result">The result list to populate.</param>
-        /// <param name="done">A set of already processed headers.</param>
-        /// <param name="headerFile">The header file to process.</param>
-        private static void OrderHeaderFiles(List<HeaderFile> result, HashSet<HeaderFile> done, HeaderFile headerFile)
+        /// <param name="Result">The result list to populate.</param>
+        /// <param name="Done">A set of already processed headers.</param>
+        /// <param name="HeaderFile">The header file to process.</param>
+        private static void OrderHeaderFiles(List<HeaderFile> Result, HashSet<HeaderFile> Done, HeaderFile HeaderFile)
         {
-            if (!done.Add(headerFile))
+            if (!Done.Add(HeaderFile))
                 return;
 
-            foreach (HeaderFile h in headerFile.Dependencies)
-                OrderHeaderFiles(result, done, h);
+            foreach (HeaderFile h in HeaderFile.Dependencies)
+                OrderHeaderFiles(Result, Done, h);
 
-            result.Add(headerFile);
+            Result.Add(HeaderFile);
         }
 
         /// <summary>
         /// Processes header lines, filtering by mode and removing irrelevant content.
         /// </summary>
-        /// <param name="lines">The lines of the header file.</param>
+        /// <param name="Lines">The lines of the header file.</param>
         /// <returns>A filtered list of lines relevant to the current mode.</returns>
-        private static List<string> ProcessHeaderLines(List<string> lines)
+        private static List<string> ProcessHeaderLines(List<string> Lines)
         {
-            var result = new List<string>(lines.Count);
+            var result = new List<string>(Lines.Count);
             var activeModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             bool blankLine = false;
 
@@ -141,7 +141,7 @@ namespace CustomBuildTool
                 cachedModeMarkers[i] = "// " + Modes[i];
             }
 
-            foreach (string line in lines)
+            foreach (string line in Lines)
             {
                 ReadOnlySpan<char> span = line.AsSpan().Trim();
 
@@ -247,7 +247,7 @@ namespace CustomBuildTool
             {
                 string file = Path.Join([BaseDirectory, name]);
                 string[] allLines = File.ReadAllLines(file);
-                headerFiles.Add(name, new HeaderFile(name, new List<string>(allLines)));
+                headerFiles.Add(name, new HeaderFile(name, [..allLines]));
             }
 
             // Dependency resolution and Line Filtering:
@@ -388,18 +388,18 @@ namespace CustomBuildTool
         }
 
         /// <inheritdoc/>
-        public override bool Equals(object obj)
+        public override bool Equals(object Obj)
         {
-            if (obj is not HeaderFile file)
+            if (Obj is not HeaderFile file)
                 return false;
 
             return string.Equals(this.Name, file.Name, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc/>
-        public bool Equals(HeaderFile other)
+        public bool Equals(HeaderFile Other)
         {
-            return other != null && string.Equals(this.Name, other.Name, StringComparison.OrdinalIgnoreCase);
+            return Other != null && string.Equals(this.Name, Other.Name, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -412,7 +412,7 @@ namespace CustomBuildTool
         /// The list of NT header files to merge into a single header.
         /// </summary>
         private static readonly string[] Headers =
-        {
+        [
             "phnt_ntdef.h",
             "ntnls.h",
             "ntkeapi.h",
@@ -433,6 +433,7 @@ namespace CustomBuildTool
             "ntpnpapi.h",
             "ntpoapi.h",
             "ntregapi.h",
+            "ntnsi.h",
             "ntrtl.h",
             "ntsam.h",
             "ntseapi.h",
@@ -441,8 +442,8 @@ namespace CustomBuildTool
             "ntuser.h",
             "ntwmi.h",
             "ntwow64.h",
-            "ntxcapi.h",
-        };
+            "ntxcapi.h"
+        ];
 
         /// <summary>
         /// Executes the single header generation process, merging NT headers into a single file.
@@ -462,8 +463,8 @@ namespace CustomBuildTool
                     output.WriteLine("/*\r\n * This file was automatically generated. Do not edit.\r\n */");
 
                     {
-                        int startIndex = Array.FindIndex(config, l => l.StartsWith("EXTERN_C_START", StringComparison.OrdinalIgnoreCase));
-                        int endIndex = Array.FindLastIndex(config, l => l.StartsWith("#endif", StringComparison.OrdinalIgnoreCase));
+                        int startIndex = Array.FindIndex(config, L => L.StartsWith("EXTERN_C_START", StringComparison.OrdinalIgnoreCase));
+                        int endIndex = Array.FindLastIndex(config, L => L.StartsWith("#endif", StringComparison.OrdinalIgnoreCase));
 
                         for (long i = 0; i < config.LongLength; i++)
                         {
@@ -497,7 +498,7 @@ namespace CustomBuildTool
                             var sdk_include_path = Utils.GetWindowsSdkIncludePath();
                             if (string.IsNullOrWhiteSpace(sdk_include_path))
                             {
-                                Console.WriteLine($"[ERROR] Could not find Windows SDK include paths.");
+                                Console.WriteLine("[ERROR] Could not find Windows SDK include paths.");
                                 continue;
                             }
 

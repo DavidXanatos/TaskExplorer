@@ -28,9 +28,9 @@ namespace CustomBuildTool
         /// Currently active channels are:
         /// - "release" (0): Stable release channel
         /// - "canary" (2): Canary/testing channel
-        /// 
+        ///
         /// N.B. Order is important, SortedDictionary is used on purpose.
-        /// 
+        /// </remarks>
         public static readonly SortedDictionary<string, int> Build_Channels = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["release"] = 0, // PhReleaseChannel
@@ -50,13 +50,9 @@ namespace CustomBuildTool
         public static readonly ImmutableArray<string> Build_Sdk_Directories =
         [
             "sdk",
-            "sdk\\include",
             "sdk\\dbg\\amd64",
             "sdk\\dbg\\i386",
             "sdk\\dbg\\arm64",
-            "sdk\\lib\\amd64",
-            "sdk\\lib\\i386",
-            "sdk\\lib\\arm64",
             //"sdk\\samples\\SamplePlugin",
             //"sdk\\samples\\SamplePlugin\\bin\\Release32"
         ];
@@ -133,6 +129,8 @@ namespace CustomBuildTool
             "fastlock.h",
             "filestream.h",
             "graph.h",
+            "graphprp.h",
+            "graphscroll.h",
             "guisup.h",
             "guisupview.h",
             "hexedit.h",
@@ -148,6 +146,7 @@ namespace CustomBuildTool
             "phbasesup.h",
             "phconfig.h",
             "phconsole.h",
+            "phcrypt.h",
             "phdata.h",
             "phfirmware.h",
             "phnative.h",
@@ -163,6 +162,7 @@ namespace CustomBuildTool
             "settings.h",
             "svcsup.h",
             "symprv.h",
+            "tabnew.h",
             "templ.h",
             "trace.h",
             "treenew.h",
@@ -173,7 +173,6 @@ namespace CustomBuildTool
         /// <summary>
         /// An immutable array containing the header filenames for the kphlib (Kernel System Informer) library build.
         /// </summary>
-        /// <remarks>
         public static readonly ImmutableArray<string> Build_Kphlib_Headers =
         [
             "kphapi.h",

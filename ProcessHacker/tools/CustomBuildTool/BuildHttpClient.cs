@@ -17,13 +17,13 @@ namespace CustomBuildTool
     /// </summary>
     /// <remarks>This class is intended for scenarios where complete isolation between HTTP requests is
     /// required, such as preventing credential or cookie leakage across services. All methods are static and
-    /// thread-safe. Callers are responsible for disposing returned HttpClient and HttpResponseMessage objects to avoid
+    /// thread-safe. Callers are responsible for disposing of returned HttpClient and HttpResponseMessage objects to avoid
     /// resource leaks.</remarks>
     public static class BuildHttpClient
     {
         /// <summary>
         /// Creates a new HttpClient instance with its own isolated HttpClientHandler.
-        /// Caller is responsible for disposing the returned HttpClient.
+        /// Caller is responsible for disposing of the returned HttpClient.
         /// </summary>
         /// <remarks>
         /// Each HttpClient instance has its own handler, connection pool, and cookie container.
@@ -38,8 +38,7 @@ namespace CustomBuildTool
                 SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
                 UseCookies = true, // Enabled for cookie support per instance
                 UseDefaultCredentials = false,
-                AllowAutoRedirect = true,
-                MaxAutomaticRedirections = 50
+                AllowAutoRedirect = true
             };
 
             var client = new HttpClient(handler, disposeHandler: true)
@@ -54,9 +53,9 @@ namespace CustomBuildTool
         }
 
         /// <summary>
-        /// Sends an HTTP request and returns the response. Caller is responsible for disposing the response.
+        /// Sends an HTTP request and returns the response. Caller is responsible for disposing of the response.
         /// </summary>
-        public static async Task<HttpResponseMessage> SendMessageResponse(HttpClient HttpClient, HttpRequestMessage HttpMessage, CancellationToken CancellationToken = default)
+        public static async ValueTask<HttpResponseMessage> SendMessageResponse(HttpClient HttpClient, HttpRequestMessage HttpMessage, CancellationToken CancellationToken = default)
         {
             HttpResponseMessage response;
 
@@ -64,9 +63,9 @@ namespace CustomBuildTool
             {
                 response = await HttpClient.SendAsync(HttpMessage, CancellationToken);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Program.PrintColorMessage($"[Exception] SendMessageResponse", ConsoleColor.Red);
+                Program.PrintColorMessage($"[Exception] SendMessageResponse: {ex.GetType().Name}: {ex.Message}", ConsoleColor.Red);
                 return null;
             }
 
@@ -82,11 +81,11 @@ namespace CustomBuildTool
         /// <typeparam name="TValue">The type to which the JSON response will be deserialized.</typeparam>
         /// <param name="HttpClient">The HTTP client used to send the request.</param>
         /// <param name="HttpMessage">The HTTP request message to be sent.</param>
-        /// <param name="jsonTypeInfo">The metadata used to control JSON deserialization for the target type.</param>
+        /// <param name="JsonTypeInfo">The metadata used to control JSON deserialization for the target type.</param>
         /// <param name="CancellationToken">A cancellation token that can be used to cancel the operation. Optional.</param>
         /// <returns>A task representing the asynchronous operation. The task result contains the deserialized value of type
         /// TValue, or the default value if deserialization fails.</returns>
-        public static async Task<TValue> SendMessage<TValue>(HttpClient HttpClient, HttpRequestMessage HttpMessage, JsonTypeInfo<TValue> jsonTypeInfo, CancellationToken CancellationToken = default)
+        public static async ValueTask<TValue> SendMessage<TValue>(HttpClient HttpClient, HttpRequestMessage HttpMessage, JsonTypeInfo<TValue> JsonTypeInfo, CancellationToken CancellationToken = default)
         {
             try
             {
@@ -98,7 +97,7 @@ namespace CustomBuildTool
                 }
 
                 await using var stream = await httpResponse.Content.ReadAsStreamAsync(CancellationToken);
-                var result = JsonSerializer.Deserialize(stream, jsonTypeInfo);
+                var result = await JsonSerializer.DeserializeAsync(stream, JsonTypeInfo, CancellationToken);
                 if (result == null)
                 {
                     Program.PrintColorMessage("[Warning] JSON deserialization returned null", ConsoleColor.Yellow);
@@ -107,9 +106,9 @@ namespace CustomBuildTool
 
                 return result;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Program.PrintColorMessage($"[Exception] SendMessage", ConsoleColor.Red);
+                Program.PrintColorMessage($"[Exception] SendMessage: {ex.GetType().Name}: {ex.Message}", ConsoleColor.Red);
                 return default;
             }
         }
@@ -125,59 +124,59 @@ namespace CustomBuildTool
     public class ProgressableStreamContent : HttpContent
     {
         private const int DefaultBufferSize = 4096;
-        private readonly Stream _content;
-        private readonly int _bufferSize;
-        private readonly Action<long, long> _progress;
+        private readonly Stream Content;
+        private readonly int BufferSize;
+        private readonly Action<long, long> Progress;
 
-        public ProgressableStreamContent(Stream content, Action<long, long> progress, int bufferSize = DefaultBufferSize)
+        public ProgressableStreamContent(Stream Content, Action<long, long> Progress, int BufferSize = DefaultBufferSize)
         {
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
+            if (Content == null)
+                throw new ArgumentNullException(nameof(Content));
 
-            if (!content.CanRead)
-                throw new ArgumentException("Stream must be readable", nameof(content));
+            if (!Content.CanRead)
+                throw new ArgumentException("Stream must be readable", nameof(Content));
 
-            _content = content;
-            _bufferSize = bufferSize;
-            _progress = progress;
+            this.Content = Content;
+            this.BufferSize = BufferSize;
+            this.Progress = Progress;
 
-            if (content.CanSeek)
+            if (Content.CanSeek)
             {
-                Headers.ContentLength = content.Length;
+                Headers.ContentLength = Content.Length;
             }
         }
 
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext context)
+        protected override async Task SerializeToStreamAsync(Stream Stream, TransportContext Context)
         {
-            var buffer = new byte[_bufferSize];
-            long totalBytesRead = 0;
+            var buffer = new byte[BufferSize];
+            var totalBytesRead = 0;
             int bytesRead;
 
-            while ((bytesRead = await _content.ReadAsync(buffer.AsMemory())) > 0)
+            while ((bytesRead = await Content.ReadAsync(buffer.AsMemory())) > 0)
             {
-                await stream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                await Stream.WriteAsync(buffer.AsMemory(0, bytesRead));
                 totalBytesRead += bytesRead;
 
-                if (_content.CanSeek)
+                if (Content.CanSeek)
                 {
-                    _progress?.Invoke(totalBytesRead, _content.Length);
+                    Progress?.Invoke(totalBytesRead, Content.Length);
                 }
                 else
                 {
-                    _progress?.Invoke(totalBytesRead, -1);
+                    Progress?.Invoke(totalBytesRead, -1);
                 }
             }
         }
 
-        protected override bool TryComputeLength(out long length)
+        protected override bool TryComputeLength(out long Length)
         {
-            if (_content.CanSeek)
+            if (Content.CanSeek)
             {
-                length = _content.Length;
+                Length = Content.Length;
                 return true;
             }
 
-            length = 0;
+            Length = 0;
             return false;
         }
     }
@@ -193,20 +192,17 @@ namespace CustomBuildTool
     /// responses handled by the application.</remarks>
     public static class HttpLogging
     {
-        private static HttpEventListener httpEventListener = null;
+        private static HttpEventListener _HttpEventListener;
         public static void StartHttpLogging()
         {
-            if (httpEventListener == null)
-            {
-                httpEventListener = new HttpEventListener();
-            }
+            _HttpEventListener ??= new HttpEventListener();
         }
         public static void StopHttpLogging()
         {
-            if (httpEventListener != null)
+            if (_HttpEventListener != null)
             {
-                httpEventListener.Dispose();
-                httpEventListener = null;
+                _HttpEventListener.Dispose();
+                _HttpEventListener = null;
             }
         }
     }
@@ -216,28 +212,28 @@ namespace CustomBuildTool
     //
     public sealed class HttpEventListener : System.Diagnostics.Tracing.EventListener
     {
-        protected override void OnEventSourceCreated(System.Diagnostics.Tracing.EventSource eventSource)
+        protected override void OnEventSourceCreated(System.Diagnostics.Tracing.EventSource EventSource)
         {
             // System.Net providers: System.Net.Http, System.Net.Sockets, System.Net.NameResolution
             if (
-                string.Equals(eventSource.Name, "System.Net.Http", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(eventSource.Name, "System.Net.Sockets", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(eventSource.Name, "System.Net.NameResolution", StringComparison.OrdinalIgnoreCase)
+                string.Equals(EventSource.Name, "System.Net.Http", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(EventSource.Name, "System.Net.Sockets", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(EventSource.Name, "System.Net.NameResolution", StringComparison.OrdinalIgnoreCase)
                 )
             {
-                this.EnableEvents(eventSource, System.Diagnostics.Tracing.EventLevel.Informational);
+                this.EnableEvents(EventSource, System.Diagnostics.Tracing.EventLevel.Informational);
             }
 
-            base.OnEventSourceCreated(eventSource);
+            base.OnEventSourceCreated(EventSource);
         }
 
-        protected override void OnEventWritten(System.Diagnostics.Tracing.EventWrittenEventArgs eventData)
+        protected override void OnEventWritten(System.Diagnostics.Tracing.EventWrittenEventArgs EventData)
         {
             try
             {
-                var payload = eventData.Payload == null ? string.Empty : string.Join(", ", eventData.Payload);
+                var payload = EventData.Payload == null ? string.Empty : string.Join(", ", EventData.Payload);
 
-                Console.WriteLine($"[NET] {eventData.EventSource.Name}:{eventData.Level} {eventData.EventName} | {payload}");
+                Console.WriteLine($"[NET] {EventData.EventSource.Name}:{EventData.Level} {EventData.EventName} | {payload}");
             }
             catch (Exception)
             {

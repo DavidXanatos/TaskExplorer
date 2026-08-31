@@ -15,9 +15,34 @@ namespace CustomBuildTool
     /// Provides utility methods for interacting with the Windows file system, environment variables, processes, and
     /// registry, as well as other Win32-related operations.
     /// </summary>
-    public static unsafe partial class Win32
+    public static unsafe class Win32
     {
-        private static readonly char[] PathSeparator = [';'];
+        private static readonly FrozenSet<string> RequiredPathEntries = new[]
+        {
+            // Windows system directories
+            "\\Windows\\System32",
+            "\\Windows\\",
+            "\\Windows\\System32\\Wbem",
+            "\\Windows\\System32\\WindowsPowerShell",
+            "\\Windows\\System32\\OpenSSH",
+
+            // Build tools
+            "\\Microsoft Visual Studio",
+            "\\MSBuild",
+            "\\Windows Kits",
+            "\\dotnet",
+
+            // Version control
+            "\\git",
+            "\\GitHub CLI",
+
+            // CMake and build tools
+            "\\CMake",
+            "\\vcpkg",
+            "\\ninja",
+            "\\LLVM",
+            "\\mingw",
+        }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Creates all directories and subdirectories in the specified path unless they already exist.
@@ -43,6 +68,74 @@ namespace CustomBuildTool
         /// <param name="FixNewLines"></param>
         /// <param name="RedirectOutput"></param>
         /// <returns>If the creation succeeds, the return value is nonzero.</returns>
+        public static int CreateProcess(string FileName, IEnumerable<string> Arguments, out string OutputString, bool FixNewLines = true, bool RedirectOutput = true)
+        {
+            int exitcode = int.MaxValue;
+            StringBuilder output = new StringBuilder(0x1000);
+            StringBuilder error = new StringBuilder(0x1000);
+
+            try
+            {
+                using (Process process = new Process())
+                {
+                    process.StartInfo.FileName = FileName;
+                    process.StartInfo.UseShellExecute = false;
+
+                    if (Arguments != null)
+                    {
+                        foreach (string argument in Arguments)
+                        {
+                            process.StartInfo.ArgumentList.Add(argument);
+                        }
+                    }
+
+                    if (RedirectOutput)
+                    {
+                        process.StartInfo.RedirectStandardOutput = true;
+                        process.StartInfo.RedirectStandardError = true;
+                        process.StartInfo.StandardErrorEncoding = Utils.UTF8NoBOM;
+                        process.StartInfo.StandardOutputEncoding = Utils.UTF8NoBOM;
+                        process.OutputDataReceived += (_, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+                        process.ErrorDataReceived += (_, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+                    }
+
+                    process.Start();
+
+                    if (RedirectOutput)
+                    {
+                        process.BeginOutputReadLine();
+                        process.BeginErrorReadLine();
+                    }
+
+                    process.WaitForExit();
+
+                    exitcode = process.ExitCode;
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.PrintColorMessage($"[CreateProcess] {ex}", ConsoleColor.Red);
+            }
+
+            OutputString = (output.ToString().Trim() + error.ToString().Trim());
+
+            if (FixNewLines)
+            {
+                OutputString = OutputString.Replace("\n\n", "\r\n", StringComparison.OrdinalIgnoreCase).Trim();
+            }
+
+            return exitcode;
+        }
+
+        /// <summary>
+        /// Creates a new process and buffers the output into a string using a raw command-line argument string.
+        /// </summary>
+        /// <param name="FileName">The name of the application to start.</param>
+        /// <param name="Arguments">The raw argument string to pass to the application.</param>
+        /// <param name="OutputString">The output from the application</param>
+        /// <param name="FixNewLines"></param>
+        /// <param name="RedirectOutput"></param>
+        /// <returns>If the creation succeeds, the return value is nonzero.</returns>
         public static int CreateProcess(string FileName, string Arguments, out string OutputString, bool FixNewLines = true, bool RedirectOutput = true)
         {
             int exitcode = int.MaxValue;
@@ -54,8 +147,12 @@ namespace CustomBuildTool
                 using (Process process = new Process())
                 {
                     process.StartInfo.FileName = FileName;
-                    process.StartInfo.Arguments = Arguments;
                     process.StartInfo.UseShellExecute = false;
+
+                    if (!string.IsNullOrWhiteSpace(Arguments))
+                    {
+                        process.StartInfo.Arguments = Arguments;
+                    }
 
                     if (RedirectOutput)
                     {
@@ -63,8 +160,8 @@ namespace CustomBuildTool
                         process.StartInfo.RedirectStandardError = true;
                         process.StartInfo.StandardErrorEncoding = Utils.UTF8NoBOM;
                         process.StartInfo.StandardOutputEncoding = Utils.UTF8NoBOM;
-                        process.OutputDataReceived += (_, e) => { output.AppendLine(e.Data); };
-                        process.ErrorDataReceived += (_, e) => { error.AppendLine(e.Data); };
+                        process.OutputDataReceived += (_, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+                        process.ErrorDataReceived += (_, e) => { if (e.Data != null) error.AppendLine(e.Data); };
                     }
 
                     process.Start();
@@ -118,6 +215,7 @@ namespace CustomBuildTool
         /// Deletes the specified file.
         /// </summary>
         /// <param name="FileName">The file name or path.</param>
+        /// <param name="Flags"></param>
         public static void DeleteFile(string FileName, BuildFlags Flags = BuildFlags.None)
         {
             if (string.IsNullOrWhiteSpace(FileName))
@@ -152,25 +250,29 @@ namespace CustomBuildTool
                     return where;
             }
 
+            // %PATH% directory.
+            {
+                if (Win32.GetEnvironmentVariable("PATH", out string values))
+                {
+                    foreach (var range in values.AsSpan().Split(';'))
+                    {
+                        var path = values.AsSpan(range);
+                        if (path.IsWhiteSpace())
+                            continue;
+
+                        string where = Path.Join(path, FileName.AsSpan());
+
+                        if (File.Exists(where))
+                            return where;
+                    }
+                }
+            }
+
             // Current directory.
             {
                 if (File.Exists(FileName))
                 {
                     return Path.GetFullPath(FileName);
-                }
-            }
-
-            // %PATH% directory.
-            {
-                if (Win32.GetEnvironmentVariable("PATH", out string values))
-                {
-                    foreach (string path in values.Split(PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        string where = Path.Join([path, FileName]);
-
-                        if (File.Exists(where))
-                            return where;
-                    }
                 }
             }
 
@@ -191,7 +293,7 @@ namespace CustomBuildTool
 
             if (!File.Exists(SourceFile))
             {
-                if (!Build.BuildIntegration && SourceFile.EndsWith(".sig", StringComparison.OrdinalIgnoreCase))
+                if (!Build.BuildIntegration && SourceFile!.EndsWith(".sig", StringComparison.OrdinalIgnoreCase))
                     return;
 
                 Program.PrintColorMessage($"[SDK] [CopyIfNewer-FileNotFound] {SourceFile}", ConsoleColor.Yellow);
@@ -218,12 +320,12 @@ namespace CustomBuildTool
 
             if (File.Exists(DestinationFile))
             {
-                Win32.GetFileBasicInfo(SourceFile, out var sourceCreationTime, out var sourceWriteTime, out var SourceAttributes);
-                Win32.GetFileBasicInfo(DestinationFile, out var destinationCreationTime, out var destinationWriteTime, out var DestinationAttributes);
+                Win32.GetFileBasicInfo(SourceFile, out var sourceCreationTime, out var sourceWriteTime, out var sourceAttributes);
+                Win32.GetFileBasicInfo(DestinationFile, out var destinationCreationTime, out var destinationWriteTime, out var destinationAttributes);
 
                 if (sourceWriteTime != destinationWriteTime || sourceCreationTime != destinationCreationTime)
                 {
-                    if ((DestinationAttributes & FileAttributes.ReadOnly) != 0)
+                    if ((destinationAttributes & FileAttributes.ReadOnly) != 0)
                     {
                         try { File.SetAttributes(DestinationFile, FileAttributes.Normal); } catch { }
                     }
@@ -265,41 +367,41 @@ namespace CustomBuildTool
 
             if (string.IsNullOrWhiteSpace(DestinationFile))
             {
-                Program.PrintColorMessage($"[CopyVersionIfNewer-DestinationFile]", ConsoleColor.Yellow);
+                Program.PrintColorMessage("[CopyVersionIfNewer-DestinationFile]", ConsoleColor.Yellow);
                 return;
             }
 
             {
                 string directory = Path.GetDirectoryName(DestinationFile);
 
-                if (directory is null || directory.Length == 0 || string.IsNullOrWhiteSpace(directory))
+                if (string.IsNullOrEmpty(directory) || string.IsNullOrWhiteSpace(directory))
                     return;
 
-                Win32.CreateDirectory(directory);
+                CreateDirectory(directory);
             }
 
             if (File.Exists(DestinationFile))
             {
-                Win32.GetFileBasicInfo(SourceFile, out var sourceCreationTime, out var sourceWriteTime, out _);
-                Win32.GetFileBasicInfo(DestinationFile, out _, out var destinationWriteTime, out var DestinationAttributes);
+                GetFileBasicInfo(SourceFile, out var sourceCreationTime, out var sourceWriteTime, out _);
+                GetFileBasicInfo(DestinationFile, out _, out var destinationWriteTime, out var destinationAttributes);
 
-                if (sourceWriteTime > destinationWriteTime || Win32.GetFileVersion(SourceFile) > Win32.GetFileVersion(DestinationFile))
+                if (sourceWriteTime > destinationWriteTime || GetFileVersion(SourceFile) > GetFileVersion(DestinationFile))
                 {
-                    if ((DestinationAttributes & FileAttributes.ReadOnly) != 0)
+                    if ((destinationAttributes & FileAttributes.ReadOnly) != 0)
                     {
                         try { File.SetAttributes(DestinationFile, FileAttributes.Normal); } catch { }
                     }
 
                     File.Copy(SourceFile, DestinationFile, true);
-                    Win32.SetFileBasicInfo(DestinationFile, sourceCreationTime, sourceWriteTime, false);
+                    SetFileBasicInfo(DestinationFile, sourceCreationTime, sourceWriteTime, false);
                     updated = true;
                 }
             }
             else
             {
-                Win32.GetFileBasicInfo(SourceFile, out var sourceCreationTime, out var sourceWriteTime, out _);
+                GetFileBasicInfo(SourceFile, out var sourceCreationTime, out var sourceWriteTime, out _);
                 File.Copy(SourceFile, DestinationFile, true);
-                Win32.SetFileBasicInfo(DestinationFile, sourceCreationTime, sourceWriteTime, false);
+                SetFileBasicInfo(DestinationFile, sourceCreationTime, sourceWriteTime, false);
                 updated = true;
             }
 
@@ -336,6 +438,39 @@ namespace CustomBuildTool
                     Program.PrintColorMessage($"EnvironmentVariable: {Name} not found.", ConsoleColor.Red);
                 }
                 return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Retrieves the value of an environment variable from the current process securely.
+        /// </summary>
+        /// <param name="Name">The name of the environment variable.</param>
+        /// <param name="Value">The value of the environment variable as a SecureBuffer.</param>
+        /// <returns>True if the environment variable was found.</returns>
+        public static bool GetEnvironmentVariableSecure(string Name, out SecureBuffer Value)
+        {
+            Value = null;
+
+            fixed (char* pName = Name)
+            {
+                uint size = PInvoke.GetEnvironmentVariable(pName, null, 0);
+                if (size == 0)
+                    return false;
+
+                using (var buffer = new SecureBuffer((int)size))
+                {
+                    fixed (char* pBuffer = buffer.Buffer)
+                    {
+                        uint length = PInvoke.GetEnvironmentVariable(pName, pBuffer, size);
+                        if (length == 0 || length >= size)
+                            return false;
+
+                        Value = new SecureBuffer((int)length);
+                        buffer.Span.Slice(0, (int)length).CopyTo(Value.Buffer);
+                    }
+                }
             }
 
             return true;
@@ -413,7 +548,7 @@ namespace CustomBuildTool
         {
             // required for the ESDK
             string value = string.Empty;
-            byte* valueBuffer;
+            byte* valueBuffer = null;
             HKEY keyHandle;
 
             fixed (char* pKey = KeyName)
@@ -439,23 +574,37 @@ namespace CustomBuildTool
                         &valueLength
                         );
 
-                    if (valueType == REG_VALUE_TYPE.REG_SZ || valueLength > 4)
+                    if ((valueType == REG_VALUE_TYPE.REG_SZ || valueType == REG_VALUE_TYPE.REG_EXPAND_SZ) && valueLength >= sizeof(char))
                     {
-                        valueBuffer = (byte*)NativeMemory.Alloc(valueLength);
-
-                        if (PInvoke.RegQueryValueEx(
-                            keyHandle,
-                            pValue,
-                            null,
-                            null,
-                            valueBuffer,
-                            &valueLength
-                            ) == WIN32_ERROR.ERROR_SUCCESS)
+                        try
                         {
-                            value = new string((char*)valueBuffer, 0, (int)valueLength / 2 - 1);
-                        }
+                            valueBuffer = (byte*)NativeMemory.Alloc(valueLength);
 
-                        NativeMemory.Free(valueBuffer);
+                            if (PInvoke.RegQueryValueEx(
+                                keyHandle,
+                                pValue,
+                                null,
+                                null,
+                                valueBuffer,
+                                &valueLength
+                                ) == WIN32_ERROR.ERROR_SUCCESS)
+                            {
+                                int charLength = (int)(valueLength / sizeof(char));
+
+                                if (charLength > 0 && ((char*)valueBuffer)[charLength - 1] == '\0')
+                                    charLength--;
+
+                                if (charLength > 0)
+                                {
+                                    ReadOnlySpan<char> valueSpan = new ReadOnlySpan<char>((char*)valueBuffer, charLength);
+                                    value = valueSpan.ToString();
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            NativeMemory.Free(valueBuffer);
+                        }
                     }
 
                     _ = PInvoke.RegCloseKey(keyHandle);
@@ -480,7 +629,7 @@ namespace CustomBuildTool
                 &sourceFile
                 ))
             {
-                return ((ulong)sourceFile.nFileSizeHigh << 32) | (uint)sourceFile.nFileSizeLow;
+                return ((ulong)sourceFile.nFileSizeHigh << 32) | sourceFile.nFileSizeLow;
             }
 
             return 0;
@@ -530,12 +679,34 @@ namespace CustomBuildTool
                 );
         }
 
+        public static bool IsGitInstalled()
+        {
+            return SearchPath("git.exe") != null;
+        }
+
+        public static string GetDotNetPath()
+        {
+            return SearchPath("dotnet.exe");
+        }
+
+        public static string GetDotNetVersion()
+        {
+            string dotnet = GetDotNetPath();
+            if (dotnet == null)
+                return string.Empty;
+
+            if (CreateProcess(dotnet, ["--version"], out string output) == 0)
+                return output.Trim();
+
+            return string.Empty;
+        }
+
         /// <summary>
         /// Filters the PATH environment variable to include only directories essential for building System Informer.
         /// Removes scripting languages (Python, Ruby, Node.js) and other non-essential tools.
         /// </summary>
         /// <remarks>
-        /// This method is called during build initialization and keeps essential build tools 
+        /// This method is called during build initialization and keeps essential build tools
         /// while removing potentially unnecessary dependencies.
         /// </remarks>
         public static void SetPathEnvironment()
@@ -544,40 +715,16 @@ namespace CustomBuildTool
                 return;
 
             List<string> allowedPaths = new List<string>();
-            string[] pathEntries = currentPath.Split(PathSeparator, StringSplitOptions.RemoveEmptyEntries);
 
-            string[] requiredEntries =
-            [
-                // Windows system directories
-                "\\Windows\\System32",
-                "\\Windows\\",
-                "\\Windows\\System32\\Wbem",
-                "\\Windows\\System32\\WindowsPowerShell",
-                "\\Windows\\System32\\OpenSSH",
-                
-                // Build tools
-                "\\Microsoft Visual Studio",
-                "\\MSBuild",
-                "\\Windows Kits",
-                "\\dotnet",
-                
-                // Version control
-                "\\git",
-                "\\GitHub CLI",
-                
-                // CMake and build tools
-                "\\CMake",
-                "\\vcpkg",
-                "\\ninja",
-                "\\LLVM",
-                "\\mingw",
-            ];
-
-            foreach (string entry in pathEntries)
+            foreach (var range in currentPath.AsSpan().Split(';'))
             {
+                var entry = currentPath.AsSpan(range);
+                if (entry.IsWhiteSpace())
+                    continue;
+
                 bool isEssential = false;
 
-                foreach (string pattern in requiredEntries)
+                foreach (string pattern in RequiredPathEntries)
                 {
                     if (entry.Contains(pattern, StringComparison.OrdinalIgnoreCase))
                     {
@@ -588,7 +735,7 @@ namespace CustomBuildTool
 
                 if (isEssential)
                 {
-                    allowedPaths.Add(entry);
+                    allowedPaths.Add(entry.ToString());
                 }
             }
 
@@ -600,7 +747,7 @@ namespace CustomBuildTool
                 {
                     Environment.SetEnvironmentVariable("PATH", filteredPath, EnvironmentVariableTarget.Process);
                 }
-                
+
                 //Program.PrintColorMessage($"[PATH] filtered: {pathEntries.Length} entries -> {allowedPaths.Count} entries", ConsoleColor.DarkGray);
             }
         }
@@ -631,10 +778,13 @@ namespace CustomBuildTool
                 FileOptions.None
                 ))
             {
+                if (fs.SafeFileHandle == null)
+                    return;
+
                 var handle = new HANDLE(fs.SafeFileHandle.DangerousGetHandle());
 
                 if (!PInvoke.GetFileInformationByHandleEx(handle, FILE_INFO_BY_HANDLE_CLASS.FileBasicInfo, &basicInfo, (uint)sizeof(FILE_BASIC_INFO)))
-                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
 
                 basicInfo.CreationTime = CreationDateTime == DateTime.MinValue ? DateTime.UtcNow.ToFileTimeUtc() : CreationDateTime.ToFileTimeUtc();
                 basicInfo.LastWriteTime = LastWriteDateTime == DateTime.MinValue ? DateTime.UtcNow.ToFileTimeUtc() : LastWriteDateTime.ToFileTimeUtc();
@@ -680,10 +830,10 @@ namespace CustomBuildTool
 
             using (var fs = File.OpenRead(FileName))
             {
-                var handle = new HANDLE(fs.SafeFileHandle.DangerousGetHandle());
+                var handle = new HANDLE(fs.SafeFileHandle!.DangerousGetHandle());
 
                 if (!PInvoke.GetFileInformationByHandleEx(handle, FILE_INFO_BY_HANDLE_CLASS.FileBasicInfo, &basicInfo, (uint)sizeof(FILE_BASIC_INFO)))
-                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
 
                 CreationTime = DateTime.FromFileTimeUtc(basicInfo.CreationTime);
                 LastWriteDateTime = DateTime.FromFileTimeUtc(basicInfo.LastWriteTime);
@@ -697,7 +847,7 @@ namespace CustomBuildTool
         /// Sets low (untrusted) integrity level for processes.
         /// </summary>
         /// <remarks>
-        /// This method enumerates all running processes, identifies those with executables in
+        /// This method lists all running processes, identifies those with executables in
         /// temporary folders (containing "\Temp\"), and attempts to lower their integrity level
         /// to Untrusted (S-1-16-0). This is a security mitigation technique.
         /// </remarks>
@@ -711,7 +861,7 @@ namespace CustomBuildTool
             const int TokenIntegrityLevel = 25;
 
             var processesToModify = new List<Process>();
-            
+
             try
             {
                 var allProcesses = Process.GetProcesses();
@@ -721,7 +871,7 @@ namespace CustomBuildTool
                     try
                     {
                         var filename = process.MainModule?.FileName;
-                        if (!string.IsNullOrEmpty(filename) && 
+                        if (!string.IsNullOrEmpty(filename) &&
                             filename.Contains("\\Temp\\", StringComparison.OrdinalIgnoreCase))
                         {
                             Program.PrintColorMessage($"Process: {filename}", ConsoleColor.DarkGray);
@@ -743,7 +893,7 @@ namespace CustomBuildTool
                     try
                     {
                         ApplyLowIntegrity(
-                            process, 
+                            process,
                             PROCESS_QUERY_LIMITED_INFORMATION,
                             TOKEN_QUERY | TOKEN_ADJUST_DEFAULT,
                             SE_GROUP_INTEGRITY,
@@ -754,7 +904,7 @@ namespace CustomBuildTool
                     catch (Exception ex)
                     {
                         Program.PrintColorMessage(
-                            $"Failed to set integrity for {process.ProcessName} (PID: {process.Id}): {ex.Message}", 
+                            $"Failed to set integrity for {process.ProcessName} (PID: {process.Id}): {ex.Message}",
                             ConsoleColor.Yellow
                             );
                     }
@@ -773,23 +923,23 @@ namespace CustomBuildTool
         /// <summary>
         /// Sets the specified process's token integrity level to low by updating its mandatory label information.
         /// </summary>
-        /// <param name="process">The process whose token integrity level will be modified.</param>
-        /// <param name="processAccess">The access rights required to open the target process. Must be sufficient to allow token manipulation.</param>
-        /// <param name="tokenAccess">The access rights required to open the process token. Must permit setting token information.</param>
-        /// <param name="sidAttributes">The attributes to assign to the integrity SID in the token mandatory label.</param>
-        /// <param name="mandatoryRid">The relative identifier (RID) used to construct the integrity SID. Typically specifies the desired integrity
+        /// <param name="Process">The process whose token integrity level will be modified.</param>
+        /// <param name="ProcessAccess">The access rights required to open the target process. Must be enough to allow token manipulation.</param>
+        /// <param name="TokenAccess">The access rights required to open the process token. Must permit setting token information.</param>
+        /// <param name="SidAttributes">The attributes to assign to the integrity SID in the token mandatory label.</param>
+        /// <param name="MandatoryRid">The relative identifier (RID) used to construct the integrity SID. Typically, specifies the desired integrity
         /// level.</param>
-        /// <param name="tokenInfoClass">The token information class specifying the type of information to set. Must correspond to mandatory label
+        /// <param name="TokenInfoClass">The token information class specifying the type of information to set. Must correspond to mandatory label
         /// information.</param>
         /// <exception cref="Win32Exception">Thrown if any Windows API call fails, such as opening the process, opening the process token, or setting
         /// token information.</exception>
         private static void ApplyLowIntegrity(
-            Process process,
-            uint processAccess,
-            uint tokenAccess,
-            uint sidAttributes,
-            uint mandatoryRid,
-            int tokenInfoClass
+            Process Process,
+            uint ProcessAccess,
+            uint TokenAccess,
+            uint SidAttributes,
+            uint MandatoryRid,
+            int TokenInfoClass
             )
         {
             HANDLE processHandle = default;
@@ -797,14 +947,14 @@ namespace CustomBuildTool
 
             try
             {
-                processHandle = PInvoke.OpenProcess((PROCESS_ACCESS_RIGHTS)processAccess, false, (uint)process.Id);
+                processHandle = PInvoke.OpenProcess((PROCESS_ACCESS_RIGHTS)ProcessAccess, false, (uint)Process.Id);
 
                 if (processHandle.IsNull)
                 {
-                    throw new Win32Exception(Marshal.GetLastWin32Error(), $"OpenProcess failed for {process.ProcessName}");
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), $"OpenProcess failed for {Process.ProcessName}");
                 }
 
-                if (!PInvoke.OpenProcessToken(processHandle, (TOKEN_ACCESS_MASK)tokenAccess, &tokenHandle))
+                if (!PInvoke.OpenProcessToken(processHandle, (TOKEN_ACCESS_MASK)TokenAccess, &tokenHandle))
                 {
                     throw new Win32Exception(Marshal.GetLastWin32Error(), "OpenProcessToken failed");
                 }
@@ -812,30 +962,25 @@ namespace CustomBuildTool
                 // Manually construct the Untrusted Integrity SID (S-1-16-0)
                 // SID structure: Revision(1) + SubAuthorityCount(1) + Authority(6 bytes) + SubAuthority(4 bytes)
                 byte* sidBuffer = stackalloc byte[12];
-                NativeMemory.Clear(sidBuffer, 12);
-                sidBuffer[0] = 1;  // SID_REVISION
-                sidBuffer[1] = 1;  // SubAuthorityCount
-                sidBuffer[2] = 0;  // IdentifierAuthority[0]
-                sidBuffer[3] = 0;  // IdentifierAuthority[1]
-                sidBuffer[4] = 0;  // IdentifierAuthority[2]
-                sidBuffer[5] = 0;  // IdentifierAuthority[3]
-                sidBuffer[6] = 0;  // IdentifierAuthority[4]
-                sidBuffer[7] = 16; // IdentifierAuthority[5] - SECURITY_MANDATORY_LABEL_AUTHORITY (S-1-16)          
-                *(uint*)(sidBuffer + 8) = mandatoryRid; // SubAuthority[0] = mandatoryRid (little-endian)
+                Span<byte> sidSpan = new Span<byte>(sidBuffer, 12);
+                sidSpan.Clear();
+                sidSpan[0] = 1;  // SID_REVISION
+                sidSpan[1] = 1;  // SubAuthorityCount
+                sidSpan[7] = 16; // IdentifierAuthority[5] - SECURITY_MANDATORY_LABEL_AUTHORITY (S-1-16)
+                BinaryPrimitives.WriteUInt32LittleEndian(sidSpan[8..], MandatoryRid); // SubAuthority[0] = mandatoryRid (little-endian)
                 var integritySid = new PSID(sidBuffer);
-
                 var tokenMandatoryLabel = new TOKEN_MANDATORY_LABEL
                 {
                     Label = new SID_AND_ATTRIBUTES
                     {
-                        Attributes = sidAttributes,
+                        Attributes = SidAttributes,
                         Sid = integritySid
                     }
                 };
 
                 if (!PInvoke.SetTokenInformation(
                     tokenHandle,
-                    (TOKEN_INFORMATION_CLASS)tokenInfoClass,
+                    (TOKEN_INFORMATION_CLASS)TokenInfoClass,
                     &tokenMandatoryLabel,
                     (uint)sizeof(TOKEN_MANDATORY_LABEL)
                     ))
@@ -843,7 +988,7 @@ namespace CustomBuildTool
                     throw new Win32Exception(Marshal.GetLastWin32Error(), "SetTokenInformation failed");
                 }
 
-                Program.PrintColorMessage($"Successfully set low integrity for {process.ProcessName} (PID: {process.Id})", ConsoleColor.Green);
+                Program.PrintColorMessage($"Successfully set low integrity for {Process.ProcessName} (PID: {Process.Id})", ConsoleColor.Green);
             }
             catch (Exception ex)
             {
@@ -853,7 +998,7 @@ namespace CustomBuildTool
             {
                 if (!tokenHandle.IsNull)
                     PInvoke.CloseHandle(tokenHandle);
-                
+
                 if (!processHandle.IsNull)
                     PInvoke.CloseHandle(processHandle);
             }

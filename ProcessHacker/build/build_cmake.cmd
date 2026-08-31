@@ -167,7 +167,7 @@ REM ----------------------------------------------------------------------------
 set "CMAKE_GEN_OPTS="
 set "CMAKE_BUILD_OPTS="
 if /i "%GENERATOR%"=="Ninja" set "CMAKE_GEN_OPTS=-DCMAKE_BUILD_TYPE=%CONFIG%"
-if not "%GENERATOR:Visual Studio=%"=="%GENERATOR%" set "CMAKE_BUILD_OPTS=-- /m /p:Platform=%PLATFORM% -terminalLogger:%BuildTerminalLogger%"
+if not "%GENERATOR:Visual Studio=%"=="%GENERATOR%" set "CMAKE_BUILD_OPTS=-- /m /graph -t:All -p:TargetPlatforms=""%PLATFORM%"" -p:RestoreUseStaticGraphEvaluation=true -p:CopyRetryCount=10 -p:CopyRetryDelayMilliseconds=500 -terminalLogger:%BuildTerminalLogger%"
 exit /b 0
 
 REM -----------------------------------------------------------------------------
@@ -213,7 +213,7 @@ REM Description: Invokes CMake build for the resolved build directory.
 REM -----------------------------------------------------------------------------
 :RunBuild
 echo Setting up Visual Studio environment for %VCVARS_ARCH%...
-cmake --build "%BUILD_DIR%" --config "%CONFIG%" %CMAKE_BUILD_OPTS%
+cmake --build "%BUILD_DIR%" --config "%CONFIG%" --parallel %CMAKE_BUILD_OPTS%
 exit /b %errorlevel%
 
 REM -----------------------------------------------------------------------------
@@ -221,11 +221,16 @@ REM Function: FindVisualStudio
 REM Description: Locates a Visual Studio or SDK installation with MSBuild.
 REM -----------------------------------------------------------------------------
 :FindVisualStudio
-for /f "usebackq tokens=*" %%a in (`call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
-   set "VSINSTALLPATH=%%a"
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%a in (`call "%VSWHERE%" -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
+       set "VSINSTALLPATH=%%a"
+    )
 )
+if not defined VSINSTALLPATH if defined VSINSTALLDIR set "VSINSTALLPATH=%VSINSTALLDIR%"
+if not defined VSINSTALLPATH if defined VCINSTALLDIR for %%I in ("%VCINSTALLDIR%\..\..") do set "VSINSTALLPATH=%%~fI"
 if not defined VSINSTALLPATH if defined WindowsSdkDir set "VSINSTALLPATH=%WindowsSdkDir%"
-if not defined VSINSTALLPATH if defined EWDK_ROOT set "VSINSTALLPATH=%EWDK_ROOT%"
 if defined VSINSTALLPATH exit /b 0
 echo No Visual Studio installation detected.
 exit /b 1
@@ -237,6 +242,10 @@ REM Parameters:
 REM   %~1 - vcvarsall architecture argument.
 REM -----------------------------------------------------------------------------
 :SetupVcVars
+if /i "%EnterpriseWDK%"=="true" (
+    REM EWDK has already configured INCLUDE/LIB/PATH via LaunchBuildEnv.cmd.
+    exit /b 0
+)
 if exist "%VSINSTALLPATH%\VC\Auxiliary\Build\vcvarsall.bat" (
     call "%VSINSTALLPATH%\VC\Auxiliary\Build\vcvarsall.bat" %~1
     exit /b !errorlevel!

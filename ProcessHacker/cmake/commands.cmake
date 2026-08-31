@@ -66,13 +66,15 @@ function(_si_set_target_defaults target)
 
     if(arg_TYPE STREQUAL "UM_LIB")
         if(MSVC)
-            target_compile_options(${target} PRIVATE /Gz) # __stdcall calling convention
+            target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/Gz>) # __stdcall calling convention
             target_link_options(${target} PRIVATE /SUBSYSTEM:WINDOWS,6.1)
         else()
             target_link_options(${target} PRIVATE -mwindows)
         endif()
         if(MSVC_CLANG)
-            target_compile_options(${target} PRIVATE ${SI_UM_CLANG_NO_DIAGNOSTICS})
+            foreach(noDiagnostic IN LISTS SI_UM_CLANG_NO_DIAGNOSTICS)
+                target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:${noDiagnostic}>)
+            endforeach()
         endif()
         if(SI_WITH_WPP_USER)
             si_target_tracewpp(${target} WPP_USER_MODE
@@ -86,13 +88,15 @@ function(_si_set_target_defaults target)
         endif()
     elseif(arg_TYPE STREQUAL "UM_BIN")
         if(MSVC)
-            target_compile_options(${target} PRIVATE /Gz) # __stdcall calling convention
+            target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/Gz>) # __stdcall calling convention
             target_link_options(${target} PRIVATE /SUBSYSTEM:WINDOWS,6.1)
         else()
             target_link_options(${target} PRIVATE -mwindows)
         endif()
         if(MSVC_CLANG)
-            target_compile_options(${target} PRIVATE ${SI_UM_CLANG_NO_DIAGNOSTICS})
+            foreach(noDiagnostic IN LISTS SI_UM_CLANG_NO_DIAGNOSTICS)
+                target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:${noDiagnostic}>)
+            endforeach()
         endif()
         if(SI_WITH_WPP_USER)
             si_target_tracewpp(${target} WPP_USER_MODE
@@ -129,15 +133,15 @@ function(_si_set_target_defaults target)
     endif()
 
     if (arg_PLUGIN)
-        target_link_libraries(${target} PRIVATE SystemInformer thirdparty)
+        target_link_libraries(${target} PRIVATE SystemInformer thirdparty ntdll)
         target_include_directories(${target} PRIVATE
             "${SI_ROOT}/plugins/include"
             "${SI_ROOT}/phnt/include"
-            "${SI_ROOT}/sdk/include"
+            "${SI_ROOT}/sdk/include/$<CONFIG>${SI_PLATFORM_SHORT}"
             "${SI_ROOT}/kphlib/include"
         )
         target_link_directories(${target} PRIVATE
-            "${SI_ROOT}/sdk/lib/${SI_PLATFORM_SDK_LIB}"
+            "${SI_ROOT}/sdk/lib/$<CONFIG>${SI_PLATFORM_SHORT}"
             "${SI_OUTPUT_DIR}/$<CONFIG>${SI_PLATFORM_SHORT}"
         )
     endif()

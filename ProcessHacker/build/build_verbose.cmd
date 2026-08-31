@@ -34,47 +34,43 @@ REM ----------------------------------------------------------------------------
 call :FindVisualStudio
 if errorlevel 1 exit /b %errorlevel%
 
+REM Detect if ARM64 toolchain is available in the current Visual Studio installation.
 call :DetectArm64Support
 if errorlevel 1 exit /b %errorlevel%
 
+REM If ARM64 support is available, set up for cross-compiling (amd64_arm64).
 if /i "%VS_ARM64_SUPPORT%"=="true" (
     set "VCVARS_ARCH=amd64_arm64"
 )
 
+REM Initialize the Visual Studio build environment for the selected architecture.
 call :SetupVcVars "%VCVARS_ARCH%"
 if errorlevel 1 exit /b %errorlevel%
 
-call :RunMsBuild "SystemInformer.sln" "Debug" "Win32" "SystemInformer.sln [Debug32]"
-if errorlevel 1 exit /b %errorlevel%
-call :RunMsBuild "SystemInformer.sln" "Debug" "x64" "SystemInformer.sln [Debug64]"
-if errorlevel 1 exit /b %errorlevel%
-call :RunMsBuild "Plugins\Plugins.sln" "Debug" "Win32" "Plugins.sln [Debug32]"
-if errorlevel 1 exit /b %errorlevel%
-call :RunMsBuild "Plugins\Plugins.sln" "Debug" "x64" "Plugins.sln [Debug64]"
-if errorlevel 1 exit /b %errorlevel%
+REM Set the list of platforms to build for. Add ARM64 if supported.
+set "PLATFORMS=Win32;x64"
+if /i "%VS_ARM64_SUPPORT%"=="true" set "PLATFORMS=Win32;x64;ARM64"
 
-if /i "%VS_ARM64_SUPPORT%"=="true" (
-    call :RunMsBuild "SystemInformer.sln" "Debug" "ARM64" "SystemInformer.sln [DebugARM64]"
-    if errorlevel 1 exit /b !errorlevel!
-    call :RunMsBuild "Plugins\Plugins.sln" "Debug" "ARM64" "Plugins.sln [DebugARM64]"
-    if errorlevel 1 exit /b !errorlevel!
-)
+REM Build the core and plugin solutions for all selected platforms in Debug configuration.
+call :RunMsBuild "SystemInformer.sln" "%PLATFORMS%" "SystemInformer.sln [%PLATFORMS%]"
+if errorlevel 1 exit /b %errorlevel%
+call :RunMsBuild "Plugins\Plugins.sln" "%PLATFORMS%" "Plugins.sln [%PLATFORMS%]"
+if errorlevel 1 exit /b %errorlevel%
 
 exit /b 0
 
 REM -----------------------------------------------------------------------------
 REM Function: RunMsBuild
-REM Description: Rebuilds one solution/configuration/platform combination.
+REM Description: Rebuilds a solution across the configured platform matrix in a single MSBuild call.
 REM Parameters:
 REM   %~1 - Solution path.
-REM   %~2 - Build configuration.
-REM   %~3 - Build platform.
-REM   %~4 - Friendly label shown in output.
+REM   %~2 - Semicolon-separated platform list (e.g. "Win32;x64;ARM64").
+REM   %~3 - Friendly label shown in output.
 REM -----------------------------------------------------------------------------
 :RunMsBuild
 echo:
-echo Building %~4
-msbuild /m %~1 -t:rebuild -p:Configuration=%~2 -p:Platform=%~3 -verbosity:%TLV%
+echo Building %~3
+msbuild /m /graph %~1 -t:All -p:TargetConfigurations="Debug" -p:TargetPlatforms="%~2" -p:RestoreUseStaticGraphEvaluation=true -p:CopyRetryCount=10 -p:CopyRetryDelayMilliseconds=200 -verbosity:%TLV%
 exit /b %errorlevel%
 
 REM -----------------------------------------------------------------------------
@@ -92,11 +88,16 @@ REM Function: FindVisualStudio
 REM Description: Locates a Visual Studio or SDK installation with MSBuild.
 REM -----------------------------------------------------------------------------
 :FindVisualStudio
-for /f "usebackq tokens=*" %%a in (`call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
-   set "VSINSTALLPATH=%%a"
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%a in (`call "%VSWHERE%" -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
+       set "VSINSTALLPATH=%%a"
+    )
 )
+if not defined VSINSTALLPATH if defined VSINSTALLDIR set "VSINSTALLPATH=%VSINSTALLDIR%"
+if not defined VSINSTALLPATH if defined VCINSTALLDIR for %%I in ("%VCINSTALLDIR%\..\..") do set "VSINSTALLPATH=%%~fI"
 if not defined VSINSTALLPATH if defined WindowsSdkDir set "VSINSTALLPATH=%WindowsSdkDir%"
-if not defined VSINSTALLPATH if defined EWDK_ROOT set "VSINSTALLPATH=%EWDK_ROOT%"
 if defined VSINSTALLPATH exit /b 0
 echo No Visual Studio installation detected.
 exit /b 1
@@ -106,7 +107,13 @@ REM Function: DetectArm64Support
 REM Description: Checks whether the detected Visual Studio install has ARM64 VC tools.
 REM -----------------------------------------------------------------------------
 :DetectArm64Support
-for /f "usebackq tokens=*" %%a in (`call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires "Microsoft.VisualStudio.Component.VC.Tools.ARM64" -property installationPath`) do (
+if /i "%EnterpriseWDK%"=="true" (
+    REM EWDK shells are single-arch; the launched arch is exposed via Platform.
+    if /i "%Platform%"=="arm64" set "VS_ARM64_SUPPORT=true"
+    exit /b 0
+)
+if not exist "%VSWHERE%" exit /b 0
+for /f "usebackq tokens=*" %%a in (`call "%VSWHERE%" -latest -prerelease -products * -requires "Microsoft.VisualStudio.Component.VC.Tools.ARM64" -property installationPath`) do (
    set "VS_ARM64_SUPPORT=true"
 )
 exit /b 0
@@ -118,6 +125,10 @@ REM Parameters:
 REM   %~1 - vcvarsall architecture argument.
 REM -----------------------------------------------------------------------------
 :SetupVcVars
+if /i "%EnterpriseWDK%"=="true" (
+    REM EWDK has already configured INCLUDE/LIB/PATH via LaunchBuildEnv.cmd.
+    exit /b 0
+)
 if exist "%VSINSTALLPATH%\VC\Auxiliary\Build\vcvarsall.bat" (
     call "%VSINSTALLPATH%\VC\Auxiliary\Build\vcvarsall.bat" %~1
     exit /b !errorlevel!
