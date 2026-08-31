@@ -61,7 +61,7 @@
     </message>
     <message>
         <location filename="GUI/SystemInfo/KernelInfo/AtomView.cpp" line="177"/>
-        <source>Do you want to delete the atom: %1</source>
+        <source>Do you want to delete the atom: %1?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -487,7 +487,7 @@
     </message>
     <message>
         <location filename="GUI/TaskInfo/EnvironmentView.cpp" line="167"/>
-        <source>Do you want to delete the environment variable %1</source>
+        <source>Do you want to delete the environment variable %1?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1491,7 +1491,7 @@
     </message>
     <message>
         <location filename="GUI/TaskInfo/HandlesView.cpp" line="717"/>
-        <source>Do you want to close the selected handle(s)</source>
+        <source>Do you want to close the selected handle(s)?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1529,7 +1529,7 @@
     </message>
     <message>
         <location filename="GUI/Models/HeapModel.cpp" line="132"/>
-        <source>Commited</source>
+        <source>Committed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2116,7 +2116,7 @@ Modifiers:<byte value="xd"/>
     </message>
     <message>
         <location filename="GUI/TaskInfo/ModulesView.cpp" line="232"/>
-        <source>Do you want to unload the selected Module(s)</source>
+        <source>Do you want to unload the selected Module(s)?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2366,7 +2366,7 @@ Note: The update check is often behind the latest GitHub release to ensure that 
     <name>CPersistenceConfig</name>
     <message>
         <location filename="GUI/PersistenceConfig.cpp" line="105"/>
-        <source>Permited|Terminate</source>
+        <source>Permitted|Terminate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4641,7 +4641,7 @@ To change the limit adjust the option &apos;Options/ResultLimit&apos;.</source>
     </message>
     <message>
         <location filename="GUI/SystemInfo/ServiceListWidget.cpp" line="228"/>
-        <source>Do you want to delete the selected service</source>
+        <source>Do you want to delete the selected service?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5187,7 +5187,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <location filename="GUI/TaskInfo/SocketsView.cpp" line="175"/>
-        <source>Do you want to close the selected socket(s)</source>
+        <source>Do you want to close the selected socket(s)?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5675,7 +5675,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     <name>CTaskExplorer</name>
     <message>
         <location filename="main.cpp" line="256"/>
-        <source>The current DynData for the KTaskExplorer driver does not yet supported on your windows kernel version.&lt;br /&gt;You can check for &lt;a href=&quot;https://github.com/DavidXanatos/TaskExplorer/releases&quot;&gt;TaskExplorer updates on github&lt;/a&gt;, or grab the latest ksidyn.bin and ksidyn.sig from &lt;a href=&quot;https://systeminformer.sourceforge.io/downloads&quot;&gt;the latest SystemInformer&lt;/a&gt; and put them in the instalaltion directors next to KTaskExplorer.sys.&lt;br /&gt;Instalation Directory: %4&lt;br /&gt;&lt;br /&gt;Operating System Details:&lt;br /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Windows %1&lt;br /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Windows Kernel %2&lt;br /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;TaskExplorer %3&lt;br /&gt;&lt;br /&gt;</source>
+        <source>The current DynData for the KTaskExplorer driver is not yet supported on your Windows kernel version.&lt;br /&gt;You can check for &lt;a href=&quot;https://github.com/DavidXanatos/TaskExplorer/releases&quot;&gt;TaskExplorer updates on GitHub&lt;/a&gt;, or grab the latest ksidyn.bin and ksidyn.sig from &lt;a href=&quot;https://systeminformer.sourceforge.io/downloads&quot;&gt;the latest SystemInformer&lt;/a&gt; and put them in the installation directory next to KTaskExplorer.sys.&lt;br /&gt;Installation Directory: %4&lt;br /&gt;&lt;br /&gt;Operating System Details:&lt;br /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Windows %1&lt;br /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Windows Kernel %2&lt;br /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;TaskExplorer %3&lt;br /&gt;&lt;br /&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5685,7 +5685,7 @@ PartiallyChecked state means apply only to thread std::list.</source>
     </message>
     <message>
         <location filename="main.cpp" line="271"/>
-        <source>Do you want to try to download updated DynData Yes, start without the driver No?</source>
+        <source>Do you want to try to download updated DynData (Yes), or start without the driver (No)?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6106,7 +6106,7 @@ Please run the 64-bit version of Task Explorer instead.</source>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="434"/>
-        <source>Extremly fast (30Hz)</source>
+        <source>Extremely fast (30Hz)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6226,7 +6226,7 @@ Please run the 64-bit version of Task Explorer instead.</source>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="998"/>
-        <source>Commited: %1</source>
+        <source>Committed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6312,7 +6312,7 @@ Please run the 64-bit version of Task Explorer instead.</source>
     </message>
     <message>
         <location filename="GUI/TaskExplorer.cpp" line="1627"/>
-        <source>Memory opertion failed; Error: %1</source>
+        <source>Memory operation failed; Error: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6512,7 +6512,7 @@ Swap: %1%</source>
         <location filename="main.cpp" line="249"/>
         <source>Failed to update DynData, %1, Error: 0x%2 (%3).</source>
         <oldsource>Failed to update DynData, %1, Error: 0x%2 (%3).
-Do you want to continue anyways (Ok), or terminate (Cancel)?</oldsource>
+Do you want to continue anyway (Ok), or terminate (Cancel)?</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6852,7 +6852,7 @@ Do you want to continue anyways (Ok), or terminate (Cancel)?</oldsource>
     </message>
     <message>
         <location filename="GUI/TaskView.cpp" line="183"/>
-        <source>Do you want to %1 the selected task(s)</source>
+        <source>Do you want to %1 the selected task(s)?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -7181,7 +7181,7 @@ Do you want to continue anyways (Ok), or terminate (Cancel)?</oldsource>
     </message>
     <message>
         <location filename="GUI/TaskInfo/ThreadsView.cpp" line="249"/>
-        <source>Do you want to download debug symbols of the internet?
+        <source>Do you want to download debug symbols from the internet?
 You can change this option later on in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9897,7 +9897,7 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <location filename="GUI/SystemInfo/WinSvcTrigger.cpp" line="456"/>
-        <source>Sellect data type:</source>
+        <source>Select data type:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9927,7 +9927,7 @@ A 64-bit dump will be created instead.</source>
     </message>
     <message>
         <location filename="GUI/SystemInfo/WinSvcTrigger.cpp" line="505"/>
-        <source>Do you want to delete the selected data</source>
+        <source>Do you want to delete the selected data?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10048,7 +10048,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <location filename="GUI/SystemInfo/WinSvcWindow.cpp" line="1240"/>
-        <source>Do you want to delete the selected trigger</source>
+        <source>Do you want to delete the selected trigger?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10058,7 +10058,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <location filename="GUI/SystemInfo/WinSvcWindow.cpp" line="1345"/>
-        <source>Do you want to delete the selected privileg</source>
+        <source>Do you want to delete the selected privilege?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10836,7 +10836,7 @@ If you save the recovery information using this program, the additional failure 
     </message>
     <message>
         <location filename="GUI/TaskInfo/WindowsView.cpp" line="297"/>
-        <source>Do you want to close the selected window(s)</source>
+        <source>Do you want to close the selected window(s)?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
