@@ -417,6 +417,7 @@ TRANSLATIONS += ./taskexplorer_zh_CN.ts \
     ./taskexplorer_de.ts \
     ./taskexplorer_en.ts \
     ./taskexplorer_it.ts \
+    ./taskexplorer_ja.ts \
     ./taskexplorer_pl.ts
 RESOURCES += Resources/TaskExplorer.qrc \
     Resources/TaskCore.qrc

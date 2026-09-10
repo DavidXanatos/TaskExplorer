@@ -15,6 +15,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 Name: "hungarian"; MessagesFile: "compiler:Languages\Hungarian.isl"
 Name: "Italian"; MessagesFile: "compiler:Languages\Italian.isl"
+Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 Name: "Korean"; MessagesFile: "isl\Korean.isl"
 Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -25,7 +26,6 @@ Name: "swedish"; MessagesFile: "isl\Swedish.isl"
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
 Name: "vietnamese"; MessagesFile: "isl\Vietnamese.isl"
-;Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 ;Name: "armenian"; MessagesFile: "compiler:Languages\Armenian.isl"
 ;Name: "bulgarian"; MessagesFile: "compiler:Languages\Bulgarian.isl"
 ;Name: "catalan"; MessagesFile: "compiler:Languages\Catalan.isl"
@@ -114,6 +114,15 @@ Italian.CustomPageInstallMode=Installa {#MyAppName} su questo computer
 Italian.CustomPageUpgradeMode=Aggiorna l'installazione esistente di {#MyAppName}
 Italian.CustomPagePortableMode=Estrai tutti i file in una directory per uso portabile
 Italian.RequiresWin7OrLater={#MyAppName} richiede Windows 7 o superiore.
+
+; Japanese
+Japanese.CustomPageLabel1=インストールタイプの選択
+Japanese.CustomPageLabel2=インストール方法
+Japanese.CustomPageLabel3=インストールモードの選択
+Japanese.CustomPageInstallMode=このコンピュータに {#MyAppName} をインストール
+Japanese.CustomPageUpgradeMode=既存の {#MyAppName} インストールを更新
+Japanese.CustomPagePortableMode=すべてのファイルをポータブル用にディレクトリに抽出
+Japanese.RequiresWin7OrLater={#MyAppName} には Windows 7 以降が必要です。
 
 ; Korean
 Korean.CustomPageLabel1=설치 유형 선택
@@ -204,12 +213,3 @@ vietnamese.CustomPageInstallMode=Cài đặt {#MyAppName} trên máy tính này
 vietnamese.CustomPageUpgradeMode=Cập nhật cài đặt hiện có của {#MyAppName}
 vietnamese.CustomPagePortableMode=Giải nén tất cả các tệp vào một thư mục để sử dụng di động
 vietnamese.RequiresWin7OrLater={#MyAppName} yêu cầu Windows 7 trở lên.
-
-; Japanese
-;english.CustomPageLabel1=インストールタイプの選択
-;english.CustomPageLabel2=インストール方法
-;english.CustomPageLabel3=インストールモードの選択
-;english.CustomPageInstallMode=このコンピュータに {#MyAppName} をインストール
-;english.CustomPageUpgradeMode=既存の {#MyAppName} インストールを更新
-;english.CustomPagePortableMode=すべてのファイルをポータブル用にディレクトリに抽出
-;english.RequiresWin7OrLater={#MyAppName} には Windows 7 以降が必要です。
