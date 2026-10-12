@@ -31,6 +31,18 @@
 #include <QDateTime>
 
 //
+// The name this program answers to in a certificate's SOFTWARE line.
+//
+// A certificate must name it. One issued for something else is refused rather
+// than ignored: the SOFTWARE tag is inside the signed material, so accepting a
+// certificate that names another program would accept a signature over a
+// statement about that program. It is also what is asked *for* when there is no
+// serial to ask with - see TaskServer's evaluation certificate command - which
+// is why it is here rather than private to the file that checks it.
+//
+#define MY_SOFTWARE_NAME	"TaskExplorer"
+
+//
 // The state, as one word plus an expiry.
 //
 // A bitfield rather than a struct of bools because that is what the issuer's
