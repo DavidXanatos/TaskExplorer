@@ -1484,6 +1484,32 @@ QString GetMitigationsString(const CProcessPtr& pProcess)
 	if (Flags & CProcessInfo::eMitigationCetStrict)		Mitigations.append(CTaskExplorer::tr("CET strict"));
 	else if (Flags & CProcessInfo::eMitigationCet)		Mitigations.append(CTaskExplorer::tr("CET"));
 
+	//
+	// And the two a Linux process either has or has not. Strict seccomp is
+	// worth naming separately because seeing it at all is remarkable: it allows
+	// four system calls, and a program using it has been written around that.
+	//
+	if (Flags & CProcessInfo::eMitigationSeccompStrict)	Mitigations.append(CTaskExplorer::tr("seccomp strict"));
+	else if (Flags & CProcessInfo::eMitigationSeccomp)	Mitigations.append(CTaskExplorer::tr("seccomp"));
+
+	if (Flags & CProcessInfo::eMitigationNoNewPrivs)	Mitigations.append(CTaskExplorer::tr("no-new-privs"));
+
+	//
+	// What a sandbox granted, which belongs in this column for the same reason
+	// the mitigations do: it is the list of what the system is enforcing on
+	// this process. Three of them and a count, because a snap declares a dozen
+	// and a column is not a details page - the full list is on the process's
+	// own security page.
+	//
+	const QStringList Permissions = pProcess->GetSandboxPermissions();
+	if (!Permissions.isEmpty())
+	{
+		QString Sandbox = CTaskExplorer::tr("sandbox: ") + Permissions.mid(0, 3).join(", ");
+		if (Permissions.count() > 3)
+			Sandbox += CTaskExplorer::tr(" +%1").arg(Permissions.count() - 3);
+		Mitigations.append(Sandbox);
+	}
+
 	return Mitigations.join(CTaskExplorer::tr(", "));
 }
 
@@ -3381,13 +3407,56 @@ QString GetFileAccessModeString(const CHandlePtr& pHandle, quint32 Mode)
 // may be running on another machine with no display at all; making a pixmap is
 // the viewer's job, and has to happen on the thread that draws.
 //
-QPixmap MakeIcon(const QByteArray& Bytes)
+//
+// Image bytes to a pixmap of a known size.
+//
+// Whoever produced the bytes had no idea what they would be drawn at, and the
+// sizes that arrive are all over the place: a Windows executable carries 16, 32
+// and 48 pixel icons and a shell extension may hand back 256; a freedesktop
+// theme entry can resolve to a 512 pixel PNG or to an absolute path pointing at
+// whatever the packager felt like shipping. Handed to an item view unchanged,
+// each of those is drawn at its own size - which is what a 256 pixel icon in a
+// 16 pixel row looks like, on both platforms.
+//
+// So the size is decided here, once, for every caller: the result is exactly
+// Size logical pixels regardless of what came in.
+//
+// The scaling is done in device pixels and the ratio is recorded on the pixmap,
+// which is the part that makes this a high-dpi fix rather than a resize. A
+// pixmap with no ratio is drawn one image pixel per device pixel: on a 200%
+// display that is a 32 pixel icon occupying 16 logical pixels - correct - and a
+// 48 pixel icon occupying 24, which is the "some icons are too big" that shows
+// up only when scaling is on. Scaling to Size * ratio and then declaring the
+// ratio makes the two agree at any scale.
+//
+// One ratio for the whole application rather than per window. A pixmap cached
+// in a model has no window to ask, and a mixed-dpi desktop would need the cache
+// keyed by screen to do better - which is a great deal of machinery for an icon
+// that is one pixel soft after being dragged to the other monitor.
+//
+QPixmap MakeIcon(const QByteArray& Bytes, int Size)
 {
 	if (Bytes.isEmpty())
 		return QPixmap();
 
-	QPixmap Icon;
-	Icon.loadFromData(Bytes);
+	QImage Image;
+	if (!Image.loadFromData(Bytes) || Image.isNull())
+		return QPixmap();
+
+	const qreal Ratio = QGuiApplication::primaryScreen()
+		? QGuiApplication::primaryScreen()->devicePixelRatio() : 1.0;
+	const int Pixels = qMax(1, qRound(Size * Ratio));
+
+	//
+	// Both directions. Down is the case that prompted this; up matters just as
+	// much on a scaled display, where a 16 pixel icon left alone is drawn at
+	// half the size of everything around it.
+	//
+	if (Image.width() != Pixels || Image.height() != Pixels)
+		Image = Image.scaled(Pixels, Pixels, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+	QPixmap Icon = QPixmap::fromImage(Image);
+	Icon.setDevicePixelRatio(Ratio);
 	return Icon;
 }
 

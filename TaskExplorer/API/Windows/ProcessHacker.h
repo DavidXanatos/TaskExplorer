@@ -103,13 +103,19 @@ extern TASKCORE_EXPORT BOOLEAN g_KphStartupHigh;
 
 extern TASKCORE_EXPORT bool g_KsiDynDataLoaded;
 
+// The ClientProcessProtectionLevel actually applied to this process (0 when the
+// driver is not stripping any access from us). Non-zero means an outside opener
+// - including the seclogon service behind CreateProcessWithLogonW - is refused,
+// so the in-process run-as path must be avoided. See RunProgramAs.
+extern TASKCORE_EXPORT ULONG g_KsiClientProtectionLevel;
+
 // initialization call
 TASKCORE_EXPORT int InitPH();
 
 TASKCORE_EXPORT STATUS InitKSI(const QString& AppDir);
 TASKCORE_EXPORT STATUS CleanupKSI();
 
-bool IsOnARM64();
+TASKCORE_EXPORT bool IsOnARM64();
 QString KsiGetDriverPath(const QString& AppDir);
 STATUS KsiActivateDynData(const QString& FileName, _In_ KPH_LEVEL Level);
 

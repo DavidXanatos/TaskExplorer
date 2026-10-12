@@ -489,7 +489,22 @@ void CHandlesView::Refresh()
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
 			m_PendingUpdates++;
-			QTimer::singleShot(0, pProcess.data(), SLOT(UpdateHandles()));
+
+			//
+			// The call holds its own reference.
+			//
+			// This is posted to the collector's thread and enumerating a
+			// process's handles takes long enough to matter - and meanwhile
+			// this thread may be told to show something else, or a machine may
+			// go away and take its rows with it. A bare receiver pointer owns
+			// nothing, so the object could be freed here while the slot was
+			// running over there; that is a crash inside UpdateHandles with a
+			// "this" that still looks valid, and it is what a machine
+			// disappearing used to produce.
+			//
+			const CProcessPtr pKeep = pProcess;
+			QMetaObject::invokeMethod(pProcess.data(), [pKeep]() { pKeep->UpdateHandles(); },
+				Qt::QueuedConnection);
 		}
 	}
 }

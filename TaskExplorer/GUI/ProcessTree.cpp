@@ -1331,25 +1331,51 @@ void CProcessTree::UpdateIndexWidget(int HistoryColumn, int CellHeight, QMap<qui
 {
 	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > OldMap;
 	m_pProcessList->StartUpdatingWidgets(OldMap, History);
-	//for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-	for(QModelIndex Index = m_pProcessList->GetView()->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pProcessList->GetView()->indexBelow(Index))
-	{
-		Index = Index.sibling(Index.row(), HistoryColumn);
-		if(!m_pProcessList->GetView()->viewport()->rect().intersects(m_pProcessList->GetView()->visualRect(Index)))
-			break; // out of view
-		
-		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
-		quint64 PID = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
 
-		CHistoryWidget* pGraph = OldMap.take(PID).first;
+	QTreeView* pView = m_pProcessList->GetView();
+	const int ViewportHeight = pView->viewport()->rect().height();
+
+	//
+	// Iterate on column 0: indexBelow() walks rows from a column-0 index. Walking
+	// it from a history-column index returned invalid after the first row, which
+	// left every row below the top one without a graph widget.
+	//
+	for(QModelIndex Row = pView->indexAt(QPoint(0,0)); Row.isValid(); Row = pView->indexBelow(Row))
+	{
+		QModelIndex Index = Row.sibling(Row.row(), HistoryColumn);
+
+		//
+		// Cull by VERTICAL position only: stop once a row sits below the visible
+		// area (every row after it is lower still). The history column usually
+		// lives far to the right of a narrow tree, so its cells are horizontally
+		// off-screen at rest; testing the full rect for intersection here made
+		// the very first row fail and broke the loop before placing anything -
+		// which is why the graph columns rendered nothing. The widget is placed
+		// regardless of the column's horizontal scroll position, so it is already
+		// there when the user scrolls across to it.
+		//
+		if (pView->visualRect(Index).top() >= ViewportHeight)
+			break; // below the visible area
+
+		QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
+		//
+		// Key the graph by the model's node id (object uid), which is what the
+		// eProcess column exposes through UserRole - not the pid. OnUpdateHistory
+		// stores the graphs under the same object uid; keying this lookup by pid
+		// instead handed every widget a missing (null) graph, so they painted
+		// nothing and the raw numeric value showed through.
+		//
+		quint64 NodeId = m_pProcessModel->Data(ModelIndex, Qt::UserRole, CProcessModel::eProcess).toULongLong();
+
+		CHistoryWidget* pGraph = OldMap.take(NodeId).first;
 		if (!pGraph)
 		{
 			QModelIndex Index = m_pSortProxy->mapFromSource(ModelIndex);
 
-			pGraph = new CHistoryWidget(Graphs[PID]);
+			pGraph = new CHistoryWidget(Graphs[NodeId]);
 			pGraph->setFixedHeight(CellHeight);
-			History.insert(PID, qMakePair((QPointer<CHistoryWidget>)pGraph, QPersistentModelIndex(Index)));
-			m_pProcessList->GetView()->setIndexWidget(Index, pGraph);
+			History.insert(NodeId, qMakePair((QPointer<CHistoryWidget>)pGraph, QPersistentModelIndex(Index)));
+			pView->setIndexWidget(Index, pGraph);
 		}
 	}
 	m_pProcessList->EndUpdatingWidgets(OldMap, History);
@@ -1367,7 +1393,7 @@ void CProcessTree::OnUpdateHistory()
 		QMap<quint64, CHistoryGraph*> Old = m_CPU_Graphs;
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			quint64 PID = pProcess->GetProcessId();
+			quint64 PID = pProcess->GetObjectUid(); // key by object uid, not pid: that is the model's node id (UserRole/eProcess) that UpdateIndexWidget looks graphs up by
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
@@ -1399,7 +1425,7 @@ void CProcessTree::OnUpdateHistory()
 		QMap<quint64, CHistoryGraph*> Old = m_GPU_Graphs;
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			quint64 PID = pProcess->GetProcessId();
+			quint64 PID = pProcess->GetObjectUid(); // key by object uid, not pid: that is the model's node id (UserRole/eProcess) that UpdateIndexWidget looks graphs up by
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
@@ -1431,7 +1457,7 @@ void CProcessTree::OnUpdateHistory()
 		QMap<quint64, CHistoryGraph*> Old = m_MEM_Graphs;
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			quint64 PID = pProcess->GetProcessId();
+			quint64 PID = pProcess->GetObjectUid(); // key by object uid, not pid: that is the model's node id (UserRole/eProcess) that UpdateIndexWidget looks graphs up by
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
@@ -1467,7 +1493,7 @@ void CProcessTree::OnUpdateHistory()
 		QMap<quint64, CHistoryGraph*> Old = m_VMEM_Graphs;
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			quint64 PID = pProcess->GetProcessId();
+			quint64 PID = pProcess->GetObjectUid(); // key by object uid, not pid: that is the model's node id (UserRole/eProcess) that UpdateIndexWidget looks graphs up by
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
@@ -1507,7 +1533,7 @@ void CProcessTree::OnUpdateHistory()
 		QMap<quint64, CHistoryGraph*> Old = m_IO_Graphs;
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			quint64 PID = pProcess->GetProcessId();
+			quint64 PID = pProcess->GetObjectUid(); // key by object uid, not pid: that is the model's node id (UserRole/eProcess) that UpdateIndexWidget looks graphs up by
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{
@@ -1543,7 +1569,7 @@ void CProcessTree::OnUpdateHistory()
 		QMap<quint64, CHistoryGraph*> Old = m_NET_Graphs;
 		foreach(const CProcessPtr& pProcess, m_Processes)
 		{
-			quint64 PID = pProcess->GetProcessId();
+			quint64 PID = pProcess->GetObjectUid(); // key by object uid, not pid: that is the model's node id (UserRole/eProcess) that UpdateIndexWidget looks graphs up by
 			CHistoryGraph* pGraph = Old.take(PID);
 			if (!pGraph)
 			{

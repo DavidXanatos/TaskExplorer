@@ -1129,6 +1129,16 @@ CCluster* CTaskExplorer::EnsureCluster()
 		// Loading the list was never the missing part - see ConnectSavedTargets.
 		//
 		CCredentialStore::Instance()->TryUnlock();
+
+		//
+		// Connected before the machines are, so the first one being tried is
+		// already on screen rather than reported after the fact.
+		//
+		connect(theCluster, SIGNAL(ConnectingTo(const QString&, int, int)),
+			this, SLOT(OnConnectingTo(const QString&, int, int)));
+		connect(theCluster, SIGNAL(ConnectRunFinished(int, int, const QString&)),
+			this, SLOT(OnConnectRunFinished(int, int, const QString&)));
+
 		theCluster->ConnectSavedTargets();
 		connect(theCluster, SIGNAL(TargetsChanged()), this, SLOT(UpdateTargetMenu()));
 
@@ -2775,7 +2785,17 @@ void CTaskExplorer::UpdateOptions()
 
 void CTaskExplorer::ResetAll()
 {
-	theSystem->ResetAll();
+	//
+	// Every machine, not only the one this window started with.
+	//
+	// CCluster::GetSystems answers with the local system alone when there is no
+	// cluster, so this is the same call in both cases - but with machines
+	// connected, a reset that only reached the local one left every remote panel
+	// showing what it already had. See CRemoteSystem::ResetAll for what a remote
+	// machine has to do about it beyond clearing its own lists.
+	//
+	foreach(const CSystemPtr& pSystem, CCluster::GetSystems())
+		pSystem->ResetAll();
 
 	emit ReloadPanels();
 
@@ -3166,6 +3186,40 @@ int CTaskExplorer::GetGraphLimit(bool bLong)
 void CTaskExplorer::OnStatusMessage(const QString& Message)
 {
 	statusBar()->showMessage(Message, 5000); // show for 5 seconds
+}
+
+//
+// What the startup is waiting for, in the status line.
+//
+// Without a timeout: each of these replaces the one before it and the run ends
+// with a message that has one, so the line is never left saying that something
+// is being connected which finished a minute ago. The count is only shown when
+// there is more than one machine - "(1 of 1)" is noise.
+//
+void CTaskExplorer::OnConnectingTo(const QString& Name, int Index, int Count)
+{
+	statusBar()->showMessage(Count > 1
+		? tr("Connecting to %1 ... (%2 of %3)").arg(Name).arg(Index + 1).arg(Count)
+		: tr("Connecting to %1 ...").arg(Name));
+}
+
+//
+// And what came of it, for thirty seconds - the same span the other startup
+// messages use, long enough to be read by somebody who looked away while the
+// machines were being tried.
+//
+void CTaskExplorer::OnConnectRunFinished(int Connected, int Count, const QString& Name)
+{
+	QString Message;
+	if (Count == 1)
+		Message = Connected == 1 ? tr("Connected to %1").arg(Name)
+								 : tr("Could not connect to %1").arg(Name);
+	else if (Connected == Count)
+		Message = tr("Connected to all %1 machines").arg(Count);
+	else
+		Message = tr("Connected to %1 of %2 machines").arg(Connected).arg(Count);
+
+	statusBar()->showMessage(Message, 30000);
 }
 
 void CTaskExplorer::LoadLanguage()

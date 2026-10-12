@@ -21,8 +21,27 @@ public:
 
 	virtual bool			IsExecutable() const	{ QReadLocker Locker(&m_Mutex); return m_IsExecutable; }
 
+	//
+	// What the package manager makes of this file.
+	//
+	// An ELF binary carries no signature, so the question Windows answers with
+	// WinVerifyTrust is answered here by whoever installed the file: it is
+	// trusted when it still matches the checksum its package recorded, altered
+	// when it does not, and unsigned when no package claims it at all. The
+	// scale is CModuleInfo's own - see the note there, which anticipated
+	// exactly this.
+	//
+	virtual EVerifyResult	GetVerifyResult() const		{ QReadLocker Locker(&m_Mutex); return m_VerifyResult; }
+	virtual QString			GetVerifySignerName() const	{ QReadLocker Locker(&m_Mutex); return m_VerifySigner; }
+
+	void					SetPackageVerification(EVerifyResult Result, const QString& Signer)
+							{ QWriteLocker Locker(&m_Mutex); m_VerifyResult = Result; m_VerifySigner = Signer; }
+
 protected:
 	bool					m_IsExecutable;
+
+	EVerifyResult			m_VerifyResult = VrUnknown;
+	QString					m_VerifySigner;
 };
 
 typedef QSharedPointer<CLinuxModule> CLinuxModulePtr;

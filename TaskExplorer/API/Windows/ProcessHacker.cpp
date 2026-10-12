@@ -915,6 +915,7 @@ bool IsOnARM64()
 }
 
 bool g_KsiDynDataLoaded = false;
+ULONG g_KsiClientProtectionLevel = 0;
 
 STATUS KsiActivateDynData(const QString& FileName, _In_ KPH_LEVEL Level)
 {
@@ -1190,7 +1191,8 @@ STATUS InitKSI(const QString& AppDir)
 				KsiEnableUnloadProtection = TRUE;
 		}
 
-		switch (theConf->GetInt("OptionsKSI/ClientProcessProtectionLevel", 0))
+		int clientProtectionLevel = theConf->GetInt("OptionsKSI/ClientProcessProtectionLevel", 0);
+		switch (clientProtectionLevel)
 		{
 		case 2:
 			process |= (PROCESS_VM_READ | PROCESS_QUERY_INFORMATION);
@@ -1206,7 +1208,13 @@ STATUS InitKSI(const QString& AppDir)
 		}
 
 		if (process != 0 || thread != 0)
+		{
 			KphStripProtectedProcessMasks(NtCurrentProcess(), process, thread);
+			// Remember that outside openers are now being refused: the seclogon
+			// service cannot open us either, so the in-process run-as path
+			// (CreateProcessWithLogonW) would fail. RunProgramAs checks this.
+			g_KsiClientProtectionLevel = (ULONG)clientProtectionLevel;
+		}
 	}
 
 	//PhInformerActivate();

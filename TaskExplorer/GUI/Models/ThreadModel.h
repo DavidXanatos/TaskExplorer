@@ -20,8 +20,16 @@ public:
     int				columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant		headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
+	//
+	// Ordered in contiguous blocks so the header column menu can select each
+	// group by a first..last range (see CThreadsView::OnHeaderMenu), the way the
+	// process view does. Keep each block together; the menu names only the first
+	// and last entry of a group. Reordering, or inserting anywhere but the end,
+	// invalidates saved column layouts - bump ColumnLayoutVersion in ThreadsView.
+	//
 	enum EColumns
 	{
+		// common - shown at the top level of the menu
 		eThread = 0,
 		eCPU,
 		eCPU_History,
@@ -29,34 +37,27 @@ public:
 		eService,
 		eName,
 		eType,
+		eState,
 		eCreated,
-		eStartModule,
+
+		// CPU
 		eContextSwitches,
 		eContextSwitchesDelta,
+		eCycles,
+		eCyclesDelta,
+		eKernelTime,
+		eUserTime,
+
+		// Scheduling
 		ePriority,
 		eBasePriority,
 		eBasePriorityActual,
 		ePagePriority,
 		eIOPriority,
-		eCycles,
-		eCyclesDelta,
-		eState,
-		eKernelTime,
-		eUserTime,
 		eIdealProcessor,
-		eImpersonation,
-		eCritical,
-		eAppDomain,
-
-		ePendingIRP,
-		eLastSystemCall,
-		eLastStatusCode,
-		eCOM_Apartment,
-		eCOM_Flags,
-		eFiber,
 		ePriorityBoost,
-		eStackUsage,
-		eWaitTime,
+
+		// I/O
 		eIO_Reads,
 		eIO_Writes,
 		eIO_Other,
@@ -76,10 +77,25 @@ public:
 		eIO_WriteRate,
 		eIO_OtherRate,
 		//eIO_TotalRate,
+
+		// Other - misc, COM/.NET and platform, folded together
+		eStartModule,
+		eWaitTime,
+		eStackUsage,
+		ePendingIRP,
+		eLastSystemCall,
+		eLastStatusCode,
+		eImpersonation,
+		eCOM_Apartment,
+		eCOM_Flags,
+		eAppDomain,
+		eFiber,
+		eCritical,
 		eTID_LXSS,
 		ePowerThrottling,
 		//eContainerID,
 		eRPC_Usage,
+
 		eCount
 	};
 

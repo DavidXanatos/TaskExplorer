@@ -26,6 +26,10 @@ private slots:
 	void					OnResetColumns();
 	void					OnColumnsChanged();
 
+	// Grouped column-selection menu, in the style of the process view.
+	void					OnHeaderMenu(const QPoint &point);
+	void					OnHeaderMenu();
+
 	void					ShowThreads(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed);
 
 	void					OnUpdateHistory();
@@ -48,6 +52,8 @@ protected:
 	virtual QList<CTaskPtr>		GetSelectedTasks();
 
 	virtual void				OnMenu(const QPoint& Point);
+	void						AddHeaderColumn(QMenu* pMenu, int Column);
+	void						AddHeaderSubMenu(QMenu* pMenu, const QString& Label, int from, int to);
 	virtual QTreeView*			GetView() 				{ return m_pThreadList; }
 	virtual QAbstractItemModel* GetModel()				{ return m_pSortProxy; }
 	//virtual QAbstractItemModel* GetModel()				{ return m_pHandleModel; }
@@ -82,6 +88,9 @@ private:
 	QTreeViewEx*			m_pThreadList;
 	CThreadModel*			m_pThreadModel;
 	QSortFilterProxyModel*	m_pSortProxy;
+
+	QMenu*					m_pHeaderMenu;
+	QMap<QCheckBox*, int>	m_Columns;
 
 	QMap<quint64, CHistoryGraph*> m_CPU_Graphs;
 	QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > m_CPU_History;

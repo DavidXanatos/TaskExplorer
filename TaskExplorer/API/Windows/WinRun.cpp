@@ -482,11 +482,19 @@ STATUS CWindowsAPI::RunProgramAs(const SRunAsOptions& Options)
 
 	PhGetProcessSessionId(NtCurrentProcess(), &currentSessionId);
 
-	if (logonType == LOGON32_LOGON_INTERACTIVE && !ProcessId && sessionId == currentSessionId && !useLinkedToken)
+	if (g_KsiClientProtectionLevel == 0 && logonType == LOGON32_LOGON_INTERACTIVE && !ProcessId && sessionId == currentSessionId && !useLinkedToken)
 	{
 		// We are eligible to load the user profile.
 		// This must be done here, not in the service, because
 		// we need to be in the target session.
+		//
+		// Skipped when this process is protected (g_KsiClientProtectionLevel != 0):
+		// the profile-loading path below runs CreateProcessWithLogonW, which is
+		// serviced by seclogon, and seclogon opens the *calling* process. The
+		// driver strips that access from a protected client, so the call fails
+		// with access denied. Falling through to the else branch hands the job to
+		// the SYSTEM helper service, which does LogonUser + CreateProcessAsUser
+		// itself and never touches seclogon (it just does not mount the hive).
 
 		PH_CREATE_PROCESS_AS_USER_INFO createInfo;
 		PPH_STRING domainPart = NULL;

@@ -11,6 +11,9 @@
 #include "stdafx.h"
 #include "TaskExplorer.h"
 #include "../API/SystemAPI.h"
+#ifdef WIN32
+#include "../API/Windows/ProcessHacker.h" // IsOnARM64
+#endif
 #include "../../MiscHelpers/Common/Settings.h"
 #include "../../MiscHelpers/Archive/Archive.h"
 #include "../../MiscHelpers/Common/ProgressDialog.h"
@@ -48,8 +51,19 @@ STATUS CTaskExplorer::UpdateDynData(const QString& AppDir)
 
 		QMap<int, QIODevice*> Files;
 
-		int bin = Archive.FindByPath(theSystem->GetArchitecture() == CSystemAPI::eArchArm64 ? "arm64/ksidyn.bin" : "amd64/ksidyn.bin");
-		int sig = Archive.FindByPath(theSystem->GetArchitecture() == CSystemAPI::eArchArm64 ? "arm64/ksidyn.sig" : "amd64/ksidyn.sig");
+		// theSystem may not exist yet: at startup UpdateDynData runs from the
+		// driver-load loop in main(), before CTaskExplorer's constructor calls
+		// InitLocalSystem() to create theSystem. Reaching through it here caused a
+		// null-pointer crash. The architecture is a static property of the machine,
+		// so read it directly rather than via theSystem->GetArchitecture().
+#ifdef WIN32
+		const bool bArm64 = IsOnARM64();
+#else
+		const bool bArm64 = theSystem && theSystem->GetArchitecture() == CSystemAPI::eArchArm64;
+#endif
+
+		int bin = Archive.FindByPath(bArm64 ? "arm64/ksidyn.bin" : "amd64/ksidyn.bin");
+		int sig = Archive.FindByPath(bArm64 ? "arm64/ksidyn.sig" : "amd64/ksidyn.sig");
 
 		if (bin == -1 || sig == -1) {
 			FailWithMessage(tr("DynData not found in archive."));
@@ -63,7 +77,7 @@ STATUS CTaskExplorer::UpdateDynData(const QString& AppDir)
 		QString DrvFileName = theConf->GetString("OptionsKSI/FileName", "KTaskExplorer.sys");
 		if (DrvFileName.contains("\\")) 
 			DrvPath = Split2(DrvFileName, "\\", true).first;
-		else if (theSystem->GetArchitecture() == CSystemAPI::eArchArm64)
+		else if (bArm64)
 			DrvPath = AppDir + "\\ARM64";
 		else
 			DrvPath = AppDir + "\\AMD64";

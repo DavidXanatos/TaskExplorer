@@ -258,7 +258,12 @@ QString GetAccessRightsString(const QList<int>& Rights);
 //
 // An icon the core reported as image-file bytes, ready to draw.
 //
-QPixmap MakeIcon(const QByteArray& Bytes);
+//
+// Size is in logical pixels and is what the result will measure, whatever the
+// bytes contained. 16 is a row in a list; the process page asks for 32 and the
+// system panel for its logo.
+//
+QPixmap MakeIcon(const QByteArray& Bytes, int Size = 16);
 
 //
 // What to call the account a process runs as, given the key the target sent and

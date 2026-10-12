@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "LinuxProcess.h"
+#include "DesktopInfo.h"
+#include "PackageInfo.h"
 #include "LinuxHandle.h"
 #include "LinuxHelper.h"
 #include "LinuxWine.h"
@@ -88,6 +90,12 @@ bool CLinuxProcess::InitStaticData(quint64 Pid)
 	const QString Container = LinuxDescribeContainer(Pid, Namespaces, CGroupPath, Confinement);
 
 	//
+	// And what that sandbox actually granted, which is written inside the
+	// sandbox rather than guessed at from outside - see LinuxSandboxForProcess.
+	//
+	const SSandboxInfo Sandbox = LinuxSandboxForProcess(Pid, Confinement);
+
+	//
 	// The Uid line is "real effective saved filesystem"; the effective uid is
 	// what determines what the process can do, so that is what is shown.
 	//
@@ -157,6 +165,88 @@ bool CLinuxProcess::InitStaticData(quint64 Pid)
 	m_UsedDesktop = UsedDesktop;
 
 	m_IsKernelThread = Stat.IsKernelThread;
+
+	//
+	// Everything a Windows image would have carried in itself, gathered from
+	// where Linux keeps it instead. Once per process rather than per refresh:
+	// none of it changes while a process runs, and both lookups are cached by
+	// path so a hundred processes of one image cost one read.
+	//
+	// A kernel thread has no image and no entry anywhere; asking would only
+	// walk two indexes to be told so.
+	//
+	SDesktopEntry Desktop;
+	SPackageInfo Package;
+	if (!Stat.IsKernelThread && !m_FileName.isEmpty())
+	{
+		Desktop = LinuxDesktopEntry(m_FileName);
+		Package = LinuxPackageForFile(m_FileName);
+
+		m_AppId = Desktop.Id;
+		m_PackageName = Package.Name;
+	}
+
+	//
+	// A sandboxed application is its own package and names itself better than
+	// the file system does: the flatpak id is what it is called everywhere it
+	// is mentioned, and the snap name is what removes it again.
+	//
+	if (Sandbox.Valid && !Sandbox.AppId.isEmpty())
+	{
+		if (m_PackageName.isEmpty())
+			m_PackageName = Sandbox.AppId;
+		if (m_AppId.isEmpty())
+			m_AppId = Sandbox.AppId;
+	}
+
+	//
+	// ---- the image's own description ----
+	//
+	// The module list is filled on demand, so on a machine nobody has asked
+	// about there is no module to hang this on - and the Description, Company
+	// and Version columns read it from the main module. So the module is made
+	// here, with what the desktop entry and the package say, and the module
+	// list replaces it with the real mapping when somebody opens that view.
+	//
+	// The Windows backend fills the same three keys out of the image's version
+	// resources. Two platforms, two places, one set of columns.
+	//
+	if (!Stat.IsKernelThread && !m_FileName.isEmpty() && m_pModuleInfo.isNull())
+	{
+		QSharedPointer<CLinuxModule> pModule = QSharedPointer<CLinuxModule>(new CLinuxModule());
+		pModule->SetSystem(GetSystem());
+		pModule->InitStaticData(m_FileName, 0, 0);
+
+		QMap<QString, QString> FileInfo;
+
+		//
+		// GenericName first - "Web Browser" says what the thing is, which is
+		// what this column is for - then the Comment, which is a sentence, then
+		// the entry's Name, which at least beats nothing.
+		//
+		if (!Desktop.GenericName.isEmpty())	FileInfo["Description"] = Desktop.GenericName;
+		else if (!Desktop.Comment.isEmpty()) FileInfo["Description"] = Desktop.Comment;
+		else if (!Desktop.Name.isEmpty())	FileInfo["Description"] = Desktop.Name;
+
+		if (!Package.Maintainer.isEmpty())	FileInfo["CompanyName"] = Package.Maintainer;
+		if (!Package.Version.isEmpty())		FileInfo["FileVersion"] = Package.Version;
+		if (!Desktop.Categories.isEmpty())	FileInfo["Categories"] = Desktop.Categories;
+
+		pModule->SetFileInfos(FileInfo);
+		pModule->SetPackageVerification((CModuleInfo::EVerifyResult)Package.Verify, Package.Maintainer);
+
+		//
+		// And the icon, which is the one thing here that is bytes rather than
+		// text. Read once per image and cached; empty for the many programs
+		// that have no desktop entry, which is better than a wrong icon.
+		//
+		const QByteArray Icon = LinuxExecutableIcon(m_FileName);
+		if (!Icon.isEmpty())
+			pModule->SetFileIcon(Icon);
+
+
+		m_pModuleInfo = pModule;
+	}
 
 	//
 	// Naming. There are two names here and Windows has the same two.
@@ -260,6 +350,19 @@ bool CLinuxProcess::InitStaticData(quint64 Pid)
 	m_Confinement = Confinement;
 	m_Container = Container;
 
+	//
+	// The confinement column carries the LSM profile; a snap or a flatpak adds
+	// the mode it was started in, which is the part that says how much of that
+	// profile is actually enforced - a classic snap is confined by nothing.
+	//
+	if (Sandbox.Valid)
+	{
+		m_SandboxPermissions = Sandbox.Permissions;
+		if (!Sandbox.Confinement.isEmpty())
+			m_Confinement = m_Confinement.isEmpty() ? Sandbox.Confinement
+													: (m_Confinement + ", " + Sandbox.Confinement);
+	}
+
 	m_StartTimeTicks = Stat.StartTime;
 	// Real start time rather than "when we first saw it", so the new-process
 	// highlight is correct for processes that predate our startup.
@@ -268,6 +371,15 @@ bool CLinuxProcess::InitStaticData(quint64 Pid)
 	m_LastStat = Stat;
 
 	return true;
+}
+
+void CLinuxProcess::SetKernelThreadTasks(const QList<quint64>& Pids, quint64 UTime, quint64 STime)
+{
+	QWriteLocker Locker(&m_Mutex);
+	m_bKernelThreadHost = true;
+	m_KernelTaskPids = Pids;
+	m_KernelTaskUTime = UTime;
+	m_KernelTaskSTime = STime;
 }
 
 bool CLinuxProcess::UpdateDynamicData(bool bFullProcessInfo, quint64 SysTime, quint64 SysTimePerCpu)
@@ -325,7 +437,7 @@ bool CLinuxProcess::UpdateDynamicData(bool bFullProcessInfo, quint64 SysTime, qu
 	if (bCountInotify)
 		InotifyWatches = ProcFs::CountInotifyWatches(Pid);
 
-	const quint32 NumThreads = (quint32)Stat.NumThreads;
+	quint32 NumThreads = (quint32)Stat.NumThreads;
 	// There is no cheap fd count; the kernel exposes it only by listing the
 	// directory, which is a syscall per process per refresh.
 	const quint32 NumHandles = (quint32)ProcFs::EnumFds(Pid).count();
@@ -338,6 +450,20 @@ bool CLinuxProcess::UpdateDynamicData(bool bFullProcessInfo, quint64 SysTime, qu
 	m_State = Stat.State;
 	m_Nice = (qint32)Stat.Nice;
 	m_SchedPolicy = (qint32)Stat.Policy;
+
+	//
+	// The host answers for all of them. Its own /proc entry says one thread and
+	// a few milliseconds of cpu, which is true of kthreadd the task and useless
+	// as a description of what the kernel's threads are doing.
+	//
+	quint64 UTime = Stat.UTime;
+	quint64 STime = Stat.STime;
+	if (m_bKernelThreadHost)
+	{
+		NumThreads += (quint32)m_KernelTaskPids.count();
+		UTime += m_KernelTaskUTime;
+		STime += m_KernelTaskSTime;
+	}
 
 	bChanged |= (m_NumberOfThreads != NumThreads);
 	m_NumberOfThreads = NumThreads;
@@ -360,8 +486,16 @@ bool CLinuxProcess::UpdateDynamicData(bool bFullProcessInfo, quint64 SysTime, qu
 		m_WorkingSetPrivateSize = (StatM.Resident > StatM.Shared) ? (StatM.Resident - StatM.Shared) * PageSize : 0;
 	m_PeakPagefileUsage = StatusKb("VmSwap");
 
-	m_KernelTime = Stat.STime;
-	m_UserTime = Stat.UTime;
+	m_KernelTime = STime;
+	m_UserTime = UTime;
+
+	//
+	// What the kernel is enforcing on this process, from two lines of the status
+	// file this refresh read anyway. Per refresh rather than once, because a
+	// program can install a seccomp filter after it has started - which is
+	// exactly what a sandbox launcher does to the program it is about to exec.
+	//
+	m_MitigationFlags = LinuxMitigationFlags(Status);
 
 	// The GUI shows the nice value where Windows shows a priority class.
 	m_Priority = Stat.Nice;
@@ -391,8 +525,15 @@ bool CLinuxProcess::UpdateDynamicData(bool bFullProcessInfo, quint64 SysTime, qu
 
 	QWriteLocker StatsLocker(&m_StatsMutex);
 
-	m_CpuStats.CpuKernelDelta.Update(Stat.STime);
-	m_CpuStats.CpuUserDelta.Update(Stat.UTime);
+	//
+	// A sum over a set that changes: kworkers come and go, so when one exits the
+	// total drops and that refresh shows no cpu rather than a negative amount.
+	// One quiet sample rather than a wrong one, and the alternative - carrying a
+	// per-task history for threads that live for milliseconds - costs more than
+	// the blip is worth.
+	//
+	m_CpuStats.CpuKernelDelta.Update(STime);
+	m_CpuStats.CpuUserDelta.Update(UTime);
 	// Faults are cumulative counters, so the delta is what is interesting.
 	m_CpuStats.PageFaultsDelta.Update64(Stat.MinFlt + Stat.MajFlt);
 	m_CpuStats.HardFaultsDelta.Update64(Stat.MajFlt);
@@ -635,6 +776,20 @@ quint32 CLinuxProcess::GetStatusFlags() const
 	// 'Z' is what /proc/<pid>/stat reports for it; GetRunState translates the
 	// same letter, but that one takes the lock this already holds.
 	if (m_State == 'Z')
+		Flags |= eStatusTerminated;
+
+	//
+	// And one this backend knows about that /proc cannot say: a process that has
+	// gone but is still on the list, because something still refers to it - a
+	// panel showing it, or a child that would otherwise lose its place in the
+	// tree. The Windows backend reports the same thing from the same mark.
+	//
+	// It matters most for what somebody else sees. A viewer watching this
+	// machine over the wire has no list of its own to compare against; all it
+	// knows about a process is what arrives, and without this a parent that
+	// exited an hour ago arrives looking exactly like one that is running.
+	//
+	if (m_RemoveTimeStamp != 0)
 		Flags |= eStatusTerminated;
 
 	if (m_Wine.Valid)
@@ -1023,9 +1178,29 @@ bool CLinuxProcess::UpdateThreads()
 {
 	const quint64 Pid = GetProcessId();
 
-	const QList<quint64> Tids = ProcFs::EnumThreads(Pid);
+	QList<quint64> Tids = ProcFs::EnumThreads(Pid);
 	if (Tids.isEmpty())
 		return false; // process is gone
+
+	//
+	// And every kernel thread, as a thread of this one.
+	//
+	// Each of them is a single task by construction - kthread_create makes one -
+	// so the task id is the pid, and there is no directory to read to find that
+	// out. The pair (pid, tid) is what CLinuxThread reads from, and for these it
+	// is (K, K): /proc/K/task/K, which is where a kernel thread's stat, name and
+	// scheduling live.
+	//
+	QMap<quint64, quint64> ForeignTasks;	// tid -> the pid it belongs to
+	if (m_bKernelThreadHost)
+	{
+		QReadLocker Locker(&m_Mutex);
+		foreach(quint64 KPid, m_KernelTaskPids)
+		{
+			Tids.append(KPid);
+			ForeignTasks.insert(KPid, KPid);
+		}
+	}
 
 	// Always the single-cpu total; see the note on UpdateDynamicData().
 	const quint64 SysTime = m_LastSysTimePerCpu;
@@ -1042,9 +1217,10 @@ bool CLinuxProcess::UpdateThreads()
 		bool bAdd = false;
 		if (pThread.isNull())
 		{
-			pThread = QSharedPointer<CLinuxThread>(new CLinuxThread());
+			// Destroyed through deleteLater; see CWindowsAPI::UpdateProcessList.
+			pThread = QSharedPointer<CLinuxThread>(new CLinuxThread(), &QObject::deleteLater);
 			pThread->SetSystem(GetSystem());
-			if (!pThread->InitStaticData(Pid, Tid))
+			if (!pThread->InitStaticData(ForeignTasks.value(Tid, Pid), Tid))
 				continue; // exited between the readdir and the stat read
 
 			GetSystem()->AddThread(pThread);

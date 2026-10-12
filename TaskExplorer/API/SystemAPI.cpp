@@ -152,7 +152,14 @@ void SetupCredentialStore()
 	if (!theConf)
 		return;
 
-	const QString Dir = theConf->IsPortable()
+	//
+	// Beside the configuration when that directory is ours outright - a portable
+	// copy's, or one named outright by a service, which has the same meaning:
+	// /etc/taskexplorer holds the daemon's settings and its key, and its
+	// credentials belong there too rather than in an /etc/TaskExplorer invented
+	// beside it.
+	//
+	const QString Dir = (theConf->IsPortable() || theConf->IsExplicitDir())
 		? theConf->GetConfigDir()
 		: QFileInfo(theConf->GetConfigDir()).absolutePath() + "/" MY_PRODUCT_NAME_STRING;
 

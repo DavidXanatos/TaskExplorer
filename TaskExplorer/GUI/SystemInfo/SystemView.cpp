@@ -425,9 +425,13 @@ void CSystemView::Refresh()
 	if (m_pIconFrom != pSystem.data())
 	{
 		m_pIconFrom = pSystem.data();
-		const QPixmap Logo = ::MakeIcon(pSystem->GetSystemIcon());
-		m_pIcon->setPixmap(Logo.isNull() ? QPixmap()
-			: Logo.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+		//
+		// Sized by MakeIcon rather than scaled afterwards: scaling a pixmap that
+		// already carries a device pixel ratio scales the ratio with it, and the
+		// logo came out at half size on a scaled display.
+		//
+		const QPixmap Logo = ::MakeIcon(pSystem->GetSystemIcon(), 64);
+		m_pIcon->setPixmap(Logo);
 	}
 
 	m_pSystemName->setText(pSystem->GetSystemName());

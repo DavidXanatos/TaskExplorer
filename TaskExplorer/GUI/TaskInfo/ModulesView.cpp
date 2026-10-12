@@ -218,10 +218,23 @@ void CModulesView::Refresh()
 	// that path there would aim at a slot the process does not have. See
 	// ShowProcesses.
 	//
+	//
+	// The call holds its own reference; see CHandlesView::Refresh.
+	//
+	const CProcessPtr pKeep = m_pCurProcess;
+
 	if (m_pShowModPages && m_pShowModPages->isEnabled() && m_pShowModPages->isChecked())
-		QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateModulesAndModPages()));
+		//
+		// By name, because this slot exists only on the Windows process and this
+		// view is built for both. The reference still travels with the call: the
+		// lambda owns it, and the name is resolved on the object's own thread.
+		//
+		QMetaObject::invokeMethod(m_pCurProcess.data(), [pKeep]() {
+				QMetaObject::invokeMethod(pKeep.data(), "UpdateModulesAndModPages", Qt::DirectConnection); },
+			Qt::QueuedConnection);
 	else
-		QTimer::singleShot(0, m_pCurProcess.data(), SLOT(UpdateModules()));
+		QMetaObject::invokeMethod(m_pCurProcess.data(), [pKeep]() { pKeep->UpdateModules(); },
+			Qt::QueuedConnection);
 }
 
 void CModulesView::OnModulesUpdated(QSet<quint64> Added, QSet<quint64> Changed, QSet<quint64> Removed)

@@ -1252,7 +1252,8 @@ bool CWinProcess::UpdateThreadData(struct _SYSTEM_PROCESS_INFORMATION* Process, 
 		bool bAdd = false;
 		if (pWinThread.isNull())
 		{
-			pWinThread = QSharedPointer<CWinThread>(new CWinThread());
+			// Destroyed through deleteLater; see CWindowsAPI::UpdateProcessList.
+			pWinThread = QSharedPointer<CWinThread>(new CWinThread(), &QObject::deleteLater);
 			pWinThread->SetSystem(GetSystem());
 			if (m->IsSandBoxed)
 				pWinThread->SetSandboxed();

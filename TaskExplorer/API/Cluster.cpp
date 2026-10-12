@@ -812,15 +812,27 @@ void CCluster::ConnectSavedTargets()
 	//
 	m_ConnectFuture = QtConcurrent::run([this, Names, Work]()
 	{
+		int Connected = 0;
+
 		for (int i = 0; i < Work.count(); i++)
 		{
+			//
+			// Said before the attempt rather than after it, because the attempt
+			// is the part that takes the time - up to five seconds against a
+			// machine that is switched off.
+			//
+			emit ConnectingTo(Names[i], i, Work.count());
+
 			//
 			// eRequireSaved: a machine that answers with a different id than the
 			// one this entry was saved for is not this machine, and reconnecting
 			// to it unattended is exactly the case that check exists for.
 			//
-			Connect(Names[i], Work[i].first, NULL, Work[i].second, eRequireSaved, false);
+			if (!Connect(Names[i], Work[i].first, NULL, Work[i].second, eRequireSaved, false).isNull())
+				Connected++;
 		}
+
+		emit ConnectRunFinished(Connected, Work.count(), Work.count() == 1 ? Names[0] : QString());
 	});
 }
 

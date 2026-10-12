@@ -260,6 +260,12 @@ private slots:
 
 	void				OnStatusMessage(const QString& Message);
 
+	//
+	// The saved machines being connected at startup. See CCluster::ConnectingTo.
+	//
+	void				OnConnectingTo(const QString& Name, int Index, int Count);
+	void				OnConnectRunFinished(int Connected, int Count, const QString& Name);
+
 	void				OnRun();
 	void				OnRunAs();
 	void				OnRunSys();

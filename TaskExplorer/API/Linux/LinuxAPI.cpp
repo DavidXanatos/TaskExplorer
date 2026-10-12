@@ -754,17 +754,74 @@ bool CLinuxAPI::UpdateProcessList()
 	// Everything left in here at the end has exited.
 	QMap<SProcessUID, CProcessPtr> OldProcesses = GetProcessMap();
 
+	//
+	// ---- the kernel's threads ----
+	//
+	// Every kernel thread has a pid, and none of them is a process: no address
+	// space, no image, no command line, one task each. Listing them as processes
+	// is how a quiet machine comes to show a hundred and fifty entries that
+	// cannot be started, stopped, or opened - and Windows, which has the same
+	// threads, shows them as the threads of one System process.
+	//
+	// So they are collected here and handed to kthreadd, which hosts them. The
+	// host is identified by what it is rather than by pid 2: the one kernel
+	// thread whose parent is 0. Everything else with PF_KTHREAD set is one of
+	// its threads.
+	//
+	// A first pass, because the host's own refresh has to know the totals before
+	// it runs, and the enumeration order of /proc is not ours to choose.
+	//
+	const bool bGroupKernelThreads = theConf->GetBool("Options/GroupKernelThreads", true);
+
+	QMap<quint64, ProcFs::SStat> Stats;
+	QList<quint64> KernelTaskPids;
+	quint64 KernelTaskUTime = 0;
+	quint64 KernelTaskSTime = 0;
+	quint64 KernelHostPid = 0;
+
 	for (quint64 Pid : Pids)
 	{
+		const ProcFs::SStat Stat = ProcFs::ReadStat(Pid);
+		if (!Stat.Valid)
+			continue; // exited between the readdir and this read
+
+		Stats.insert(Pid, Stat);
+
+		if (!bGroupKernelThreads || !Stat.IsKernelThread)
+			continue;
+
+		if (Stat.PPid == 0)
+			KernelHostPid = Pid;
+		else
+		{
+			KernelTaskPids.append(Pid);
+			KernelTaskUTime += Stat.UTime;
+			KernelTaskSTime += Stat.STime;
+		}
+	}
+
+	//
+	// No host found - a container, a WSL distro, anything whose pid namespace
+	// does not contain kthreadd - and there is nothing to group onto. The
+	// kernel threads, if any were seen, stay processes rather than disappearing.
+	//
+	if (!KernelHostPid)
+		KernelTaskPids.clear();
+
+	for (auto It = Stats.begin(); It != Stats.end(); ++It)
+	{
+		const quint64 Pid = It.key();
+		const ProcFs::SStat& Stat = It.value();
+
+		// Shown as a thread of the host instead; see above.
+		if (!KernelTaskPids.isEmpty() && Stat.IsKernelThread && Stat.PPid != 0)
+			continue;
+
 		//
 		// The UID pairs the pid with its start time, so a recycled pid produces
 		// a different key and is correctly treated as a new process rather than
 		// silently inheriting the old one's history.
 		//
-		const ProcFs::SStat Stat = ProcFs::ReadStat(Pid);
-		if (!Stat.Valid)
-			continue; // exited between the readdir and this read
-
 		const SProcessUID UID(Pid, ProcFs::StartTimeToEpochMs(Stat.StartTime));
 
 		QSharedPointer<CLinuxProcess> pProcess = OldProcesses.take(UID).staticCast<CLinuxProcess>();
@@ -775,7 +832,14 @@ bool CLinuxAPI::UpdateProcessList()
 			CProcessPtr& pProcessRef = m_ProcessMap[UID];
 			if (pProcessRef.isNull())
 			{
-				pProcessRef = QSharedPointer<CLinuxProcess>(new CLinuxProcess());
+				//
+				// Destroyed through deleteLater: these objects live in this
+				// thread and are called into from it, while the references to
+				// them are held by views in the interface thread - so the last
+				// one is very often dropped over there. See the note in
+				// CWindowsAPI::UpdateProcessList.
+				//
+				pProcessRef = QSharedPointer<CLinuxProcess>(new CLinuxProcess(), &QObject::deleteLater);
 				pProcessRef->SetSystem(sharedFromThis());
 				m_ProcessByPID[Pid] = pProcessRef;
 			}
@@ -796,6 +860,14 @@ bool CLinuxAPI::UpdateProcessList()
 
 		if (pProcess->GetParentUId().Get() == 0)
 			NewProcessList.append(pProcess);
+
+		//
+		// Before the refresh rather than after it: the counts and the cpu time
+		// the host reports are sums over this list, and a refresh that ran first
+		// would report kthreadd's own single task and its own idle.
+		//
+		if (Pid == KernelHostPid && !KernelTaskPids.isEmpty())
+			pProcess->SetKernelThreadTasks(KernelTaskPids, KernelTaskUTime, KernelTaskSTime);
 
 		const bool bChanged = pProcess->UpdateDynamicData(false, CpuDivisor, SysTotalTimePerCPU);
 

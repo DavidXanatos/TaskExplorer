@@ -183,7 +183,10 @@ void CWindowsView::Refresh()
 	foreach(const CProcessPtr& pProcess, m_Processes)
 	{
 		m_PendingUpdates++;
-		QTimer::singleShot(0, pProcess.data(), SLOT(UpdateWindows()));
+		// The call holds its own reference; see CHandlesView::Refresh.
+		const CProcessPtr pKeep = pProcess;
+		QMetaObject::invokeMethod(pProcess.data(), [pKeep]() { pKeep->UpdateWindows(); },
+			Qt::QueuedConnection);
 	}
 }
 

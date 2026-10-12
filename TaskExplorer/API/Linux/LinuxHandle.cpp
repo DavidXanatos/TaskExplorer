@@ -8,58 +8,22 @@
 #include <fcntl.h>
 
 //
-// The open(2) flags are not numbered the same on every Linux architecture:
-// arm64 has O_DIRECT and O_DIRECTORY the other way round from x86_64, and the
-// less common ports differ more widely still. CHandleInfo::EOpenFlag has to be
-// one fixed set of values regardless, because the viewer reading a handle can
-// be running on a different machine than the target that reported it - so what
-// fdinfo says is translated into that set rather than passed through. On
-// x86_64, whose numbering EOpenFlag follows, the translation is the identity.
-//
-// The access mode is a two-bit field rather than a flag and is numbered alike
-// everywhere on Linux, so it takes no entry below - only a guard.
+// The open(2) flags CHandleInfo names are this platform's own.
 //
 static_assert(CHandleInfo::eOpenAccessMask   == O_ACCMODE,   "open access mask");
 static_assert(CHandleInfo::eOpenReadOnly     == O_RDONLY,    "open read only");
 static_assert(CHandleInfo::eOpenWriteOnly    == O_WRONLY,    "open write only");
 static_assert(CHandleInfo::eOpenReadWrite    == O_RDWR,      "open read write");
-
-static const struct { quint32 Local; quint32 Canonical; } g_OpenFlagMap[] =
-{
-	{ O_CLOEXEC,   CHandleInfo::eOpenCloseOnExec },
-	{ O_APPEND,    CHandleInfo::eOpenAppend      },
-	{ O_NONBLOCK,  CHandleInfo::eOpenNonBlock    },
-	{ O_SYNC,      CHandleInfo::eOpenSync        },  // O_DSYNC | __O_SYNC, hence not a single bit
-	{ O_DSYNC,     CHandleInfo::eOpenDSync       },
-	{ O_ASYNC,     CHandleInfo::eOpenAsync       },
-	{ O_DIRECT,    CHandleInfo::eOpenDirect      },
-	{ O_DIRECTORY, CHandleInfo::eOpenDirectory   },
-	{ O_NOATIME,   CHandleInfo::eOpenNoAtime     },
-	{ O_PATH,      CHandleInfo::eOpenPath        },
-};
-
-//
-// Which bits move is decided against the value read, never against what has
-// been built so far - on an architecture that merely swaps two flags, undoing
-// the first translation while applying the second would otherwise lose it.
-//
-// Bits with no name of their own (O_LARGEFILE, and whatever a later kernel
-// starts reporting) stay where they are: nothing reads them by name, and
-// keeping them leaves the raw mask a view shows the whole story.
-//
-static quint32 CanonicalOpenFlags(quint32 Flags)
-{
-	quint32 Translated = 0;
-	quint32 Named = 0;
-	for (size_t i = 0; i < sizeof(g_OpenFlagMap) / sizeof(g_OpenFlagMap[0]); i++)
-	{
-		if ((Flags & g_OpenFlagMap[i].Local) != g_OpenFlagMap[i].Local)
-			continue;
-		Named |= g_OpenFlagMap[i].Local;
-		Translated |= g_OpenFlagMap[i].Canonical;
-	}
-	return (Flags & ~Named) | Translated;
-}
+static_assert(CHandleInfo::eOpenCloseOnExec  == O_CLOEXEC,   "open close on exec");
+static_assert(CHandleInfo::eOpenAppend       == O_APPEND,    "open append");
+static_assert(CHandleInfo::eOpenNonBlock     == O_NONBLOCK,  "open non-blocking");
+static_assert(CHandleInfo::eOpenDSync        == O_DSYNC,     "open data sync");
+static_assert(CHandleInfo::eOpenAsync        == O_ASYNC,     "open async");
+static_assert(CHandleInfo::eOpenDirect       == O_DIRECT,    "open direct");
+static_assert(CHandleInfo::eOpenDirectory    == O_DIRECTORY, "open directory");
+static_assert(CHandleInfo::eOpenNoAtime      == O_NOATIME,   "open no atime");
+static_assert(CHandleInfo::eOpenPath         == O_PATH,      "open path");
+static_assert(CHandleInfo::eOpenSync         == O_SYNC,      "open sync");
 
 
 CLinuxHandle::CLinuxHandle(QObject *parent)
@@ -160,7 +124,7 @@ bool CLinuxHandle::InitStaticData(quint64 Pid, quint64 Fd, const QString& Target
 	m_FileName = Target;
 	m_Type = Type;
 	m_Inode = Inode;
-	m_Flags = CanonicalOpenFlags(Flags);
+	m_Flags = Flags;
 	m_Position = Position;
 
 	// Only meaningful for regular files; a socket or pipe has no size.

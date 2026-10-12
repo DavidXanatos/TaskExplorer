@@ -165,7 +165,15 @@ QString CWinGpuMonitor::QueryDeviceProperty(/*DEVINST*/quint32 DeviceHandle, con
     {
     case DEVPROP_TYPE_STRING:
         {
-            return QString::fromWCharArray((PWCHAR)buffer, bufferSize / sizeof(wchar_t)).trimmed();
+            // bufferSize is a byte count that INCLUDES the terminating L'\0'.
+            // Passing bufferSize/sizeof(wchar_t) as the length copied that null
+            // into the string, which rendered as a stray glyph after the adapter
+            // name (trimmed() strips whitespace, not embedded nulls). Drop the
+            // terminator from the count.
+            int wchars = (int)(bufferSize / sizeof(wchar_t));
+            if (wchars > 0 && ((PWCHAR)buffer)[wchars - 1] == L'\0')
+                wchars--;
+            return QString::fromWCharArray((PWCHAR)buffer, wchars).trimmed();
         }
         break;
     case DEVPROP_TYPE_FILETIME:

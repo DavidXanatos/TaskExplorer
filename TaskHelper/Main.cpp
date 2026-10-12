@@ -829,14 +829,20 @@ NTSTATUS ImpersonateSystem(VOID)
         return status;
     }
 
-    // Duplicate token
+    //
+    // Duplicated as a *primary* token, which is what a token has to be to
+    // become a process's own. The impersonation duplicate this used to make is
+    // what a thread wears, not what a process runs as, and the call below
+    // refuses it - with ERROR_ACCESS_DENIED, which reads like a permission
+    // problem and is a type error.
+    //
     SECURITY_ATTRIBUTES tokenAttributes;
     tokenAttributes.nLength = sizeof(SECURITY_ATTRIBUTES);
     tokenAttributes.lpSecurityDescriptor = NULL;
     tokenAttributes.bInheritHandle = FALSE;
 
     if (!DuplicateTokenEx(tokenHandle, MAXIMUM_ALLOWED, &tokenAttributes,
-        SecurityImpersonation, TokenImpersonation, &dupTokenHandle))
+        SecurityImpersonation, TokenPrimary, &dupTokenHandle))
     {
         status = PhGetLastWin32ErrorAsNtStatus();
         NtClose(tokenHandle);
@@ -997,8 +1003,90 @@ NTSTATUS RunAsTrustedInstaller(_In_ PCWSTR CommandLine)
     commandLineCopy = (PWSTR)PhAllocate(cmdLen * sizeof(WCHAR));
     wcscpy_s(commandLineCopy, cmdLen, CommandLine);
 
-    if (!CreateProcessWithTokenW(dupTokenHandle, LOGON_WITH_PROFILE, NULL, commandLineCopy,
-        CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &startupInfo, &processInfo))
+    //
+    // The two privileges a process needs to hand a token to a new process, put
+    // on the *thread's* token rather than the process's.
+    //
+    // This is the whole knot. CreateProcessAsUser checks the caller for
+    // SeAssignPrimaryToken and SeIncreaseQuota; an elevated administrator does
+    // not have the first one at all - it is not in the token, so it cannot be
+    // enabled - and the helper is an elevated administrator, not a service. But
+    // it is impersonating SYSTEM by this point, SYSTEM has both, and the check
+    // is made against the effective token. So they are enabled where they
+    // exist: on the impersonation token this thread is wearing.
+    //
+    // Measured: without this the call returns ERROR_PRIVILEGE_NOT_HELD (1314),
+    // with it the process is created.
+    //
+    {
+        HANDLE threadToken = NULL;
+        if (NT_SUCCESS(NtOpenThreadToken(NtCurrentThread(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, FALSE, &threadToken)))
+        {
+            PhSetTokenPrivilege2(threadToken, SE_ASSIGNPRIMARYTOKEN_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+            PhSetTokenPrivilege2(threadToken, SE_INCREASE_QUOTA_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+            PhSetTokenPrivilege2(threadToken, SE_TCB_PRIVILEGE, SE_PRIVILEGE_ENABLED);
+            NtClose(threadToken);
+        }
+    }
+
+    //
+    // The session the caller is looking at, not the one TrustedInstaller runs
+    // in.
+    //
+    // The service lives in session 0, and a token duplicated from it carries
+    // that - so the process starts where nobody can see it. Which for "run this
+    // as TrustedInstaller" is indistinguishable from not having run it. Setting
+    // the session on the token needs SeTcb, which is why it is enabled above.
+    //
+    {
+        ULONG sessionId = NtCurrentPeb()->SessionId;
+        SetTokenInformation(dupTokenHandle, TokenSessionId, &sessionId, sizeof(ULONG));
+    }
+
+    //
+    // Created here, with the token, rather than handed to the secondary logon
+    // service.
+    //
+    // CreateProcessWithTokenW creates nothing itself: it asks seclogon to, and
+    // seclogon opens *this* process to do the work. That is the step that fails
+    // when the driver is protecting this helper - the protection strips the
+    // access every other process gets to it, seclogon included, and the call
+    // comes back ACCESS_DENIED however correct everything else was. It is also
+    // what made the report look like a permission problem rather than a
+    // structural one.
+    //
+    // Measured on a helper with no protection at all: the old route failed too,
+    // with ERROR_ACCESS_DENIED, because the token it was handed was an
+    // impersonation token. Both halves are gone now.
+    //
+    //
+    // The environment belongs to the token, not to this process: a
+    // TrustedInstaller process carrying the helper's environment would inherit
+    // whatever started it.
+    //
+    PVOID environment = NULL;
+    if (!NT_SUCCESS(PhCreateEnvironmentBlock(&environment, dupTokenHandle, FALSE)))
+        environment = NULL;
+
+    BOOL bCreated = CreateProcessAsUserW(dupTokenHandle, NULL, commandLineCopy, NULL, NULL, FALSE,
+        CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE, environment, NULL, &startupInfo, &processInfo);
+
+    //
+    // And if that is somehow refused - no SYSTEM token to impersonate, a policy
+    // that removes the privileges - the old route is still worth one attempt.
+    // It cannot work while this helper is protected, for the reason above, so it
+    // is a fallback and not an alternative.
+    //
+    if (!bCreated)
+    {
+        bCreated = CreateProcessWithTokenW(dupTokenHandle, LOGON_WITH_PROFILE, NULL, commandLineCopy,
+            CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &startupInfo, &processInfo);
+    }
+
+    if (environment)
+        PhDestroyEnvironmentBlock(environment);
+
+    if (!bCreated)
     {
         status = PhGetLastWin32ErrorAsNtStatus();
         PhFree(commandLineCopy);

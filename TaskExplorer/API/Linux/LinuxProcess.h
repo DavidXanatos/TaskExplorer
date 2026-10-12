@@ -37,6 +37,24 @@ public:
 
 	virtual bool			ValidateParent(CProcessInfo* pParent) const;
 
+	//
+	// ---- the kernel's threads ----
+	//
+	// Linux gives every kernel thread a pid of its own, so a machine with eight
+	// cores and a couple of filesystems shows a hundred and fifty processes that
+	// are not processes: no address space, no image, no command line, one task
+	// each. Windows has exactly the same threads and shows them the way they
+	// are - as the threads of one System process - and there is no reason for
+	// the two views of the same thing to differ.
+	//
+	// So kthreadd hosts them. It is the right host rather than an invented one:
+	// it is the kernel thread daemon, the real parent of every one of them, and
+	// it is itself a task with a pid. CLinuxAPI hands it the list each refresh;
+	// what this object then does is show them as its threads and count their cpu
+	// time as its own.
+	//
+	void					SetKernelThreadTasks(const QList<quint64>& Pids, quint64 UTime, quint64 STime);
+
 	// ---- identity ----
 	virtual quint16			GetArchitecture() const;
 	virtual quint64			GetSessionID() const;
@@ -155,6 +173,20 @@ public:
 	// Container or sandbox this process runs in; empty when it is on the host.
 	virtual QString			GetContainer() const	{ QReadLocker Locker(&m_Mutex); return m_Container; }
 
+	//
+	// ---- what the desktop and the package manager say ----
+	//
+	// A Windows binary describes itself: version resources carry the
+	// description, the company and the version, and the file carries an icon
+	// and a signature. An ELF binary carries none of that, and the same facts
+	// live outside it - in the desktop entry that launches it and in the
+	// package that installed it. See DesktopInfo.h and PackageInfo.h.
+	//
+	virtual QString			GetPackageName() const	{ QReadLocker Locker(&m_Mutex); return m_PackageName; }
+	virtual QString			GetAppID() const		{ QReadLocker Locker(&m_Mutex); return m_AppId; }
+	virtual QStringList		GetSandboxPermissions() const { QReadLocker Locker(&m_Mutex); return m_SandboxPermissions; }
+	virtual quint32			GetMitigationFlags() const { QReadLocker Locker(&m_Mutex); return m_MitigationFlags; }
+
 	virtual SWineInfo		GetWineInfo() const		{ QReadLocker Locker(&m_Mutex); return m_Wine; }
 
 	//
@@ -263,6 +295,21 @@ protected:
 	quint32					m_PeakNumberOfHandles;
 	quint64					m_StartTimeTicks;
 	bool					m_IsKernelThread;
+
+	QString					m_PackageName;
+	QString					m_AppId;
+	QStringList				m_SandboxPermissions;
+	quint32					m_MitigationFlags = 0;
+
+	//
+	// Set only on kthreadd, and only while the grouping is on. The times are the
+	// sums over every kernel thread, which is what makes the host's cpu column
+	// mean what the System process's does on Windows.
+	//
+	bool					m_bKernelThreadHost = false;
+	QList<quint64>			m_KernelTaskPids;
+	quint64					m_KernelTaskUTime = 0;
+	quint64					m_KernelTaskSTime = 0;
 	quint64					m_LastSysTimePerCpu;
 	QString					m_ServiceName;
 	bool					m_bSystemService;

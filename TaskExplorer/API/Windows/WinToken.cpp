@@ -690,12 +690,17 @@ STATUS CWinToken::PrivilegeAction(const SPrivilege& Privilege, EAction Action, b
 	luid.LowPart = Privilege.lLuid;
 	luid.HighPart = Privilege.hLuid;
 
-	BOOLEAN ok = PhSetTokenPrivilege(tokenHandle, NULL, &luid, newAttributes);
+	// PhSetTokenPrivilege returns an NTSTATUS (STATUS_SUCCESS == 0), not a
+	// BOOLEAN. Capturing it in a BOOLEAN inverted the test: success (0) looked
+	// like failure - hence the bogus 0xffffffff while the change still took
+	// effect - and a real failure like STATUS_UNSUCCESSFUL (low byte 0x01) was
+	// read as success. Test the status properly and surface the real code.
+	status = PhSetTokenPrivilege(tokenHandle, NULL, &luid, newAttributes);
 
     NtClose(tokenHandle);
 
-	if (!ok)
-		return ERR(TE_SetTokenPriv, -1);
+	if (!NT_SUCCESS(status))
+		return ERR(TE_SetTokenPriv, status);
 
 	return OK;
 }

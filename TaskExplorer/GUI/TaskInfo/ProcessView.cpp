@@ -468,7 +468,10 @@ void CProcessView::ShowProcesses(const QList<CProcessPtr>& Processes)
 				// what is known now; the values land a moment later and the
 				// next refresh draws them.
 				//
-				QTimer::singleShot(0, pProcess.data(), SLOT(UpdateDetails()));
+				// The call holds its own reference; see CHandlesView::Refresh.
+				const CProcessPtr pKeep = pProcess;
+				QMetaObject::invokeMethod(pProcess.data(), [pKeep]() { pKeep->UpdateDetails(); },
+					Qt::QueuedConnection);
 
 				ShowProcess(pProcess);
 			}
@@ -524,7 +527,7 @@ void CProcessView::ShowProcess(const CProcessPtr& pProcess)
 	QString Description;
 	if (pModule)
 	{
-		Icon = ::MakeIcon(pModule->GetFileIcon(true));
+		Icon = ::MakeIcon(pModule->GetFileIcon(true), 32);
 		Description = pModule->GetFileInfo("Description");
 		m_pCompanyName->setText(pModule->GetFileInfo("CompanyName"));
 		m_pProcessVersion->setText(pModule->GetFileInfo("FileVersion"));

@@ -6,6 +6,18 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [2.0.1] - 2026-10-12
+
+### Added
+- added more process informations on linux
+
+### Fixed
+- fixed kthreadd grouping
+- fixed icon sizing
+- fixed race condition breaking machien row updates
+- fixed idle process was counted to system users cpu usage
+- fixed run as TI while driver protection is active
+- fixed issue with graph columns
 
 
 
@@ -39,6 +51,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - fixed crash issue on start up affecting soeme systems
 - fixed job object name display issue
 - fixed click "SYSTEM_IDLE_PROCESS_ID" will crash. [#116](https://github.com/DavidXanatos/TaskExplorer/issues/116)
+- fixed terminated process status was not always transmitted
+- fixed missing cpu usage and other thread stats over th wire
+- fixed regression ini being placed in app dir when ran as administrator
 
 
 

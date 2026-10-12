@@ -52,6 +52,17 @@ CThreadsView::CThreadsView(QWidget *parent)
 	connect(m_pThreadList, SIGNAL(ResetColumns()), this, SLOT(OnResetColumns()));
 	connect(m_pThreadList, SIGNAL(ColumnChanged(int, bool)), this, SLOT(OnColumnsChanged()));
 
+	//
+	// Replace QTreeViewEx's built-in flat column menu with a grouped one, like
+	// the process view: the thread list carries a lot of columns and a single
+	// flat list is unwieldy. The header already has a CustomContextMenu policy
+	// and is wired to QTreeViewEx::OnMenuRequested in its constructor; drop that
+	// wiring and point the header at our own grouped builder instead.
+	//
+	disconnect(m_pThreadList->header(), SIGNAL(customContextMenuRequested(const QPoint&)), m_pThreadList, 0);
+	connect(m_pThreadList->header(), SIGNAL(customContextMenuRequested(const QPoint&)), this, SLOT(OnHeaderMenu(const QPoint&)));
+	m_pHeaderMenu = new QMenu(this);
+
 	m_pSplitter->addWidget(CFinder::AddFinder(m_pThreadList, m_pSortProxy));
 	m_pSplitter->setCollapsible(0, false);
 	// 
@@ -100,10 +111,20 @@ CThreadsView::~CThreadsView()
 
 void CThreadsView::SwitchView(EView ViewMode)
 {
+	//
+	// Saved header state is keyed by column index, so it only makes sense against
+	// the EColumns order it was written with. Bump this whenever that enum is
+	// reordered or entries are inserted anywhere but the end; a stale version is
+	// ignored and the columns reset, rather than restoring a scrambled layout.
+	//
+	const int ColumnLayoutVersion = 2;
+
 	switch (m_ViewMode)
 	{
-		case eSingle:	theConf->SetBlob(objectName() + "/ThreadView_Columns", m_pThreadList->saveState()); break;
-		case eMulti:	theConf->SetBlob(objectName() + "/ThreadMultiView_Columns", m_pThreadList->saveState()); break;
+		case eSingle:	theConf->SetBlob(objectName() + "/ThreadView_Columns", m_pThreadList->saveState());
+						theConf->SetValue(objectName() + "/ThreadView_ColumnsVersion", ColumnLayoutVersion); break;
+		case eMulti:	theConf->SetBlob(objectName() + "/ThreadMultiView_Columns", m_pThreadList->saveState());
+						theConf->SetValue(objectName() + "/ThreadMultiView_ColumnsVersion", ColumnLayoutVersion); break;
 	}
 
 	m_ViewMode = ViewMode;
@@ -111,8 +132,12 @@ void CThreadsView::SwitchView(EView ViewMode)
 	QByteArray Columns;
 	switch (m_ViewMode)
 	{
-		case eSingle:	Columns = theConf->GetBlob(objectName() + "/ThreadView_Columns"); break;
-		case eMulti:	Columns = theConf->GetBlob(objectName() + "/ThreadMultiView_Columns"); break;
+		case eSingle:	if (theConf->GetValue(objectName() + "/ThreadView_ColumnsVersion", 1).toInt() == ColumnLayoutVersion)
+							Columns = theConf->GetBlob(objectName() + "/ThreadView_Columns");
+						break;
+		case eMulti:	if (theConf->GetValue(objectName() + "/ThreadMultiView_ColumnsVersion", 1).toInt() == ColumnLayoutVersion)
+							Columns = theConf->GetBlob(objectName() + "/ThreadMultiView_Columns");
+						break;
 		default:
 			return;
 	}
@@ -143,6 +168,72 @@ void CThreadsView::OnResetColumns()
 void CThreadsView::OnColumnsChanged()
 {
 	m_pThreadModel->Sync(m_Threads);
+}
+
+void CThreadsView::AddHeaderColumn(QMenu* pMenu, int Column)
+{
+	// Columns a backend does not fill carry an empty header - skip them, exactly
+	// as QTreeViewEx's built-in menu does, so the list stays honest per platform.
+	QString Label = m_pThreadModel->headerData(Column, Qt::Horizontal, Qt::DisplayRole).toString();
+	if (Label.isEmpty())
+		return;
+
+	QCheckBox *checkBox = new QCheckBox(Label, pMenu);
+	connect(checkBox, SIGNAL(stateChanged(int)), this, SLOT(OnHeaderMenu()));
+	QWidgetAction *pAction = new QWidgetAction(pMenu);
+	pAction->setDefaultWidget(checkBox);
+	pMenu->addAction(pAction);
+
+	m_Columns[checkBox] = Column;
+}
+
+void CThreadsView::AddHeaderSubMenu(QMenu* pMenu, const QString& Label, int from, int to)
+{
+	QMenu* pSubMenu = pMenu->addMenu(Label);
+	for (int i = from; i <= to; i++)
+		AddHeaderColumn(pSubMenu, i);
+}
+
+void CThreadsView::OnHeaderMenu(const QPoint &point)
+{
+	if (m_Columns.isEmpty())
+	{
+		//
+		// One submenu per contiguous enum group, naming only its first and last
+		// entry - the thread EColumns is ordered for exactly this (see the note
+		// there). Common columns sit at the top level; everything that is not CPU,
+		// Scheduling or I/O is folded into one "Other" group.
+		//
+		for (int i = CThreadModel::eThread; i <= CThreadModel::eCreated; i++)
+			AddHeaderColumn(m_pHeaderMenu, i);
+
+		m_pHeaderMenu->addSeparator();
+		AddHeaderSubMenu(m_pHeaderMenu, tr("CPU"), CThreadModel::eContextSwitches, CThreadModel::eUserTime);
+		AddHeaderSubMenu(m_pHeaderMenu, tr("Scheduling"), CThreadModel::ePriority, CThreadModel::ePriorityBoost);
+		AddHeaderSubMenu(m_pHeaderMenu, tr("I/O"), CThreadModel::eIO_Reads, CThreadModel::eIO_OtherRate);
+		AddHeaderSubMenu(m_pHeaderMenu, tr("Other"), CThreadModel::eStartModule, CThreadModel::eRPC_Usage);
+
+		m_pHeaderMenu->addSeparator();
+		QAction* pAction = m_pHeaderMenu->addAction(tr("Reset columns"));
+		connect(pAction, SIGNAL(triggered()), this, SLOT(OnResetColumns()));
+	}
+
+	for (QMap<QCheckBox*, int>::iterator I = m_Columns.begin(); I != m_Columns.end(); I++)
+		I.key()->setChecked(!m_pThreadList->isColumnHidden(I.value()));
+
+	m_pHeaderMenu->popup(QCursor::pos());
+}
+
+void CThreadsView::OnHeaderMenu()
+{
+	QCheckBox *checkBox = (QCheckBox*)sender();
+	int Column = m_Columns.value(checkBox, -1);
+	if (Column < 0)
+		return;
+
+	// SetColumnHidden flips the view, updates the model's enabled flag and emits
+	// ColumnChanged - which drives OnColumnsChanged (and the graph column).
+	m_pThreadList->SetColumnHidden(Column, !checkBox->isChecked());
 }
 
 void CThreadsView::ShowProcesses(const QList<CProcessPtr>& Processes)
@@ -196,7 +287,10 @@ void CThreadsView::Refresh()
 	foreach(const CProcessPtr& pProcess, m_Processes)
 	{
 		//m_PendingUpdates++;
-		QTimer::singleShot(0, pProcess.data(), SLOT(UpdateThreads()));
+		// The call holds its own reference; see CHandlesView::Refresh.
+		const CProcessPtr pKeep = pProcess;
+		QMetaObject::invokeMethod(pProcess.data(), [pKeep]() { pKeep->UpdateThreads(); },
+			Qt::QueuedConnection);
 	}
 
 	// Note: See coment in CWinProcess::UpdateThreads(), ... so windows we just call ShowThreads right away.
@@ -422,12 +516,25 @@ void CThreadsView::OnUpdateHistory()
 
 		QMap<quint64, QPair<QPointer<CHistoryWidget>, QPersistentModelIndex> > OldMap;
 		m_pThreadList->StartUpdatingWidgets(OldMap, m_CPU_History);
-		for(QModelIndex Index = m_pThreadList->indexAt(QPoint(0,0)); Index.isValid(); Index = m_pThreadList->indexBelow(Index))
+
+		const int ViewportHeight = m_pThreadList->viewport()->rect().height();
+
+		//
+		// Iterate on column 0 and cull by VERTICAL position only - the same fix
+		// as CProcessTree::UpdateIndexWidget. Testing the history column's full
+		// rect for intersection broke the loop on the first row whenever that
+		// column was scrolled horizontally out of view, so the thread graphs
+		// rendered nothing; and walking indexBelow() from a history-column index
+		// stopped after the first row. The thread graphs are keyed by thread id,
+		// which is also the model's node id (UserRole/eThread), so unlike the
+		// process tree there is no key mismatch to fix here.
+		//
+		for(QModelIndex Row = m_pThreadList->indexAt(QPoint(0,0)); Row.isValid(); Row = m_pThreadList->indexBelow(Row))
 		{
-			Index = Index.sibling(Index.row(), HistoryColumn);
-			if(!m_pThreadList->viewport()->rect().intersects(m_pThreadList->visualRect(Index)))
-				break; // out of view
-		
+			QModelIndex Index = Row.sibling(Row.row(), HistoryColumn);
+			if (m_pThreadList->visualRect(Index).top() >= ViewportHeight)
+				break; // below the visible area
+
 			QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
 			quint64 TID = m_pThreadModel->Data(ModelIndex, Qt::UserRole, CThreadModel::eThread).toULongLong();
 

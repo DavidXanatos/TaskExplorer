@@ -1573,7 +1573,28 @@ bool CWindowsAPI::UpdateProcessList()
 			CProcessPtr &pProcessRef = m_ProcessMap[UID];
 			if (pProcessRef.isNull()) // sometimes the proces was added already by sys mon or etw mon so only create one if non is listed
 			{
-				pProcessRef = QSharedPointer<CWinProcess>(new CWinProcess());
+				//
+				// Destroyed through deleteLater, like the system that collects them.
+				//
+				// These objects live in their collector's thread and are called into from it -
+				// UpdateHandles, UpdateThreads, UpdateModules, a stack trace - while the
+				// references to them are held by views and models in the interface thread. So
+				// the last reference is very often dropped on the *other* thread: a panel is
+				// told to show something else, a machine goes away and its rows are pruned, and
+				// a QSharedPointer with the default deleter then runs the destructor right
+				// there, in the interface thread, possibly while the collector's thread is
+				// inside one of these objects.
+				//
+				// Qt removes an object's pending events when it is destroyed, which covers a
+				// call that has not started. It cannot cover one that has: by then the event has
+				// been taken off the queue and the slot is running against memory the other
+				// thread is about to free. That is a crash inside a member function with a
+				// "this" that still looks entirely plausible.
+				//
+				// deleteLater posts the destruction to the object's own thread instead, where it
+				// runs between events rather than during one.
+				//
+				pProcessRef = QSharedPointer<CWinProcess>(new CWinProcess(), &QObject::deleteLater);
 				pProcessRef->SetSystem(sharedFromThis());
 				m_ProcessByPID[ProcessID] = pProcessRef;
 			}
@@ -1844,7 +1865,8 @@ QSharedPointer<CWinProcess> CWindowsAPI::TryAddProcessByID_NoLock(quint64 Proces
 	if(pProcess) // just in case between CSystemAPI::GetProcessByID and QWriteLocker something happened
 		return pProcess;
 
-	pProcess = QSharedPointer<CWinProcess>(new CWinProcess());
+	// Destroyed through deleteLater; see the note in UpdateProcessList.
+	pProcess = QSharedPointer<CWinProcess>(new CWinProcess(), &QObject::deleteLater);
 	pProcess->SetSystem(sharedFromThis());
 	pProcess->moveToThread(this->thread());
 	pProcess->InitStaticData(ProcessId);

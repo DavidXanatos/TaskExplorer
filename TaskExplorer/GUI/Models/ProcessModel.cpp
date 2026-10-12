@@ -606,6 +606,31 @@ static QVariant MkSum(int section, double Value)
 }
 
 //
+// The idle process, which is not a process.
+//
+// Windows accounts the time no thread wanted to run to a pseudo-process: pid 0,
+// one thread per cpu, owned by SYSTEM. Its cpu column is the machine's idle
+// time, and on a quiet machine that is most of the machine - so an account
+// branch that added its children up handed the SYSTEM branch eighty or ninety
+// per cent and claimed the account that runs the services was doing all of it.
+//
+// Its neighbours are not affected by this: the Interrupts and DPCs rows the
+// Windows collector invents carry interrupt and deferred-call time, which is
+// work the machine really did and belongs in the total.
+//
+// Linux has no such row - the kernel's idle tasks are not processes there - and
+// nothing in its list uses pid 0, so the test costs it nothing.
+//
+static bool IsIdleProcess(const CProcessPtr& pProcess)
+{
+	if (pProcess.isNull() || pProcess->GetProcessId() != 0)
+		return false;
+
+	const CSystemPtr pSystem = pProcess->GetSystem();
+	return pSystem.isNull() || pSystem->GetOsType() == CSystemAPI::eOsWindows;
+}
+
+//
 // Everything underneath a branch, added up.
 //
 // Read back out of the nodes rather than out of the processes: the column was
@@ -614,11 +639,20 @@ static QVariant MkSum(int section, double Value)
 // switched off costs nothing because nothing computed it in the first place.
 //
 // Virtual nodes contribute nothing of their own - an account branch inside a
-// machine branch is a heading, not a row - so nothing is counted twice.
+// machine branch is a heading, not a row - so nothing is counted twice. Neither
+// does the idle process, and for a related reason: it is a place to put a
+// number, not something running. See IsIdleProcess.
+//
+// All of its columns rather than its cpu alone. What it reports elsewhere is of
+// the same kind - context switches into the idle loop, one thread per cpu that
+// exists to have somewhere to idle - and a branch that counted those while
+// leaving the cpu out would be half-right in a way nobody could read off the
+// screen. Its own row is untouched: the idle percentage is worth showing, it is
+// simply not the account's.
 //
 void CProcessModel::SumSubtree(STreeNode* pNode, QVector<double>& Sums, QSet<int>& NotAvailable) const
 {
-	if (!pNode->Virtual)
+	if (!pNode->Virtual && !IsIdleProcess(((SProcessNode*)pNode)->pProcess))
 	{
 		for (int i = 0; i < pNode->Values.size() && i < Sums.size(); i++)
 		{
@@ -956,6 +990,7 @@ void CProcessModel::FillBranch(STreeNode* pNode, bool bClearZeros)
 	QSet<int> NotAvailable;
 	SumSubtree(pNode, Sums, NotAvailable);
 
+
 	for (int i = 0; i < New.size(); i++)
 	{
 		if (!IsSummableColumn(i) || m_ColumnsOff.contains(i))
@@ -1249,7 +1284,19 @@ QSet<quint64> CProcessModel::Sync(const QList<QMap<SProcessUID, CProcessPtr> >& 
 		
 		int SortKey = RowColor; // all but he new/removed
 
-		if (pProcess->IsMarkedForRemoval() && CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))			RowColor = CTaskExplorer::eToBeRemoved;
+		//
+		// Ended, by either account.
+		//
+		// This side's own mark is what a local collector sets when a process
+		// leaves the list, and it is the only thing that was looked at here.
+		// A process on another machine is not on this side's list at all - it
+		// arrives, and what it says about itself is all there is - so the
+		// reported state has to count too. The Windows and Linux collectors
+		// both derive that flag from the same mark, so a local row is unchanged
+		// by this; a remote one stops claiming to be alive.
+		//
+		if ((pProcess->IsMarkedForRemoval() || (pProcess->GetStatusFlags() & CProcessInfo::eStatusTerminated))
+			&& CTaskExplorer::UseListColor(CTaskExplorer::eToBeRemoved))			RowColor = CTaskExplorer::eToBeRemoved;
 		else if (pProcess->IsNewlyCreated() && CTaskExplorer::UseListColor(CTaskExplorer::eAdded))				RowColor = CTaskExplorer::eAdded;
 
 		if (pNode->iColor != RowColor) {

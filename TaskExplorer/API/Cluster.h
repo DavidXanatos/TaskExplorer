@@ -390,6 +390,28 @@ signals:
 	void						TargetsChanged();
 
 	//
+	// The saved machines being connected at startup, one at a time.
+	//
+	// TargetsChanged says the list moved; it does not say what is being waited
+	// for, and a handshake to a machine that is switched off takes five seconds
+	// in which the window has nothing to say for itself. These two are that
+	// sentence: which machine is being tried now, and what came of the whole
+	// run.
+	//
+	// Emitted from the worker thread that does the handshakes - see
+	// ConnectSavedTargets - so anything connected to them is delivered on the
+	// receiver's own thread, which for the window is the one that may touch it.
+	//
+	void						ConnectingTo(const QString& Name, int Index, int Count);
+
+	//
+	// Name is the machine, and only means anything when there was one of them -
+	// "connected to the build box" is worth saying, "connected to the build box"
+	// when three were tried is not.
+	//
+	void						ConnectRunFinished(int Connected, int Count, const QString& Name);
+
+	//
 	// The panels are now looking at a different machine. Everything they hold
 	// belongs to the old one, so this is a "throw it away and ask again", not a
 	// "redraw".

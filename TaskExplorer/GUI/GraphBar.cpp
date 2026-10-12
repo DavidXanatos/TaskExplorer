@@ -342,11 +342,14 @@ void CGraphBar::UpdateGraphs()
 		switch (I->Type)
 		{
 		case eMemoryPlot:
-			Text = tr("Memory=%1%").arg(CCluster::GetActiveSystem()->GetInstalledMemory() ? (int)100*CCluster::GetActiveSystem()->GetPhysicalUsed()/CCluster::GetActiveSystem()->GetInstalledMemory() : 0);
-			pPlot->SetRagne(CCluster::GetActiveSystem()->GetMemoryLimit());
-			pPlot->AddPlotPoint("Commited", CCluster::GetActiveSystem()->GetCommitedMemory());
-			pPlot->AddPlotPoint("Swapped", CCluster::GetActiveSystem()->GetPhysicalUsed() + CCluster::GetActiveSystem()->GetSwapedOutMemory());
-			pPlot->AddPlotPoint("Cache", CCluster::GetActiveSystem()->GetCacheMemory());
+		{
+			CSystemPtr pSystem = CCluster::GetActiveSystem();
+
+			const quint64 Installed = pSystem->GetInstalledMemory();
+			const quint64 Commited  = pSystem->GetCommitedMemory();
+			const quint64 Cache     = pSystem->GetCacheMemory();
+			const quint64 Swapped   = pSystem->GetPhysicalUsed() + pSystem->GetSwapedOutMemory();
+
 			//
 			// What "physical used" already accounts for differs by system.
 			//
@@ -357,12 +360,47 @@ void CGraphBar::UpdateGraphs()
 			// PhysicalUsed excludes the standby list and CacheMemory is the
 			// much smaller resident kernel cache, so the subtraction is right.
 			//
-			if (CCluster::GetActiveSystem()->GetOsType() == CSystemAPI::eOsWindows)
-				pPlot->AddPlotPoint("Physical", CCluster::GetActiveSystem()->GetPhysicalUsed() - CCluster::GetActiveSystem()->GetCacheMemory());
-			else
-				pPlot->AddPlotPoint("Physical", CCluster::GetActiveSystem()->GetPhysicalUsed());
-			pPlot->AddPlotPoint("Limit", CCluster::GetActiveSystem()->GetInstalledMemory());
+			const bool IsWindows = (pSystem->GetOsType() == CSystemAPI::eOsWindows);
+			const quint64 Physical = (IsWindows && pSystem->GetPhysicalUsed() > Cache)
+				? pSystem->GetPhysicalUsed() - Cache
+				: pSystem->GetPhysicalUsed();
+
+			Text = tr("Memory=%1%").arg(Installed ? (int)(100 * pSystem->GetPhysicalUsed() / Installed) : 0);
+
+			//
+			// The scale has to cover every series drawn, which the commit limit
+			// alone does not.
+			//
+			// On Windows it would: the commit limit is RAM plus the page file,
+			// so it sits above the installed memory that the "Limit" line marks.
+			// Linux's CommitLimit is a different quantity - the *overcommit*
+			// limit, swap plus vm.overcommit_ratio percent of RAM, which at the
+			// default 50 comes to roughly half of MemTotal. Using it as the
+			// ceiling put the Limit line at ~190% of full scale and the filled
+			// Cache curve above 100%, so the graph painted solid to the top and
+			// showed nothing. It is not even a bound: in the default heuristic
+			// mode the kernel does not enforce it, and Committed_AS passes it
+			// routinely.
+			//
+			// Taking the largest of what is actually plotted is right on both:
+			// on Windows the commit limit still wins and nothing changes, and
+			// on Linux the axis lands on installed memory, which is what the
+			// Limit line is for.
+			//
+			quint64 Range = pSystem->GetMemoryLimit();
+			Range = qMax(Range, Installed);
+			Range = qMax(Range, Commited);
+			Range = qMax(Range, qMax(Cache, Swapped));
+			if (Range)
+				pPlot->SetRagne((double)Range);
+
+			pPlot->AddPlotPoint("Commited", Commited);
+			pPlot->AddPlotPoint("Swapped", Swapped);
+			pPlot->AddPlotPoint("Cache", Cache);
+			pPlot->AddPlotPoint("Physical", Physical);
+			pPlot->AddPlotPoint("Limit", Installed);
 			break;
+		}
 		case eGpuMemPlot:
 		{
 			//

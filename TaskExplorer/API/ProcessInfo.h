@@ -554,6 +554,20 @@ public:
 		eMitigationXfgAudit		= 0x0020,
 		eMitigationCet			= 0x0040,
 		eMitigationCetStrict	= 0x0080,
+
+		//
+		// Linux. The same column answers the same question - what has this
+		// process asked the kernel to enforce on it - with the two things a
+		// Linux process either has or has not, both one line of
+		// /proc/<pid>/status.
+		//
+		// Above the Windows bits rather than among them, because these values
+		// cross the wire: a viewer of one platform reads the flags of the other
+		// and must not find a bit meaning two things.
+		//
+		eMitigationSeccomp		= 0x0100,
+		eMitigationSeccompStrict= 0x0200,
+		eMitigationNoNewPrivs	= 0x0400,
 	};
 	virtual quint32 GetMitigationFlags() const		{ return 0; }
 
@@ -827,6 +841,16 @@ public:
 													{ Q_UNUSED(Resource); return SResourcePressure(); }
 	virtual QString GetConfinement() const			{ return QString(); }	// AppArmor / SELinux
 	virtual QString GetContainer() const			{ return QString(); }	// docker / snap / flatpak
+
+	//
+	// What a sandboxed process was granted, in the sandbox's own words -
+	// "filesystem=home", "share=network", "x11". Values out of a manifest
+	// rather than sentences of ours, so a permission this build has never heard
+	// of still arrives intact and still means something to whoever reads it.
+	//
+	// Empty for anything not in a flatpak or a snap, which is most things.
+	//
+	virtual QStringList GetSandboxPermissions() const { return QStringList(); }
 
 	//
 	// The numeric owner. GetUserName() is the resolved form and is what a view

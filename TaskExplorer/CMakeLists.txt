@@ -487,6 +487,10 @@ set(TE_CORE_LINUX
     API/Linux/LinuxElf.h
     API/Linux/X11Helper.cpp
     API/Linux/X11Helper.h
+    API/Linux/DesktopInfo.cpp
+    API/Linux/DesktopInfo.h
+    API/Linux/PackageInfo.cpp
+    API/Linux/PackageInfo.h
     API/Linux/ProcFs.cpp
     API/Linux/ProcFs.h
     API/Linux/SockDiag.cpp
@@ -646,22 +650,10 @@ endif()
 # The library sits next to the executable rather than on the system path,
 # so the loader has to be told to look beside itself.
 #
-# Setting the property replaces the search path inherited from the top-level
-# CMakeLists rather than adding to it, so whatever is already there has to be
-# carried over - when bundling that is $ORIGIN/lib, and dropping it leaves every
-# Qt library the executable links directly unresolvable. libTaskCore.so is not
-# affected because it keeps the inherited path, which is why such a build fails
-# only on the Qt libraries the core does not itself pull in.
-#
 if(UNIX AND NOT APPLE)
-    set(TE_APP_RPATH "$ORIGIN")
-    if(CMAKE_INSTALL_RPATH)
-        list(APPEND TE_APP_RPATH ${CMAKE_INSTALL_RPATH})
-    endif()
-
     set_target_properties(TaskExplorer PROPERTIES
-        BUILD_RPATH "${TE_APP_RPATH}"
-        INSTALL_RPATH "${TE_APP_RPATH}")
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN")
 endif()
 
 target_precompile_headers(TaskCore PRIVATE stdafx.h)
