@@ -4,6 +4,7 @@
 #include "Common.h"
 #include <QStandardPaths>
 
+
 bool TestWriteRight(const QString& Path)
 {
 	QFile TestFile(Path + "/~test-" + GetRand64Str() + ".tmp");
@@ -49,12 +50,12 @@ CSettings::CSettings(const QString& AppDir, const QString& AppName, const QStrin
 	//}
 }
 
-CSettings::CSettings(const QString& ConfigDir, const QString& AppName, bool bExplicit, QObject* qObject) : QObject(qObject)
+CSettings::CSettings(const QString& ConfigDir, const QString& AppName, EExplicitDir, QObject* qObject) : QObject(qObject)
 {
-	Q_UNUSED(bExplicit);	// only there to tell the two constructors apart
 
 	m_ConfigDir = ConfigDir;
 	m_bPortable = false;
+	m_bExplicitDir = true;
 	QDir().mkpath(m_ConfigDir);
 
 	m_pConf = new QSettings(m_ConfigDir + "/" + AppName + ".ini", QSettings::IniFormat, this);

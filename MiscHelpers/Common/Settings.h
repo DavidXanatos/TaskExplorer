@@ -112,7 +112,25 @@ public:
 	// nothing else will ever look in. A daemon knows where its own state
 	// belongs; this lets it say so.
 	//
-	CSettings(const QString& ConfigDir, const QString& AppName, bool bExplicit, QObject* qObject = NULL);
+	//
+	// The tag is not decoration, and this overload must never take a bool again.
+	//
+	// It used to, and a bool is what a string literal binds to in preference to
+	// a QString: "Xanasoft" is a const char*, and const char* -> bool is a
+	// standard conversion while const char* -> QString is a user-defined one,
+	// which loses. So every three-string call in this program - the viewer's,
+	// the console's, the daemon's - silently resolved to *this* constructor with
+	// bExplicit = true, and every one of them kept its settings in the directory
+	// the program was started from instead of the user's own. It looked like an
+	// elevation bug because writing next to the executable is what only an
+	// administrator may do; unelevated the same call landed in the VirtualStore.
+	//
+	// A const char* does not convert to an enumeration, so the two constructors
+	// can no longer be confused.
+	//
+	enum EExplicitDir { eExplicitDir };
+
+	CSettings(const QString& ConfigDir, const QString& AppName, EExplicitDir, QObject* qObject = NULL);
 	virtual ~CSettings();
 
 	void				DelValue(const QString& key);
@@ -152,6 +170,13 @@ public:
 
 	QString				GetConfigDir()												{QMutexLocker Locker(&m_Mutex); return m_ConfigDir;}
 	bool				IsPortable()												{QMutexLocker Locker(&m_Mutex); return m_bPortable;}
+	//
+	// Whether the directory was named outright rather than searched for. Like
+	// portable, it means "everything of ours lives here" - the difference is
+	// only who decided, and nothing that follows the configuration around
+	// should care which of the two it was.
+	//
+	bool				IsExplicitDir()												{QMutexLocker Locker(&m_Mutex); return m_bExplicitDir;}
 
 	bool				IsWritable()												{QMutexLocker Locker(&m_Mutex); return m_pConf->isWritable();}
 
@@ -165,6 +190,7 @@ protected:
 
 	QString				m_ConfigDir;
 	bool				m_bPortable;
+	bool				m_bExplicitDir = false;
 
 	QSettings*			m_pConf;
 };

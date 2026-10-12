@@ -461,6 +461,26 @@ QVariant CTreeItemModel::NodeData(STreeNode* pNode, int role, int section) const
 		{
 			if (!m_DarkMode) {
 				STreeNode::SValue& Value = pNode->Values[section];
+
+				//
+				// The colour has to be asked, not the variant.
+				//
+				// A QVariant holding an invalid QColor is itself perfectly
+				// valid - it holds a QColor - so the test below used to pass one
+				// of those straight to the view, and a brush made from a colour
+				// with no value in it paints black. That is where the
+				// unreadable rows came from: a row matching none of the
+				// colouring rules is given CTaskExplorer::eNone, which is not in
+				// the colour table, and a lookup that misses returns exactly
+				// such a QColor.
+				//
+				// Nothing rather than a colour of our own, so the row is drawn
+				// the way the style draws an ordinary one - including the
+				// alternating shades and the selection.
+				//
+				if (Value.Color.userType() == QMetaType::QColor)
+					return Value.Color.value<QColor>().isValid() ? Value.Color : QVariant();
+
 				return Value.Color.isValid() ? Value.Color : QVariant();
 			}
 			break;
