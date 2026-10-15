@@ -110,9 +110,9 @@ hungarian.RequiresWin7OrLater={#MyAppName} alkalmazáshoz Windows 7 vagy újabb 
 Italian.CustomPageLabel1=Seleziona tipo di installazione
 Italian.CustomPageLabel2=Come dovrebbe essere installato
 Italian.CustomPageLabel3=Scegli la modalità di installazione
-Italian.CustomPageInstallMode=Installa {#MyAppName} su questo computer
+Italian.CustomPageInstallMode=Installa {#MyAppName} in questo computer
 Italian.CustomPageUpgradeMode=Aggiorna l'installazione esistente di {#MyAppName}
-Italian.CustomPagePortableMode=Estrai tutti i file in una directory per uso portabile
+Italian.CustomPagePortableMode=Estrai tutti i file in una cartella per uso portatile
 Italian.RequiresWin7OrLater={#MyAppName} richiede Windows 7 o superiore.
 
 ; Korean

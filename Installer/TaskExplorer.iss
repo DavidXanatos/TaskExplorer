@@ -6,7 +6,7 @@
 #define CurrentYear     GetDateTimeString('yyyy','','')
 ; #define MyAppVersion    "1.6.0"
 #define MyAppAuthor     "DavidXanatos (xanasoft.com)"
-#define MyAppCopyright  "(c) 2019-" + CurrentYear + " " + MYAppAuthor
+#define MyAppCopyright  "(c) 2019-" + CurrentYear + " " + MyAppAuthor
 #define MyAppURL        "https://github.com/DavidXanatos/TaskExplorer"
 
 #include "Languages.iss"
