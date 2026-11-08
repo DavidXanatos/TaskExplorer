@@ -543,7 +543,7 @@ begin
   // Create a new label in the footer area (far-left aligned)
   FooterLinkLabel := TLabel.Create(WizardForm);
   FooterLinkLabel.Parent := WizardForm;
-  FooterLinkLabel.Caption := 'Visit our website!';
+  FooterLinkLabel.Caption := '{cm:VisitOurWebsite}';
   FooterLinkLabel.Font.Style := [fsUnderline]; // Underline for hyperlink effect
   FooterLinkLabel.Font.Color := clBlue; // Blue color like a hyperlink
   FooterLinkLabel.Cursor := crHand; // Hand cursor to indicate it's clickable
