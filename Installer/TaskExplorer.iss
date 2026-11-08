@@ -9,7 +9,7 @@
 #define MyAppCopyright  "(c) 2019-" + CurrentYear + " " + MYAppAuthor
 #define MyAppURL        "https://github.com/DavidXanatos/TaskExplorer"
 
-#include "Languages.iss"
+#include "TaskExplorer_Languages.iss"
 
 
 [Setup]
@@ -34,6 +34,11 @@ UninstallDisplayName={#MyAppName} {#MyAppVersion}
 UninstallDisplayIcon={app}\TaskExplorer.exe
 AppPublisher={#MyAppAuthor}
 
+ShowLanguageDialog=yes
+UsePreviousLanguage=no
+
+WizardStyle=modern
+
 AppMutex=TASKEXPLORER_MUTEX
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -44,7 +49,7 @@ ArchitecturesAllowed=x86 x64 arm64
 ArchitecturesInstallIn64BitMode=x64 arm64
 AllowNoIcons=yes
 AlwaysRestart=no
-LicenseFile=.\Resources\license.txt
+LicenseFile=.\Resources\license.rtf
 UsedUserAreasWarning=no
 SetupIconFile=TaskExplorerInstall.ico
 ;SignTool=sha256
