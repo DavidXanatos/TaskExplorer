@@ -53,6 +53,7 @@ English.CustomPagePortableMode=Extract all files to a directory for portable use
 English.RequiresWin7OrLater={#MyAppName} requires Windows 7 or later.
 English.StartProgram=Start {#MyAppName}
 English.LaunchProgram=Launch %1...
+English.VisitOurWebsite=Visit Our Website!
 
 ; Chinese Simplified
 ChineseSimplified.CustomPageLabel1=选择安装方式
@@ -116,6 +117,7 @@ Italian.CustomPageInstallMode=Installa {#MyAppName} in questo computer
 Italian.CustomPageUpgradeMode=Aggiorna l'installazione di {#MyAppName} esistente
 Italian.CustomPagePortableMode=Estrai tutti i file in una cartella per uso portatile
 Italian.RequiresWin7OrLater={#MyAppName} richiede Windows 7 o superiore.
+English.VisitOurWebsite=Visita il nostro sito web!
 Italian.StartProgram=Esegui {#MyAppName}
 Italian.AdditionalIcons=Collegamenti:
 Italian.CreateDesktopIcon=Crea collegamento programma sul &desktop
